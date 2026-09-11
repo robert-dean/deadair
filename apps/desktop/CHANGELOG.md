@@ -13,7 +13,6 @@ changes are in the [root changelog](../../CHANGELOG.md).
 - The desktop listener and operator desk, for macOS on Apple Silicon. Point it at your station's
   address on first run. Listening needs no account; the desk appears when you sign in as the
   operator.
-- It is unsigned, so the first launch needs a right-click and Open.
 
 [Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.1.0...HEAD
 [0.1.0]: https://github.com/robert-dean/deadair/releases/tag/desktop-v0.1.0

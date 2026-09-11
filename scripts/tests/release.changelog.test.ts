@@ -167,6 +167,21 @@ describe('the release workflow’s notes', () => {
     });
 });
 
+describe('the desktop release’s notes', () => {
+    const programs = awkPrograms('desktop-release.yml');
+
+    it('are cut from the desktop changelog, by the same program as the station’s', () => {
+        expect([...programs.keys()]).toEqual(['apps/desktop/CHANGELOG.md']);
+        expect(programs.get('apps/desktop/CHANGELOG.md')).toBe([...awkPrograms('release.yml').values()][0]);
+    });
+
+    it('find the entry already in the real desktop changelog', () => {
+        const version = JSON.parse(readFileSync(join(root, desktop.manifest), 'utf8')).version;
+        const program = programs.get('apps/desktop/CHANGELOG.md')!;
+        expect(runAwk(program, version, readFileSync(join(root, desktop.changelog), 'utf8')).trim()).toMatch(/^- The desktop listener/);
+    });
+});
+
 describe('the mirrored versions', () => {
     const gradle = 'android {\n    defaultConfig {\n        versionCode = gitCommitCount.get()\n        versionName = "0.1.0"\n    }\n}\n';
     const xml = '<Project>\n  <PropertyGroup>\n    <Version>0.1.0</Version>\n  </PropertyGroup>\n</Project>\n';

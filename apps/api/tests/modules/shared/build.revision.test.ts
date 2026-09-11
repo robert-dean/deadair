@@ -51,7 +51,7 @@ describe('buildVersion', () => {
 
     it('answers nothing on a build that is not a release, which is the ordinary case', () => {
         // Unlike the revision, this is absent for every push to main and not only for a hand-built
-        // image: `latest` follows main and CI passes `VERSION` on a tag run alone. A station
+        // image: `latest` follows main and CI passes `VERSION` on a release run alone. A station
         // tracking `latest` therefore reports a commit and no version, honestly.
         expect(buildVersion(config({}))).toBeUndefined();
         expect(buildVersion(config({ BUILD_VERSION: '' }))).toBeUndefined();

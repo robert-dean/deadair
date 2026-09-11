@@ -98,10 +98,11 @@ library.
 | `deadair/deadair:slim` | — | PostgreSQL, Redis, a speech server |
 
 Those three tags follow `main`, so they move on every push that changes the station; a push that
-touches only the docs, the website or a listener app leaves them where they are. A release is a
-`v*` tag, and it publishes `0.1.0` and `0.1` alongside them: **pin `deadair/deadair:0.1` to track
-releases only**, and read [CHANGELOG.md](CHANGELOG.md) for what changed between them. Images are
-`linux/amd64`.
+touches only the docs, the website or a listener app leaves them where they are. A release publishes
+`0.1.0` and `0.1` alongside them, once its tests pass, and is tagged `v0.1.0` with a GitHub release
+of its changelog entry: **pin `deadair/deadair:0.1` to track releases only**, and read
+[CHANGELOG.md](CHANGELOG.md) for what changed between them. How a release is cut is in
+[CONTRIBUTING.md](CONTRIBUTING.md). Images are `linux/amd64`.
 
 On Unraid, install the template in [`unraid/deadair.xml`](unraid/deadair.xml). Anywhere else,
 [`deploy/docker-compose.yml`](deploy/docker-compose.yml) is the same container written for Compose.

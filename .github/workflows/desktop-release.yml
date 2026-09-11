@@ -88,23 +88,39 @@ jobs:
               working-directory: apps/desktop/artifacts
               run: ditto -c -k --sequesterRsrc --keepParent deadair.app "deadair-${{ steps.version.outputs.value }}-osx-arm64.zip"
 
+            # The notes are this version's entry in `apps/desktop/CHANGELOG.md`, cut out with the same
+            # awk `release.yml` uses on the station's, and written by `pnpm release:version` from the
+            # changesets that named `@deadair/desktop`. A version with no entry fails here rather
+            # than publishing a download with nothing said about it. The paragraph about signing is
+            # appended to every release, because it is true of every one until the app is signed.
+            - name: Take the notes out of the changelog
+              env:
+                  VERSION: ${{ steps.version.outputs.value }}
+              run: |
+                  set -euo pipefail
+                  awk -v v="## [${VERSION}]" '
+                      index($0, v) == 1 { found = 1; next }
+                      found && /^## \[/ { exit }
+                      found && /^\[[^]]+\]: / { exit }
+                      found { print }
+                  ' apps/desktop/CHANGELOG.md > notes.md
+                  if ! grep -q '[^[:space:]]' notes.md; then
+                      echo "::error::apps/desktop/CHANGELOG.md has no entry for ${VERSION}. Write a changeset naming @deadair/desktop."
+                      exit 1
+                  fi
+                  cat >> notes.md <<'NOTES'
+
+                  It is unsigned, so the first launch needs a right-click and Open. macOS will otherwise
+                  refuse it without saying why.
+                  NOTES
+                  cat notes.md
+
             - name: Publish the release
               env:
                   GH_TOKEN: ${{ github.token }}
               run: |
-                  notes=$(cat <<'NOTES'
-                  The desktop listener and operator desk, for macOS on Apple Silicon.
-
-                  It is unsigned, so the first launch needs a right-click and Open. macOS will
-                  otherwise refuse it without saying why.
-
-                  Point it at your station's address on first run. Listening needs no account; the
-                  desk appears when you sign in as the operator.
-                  NOTES
-                  )
-
                   gh release create "desktop-v${{ steps.version.outputs.value }}" \
                       --title "deadair desktop ${{ steps.version.outputs.value }}" \
-                      --notes "$notes" \
+                      --notes-file notes.md \
                       ${{ inputs.draft && '--draft' || '' }} \
                       "apps/desktop/artifacts/deadair-${{ steps.version.outputs.value }}-osx-arm64.zip"

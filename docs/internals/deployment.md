@@ -115,8 +115,10 @@ commit a station reports as its revision, which stays honest because it is the c
 image was built from. `release.yml`'s manual trigger rebuilds and republishes everything, for when
 the image should move although the tree did not (a base image's security fix).
 
-**It fails open, and that is the part not to weaken.** No usable base commit (a tag push, a manual run,
-a new branch, a force push) turns every flag on, so a release always builds everything. A change to a
+**It fails open, and that is the part not to weaken.** No usable base commit (a manual run, a new
+branch, a force push) turns every flag on. A release run turns them all on too, in `release.yml`
+rather than here: a release whose tests failed is retried by the next push to main at that version,
+and judged by its own diff a README typo would run no tests and release the commit that failed them. A change to a
 workflow turns on the jobs it defines, and a change to the script or to a workflow that calls it turns
 on everything. The rules are paths in one file, and `BASE=<commit> HEAD_REF=<commit>
 .github/scripts/changes.sh` answers for any commit by hand, which is how a new rule should be checked
@@ -136,6 +138,41 @@ sidecar's own venv is what would have caught the two Dockerfile definitions dive
 tracker before a release shipped it — one installed it, the other silently didn't, and both built
 clean. The smoke step runs only when the build also loaded the image, which is only a run that is
 not publishing; a push still builds and pushes without either.
+
+## Releasing
+
+**A release is a version the manifest names and the repository has no tag for.** Three things are
+versioned by changesets, each with its own changelog: the station (seventeen packages in one `fixed`
+group, because they ship in one image), `@deadair/android` and `@deadair/desktop`. `release.yml`'s
+`version` job reads the station's number off `apps/api/package.json` and asks the API for a `v<it>`
+tag; none means this push is the release. That is true of exactly one commit per version, the merge
+of the `chore: update versions` pull request, because between releases main carries the LAST
+release's number and the tag already exists. A release whose tests fail cuts no tag, so the next
+green push to main at that version releases it instead. Only on main: a manual run pointed at another
+branch never releases.
+
+**The tag is the last thing a release does, not the first.** It was: a hand-pushed `v*` tag
+triggered the run, so the version was fixed to a commit before anything had tested it, and a red run
+left a tag nobody could release again without deleting it. Now `publish` cuts it with
+`gh release create --target` after `promote`, which is after the tests. Made with the workflow token,
+it triggers nothing, and nothing listens for one.
+
+**The version pull request is not `changesets/action`**, which the kits use. That action writes the
+pull request's body out of every bumped package's `CHANGELOG.md` and dies on the first that has
+none, and here seventeen have none: changesets' own changelog generator is off, because it writes a
+file per package and this tree has one station. `scripts/release.version.mjs` reads the pending
+changesets, lets `changeset version` bump, and writes one entry per release unit in the shape the
+`publish` job's awk cuts notes out of; a test runs that exact awk over a generated entry. The
+`versions` job then commits the result to `changeset-release/main` and opens the pull request with
+`gh`. It needs "Allow GitHub Actions to create and approve pull requests" on in the repository's
+Actions settings, and the pull request runs no checks, because GitHub starts nothing for an event the
+workflow token caused. Nothing on that branch is new code, and the merge runs every check before
+`publish` tags anything.
+
+**Each listener app's number is written twice.** Gradle and MSBuild cannot read a `package.json`, so
+the script copies it into `versionName` in `app/build.gradle.kts` and `<Version>` in
+`Directory.Build.props`, and the build job's `pnpm release:version --check` fails when a hand edit
+moves one copy without the other.
 
 ## Publishing
 
@@ -159,3 +196,13 @@ anonymous because a probe holds no session, so the EDGE refuses it (`/api/health
 can reach the station at all. `/station/checkup` is the one that answers this for a person, behind
 `platform.view`, which is why the field is on that contract as well as on `Health`. An image built by hand has no argument to pass and reports nothing, which
 is the honest answer for something built from a working tree rather than from a commit.
+
+**The release goes inside it the same way, and only on a release run.** `VERSION` is passed beside
+`REVISION`, stamped as `org.opencontainers.image.version` and as `BUILD_VERSION`, and read by the same
+module; `/health` and the check-up page report it when it is there. It is empty on every other run,
+and the API must never fall back to reading `package.json` for it: between releases main carries the
+last release's number, so a `latest` image built from main would claim to be a release it is not.
+The exact version TAG (`0.1.0`, `slim-0.1.0`, `full-0.1.0`) is a registry retag in `promote`, after
+the tests, like the moving tags and the `0.1` line. It used to be pushed with the commit tag on the
+argument that an exact version is immutable, which stopped being true when a failed release began to
+be retried at the same version.

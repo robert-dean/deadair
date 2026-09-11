@@ -9,9 +9,10 @@ on:
                 default: false
             version:
                 description: >-
-                    The release these images are, without a leading v. Empty on every run that is
-                    not a tag, which is most of them: an ordinary push publishes a commit tag and
-                    nothing claiming to be a release.
+                    The release these images are, without a leading v, stamped inside them. Empty on
+                    every run that is not a release, which is most of them: an ordinary push builds
+                    nothing claiming to be one. The version TAG is not published here; see promote
+                    in release.yml.
                 type: string
                 default: ''
 permissions:
@@ -124,15 +125,15 @@ jobs:
             # `latest` is the default variant, so its commit tag is the bare sha; the other two
             # prefix theirs, because a sha alone would not say which station it was.
             #
-            # A tag run also publishes the VERSION tag here rather than leaving it to `promote`,
-            # and that is deliberate: an exact version is immutable, so it belongs with the commit
-            # tag that is also immutable. Only the tags that MOVE — `latest`, `slim`, `full` and
-            # the major.minor line — wait for the tests, because those are the ones somebody pulls
-            # by name.
+            # The VERSION tag is NOT published here, though it once was, on the argument that an
+            # exact version is immutable and belongs with the immutable commit tag. It stopped being
+            # true when releases stopped being tags: a release whose tests fail now cuts no git tag
+            # and is retried by the next push to main at the same version, so a version tag pushed
+            # here before the tests would name an untested image until the retry overwrote it. It is
+            # a registry retag in `promote` instead, after the tests, so it exists only once the
+            # release does.
             - name: Work out the tags
               id: tags
-              env:
-                  VERSION: ${{ inputs.version }}
               run: |
                   set -eu
                   if [ "${{ matrix.variant }}" = "latest" ]; then
@@ -147,9 +148,6 @@ jobs:
                   {
                       echo "value<<TAGS"
                       echo "${IMAGE}:${prefix}${GITHUB_SHA}"
-                      if [ -n "${VERSION}" ]; then
-                          echo "${IMAGE}:${prefix}${VERSION}"
-                      fi
                       echo "TAGS"
                   } >> "$GITHUB_OUTPUT"
 

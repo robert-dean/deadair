@@ -59,7 +59,7 @@ jobs:
                   persist-credentials: false
 
             # `github.event` is the CALLER's event, so this is the pull request's base on a pull
-            # request and the commit the branch pointed at before this push otherwise. A tag push has
+            # request and the commit the branch pointed at before this push otherwise. A new branch has
             # an all-zero `before`, and a manual run has none; the script turns everything on for both.
             - name: Work out what changed
               id: detect

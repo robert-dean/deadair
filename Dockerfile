@@ -31,7 +31,8 @@ ARG WITH_DB=0
 ARG REVISION=
 # The release this image is. Empty by default on the same argument as `REVISION` above: a build that
 # is not a release should not claim to be one, and "no version" is the honest answer for every image
-# built from a working tree or from an ordinary push. CI passes it only on a tag run.
+# built from a working tree or from an ordinary push. CI passes it only on a release run (see
+# `version` in `.github/workflows/release.yml`).
 ARG VERSION=
 ARG NODE_VERSION=26.7.0
 ARG S6_OVERLAY_VERSION=3.2.3.2

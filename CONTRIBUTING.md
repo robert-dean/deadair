@@ -93,6 +93,23 @@ script writes one entry per unit into `CHANGELOG.md`, `apps/android/CHANGELOG.md
 (`app/build.gradle.kts`, `Directory.Build.props`). Change an app's version in its `package.json` and
 nowhere else; the build job fails when a copy disagrees.
 
+Nobody runs that by hand to release. Every push to `main` carrying a changeset has CI run it on a
+branch and open, or refresh, a pull request titled `chore: update versions` holding the bumps and the
+entries. **Merging that pull request is the station's release.** The run on the merge sees a version
+with no `v*` tag, builds and tests everything, publishes the images under the version and its
+major.minor line, then tags the commit and publishes a GitHub release of the changelog entry. If the
+tests fail nothing is tagged, and the next green push to `main` releases the same version.
+
+The pull request runs no checks. CI opened it with the workflow token, and GitHub starts nothing for
+an event that token caused; the merge runs every check before anything is tagged. It is rebuilt from
+`main` on every push, so change what an entry says by editing its changeset on `main`, not by
+committing to the branch.
+
+The listener apps are numbered by the same pull request and published on their own. Pushing an
+`android-v<version>` tag on main publishes that build to Play's internal track, and anything further
+is the Android release workflow run by hand (`apps/android/README.md` walks it). The Desktop release
+workflow, run by hand, cuts `desktop-v<version>` with the entry from `apps/desktop/CHANGELOG.md`.
+
 ## Commit messages
 
 A subject of the form `area: what changed`, in prose, lower case, no trailing full stop. The body

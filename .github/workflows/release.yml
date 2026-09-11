@@ -1,14 +1,18 @@
 name: Release
 
+# Every push to main publishes the moving tags, which an operator on `latest` is meant to follow.
+# A push is also a RELEASE when the station's version in `apps/api/package.json` has no `v*` tag
+# yet, which is true of exactly one commit per version: the merge of the version pull request that
+# the `versions` job below opens from the pending changesets. That run adds the version tags, the
+# `v*` git tag and the GitHub release on top, in that order and after the tests.
+#
+# It was a tag trigger, with the tag pushed by hand. The tag is now a consequence of the merge, cut
+# by `publish` once the build is green, so a release can no longer name a commit nobody tested, and
+# nothing listens for a tag any more: one created with the workflow token triggers nothing anyway.
 on:
     push:
         branches:
             - main
-        # A release is a tag. The branch trigger above keeps publishing the moving tags off `main`
-        # exactly as before — an operator on `latest` is meant to follow it — and a `v*` tag adds
-        # the version tags and a GitHub release on top. Both run the same build first.
-        tags:
-            - 'v[0-9]*'
     # A full rebuild and republish of `main` on demand. A manual run has no base commit to diff
     # against, so `changes.yml` turns every flag on: the way to rebuild the images when nothing in
     # the tree changed, say for a base image's security update.
@@ -24,8 +28,18 @@ permissions:
     contents: read
 
 jobs:
-    # `v0.1.0` becomes `0.1.0`, and a branch push becomes the empty string. Everything downstream
-    # branches on whether this is empty rather than re-testing `github.ref` in five places.
+    # The version this push RELEASES, or the empty string for an ordinary push, which is most of
+    # them. Everything downstream branches on whether this is empty rather than re-asking.
+    #
+    # A release is a version the manifest names and the repository has no tag for. Between releases
+    # main carries the LAST release's number, so that alone is not enough: the tag is the record that
+    # it went out. A run whose tests fail cuts no tag, so the next push to main at that version is
+    # the release instead, and the tag names the first commit that passed.
+    #
+    # Asked of the API rather than with `git ls-remote`, which would need the repository to stay
+    # public, and a failure to ask fails this job rather than being read as "not released".
+    # Only on main: a manual run can be pointed at any branch, and a release from one would tag a
+    # commit main never had.
     version:
         runs-on: ubuntu-latest
         timeout-minutes: 5
@@ -33,37 +47,60 @@ jobs:
             value: ${{ steps.read.outputs.value }}
             line: ${{ steps.read.outputs.line }}
         steps:
-            - name: Read it off the ref
+            - name: Checkout
+              uses: actions/checkout@v7
+              with:
+                  persist-credentials: false
+                  sparse-checkout: apps/api/package.json
+                  sparse-checkout-cone-mode: false
+
+            - name: Read the manifest and ask whether it is released
               id: read
+              env:
+                  GH_TOKEN: ${{ github.token }}
               run: |
-                  set -eu
-                  if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
-                      version="${GITHUB_REF_NAME#v}"
-                      # The major.minor line, which is the tag an operator pins to follow releases
-                      # without pinning a single one.
-                      line="${version%.*}"
-                  else
-                      version=""
-                      line=""
+                  set -euo pipefail
+                  version="$(jq -r .version apps/api/package.json)"
+                  if [ -z "$version" ] || [ "$version" = null ]; then
+                      echo "::error::apps/api/package.json has no version."
+                      exit 1
                   fi
+                  refs="$(gh api "repos/${GITHUB_REPOSITORY}/git/matching-refs/tags/v${version}" --jq '.[].ref')"
+                  if [ "${GITHUB_REF}" != refs/heads/main ]; then
+                      echo "Not main, so not a release."
+                      version=""
+                  elif printf '%s\n' "$refs" | grep -qx "refs/tags/v${version}"; then
+                      echo "v${version} is already released, so this is an ordinary push."
+                      version=""
+                  else
+                      echo "v${version} has no tag, so this push releases it."
+                  fi
+                  # The major.minor line, which is the tag an operator pins to follow releases
+                  # without pinning a single one.
+                  line="${version%.*}"
                   echo "value=${version}" >> "$GITHUB_OUTPUT"
                   echo "line=${line}" >> "$GITHUB_OUTPUT"
 
-    # Which parts of the tree this push changed. A tag push has no base to diff against, so on a
-    # release every flag is on and everything builds.
+    # Which parts of the tree this push changed.
     changes:
         uses: ./.github/workflows/changes.yml
 
+    # A release run builds and tests EVERYTHING, whatever the push changed. The merge of the version
+    # pull request would turn most of it on anyway, since it rewrites `apps/api/package.json`, but a
+    # release that failed is retried by the next push to main at that version, and that push can be
+    # a README typo: judged by its own diff it would run no tests, and would release the very commit
+    # whose tests failed. The one build that gets a version number is never the one nobody checked.
+    # Waiting on `version` as well as `changes` costs nothing: it is the quicker of the two.
     build:
-        needs: [changes]
+        needs: [version, changes]
         uses: ./.github/workflows/build.yml
         with:
-            tree: ${{ needs.changes.outputs.tree == 'true' }}
-            node: ${{ needs.changes.outputs.node == 'true' }}
-            generated: ${{ needs.changes.outputs.generated == 'true' }}
-            sidecar: ${{ needs.changes.outputs.sidecar == 'true' }}
-            android: ${{ needs.changes.outputs.android == 'true' }}
-            desktop: ${{ needs.changes.outputs.desktop == 'true' }}
+            tree: ${{ needs.version.outputs.value != '' || needs.changes.outputs.tree == 'true' }}
+            node: ${{ needs.version.outputs.value != '' || needs.changes.outputs.node == 'true' }}
+            generated: ${{ needs.version.outputs.value != '' || needs.changes.outputs.generated == 'true' }}
+            sidecar: ${{ needs.version.outputs.value != '' || needs.changes.outputs.sidecar == 'true' }}
+            android: ${{ needs.version.outputs.value != '' || needs.changes.outputs.android == 'true' }}
+            desktop: ${{ needs.version.outputs.value != '' || needs.changes.outputs.desktop == 'true' }}
         secrets: inherit
 
     # Deliberately NOT `needs: [build]`. It was, and the cost was the whole of the build job on
@@ -76,10 +113,12 @@ jobs:
     # Only when the push changed something the image is built from. The station follows `latest`, so
     # an image built for a README typo was a redeploy of every station for nothing; now `latest`
     # stays on the last commit that changed what is in it, which is also the commit a running
-    # station reports as its revision. Waiting on `changes` costs seconds.
+    # station reports as its revision. Waiting on `changes` costs seconds. A release run always
+    # builds them, for the reason `build` above gives: the push retrying a failed release may change
+    # nothing the image is built from, and a release with no images to promote would never publish.
     images:
         needs: [version, changes]
-        if: needs.changes.outputs.image == 'true'
+        if: needs.version.outputs.value != '' || needs.changes.outputs.image == 'true'
         uses: ./.github/workflows/images.yml
         with:
             push: true
@@ -119,9 +158,22 @@ jobs:
                   docker buildx imagetools create --tag "${IMAGE}:slim" "${IMAGE}:slim-${GITHUB_SHA}"
                   docker buildx imagetools create --tag "${IMAGE}:full" "${IMAGE}:full-${GITHUB_SHA}"
 
+            # The exact version — `0.1.0`, `slim-0.1.0`, `full-0.1.0` — on a release run. Here rather
+            # than in the images job because a release whose tests fail is retried at the same
+            # version by the next push, so a version tag published before the tests could name an
+            # image that never passed them. See the tags step in images.yml.
+            - name: Publish the version
+              if: needs.version.outputs.value != ''
+              env:
+                  VERSION: ${{ needs.version.outputs.value }}
+              run: |
+                  set -eux
+                  docker buildx imagetools create --tag "${IMAGE}:${VERSION}" "${IMAGE}:${GITHUB_SHA}"
+                  docker buildx imagetools create --tag "${IMAGE}:slim-${VERSION}" "${IMAGE}:slim-${GITHUB_SHA}"
+                  docker buildx imagetools create --tag "${IMAGE}:full-${VERSION}" "${IMAGE}:full-${GITHUB_SHA}"
+
             # The release LINE — `0.1`, `slim-0.1`, `full-0.1` — which is the tag to pin to follow
-            # releases without pinning one. It moves, so it waits for the tests here rather than
-            # being published beside the exact version in the images job, which does not.
+            # releases without pinning one. It moves, so it waits for the tests too.
             - name: Move the release line onto this commit
               if: needs.version.outputs.line != ''
               env:
@@ -132,8 +184,10 @@ jobs:
                   docker buildx imagetools create --tag "${IMAGE}:slim-${LINE}" "${IMAGE}:slim-${GITHUB_SHA}"
                   docker buildx imagetools create --tag "${IMAGE}:full-${LINE}" "${IMAGE}:full-${GITHUB_SHA}"
 
-    # The GitHub release, on a tag run only. Last, because a release entry pointing at images that
-    # failed their tests would be worse than no entry at all.
+    # The tag and the GitHub release, on a release run only. Last, because a release entry pointing
+    # at images that failed their tests would be worse than no entry at all, and because the tag is
+    # what tells the next run this version went out: cut before the tests, a red release would never
+    # be retried.
     publish:
         needs: [version, promote]
         if: needs.version.outputs.value != ''
@@ -149,10 +203,11 @@ jobs:
               with:
                   persist-credentials: false
 
-            # The notes are the changelog entry for this version, and nothing generates them from
-            # commit subjects: those are prose written for a person, so a generated list of them
-            # would be strictly worse than the section somebody already wrote. A tag whose version
-            # has no entry fails here rather than publishing an empty release.
+            # The notes are the changelog entry for this version, written by `pnpm release:version`
+            # from the changesets the version pull request consumed, and nothing generates them from
+            # commit subjects: those are prose written for a person, and a list of them would be
+            # strictly worse than the paragraphs somebody wrote to be read. A version with no entry
+            # fails here rather than publishing an empty release.
             - name: Take the notes out of the changelog
               env:
                   VERSION: ${{ needs.version.outputs.value }}
@@ -165,18 +220,109 @@ jobs:
                       found { print }
                   ' CHANGELOG.md > notes.md
                   if [ ! -s notes.md ]; then
-                      echo "::error::CHANGELOG.md has no entry for ${VERSION}. Add one before tagging."
+                      echo "::error::CHANGELOG.md has no entry for ${VERSION}. Add one, and the next push to main releases it."
                       exit 1
                   fi
                   cat notes.md
 
-            - name: Publish it
+            # `gh release create` makes the tag itself, on this commit, when there is none, which is
+            # the only way this run is reached. Made with the workflow token, it triggers no run of
+            # its own, and nothing is listening for one.
+            - name: Tag it and publish it
               env:
                   GH_TOKEN: ${{ github.token }}
                   VERSION: ${{ needs.version.outputs.value }}
               run: |
                   set -euo pipefail
-                  gh release create "${GITHUB_REF_NAME}" \
-                      --verify-tag \
+                  gh release create "v${VERSION}" \
+                      --target "${GITHUB_SHA}" \
                       --title "deadair ${VERSION}" \
                       --notes-file notes.md
+
+    # The version pull request. Every push to main that carries a changeset opens it, or rebuilds it
+    # from main's tip if it is open; merging it is the release, because its merge is the first commit
+    # on main whose manifest names a version with no tag, which is what `version` above looks for.
+    #
+    # Not `changesets/action`, which is what ServerKit and ContractKit use. It writes the pull
+    # request's body by reading a CHANGELOG.md out of every package it bumped and fails on the first
+    # that has none, and here seventeen have none: the changelogs are written per release unit by
+    # `pnpm release:version` instead. What remains of the action is a branch, a commit and one `gh`
+    # call, and those are below.
+    #
+    # Behind the build, so a commit that failed its tests is not offered as a release. `skipped`
+    # counts as passing: a push of nothing but a changeset skips every build job and must still
+    # reach here, or a changeset would need a code change beside it to be noticed.
+    #
+    # The pull request is opened with the workflow token, and GitHub starts no workflow for an event
+    # that token caused, so NO CHECKS RUN ON IT. That is the same as the kits, and it is safe here
+    # because nothing on the branch is new: version fields, changelog entries, two mirrored numbers
+    # and deleted changesets, and the merge runs every check on main before `publish` tags anything.
+    # The branch is rewritten from main on every push, so an entry is edited in its changeset on
+    # main, never on the branch. On the merge itself there is nothing pending and this ends quietly.
+    #
+    # Needs one repository setting, which a file cannot carry: Settings, Actions, General, "Allow
+    # GitHub Actions to create and approve pull requests". Without it `gh pr create` is refused.
+    versions:
+        needs: [build]
+        if: ${{ !cancelled() && github.ref == 'refs/heads/main' && (needs.build.result == 'success' || needs.build.result == 'skipped') }}
+        runs-on: ubuntu-latest
+        timeout-minutes: 10
+        permissions:
+            contents: write
+            pull-requests: write
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v7
+              with:
+                  persist-credentials: false
+
+            - name: Look for changesets
+              id: pending
+              run: |
+                  if find .changeset -maxdepth 1 -name '*.md' ! -iname README.md | grep -q .; then
+                      echo "any=true" >> "$GITHUB_OUTPUT"
+                  else
+                      echo "No changesets pending."
+                      echo "any=false" >> "$GITHUB_OUTPUT"
+                  fi
+
+            - name: Install pnpm
+              if: steps.pending.outputs.any == 'true'
+              uses: pnpm/action-setup@v6
+
+            - name: Setup Node
+              if: steps.pending.outputs.any == 'true'
+              uses: actions/setup-node@v7
+              with:
+                  node-version: 26
+                  cache: pnpm
+
+            - name: Install dependencies
+              if: steps.pending.outputs.any == 'true'
+              run: pnpm install --frozen-lockfile
+
+            - name: Version
+              if: steps.pending.outputs.any == 'true'
+              run: pnpm release:version --summary "$RUNNER_TEMP/versions.md"
+
+            # The token reaches git here and nowhere earlier, through gh's credential helper and only
+            # for the push: the install and the version step ran without it, which is what
+            # `persist-credentials: false` is for everywhere else in this file.
+            - name: Open or update the pull request
+              if: steps.pending.outputs.any == 'true'
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: |
+                  set -euo pipefail
+                  git config user.name 'github-actions[bot]'
+                  git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+                  gh auth setup-git
+                  git checkout -B changeset-release/main
+                  git add -A
+                  git commit -m 'chore: update versions'
+                  git push --force origin changeset-release/main
+                  if [ "$(gh pr list --head changeset-release/main --base main --state open --json number --jq length)" != 0 ]; then
+                      gh pr edit changeset-release/main --title 'chore: update versions' --body-file "$RUNNER_TEMP/versions.md"
+                  else
+                      gh pr create --base main --head changeset-release/main --title 'chore: update versions' --body-file "$RUNNER_TEMP/versions.md"
+                  fi

@@ -7,11 +7,11 @@
 #
 #     BASE=<commit> HEAD_REF=<commit> .github/scripts/changes.sh
 #
-# It FAILS OPEN. No usable base commit (a tag push, a manual run, a new branch, a force push, a
-# shallow fetch) turns every flag on, because guessing wrong the other way is a broken build merged
-# behind a green check, or a release that quietly published nothing. A release tag therefore always
-# builds everything, which is what a release wants: the one build nobody checked should not be the
-# one that gets a version number.
+# It FAILS OPEN. No usable base commit (a manual run, a new branch, a force push, a shallow fetch)
+# turns every flag on, because guessing wrong the other way is a broken build merged behind a green
+# check, or a release that quietly published nothing. A release turns every flag on as well, but in
+# `release.yml` rather than here, because only that workflow knows a push is one: the one build
+# nobody checked should not be the one that gets a version number.
 #
 # A flag is also turned on by a change to the workflow that runs its jobs, since a change to how a
 # thing is built is a change to that thing. A change to this script or to `changes.yml` turns on

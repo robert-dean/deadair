@@ -1,8 +1,11 @@
 # Changelog
 
 Notable changes to deadair, newest first. Versions follow [semantic
-versioning](https://semver.org), and a version exists because a `v*` tag was pushed: the
-`deadair/deadair:latest` image follows `main` and is not a release.
+versioning](https://semver.org). An entry is written from the changesets a version pull request
+consumed, and a version exists once that pull request is merged and its build passes, which is when
+it is tagged `v*` and published. The `deadair/deadair:latest` image follows `main` and is not a
+release. The listener apps keep their own changelogs, in
+[apps/android](apps/android/CHANGELOG.md) and [apps/desktop](apps/desktop/CHANGELOG.md).
 
 ## [Unreleased]
 

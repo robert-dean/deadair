@@ -66,7 +66,7 @@ own ISRC misses) and stay two copies — the binding IS the version, so `rotatio
 a work left with no eligible binding falls into the existing "nothing can play this" drop rather than a second
 mechanism. Four things are load-bearing. It is named for the LABEL and not the words — nothing here reads a
 lyric, Spotify is passing on a marking — so **`lyrics` stays reserved for the text**, which
-`docs/todo/track-lyrics.md` wants for a thing the station may read and never say; `content_rating` was
+[track-lyrics](https://github.com/robert-dean/deadair/discussions/47) wants for a thing the station may read and never say; `content_rating` was
 rejected because `tracks.rating` already means the operator's `-1/0/1` opinion. It is read at the point of use
 and deliberately **not on `ResolvedRules`**, because `NO_RULES` zeroes that bag and a setlist — whose whole
 mechanism is starting from the rules off — would silently begin swearing; it follows `rejectDisliked` instead.
@@ -84,7 +84,7 @@ model's answer against it. `apps/api/scripts/advisory.smoke.ts` covers the SQL.
 **The operator's own account-level explicit filter is reported and never enforced** — the plugin reads
 `explicit_content.filter_enabled` and `filter_locked` off a profile call it already makes — because the audio
 comes through the shim rather than the Web API and whether that filter binds on the fetch path is unmeasured;
-see `docs/todo/clean-copy-matching.md`, which also holds the deferred matcher for a clean copy the playlists
+see [clean-copy-matching](https://github.com/robert-dean/deadair/discussions/9), which also holds the deferred matcher for a clean copy the playlists
 never carried.
 
 ## What the model is offered

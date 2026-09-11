@@ -161,7 +161,7 @@ export class PlayHistoryRepository extends DataRepository {
      * anything by how often the station has played an artist is a positive feedback
      * loop — what aired is what is offered, so what is offered is what airs — which
      * is the bubble the similarity path exists to break rather than to deepen. See
-     * `docs/todo/station-intelligence.md` §5.
+     * [station-intelligence](https://github.com/robert-dean/deadair/discussions/37) §5.
      */
     async recentArtists(limit: number, stationKey: string, broadcastId?: string): Promise<string[]> {
         if (limit <= 0) return [];

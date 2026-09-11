@@ -8,7 +8,7 @@ import type { RotatingLogStore } from './rotating.log.store.js';
  * On the STORED half only, never on stdout: the wrapped logger's output is what somebody watches
  * live, and an id on every line of it is noise to a reader who is already looking at one thing
  * happening. The file is where lines from four concurrent decisions are interleaved and where the
- * id is the only way to pull one out — which is the whole of `comparable-stations.md`'s "nothing
+ * id is the only way to pull one out — which is the whole of [comparable-stations](https://github.com/robert-dean/deadair/discussions/10)'s "nothing
  * correlates one decision's calls".
  *
  * A caller's own `trace` wins, which costs nothing today (nobody passes one) and means this can

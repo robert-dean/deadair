@@ -170,7 +170,7 @@ services:
         # the paths in stream/icecast.xml.tmpl still hold and 2.5 reads a 2.4 config.
         # What actually changes for the app: /status-json.xsl is deprecated in favour of
         # /admin/publicstats, and /admin/eventfeed exists. Both are already handled —
-        # see apps/api/src/modules/stream/ and docs/todo/icecast-2.5.md.
+        # see apps/api/src/modules/stream/ and [icecast-2.5](https://github.com/robert-dean/deadair/discussions/17).
         image: libretime/icecast:2.5.0
         container_name: deadair-icecast
         restart: unless-stopped

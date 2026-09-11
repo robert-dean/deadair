@@ -11,7 +11,7 @@
  *
  * This is the static answer, and it is static in the way that matters: one number
  * per item, computed from a measurement of the whole file, applied flat. A fade
- * fades. See `docs/todo/station-intelligence.md` §4.
+ * fades. See [station-intelligence](https://github.com/robert-dean/deadair/discussions/37) §4.
  *
  * Kept pure and unit-tested for the same reason `annotate.ts` beside it is: what
  * this returns rides an annotation into a player that will not complain about it.

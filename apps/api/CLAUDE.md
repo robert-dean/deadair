@@ -58,7 +58,7 @@ setting that refuses to load stops the walk behind it, while `serializeSetting` 
 somebody typing one and a clamp there stores a figure they did not ask for and shows it back as though they
 had. The console clamps too, where the number visibly changes in front of them. Undeclared bounds were how
 `analysis.concurrency` accepted 400 and ran at 32. Still constants, deliberately: the four mixer knobs,
-because the real work there is a Liquidsoap restart (`docs/todo/mixer-settings-in-db.md`).
+because the real work there is a Liquidsoap restart ([mixer-settings-in-db](https://github.com/robert-dean/deadair/discussions/20)).
 
 **Some lengths are RANGES, and the resolvers behind them are the only ones here allowed to be random.**
 `render.productionMinutesMin`/`Max`, `render.dialogueMinutesMin`/`Max` and `rotation.newsStoriesMin`/`Max`,
@@ -87,7 +87,7 @@ nobody wrote down. The convention on top of it is that a repository's row mapper
 optional rather than passing it through, so the shape reaching the rest of the app is the codebase's
 own `undefined`-means-not-set and never a third state.
 
-**Two database pools, and the isolation they are FOR is not built.** The runtime pool connects as the non-owner `app_user` role (created `nobypassrls`, granted DML only) and a separate owner pool handles privileged maintenance, so the runtime path cannot alter the schema. That is all it currently buys: **no migration declares a single RLS policy**, there is no organization table to isolate by, and the four `app.actor_*` GUCs set on every request transaction and every `TransactionalJob` are read by nothing — no trigger, no policy, no `current_setting` anywhere. Nine places used to state or imply otherwise, including this one. `docs/todo/row-level-security.md` records what would have to be built and, more importantly, the one thing that must not happen: **the per-request transaction must not be deleted on the grounds that its RLS justification was fiction.** Its other two reasons are live — `AfterCommit` running when the work is durable, and a job enqueued during a request committing atomically with it — which is why the exempt branch runs `AfterCommit` itself.
+**Two database pools, and the isolation they are FOR is not built.** The runtime pool connects as the non-owner `app_user` role (created `nobypassrls`, granted DML only) and a separate owner pool handles privileged maintenance, so the runtime path cannot alter the schema. That is all it currently buys: **no migration declares a single RLS policy**, there is no organization table to isolate by, and the four `app.actor_*` GUCs set on every request transaction and every `TransactionalJob` are read by nothing — no trigger, no policy, no `current_setting` anywhere. Nine places used to state or imply otherwise, including this one. [row-level-security](https://github.com/robert-dean/deadair/discussions/31) records what would have to be built and, more importantly, the one thing that must not happen: **the per-request transaction must not be deleted on the grounds that its RLS justification was fiction.** Its other two reasons are live — `AfterCommit` running when the work is durable, and a job enqueued during a request committing atomically with it — which is why the exempt branch runs `AfterCommit` itself.
 
 **Sessions outlive the database.** Sessions and refresh-token families live in Redis, actors live in
 Postgres, so a schema rebuild wipes one store and not the other and leaves browsers holding tokens
@@ -179,7 +179,7 @@ A **pg-boss job** (`jobs.send`) for work that is slow, outbound, wants retries, 
 
 A **plain call** for anything synchronous the caller is actually waiting on. Most code.
 
-**There is no event bus, and the absence is deliberate.** `@maroonedsoftware/eventbus` is a dependency this app declares and never imports. A synchronous fail-fast bus on the aired edge makes one slow or broken subscriber — a push destination, a scrobble — cost the station the top-up that should have followed, unless every subscriber is defensively wrapped, which is a discipline rather than a structure. The four above already say where each of those belongs. And **admission control is not a dispatch mechanism**: whether a production is admitted as a PASS or a BEAT is a decision about content, it is argued in `docs/todo/produced-episodes.md`, and building it as a fifth channel here is the shape to refuse.
+**There is no event bus, and the absence is deliberate.** `@maroonedsoftware/eventbus` is a dependency this app declares and never imports. A synchronous fail-fast bus on the aired edge makes one slow or broken subscriber — a push destination, a scrobble — cost the station the top-up that should have followed, unless every subscriber is defensively wrapped, which is a discipline rather than a structure. The four above already say where each of those belongs. And **admission control is not a dispatch mechanism**: whether a production is admitted as a PASS or a BEAT is a decision about content, it is argued in [produced-episodes](https://github.com/robert-dean/deadair/discussions/27), and building it as a fifth channel here is the shape to refuse.
 
 ## Plugins, from the host side
 

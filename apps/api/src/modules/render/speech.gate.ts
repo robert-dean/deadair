@@ -44,7 +44,7 @@ import { insertionIndex, type GatePriority } from '#modules/shared/gate.priority
  * an operator on the other end of it.
  *
  * This is also the natural home for the readiness question in
- * `docs/todo/render-plugin-readiness.md` piece 3, which wanted "a readiness gate the render job
+ * [render-plugin-readiness](https://github.com/robert-dean/deadair/discussions/29) piece 3, which wanted "a readiness gate the render job
  * consults" and worried that a wrong one fails closed on a station with no TTS plugin at all. It is
  * not built here: pieces 1 and 2 of that file make the race survivable, which is worth more than
  * making it rarer.

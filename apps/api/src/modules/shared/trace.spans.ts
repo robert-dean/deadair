@@ -13,7 +13,7 @@ import { currentTrace } from './trace.context.js';
  * plugin disposed with its response body still open logs nothing, and a model that waited out its
  * budget and gave up logs a failure with no cost on it.
  *
- * That is not a hypothetical. `station-intelligence.md` §2 measured 13 of 176 model attempts that
+ * That is not a hypothetical. [station-intelligence](https://github.com/robert-dean/deadair/discussions/37) §2 measured 13 of 176 model attempts that
  * provably occupied the model and recorded no usage at all, and named the two shapes: a timeout and
  * a mid-flight disposal. **They are unrecorded precisely because the record was taken from the
  * answer, and neither of them has one.** So a span is opened around the call and closed in a

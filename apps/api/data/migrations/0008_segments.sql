@@ -9,7 +9,7 @@
 -- tables, not here.
 --
 -- "Segment" rather than a new word because the vocabulary is already committed: 0007's `items`
--- comment says a lineup holds "a track or a segment", and docs/todo/director-and-lineups.md
+-- comment says a lineup holds "a track or a segment", and [director-and-lineups](https://github.com/robert-dean/deadair/discussions/12)
 -- specifies the lineup arm as `kind: 'segment'`.
 --
 -- Deliberately no lineup_id. A segment is a thing the station CAN say; which running order it

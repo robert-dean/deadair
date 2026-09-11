@@ -21,7 +21,7 @@ export const auditContextMiddleware: () => ServerKitMiddleware = () => {
         // What it USED to say was that `authorization.context` pins an `app.actor_org_id` GUC that
         // org-isolation RLS policies read, and that they would raise on every read without it.
         // None of that exists: that middleware sets no GUC, no migration declares a policy, and
-        // the four GUCs set below are read by nothing. See `docs/todo/row-level-security.md`.
+        // the four GUCs set below are read by nothing. See [row-level-security](https://github.com/robert-dean/deadair/discussions/31).
         // The transaction stays because of the two reasons above, and deleting it on the grounds
         // that the RLS story was fiction would break both.
         if (isTransactionExempt(ctx, DEFAULT_TRANSACTION_EXEMPTIONS)) {
@@ -50,7 +50,7 @@ export const auditContextMiddleware: () => ServerKitMiddleware = () => {
                 // anywhere in the schema. They are a prepared seam rather than a live control, kept
                 // because the alternative is a database-side audit trail that starts with no history
                 // and because they cost one statement on a connection already being set up. Say so
-                // rather than implying otherwise — see `docs/todo/row-level-security.md` for what
+                // rather than implying otherwise — see [row-level-security](https://github.com/robert-dean/deadair/discussions/31) for what
                 // would have to be true for them to matter, including the `app.actor_org_id` this
                 // deliberately does not set because there is no organization to name.
                 await sql`

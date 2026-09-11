@@ -7,7 +7,7 @@
  * which pair to use.
  *
  * **This is not an eviction policy.** It answers "what is unreachable", not "what is worth keeping":
- * a file with a row is left alone however old it is. See `docs/todo/track-cache-eviction.md` for the
+ * a file with a row is left alone however old it is. See [track-cache-eviction](https://github.com/robert-dean/deadair/discussions/46) for the
  * harder question, which is about a store that grows while every file in it is perfectly valid.
  *
  * What makes a file unreachable is worth stating, because it is the whole justification for deleting

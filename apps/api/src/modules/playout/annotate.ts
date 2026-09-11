@@ -164,7 +164,7 @@ export function itemAnnotations(item: RundownItem, context: AnnotationContext): 
  * `Station ident`. That is right for the console, the logs and `script_history`,
  * and it is the wrong register entirely for the one line a listener gets — the
  * example above is verbatim off a hardware player's screen, where it read as the
- * station leaking its own paperwork. `docs/todo/now-playing-displays.md` is why it
+ * station leaking its own paperwork. [now-playing-displays](https://github.com/robert-dean/deadair/blob/71e431d4/docs/todo/now-playing-displays.md) is why it
  * matters more than it looks: that single line is the ENTIRE display ceiling on
  * every player, permanently, so what it says during a break is the only lever
  * there is.

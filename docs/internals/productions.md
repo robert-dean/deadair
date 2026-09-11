@@ -11,7 +11,7 @@ Read the ones covering whatever you are about to change. The always-loaded index
 
 **Somebody can PHONE IN, and everything about that is decided host-side rather than by the model.**
 `personas.kind` is `host` or `caller` — not null, defaulting to `host`, which is a correction to
-`docs/todo/personas.md` §1: it sketched the column nullable with a `(station_key, kind)` unique index "with
+[personas](https://github.com/robert-dean/deadair/discussions/25) §1: it sketched the column nullable with a `(station_key, kind)` unique index "with
 nulls distinct", and nulls distinct is Postgres's default, so two null-kind rows would not conflict and the
 station could have TWO active hosts. A caller can never be active at all, refused by
 `personas_caller_inactive_check` as well as by `PersonasService.setActive`, and it ships with no `templates`

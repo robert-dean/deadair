@@ -17,7 +17,7 @@ import type { StationTool, ToolSource } from './llm.tools.js';
  *
  * ## Why this one IS backed by a plugin
  *
- * It is the rule `docs/todo/tool-plugins.md` sets: a tool is a plugin when the thing it talks to is
+ * It is the rule [tool-plugins](https://github.com/robert-dean/deadair/discussions/44) sets: a tool is a plugin when the thing it talks to is
  * somebody else's service, and a host-side source when it talks to deadair. The two search tools are
  * the station asking capabilities it already has. A chart is published by a third party, so the
  * egress, the rate bucket and the response shape belong behind `host.fetch` in a plugin — and this

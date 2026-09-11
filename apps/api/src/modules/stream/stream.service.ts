@@ -38,7 +38,7 @@ import type {
  * through. They stay here because `radio.liq` reads all four at STARTUP, so
  * making them settings without also solving the restart trigger would give the
  * console a knob that silently does nothing until the container bounces. See
- * `docs/todo/mixer-settings-in-db.md`.
+ * [mixer-settings-in-db](https://github.com/robert-dean/deadair/discussions/20).
  *
  * They match `stream/radio.default.env` so the rendered file agrees with the
  * committed fallback.

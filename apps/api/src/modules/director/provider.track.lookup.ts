@@ -11,7 +11,7 @@ import { errorText } from '#modules/shared/error.text.js';
 /**
  * Finding a record at a provider when the catalog has never heard of it.
  *
- * The rung `docs/todo/director-and-lineups.md` scoped and deferred: the catalog is filled by walking
+ * The rung [director-and-lineups](https://github.com/robert-dean/deadair/discussions/12) scoped and deferred: the catalog is filled by walking
  * the connected account's PLAYLISTS, because that is the only enumeration a provider offers, so
  * everything outside those playlists is invisible to the library however well the provider knows it.
  * A model asked for heavy metal on a station whose playlists are ambient can name real, playable

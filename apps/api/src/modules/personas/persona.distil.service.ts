@@ -83,7 +83,7 @@ const empty = (): DistilSummary => ({ considered: 0, read: 0, active: 0, suggest
  *
  * A `said` note is checked against the words the station broadcast and then goes into use; a `trait`
  * note is an inference and is proposed. Nothing here decides whether a break was any good, because
- * nothing in the station records that — see `docs/todo/break-ratings.md` and the note on
+ * nothing in the station records that — see [break-ratings](https://github.com/robert-dean/deadair/discussions/7) and the note on
  * `ScriptHistoryRepository.writtenBy`, which is where the one clause goes when it does.
  */
 @Injectable()

@@ -533,7 +533,7 @@ export class DirectorConsoleService {
             // apart because they want opposite fixes. With discovery off this is not a fault at all
             // — it is a setting doing exactly what it says — but a chart pick is almost never
             // already in the library, so it empties the whole document and reads from the console
-            // as a broken plugin. That is the "decline loudly" rule `chart-discovery.md` asks for,
+            // as a broken plugin. That is the "decline loudly" rule [chart-discovery](https://github.com/robert-dean/deadair/blob/71e431d4/docs/todo/chart-discovery.md) asks for,
             // and this is the surface where somebody is standing at the desk to read it.
             throw httpError(422).withDetails({
                 message: settingIsOn(this.config, DISCOVER_KEY, DISCOVER_DEFAULT)

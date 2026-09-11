@@ -22,7 +22,7 @@ import type { StationTool, ToolSource } from './llm.tools.js';
  *
  * ## Why this one IS backed by a plugin
  *
- * `docs/todo/tool-plugins.md`'s rule, the same one `ChartsTool` and `NewsTool`
+ * [tool-plugins](https://github.com/robert-dean/deadair/discussions/44)'s rule, the same one `ChartsTool` and `NewsTool`
  * follow: a tool is a plugin when the thing it talks to is somebody else's
  * service. An engine is about as somebody else's as a service gets — a
  * credential, a meter, a rate limit and a response shape that differs per

@@ -7,7 +7,7 @@
  * a socket or a server.
  *
  * Deliberately local to this module rather than in `packages/plugin-sdk`, since
- * Icecast's feed is its only consumer today; `docs/todo/icecast-2.5.md` records
+ * Icecast's feed is its only consumer today; [icecast-2.5](https://github.com/robert-dean/deadair/discussions/17) records
  * where it moves if a plugin ever needs to read an SSE API.
  */
 

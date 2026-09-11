@@ -482,7 +482,7 @@ function PadTable({ pads, sets, preview, onToggle, onReject, onRestore, onDelete
  * token and a plain `<a href>` carries none. Named after the pad rather than after the file it
  * arrived as, since the name is what the station actually holds it under.
  *
- * Until `docs/todo/backup-and-restore.md` lands this is the only way out, which is why it is here at
+ * Until [backup-and-restore](https://github.com/robert-dean/deadair/discussions/6) lands this is the only way out, which is why it is here at
  * all: a rack an operator can fill and not empty is a one-way door.
  */
 async function download(pad: Pad): Promise<void> {

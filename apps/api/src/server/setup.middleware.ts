@@ -72,7 +72,7 @@ export const setupMiddleware = (container: Container) => {
     //
     // It does NOT resolve an organization or pin any GUC, which is what this said for as long as it
     // existed. There is no organization table and no RLS to read one — see
-    // `docs/todo/row-level-security.md`.
+    // [row-level-security](https://github.com/robert-dean/deadair/discussions/31).
     middlewares.push(authorizationContextMiddleware());
     // The gate on the audio the player fetches: a URL signed with the bridge secret, or the read
     // floor a session would have met. After the authorization context because the second branch

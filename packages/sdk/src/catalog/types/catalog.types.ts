@@ -204,7 +204,7 @@ export type TrackSort = 'title' | 'artist' | 'album' | 'year' | 'duration' | 'ra
  * How much of the library is in each state, over the whole filtered set rather than this page.
  *
  * The aggregate is what an operator reads first — "13 of 581 measured" is the sentence that made
- * `docs/todo/analysis-queue-ordering.md` necessary, and it was a psql query then. `total` is the
+ * [analysis-queue-ordering](https://github.com/robert-dean/deadair/discussions/5) necessary, and it was a psql query then. `total` is the
  * same number as `meta.total` when nothing is filtered, and is repeated here so the counts can be
  * read as N of M without reaching into the pager.
  * generated from [TrackStateCounts](../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L196)

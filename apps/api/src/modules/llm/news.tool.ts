@@ -24,7 +24,7 @@ import type { StationTool, ToolSource } from './llm.tools.js';
  *
  * ## Why this one IS backed by a plugin
  *
- * `docs/todo/tool-plugins.md`'s rule: a tool is a plugin when the thing it talks
+ * [tool-plugins](https://github.com/robert-dean/deadair/discussions/44)'s rule: a tool is a plugin when the thing it talks
  * to is somebody else's service, and a host-side source when it talks to
  * deadair. Every feed here belongs to a publisher, so the egress, the rate
  * bucket and the shape of the document live behind `host.fetch` in a plugin, and

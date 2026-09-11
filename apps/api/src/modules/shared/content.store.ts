@@ -217,7 +217,7 @@ export class ContentStore<Ext extends string> {
      *
      * `checksum` and `ext` are absent for anything that is not one of this store's own names: a
      * `.tmp-` file an interrupted write left behind, or something a person dropped in. They are
-     * reported rather than hidden or cleaned up, for the reason `docs/todo/track-cache-eviction.md`
+     * reported rather than hidden or cleaned up, for the reason [track-cache-eviction](https://github.com/robert-dean/deadair/discussions/46)
      * gives — a store that quietly deletes files it cannot account for is a bad thing to debug.
      *
      * A directory that does not exist yet is empty rather than an error: every store is created

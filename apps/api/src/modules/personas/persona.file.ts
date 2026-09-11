@@ -1,7 +1,7 @@
 /**
  * A character as a FILE: what somebody sends somebody else, and what an operator keeps.
  *
- * `docs/todo/backup-and-restore.md` argues the whole import/export feature from this one case — a
+ * [backup-and-restore](https://github.com/robert-dean/deadair/discussions/6) argues the whole import/export feature from this one case — a
  * `pg_dump` already moves one install onto itself, and what it cannot do is share a PIECE. A persona
  * is the piece worth sharing first, because it is a whole character rather than a fragment of
  * configuration: a sheet, its phrasings, and the things that have happened to it.
@@ -27,7 +27,7 @@
  * - `active`, because putting somebody on air is a decision about a station rather than a property of
  *   a character. `PersonasService.setActive` is the one path, and it posts the director a `recast`.
  * - `station_key`, which is provenance in the envelope and nothing more: an import writes into
- *   whichever station it is running as, so the two need not match. When `docs/todo/multi-station.md`
+ *   whichever station it is running as, so the two need not match. When [multi-station](https://github.com/robert-dean/deadair/discussions/21)
  *   lands this is already right rather than a migration.
  * - A story's `origin` and `source`. See {@link storyForFile}.
  * - A story's `lastToldAt` and `timesTold`, which are the rotation on the station that exported it:

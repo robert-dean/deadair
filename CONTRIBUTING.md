@@ -68,9 +68,11 @@ lives in the scoped file that covers the thing it is about — `apps/api/CLAUDE.
 the obvious fix was shipped first and was wrong. Read the one covering whatever you are changing,
 and add to it rather than to the root file.
 
-`docs/todo/` holds work that was designed against the real tree and then deliberately deferred.
-**Read it before designing a feature from scratch**: the call may already have been made, and the
-file will say what it cost.
+The [Ideas](https://github.com/robert-dean/deadair/discussions/categories/ideas) discussions hold work
+that was designed against the real tree and then deliberately deferred, labelled by subsystem.
+**Read them before designing a feature from scratch**: the call may already have been made, and the
+discussion will say what it cost. A new idea goes there too. One that has not been checked against
+the code yet gets the `unscoped` label, and loses it once somebody designs it against the tree.
 
 ## Releasing
 

@@ -269,7 +269,7 @@ honest; drawing it as a text box would put a password in a JSON file in somebody
 **Measured against the Office M10 V2 on BluOS 4.16.22, 2026-09-08**, by
 `plugins/bluos/spikes/BluOsSpike`, which is kept in the solution for the reason `PlayerSpike` is:
 it is how this is re-measured, and half of what it tells you comes from a firmware that moves under
-everybody. Read [`docs/todo/now-playing-displays.md`](../../docs/todo/now-playing-displays.md)
+everybody. Read [now-playing-displays](https://github.com/robert-dean/deadair/blob/71e431d4/docs/todo/now-playing-displays.md)
 first; it is the earlier probe of the same amp and it closed the DISPLAY half of this permanently.
 
 ```bash

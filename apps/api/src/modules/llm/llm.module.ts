@@ -41,7 +41,7 @@ import { WeatherTool } from './weather.tool.js';
  * no business carrying them. And not here either: anything that knows what a break is. This module
  * takes a conversation and answers with words. What to say belongs to whoever is writing.
  *
- * See `docs/todo/dj-voice.md` for the writer that lands on top of this, and why the deterministic
+ * See [dj-voice](https://github.com/robert-dean/deadair/discussions/13) for the writer that lands on top of this, and why the deterministic
  * one underneath it is a floor rather than a stepping stone.
  */
 export const LlmModule: ServerKitModule = {

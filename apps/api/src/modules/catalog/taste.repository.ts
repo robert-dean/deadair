@@ -22,7 +22,7 @@ import { DataRepository } from '#modules/data/data.repository.js';
  * ratings as they stand — which is where a dislike being an INSTRUCTION rather than a preference is
  * expressed. Two consequences worth keeping in mind: this being wrong or stale costs a duller set
  * and never an aired record the operator forbade, and deleting the enforcement because "the model
- * has been told" would be exactly the correctness hole `docs/todo/station-intelligence.md` §1
+ * has been told" would be exactly the correctness hole [station-intelligence](https://github.com/robert-dean/deadair/discussions/37) §1
  * records.
  *
  * ## Bounded, and honest about being bounded

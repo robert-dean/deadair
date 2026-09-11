@@ -72,7 +72,7 @@ const empty = (): StoryPassSummary => ({ considered: 0, read: 0, stories: 0, det
  *
  * **The seam a web search would drop into is `ToolRegistry`, not this file.** A `search` capability
  * becomes one more source there and this pass gets it with no change; see
- * `docs/todo/tool-plugins.md`. What would need re-reading on that day is the fence in
+ * [tool-plugins](https://github.com/robert-dean/deadair/discussions/44). What would need re-reading on that day is the fence in
  * `persona.story.model.ts`, because a pass that can look things up can also state them.
  *
  * ## Everything about it declines quietly

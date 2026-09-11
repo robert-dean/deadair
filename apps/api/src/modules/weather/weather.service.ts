@@ -97,7 +97,7 @@ export class WeatherService {
      *
      * Separate rather than folded in, for `ChartsService.readCharts`'s reason: the
      * metric reading is what a future consumer with its own arithmetic wants — the
-     * moment resolver in `docs/todo/station-moment.md` is the one this exists for
+     * moment resolver in [station-moment](https://github.com/robert-dean/deadair/discussions/38) is the one this exists for
      * — and converting it back would be two roundings.
      */
     async reading(place?: string, days = 0): Promise<WeatherReading | undefined> {

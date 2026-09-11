@@ -13,7 +13,7 @@ import { errorText } from '#modules/shared/error.text.js';
  * from is deliberately open: today the only source is the catalog, which is the station asking a
  * capability it already has. A `tool` plugin capability becomes a second source when something
  * outside the station is worth asking (weather, news, a feed), and nothing here changes when it
- * does. See `docs/todo/tool-plugins.md`.
+ * does. See [tool-plugins](https://github.com/robert-dean/deadair/discussions/44).
  *
  * The distinction that keeps this from sprawling: a tool is a plugin when the thing it talks to is
  * somebody else's service. When it talks to deadair, it is a source registered here directly, and

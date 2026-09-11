@@ -82,7 +82,7 @@ export const DEFAULT_VOICE_ROWS: readonly { name: string; engine: string; speed?
     { name: 'millennium', engine: 'af_sarah', speed: '1.1' },
     // Not a persona. The one role slot worth shipping, because a bulletin read in
     // the host's voice is a decision a station should be able to make rather than
-    // one it falls into — see `docs/todo/personas.md` §1, which is the work that
+    // one it falls into — see [personas](https://github.com/robert-dean/deadair/discussions/25) §1, which is the work that
     // will read it.
     { name: 'newsreader', engine: 'bf_emma' },
     // The people who ring IN — `caller.defaults.ts`. They are down here rather than

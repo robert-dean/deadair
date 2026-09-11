@@ -283,7 +283,7 @@ select deadair.add_updated_at_trigger('deadair.track_enrichment');
 -- one read as STALE rather than as missing or -- worse -- as current: the queue query picks
 -- up anything below the version the host currently knows, so reanalysis is an ordinary pass
 -- instead of a migration. That is also what lets the deferred beat layer (bpm, downbeats,
--- a vocal curve; docs/todo/track-analysis.md) land with no schema change at all.
+-- a vocal curve; [track-analysis](https://github.com/robert-dean/deadair/discussions/45)) land with no schema change at all.
 --
 -- `complete` is load-bearing and cannot be checked here or by the app. Whatever decodes the
 -- audio fetches it itself, so a byte-capped or interrupted download produces perfectly

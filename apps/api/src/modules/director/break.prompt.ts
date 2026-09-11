@@ -7,7 +7,7 @@
  *
  * ## The one failure this is shaped around
  *
- * `docs/todo/station-intelligence.md` §9: a prompt asked to be concrete about music and shown no
+ * [station-intelligence](https://github.com/robert-dean/deadair/discussions/37) §9: a prompt asked to be concrete about music and shown no
  * track fields reaches into training data and describes a record that is not playing. The failure
  * is specific — it is not that a model invents facts, it is that it frames real facts as a CUE
  * ("coming up", "you just heard", "that was"). So the FRAMING is banned rather than the noun, since

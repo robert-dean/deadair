@@ -11,7 +11,7 @@
  *     buffer = min(outgoing.outro, incoming.intro)
  *
  * Both lengths come off the four cue points in `deadair.track_analysis`, carried
- * on the item by `pick.resolver.ts`. See `docs/todo/crossfades.md`, "Where the
+ * on the item by `pick.resolver.ts`. See [crossfades](https://github.com/robert-dean/deadair/discussions/11), "Where the
  * length comes from".
  *
  * Kept pure and unit-tested for the same reason `gain.ts` beside it is: what this
@@ -49,7 +49,7 @@ export interface MeasuredCuePoints {
 export const MIN_BLEND_MS = 500;
 
 /**
- * The longest, from `docs/todo/crossfades.md`.
+ * The longest, from [crossfades](https://github.com/robert-dean/deadair/discussions/11).
  *
  * The measurement has to authorise every millisecond of this. Twelve seconds
  * means the outgoing record has twelve seconds of outro AND the incoming has

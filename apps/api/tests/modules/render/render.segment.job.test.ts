@@ -165,7 +165,7 @@ describe('RenderSegmentJob', () => {
     });
 
     it('hands the claim back rather than writing the segment off when nothing could speak yet', async () => {
-        // The whole of `docs/todo/render-plugin-readiness.md` piece 1. `unavailable` is the window
+        // The whole of [render-plugin-readiness](https://github.com/robert-dean/deadair/discussions/29) piece 1. `unavailable` is the window
         // where no plugin is active — a boot, or any of the reinitializations every plugin config
         // change performs — and the words on the row are untouched and still correct. Writing that
         // off spends one of three render attempts on a failure that said nothing about the segment,

@@ -1,6 +1,6 @@
 <!--
     The M10 V2 playing the station, built from the reading quoted in
-    docs/todo/now-playing-displays.md: the station added by hand as a custom URL, which BluOS files
+    [now-playing-displays](https://github.com/robert-dean/deadair/blob/71e431d4/docs/todo/now-playing-displays.md): the station added by hand as a custom URL, which BluOS files
     under TuneIn, with the whole flattened ICY line in title2.
 -->
 <status etag="4e8b1a2c">

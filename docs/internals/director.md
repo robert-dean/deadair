@@ -171,7 +171,7 @@ the ordinary unmarked shape of every remaster a provider sells.
 **A record is COMMITTED only once its audio is on this machine.** `DirectorService.withLocalAudio` cuts the
 commit pass's candidates at the first record `TrackAudioService.readyFor` does not answer for, so Liquidsoap's
 resolve is a read from this app rather than a provider download inside the request it is waiting on — which is
-what produced the 2.16 seconds of digital silence in `docs/todo/provider-audio-failures.md`. Four things are
+what produced the 2.16 seconds of digital silence in [provider-audio-failures](https://github.com/robert-dean/deadair/blob/71e431d4/docs/todo/provider-audio-failures.md). Four things are
 load-bearing and each is argued here: it CUTS rather than filters, because
 filtering would commit the warm items and leave the cold one behind them, reordering an operator's sequence by
 which downloads finished first; a cold record is HELD rather than skipped, which is the exact opposite of the

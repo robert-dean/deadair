@@ -74,7 +74,7 @@ beforeEach(() => {
 describe('the default', () => {
     it('is ON, unlike the chart binding, because reaching outward is a habit and not a format', async () => {
         // A station that only ever draws from its own library is a structural defect
-        // (`station-intelligence.md` §5), not a programming choice somebody has to opt into.
+        // ([station-intelligence](https://github.com/robert-dean/deadair/discussions/37) §5), not a programming choice somebody has to opt into.
         expect(DEFAULT_SIMILAR_MIX).toBeGreaterThan(0);
 
         const { generator, similarTo } = build();

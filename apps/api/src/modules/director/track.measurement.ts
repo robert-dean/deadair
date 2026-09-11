@@ -139,7 +139,7 @@ function loudness(analysis: StoredAnalysis | undefined): MeasuredLoudness {
  * How loud the FILE says it is, from its own ReplayGain or R128 tags.
  *
  * Preferred over the measurement where a file carries it, which is the rule
- * `docs/todo/station-intelligence.md` §4 states and the reason for it is not accuracy:
+ * [station-intelligence](https://github.com/robert-dean/deadair/discussions/37) §4 states and the reason for it is not accuracy:
  * a tag is what the mastering engineer or the label decided, and the measurement is
  * what this station guessed. Where they disagree the station is not the authority.
  *

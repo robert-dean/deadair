@@ -27,7 +27,7 @@ it. The count is polled from Icecast, which is the truth, off whichever stats en
 Whichever answers is cached, so the other is probed once per re-probe rather than once per poll.
 
 **The two documents carry the same facts in different shapes, and neither matches what upstream's source
-suggests** — `listenersByMount` is where that lives, and `docs/todo/icecast-2.5.md` records both measured
+suggests** — `listenersByMount` is where that lives, and [icecast-2.5](https://github.com/robert-dean/deadair/discussions/17) records both measured
 payloads.
 
 **The audience is a SUM over every mount, plus the HLS listeners, and neither half is optional.** The station

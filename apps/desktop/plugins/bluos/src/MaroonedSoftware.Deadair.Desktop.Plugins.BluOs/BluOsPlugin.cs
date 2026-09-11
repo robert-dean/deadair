@@ -19,7 +19,7 @@ namespace MaroonedSoftware.Deadair.Desktop.Plugins.BluOs;
 /// The display is deliberately not part of it. That question was probed against this exact hardware
 /// and closed: a station added as a custom URL gets one line of text on the player, permanently,
 /// because Icecast flattens the title and artist into one field and the format carries no image at
-/// all. See <c>docs/todo/now-playing-displays.md</c>. The caption and logo settings write the two
+/// all. See <see href="https://github.com/robert-dean/deadair/blob/71e431d4/docs/todo/now-playing-displays.md">now-playing-displays</see>. The caption and logo settings write the two
 /// slots that ARE writable, once, and both are about the station rather than about a record.
 /// </para>
 /// </remarks>

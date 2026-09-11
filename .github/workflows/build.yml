@@ -526,16 +526,21 @@ jobs:
               with:
                   persist-credentials: false
 
-            # The newest Xcode 16 or later on the image, found by name rather than pinned: the images
-            # rotate Xcode versions, and a pinned path fails the day the image drops it. Xcode 16 is
-            # the floor because the project uses its synchronized folders.
-            - name: Select Xcode
+            # The image's own default Xcode, checked rather than chosen. It was chosen by name, newest
+            # `Xcode_*` first, and that failed on its first run: macos-26 carries only Xcode 26, the
+            # pattern for 16 to 19 matched nothing, and `ls` failing it took the step down under
+            # pipefail. Names also include betas. The default is the stable one the image's
+            # maintainers pick, which the desktop job relies on too; the floor is Xcode 16, because
+            # the project uses its synchronized folders.
+            - name: Check Xcode
               run: |
                   set -euo pipefail
-                  xcode="$(ls -d /Applications/Xcode_1[6-9]*.app /Applications/Xcode_[2-9][0-9]*.app 2>/dev/null | sort -V | tail -1)"
-                  test -n "$xcode"
-                  sudo xcode-select -s "$xcode/Contents/Developer"
                   xcodebuild -version
+                  major="$(xcodebuild -version | sed -n 's/^Xcode \([0-9]*\).*/\1/p')"
+                  if [ -z "$major" ] || [ "$major" -lt 16 ]; then
+                      echo "::error::The runner's Xcode is older than 16, which the project's synchronized folders need."
+                      exit 1
+                  fi
 
             - name: Build the generated SDK
               run: swift build --package-path packages/sdk-swift -Xswiftc -warnings-as-errors

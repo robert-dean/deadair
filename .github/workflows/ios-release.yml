@@ -113,13 +113,16 @@ jobs:
                       exit 1
                   fi
 
-            - name: Select Xcode
+            # The image's default Xcode, as the build job checks it, and for the same reason.
+            - name: Check Xcode
               run: |
                   set -euo pipefail
-                  xcode="$(ls -d /Applications/Xcode_1[6-9]*.app /Applications/Xcode_[2-9][0-9]*.app 2>/dev/null | sort -V | tail -1)"
-                  test -n "$xcode"
-                  sudo xcode-select -s "$xcode/Contents/Developer"
                   xcodebuild -version
+                  major="$(xcodebuild -version | sed -n 's/^Xcode \([0-9]*\).*/\1/p')"
+                  if [ -z "$major" ] || [ "$major" -lt 16 ]; then
+                      echo "::error::The runner's Xcode is older than 16, which the project's synchronized folders need."
+                      exit 1
+                  fi
 
             # The same gates the build job runs. A release that skipped them would be the one build
             # nobody checked.

@@ -46,8 +46,15 @@ Saved as 24-bit PNG, because Play refuses an alpha channel. The cover art is wha
 was playing. Commercial artwork in a store screenshot can draw an intellectual-property rejection,
 and a set taken while something else is on air is the fix if one arrives.
 
-Only the listener's screens are here. Up next, Played, What's on and the record pages need a
-signed-in operator, and are the ones worth adding next.
+Seven, listener first: Now playing, background playback, then the four a signed-in operator sees
+(Up next, Played, a record page, the transport), then the format picker. The operator signs in on
+the emulator by hand, never from a script, and nothing in the operator shots is pressed: the
+transport's buttons and the running order's menus act on the live station. What's on is left out
+while the station has nothing scheduled, because an empty card sells nothing.
+
+An emulator booted from its quickboot snapshot comes back with whatever was installed when the
+snapshot was taken, not the build last installed. Check `dumpsys package` for `lastUpdateTime`
+before shooting, or the screenshots show an old build.
 
 ## Store settings
 

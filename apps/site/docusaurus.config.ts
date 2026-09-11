@@ -75,6 +75,7 @@ const config: Config = {
                 { type: 'doc', docId: 'features/index', label: 'Features', position: 'left' },
                 { type: 'doc', docId: 'install', label: 'Install', position: 'left' },
                 { type: 'doc', docId: 'licensing', label: 'Licensing', position: 'left' },
+                { type: 'doc', docId: 'plugin-development/index', label: 'Writing plugins', position: 'left' },
                 { href: repository, label: 'GitHub', position: 'right' },
             ],
         },
@@ -93,6 +94,7 @@ const config: Config = {
                     title: 'Project',
                     items: [
                         { label: 'Source', href: repository },
+                        { label: 'Writing plugins', to: '/docs/plugin-development' },
                         { label: 'Issues', href: `${repository}/issues` },
                         { label: 'Changelog', href: `${repository}/blob/main/CHANGELOG.md` },
                     ],

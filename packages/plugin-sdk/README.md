@@ -2,8 +2,8 @@
 
 Everything you need to write a deadair plugin, and nothing else. This package
 is the only thing a plugin imports from deadair: no database, no DI container,
-no HTTP framework. Its single runtime dependency is `zod`, and that is a peer
-dependency so you and the host share one copy.
+no HTTP framework. `zod` is a peer dependency, so you and the host share one
+copy; the one dependency of its own is the XML parser behind `parseFeed`.
 
 A plugin extends deadair by declaring capabilities:
 

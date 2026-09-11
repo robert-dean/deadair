@@ -4,7 +4,7 @@ sidebar_position: 9
 description: The twelve bundled plugins that bring the station its music, facts, voice, words and measurements, and how trust and permissions work.
 ---
 
-Almost everything the station reaches outside itself is a plugin: where the music comes from, what it knows about a record, how it speaks, which model writes its words, and the program that measures its audio. Twelve are bundled in the image, and each is switched on and configured from its own page.
+Almost everything the station reaches outside itself is a plugin: where the music comes from, what it knows about a record, how it speaks, which model writes its words, and the program that measures its audio. Twelve are bundled in the image, and each is switched on and configured from its own page. A plugin somebody else wrote is installed by copying it into the plugins folder on the station's data volume, and is then held to exactly the same rules.
 
 ![The plugin catalogue: a card per plugin and its state](/img/console/plugins.webp)
 *Fig. 1. The plugins.*
@@ -65,4 +65,8 @@ A request shows the plugin's reason, quoted, beside what allowing it actually do
 
 ## In the console
 
-**Settings → Plugins**: a card per plugin with its state (Active, Disabled, Misconfigured, Failed or Discovered), and Rescan, which picks up a plugin added to the plugins folder on the station's data volume. A plugin's page holds its settings, Test connection, anything it has asked for, and its log. **Settings → Waiting on you** lists every request from every plugin, and is empty when nothing has asked, which is the ordinary state. Where several plugins could do one job, the Words, Voice and audio, and Measurement sections of Settings say which does it.
+**Settings → Plugins**: a card per plugin with its state (Active, Disabled, Misconfigured, Failed or Discovered), and Rescan, which picks up a plugin added to the plugins folder on the station's data volume. A plugin you installed yourself is marked Installed, and one that failed to load names the folder the station read. A new version of an installed plugin takes effect when the station restarts. A plugin's page holds its settings, Test connection, anything it has asked for, and its log. **Settings → Waiting on you** lists every request from every plugin, and is empty when nothing has asked, which is the ordinary state. Where several plugins could do one job, the Words, Voice and audio, and Measurement sections of Settings say which does it.
+
+## Installing one, or writing one
+
+A plugin is a folder holding its `package.json` and its built code. Copy it into `plugins/` inside the station's data volume, press Rescan, and enable it. Where that folder is on each kind of install, and everything about writing a plugin of your own, is in [writing plugins](../plugin-development/index.md).

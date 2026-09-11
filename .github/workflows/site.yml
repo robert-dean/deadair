@@ -17,6 +17,7 @@ on:
             - 'apps/web/public/**'
             - 'deploy/README.md'
             - 'docs/licensing.md'
+            - 'packages/plugin-sdk/README.md'
             - 'pnpm-lock.yaml'
             - '.github/workflows/site.yml'
     workflow_dispatch:

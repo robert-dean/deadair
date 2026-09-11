@@ -1,0 +1,5 @@
+{
+    "label": "Writing plugins",
+    "position": 4,
+    "link": { "type": "doc", "id": "plugin-development/index" }
+}

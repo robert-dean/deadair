@@ -105,11 +105,13 @@ CLAUDE.local.md
 .claude/handoffs/
 .claude/worktrees/
 
-# The website's build droppings: Docusaurus's generated modules, and the two operator docs the build
-# copies in from `deploy/README.md` and `docs/licensing.md` (apps/site/scripts/docs.sync.mjs).
+# The website's build droppings: Docusaurus's generated modules, and the three docs the build
+# copies in from `deploy/README.md`, `docs/licensing.md` and `packages/plugin-sdk/README.md`
+# (apps/site/scripts/docs.sync.mjs).
 .docusaurus/
 apps/site/docs/install.md
 apps/site/docs/licensing.md
+apps/site/docs/plugin-development/contract.md
 
 # The console capture's working space: a signed-in browser state for one operator's station, and the
 # full-size PNGs before they are converted. The webp it writes to `static/img/console/` is committed;

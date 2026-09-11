@@ -31,11 +31,20 @@ the layers into `:not(#\#)` specificity hacks, and those outrank every override 
 `src/css/custom.css`: the site comes out in Infima's default blue and system fonts. The block is the
 one Docusaurus's own template ships.
 
-**The operator docs are copied in, never edited here.** `scripts/docs.sync.mjs` copies
-`deploy/README.md` and `docs/licensing.md` into `docs/` on every `start` and `build`, and the copies
-are gitignored. Edit the source files. Neither carries a relative link, which is the only reason a
-plain copy is safe: add one and the site's build fails on it until the script learns to rewrite it.
-`turbo.json` lists both sources as inputs of this package's `build`, since they live outside it.
+**Three pages are copied in, never edited here.** `scripts/docs.sync.mjs` copies `deploy/README.md`,
+`docs/licensing.md` and `packages/plugin-sdk/README.md` (as `plugin-development/contract.md`) into
+`docs/` on every `start` and `build`, and the copies are gitignored. Edit the source files. A relative
+link in a source is written for the repository and would break the site's build, so the script rewrites
+every one outside a code fence to that file on GitHub, resolved against the source's own directory;
+an in-page anchor is left alone. That rewrite is why the SDK's README could join the other two, since
+it links into its own `src/`. `turbo.json` lists all three sources as inputs of this package's `build`,
+and `site.yml` and `changes.sh` list them as paths that deploy and check it, since they live outside it.
+
+**The "Writing plugins" section is hand-written, and the example it walks through is real code.**
+`docs/plugin-development/` explains `examples/plugins/apple-music-charts`, which CI builds from outside
+the workspace and loads with the station's own loader. A page there that quotes the example has to
+change with it, and a claim about what the station does with a plugin (the peers link, restart versus
+Rescan, the plugins directory on each install) is a claim about `apps/api` that has to stay true.
 
 **The API reference is generated, and committed.** Everything under `docs/api-reference/`, and
 `static/openapi.yaml` beside it, is written

@@ -218,9 +218,13 @@ packages/plugin-sdk    the plugin contract and the host capabilities
 packages/sdk           a typed client, generated from the contracts
 plugins/*              spotify, navidrome, musicbrainz, lastfm, wikipedia, rss,
                        websearch, weather, kokoro, chatterbox, llm, analyzer
+examples/plugins/*     a plugin built from outside the workspace, as anybody else's is
 analysis/              the measurement sidecar (Python): cue points and loudness
 stream/, nginx/        the audio chain (radio.liq), the stream server and the edge
 ```
+
+A station also loads plugins it did not ship with: `@deadair/plugin-sdk` is on npm, and how to write,
+build and install one is at <https://deadair.radio/docs/plugin-development>.
 
 Contracts, permission types and database types are **generated and committed**. Never hand-edit
 them; CI regenerates all three and fails on anything that moved.

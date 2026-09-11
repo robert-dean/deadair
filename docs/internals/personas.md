@@ -252,7 +252,10 @@ the arrangement working and in a measurement is a lie, since an operator reading
 ten" would go and rewrite a sheet that was never asked. `WriteAttempt.code` carries `timeout` / `unavailable`
 up from the gate so the job can tell that apart from a writer that actually broke, and such a transition is
 put off for 45 seconds and asked again, at most three times. A model that DECLINED is recorded immediately:
-that is the reading the whole feature exists to collect.
+that is the reading the whole feature exists to collect. It is recorded with the words it was refused for, as
+`attempts[].refused` on the break's row, whatever `llm.captureWrites` says: a reason such as "read a sample
+line back" cannot be acted on without knowing which line, and a measurement should not depend on a debugging
+switch being on. The row keeps them and the console does not draw them yet.
 
 **It is the before-the-fact half of `scripts/break.declines.ts`.** That report counts decline rates and marker
 recall out of `script_history`, which means a sheet change is judged an evening after it ships; the tally on

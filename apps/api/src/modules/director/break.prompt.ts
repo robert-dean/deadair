@@ -56,6 +56,7 @@ import type { PersonaStoryForPrompt } from '#modules/personas/persona.story.js';
 import type { SpokenWeather } from '#modules/weather/weather.words.js';
 import type { BreakStory, BreakTrack, BreakWriteRequest } from './break.writer.js';
 import { contradictsDayPart, namesWrongSky, namesWrongTimeOfDay, type RoughTime } from './clock.words.js';
+import { spoken } from './talk.break.writer.js';
 
 /**
  * What makes one KIND of break's prompt different from another's.
@@ -856,7 +857,7 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape:
             // with no year listed "beyond any year listed above" forbids every date, which is the
             // old rule unchanged, and with one it forbids the pressing dates and session dates the
             // rest of the sentence is about.
-            `The station knows nothing about ${unknown.map(track => `"${track.title}"`).join(' or ')} beyond what is listed above. ` +
+            `The station knows nothing about ${unknown.map(track => `"${spoken(track.title)}"`).join(' or ')} beyond what is listed above. ` +
                 'Say nothing else about it as fact — no dates beyond any year listed above, no labels, no pressings or catalogue numbers, ' +
                 'no studios, no sessions, no chart placings, no connection to any other record. What you think of it is yours to say. ' +
                 'What happened to it is not, unless you were told.',
@@ -934,7 +935,7 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape:
         parts.push(
             [
                 'Earlier in the show you played these, most recent first:',
-                ...played.map(record => `- ${record.title} by ${record.artist}`),
+                ...played.map(record => `- ${spoken(record.title)} by ${record.artist}`),
                 'This is here so you know there is a show behind this record, not a list to get through. ' +
                     'Refer back to one of them only if you have something to say about it. You do not have to mention any of them.',
             ].join('\n'),
@@ -1074,7 +1075,10 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape:
  * two have to name the same thing for either to mean anything.
  */
 function describe(track: BreakTrack, withFacts: boolean): string {
-    const lines = [`- Title: ${track.title}`, `- Artist: ${track.artist}`];
+    // The title as it is READ rather than as it is filed. Shown the catalogue entry, a model reads it
+    // out: a conspiracy-host audition on 2026-09-11 aired "Glycerine by Bush, 2014 remaster" and
+    // "Tornado Of Souls by Megadeth, 2004 remix" while the floor beside it said the clean titles.
+    const lines = [`- Title: ${spoken(track.title)}`, `- Artist: ${track.artist}`];
     // Behind `withFacts` with the notes, and for that flag's own argument rather than because these
     // are facts in the enrichment sense: they are MATERIAL, and "a model handed a list of material
     // will find a way to read the material out" is exactly as true of a year as of a discography
@@ -1093,7 +1097,7 @@ function describe(track: BreakTrack, withFacts: boolean): string {
     // claim in numbers and is dropped on the same test.
     if (withFacts) {
         if (track.year) lines.push(`- Year: ${track.year}`);
-        if (track.album?.trim()) lines.push(`- Album: ${track.album.trim()}`);
+        if (track.album?.trim()) lines.push(`- Album: ${spoken(track.album.trim())}`);
         if (track.durationMs) lines.push(`- Length: ${spokenLength(track.durationMs)}`);
     }
     if (withFacts && track.facts && track.facts.length > 0) lines.push('- Notes:', ...track.facts.map(fact => `  - ${fact}`));
@@ -1486,15 +1490,21 @@ const saysName = (spoken: string, candidate: string): boolean =>
 
 /**
  * The words that identify one record in a script: its title, its title with any aside taken off,
- * and its artist.
+ * its title as it is READ, and its artist.
  *
  * The parenthetical is stripped as an ALTERNATIVE rather than instead: "Pink Moon" has none and is
  * unaffected, and a title that is entirely parenthetical falls back to the whole thing. Compared as
  * bare words for {@link echoedSample}'s reason: a curly apostrophe, a capital and a comma are not
  * the difference between naming a record and not.
+ *
+ * The read title is the one {@link describe} shows the model, so it has to count: without it a break
+ * saying "Tornado Of Souls" for "Tornado Of Souls - 2004 Remix", and not the artist, named the record
+ * it was shown and was refused for naming neither.
  */
 const identifiersOf = (record: BreakTrack): string[] =>
-    [record.title, record.title.replace(/\([^)]*\)/g, ' '), record.artist].map(bareWords).filter(candidate => candidate.length > 0);
+    [record.title, record.title.replace(/\([^)]*\)/g, ' '), spoken(record.title), record.artist]
+        .map(bareWords)
+        .filter(candidate => candidate.length > 0);
 
 /**
  * How many words after a cue phrase still count as part of the cue.

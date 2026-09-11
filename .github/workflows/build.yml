@@ -462,7 +462,7 @@ jobs:
             # xunit v3 is built on the Microsoft Testing Platform and the .NET 10 SDK dropped the
             # VSTest path, so `dotnet test` fails outright without that file's `test` section.
             - name: Setup .NET
-              uses: actions/setup-dotnet@v5
+              uses: actions/setup-dotnet@v6
               with:
                   global-json-file: apps/desktop/global.json
                   cache: true

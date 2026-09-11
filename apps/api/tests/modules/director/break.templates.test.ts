@@ -29,8 +29,9 @@ const render = (template: string, inputs: TemplateInputs = { previous, next, sta
     return rendered!;
 };
 
-// The conspiracy host's second phrasing, word for word from `persona.defaults.ts`. It is the one
-// that was heard four times in six.
+// The conspiracy host's second phrasing, word for word as `persona.defaults.ts` carried it when it
+// was the one heard four times in six. The seed has since dropped the trailing word; the shape
+// under test (a phrasing that opens with a placeholder) is unchanged.
 const PLACEHOLDER_FIRST =
     '{{previous.artist}} there, with {{previous.title}}.[[ Next on The Far Frequency, {{next.artist}}, {{next.title}}.]] Documented.';
 

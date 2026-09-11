@@ -108,8 +108,9 @@ python3 -m venv /tmp/iconvenv && /tmp/iconvenv/bin/pip install Pillow
 /tmp/iconvenv/bin/python apps/android/tools/make-launcher-icon.py
 ```
 
-The PNGs it writes into `res/drawable-*` are committed. Pillow is not a project dependency: this
-runs by hand on the rare day the mark changes and no Gradle task calls it.
+The PNGs it writes into `res/drawable-*` are committed, and so are the Play store icon and feature
+graphic it writes into `play/listing/en-US/images`. Pillow is not a project dependency: this runs
+by hand on the rare day the mark changes and no Gradle task calls it.
 
 Two things about the shape of it. The field is the adaptive icon's BACKGROUND layer and the skull
 is the FOREGROUND, so a launcher's mask — circle, squircle, teardrop — cuts the green and never the
@@ -123,9 +124,9 @@ The script's own header says why it is a script rather than an exported crop.
 
 The app ships through Google Play under the Marooned Software account, currently to the **internal
 testing** track: testers are named by email address, review is light, and it installs and updates
-through Play like anything else. A production listing is a separate decision and needs a store
-listing, a content rating, a data safety form and a privacy policy; none of that is required to put
-a build on internal testing.
+through Play like anything else. A production listing also needs a store listing, a content rating,
+a data safety form and a privacy policy. The listing's text and art, and the answers to each of
+those forms with the facts behind them, are in [`play/`](play/README.md).
 
 Play wants an **App Bundle**, not an APK:
 
@@ -221,7 +222,8 @@ makes this trade sane. Keep the app signing key out of everything, forever.
 This is a client for a server the reviewer does not have. On internal testing nobody reviews it
 that closely, but for production the app opens on a text field asking for an address, with nothing
 to type, and that reads as broken. Play's **App access** section is where to give instructions and
-a reachable station, and it is worth filling in before anyone looks.
+a reachable station, and it is worth filling in before anyone looks. The suggested wording is in
+[`play/README.md`](play/README.md).
 
 ## Where the API types come from
 

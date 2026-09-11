@@ -22,6 +22,15 @@ a crop of the lockup. Three things have to happen and each is easy to get subtly
     72dp a launcher actually shows, matching the proportion the console's mark uses, and it is
     inside the 66dp zone every mask is guaranteed to keep. The icon this replaced was drawn to
     the full canvas and had its corners clipped by circular masks.
+
+It also writes the two pieces of Play store art that are the same mark, into `play/listing`, so the
+store and the launcher cannot drift apart either:
+
+  * The 512px store icon is the two layers composited and cropped to the 72dp a launcher shows. So
+    it is the launcher icon as a phone draws it, before any mask, which is what Play asks for: a
+    full-bleed square that Play rounds itself.
+  * The 1024x500 feature graphic is the whole lockup, lettering included, on the same field. Here
+    the name is legible and nothing else carries it.
 """
 
 from collections import deque
@@ -33,6 +42,7 @@ from PIL import Image
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '..'))
 SRC = os.path.join(ROOT, 'apps/web/public/logo.png')
 RES = os.path.join(ROOT, 'apps/android/app/src/main/res')
+STORE = os.path.join(ROOT, 'apps/android/play/listing/en-US/images')
 
 GREEN = (47, 217, 140)  # the mark's field, sampled rather than chosen. Also `ic_launcher_background`.
 FIELD_TOLERANCE = 60    # colour distance beyond which a pixel is not the field
@@ -113,6 +123,27 @@ def layer(art, max_radius, size, monochrome=False):
     return out
 
 
+def store_icon(art, max_radius):
+    """512px, as a launcher draws the icon: both layers, cropped to the visible 72 of 108dp."""
+    canvas = round(512 * 108 / 72)
+    icon = Image.new('RGBA', (canvas, canvas), GREEN + (255,))
+    icon.alpha_composite(layer(art, max_radius, canvas))
+    inset = (canvas - 512) // 2
+    return icon.crop((inset, inset, inset + 512, inset + 512))
+
+
+def feature_graphic(source):
+    """1024x500: the full lockup on its own field. Opaque, because Play refuses alpha here."""
+    # Flattened onto the field BEFORE it is scaled. The lockup's corners are transparent black, and
+    # resampling RGBA straight blends that black into the disc's rim, which drew a faint ring.
+    flat = Image.new('RGBA', source.size, GREEN + (255,))
+    flat.alpha_composite(source)
+    side = 440
+    graphic = Image.new('RGB', (1024, 500), GREEN)
+    graphic.paste(flat.convert('RGB').resize((side, side), Image.LANCZOS), ((1024 - side) // 2, (500 - side) // 2))
+    return graphic
+
+
 def main():
     source = Image.open(SRC).convert('RGBA')
     art = keyed(source, largest_component(source))
@@ -130,6 +161,11 @@ def main():
         layer(art, max_radius, size).save(os.path.join(directory, 'ic_launcher_foreground.png'))
         layer(art, max_radius, size, monochrome=True).save(os.path.join(directory, 'ic_launcher_monochrome.png'))
         print(f'  drawable-{bucket}  {size}x{size}')
+
+    os.makedirs(STORE, exist_ok=True)
+    store_icon(art, max_radius).save(os.path.join(STORE, 'icon.png'))
+    feature_graphic(source).save(os.path.join(STORE, 'featureGraphic.png'))
+    print('  play store icon 512x512, feature graphic 1024x500')
 
 
 if __name__ == '__main__':

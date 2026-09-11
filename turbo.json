@@ -15,6 +15,7 @@
                 "$TURBO_ROOT$/deploy/README.md",
                 "$TURBO_ROOT$/docs/licensing.md",
                 "$TURBO_ROOT$/packages/plugin-sdk/README.md",
+                "$TURBO_ROOT$/apps/android/PRIVACY.md",
                 "$TURBO_ROOT$/apps/web/public/**"
             ],
             "outputs": ["dist/**"]

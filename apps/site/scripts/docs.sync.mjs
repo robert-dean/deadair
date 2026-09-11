@@ -4,6 +4,11 @@
 // front matter the sidebar needs and an edit link back to the real file, and the copies are
 // gitignored.
 //
+// Most of them are docs, in the sidebar. The Android app's privacy policy is a PAGE, under
+// `src/pages`, because it is not documentation: it is the address Google Play and the app itself link
+// to, so it wants a short permanent URL (`/privacy/android`) and no sidebar around it. Its source is
+// `apps/android/PRIVACY.md`, which stays the one copy, and the app's own repository readers find it there.
+//
 // A relative link in a source is written for the repository: `src/plugin.error.ts` beside the SDK's
 // README is a file on GitHub and not a page on this site, where it would break the build. So every
 // relative link outside a code fence is rewritten to that file on GitHub, resolved against the
@@ -17,12 +22,14 @@ const site = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const root = resolve(site, '../..');
 const blob = 'https://github.com/robert-dean/deadair/blob/main';
 
-/** Each source file, the doc it becomes, and where it sits in the sidebar. */
+/** Each source file, and either the doc it becomes and where it sits in the sidebar, or the page it becomes. */
 const pages = [
     { source: 'deploy/README.md', doc: 'install.md', label: 'Install', position: 1 },
     { source: 'docs/licensing.md', doc: 'licensing.md', label: 'Music licensing', position: 2 },
     // The plugin contract, which is required reading beside the code and so lives beside the code.
     { source: 'packages/plugin-sdk/README.md', doc: 'plugin-development/contract.md', label: 'The contract', position: 6 },
+    // Linked from the Play listing and from the app's settings screen, so its path is a promise.
+    { source: 'apps/android/PRIVACY.md', page: 'privacy/android.md', title: 'Privacy policy for deadair for Android' },
 ];
 
 /** A link target this site cannot serve as written: not absolute, not a scheme, not an anchor. */
@@ -52,11 +59,12 @@ function rewriteLinks(body, source) {
 
 for (const page of pages) {
     const body = rewriteLinks(await readFile(resolve(root, page.source), 'utf8'), page.source);
+    // A page has no sidebar and no edit link; it has a title, which a doc takes from its H1.
     const frontMatter = [
         '---',
-        `sidebar_label: ${page.label}`,
-        `sidebar_position: ${page.position}`,
-        `custom_edit_url: ${blob}/${page.source}`,
+        ...(page.page
+            ? [`title: ${page.title}`]
+            : [`sidebar_label: ${page.label}`, `sidebar_position: ${page.position}`, `custom_edit_url: ${blob}/${page.source}`]),
         '---',
         '',
     ].join('\n');
@@ -66,7 +74,7 @@ for (const page of pages) {
     // H1 only when it is the first thing on the page, and a comment above it left every copied page
     // titled with its file name.
     const heading = /^# [^\n]*\n/.exec(body)?.[0] ?? '';
-    const target = resolve(site, 'docs', page.doc);
+    const target = page.page ? resolve(site, 'src/pages', page.page) : resolve(site, 'docs', page.doc);
     await mkdir(dirname(target), { recursive: true });
     await writeFile(target, frontMatter + heading + notice + body.slice(heading.length));
 }

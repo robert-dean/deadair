@@ -31,13 +31,16 @@ the layers into `:not(#\#)` specificity hacks, and those outrank every override 
 `src/css/custom.css`: the site comes out in Infima's default blue and system fonts. The block is the
 one Docusaurus's own template ships.
 
-**Three pages are copied in, never edited here.** `scripts/docs.sync.mjs` copies `deploy/README.md`,
+**Four pages are copied in, never edited here.** `scripts/docs.sync.mjs` copies `deploy/README.md`,
 `docs/licensing.md` and `packages/plugin-sdk/README.md` (as `plugin-development/contract.md`) into
-`docs/` on every `start` and `build`, and the copies are gitignored. Edit the source files. A relative
+`docs/` on every `start` and `build`, and `apps/android/PRIVACY.md` into `src/pages/privacy/android.md`,
+a page rather than a doc because Google Play and the app's settings screen link to
+`/privacy/android` and it wants no sidebar. The copies are gitignored, and that URL is a promise:
+moving it breaks the Play listing and every installed app's link. Edit the source files. A relative
 link in a source is written for the repository and would break the site's build, so the script rewrites
 every one outside a code fence to that file on GitHub, resolved against the source's own directory;
 an in-page anchor is left alone. That rewrite is why the SDK's README could join the other two, since
-it links into its own `src/`. `turbo.json` lists all three sources as inputs of this package's `build`,
+it links into its own `src/`. `turbo.json` lists all four sources as inputs of this package's `build`,
 and `site.yml` and `changes.sh` list them as paths that deploy and check it, since they live outside it.
 
 **The "Writing plugins" section is hand-written, and the example it walks through is real code.**

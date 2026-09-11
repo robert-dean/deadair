@@ -82,8 +82,8 @@ listener_sdks='^packages/(sdk-kotlin|sdk-csharp)/'
 build_yml='^\.github/workflows/build\.yml$'
 
 # Anything but prose. Markdown feeding the website is not prose here: the site's own pages, and the
-# three docs it copies in, are checked by building it.
-site_inputs='^(apps/site/|deploy/README\.md$|docs/licensing\.md$|packages/plugin-sdk/README\.md$)'
+# four files it copies in, are checked by building it.
+site_inputs='^(apps/site/|deploy/README\.md$|docs/licensing\.md$|packages/plugin-sdk/README\.md$|apps/android/PRIVACY\.md$)'
 if [ -n "$(first "$site_inputs")" ]; then
     flag tree "$site_inputs"
 else

@@ -4,8 +4,9 @@ name: Site
 #
 # Only on a push to `main` that can change what the site says. The API reference and the OpenAPI
 # spec are committed under `apps/site`, so a contract change reaches the site through the first path
-# below rather than through the contracts themselves; the two operator docs and the brand images are
-# read from outside the package, which is why they are listed too. Whether the site still BUILDS is
+# below rather than through the contracts themselves; the operator docs, the plugin contract, the
+# Android privacy policy and the brand images are read from outside the package, which is why they
+# are listed too. Whether the site still BUILDS is
 # already proved on every pull request: `build.yml` runs `pnpm build`, which includes it, and a
 # broken link fails that build.
 on:
@@ -18,6 +19,7 @@ on:
             - 'deploy/README.md'
             - 'docs/licensing.md'
             - 'packages/plugin-sdk/README.md'
+            - 'apps/android/PRIVACY.md'
             - 'pnpm-lock.yaml'
             - '.github/workflows/site.yml'
     workflow_dispatch:

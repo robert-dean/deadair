@@ -37,6 +37,13 @@ overrides:
     # the advisory is esbuild's own dev server on Windows, which nothing here runs. Vite and the rest
     # already allow 0.28. The image strips tsup and esbuild with the rest of the dev half.
     'tsup>esbuild': ^0.28.1
+    # IN THE IMAGE, under plugin-llm. The AI SDK's v5 line pins undici ^5.29.0 and 5.29.0 is the last
+    # 5.x; the fix is v6 (undici ^6.28.0), which is a migration of the plugin rather than a bump. The
+    # SDK loads this copy only for its download helper, which fetches a file or image URL a model
+    # cannot take directly. Every provider here is handed `hostFetch(host)` and the station sends
+    # text, so it is not on the station's path, but it is in the image. It uses `Agent` with a
+    # `connect.lookup` and `fetch` with a `dispatcher`, both unchanged in 6. Delete with the move to v6.
+    '@ai-sdk/provider-utils@3>undici': ^6.28.1
 
 confirmModulesPurge: false
 

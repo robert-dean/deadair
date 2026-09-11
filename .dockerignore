@@ -24,7 +24,7 @@ stream/music/*
 apps/site/*
 !apps/site/package.json
 
-# The two listener apps and the SDKs generated for them, none of which the station runs. They reached
+# The three listener apps and the SDKs generated for them, none of which the station runs. They reached
 # the image only through `COPY apps` and `COPY packages`, which made an Android-only commit rebuild
 # the JavaScript workspace in all three variants and shipped the Kotlin and C# sources inside it. On a
 # developer's machine the context also carried their build output, which is ignored by git and was
@@ -38,8 +38,11 @@ apps/android/*
 !apps/android/package.json
 apps/desktop/*
 !apps/desktop/package.json
+apps/ios/*
+!apps/ios/package.json
 packages/sdk-kotlin
 packages/sdk-csharp
+packages/sdk-swift
 
 # The tests, which the image has no way to run and no reason to hold. Every package keeps them in
 # a top-level `tests/` beside `src/`, and every build tsconfig includes `src` alone, so this costs

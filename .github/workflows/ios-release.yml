@@ -1,0 +1,183 @@
+# Uploading the iOS listener to TestFlight.
+#
+# A tag or a click, never a branch push, for the reason `android-release.yml` gives: a build Apple
+# has accepted is permanent, and a push trigger would upload one for every README typo. The tag is
+# `ios-v<version>`, because the bare `v*` belongs to the station's own releases.
+#
+# SIGNING IS APPLE'S. The archive and the export are signed with cloud-managed certificates, created
+# on demand by `xcodebuild -allowProvisioningUpdates` against an App Store Connect API key, so there
+# is no certificate or provisioning profile in a secret, and the private key never leaves Apple. The
+# key must have the ADMIN role: App Manager can upload but cannot create a cloud-managed certificate,
+# and the failure then names a profile rather than a role.
+#
+# NONE OF THIS HAS RUN YET. It needs, before the first run: an Apple Developer Program membership;
+# the App ID `com.maroonedsoftware.deadair` and an app record in App Store Connect under it; the
+# current program agreement accepted, or every upload is refused with an error that does not say so;
+# the secrets APP_STORE_CONNECT_KEY_ID, APP_STORE_CONNECT_ISSUER_ID and APP_STORE_CONNECT_KEY_P8
+# (the .p8 file, base64); and the repository variable APPLE_TEAM_ID. `apps/ios/README.md` lists the
+# same, and the first run is the test of the parts nobody could check without the account.
+
+name: iOS release
+
+on:
+    push:
+        tags:
+            - 'ios-v[0-9]*'
+    workflow_dispatch:
+
+# One upload at a time, and never cancelled halfway: App Store Connect keeps what it has received.
+concurrency:
+    group: ios-release
+    cancel-in-progress: false
+
+permissions:
+    contents: read
+
+jobs:
+    testflight:
+        runs-on: macos-latest
+        timeout-minutes: 40
+
+        steps:
+            # The whole history, and it is load-bearing: the build number is `git rev-list --count
+            # HEAD`, and a shallow checkout answers 1, which App Store Connect accepts once and then
+            # refuses as a duplicate for ever.
+            - name: Checkout
+              uses: actions/checkout@v7
+              with:
+                  persist-credentials: false
+                  fetch-depth: 0
+
+            # The version the build is stamped with is `MARKETING_VERSION` in `Version.xcconfig`,
+            # copied there from `apps/ios/package.json` by `pnpm release:version`, and a tag that
+            # disagrees with it is refused rather than believed. Main, because a tag is pushed by
+            # hand and can sit on a commit no pull request ever checked, and because main is what
+            # the build numbers count along.
+            - name: Read the version
+              id: version
+              env:
+                  TAG: ${{ github.event_name == 'push' && github.ref_name || '' }}
+              run: |
+                  set -euo pipefail
+                  version=$(sed -n 's/^MARKETING_VERSION = \([^[:space:]]*\)$/\1/p' apps/ios/Config/Version.xcconfig)
+                  if [ -z "$version" ] || [ "$(printf '%s\n' "$version" | wc -l)" -ne 1 ]; then
+                      echo "::error::Could not read one MARKETING_VERSION out of apps/ios/Config/Version.xcconfig."
+                      exit 1
+                  fi
+                  if [ -n "$TAG" ] && [ "$TAG" != "ios-v$version" ]; then
+                      echo "::error::The tag is $TAG but MARKETING_VERSION is $version. Tag ios-v$version, or change the version first."
+                      exit 1
+                  fi
+                  if [ -n "$TAG" ] && ! git merge-base --is-ancestor HEAD origin/main; then
+                      echo "::error::$TAG is not on main. Merge the commit first, then tag it there."
+                      exit 1
+                  fi
+                  echo "value=${version}" >> "$GITHUB_OUTPUT"
+                  echo "build=$(git rev-list --count HEAD)" >> "$GITHUB_OUTPUT"
+
+            # The same awk `release.yml` cuts the station's notes with, so a version with no entry
+            # fails here rather than uploading a build nobody wrote anything about. The notes are
+            # printed for the record; putting them in TestFlight's "What to Test" is a later step.
+            - name: Take the notes out of the changelog
+              env:
+                  VERSION: ${{ steps.version.outputs.value }}
+              run: |
+                  set -euo pipefail
+                  awk -v v="## [${VERSION}]" '
+                      index($0, v) == 1 { found = 1; next }
+                      found && /^## \[/ { exit }
+                      found && /^\[[^]]+\]: / { exit }
+                      found { print }
+                  ' apps/ios/CHANGELOG.md > notes.md
+                  if ! grep -q '[^[:space:]]' notes.md; then
+                      echo "::error::apps/ios/CHANGELOG.md has no entry for ${VERSION}. Write a changeset naming @deadair/ios."
+                      exit 1
+                  fi
+                  cat notes.md
+
+            # Before anything is built, so a missing secret costs seconds rather than a build.
+            - name: Check the credentials are there
+              env:
+                  KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+                  ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+                  KEY_P8: ${{ secrets.APP_STORE_CONNECT_KEY_P8 }}
+                  TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+              run: |
+                  missing=""
+                  [ -n "$KEY_ID" ] || missing="$missing APP_STORE_CONNECT_KEY_ID"
+                  [ -n "$ISSUER_ID" ] || missing="$missing APP_STORE_CONNECT_ISSUER_ID"
+                  [ -n "$KEY_P8" ] || missing="$missing APP_STORE_CONNECT_KEY_P8"
+                  [ -n "$TEAM_ID" ] || missing="$missing APPLE_TEAM_ID(variable)"
+                  if [ -n "$missing" ]; then
+                      echo "::error::Not set:$missing. apps/ios/README.md says what each one is."
+                      exit 1
+                  fi
+
+            # The image's default Xcode, as the build job checks it, and for the same reason.
+            - name: Check Xcode
+              run: |
+                  set -euo pipefail
+                  xcodebuild -version
+                  major="$(xcodebuild -version | sed -n 's/^Xcode \([0-9]*\).*/\1/p')"
+                  if [ -z "$major" ] || [ "$major" -lt 16 ]; then
+                      echo "::error::The runner's Xcode is older than 16, which the project's synchronized folders need."
+                      exit 1
+                  fi
+
+            # The same gates the build job runs. A release that skipped them would be the one build
+            # nobody checked.
+            - name: Build the generated SDK
+              run: swift build --package-path packages/sdk-swift -Xswiftc -warnings-as-errors
+
+            - name: Test the core
+              run: apps/ios/Packages/DeadairCore/test.sh
+
+            # Written into the runner's temporary directory rather than passed on a command line
+            # where `ps` could read it, and removed in the last step whatever happened before it.
+            - name: Install the App Store Connect key
+              env:
+                  KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+                  KEY_P8: ${{ secrets.APP_STORE_CONNECT_KEY_P8 }}
+              run: |
+                  set -euo pipefail
+                  mkdir -p "$RUNNER_TEMP/keys"
+                  printf '%s' "$KEY_P8" | base64 --decode > "$RUNNER_TEMP/keys/AuthKey_${KEY_ID}.p8"
+                  chmod 600 "$RUNNER_TEMP/keys/AuthKey_${KEY_ID}.p8"
+
+            # The team goes in here rather than in the committed plist: a plist does not expand
+            # build settings, and the team is the account's, not the tree's.
+            - name: Archive
+              working-directory: apps/ios
+              env:
+                  KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+                  ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+                  TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+                  BUILD: ${{ steps.version.outputs.build }}
+              run: |
+                  set -euo pipefail
+                  plutil -replace teamID -string "$TEAM_ID" Config/ExportOptions.plist
+                  xcodebuild archive -quiet -project Deadair.xcodeproj -scheme Deadair -configuration Release \
+                      -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/Deadair.xcarchive" \
+                      -allowProvisioningUpdates \
+                      -authenticationKeyPath "$RUNNER_TEMP/keys/AuthKey_${KEY_ID}.p8" \
+                      -authenticationKeyID "$KEY_ID" -authenticationKeyIssuerID "$ISSUER_ID" \
+                      DEVELOPMENT_TEAM="$TEAM_ID" CURRENT_PROJECT_VERSION="$BUILD"
+
+            # `destination: upload` in the plist makes the export the upload; there is no IPA to keep.
+            # `manageAppVersionAndBuildNumber: false` stops Xcode replacing the commit count.
+            - name: Upload to TestFlight
+              working-directory: apps/ios
+              env:
+                  KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+                  ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+              run: |
+                  set -euo pipefail
+                  xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/Deadair.xcarchive" \
+                      -exportOptionsPlist Config/ExportOptions.plist -exportPath "$RUNNER_TEMP/export" \
+                      -allowProvisioningUpdates \
+                      -authenticationKeyPath "$RUNNER_TEMP/keys/AuthKey_${KEY_ID}.p8" \
+                      -authenticationKeyID "$KEY_ID" -authenticationKeyIssuerID "$ISSUER_ID"
+
+            - name: Remove the key
+              if: always()
+              run: rm -rf "$RUNNER_TEMP/keys"

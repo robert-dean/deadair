@@ -1,5 +1,5 @@
-// Turns the pending changesets into versions and changelog entries, for the three things this tree
-// releases: the station, the Android listener and the desktop app.
+// Turns the pending changesets into versions and changelog entries, for the four things this tree
+// releases: the station, the Android listener, the desktop app and the iOS listener.
 //
 //     pnpm release:version [--summary <file>]    bump, write the changelogs, mirror the app versions
 //     pnpm release:version --sync                 mirror the app versions only

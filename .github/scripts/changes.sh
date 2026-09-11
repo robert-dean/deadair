@@ -2,7 +2,7 @@
 # Which parts of the tree a push or a pull request changed, as one true/false flag per part.
 #
 # Every job that is not worth running for every commit reads one of these: the tests, the sidecar,
-# the two listener apps, the codegen check and the images. The rules live here rather than in the
+# the three listener apps, the codegen check and the images. The rules live here rather than in the
 # workflows so that there is one list, and so that it can be run by hand against real history:
 #
 #     BASE=<commit> HEAD_REF=<commit> .github/scripts/changes.sh
@@ -19,7 +19,7 @@
 
 set -euo pipefail
 
-FLAGS="tree node generated sidecar android desktop image"
+FLAGS="tree node generated sidecar android desktop ios image"
 HEAD_REF="${HEAD_REF:-HEAD}"
 
 emit() {
@@ -78,7 +78,7 @@ fi
 
 # The listener apps' generated SDKs live under `packages/` beside the station's own packages, but
 # nothing the station builds, tests or ships reads them.
-listener_sdks='^packages/(sdk-kotlin|sdk-csharp)/'
+listener_sdks='^packages/(sdk-kotlin|sdk-csharp|sdk-swift)/'
 build_yml='^\.github/workflows/build\.yml$'
 
 # Anything but prose. Markdown feeding the website is not prose here: the site's own pages, and the
@@ -96,12 +96,13 @@ fi
 flag node "^(apps/api/|apps/web/|plugins/|packages/|examples/|scripts/|package\.json$|pnpm-lock\.yaml$|pnpm-workspace\.yaml$|turbo\.json$|vitest\.config\.ts$)|${build_yml}" "${listener_sdks}|\.md$"
 
 # Everything `pnpm codegen` reads or writes: the contracts, permissions and migrations under
-# `apps/api`, the three SDKs, the website's API reference and spec, and the tool versions.
-flag generated "^(apps/api/|packages/(sdk|sdk-kotlin|sdk-csharp)/|apps/site/docs/api-reference/|apps/site/static/|package\.json$|pnpm-lock\.yaml$)|${build_yml}"
+# `apps/api`, the four SDKs, the website's API reference and spec, and the tool versions.
+flag generated "^(apps/api/|packages/(sdk|sdk-kotlin|sdk-csharp|sdk-swift)/|apps/site/docs/api-reference/|apps/site/static/|package\.json$|pnpm-lock\.yaml$)|${build_yml}"
 
 flag sidecar "^analysis/|${build_yml}" '\.md$'
 flag android "^(apps/android/|packages/sdk-kotlin/)|${build_yml}"
 flag desktop "^(apps/desktop/|packages/sdk-csharp/)|${build_yml}"
+flag ios "^(apps/ios/|packages/sdk-swift/)|${build_yml}"
 
 # What the Dockerfile copies in, less what `.dockerignore` keeps out: the station's workspace, the
 # audio chain, the sidecar, the pads and the image's own config. Tests and prose change nothing in it.

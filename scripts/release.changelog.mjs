@@ -1,18 +1,19 @@
 // The pure half of `release.version.mjs`: what goes into a changelog entry, where it goes, and the
-// two build files each listener app's version is mirrored into. Nothing here touches the disk, so
+// build file each listener app's version is mirrored into. Nothing here touches the disk, so
 // all of it is tested by `tests/release.changelog.test.ts`.
 
 export const REPO = 'https://github.com/robert-dean/deadair';
 
 /**
- * The three things this tree releases. The station is every versioned package that ships in the
+ * The four things this tree releases. The station is every versioned package that ships in the
  * image, sharing one number through the `fixed` group in `.changeset/config.json`, so its version is
- * read off `apps/api` as a representative. The two listener apps have a manifest each for no reason
- * but this one.
+ * read off `apps/api` as a representative. The three listener apps have a manifest each for no
+ * reason but this one.
  *
  * `tag` is the git tag a version is released under, which the changelog's compare links name. The
- * station's is cut by `release.yml`; the apps' are pushed by hand (Android) or cut by their release
- * workflow (desktop), in namespaces of their own because the bare `v*` belongs to the station.
+ * station's is cut by `release.yml`; the apps' are pushed by hand (Android, iOS) or cut by their
+ * release workflow (desktop), in namespaces of their own because the bare `v*` belongs to the
+ * station.
  */
 export const UNITS = [
     { id: 'station', label: 'Station', manifest: 'apps/api/package.json', changelog: 'CHANGELOG.md', tag: version => `v${version}` },
@@ -30,20 +31,30 @@ export const UNITS = [
         changelog: 'apps/desktop/CHANGELOG.md',
         tag: version => `desktop-v${version}`,
     },
+    {
+        id: 'ios',
+        label: 'iOS',
+        manifest: 'apps/ios/package.json',
+        changelog: 'apps/ios/CHANGELOG.md',
+        tag: version => `ios-v${version}`,
+    },
 ];
 
 /**
  * Where each listener app's version is written a second time, for the build tool that stamps the
- * artifact. Gradle and MSBuild cannot read a package.json, so the number is copied into these and
- * `--check` fails CI when a hand edit moves one copy without the other.
+ * artifact. Gradle, MSBuild and Xcode cannot read a package.json, so the number is copied into these
+ * and `--check` fails CI when a hand edit moves one copy without the other.
  *
  * Each pattern must match exactly once. `Directory.Build.props` holds the app's `<Version>`; the
  * desktop plugin SDK's own `<Version>` is the plugin ABI, lives in a different file, and is never
- * opened here.
+ * opened here. `Version.xcconfig` holds `MARKETING_VERSION`, which the project file never states
+ * itself, because a setting in the project file silently beats the same setting in an xcconfig.
+ * The third group is empty so the pattern has the shape `writeMirror` splices around.
  */
 export const MIRRORS = [
     { unit: 'android', file: 'apps/android/app/build.gradle.kts', pattern: /^(\s*versionName = ")([^"]*)(")$/gm },
     { unit: 'desktop', file: 'apps/desktop/Directory.Build.props', pattern: /(<Version>)([^<]*)(<\/Version>)/g },
+    { unit: 'ios', file: 'apps/ios/Config/Version.xcconfig', pattern: /^(MARKETING_VERSION = )(\S+)()$/gm },
 ];
 
 const BUMP_ORDER = { major: 0, minor: 1, patch: 2 };
@@ -61,6 +72,9 @@ export function unitOf(name, ignored) {
     }
     if (name === '@deadair/desktop') {
         return 'desktop';
+    }
+    if (name === '@deadair/ios') {
+        return 'ios';
     }
     return 'station';
 }

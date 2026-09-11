@@ -1,0 +1,16 @@
+deadair is an AI radio station you run yourself. It picks the records, writes what the presenter says between them, speaks it, and streams the result. This app is how you listen to one.
+
+You need a station to point it at. deadair is free, open-source server software: run it on a home server, a NAS or a rented machine, then give this app the address its console loads from. The app does not come with a station of its own. How to run one is at deadair.radio.
+
+LISTENING
+• Plays in the background, with lock-screen, Control Center and headphone controls
+• Shows what is on air, its artwork, and how far through the record it is
+• MP3 always, plus HLS, AAC, Opus or FLAC when the station publishes them. HLS is the one for a phone that moves between wifi and mobile data
+• Works over plain HTTP on a home network, or anywhere behind HTTPS
+• No account needed to listen
+
+FOR THE PERSON WHO RUNS THE STATION
+Sign in with the station's operator account, including its authenticator code, and the app remembers the session in the iPhone's Keychain.
+
+PRIVATE BY DESIGN
+No ads, no analytics, no crash reporting, no account with us. The app talks only to the station you point it at.

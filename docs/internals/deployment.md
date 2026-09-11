@@ -88,8 +88,8 @@ installed after the source copy instead. The copy over the top is the MEMBERS, `
 `link-peers.mjs` and nothing else, for the fence's own reason one stage out: it was `COPY . .`, which made a
 JavaScript rebuild a function of every file in the tree, so editing an nginx snippet rebuilt all fifteen
 packages from nothing. The same argument is why `.dockerignore` keeps out everything under `apps/` and
-`packages/` that the station does not run: the website's source, and the two listener apps with their
-generated Kotlin and C# SDKs, which `COPY apps` and `COPY packages` otherwise carried in whole. Images are built and published by `.github/workflows/`, three variants from two build
+`packages/` that the station does not run: the website's source, and the three listener apps with their
+generated Kotlin, C# and Swift SDKs, which `COPY apps` and `COPY packages` otherwise carried in whole. Images are built and published by `.github/workflows/`, three variants from two build
 args plus a third that selects nothing, and `codegen` is never run there for the reason it is never run
 anywhere automated: its outputs are committed and regenerating them needs a live database.
 
@@ -107,7 +107,7 @@ them: over sixty commits the macOS desktop build ran sixty times with sixteen ch
 the sidecar's tests ran sixty times for one. `.github/scripts/changes.sh` diffs the push (or the pull
 request's merge commit) against its base and answers one flag per part: `tree` (anything but prose,
 which gates the build and the formatting check, a warning rather than a failure), `node` (the TypeScript workspace, which gates the test
-shards), `generated`, `sidecar`, `android`, `desktop` and `image`. `changes.yml` runs it first in
+shards), `generated`, `sidecar`, `android`, `desktop`, `ios` and `image`. `changes.yml` runs it first in
 both `pr.yml` and `release.yml`, and `build.yml` takes the flags as inputs that default to true.
 
 **`image` is the one that deploys.** It is what the Dockerfile copies in, less what `.dockerignore`
@@ -158,9 +158,9 @@ not publishing; a push still builds and pushes without either.
 
 ## Releasing
 
-**A release is a version the manifest names and the repository has no tag for.** Three things are
+**A release is a version the manifest names and the repository has no tag for.** Four things are
 versioned by changesets, each with its own changelog: the station (seventeen packages in one `fixed`
-group, because they ship in one image), `@deadair/android` and `@deadair/desktop`. `release.yml`'s
+group, because they ship in one image), `@deadair/android`, `@deadair/desktop` and `@deadair/ios`. `release.yml`'s
 `version` job reads the station's number off `apps/api/package.json` and asks the API for a `v<it>`
 tag; none means this push is the release. That is true of exactly one commit per version, the merge
 of the `chore: update versions` pull request, because between releases main carries the LAST
@@ -213,9 +213,9 @@ Actions settings, and the pull request runs no checks, because GitHub starts not
 workflow token caused. Nothing on that branch is new code, and the merge runs every check before
 `publish` tags anything.
 
-**Each listener app's number is written twice.** Gradle and MSBuild cannot read a `package.json`, so
-the script copies it into `versionName` in `app/build.gradle.kts` and `<Version>` in
-`Directory.Build.props`, and the build job's `pnpm release:version --check` fails when a hand edit
+**Each listener app's number is written twice.** Gradle, MSBuild and Xcode cannot read a
+`package.json`, so the script copies it into `versionName` in `app/build.gradle.kts`, `<Version>` in
+`Directory.Build.props` and `MARKETING_VERSION` in `apps/ios/Config/Version.xcconfig`, and the build job's `pnpm release:version --check` fails when a hand edit
 moves one copy without the other.
 
 ## Publishing

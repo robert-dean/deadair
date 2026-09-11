@@ -22,6 +22,7 @@ const station = UNITS.find(unit => unit.id === 'station')!;
 const desktop = UNITS.find(unit => unit.id === 'desktop')!;
 const android = MIRRORS.find(mirror => mirror.unit === 'android')!;
 const props = MIRRORS.find(mirror => mirror.unit === 'desktop')!;
+const xcconfig = MIRRORS.find(mirror => mirror.unit === 'ios')!;
 
 const changelog = `# Changelog
 
@@ -61,6 +62,7 @@ describe('unitOf', () => {
     it('puts each listener app in its own unit and everything else versioned in the station', () => {
         expect(unitOf('@deadair/android', ignored)).toBe('android');
         expect(unitOf('@deadair/desktop', ignored)).toBe('desktop');
+        expect(unitOf('@deadair/ios', ignored)).toBe('ios');
         expect(unitOf('@deadair/plugin-rss', ignored)).toBe('station');
         expect(unitOf('@deadair/api', ignored)).toBe('station');
     });
@@ -182,6 +184,14 @@ describe('the desktop release’s notes', () => {
     });
 });
 
+describe('the iOS release’s notes', () => {
+    it('are cut from the iOS changelog, by the same program as the station’s', () => {
+        const programs = awkPrograms('ios-release.yml');
+        expect([...programs.keys()]).toEqual(['apps/ios/CHANGELOG.md']);
+        expect(programs.get('apps/ios/CHANGELOG.md')).toBe([...awkPrograms('release.yml').values()][0]);
+    });
+});
+
 describe('the mirrored versions', () => {
     const gradle = 'android {\n    defaultConfig {\n        versionCode = gitCommitCount.get()\n        versionName = "0.1.0"\n    }\n}\n';
     const xml = '<Project>\n  <PropertyGroup>\n    <Version>0.1.0</Version>\n  </PropertyGroup>\n</Project>\n';
@@ -194,6 +204,12 @@ describe('the mirrored versions', () => {
     it('are read and rewritten in MSBuild', () => {
         expect(readMirror(xml, props)).toBe('0.1.0');
         expect(writeMirror(xml, props, '1.0.0')).toBe(xml.replace('0.1.0', '1.0.0'));
+    });
+
+    it('are read and rewritten in an xcconfig, leaving the build number alone', () => {
+        const config = '// A comment naming MARKETING_VERSION = 9.9.9 is not the setting.\nMARKETING_VERSION = 0.1.0\nCURRENT_PROJECT_VERSION = 1\n';
+        expect(readMirror(config, xcconfig)).toBe('0.1.0');
+        expect(writeMirror(config, xcconfig, '0.2.0')).toBe(config.replace('= 0.1.0', '= 0.2.0'));
     });
 
     it('refuse a file that states the version twice or not at all', () => {

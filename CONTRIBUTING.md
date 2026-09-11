@@ -13,9 +13,10 @@ pnpm --filter @deadair/api migrate:up
 pnpm dev
 ```
 
-Node 26+, pnpm and Turborepo. The Android app has its own Gradle build and the desktop app its own
-.NET solution. Each has a `package.json` holding a name and a version and nothing else, which is how
-changesets numbers their releases; pnpm and turbo find nothing in them to install or run.
+Node 26+, pnpm and Turborepo. The Android app has its own Gradle build, the desktop app its own
+.NET solution and the iOS app its own Xcode project. Each has a `package.json` holding a name and a
+version and nothing else, which is how changesets numbers their releases; pnpm and turbo find
+nothing in them to install or run.
 
 ## Before you open a pull request
 
@@ -76,10 +77,10 @@ the code yet gets the `unscoped` label, and loses it once somebody designs it ag
 
 ## Releasing
 
-Three things are released from this tree, each with its own version and changelog: the station
+Four things are released from this tree, each with its own version and changelog: the station
 (every `@deadair/*` package under `apps/api`, `apps/web`, `packages/` and `plugins/`, which ship as one
-image and share one number), the Android listener (`@deadair/android`) and the desktop app
-(`@deadair/desktop`).
+image and share one number), the Android listener (`@deadair/android`), the desktop app
+(`@deadair/desktop`) and the iOS listener (`@deadair/ios`).
 
 A change somebody running the station or listening to it would notice gets a changeset, in the same
 pull request:
@@ -99,10 +100,11 @@ pnpm changeset --minor @deadair/plugin-rss --patch @deadair/android -m 'RSS feed
 `.changeset/README.md` says the same in fewer words.
 
 `pnpm release:version` consumes the pending changesets: changesets bumps the manifests, and the
-script writes one entry per unit into `CHANGELOG.md`, `apps/android/CHANGELOG.md` and
-`apps/desktop/CHANGELOG.md`, then copies each app's number into the file its build stamps
-(`app/build.gradle.kts`, `Directory.Build.props`). Change an app's version in its `package.json` and
-nowhere else; the build job fails when a copy disagrees.
+script writes one entry per unit into `CHANGELOG.md`, `apps/android/CHANGELOG.md`,
+`apps/desktop/CHANGELOG.md` and `apps/ios/CHANGELOG.md`, then copies each app's number into the file
+its build stamps (`app/build.gradle.kts`, `Directory.Build.props`, `Config/Version.xcconfig`).
+Change an app's version in its `package.json` and nowhere else; the build job fails when a copy
+disagrees.
 
 Nobody runs that by hand to release. Every push to `main` carrying a changeset has CI run it on a
 branch and open, or refresh, a pull request titled `chore: update versions` holding the bumps and the
@@ -120,6 +122,8 @@ The listener apps are numbered by the same pull request and published on their o
 `android-v<version>` tag on main publishes that build to Play's internal track, and anything further
 is the Android release workflow run by hand (`apps/android/README.md` walks it). The Desktop release
 workflow, run by hand, cuts `desktop-v<version>` with the entry from `apps/desktop/CHANGELOG.md`.
+Pushing an `ios-v<version>` tag on main uploads that build to TestFlight through the iOS release
+workflow (`apps/ios/README.md` lists what Apple needs first).
 
 ## Commit messages
 

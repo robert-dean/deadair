@@ -26,6 +26,7 @@ was shipped first and was wrong.
 | `plugins/**`, `packages/plugin-sdk/**` | [`packages/plugin-sdk/CLAUDE.md`](packages/plugin-sdk/CLAUDE.md), then its [`README.md`](packages/plugin-sdk/README.md) |
 | `apps/android/**`, `packages/sdk-kotlin/**` | [`apps/android/CLAUDE.md`](apps/android/CLAUDE.md) |
 | `apps/desktop/**`, `packages/sdk-csharp/**` | [`apps/desktop/CLAUDE.md`](apps/desktop/CLAUDE.md) |
+| `apps/ios/**`, `packages/sdk-swift/**` | [`apps/ios/CLAUDE.md`](apps/ios/CLAUDE.md) |
 | the running order, briefs, periods, committing, track audio | [`docs/internals/director.md`](docs/internals/director.md) |
 | which records get chosen, ratings, advisory, the search tool | [`docs/internals/programming.md`](docs/internals/programming.md) |
 | what a break says, facts, phrasings, bulletins, the format clock | [`docs/internals/breaks.md`](docs/internals/breaks.md) |
@@ -107,6 +108,11 @@ apps/desktop      Avalonia listener and operator desk (.NET 10, C#). Its own sol
                   and a package.json that is a version for changesets, as apps/android's is
 packages/sdk-csharp   the same contracts as a C#/System.Text.Json client, for the desktop app.
                       Generated, save for the one project file; no package.json
+apps/ios          SwiftUI listener app (AVFoundation). Its own Xcode project and CI job, a local
+                  Swift package holding every tested decision, and a package.json that is a
+                  version for changesets, as the other two apps' are
+packages/sdk-swift    the same contracts as a Swift/Codable client, for the iOS app. Generated,
+                      save for Package.swift; no package.json
 packages/error-codes  shared error code constants
 packages/config-*     shared eslint / tsconfig
 plugins/*             bundled plugins: spotify, navidrome, musicbrainz, lastfm, wikipedia (the
@@ -136,13 +142,14 @@ Everything else is scoped. These five are not, and each one is cheap to break fr
 
 **Generated output.** ContractKit routers and types are generated from `.ck` files in
 `apps/api/data/contracts` (`pnpm build:contracts`), and so are the Kotlin SDK in
-`packages/sdk-kotlin` that the Android listener compiles and the C# SDK in `packages/sdk-csharp` that
-the desktop app compiles, and so is the website's API reference under `apps/site/docs/api-reference`
-(its `index.md` aside). Permission types in
-`apps/api/src/modules/permissions/generated` come from `apps/api/data/permissions/*.perm` via pdsl
-(`pnpm build:permissions`). Kysely types come from `pnpm build:datatypes` (enum override sync, then
-kysely-codegen). `pnpm rebuild:data` rolls the schema all the way down and back up. Never hand-edit
-any of it. Migrations are dbmate SQL under `apps/api/data/migrations`, schema `deadair`.
+`packages/sdk-kotlin` that the Android listener compiles, the C# SDK in `packages/sdk-csharp` that
+the desktop app compiles and the Swift SDK in `packages/sdk-swift` that the iOS app compiles, and so
+is the website's API reference under `apps/site/docs/api-reference` (its `index.md` aside).
+Permission types in `apps/api/src/modules/permissions/generated` come from
+`apps/api/data/permissions/*.perm` via pdsl (`pnpm build:permissions`). Kysely types come from
+`pnpm build:datatypes` (enum override sync, then kysely-codegen). `pnpm rebuild:data` rolls the
+schema all the way down and back up. Never hand-edit any of it. Migrations are dbmate SQL under
+`apps/api/data/migrations`, schema `deadair`.
 **CI regenerates all three and fails on anything that moved** (the `generated` job, which is the only
 one allowed to run codegen because the database it walks from zero is its own service container), so
 an edited `.ck`, `.perm` or migration merged without its output beside it is now a red check rather

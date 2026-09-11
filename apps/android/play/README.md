@@ -123,12 +123,17 @@ The IP address and the `deadair-android/<version>` User-Agent reach the station 
 any server a phone connects to. Neither is a data type the form lists. What an operator does from
 the phone (a skip, a rating) is a command to their own station rather than data about them.
 
-**Foreground service: media playback. Not yet declared**, and it is the one App content section
-still open. The console asks what the service does and for a video link showing it. Description:
+**Foreground service: media playback. Declared 2026-09-11**, task "Media playback", with the video
+at https://www.youtube.com/watch?v=Cp0G9SPkM68 (unlisted). For media playback the console asks for
+the task and the link only; a description box appears for "Other" alone. The description below is
+kept for the day a reviewer asks what the service does:
 
 > Plays the radio station the user chose, and keeps playing when the app is in the background or
 > the screen is off. Started only when the user presses play, in the app, on the notification, on
 > a Bluetooth device or from Android's media controls; stopped when they press stop.
 
 The video is a screen recording of pressing play, going to the home screen, turning the screen off
-and back on, and stopping from the notification. Unlisted on YouTube is what the console expects.
+and back on, and stopping from the notification. `adb shell screenrecord` takes it on the emulator;
+it carries no audio, which is fine, because what it has to show is the media control still playing
+with the app out of sight. Unlisted on YouTube is what the console expects. Record it again if the
+playback service or its notification changes enough that the old one no longer matches.

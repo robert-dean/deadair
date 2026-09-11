@@ -86,14 +86,14 @@ pointing at something that has never existed:
 apps/api          Koa server, ContractKit routers, dbmate migrations
 apps/web          React console (Vite, TanStack Router, Mantine)
 apps/site         the public website at deadair.radio (Docusaurus). Never in the image
-apps/android      Kotlin/Compose listener app (Media3). Its own Gradle build and CI job; no
-                  package.json, on the same footing as analysis/
+apps/android      Kotlin/Compose listener app (Media3). Its own Gradle build and CI job. Its
+                  package.json is a name and a version for changesets, and nothing else
 packages/plugin-sdk   the plugin contract and host capabilities
 packages/sdk          typed client for the API, generated from the contracts
 packages/sdk-kotlin   the same contracts as a Kotlin/Ktor client, for the Android app. Generated;
                       no package.json, so pnpm and turbo never see it
-apps/desktop      Avalonia listener and operator desk (.NET 10, C#). Its own solution and CI job; no
-                  package.json, on the same footing as apps/android and analysis/
+apps/desktop      Avalonia listener and operator desk (.NET 10, C#). Its own solution and CI job,
+                  and a package.json that is a version for changesets, as apps/android's is
 packages/sdk-csharp   the same contracts as a C#/System.Text.Json client, for the desktop app.
                       Generated, save for the one project file; no package.json
 packages/error-codes  shared error code constants

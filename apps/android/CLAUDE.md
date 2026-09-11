@@ -15,12 +15,16 @@ the ones covering whatever you are about to change. The always-loaded index is
 
 ## Where it sits
 
-**Not a pnpm workspace member, deliberately.** There is no `package.json`, so the `apps/*` glob
-skips it and turbo and the root `vitest.config.ts` never see it. That is the arrangement
-`analysis/` already has and the reason is the same read from the other end: a Gradle build shares
-no task graph, no `dist`, and no test runner with the TypeScript tree, so one CI job of its own is
-cheaper and more honest than making it pretend. Its build droppings are in the ROOT `.gitignore`,
-because that is the only one in the tree.
+**A pnpm workspace member on paper only, deliberately.** Its `package.json` is a name, a version and
+`private`, and it exists for one reader: changesets, which can number only workspace packages, and
+which is how this app's releases are numbered. It has no scripts and no dependencies, so turbo finds
+nothing to run and the install nothing to fetch, and the root `vitest.config.ts` globs for a
+`vitest.config.ts` this directory does not have. Nothing else changed, and the reason is the one
+`analysis/` has: a Gradle build shares no task graph, no `dist`, and no test runner with the
+TypeScript tree, so one CI job of its own is cheaper and more honest than making it pretend. Two
+consequences: the lockfile names it as an (empty) importer, and `.dockerignore` keeps the manifest
+while dropping the rest, because the image's frozen install checks every member the lockfile names.
+Its build droppings are in the ROOT `.gitignore`, because that is the only one in the tree.
 
 **Two Gradle modules.** `:app` is this directory. `:sdk` is `packages/sdk-kotlin`, included by
 path from `settings.gradle.kts` — a plain JVM library, not Kotlin Multiplatform, because the only

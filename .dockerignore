@@ -24,14 +24,20 @@ stream/music/*
 apps/site/*
 !apps/site/package.json
 
-# The two listener apps and the SDKs generated for them, none of which the station runs. None is a
-# workspace member, so the install never sees them either; they reached the image only through
-# `COPY apps` and `COPY packages`, which made an Android-only commit rebuild the JavaScript workspace
-# in all three variants and shipped the Kotlin and C# sources inside it. On a developer's machine the
-# context also carried their build output, which is ignored by git and was not ignored here: 2.6GB of
-# MSBuild under `apps/desktop` and 400MB of Gradle under `apps/android`, measured.
-apps/android
-apps/desktop
+# The two listener apps and the SDKs generated for them, none of which the station runs. They reached
+# the image only through `COPY apps` and `COPY packages`, which made an Android-only commit rebuild
+# the JavaScript workspace in all three variants and shipped the Kotlin and C# sources inside it. On a
+# developer's machine the context also carried their build output, which is ignored by git and was
+# not ignored here: 2.6GB of MSBuild under `apps/desktop` and 400MB of Gradle under `apps/android`,
+# measured.
+#
+# Each app's manifest stays, for the site's reason above: it holds nothing but a name and a version
+# (it exists so changesets can number the app's releases), but it makes the app a workspace member,
+# and the lockfile the frozen install checks against names every member.
+apps/android/*
+!apps/android/package.json
+apps/desktop/*
+!apps/desktop/package.json
 packages/sdk-kotlin
 packages/sdk-csharp
 

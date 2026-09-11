@@ -14,7 +14,8 @@ pnpm dev
 ```
 
 Node 26+, pnpm and Turborepo. The Android app has its own Gradle build and the desktop app its own
-.NET solution; neither has a `package.json`, and neither is in the pnpm workspace.
+.NET solution. Each has a `package.json` holding a name and a version and nothing else, which is how
+changesets numbers their releases; pnpm and turbo find nothing in them to install or run.
 
 ## Before you open a pull request
 

@@ -64,7 +64,7 @@ before shooting, or the screenshots show an old build.
 | Category | Music & Audio |
 | Contact email | `android@deadair.radio`, the one [`PRIVACY.md`](../PRIVACY.md) gives. They are one address on purpose; change both or neither |
 | Website | https://deadair.radio |
-| Privacy policy | https://github.com/robert-dean/deadair/blob/main/apps/android/PRIVACY.md |
+| Privacy policy | https://deadair.radio/privacy/android, built from `PRIVACY.md`. The console still names the GitHub blob URL the first review was submitted with; switch it once the first review is through |
 
 ## App content
 

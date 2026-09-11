@@ -167,11 +167,21 @@ be.
 
 ### The privacy policy
 
-[`PRIVACY.md`](PRIVACY.md), and Play needs it at a public URL rather than as a file: the GitHub
-blob URL for it is enough. It is short because the app genuinely collects nothing, and it is
-accurate about the two things somebody would otherwise miss — the station is a server the listener
-chose and Marooned Software does not run it, and cover art may be fetched from a third-party image
-host when the station's own metadata points at one rather than at its cached copy.
+[`PRIVACY.md`](PRIVACY.md), published at **https://deadair.radio/privacy/android**: the website's
+build copies it in, so this file stays the one copy and a push that edits it redeploys the page.
+That address is what the Play listing names and what the app opens, from the foot of Settings and
+from the setup screen (`ui/PrivacyPolicyLink.kt`). The setup screen matters: Play requires the
+policy to be reachable from inside the app, and a reviewer with no station never reaches Settings.
+The path is a promise to every installed copy, so it does not move.
+
+It was the GitHub blob URL until 2026-09-11, when Play's pre-review check reported that URL as a
+404 while it answered 200 to everything else, and an editable-looking page on a code host is a
+weaker thing to point a policy check at than a page of our own.
+
+It is short because the app genuinely collects nothing, and it is accurate about the two things
+somebody would otherwise miss — the station is a server the listener chose and Marooned Software
+does not run it, and cover art may be fetched from a third-party image host when the station's own
+metadata points at one rather than at its cached copy.
 
 Keep it true if the app ever gains a dependency that phones home.
 
@@ -280,8 +290,8 @@ does:
 
    Play runs quick checks before it sends anything, and on 2026-09-11 they reported the GitHub
    privacy policy URL as a 404 while it answered 200 to every agent tried, Googlebot's included.
-   "I have fixed issues with my privacy policy page" cleared it. If it comes back, move the
-   policy to a page on deadair.radio rather than arguing with the check.
+   "I have fixed issues with my privacy policy page" cleared it. The policy has since moved to
+   deadair.radio (see [The privacy policy](#the-privacy-policy)), which is the URL to give it.
 6. **Widen** an update with promote, `production` on both sides: `inProgress` at 0.5, then
    `completed`. If Android vitals shows crashes or ANRs the build did not have on internal,
    `halted` instead, and the fix goes out as a new build through the same steps.

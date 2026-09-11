@@ -47,7 +47,8 @@ const config: Config = {
 
     // The brand mark lives with the console and is served from there rather than copied. Everything
     // in `apps/web/public` is therefore on the site too, which today is the logo and the favicon.
-    // `static` holds `openapi.yaml`, which `pnpm build:contracts` writes from the contracts.
+    // `static` holds `openapi.yaml`, which `pnpm build:contracts` writes from the contracts, and
+    // `img/console/`, which `scripts/console.capture.mjs` photographs from a running station.
     staticDirectories: ['static', '../web/public'],
 
     clientModules: ['./src/fonts.ts'],
@@ -71,6 +72,7 @@ const config: Config = {
             title: 'deadair',
             logo: { alt: 'deadair', src: 'logo-mark.png' },
             items: [
+                { type: 'doc', docId: 'features/index', label: 'Features', position: 'left' },
                 { type: 'doc', docId: 'install', label: 'Install', position: 'left' },
                 { type: 'doc', docId: 'licensing', label: 'Licensing', position: 'left' },
                 { href: repository, label: 'GitHub', position: 'right' },
@@ -82,6 +84,7 @@ const config: Config = {
                 {
                     title: 'Run it',
                     items: [
+                        { label: 'Features', to: '/docs/features' },
                         { label: 'Install', to: '/docs/install' },
                         { label: 'Music licensing', to: '/docs/licensing' },
                     ],

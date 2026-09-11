@@ -4,8 +4,9 @@
     from 12 the same claim has to be made here, separately for a cloud backup and for a transfer to
     a new phone.
 
-    The app stores two things: the station's address and the chosen format. Restoring those onto a
-    different device would point it at a station that device may not be able to reach — a LAN
+    The app stores a few settings (the station's address and name, the chosen format, whether to
+    take colours from the wallpaper) and, only when signed in, that station's session. Restoring the
+    address onto a different device would point it at a station that device may not reach — a LAN
     address is meaningless on someone else's network — and the failure would look like the app
     being broken rather than like a setting being wrong. Typing an address once is cheaper.
 

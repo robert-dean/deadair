@@ -18,7 +18,7 @@ private val Context.sessionPreferences: DataStore<Preferences> by preferencesDat
  *
  * ## Why a second file rather than two more keys in `listener`
  *
- * Different lifetimes. The two settings are edited by a person and outlive everything; a session is
+ * Different lifetimes. The settings are edited by a person and outlive everything; a session is
  * cleared on sign-out and again whenever the station changes, and is the one thing here that is
  * worth deleting rather than correcting. Keeping them apart means `SettingsStore` stays what its
  * own documentation says it is, and a `clear()` here cannot take the station address with it.

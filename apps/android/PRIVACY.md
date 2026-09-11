@@ -1,6 +1,6 @@
 # Privacy policy for deadair for Android
 
-Last updated: 6 September 2026
+Last updated: 11 September 2026
 
 deadair for Android is published by Marooned Software. It is a listening app for a deadair radio
 station, which is server software that its users run themselves.
@@ -16,10 +16,11 @@ station alone, never to Marooned Software or to any service of ours.
 
 ## What the app stores on your device
 
-Two settings, and only on the device:
+A handful of settings, and only on the device:
 
-- the address of the station you chose to listen to
+- the address of the station you chose to listen to, and the name it gave when the app checked it
 - which audio format you picked
+- whether the app takes its colours from your wallpaper
 
 And, only if you sign in, the session that station issued:
 
@@ -29,7 +30,7 @@ And, only if you sign in, the session that station issued:
   knows which controls to show you
 
 Your password is not stored. It is sent to the station once, in exchange for those tokens, and is
-not kept afterwards. The tokens and the roles are removed when you sign out, when you point the
+not kept afterwards. Nor is the one-time code, when the station asks for one. The tokens and the roles are removed when you sign out, when you point the
 app at a different station, and when the app is uninstalled. None of it is transmitted to Marooned Software,
 and none of it is included in a cloud backup or in a transfer to a new phone.
 

@@ -169,8 +169,8 @@ stored as NO roles — a cache saying `admin` about an account the station has j
 one state the read exists to correct. The API decides every operation regardless; a control drawn
 on a cached role can still be refused, and the code that draws it must cope.
 
-**Tokens live in a second DataStore file (`session`), not beside the two settings.** Different
-lifetime — cleared on sign-out and on a station change, never on a format change — and a `clear()`
+**Tokens live in a second DataStore file (`session`), not beside the settings in `listener`.**
+Different lifetime — cleared on sign-out and on a station change, never on a format change — and a `clear()`
 there must not be able to take the station address with it. They are not encrypted at rest:
 `security-crypto` is deprecated, the file is app-private, `allowBackup="false"` and
 `data_extraction_rules.xml` keep it off the network, and anything with the reach to read

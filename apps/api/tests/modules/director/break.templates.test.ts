@@ -139,6 +139,45 @@ describe('the refrain itself', () => {
         // phrasing as spent whenever any other one had said it.
         expect(render('{{previous.artist}} with {{previous.title}}.').refrain).toBeUndefined();
     });
+
+    it('does not begin with a period the value before it can absorb', () => {
+        const template = '{{previous.title}}. Nobody wanted me to play it.';
+        const question = render(template, { previous: { title: 'Where Is My Mind?', artist: 'Pixies' }, station: 'The Far Frequency' });
+
+        expect(question.script).toBe('Where Is My Mind? Nobody wanted me to play it.');
+        expect(wasHeard(render(template), [question.script])).toBe(true);
+    });
+});
+
+describe('a value that already ends a sentence', () => {
+    const between = (previousRecord: { title: string; artist: string }) => ({ previous: previousRecord, next, station: 'The Far Frequency' });
+
+    it('absorbs the period after it, rather than airing two', () => {
+        // Word for word from the conspiracy host's audition, which printed "from R.E.M.. Next".
+        const rendered = render(
+            'That was {{previous.title}}, from {{previous.artist}}.[[ Next, {{next.artist}} with {{next.title}}.]]',
+            between({ title: 'Everybody Hurts', artist: 'R.E.M.' }),
+        );
+
+        expect(rendered.script).toBe('That was Everybody Hurts, from R.E.M. Next, Megadeth with Hangar 18.');
+    });
+
+    it('keeps its own question mark, rather than a period after it', () => {
+        const rendered = render('Next, {{previous.title}}. Ask yourself why.', between({ title: 'Where Is My Mind?', artist: 'Pixies' }));
+
+        expect(rendered.script).toBe('Next, Where Is My Mind? Ask yourself why.');
+    });
+
+    it('leaves the period to a value that does not end a sentence', () => {
+        expect(render('From {{previous.artist}}.').script).toBe('From Pantera.');
+    });
+
+    it('leaves an ellipsis in the phrasing an ellipsis', () => {
+        expect(render('{{previous.artist}}... and then silence.').script).toBe('Pantera... and then silence.');
+        expect(render('{{previous.artist}}... and then silence.', between({ title: 'Everybody Hurts', artist: 'R.E.M.' })).script).toBe(
+            'R.E.M... and then silence.',
+        );
+    });
 });
 
 // The invariant the bug broke, stated once over every pool the station ships rather than only over

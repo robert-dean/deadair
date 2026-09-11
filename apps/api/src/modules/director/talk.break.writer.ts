@@ -217,10 +217,14 @@ export function labelFor({ previous, next }: PhrasingInputs): string {
  * only when something is left afterwards. A parenthetical that is part of the song stays: "(Don't
  * Fear) The Reaper" and anything featuring a second artist are both things a listener would notice
  * going missing.
+ *
+ * A remix is cut only when it carries a YEAR. "Tornado Of Souls - 2004 Remix" is Megadeth's reissue
+ * series, the same record reshelved, and the floor read it out verbatim in an audition; "Bizarre Love
+ * Triangle (Shep Pettibone Remix)" is a different recording, and naming it is the point.
  */
 export function spoken(text: string): string {
     const furniture =
-        /\b(remaster(ed)?|re-?master|deluxe|expanded|anniversary|mono|stereo|single version|album version|radio edit|bonus track|\d{4} mix)\b/i;
+        /\b(remaster(ed)?|re-?master|deluxe|expanded|anniversary|mono|stereo|single version|album version|radio edit|bonus track|\d{4} (re)?mix)\b/i;
 
     let cleaned = text
         // "Title (2011 Remaster)" and "Title [Deluxe Edition]".

@@ -59,34 +59,48 @@ jobs:
 
             # A hosted runner arrives with an Android SDK, a .NET installation and a tool cache
             # holding several language runtimes, none of which this job touches: it checks out a
-            # repository and hands a Dockerfile to a daemon. They are worth about twenty gigabytes,
-            # and without them gone the two variants carrying a speech server fill the disk — far
-            # enough that the runner could not write its own log, which is why that failure arrived
-            # as a job with no output rather than as an error.
+            # repository and hands a Dockerfile to a daemon. Deleting them recovers about 25GB. The
+            # voiced variants once filled the disk without that, far enough that the runner could
+            # not write its own log, which is why that failure arrived as a job with no output
+            # rather than as an error.
             #
-            # `df` on both sides because the next person to run out of room should be able to see
-            # how much this actually bought on the day it stopped being enough.
+            # It MEASURES before it deletes, and deletes only when the runner is short. The disk it
+            # was written for is not the disk the runners have now: on 2026-09-11 every run's own
+            # `df` read 145GB with 86GB free before a single file went, and the deletions still
+            # took anything from thirty seconds to nearly three minutes of I/O, on the critical path
+            # of every pull request and every release. The threshold is what to raise the day a
+            # variant fails for room with this step saying it skipped. The same guard covers
+            # `slim`, which never needed the room; a runner that is genuinely short hurts it too.
             #
-            # It is skipped for `slim`, which carries neither a speech server nor a database and
-            # was never the variant that filled the disk — a minute and a half of deleting things
-            # to make room for an image that already fits.
+            # The deletions themselves are unchanged and deliberately so. When they run, this step
+            # is the only thing between the big variants and a job with no output, so they go in
+            # parallel to spend less wall clock, never fewer of them.
             #
-            # The paths go in parallel rather than as one `rm -rf`. The list is unchanged and
-            # deliberately so: this step is the only thing standing between the big variants and a
-            # failure that arrives as a job with no output, so the way to make it cheaper is to
-            # spend less WALL CLOCK on the same deletions, never to delete less of them.
-            - name: Make room for the image
-              if: matrix.variant != 'slim'
+            # `df` on both sides stays, so the next person to run out of room can see what the
+            # runner had and what this bought on the day.
+            - name: Make room for the image, if the runner is short
+              env:
+                  NEED_GB: 40
               run: |
                   df -h /
+                  avail="$(df --output=avail -BG / | tail -1 | tr -dc '0-9')"
+                  if [ "$avail" -ge "$NEED_GB" ]; then
+                      echo "${avail}GB free, which is at least ${NEED_GB}GB, so nothing is deleted."
+                      exit 0
+                  fi
+                  echo "${avail}GB free, under ${NEED_GB}GB, so the toolchains this job never uses are going."
                   for path in /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/share/swift /opt/hostedtoolcache; do
                       sudo rm -rf "$path" &
                   done
                   wait
                   df -h /
 
+            # No teardown: the builder is removed with the runner, and the action's own post step
+            # spent ten seconds removing it first.
             - name: Set up Buildx
               uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+              with:
+                  cleanup: false
 
             # Asked before the build rather than discovered at the login step, so that a release
             # with no credentials says the one useful sentence instead of failing somewhere in

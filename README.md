@@ -119,12 +119,15 @@ A broadcast desk rather than a player. It deliberately does not play the mount: 
 is the mount itself, plus the Android app (`apps/android`) and the desktop app (`apps/desktop`) if
 you build and run either one.
 
-**On Air** is the running order, live, with the playhead and every item's state. **Schedule** is the
-format clock and the weekly grid — which hour is which, what it is briefed to play, which period it
-draws from. **Personas** is the roster. **Catalog** is the library with the station's opinion of each
-record at three levels. **Segments**, **Pads**, **Voices** and **Pronunciations** are the station's
-own audio and how it says things. **Scripts** is every word the station has ever written, one row per
-attempt. **Activity** is what happened. **Check-up** is what is wrong right now.
+A rail down the left carries four destinations, with a key each: D, P, L and V. **Desk** is the
+running order, live, with the playhead, every item's state and whatever needs you. **Programme** is
+Today, the Timetable across the week, and Sustaining, which is what plays when nothing is scheduled.
+**Library** is Tracks, Artists, Playlists, Charts and News. **Voice** is who the station is when it
+talks and how it says things: Characters, Auditions, Voices, Segments, Pronunciations, Soundboard,
+Subjects, Productions, and What it said, which is every break it has written and every one it
+declined. Below a rule sit **Check-up** and **Settings**. Check-up is what is wrong right now:
+Machinery for every part as it stands, What it has been doing for what aired and what failed, What it
+cost for every call the station made, and Logs for what the processes themselves wrote.
 
 **Settings → Security** is how you sign in. Enrol an authenticator app there (Google Authenticator,
 1Password, Aegis, anything that shows six-digit codes) and from then on every sign-in to that

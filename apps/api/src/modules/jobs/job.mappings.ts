@@ -206,7 +206,7 @@ export const JobMappings: Record<JobNames, JobMapping> = {
     // overshoot at a few records' worth of bytes. Rarer lets a discovery burst run
     // away between passes; denser polls a number that has usually not moved.
     //
-    // A CRON here is not the "evicting on a schedule" that `track-cache-eviction.md`
+    // A CRON here is not the "evicting on a schedule" that [track-cache-eviction](https://github.com/robert-dean/deadair/discussions/46)
     // refuses. That argues against evicting on AGE. The cap is the trigger and age is
     // only the order, so an under-cap run reads one aggregate and stops, and a station
     // with no cap set does not get that far.

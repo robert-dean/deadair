@@ -22,7 +22,7 @@
  *
  * A station is a place and its listeners are in it, so the zone is the operator's
  * ({@link CLOCK_KEYS.timezone}) and the host's is only the fallback. See
- * `docs/todo/station-moment.md`, which makes the same argument for everything else that will
+ * [station-moment](https://github.com/robert-dean/deadair/discussions/38), which makes the same argument for everything else that will
  * eventually want to know what time it is.
  */
 

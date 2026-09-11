@@ -117,7 +117,7 @@ describe('SlotEditor', () => {
     });
 
     it('says starting again replays what already aired, and nothing about a dislike', async () => {
-        // The lift-does-not-reach-a-dislike copy from docs/todo/repeat-overrules.md phase 3: a
+        // The lift-does-not-reach-a-dislike copy from [repeat-overrules](https://github.com/robert-dean/deadair/discussions/30) phase 3: a
         // record kept off the air for that reason stays off it whether the block is on its first
         // pass or its fifth, and the editor must not claim otherwise.
         listImportablePlaylists.mockResolvedValue(PLAYLISTS);

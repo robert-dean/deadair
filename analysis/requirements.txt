@@ -34,7 +34,7 @@ pydantic==2.13.1
 #
 # librosa was the permissive alternative and is refused on DESIGN rather than
 # licence: no downbeats, and no calibrated confidence, which is the one field
-# `docs/todo/track-analysis.md` calls load-bearing.
+# [track-analysis](https://github.com/robert-dean/deadair/discussions/45) calls load-bearing.
 #
 # **beat_this's own dependency list is NOT all permissive, and that is why it is
 # installed with `--no-deps` in the Dockerfile rather than named here.** It

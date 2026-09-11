@@ -14,7 +14,7 @@
  * A `trait` is an inference about who the character is becoming, which nothing can verify: no quote
  * entails "has started addressing the listener as a friend". So it arrives `suggested` and the
  * operator is the check. That asymmetry is deliberate and is the answer to the question
- * `docs/todo/personas.md` §2 left open — a `trait` note read into a prompt IS a sheet edit, and a
+ * [personas](https://github.com/robert-dean/deadair/discussions/25) §2 left open — a `trait` note read into a prompt IS a sheet edit, and a
  * station making those unattended would drift out of the character its author can still see on the
  * page.
  *

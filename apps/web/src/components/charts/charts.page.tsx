@@ -23,7 +23,7 @@ import { CATALOG_TRACK_DEFAULTS } from '../catalog/catalog.page.params';
  *
  * ## The chart can go on air; a ROW still cannot
  *
- * The page is no longer inert, which was always a stage rather than a design — `chart-discovery.md`
+ * The page is no longer inert, which was always a stage rather than a design — [chart-discovery](https://github.com/robert-dean/deadair/blob/71e431d4/docs/todo/chart-discovery.md)
  * put the surface that changes what airs after the ones that prove the fetch, the rate budget and
  * the config field. What it gained is one action over the WHOLE document, because that is the thing
  * a chart is: a ranked list somebody published, and airing it means playing that list.

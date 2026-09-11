@@ -440,7 +440,7 @@ describe('what an operator can do about a record that will not play', () => {
     });
 
     // The station's own claims are its argument with its evidence attached, and deleting one from
-    // the console is a decision `fact-enrichment.md` records as deliberately not made yet.
+    // the console is a decision [fact-enrichment](https://github.com/robert-dean/deadair/discussions/15) records as deliberately not made yet.
     it('says the station’s own facts survive an enrichment clear', async () => {
         const service = tracksService(exists, { clearEnrichment: vi.fn().mockResolvedValue(2) });
 

@@ -814,7 +814,7 @@ export class EnrichmentRepository extends DataRepository {
      *
      * **`deadair.facts` stays**, and that is a decision rather than an oversight. A fact is the
      * station's own argument with its evidence attached, stored beside these rows precisely because
-     * it is not a provider's payload; `docs/todo/fact-enrichment.md` records that deleting a claim
+     * it is not a provider's payload; [fact-enrichment](https://github.com/robert-dean/deadair/discussions/15) records that deleting a claim
      * from the console was not built because it needs a permission decision and a rule about what a
      * re-extraction does to a claim an operator has touched. Clearing a provider's answer must not
      * quietly make that decision.

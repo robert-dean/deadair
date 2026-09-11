@@ -17,7 +17,7 @@ import { TrackAudioService } from './track.audio.service.js';
  * not the disk. What it keeps is one line — `TrackAudioService.protect` — publishing the set of
  * records this must not touch.
  *
- * ## Why a schedule is not the thing `track-cache-eviction.md` argued against
+ * ## Why a schedule is not the thing [track-cache-eviction](https://github.com/robert-dean/deadair/discussions/46) argued against
  *
  * That file refuses "evicting on a schedule", and it is right: a nightly sweep deleting a week-old
  * record on a station with terabytes free is worse than doing nothing. **The cap is the trigger here

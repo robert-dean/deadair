@@ -9,7 +9,7 @@
  * of records the station can fetch is the provider's catalogue.
  *
  * This is the cap that bounds it, and the sweep in {@link TrackAudioService} is what enforces it.
- * See `docs/todo/track-cache-eviction.md`.
+ * See [track-cache-eviction](https://github.com/robert-dean/deadair/discussions/46).
  *
  * Kept beside the audio it bounds rather than in `settings.registry.ts`, exactly as `gain.ts` and
  * `air.mode.ts` are: the registry declares the FORM, and the typed resolver lives with the code that

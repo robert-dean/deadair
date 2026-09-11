@@ -6,7 +6,7 @@ import type { ConfigField } from '@deadair/plugin-sdk';
  * A `news` bulletin can be a TECHNOLOGY bulletin; a weather break is about a PLACE. Those are the
  * same shape of thing — a named list an operator manages, that the format clock can point a band at
  * and a writer can be handed — so it is built once, keyed by `segments.kind`, rather than as a news
- * feature that weather then copies. `docs/todo/station-moment.md` is where the second consumer is
+ * feature that weather then copies. [station-moment](https://github.com/robert-dean/deadair/discussions/38) is where the second consumer is
  * argued.
  *
  * ## The chassis knows the name and never the meaning

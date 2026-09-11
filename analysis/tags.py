@@ -16,7 +16,7 @@ question nobody downstream asked.
 Why bother when the sidecar measures the loudness anyway: a tag is what the
 mastering engineer or the label decided, and the measurement is what this station
 guessed. Where the two disagree the tag wins. See
-`docs/todo/station-intelligence.md` §4.
+[station-intelligence](https://github.com/robert-dean/deadair/discussions/37) §4.
 """
 
 from __future__ import annotations

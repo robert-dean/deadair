@@ -79,7 +79,7 @@ const STRAY_LOG_CHARS = 200;
  * had asked to search and been cut off before the calls ran. And of the ten empty set captures that
  * survive on this install, every one says `length` and both that can still be attributed to a log
  * line were preemptions — while `DEFAULT_MAX_OUTPUT_TOKENS` was raised to 12,000 arguing from
- * exactly that shape. See `docs/todo/station-intelligence.md` §2.
+ * exactly that shape. See [station-intelligence](https://github.com/robert-dean/deadair/discussions/37) §2.
  *
  * So the reason carries it. A caller that wants "did the model run out of room" asks for `'length'`
  * and gets an answer that is true, and a caller that logs the reason and nothing else — which is all
@@ -702,7 +702,7 @@ export class LlmService {
         //
         // Closed in a `finally` for the reason `trace.spans.ts` gives: a generation abandoned
         // mid-drain and one that waited out its budget both spend the model and neither returns an
-        // answer to take a cost from. Those are the two shapes `station-intelligence.md` §2 measured
+        // answer to take a cost from. Those are the two shapes [station-intelligence](https://github.com/robert-dean/deadair/discussions/37) §2 measured
         // as invisible.
         const startedAt = Date.now();
         let result: LlmResult | undefined;

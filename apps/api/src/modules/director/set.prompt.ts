@@ -7,7 +7,7 @@
  *
  * ## The failure this is shaped around
  *
- * `docs/todo/station-intelligence.md` §1: **the seed is not a pick.** Any prompt that puts a real,
+ * [station-intelligence](https://github.com/robert-dean/deadair/discussions/37) §1: **the seed is not a pick.** Any prompt that puts a real,
  * well-formed record in the model's context which no tool returned invites the model to echo it
  * back as a choice. That is not hypothetical and it is not laziness on the model's part — an
  * example in a prompt reads as a demonstration of the answer format, and a well-formed one reads as

@@ -48,7 +48,7 @@ export interface SegmentIngest {
  *
  * **Both doors write HERE**, which is the thing to keep true. The bytes are copied into the
  * content-addressed store, and that copy is rewritten from this directory by every boot scan — so an
- * archive carries the directory and ignores the store (`docs/todo/backup-and-restore.md`), and a
+ * archive carries the directory and ignores the store ([backup-and-restore](https://github.com/robert-dean/deadair/discussions/6)), and a
  * recording that reached only the store would be missing from every export in silence.
  *
  * Emptying the directory afterwards does not take a segment off the air, and re-filling it does not
@@ -168,7 +168,7 @@ export class SegmentLibrary {
      *
      * ## The disk write is the one step here that is NOT best-effort
      *
-     * `docs/todo/backup-and-restore.md` carries this directory as tier 1 and treats the content store
+     * [backup-and-restore](https://github.com/robert-dean/deadair/discussions/6) carries this directory as tier 1 and treats the content store
      * as disposable, because the boot scan rewrites the store from here. So bytes that reached only
      * the store are a recording that is absent from every export and gone after a restore, with
      * nothing logged anywhere. A refusal the operator can see is strictly better, so this throws.

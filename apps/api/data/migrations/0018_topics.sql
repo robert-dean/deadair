@@ -4,7 +4,7 @@
 --
 -- News categories are the first of these — US news, world news, the local one only this operator
 -- can name, technology, pop culture — and they are deliberately NOT built as a news feature.
--- `docs/todo/station-moment.md` wants weather next, and weather wants exactly this shape with a
+-- [station-moment](https://github.com/robert-dean/deadair/discussions/38) wants weather next, and weather wants exactly this shape with a
 -- different payload: a named list of things an operator manages, that the format clock can point a
 -- band at (`news` / Technology, `weather` / Atlanta) and a writer can be handed. Building it twice
 -- is how the second one ends up subtly different from the first.

@@ -185,7 +185,7 @@
  * station actually has, so there is one list to keep straight instead of two and a mapping between
  * them. `newsreader` is the one slot in those maps that is not a persona, because a bulletin read in
  * the host's voice should be a decision rather than something a station falls into — see
- * `docs/todo/personas.md` §1.
+ * [personas](https://github.com/robert-dean/deadair/discussions/25) §1.
  *
  * Deleting a row from a plugin's map is still expressible: the voice falls back to the engine's
  * default and warns once, exactly as an unmapped name always did.

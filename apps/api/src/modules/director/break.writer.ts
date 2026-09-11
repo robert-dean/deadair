@@ -13,7 +13,7 @@
  * dialogue. Every one of them read the same substrate and produced a script, and a seam shaped as
  * "the previous track and the next track" fits exactly the first of them. So the seam is a registry
  * over `segments.kind`, and a fifth kind is a fifth writer rather than a fourth parameter. See
- * `docs/todo/dj-voice.md`.
+ * [dj-voice](https://github.com/robert-dean/deadair/discussions/13).
  *
  * ## Answering with nothing is an answer
  *
@@ -485,7 +485,7 @@ export interface BreakWriteRequest {
      * only caller that says otherwise is `PersonaRehearsalService`, and it has to: a rehearsal
      * reaches the model down this same path, so without a way to say so it contends for the one
      * model slot on equal terms with a break that is actually about to air — which is exactly what
-     * `docs/todo/personas.md` §4 said a rehearsal must never do.
+     * [personas](https://github.com/robert-dean/deadair/discussions/25) §4 said a rehearsal must never do.
      *
      * **It is on the REQUEST rather than read from anywhere**, because a writer is a pure function
      * of what it was told and this is the last thing that could reasonably be inferred: the words

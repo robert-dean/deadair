@@ -1021,7 +1021,7 @@ export class BreakPlanner {
      * segment has no position and `ripen` never sees it. Without this, a render that lost the race
      * with plugin startup — or any other failure — stranded the request until it expired, and a
      * welcome was lost outright because an operator saved a plugin setting at the wrong second.
-     * `docs/todo/render-plugin-readiness.md` piece 2.
+     * [render-plugin-readiness](https://github.com/robert-dean/deadair/discussions/29) piece 2.
      *
      * It shares {@link MAX_RENDER_ATTEMPTS} and the no-speaker rule with `retryRenders` rather than
      * restating them, because a bound that means one thing in the order and another outside it is

@@ -19,7 +19,7 @@ import { settingIsOn } from '#modules/shared/setting.flags.js';
  * `CatalogSetGenerator` draws at random from whatever the library holds and rejects what the rules
  * forbid. Every individual choice is legal and the aggregate is a station that sounds like it owns
  * two hundred songs, because a filter has nothing to say about the far side of itself
- * (`docs/todo/station-intelligence.md` §5). This is one of the two answers to that: reach for acts
+ * ([station-intelligence](https://github.com/robert-dean/deadair/discussions/37) §5). This is one of the two answers to that: reach for acts
  * the library does NOT hold, by asking what resembles the ones it has been playing.
  *
  * ## Seeds, never a ranking
@@ -70,7 +70,7 @@ export const SIMILAR_GENERATOR_KEYS = {
  *
  * A chart is a FORMAT — "this week's top forty" is a specific thing to sound like, and installing a
  * plugin for its tags should not put chart pop in an operator's evening. Similarity is a BIAS, and
- * `docs/todo/station-intelligence.md` §5 already calls a station that only ever draws from its own
+ * [station-intelligence](https://github.com/robert-dean/deadair/discussions/37) §5 already calls a station that only ever draws from its own
  * library a structural defect: every individual choice is legal and the aggregate sounds like it
  * owns two hundred songs. Reaching outward is the station working properly rather than a
  * programming decision, which is the same reasoning `rotation.discover` defaults on under — off

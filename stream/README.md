@@ -518,12 +518,12 @@ asks `GET /admin/publicstats.json` first (2.5's, presented with the `stream.admi
 basic — it answers anonymously on a default 2.5 config, but access under `/admin/` is a role decision
 an operator can tighten, and `/admin/eventfeed` on the same server is not anonymous), and falls back
 to `GET /status-json.xsl` (2.4's, which 2.5 deprecates). The two documents carry the same facts in
-**different shapes**; `listenersForMount` handles both, and `docs/todo/icecast-2.5.md` has each
+**different shapes**; `listenersForMount` handles both, and [icecast-2.5](https://github.com/robert-dean/deadair/discussions/17) has each
 payload as measured. The base and path that answered are cached together, so the endpoint an install
 does not have costs one probe per re-probe rather than one per poll, and a boot log line names the
 one in use. A 401 or 403 from the admin endpoint is said once and then ignored: it means a server
 that has it and will not let us read it, which is a config to fix, not a reason to stop polling. See
-`docs/todo/icecast-2.5.md` for what the 2.5.0 upgrade did and did not settle.
+[icecast-2.5](https://github.com/robert-dean/deadair/discussions/17) for what the 2.5.0 upgrade did and did not settle.
 
 On a 2.5 there is a second push half: `IcecastEventFeed` holds `GET /admin/eventfeed` open (SSE) and
 hands each `source-listener-count` for the mount straight to `AudienceWatch.report()`, so a change
@@ -798,7 +798,7 @@ bump's work rather than this one's:
 
 **Liquidsoap logs to stdout and only to stdout**, so every one of those findings needed
 `docker compose logs`. That is a wall for anything without the Docker socket — see
-`docs/todo/stream-logs.md` for what it cost and the three ways to fix it.
+[stream-logs](https://github.com/robert-dean/deadair/discussions/41) for what it cost and the three ways to fix it.
 
 The base's Debian release used to matter as much as the Liquidsoap version, because the
 go-librespot daemon was a CGO build whose codec sonames move between releases. The track shim that

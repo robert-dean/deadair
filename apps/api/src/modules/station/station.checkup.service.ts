@@ -29,7 +29,7 @@ import type { StationBacklog, StationCheckup, StationHeartbeat } from './types/s
  *
  * The heartbeats are already being kept in memory by the loops themselves and the counts are one
  * query the catalog already runs for its own page. Nothing here opens a connection, asks an upstream
- * anything, or starts a timer — which is the rule `comparable-stations.md` sets for a check-up and
+ * anything, or starts a timer — which is the rule [comparable-stations](https://github.com/robert-dean/deadair/discussions/10) sets for a check-up and
  * the reason one is worth having at all: a page that measured the station by poking it would change
  * the thing it was reporting on.
  *

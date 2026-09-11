@@ -45,7 +45,7 @@ RUN pip install --no-cache-dir --no-deps -r requirements.nodeps.txt
 #
 # The beat tracker's pin isn't a fourth place any more. It lived only here for a while — the
 # root Dockerfile never installed it at all, which is the crash-loop
-# `docs/todo/comparable-stations.md` recorded. `requirements.nodeps.txt` above is the one place
+# [comparable-stations](https://github.com/robert-dean/deadair/discussions/10) recorded. `requirements.nodeps.txt` above is the one place
 # it is named now, read by both Dockerfiles, so there is nothing left to forget for that
 # package. Only this module list still is.
 COPY analysis/measure.py analysis/loudness.py analysis/tags.py analysis/join.py analysis/app.py ./

@@ -254,7 +254,7 @@ export const trackTaggedLoudnessFixture: TrackTaggedLoudness = {
  * `data` is `TrackCuePoints & Record<string, unknown>` precisely so a later
  * schema version can add fields the host never learns about, and a fixture that
  * only carried the four points would round-trip without ever exercising that.
- * The extra keys here are the beat layer as `docs/todo/track-analysis.md`
+ * The extra keys here are the beat layer as [track-analysis](https://github.com/robert-dean/deadair/discussions/45)
  * describes it, including an array, which is the shape most likely to be got
  * wrong.
  */

@@ -65,7 +65,7 @@ export interface PadIngested {
  * The pad library on disk: audio under `media/pads/<board>/` is what a presenter can hit.
  *
  * **A library rather than an inbox**, which is the word this used and the shape `SegmentLibrary`
- * beside it still has. The difference is what `docs/todo/backup-and-restore.md` rests on: the bytes
+ * beside it still has. The difference is what [backup-and-restore](https://github.com/robert-dean/deadair/discussions/6) rests on: the bytes
  * in the content store are rewritten from here by every boot scan and are disposable, and nothing
  * anywhere can reproduce what is here, so this directory is the thing an archive carries. Which in
  * turn is why it has no `inbox/` level — `media/pads/` holds nothing but the library.
@@ -281,7 +281,7 @@ export class PadLibrary {
      * ## The disk write is the one step here that is NOT best-effort
      *
      * `join` and `measure` below are both allowed to fail and cost only what they were for. This is
-     * not: `docs/todo/backup-and-restore.md` carries this directory and treats the content store as
+     * not: [backup-and-restore](https://github.com/robert-dean/deadair/discussions/6) carries this directory and treats the content store as
      * disposable, so bytes that reached only the store are a pad that is absent from every export and
      * gone after a restore, with nothing logged anywhere. A refusal the operator can see is strictly
      * better, so this throws.
@@ -459,7 +459,7 @@ export const DEFAULT_BOARD = 'station';
  *
  * Bounds what arrives over HTTP; a file already on the disk is already on the disk. Deliberately
  * above `@maroonedsoftware/multipart`'s own 20 MB default rather than below it, and deliberately not
- * a `deadair.settings` row: `docs/todo/backup-and-restore.md` is where the figure comes from, in that
+ * a `deadair.settings` row: [backup-and-restore](https://github.com/robert-dean/deadair/discussions/6) is where the figure comes from, in that
  * "a drop is a few kilobytes, but the bed that runs under a phone call is minutes of stereo" — so ten
  * would refuse a legitimate bed, and a ceiling an operator can raise is a ceiling that stops meaning
  * anything.

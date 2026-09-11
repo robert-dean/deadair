@@ -59,7 +59,7 @@ interface Described {
  * ## It reports and never repairs
  *
  * A file no row claims is left exactly where it is, and so is a row whose file has gone. That is the
- * rule `docs/todo/track-cache-eviction.md` set for the sweep and it applies twice as hard to a read:
+ * rule [track-cache-eviction](https://github.com/robert-dean/deadair/discussions/46) set for the sweep and it applies twice as hard to a read:
  * a store that quietly deletes files it cannot account for is a bad thing to debug, and the numbers
  * have to exist before anything is allowed to act on them. The two disagreements mean different
  * things anyway — bytes with no row is a crash between writing a file and writing its row, a row

@@ -703,7 +703,7 @@ export class SegmentRepository extends DataRepository {
      * This is the cheap seed of "what the station said", and it stops being enough the moment a
      * persona is involved: a character sheet asking for a signature phrase now and then is an
      * instruction no writer can follow from scripts alone. That wants its own table rather than a
-     * relaxation of `play_history`; see `docs/todo/dj-voice.md`.
+     * relaxation of `play_history`; see [dj-voice](https://github.com/robert-dean/deadair/discussions/13).
      */
     async recentScripts(kind: string, limit: number): Promise<string[]> {
         if (limit <= 0) return [];
@@ -1373,7 +1373,7 @@ export class SegmentRepository extends DataRepository {
      * words are intact and nothing about them has been judged. That is the difference this method
      * exists to draw: {@link markFailed} says the station tried and could not, and this says it
      * never got to try. Counting the second as the first is what
-     * `docs/todo/render-plugin-readiness.md` is about, and it costs a waiting request outright.
+     * [render-plugin-readiness](https://github.com/robert-dean/deadair/discussions/29) is about, and it costs a waiting request outright.
      *
      * Conditional on `rendering` so it can only ever undo this job's own claim, and unlike
      * {@link release} it carries no clock: the caller is the job holding the claim right now, so

@@ -345,7 +345,7 @@ export class ScriptHistoryRepository extends DataRepository {
      * the column's own text through and casting it back is exact. Measured: without this, the
      * exclusive watermark returned the row it was taken from.
      *
-     * **This is where the operator's opinion joins**, once there is one. `docs/todo/break-ratings.md`
+     * **This is where the operator's opinion joins**, once there is one. [break-ratings](https://github.com/robert-dean/deadair/discussions/7)
      * scopes `deadair.script_ratings`, and the clause to add here is exactly one: a note distilled
      * from a break the operator thumbed down is the character being taught to repeat the thing that
      * did not land.

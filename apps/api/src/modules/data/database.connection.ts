@@ -23,7 +23,7 @@ export interface DatabaseConnection {
  *
  * It would also bypass RLS, which is why the runtime path deliberately does not
  * use it — though there are no policies to bypass yet. See
- * `docs/todo/row-level-security.md`.
+ * [row-level-security](https://github.com/robert-dean/deadair/discussions/31).
  */
 export function resolveOwnerConnection(config: AppConfig): DatabaseConnection {
     return {

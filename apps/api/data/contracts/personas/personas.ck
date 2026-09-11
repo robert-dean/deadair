@@ -98,7 +98,7 @@ operation /personas/export: {
         security: {
             # The read floor, as the persona list beside it: a character is prose the console already
             # shows in full, and a file of them carries no credential and no station secret. This is
-            # the whole difference from the wider export in `docs/todo/backup-and-restore.md`, which
+            # the whole difference from the wider export in [backup-and-restore](https://github.com/robert-dean/deadair/discussions/6), which
             # sits on `platform.manage` because it names which secrets are set.
             policy: platform.view
         }

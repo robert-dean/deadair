@@ -189,7 +189,7 @@ export class RenderService {
      * Nothing acts on this. It is read by an operator reading back what the station said, and the
      * one pass that will eventually consult it — the notebook's distil selection, which must not
      * build on a break that was thumbed down — reads it as a filter rather than as a signal to
-     * train on. `docs/todo/break-ratings.md` holds the argument for why that stays true.
+     * train on. [break-ratings](https://github.com/robert-dean/deadair/discussions/7) holds the argument for why that stays true.
      */
     async rateScript(id: string, input: ScriptRatingInput): Promise<ScriptAttempt> {
         // Read off the request's own actor rather than taken as a parameter, the way every other

@@ -130,7 +130,7 @@ export const PLUGIN_CAPABILITY_SEARCH = 'search';
  * A capability rather than a general-purpose tool the model calls, which was the
  * older plan: a plugin answering a question the STATION has is a capability, and
  * this station wants a reading for the moment it is playing into as well as for
- * the presenter to mention. See `docs/todo/tool-plugins.md`.
+ * the presenter to mention. See [tool-plugins](https://github.com/robert-dean/deadair/discussions/44).
  */
 export const PLUGIN_CAPABILITY_WEATHER = 'weather';
 

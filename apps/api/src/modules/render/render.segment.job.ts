@@ -32,7 +32,7 @@ export interface RenderSegmentPayload {
  * Say a written segment out loud, and keep the audio.
  *
  * `written → rendering → ready`, or `failed` with the reason. This is the piece
- * `docs/todo/dj-voice.md` calls the whole of the missing infrastructure, and the second half of
+ * [dj-voice](https://github.com/robert-dean/deadair/discussions/13) calls the whole of the missing infrastructure, and the second half of
  * making a break: deciding what it says is `WriteBreakJob`'s, one stage earlier.
  *
  * It starts at `written` rather than at `planned` deliberately. A break whose words have not been
@@ -134,7 +134,7 @@ export class RenderSegmentJob extends PlainJob<RenderSegmentPayload> {
             const message = errorText(error);
 
             // A host that could not speak is not a segment that was wrong, and writing it off as one
-            // is what `docs/todo/render-plugin-readiness.md` is about: `SpeechService` throws
+            // is what [render-plugin-readiness](https://github.com/robert-dean/deadair/discussions/29) is about: `SpeechService` throws
             // `unavailable` for exactly the window where no plugin is active — a boot, or any of the
             // reinitializations every plugin config change performs — and the words on this row are
             // untouched and still correct. So the claim is handed back and the row waits at

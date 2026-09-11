@@ -9,7 +9,7 @@
  *
  * The import runs it and answers with it, and the preview route runs it and writes nothing. So a
  * plan is not a forecast that could be wrong: it is the decision itself, made once, shown to the
- * operator, and then carried out. That is the whole reason `docs/todo/backup-and-restore.md` insists
+ * operator, and then carried out. That is the whole reason [backup-and-restore](https://github.com/robert-dean/deadair/discussions/6) insists
  * the dry run be "keyed exactly the way the real pass will key it, by the same code" — a second
  * implementation that agrees today is a second implementation.
  *

@@ -91,8 +91,8 @@ export interface TrackStateFilterProps {
  * How much of the library is in each state, and a way to see just that part of it.
  *
  * The counts are the point and the filter is the affordance: "13 of 581 measured" was a `psql`
- * query before this, and it is the sentence both `docs/todo/analysis-queue-ordering.md` and
- * `docs/todo/provider-audio-failures.md` were written to answer.
+ * query before this, and it is the sentence both [analysis-queue-ordering](https://github.com/robert-dean/deadair/discussions/5) and
+ * [provider-audio-failures](https://github.com/robert-dean/deadair/blob/71e431d4/docs/todo/provider-audio-failures.md) were written to answer.
  *
  * A chip with nothing behind it is drawn and disabled rather than hidden. Zero benched records is a
  * fact worth seeing — it is the difference between a healthy library and one nobody has asked about

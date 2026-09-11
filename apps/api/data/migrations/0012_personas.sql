@@ -4,7 +4,7 @@
 --
 -- This was two free-text settings — `llm.breakPersona` and `llm.setPersona` — handed to a model and
 -- reaching nothing else. A table rather than more settings for the reason moods are one in
--- `docs/todo/station-moment.md`: a `ConfigField` describes one row of a form, and this is a list an
+-- [station-moment](https://github.com/robert-dean/deadair/discussions/38): a `ConfigField` describes one row of a form, and this is a list an
 -- operator adds to, edits and switches between. The words have to be the operator's, so the words
 -- cannot be ours.
 --
@@ -151,7 +151,7 @@ create table deadair.personas (
     -- What this character is FOR: `host` is the station's own voice, `caller` is somebody who phones
     -- in to a production and is never the station.
     --
-    -- **Not null, and that is a correction rather than a preference.** `docs/todo/personas.md` §1
+    -- **Not null, and that is a correction rather than a preference.** [personas](https://github.com/robert-dean/deadair/discussions/25) §1
     -- sketches this column as nullable, with the active index becoming `(station_key, kind)` "with
     -- nulls distinct" once a newsreader exists — and nulls distinct is Postgres's default, so two
     -- rows with a null kind would not conflict and the station could have TWO active hosts. A

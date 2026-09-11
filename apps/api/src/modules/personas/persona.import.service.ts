@@ -48,7 +48,7 @@ export class PersonaImportService {
      * What this file would do here. Writes nothing.
      *
      * The same {@link planImport} the import itself runs, so this is the decision rather than a
-     * forecast of it — the property `docs/todo/backup-and-restore.md` asks for in as many words.
+     * forecast of it — the property [backup-and-restore](https://github.com/robert-dean/deadair/discussions/6) asks for in as many words.
      */
     async preview(file: PersonaFile): Promise<PersonaImportPlan> {
         const plan = planImport(file, await this.snapshot(file));
@@ -74,7 +74,7 @@ export class PersonaImportService {
      *
      * ## Why this writes through the repositories rather than `PersonasService`
      *
-     * `docs/todo/backup-and-restore.md` says an import writes through the SERVICES, and states the
+     * [backup-and-restore](https://github.com/robert-dean/deadair/discussions/6) says an import writes through the SERVICES, and states the
      * two reasons: a settings write has to defer `configStore.reload()` through `AfterCommit`, and a
      * `plugin_configs` write has to reinit the plugin. **Neither has an analogue here.** A persona
      * row has no deferred side effect and nothing watches the table — the one thing that reaches the

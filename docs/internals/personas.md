@@ -11,7 +11,7 @@ Read the ones covering whatever you are about to change. The always-loaded index
 
 **Who the station IS is a row, and it is a VOICE and nothing else.** `deadair.personas`, one active per
 station enforced by a partial unique index, with its own contract and its own console page — a table for the
-reason `docs/todo/station-moment.md` argues moods are one: a `ConfigField` describes one row of a form and
+reason [station-moment](https://github.com/robert-dean/deadair/discussions/38) argues moods are one: a `ConfigField` describes one row of a form and
 this is a list an operator adds to and switches between. It replaced `llm.breakPersona` and `llm.setPersona`,
 both retired, and the reason it could not stay two settings is what putting one on air does: it changes what
 the model is TOLD (the sheet, in `break.prompt.ts`), what the station says when the model declined (the
@@ -128,7 +128,7 @@ Its watermark is carried as the column's own TEXT rather than as a `DateTime`, b
 millisecond-resolution and Postgres is microsecond, so a watermark taken from a row compares as earlier than
 that row and re-reads it forever. Nothing here judges whether a break was any GOOD, because nothing in the
 station records that; the one clause that will is named in a comment on `ScriptHistoryRepository.writtenBy`
-and `docs/todo/break-ratings.md` holds the other end, including why a rating cannot be a column on
+and [break-ratings](https://github.com/robert-dean/deadair/discussions/7) holds the other end, including why a rating cannot be a column on
 `script_history` and why optimising against `characterFault` would be steering at the failure `overusedWords`
 already documents.
 

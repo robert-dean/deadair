@@ -49,7 +49,7 @@ import { settingIsOn } from '#modules/shared/setting.flags.js';
  *
  * ## Variety is a re-pick, not a tool filter
  *
- * `docs/todo/station-intelligence.md` §1 is explicit and counter-intuitive here: a model given
+ * [station-intelligence](https://github.com/robert-dean/deadair/discussions/37) §1 is explicit and counter-intuitive here: a model given
  * tools that already filter out the on-air artist returns a WORSE pool on a small library, so the
  * tools stay open and the answer is re-picked when it repeats. The window that is checked is
  * neighbouring slots rather than the current track alone — an exclusion remembering only the track

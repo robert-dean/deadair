@@ -135,7 +135,7 @@ export class SettingsService {
         //
         // It does NOT restart either container, so what this buys is that the next restart adopts
         // the change rather than the operator having to remember to re-render. See
-        // `docs/todo/mixer-settings-in-db.md` for why the restart is its own piece of work.
+        // [mixer-settings-in-db](https://github.com/robert-dean/deadair/discussions/20) for why the restart is its own piece of work.
         if (writes.some(write => isStreamSettingKey(write.key))) {
             this.afterCommit.add(async () => {
                 await this.stream.materialize();

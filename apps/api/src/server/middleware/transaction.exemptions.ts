@@ -28,7 +28,7 @@
 //
 // This used to say the bar was about the `app.actor_org_id` GUC and the
 // org-isolation RLS policies. Neither exists — see
-// `docs/todo/row-level-security.md` — and if they are ever built, the GUC being
+// [row-level-security](https://github.com/robert-dean/deadair/discussions/31) — and if they are ever built, the GUC being
 // `is_local` does make that a third thing an exemption has to clear.
 
 // Minimal request shape the predicates need — avoids coupling to the Koa/ServerKit ctx type.

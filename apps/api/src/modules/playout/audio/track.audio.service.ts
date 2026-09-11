@@ -61,7 +61,7 @@ const MISSING_AFTER_ATTEMPTS = 4;
  * How far past the cursor a record is fetched before its slot, in ITEMS.
  *
  * Small on purpose, and the constraint is a provider's quota rather than disk. Every fetch is a whole
- * record off a rate-limited credential, and `docs/todo/provider-audio-failures.md` records a burst of
+ * record off a rate-limited credential, and [provider-audio-failures](https://github.com/robert-dean/deadair/blob/71e431d4/docs/todo/provider-audio-failures.md) records a burst of
  * them exhausting Spotify's audio-key quota and taking the station off air — so the window is a few
  * records of lead, not an hour of it.
  *
@@ -74,7 +74,7 @@ const MISSING_AFTER_ATTEMPTS = 4;
  * the margin in which an upstream that will not serve can be discovered early enough to route around.
  *
  * It is deliberately not much larger than that. Every fetch is a whole record off a rate-limited
- * credential, and `docs/todo/provider-audio-failures.md` records a burst of them exhausting Spotify's
+ * credential, and [provider-audio-failures](https://github.com/robert-dean/deadair/blob/71e431d4/docs/todo/provider-audio-failures.md) records a burst of them exhausting Spotify's
  * audio-key quota and taking the station off air. Six is a few records of lead, not an hour of it.
  *
  * A constant like `PLANT_AHEAD` and `WRITE_AHEAD` beside it, and for the same reason those are: it is
@@ -232,7 +232,7 @@ const errorText = (error: unknown): string => {
  * re-fetch, and repairs the row on the way through.
  *
  * The cost is that `TRACKS_DIR` grows without bound until eviction lands. See
- * `docs/todo/track-cache-eviction.md`, which is the follow-on and is deliberately not this change.
+ * [track-cache-eviction](https://github.com/robert-dean/deadair/discussions/46), which is the follow-on and is deliberately not this change.
  *
  * ## De-duplication is in-process, and that is deliberate
  *

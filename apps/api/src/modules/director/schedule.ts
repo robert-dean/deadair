@@ -164,7 +164,7 @@ export function resolveSlot(at: Date | number, zone: string, slots: readonly Sch
  * the tick asks it of an instant, and the timetable projection
  * (`modules/schedule/schedule.occurrences.ts`) asks it of every day it is drawing, where there is no
  * instant to read. A schedule that fired at one time and drew at another would be the exact failure
- * `station-intelligence.md` §6 describes for era — a filter and a badge disagreeing about the same
+ * [station-intelligence](https://github.com/robert-dean/deadair/discussions/37) §6 describes for era — a filter and a badge disagreeing about the same
  * thing — and sharing the function is what makes that structurally impossible rather than merely
  * tested for.
  *

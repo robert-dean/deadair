@@ -278,7 +278,7 @@ on_air_item = ref("")
 #
 # **The `cross` further down does not break this, and it needs no correction.** That is worth
 # stating because it is not obvious, an earlier version of this file got it wrong in both
-# directions, and docs/todo/crossfades.md deferred the whole feature on the belief that it did.
+# directions, and [crossfades](https://github.com/robert-dean/deadair/discussions/11) deferred the whole feature on the belief that it did.
 #
 # The reasoning that looks right and is not: a cross holds a buffer of the music and the voice is
 # mixed in above it, so the bed is delayed and the voice is not, so this counter must be running
@@ -651,7 +651,7 @@ end
 # Equal-power, which is the plain rung and the whole of it. The louder-sounding alternatives (a
 # filter sweep on the outgoing record, a bass handover that switches once rather than crossfading)
 # need a per-transition filter chain rather than one on the bus, and they are not built. See
-# docs/todo/crossfades.md.
+# [crossfades](https://github.com/robert-dean/deadair/discussions/11).
 #
 # **`type="log", curve=6.4` and NOT `type="sin"`, which is not what its name suggests.** Liquidsoap's
 # `sin` shape is `(1 + sin((x - 0.5) * pi)) / 2`, a raised cosine that passes through 0.5 amplitude

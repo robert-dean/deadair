@@ -49,7 +49,7 @@ const DEFAULT_LIBRARY_DIR = join(DEFAULT_SEGMENT_DIR, 'inbox');
  * — the store copy is rewritten from here by every boot scan and is disposable, and nothing anywhere
  * can reproduce what is here. So it is not a drop point that happens to be kept: it is the library,
  * written by an operator dropping files AND by the console (`PadLibrary.ingest`), and
- * `docs/todo/backup-and-restore.md` is the design that rests on that. In the container it sits with
+ * [backup-and-restore](https://github.com/robert-dean/deadair/discussions/6) is the design that rests on that. In the container it sits with
  * the bulk rather than with the authored half, because a library of beds is gigabytes.
  */
 const DEFAULT_PAD_LIBRARY_DIR = './media/pads';
@@ -92,7 +92,7 @@ const DEFAULT_SAMPLE_DIR = './media/voice-samples';
  * whoever asks. The name is `render` rather than `library` because of what it becomes rather than
  * what it is: `segments.state` already carries `planned | rendering | ready | failed`, which is the
  * seam a text-to-speech renderer drops into without any of the rest of the station having to change
- * its mind about what a segment is. See `docs/todo/dj-voice.md`.
+ * its mind about what a segment is. See [dj-voice](https://github.com/robert-dean/deadair/discussions/13).
  *
  * That renderer is now here: `SpeechService` speaks through whichever plugin declares the `speech`
  * capability, and `RenderSegmentJob` walks a row from `planned` to `ready`. Which is why this module

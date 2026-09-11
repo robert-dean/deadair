@@ -79,7 +79,7 @@ is expressed by bounding the background job (`ModelSetGenerator.BUDGET_MS`), whi
 gate.
 
 **A model budget and degradation tiers are still NOT built, and one of the three reasons has now expired**
-(`docs/todo/station-intelligence.md` §2): every call goes through `LlmService`, so the retrofit is one file,
+([station-intelligence](https://github.com/robert-dean/deadair/discussions/37) §2): every call goes through `LlmService`, so the retrofit is one file,
 and "no tier makes music stop" is already structural — the chain tops up and the writer registry falls
 through. But "the model is self-hosted so nothing is billed" stopped being true the day a provider arm reached
 a paid API, which is exactly the trigger that section named. The retrofit surface is unchanged; what changed is
@@ -97,7 +97,7 @@ right from, so an open search is the fallback rather than the opening move. Orde
 tie-break on duplicate names, which these do not have.
 
 **Four of the seven sources are plugin-backed and three are not, and the line between them is not about
-difficulty.** `docs/todo/tool-plugins.md`'s rule: a tool is a plugin when the thing it talks to is somebody
+difficulty.** [tool-plugins](https://github.com/robert-dean/deadair/discussions/44)'s rule: a tool is a plugin when the thing it talks to is somebody
 else's service (charts, similar artists, news, web search), and a host-side source when it talks to deadair
 (the catalog, the taste, the running order). Routing the second kind through a plugin would be a boundary
 crossing in a circle.

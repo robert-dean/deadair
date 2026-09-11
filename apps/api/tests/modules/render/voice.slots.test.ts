@@ -14,7 +14,7 @@ import { SEED_CALLERS } from '../../../src/modules/personas/caller.defaults.js';
 import { DEFAULT_VOICE_ROWS as KOKORO_ROWS } from '../../../../../plugins/kokoro/src/kokoro.manifest.js';
 import { DEFAULT_VOICE_ROWS as CHATTERBOX_ROWS } from '../../../../../plugins/chatterbox/src/chatterbox.manifest.js';
 
-/** The one slot in a shipped map that is not a persona. See `docs/todo/personas.md` §1. */
+/** The one slot in a shipped map that is not a persona. See [personas](https://github.com/robert-dean/deadair/discussions/25) §1. */
 const ROLE_SLOTS = ['newsreader'];
 
 // Everybody who has a sheet, which is what a shipped map has to cover. The callers are a separate

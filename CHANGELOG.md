@@ -9,6 +9,12 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.2.3] — 2026-09-11
+
+- An audition now keeps what the model wrote for a break the station refused, beside the reason, so a decline such as "read a sample line back" can be checked against the words.
+- The presenter no longer reads a reissue's "2014 remaster" or "2004 remix" out as part of a title, and a break that names such a record by its plain title is no longer refused for naming neither record.
+- A break that says the sky is doing something it is not ("Night falls" in the afternoon, "Sunrise" at eleven) now goes to the floor like one that says "tonight" at the wrong time. Night and sunrise in the host's own story, in similes and in record titles are still allowed.
+
 ## [0.2.2] — 2026-09-11
 
 - The presenter no longer reads a reissue's "2004 Remix" out as part of the title, and no longer doubles a full stop after a name that already ends in one, such as R.E.M.
@@ -64,7 +70,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.2.2...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.2.3...HEAD
+[0.2.3]: https://github.com/robert-dean/deadair/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/robert-dean/deadair/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/robert-dean/deadair/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/robert-dean/deadair/compare/v0.1.0...v0.2.0

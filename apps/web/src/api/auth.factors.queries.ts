@@ -54,7 +54,7 @@ export function useRegisterAuthenticator() {
         retry: false,
         mutationFn: async ({ label }: { label?: string }): Promise<AuthenticatorRegistration> => {
             const codeVerifier = generateCodeVerifier();
-            const codeChallenge = await generateCodeChallenge(codeVerifier);
+            const codeChallenge = generateCodeChallenge(codeVerifier);
             const trimmed = label?.trim();
             const response = await sdk.authentication.factors.registerFactor({
                 method: 'authenticator',
@@ -122,7 +122,7 @@ export function useRegisterEmail() {
         retry: false,
         mutationFn: async ({ value, codeVerifier: existing }: { value: string; codeVerifier?: string }): Promise<EmailRegistration> => {
             const codeVerifier = existing ?? generateCodeVerifier();
-            const codeChallenge = await generateCodeChallenge(codeVerifier);
+            const codeChallenge = generateCodeChallenge(codeVerifier);
             const address = value.trim();
             const response = await sdk.authentication.factors.registerFactor({ method: 'email', codeChallenge, value: address });
             if (response.method !== 'email') {

@@ -6,7 +6,15 @@
  * first and the `codeVerifier` sent with the second are what tie those two requests to one
  * browser: a registration id alone could be replayed from anywhere the QR was seen. Same shape as
  * OAuth's PKCE (RFC 7636), which is where the names come from.
+ *
+ * Nothing here may need a SECURE context (HTTPS or localhost), because a station on a home network is
+ * opened at `http://<the server's address>:8080` and is neither. `getRandomValues` is available on
+ * any page; `crypto.subtle` is not, which is why the hash comes from `@noble/hashes` rather than
+ * `crypto.subtle.digest`. Enrolling a factor from a console reached that way used to fail on
+ * reading `digest` off `undefined`. See `api/request.id.ts` for the same trap in every request.
  */
+
+import { sha256 } from '@noble/hashes/sha2.js';
 
 function toBase64Url(bytes: Uint8Array): string {
     let binary = '';
@@ -22,7 +30,6 @@ export function generateCodeVerifier(): string {
 }
 
 /** The SHA-256 of a verifier as base64url, which is what the API is handed first. */
-export async function generateCodeChallenge(verifier: string): Promise<string> {
-    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
-    return toBase64Url(new Uint8Array(digest));
+export function generateCodeChallenge(verifier: string): string {
+    return toBase64Url(sha256(new TextEncoder().encode(verifier)));
 }

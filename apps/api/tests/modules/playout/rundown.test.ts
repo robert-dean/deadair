@@ -707,6 +707,53 @@ describe('Rundown.prepare', () => {
     });
 });
 
+describe('Rundown.forgetStranded', () => {
+    /** An order whose first record is prepared with a talk-over cue riding it, the way the director leaves one. */
+    const cuedOrder = () => {
+        const rundown = new Rundown(new StubResolver(), logger);
+        const order = new StationLineup({ name: 'Test', mode: 'rotation', onEnd: 'extend', source: 'import' });
+        order.replaceFrom(['a', 'b', 'c'].map(track));
+        order.insertSegment('talk-1', 0, { atMs: 5_000 });
+        rundown.attach(order);
+
+        const [cue, first] = order.all();
+        // The director hands a cue over itself when it attaches it to the record behind.
+        order.markHanded(cue!.id);
+        rundown.prepare([
+            { ...(first as { track: RundownTrack }).track, id: first!.id, voice: { segmentId: 'talk-1', atMs: 5_000, itemId: cue!.id } },
+        ]);
+        return { rundown, order, cue: cue!, first: first! };
+    };
+
+    it('forgets a record prepared behind one that is not, and the cue that was riding it', () => {
+        // Its prepared form is a snapshot of it as the NEXT record: the cue was written for the
+        // boundary it has been moved away from. Kept, it would air in that form when its turn came.
+        const { rundown, order, cue, first } = cuedOrder();
+
+        // Always swapping with the front turns the tail a, b, c into b, c, a.
+        const random = vi.spyOn(Math, 'random').mockReturnValue(0);
+        try {
+            order.shuffleRemaining();
+        } finally {
+            random.mockRestore();
+        }
+
+        expect(rundown.forgetStranded()).toBe(1);
+        expect(rundown.isPrepared(first.id)).toBe(false);
+        expect(order.find(cue.id)?.state).toBe('skipped');
+    });
+
+    it('leaves a prepared record alone while it is still next', () => {
+        // The ordinary edit, a record added at the end, moves nothing in front of it.
+        const { rundown, order, cue, first } = cuedOrder();
+        order.append([track('d')]);
+
+        expect(rundown.forgetStranded()).toBe(0);
+        expect(rundown.isPrepared(first.id)).toBe(true);
+        expect(order.find(cue.id)?.state).toBe('handed');
+    });
+});
+
 describe('Rundown.onAired', () => {
     it('fires when the player confirms an item, not when it was handed over', async () => {
         // Handing over runs an item ahead of the listener. History, now-playing and

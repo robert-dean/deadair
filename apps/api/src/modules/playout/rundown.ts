@@ -463,6 +463,44 @@ export class Rundown {
     }
 
     /**
+     * Forget the playable form of every item prepared behind one that is not.
+     *
+     * The other half of {@link ahead}. That keeps a stranded item from being handed over out of
+     * turn, but its prepared form is still a snapshot of the moment it was the next record: the
+     * measurement it carried then, the claims checked against the order as it stood, and a
+     * talk-over cue written for the boundary it has just been moved away from. Left in place, it
+     * would be handed over in that form whenever its turn came round, because {@link isPrepared}
+     * tells the director there is nothing to do. Forgotten, it is prepared afresh like any other
+     * item when it is next.
+     *
+     * The cue it carried is marked skipped. The director hands a cue over itself when it attaches
+     * it, so it is not `planned` and would never be offered again, and the record it was written to
+     * ride has gone. Nothing will say it, and the order should not claim the player is holding it.
+     *
+     * @returns how many it forgot, so the caller knows whether the order changed.
+     */
+    forgetStranded(): number {
+        let gap = false;
+        let forgot = 0;
+
+        for (const entry of this.order?.all() ?? []) {
+            if (entry.state !== 'planned') continue;
+
+            const item = this.prepared.get(entry.id);
+            if (item === undefined) {
+                gap = true;
+                continue;
+            }
+            if (!gap) continue;
+
+            this.prepared.delete(entry.id);
+            if (item.voice?.itemId !== undefined) this.order?.markSkipped(item.voice.itemId);
+            forgot += 1;
+        }
+        return forgot;
+    }
+
+    /**
      * Take back everything the player is holding, without ending the broadcast.
      *
      * What a change of programming does. Everything handed over and not heard goes

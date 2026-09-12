@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Anchor, Badge, Button, Card, Code, CopyButton, Group, Image, Stack, Text, TextInput, Title } from '@mantine/core';
+import { Anchor, Badge, Button, Card, Code, Group, Image, Stack, Text, TextInput, Title } from '@mantine/core';
 import { Link } from '@tanstack/react-router';
 import type { AuthenticationFactor } from '@deadair/sdk';
 
@@ -16,6 +16,7 @@ import {
 import { isRateLimited, retryAfterMs } from '../../api/retry.policy';
 import { apiErrorMessage, isInvalidToken, sdkError } from '../../api/sdk.error';
 import { ConfirmModal } from '../shared/confirm.modal';
+import { CopyButton } from '../shared/copy.button';
 import { ErrorAlert } from '../shared/error.alert';
 import { notifyDone, notifySaved } from '../shared/notify';
 import { ONE_TIME_CODE_LENGTH, OneTimeCodeInput } from '../shared/one.time.code.input';
@@ -263,13 +264,7 @@ function EnrolAuthenticatorCard({ gate }: { gate: ReturnType<typeof useStepUpGat
                                 <Text size="sm">Or enter this key by hand:</Text>
                                 <Group gap="xs" wrap="nowrap">
                                     <Code style={{ overflowWrap: 'anywhere' }}>{registration.secret}</Code>
-                                    <CopyButton value={registration.secret}>
-                                        {({ copied, copy }) => (
-                                            <Button variant="subtle" size="compact-xs" onClick={copy}>
-                                                {copied ? 'Copied' : 'Copy'}
-                                            </Button>
-                                        )}
-                                    </CopyButton>
+                                    <CopyButton value={registration.secret} />
                                 </Group>
                             </Stack>
                             <OneTimeCodeInput

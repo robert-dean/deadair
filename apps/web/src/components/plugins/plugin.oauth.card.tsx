@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Button, Card, Code, CopyButton, Group, Modal, Stack, Text, Title } from '@mantine/core';
+import { Button, Card, Code, Group, Modal, Stack, Text, Title } from '@mantine/core';
 import type { PluginDetail } from '@deadair/sdk';
 
 import { useDisconnectPluginOAuth, useStartPluginOAuth } from '../../api/plugins.queries';
 import { apiErrorMessage, sdkError } from '../../api/sdk.error';
+import { CopyButton } from '../shared/copy.button';
 import { ErrorAlert } from '../shared/error.alert';
 
 /** Where the provider should send the operator back to. The console completes the flow, not the API. */
@@ -92,13 +93,7 @@ export function PluginOAuthCard({ plugin }: PluginOAuthCardProps) {
                     </Text>
                     <Group gap="xs" wrap="nowrap">
                         <Code style={{ overflowWrap: 'anywhere' }}>{callbackUrl}</Code>
-                        <CopyButton value={callbackUrl}>
-                            {({ copied, copy }) => (
-                                <Button variant="subtle" size="compact-xs" onClick={copy}>
-                                    {copied ? 'Copied' : 'Copy'}
-                                </Button>
-                            )}
-                        </CopyButton>
+                        <CopyButton value={callbackUrl} />
                     </Group>
                     <Text size="xs" c="dimmed">
                         Register this with the provider, character for character, and enter it in the plugin&apos;s redirect URI setting above.

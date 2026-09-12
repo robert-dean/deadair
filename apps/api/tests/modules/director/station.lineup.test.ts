@@ -14,6 +14,7 @@ import {
     type StationLineupMode,
 } from '../../../src/modules/director/station.lineup.js';
 import type { RundownTrack } from '../../../src/modules/playout/rundown.js';
+import { songKey } from '../../../src/modules/director/rotation.keys.js';
 
 const track = (externalId: string): RundownTrack => ({
     pluginId: 'deadair.spotify',
@@ -934,5 +935,87 @@ describe('StationLineup remeasuring', () => {
 
         expect(lineup.remeasure(segment.id, measured)).toBe(false);
         expect(lineup.remeasure('no-such-item', measured)).toBe(false);
+    });
+});
+
+describe('StationLineup smart shuffle', () => {
+    // The plain shuffle is random and nothing else. A smart one is still random, so every case here
+    // runs many times and asserts what must hold on EVERY run, rather than one order a pinned random
+    // happens to produce.
+    const RUNS = 40;
+
+    const record = (externalId: string, artist: string): RundownTrack => ({
+        pluginId: 'deadair.spotify',
+        externalId,
+        title: `Track ${externalId}`,
+        artists: [artist, 'A Guest'],
+        artist,
+    });
+
+    const lineupOf = (records: RundownTrack[]): StationLineup => {
+        const lineup = new StationLineup(binding());
+        lineup.replaceFrom(records);
+        return lineup;
+    };
+
+    const artistsOf = (lineup: StationLineup) => lineup.all().map(item => (item.kind === 'track' ? item.track.artist : '(segment)'));
+
+    it('puts what aired lately behind everything that did not', () => {
+        const records = [record('a', 'One'), record('b', 'Two'), record('c', 'Three'), record('d', 'Four'), record('e', 'Five'), record('f', 'Six')];
+        // Keyed on the LEAD artist, as `play_history` is. The guest on every record must not stop
+        // the history's keys matching.
+        const recentSongKeys = new Set([songKey('Track b', ['Two']), songKey('Track d', ['Four'])]);
+
+        for (let run = 0; run < RUNS; run++) {
+            const lineup = lineupOf(records);
+            expect(lineup.shuffleRemaining({ recentSongKeys }).result).toEqual({ ok: true });
+
+            const ids = idsOf(lineup.all());
+            expect(ids.slice(0, 4).sort()).toEqual(['a', 'c', 'e', 'f']);
+            expect(ids.slice(4).sort()).toEqual(['b', 'd']);
+        }
+    });
+
+    it('never puts one artist on its own heels when an arrangement exists', () => {
+        const records = [record('a', 'One'), record('b', 'One'), record('c', 'One'), record('d', 'Two'), record('e', 'Three'), record('f', 'Four')];
+
+        for (let run = 0; run < RUNS; run++) {
+            const lineup = lineupOf(records);
+            lineup.shuffleRemaining({ recentSongKeys: new Set() });
+
+            const artists = artistsOf(lineup);
+            expect(
+                artists.every((artist, index) => index === 0 || artist !== artists[index - 1]),
+                artists.join(' '),
+            ).toBe(true);
+        }
+    });
+
+    it('does not open the shuffled tail with the artist the player is holding', () => {
+        for (let run = 0; run < RUNS; run++) {
+            const lineup = lineupOf([record('a', 'One'), record('b', 'One'), record('c', 'Two')]);
+            hand(lineup, 1);
+
+            lineup.shuffleRemaining({ recentSongKeys: new Set() });
+
+            expect(idsOf(lineup.all())).toEqual(['a', 'c', 'b']);
+        }
+    });
+
+    it('keeps the committed head in front and in order, and still drops the breaks in the tail', () => {
+        const lineup = lineupOf([record('a', 'One'), record('b', 'Two'), record('c', 'Three'), record('d', 'Four')]);
+        hand(lineup, 1);
+        lineup.insertSegment('ident', 2);
+
+        const { result, dropped } = lineup.shuffleRemaining({ recentSongKeys: new Set([songKey('Track b', ['Two'])]) });
+
+        expect(result).toEqual({ ok: true });
+        expect(idsOf(dropped)).toEqual(['segment:ident']);
+        expect(idsOf(lineup.all())[0]).toBe('a');
+        expect(idsOf(lineup.all()).at(-1)).toBe('b');
+    });
+
+    it('refuses a tail with nothing to reorder, exactly as the plain shuffle does', () => {
+        expect(lineupOf([record('a', 'One')]).shuffleRemaining({ recentSongKeys: new Set() }).result).toMatchObject({ ok: false, reason: 'empty' });
     });
 });

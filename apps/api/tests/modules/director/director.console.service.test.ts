@@ -23,6 +23,10 @@ import type { CandidatesRepository } from '../../../src/modules/director/candida
 import type { TrackAudioService } from '../../../src/modules/playout/audio/track.audio.service.js';
 import { AIR_MODE_KEY } from '../../../src/modules/playout/air.mode.js';
 import { ROTATION_KEYS } from '../../../src/modules/director/rotation.rules.js';
+import type { PlayHistoryRepository } from '../../../src/modules/director/play.history.repository.js';
+import { songKey } from '../../../src/modules/director/rotation.keys.js';
+import { SMART_SHUFFLE_KEYS } from '../../../src/modules/director/smart.shuffle.js';
+import { StationIdentity } from '../../../src/modules/shared/station.identity.js';
 import { settingsConfig } from '../../utils/settings.config.js';
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
@@ -62,6 +66,8 @@ interface Options {
     trackBinding?: { pluginId: string; externalId: string; durationMs?: number };
     /** Whether that binding's audio is on this machine. Defaults to true, so a case that cares turns it off. */
     audioReady?: boolean;
+    /** Song keys the history says aired inside the smart shuffle's horizon. */
+    recentSongs?: string[];
 }
 
 function build(options: Options = {}) {
@@ -220,6 +226,10 @@ function build(options: Options = {}) {
     const trackAudio = {
         has: vi.fn(async () => options.audioReady ?? true),
     } as unknown as TrackAudioService;
+    // Read by the smart shuffle alone. Nothing aired lately unless a case says otherwise.
+    const history = {
+        songKeysSince: vi.fn(async () => new Set(options.recentSongs ?? [])),
+    } as unknown as PlayHistoryRepository;
 
     return {
         service: new DirectorConsoleService(
@@ -240,7 +250,10 @@ function build(options: Options = {}) {
             resolver,
             candidates,
             trackAudio,
+            history,
+            new StationIdentity(),
         ),
+        history,
         activity,
         personas,
         charts,
@@ -713,8 +726,38 @@ describe('DirectorConsoleService editing the running order', () => {
         const result = await service.shuffleOrder();
 
         expect(director.invalidate).toHaveBeenCalled();
-        expect(director.applyEdit).toHaveBeenCalledWith({ kind: 'shuffle' });
+        expect(director.applyEdit).toHaveBeenCalledWith({ kind: 'shuffle', smart: { recentSongKeys: [] } });
         expect(result.items).toHaveLength(3);
+    });
+
+    it('carries what aired lately on the command, so the edit pass reads nothing', async () => {
+        const recent = songKey('T1', ['X']);
+        const { service, director, history } = build({ order: onAirWith(3), recentSongs: [recent] });
+
+        await service.shuffleOrder();
+
+        expect(history.songKeysSince).toHaveBeenCalledWith(14, 'main');
+        expect(director.applyEdit).toHaveBeenCalledWith({ kind: 'shuffle', smart: { recentSongKeys: [recent] } });
+    });
+
+    it('is the plain shuffle, reading no history, when smart shuffle is off in the row', async () => {
+        const { service, director, history } = build({ order: onAirWith(3), settings: { [SMART_SHUFFLE_KEYS.enabled]: 'false' } });
+
+        await service.shuffleOrder();
+
+        expect(history.songKeysSince).not.toHaveBeenCalled();
+        expect(director.applyEdit).toHaveBeenCalledWith({ kind: 'shuffle' });
+    });
+
+    it('says a smart shuffle was smart on the feed, without copying the history into the row', async () => {
+        const { service, activity } = build({ order: onAirWith(3), recentSongs: [songKey('T1', ['X']), songKey('T2', ['X'])] });
+
+        await service.shuffleOrder();
+
+        const event = activity.record.mock.calls[0]![0];
+        expect(event).toMatchObject({ kind: 'order.shuffle', data: { kind: 'shuffle', smart: true } });
+        expect(JSON.stringify(event)).not.toContain('recentSongKeys');
+        expect(event.detail).toContain('aired lately');
     });
 
     it('records the edit against the operator who made it', async () => {

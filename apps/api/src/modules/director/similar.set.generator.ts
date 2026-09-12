@@ -1,5 +1,7 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
+import type { ArtistTrack } from '@deadair/plugin-sdk';
+import { DateTime } from 'luxon';
 import { Logger } from '@maroonedsoftware/logger';
 import { SimilarityService } from '#modules/similarity/similarity.service.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
@@ -8,6 +10,7 @@ import { DISCOVER_DEFAULT, DISCOVER_KEY } from './pick.resolver.js';
 import { bindsAnything, withinPeriod } from './candidates.repository.js';
 import { artistKey, songKey } from './rotation.keys.js';
 import { SetGenerator, type SetInputs, type TrackPick } from './set.generator.js';
+import { freshnessOf, historyDaysFor, resolveSmartShuffle } from './smart.shuffle.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
 
@@ -155,6 +158,21 @@ export class SimilarSetGenerator extends SetGenerator {
             return [];
         }
 
+        // Which of a neighbour's top tracks aired lately, so the walk can take a fresher one. Read once
+        // per refill, after the seeds, so a station with nothing aired yet pays nothing. Off, it asks
+        // for zero days and runs no query, and the walk takes each neighbour's first track as before.
+        const smartShuffle = resolveSmartShuffle(this.config);
+        const lastAired = await this.history.lastAiredSince(historyDaysFor(smartShuffle), this.identity.stationKey).catch((error: unknown) => {
+            // A lean is not worth this binding's share of the batch. Without the history the walk
+            // is the one it was before smart shuffle existed, which is a fine answer.
+            this.logger.debug(
+                `director: the similarity walk could not read what aired lately, so it takes each neighbour's first track (${errorText(error)})`,
+            );
+            return new Map<string, DateTime>();
+        });
+        const now = DateTime.utc();
+        const freshness = (song: string): number => freshnessOf(lastAired.get(song), now, smartShuffle.horizonDays);
+
         const picks: TrackPick[] = [];
         const takenSongs = new Set(inputs.avoidSongKeys ?? []);
         const takenArtists = new Set<string>();
@@ -185,6 +203,9 @@ export class SimilarSetGenerator extends SetGenerator {
                         TRACKS_PER_ARTIST,
                     );
 
+                    // Every track of this neighbour's that could be named, in the order the source
+                    // ranked them. The walk then takes ONE, as it always has.
+                    const eligible: { track: ArtistTrack; song: string }[] = [];
                     for (const track of tracks) {
                         const song = songKey(track.title, [track.artist]);
                         if (takenSongs.has(song)) continue;
@@ -209,12 +230,16 @@ export class SimilarSetGenerator extends SetGenerator {
                         // and not another.
                         if (era !== undefined && !withinPeriod(track.year, era)) continue;
 
-                        takenSongs.add(song);
-                        // No `trackId`: this has not read the catalog. The resolver matches by name,
-                        // which is the one place that decision belongs.
-                        picks.push({ title: track.title, artist: track.artist });
-                        break;
+                        eligible.push({ track, song });
                     }
+
+                    const chosen = freshestFirst(eligible, entry => freshness(entry.song));
+                    if (chosen === undefined) continue;
+
+                    takenSongs.add(chosen.song);
+                    // No `trackId`: this has not read the catalog. The resolver matches by name,
+                    // which is the one place that decision belongs.
+                    picks.push({ title: chosen.track.title, artist: chosen.track.artist });
                 }
             }
         } catch (error) {
@@ -311,3 +336,30 @@ function readMix(value: unknown): number {
     if (!Number.isFinite(mix) || mix <= 0) return 0;
     return Math.min(mix, 1);
 }
+
+/**
+ * The freshest of a neighbour's eligible tracks, ties going to the one the source ranked higher.
+ *
+ * What makes the similarity walk a smart shuffle too. It used to take each neighbour's first track,
+ * and a neighbour's first track is the same record every time that neighbour comes up: measured on the
+ * live station on 2026-09-12, the most-aired records of the fortnight were canonical hits aired five to
+ * seven times each. Choosing the freshest of the few the source offers keeps the neighbour and changes
+ * the record, and it drops nothing: the neighbour still contributes one.
+ *
+ * A ranking by freshness rather than a weighted draw, deliberately, and it is a choice between three
+ * rather than a sort of the library. The source's own order is a real signal (its best-known track
+ * first), so with nothing aired lately the answer is exactly the old one; a draw would spend that
+ * signal even when there was no repetition to avoid.
+ */
+const freshestFirst = <T>(eligible: readonly T[], freshnessOf: (entry: T) => number): T | undefined => {
+    let best: T | undefined;
+    let bestFreshness = -1;
+    for (const entry of eligible) {
+        const freshness = freshnessOf(entry);
+        if (freshness > bestFreshness) {
+            best = entry;
+            bestFreshness = freshness;
+        }
+    }
+    return best;
+};

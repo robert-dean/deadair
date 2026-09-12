@@ -1665,7 +1665,7 @@ export class DirectorService {
     private applyTo(lineup: StationLineup, edit: OrderEdit): ShuffleResult {
         switch (edit.kind) {
             case 'shuffle':
-                return lineup.shuffleRemaining();
+                return lineup.shuffleRemaining(edit.smart === undefined ? undefined : { recentSongKeys: new Set(edit.smart.recentSongKeys) });
 
             case 'move':
                 return { result: lineup.move(edit.itemId, edit.toIndex), dropped: [] };

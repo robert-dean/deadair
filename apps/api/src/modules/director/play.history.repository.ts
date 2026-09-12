@@ -29,7 +29,7 @@ export interface PlayHistoryEntry {
  * rotation still cares about. It exists so a station left running for a year
  * does not carry a table nobody will ever query.
  */
-const RETENTION_DAYS = 120;
+export const PLAY_HISTORY_RETENTION_DAYS = 120;
 
 /** Writes between retention sweeps. A track boundary is not the moment to delete a year of rows. */
 const PRUNE_EVERY = 50;
@@ -127,6 +127,39 @@ export class PlayHistoryRepository extends DataRepository {
             .execute();
 
         return new Set(rows.map(row => row.songKey));
+    }
+
+    /**
+     * When each song aired LAST, for every song aired within the last `days`: the smart shuffle's
+     * freshness horizon.
+     *
+     * The sibling of {@link songKeysSince} with the one thing that set cannot carry, which is how
+     * long ago. The repeat window only needs to know WHETHER a song is inside it, because it
+     * refuses; a bias has to know how far inside, because it tilts. Keyed on `song_key` for the
+     * reason every rotation read is (see `rotation.keys.ts`): two catalog rows holding one work
+     * share one history, so a discovered copy of a record the library already had is not fresh
+     * just because its row is new.
+     *
+     * `0` or less answers with an empty map WITHOUT querying, so a station with smart shuffle off
+     * pays nothing for it. A song older than the horizon is absent rather than present-and-old,
+     * which is the same answer the caller gives a song that never aired: as fresh as it gets.
+     * Retention bounds what this can say either way. Rows past {@link PLAY_HISTORY_RETENTION_DAYS}
+     * are pruned, so a horizon longer than that would describe history nobody keeps.
+     */
+    async lastAiredSince(days: number, stationKey: string): Promise<Map<string, DateTime>> {
+        if (days <= 0) return new Map();
+
+        const rows = await this.db
+            .selectFrom('deadair.playHistory')
+            .select(eb => ['songKey', eb.fn.max('airedAt').as('lastAiredAt')])
+            // Per station, and `play_history_song_idx` leads with it and then `song_key`, which is
+            // the grouping this asks for.
+            .where('stationKey', '=', stationKey)
+            .where('airedAt', '>', sql<DateTime>`now() - ${sql.lit(`${Math.floor(days)} days`)}::interval`)
+            .groupBy('songKey')
+            .execute();
+
+        return new Map(rows.map(row => [row.songKey, row.lastAiredAt]));
     }
 
     /** Artists aired within the last `minutes` — the cooldown. `0` disables it, as above. */
@@ -285,7 +318,7 @@ export class PlayHistoryRepository extends DataRepository {
      * the install, and a sweep that ran per station would leave every other station's rows to
      * whichever station happened to be airing.
      */
-    async prune(days = RETENTION_DAYS): Promise<number> {
+    async prune(days = PLAY_HISTORY_RETENTION_DAYS): Promise<number> {
         const result = await this.db
             .deleteFrom('deadair.playHistory')
             .where('airedAt', '<', sql<DateTime>`now() - ${sql.lit(`${Math.floor(days)} days`)}::interval`)

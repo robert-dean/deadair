@@ -48,6 +48,7 @@ import { CHART_GENERATOR_KEYS, DEFAULT_CHART_MIX } from '#modules/director/chart
 import { DEFAULT_SIMILAR_MIX, SIMILAR_GENERATOR_KEYS } from '#modules/director/similar.set.generator.js';
 import { BRIEF_ONLY_DEFAULT, BRIEF_ONLY_KEY } from '#modules/director/set.generator.chain.js';
 import { DISCOVER_DEFAULT, DISCOVER_KEY } from '#modules/director/pick.resolver.js';
+import { DEFAULT_SMART_SHUFFLE, DEFAULT_SMART_SHUFFLE_DAYS, SMART_SHUFFLE_DAYS_RANGE, SMART_SHUFFLE_KEYS } from '#modules/director/smart.shuffle.js';
 import { ADVISORY_DEFAULT, ADVISORY_KEY } from '#modules/director/advisory.policy.js';
 import { MODEL_WRITER_DEFAULT, MODEL_WRITER_KEYS } from '#modules/director/model.talk.break.writer.js';
 import { LLM_PLUGIN_KEY } from '#modules/llm/llm.settings.js';
@@ -459,6 +460,35 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         type: 'number',
         default: DEFAULT_RULES.artistCooldownMinutes,
         help: 'Roughly one listening session, which is the span over which hearing the same act twice is noticeable. 0 turns it off.',
+    },
+    {
+        group: 'rotation',
+        key: SMART_SHUFFLE_KEYS.enabled,
+        label: 'Smart shuffle',
+        type: 'boolean',
+        default: DEFAULT_SMART_SHUFFLE,
+        help:
+            'Records the station has aired lately are less likely to be drawn again soon, so the rotation works through more of your library ' +
+            'before it comes back round. It is a lean and never a refusal: anything outside the repeat window above can still be drawn, and a ' +
+            'small library still plays everything it holds. It shapes the draw from your own library, the similarity mix takes a fresher record ' +
+            'from each similar artist rather than always their best known, and a model choosing records is told which ones it heard lately. ' +
+            'Off, the draw is a plain random one that favours only what you have liked.',
+    },
+    {
+        group: 'rotation',
+        key: SMART_SHUFFLE_KEYS.days,
+        label: 'How long a record stays cold after it airs (days)',
+        type: 'number',
+        default: DEFAULT_SMART_SHUFFLE_DAYS,
+        // The resolver clamps a stored row into this range, so the console refuses the same figures
+        // rather than accepting one the draw is not running on. The ceiling is the play history's own
+        // retention: past it, a record that aired is indistinguishable from one that never did.
+        min: SMART_SHUFFLE_DAYS_RANGE.min,
+        max: SMART_SHUFFLE_DAYS_RANGE.max,
+        dependsOn: SMART_SHUFFLE_KEYS.enabled,
+        help:
+            'A record that has just aired starts at a quarter of its usual chance of being drawn and warms up evenly until this many days ' +
+            'have passed, when it is back to full. A fortnight suits most libraries. Play history is kept for 120 days, so that is the longest this can be.',
     },
     {
         group: 'rotation',

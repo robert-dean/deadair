@@ -264,6 +264,7 @@ describe('SetGeneratorChain with the real bindings', () => {
         const history = {
             songKeysSince: vi.fn(async () => new Set<string>()),
             artistKeysSince: vi.fn(async () => new Set<string>()),
+            lastAiredSince: vi.fn(async () => new Map()),
         } as unknown as ConstructorParameters<typeof CatalogSetGenerator>[1];
 
         // No advisory setting stored, so the policy resolves to its default and narrows nothing:
@@ -288,6 +289,10 @@ describe('SetGeneratorChain with the real bindings', () => {
             {} as never,
             { get: (_key: string, fallback: unknown) => fallback, has: () => false } as never,
             logger,
+            // Nor are these: the smart shuffle's history read comes after the same config check.
+            {} as never,
+            {} as never,
+            {} as never,
         );
 
     it('fills the whole request from the floor when the model is switched off', async () => {

@@ -1,5 +1,6 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
+import { DateTime } from 'luxon';
 import { StationIdentity } from '#modules/shared/station.identity.js';
 import { advisoryPolicy, demandsClean, type AdvisoryPolicy } from './advisory.policy.js';
 import { AdvisoryWatch } from './advisory.watch.js';
@@ -9,6 +10,7 @@ import { PlayHistoryRepository } from './play.history.repository.js';
 import { albumKey, artistKey, songKey } from './rotation.keys.js';
 import { applyRules, spaceArtists, weightOf, type RotationCandidate } from './rotation.rules.js';
 import { SetGenerator, type SetInputs, type TrackPick } from './set.generator.js';
+import { freshnessOf, historyDaysFor, resolveSmartShuffle } from './smart.shuffle.js';
 import { trackLengthBounds } from './track.length.js';
 
 /**
@@ -66,12 +68,19 @@ export class CatalogSetGenerator extends SetGenerator {
         const { count, rules } = inputs;
         if (count <= 0) return [];
 
+        // Read per refill like the policy below, so an operator switching it is obeyed on the next
+        // batch. Deliberately not a field of `rules`: a setlist zeroes every rule, and a setlist is
+        // never drawn from here anyway, so there is nothing for a per-lineup override to decide.
+        const smartShuffle = resolveSmartShuffle(this.config);
+
         // Both windows are read at generation time rather than passed in, because
         // they move: a refill that ran a minute ago has itself changed the answer.
-        // A disabled rule costs no query at all — see the repository.
-        const [songKeys, artistKeys] = await Promise.all([
+        // A disabled rule costs no query at all — see the repository. The smart shuffle's horizon
+        // rides the same trip and the same rule: off, it asks for zero days and pays nothing.
+        const [songKeys, artistKeys, lastAired] = await Promise.all([
             this.history.songKeysSince(rules.repeatWindowDays, this.identity.stationKey),
             this.history.artistKeysSince(rules.artistCooldownMinutes, this.identity.stationKey),
+            this.history.lastAiredSince(historyDaysFor(smartShuffle), this.identity.stationKey),
         ]);
 
         const recent = {
@@ -88,7 +97,15 @@ export class CatalogSetGenerator extends SetGenerator {
         const era = inputs.era;
         const sampled = await this.candidates.sample(count, policy, era, trackLengthBounds(this.config));
         await this.watchStarvation(policy, era, count, sampled.length);
-        const scored = sampled.map(toRotationCandidate);
+        // Freshness is stamped on what was SAMPLED, so it can only choose between the records the
+        // sample drew. That is enough: the sample is random, so over a few refills every record is
+        // offered, and the weight decides which of the offered ones win. If it ever has to be true of
+        // the whole library in one batch, the fix is ordering the SQL by a randomised function of
+        // the age rather than raising the ceiling (the same note #30 makes about a play count).
+        const now = DateTime.utc();
+        const scored = sampled.map(track =>
+            toRotationCandidate(track, smartShuffle.enabled ? { lastAired, now, horizonDays: smartShuffle.horizonDays } : undefined),
+        );
 
         // The same rules `PickResolver` applies to every pick from every generator, applied
         // again here and deliberately. Not redundancy: filtering BEFORE the draw is what keeps
@@ -153,13 +170,28 @@ interface ScoredCandidate extends RotationCandidate {
     track: CandidateTrack;
 }
 
-const toRotationCandidate = (track: CandidateTrack): ScoredCandidate => ({
-    songKey: songKey(track.title, [track.artist]),
-    artistKey: artistKey([track.artist]),
-    ...(track.album === undefined ? {} : { albumKey: albumKey([track.artist], track.album) }),
-    rating: track.rating,
-    track,
-});
+/** What a draw with smart shuffle on knows about when each song last aired. */
+interface Freshness {
+    lastAired: ReadonlyMap<string, DateTime>;
+    now: DateTime;
+    horizonDays: number;
+}
+
+/**
+ * @param freshness - Absent with smart shuffle off, which leaves the candidate with no freshness at
+ *   all rather than a freshness of `1`. The two weigh the same; only one of them says nothing was read.
+ */
+const toRotationCandidate = (track: CandidateTrack, freshness?: Freshness): ScoredCandidate => {
+    const key = songKey(track.title, [track.artist]);
+    return {
+        songKey: key,
+        artistKey: artistKey([track.artist]),
+        ...(track.album === undefined ? {} : { albumKey: albumKey([track.artist], track.album) }),
+        rating: track.rating,
+        ...(freshness === undefined ? {} : { freshness: freshnessOf(freshness.lastAired.get(key), freshness.now, freshness.horizonDays) }),
+        track,
+    };
+};
 
 const union = (base: ReadonlySet<string>, extra?: ReadonlySet<string>): ReadonlySet<string> => {
     if (!extra || extra.size === 0) return base;
@@ -167,11 +199,13 @@ const union = (base: ReadonlySet<string>, extra?: ReadonlySet<string>): Readonly
 };
 
 /**
- * Draw `count` without replacement, favouring what the operator has liked.
+ * Draw `count` without replacement, favouring what the operator has liked and, with smart
+ * shuffle on, what the station has not played lately.
  *
  * Weighted rather than sorted, because sorting by rating would play the same
  * liked handful every time and call it programming. A liked track is drawn twice
- * as often; everything else still gets its turn.
+ * as often; everything else still gets its turn. See {@link weightOf} for how the
+ * two lean compose.
  */
 const drawWeighted = (candidates: readonly ScoredCandidate[], count: number): ScoredCandidate[] => {
     const pool = [...candidates];

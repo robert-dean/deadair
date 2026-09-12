@@ -7,6 +7,11 @@ import { TracksRepository } from '#modules/catalog/tracks.repository.js';
 import { RefillPreemption } from './refill.preemption.js';
 import { QueuedRecords } from '#modules/shared/queued.records.js';
 import { SearchedRecords } from '#modules/shared/searched.records.js';
+import { AiredRecords } from '#modules/shared/aired.records.js';
+import { StationIdentity } from '#modules/shared/station.identity.js';
+import { DateTime } from 'luxon';
+import { PlayHistoryRepository } from './play.history.repository.js';
+import { resolveSmartShuffle } from './smart.shuffle.js';
 import { writeCapture } from '#modules/llm/llm.capture.js';
 import { LlmService } from '#modules/llm/llm.service.js';
 import { captureWrites } from '#modules/render/script.history.settings.js';
@@ -244,6 +249,11 @@ export class ModelSetGenerator extends SetGenerator {
         private readonly searched: SearchedRecords,
         private readonly config: AppConfig,
         private readonly logger: Logger,
+        // For smart shuffle: when each song last aired, read here and handed to the search through
+        // `AiredRecords`, so the rows the model chooses from say which records it heard lately.
+        private readonly history: PlayHistoryRepository,
+        private readonly identity: StationIdentity,
+        private readonly aired: AiredRecords,
     ) {
         super();
     }
@@ -264,6 +274,9 @@ export class ModelSetGenerator extends SetGenerator {
         // thing and cannot say all of it: it is capped, and the remainder reaches the model as a
         // count of records it will never see the names of.
         this.queued.remember(inputs.avoidSongKeys ?? []);
+        // Before the prompt for the same reason, and only with smart shuffle on: off, nothing is read
+        // and no row is marked, which is the search as it was.
+        await this.rememberAired();
 
         const model = this.config.get(MODEL_GENERATOR_KEYS.model, '').trim();
         // Read per refill like the two above it, so an operator raising the ceiling after a run of
@@ -513,6 +526,26 @@ export class ModelSetGenerator extends SetGenerator {
      * Spaced by artist on the way out, because three searches for one act answer with three of its
      * records in a row and that is audible in a way the unspaced list is not.
      */
+    /**
+     * Tell the search which records aired lately, so its rows can say so. See `AiredRecords`.
+     *
+     * A failed read costs the marks and nothing else: the refill goes ahead with the search as it was
+     * before smart shuffle, which is a fine answer, where letting the throw through would cost the
+     * model its whole turn over a lean.
+     */
+    private async rememberAired(): Promise<void> {
+        const smartShuffle = resolveSmartShuffle(this.config);
+        if (!smartShuffle.enabled) return;
+
+        try {
+            this.aired.remember(await this.history.lastAiredSince(smartShuffle.horizonDays, this.identity.stationKey), DateTime.utc());
+        } catch (error) {
+            this.logger.debug(
+                `director: the model's search will not say what aired lately, because the history could not be read (${errorText(error)})`,
+            );
+        }
+    }
+
     private rescue(inputs: SetInputs, why: string): TrackPick[] {
         if (this.searched.size === 0) return [];
 

@@ -26,6 +26,8 @@ import { chartPicks, DEFAULT_CHART_ORDER } from './chart.picks.js';
 import { DISCOVER_DEFAULT, DISCOVER_KEY, PickResolver } from './pick.resolver.js';
 import { songKey } from './rotation.keys.js';
 import { NO_RULES, stationAutoExtends } from './rotation.rules.js';
+import { PlayHistoryRepository } from './play.history.repository.js';
+import { resolveSmartShuffle } from './smart.shuffle.js';
 import { StationAirRepository } from './station.air.repository.js';
 import type { EditResult, StationLineupBinding, StationLineupSegmentItem, StationLineupSnapshot } from './station.lineup.js';
 import type {
@@ -46,6 +48,7 @@ import type {
     StationOrderItem,
 } from './types/director.types.js';
 import { errorText } from '#modules/shared/error.text.js';
+import { StationIdentity } from '#modules/shared/station.identity.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
 
 /**
@@ -104,6 +107,10 @@ export class DirectorConsoleService {
         // playable binding (`addTrackToOrder`) and whether its audio is actually here yet.
         private readonly candidates: CandidatesRepository,
         private readonly trackAudio: TrackAudioService,
+        // Read-only, for the smart shuffle alone: which songs aired lately, read HERE and carried on
+        // the command so the director's edit pass stays synchronous and reads nothing.
+        private readonly history: PlayHistoryRepository,
+        private readonly identity: StationIdentity,
     ) {}
 
     /**
@@ -740,9 +747,17 @@ export class DirectorConsoleService {
      * The breaks among them are dropped rather than carried to a random new position, and the
      * planner plants the shuffled tail again on the pass that follows: see
      * `StationLineup.shuffleRemaining`.
+     *
+     * With smart shuffle on (`rotation.smartShuffle`, the default) the songs aired inside its horizon
+     * are read first and ride the command, so the shuffled tail puts them behind everything else and
+     * keeps one artist off its own heels. Off, it is the plain shuffle and reads nothing.
      */
     async shuffleOrder(): Promise<StationOrder> {
-        return await this.editOrder({ kind: 'shuffle' });
+        const smart = resolveSmartShuffle(this.config);
+        if (!smart.enabled) return await this.editOrder({ kind: 'shuffle' });
+
+        const recent = await this.history.songKeysSince(smart.horizonDays, this.identity.stationKey);
+        return await this.editOrder({ kind: 'shuffle', smart: { recentSongKeys: [...recent] } });
     }
 
     /** Move an item within the running order. */
@@ -865,7 +880,7 @@ export class DirectorConsoleService {
             module: 'director',
             kind: `order.${edit.kind}`,
             detail: describeEdit(edit),
-            data: { ...edit },
+            data: eventDataOf(edit),
             ...(this.actor() === undefined ? {} : { actorId: this.actor() as string }),
         });
         return await this.getOrder();
@@ -1040,6 +1055,16 @@ const toOrderSegment = (item: StationLineupSegmentItem, segment: Segment | undef
 });
 
 /**
+ * What an edit's `station_events` row carries: the edit itself, less anything that is not about the
+ * edit. A smart shuffle's song keys are a read of the history, as long as the history is, and a row
+ * about one press of a button is no place for them; that it was smart is the fact.
+ */
+function eventDataOf(edit: OrderEdit): Record<string, unknown> {
+    if (edit.kind === 'shuffle') return edit.smart === undefined ? { kind: edit.kind } : { kind: edit.kind, smart: true };
+    return { ...edit };
+}
+
+/**
  * One edit, in the words an operator would use for it.
  *
  * Deliberately says what it did to the STATION rather than to a list, which is the same rule the
@@ -1048,7 +1073,9 @@ const toOrderSegment = (item: StationLineupSegmentItem, segment: Segment | undef
 function describeEdit(edit: OrderEdit): string {
     switch (edit.kind) {
         case 'shuffle':
-            return 'An operator shuffled the records the player is not already holding, and the breaks were planted again around them.';
+            return edit.smart === undefined
+                ? 'An operator shuffled the records the player is not already holding, and the breaks were planted again around them.'
+                : 'An operator shuffled the records the player is not already holding, with anything aired lately moved toward the back and no artist on its own heels, and the breaks were planted again around them.';
         case 'move':
             return 'An operator moved an item in the running order.';
         case 'remove':

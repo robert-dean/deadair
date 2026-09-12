@@ -6,6 +6,7 @@ import { TracksRepository } from '#modules/catalog/tracks.repository.js';
 import { advisoryPolicy, demandsClean } from '#modules/director/advisory.policy.js';
 import { songKey } from '#modules/director/rotation.keys.js';
 import { QueuedRecords } from '#modules/shared/queued.records.js';
+import { AiredRecords } from '#modules/shared/aired.records.js';
 import { SearchedRecords } from '#modules/shared/searched.records.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
@@ -132,6 +133,16 @@ interface MusicTrack {
      * previous picks landed, and would read as the library shrinking between two identical searches.
      */
     queued?: boolean;
+    /**
+     * How many whole days ago this record aired on the station, `0` being today. Absent when it has
+     * not aired inside the smart shuffle's horizon, or smart shuffle is off, for the reason `queued`
+     * is absent rather than false.
+     *
+     * Information and never a veto, which is the whole of smart shuffle's rule: a model filling a
+     * narrow brief may need the record that aired yesterday, and the repeat window, not this, is what
+     * refuses. What it buys is the choice between two records that fit equally well.
+     */
+    airedDaysAgo?: number;
     /** Everyone else on the record, shown and never copied. Provider rows only. */
     featuring?: string[];
     album?: string;
@@ -147,6 +158,8 @@ export class MusicSearchTool implements ToolSource {
         private readonly tracks: TracksRepository,
         private readonly providers: ProviderSearch,
         private readonly queued: QueuedRecords,
+        // Read like `queued`, filled by the same refill. See `AiredRecords`.
+        private readonly aired: AiredRecords,
         // Written to and never read here: this tool answers the model, and what a refill does with
         // the answer when the model stops talking is the refill's question. See `SearchedRecords`.
         private readonly searched: SearchedRecords,
@@ -167,7 +180,7 @@ export class MusicSearchTool implements ToolSource {
                     // rather than which store was read, because there is no longer a choice to
                     // steer — what is left to explain is the one field that carries the old split.
                     description:
-                        'Search for records the station can play: its own library and everything its music providers offer, in one answer. Every result is safe to name. Each row says whether the station already owns it — an owned record is ready to play, and one it does not own yet is fetched when you choose it. A row marked queued is already in the running order: choosing it does nothing, so pick something else. It matches NAMES and styles in the library, but only NAMES at the providers: to fill a brief, work out for yourself which artists fit it and search for them one at a time.',
+                        'Search for records the station can play: its own library and everything its music providers offer, in one answer. Every result is safe to name. Each row says whether the station already owns it — an owned record is ready to play, and one it does not own yet is fetched when you choose it. A row marked queued is already in the running order: choosing it does nothing, so pick something else. A row with airedDaysAgo played on this station that many days ago (0 is today): between two records that fit equally well, prefer the one without it, or the one that aired longest ago. It matches NAMES and styles in the library, but only NAMES at the providers: to fill a brief, work out for yourself which artists fit it and search for them one at a time.',
                     parameters: {
                         type: 'object',
                         properties: {
@@ -295,7 +308,7 @@ export class MusicSearchTool implements ToolSource {
     }
 
     /**
-     * Say so when the running order already holds this record.
+     * Say so when the running order already holds this record, and when it aired lately.
      *
      * Applied to BOTH halves through one method, because a record can be queued whichever store it
      * came back from and a mark that only reached the provider rows would be worse than none: the
@@ -306,7 +319,13 @@ export class MusicSearchTool implements ToolSource {
      * record" that nobody could see disagreeing with the other two.
      */
     private mark(row: MusicTrack): MusicTrack {
-        return this.queued.has(songKey(row.title, [row.artist])) ? { ...row, queued: true } : row;
+        const key = songKey(row.title, [row.artist]);
+        const daysAgo = this.aired.daysAgo(key);
+        return {
+            ...row,
+            ...(this.queued.has(key) ? { queued: true } : {}),
+            ...(daysAgo === undefined ? {} : { airedDaysAgo: daysAgo }),
+        };
     }
 }
 

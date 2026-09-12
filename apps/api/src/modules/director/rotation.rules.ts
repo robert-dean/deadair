@@ -341,6 +341,14 @@ export interface RotationCandidate {
      * and it is the only place it should be.
      */
     rating?: number;
+    /**
+     * How fresh this work is, from `0` (it just aired) to `1` (it last aired a smart-shuffle horizon
+     * ago or longer, or never has). Absent means nothing has an opinion, which weighs exactly like `1`.
+     *
+     * Set only by a draw that read the history for it (`CatalogSetGenerator`, with smart shuffle on).
+     * See `smart.shuffle.ts` for why it is a weight and never a filter.
+     */
+    freshness?: number;
 }
 
 /** What the station has aired lately, as the rules read it. */
@@ -386,8 +394,28 @@ export const rejectDisliked = <T extends RotationCandidate>(candidates: readonly
  * is not a `least()` across the three. It used to be, and the effect was that
  * this doubled nothing an operator could produce from the console without rating
  * a song, its record and its artist identically.
+ *
+ * Freshness multiplies in on the same argument: a tilt, not a sort. Sorting by how long ago a record
+ * aired would play the library in a fixed order and call it variety; weighting by it lets a record
+ * that aired yesterday still come up, just less often than one nobody has heard in a fortnight.
  */
-export const weightOf = (candidate: RotationCandidate): number => (candidate.rating === 1 ? 2 : 1);
+export const weightOf = (candidate: RotationCandidate): number => (candidate.rating === 1 ? 2 : 1) * freshWeight(candidate.freshness);
+
+/**
+ * The share of its full weight a record that has JUST aired keeps under smart shuffle.
+ *
+ * A quarter, and never zero, which is the whole difference between this and the repeat window. At
+ * zero a record would be refused until it warmed up, and a refusal is the window's job. Above zero it
+ * is a lean: a record aired yesterday under the default fortnight horizon is drawn at about a third of
+ * the chance of a cold one, and a small library still plays everything it holds.
+ */
+export const FRESH_FLOOR = 0.25;
+
+/** The smart shuffle's multiplier: {@link FRESH_FLOOR} at freshness `0`, rising evenly to `1`. */
+const freshWeight = (freshness: number | undefined): number => {
+    if (freshness === undefined || !Number.isFinite(freshness)) return 1;
+    return FRESH_FLOOR + (1 - FRESH_FLOOR) * Math.min(1, Math.max(0, freshness));
+};
 
 /**
  * Keep at most `max` tracks by any one artist, in the order they were offered.

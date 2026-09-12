@@ -267,6 +267,24 @@ export function useImportPlugin() {
 }
 
 /**
+ * Takes an installed plugin off the station and deletes its folder. Needs `platform.manage`.
+ *
+ * The answer is the catalogue without it, written straight in. Its detail is dropped rather than
+ * invalidated, because asking for it again would be a 404 for a page the operator is leaving.
+ */
+export function useRemovePlugin() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (id: string) => sdk.plugins.removePlugin(id),
+        onSuccess: (plugins, id) => {
+            queryClient.setQueryData(queryKeys.plugins.list(), plugins);
+            queryClient.removeQueries({ queryKey: queryKeys.plugins.detail(id) });
+            void queryClient.invalidateQueries({ queryKey: queryKeys.plugins.grants() });
+        },
+    });
+}
+
+/**
  * Asks where to send the operator for the provider's consent screen.
  *
  * The API reports the URL instead of redirecting to it, because the route sits behind the Bearer

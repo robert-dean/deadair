@@ -12,6 +12,7 @@ import { PluginConfigForm } from './plugin.config.form';
 import { PluginLogsCard } from './plugin.logs.card';
 import { PluginOAuthCard } from './plugin.oauth.card';
 import { PluginPermissionsCard } from './plugin.permissions.card';
+import { PluginRemoveCard } from './plugin.remove.card';
 import { feedsTrackFetcher, hasConfigForm, hasOAuth, PluginOriginBadge, PluginStatusLamp, statusOf } from './plugin.status';
 import { StreamAuthorizationCard } from './stream.authorization.card';
 
@@ -191,6 +192,8 @@ export function PluginDetailPage({ id }: PluginDetailPageProps) {
             {feedsTrackFetcher(detail) ? <StreamAuthorizationCard plugin={detail} /> : undefined}
 
             <PluginLogsCard plugin={detail} />
+
+            {detail.origin === 'installed' ? <PluginRemoveCard plugin={detail} /> : undefined}
         </Stack>
     );
 }

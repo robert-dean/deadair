@@ -9,6 +9,8 @@ const getPlugin = vi.fn();
 const testPluginConnection = vi.fn();
 const startPluginOAuthAuthorization = vi.fn();
 const readFetcherAuthorization = vi.fn();
+const removePlugin = vi.fn();
+const navigate = vi.fn();
 
 vi.mock('../../../src/api/client', () => ({
     sdk: {
@@ -17,6 +19,7 @@ vi.mock('../../../src/api/client', () => ({
             testPluginConnection: (...args: unknown[]) => testPluginConnection(...args),
             startPluginOAuthAuthorization: (...args: unknown[]) => startPluginOAuthAuthorization(...args),
             updatePluginConfiguration: vi.fn(),
+            removePlugin: (...args: unknown[]) => removePlugin(...args),
         },
         stream: {
             readFetcherAuthorization: (...args: unknown[]) => readFetcherAuthorization(...args),
@@ -30,6 +33,7 @@ vi.mock('@tanstack/react-router', () => ({
             {children}
         </a>
     ),
+    useNavigate: () => navigate,
 }));
 
 const assign = vi.fn();
@@ -41,6 +45,8 @@ afterEach(() => {
     startPluginOAuthAuthorization.mockReset();
     readFetcherAuthorization.mockReset();
     assign.mockReset();
+    removePlugin.mockReset();
+    navigate.mockReset();
 });
 
 describe('PluginDetailPage', () => {
@@ -134,5 +140,33 @@ describe('PluginDetailPage', () => {
         expect(await screen.findByText('Settings')).toBeInTheDocument();
         expect(screen.queryByText('Playback authorization')).not.toBeInTheDocument();
         expect(readFetcherAuthorization).not.toHaveBeenCalled();
+    });
+    it('offers to remove a plugin the operator installed, and not one the station came with', async () => {
+        getPlugin.mockResolvedValue(pluginDetail());
+        const { unmount } = render(<PluginDetailPage id="deadair.spotify" />);
+        expect(await screen.findByText('Connection test')).toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Remove' })).not.toBeInTheDocument();
+        unmount();
+
+        getPlugin.mockResolvedValue(pluginDetail({ id: 'example.charts', name: 'Charts', origin: 'installed' }));
+        render(<PluginDetailPage id="example.charts" />);
+        expect(await screen.findByRole('button', { name: 'Remove' })).toBeInTheDocument();
+    });
+
+    it('removes an installed plugin once confirmed, and goes back to the list', async () => {
+        getPlugin.mockResolvedValue(pluginDetail({ id: 'example.charts', name: 'Charts', origin: 'installed' }));
+        removePlugin.mockResolvedValue([]);
+        const user = setupUser();
+
+        render(<PluginDetailPage id="example.charts" />);
+        await user.click(await screen.findByRole('button', { name: 'Remove' }));
+        expect(await screen.findByText(/Its settings and what it was allowed are kept/)).toBeInTheDocument();
+        expect(removePlugin).not.toHaveBeenCalled();
+        await user.click(screen.getByRole('button', { name: 'Remove Charts' }));
+
+        await vi.waitFor(() => {
+            expect(navigate).toHaveBeenCalledWith({ to: '/plugins' });
+        });
+        expect(removePlugin).toHaveBeenCalledWith('example.charts');
     });
 });

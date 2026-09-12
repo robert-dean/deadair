@@ -247,6 +247,26 @@ export function useRescanPlugins() {
 }
 
 /**
+ * Takes a plugin in from the browser as the tarball `npm pack` writes. Needs `platform.manage`.
+ *
+ * The answer carries the whole catalogue, written into the cache as a rescan's is, because an import
+ * can take an older version of the plugin away as well as add the new one. Grants are asked for again
+ * rather than patched: what a plugin asks for is in its manifest, and a new plugin or a new version
+ * of one may ask for something the list on screen has never heard of.
+ */
+export function useImportPlugin() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (body: FormData) => sdk.plugins.importPlugin(body),
+        onSuccess: result => {
+            queryClient.setQueryData(queryKeys.plugins.list(), result.plugins);
+            void queryClient.invalidateQueries({ queryKey: queryKeys.plugins.detail(result.pluginId) });
+            void queryClient.invalidateQueries({ queryKey: queryKeys.plugins.grants() });
+        },
+    });
+}
+
+/**
  * Asks where to send the operator for the provider's consent screen.
  *
  * The API reports the URL instead of redirecting to it, because the route sits behind the Bearer

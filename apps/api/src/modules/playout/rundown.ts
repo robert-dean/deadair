@@ -533,10 +533,12 @@ export class Rundown {
      * to live in two arrays that had to be concatenated in the right order by hand.
      *
      * Only prepared items. One the director has not resolved yet is a plan rather
-     * than something the player could be given.
+     * than something the player could be given, and so is anything prepared behind
+     * it: see {@link ahead}. That is also what the director's commit pass reads its
+     * room from, so an item stranded down the order does not count against the lead.
      */
     upcoming(): readonly RundownItem[] {
-        return this.orderedByState(state => state === 'handed' || state === 'planned');
+        return this.ahead().map(entry => entry.item);
     }
 
     /**
@@ -546,7 +548,7 @@ export class Rundown {
      * The pusher's own bookkeeping, not an answer for a console.
      */
     queuedCount(): number {
-        return this.orderedByState(state => state === 'planned').length;
+        return this.ahead().filter(entry => entry.state === 'planned').length;
     }
 
     /**
@@ -964,17 +966,36 @@ export class Rundown {
         this.emit();
     }
 
-    /** The prepared items in the order's own sequence, narrowed by state. */
-    private orderedByState(wanted: (state: string) => boolean): RundownItem[] {
-        if (!this.order) return [];
+    /**
+     * What is committed and not yet on air, in the order's own sequence, with the state each has
+     * reached.
+     *
+     * **It stops at the first `planned` item with no prepared form**, and that is what keeps the
+     * hand-over from reordering the director's sequence. A prepared item is still `planned` until
+     * it is handed over, so anything that puts an item IN FRONT of it (an operator's shuffle, a
+     * move, a break placed at the head) leaves it prepared behind something that is not. Offering
+     * it anyway handed the player a record from further down the order, and the player airing it
+     * marked every item in front of it skipped: 19 at once on a shuffle given to an idle station.
+     * Stopping here instead leaves nothing to hand over until the director prepares the item that
+     * is actually next, which it does on the pass this makes room for.
+     *
+     * Handed items are not cut, wherever they sit. They are with the player already.
+     */
+    private ahead(): { item: RundownItem; state: 'handed' | 'planned' }[] {
+        const ahead: { item: RundownItem; state: 'handed' | 'planned' }[] = [];
+        let gap = false;
 
-        return this.order
-            .all()
-            .filter(item => wanted(item.state))
-            .flatMap(item => {
-                const prepared = this.prepared.get(item.id);
-                return prepared === undefined ? [] : [prepared];
-            });
+        for (const entry of this.order?.all() ?? []) {
+            if (entry.state !== 'handed' && entry.state !== 'planned') continue;
+
+            const item = this.prepared.get(entry.id);
+            if (entry.state === 'planned' && (gap || item === undefined)) {
+                gap = true;
+                continue;
+            }
+            if (item !== undefined) ahead.push({ item, state: entry.state });
+        }
+        return ahead;
     }
 
     /**
@@ -982,13 +1003,13 @@ export class Rundown {
      * and, once it has, the one behind it.
      *
      * Prepared items only, because `upcoming` is. An item the director has planned
-     * but not resolved yet is invisible here. For the hand-over that is correct,
-     * since there is nothing to give the player. For the successor peek it means a
-     * boundary occasionally reads as the end of the order when it is not, which
-     * costs one cold join and nothing else.
+     * but not resolved yet is invisible here, and so is everything behind it. For the
+     * hand-over that is correct, since there is nothing to give the player. For the
+     * successor peek it means a boundary occasionally reads as the end of the order
+     * when it is not, which costs one cold join and nothing else.
      */
     private nextPlanned(): RundownItem | undefined {
-        return this.upcoming().find(candidate => this.stateOf(candidate.id) === 'planned');
+        return this.ahead().find(entry => entry.state === 'planned')?.item;
     }
 
     /** The ids the player is believed to be holding, in hand-over order. */

@@ -199,6 +199,18 @@ argument and is reasoned rather than measured, so a record airing twice is the f
 `MAX_HAND_OVERS` STAYS at 3: it covers a Liquidsoap that restarted and dropped what it held, which is not an
 audio-availability fact.
 
+**Prepared is not handed, and the transport never hands over past a gap.** A commit PREPARES a record and
+leaves it `planned`. It becomes `handed` only when the pusher gives it to Liquidsoap, and with nobody listening
+that never happens (`WARM_LEAD` is 0). So an idle station's next record sits prepared and `planned`, and
+everything that draws its line at `committedThrough` (a shuffle, a move, an insert, a break placed at the head)
+treats it as tail and can put an unprepared item in front of it. The hand-over used to offer the first PREPARED
+planned item wherever it sat, and the player airing it made `markAiring` mark every item in front of it
+skipped. Measured on 2026-09-11: a playlist shuffled while nobody was listening went, when the next listener
+arrived, straight to the playlist's first record, with 19 items written off. `Rundown.ahead` now stops at the
+first `planned` item with no prepared form, and `upcoming`, `queuedCount` and the hand-over all read it, so a
+stranded item is neither offered nor counted against `COMMIT_LEAD`, and the commit pass prepares the item that
+is really next.
+
 **The other half is that a record nothing will serve comes OUT of the order before its slot**:
 `TrackCachePlanner.ripen` answers with the window's unfetchable items — absent from `findForBindings` means
 every copy is benched, and a backoff that outlasts the item's own projected slot is a miss rather than a wait

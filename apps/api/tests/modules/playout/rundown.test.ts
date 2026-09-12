@@ -666,6 +666,45 @@ describe('Rundown.prepare', () => {
         await rundown.next();
         expect(await rundown.next()).toBeUndefined();
     });
+
+    it('will not hand over past an item the director has not prepared', async () => {
+        // A shuffle on an idle station. The director had prepared the first record, but nobody was
+        // listening so the player had not been handed it, and a prepared record is still `planned`:
+        // the shuffle moved it down behind records nobody had prepared. The hand-over went straight
+        // to it anyway, and the player airing it marked everything in front of it skipped. On the
+        // live station that was 19 items, and the listener heard the playlist's first record.
+        const rundown = new Rundown(new StubResolver(), logger);
+        const order = new StationLineup({ name: 'Test', mode: 'rotation', onEnd: 'extend', source: 'import' });
+        order.replaceFrom(['a', 'b', 'c', 'd'].map(track));
+        rundown.attach(order);
+        const first = order.all()[0]!;
+        rundown.prepare([{ ...(first as { track: RundownTrack }).track, id: first.id }]);
+
+        // Always swapping with the front turns the tail a, b, c, d into b, c, d, a.
+        const random = vi.spyOn(Math, 'random').mockReturnValue(0);
+        try {
+            order.shuffleRemaining();
+        } finally {
+            random.mockRestore();
+        }
+
+        expect(rundown.upcoming()).toEqual([]);
+        expect(rundown.queuedCount()).toBe(0);
+        expect(await rundown.next()).toBeUndefined();
+
+        // The director's next pass prepares the record that is actually first now, and that one airs
+        // with nothing passed over.
+        const head = order.all()[0]!;
+        rundown.prepare([{ ...(head as { track: RundownTrack }).track, id: head.id }]);
+        const pulled = await rundown.next();
+        expect(pulled?.item.externalId).toBe('b');
+
+        const aired = vi.fn();
+        rundown.onAired(aired);
+        rundown.markAired(pulled!.item.id);
+        expect(aired).toHaveBeenCalledWith(expect.objectContaining({ externalId: 'b' }), 0);
+        expect(order.all().filter(item => item.state === 'skipped')).toEqual([]);
+    });
 });
 
 describe('Rundown.onAired', () => {

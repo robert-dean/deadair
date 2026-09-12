@@ -1,7 +1,9 @@
 import { useState } from 'react';
-import { Alert, Badge, Button, Code, Collapse, CopyButton, Group, List, Stack, Text } from '@mantine/core';
+import { Alert, Badge, Button, Code, Collapse, Group, List, Stack, Text } from '@mantine/core';
 import { IconChevronDown, IconChevronUp } from '@tabler/icons-react';
 import type { SilenceCause, SilenceCheck, StationSilence } from '@deadair/sdk';
+
+import { CopyButton } from '../shared/copy.button';
 
 export interface SilenceDiagnosisProps {
     silence: StationSilence;
@@ -137,13 +139,7 @@ function Remedy({ remedy }: { remedy: string }) {
     return (
         <Group gap="xs" wrap="nowrap">
             <Code>{remedy}</Code>
-            <CopyButton value={remedy}>
-                {({ copied, copy }) => (
-                    <Button size="compact-xs" variant="subtle" color={copied ? 'green' : undefined} onClick={copy}>
-                        {copied ? 'Copied' : 'Copy'}
-                    </Button>
-                )}
-            </CopyButton>
+            <CopyButton value={remedy} />
         </Group>
     );
 }

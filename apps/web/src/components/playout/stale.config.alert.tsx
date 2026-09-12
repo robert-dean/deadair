@@ -1,5 +1,7 @@
-import { Alert, Badge, Button, Code, CopyButton, Group, Stack, Text, Tooltip } from '@mantine/core';
+import { Alert, Badge, Code, Group, Stack, Text, Tooltip } from '@mantine/core';
 import type { StreamConfigWarning } from '@deadair/sdk';
+
+import { CopyButton } from '../shared/copy.button';
 
 export interface StaleConfigProps {
     warnings: StreamConfigWarning[];
@@ -53,13 +55,7 @@ export function StaleConfigAlert({ warnings }: StaleConfigProps) {
                         <Text size="xs">{warning.detail}</Text>
                         <Group gap="xs" wrap="nowrap">
                             <Code>{warning.restart}</Code>
-                            <CopyButton value={warning.restart}>
-                                {({ copied, copy }) => (
-                                    <Button size="compact-xs" variant="subtle" color={copied ? 'green' : undefined} onClick={copy}>
-                                        {copied ? 'Copied' : 'Copy'}
-                                    </Button>
-                                )}
-                            </CopyButton>
+                            <CopyButton value={warning.restart} />
                         </Group>
                     </Stack>
                 ))}

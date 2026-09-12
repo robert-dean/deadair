@@ -77,9 +77,10 @@ wrong.
 
 Plain `http://` is fine on your own network. A browser treats a page served that way from anything
 but `localhost` as not secure and withholds a few functions from it. The console works without
-them, except that its Copy buttons do nothing there, so select the text beside one instead. An
-image from before that was true showed "Can't reach the station" on every page when opened that
-way; pulling a current one is the cure.
+them, Copy buttons included: they fall back to the browser's older way of copying, and if a browser
+refuses that too, the button says "Copy failed" and shows the text already selected, so your
+keyboard's copy shortcut finishes the job. An image from before that was true showed "Can't reach
+the station" on every page when opened that way; pulling a current one is the cure.
 
 ## On Unraid
 

@@ -1,4 +1,4 @@
-import { Button, Card, Code, CopyButton, Group, Progress, Stack, Table, Text } from '@mantine/core';
+import { Card, Code, Group, Progress, Stack, Table, Text } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import type { PlayoutMount, PluginSummary, StationHeartbeat } from '@deadair/sdk';
 import type { DateTime } from 'luxon';
@@ -8,6 +8,7 @@ import { pluginsListOptions } from '../../api/plugins.queries';
 import { useStationAttention, useStationCheckup } from '../../api/station.queries';
 import { useStorage } from '../../api/storage.queries';
 import { AttentionList } from './attention.list';
+import { CopyButton } from '../shared/copy.button';
 import { EmptyState } from '../shared/empty.state';
 import { Eyebrow } from '../shared/eyebrow';
 import { formatBytes } from '../shared/format.bytes';
@@ -234,13 +235,7 @@ function Build({ revision, version }: { revision?: string; version?: string }) {
             {version !== undefined && <Code title={`Release ${version}`}>{version}</Code>}
             <Text size="sm">Built from</Text>
             <Code title={revision}>{revision.slice(0, 7)}</Code>
-            <CopyButton value={revision}>
-                {({ copied, copy }) => (
-                    <Button size="compact-xs" variant="subtle" color={copied ? 'green' : undefined} onClick={copy}>
-                        {copied ? 'Copied' : 'Copy'}
-                    </Button>
-                )}
-            </CopyButton>
+            <CopyButton value={revision} />
         </Group>
     );
 }
@@ -423,13 +418,7 @@ function Mounts({ mounts }: { mounts: PlayoutMount[] }) {
                     <Text size="xs" c="dimmed">
                         {mount.bitrateKbps === undefined ? 'lossless' : `${mount.bitrateKbps} kbps`}
                     </Text>
-                    <CopyButton value={`${window.location.origin}${mount.path}`}>
-                        {({ copied, copy }) => (
-                            <Button size="compact-xs" variant="subtle" color={copied ? 'green' : undefined} onClick={copy}>
-                                {copied ? 'Copied' : 'Copy'}
-                            </Button>
-                        )}
-                    </CopyButton>
+                    <CopyButton value={`${window.location.origin}${mount.path}`} />
                 </Group>
             ))}
         </Stack>

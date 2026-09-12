@@ -15,6 +15,7 @@ import {
     DEFAULT_AUTO_EXTEND,
     DEFAULT_RULES,
     filterByHistory,
+    FRESH_FLOOR,
     stationAutoExtends,
     rejectDisliked,
     resolveRules,
@@ -289,6 +290,44 @@ describe('rejectDisliked', () => {
     it('favours a liked track without promising it', () => {
         expect(weightOf(candidate('A', ['One'], 1))).toBe(2);
         expect(weightOf(candidate('B', ['Two'], 0))).toBe(1);
+    });
+});
+
+describe('weightOf under smart shuffle', () => {
+    const fresh = (freshness: number, rating?: number): RotationCandidate => ({ ...candidate('A', ['One'], rating), freshness });
+
+    it('weighs a record with no freshness exactly as it always did', () => {
+        // Absent is "nothing read the history", which is every candidate a draw with smart shuffle
+        // off produces. Off has to restore the old draw exactly, not approximately.
+        expect(weightOf(candidate('A', ['One']))).toBe(1);
+        expect(weightOf(candidate('A', ['One'], 1))).toBe(2);
+    });
+
+    it('leans against a record that just aired without ever refusing it', () => {
+        // Never zero: a refusal is the repeat window's job, and a weight of nothing would be a
+        // second, invisible window nobody set.
+        expect(weightOf(fresh(0))).toBe(FRESH_FLOOR);
+        expect(FRESH_FLOOR).toBeGreaterThan(0);
+    });
+
+    it('weighs a fully fresh record like one nothing had an opinion on', () => {
+        expect(weightOf(fresh(1))).toBe(1);
+    });
+
+    it('rises evenly in between', () => {
+        expect(weightOf(fresh(0.5))).toBeCloseTo(FRESH_FLOOR + (1 - FRESH_FLOOR) / 2);
+    });
+
+    it('composes with a like rather than replacing it', () => {
+        // A liked record that just aired is still twice as likely as an unliked one that just aired.
+        expect(weightOf(fresh(0, 1))).toBe(2 * FRESH_FLOOR);
+        expect(weightOf(fresh(1, 1))).toBe(2);
+    });
+
+    it('reads a freshness outside the ramp as its nearest end', () => {
+        expect(weightOf(fresh(-2))).toBe(FRESH_FLOOR);
+        expect(weightOf(fresh(7))).toBe(1);
+        expect(weightOf(fresh(Number.NaN))).toBe(1);
     });
 });
 

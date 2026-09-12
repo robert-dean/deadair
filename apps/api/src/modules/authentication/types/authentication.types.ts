@@ -340,7 +340,9 @@ export type PlatformRole = z.infer<typeof PlatformRole>;
  * generated from [Login](../../../../data/contracts/authentication/authentication.types.ck#L357)
  */
 export const Login = z.strictObject({
-    id: z.preprocess(val => (typeof val === 'string' ? BigInt(val.replace(/n$/, '')) : val), z.bigint()).describe('The login event identifier'),
+    id: z
+        .preprocess(val => (typeof val === 'string' && /^-?\d+n?$/.test(val) ? BigInt(val.replace(/n$/, '')) : val), z.bigint())
+        .describe('The login event identifier'),
     actorId: z.uuid().describe('The actor that authenticated'),
     factorType: z
         .enum(['phone', 'password', 'authenticator', 'email', 'fido', 'oidc'])

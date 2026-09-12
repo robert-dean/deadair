@@ -71,6 +71,10 @@ export const SUBSTRATE_FRESHNESS: { [TField in keyof Required<BreakWriteRequest>
     // absorbed rather than spoken.
     reactions: 'timeless',
     pads: 'timeless',
+    // The reactions' argument exactly, for a reading of the whole break: `SpeechService` drops a
+    // delivery the engine does not claim at render time, so a model swapped between the writing and
+    // the air costs the break its mood and never reaches an engine that would ignore it.
+    deliveries: 'timeless',
 
     // What the station has already said and played this broadcast. Both are history, and history
     // only grows: a phrase spent twenty minutes ago is still spent, and a record played is still

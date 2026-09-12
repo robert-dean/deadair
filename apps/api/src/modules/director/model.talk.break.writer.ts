@@ -7,7 +7,9 @@ import { captureWrites } from '#modules/render/script.history.settings.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
 import {
     breakPrompt,
+    liftDelivery,
     maxWordsFor,
+    offeredDeliveries,
     offeredPads,
     permittedYears,
     readAnswer,
@@ -187,6 +189,9 @@ export class ModelTalkBreakWriter extends BreakWriter {
             // And the subject, on those same terms one more time: the caller says which one came
             // round and `TALK_BREAK_SHAPE.allowsPreoccupation` says a link is where it may be raised.
             ...(request.preoccupation === undefined ? {} : { preoccupation: request.preoccupation }),
+            // And the readings, on the reactions' terms exactly: the caller says what the engine can
+            // perform and `TALK_BREAK_SHAPE.allowsDeliveries` says a link may be read one way or another.
+            ...(request.deliveries === undefined ? {} : { deliveries: request.deliveries }),
         };
         // Named rather than defaulted: what this binding writes is a link between two records, and a
         // writer that said nothing about its shape would silently get that whatever it was.
@@ -272,7 +277,12 @@ export class ModelTalkBreakWriter extends BreakWriter {
             // on no more authority than having been echoed back.
             years: permittedYears([request.previous, request.next], request.moment, shownWithoutRecent(messages, request.recent)),
         };
-        const script = readAnswer(result.text, guard);
+        // A reading the model chose, lifted off the front before anything judges the answer, and
+        // against the list the prompt OFFERED rather than the request: `offeredPads`' rule. From here
+        // on `answer` is what every check reads, so the decline, the trim and the script agree about
+        // which words they were looking at. `raw` below keeps the answer as it came, mark and all.
+        const { text: answer, delivery } = liftDelivery(result.text, offeredDeliveries(settings, TALK_BREAK_SHAPE));
+        const script = readAnswer(answer, guard);
 
         // Recorded whichever way it went, and BEFORE the answer is judged, so a model that produced
         // forty seconds of nothing leaves behind the same numbers as one that worked.
@@ -297,8 +307,8 @@ export class ModelTalkBreakWriter extends BreakWriter {
             // it was is `writeDecline`'s answer, and most of them are something an operator can go
             // and change on the personas page — `character-trimmed` being the one that looks like a
             // sheet problem and is not.
-            const words = result.text.trim().split(/\s+/).filter(Boolean).length;
-            const declined = writeDecline(result.text, guard);
+            const words = answer.trim().split(/\s+/).filter(Boolean).length;
+            const declined = writeDecline(answer, guard);
             // Onto the detail as well as into the log, so the reason reaches `script_history.reason`
             // and the question "how often is the model being refused, and for what" is a query
             // rather than a search through a rotating log.
@@ -327,7 +337,7 @@ export class ModelTalkBreakWriter extends BreakWriter {
         // A break the station CUT rather than refused. Re-derived through `writeTrim` rather than
         // measured here, so the row and the log carry a number this writer did not invent, and put on
         // the detail so it reaches `script_history.reason` on a row whose outcome is `written`.
-        const trimmed = writeTrim(result.text, guard);
+        const trimmed = writeTrim(answer, guard);
         if (trimmed !== undefined) {
             this.lastDetail = { ...this.lastDetail, reason: trimmed.reason };
             this.logger.info(`director: ${trimmed.reason}`, { kept: trimmed.kept, dropped: trimmed.dropped, persona: request.persona?.key });
@@ -359,6 +369,8 @@ export class ModelTalkBreakWriter extends BreakWriter {
             // without ever naming the hour — and "this morning" spoken at ten past twelve is the
             // same broken promise the clock check exists for, arriving through the other field.
             ...(claimsTime === undefined ? {} : { claimsTime }),
+            // Only when the model chose one, and only one it was offered: see `liftDelivery`.
+            ...(delivery === undefined ? {} : { delivery }),
         };
     }
 }

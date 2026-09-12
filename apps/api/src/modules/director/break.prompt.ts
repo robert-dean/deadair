@@ -34,9 +34,10 @@
  * badly, and a rule about them would be a rule about nothing.
  */
 
-import { sentencesWithin, withoutCues, type LlmMessage, type SpeechCue } from '@deadair/plugin-sdk';
+import { isSpeechDelivery, sentencesWithin, withoutCues, type LlmMessage, type SpeechCue, type SpeechDelivery } from '@deadair/plugin-sdk';
 import { padCue, withoutPads } from '#modules/render/pad.cues.js';
-import { MAX_REACTIONS, speakableScript } from '#modules/render/speakable.script.js';
+import { afterThinking, MAX_REACTIONS, speakableScript } from '#modules/render/speakable.script.js';
+
 import {
     characterFault,
     latitudeOf,
@@ -251,6 +252,16 @@ export interface BreakPromptShape {
      */
     allowsPads?: boolean;
     /**
+     * Whether this kind of break may choose how it is read: `hushed` or `frantic`.
+     *
+     * {@link BreakPromptShape.allowsCues}' rule for a whole break rather than a moment in one, and on
+     * for the ordinary talk break alone. A bulletin's accuracy is not a mood, and a newsreader who
+     * reads a story hushed has editorialised it as surely as one who sighs over it. The weather and
+     * the welcome are excluded on the ground `allowsCues` gives for the welcome. The story break is
+     * the obvious next one to switch on, left off until the talk break has been heard doing it.
+     */
+    allowsDeliveries?: boolean;
+    /**
      * Whether this kind of break is told what the character has had on its mind.
      *
      * `PersonaSheet.preoccupations`, of which the caller has already chosen one. Off unless a shape
@@ -350,6 +361,8 @@ export const TALK_BREAK_SHAPE: BreakPromptShape = {
     // A link between two records is the presenter being a person, which is exactly what a cue is for.
     // See `allowsCues` for why the bulletin and the welcome are not.
     allowsCues: true,
+    // And the same for a reading of the whole break, which is the same permission one size up.
+    allowsDeliveries: true,
     // And the one place a soundboard belongs, on the same grounds read one step out: the link is
     // where the station gets to sound like itself.
     allowsPads: true,
@@ -471,6 +484,16 @@ export interface PromptSettings {
      * a pad it could ever give back.
      */
     pads?: readonly string[];
+    /**
+     * The readings this break may ask for, or absent for an engine that performs none.
+     *
+     * {@link PromptSettings.reactions}' rule exactly, and resolved by the caller from the render side
+     * for its reason: what the prompt offers and what the answer is read against must be the same
+     * list. Empty or absent leaves the prompt byte-identical to one built before deliveries existed,
+     * which is the state of every station whose engine has no such control, and of the live one
+     * while its server holds the model that performs cues instead.
+     */
+    deliveries?: readonly SpeechDelivery[];
 }
 
 /** The half of a persona a prompt uses: who they are, and how they speak. */
@@ -523,6 +546,35 @@ export { MAX_REACTIONS };
  */
 const offeredReactions = (settings: PromptSettings, shape: BreakPromptShape): readonly SpeechCue[] =>
     shape.allowsCues === true ? (settings.reactions ?? []) : [];
+
+/**
+ * What readings this prompt may offer: the shape's permission and the engine's ability together.
+ *
+ * {@link offeredReactions}' intersection, and exported on {@link offeredPads}' rule: a writer lifts
+ * the mark off its answer against THIS list, so a model that wrote `[hushed]` into a kind of break
+ * that never offered it has that stripped as a stage direction rather than obeyed.
+ */
+export const offeredDeliveries = (settings: PromptSettings, shape: BreakPromptShape): readonly SpeechDelivery[] =>
+    shape.allowsDeliveries === true ? (settings.deliveries ?? []) : [];
+
+/**
+ * The delivery rule, or nothing at all when there is none to offer, on {@link reactionRules}' argument.
+ *
+ * It says where the mark goes because the place is the whole of what makes it a delivery: first,
+ * before any words, is the only position {@link liftDelivery} reads. Anywhere else it is a bracketed
+ * run the tidying strips as a stage direction, which is safe and is also a reading the model asked
+ * for and did not get, so the rule says so rather than leaving it to be learned.
+ */
+function deliveryRules(settings: PromptSettings, shape: BreakPromptShape): string[] {
+    const deliveries = offeredDeliveries(settings, shape);
+    if (deliveries.length === 0) return [];
+
+    const written = deliveries.map(delivery => `[${delivery}]`).join(' or ');
+    return [
+        `- You can also choose how the whole break is read: ${written}. Put it on its own as the very first thing, before any words, and the voice reads everything after it that way. ` +
+            'Most breaks want neither, so use one only when the moment really calls for it, and never anywhere but the start.',
+    ];
+}
 
 /**
  * The reaction rule, or nothing at all when there is none to offer.
@@ -673,11 +725,12 @@ function systemPrompt(settings: PromptSettings, shape: BreakPromptShape): string
         '- Write only the words to be spoken. No stage directions, no speaker labels, no quotation marks around the whole thing, no emoji.',
         '- Write numbers, times and symbols the way they should be read out loud.',
         // Beside the two rules above, because all three are about what a script physically is rather
-        // than what it says. This one is the only delivery control the station has: `SpeechRequest`
-        // carries text, a voice and a format, so nothing between here and the engine can ask for a
-        // reading — the marks in the words ARE the reading. They survive intact, which is what makes
-        // this worth asking for: `transposeForSpeech` keeps `.,!?;:` through `settle`, turns an em or
-        // en dash into a comma (a real pause), and turns `…` into three dots.
+        // than what it says. This is the delivery control EVERY engine has. A reading of the whole
+        // break can also be asked for (`deliveryRules`, below), but only some engines perform one and
+        // it sets the mood of the whole thing rather than the shape of each sentence, so the marks in
+        // the words are still where most of the reading comes from. They survive intact, which is
+        // what makes this worth asking for: `transposeForSpeech` keeps `.,!?;:` through `settle`,
+        // turns an em or en dash into a comma (a real pause), and turns `…` into three dots.
         //
         // The two prohibitions are not style. Capitals are worse than useless because
         // `sayInitialisms` matches its list case-SENSITIVELY, so a model shouting `US` meaning "us"
@@ -703,10 +756,15 @@ function systemPrompt(settings: PromptSettings, shape: BreakPromptShape): string
         // the engine's own sample scripts run about one cue per sentence — a style a local model may
         // well have been tuned on, and one that would be wall-to-wall on a 28-word break.
         ...reactionRules(settings, shape),
-        // Immediately after the reactions, because the two are the same KIND of instruction — the
-        // only two things a script may carry that are not words — and a model reading them together
-        // is reading one idea rather than two unrelated notations.
+        // Immediately after the reactions, because the two are the same KIND of instruction (things a
+        // script may carry that are not words) and a model reading them together is reading one idea
+        // rather than two unrelated notations.
         ...padRules(settings, shape),
+        // The third of that kind, and last of them because it is the only one that is not placed at a
+        // moment in a sentence. Offered on the reactions' two conditions: the shape permits it and the
+        // engine performs it, which on the engine that has it means a different model from the one that
+        // performs the reactions, so a station sees one rule or the other and rarely both.
+        ...deliveryRules(settings, shape),
         '- Do not greet the listener by name, promise anything you have not been told, or mention the time unless you are given it.',
         // Conditional and near the end, because it is the one rule here that is about the station's
         // own policy rather than about what a break IS. Both halves are needed: a model told only
@@ -1722,7 +1780,33 @@ export interface AnswerGuard {
 }
 
 /**
+ * A reading the model asked for, lifted off the front of its answer, and the answer without it.
+ *
+ * Done BEFORE anything reads the answer, and once, by the writer: {@link readAnswer},
+ * {@link writeDecline} and {@link writeTrim} all tidy the text themselves, and the tidying strips any
+ * bracketed run it does not recognise, so a mark left for them would be gone before the break was
+ * judged and the three would be judging words the model did not quite write.
+ *
+ * Only the FIRST thing in the answer counts, after any reasoning the model put in front of it, and
+ * only a word that was OFFERED. Anything else is left exactly where it is, for the tidying to strip:
+ * a mark in the middle of a line, a misspelled one, or `[hushed]` in a kind of break whose shape
+ * never offered it. That is the safety net the whole arrangement rests on, since the worst a stray
+ * mark can do is be deleted, and never be read out.
+ */
+export function liftDelivery(text: string, offered: readonly SpeechDelivery[]): { text: string; delivery?: SpeechDelivery } {
+    if (offered.length === 0) return { text };
+
+    const answer = afterThinking(text);
+    const mark = /^\s*\[([a-z]+)\]/i.exec(answer);
+    const word = mark?.[1]?.toLowerCase();
+    if (mark === null || word === undefined || !isSpeechDelivery(word) || !offered.includes(word)) return { text };
+
+    return { text: answer.slice(mark[0].length).trimStart(), delivery: word };
+}
+
+/**
  * A model's answer, tidied into something speakable, or nothing.
+
  *
  * Everything here is a thing a model does that a listener would hear as wrong rather than as
  * creative: a script wrapped in quotation marks, a `[warmly]` at the front, a `DJ:` label, a

@@ -16,7 +16,12 @@ this is a list an operator adds to and switches between. It replaced `llm.breakP
 both retired, and the reason it could not stay two settings is what putting one on air does: it changes what
 the model is TOLD (the sheet, in `break.prompt.ts`), what the station says when the model declined (the
 persona's own `templates`, ahead of `rotation.breakTemplates` in `resolveTemplates`), and which VOICE speaks
-it (`segments.voice`, stamped by `WriteBreakJob` in the same statement as the words).
+it (`segments.voice`, stamped by `WriteBreakJob` in the same statement as the words). What it does NOT set is
+how theatrical that voice is: "he is always intense" is the voice's own baseline in the speech plugin's map
+(Chatterbox's `exaggeration` column), and how one break is read is chosen per break by the writer
+(`segments.delivery`). A sheet field for either would be a second baseline fighting the first, and one that is
+inert on every engine that has no such control.
+
 
 **It says nothing whatsoever about what the station PLAYS**, and the `music` line that used to is gone: it was
 a FOURTH way to steer the programming beside the three keyed to the clock (`station_lineup.brief`,

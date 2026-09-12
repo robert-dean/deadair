@@ -6,12 +6,14 @@
 // given model obeys them — that is what `llm.captureWrites` and the script history are for.
 
 import { describe, expect, it } from 'vitest';
-import type { SpeechCue } from '@deadair/plugin-sdk';
+import type { SpeechCue, SpeechDelivery } from '@deadair/plugin-sdk';
 
 import {
     breakPrompt,
     DEFAULT_MAX_WORDS,
+    liftDelivery,
     maxWordsFor,
+    offeredDeliveries,
     overusedWords,
     permittedYears,
     readAnswer,
@@ -80,9 +82,9 @@ describe('breakPrompt', () => {
         expect(rules).toMatch(/yours to spend on saying it like yourself/);
     });
 
-    // The delivery control every engine has. `SpeechRequest` is text, a voice and a format, so
-    // nothing downstream can ask for a reading and the marks in the words are what carries it. A
-    // reaction is the other one, and only some engines perform it — see the block below.
+    // The delivery control every engine has, and still where most of a reading comes from: the marks
+    // shape each sentence. A reading of the whole break can also be asked for, and a reaction at a
+    // moment in one, but only some engines perform either. See the blocks below.
     describe('punctuating for the delivery', () => {
         it('asks for it, and names what each mark does', () => {
             const rules = system(prompt({ kind: 'talkbreak', previous, next }));
@@ -113,6 +115,44 @@ describe('breakPrompt', () => {
 
                 expect(rules, `${shape.job} was not asked to punctuate`).toMatch(/Punctuate for the delivery/i);
             }
+        });
+    });
+
+    // How the whole break is read. The same two vetoes as a reaction, the shape's and the engine's,
+    // and a rule that says where the mark goes, because the start is the only place it counts.
+    describe('choosing how the whole break is read', () => {
+        const both: SpeechDelivery[] = ['hushed', 'frantic'];
+
+        it('offers the readings the engine performs, and says they go first', () => {
+            const rules = system(prompt({ kind: 'talkbreak', previous, next }, { deliveries: both }));
+
+            expect(rules).toMatch(/\[hushed\] or \[frantic\]/);
+            expect(rules).toMatch(/very first thing, before any words/i);
+            expect(rules).toMatch(/Most breaks want neither/i);
+        });
+
+        it('names only what was offered', () => {
+            const rules = system(prompt({ kind: 'talkbreak', previous, next }, { deliveries: ['hushed'] }));
+
+            expect(rules).toMatch(/\[hushed\]/);
+            expect(rules).not.toMatch(/\[frantic\]/);
+        });
+
+        it('says nothing at all for an engine that performs none, which is the prompt as it always was', () => {
+            const plain = system(prompt({ kind: 'talkbreak', previous, next }));
+
+            expect(plain).not.toMatch(/how the whole break is read/i);
+            expect(system(prompt({ kind: 'talkbreak', previous, next }, { deliveries: [] }))).toBe(plain);
+        });
+
+        it('is refused by a bulletin and a welcome however capable the engine is', () => {
+            // A newsreader who reads a story hushed has editorialised it.
+            const news = system(breakPrompt({ kind: 'news', stories: [{ headline: 'Bridge reopens.' }] }, { deliveries: both }, NEWS_SHAPE));
+            const welcome = system(breakPrompt({ kind: 'welcome' }, { deliveries: both }, WELCOME_SHAPE));
+
+            expect(news).not.toMatch(/\[hushed\]/);
+            expect(welcome).not.toMatch(/\[hushed\]/);
+            expect(offeredDeliveries({ deliveries: both }, NEWS_SHAPE)).toEqual([]);
         });
     });
 
@@ -1670,6 +1710,53 @@ describe('readAnswer, against the one thing that is not words', () => {
         // `namedRecordIn` would otherwise be handed a token no record can ever match, which is
         // harmless here and would be a silent pass if the words were judged with notation in them.
         expect(readAnswer('[laugh] Anyway, that is the hour.', { names: [{ title: 'Solid Air', artist: 'John Martyn' }] })).toBeUndefined();
+    });
+});
+
+// The mark comes off before anything reads the answer, and only when it is the first thing the model
+// said and a word it was offered. Everything else is left for the tidying, which strips it: the worst
+// a stray mark can do is be deleted, never be read out.
+describe('liftDelivery', () => {
+    const both: SpeechDelivery[] = ['hushed', 'frantic'];
+
+    it('lifts an offered reading off the front, and hands back the words without it', () => {
+        expect(liftDelivery('[hushed] Something is out there.', both)).toEqual({ text: 'Something is out there.', delivery: 'hushed' });
+    });
+
+    it('reads the mark whatever case it was written in', () => {
+        expect(liftDelivery('[Frantic] Go, go, go.', both)).toEqual({ text: 'Go, go, go.', delivery: 'frantic' });
+    });
+
+    it('finds it after any reasoning the model put in front of it', () => {
+        expect(liftDelivery('<think>A quiet one, I think.</think>\n[hushed] Still here.', both)).toEqual({ text: 'Still here.', delivery: 'hushed' });
+    });
+
+    it('leaves a reading it did not offer where it is, for the tidying to strip', () => {
+        const lifted = liftDelivery('[frantic] Go.', ['hushed']);
+
+        expect(lifted).toEqual({ text: '[frantic] Go.' });
+        expect(readAnswer(lifted.text)).toBe('Go.');
+    });
+
+    it('offers nothing and lifts nothing for an engine that performs none', () => {
+        expect(liftDelivery('[hushed] Still here.', [])).toEqual({ text: '[hushed] Still here.' });
+        expect(readAnswer('[hushed] Still here.')).toBe('Still here.');
+    });
+
+    it('ignores a mark anywhere but the start, since a delivery is the whole break', () => {
+        const lifted = liftDelivery('Still here. [hushed] Listening.', both);
+
+        expect(lifted.delivery).toBeUndefined();
+        expect(readAnswer(lifted.text)).toBe('Still here. Listening.');
+    });
+
+    it('is not fooled by a reaction or a word that is not a reading', () => {
+        expect(liftDelivery('[laugh] That was Solid Air.', both)).toEqual({ text: '[laugh] That was Solid Air.' });
+        expect(liftDelivery('[whispered] Still here.', both)).toEqual({ text: '[whispered] Still here.' });
+    });
+
+    it('leaves a reaction straight after the mark for the reaction rules to judge', () => {
+        expect(liftDelivery('[hushed] [sigh] Still here.', both)).toEqual({ text: '[sigh] Still here.', delivery: 'hushed' });
     });
 });
 

@@ -216,6 +216,25 @@ names them. That last one asks and never refuses, deliberately — `dictionMarke
 counted in every answer, so the cheapest way to pass the character check is to say the marker list again, and
 a check that declined over it would be refusing the character for being itself.
 
+**A talk break may choose how the whole of it is read, and the choice is a word at the front of the answer.**
+`[hushed]` or `[frantic]`, the whole of `SPEECH_DELIVERIES`, offered on the two conditions a reaction is: the
+shape permits it (`BreakPromptShape.allowsDeliveries`, on for the talk break alone, since a newsreader who reads
+a story hushed has editorialised it) and the engine performs it (`SpeechService.deliveries`, asked by
+`WriteBreakJob` beside the reactions). The model puts the mark first, before any words, and `liftDelivery`
+takes it off before anything judges the answer. It has to be the writer that does this, and once:
+`readAnswer`, `writeDecline` and `writeTrim` each tidy the text themselves, and the tidying strips any bracketed
+run it does not recognise, so a mark left for them would be gone before the break was judged and would have
+spent one of its words on the way. Only the FIRST thing counts and only an OFFERED word, so a mark mid-line, a
+misspelled one or one in a kind of break that never offered it falls through to that same strip. That is the
+safety net: the worst a stray mark can do is be deleted. The floor never chooses a reading, which is why
+`writeScript` writes the column every time rather than only when offered. Punctuation stays the delivery
+control every engine has, and the prompt now says so in those words rather than calling it the only one.
+
+On the engine this was built for, the reading is carried by the expressiveness dials, which only the models
+that perform NO reactions read, so a station is offered one rule or the other. The live station's server holds
+the model that performs reactions, so there the rule is never shown until the operator swaps it. See
+`docs/internals/render.md` § "Speech, voices and cues".
+
 ## Bulletins
 
 **Which feeds a bulletin reads is a LIST the station orders, and it used to be one id typed by
@@ -441,4 +460,8 @@ append-only and with no `updated_at` — a correction is another attempt, which 
 outlives its segment (`on delete set null`, denormalised), holds the writer, the model, the template,
 the neighbours, the token counts and the duration, and is swept nightly against
 `render.scriptHistoryDays`. The prompt and the raw answer are kept only while `llm.captureWrites` is
-on, which is a switch for an evening of prompt tuning rather than a default.
+on, which is a switch for an evening of prompt tuning rather than a default. The READING a model chose
+(`delivery`, migration 0026) is kept always, beside the script, because it is part of what was
+written: a record of a hushed break that did not say so is a record of a different break, and the raw
+answer that would also show it is the part that is usually not there.
+

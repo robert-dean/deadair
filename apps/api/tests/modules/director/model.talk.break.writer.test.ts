@@ -444,3 +444,60 @@ describe('ModelTalkBreakWriter and the time', () => {
         expect(written?.claimsTime).toBeUndefined();
     });
 });
+
+// A reading of the whole break, which the model chooses by opening its answer with a mark. What is
+// pinned is the bargain: offered means lifted and returned, not offered means stripped and ignored,
+// and either way the words that air never carry the mark.
+describe('ModelTalkBreakWriter and a delivery', () => {
+    it('lifts a reading it offered off the answer, and returns it beside the words', async () => {
+        const { writer, converse } = build({ answer: '[hushed] That was Solid Air. Coming up, Pink Moon.' });
+
+        const written = await writer.write({ kind: TALK_BREAK_KIND, previous, next, deliveries: ['hushed', 'frantic'] });
+
+        expect(written?.script).toBe('That was Solid Air. Coming up, Pink Moon.');
+        expect(written?.delivery).toBe('hushed');
+        // And the model was told it could.
+        const system = (converse.mock.calls[0]?.[0] as unknown as { messages: { role: string; content: string }[] }).messages[0]?.content;
+        expect(system).toMatch(/\[hushed\] or \[frantic\]/);
+    });
+
+    it('strips a reading it never offered, and returns none', async () => {
+        const { writer } = build({ answer: '[frantic] That was Solid Air. Coming up, Pink Moon.' });
+
+        const written = await writer.write({ kind: TALK_BREAK_KIND, previous, next });
+
+        expect(written?.script).toBe('That was Solid Air. Coming up, Pink Moon.');
+        expect(written).not.toHaveProperty('delivery');
+    });
+
+    it('returns none for an ordinary answer, which is nearly every break', async () => {
+        const { writer } = build();
+
+        const written = await writer.write({ kind: TALK_BREAK_KIND, previous, next, deliveries: ['hushed', 'frantic'] });
+
+        expect(written).not.toHaveProperty('delivery');
+    });
+
+    it('keeps the answer as it came in the record, mark and all', async () => {
+        const { writer } = build({ values: { 'llm.captureWrites': true }, answer: '[hushed] That was Solid Air. Coming up, Pink Moon.' });
+
+        await writer.write({ kind: TALK_BREAK_KIND, previous, next, deliveries: ['hushed'] });
+
+        expect(writer.detailOfLastWrite()?.raw).toBe('[hushed] That was Solid Air. Coming up, Pink Moon.');
+    });
+
+    it('does not let the mark spend one of the break’s words', async () => {
+        // The lift happens before the ceiling is applied, so a break written exactly to the ceiling
+        // is not cut for a mark that was never going to be spoken.
+        // Nine words and thirty-one more is the default ceiling of forty exactly, so a mark counted
+        // as a word would tip it over and the last sentence would be cut.
+        const atTheCeiling = `That was Solid Air, and next is Pink Moon. ${Array.from({ length: 31 }, (_unused, index) => `word${index}`).join(' ')}.`;
+
+        const { writer } = build({ answer: `[frantic] ${atTheCeiling}` });
+
+        const written = await writer.write({ kind: TALK_BREAK_KIND, previous, next, deliveries: ['frantic'] });
+
+        expect(written?.script).toBe(atTheCeiling);
+        expect(written?.delivery).toBe('frantic');
+    });
+});

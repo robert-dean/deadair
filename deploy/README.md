@@ -53,6 +53,34 @@ with no `-w0`.
 If you are not using the `full` tag, you also need a PostgreSQL database that already exists (the
 station creates its own schema inside it, not the database itself) and a Redis to put sessions in.
 
+## The station's address
+
+`APP_BASE_URL` and `SPA_BASE_URL` are both the address you type into a browser to reach the
+station, and in this image they are the same address, because one port serves the console and the
+API. Write all of it: the scheme, the host, and the port unless it is 80 or 443, with nothing after
+the port.
+
+| Reached                                            | Both are                    |
+| -------------------------------------------------- | --------------------------- |
+| on your own network, at the port you published     | `http://192.168.1.10:8080`  |
+| by a name your network resolves                    | `http://tower.local:8080`   |
+| through a proxy or a tunnel that terminates TLS    | `https://radio.example.com` |
+
+Use whichever of those you actually type. If you reach it more than one way, pick the one you will
+open a sign-in link on.
+
+They do not decide whether the console loads. It talks to `/api` on whatever address it was loaded
+from, so a wrong value here leaves it working. What they address is everywhere the station sends a
+browser rather than answering it: the link in a sign-in email (`SPA_BASE_URL`), and the return from
+a music provider's authorization (`APP_BASE_URL`). Those are what land nowhere when the value is
+wrong.
+
+Plain `http://` is fine on your own network. A browser treats a page served that way from anything
+but `localhost` as not secure and withholds a few functions from it. The console works without
+them, except that its Copy buttons do nothing there, so select the text beside one instead. An
+image from before that was true showed "Can't reach the station" on every page when opened that
+way; pulling a current one is the cure.
+
 ## On Unraid
 
 Install the template in `unraid/deadair.xml`, fill in the fields, start it. The data path defaults

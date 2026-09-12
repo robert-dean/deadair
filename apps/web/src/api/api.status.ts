@@ -20,7 +20,10 @@ import { sdkError } from './sdk.error';
 /** Seconds between automatic reconnect attempts, backing off while the server stays away. */
 const RETRY_SCHEDULE = [5, 10, 20, 30] as const;
 
-/** What `fetch` rejects with when the connection could not be made, across the engines. */
+/**
+ * What `fetch` rejects with when the connection could not be made, across the engines: Chromium,
+ * Firefox, WebKit, and the React Native spelling.
+ */
 const NETWORK_FAILURE = /failed to fetch|networkerror|load failed|network request failed/i;
 
 /**
@@ -32,6 +35,14 @@ const NETWORK_FAILURE = /failed to fetch|networkerror|load failed|network reques
  *
  * A plain 500 is deliberately NOT connectivity: the server is running and threw, which is one
  * page's problem and belongs in that page's alert.
+ *
+ * Nor is a `TypeError` as such, although `fetch` rejects with one. Every other fault in the console
+ * is a `TypeError` too, and this used to accept the class rather than the message: a station opened
+ * over plain HTTP, where the SDK called a `crypto` function the browser withholds there, told its
+ * operator "Can't reach the station" on every page and sent them to check addresses that were fine
+ * (issue #78). The engines' own wording is what separates a connection that failed from code that
+ * did. An offline engine with a spelling missing from the list gets the page's own alert instead of
+ * the banner, which still says the page failed; the reverse mistake is the one that cost an issue.
  */
 export function isConnectivityError(error: unknown): boolean {
     const status = sdkError(error)?.status;
@@ -39,10 +50,8 @@ export function isConnectivityError(error: unknown): boolean {
         return status >= 502;
     }
     // Not an SdkError: the request never got far enough to have a status. `SdkError` is only
-    // constructed from a real `Response`, so this is the whole of the offline case.
-    if (error instanceof TypeError) {
-        return true;
-    }
+    // constructed from a real `Response`, so an offline fetch arrives here, and so does anything
+    // that threw before or instead of the fetch.
     return error instanceof Error && NETWORK_FAILURE.test(error.message);
 }
 

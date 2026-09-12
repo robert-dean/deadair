@@ -39,6 +39,14 @@ describe('isConnectivityError', () => {
         expect(isConnectivityError(failure(501))).toBe(false);
     });
 
+    it('does not blame the network for a fault in the console', () => {
+        // Issue #78: the SDK called `crypto.randomUUID` on a plain-HTTP page, where it does not
+        // exist, and the TypeError that threw read as the whole station being down. `fetch`
+        // rejecting is a TypeError too, so the class alone says nothing about which it was.
+        expect(isConnectivityError(new TypeError('crypto.randomUUID is not a function'))).toBe(false);
+        expect(isConnectivityError(new TypeError("Cannot read properties of undefined (reading 'digest')"))).toBe(false);
+    });
+
     it('ignores anything that is not an error', () => {
         expect(isConnectivityError('offline')).toBe(false);
         expect(isConnectivityError(undefined)).toBe(false);

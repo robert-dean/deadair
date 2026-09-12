@@ -74,11 +74,11 @@
         Type="Path" Display="always" Required="false" Mask="false"></Config>
 
     <Config Name="Public address" Target="APP_BASE_URL" Default="" Mode=""
-        Description="The address a browser actually reaches this station at, including https:// — used to build sign-in redirects, so a wrong value here means a sign-in that lands nowhere."
+        Description="The address you type into a browser to reach this station, all of it: scheme, host and port, with nothing after the port. On your own network that is http:// with your server's address and the WebUI port above, such as http://192.168.1.10:8080; behind a proxy that terminates TLS it is the https:// name. Sign-in links and a music provider's authorization are sent back here, so a wrong value is a sign-in that lands nowhere. It does not decide whether the console loads."
         Type="Variable" Display="always" Required="true" Mask="false"></Config>
 
     <Config Name="Console address" Target="SPA_BASE_URL" Default="" Mode=""
-        Description="Normally the same as the public address, because one port serves both."
+        Description="The same address as the public address above, because one port serves the console and the API."
         Type="Variable" Display="always" Required="true" Mask="false"></Config>
 
     <Config Name="Timezone" Target="TZ" Default="Etc/UTC" Mode=""

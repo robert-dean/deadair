@@ -64,7 +64,7 @@ describe('useRegisterAuthenticator', () => {
         expect(sent.method).toBe('authenticator');
         expect(sent.label).toBe('Phone');
         // The verifier never leaves the browser; only its hash does, and the two must agree.
-        expect(sent.codeChallenge).toBe(await generateCodeChallenge(registration.codeVerifier));
+        expect(sent.codeChallenge).toBe(generateCodeChallenge(registration.codeVerifier));
         expect(registration).toMatchObject({ registrationId: 'reg-1', secret: 'JBSWY3DP', qrCode: REGISTRATION.qrCode });
     });
 

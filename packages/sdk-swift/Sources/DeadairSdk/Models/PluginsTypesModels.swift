@@ -89,6 +89,31 @@ public enum ConfigFieldOptionSource: String, Codable, CaseIterable, Sendable {
     case llmModels = "llm.models"
 }
 
+/// A plugin handed over from the browser. The generated client types the body as `FormData`, so
+/// nothing checks this shape. It says what to send
+public struct PluginImport: Codable, Equatable, Sendable {
+    /// The gzip tarball npm pack writes: every entry under package/, holding package.json and the built code, at most 64 MB
+    public var file: Data
+
+    public init(file: Data) {
+        self.file = file
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case file = "file"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.file = try container.decode(Data.self, forKey: .file)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.file, forKey: .file)
+    }
+}
+
 public enum PluginLogLevel: String, Codable, CaseIterable, Sendable {
     case debug = "debug"
     case info = "info"
@@ -872,6 +897,78 @@ public struct PluginSummaryInput: Codable, Equatable, Sendable {
         try container.encode(self.configFields, forKey: .configFields)
         try container.encode(self.secretsConfigured, forKey: .secretsConfigured)
         try container.encodeIfPresent(self.lastError, forKey: .lastError)
+    }
+}
+
+/// What an import did
+public struct PluginImportResult: Codable, Equatable, Sendable {
+    /// The id the imported plugin claimed
+    public var pluginId: String
+    /// The same version was already loaded, so the station runs the build it had until it restarts. False for a new plugin and for a new version
+    public var restartRequired: Bool
+    /// Every plugin, as the catalogue now stands. An import can take an older version away as well as add one
+    public var plugins: [PluginSummary]
+
+    public init(pluginId: String, restartRequired: Bool, plugins: [PluginSummary]) {
+        self.pluginId = pluginId
+        self.restartRequired = restartRequired
+        self.plugins = plugins
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case pluginId = "pluginId"
+        case restartRequired = "restartRequired"
+        case plugins = "plugins"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.pluginId = try container.decode(String.self, forKey: .pluginId)
+        self.restartRequired = try container.decode(Bool.self, forKey: .restartRequired)
+        self.plugins = try container.decode([PluginSummary].self, forKey: .plugins)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.pluginId, forKey: .pluginId)
+        try container.encode(self.restartRequired, forKey: .restartRequired)
+        try container.encode(self.plugins, forKey: .plugins)
+    }
+}
+
+/// What an import did
+public struct PluginImportResultInput: Codable, Equatable, Sendable {
+    /// The id the imported plugin claimed
+    public var pluginId: String
+    /// The same version was already loaded, so the station runs the build it had until it restarts. False for a new plugin and for a new version
+    public var restartRequired: Bool
+    /// Every plugin, as the catalogue now stands. An import can take an older version away as well as add one
+    public var plugins: [PluginSummaryInput]
+
+    public init(pluginId: String, restartRequired: Bool, plugins: [PluginSummaryInput]) {
+        self.pluginId = pluginId
+        self.restartRequired = restartRequired
+        self.plugins = plugins
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case pluginId = "pluginId"
+        case restartRequired = "restartRequired"
+        case plugins = "plugins"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.pluginId = try container.decode(String.self, forKey: .pluginId)
+        self.restartRequired = try container.decode(Bool.self, forKey: .restartRequired)
+        self.plugins = try container.decode([PluginSummaryInput].self, forKey: .plugins)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.pluginId, forKey: .pluginId)
+        try container.encode(self.restartRequired, forKey: .restartRequired)
+        try container.encode(self.plugins, forKey: .plugins)
     }
 }
 

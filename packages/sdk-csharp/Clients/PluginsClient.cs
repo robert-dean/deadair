@@ -60,6 +60,21 @@ public sealed class PluginsClient(SdkHttp http)
     }
 
     /// <summary>
+    /// Import plugin
+    /// Takes a plugin in from the browser as the tarball npm pack writes and puts it in the plugins directory. It lands disabled, and a newer version of an installed plugin replaces the older one
+    /// </summary>
+    /// <exception cref="SdkException">On 400, 409, 413, 415, 422.</exception>
+    public async Task<PluginImportResult> ImportPluginAsync(IEnumerable<SdkPart> body, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Post,
+            http.Path("plugins", "import"),
+            content: http.MultipartContent(body),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<PluginImportResult>(response);
+    }
+
+    /// <summary>
     /// Get plugin
     /// One plugin, including its stored non-secret configuration and last error
     /// </summary>
@@ -70,6 +85,20 @@ public sealed class PluginsClient(SdkHttp http)
             http.Path("plugins", http.Segment(id)),
             cancellationToken: cancellationToken).ConfigureAwait(false);
         return http.ReadJson<PluginDetail>(response);
+    }
+
+    /// <summary>
+    /// Remove plugin
+    /// Removes a plugin the operator installed: stops it and deletes its folder. Its settings are kept, so importing it again brings them back. A bundled plugin is refused
+    /// </summary>
+    /// <exception cref="SdkException">On 404, 409.</exception>
+    public async Task<List<PluginSummary>> RemovePluginAsync(string id, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Delete,
+            http.Path("plugins", http.Segment(id)),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<List<PluginSummary>>(response);
     }
 
     /// <summary>

@@ -4,6 +4,7 @@ options {
     }
     services: {
         PluginsService: "#src/modules/plugins/plugins.service.js"
+        PluginInstallService: "#src/modules/plugins/plugin.install.service.js"
     }
     security: {
         # The floor for every operation in this file, cascading file -> route -> operation.
@@ -71,6 +72,30 @@ operation /plugins/rescan: {
     }
 }
 
+# Declared before /plugins/{id} so the literal segment is matched first.
+operation /plugins/import: {
+    post: { # Takes a plugin in from the browser as the tarball npm pack writes and puts it in the plugins directory. It lands disabled, and a newer version of an installed plugin replaces the older one
+        name: Import plugin
+        service: PluginInstallService.importPlugin
+        request: {
+            # The parts are documentation: a multipart body reaches the service as the raw parser
+            # and the SDK types it as `FormData`, so nothing validates this shape. `render.ck`'s pad
+            # upload is the same.
+            multipart/form-data: PluginImport
+        }
+        response: {
+            200: {
+                application/json: PluginImportResult
+            }
+            400:
+            409:
+            413:
+            415:
+            422:
+        }
+    }
+}
+
 operation /plugins/{id}: {
     params: {
         id: string(min=1, max=200)
@@ -87,6 +112,18 @@ operation /plugins/{id}: {
             200: {
                 application/json: PluginDetail
             }
+        }
+    }
+
+    delete: { # Removes a plugin the operator installed: stops it and deletes its folder. Its settings are kept, so importing it again brings them back. A bundled plugin is refused
+        name: Remove plugin
+        service: PluginInstallService.removePlugin
+        response: {
+            200: {
+                application/json: array(PluginSummary)
+            }
+            404:
+            409:
         }
     }
 }

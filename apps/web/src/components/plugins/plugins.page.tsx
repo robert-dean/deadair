@@ -1,4 +1,5 @@
-import { Button, SimpleGrid, Stack, Text } from '@mantine/core';
+import { useState } from 'react';
+import { Button, Group, SimpleGrid, Stack, Text } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 
 import { pluginsListOptions, useRescanPlugins } from '../../api/plugins.queries';
@@ -8,6 +9,7 @@ import { ErrorAlert } from '../shared/error.alert';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
 import { PluginCard } from './plugin.card';
+import { PluginImportModal } from './plugin.import.modal';
 
 /** What a rescan refusal means, in the operator's terms rather than the transport's. */
 function rescanError(error: unknown): string {
@@ -20,6 +22,7 @@ function rescanError(error: unknown): string {
 export function PluginsPage() {
     const plugins = useQuery(pluginsListOptions);
     const rescan = useRescanPlugins();
+    const [importing, setImporting] = useState(false);
 
     return (
         <Stack gap="lg">
@@ -31,18 +34,25 @@ export function PluginsPage() {
                     </Text>
                 }
                 actions={
-                    <Button
-                        variant="default"
-                        size="compact-sm"
-                        loading={rescan.isPending}
-                        onClick={() => {
-                            rescan.mutate();
-                        }}
-                    >
-                        Rescan
-                    </Button>
+                    <Group gap="xs">
+                        <Button variant="default" size="compact-sm" onClick={() => setImporting(true)}>
+                            Import
+                        </Button>
+                        <Button
+                            variant="default"
+                            size="compact-sm"
+                            loading={rescan.isPending}
+                            onClick={() => {
+                                rescan.mutate();
+                            }}
+                        >
+                            Rescan
+                        </Button>
+                    </Group>
                 }
             />
+
+            <PluginImportModal opened={importing} onClose={() => setImporting(false)} />
 
             {rescan.error ? (
                 <ErrorAlert tone="warning" title="Rescan failed">
@@ -64,7 +74,8 @@ export function PluginsPage() {
 
             {plugins.data?.length === 0 ? (
                 <EmptyState title="No plugins are mounted">
-                    Drop a plugin into the host&apos;s plugin directory and rescan. Nothing about the station changes until one is enabled.
+                    Import a plugin, or drop one into the host&apos;s plugin directory and rescan. Nothing about the station changes until one is
+                    enabled.
                 </EmptyState>
             ) : undefined}
 

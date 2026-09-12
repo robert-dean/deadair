@@ -127,6 +127,16 @@ enum class ConfigFieldOptionSource {
     LLM_MODELS,
 }
 
+/**
+ * A plugin handed over from the browser. The generated client types the body as `FormData`, so
+ * nothing checks this shape. It says what to send
+ */
+@Serializable
+data class PluginImport(
+    /** The gzip tarball npm pack writes: every entry under package/, holding package.json and the built code, at most 64 MB */
+    val file: ByteArray,
+)
+
 @Serializable
 enum class PluginLogLevel {
     @SerialName("debug")
@@ -364,6 +374,28 @@ data class PluginSummaryInput(
     val secretsConfigured: Map<String, Boolean>,
     /** The last recorded failure. Absent means it is not currently unhappy */
     val lastError: String? = null,
+)
+
+/** What an import did */
+@Serializable
+data class PluginImportResult(
+    /** The id the imported plugin claimed */
+    val pluginId: String,
+    /** The same version was already loaded, so the station runs the build it had until it restarts. False for a new plugin and for a new version */
+    val restartRequired: Boolean,
+    /** Every plugin, as the catalogue now stands. An import can take an older version away as well as add one */
+    val plugins: List<PluginSummary>,
+)
+
+/** What an import did */
+@Serializable
+data class PluginImportResultInput(
+    /** The id the imported plugin claimed */
+    val pluginId: String,
+    /** The same version was already loaded, so the station runs the build it had until it restarts. False for a new plugin and for a new version */
+    val restartRequired: Boolean,
+    /** Every plugin, as the catalogue now stands. An import can take an older version away as well as add one */
+    val plugins: List<PluginSummaryInput>,
 )
 
 /** A summary plus the stored NON-SECRET configuration */

@@ -152,6 +152,17 @@ public enum ConfigFieldOptionSource
     LlmModels,
 }
 
+/// <summary>
+/// A plugin handed over from the browser. The generated client types the body as `FormData`, so
+/// nothing checks this shape. It says what to send
+/// </summary>
+public sealed record PluginImport
+{
+    /// <summary>The gzip tarball npm pack writes: every entry under package/, holding package.json and the built code, at most 64 MB</summary>
+    [JsonPropertyName("file")]
+    public required byte[] File { get; init; }
+}
+
 [JsonConverter(typeof(JsonStringEnumConverter<PluginLogLevel>))]
 public enum PluginLogLevel
 {
@@ -591,6 +602,38 @@ public sealed record PluginSummaryInput
     [JsonPropertyName("lastError")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? LastError { get; init; }
+}
+
+/// <summary>What an import did</summary>
+public sealed record PluginImportResult
+{
+    /// <summary>The id the imported plugin claimed</summary>
+    [JsonPropertyName("pluginId")]
+    public required string PluginId { get; init; }
+
+    /// <summary>The same version was already loaded, so the station runs the build it had until it restarts. False for a new plugin and for a new version</summary>
+    [JsonPropertyName("restartRequired")]
+    public required bool RestartRequired { get; init; }
+
+    /// <summary>Every plugin, as the catalogue now stands. An import can take an older version away as well as add one</summary>
+    [JsonPropertyName("plugins")]
+    public required List<PluginSummary> Plugins { get; init; }
+}
+
+/// <summary>What an import did</summary>
+public sealed record PluginImportResultInput
+{
+    /// <summary>The id the imported plugin claimed</summary>
+    [JsonPropertyName("pluginId")]
+    public required string PluginId { get; init; }
+
+    /// <summary>The same version was already loaded, so the station runs the build it had until it restarts. False for a new plugin and for a new version</summary>
+    [JsonPropertyName("restartRequired")]
+    public required bool RestartRequired { get; init; }
+
+    /// <summary>Every plugin, as the catalogue now stands. An import can take an older version away as well as add one</summary>
+    [JsonPropertyName("plugins")]
+    public required List<PluginSummaryInput> Plugins { get; init; }
 }
 
 /// <summary>A summary plus the stored NON-SECRET configuration</summary>

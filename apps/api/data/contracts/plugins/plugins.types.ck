@@ -88,6 +88,19 @@ contract PluginSummary: {
     nextProbeAt?: readonly datetime # When the breaker will probe this plugin again on its own. Absent means no probe is pending
 }
 
+# A plugin handed over from the browser. The generated client types the body as `FormData`, so
+# nothing checks this shape. It says what to send
+contract PluginImport: {
+    file: binary # The gzip tarball npm pack writes: every entry under package/, holding package.json and the built code, at most 64 MB
+}
+
+# What an import did
+contract PluginImportResult: {
+    pluginId: string(min=1, max=200) # The id the imported plugin claimed
+    restartRequired: boolean # The same version was already loaded, so the station runs the build it had until it restarts. False for a new plugin and for a new version
+    plugins: array(PluginSummary) # Every plugin, as the catalogue now stands. An import can take an older version away as well as add one
+}
+
 contract PluginLogLevel: enum(debug, info, warn, error)
 
 contract PluginLogEntry: {

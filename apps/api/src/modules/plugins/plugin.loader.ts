@@ -25,6 +25,28 @@ export class PluginLoaderOptions {
     ) {}
 }
 
+/**
+ * Every entry path this process has handed to `import()`, resolved.
+ *
+ * Module state rather than an instance field because what it records is: Node caches an ES module
+ * by URL for the life of the PROCESS, whichever loader asked for it, so a second loader constructed
+ * for one scan (the installer validating a staged plugin, say) has to see the first one's imports.
+ * Added to BEFORE the import rather than after it, because a module that throws while it evaluates
+ * is cached as failed and is just as stale as one that loaded.
+ */
+const importedEntries = new Set<string>();
+
+/**
+ * Whether the code at `entryPath` has already been imported into this process, and so would not
+ * be read again if the file changed.
+ *
+ * This is what lets the installer say when a plugin it just placed needs a restart: new code at a
+ * NEW path is read on the next discovery, and new code at a path already imported is not.
+ */
+export function hasImportedPluginEntry(entryPath: string): boolean {
+    return importedEntries.has(resolve(entryPath));
+}
+
 /** The `deadair` block a plugin package.json must carry to be a candidate. */
 interface PluginPackageJson {
     deadair?: {
@@ -106,6 +128,10 @@ export class PluginLoader {
             // plugin can resolve them. It has no package.json and would be skipped anyway, but it is
             // never a plugin, so it is not even looked at.
             if (entry.name === 'node_modules') continue;
+            // Never a plugin: the installer stages an upload under `.staging` while it checks it, and a
+            // rescan landing in the middle of that must not see half a plugin. The same rule keeps
+            // `.DS_Store`, `.git` and an editor's droppings out, which no plugin folder is named like.
+            if (entry.name.startsWith('.')) continue;
             const full = resolve(root, entry.name);
             if (entry.isDirectory()) {
                 dirs.push(full);
@@ -157,6 +183,7 @@ export class PluginLoader {
 
         let module: unknown;
         try {
+            importedEntries.add(entryPath);
             module = await import(pathToFileURL(entryPath).href);
         } catch (error) {
             return this.quarantine(dir, origin, `failed to import entry "${entryPath}": ${errorText(error)}`);

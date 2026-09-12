@@ -5,12 +5,15 @@ import { SdkError } from '@deadair/sdk';
 
 import { PluginsPage } from '../../../src/components/plugins/plugins.page';
 import { pluginSummary } from '../../utils/plugin.fixture';
-import { render, screen, setupUser, waitFor } from '../../utils/render';
+import { render, screen, setupUser, waitFor, within } from '../../utils/render';
 
 const listPlugins = vi.fn();
 const rescanPlugins = vi.fn();
 const enablePlugin = vi.fn();
 const disablePlugin = vi.fn();
+const importPlugin = vi.fn();
+const getPlugin = vi.fn();
+const listPluginGrants = vi.fn();
 
 vi.mock('../../../src/api/client', () => ({
     sdk: {
@@ -19,6 +22,9 @@ vi.mock('../../../src/api/client', () => ({
             rescanPlugins: () => rescanPlugins(),
             enablePlugin: (...args: unknown[]) => enablePlugin(...args),
             disablePlugin: (...args: unknown[]) => disablePlugin(...args),
+            importPlugin: (...args: unknown[]) => importPlugin(...args),
+            getPlugin: (...args: unknown[]) => getPlugin(...args),
+            listPluginGrants: () => listPluginGrants(),
         },
     },
 }));
@@ -36,7 +42,22 @@ afterEach(() => {
     rescanPlugins.mockReset();
     enablePlugin.mockReset();
     disablePlugin.mockReset();
+    importPlugin.mockReset();
+    getPlugin.mockReset();
+    listPluginGrants.mockReset();
 });
+
+/** A tarball as the browser hands one over. Its bytes are the server's business. */
+const tarball = () => new File([new Uint8Array([0x1f, 0x8b, 0x08])], 'apple-music-charts-0.1.0.tgz', { type: 'application/gzip' });
+
+/** Opens the import dialog, chooses a tarball, and presses Import. */
+async function importTarball(): Promise<void> {
+    const user = setupUser();
+    await user.click(await screen.findByRole('button', { name: 'Import' }));
+    await user.upload(await screen.findByLabelText('Plugin tarball'), tarball());
+    const dialog = await screen.findByRole('dialog', { name: 'Import a plugin' });
+    await user.click(within(dialog).getByRole('button', { name: 'Import' }));
+}
 
 describe('PluginsPage', () => {
     it('renders a card per plugin with its id, version and status', async () => {
@@ -131,5 +152,59 @@ describe('PluginsPage', () => {
             expect(enablePlugin).toHaveBeenCalledWith('deadair.spotify');
         });
         expect(screen.queryByRole('button', { name: 'Enable Spotify' })).not.toBeInTheDocument();
+    });
+    it('imports a tarball and files the catalogue the server answers with', async () => {
+        const imported = pluginSummary({ id: 'example.apple-music-charts', name: 'Apple Music charts', origin: 'installed', enabled: false });
+        listPlugins.mockResolvedValue([pluginSummary()]);
+        importPlugin.mockResolvedValue({ pluginId: imported.id, restartRequired: false, plugins: [pluginSummary(), imported] });
+
+        render(<PluginsPage />);
+        await importTarball();
+
+        expect(await screen.findByText('Apple Music charts')).toBeInTheDocument();
+        const body = importPlugin.mock.calls[0]?.[0] as FormData;
+        expect((body.get('file') as File).name).toBe('apple-music-charts-0.1.0.tgz');
+        await waitFor(() => {
+            expect(screen.queryByRole('dialog', { name: 'Import a plugin' })).not.toBeInTheDocument();
+        });
+    });
+
+    it('stays open to say a restart is needed when the same version was already loaded', async () => {
+        listPlugins.mockResolvedValue([pluginSummary()]);
+        importPlugin.mockResolvedValue({ pluginId: 'deadair.spotify', restartRequired: true, plugins: [pluginSummary()] });
+
+        render(<PluginsPage />);
+        await importTarball();
+
+        expect(await screen.findByText('Restart the station to run the new build')).toBeInTheDocument();
+        expect(screen.getByRole('dialog', { name: 'Import a plugin' })).toBeInTheDocument();
+    });
+
+    it('shows the station own reason when it refuses a plugin', async () => {
+        listPlugins.mockResolvedValue([pluginSummary()]);
+        const reason = 'my-charts 1.0.0 did not load: invalid manifest: id: Invalid string';
+        importPlugin.mockRejectedValue(
+            new SdkError(
+                422,
+                'Unprocessable Entity',
+                { statusCode: 422, message: 'Unprocessable Entity', details: { message: reason } },
+                new Headers(),
+            ),
+        );
+
+        render(<PluginsPage />);
+        await importTarball();
+
+        expect(await screen.findByText(reason)).toBeInTheDocument();
+    });
+
+    it('explains an import refused for want of permission', async () => {
+        listPlugins.mockResolvedValue([pluginSummary()]);
+        importPlugin.mockRejectedValue(new SdkError(403, 'Forbidden', { statusCode: 403, message: 'Forbidden' }, new Headers()));
+
+        render(<PluginsPage />);
+        await importTarball();
+
+        expect(await screen.findByText('Importing a plugin is an administrator action.')).toBeInTheDocument();
     });
 });

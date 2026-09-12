@@ -1,7 +1,7 @@
 ---
 title: 'Complete plugin oauth authorization'
 sidebar_label: 'Complete plugin oauth authorization'
-sidebar_position: 17
+sidebar_position: 19
 mdx:
     format: 'md'
 ---

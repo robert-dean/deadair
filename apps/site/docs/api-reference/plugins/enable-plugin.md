@@ -1,7 +1,7 @@
 ---
 title: 'Enable plugin'
 sidebar_label: 'Enable plugin'
-sidebar_position: 6
+sidebar_position: 8
 mdx:
     format: 'md'
 ---

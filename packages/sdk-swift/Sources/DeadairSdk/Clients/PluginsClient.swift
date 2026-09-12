@@ -33,12 +33,31 @@ public final class PluginsClient: Sendable {
         return try http.decodeJSON([PluginSummary].self, from: response)
     }
 
+    /// Import plugin
+    /// Takes a plugin in from the browser as the tarball npm pack writes and puts it in the plugins directory. It lands disabled, and a newer version of an installed plugin replaces the older one
+    /// - Throws: `SdkError` on 400, 409, 413, 415, 422
+    public func importPlugin(body: [MultipartPart]) async throws -> PluginImportResult {
+        var request = SdkRequest(method: "POST", path: ["plugins", "import"])
+        http.setMultipartBody(&request, body)
+        let response = try await http.execute(request)
+        return try http.decodeJSON(PluginImportResult.self, from: response)
+    }
+
     /// Get plugin
     /// One plugin, including its stored non-secret configuration and last error
     public func getPlugin(id: String) async throws -> PluginDetail {
         let request = try SdkRequest(method: "GET", path: ["plugins", http.segment(id)])
         let response = try await http.execute(request)
         return try http.decodeJSON(PluginDetail.self, from: response)
+    }
+
+    /// Remove plugin
+    /// Removes a plugin the operator installed: stops it and deletes its folder. Its settings are kept, so importing it again brings them back. A bundled plugin is refused
+    /// - Throws: `SdkError` on 404, 409
+    public func removePlugin(id: String) async throws -> [PluginSummary] {
+        let request = try SdkRequest(method: "DELETE", path: ["plugins", http.segment(id)])
+        let response = try await http.execute(request)
+        return try http.decodeJSON([PluginSummary].self, from: response)
     }
 
     /// Update plugin configuration

@@ -1,7 +1,7 @@
 ---
 title: 'Get plugin'
 sidebar_label: 'Get plugin'
-sidebar_position: 4
+sidebar_position: 5
 mdx:
     format: 'md'
 ---

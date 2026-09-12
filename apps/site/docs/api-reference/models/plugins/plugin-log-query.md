@@ -1,6 +1,6 @@
 ---
 title: 'PluginLogQuery'
-sidebar_position: 14
+sidebar_position: 16
 mdx:
     format: 'md'
 ---

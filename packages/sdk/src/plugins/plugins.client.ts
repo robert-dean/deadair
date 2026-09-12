@@ -6,6 +6,7 @@ import type {
     PluginFieldSuggestions,
     PluginGrantInput,
     PluginGrantList,
+    PluginImportResult,
     PluginLogLevelInput,
     PluginLogPage,
     PluginLogQuery,
@@ -15,7 +16,7 @@ import type {
     PluginSummary,
     PluginTestResult,
 } from './types/plugins.types.js';
-import { revivePluginDetail, revivePluginSummary } from './types/plugins.types.js';
+import { revivePluginDetail, revivePluginImportResult, revivePluginSummary } from './types/plugins.types.js';
 
 export class PluginsClient {
     constructor(private fetch: SdkFetch) {}
@@ -48,12 +49,33 @@ export class PluginsClient {
     }
 
     /**
+     * @name Import plugin
+     * @description Takes a plugin in from the browser as the tarball npm pack writes and puts it in the plugins directory. It lands disabled, and a newer version of an installed plugin replaces the older one
+     */
+    async importPlugin(body: FormData): Promise<PluginImportResult> {
+        const result = await this.fetch(`/plugins/import`, {
+            method: 'POST',
+            body: body,
+        });
+        return revivePluginImportResult(await parseJson<PluginImportResult>(result));
+    }
+
+    /**
      * @name Get plugin
      * @description One plugin, including its stored non-secret configuration and last error
      */
     async getPlugin(id: string): Promise<PluginDetail> {
         const result = await this.fetch(`/plugins/${encodeURIComponent(id)}`, { method: 'GET' });
         return revivePluginDetail(await parseJson<PluginDetail>(result));
+    }
+
+    /**
+     * @name Remove plugin
+     * @description Removes a plugin the operator installed: stops it and deletes its folder. Its settings are kept, so importing it again brings them back. A bundled plugin is refused
+     */
+    async removePlugin(id: string): Promise<PluginSummary[]> {
+        const result = await this.fetch(`/plugins/${encodeURIComponent(id)}`, { method: 'DELETE' });
+        return (await parseJson<PluginSummary[]>(result)).map(revivePluginSummary);
     }
 
     /**

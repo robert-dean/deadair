@@ -21,6 +21,11 @@ import {
 import { RefillPreemption } from '../../../src/modules/director/refill.preemption.js';
 import { QueuedRecords } from '../../../src/modules/shared/queued.records.js';
 import { SearchedRecords } from '../../../src/modules/shared/searched.records.js';
+import { AiredRecords } from '../../../src/modules/shared/aired.records.js';
+import { StationIdentity } from '../../../src/modules/shared/station.identity.js';
+import type { PlayHistoryRepository } from '../../../src/modules/director/play.history.repository.js';
+import { SMART_SHUFFLE_KEYS } from '../../../src/modules/director/smart.shuffle.js';
+import { DateTime } from 'luxon';
 import { DEFAULT_RULES } from '../../../src/modules/director/rotation.rules.js';
 import type { SetInputs } from '../../../src/modules/director/set.generator.js';
 
@@ -55,6 +60,10 @@ interface Options {
     transcript?: LlmConversation['transcript'];
     /** What the search tool handed the model, which a failed run falls back to. */
     searched?: { title: string; artist: string }[];
+    /** When each song last aired, as the history answers inside the smart shuffle's horizon. */
+    lastAired?: Map<string, DateTime>;
+    /** A history that cannot be read. */
+    historyFails?: boolean;
 }
 
 /** An empty side of the operator's taste: nothing said, and nothing hidden behind a limit. */
@@ -124,14 +133,25 @@ function build(options: Options = {}) {
     const searched = new SearchedRecords();
     if (options.searched !== undefined) searched.remember(options.searched);
 
+    // Read for smart shuffle and handed to the search through `aired`. Nothing aired lately unless a
+    // case says otherwise.
+    const lastAiredSince = vi.fn(async (days: number) => {
+        if (options.historyFails) throw new Error('the database went away');
+        return days > 0 ? (options.lastAired ?? new Map<string, DateTime>()) : new Map<string, DateTime>();
+    });
+    const history = { lastAiredSince } as unknown as PlayHistoryRepository;
+    const aired = new AiredRecords();
+
     return {
-        generator: new ModelSetGenerator(llm, taste, tracks, preemption, queued, searched, config, logger),
+        generator: new ModelSetGenerator(llm, taste, tracks, preemption, queued, searched, config, logger, history, new StationIdentity(), aired),
         converse,
         taste,
         styleVocabulary,
         preemption,
         queued,
         searched,
+        lastAiredSince,
+        aired,
     };
 }
 
@@ -668,5 +688,53 @@ describe('maxOutputTokens', () => {
 
     it('uses its own default when the operator has said nothing', () => {
         expect(maxOutputTokens(config({}))).toBe(DEFAULT_MAX_OUTPUT_TOKENS);
+    });
+});
+
+describe('smart shuffle, as the model sees it', () => {
+    // A model names records, so nothing can weight its answer the way the catalog draw is weighted.
+    // What the station can do is tell it, on the rows its search returns, which records it heard
+    // lately. These pin that the refill hands the history to the search, and only when it should.
+    const yesterday = () => DateTime.utc().minus({ days: 1, hours: 2 });
+
+    it('hands the search what aired lately before the model is asked anything', async () => {
+        const { generator, aired, lastAiredSince } = build({
+            enabled: true,
+            lastAired: new Map([['metallica:master of puppets', yesterday()]]),
+        });
+
+        await generator.generate(inputs(5));
+
+        expect(lastAiredSince).toHaveBeenCalledWith(14, 'main');
+        expect(aired.daysAgo('metallica:master of puppets')).toBe(1);
+    });
+
+    it('hands over nothing, and reads nothing, with smart shuffle off in the row', async () => {
+        const { generator, aired, lastAiredSince } = build({
+            enabled: true,
+            lastAired: new Map([['metallica:master of puppets', yesterday()]]),
+            settings: { [SMART_SHUFFLE_KEYS.enabled]: 'false' },
+        });
+
+        await generator.generate(inputs(5));
+
+        expect(lastAiredSince).not.toHaveBeenCalled();
+        expect(aired.size).toBe(0);
+    });
+
+    it('still asks the model when the history cannot be read', async () => {
+        const { generator, converse } = build({ enabled: true, historyFails: true });
+
+        await generator.generate(inputs(5));
+
+        expect(converse).toHaveBeenCalledOnce();
+    });
+
+    it('reads nothing for a model that is switched off', async () => {
+        const { generator, lastAiredSince } = build({ enabled: false });
+
+        await generator.generate(inputs(5));
+
+        expect(lastAiredSince).not.toHaveBeenCalled();
     });
 });

@@ -12,6 +12,8 @@ import { ADVISORY_KEY } from '../../../src/modules/director/advisory.policy.js';
 import { MUSIC_SEARCH_KEYS, MusicSearchTool } from '../../../src/modules/llm/music.search.tool.js';
 import type { ProviderSearch, FoundTrack } from '../../../src/modules/llm/provider.search.js';
 import { QueuedRecords } from '../../../src/modules/shared/queued.records.js';
+import { AiredRecords } from '../../../src/modules/shared/aired.records.js';
+import { DateTime } from 'luxon';
 import { SearchedRecords } from '../../../src/modules/shared/searched.records.js';
 import { StationIdentity } from '../../../src/modules/shared/station.identity.js';
 import { songKey } from '../../../src/modules/director/rotation.keys.js';
@@ -38,6 +40,8 @@ interface Build {
     bannedArtists?: string[];
     /** Records the running order already holds, as `[title, artist]`. */
     alreadyQueued?: [string, string][];
+    /** Records that aired lately, as [title, artist, days ago], as a smart-shuffle refill hands them over. */
+    airedLately?: [string, string, number][];
     settings?: Record<string, unknown>;
     /** The broadcast on air, which is what seeds the library's row ordering. */
     broadcastId?: string;
@@ -50,6 +54,7 @@ function build({
     bannedKeys = [],
     bannedArtists = [],
     alreadyQueued = [],
+    airedLately = [],
     settings = {},
     broadcastId,
 }: Build = {}) {
@@ -68,13 +73,17 @@ function build({
     const queued = new QueuedRecords();
     queued.remember(alreadyQueued.map(([title, artist]) => songKey(title, [artist])));
 
+    const now = DateTime.utc();
+    const aired = new AiredRecords();
+    aired.remember(new Map(airedLately.map(([title, artist, days]) => [songKey(title, [artist]), now.minus({ days, hours: 1 })])), now);
+
     const identity = new StationIdentity();
     if (broadcastId !== undefined) identity.began(broadcastId);
 
     const searched = new SearchedRecords();
 
     return {
-        tool: new MusicSearchTool(tracks, providers, queued, searched, identity, config, logger),
+        tool: new MusicSearchTool(tracks, providers, queued, aired, searched, identity, config, logger),
         searchPlayable,
         search,
         ownership,
@@ -315,6 +324,41 @@ describe('MusicSearchTool', () => {
         const { tool } = build({ library: [{ title: 'Ocean Drive', artistName: 'Miami Nights 1984' }] });
 
         expect((await run(tool, { query: 'anything' })).tracks[0]).not.toHaveProperty('queued');
+    });
+
+    it('says how long ago a record aired, on whichever half it came back from', async () => {
+        const { tool } = build({
+            library: [{ title: 'Ocean Drive', artistName: 'Miami Nights 1984' }],
+            reached: [found('Hurricane', 'Mitch Murder'), found('Prime Operator', 'Mitch Murder')],
+            airedLately: [
+                ['Ocean Drive', 'Miami Nights 1984', 0],
+                ['Hurricane', 'Mitch Murder', 3],
+            ],
+        });
+
+        const result = await run(tool, { query: 'anything' });
+
+        expect(result.tracks).toEqual([
+            { title: 'Ocean Drive', artist: 'Miami Nights 1984', owned: true, airedDaysAgo: 0 },
+            { title: 'Hurricane', artist: 'Mitch Murder', owned: false, airedDaysAgo: 3 },
+            { title: 'Prime Operator', artist: 'Mitch Murder', owned: false },
+        ]);
+    });
+
+    it('marks and never filters a record that aired lately, since a narrow brief may need it', async () => {
+        const { tool } = build({
+            library: [{ title: 'Ocean Drive', artistName: 'Miami Nights 1984' }],
+            airedLately: [['Ocean Drive', 'Miami Nights 1984', 0]],
+        });
+
+        expect((await run(tool, { query: 'anything' })).tracks).toHaveLength(1);
+    });
+
+    it('says what airedDaysAgo means in the declaration, and that it is a preference', async () => {
+        const { tool } = build();
+
+        expect((await only(tool)).declaration.description).toMatch(/airedDaysAgo/);
+        expect((await only(tool)).declaration.description).toMatch(/fit equally well/);
     });
 
     it('says what queued means in the declaration, since the row alone is a bare flag', async () => {

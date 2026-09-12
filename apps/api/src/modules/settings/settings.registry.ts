@@ -470,8 +470,9 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         help:
             'Records the station has aired lately are less likely to be drawn again soon, so the rotation works through more of your library ' +
             'before it comes back round. It is a lean and never a refusal: anything outside the repeat window above can still be drawn, and a ' +
-            'small library still plays everything it holds. It shapes the draw from your own library, and the similarity mix takes a fresher record ' +
-            'from each similar artist rather than always their best known. Off, the draw is a plain random one that favours only what you have liked.',
+            'small library still plays everything it holds. It shapes the draw from your own library, the similarity mix takes a fresher record ' +
+            'from each similar artist rather than always their best known, and a model choosing records is told which ones it heard lately. ' +
+            'Off, the draw is a plain random one that favours only what you have liked.',
     },
     {
         group: 'rotation',

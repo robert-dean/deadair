@@ -25,7 +25,7 @@ A **rotation** is the station programming for itself: by default a record does n
 
 When the order needs records, sources are asked in turn, each only for what is still missing:
 
-1. A model, if you let one choose. Off by default.
+1. A model, if you let one choose. Off by default. With smart shuffle on, its search results say how many days ago each record aired, so it can prefer one it has not played lately.
 2. A published chart, for the share of each batch you give it. None by default, so installing a chart plugin changes nothing.
 3. Artists similar to what recently aired, up to 40% of each batch, where a plugin such as Last.fm knows who resembles whom. With smart shuffle on, each similar artist contributes a record that has not aired lately where it has one, rather than always its best known.
 4. A weighted draw from your library, shaped by the rotation rules and your ratings. With **smart shuffle** on, which is the default, it also leans away from what aired lately: a record that has just played keeps a quarter of its usual chance and warms back up over a fortnight, so the station works through more of your library before it repeats itself. It is a lean and never a rule, so a small library still plays everything.

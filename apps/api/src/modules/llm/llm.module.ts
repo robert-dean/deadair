@@ -2,6 +2,7 @@ import { Container, Registry } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
 import { ServerKitModule } from '@maroonedsoftware/koa';
 import { QueuedRecords } from '#modules/shared/queued.records.js';
+import { AiredRecords } from '#modules/shared/aired.records.js';
 import { SearchedRecords } from '#modules/shared/searched.records.js';
 import { MusicSearchTool } from './music.search.tool.js';
 import { ProviderSearch } from './provider.search.js';
@@ -62,6 +63,9 @@ export const LlmModule: ServerKitModule = {
         // module is set up first and the reader is the one that cannot do without it — a refill that
         // never wrote to it leaves an empty set, which is exactly what a break writer should see.
         registry.register(QueuedRecords).useClass(QueuedRecords).asScoped();
+        // The same edge carrying a second fact: how long ago each record aired, for smart shuffle.
+        // Registered here for the reason `QueuedRecords` is, and empty for every caller but a refill.
+        registry.register(AiredRecords).useClass(AiredRecords).asScoped();
         // The other direction of the same edge, and registered here for the same reason: the search
         // tool writes it, `ModelSetGenerator` reads it, and a scope where nothing searched leaves an
         // empty set, which is the correct answer for every caller that is not a refill.

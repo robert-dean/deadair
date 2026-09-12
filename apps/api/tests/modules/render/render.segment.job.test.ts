@@ -136,6 +136,14 @@ describe('RenderSegmentJob', () => {
         expect(speech.speak).toHaveBeenCalledWith({ text: 'You are listening to Deadair.', voice: 'newsreader' });
     });
 
+    it('asks for the reading the segment named, beside its voice', async () => {
+        const { job, speech } = harness({ claimed: segment({ voice: 'conspiracy', delivery: 'hushed' }) });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(speech.speak).toHaveBeenCalledWith({ text: 'You are listening to Deadair.', voice: 'conspiracy', delivery: 'hushed' });
+    });
+
     it('does nothing when the claim is refused, because somebody else has it', async () => {
         // The retry guard: `claimForRender` is a conditional update, so a second attempt arriving
         // mid-synthesis finds the row already `rendering` and stops rather than paying twice for
@@ -332,6 +340,21 @@ describe('RenderSegmentJob joining a break around a soundboard hit', () => {
         expect(urls[1]).toContain('pad-sum');
 
         expect(segments.markReady).toHaveBeenCalledWith('seg-1', expect.objectContaining({ audioChecksum: 'joined-checksum', audioExt: 'flac' }));
+    });
+
+    it('reads every take of one break the same way', async () => {
+        // A padded break is several takes. Hushed before the drop and ordinary after it would be two
+        // breaks, so the reading goes with every take, and with the fallback that speaks it whole.
+        const { job, speech } = harness({ claimed: { ...padded(), delivery: 'frantic' } });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(speech.speak).toHaveBeenNthCalledWith(1, { text: 'Ambitious.', delivery: 'frantic' });
+        expect(speech.speak).toHaveBeenNthCalledWith(2, { text: 'They played it anyway.', delivery: 'frantic' });
+
+        const fallback = harness({ claimed: { ...padded(), delivery: 'frantic' }, join: async () => undefined });
+        await fallback.job.run({ segmentId: 'seg-1' });
+        expect(fallback.speech.speak).toHaveBeenLastCalledWith({ text: 'Ambitious. They played it anyway.', delivery: 'frantic' });
     });
 
     it('records what the ENGINE was handed, which never includes the pad', async () => {

@@ -720,7 +720,10 @@ The host never interprets that string, and that is deliberate. It is what lets
 one station voice be a named preset on one engine and a cloned reference clip on
 another, so swapping engines does not rewrite every persona. Engine-specific
 tuning belongs in your config, not in the request: the host should not be
-carrying knobs only one implementation understands.
+carrying knobs only one implementation understands. The one thing about a
+reading it does carry is a delivery, and that is a word rather than a knob; see
+[Cues and deliveries](#cues-and-deliveries).
+
 
 Implement `listVoices()` if you have more than one, so the console can draw a
 list and preview them. It is optional, and a single-voice plugin is a legitimate
@@ -746,7 +749,52 @@ than `select` — a cell with choices renders as an autocomplete, so a value you
 list cannot enumerate (a blend expression, a clip added a minute ago) stays
 typeable.
 
+### Cues and deliveries
+
+Two things about how a line is performed reach you in the STATION's words, and
+both work the same way. The station names what it wants, you say which of those
+your engine can do right now, and you translate each one into whatever your
+engine actually takes. Nothing engine-specific ever crosses the boundary, so a
+station can change engines without rewriting a single script.
+
+- **A cue** is something a presenter does at a place in a sentence: `[laugh]`,
+  `[sigh]`, the rest of `SPEECH_CUES`. It rides inside `SpeechRequest.text`,
+  because where it happens is part of what it is. Claim the ones you perform with
+  `listCues()`.
+- **A delivery** is how the WHOLE line is read: `hushed` or `frantic`, the whole
+  of `SPEECH_DELIVERIES`. It rides beside the text as `SpeechRequest.delivery`,
+  and absent is the voice's own ordinary reading. Claim the ones you perform with
+  `listDeliveries()`.
+
+The host strips every cue and drops every delivery you did not claim before it
+calls `speak`, and the model writing a break is only offered what you claimed.
+So implementing neither is always safe: your engine never sees a word it would
+read aloud or ignore. The one way to break it is to claim something you cannot
+perform.
+
+**Answer from what the engine IS right now**, not from what you were built
+against. On the engine these were written for, the loaded MODEL decides: one
+build performs cues and ignores expressiveness, the others do the opposite. So
+both methods ask the server and answer empty when it cannot be reached.
+
+**Translate relative to the voice, not to a fixed point.** A delivery is a
+direction from wherever the voice already is, so a character who is intense at
+rest stays more intense than their neighbours when hushed. Two sketches of the
+same word on different engines:
+
+```ts
+// An engine with expressiveness dials, tuned per voice in your own config.
+const frantic = { exaggeration: clamp(voice.exaggeration + 0.4), cfg_weight: voice.cfgWeight };
+
+// An engine with only a speed.
+const hushed = { speed: (voice.speed ?? 1) * 0.9 };
+```
+
+The numbers belong to you and live in your config beside the voice they tune.
+The host never sees them, which is why the station's side of this is a word.
+
 ## Producing words
+
 
 A plugin that declares `llm` continues a conversation. It is a **transport, not a
 writer**: nothing in this capability knows what a break, a show or a running

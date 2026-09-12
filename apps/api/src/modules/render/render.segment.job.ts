@@ -174,7 +174,7 @@ export class RenderSegmentJob extends PlainJob<RenderSegmentPayload> {
      * break that loses its audio is a hole in the hour.
      */
     private async produce(segment: Segment, script: string): Promise<SpokenAudio> {
-        if (segment.pads.length === 0) return await this.say(script, segment.voice);
+        if (segment.pads.length === 0) return await this.say(script, segment);
 
         try {
             const padded = await this.joinAround(segment, script);
@@ -190,12 +190,23 @@ export class RenderSegmentJob extends PlainJob<RenderSegmentPayload> {
         // The fallback, and it has to strip the cue itself rather than leaning on
         // `transposeForSpeech` doing it downstream: this is the one path where the words reaching
         // the engine are deliberately not the words on the row.
-        return await this.say(withoutPads(script), segment.voice);
+        return await this.say(withoutPads(script), segment);
     }
 
-    /** One take of speech, which is what this job did for every segment before soundboards. */
-    private async say(text: string, voice: string | undefined): Promise<SpokenAudio> {
-        return await this.speech.speak({ text, ...(voice === undefined ? {} : { voice }) });
+    /**
+     * One take of speech, which is what this job did for every segment before soundboards.
+     *
+     * Takes the SEGMENT rather than the voice alone, because every take of one break is read the same
+     * way: a padded break is several takes, and one that was hushed for the first and ordinary after
+     * the drop would be two breaks. The voice and the delivery are both only sent when the row has
+     * one, so an ordinary break asks exactly what it always did.
+     */
+    private async say(text: string, segment: Segment): Promise<SpokenAudio> {
+        return await this.speech.speak({
+            text,
+            ...(segment.voice === undefined ? {} : { voice: segment.voice }),
+            ...(segment.delivery === undefined ? {} : { delivery: segment.delivery }),
+        });
     }
 
     /**
@@ -263,7 +274,8 @@ export class RenderSegmentJob extends PlainJob<RenderSegmentPayload> {
                 continue;
             }
 
-            const take = await this.say(part.text, segment.voice);
+            const take = await this.say(part.text, segment);
+
             urls.push(this.signer.sign(storedAudioUrl(base, take.checksum, take.ext)));
             spoken.push(take.spokenText);
         }

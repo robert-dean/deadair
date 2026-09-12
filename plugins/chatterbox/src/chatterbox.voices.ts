@@ -10,6 +10,13 @@
  * native path carries expressiveness dials, and neither is a thing to force on
  * the engine next door.
  *
+ * The dials have now arrived, and they are the case in point. `exaggeration` and
+ * `cfgWeight` are columns on THIS map and nowhere else, because a number on this
+ * engine's scale means nothing to the other one. What is portable is the WORD a
+ * break asks for (`hushed`, `frantic`), which rides on the request and which each
+ * plugin translates into whatever its engine has; these columns are where that
+ * translation starts from.
+ *
  * What is genuinely shared is `parseRows`, which is the encoding, and that comes
  * from the SDK because the CONSOLE writes it.
  */
@@ -23,6 +30,8 @@ export const VOICES_FIELD = 'voices';
 export const VOICE_NAME_COLUMN = 'name';
 export const VOICE_ENGINE_COLUMN = 'engine';
 export const VOICE_SPEED_COLUMN = 'speed';
+export const VOICE_EXAGGERATION_COLUMN = 'exaggeration';
+export const VOICE_CFG_WEIGHT_COLUMN = 'cfgWeight';
 
 /**
  * The narrowest and widest this server will read at.
@@ -34,6 +43,19 @@ export const VOICE_SPEED_COLUMN = 'speed';
  */
 export const MIN_SPEED = 0.25;
 export const MAX_SPEED = 4;
+
+/**
+ * The range the engine's own interface offers for each expressiveness dial.
+ *
+ * Taken from the server's sliders rather than from the model, which accepts any float and does
+ * something strange past them. `0` is a legitimate setting of both, and a flat reading is exactly
+ * what `exaggeration: 0` asks for, which is why these are read by {@link dialOf} and not by
+ * {@link speedOf}: a speed of zero is nonsense and is thrown away.
+ */
+export const MIN_EXAGGERATION = 0;
+export const MAX_EXAGGERATION = 2;
+export const MIN_CFG_WEIGHT = 0;
+export const MAX_CFG_WEIGHT = 2;
 
 /** What one station voice IS on this server. */
 export interface VoiceMapping {
@@ -50,6 +72,24 @@ export interface VoiceMapping {
 
     /** How fast to read, or absent to read at the engine's own pace. */
     speed?: number;
+
+    /**
+     * How theatrical this voice is at rest, or absent for the server's own configured default.
+     *
+     * Absent is NOT neutral on this engine. An omitted field takes the server's
+     * `generation_defaults`, which is whatever its operator wrote into its config (the station this
+     * was built against has 1.3 there, which is already a lively reading). Only the `original` and
+     * `multilingual` models read it; `turbo` discards it, and the plugin does not send it there.
+     */
+    exaggeration?: number;
+
+    /**
+     * How closely the reading holds to the reference clip's pace, or absent for the server's default.
+     *
+     * Paired with {@link exaggeration} upstream: more exaggeration speeds a reading up, and a lower
+     * CFG weight slows it back down. Same models, same caveat.
+     */
+    cfgWeight?: number;
 }
 
 /** Station voice name to what it is here. */
@@ -72,7 +112,14 @@ export function voiceMapOf(raw: unknown): VoiceMap {
         if (!name || !engine) continue;
 
         const speed = speedOf(row[VOICE_SPEED_COLUMN]);
-        voices[name] = { engine, ...(speed === undefined ? {} : { speed }) };
+        const exaggeration = dialOf(row[VOICE_EXAGGERATION_COLUMN], MIN_EXAGGERATION, MAX_EXAGGERATION);
+        const cfgWeight = dialOf(row[VOICE_CFG_WEIGHT_COLUMN], MIN_CFG_WEIGHT, MAX_CFG_WEIGHT);
+        voices[name] = {
+            engine,
+            ...(speed === undefined ? {} : { speed }),
+            ...(exaggeration === undefined ? {} : { exaggeration }),
+            ...(cfgWeight === undefined ? {} : { cfgWeight }),
+        };
     }
 
     return voices;
@@ -93,6 +140,21 @@ export function speedOf(raw: string | undefined): number | undefined {
     if (!Number.isFinite(parsed) || parsed <= 0) return undefined;
 
     return Math.min(MAX_SPEED, Math.max(MIN_SPEED, parsed));
+}
+
+/**
+ * An expressiveness cell as a number inside the engine's range, or nothing.
+ *
+ * {@link speedOf}'s rules with one difference that is the whole reason this is a second function:
+ * zero is kept. Clamped rather than refused, for the same reason a speed is.
+ */
+export function dialOf(raw: string | undefined, min: number, max: number): number | undefined {
+    if (raw === undefined || raw.trim().length === 0) return undefined;
+
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed)) return undefined;
+
+    return Math.min(max, Math.max(min, parsed));
 }
 
 /**

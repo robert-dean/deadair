@@ -580,6 +580,7 @@ export interface DeadairScheduleSlots {
 export interface DeadairScriptHistory {
   broadcastId: string | null;
   createdAt: Generated<DateTime>;
+  delivery: string | null;
   durationMs: number | null;
   id: Generated<string>;
   kind: string;
@@ -645,6 +646,7 @@ export interface DeadairSegments {
   claimsTimeUntil: DateTime | null;
   context: Json | null;
   createdAt: Generated<DateTime>;
+  delivery: string | null;
   durationMs: number | null;
   error: string | null;
   id: Generated<string>;

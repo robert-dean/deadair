@@ -71,6 +71,20 @@ describe('VoiceSampleStore.keyFor', () => {
         );
     });
 
+    it('separates one script in two readings, and keys an ordinary one as it always did', () => {
+        // The second half is what makes the parameter safe to add: every sample already on disk was
+        // keyed without one, and must still be a hit.
+        expect(store.keyFor('deadair.chatterbox', 'host', 'Olivia.wav', 'One thing.', 'hushed')).not.toBe(
+            store.keyFor('deadair.chatterbox', 'host', 'Olivia.wav', 'One thing.', 'frantic'),
+        );
+        expect(store.keyFor('deadair.chatterbox', 'host', 'Olivia.wav', 'One thing.', 'hushed')).not.toBe(
+            store.keyFor('deadair.chatterbox', 'host', 'Olivia.wav', 'One thing.'),
+        );
+        expect(store.keyFor('deadair.chatterbox', 'host', 'Olivia.wav', 'One thing.', undefined)).toBe(
+            store.keyFor('deadair.chatterbox', 'host', 'Olivia.wav', 'One thing.'),
+        );
+    });
+
     it('separates one script in two voices', () => {
         expect(store.keyFor('deadair.kokoro', 'host', 'af_heart', 'One thing.')).not.toBe(
             store.keyFor('deadair.kokoro', 'newsreader', 'af_heart', 'One thing.'),

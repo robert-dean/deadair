@@ -212,3 +212,36 @@ describe('ScriptHistoryRepository.page', () => {
         expect(captured.sql).not.toContain('created_at, deadair.script_history.id) <');
     });
 });
+
+// The reading a model chose is part of what it wrote, so the record keeps it beside the words.
+describe('ScriptHistoryRepository and a delivery', () => {
+    it('writes the delivery down with the attempt', async () => {
+        const captured: Captured = {};
+        await repositoryOver(fakeDb([], captured)).record({
+            kind: 'talkbreak',
+            writer: 'model',
+            outcome: 'written',
+            script: 'Quiet now.',
+            delivery: 'hushed',
+        });
+
+        expect(captured.sql).toContain('"delivery"');
+        expect(captured.parameters).toContain('hushed');
+    });
+
+    it('reads it back, and reads a word it no longer knows as none', async () => {
+        const row = { id: 'a', created_at: null, kind: 'talkbreak', writer: 'model', outcome: 'written', script: 'Go.' };
+        const [known, unknown] = await repositoryOver(
+            fakeDb(
+                [
+                    { ...row, delivery: 'frantic' },
+                    { ...row, id: 'b', delivery: 'shouty' },
+                ],
+                {},
+            ),
+        ).recent(2);
+
+        expect(known?.delivery).toBe('frantic');
+        expect(unknown).not.toHaveProperty('delivery');
+    });
+});

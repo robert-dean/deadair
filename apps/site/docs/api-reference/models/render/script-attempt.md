@@ -8,7 +8,7 @@ mdx:
 > One attempt to write something the station would say, including the ones that came to nothing
 
 <details>
-<summary>Attributes (19)</summary>
+<summary>Attributes (20)</summary>
 
 | Attribute    | Type                    | Required | Description                                                                                                                                                                                                                                                     |
 | ------------ | ----------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -20,6 +20,7 @@ mdx:
 | `personaKey` | `string`                | No       | Who was presenting, as the persona's own key. Absent means nobody was, which is an ordinary state. Stamped on every attempt including the declined ones, so a character whose model breaks are all being refused is visible rather than hidden behind the floor |
 | `label`      | `string`                | No       |                                                                                                                                                                                                                                                                 |
 | `script`     | `string`                | No       | The words. Absent for an attempt that produced none                                                                                                                                                                                                             |
+| `delivery`   | `string`                | No       | How the writer chose to have the words read, `hushed` or `frantic`. Absent for an ordinary reading                                                                                                                                                              |
 | `model`      | `string`                | No       | The model that said it, for a writer that used one                                                                                                                                                                                                              |
 | `source`     | `string`                | No       | What the line was rendered from, for a writer working from something an operator can edit                                                                                                                                                                       |
 | `reason`     | `string`                | No       | Why, for anything that is not `written`                                                                                                                                                                                                                         |

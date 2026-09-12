@@ -17,6 +17,7 @@ contract Segment: { # One thing the station can play that is not a record
     durationMs?: int(min=0) # How long it runs. A display value: the player measures the audio itself
     error?: string(max=2000) # Why it is `failed`
     voice?: string(max=100) # The station's own name for the voice this is said in, e.g. `host`. Absent means the speech plugin's default
+    delivery?: string(max=50) # How the words are read: `hushed` or `frantic`. Absent is the voice's own ordinary reading, which is nearly every segment
 }
 
 contract SegmentCreate: { # Something for the station to say, before anything has said it
@@ -24,6 +25,7 @@ contract SegmentCreate: { # Something for the station to say, before anything ha
     script: string(min=1, max=20000) # The words to say
     kind?: string(min=1, max=50) # What sort of element it is. Defaults to `talkbreak`
     voice?: string(max=100) # A station voice name the speech plugin knows how to map. Absent uses its default
+    delivery?: string(max=50) # How to read the words: `hushed` or `frantic`, and refused otherwise. Absent is the voice's own ordinary reading. Dropped at render time by an engine that cannot perform it
 }
 
 # A recording arriving from the browser, as multipart form parts.
@@ -51,6 +53,7 @@ contract VoiceList: { # The voices the station's current speech plugin offers
     voices: array(Voice)
     pluginId?: string(max=200) # Which plugin answered. Absent when nothing can speak
     reason?: string(max=500) # Why there are no voices, when there are none
+    deliveries?: array(string(max=50)) # Which readings that plugin can perform right now, out of `hushed` and `frantic`. Absent or empty means none, which is most engines and is not a fault
 }
 
 contract ScriptOutcome: enum(written, declined, failed) # Whether there are words, and if not, which way it went wrong
@@ -81,6 +84,7 @@ contract ScriptAttempt: { # One attempt to write something the station would say
     personaKey?: string(max=100) # Who was presenting, as the persona's own key. Absent means nobody was, which is an ordinary state. Stamped on every attempt including the declined ones, so a character whose model breaks are all being refused is visible rather than hidden behind the floor
     label?: string(max=400)
     script?: string(max=20000) # The words. Absent for an attempt that produced none
+    delivery?: string(max=50) # How the writer chose to have the words read, `hushed` or `frantic`. Absent for an ordinary reading
     model?: string(max=200) # The model that said it, for a writer that used one
     source?: string(max=200) # What the line was rendered from, for a writer working from something an operator can edit
     reason?: string(max=2000) # Why, for anything that is not `written`
@@ -127,7 +131,9 @@ contract ScriptHistoryPage: {
 contract SpeechPreviewRequest: { # Words to hear before anything has aired them
     text: string(min=1, max=2000) # What to say. Far under a segment's 20000 because this is one break heard once, and the cap is what bounds a cache keyed on the words themselves
     voice?: string(max=100) # A station voice name, as a segment's `voice`. Absent uses the plugin's own default
+    delivery?: string(max=50) # How to read it, as a segment's `delivery`: `hushed` or `frantic`, and refused otherwise. Absent is the voice's own ordinary reading
 }
+
 
 contract ScriptHistorySummaryQuery: { # The window the counts cover
     hours?: int(min=1, max=168) # How far back to count. Defaults to 24, and a week at most, because past that the nightly sweep may already have taken the rows and the count would quietly be of what survived rather than of what happened

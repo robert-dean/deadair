@@ -8,7 +8,7 @@ mdx:
 > One thing the station can play that is not a record
 
 <details>
-<summary>Attributes (12)</summary>
+<summary>Attributes (13)</summary>
 
 | Attribute      | Type                                                                        | Required | Description                                                                                                                                                                     |
 | -------------- | --------------------------------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -24,5 +24,6 @@ mdx:
 | `durationMs`   | `number`                                                                    | No       | How long it runs. A display value: the player measures the audio itself                                                                                                         |
 | `error`        | `string`                                                                    | No       | Why it is `failed`                                                                                                                                                              |
 | `voice`        | `string`                                                                    | No       | The station's own name for the voice this is said in, e.g. `host`. Absent means the speech plugin's default                                                                     |
+| `delivery`     | `string`                                                                    | No       | How the words are read: `hushed` or `frantic`. Absent is the voice's own ordinary reading, which is nearly every segment                                                        |
 
 </details>

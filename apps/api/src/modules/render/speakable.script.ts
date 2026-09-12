@@ -67,7 +67,17 @@ export interface SpeakableOptions {
 }
 
 /**
+ * An answer with any reasoning in front of it taken off: everything up to the last `</think>`.
+ *
+ * Exported because this is not the only reader that has to see the start of the real answer. A
+ * delivery mark is only a delivery mark as the FIRST thing the model said, and a model that thought
+ * out loud first has put its first thing after the thinking.
+ */
+export const afterThinking = (text: string): string => text.replace(/^[\s\S]*<\/think>/i, '');
+
+/**
  * One answer as speakable words, or nothing when there is nothing left of it.
+
  *
  * Split from the checks that judge an answer so a caller can tell an answer that was EMPTY from one
  * that was refused, without re-running the checks in a different order and reporting something that
@@ -81,7 +91,7 @@ export function speakableScript(text: string, options: SpeakableOptions): string
 
     // A reasoning model that was told not to think out loud and did anyway. Take what follows the
     // last one rather than dropping the answer: the words after it are usually the actual script.
-    script = script.replace(/^[\s\S]*<\/think>/i, '').trim();
+    script = afterThinking(script).trim();
 
     // Anything before a speaker label on the first line: "DJ:", "Host:", "Announcer:".
     script = script.replace(/^\s*[A-Z][A-Za-z ]{0,20}:\s*(?=[A-Z"'“])/, '');

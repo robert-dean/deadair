@@ -3,7 +3,7 @@
 // written must cost the station that break and nothing else.
 
 import { describe, expect, it, vi } from 'vitest';
-import type { SpeechCue } from '@deadair/plugin-sdk';
+import type { SpeechCue, SpeechDelivery } from '@deadair/plugin-sdk';
 
 import type { StoredBreakRequest } from '../../../src/modules/director/break.request.js';
 import type { BreakStory, BreakWriteRequest } from '../../../src/modules/director/break.writer.js';
@@ -66,6 +66,8 @@ function harness(
         played?: readonly { title: string; artist: string }[];
         /** What the installed engine can perform, for the tests about handing that to the writers. */
         cues?: readonly SpeechCue[];
+        /** The readings the installed engine can perform, for the tests about offering one. */
+        deliveries?: readonly SpeechDelivery[];
         /** What the station has already said this broadcast. */
         said?: readonly string[];
         /** Present and `undefined` for the off-air case, which falls back to the per-kind read. */
@@ -170,7 +172,7 @@ function harness(
     // What the installed engine can perform beyond reading. Nothing by default, which is the state of
     // every station whose speech plugin only reads words and the one every other assertion here was
     // written against.
-    const speech = { cues: vi.fn(async () => options.cues ?? []) };
+    const speech = { cues: vi.fn(async () => options.cues ?? []), deliveries: vi.fn(async () => options.deliveries ?? []) };
 
     const job = new WriteBreakJob(
         lineups as never,
@@ -625,6 +627,53 @@ describe('WriteBreakJob', () => {
         await job.run({ segmentId: 'seg-1' });
 
         expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ reactions: ['laugh', 'sigh'] }));
+    });
+
+    it('offers the writers the readings the engine performs, and nothing for one that performs none', async () => {
+        const reading = harness({ lineup: await lineupWithBreak(), deliveries: ['hushed', 'frantic'] });
+        await reading.job.run({ segmentId: 'seg-1' });
+        expect(reading.writers.write).toHaveBeenCalledWith(expect.objectContaining({ deliveries: ['hushed', 'frantic'] }));
+
+        const plain = harness({ lineup: await lineupWithBreak() });
+        await plain.job.run({ segmentId: 'seg-1' });
+        expect(plain.writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ deliveries: expect.anything() }));
+    });
+
+    it('writes the reading the model chose onto the row and into the record', async () => {
+        const chosen = { script: 'Something is out there.', label: 'Talk break: one into two', delivery: 'hushed' as const };
+        const { job, segments, history } = harness({
+            lineup: await lineupWithBreak(),
+            deliveries: ['hushed', 'frantic'],
+            written: {
+                written: chosen,
+                writer: 'a-model',
+                attempts: [{ writer: 'a-model', outcome: 'written', written: chosen, durationMs: 1 }],
+            },
+        });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(segments.writeScript).toHaveBeenCalledWith('seg-1', expect.objectContaining({ delivery: 'hushed' }));
+        expect(history.recordAll.mock.calls[0]?.[0]?.[0]).toMatchObject({ delivery: 'hushed' });
+    });
+
+    it('hands the row no reading for a line from the floor, so none is left from the model it replaced', async () => {
+        // `writeScript` writes the column every time and clears it when this is absent. The floor
+        // never chooses a reading, so a declined model's choice cannot survive into the floor's words.
+        const { job, segments } = harness({ lineup: await lineupWithBreak(), deliveries: ['hushed', 'frantic'] });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(segments.writeScript).toHaveBeenCalledWith('seg-1', expect.not.objectContaining({ delivery: expect.anything() }));
+    });
+
+    it('writes the break anyway when the engine cannot be asked how it reads', async () => {
+        const { job, segments, speech } = harness({ lineup: await lineupWithBreak() });
+        speech.deliveries.mockRejectedValueOnce(new Error('the engine is away'));
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(segments.writeScript).toHaveBeenCalled();
     });
 
     it('says nothing about reactions for an engine that only reads words', async () => {

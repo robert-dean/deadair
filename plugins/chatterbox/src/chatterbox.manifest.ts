@@ -1,9 +1,15 @@
 import { PLUGIN_CAPABILITY_SPEECH, type PluginManifest } from '@deadair/plugin-sdk';
 import { z } from 'zod';
 import {
+    MAX_CFG_WEIGHT,
+    MAX_EXAGGERATION,
     MAX_SPEED,
+    MIN_CFG_WEIGHT,
+    MIN_EXAGGERATION,
     MIN_SPEED,
+    VOICE_CFG_WEIGHT_COLUMN,
     VOICE_ENGINE_COLUMN,
+    VOICE_EXAGGERATION_COLUMN,
     VOICE_NAME_COLUMN,
     VOICE_SPEED_COLUMN,
     VOICES_FIELD,
@@ -78,8 +84,16 @@ export const DEFAULT_VOICE = 'Olivia.wav';
  * out. The COLUMN stays, because it is an operator's call on their own server and
  * the field's own help says what it costs. Do not "restore" the parity with
  * `plugins/kokoro` — the divergence is the measurement.
+ *
+ * **Nor does one row set an expressiveness dial, for three reasons.** The first is the
+ * speed argument again: these rows ask for a clip and nothing else, and a number nobody
+ * auditioned against that clip is a guess on top of the guess above. The second is that
+ * the model a stock server loads is `turbo`, which discards both dials, so a shipped
+ * value would be a promise the default install cannot keep. The third is that a blank
+ * cell is not neutral here: it defers to the server's own configured default, which is
+ * the operator's to choose, and a shipped 0.5 would quietly overrule it.
  */
-export const DEFAULT_VOICE_ROWS: readonly { name: string; engine: string; speed?: string }[] = [
+export const DEFAULT_VOICE_ROWS: readonly { name: string; engine: string; speed?: string; exaggeration?: string; cfgWeight?: string }[] = [
     { name: 'classic', engine: 'Olivia.wav' },
     { name: 'latenight', engine: 'Miles.wav' },
     { name: 'countdown', engine: 'Michael.wav' },
@@ -257,6 +271,9 @@ export const chatterboxManifest: PluginManifest = {
                 // than naming one it does not.
                 { key: VOICE_ENGINE_COLUMN, label: 'Engine voice', type: 'string', required: true, placeholder: 'Olivia.wav' },
                 { key: VOICE_SPEED_COLUMN, label: 'Speed', type: 'string', placeholder: '1' },
+                // Strings, as every cell is: a column has no number type, and `dialOf` does the reading.
+                { key: VOICE_EXAGGERATION_COLUMN, label: 'Exaggeration', type: 'string', placeholder: '0.5' },
+                { key: VOICE_CFG_WEIGHT_COLUMN, label: 'CFG weight', type: 'string', placeholder: '0.5' },
             ],
         },
         {
@@ -267,6 +284,16 @@ export const chatterboxManifest: PluginManifest = {
                 'This engine has no pace of its own, so a speed is applied by stretching audio it has already finished, and that leaves a smearing on the voice that sounds like a faint echo. ' +
                 'It is worst on a voice with a lot of sibilance, and it gets worse the further from 1 you go. Prefer a clip that already reads at the pace you want.',
         },
+        {
+            key: 'dialsNote',
+            type: 'note',
+            label:
+                `Exaggeration and CFG weight are optional and range from ${MIN_EXAGGERATION} to ${MAX_EXAGGERATION} and ${MIN_CFG_WEIGHT} to ${MAX_CFG_WEIGHT}. They set how theatrical a voice is at rest. ` +
+                "Leave them empty and the server's own configured default applies, which is not necessarily calm: check what yours is set to. " +
+                'Resemble suggests 0.5 and 0.5 for a neutral reading, and around 0.7 exaggeration with 0.3 CFG weight for an expressive one. More exaggeration speeds a voice up, and a lower CFG weight slows it back down. ' +
+                'Only the original and multilingual models use them. The Turbo model ignores both and performs laughs and sighs instead, and no model does both. Test connection says which one your server has loaded.',
+        },
+
         {
             key: 'unloadAfterRender',
             label: 'Free the GPU between breaks',

@@ -1,6 +1,8 @@
 import { Injectable } from 'injectkit';
 import { expressionBuilder, Kysely, sql, type Expression, type SqlBool } from 'kysely';
 import type { DateTime } from 'luxon';
+import { isSpeechDelivery, type SpeechDelivery } from '@deadair/plugin-sdk';
+
 import { DataRepository, type DB } from '#modules/data/data.repository.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
 import type { BreakContext } from '#modules/director/break.request.js';
@@ -75,6 +77,15 @@ export interface Segment {
      * whatever the speech plugin's default is, which is the ordinary case.
      */
     voice?: string;
+    /**
+     * How these words are to be read, in the station's own vocabulary, or absent for the voice's
+     * ordinary reading, which is nearly every row.
+     *
+     * Read back through `isSpeechDelivery`, so a word the SDK no longer knows reads as absent rather
+     * than reaching an engine that could not have claimed it. Written and cleared with the words,
+     * unlike {@link voice}: see `writeScript`.
+     */
+    delivery?: SpeechDelivery;
     /**
      * The production this is a beat of, and where it comes in it.
      *
@@ -199,6 +210,8 @@ export interface PlannedSegment {
      */
     script?: string;
     voice?: string;
+    /** How the words are to be read. Only meaningful beside {@link PlannedSegment.script}. */
+    delivery?: SpeechDelivery;
     /**
      * The soundboard pads these words hit, already resolved against a board.
      *
@@ -318,6 +331,7 @@ interface SegmentRow {
     loudnessLufs: number | null;
     error: string | null;
     voice: string | null;
+    delivery: string | null;
     writer: string | null;
     claimsItemId: string | null;
     claimsPreviousItemId: string | null;
@@ -348,6 +362,7 @@ const SEGMENT_COLUMNS = [
     'loudnessLufs',
     'error',
     'voice',
+    'delivery',
     'writer',
     'claimsItemId',
     'claimsPreviousItemId',
@@ -411,6 +426,7 @@ function toSegment(row: SegmentRow): Segment {
         ...(row.loudnessLufs == null ? {} : { loudnessLufs: row.loudnessLufs }),
         ...(row.error == null ? {} : { error: row.error }),
         ...(row.voice == null ? {} : { voice: row.voice }),
+        ...(isSpeechDelivery(row.delivery) ? { delivery: row.delivery } : {}),
         ...(row.writer == null ? {} : { writer: row.writer }),
         ...(row.claimsItemId == null ? {} : { claimsItemId: row.claimsItemId }),
         ...(row.claimsPreviousItemId == null ? {} : { claimsPreviousItemId: row.claimsPreviousItemId }),
@@ -751,6 +767,7 @@ export class SegmentRepository extends DataRepository {
                 label: planned.label,
                 script: planned.script ?? null,
                 voice: planned.voice ?? null,
+                delivery: planned.script === undefined ? null : (planned.delivery ?? null),
                 personaId: planned.personaId ?? null,
                 writer: planned.writer ?? null,
                 pads: JSON.stringify(planned.pads ?? []),
@@ -826,6 +843,7 @@ export class SegmentRepository extends DataRepository {
             claimsReadingUntil?: number;
             personaId?: string;
             voice?: string;
+            delivery?: SpeechDelivery;
             pads?: readonly PadHit[];
         },
     ): Promise<boolean> {
@@ -847,6 +865,12 @@ export class SegmentRepository extends DataRepository {
                 // default to be recomputed; the caller reads the row first and offers the persona's
                 // only when the row has none. Absent here therefore means leave it exactly alone.
                 ...(written.voice === undefined ? {} : { voice: written.voice }),
+                // And the delivery is the OTHER rule, deliberately: it describes these words the way
+                // the pads and the claims below do, rather than being an instruction about who reads
+                // them. So it is written every time and cleared when absent. A retry re-speaks the row
+                // with its delivery intact, a rewrite states its own or none, and a line from the
+                // floor, which never chooses one, leaves none behind from the model it replaced.
+                delivery: written.delivery ?? null,
                 // Set together with the words, because it describes them: a claim is a statement
                 // the script makes, and one outliving a rewrite would be a promise about a
                 // sentence that is no longer there. Null clears it for the same reason.
@@ -1097,6 +1121,8 @@ export class SegmentRepository extends DataRepository {
                 // reopens it again, forever, against a number that can never move. The words go, so
                 // everything that described them goes with them.
                 claimsReadingUntil: null,
+                // So does the reading the model chose for them.
+                delivery: null,
                 ...(host === undefined
                     ? {}
                     : {
@@ -1301,7 +1327,8 @@ export class SegmentRepository extends DataRepository {
                and s.state in ('written', 'failed')
          returning prior.state as from_state,
                    s.id, s.kind, s.state, s.label, s.script, s.source, s.source_path,
-                   s.audio_checksum, s.audio_ext, s.duration_ms, s.error, s.voice, s.writer,
+                   s.audio_checksum, s.audio_ext, s.duration_ms, s.error, s.voice, s.delivery, s.writer,
+
                    -- The soundboard hits, which the render path splits and joins around. Spelled out
                    -- because this is the one read in the file that does NOT go through
                    -- SEGMENT_COLUMNS: the claim has to be a single statement against a self-join to

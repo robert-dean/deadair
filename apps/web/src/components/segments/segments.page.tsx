@@ -239,7 +239,16 @@ function SegmentTable({ segments, onDelete }: { segments: Segment[]; onDelete?: 
                                     <Text size="xs" c="dimmed">
                                         {segment.voice ?? 'default'}
                                     </Text>
+                                    {/* How the words were read, when the writer chose a reading at all.
+                                    Beside the voice because it is the other half of how this row
+                                    sounds, and absent for nearly every row. */}
+                                    {segment.delivery === undefined ? undefined : (
+                                        <Text size="xs" c="dimmed" fs="italic">
+                                            {segment.delivery}
+                                        </Text>
+                                    )}
                                 </Table.Td>
+
                                 <Table.Td className="da-num">{segment.durationMs === undefined ? '—' : formatDuration(segment.durationMs)}</Table.Td>
                                 <Table.Td>
                                     {/* Only for a recording the station was GIVEN. Anything it wrote and

@@ -165,6 +165,7 @@ export const speechRequestFixture: SpeechRequest = {
     text: "You're listening to Deadair. That was Boards of Canada.",
     voice: 'host',
     format: 'mp3',
+    delivery: 'hushed',
 };
 
 export const speechVoiceFixture: SpeechVoice = {

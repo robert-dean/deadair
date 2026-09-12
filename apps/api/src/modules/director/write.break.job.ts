@@ -1,5 +1,5 @@
 import { Container, Injectable } from 'injectkit';
-import type { SpeechCue } from '@deadair/plugin-sdk';
+import type { SpeechCue, SpeechDelivery } from '@deadair/plugin-sdk';
 import { JobContext } from '@maroonedsoftware/jobbroker';
 import { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
 import { Logger } from '@maroonedsoftware/logger';
@@ -336,6 +336,9 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
             // offer — and so a station that changed engine between two breaks writes for the one that
             // is installed now.
             ...(await this.reactions()),
+            // The readings the same engine can perform, asked for the reactions' reason and answered
+            // once for every binding. Offered only to a kind of break whose shape allows one.
+            ...(await this.deliveries()),
             // The other half of what is on offer, and it comes from the other side entirely: a
             // reaction is a property of the engine and a pad is a property of the CHARACTER. Read
             // here rather than inside a writer for the reactions' own reason — one answer per break,
@@ -389,6 +392,10 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         // whoever the station currently is. Decided here, with the words, so a persona swapped
         // before the render cannot have this sentence read out by a different character.
         const voice = segment.voice ?? persona?.voice;
+        // The reading needs no line of its own: it rides on `result.written` into `writeScript`, which
+        // writes it every time and clears it when absent. The opposite of the voice above on purpose,
+        // since the voice is an instruction about who speaks and the reading is part of what was
+        // written, so a floor line replacing a model's clears whatever reading the model had chosen.
 
         // What the script actually hit, resolved HERE because here is the only place the presenting
         // character's board is in hand. See `segments.pads`: a pad name is unique per board and not
@@ -593,6 +600,17 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
             return cues.length === 0 ? {} : { reactions: cues };
         } catch (error) {
             this.logger.debug(`director: could not ask what the engine can perform (${errorText(error)})`);
+            return {};
+        }
+    }
+
+    /** {@link reactions}' twin for a reading of the whole break, and quiet for the same reasons. */
+    private async deliveries(): Promise<{ deliveries?: readonly SpeechDelivery[] }> {
+        try {
+            const deliveries = await this.speech.deliveries();
+            return deliveries.length === 0 ? {} : { deliveries };
+        } catch (error) {
+            this.logger.debug(`director: could not ask how the engine can read a break (${errorText(error)})`);
             return {};
         }
     }
@@ -836,6 +854,8 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
                     ...(neighbours.previous === undefined ? {} : { previous: neighbours.previous.track }),
                     ...(neighbours.next === undefined ? {} : { next: neighbours.next.track }),
                     ...(attempt.written === undefined ? {} : { script: attempt.written.script, label: attempt.written.label }),
+                    ...(attempt.written?.delivery === undefined ? {} : { delivery: attempt.written.delivery }),
+
                     ...(attempt.reason === undefined ? {} : { reason: attempt.reason }),
                     // Whatever the writer wanted kept about how it got there: the model, the token
                     // counts, and — only while the operator has asked for them — the prompt and the

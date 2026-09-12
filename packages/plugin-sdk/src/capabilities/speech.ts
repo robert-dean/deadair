@@ -28,6 +28,15 @@
  * inside your own config where it belongs, rather than asking the host to carry
  * knobs only you understand.
  *
+ * ## A delivery is a word the station chose, too
+ *
+ * The one thing about HOW a line is read that the host does carry is
+ * {@link SpeechRequest.delivery}: `hushed` or `frantic`, in the station's words
+ * and never as a number. That is the same bargain as a voice and a cue. The host
+ * says what it wants in a vocabulary every engine can be asked in, and each plugin
+ * translates it into whatever its engine has, whether that is an expressiveness
+ * dial, a speed, a style preset or nothing at all. The numbers stay in your config.
+ *
  * Every shape here is JSON-safe.
  */
 
@@ -115,6 +124,42 @@ export function withoutCues(text: string, keep: Iterable<SpeechCue> = []): strin
  */
 const cuePattern = (): RegExp => new RegExp(`\\[(${[...SPEECH_CUES].sort((left, right) => right.length - left.length).join('|')})\\]`, 'gi');
 
+/**
+ * How a whole line is read, as the station names it.
+ *
+ * Two, and the middle is deliberately not one of them: a request with no delivery is the voice's own
+ * ordinary reading, which is what nearly every line should be. A third word for "ordinary" would be a
+ * second way to ask for nothing, and would key a second cached preview of identical audio.
+ *
+ * The vocabulary is the STATION's and translating it is yours, exactly as for {@link SPEECH_CUES}.
+ * `hushed` is quieter, slower, closer to the microphone; `frantic` is urgent, faster, barely holding
+ * on. Whether your engine gets there with an expressiveness dial, a speed, a style token or a
+ * different reference clip is engine business, and the host never learns which.
+ *
+ * ## Why a word and not a number
+ *
+ * A number is a promise about one engine's scale. `exaggeration: 0.9` means something to one family of
+ * models and nothing to the next, so a station that asked for it would be tied to the engine it was
+ * built against, which is the thing the voice indirection exists to prevent. A word survives a change
+ * of engine. The numbers it becomes live in each plugin's own config, beside the voice they tune.
+ *
+ * ## Claim only what you can perform
+ *
+ * {@link SpeechPluginInstance.listDeliveries} says which of these your engine can do RIGHT NOW, and the
+ * host drops any delivery you did not claim before it calls {@link SpeechPluginInstance.speak}. So a
+ * plugin that implements nothing here never sees one, and the writer is never offered a delivery the
+ * engine would ignore. Claiming one you cannot perform is the only way to break it.
+ */
+export const SPEECH_DELIVERIES = ['hushed', 'frantic'] as const;
+
+/** One of {@link SPEECH_DELIVERIES}. */
+export type SpeechDelivery = (typeof SPEECH_DELIVERIES)[number];
+
+/** Whether a value is one of {@link SPEECH_DELIVERIES}, exactly as written. */
+export function isSpeechDelivery(value: unknown): value is SpeechDelivery {
+    return typeof value === 'string' && (SPEECH_DELIVERIES as readonly string[]).includes(value);
+}
+
 /** One thing to say. */
 export interface SpeechRequest {
     /**
@@ -140,6 +185,16 @@ export interface SpeechRequest {
      * that instead. Ignore it entirely if your engine emits one format.
      */
     format?: string;
+
+    /**
+     * How to read the whole line, or absent for the voice's own ordinary reading.
+     *
+     * Only ever one you claimed through {@link SpeechPluginInstance.listDeliveries}: the host drops the
+     * rest before this call. Translate it into your engine's own controls, relative to whatever the
+     * voice already sounds like, so a voice that is intense at rest is still more intense than its
+     * neighbours when hushed. See {@link SPEECH_DELIVERIES}.
+     */
+    delivery?: SpeechDelivery;
 }
 
 /** The audio for one {@link SpeechPluginInstance.speak}, and what it is. */
@@ -244,4 +299,19 @@ export interface SpeechPluginInstance extends PluginLifecycle {
      * not fail to write one.
      */
     listCues?(): Promise<readonly SpeechCue[]>;
+
+    /**
+     * Which of {@link SPEECH_DELIVERIES} this plugin can perform RIGHT NOW.
+     *
+     * Optional, and absent means none, for the reason {@link listCues} gives: most engines have no
+     * such control, and saying nothing costs a plugin nothing because the host drops what you do not
+     * claim.
+     *
+     * The same three rules as for cues, too. Answer from what the engine currently IS, since on some
+     * engines the control belongs to the loaded model rather than to the server. Keep it cheap,
+     * because it is asked on the path that writes a break. And answer empty rather than throwing when
+     * the engine cannot be reached, because a station that cannot ask should write an ordinary
+     * reading rather than fail to write one.
+     */
+    listDeliveries?(): Promise<readonly SpeechDelivery[]>;
 }

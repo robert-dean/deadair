@@ -1,6 +1,8 @@
 import { Injectable } from 'injectkit';
 import { Kysely, sql } from 'kysely';
 import { DateTime } from 'luxon';
+import { isSpeechDelivery, type SpeechDelivery } from '@deadair/plugin-sdk';
+
 import { DataRepository, type DB } from '#modules/data/data.repository.js';
 import { toJsonb } from '#modules/data/jsonb.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
@@ -53,6 +55,14 @@ export interface ScriptWrite {
     /** Both absent for an attempt that produced nothing. */
     label?: string;
     script?: string;
+    /**
+     * How the words were to be read, when the writer chose a reading at all.
+     *
+     * Kept beside the script because it is part of what was written, and a record of a hushed break
+     * that did not say so would be a record of a different break. The raw answer shows it too, but
+     * only while `llm.captureWrites` is on.
+     */
+    delivery?: SpeechDelivery;
     /** The binding that produced or declined it. `BreakWriter.name`. */
     writer: string;
     /**
@@ -157,6 +167,7 @@ interface ScriptHistoryRow {
     kind: string;
     label: string | null;
     script: string | null;
+    delivery: string | null;
     writer: string;
     personaKey: string | null;
     model: string | null;
@@ -185,6 +196,7 @@ const HISTORY_COLUMNS = [
     'deadair.scriptHistory.kind',
     'deadair.scriptHistory.label',
     'deadair.scriptHistory.script',
+    'deadair.scriptHistory.delivery',
     'deadair.scriptHistory.writer',
     'deadair.scriptHistory.personaKey',
     'deadair.scriptHistory.model',
@@ -210,6 +222,7 @@ function toEntry(row: ScriptHistoryRow & { rating?: number | null }): ScriptHist
         ...(row.segmentId == null ? {} : { segmentId: row.segmentId }),
         ...(row.label == null ? {} : { label: row.label }),
         ...(row.script == null ? {} : { script: row.script }),
+        ...(isSpeechDelivery(row.delivery) ? { delivery: row.delivery } : {}),
         ...(row.personaKey == null ? {} : { personaKey: row.personaKey }),
         ...(row.model == null ? {} : { model: row.model }),
         ...(row.source == null ? {} : { source: row.source }),
@@ -248,7 +261,9 @@ export class ScriptHistoryRepository extends DataRepository {
                 kind: write.kind,
                 label: write.label ?? null,
                 script: write.script ?? null,
+                delivery: write.delivery ?? null,
                 writer: write.writer,
+
                 personaKey: write.personaKey ?? null,
                 model: write.model ?? null,
                 source: write.source ?? null,

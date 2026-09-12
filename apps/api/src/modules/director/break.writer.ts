@@ -27,7 +27,8 @@
  * implementation's imports, exactly like {@link SetGenerator}.
  */
 
-import type { SpeechCue } from '@deadair/plugin-sdk';
+import type { SpeechCue, SpeechDelivery } from '@deadair/plugin-sdk';
+
 import type { GatePriority } from '#modules/shared/gate.priority.js';
 import type { Persona } from '#modules/personas/persona.js';
 import type { PersonaNotesForPrompt } from '#modules/personas/persona.note.js';
@@ -290,6 +291,14 @@ export interface BreakWriteRequest {
      * in one would be the station performing on a schedule.
      */
     reactions?: readonly SpeechCue[];
+    /**
+     * The readings the station's engine can perform right now, or absent for one with none.
+     *
+     * {@link BreakWriteRequest.reactions}' twin, read by the caller for its reason and unread by every
+     * deterministic writer for its reason too: a template reading itself hushed on a schedule would
+     * be the station performing a mood nobody chose.
+     */
+    deliveries?: readonly SpeechDelivery[];
     /**
      * The pads on this presenter's soundboard, by name, or absent for one with no rack.
      *
@@ -556,6 +565,15 @@ export interface WrittenBreak {
      * floor and the model binding above it cannot disagree about how long the same reading lasts.
      */
     claimsReadingUntil?: number;
+    /**
+     * How the whole break is to be read, when the writer chose a reading at all.
+     *
+     * Answered by a model binding only, and only out of {@link BreakWriteRequest.deliveries}: the
+     * floor never sets one, because a phrasing an operator typed has no mood of its own and one
+     * chosen for it would be the station deciding something nobody decided. The caller writes it
+     * onto the row with the words, and clears it when this is absent.
+     */
+    delivery?: SpeechDelivery;
 }
 
 /**

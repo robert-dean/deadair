@@ -8,6 +8,7 @@ import { Figure } from '../components/figure';
 import styles from './index.module.css';
 
 const repository = 'https://github.com/robert-dean/deadair';
+const playStore = 'https://play.google.com/store/apps/details?id=com.maroonedsoftware.deadair';
 
 /** The four facts worth reading before anything else, as a strip under the hero's buttons. */
 const facts = ['Self-hosted', 'Your music', 'Any model, or none', 'MIT licensed'];
@@ -358,7 +359,8 @@ export default function Home() {
                             <p className="da-eyebrow">Android</p>
                             <p>
                                 Background playback and lock-screen controls. Signed in as the operator, it is the station’s remote as well.{' '}
-                                <Link href={`${repository}/tree/main/apps/android`}>Build it from source.</Link>
+                                <Link href={playStore}>Get it on Google Play</Link>, or{' '}
+                                <Link href={`${repository}/tree/main/apps/android`}>build it from source</Link>.
                             </p>
                         </div>
                         <div className={styles.tag}>

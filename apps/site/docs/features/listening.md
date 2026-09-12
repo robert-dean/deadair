@@ -32,7 +32,7 @@ The Android app is a listener first: background playback, lock-screen controls, 
 
 Signed in with the operator's account, the same email and password the console takes, it adds what the station has played, what is coming up and what it said between records, with a page for every record, album and artist. It becomes the remote as well: skip, stop and start the station, hold a broadcast against the schedule, set what puts the station on air, read why it is or is not on air, reorder and drop the running order, rate records, albums, artists and breaks, and put a playlist or a chart on air. In a car, pause stops the stream, the next button is the operator's Skip and is offered to nobody else, and pressing play on the wheel starts the station even when the app is not running.
 
-It is built from source with a JDK and the Android SDK. A Google Play listing exists but is limited to invited testers for now. The build instructions are in [the app's directory](https://github.com/robert-dean/deadair/tree/main/apps/android).
+It is on [Google Play](https://play.google.com/store/apps/details?id=com.maroonedsoftware.deadair). To build it yourself instead, you need a JDK and the Android SDK, and the instructions are in [the app's directory](https://github.com/robert-dean/deadair/tree/main/apps/android).
 
 ## On an iPhone
 

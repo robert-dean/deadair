@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AppConfig } from '@maroonedsoftware/appconfig';
 import type { Logger } from '@maroonedsoftware/logger';
 import type { ArtistTrack, SimilarArtist } from '@deadair/plugin-sdk';
+import { DateTime } from 'luxon';
 
 import { DEFAULT_SIMILAR_MIX, SIMILAR_GENERATOR_KEYS, SimilarSetGenerator } from '../../../src/modules/director/similar.set.generator.js';
 import type { SimilarityService } from '../../../src/modules/similarity/similarity.service.js';
@@ -15,6 +16,7 @@ import { DEFAULT_RULES, type ResolvedRules } from '../../../src/modules/director
 import { songKey } from '../../../src/modules/director/rotation.keys.js';
 import type { SetInputs } from '../../../src/modules/director/set.generator.js';
 import { StationIdentity } from '../../../src/modules/shared/station.identity.js';
+import { SMART_SHUFFLE_KEYS } from '../../../src/modules/director/smart.shuffle.js';
 
 const stubLogger = () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() });
 
@@ -29,6 +31,10 @@ interface Options {
     tracks?: ArtistTrack[];
     /** The broadcast on air, for the tests about what a brief may seed from. */
     broadcast?: string;
+    /** When each song last aired inside the smart shuffle's horizon. */
+    lastAired?: Map<string, DateTime>;
+    /** A history that cannot be read, for the case about degrading rather than failing. */
+    historyFails?: boolean;
 }
 
 function build(options: Options = {}) {
@@ -50,7 +56,11 @@ function build(options: Options = {}) {
     } as unknown as SimilarityService;
 
     const recentArtists = vi.fn(async (_limit: number, _station: string, _broadcast?: string) => options.seeds ?? ['Portishead']);
-    const history = { recentArtists } as unknown as PlayHistoryRepository;
+    const lastAiredSince = vi.fn(async (days: number) => {
+        if (options.historyFails) throw new Error('the database went away');
+        return days > 0 ? (options.lastAired ?? new Map<string, DateTime>()) : new Map<string, DateTime>();
+    });
+    const history = { recentArtists, lastAiredSince } as unknown as PlayHistoryRepository;
     const logger = stubLogger();
 
     const identity = new StationIdentity();
@@ -61,6 +71,7 @@ function build(options: Options = {}) {
         similarTo,
         topTracks,
         recentArtists,
+        lastAiredSince,
         logger,
     };
 }
@@ -260,5 +271,65 @@ describe('seeding', () => {
 
             expect(await generator.generate(inputs({ count: 10, era: {} }))).toHaveLength(1);
         });
+    });
+});
+
+describe('smart shuffle in the walk', () => {
+    // A neighbour's first top track is the same record every time the neighbour comes up, which is
+    // how canonical hits came to air five to seven times a fortnight. The walk still takes one record
+    // per neighbour; smart shuffle only changes WHICH of its top tracks that is.
+    const tracks: ArtistTrack[] = [
+        { title: 'Karmacoma', artist: 'Tricky' },
+        { title: 'Aftermath', artist: 'Tricky' },
+        { title: 'Overcome', artist: 'Tricky' },
+    ];
+    const yesterday = () => DateTime.utc().minus({ days: 1 });
+
+    it("takes a neighbour's first track when none of them aired lately, exactly as before", async () => {
+        const { generator } = build({ similar: [{ name: 'Tricky' }], tracks });
+
+        expect(await generator.generate(inputs())).toEqual([{ title: 'Karmacoma', artist: 'Tricky' }]);
+    });
+
+    it('passes over a track that aired lately for the next one the source ranked', async () => {
+        const { generator } = build({
+            similar: [{ name: 'Tricky' }],
+            tracks,
+            lastAired: new Map([[songKey('Karmacoma', ['Tricky']), yesterday()]]),
+        });
+
+        expect(await generator.generate(inputs())).toEqual([{ title: 'Aftermath', artist: 'Tricky' }]);
+    });
+
+    it('still names the neighbour when every one of its tracks aired lately, taking the one that aired longest ago', async () => {
+        const { generator } = build({
+            similar: [{ name: 'Tricky' }],
+            tracks,
+            lastAired: new Map([
+                [songKey('Karmacoma', ['Tricky']), yesterday()],
+                [songKey('Aftermath', ['Tricky']), DateTime.utc().minus({ days: 6 })],
+                [songKey('Overcome', ['Tricky']), DateTime.utc().minus({ days: 2 })],
+            ]),
+        });
+
+        expect(await generator.generate(inputs())).toEqual([{ title: 'Aftermath', artist: 'Tricky' }]);
+    });
+
+    it('reads no history and takes the first track when smart shuffle is off in the row', async () => {
+        const { generator, lastAiredSince } = build({
+            similar: [{ name: 'Tricky' }],
+            tracks,
+            lastAired: new Map([[songKey('Karmacoma', ['Tricky']), yesterday()]]),
+            settings: { [SMART_SHUFFLE_KEYS.enabled]: 'false' },
+        });
+
+        expect(await generator.generate(inputs())).toEqual([{ title: 'Karmacoma', artist: 'Tricky' }]);
+        expect(lastAiredSince).toHaveBeenCalledWith(0, 'main');
+    });
+
+    it('walks as it did before when the history cannot be read, rather than naming nothing', async () => {
+        const { generator } = build({ similar: [{ name: 'Tricky' }], tracks, historyFails: true });
+
+        expect(await generator.generate(inputs())).toEqual([{ title: 'Karmacoma', artist: 'Tricky' }]);
     });
 });

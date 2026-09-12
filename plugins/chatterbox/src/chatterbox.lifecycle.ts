@@ -105,6 +105,16 @@ export interface ModelInfo {
     availableTags: readonly string[];
 }
 
+/**
+ * The server's own configured values for the two expressiveness dials, as far as it reports them.
+ *
+ * An omitted field takes these, so they are what a voice with a blank cell actually sounds like at rest.
+ */
+export interface GenerationDefaults {
+    exaggeration?: number;
+    cfgWeight?: number;
+}
+
 /** What this plugin needs from the host to talk to the server. Narrow, so it can be faked whole. */
 export interface LifecycleDeps {
     /** The configured address, `/v1` and all. */
@@ -153,6 +163,7 @@ export function honoursExpressionDials(info: ModelInfo | undefined): boolean {
 /** Model lifecycle for one configured server. */
 export class ModelLifecycle {
     private readonly root: string;
+    private defaults?: GenerationDefaults;
 
     constructor(private readonly deps: LifecycleDeps) {
         this.root = serverRoot(deps.baseUrl);
@@ -209,6 +220,43 @@ export class ModelLifecycle {
                 supportsCues: body.supports_paralinguistic_tags === true,
                 availableTags: namedTags(body.available_paralinguistic_tags),
             };
+        } catch {
+            return undefined;
+        }
+    }
+
+    /**
+     * What the server does with a dial nobody sent, read once and then remembered.
+     *
+     * `/api/ui/initial-data` is the only place the server says, under `config.generation_defaults`,
+     * and it is the operator's own config file rather than anything the model decides. So it is read
+     * the first time a delivery needs it and kept for the life of this plugin instance: a change to the
+     * server's config reaches the station when the plugin is reloaded, which a save of its settings
+     * already does. A failed read is not remembered, so the next delivery asks again, and it answers
+     * nothing rather than throwing, since the caller has a neutral fallback and a break must not fail
+     * for want of a default.
+     */
+    async generationDefaults(): Promise<GenerationDefaults | undefined> {
+        if (this.defaults !== undefined) return this.defaults;
+
+        try {
+            const response = await this.deps.fetch(`${this.root}/api/ui/initial-data`, {
+                headers: this.deps.headers(),
+                timeoutMs: LIFECYCLE_TIMEOUT_MS,
+            });
+            if (!response.ok) {
+                await response.body?.cancel().catch(() => {});
+                return undefined;
+            }
+
+            const body = (await response.json()) as { config?: { generation_defaults?: Record<string, unknown> } };
+            const read = body.config?.generation_defaults;
+            const exaggeration = finite(read?.exaggeration);
+            const cfgWeight = finite(read?.cfg_weight);
+            if (exaggeration === undefined && cfgWeight === undefined) return undefined;
+
+            this.defaults = { ...(exaggeration === undefined ? {} : { exaggeration }), ...(cfgWeight === undefined ? {} : { cfgWeight }) };
+            return this.defaults;
         } catch {
             return undefined;
         }
@@ -312,7 +360,11 @@ export class ModelLifecycle {
     }
 }
 
+/** A number off a server readout, if it is one. */
+const finite = (value: unknown): number | undefined => (typeof value === 'number' && Number.isFinite(value) ? value : undefined);
+
 /** A field of the model readout, if the server filled it in. Blank counts as absent. */
+
 const said = (value: unknown): string | undefined => (typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined);
 
 /**

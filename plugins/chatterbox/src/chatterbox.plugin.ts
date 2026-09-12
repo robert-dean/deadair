@@ -4,10 +4,12 @@ import {
     Plugin,
     PluginError,
     SPEECH_CUES,
+    SPEECH_DELIVERIES,
     tryJsonBody,
     type ConfigFieldOption,
     type PluginConnectionResult,
     type SpeechCue,
+    type SpeechDelivery,
     type SpeechHandle,
     type SpeechPluginInstance,
     type SpeechRequest,
@@ -25,6 +27,7 @@ import {
     shippedUnlessMapped,
     type ResponseFormat,
 } from './chatterbox.manifest.js';
+import { dialsFor, needsServerDefaults } from './chatterbox.delivery.js';
 import { honoursExpressionDials, ModelLifecycle, type ModelInfo } from './chatterbox.lifecycle.js';
 import { VOICE_ENGINE_COLUMN, VOICES_FIELD, type VoiceMap, type VoiceMapping } from './chatterbox.voices.js';
 
@@ -147,7 +150,10 @@ const whenFinished = (source: ReadableStream<Uint8Array>, onDone: () => void): R
  * this comment used to leave open (does a dial belong on a voice or on a request)
  * was answered BOTH. A voice carries its own `exaggeration` and `cfgWeight` in the
  * mapping table, which is how a character is intense at rest. The per-request half
- * is a station word rather than a number; see `SpeechRequest.delivery`.
+ * is a station word rather than a number (`SpeechRequest.delivery`), and
+ * `chatterbox.delivery.ts` is the whole of what `hushed` and `frantic` become here:
+ * a move on those same two dials, from wherever the voice already is.
+
  *
  * What makes either audible is the MODEL, not this plugin. The `turbo` build, which
  * is the one a stock server loads and the one that performs the station's cues,
@@ -289,6 +295,24 @@ export class ChatterboxPlugin extends Plugin implements SpeechPluginInstance {
     }
 
     /**
+     * Which deliveries this server can perform, right now: both, or none.
+     *
+     * {@link listCues}' mirror image, and on this engine literally so. A delivery is carried by the
+     * expressiveness dials, which only the `original` and `multilingual` models read, and those are the
+     * two that perform no cues. So a server holding `turbo` answers cues here and nothing for this, and
+     * one holding either of the others answers the reverse. Both follow the model that is RESIDENT, so
+     * a server that has let its model go after a quiet spell answers neither until the next break loads
+     * one, which costs that one break an ordinary reading rather than anything worse.
+     *
+     * Answers empty rather than throwing, for the reason {@link listCues} does.
+     */
+    async listDeliveries(): Promise<readonly SpeechDelivery[]> {
+        if (this.lifecycle === undefined) return [];
+
+        return honoursExpressionDials(await this.lifecycle.info()) ? [...SPEECH_DELIVERIES] : [];
+    }
+
+    /**
      * What the settings form should offer, out of what the server actually has.
      *
      * The engine's predefined clips, for the voice table's engine cell and for
@@ -342,6 +366,11 @@ export class ChatterboxPlugin extends Plugin implements SpeechPluginInstance {
         const text = request.text.trim();
         if (text.length === 0) throw new PluginError('chatterbox was asked to say nothing').withCode('config');
 
+        // Held before the first await: a config save mid-synthesis reinitialises this instance, and
+        // `this.host` read after that throws rather than logging. See the SDK's CLAUDE.md.
+        const host = this.host;
+        const lifecycle = this.lifecycle;
+
         // A synthesis starting is proof the quiet spell is over, whether or not the timer had
         // actually fired yet.
         this.clearIdleTimer();
@@ -350,21 +379,26 @@ export class ChatterboxPlugin extends Plugin implements SpeechPluginInstance {
         // synthesis against an empty one is a 503 rather than a wait. Throws `unavailable`, which is
         // the code that keeps the segment's words on its row for the next pass. What it answers is
         // WHICH model proved resident, which decides whether the dials below are worth sending.
-        const model = await this.lifecycle.ensureLoaded();
+        const model = await lifecycle.ensureLoaded();
 
         const format = isResponseFormat(request.format) ? request.format : this.format;
         const mapping = this.resolveVoice(request.voice);
         const voice = mapping.engine;
-        const dials = dialsOf(mapping);
         const sendDials = honoursExpressionDials(model);
-        if (!sendDials && Object.keys(dials).length > 0) {
-            this.host.logger.debug('chatterbox withheld the expressiveness dials, because the loaded model ignores them', {
+        // The server's own defaults are only worth a request when a delivery has to be worked out from
+        // a dial the row left blank; an ordinary line sends what the row set and nothing else.
+        const delivery = sendDials ? request.delivery : undefined;
+        const server = delivery !== undefined && needsServerDefaults(mapping) ? await lifecycle.generationDefaults() : undefined;
+        const dials = sendDials ? dialsFor(mapping, delivery, server) : {};
+        if (!sendDials && (Object.keys(dialsFor(mapping)).length > 0 || request.delivery !== undefined)) {
+            host.logger.debug('chatterbox withheld the expressiveness dials, because the loaded model ignores them', {
                 voice,
                 model: model.type ?? model.className,
+                ...(request.delivery === undefined ? {} : { delivery: request.delivery }),
             });
         }
 
-        const response = await this.host.fetch(`${serverRootOf(this.baseUrl)}/tts`, {
+        const response = await host.fetch(`${serverRootOf(this.baseUrl)}/tts`, {
             method: 'POST',
             headers: { 'content-type': 'application/json', ...this.authHeaders() },
             body: JSON.stringify({
@@ -385,9 +419,10 @@ export class ChatterboxPlugin extends Plugin implements SpeechPluginInstance {
                 // Sent anyway, because `DEFAULT_VOICE_ROWS` no longer ships one and the field's help
                 // now says what it costs, so a speed in the table is somebody asking for it.
                 ...(mapping.speed === undefined ? {} : { speed_factor: mapping.speed }),
-                // Only what the row set, and only to a model that reads it. An omitted dial takes the
-                // SERVER's configured default rather than a neutral one, which is the operator's call.
-                ...(sendDials ? dials : {}),
+                // Only to a model that reads them. With no delivery that is what the row set and nothing
+                // more, since an omitted dial takes the SERVER's configured default, which is the
+                // operator's call. With one it is both dials, moved from that same baseline.
+                ...dials,
             }),
             timeoutMs: SPEAK_TIMEOUT_MS,
         });
@@ -401,12 +436,13 @@ export class ChatterboxPlugin extends Plugin implements SpeechPluginInstance {
                 .withUpstreamStatus(response.status);
         }
 
-        this.host.logger.debug('chatterbox speaking', {
+        host.logger.debug('chatterbox speaking', {
             voice,
             format,
             chars: text.length,
             ...(mapping.speed === undefined ? {} : { speed: mapping.speed }),
-            ...(sendDials ? dials : {}),
+            ...(delivery === undefined ? {} : { delivery }),
+            ...dials,
         });
 
         return {
@@ -639,12 +675,6 @@ const minutesOrDefault = (value: unknown): number => {
     const parsed = Number(value);
     return Number.isFinite(parsed) && parsed >= 0 ? Math.floor(parsed) : DEFAULT_UNLOAD_AFTER_IDLE_MINUTES;
 };
-
-/** The two expressiveness dials a mapping sets, under the engine's own field names, and nothing it left blank. */
-const dialsOf = (mapping: VoiceMapping): { exaggeration?: number; cfg_weight?: number } => ({
-    ...(mapping.exaggeration === undefined ? {} : { exaggeration: mapping.exaggeration }),
-    ...(mapping.cfgWeight === undefined ? {} : { cfg_weight: mapping.cfgWeight }),
-});
 
 /** What a mapping sounds like, for the console's list. Each tuning is only worth saying when set. */
 const describe = (mapping: VoiceMapping): string =>

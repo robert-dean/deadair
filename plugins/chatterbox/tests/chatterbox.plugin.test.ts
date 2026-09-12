@@ -40,6 +40,8 @@ interface FakeHostOptions {
     formats?: string[];
     /** Status for `/openapi.json`. 404 is a server built with its schema switched off. */
     openapiStatus?: number;
+    /** What the server's UI bootstrap reports as `config.generation_defaults`. Absent answers 404. */
+    generationDefaults?: Record<string, unknown>;
 }
 
 /**
@@ -77,6 +79,11 @@ function fakeHost(options: FakeHostOptions = {}) {
         if (url.endsWith('/openapi.json')) {
             const status = options.openapiStatus ?? 200;
             return new Response(status === 200 ? JSON.stringify(openApiDocument(options.formats ?? ['wav', 'opus', 'mp3'])) : '{}', { status });
+        }
+        if (url.endsWith('/api/ui/initial-data')) {
+            return options.generationDefaults === undefined
+                ? new Response('{}', { status: 404 })
+                : new Response(JSON.stringify({ config: { generation_defaults: options.generationDefaults } }), { status: 200 });
         }
         if (url.endsWith('/restart_server')) return new Response('{}', { status: 200 });
         if (url.endsWith('/api/unload')) return new Response('{}', { status: 200 });
@@ -230,6 +237,61 @@ describe('ChatterboxPlugin.speak', () => {
             await drain(handle.audio);
 
             expect(speechRequest(calls).exaggeration).toBe(0);
+            expect(speechRequest(calls)).not.toHaveProperty('cfg_weight');
+        });
+
+        it("reads a delivery as a move from the voice's own dials, and sends both", async () => {
+            const { plugin, calls } = await started({ config: { voices: intense }, modelInfo: { type: 'original' } });
+
+            const handle = await plugin.speak({ text: 'hello', voice: 'conspiracy', delivery: 'frantic' });
+            await drain(handle.audio);
+
+            expect(speechRequest(calls)).toMatchObject({ exaggeration: 1.2, cfg_weight: 0.3 });
+            // Both dials were set on the row, so the server's defaults were never needed.
+            expect(calls.some(call => call.url.endsWith('/api/ui/initial-data'))).toBe(false);
+        });
+
+        it("works a blank dial out from the server's own default, and asks for it once", async () => {
+            const { plugin, calls } = await started({
+                config: { voices: voiceRows({ name: 'host', engine: 'Olivia.wav' }) },
+                modelInfo: { type: 'original' },
+                generationDefaults: { exaggeration: 1.3, cfg_weight: 0.5, temperature: 0.8 },
+            });
+
+            for (const text of ['one', 'two']) {
+                const handle = await plugin.speak({ text, voice: 'host', delivery: 'hushed' });
+                await drain(handle.audio);
+            }
+
+            const requests = calls.filter(call => call.url.endsWith('/tts')).map(call => JSON.parse(call.body ?? '{}') as Record<string, unknown>);
+            expect(requests.map(body => [body.exaggeration, body.cfg_weight])).toEqual([
+                [1.05, 0.3],
+                [1.05, 0.3],
+            ]);
+            expect(calls.filter(call => call.url.endsWith('/api/ui/initial-data'))).toHaveLength(1);
+        });
+
+        it('falls back to the neutral reading when the server will not say what its defaults are', async () => {
+            const { plugin, calls } = await started({
+                config: { voices: voiceRows({ name: 'host', engine: 'Olivia.wav' }) },
+                modelInfo: { type: 'original' },
+            });
+
+            const handle = await plugin.speak({ text: 'hello', voice: 'host', delivery: 'frantic' });
+            await drain(handle.audio);
+
+            expect(speechRequest(calls)).toMatchObject({ exaggeration: 0.9, cfg_weight: 0.5 });
+        });
+
+        it('does not act on a delivery the turbo model would ignore', async () => {
+            // The host drops a delivery this plugin did not claim, and on turbo it claims none. This is
+            // the case where the model changed between writing the break and speaking it.
+            const { plugin, calls } = await started({ config: { voices: intense }, modelInfo: { type: 'turbo' } });
+
+            const handle = await plugin.speak({ text: 'hello', voice: 'conspiracy', delivery: 'hushed' });
+            await drain(handle.audio);
+
+            expect(speechRequest(calls)).not.toHaveProperty('exaggeration');
             expect(speechRequest(calls)).not.toHaveProperty('cfg_weight');
         });
 
@@ -720,6 +782,12 @@ describe('ChatterboxPlugin.testConnection', () => {
             expect(await plugin.listCues()).toEqual([]);
         });
 
+        it('claims no delivery on the model that performs cues', async () => {
+            const { plugin } = await started({ loaded: [true], modelInfo: { ...turbo, type: 'turbo' } });
+
+            expect(await plugin.listDeliveries()).toEqual([]);
+        });
+
         it('reads a tag the server spelled in another case', async () => {
             const { plugin } = await started({
                 loaded: [true],
@@ -727,6 +795,32 @@ describe('ChatterboxPlugin.testConnection', () => {
             });
 
             expect(await plugin.listCues()).toEqual(['laugh', 'sigh']);
+        });
+    });
+
+    // The mirror image of the cues, on this engine literally: the dials that carry a delivery belong to
+    // the two models that perform no cues.
+    describe('the deliveries it can perform', () => {
+        it('claims both on a model that reads the dials', async () => {
+            for (const type of ['original', 'multilingual']) {
+                const { plugin } = await started({ loaded: [true], modelInfo: { type } });
+                expect(await plugin.listDeliveries(), type).toEqual(['hushed', 'frantic']);
+            }
+        });
+
+        it('claims none on a model that will not say what it is', async () => {
+            const { plugin } = await started({ loaded: [true], modelInfo: { class_name: 'SomethingNew' } });
+
+            expect(await plugin.listDeliveries()).toEqual([]);
+        });
+
+        it('answers nothing when the server could not be asked', async () => {
+            const { plugin, host } = await started();
+            host.setFetchImpl(async () => {
+                throw new Error('connection refused');
+            });
+
+            expect(await plugin.listDeliveries()).toEqual([]);
         });
     });
 

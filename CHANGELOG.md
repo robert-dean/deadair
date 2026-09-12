@@ -9,6 +9,12 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-09-12
+
+- Smart shuffle: records the station has aired lately are now less likely to come round again soon, so the rotation works through more of your library before it repeats itself. It is a lean rather than a rule. A record that has just aired keeps a quarter of its usual chance of being drawn and warms back up evenly over a fortnight, anything outside the repeat window can still play, and a small library still plays everything it holds. It is on by default, and Settings > Rotation has a Smart shuffle switch and the number of days a record stays cold. The similarity mix leans the same way, taking a fresher record from each similar artist rather than always their best known, and a model choosing records now sees on each search result how many days ago it aired, so it can prefer one it has not played lately. Turning it off restores the previous behaviour exactly. The Shuffle button on the desk is smart too: it keeps one artist off its own heels and moves anything aired lately toward the back of what it shuffles.
+- The console works when it is opened over plain HTTP at a network address, such as `http://192.168.1.10:8080` on a home server. Before, every request it made failed in the browser before reaching the station, because the browser only offers one of the functions it used on HTTPS or on localhost, and the console reported that as "Can't reach the station". Enrolling an authenticator app or an email address from a console reached that way works too; it failed for the same reason.
+- Signing in with Google now comes back to the station instead of the console's not-found page. The station told Google to return the browser to an address the console answers rather than the API, so the sign-in finished at Google and went nowhere. The address is now `<public address>/api/auth/login/oidc/callback`, and it is the one to register as the authorized redirect URI in the Google Cloud console: an OAuth client still registered with the old address is refused by Google until it is changed.
+
 ## [0.3.0] — 2026-09-12
 
 - A talk break can now be read hushed or frantic. The model writing it chooses, and only when the speech engine can perform it: on Chatterbox that means the original or multilingual model, since the Turbo model performs laughs and sighs instead and ignores these dials. Each Chatterbox voice can also carry its own exaggeration and CFG weight, which sets how theatrical that character is at rest, and Test connection says whether the loaded model uses them. The segments page shows a break's reading beside its voice, and speech plugins get a documented way to translate the same two words into whatever their engine has.
@@ -79,7 +85,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/robert-dean/deadair/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/robert-dean/deadair/compare/v0.2.4...v0.3.0
 [0.2.4]: https://github.com/robert-dean/deadair/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/robert-dean/deadair/compare/v0.2.2...v0.2.3

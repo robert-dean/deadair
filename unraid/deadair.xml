@@ -126,7 +126,7 @@
         Description="" Type="Variable" Display="always" Required="false" Mask="false">6379</Config>
 
     <Config Name="Sign-in client id" Target="GOOGLE_OIDC_CLIENT_ID" Default="" Mode=""
-        Description="Optional. Without this the station signs you in with a one-time code instead."
+        Description="Optional, for signing in with Google. Without this the station signs you in with a one-time code instead. Register the public address followed by /api/auth/login/oidc/callback as the OAuth client's authorized redirect URI in the Google Cloud console."
         Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
 
     <Config Name="Sign-in client secret" Target="GOOGLE_OIDC_CLIENT_SECRET" Default="" Mode=""

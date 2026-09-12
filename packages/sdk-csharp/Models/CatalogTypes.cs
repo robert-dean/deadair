@@ -466,7 +466,7 @@ public sealed record Artist
     public string? ImageUrl { get; init; }
 
     [JsonPropertyName("rating")]
-    public Rating Rating { get; init; } = Rating.Neutral;
+    public Rating Rating { get; init; } = global::MaroonedSoftware.Deadair.Sdk.Models.Rating.Neutral;
 
     /// <summary>Unmerged albums credited to this artist</summary>
     [JsonPropertyName("albumCount")]
@@ -504,7 +504,7 @@ public sealed record ArtistInput
     public string? ImageUrl { get; init; }
 
     [JsonPropertyName("rating")]
-    public Rating Rating { get; init; } = Rating.Neutral;
+    public Rating Rating { get; init; } = global::MaroonedSoftware.Deadair.Sdk.Models.Rating.Neutral;
 }
 
 public sealed record Album
@@ -537,7 +537,7 @@ public sealed record Album
     public string? ImageUrl { get; init; }
 
     [JsonPropertyName("rating")]
-    public Rating Rating { get; init; } = Rating.Neutral;
+    public Rating Rating { get; init; } = global::MaroonedSoftware.Deadair.Sdk.Models.Rating.Neutral;
 
     [JsonPropertyName("trackCount")]
     public required long TrackCount { get; init; }
@@ -563,7 +563,7 @@ public sealed record AlbumInput
     public string? ImageUrl { get; init; }
 
     [JsonPropertyName("rating")]
-    public Rating Rating { get; init; } = Rating.Neutral;
+    public Rating Rating { get; init; } = global::MaroonedSoftware.Deadair.Sdk.Models.Rating.Neutral;
 }
 
 public sealed record Track
@@ -611,7 +611,7 @@ public sealed record Track
     public long? DurationMs { get; init; }
 
     [JsonPropertyName("rating")]
-    public Rating Rating { get; init; } = Rating.Neutral;
+    public Rating Rating { get; init; } = global::MaroonedSoftware.Deadair.Sdk.Models.Rating.Neutral;
 }
 
 public sealed record TrackInput
@@ -636,7 +636,7 @@ public sealed record TrackInput
     public long? DurationMs { get; init; }
 
     [JsonPropertyName("rating")]
-    public Rating Rating { get; init; } = Rating.Neutral;
+    public Rating Rating { get; init; } = global::MaroonedSoftware.Deadair.Sdk.Models.Rating.Neutral;
 }
 
 /// <summary>
@@ -953,7 +953,7 @@ public sealed record TrackDetail
     public long? DurationMs { get; init; }
 
     [JsonPropertyName("rating")]
-    public Rating Rating { get; init; } = Rating.Neutral;
+    public Rating Rating { get; init; } = global::MaroonedSoftware.Deadair.Sdk.Models.Rating.Neutral;
 
     [JsonPropertyName("bindings")]
     public required List<TrackBinding> Bindings { get; init; }
@@ -1001,7 +1001,7 @@ public sealed record TrackDetailInput
     public long? DurationMs { get; init; }
 
     [JsonPropertyName("rating")]
-    public Rating Rating { get; init; } = Rating.Neutral;
+    public Rating Rating { get; init; } = global::MaroonedSoftware.Deadair.Sdk.Models.Rating.Neutral;
 
     [JsonPropertyName("bindings")]
     public required List<TrackBindingInput> Bindings { get; init; }
@@ -1069,7 +1069,7 @@ public sealed record TrackRow
     public long? DurationMs { get; init; }
 
     [JsonPropertyName("rating")]
-    public Rating Rating { get; init; } = Rating.Neutral;
+    public Rating Rating { get; init; } = global::MaroonedSoftware.Deadair.Sdk.Models.Rating.Neutral;
 
     /// <summary>The bytes are on this machine</summary>
     [JsonPropertyName("hasAudio")]
@@ -1114,7 +1114,7 @@ public sealed record TrackRowInput
     public long? DurationMs { get; init; }
 
     [JsonPropertyName("rating")]
-    public Rating Rating { get; init; } = Rating.Neutral;
+    public Rating Rating { get; init; } = global::MaroonedSoftware.Deadair.Sdk.Models.Rating.Neutral;
 }
 
 /// <summary>

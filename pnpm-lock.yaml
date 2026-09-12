@@ -23,8 +23,8 @@ importers:
         specifier: ^1.0.0
         version: 1.0.0
       '@contractkit/prettier-plugin':
-        specifier: ^0.14.9
-        version: 0.14.9(prettier@3.9.6)
+        specifier: ^0.14.10
+        version: 0.14.10(prettier@3.9.6)
       '@types/node':
         specifier: ^26.1.2
         version: 26.1.2
@@ -149,23 +149,23 @@ importers:
         version: 4.5.4
     devDependencies:
       '@contractkit/cli':
-        specifier: ^0.11.3
-        version: 0.11.3(prettier@3.9.6)
+        specifier: ^0.11.5
+        version: 0.11.5(prettier@3.9.6)
       '@contractkit/plugin-csharp':
-        specifier: ^0.1.2
-        version: 0.1.2
+        specifier: ^0.1.5
+        version: 0.1.5
       '@contractkit/plugin-docs':
-        specifier: ^0.3.2
-        version: 0.3.2
+        specifier: ^0.4.1
+        version: 0.4.1
       '@contractkit/plugin-kotlin':
-        specifier: ^0.1.4
-        version: 0.1.4
+        specifier: ^0.1.6
+        version: 0.1.6
       '@contractkit/plugin-swift':
-        specifier: ^0.1.4
-        version: 0.1.4
+        specifier: ^0.1.6
+        version: 0.1.6
       '@contractkit/plugin-typescript':
-        specifier: ^0.38.3
-        version: 0.38.3
+        specifier: ^0.38.12
+        version: 0.38.12
       '@deadair/plugin-musicbrainz':
         specifier: workspace:*
         version: link:../../plugins/musicbrainz
@@ -1582,8 +1582,8 @@ packages:
     resolution: {integrity: sha512-ooWCrlZP11i8GImSjTHYHLkvFDP48nS4+204nGb1RiX/WXYHmJA2III9/e2DWVabCESdW7hBAEzHRqUn9OUVvQ==}
     engines: {node: '>=0.1.90'}
 
-  '@contractkit/cli@0.11.3':
-    resolution: {integrity: sha512-3XbaPxm7pP5B+NmFh9nHFveU227RCIru6GxoW9ph837V9fHrrRnVfmAE+k7FlCCPx/e1I+uDTHhWA5YmYGBV4A==}
+  '@contractkit/cli@0.11.5':
+    resolution: {integrity: sha512-MaFWEOSC+zlOX9ujHkEYn49Vf+V9wkhsaF5YbRnnxVHHRF8WrS8LqdAwmwxMdGS9HaqenQb2vPsbj9UY8R0KUg==}
     hasBin: true
     peerDependencies:
       prettier: '>=3.0.0'
@@ -1591,29 +1591,29 @@ packages:
       prettier:
         optional: true
 
-  '@contractkit/core@0.30.1':
-    resolution: {integrity: sha512-ZKBoAtceoNOLYX7wNultoK91s1noGxZYtgdlmKxPJy0/EZmAtNZVWbZ3nEvdBEPBSNzLK1SpVbZmhJr4Y9JicQ==}
+  '@contractkit/core@0.31.0':
+    resolution: {integrity: sha512-GG/TOcE/AIVOfjpNByJSJvHgKRTrwhr7dFPcrkvW5A5tJdzuVxMzxTxhfwf6K+Fy2p3hqSMCJdqFX6FiGvMzFA==}
 
-  '@contractkit/openapi-to-ck@0.12.5':
-    resolution: {integrity: sha512-FLr3vRLGjCOpRQSbKNFI/jXPn5uf9Twg4yBQX0Vvs3GyK9MzEhCiHHmtVHHn1a+oHUCO4esgHgRxq3XIcWb+gg==}
+  '@contractkit/openapi-to-ck@0.12.7':
+    resolution: {integrity: sha512-NPit0nOSXptji+0Na6aHsXE1MbxK4S2U2n6xwv80e0nafgkHIYYxiMx9gN8PX/teY4s1XwsYX+GCbaUlDqLENw==}
 
-  '@contractkit/plugin-csharp@0.1.2':
-    resolution: {integrity: sha512-UQr/3HuZ5WDaQ96Wd48bArixxuHi/UqxUyjAOzISa59Xxc53bwtFq8/dJT3NxFX6I1Q/zFPsSQUj2GfSz1iCmw==}
+  '@contractkit/plugin-csharp@0.1.5':
+    resolution: {integrity: sha512-LayFxBsfMt940xU+P+9hPCM6P24A8h6qB3jHTmZ3IEFjxaM6u3rfeyhZKmcOc3s2uXaEa+El7sAgYBxRha90lw==}
 
-  '@contractkit/plugin-docs@0.3.2':
-    resolution: {integrity: sha512-hEnnsvZDEQWFLMbgY2WewhIZPC04UoGtpKhsSLuyRKwP5tHgrDkiaPboZOL7dpq2thLaVfRYzdfkRxJ9z21smA==}
+  '@contractkit/plugin-docs@0.4.1':
+    resolution: {integrity: sha512-xu12r7EEEV0K0fUg7pP13GB0lOWfAGAJ+b6zaX2Ljyj1A2a2X9FkWbZlX5quAfLXo8BdDYIQh4pdlEB7VrMVMw==}
 
-  '@contractkit/plugin-kotlin@0.1.4':
-    resolution: {integrity: sha512-3k4cSCpkhxUupr0uQnOleO6ClFvxhQRHUPvtB8WXQuJh7KgdC6SnvidK47H8L+KSpmgKjVfQH4F043rjru+ETg==}
+  '@contractkit/plugin-kotlin@0.1.6':
+    resolution: {integrity: sha512-17D7ifRR+Ap9EP0JnsRgXpRC2+jQ3vAJ9McT40c/Zr53EFnsFaZhSjHcP5Qph0Dcsfa1xUXV8FHNTPsJdEMatw==}
 
-  '@contractkit/plugin-swift@0.1.4':
-    resolution: {integrity: sha512-06EU1bY8ELSqfo+IYUBFRWqks/HrRQKLW0Mb2T+kSuFa8HXzIg7bL6SLDAdkCQHRUbJIZY2Lp0uIWGcAtf3ojQ==}
+  '@contractkit/plugin-swift@0.1.6':
+    resolution: {integrity: sha512-yAp/nvBFuGI2td0ZJpltZPnzLbI8uH7B6TR5LCvpgP5FaQVZ8TZHTfzq5hy95ggwSyHVFq+95LbDLIXWxmh3sw==}
 
-  '@contractkit/plugin-typescript@0.38.3':
-    resolution: {integrity: sha512-nRmrTUubR8h52UA21WiWhbu2LzzkDTqdX85pBjfCucQp2Y2QRSj1romEbSrRay0l4tguWGbFWyZ3lV8POvv61A==}
+  '@contractkit/plugin-typescript@0.38.12':
+    resolution: {integrity: sha512-NmrU5SdTanDmBUqAlJ49y3r39lEs0mRhJPJF5bJS03PPt1a/sYjbzjoKKyxByhjjqgThrb1nmFqoLlCmlYLcIA==}
 
-  '@contractkit/prettier-plugin@0.14.9':
-    resolution: {integrity: sha512-S6Bpo3r9gd1W+5mLAqsbKFZCbY8+wpdq7KKICdZTsVH5TWQOj1qUVaVg2rshw/enfXhcjb/yhQguy3e5/7J0lA==}
+  '@contractkit/prettier-plugin@0.14.10':
+    resolution: {integrity: sha512-up8lMIZG364w1w0a/V6DSxyvLOC8cU88unKnryPvoG91usq401wqp3iNfq+R0+/NQPGofBT1DCDEqpfiGrEcWA==}
     peerDependencies:
       prettier: ^3.0.0
 
@@ -10695,46 +10695,46 @@ snapshots:
   '@colors/colors@1.5.0':
     optional: true
 
-  '@contractkit/cli@0.11.3(prettier@3.9.6)':
+  '@contractkit/cli@0.11.5(prettier@3.9.6)':
     dependencies:
-      '@contractkit/core': 0.30.1
-      '@contractkit/openapi-to-ck': 0.12.5
+      '@contractkit/core': 0.31.0
+      '@contractkit/openapi-to-ck': 0.12.7
       glob: 13.0.6
     optionalDependencies:
       prettier: 3.9.6
 
-  '@contractkit/core@0.30.1':
+  '@contractkit/core@0.31.0':
     dependencies:
       ohm-js: 17.5.0
 
-  '@contractkit/openapi-to-ck@0.12.5':
+  '@contractkit/openapi-to-ck@0.12.7':
     dependencies:
-      '@contractkit/core': 0.30.1
+      '@contractkit/core': 0.31.0
       yaml: 2.9.0
 
-  '@contractkit/plugin-csharp@0.1.2':
+  '@contractkit/plugin-csharp@0.1.5':
     dependencies:
-      '@contractkit/core': 0.30.1
+      '@contractkit/core': 0.31.0
 
-  '@contractkit/plugin-docs@0.3.2':
+  '@contractkit/plugin-docs@0.4.1':
     dependencies:
-      '@contractkit/core': 0.30.1
+      '@contractkit/core': 0.31.0
 
-  '@contractkit/plugin-kotlin@0.1.4':
+  '@contractkit/plugin-kotlin@0.1.6':
     dependencies:
-      '@contractkit/core': 0.30.1
+      '@contractkit/core': 0.31.0
 
-  '@contractkit/plugin-swift@0.1.4':
+  '@contractkit/plugin-swift@0.1.6':
     dependencies:
-      '@contractkit/core': 0.30.1
+      '@contractkit/core': 0.31.0
 
-  '@contractkit/plugin-typescript@0.38.3':
+  '@contractkit/plugin-typescript@0.38.12':
     dependencies:
-      '@contractkit/core': 0.30.1
+      '@contractkit/core': 0.31.0
 
-  '@contractkit/prettier-plugin@0.14.9(prettier@3.9.6)':
+  '@contractkit/prettier-plugin@0.14.10(prettier@3.9.6)':
     dependencies:
-      '@contractkit/core': 0.30.1
+      '@contractkit/core': 0.31.0
       prettier: 3.9.6
 
   '@csstools/cascade-layer-name-parser@2.0.5(@csstools/css-parser-algorithms@3.0.5(@csstools/css-tokenizer@3.0.4))(@csstools/css-tokenizer@3.0.4)':

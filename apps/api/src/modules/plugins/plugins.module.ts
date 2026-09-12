@@ -7,6 +7,7 @@ import { RotatingLogStore } from '#src/logging/rotating.log.store.js';
 import { PluginConfigRepository } from './plugin.config.repository.js';
 import { PluginConfigService } from './plugin.config.service.js';
 import { PluginHostFactory, PluginHostFactoryOptions } from './plugin.host.factory.js';
+import { PluginInstaller } from './plugin.installer.js';
 import { PluginInvoker } from './plugin.invoker.js';
 import { PluginLifecycleManager } from './plugin.lifecycle.manager.js';
 import { PluginLoader, PluginLoaderOptions } from './plugin.loader.js';
@@ -67,6 +68,9 @@ export const PluginsModule: ServerKitModule = {
         // Beside the loader because it serves the same directory: it links the host's SDK and zod
         // into it so an installed plugin can import them. See `plugin.peers.ts`.
         registry.register(PluginPeerLinker).useClass(PluginPeerLinker).asSingleton();
+        // And the installer, which writes into it: a singleton because it serializes every change it
+        // makes there, and a per-request copy would let two imports race each other's folders.
+        registry.register(PluginInstaller).useClass(PluginInstaller).asSingleton();
 
         // Singleton by necessity, not convenience: the registry IS the host's
         // record of what is running, and a per-scope copy would hand each

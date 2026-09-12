@@ -86,6 +86,21 @@ export function totpIssuer(config: AppConfig): string {
     return title.length > 0 ? title : STREAM_DEFAULTS.title;
 }
 
+/**
+ * Where Google sends the browser back to after sign-in, and so the address an operator registers
+ * with Google as the redirect URI.
+ *
+ * `APP_BASE_URL` is the station's ORIGIN, the address a browser reaches the console on, and every
+ * edge in front of the API (the image's nginx, both compose edges, Vite's proxy) passes it only
+ * what arrives under `/api/`, with that prefix stripped. The route is `/auth/login/oidc/callback`
+ * on the API, so on the origin it is `/api/auth/login/oidc/callback`. Built without the prefix,
+ * which it was, Google's return fell through to the console and landed on its not-found page.
+ */
+export function oidcRedirectUri(config: AppConfig): URL {
+    const origin = String(config.get('APP_BASE_URL', '')).trim().replace(/\/+$/, '');
+    return new URL(`${origin}/api/auth/login/oidc/callback`);
+}
+
 export const AuthenticationModule: ServerKitModule = {
     name: 'Authentication',
     setup: async (registry: Registry, config: AppConfig) => {
@@ -251,7 +266,7 @@ export const AuthenticationModule: ServerKitModule = {
                         clientId: googleClientId,
                         clientSecret: googleClientSecret,
                         scopes: ['openid', 'email', 'profile'],
-                        redirectUri: new URL(`${config.get('APP_BASE_URL', '')}/auth/login/oidc/callback`),
+                        redirectUri: oidcRedirectUri(config),
                         // Only opt into insecure discovery when the issuer is explicitly http —
                         // i.e. the dev-only mock IdP. Real Google stays https-only.
                         allowInsecureIssuer: googleIssuerUrl.protocol === 'http:',

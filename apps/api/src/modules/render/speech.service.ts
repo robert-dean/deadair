@@ -5,6 +5,7 @@ import {
     PluginError,
     withoutCues,
     type SpeechCue,
+    type SpeechDelivery,
     type SpeechHandle,
     type SpeechRequest,
     type SpeechVoice,
@@ -193,14 +194,15 @@ export class SpeechService {
      */
     async speakWith(plugin: SpeechPlugin, request: SpeechRequest, options: SpeechGateOptions = {}): Promise<SpokenAudio> {
         const pluginId = plugin.record.id;
-        const spokenText = await this.sayable(request.text, plugin);
+        const performed = await this.performable(request, plugin);
+        const spokenText = performed.text;
 
         // The gate wraps the drain as well as the request, because the engine is producing audio
         // for the whole of it. Acquired HERE rather than in `speak`, which delegates to this: two
         // acquisitions on one path would be a caller queueing behind itself.
         return await this.gate.hold(
             async () => {
-                const handle = await this.startSpeaking(plugin, { ...request, text: spokenText });
+                const handle = await this.startSpeaking(plugin, performed);
                 const ext = this.extensionOf(pluginId, handle);
 
                 try {
@@ -211,7 +213,13 @@ export class SpeechService {
                     // voice its own config chose. Logged as `undefined` this read as a fault — the
                     // one thing it must not do is send an operator looking for a bug in the stamp.
                     // Same shape as `feed || 'all'` on the bulletin line, and for the same reason.
-                    this.logger.info('render: spoke a segment', { plugin: pluginId, voice: request.voice ?? "the engine's own", ext, checksum });
+                    this.logger.info('render: spoke a segment', {
+                        plugin: pluginId,
+                        voice: request.voice ?? "the engine's own",
+                        ...(performed.delivery === undefined ? {} : { delivery: performed.delivery }),
+                        ext,
+                        checksum,
+                    });
                     return { checksum, ext, pluginId, spokenText };
                 } finally {
                     // Always, including the ordinary path, where the stream is drained already and this
@@ -240,13 +248,13 @@ export class SpeechService {
     ): Promise<SegmentExtension> {
         // Read before the gate is taken, as `speakWith` does: the lexicon is a query, and a query
         // made while holding the one speech slot is a query every other caller waits behind.
-        const spokenText = await this.sayable(request.text, plugin);
+        const performed = await this.performable(request, plugin);
 
         return await this.gate.hold(
             async () => {
                 // Transposed like anything else, so a preview is what the station would actually say
                 // rather than a reading of the sample line nothing else would ever produce.
-                const handle = await this.startSpeaking(plugin, { ...request, text: spokenText });
+                const handle = await this.startSpeaking(plugin, performed);
                 const ext = this.extensionOf(plugin.record.id, handle);
 
                 try {
@@ -269,6 +277,28 @@ export class SpeechService {
     async voices(plugin: SpeechPlugin): Promise<SpeechVoice[]> {
         if (!plugin.listsVoices) return [];
         return await this.pluginInvoker.invoke(plugin.record.id, 'speech.listVoices', async () => (await plugin.instance.listVoices?.()) ?? []);
+    }
+
+    /**
+     * The request as this engine should be handed it: the words made sayable, and the delivery kept
+     * only if the engine claimed it.
+     *
+     * The delivery half is the cue rule one field over, and for the same reason it lives here rather
+     * than with whoever wrote the break. Writing and speaking are different moments, and only this one
+     * knows which engine is about to be asked: a break written while an engine that reads deliveries
+     * was the speaker, and spoken after the operator switched to one that does not, has to lose it
+     * here or be handed a field it would ignore. The engine is only asked when there is something to
+     * ask about, since nearly every line carries no delivery at all.
+     */
+    private async performable(request: SpeechRequest, plugin: SpeechPlugin): Promise<SpeechRequest> {
+        const { delivery, ...rest } = request;
+        const text = await this.sayable(request.text, plugin);
+        if (delivery === undefined) return { ...rest, text };
+
+        if ((await this.deliveriesFor(plugin)).includes(delivery)) return { ...rest, text, delivery };
+
+        this.logger.debug('render: dropped a delivery this engine does not perform', { plugin: plugin.record.id, delivery });
+        return { ...rest, text };
     }
 
     /**
@@ -327,7 +357,44 @@ export class SpeechService {
         }
     }
 
+    /**
+     * Which deliveries the chosen engine can perform, for a writer deciding what to offer.
+     *
+     * {@link cues}' twin, and nothing for a station with nothing to speak with, for the same reason.
+     */
+    async deliveries(): Promise<readonly SpeechDelivery[]> {
+        const plugin = this.speaker();
+        return plugin === undefined ? [] : await this.deliveriesFor(plugin);
+    }
+
+    /** The same question against a plugin the caller already has, for a console listing what one engine does. */
+    async deliveriesOf(plugin: SpeechPlugin): Promise<readonly SpeechDelivery[]> {
+        return await this.deliveriesFor(plugin);
+    }
+
+    /**
+     * {@link cuesFor}'s rules, for deliveries: never throws, and a plugin without the method is silence.
+     *
+     * A delivery is a flourish exactly as a cue is. An engine that could not be asked should cost the
+     * station an ordinary reading rather than the break.
+     */
+    private async deliveriesFor(plugin: SpeechPlugin): Promise<readonly SpeechDelivery[]> {
+        if (!plugin.listsDeliveries) return [];
+
+        try {
+            return await this.pluginInvoker.invoke(
+                plugin.record.id,
+                'speech.listDeliveries',
+                async () => (await plugin.instance.listDeliveries?.()) ?? [],
+            );
+        } catch (error) {
+            this.logger.debug('render: could not ask which deliveries this engine performs', { plugin: plugin.record.id, error });
+            return [];
+        }
+    }
+
     /** One `speak`, through the invoker on the long budget an engine actually needs. */
+
     private async startSpeaking(plugin: SpeechPlugin, request: SpeechRequest): Promise<SpeechHandle> {
         return await this.pluginInvoker.invoke(plugin.record.id, 'speech.speak', async () => plugin.instance.speak(request), {
             timeoutMs: SPEAK_TIMEOUT_MS,

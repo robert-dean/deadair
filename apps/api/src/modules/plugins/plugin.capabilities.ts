@@ -523,6 +523,8 @@ export interface SpeechPlugin {
      * loaded — so a plugin that answers here can still answer with nothing, and that is not a fault.
      */
     listsCues: boolean;
+    /** Whether `listDeliveries` is there to call. {@link listsCues}' rule exactly: about the method, not the engine. */
+    listsDeliveries: boolean;
 }
 
 /** {@link implementsCatalog}'s rule, applied to the `speech` capability. */
@@ -536,6 +538,9 @@ export const implementsVoiceListing = (instance: unknown): boolean => typeof (in
 
 /** Whether this plugin can say which performance cues it does. Absent means none, which is the safe default. */
 export const implementsCueListing = (instance: unknown): boolean => typeof (instance as Record<string, unknown>).listCues === 'function';
+
+/** Whether this plugin can say which deliveries it performs. Absent means none, the same safe default as cues. */
+export const implementsDeliveryListing = (instance: unknown): boolean => typeof (instance as Record<string, unknown>).listDeliveries === 'function';
 
 /**
  * The speech-capable view of a record, or `undefined` when it is not one.
@@ -556,6 +561,7 @@ export const asSpeechPlugin = (record: PluginRecord): SpeechPlugin | undefined =
         instance,
         listsVoices: implementsVoiceListing(instance),
         listsCues: implementsCueListing(instance),
+        listsDeliveries: implementsDeliveryListing(instance),
     };
 };
 

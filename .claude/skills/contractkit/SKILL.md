@@ -6,12 +6,16 @@ description: Write or change ContractKit `.ck` contracts in `apps/api/data/contr
 # ContractKit contracts
 
 `.ck` files under `apps/api/data/contracts/` are the source of truth for every HTTP route in this
-repo. One `.ck` edit regenerates code in three places. Never hand-edit any of them.
+repo. One `.ck` edit regenerates code in every place the table below lists. Never hand-edit any of
+them.
 
-Everything below was checked against the installed toolchain: `@contractkit/cli` 0.11.1,
-`@contractkit/core` 0.29.0, `@contractkit/plugin-typescript` 0.38.0, `@contractkit/prettier-plugin`
-0.14.7. Behaviour here has changed under several of those minors, so check the version before
-trusting a claim that contradicts what you observe.
+Everything below was checked against the installed toolchain: `@contractkit/cli` 0.11.5,
+`@contractkit/core` 0.31.0, `@contractkit/plugin-typescript` 0.38.12, `@contractkit/prettier-plugin`
+0.14.10, `@contractkit/plugin-docs` 0.4.1, and plugin-kotlin 0.1.6, plugin-csharp 0.1.5 and
+plugin-swift 0.1.6. Behaviour here has changed under several of those releases, patch releases
+included, so check the version before trusting a claim that contradicts what you observe. The
+published packages ship `src/` and a `CHANGELOG.md`, so the answer is usually in
+`node_modules/@contractkit/<plugin>/` rather than in a guess.
 
 ## The loop
 
@@ -40,6 +44,8 @@ Given `apps/api/data/contracts/<area>/<filename>.ck`, per `apps/api/contractkit.
 | SDK aggregator + barrel | `packages/sdk/src/deadair.sdk.ts`, `packages/sdk/src/index.ts` |
 | Kotlin models + clients | `packages/sdk-kotlin/src/commonMain/kotlin/com/maroonedsoftware/deadair/sdk/{models,clients}/` |
 | Kotlin runtime + aggregator | `.../sdk/runtime/{SdkRuntime,Serializers}.kt`, `.../sdk/DeadairSdk.kt` |
+| C# models, clients, runtime | `packages/sdk-csharp/{Models,Clients,Runtime}/`, `packages/sdk-csharp/DeadairSdk.cs` (the `.csproj` is hand-owned) |
+| Swift models, clients, runtime | `packages/sdk-swift/Sources/DeadairSdk/{Models,Clients,Runtime}/` (`Package.swift` is hand-owned) |
 | Website API reference | `apps/site/docs/api-reference/{area}/*.md`, `.../models/{area}/*.md`, `_category_.json` per folder |
 | OpenAPI 3.1 spec | `apps/site/static/openapi.yaml`, served at `deadair.radio/openapi.yaml` |
 
@@ -74,8 +80,10 @@ repository with a test and a changeset, never in the output. The generator's own
 Kotlin had never been put through a toolchain, and the first attempt here found two: a `/*` in
 contract prose opened a nested comment that swallowed the rest of a file (Kotlin block comments
 NEST, so escaping `*/` alone is not enough), and a default against a named `enum` contract was
-emitted as its wire string rather than the enum member. Both are fixed in 0.1.1, which is the
-floor this repo pins.
+emitted as its wire string rather than the enum member. Both are fixed in 0.1.1, and the floor this
+repo pins has moved well past it since. The C# and Swift SDKs follow the same rule: CI compiles
+each in its own job (`dotnet build -warnaserror`, `swift build -Xswiftc -warnings-as-errors`), and output
+that fails there goes upstream too.
 
 ## The two hand-maintained edges
 
@@ -223,8 +231,10 @@ lying mime and letting the client sniff.
   the same place either way.
 - **A local `build:contracts` compiles only what the cache has invalidated**, so it reports
   `N unchanged` for files it never looked at. CI checks out fresh with no `.contractkit/cache` and
-  compiles all 125, which is why it can fail on output a local run just called clean. To reproduce,
-  `rm -rf .contractkit/cache` first.
+  compiles every file, which is why it can fail on output a local run just called clean. To
+  reproduce, `rm -rf .contractkit/cache` first. A plugin release that changes its output also bumps a
+  `*_CODEGEN_VERSION` the cache is fingerprinted with, so a kit bump invalidates on its own; clear
+  it anyway before committing one, and run it twice to see the output is stable.
 - **`date` / `time` / `datetime` / `duration` / `interval` are Luxon objects over ISO-8601 strings**,
   not numbers, on BOTH sides since plugin-typescript 0.34: the router parses them and the SDK
   revives them, so `apps/web` receives a `DateTime` and not the ISO text. The shared moment helpers
@@ -233,6 +243,26 @@ lying mime and letting the client sniff.
   parsed from `"PT3M42S"`; it is the obvious-looking choice for a `durationMs` field and the wrong
   one, because the plugin SDK's JSON-safe boundary specifies integer millis, so milliseconds stay
   `int(min=0)` here.
+- **The SDK sends a `date`, `time` or `decimal` in the text the router parses** (0.38.8 for path,
+  query and header params, 0.38.9 for request bodies). Before that a `DateTime` for a `date` went out
+  through `toISO()` as a full timestamp, and the router, which reads `date` with `fromFormat`,
+  answered 400. So a caller passes the `DateTime` itself. In a request body a string passes through
+  untouched, so a caller that already formats one keeps working.
+- **The SDK's default `X-Request-ID` works on a page that is not a secure context** since 0.38.12.
+  Before it, the default was `crypto.randomUUID()`, which a browser defines only on HTTPS or
+  localhost, so a station opened at `http://<its LAN address>:8080` threw on every request before
+  `fetch` ran and the console read that as "Can't reach the station" (issue #78). The console passes
+  no `requestIdFactory` of its own and relies on this, and `apps/web/tests/api/client.insecure.test.ts`
+  holds the default to it: **do not pin plugin-typescript below 0.38.12.**
+- **A header declared with a capital in its name is read from its lowercase key** (0.38.8). Node
+  lowercases every incoming header, so before that a required `xTenant` was always missing. This
+  repo declares no request headers at all: every `headers:` block here is on a response.
+- **A `bigint` travels as a digit string, `"123"` or `"123n"`**, never a JSON number, and the Zod
+  schema turns only a string of that shape into a `bigint` (0.38.7). The OpenAPI output says
+  `type: string, format: bigint` since plugin-docs 0.4.0.
+- **A path param named after a reserved word or a name the method already binds is renamed with a
+  trailing underscore** (`class_`, `body_`) in the SDK signature and the router's locals (0.38.6).
+  Arguments are positional on both sides, so neither callers nor service methods change.
 - **An operation with no `response:` block, or only bare error statuses, answers 204** (0.34). It used
   to answer 200, or the first bare error status, on success. Declare `200:` if you mean it.
 - **`int` and `number` no longer coerce `null`, `[]` or `true`** (0.34). Those now 400 where they
@@ -246,17 +276,20 @@ lying mime and letting the client sniff.
 
 ## Two refactors that look right and are not
 
-Both were evaluated against the installed compiler and rejected. Do not re-propose them without new
-information:
+Both were evaluated against the compiler of the day and rejected. The first still holds on 0.38.12;
+the second has lost its generator argument, and what is left is its size:
 
 - **`params:` as a contract reference**, to dedupe a repeated `params: { id: ... }` block. The
   codegen spreads *inline* params as individual service arguments but passes a *referenced* params
   type as a single object, so hoisting rewrites every service method signature from `(id, ...)` to
   `(params, ...)`. `plugins.ck` keeps twelve duplicated blocks for this reason.
 - **`format(input=snake)`** on the auth request contracts, to get camelCase TypeScript over a
-  snake_case wire. It touches every `discriminated(by=...)` alias and `literal(...)` arm, and
-  `codegen-contract.ts` carries a `TODO(multi-base)` noting that format inheritance follows only the
-  first base — which those deeply-inherited contracts rely on.
+  snake_case wire. It was rejected on two grounds. The generator one is gone: `codegen-contract.ts`
+  carried a `TODO(multi-base)` saying format inheritance followed only the first base, which those
+  deeply-inherited contracts rely on, and 0.38.5 flattens a `format()` contract with every base's
+  fields, other files' included, and the TODO is no longer in the source. The other still stands:
+  it touches every `discriminated(by=...)` alias and `literal(...)` arm, and changes what the
+  Kotlin, C# and Swift SDKs send. Re-propose it only with the full regenerated diff in hand.
 
 Also note `signature:` generates `requireSignature(...)`, which is an HMAC over `ctx.rawBody`. It is
 for webhooks. It does not fit the internal playout bridge routes, which present a static shared

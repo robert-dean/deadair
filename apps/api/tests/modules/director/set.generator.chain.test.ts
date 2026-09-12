@@ -264,6 +264,7 @@ describe('SetGeneratorChain with the real bindings', () => {
         const history = {
             songKeysSince: vi.fn(async () => new Set<string>()),
             artistKeysSince: vi.fn(async () => new Set<string>()),
+            lastAiredSince: vi.fn(async () => new Map()),
         } as unknown as ConstructorParameters<typeof CatalogSetGenerator>[1];
 
         // No advisory setting stored, so the policy resolves to its default and narrows nothing:

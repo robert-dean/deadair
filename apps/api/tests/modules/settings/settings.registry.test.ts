@@ -19,6 +19,12 @@ import {
 import { DEFAULT_SWEEP_MAX_PERCENT, resolveSweepMaxPercent, SWEEP_MAX_PERCENT_KEY } from '../../../src/modules/catalog/ingest/catalog.sweep.guard.js';
 import { CHART_GENERATOR_KEYS } from '../../../src/modules/director/chart.set.generator.js';
 import { SIMILAR_GENERATOR_KEYS } from '../../../src/modules/director/similar.set.generator.js';
+import {
+    clampSmartShuffleDays,
+    DEFAULT_SMART_SHUFFLE,
+    DEFAULT_SMART_SHUFFLE_DAYS,
+    SMART_SHUFFLE_KEYS,
+} from '../../../src/modules/director/smart.shuffle.js';
 import { ConfigFieldOptionSource } from '../../../src/modules/plugins/types/plugins.types.js';
 
 describe('the settings registry', () => {
@@ -144,6 +150,23 @@ describe('the settings registry', () => {
         expect(resolveSweepMaxPercent(descriptor.max)).toBe(descriptor.max);
         expect(resolveSweepMaxPercent(descriptor.max! + 1)).toBe(descriptor.max);
         expect(resolveSweepMaxPercent(descriptor.min! - 1)).toBe(descriptor.min);
+    });
+
+    it('declares the smart shuffle over the same defaults and range its resolver uses', () => {
+        // The switch's default decides what every station that never opened the rotation card
+        // sounds like, and the horizon has the sweep guard's failure: a console accepting 400 days
+        // over a resolver that clamps to the history's retention.
+        expect(findDescriptor(SMART_SHUFFLE_KEYS.enabled)!.default).toBe(DEFAULT_SMART_SHUFFLE);
+
+        const days = findDescriptor(SMART_SHUFFLE_KEYS.days)!;
+        expect(days.default).toBe(DEFAULT_SMART_SHUFFLE_DAYS);
+        expect(clampSmartShuffleDays(days.min)).toBe(days.min);
+        expect(clampSmartShuffleDays(days.max)).toBe(days.max);
+        expect(clampSmartShuffleDays(days.max! + 1)).toBe(days.max);
+        expect(clampSmartShuffleDays(days.min! - 1)).toBe(days.min);
+        // Hidden while the switch is off, because a horizon for a lean that is not applied is a
+        // number that changes nothing.
+        expect(days.dependsOn).toBe(SMART_SHUFFLE_KEYS.enabled);
     });
 
     it('bounds both analysis pauses at the ceiling the resolver enforces', () => {

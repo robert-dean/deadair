@@ -6,6 +6,7 @@
 
 import { describe, expect, it, vi } from 'vitest';
 import type { AppConfig } from '@maroonedsoftware/appconfig';
+import { DateTime } from 'luxon';
 
 import type { AdvisoryWatch } from '../../../src/modules/director/advisory.watch.js';
 import type { EraWatch } from '../../../src/modules/director/era.watch.js';
@@ -15,6 +16,7 @@ import type { CandidatesRepository, CandidateTrack } from '../../../src/modules/
 import type { PlayHistoryRepository } from '../../../src/modules/director/play.history.repository.js';
 import { artistKey, songKey } from '../../../src/modules/director/rotation.keys.js';
 import { DEFAULT_RULES, resolveRules } from '../../../src/modules/director/rotation.rules.js';
+import { DEFAULT_SMART_SHUFFLE_DAYS, SMART_SHUFFLE_KEYS } from '../../../src/modules/director/smart.shuffle.js';
 import { StationIdentity } from '../../../src/modules/shared/station.identity.js';
 
 const candidate = (title: string, artist: string, rating = 0): CandidateTrack => ({
@@ -29,6 +31,8 @@ interface Options {
     sample?: CandidateTrack[];
     songKeys?: Set<string>;
     artistKeys?: Set<string>;
+    /** When each song last aired, as history answers it inside the smart shuffle's horizon. */
+    lastAired?: Map<string, DateTime>;
     settings?: Record<string, unknown>;
 }
 
@@ -40,6 +44,7 @@ function build(options: Options = {}) {
     const history = {
         songKeysSince: vi.fn(async (days: number) => (days > 0 ? (options.songKeys ?? new Set()) : new Set())),
         artistKeysSince: vi.fn(async (minutes: number) => (minutes > 0 ? (options.artistKeys ?? new Set()) : new Set())),
+        lastAiredSince: vi.fn(async (days: number) => (days > 0 ? (options.lastAired ?? new Map()) : new Map())),
     } as unknown as PlayHistoryRepository;
 
     const settings: Record<string, unknown> = { ...options.settings };
@@ -253,5 +258,70 @@ describe('CatalogSetGenerator', () => {
 
         await generator.generate({ count: 1, rules: rotation });
         expect(watch.clear).toHaveBeenCalled();
+    });
+});
+
+describe('CatalogSetGenerator under smart shuffle', () => {
+    // The draw is `Math.random() * total` walked down the pool in order, so pinning the ticket at
+    // the middle makes the weights the only thing deciding: with two equal weights the first record
+    // wins, and anything that moves the answer is the lean doing its job.
+    const pinTicket = () => vi.spyOn(Math, 'random').mockReturnValue(0.5);
+    const yesterday = () => DateTime.utc().minus({ days: 1 });
+
+    it('draws the record nobody has heard over the one that aired yesterday', async () => {
+        const random = pinTicket();
+        const { generator } = build({
+            sample: [candidate('Stale', 'One'), candidate('Fresh', 'Two')],
+            lastAired: new Map([[songKey('Stale', ['One']), yesterday()]]),
+        });
+
+        const picks = await generator.generate({ count: 1, rules: rotation });
+
+        expect(picks.map(pick => pick.title)).toEqual(['Fresh']);
+        random.mockRestore();
+    });
+
+    it('draws exactly as it always did when it is switched off with the string the row holds', async () => {
+        // Off has to restore the old draw, not approximate it: the same ticket over the same pool
+        // takes the first record, however recently it aired.
+        const random = pinTicket();
+        const { generator, history } = build({
+            sample: [candidate('Stale', 'One'), candidate('Fresh', 'Two')],
+            lastAired: new Map([[songKey('Stale', ['One']), yesterday()]]),
+            settings: { [SMART_SHUFFLE_KEYS.enabled]: 'false' },
+        });
+
+        const picks = await generator.generate({ count: 1, rules: rotation });
+
+        expect(picks.map(pick => pick.title)).toEqual(['Stale']);
+        // And it cost nothing: a horizon of zero days is the history read that runs no query.
+        expect(history.lastAiredSince).toHaveBeenCalledWith(0, 'main');
+        random.mockRestore();
+    });
+
+    it('weighs a record that aired a horizon ago like one that never has', async () => {
+        const random = pinTicket();
+        const { generator } = build({
+            sample: [candidate('Old', 'One'), candidate('Never', 'Two')],
+            lastAired: new Map([[songKey('Old', ['One']), DateTime.utc().minus({ days: DEFAULT_SMART_SHUFFLE_DAYS + 1 })]]),
+        });
+
+        expect((await generator.generate({ count: 1, rules: rotation })).map(pick => pick.title)).toEqual(['Old']);
+        random.mockRestore();
+    });
+
+    it('asks the history for the horizon the operator set', async () => {
+        const { generator, history } = build({ sample: [candidate('A', 'One')], settings: { [SMART_SHUFFLE_KEYS.days]: '30' } });
+
+        await generator.generate({ count: 1, rules: rotation });
+
+        expect(history.lastAiredSince).toHaveBeenCalledWith(30, 'main');
+    });
+
+    it('leans and never refuses, so a library of records that all aired yesterday still fills the ask', async () => {
+        const sample = [candidate('A', 'One'), candidate('B', 'Two'), candidate('C', 'Three')];
+        const { generator } = build({ sample, lastAired: new Map(sample.map(track => [songKey(track.title, [track.artist]), yesterday()])) });
+
+        expect(await generator.generate({ count: 3, rules: rotation })).toHaveLength(3);
     });
 });

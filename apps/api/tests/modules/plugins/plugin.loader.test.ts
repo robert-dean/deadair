@@ -4,7 +4,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { PluginLoader, PluginLoaderOptions } from '../../../src/modules/plugins/plugin.loader.js';
+import { PluginLoader, PluginLoaderOptions, hasImportedPluginEntry } from '../../../src/modules/plugins/plugin.loader.js';
 import type { PluginRecord } from '../../../src/modules/plugins/types/plugin.record.js';
 
 const FIXTURES_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../fixtures/plugins');
@@ -197,6 +197,26 @@ describe('PluginLoader.discover', () => {
         const records = await new PluginLoader(new PluginLoaderOptions(pluginsDir)).discover();
 
         expect(records.map(record => record.dir)).toEqual([join(pluginsDir, '0-valid-plugin')]);
+    });
+
+    it('never scans a dot-prefixed directory, which is where the installer stages an upload', async () => {
+        const pluginsDir = await pluginsDirWith('valid-plugin');
+        // A whole valid plugin, so only the leading dot keeps it out.
+        await cp(join(FIXTURES_ROOT, 'duplicate-id'), join(pluginsDir, '.staging', 'plugin'), { recursive: true });
+        await cp(join(FIXTURES_ROOT, 'duplicate-id'), join(pluginsDir, '.half-written'), { recursive: true });
+
+        const records = await new PluginLoader(new PluginLoaderOptions(pluginsDir)).discover();
+
+        expect(records.map(record => record.dir)).toEqual([join(pluginsDir, '0-valid-plugin')]);
+    });
+
+    it('remembers every entry it has imported, so a caller can tell when changed code would not be read', async () => {
+        const pluginsDir = await pluginsDirWith('valid-plugin');
+        const [record] = await new PluginLoader(new PluginLoaderOptions(pluginsDir)).discover();
+
+        expect(record?.status).toBe('discovered');
+        expect(hasImportedPluginEntry(join(record!.dir, 'entry.js'))).toBe(true);
+        expect(hasImportedPluginEntry(join(pluginsDir, 'never-loaded', 'entry.js'))).toBe(false);
     });
 
     it('resolves with only the bundled results when pluginsDir does not exist', async () => {

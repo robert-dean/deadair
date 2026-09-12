@@ -9,6 +9,11 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.3.0] — 2026-09-12
+
+- A talk break can now be read hushed or frantic. The model writing it chooses, and only when the speech engine can perform it: on Chatterbox that means the original or multilingual model, since the Turbo model performs laughs and sighs instead and ignores these dials. Each Chatterbox voice can also carry its own exaggeration and CFG weight, which sets how theatrical that character is at rest, and Test connection says whether the loaded model uses them. The segments page shows a break's reading beside its voice, and speech plugins get a documented way to translate the same two words into whatever their engine has.
+- A plugin can now be imported from Settings → Plugins, as the tarball `npm pack` writes, with no shell on the box. It arrives switched off, as one copied in by hand does. Importing a newer version of an installed plugin replaces the old one and takes effect at once, with its settings kept; importing the same version again says the station needs a restart to run it. An installed plugin can also be removed from its page, which deletes its folder and keeps its settings.
+
 ## [0.2.4] — 2026-09-12
 
 - Shuffling the running order while nobody is listening no longer makes the station jump to the record it had lined up before the shuffle when a listener arrives, skipping everything the shuffle put in front of it. The shuffled order now plays from its new first record, and the same holds for moving or adding an item at the head.
@@ -74,7 +79,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.2.4...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/robert-dean/deadair/compare/v0.2.4...v0.3.0
 [0.2.4]: https://github.com/robert-dean/deadair/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/robert-dean/deadair/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/robert-dean/deadair/compare/v0.2.1...v0.2.2

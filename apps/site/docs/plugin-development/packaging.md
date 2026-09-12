@@ -4,7 +4,7 @@ sidebar_position: 2
 description: What a plugin package has to look like, which dependencies it carries and which it must not, and where an operator puts it.
 ---
 
-A station finds a plugin by looking at folders, not by installing packages. Every folder inside its plugins directory that holds a `package.json` naming a plugin entry is a candidate, and the station imports that entry. So a plugin is packaged for a station by building it into files that need nothing else, and installed by copying those files.
+A station finds a plugin by looking at folders, not by installing packages. Every folder inside its plugins directory that holds a `package.json` naming a plugin entry is a candidate, and the station imports that entry. So a plugin is packaged for a station by building it into files that need nothing else, and installed by importing the tarball `npm pack` makes of them, or by copying the files in.
 
 ## The package
 
@@ -50,6 +50,20 @@ An installed plugin is `package.json` and `dist/` and nothing else. Copying a `n
 
 The station keeps a `node_modules` of its own in the plugins directory, holding links to its SDK and zod, and remakes the links on every start and every Rescan. It belongs to the station: leave it alone, and do not name a plugin folder `node_modules`.
 
+## Packing it
+
+`npm pack` in the plugin's folder writes `<name>-<version>.tgz`: every file `files` names, plus `package.json` and a README or licence if there is one, under a `package/` prefix. That file is what **Import**, on **Settings → Plugins**, takes. Let `files` name `dist`, so the source and the tests stay out of it.
+
+The station unpacks it into a folder of its own, `<name>-<version>` inside the plugins directory, and loads it there before it keeps it, so a plugin that would be quarantined is refused instead, with the same reason. It also refuses a tarball that is not one `npm pack` could have written, and anything that could reach outside the folder:
+
+- a link of either kind, or anything that is not a plain file or directory
+- a path outside `package/`, or one that climbs out with `..`
+- a `node_modules`, for the reason in the next section
+- more than 64 MB as uploaded, or more than 256 MB unpacked
+- an `id` that belongs to a plugin bundled with the station
+
+An imported plugin arrives switched off. A plugin whose `id` is already installed is replaced, whatever its package is called, and keeps its settings.
+
 ## Where the plugins directory is
 
 | Install | Plugins directory |
@@ -60,7 +74,7 @@ The station keeps a `node_modules` of its own in the plugins directory, holding 
 
 The `PLUGINS_DIR` environment variable moves it. Inside the container the station runs as uid 99, group 100, and takes ownership of the directory itself at every start, so it can write its links there. It does not take ownership of what is inside, so a plugin you copied in has to be readable by that user.
 
-If the station cannot write to the directory, it says so in its log when it starts, and every installed plugin is quarantined with an error naming the package it could not find.
+If the station cannot write to the directory, it says so in its log when it starts, every installed plugin is quarantined with an error naming the package it could not find, and Import fails. The station keeps work in progress in a `.staging` folder there, and never treats a folder whose name starts with a dot as a plugin.
 
 ## Developing against a running station
 
@@ -76,7 +90,12 @@ A linked folder brings its own `node_modules` with it, and your plugin then load
 
 - **Reload**, on a plugin's page, runs its setup again with its current settings. Saving its settings does the same.
 - **Rescan**, on the Plugins page, finds folders that were added or removed.
-- **Restart the station** to load changed code. Neither of the others does: Node keeps every module it has imported for the life of the process, so a new build of a plugin that is already loaded is not read until the next start.
+- **Import** a new version to load changed code without a restart. It lands in a folder named after the new version, and a module at a path the station has never imported is read fresh.
+- **Restart the station** to load changed code any other way. Neither Reload nor Rescan does, and nor does importing the same version again: Node keeps every module it has imported for the life of the process, so a new build at a path that is already loaded is not read until the next start. Import says when that is the case.
+
+## Removing one
+
+**Remove**, on an installed plugin's page, stops it and deletes its folder. Deleting the folder by hand and pressing Rescan does the same. Its settings, and what it was allowed, are kept either way, so installing it again brings them back. A folder you linked in is unlinked, never followed, so removing it leaves your checkout alone.
 
 ## When it does not load
 

@@ -230,6 +230,25 @@ points at, and Rescan is what puts that right), and making `PLUGINS_DIR` a read-
 warning at boot and every installed plugin quarantined with an import error. A missing directory is not created,
 and a real directory where a link belongs is left alone.
 
+**An import is staged under `<PLUGINS_DIR>/.staging` and judged by the station's own loader before it is moved
+into place** (`modules/plugins/plugin.installer.ts`). Inside the plugins directory rather than the system temp
+directory, because the move is then a `rename` and because Node's walk up from there reaches the peer links, so
+the staged copy resolves the SDK exactly as it will installed; and the loader skips every dot-prefixed entry, so
+a rescan landing mid-import sees nothing half-written. The installer is the one caller allowed to create
+`PLUGINS_DIR` and link the peers itself, since an operator has just asked for something to be put there. Four
+things in it look tidier undone and are not. The folder is named `<name>-<version>` because Node caches a module
+by URL for the life of the process: new code at a NEW path is read on the next discovery, new code at the SAME
+path is not, and `hasImportedPluginEntry` in the loader is what turns the second case into `restartRequired`
+rather than a plugin silently running its old build. On an upgrade `PluginInstallService` disposes the old
+instance BEFORE `rescan`, because rescan disposes only ids that vanished and an id that moved folder is upserted
+over its live instance, which is then unreachable. The inflated stream is counted by hand while the headers are
+read, before extraction, because tar's own guard is a ratio and a ratio bounds nothing absolutely. And `remove`
+checks that the folder's PARENT is the plugins directory and unlinks a symlink rather than following it: the
+folder's own real path is exactly what a linked-in dev checkout gets wrong, and following the link would delete
+somebody's work. None of this makes a plugin safer to run. Staging IMPORTS the entry, as a rescan does, because a
+manifest holds a live zod schema; what the checks answer is a tarball that would write outside its folder, fill
+the disk or shadow the SDK.
+
 ## Conventions
 
 **Import aliases** are `#src/*`, `#routes/*`, `#modules/*`, and they are declared THREE times

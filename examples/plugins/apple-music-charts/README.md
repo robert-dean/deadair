@@ -11,8 +11,9 @@ npm test
 npm run build
 ```
 
-Then copy `package.json` and `dist/` into a folder of their own under the station's plugins
-directory, press Rescan on the console's Plugins page, and enable it.
+Then `npm pack`, press Import on the console's Plugins page, drop in the `.tgz` it wrote, and enable
+the plugin. Or copy `package.json` and `dist/` into a folder of their own under the station's plugins
+directory and press Rescan instead.
 
 This directory is not part of the pnpm workspace, so none of the repository's own settings apply
 here. Copy it somewhere else and it works the same.

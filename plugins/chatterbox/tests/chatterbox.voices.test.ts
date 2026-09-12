@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { MAX_SPEED, MIN_SPEED, speedOf, voiceMapOf, voiceRowsAreComplete } from '../src/chatterbox.voices.js';
+import { dialOf, MAX_EXAGGERATION, MAX_SPEED, MIN_SPEED, speedOf, voiceMapOf, voiceRowsAreComplete } from '../src/chatterbox.voices.js';
 
 const rows = (...entries: Record<string, string>[]): string => JSON.stringify(entries);
 
@@ -13,6 +13,20 @@ describe('voiceMapOf', () => {
         expect(voiceMapOf(rows({ name: 'host', engine: 'Olivia.wav' }, { name: 'newsreader', engine: 'Michael.wav', speed: '0.9' }))).toEqual({
             host: { engine: 'Olivia.wav' },
             newsreader: { engine: 'Michael.wav', speed: 0.9 },
+        });
+    });
+
+    it('carries the expressiveness dials a row sets, and leaves out the ones it does not', () => {
+        expect(
+            voiceMapOf(
+                rows(
+                    { name: 'conspiracy', engine: 'Jeremiah.wav', exaggeration: '0.8', cfgWeight: '0.3' },
+                    { name: 'host', engine: 'Olivia.wav', cfgWeight: '' },
+                ),
+            ),
+        ).toEqual({
+            conspiracy: { engine: 'Jeremiah.wav', exaggeration: 0.8, cfgWeight: 0.3 },
+            host: { engine: 'Olivia.wav' },
         });
     });
 
@@ -44,6 +58,25 @@ describe('speedOf', () => {
     it('clamps out of range rather than refusing', () => {
         expect(speedOf('99')).toBe(MAX_SPEED);
         expect(speedOf('0.01')).toBe(MIN_SPEED);
+    });
+});
+
+describe('dialOf', () => {
+    it('keeps zero, which is a flat reading rather than a mistake', () => {
+        // The one way this differs from a speed, and the reason it is a second function.
+        expect(dialOf('0', 0, 2)).toBe(0);
+        expect(speedOf('0')).toBeUndefined();
+    });
+
+    it('is absent for a cell nobody filled in, or one that is not a number', () => {
+        expect(dialOf(undefined, 0, 2)).toBeUndefined();
+        expect(dialOf('  ', 0, 2)).toBeUndefined();
+        expect(dialOf('theatrical', 0, 2)).toBeUndefined();
+    });
+
+    it('clamps out of range rather than refusing', () => {
+        expect(dialOf('5', 0, MAX_EXAGGERATION)).toBe(MAX_EXAGGERATION);
+        expect(dialOf('-1', 0, 2)).toBe(0);
     });
 });
 

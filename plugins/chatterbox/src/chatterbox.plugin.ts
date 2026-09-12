@@ -25,7 +25,7 @@ import {
     shippedUnlessMapped,
     type ResponseFormat,
 } from './chatterbox.manifest.js';
-import { ModelLifecycle, type ModelInfo } from './chatterbox.lifecycle.js';
+import { honoursExpressionDials, ModelLifecycle, type ModelInfo } from './chatterbox.lifecycle.js';
 import { VOICE_ENGINE_COLUMN, VOICES_FIELD, type VoiceMap, type VoiceMapping } from './chatterbox.voices.js';
 
 export { chatterboxManifest };
@@ -143,13 +143,22 @@ const whenFinished = (source: ReadableStream<Uint8Array>, onDone: () => void): R
  * which are the controls that most distinguish it and the only route the station
  * has to a delivery rather than a voice.
  *
- * **None of those four is sent, deliberately.** This is the transport standing
- * where they are reachable, not the feature: whether a dial belongs on a voice
- * (a character is consistently intense) or on a REQUEST (one break shouts and the
- * next is hushed) is a decision with a contract change behind it, and moving the
- * endpoint should not smuggle in an answer. Anything added here owes
- * `SpeechVoice.spec` a thought first — it keys the cached voice preview, so a knob
- * that changes the rendering and not the key plays the old voice back.
+ * **Two of those four are sent, and only to a model that reads them.** The question
+ * this comment used to leave open (does a dial belong on a voice or on a request)
+ * was answered BOTH. A voice carries its own `exaggeration` and `cfgWeight` in the
+ * mapping table, which is how a character is intense at rest. The per-request half
+ * is a station word rather than a number; see `SpeechRequest.delivery`.
+ *
+ * What makes either audible is the MODEL, not this plugin. The `turbo` build, which
+ * is the one a stock server loads and the one that performs the station's cues,
+ * discards both dials, so they are withheld there rather than sent to be ignored
+ * (`honoursExpressionDials`), and Test connection says which build is resident. A
+ * dial is folded into `SpeechVoice.spec`, so a changed one mints a new preview.
+ *
+ * `temperature` and `seed` stay unsent. Temperature is sampling noise rather than a
+ * reading, so the same line comes out differently rather than differently felt,
+ * and a fixed seed would make every break read the same way, which is the opposite
+ * of what a station wants from a voice that samples.
  *
  * The other half of `/tts` is `voice_mode: 'clone'`, which reads a reference WAV
  * the operator uploaded. Also not taken: it is a second way to name a voice, and
@@ -339,12 +348,21 @@ export class ChatterboxPlugin extends Plugin implements SpeechPluginInstance {
 
         // Before anything else, because a previous render's unload may have emptied the server and
         // synthesis against an empty one is a 503 rather than a wait. Throws `unavailable`, which is
-        // the code that keeps the segment's words on its row for the next pass.
-        await this.lifecycle.ensureLoaded();
+        // the code that keeps the segment's words on its row for the next pass. What it answers is
+        // WHICH model proved resident, which decides whether the dials below are worth sending.
+        const model = await this.lifecycle.ensureLoaded();
 
         const format = isResponseFormat(request.format) ? request.format : this.format;
         const mapping = this.resolveVoice(request.voice);
         const voice = mapping.engine;
+        const dials = dialsOf(mapping);
+        const sendDials = honoursExpressionDials(model);
+        if (!sendDials && Object.keys(dials).length > 0) {
+            this.host.logger.debug('chatterbox withheld the expressiveness dials, because the loaded model ignores them', {
+                voice,
+                model: model.type ?? model.className,
+            });
+        }
 
         const response = await this.host.fetch(`${serverRootOf(this.baseUrl)}/tts`, {
             method: 'POST',
@@ -367,6 +385,9 @@ export class ChatterboxPlugin extends Plugin implements SpeechPluginInstance {
                 // Sent anyway, because `DEFAULT_VOICE_ROWS` no longer ships one and the field's help
                 // now says what it costs, so a speed in the table is somebody asking for it.
                 ...(mapping.speed === undefined ? {} : { speed_factor: mapping.speed }),
+                // Only what the row set, and only to a model that reads it. An omitted dial takes the
+                // SERVER's configured default rather than a neutral one, which is the operator's call.
+                ...(sendDials ? dials : {}),
             }),
             timeoutMs: SPEAK_TIMEOUT_MS,
         });
@@ -385,6 +406,7 @@ export class ChatterboxPlugin extends Plugin implements SpeechPluginInstance {
             format,
             chars: text.length,
             ...(mapping.speed === undefined ? {} : { speed: mapping.speed }),
+            ...(sendDials ? dials : {}),
         });
 
         return {
@@ -618,12 +640,34 @@ const minutesOrDefault = (value: unknown): number => {
     return Number.isFinite(parsed) && parsed >= 0 ? Math.floor(parsed) : DEFAULT_UNLOAD_AFTER_IDLE_MINUTES;
 };
 
-/** What a mapping sounds like, for the console's list. The speed is only worth saying when set. */
-const describe = (mapping: VoiceMapping): string =>
-    mapping.speed === undefined ? `${mapping.engine} on this server` : `${mapping.engine} on this server, at ${mapping.speed}x`;
+/** The two expressiveness dials a mapping sets, under the engine's own field names, and nothing it left blank. */
+const dialsOf = (mapping: VoiceMapping): { exaggeration?: number; cfg_weight?: number } => ({
+    ...(mapping.exaggeration === undefined ? {} : { exaggeration: mapping.exaggeration }),
+    ...(mapping.cfgWeight === undefined ? {} : { cfg_weight: mapping.cfgWeight }),
+});
 
-/** The token the host keys a cached voice preview on. Opaque to it; see `SpeechVoice.spec`. */
-const specOf = (mapping: VoiceMapping): string => (mapping.speed === undefined ? mapping.engine : `${mapping.engine}@${mapping.speed}`);
+/** What a mapping sounds like, for the console's list. Each tuning is only worth saying when set. */
+const describe = (mapping: VoiceMapping): string =>
+    [
+        `${mapping.engine} on this server`,
+        ...(mapping.speed === undefined ? [] : [`at ${mapping.speed}x`]),
+        ...(mapping.exaggeration === undefined ? [] : [`exaggeration ${mapping.exaggeration}`]),
+        ...(mapping.cfgWeight === undefined ? [] : [`CFG weight ${mapping.cfgWeight}`]),
+    ].join(', ');
+
+/**
+ * The token the host keys a cached voice preview on. Opaque to it; see `SpeechVoice.spec`.
+ *
+ * Every tuning that changes the rendering is in it, and each is appended only when set, so a mapping
+ * that sets none keys exactly as it did before the dials existed and its cached preview stays a hit.
+ */
+const specOf = (mapping: VoiceMapping): string =>
+    [
+        mapping.engine,
+        mapping.speed === undefined ? '' : `@${mapping.speed}`,
+        mapping.exaggeration === undefined ? '' : `e${mapping.exaggeration}`,
+        mapping.cfgWeight === undefined ? '' : `c${mapping.cfgWeight}`,
+    ].join('');
 
 const messageOf = (error: unknown): string => (error instanceof Error ? error.message : String(error));
 
@@ -643,5 +687,20 @@ const describeModel = (info: ModelInfo | undefined): string => {
 
     const named = info.className ?? info.type;
     const running = info.device === undefined ? '' : ` on ${info.device}`;
-    return named === undefined ? `A model is loaded${running}.` : `Loaded: ${named}${running}.`;
+    const loaded = named === undefined ? `A model is loaded${running}.` : `Loaded: ${named}${running}.`;
+    const reads = whatItReads(info);
+    return reads === undefined ? loaded : `${loaded} ${reads}`;
+};
+
+/**
+ * Which of the two expressive routes the loaded model takes, as a sentence, or nothing if it will not say.
+ *
+ * The operator's one place to learn that a dial they set is doing nothing, and why. The cue half is
+ * the rule `listCues` uses and the dial half is the rule `speak` uses, so this cannot describe a
+ * model differently from how it is treated.
+ */
+const whatItReads = (info: ModelInfo): string | undefined => {
+    if (honoursExpressionDials(info)) return 'It reads the exaggeration and CFG weight dials and performs no laughs or sighs.';
+    if (info.supportsCues && info.availableTags.length > 0) return 'It performs laughs and sighs and ignores the exaggeration and CFG weight dials.';
+    return undefined;
 };

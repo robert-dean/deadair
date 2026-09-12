@@ -164,22 +164,84 @@ describe('ChatterboxPlugin.speak', () => {
         expect(speechRequest(calls).speed_factor).toBe(0.9);
     });
 
-    // The endpoint this now posts to is the one carrying the engine's expressiveness dials, and
-    // reaching them is the whole reason for being here. Sending one is a separate decision with a
-    // contract change behind it — a dial belongs either on a voice or on a request, and moving the
-    // transport must not answer that by accident. So the absence is pinned rather than assumed.
-    it('sends no expressiveness dial, because where one belongs is not decided here', async () => {
-        const { plugin, calls } = await started({
-            config: { voices: voiceRows({ name: 'host', engine: 'Olivia.wav' }) },
+    // The dials are a voice's own, and whether they are worth sending is a fact about the model that
+    // is resident. The turbo build discards both and logs that it did, and the other two read them.
+    // What these pin is that the plugin asks the readout it already has rather than guessing.
+    describe('the expressiveness dials', () => {
+        const intense = voiceRows({ name: 'conspiracy', engine: 'Jeremiah.wav', exaggeration: '0.8', cfgWeight: '0.3' });
+
+        it("sends a voice's own dials to a model that reads them", async () => {
+            const { plugin, calls } = await started({ config: { voices: intense }, modelInfo: { type: 'original', class_name: 'ChatterboxTTS' } });
+
+            const handle = await plugin.speak({ text: 'hello', voice: 'conspiracy' });
+            await drain(handle.audio);
+
+            expect(speechRequest(calls)).toMatchObject({ exaggeration: 0.8, cfg_weight: 0.3 });
         });
 
-        const handle = await plugin.speak({ text: 'hello', voice: 'host' });
-        await drain(handle.audio);
+        it('withholds them from the turbo model, which would discard them', async () => {
+            // The live station's own readout, verbatim. Sending there costs a warning in the server's
+            // log and changes nothing, and it is the build a stock server loads.
+            const { plugin, host, calls } = await started({
+                config: { voices: intense },
+                modelInfo: { type: 'turbo', class_name: 'ChatterboxTurboTTS' },
+            });
 
-        const body = speechRequest(calls);
-        for (const dial of ['exaggeration', 'cfg_weight', 'temperature', 'seed']) {
-            expect(body, `${dial} reached the engine`).not.toHaveProperty(dial);
-        }
+            const handle = await plugin.speak({ text: 'hello', voice: 'conspiracy' });
+            await drain(handle.audio);
+
+            expect(speechRequest(calls)).not.toHaveProperty('exaggeration');
+            expect(speechRequest(calls)).not.toHaveProperty('cfg_weight');
+            expect(host.logger.debug).toHaveBeenCalledWith(expect.stringContaining('withheld'), expect.anything());
+        });
+
+        it('withholds them from a model that will not say what it is', async () => {
+            // The allowlist, rather than "anything but turbo": an unknown build gets today's request.
+            const { plugin, calls } = await started({ config: { voices: intense } });
+
+            const handle = await plugin.speak({ text: 'hello', voice: 'conspiracy' });
+            await drain(handle.audio);
+
+            expect(speechRequest(calls)).not.toHaveProperty('exaggeration');
+        });
+
+        it('sends nothing for a voice that set none, so the server keeps its own default', async () => {
+            // A blank cell is not neutral on this engine: the server's `generation_defaults` apply, and
+            // those are the operator's to choose.
+            const { plugin, calls } = await started({
+                config: { voices: voiceRows({ name: 'host', engine: 'Olivia.wav' }) },
+                modelInfo: { type: 'original' },
+            });
+
+            const handle = await plugin.speak({ text: 'hello', voice: 'host' });
+            await drain(handle.audio);
+
+            expect(speechRequest(calls)).not.toHaveProperty('exaggeration');
+            expect(speechRequest(calls)).not.toHaveProperty('cfg_weight');
+        });
+
+        it('sends only the dial a voice set', async () => {
+            const { plugin, calls } = await started({
+                config: { voices: voiceRows({ name: 'host', engine: 'Olivia.wav', exaggeration: '0' }) },
+                modelInfo: { type: 'multilingual' },
+            });
+
+            const handle = await plugin.speak({ text: 'hello', voice: 'host' });
+            await drain(handle.audio);
+
+            expect(speechRequest(calls).exaggeration).toBe(0);
+            expect(speechRequest(calls)).not.toHaveProperty('cfg_weight');
+        });
+
+        it('never sends temperature or a seed, which are not a reading', async () => {
+            const { plugin, calls } = await started({ config: { voices: intense }, modelInfo: { type: 'original' } });
+
+            const handle = await plugin.speak({ text: 'hello', voice: 'conspiracy' });
+            await drain(handle.audio);
+
+            expect(speechRequest(calls)).not.toHaveProperty('temperature');
+            expect(speechRequest(calls)).not.toHaveProperty('seed');
+        });
     });
 
     // A predefined clip, never an uploaded reference. `clone` is a second way to name a voice and
@@ -530,6 +592,31 @@ describe('ChatterboxPlugin.listVoices', () => {
 
         expect(plain).not.toBe(await specFor({ name: 'host', engine: 'Michael.wav' }));
         expect(plain).not.toBe(await specFor({ name: 'host', engine: 'Olivia.wav', speed: '1.2' }));
+        expect(plain).not.toBe(await specFor({ name: 'host', engine: 'Olivia.wav', exaggeration: '0.8' }));
+        expect(plain).not.toBe(await specFor({ name: 'host', engine: 'Olivia.wav', cfgWeight: '0.3' }));
+    });
+
+    it('keys a voice with no tuning exactly as it did before the dials existed', async () => {
+        // Every preview already cached on a station is keyed on these strings, and a remap that did
+        // not happen must not mint new ones.
+        const { plugin } = await started({
+            config: { voices: voiceRows({ name: 'host', engine: 'Olivia.wav' }, { name: 'fast', engine: 'Olivia.wav', speed: '1.2' }) },
+        });
+
+        const specs = Object.fromEntries((await plugin.listVoices()).map(voice => [voice.id, voice.spec]));
+
+        expect(specs.host).toBe('Olivia.wav');
+        expect(specs.fast).toBe('Olivia.wav@1.2');
+    });
+
+    it('says what a voice is set to, and only what was set', async () => {
+        const { plugin } = await started({
+            config: { voices: voiceRows({ name: 'host', engine: 'Olivia.wav', exaggeration: '0.8', cfgWeight: '0.3' }) },
+        });
+
+        const host = (await plugin.listVoices()).find(voice => voice.id === 'host');
+
+        expect(host?.description).toBe('Olivia.wav on this server, exaggeration 0.8, CFG weight 0.3');
     });
 });
 
@@ -551,6 +638,37 @@ describe('ChatterboxPlugin.testConnection', () => {
         const { plugin } = await started({ loaded: [true], modelInfo: { type: 'turbo', device: 'cpu' } });
 
         expect((await plugin.testConnection()).message).toContain('Loaded: turbo on cpu.');
+    });
+
+    // The only place an operator can learn that a dial they set is doing nothing. Each branch uses the
+    // same rule the code that acts on it uses, so the sentence cannot disagree with the behaviour.
+    it('says the turbo model performs cues and ignores the dials', async () => {
+        const { plugin } = await started({
+            loaded: [true],
+            modelInfo: {
+                type: 'turbo',
+                class_name: 'ChatterboxTurboTTS',
+                supports_paralinguistic_tags: true,
+                available_paralinguistic_tags: ['laugh'],
+            },
+        });
+
+        expect((await plugin.testConnection()).message).toContain('performs laughs and sighs and ignores the exaggeration and CFG weight dials');
+    });
+
+    it('says the original model reads the dials and performs no cues', async () => {
+        const { plugin } = await started({ loaded: [true], modelInfo: { type: 'original', class_name: 'ChatterboxTTS' } });
+
+        expect((await plugin.testConnection()).message).toContain('reads the exaggeration and CFG weight dials and performs no laughs or sighs');
+    });
+
+    it('says neither about a model that reports neither', async () => {
+        const { plugin } = await started({ loaded: [true], modelInfo: { class_name: 'SomethingNew' } });
+
+        const { message } = await plugin.testConnection();
+
+        expect(message).toContain('Loaded: SomethingNew.');
+        expect(message).not.toContain('dials');
     });
 
     // Which cues this engine performs belongs to the LOADED MODEL, not to the server or the plugin,

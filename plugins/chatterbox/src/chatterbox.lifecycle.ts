@@ -32,6 +32,18 @@
  * They are opposite obligations. Freeing memory is an optimization and must not
  * fail a render that already succeeded, nor mask the original error on the retry
  * path. A render cannot proceed without a model, so the load says so.
+ *
+ * ## Which model is loaded decides what a reading can ask for
+ *
+ * The server holds one of three builds and they are not three sizes of one thing.
+ * `turbo` performs the paralinguistic tags the station calls cues and IGNORES the
+ * expressiveness dials: upstream's `ChatterboxTurboTTS.generate` logs "CFG, min_p and
+ * exaggeration are not supported by the Turbo version and will be ignored" and
+ * drops them. `original` and `multilingual` are the other way round, honouring the
+ * dials and performing no tags. So on this engine a station gets cues or dials and
+ * never both, and which one is a fact about the model that is resident right now.
+ * That is why {@link ensureLoaded} hands back the readout that proved residency
+ * rather than making the caller ask the server a second time.
  */
 
 import { PluginError, type HostFetchInit, type PluginLogger } from '@deadair/plugin-sdk';
@@ -63,7 +75,12 @@ export const LOAD_POLL_MS = 2_000;
  */
 export interface ModelInfo {
     loaded: boolean;
-    /** The build, as the server names it: `turbo`, `multilingual`. */
+    /**
+     * The build, as the server names it: `original`, `turbo` or `multilingual`.
+     *
+     * The one field here that changes what a request may carry rather than what a sentence says.
+     * See {@link honoursExpressionDials}.
+     */
     type?: string;
     /** The implementing class, which is the more specific of the two names. */
     className?: string;
@@ -74,7 +91,8 @@ export interface ModelInfo {
      *
      * A property of the LOADED model rather than of the server: the turbo build does them and the
      * others do not, so swapping the model takes them away with nothing else changing. That is why
-     * nothing caches this into a manifest flag.
+     * nothing caches this into a manifest flag. The expressiveness dials are the mirror image of this
+     * and belong to the other two builds; see {@link honoursExpressionDials}.
      */
     supportsCues: boolean;
     /**
@@ -110,6 +128,28 @@ export function serverRoot(baseUrl: string): string {
     return baseUrl.replace(/\/+$/, '').replace(/\/v\d+$/, '');
 }
 
+/**
+ * The builds that honour `exaggeration` and `cfg_weight`, as `/api/model-info` names them.
+ *
+ * An ALLOWLIST rather than "anything but turbo", because the two failures are not the same size.
+ * Withholding the dials from a build that would have honoured them costs the station a reading it
+ * asked for, which the operator can hear and Test connection explains. Sending them to a build that
+ * does not is either ignored (turbo) or, on a build nobody here has met, a change to the rendering
+ * nobody predicted. The names are the server's own: `engine.py` maps every repo id it knows onto
+ * exactly these three.
+ */
+const DIAL_BUILDS: ReadonlySet<string> = new Set(['original', 'multilingual']);
+
+/**
+ * Whether the loaded model reads `exaggeration` and `cfg_weight` rather than discarding them.
+ *
+ * A readout with no `type` answers no, which is today's behaviour exactly: nothing sent, and the
+ * server's own configured defaults apply.
+ */
+export function honoursExpressionDials(info: ModelInfo | undefined): boolean {
+    return info?.type !== undefined && DIAL_BUILDS.has(info.type.toLowerCase());
+}
+
 /** Model lifecycle for one configured server. */
 export class ModelLifecycle {
     private readonly root: string;
@@ -127,7 +167,13 @@ export class ModelLifecycle {
      * would send a synthesis at nothing.
      */
     async loaded(): Promise<boolean> {
-        return (await this.info())?.loaded === true;
+        return (await this.resident()) !== undefined;
+    }
+
+    /** The readout, when it says a model is resident, and nothing otherwise. {@link loaded} with the evidence kept. */
+    private async resident(): Promise<ModelInfo | undefined> {
+        const info = await this.info();
+        return info?.loaded === true ? info : undefined;
     }
 
     /**
@@ -175,23 +221,30 @@ export class ModelLifecycle {
      * has usually stranded memory of its own, so the retry unloads before trying
      * again rather than throwing itself at a GPU it just filled.
      *
+     * Answers with the readout that proved a model is resident, whichever
+     * question it was (the check before anything, or the last poll of a load),
+     * because the synthesis that follows needs to know WHICH model it is talking
+     * to and the server has just said. Asking again would be a second request
+     * before every break for an answer already in hand.
+
+     *
      * @throws {PluginError} `unavailable`, deliberately, and not `upstream`: the
      *   engine is fine and the station simply has nothing to speak with yet,
      *   which is the code that leaves a segment's words on the row for the next
      *   pass instead of writing the break off.
      */
-    async ensureLoaded(): Promise<void> {
-        if (await this.loaded()) return;
+    async ensureLoaded(): Promise<ModelInfo> {
+        const already = await this.resident();
+        if (already !== undefined) return already;
 
         try {
-            await this.load();
-            return;
+            return await this.load();
         } catch (error) {
             this.deps.logger.warn('model load failed; clearing stranded memory and trying once more', { error: messageOf(error) });
         }
 
         await this.unload();
-        await this.load();
+        return await this.load();
     }
 
     /**
@@ -199,9 +252,9 @@ export class ModelLifecycle {
      *
      * Polled rather than trusted, because the load is synchronous on current
      * builds and an asynchronous one would otherwise be reported as ready the
-     * moment the request was accepted.
+     * moment the request was accepted. Answers with the poll that said yes.
      */
-    async load(): Promise<void> {
+    async load(): Promise<ModelInfo> {
         const url = `${this.root}/restart_server`;
         const response = await this.deps
             .fetch(url, {
@@ -225,7 +278,8 @@ export class ModelLifecycle {
 
         // Asked once before any waiting, so a synchronous load costs no delay at all.
         while (now() < giveUpAt) {
-            if (await this.loaded()) return;
+            const info = await this.resident();
+            if (info !== undefined) return info;
             await sleep(LOAD_POLL_MS);
         }
 

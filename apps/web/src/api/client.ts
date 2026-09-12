@@ -2,17 +2,15 @@ import { createSdkFetch, DeadairSdk, type SdkFetch } from '@deadair/sdk';
 
 import { authHeaders, clearSession } from '../auth/session.store';
 import { refreshSession } from '../auth/session.refresher';
-import { newRequestId } from './request.id';
 import { isInvalidToken } from './sdk.error';
 
 /** The SPA is served from the same origin as the API, so a relative prefix is enough. */
 export const BASE_URL = '/api';
 
+// No `requestIdFactory`: the SDK's default has worked over plain HTTP since ContractKit
+// plugin-typescript 0.38.12, and `tests/api/client.insecure.test.ts` holds it to that (issue #78).
 const baseFetch = createSdkFetch({
     baseUrl: BASE_URL,
-    // Never the SDK's default, which is `crypto.randomUUID` and undefined over plain HTTP: see
-    // `request.id.ts` for the station that could not make a single request because of it.
-    requestIdFactory: newRequestId,
     // Opts this client into the httpOnly refresh cookie instead of a body refresh token.
     headers: () => ({ ...authHeaders(), 'x-deadair-refresh-cookie': '1' }),
 });

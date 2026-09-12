@@ -11,7 +11,8 @@
  * opened at `http://<the server's address>:8080` and is neither. `getRandomValues` is available on
  * any page; `crypto.subtle` is not, which is why the hash comes from `@noble/hashes` rather than
  * `crypto.subtle.digest`. Enrolling a factor from a console reached that way used to fail on
- * reading `digest` off `undefined`. See `api/request.id.ts` for the same trap in every request.
+ * reading `digest` off `undefined`. The same trap once broke every request, through the SDK's
+ * request id (issue #78).
  */
 
 import { sha256 } from '@noble/hashes/sha2.js';

@@ -65,6 +65,11 @@ public sealed record Segment
     [JsonPropertyName("voice")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Voice { get; init; }
+
+    /// <summary>How the words are read: `hushed` or `frantic`. Absent is the voice's own ordinary reading, which is nearly every segment</summary>
+    [JsonPropertyName("delivery")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Delivery { get; init; }
 }
 
 /// <summary>Something for the station to say, before anything has said it</summary>
@@ -87,6 +92,11 @@ public sealed record SegmentCreate
     [JsonPropertyName("voice")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Voice { get; init; }
+
+    /// <summary>How to read the words: `hushed` or `frantic`, and refused otherwise. Absent is the voice's own ordinary reading. Dropped at render time by an engine that cannot perform it</summary>
+    [JsonPropertyName("delivery")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Delivery { get; init; }
 }
 
 /// <summary>
@@ -219,6 +229,11 @@ public sealed record SpeechPreviewRequest
     [JsonPropertyName("voice")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Voice { get; init; }
+
+    /// <summary>How to read it, as a segment's `delivery`: `hushed` or `frantic`, and refused otherwise. Absent is the voice's own ordinary reading</summary>
+    [JsonPropertyName("delivery")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Delivery { get; init; }
 }
 
 /// <summary>The window the counts cover</summary>
@@ -615,6 +630,11 @@ public sealed record VoiceList
     [JsonPropertyName("reason")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Reason { get; init; }
+
+    /// <summary>Which readings that plugin can perform right now, out of `hushed` and `frantic`. Absent or empty means none, which is most engines and is not a fault</summary>
+    [JsonPropertyName("deliveries")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? Deliveries { get; init; }
 }
 
 /// <summary>One page of what the station has written, newest first</summary>
@@ -685,6 +705,11 @@ public sealed record ScriptAttempt
     [JsonPropertyName("script")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Script { get; init; }
+
+    /// <summary>How the writer chose to have the words read, `hushed` or `frantic`. Absent for an ordinary reading</summary>
+    [JsonPropertyName("delivery")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Delivery { get; init; }
 
     /// <summary>The model that said it, for a writer that used one</summary>
     [JsonPropertyName("model")]
@@ -772,6 +797,11 @@ public sealed record ScriptAttemptInput
     [JsonPropertyName("script")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Script { get; init; }
+
+    /// <summary>How the writer chose to have the words read, `hushed` or `frantic`. Absent for an ordinary reading</summary>
+    [JsonPropertyName("delivery")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Delivery { get; init; }
 
     /// <summary>The model that said it, for a writer that used one</summary>
     [JsonPropertyName("model")]

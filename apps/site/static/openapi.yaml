@@ -8189,6 +8189,10 @@ components:
                     type: string
                     maxLength: 100
                     description: "The station's own name for the voice this is said in, e.g. `host`. Absent means the speech plugin's default"
+                delivery:
+                    type: string
+                    maxLength: 50
+                    description: "How the words are read: `hushed` or `frantic`. Absent is the voice's own ordinary reading, which is nearly every segment"
             required: [id, kind, state, label, source, playable]
             description: 'One thing the station can play that is not a record'
         SegmentCreate:
@@ -8213,6 +8217,10 @@ components:
                     type: string
                     maxLength: 100
                     description: 'A station voice name the speech plugin knows how to map. Absent uses its default'
+                delivery:
+                    type: string
+                    maxLength: 50
+                    description: "How to read the words: `hushed` or `frantic`, and refused otherwise. Absent is the voice's own ordinary reading. Dropped at render time by an engine that cannot perform it"
             required: [label, script]
             description: 'Something for the station to say, before anything has said it'
         SegmentUpload:
@@ -8276,6 +8284,12 @@ components:
                     type: string
                     maxLength: 500
                     description: 'Why there are no voices, when there are none'
+                deliveries:
+                    type: array
+                    items:
+                        type: string
+                        maxLength: 50
+                    description: 'Which readings that plugin can perform right now, out of `hushed` and `frantic`. Absent or empty means none, which is most engines and is not a fault'
             required: [voices]
             description: "The voices the station's current speech plugin offers"
         ScriptOutcome:
@@ -8359,6 +8373,10 @@ components:
                     type: string
                     maxLength: 20000
                     description: 'The words. Absent for an attempt that produced none'
+                delivery:
+                    type: string
+                    maxLength: 50
+                    description: 'How the writer chose to have the words read, `hushed` or `frantic`. Absent for an ordinary reading'
                 model:
                     type: string
                     maxLength: 200
@@ -8468,6 +8486,10 @@ components:
                     type: string
                     maxLength: 100
                     description: "A station voice name, as a segment's `voice`. Absent uses the plugin's own default"
+                delivery:
+                    type: string
+                    maxLength: 50
+                    description: "How to read it, as a segment's `delivery`: `hushed` or `frantic`, and refused otherwise. Absent is the voice's own ordinary reading"
             required: [text]
             description: 'Words to hear before anything has aired them'
         ScriptHistorySummaryQuery:

@@ -35,6 +35,8 @@ data class Segment(
     val error: String? = null,
     /** The station's own name for the voice this is said in, e.g. `host`. Absent means the speech plugin's default */
     val voice: String? = null,
+    /** How the words are read: `hushed` or `frantic`. Absent is the voice's own ordinary reading, which is nearly every segment */
+    val delivery: String? = null,
 )
 
 /** Something for the station to say, before anything has said it */
@@ -48,6 +50,8 @@ data class SegmentCreate(
     val kind: String? = null,
     /** A station voice name the speech plugin knows how to map. Absent uses its default */
     val voice: String? = null,
+    /** How to read the words: `hushed` or `frantic`, and refused otherwise. Absent is the voice's own ordinary reading. Dropped at render time by an engine that cannot perform it */
+    val delivery: String? = null,
 )
 
 /**
@@ -141,6 +145,8 @@ data class SpeechPreviewRequest(
     val text: String,
     /** A station voice name, as a segment's `voice`. Absent uses the plugin's own default */
     val voice: String? = null,
+    /** How to read it, as a segment's `delivery`: `hushed` or `frantic`, and refused otherwise. Absent is the voice's own ordinary reading */
+    val delivery: String? = null,
 )
 
 /** The window the counts cover */
@@ -388,6 +394,8 @@ data class VoiceList(
     val pluginId: String? = null,
     /** Why there are no voices, when there are none */
     val reason: String? = null,
+    /** Which readings that plugin can perform right now, out of `hushed` and `frantic`. Absent or empty means none, which is most engines and is not a fault */
+    val deliveries: List<String>? = null,
 )
 
 /** One page of what the station has written, newest first */
@@ -420,6 +428,8 @@ data class ScriptAttempt(
     val label: String? = null,
     /** The words. Absent for an attempt that produced none */
     val script: String? = null,
+    /** How the writer chose to have the words read, `hushed` or `frantic`. Absent for an ordinary reading */
+    val delivery: String? = null,
     /** The model that said it, for a writer that used one */
     val model: String? = null,
     /** What the line was rendered from, for a writer working from something an operator can edit */
@@ -456,6 +466,8 @@ data class ScriptAttemptInput(
     val label: String? = null,
     /** The words. Absent for an attempt that produced none */
     val script: String? = null,
+    /** How the writer chose to have the words read, `hushed` or `frantic`. Absent for an ordinary reading */
+    val delivery: String? = null,
     /** The model that said it, for a writer that used one */
     val model: String? = null,
     /** What the line was rendered from, for a writer working from something an operator can edit */

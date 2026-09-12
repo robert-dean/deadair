@@ -63,20 +63,24 @@ export class VoiceSampleStore extends ContentStore<SegmentExtension> {
      * - the TEXT, which is {@link SAMPLE_TEXT} for a voice preview and the caller's own words for a
      *   speech preview. Having the line in the key is what lets that line be edited without leaving
      *   every station holding samples of words it no longer uses, and it is what keeps two different
-     *   scripts in one voice as two files rather than one.
+     *   scripts in one voice as two files rather than one;
+     * - the DELIVERY, when there is one, because `hushed` and `frantic` are two readings of the same
+     *   words and so two files. Only a delivery the engine actually performs is passed here, so what
+     *   is keyed is what was rendered.
      *
      * A plugin that publishes no `spec` keys exactly as this did before it existed, which is right
      * for an engine whose voices cannot be reconfigured. The text defaults to the sample line, so
      * every existing caller keys byte-identically to before it was a parameter and the samples this
-     * station already holds are still hits.
+     * station already holds are still hits. The delivery is appended only when there is one, for the
+     * same reason: an ordinary reading keys exactly as it always did.
      *
      * Nothing evicts from this store. That is affordable because the text is capped at the contract
      * and one preview is a few hundred kilobytes, minted only by an operator's own click, and the
      * same words in the same voice re-key to the file already there.
      */
-    keyFor(pluginId: string, voiceId: string, spec?: string, text: string = SAMPLE_TEXT): string {
+    keyFor(pluginId: string, voiceId: string, spec?: string, text: string = SAMPLE_TEXT, delivery?: string): string {
         return createHash('sha256')
-            .update(`${pluginId}\n${voiceId}\n${spec ?? ''}\n${text}`)
+            .update(`${pluginId}\n${voiceId}\n${spec ?? ''}\n${text}${delivery === undefined ? '' : `\n${delivery}`}`)
             .digest('hex');
     }
 }

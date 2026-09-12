@@ -1,7 +1,8 @@
 import { Injectable } from 'injectkit';
 import { AuthorizationContext } from '#modules/permissions/authorization.context.js';
 import { httpError } from '@maroonedsoftware/errors';
-import { isPluginError } from '@deadair/plugin-sdk';
+import { isPluginError, isSpeechDelivery, SPEECH_DELIVERIES, type SpeechDelivery } from '@deadair/plugin-sdk';
+
 import type { SpeechPlugin } from '#modules/plugins/plugin.capabilities.js';
 import { Logger } from '@maroonedsoftware/logger';
 import { isMultipartFieldData, type MultipartBody, type MultipartData } from '@maroonedsoftware/multipart';
@@ -293,11 +294,13 @@ export class RenderService {
      * ask for again, which is a better failure than a segment that exists only in a queue.
      */
     async createSegment(create: SegmentCreate): Promise<SegmentView> {
+        const delivery = deliveryAsked(create.delivery);
         const segment = await this.segments.plan({
             kind: create.kind ?? DEFAULT_KIND,
             label: create.label,
             script: create.script,
             ...(create.voice === undefined ? {} : { voice: create.voice }),
+            ...(delivery === undefined ? {} : { delivery }),
         });
 
         await this.jobs.send('render.segment', { segmentId: segment.id });
@@ -696,6 +699,7 @@ export class RenderService {
         if (plugin === undefined) return { voices: [], reason: this.speech.explainSpeaker() };
 
         const voices = await this.speech.voices(plugin);
+        const deliveries = await this.speech.deliveriesOf(plugin);
 
         // Mapped rather than passed through, to leave `SpeechVoice.spec` behind. It is a cache-key
         // ingredient the host does not interpret and nobody outside this module has any use for, and
@@ -708,6 +712,9 @@ export class RenderService {
                 ...(voice.description === undefined ? {} : { description: voice.description }),
             })),
             pluginId: plugin.record.id,
+            // What the engine can perform RIGHT NOW, which on the engine this was written for depends
+            // on the model it has loaded. Left off entirely when it is none, which is most engines.
+            ...(deliveries.length === 0 ? {} : { deliveries: [...deliveries] }),
         };
     }
 
@@ -766,7 +773,7 @@ export class RenderService {
      * @throws 503 when nothing can speak or the engine is busy, 502 when it refused.
      */
     async previewSpeech(request: SpeechPreviewRequest): Promise<SpeechPreviewResponse> {
-        const { bytes, ext } = await this.renderSample(request.voice ?? '', request.text);
+        const { bytes, ext } = await this.renderSample(request.voice ?? '', request.text, deliveryAsked(request.delivery));
         return { contentType: SEGMENT_CONTENT_TYPES[ext], body: bytes };
     }
 
@@ -777,11 +784,20 @@ export class RenderService {
      * about the station rather than about which of them asked: what to do when nothing can speak,
      * how long to wait for a busy engine, which failure is the engine's and which is the queue's.
      */
-    private async renderSample(voiceId: string, text: string): Promise<{ bytes: Buffer; ext: SegmentExtension; key: string }> {
+    private async renderSample(
+        voiceId: string,
+        text: string,
+        asked?: SpeechDelivery,
+    ): Promise<{ bytes: Buffer; ext: SegmentExtension; key: string }> {
         const plugin = this.speech.speaker();
         if (plugin === undefined) throw httpError(503).withDetails({ message: this.speech.explainSpeaker() });
 
-        const key = this.samples.keyFor(plugin.record.id, voiceId, await this.voiceSpec(plugin, voiceId), text);
+        // Only a delivery the engine performs NOW is part of what gets rendered, so only that one is
+        // part of the key. Keying on the one asked for would file an ordinary reading under `frantic`
+        // on an engine that dropped it, and serve that file back after the operator switched to a
+        // model that does perform it: the plugin, the voice and its spec would all be the same.
+        const delivery = asked !== undefined && (await this.speech.deliveriesOf(plugin)).includes(asked) ? asked : undefined;
+        const key = this.samples.keyFor(plugin.record.id, voiceId, await this.voiceSpec(plugin, voiceId), text, delivery);
 
         for (const ext of this.samples.extensions) {
             const cached = await this.samples.read(key, ext);
@@ -799,6 +815,7 @@ export class RenderService {
                 {
                     text,
                     ...(voiceId.length === 0 ? {} : { voice: voiceId }),
+                    ...(delivery === undefined ? {} : { delivery }),
                 },
                 // A preview is the one caller here with somebody waiting on it, and the only one
                 // that should ever give up: a render job passes no bound, because nobody is waiting
@@ -1011,7 +1028,25 @@ const toView = (segment: Segment): SegmentView => ({
     ...(segment.durationMs === undefined ? {} : { durationMs: segment.durationMs }),
     ...(segment.error === undefined ? {} : { error: segment.error }),
     ...(segment.voice === undefined ? {} : { voice: segment.voice }),
+    ...(segment.delivery === undefined ? {} : { delivery: segment.delivery }),
 });
+
+/**
+ * A delivery an operator asked for, checked against the station's vocabulary.
+ *
+ * The contract types it as a string, deliberately: the vocabulary belongs to the plugin SDK and an
+ * enum would bind four generated clients to it, so a third reading would be a breaking change in all
+ * of them. So this is the one place a request's word is held to the list. Refused rather than dropped,
+ * because an operator who typed `shouty` and heard an ordinary reading would have no way to learn why.
+ *
+ * @throws 400 for a word that is not one of `SPEECH_DELIVERIES`.
+ */
+function deliveryAsked(delivery: string | undefined): SpeechDelivery | undefined {
+    if (delivery === undefined) return undefined;
+    if (isSpeechDelivery(delivery)) return delivery;
+
+    throw httpError(400).withDetails({ message: `"${delivery}" is not a delivery the station knows; it reads ${SPEECH_DELIVERIES.join(' or ')}` });
+}
 
 /**
  * The conversation a writer sent, as far as it can be trusted to be one.
@@ -1077,6 +1112,7 @@ function toAttempt(entry: ScriptHistoryEntry): ScriptAttempt {
         ...(entry.personaKey === undefined ? {} : { personaKey: entry.personaKey }),
         ...(entry.label === undefined ? {} : { label: entry.label }),
         ...(entry.script === undefined ? {} : { script: entry.script }),
+        ...(entry.delivery === undefined ? {} : { delivery: entry.delivery }),
         ...(entry.model === undefined ? {} : { model: entry.model }),
         ...(entry.source === undefined ? {} : { source: entry.source }),
         ...(entry.reason === undefined ? {} : { reason: entry.reason }),

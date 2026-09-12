@@ -26,8 +26,10 @@ public struct Segment: Codable, Equatable, Sendable {
     public var error: String?
     /// The station's own name for the voice this is said in, e.g. `host`. Absent means the speech plugin's default
     public var voice: String?
+    /// How the words are read: `hushed` or `frantic`. Absent is the voice's own ordinary reading, which is nearly every segment
+    public var delivery: String?
 
-    public init(id: String, kind: String, state: SegmentState, label: String, source: String, playable: Bool, script: String? = nil, spokenScript: String? = nil, sourcePath: String? = nil, durationMs: Int? = nil, error: String? = nil, voice: String? = nil) {
+    public init(id: String, kind: String, state: SegmentState, label: String, source: String, playable: Bool, script: String? = nil, spokenScript: String? = nil, sourcePath: String? = nil, durationMs: Int? = nil, error: String? = nil, voice: String? = nil, delivery: String? = nil) {
         self.id = id
         self.kind = kind
         self.state = state
@@ -40,6 +42,7 @@ public struct Segment: Codable, Equatable, Sendable {
         self.durationMs = durationMs
         self.error = error
         self.voice = voice
+        self.delivery = delivery
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -55,6 +58,7 @@ public struct Segment: Codable, Equatable, Sendable {
         case durationMs = "durationMs"
         case error = "error"
         case voice = "voice"
+        case delivery = "delivery"
     }
 
     public init(from decoder: Decoder) throws {
@@ -71,6 +75,7 @@ public struct Segment: Codable, Equatable, Sendable {
         self.durationMs = try container.decodeIfPresent(Int.self, forKey: .durationMs)
         self.error = try container.decodeIfPresent(String.self, forKey: .error)
         self.voice = try container.decodeIfPresent(String.self, forKey: .voice)
+        self.delivery = try container.decodeIfPresent(String.self, forKey: .delivery)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -87,6 +92,7 @@ public struct Segment: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.durationMs, forKey: .durationMs)
         try container.encodeIfPresent(self.error, forKey: .error)
         try container.encodeIfPresent(self.voice, forKey: .voice)
+        try container.encodeIfPresent(self.delivery, forKey: .delivery)
     }
 }
 
@@ -100,12 +106,15 @@ public struct SegmentCreate: Codable, Equatable, Sendable {
     public var kind: String?
     /// A station voice name the speech plugin knows how to map. Absent uses its default
     public var voice: String?
+    /// How to read the words: `hushed` or `frantic`, and refused otherwise. Absent is the voice's own ordinary reading. Dropped at render time by an engine that cannot perform it
+    public var delivery: String?
 
-    public init(label: String, script: String, kind: String? = nil, voice: String? = nil) {
+    public init(label: String, script: String, kind: String? = nil, voice: String? = nil, delivery: String? = nil) {
         self.label = label
         self.script = script
         self.kind = kind
         self.voice = voice
+        self.delivery = delivery
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -113,6 +122,7 @@ public struct SegmentCreate: Codable, Equatable, Sendable {
         case script = "script"
         case kind = "kind"
         case voice = "voice"
+        case delivery = "delivery"
     }
 
     public init(from decoder: Decoder) throws {
@@ -121,6 +131,7 @@ public struct SegmentCreate: Codable, Equatable, Sendable {
         self.script = try container.decode(String.self, forKey: .script)
         self.kind = try container.decodeIfPresent(String.self, forKey: .kind)
         self.voice = try container.decodeIfPresent(String.self, forKey: .voice)
+        self.delivery = try container.decodeIfPresent(String.self, forKey: .delivery)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -129,6 +140,7 @@ public struct SegmentCreate: Codable, Equatable, Sendable {
         try container.encode(self.script, forKey: .script)
         try container.encodeIfPresent(self.kind, forKey: .kind)
         try container.encodeIfPresent(self.voice, forKey: .voice)
+        try container.encodeIfPresent(self.delivery, forKey: .delivery)
     }
 }
 
@@ -331,27 +343,33 @@ public struct SpeechPreviewRequest: Codable, Equatable, Sendable {
     public var text: String
     /// A station voice name, as a segment's `voice`. Absent uses the plugin's own default
     public var voice: String?
+    /// How to read it, as a segment's `delivery`: `hushed` or `frantic`, and refused otherwise. Absent is the voice's own ordinary reading
+    public var delivery: String?
 
-    public init(text: String, voice: String? = nil) {
+    public init(text: String, voice: String? = nil, delivery: String? = nil) {
         self.text = text
         self.voice = voice
+        self.delivery = delivery
     }
 
     private enum CodingKeys: String, CodingKey {
         case text = "text"
         case voice = "voice"
+        case delivery = "delivery"
     }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.text = try container.decode(String.self, forKey: .text)
         self.voice = try container.decodeIfPresent(String.self, forKey: .voice)
+        self.delivery = try container.decodeIfPresent(String.self, forKey: .delivery)
     }
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(self.text, forKey: .text)
         try container.encodeIfPresent(self.voice, forKey: .voice)
+        try container.encodeIfPresent(self.delivery, forKey: .delivery)
     }
 }
 
@@ -1101,17 +1119,21 @@ public struct VoiceList: Codable, Equatable, Sendable {
     public var pluginId: String?
     /// Why there are no voices, when there are none
     public var reason: String?
+    /// Which readings that plugin can perform right now, out of `hushed` and `frantic`. Absent or empty means none, which is most engines and is not a fault
+    public var deliveries: [String]?
 
-    public init(voices: [Voice], pluginId: String? = nil, reason: String? = nil) {
+    public init(voices: [Voice], pluginId: String? = nil, reason: String? = nil, deliveries: [String]? = nil) {
         self.voices = voices
         self.pluginId = pluginId
         self.reason = reason
+        self.deliveries = deliveries
     }
 
     private enum CodingKeys: String, CodingKey {
         case voices = "voices"
         case pluginId = "pluginId"
         case reason = "reason"
+        case deliveries = "deliveries"
     }
 
     public init(from decoder: Decoder) throws {
@@ -1119,6 +1141,7 @@ public struct VoiceList: Codable, Equatable, Sendable {
         self.voices = try container.decode([Voice].self, forKey: .voices)
         self.pluginId = try container.decodeIfPresent(String.self, forKey: .pluginId)
         self.reason = try container.decodeIfPresent(String.self, forKey: .reason)
+        self.deliveries = try container.decodeIfPresent([String].self, forKey: .deliveries)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -1126,6 +1149,7 @@ public struct VoiceList: Codable, Equatable, Sendable {
         try container.encode(self.voices, forKey: .voices)
         try container.encodeIfPresent(self.pluginId, forKey: .pluginId)
         try container.encodeIfPresent(self.reason, forKey: .reason)
+        try container.encodeIfPresent(self.deliveries, forKey: .deliveries)
     }
 }
 
@@ -1199,6 +1223,8 @@ public struct ScriptAttempt: Codable, Equatable, Sendable {
     public var label: String?
     /// The words. Absent for an attempt that produced none
     public var script: String?
+    /// How the writer chose to have the words read, `hushed` or `frantic`. Absent for an ordinary reading
+    public var delivery: String?
     /// The model that said it, for a writer that used one
     public var model: String?
     /// What the line was rendered from, for a writer working from something an operator can edit
@@ -1219,7 +1245,7 @@ public struct ScriptAttempt: Codable, Equatable, Sendable {
     /// What the operator thought of it. ABSENT means nobody has said, which `neutral` does not
     public var rating: ScriptRating?
 
-    public init(id: String, at: Date, kind: String, writer: String, outcome: ScriptOutcome, personaKey: String? = nil, label: String? = nil, script: String? = nil, model: String? = nil, source: String? = nil, reason: String? = nil, segmentId: String? = nil, previous: ScriptNeighbour? = nil, next: ScriptNeighbour? = nil, durationMs: Int? = nil, usage: ScriptUsage? = nil, raw: String? = nil, prompt: [ScriptPromptMessage]? = nil, rating: ScriptRating? = nil) {
+    public init(id: String, at: Date, kind: String, writer: String, outcome: ScriptOutcome, personaKey: String? = nil, label: String? = nil, script: String? = nil, delivery: String? = nil, model: String? = nil, source: String? = nil, reason: String? = nil, segmentId: String? = nil, previous: ScriptNeighbour? = nil, next: ScriptNeighbour? = nil, durationMs: Int? = nil, usage: ScriptUsage? = nil, raw: String? = nil, prompt: [ScriptPromptMessage]? = nil, rating: ScriptRating? = nil) {
         self.id = id
         self.at = at
         self.kind = kind
@@ -1228,6 +1254,7 @@ public struct ScriptAttempt: Codable, Equatable, Sendable {
         self.personaKey = personaKey
         self.label = label
         self.script = script
+        self.delivery = delivery
         self.model = model
         self.source = source
         self.reason = reason
@@ -1250,6 +1277,7 @@ public struct ScriptAttempt: Codable, Equatable, Sendable {
         case personaKey = "personaKey"
         case label = "label"
         case script = "script"
+        case delivery = "delivery"
         case model = "model"
         case source = "source"
         case reason = "reason"
@@ -1273,6 +1301,7 @@ public struct ScriptAttempt: Codable, Equatable, Sendable {
         self.personaKey = try container.decodeIfPresent(String.self, forKey: .personaKey)
         self.label = try container.decodeIfPresent(String.self, forKey: .label)
         self.script = try container.decodeIfPresent(String.self, forKey: .script)
+        self.delivery = try container.decodeIfPresent(String.self, forKey: .delivery)
         self.model = try container.decodeIfPresent(String.self, forKey: .model)
         self.source = try container.decodeIfPresent(String.self, forKey: .source)
         self.reason = try container.decodeIfPresent(String.self, forKey: .reason)
@@ -1296,6 +1325,7 @@ public struct ScriptAttempt: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.personaKey, forKey: .personaKey)
         try container.encodeIfPresent(self.label, forKey: .label)
         try container.encodeIfPresent(self.script, forKey: .script)
+        try container.encodeIfPresent(self.delivery, forKey: .delivery)
         try container.encodeIfPresent(self.model, forKey: .model)
         try container.encodeIfPresent(self.source, forKey: .source)
         try container.encodeIfPresent(self.reason, forKey: .reason)
@@ -1324,6 +1354,8 @@ public struct ScriptAttemptInput: Codable, Equatable, Sendable {
     public var label: String?
     /// The words. Absent for an attempt that produced none
     public var script: String?
+    /// How the writer chose to have the words read, `hushed` or `frantic`. Absent for an ordinary reading
+    public var delivery: String?
     /// The model that said it, for a writer that used one
     public var model: String?
     /// What the line was rendered from, for a writer working from something an operator can edit
@@ -1342,7 +1374,7 @@ public struct ScriptAttemptInput: Codable, Equatable, Sendable {
     /// What the writer sent. Only while `llm.captureWrites` is on
     public var prompt: [ScriptPromptMessage]?
 
-    public init(id: String, at: Date, kind: String, writer: String, outcome: ScriptOutcome, personaKey: String? = nil, label: String? = nil, script: String? = nil, model: String? = nil, source: String? = nil, reason: String? = nil, segmentId: String? = nil, previous: ScriptNeighbour? = nil, next: ScriptNeighbour? = nil, durationMs: Int? = nil, usage: ScriptUsage? = nil, raw: String? = nil, prompt: [ScriptPromptMessage]? = nil) {
+    public init(id: String, at: Date, kind: String, writer: String, outcome: ScriptOutcome, personaKey: String? = nil, label: String? = nil, script: String? = nil, delivery: String? = nil, model: String? = nil, source: String? = nil, reason: String? = nil, segmentId: String? = nil, previous: ScriptNeighbour? = nil, next: ScriptNeighbour? = nil, durationMs: Int? = nil, usage: ScriptUsage? = nil, raw: String? = nil, prompt: [ScriptPromptMessage]? = nil) {
         self.id = id
         self.at = at
         self.kind = kind
@@ -1351,6 +1383,7 @@ public struct ScriptAttemptInput: Codable, Equatable, Sendable {
         self.personaKey = personaKey
         self.label = label
         self.script = script
+        self.delivery = delivery
         self.model = model
         self.source = source
         self.reason = reason
@@ -1372,6 +1405,7 @@ public struct ScriptAttemptInput: Codable, Equatable, Sendable {
         case personaKey = "personaKey"
         case label = "label"
         case script = "script"
+        case delivery = "delivery"
         case model = "model"
         case source = "source"
         case reason = "reason"
@@ -1394,6 +1428,7 @@ public struct ScriptAttemptInput: Codable, Equatable, Sendable {
         self.personaKey = try container.decodeIfPresent(String.self, forKey: .personaKey)
         self.label = try container.decodeIfPresent(String.self, forKey: .label)
         self.script = try container.decodeIfPresent(String.self, forKey: .script)
+        self.delivery = try container.decodeIfPresent(String.self, forKey: .delivery)
         self.model = try container.decodeIfPresent(String.self, forKey: .model)
         self.source = try container.decodeIfPresent(String.self, forKey: .source)
         self.reason = try container.decodeIfPresent(String.self, forKey: .reason)
@@ -1416,6 +1451,7 @@ public struct ScriptAttemptInput: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.personaKey, forKey: .personaKey)
         try container.encodeIfPresent(self.label, forKey: .label)
         try container.encodeIfPresent(self.script, forKey: .script)
+        try container.encodeIfPresent(self.delivery, forKey: .delivery)
         try container.encodeIfPresent(self.model, forKey: .model)
         try container.encodeIfPresent(self.source, forKey: .source)
         try container.encodeIfPresent(self.reason, forKey: .reason)

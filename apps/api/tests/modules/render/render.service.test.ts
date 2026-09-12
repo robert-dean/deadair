@@ -53,6 +53,8 @@ interface ServiceOptions {
     attempts?: unknown[];
     /** What the summary answers with. Absent leaves the counts a stub that throws when called. */
     counts?: unknown[];
+    /** Which deliveries the speaker performs right now. Absent is none, which is most engines. */
+    deliveries?: string[];
 }
 
 const service = (options: ServiceOptions = {}) => {
@@ -69,6 +71,7 @@ const service = (options: ServiceOptions = {}) => {
     const speaker = vi.fn().mockReturnValue(options.speaker === null ? undefined : SPEAKER);
     const speakers = vi.fn().mockReturnValue(options.speaker === null ? [] : [SPEAKER]);
     const voices = vi.fn().mockResolvedValue(options.voices ?? []);
+    const deliveriesOf = vi.fn().mockResolvedValue(options.deliveries ?? []);
     const speakAs = vi.fn(options.speakAs ?? (async () => 'mp3'));
     const sampleRead = vi.fn().mockResolvedValue(options.sample);
     // Why nobody can speak is SpeechService's sentence to write, and is tested there.
@@ -87,8 +90,8 @@ const service = (options: ServiceOptions = {}) => {
     const samples = {
         // The text rides the key exactly as the real store puts it there, so a case can tell one
         // script's file from another's — which is the whole of what a speech preview caches on.
-        keyFor: (pluginId: string, voiceId: string, spec?: string, text: string = SAMPLE_TEXT) =>
-            `key:${pluginId}:${voiceId}${spec === undefined ? '' : `:${spec}`}${text === SAMPLE_TEXT ? '' : `:${text}`}`,
+        keyFor: (pluginId: string, voiceId: string, spec?: string, text: string = SAMPLE_TEXT, delivery?: string) =>
+            `key:${pluginId}:${voiceId}${spec === undefined ? '' : `:${spec}`}${text === SAMPLE_TEXT ? '' : `:${text}`}${delivery === undefined ? '' : `:${delivery}`}`,
         extensions: ['mp3', 'wav'],
         read: sampleRead,
     };
@@ -101,7 +104,7 @@ const service = (options: ServiceOptions = {}) => {
                 scan,
             } as unknown as SegmentLibrary,
             { send } as never,
-            { speaker, speakers, voices, speakAs, explainSpeaker } as never,
+            { speaker, speakers, voices, speakAs, explainSpeaker, deliveriesOf } as never,
             samples as never,
             // Script history is a read most of this suite never makes, so it stays a stub rather
             // than a fake unless a case hands over `attempts`: a page() nobody calls that throws is
@@ -232,6 +235,26 @@ describe('RenderService.createSegment', () => {
         expect(without.plan).toHaveBeenCalledWith(expect.not.objectContaining({ voice: expect.anything() }));
     });
 
+    it('carries a delivery through, and plans none when there is none', async () => {
+        const hushed = service({ planned: { ...PLANNED, delivery: 'hushed' } });
+        const created = await hushed.service.createSegment({ label: 'late', script: 'Quiet now.', delivery: 'hushed' });
+        expect(hushed.plan).toHaveBeenCalledWith(expect.objectContaining({ delivery: 'hushed' }));
+        expect(created.delivery).toBe('hushed');
+
+        const ordinary = service();
+        await ordinary.service.createSegment({ label: 'back-announce', script: 'That was that.' });
+        expect(ordinary.plan).toHaveBeenCalledWith(expect.not.objectContaining({ delivery: expect.anything() }));
+    });
+
+    it('refuses a delivery the station has no word for, rather than planting an ordinary reading', async () => {
+        // The contract types it as a string so a new reading is not a breaking change in four
+        // generated clients. This is where the vocabulary is held, and before anything is written.
+        const { service: render, plan } = service();
+
+        expect(await status(render.createSegment({ label: 'x', script: 'Loud.', delivery: 'shouty' }))).toBe(400);
+        expect(plan).not.toHaveBeenCalled();
+    });
+
     it('takes the kind the caller asked for', async () => {
         const { service: render, plan } = service();
 
@@ -272,6 +295,14 @@ describe('RenderService.listVoices', () => {
         const { service: render } = service({ voices: [{ id: 'host', label: 'Station host', spec: 'af_heart@1' }] });
 
         expect(await render.listVoices()).toEqual({ voices: [{ id: 'host', label: 'Station host' }], pluginId: 'deadair.kokoro' });
+    });
+
+    it('says which deliveries the engine performs, and says nothing when it is none', async () => {
+        const reading = service({ voices: [{ id: 'host', label: 'Station host' }], deliveries: ['hushed', 'frantic'] });
+        expect((await reading.service.listVoices()).deliveries).toEqual(['hushed', 'frantic']);
+
+        const plain = service({ voices: [{ id: 'host', label: 'Station host' }] });
+        expect(await plain.service.listVoices()).not.toHaveProperty('deliveries');
     });
 
     it('answers an empty list with a reason rather than failing', async () => {
@@ -463,6 +494,39 @@ describe('RenderService.previewSpeech', () => {
         const keys = (speakAs.mock.calls as unknown as unknown[][]).map(call => call[1]);
         expect(keys).toHaveLength(2);
         expect(keys[0]).not.toBe(keys[1]);
+    });
+
+    it('reads the words the way it was asked, and keys that reading as its own file', async () => {
+        const { service: render, speakAs, sampleRead } = service({ deliveries: ['hushed', 'frantic'] });
+        sampleRead.mockResolvedValue(undefined);
+
+        await render.previewSpeech({ text: 'One line.', voice: 'host', delivery: 'frantic' }).catch(() => undefined);
+        await render.previewSpeech({ text: 'One line.', voice: 'host' }).catch(() => undefined);
+
+        const calls = speakAs.mock.calls as unknown as unknown[][];
+        expect(calls[0]?.[3]).toEqual({ text: 'One line.', voice: 'host', delivery: 'frantic' });
+        expect(calls[0]?.[1]).toBe('key:deadair.kokoro:host:One line.:frantic');
+        expect(calls[1]?.[1]).toBe('key:deadair.kokoro:host:One line.');
+    });
+
+    it('keys a delivery the engine does not perform as the ordinary reading it will actually get', async () => {
+        // Keyed on what was asked, an ordinary reading would be filed under `frantic` and served back
+        // after the operator switched to a model that does perform it.
+        const { service: render, speakAs, sampleRead } = service();
+        sampleRead.mockResolvedValue(undefined);
+
+        await render.previewSpeech({ text: 'One line.', voice: 'host', delivery: 'frantic' }).catch(() => undefined);
+
+        const calls = speakAs.mock.calls as unknown as unknown[][];
+        expect(calls[0]?.[1]).toBe('key:deadair.kokoro:host:One line.');
+        expect(calls[0]?.[3]).toEqual({ text: 'One line.', voice: 'host' });
+    });
+
+    it('refuses a delivery the station has no word for', async () => {
+        const { service: render, speakAs } = service({ deliveries: ['hushed', 'frantic'] });
+
+        expect(await status(render.previewSpeech({ text: 'One line.', delivery: 'shouty' }))).toBe(400);
+        expect(speakAs).not.toHaveBeenCalled();
     });
 
     it('answers 503 when nothing can speak, because that is the station and not the words', async () => {

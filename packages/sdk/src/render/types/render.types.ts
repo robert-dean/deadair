@@ -39,11 +39,13 @@ export interface Segment {
     error?: string;
     /** The station's own name for the voice this is said in, e.g. `host`. Absent means the speech plugin's default */
     voice?: string;
+    /** How the words are read: `hushed` or `frantic`. Absent is the voice's own ordinary reading, which is nearly every segment */
+    delivery?: string;
 }
 
 /**
  * Something for the station to say, before anything has said it
- * generated from [SegmentCreate](../../../../../apps/api/data/contracts/render/render.types.ck#L22)
+ * generated from [SegmentCreate](../../../../../apps/api/data/contracts/render/render.types.ck#L23)
  */
 export interface SegmentCreate {
     /** What the console calls it, and what the mount is labelled with while it airs */
@@ -54,6 +56,8 @@ export interface SegmentCreate {
     kind?: string;
     /** A station voice name the speech plugin knows how to map. Absent uses its default */
     voice?: string;
+    /** How to read the words: `hushed` or `frantic`, and refused otherwise. Absent is the voice's own ordinary reading. Dropped at render time by an engine that cannot perform it */
+    delivery?: string;
 }
 
 /**
@@ -62,7 +66,7 @@ export interface SegmentCreate {
  * Documentation rather than validation: a multipart body reaches the service as the raw parser and
  * the generated client types the body as `FormData`, so nothing checks this shape. It says what to
  * send
- * generated from [SegmentUpload](../../../../../apps/api/data/contracts/render/render.types.ck#L34)
+ * generated from [SegmentUpload](../../../../../apps/api/data/contracts/render/render.types.ck#L36)
  */
 export interface SegmentUpload {
     /** The audio itself. mp3, wav, ogg, flac or m4a, and at most 50 MB */
@@ -75,7 +79,7 @@ export interface SegmentUpload {
 
 /**
  * A voice the station can be asked to speak in
- * generated from [Voice](../../../../../apps/api/data/contracts/render/render.types.ck#L44)
+ * generated from [Voice](../../../../../apps/api/data/contracts/render/render.types.ck#L46)
  */
 export interface Voice {
     /** What to pass as a segment's `voice`. Empty means the plugin's own default */
@@ -88,13 +92,13 @@ export interface Voice {
 
 /**
  * Whether there are words, and if not, which way it went wrong
- * generated from [ScriptOutcome](../../../../../apps/api/data/contracts/render/render.types.ck#L56)
+ * generated from [ScriptOutcome](../../../../../apps/api/data/contracts/render/render.types.ck#L59)
  */
 export type ScriptOutcome = 'written' | 'declined' | 'failed';
 
 /**
  * A record a writer was told about, kept as it was told
- * generated from [ScriptNeighbour](../../../../../apps/api/data/contracts/render/render.types.ck#L58)
+ * generated from [ScriptNeighbour](../../../../../apps/api/data/contracts/render/render.types.ck#L61)
  */
 export interface ScriptNeighbour {
     title: string;
@@ -105,7 +109,7 @@ export interface ScriptNeighbour {
 
 /**
  * What the provider said the attempt cost, when it said anything
- * generated from [ScriptUsage](../../../../../apps/api/data/contracts/render/render.types.ck#L64)
+ * generated from [ScriptUsage](../../../../../apps/api/data/contracts/render/render.types.ck#L67)
  */
 export interface ScriptUsage {
     inputTokens?: number;
@@ -115,7 +119,7 @@ export interface ScriptUsage {
 
 /**
  * One turn of the conversation a writer sent
- * generated from [ScriptPromptMessage](../../../../../apps/api/data/contracts/render/render.types.ck#L70)
+ * generated from [ScriptPromptMessage](../../../../../apps/api/data/contracts/render/render.types.ck#L73)
  */
 export interface ScriptPromptMessage {
     role: string;
@@ -132,24 +136,26 @@ export interface ScriptPromptMessage {
  * `neutral` is a real answer rather than an absence. Rating something back to nothing is a thing an
  * operator does, and it has to be distinguishable from never having listened, which is the field
  * being absent on the attempt.
- * generated from [ScriptRating](../../../../../apps/api/data/contracts/render/render.types.ck#L106)
+ * generated from [ScriptRating](../../../../../apps/api/data/contracts/render/render.types.ck#L110)
  */
 export type ScriptRating = 'liked' | 'neutral' | 'disliked';
 
 /**
  * Words to hear before anything has aired them
- * generated from [SpeechPreviewRequest](../../../../../apps/api/data/contracts/render/render.types.ck#L127)
+ * generated from [SpeechPreviewRequest](../../../../../apps/api/data/contracts/render/render.types.ck#L131)
  */
 export interface SpeechPreviewRequest {
     /** What to say. Far under a segment's 20000 because this is one break heard once, and the cap is what bounds a cache keyed on the words themselves */
     text: string;
     /** A station voice name, as a segment's `voice`. Absent uses the plugin's own default */
     voice?: string;
+    /** How to read it, as a segment's `delivery`: `hushed` or `frantic`, and refused otherwise. Absent is the voice's own ordinary reading */
+    delivery?: string;
 }
 
 /**
  * The window the counts cover
- * generated from [ScriptHistorySummaryQuery](../../../../../apps/api/data/contracts/render/render.types.ck#L132)
+ * generated from [ScriptHistorySummaryQuery](../../../../../apps/api/data/contracts/render/render.types.ck#L138)
  */
 export interface ScriptHistorySummaryQuery {
     /** How far back to count. Defaults to 24, and a week at most, because past that the nightly sweep may already have taken the rows and the count would quietly be of what survived rather than of what happened */
@@ -158,7 +164,7 @@ export interface ScriptHistorySummaryQuery {
 
 /**
  * One presenter's attempts in the window
- * generated from [ScriptHistorySummaryRow](../../../../../apps/api/data/contracts/render/render.types.ck#L136)
+ * generated from [ScriptHistorySummaryRow](../../../../../apps/api/data/contracts/render/render.types.ck#L142)
  */
 export interface ScriptHistorySummaryRow {
     /** Absent means nobody was presenting, which is an ordinary state rather than a gap in the data */
@@ -171,7 +177,7 @@ export interface ScriptHistorySummaryRow {
 
 /**
  * What one pass over the inbox did
- * generated from [SegmentScanResult](../../../../../apps/api/data/contracts/render/render.types.ck#L148)
+ * generated from [SegmentScanResult](../../../../../apps/api/data/contracts/render/render.types.ck#L154)
  */
 export interface SegmentScanResult {
     /** Audio files seen, whether or not they were already known */
@@ -184,7 +190,7 @@ export interface SegmentScanResult {
 
 /**
  * One name the station says differently from how it is written
- * generated from [Pronunciation](../../../../../apps/api/data/contracts/render/render.types.ck#L154)
+ * generated from [Pronunciation](../../../../../apps/api/data/contracts/render/render.types.ck#L160)
  */
 export interface Pronunciation {
     id: string;
@@ -208,7 +214,7 @@ export interface Pronunciation {
 
 /**
  * A name and how to say it
- * generated from [PronunciationWrite](../../../../../apps/api/data/contracts/render/render.types.ck#L171)
+ * generated from [PronunciationWrite](../../../../../apps/api/data/contracts/render/render.types.ck#L177)
  */
 export interface PronunciationWrite {
     written: string;
@@ -218,7 +224,7 @@ export interface PronunciationWrite {
 
 /**
  * Accepting a proposal, turning one down, or taking an entry out of use without losing it
- * generated from [PronunciationStateWrite](../../../../../apps/api/data/contracts/render/render.types.ck#L176)
+ * generated from [PronunciationStateWrite](../../../../../apps/api/data/contracts/render/render.types.ck#L182)
  */
 export interface PronunciationStateWrite {
     state: 'active' | 'suggested' | 'rejected';
@@ -226,7 +232,7 @@ export interface PronunciationStateWrite {
 
 /**
  * Which part of the lexicon to read
- * generated from [PronunciationQuery](../../../../../apps/api/data/contracts/render/render.types.ck#L180)
+ * generated from [PronunciationQuery](../../../../../apps/api/data/contracts/render/render.types.ck#L186)
  */
 export interface PronunciationQuery {
     /** Absent is all of it */
@@ -239,7 +245,7 @@ export interface PronunciationQuery {
  * `name` is what a script writes to hit it and `label` is what a person reads: two columns rather
  * than one, because a token for a model and prose for an operator are different things and the
  * filename produces both
- * generated from [Pad](../../../../../apps/api/data/contracts/render/render.types.ck#L189)
+ * generated from [Pad](../../../../../apps/api/data/contracts/render/render.types.ck#L195)
  */
 export interface Pad {
     id: string;
@@ -293,7 +299,7 @@ export function revivePad(raw: Pad): Pad {
  * Documentation rather than validation: a multipart body reaches the service as the raw parser and
  * the generated client types the body as `FormData`, so nothing checks this shape. It says what to
  * send
- * generated from [PadUpload](../../../../../apps/api/data/contracts/render/render.types.ck#L208)
+ * generated from [PadUpload](../../../../../apps/api/data/contracts/render/render.types.ck#L214)
  */
 export interface PadUpload {
     /** The audio itself. mp3, wav, ogg, flac or m4a, and at most 25 MB */
@@ -312,7 +318,7 @@ export interface PadUpload {
  * The operator names the address, so this is them choosing a file exactly as dropping one in the
  * library is. Nothing inspects what comes back and nothing records a claim about its licence -- see
  * `docs/internals/render.md` under "Pads", whose line is redistribution rather than use
- * generated from [PadFetch](../../../../../apps/api/data/contracts/render/render.types.ck#L220)
+ * generated from [PadFetch](../../../../../apps/api/data/contracts/render/render.types.ck#L226)
  */
 export interface PadFetch {
     /** Where the audio is. Followed once, bounded, and refused unless what comes back is a format the station serves */
@@ -329,7 +335,7 @@ export interface PadFetch {
  *
  * One library, cut as many ways as an operator likes. `personas.soundboard` holds the `key`, so
  * renaming a set unpoints every persona naming it — which is why `personas` says who those are
- * generated from [PadSet](../../../../../apps/api/data/contracts/render/render.types.ck#L236)
+ * generated from [PadSet](../../../../../apps/api/data/contracts/render/render.types.ck#L242)
  */
 export interface PadSet {
     id: string;
@@ -352,7 +358,7 @@ export interface PadSetInput {
 
 /**
  * A set an operator is naming, or renaming
- * generated from [PadSetWrite](../../../../../apps/api/data/contracts/render/render.types.ck#L245)
+ * generated from [PadSetWrite](../../../../../apps/api/data/contracts/render/render.types.ck#L251)
  */
 export interface PadSetWrite {
     key: string;
@@ -362,7 +368,7 @@ export interface PadSetWrite {
 
 /**
  * Which pad, and whether it is on the set
- * generated from [PadSetMembership](../../../../../apps/api/data/contracts/render/render.types.ck#L251)
+ * generated from [PadSetMembership](../../../../../apps/api/data/contracts/render/render.types.ck#L257)
  */
 export interface PadSetMembership {
     padId: string;
@@ -371,7 +377,7 @@ export interface PadSetMembership {
 
 /**
  * Turning a pad down, or putting one back
- * generated from [PadState](../../../../../apps/api/data/contracts/render/render.types.ck#L256)
+ * generated from [PadState](../../../../../apps/api/data/contracts/render/render.types.ck#L262)
  */
 export interface PadState {
     state: 'active' | 'rejected';
@@ -379,7 +385,7 @@ export interface PadState {
 
 /**
  * What one pass over the pad library did
- * generated from [PadScanResult](../../../../../apps/api/data/contracts/render/render.types.ck#L260)
+ * generated from [PadScanResult](../../../../../apps/api/data/contracts/render/render.types.ck#L266)
  */
 export interface PadScanResult {
     /** Audio files seen, whether or not anything changed */
@@ -396,7 +402,7 @@ export interface PadScanResult {
 
 /**
  * Everything the station can play that is not a record
- * generated from [SegmentList](../../../../../apps/api/data/contracts/render/render.types.ck#L40)
+ * generated from [SegmentList](../../../../../apps/api/data/contracts/render/render.types.ck#L42)
  */
 export interface SegmentList {
     segments: Segment[];
@@ -404,7 +410,7 @@ export interface SegmentList {
 
 /**
  * The voices the station's current speech plugin offers
- * generated from [VoiceList](../../../../../apps/api/data/contracts/render/render.types.ck#L50)
+ * generated from [VoiceList](../../../../../apps/api/data/contracts/render/render.types.ck#L52)
  */
 export interface VoiceList {
     voices: Voice[];
@@ -412,11 +418,13 @@ export interface VoiceList {
     pluginId?: string;
     /** Why there are no voices, when there are none */
     reason?: string;
+    /** Which readings that plugin can perform right now, out of `hushed` and `frantic`. Absent or empty means none, which is most engines and is not a fault */
+    deliveries?: string[];
 }
 
 /**
  * One page of what the station has written, newest first
- * generated from [ScriptHistoryQuery](../../../../../apps/api/data/contracts/render/render.types.ck#L112)
+ * generated from [ScriptHistoryQuery](../../../../../apps/api/data/contracts/render/render.types.ck#L116)
  */
 export interface ScriptHistoryQuery {
     limit?: number;
@@ -433,7 +441,7 @@ export interface ScriptHistoryQuery {
 
 /**
  * One attempt to write something the station would say, including the ones that came to nothing
- * generated from [ScriptAttempt](../../../../../apps/api/data/contracts/render/render.types.ck#L75)
+ * generated from [ScriptAttempt](../../../../../apps/api/data/contracts/render/render.types.ck#L78)
  */
 export interface ScriptAttempt {
     id: string;
@@ -448,6 +456,8 @@ export interface ScriptAttempt {
     label?: string;
     /** The words. Absent for an attempt that produced none */
     script?: string;
+    /** How the writer chose to have the words read, `hushed` or `frantic`. Absent for an ordinary reading */
+    delivery?: string;
     /** The model that said it, for a writer that used one */
     model?: string;
     /** What the line was rendered from, for a writer working from something an operator can edit */
@@ -482,6 +492,8 @@ export interface ScriptAttemptInput {
     label?: string;
     /** The words. Absent for an attempt that produced none */
     script?: string;
+    /** How the writer chose to have the words read, `hushed` or `frantic`. Absent for an ordinary reading */
+    delivery?: string;
     /** The model that said it, for a writer that used one */
     model?: string;
     /** What the line was rendered from, for a writer working from something an operator can edit */
@@ -509,7 +521,7 @@ export function reviveScriptAttempt(raw: ScriptAttempt): ScriptAttempt {
 }
 
 /**
- * generated from [ScriptRatingInput](../../../../../apps/api/data/contracts/render/render.types.ck#L108)
+ * generated from [ScriptRatingInput](../../../../../apps/api/data/contracts/render/render.types.ck#L112)
  */
 export interface ScriptRatingInput {
     rating: ScriptRating;
@@ -517,7 +529,7 @@ export interface ScriptRatingInput {
 
 /**
  * What each presenter has written lately, and over how long
- * generated from [ScriptHistorySummary](../../../../../apps/api/data/contracts/render/render.types.ck#L143)
+ * generated from [ScriptHistorySummary](../../../../../apps/api/data/contracts/render/render.types.ck#L149)
  */
 export interface ScriptHistorySummary {
     /** The window actually counted, echoed so a console can label the numbers it draws */
@@ -527,7 +539,7 @@ export interface ScriptHistorySummary {
 
 /**
  * The station's lexicon, oldest first
- * generated from [PronunciationList](../../../../../apps/api/data/contracts/render/render.types.ck#L167)
+ * generated from [PronunciationList](../../../../../apps/api/data/contracts/render/render.types.ck#L173)
  */
 export interface PronunciationList {
     pronunciations: Pronunciation[];
@@ -535,7 +547,7 @@ export interface PronunciationList {
 
 /**
  * Every sound the station holds, and the sets over it
- * generated from [PadList](../../../../../apps/api/data/contracts/render/render.types.ck#L227)
+ * generated from [PadList](../../../../../apps/api/data/contracts/render/render.types.ck#L233)
  */
 export interface PadList {
     pads: Pad[];
@@ -560,7 +572,7 @@ export function revivePadList(raw: PadList): PadList {
 }
 
 /**
- * generated from [ScriptHistoryPage](../../../../../apps/api/data/contracts/render/render.types.ck#L122)
+ * generated from [ScriptHistoryPage](../../../../../apps/api/data/contracts/render/render.types.ck#L126)
  */
 export interface ScriptHistoryPage {
     attempts: ScriptAttempt[];

@@ -1789,6 +1789,14 @@ export class DirectorService {
         // this pass rather than the next.
         await this.holdWarmUp(lineup, rules);
 
+        // Immediately before the lead is read, so that everything above this line that can put an
+        // item in front of a prepared one (an operator's edit, which runs this pass, and every
+        // break placed at the head of what is not handed over) is already done. The transport
+        // will not hand a stranded item over out of turn either way; this is what has it prepared
+        // afresh at its new slot rather than aired later in the form it had at its old one. A cue
+        // riding one is marked skipped, which is a change to the order, so it is written down.
+        if (this.rundown.forgetStranded() > 0) this.persistSoon();
+
         const held = this.rundown.upcoming().length;
         if (held < COMMIT_LEAD) {
             // ── gather ──────────────────────────────────────────────────────────────

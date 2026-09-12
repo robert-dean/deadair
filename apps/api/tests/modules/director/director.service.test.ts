@@ -2468,6 +2468,61 @@ describe('DirectorService editing what is on air', () => {
         expect(lineup.all().some(item => item.kind === 'segment')).toBe(false);
     });
 
+    it('airs the shuffled order from its new head rather than from the record it had prepared', async () => {
+        // What an idle station did with a shuffle. The first record was prepared and, with nobody
+        // listening, never handed over, so the shuffle moved it down the order. The player was
+        // given it anyway when a listener arrived, and every record in front of it was marked
+        // skipped: the station jumped straight to the playlist's first record.
+        const { director, lineup, rundown, seed } = build({ items: ['a', 'b', 'c', 'd'] });
+        await seed();
+        await director.start();
+        expect(idsOf(rundown.upcoming())).toEqual(['a']);
+
+        // Always swapping with the front turns the tail a, b, c, d into b, c, d, a.
+        const random = vi.spyOn(Math, 'random').mockReturnValue(0);
+        try {
+            expect(await director.applyEdit({ kind: 'shuffle' })).toEqual({ ok: true });
+        } finally {
+            random.mockRestore();
+        }
+
+        const records = (items: readonly { pluginId: string; externalId: string }[]) =>
+            idsOf(items.filter(item => item.pluginId !== RENDER_PLUGIN_ID));
+        expect(records(rundown.upcoming())).toEqual(['b']);
+
+        let pulled = await rundown.next();
+        while (pulled !== undefined && pulled.item.pluginId === RENDER_PLUGIN_ID) pulled = await rundown.next();
+        expect(pulled?.item.externalId).toBe('b');
+
+        rundown.markAired(pulled!.item.id);
+        expect(
+            lineup
+                .all()
+                .filter(isTrackItem)
+                .filter(item => item.state === 'skipped'),
+        ).toEqual([]);
+    });
+
+    it('prepares a record the shuffle moved away afresh, rather than in the form it had as next', async () => {
+        // The pass behind the edit forgets it, so when its turn comes it is resolved again against
+        // the order as it stands then: the measurement it has by that point, and no cue written for
+        // the boundary it has left.
+        const { director, lineup, rundown, seed } = build({ items: ['a', 'b', 'c', 'd'] });
+        await seed();
+        await director.start();
+        const first = lineup.all().find(item => isTrackItem(item) && item.track.externalId === 'a')!;
+        expect(rundown.isPrepared(first.id)).toBe(true);
+
+        const random = vi.spyOn(Math, 'random').mockReturnValue(0);
+        try {
+            await director.applyEdit({ kind: 'shuffle' });
+        } finally {
+            random.mockRestore();
+        }
+
+        expect(rundown.isPrepared(first.id)).toBe(false);
+    });
+
     it('leaves an ident alone, because the same recording is at three slots in an hour', async () => {
         const { director, lineup, segmentStub, seed } = build({
             segments: [{ id: 'ident-1', kind: 'ident', state: 'ready', label: 'Ident', source: 'library' }],

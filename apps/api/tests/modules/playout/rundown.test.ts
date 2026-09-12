@@ -666,6 +666,92 @@ describe('Rundown.prepare', () => {
         await rundown.next();
         expect(await rundown.next()).toBeUndefined();
     });
+
+    it('will not hand over past an item the director has not prepared', async () => {
+        // A shuffle on an idle station. The director had prepared the first record, but nobody was
+        // listening so the player had not been handed it, and a prepared record is still `planned`:
+        // the shuffle moved it down behind records nobody had prepared. The hand-over went straight
+        // to it anyway, and the player airing it marked everything in front of it skipped. On the
+        // live station that was 19 items, and the listener heard the playlist's first record.
+        const rundown = new Rundown(new StubResolver(), logger);
+        const order = new StationLineup({ name: 'Test', mode: 'rotation', onEnd: 'extend', source: 'import' });
+        order.replaceFrom(['a', 'b', 'c', 'd'].map(track));
+        rundown.attach(order);
+        const first = order.all()[0]!;
+        rundown.prepare([{ ...(first as { track: RundownTrack }).track, id: first.id }]);
+
+        // Always swapping with the front turns the tail a, b, c, d into b, c, d, a.
+        const random = vi.spyOn(Math, 'random').mockReturnValue(0);
+        try {
+            order.shuffleRemaining();
+        } finally {
+            random.mockRestore();
+        }
+
+        expect(rundown.upcoming()).toEqual([]);
+        expect(rundown.queuedCount()).toBe(0);
+        expect(await rundown.next()).toBeUndefined();
+
+        // The director's next pass prepares the record that is actually first now, and that one airs
+        // with nothing passed over.
+        const head = order.all()[0]!;
+        rundown.prepare([{ ...(head as { track: RundownTrack }).track, id: head.id }]);
+        const pulled = await rundown.next();
+        expect(pulled?.item.externalId).toBe('b');
+
+        const aired = vi.fn();
+        rundown.onAired(aired);
+        rundown.markAired(pulled!.item.id);
+        expect(aired).toHaveBeenCalledWith(expect.objectContaining({ externalId: 'b' }), 0);
+        expect(order.all().filter(item => item.state === 'skipped')).toEqual([]);
+    });
+});
+
+describe('Rundown.forgetStranded', () => {
+    /** An order whose first record is prepared with a talk-over cue riding it, the way the director leaves one. */
+    const cuedOrder = () => {
+        const rundown = new Rundown(new StubResolver(), logger);
+        const order = new StationLineup({ name: 'Test', mode: 'rotation', onEnd: 'extend', source: 'import' });
+        order.replaceFrom(['a', 'b', 'c'].map(track));
+        order.insertSegment('talk-1', 0, { atMs: 5_000 });
+        rundown.attach(order);
+
+        const [cue, first] = order.all();
+        // The director hands a cue over itself when it attaches it to the record behind.
+        order.markHanded(cue!.id);
+        rundown.prepare([
+            { ...(first as { track: RundownTrack }).track, id: first!.id, voice: { segmentId: 'talk-1', atMs: 5_000, itemId: cue!.id } },
+        ]);
+        return { rundown, order, cue: cue!, first: first! };
+    };
+
+    it('forgets a record prepared behind one that is not, and the cue that was riding it', () => {
+        // Its prepared form is a snapshot of it as the NEXT record: the cue was written for the
+        // boundary it has been moved away from. Kept, it would air in that form when its turn came.
+        const { rundown, order, cue, first } = cuedOrder();
+
+        // Always swapping with the front turns the tail a, b, c into b, c, a.
+        const random = vi.spyOn(Math, 'random').mockReturnValue(0);
+        try {
+            order.shuffleRemaining();
+        } finally {
+            random.mockRestore();
+        }
+
+        expect(rundown.forgetStranded()).toBe(1);
+        expect(rundown.isPrepared(first.id)).toBe(false);
+        expect(order.find(cue.id)?.state).toBe('skipped');
+    });
+
+    it('leaves a prepared record alone while it is still next', () => {
+        // The ordinary edit, a record added at the end, moves nothing in front of it.
+        const { rundown, order, cue, first } = cuedOrder();
+        order.append([track('d')]);
+
+        expect(rundown.forgetStranded()).toBe(0);
+        expect(rundown.isPrepared(first.id)).toBe(true);
+        expect(order.find(cue.id)?.state).toBe('handed');
+    });
 });
 
 describe('Rundown.onAired', () => {

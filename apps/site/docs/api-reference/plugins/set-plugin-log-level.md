@@ -1,7 +1,7 @@
 ---
 title: 'Set plugin log level'
 sidebar_label: 'Set plugin log level'
-sidebar_position: 14
+sidebar_position: 15
 mdx:
     format: 'md'
 ---

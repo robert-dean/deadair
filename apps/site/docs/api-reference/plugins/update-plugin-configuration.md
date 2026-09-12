@@ -1,7 +1,7 @@
 ---
 title: 'Update plugin configuration'
 sidebar_label: 'Update plugin configuration'
-sidebar_position: 5
+sidebar_position: 6
 mdx:
     format: 'md'
 ---

@@ -1,6 +1,6 @@
 ---
 title: 'PluginOAuthResult'
-sidebar_position: 25
+sidebar_position: 27
 mdx:
     format: 'md'
 ---

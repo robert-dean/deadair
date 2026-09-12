@@ -60,6 +60,21 @@ public sealed class PluginsClient(SdkHttp http)
     }
 
     /// <summary>
+    /// Import plugin
+    /// Takes a plugin in from the browser as the tarball npm pack writes and puts it in the plugins directory. It lands disabled, and a newer version of an installed plugin replaces the older one
+    /// </summary>
+    /// <exception cref="SdkException">On 400, 409, 413, 415, 422.</exception>
+    public async Task<PluginImportResult> ImportPluginAsync(IEnumerable<SdkPart> body, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Post,
+            http.Path("plugins", "import"),
+            content: http.MultipartContent(body),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<PluginImportResult>(response);
+    }
+
+    /// <summary>
     /// Get plugin
     /// One plugin, including its stored non-secret configuration and last error
     /// </summary>

@@ -1999,6 +1999,34 @@ paths:
                                 type: array
                                 items:
                                     '$ref': '#/components/schemas/PluginSummary'
+    '/plugins/import':
+        post:
+            operationId: importPlugin
+            summary: 'Import plugin'
+            description: 'Takes a plugin in from the browser as the tarball npm pack writes and puts it in the plugins directory. It lands disabled, and a newer version of an installed plugin replaces the older one'
+            requestBody:
+                required: true
+                content:
+                    'multipart/form-data':
+                        schema:
+                            '$ref': '#/components/schemas/PluginImport'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/PluginImportResult'
+                '400':
+                    description: 'Bad request'
+                '409':
+                    description: Conflict
+                '413':
+                    description: 'Response 413'
+                '415':
+                    description: 'Response 415'
+                '422':
+                    description: 'Unprocessable entity'
     '/plugins/{id}':
         get:
             operationId: getPlugin
@@ -7809,6 +7837,33 @@ components:
                 - configFields
                 - secretsConfigured
             description: 'A plugin as the settings list sees it. Carries no configured VALUES, only which secrets are set'
+        PluginImport:
+            type: object
+            properties:
+                file:
+                    type: string
+                    format: binary
+                    description: 'The gzip tarball npm pack writes: every entry under package/, holding package.json and the built code, at most 64 MB'
+            required: [file]
+            description: "A plugin handed over from the browser. The generated client types the body as `FormData`, so\nnothing checks this shape. It says what to send"
+        PluginImportResult:
+            type: object
+            properties:
+                pluginId:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                    description: 'The id the imported plugin claimed'
+                restartRequired:
+                    type: boolean
+                    description: 'The same version was already loaded, so the station runs the build it had until it restarts. False for a new plugin and for a new version'
+                plugins:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/PluginSummary'
+                    description: 'Every plugin, as the catalogue now stands. An import can take an older version away as well as add one'
+            required: [pluginId, restartRequired, plugins]
+            description: 'What an import did'
         PluginLogLevel:
             type: string
             enum: [debug, info, warn, error]

@@ -7,6 +7,7 @@ import { RotatingLogStore } from '#src/logging/rotating.log.store.js';
 import { PluginConfigRepository } from './plugin.config.repository.js';
 import { PluginConfigService } from './plugin.config.service.js';
 import { PluginHostFactory, PluginHostFactoryOptions } from './plugin.host.factory.js';
+import { PluginInstallService } from './plugin.install.service.js';
 import { PluginInstaller } from './plugin.installer.js';
 import { PluginInvoker } from './plugin.invoker.js';
 import { PluginLifecycleManager } from './plugin.lifecycle.manager.js';
@@ -105,6 +106,7 @@ export const PluginsModule: ServerKitModule = {
         registry.register(PluginStorageRepository).useClass(PluginStorageRepository).asScoped();
         registry.register(PluginConfigService).useClass(PluginConfigService).asScoped();
         registry.register(PluginsService).useClass(PluginsService).asScoped();
+        registry.register(PluginInstallService).useClass(PluginInstallService).asScoped();
 
         registry
             .register(PluginHostFactoryOptions)

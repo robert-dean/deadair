@@ -1,6 +1,6 @@
 ---
 title: 'PluginDetail'
-sidebar_position: 16
+sidebar_position: 18
 mdx:
     format: 'md'
 ---

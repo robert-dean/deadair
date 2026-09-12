@@ -1,6 +1,6 @@
 ---
 title: 'PluginLogEntry'
-sidebar_position: 12
+sidebar_position: 14
 mdx:
     format: 'md'
 ---

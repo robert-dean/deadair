@@ -6,6 +6,7 @@ import com.maroonedsoftware.deadair.sdk.models.PluginDetail
 import com.maroonedsoftware.deadair.sdk.models.PluginFieldSuggestions
 import com.maroonedsoftware.deadair.sdk.models.PluginGrantInput
 import com.maroonedsoftware.deadair.sdk.models.PluginGrantList
+import com.maroonedsoftware.deadair.sdk.models.PluginImportResult
 import com.maroonedsoftware.deadair.sdk.models.PluginLogLevelInput
 import com.maroonedsoftware.deadair.sdk.models.PluginLogPage
 import com.maroonedsoftware.deadair.sdk.models.PluginLogQuery
@@ -16,6 +17,7 @@ import com.maroonedsoftware.deadair.sdk.models.PluginSummary
 import com.maroonedsoftware.deadair.sdk.models.PluginTestResult
 import com.maroonedsoftware.deadair.sdk.runtime.SdkHttp
 import io.ktor.http.HttpMethod
+import io.ktor.http.content.PartData
 
 /** Operations declared in `plugins.ck`. */
 class PluginsClient(private val http: SdkHttp) {
@@ -48,6 +50,19 @@ class PluginsClient(private val http: SdkHttp) {
     suspend fun rescanPlugins(): List<PluginSummary> {
         val response = http.execute(HttpMethod.Post) {
             path("plugins", "rescan")
+        }
+        return http.decodeJson(response)
+    }
+
+    /**
+     * Import plugin
+     * Takes a plugin in from the browser as the tarball npm pack writes and puts it in the plugins directory. It lands disabled, and a newer version of an installed plugin replaces the older one
+     * @throws SdkError on 400, 409, 413, 415, 422
+     */
+    suspend fun importPlugin(body: List<PartData>): PluginImportResult {
+        val response = http.execute(HttpMethod.Post) {
+            path("plugins", "import")
+            multipartBody(body)
         }
         return http.decodeJson(response)
     }

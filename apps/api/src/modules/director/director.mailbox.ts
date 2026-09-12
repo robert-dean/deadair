@@ -45,7 +45,9 @@ import type { EditResult, StationLineupBinding } from './station.lineup.js';
  * or precisely why it did not. See {@link EditResult}.
  */
 export type OrderEdit =
-    | { kind: 'shuffle' }
+    // `smart` absent is the plain shuffle. Present, it carries what the console read from the history,
+    // so the edit pass reads nothing and stays synchronous. See `StationLineup.shuffleRemaining`.
+    | { kind: 'shuffle'; smart?: { recentSongKeys: readonly string[] } }
     | { kind: 'move'; itemId: string; toIndex: number }
     | { kind: 'remove'; itemId: string }
     // `segmentKind` rather than `kind`, which this command has already spent on saying what it is.

@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import type { AiringResult, LiveOrder } from '#modules/playout/live.order.js';
 import type { RundownTrack } from '#modules/playout/rundown.js';
+import { artistKey, songKey } from './rotation.keys.js';
+import { spaceArtists } from './rotation.rules.js';
 import { MEASUREMENT_FIELDS, type TrackMeasurement } from './track.measurement.js';
 
 /**
@@ -349,6 +351,18 @@ export type EditResult = { ok: true } | { ok: false; reason: EditRefusal; messag
 export interface ShuffleResult {
     readonly result: EditResult;
     readonly dropped: readonly StationLineupItem[];
+}
+
+/**
+ * What a SMART shuffle knows that a plain one does not: which songs aired lately.
+ *
+ * Handed in rather than read, because this document reads nothing. The console service asks the
+ * history before posting the edit, so the director's edit pass stays synchronous and stays the
+ * only writer of the order.
+ */
+export interface SmartShuffleOrder {
+    /** `songKey`s aired inside the smart shuffle's horizon. Empty still means smart: the artists are spaced. */
+    readonly recentSongKeys: ReadonlySet<string>;
 }
 
 const OK: EditResult = { ok: true };
@@ -1126,11 +1140,19 @@ export class StationLineup implements LiveOrder {
      * records since the last segment ALREADY in the order, so a tail with no segments in it is
      * exactly the state it is built to plant into.
      *
+     * **A smart shuffle programmes the result as well.** With {@link SmartShuffleOrder} the random
+     * order is then split in two, keeping its randomness inside each half: records that have not
+     * aired lately first, the ones that have behind them, so a listener who heard one yesterday
+     * hears the rest of the hour before it. Each half is then artist-spaced, the second seeded with
+     * the end of the first and the first with the head's last record, because two by one act back to
+     * back is the most audible sign of a shuffle nobody programmed. Without it, this is the plain
+     * shuffle it always was.
+     *
      * @returns the items it dropped along with the outcome, because the caller has work to do on
      *   them: the segments among them own `deadair.segments` rows now describing a break that will
      *   never air.
      */
-    shuffleRemaining(): ShuffleResult {
+    shuffleRemaining(smart?: SmartShuffleOrder): ShuffleResult {
         const head = this.itemList.filter(item => item.state !== 'planned');
         const planned = this.itemList.filter(item => item.state === 'planned');
         const tail = planned.filter(isTrackItem);
@@ -1142,7 +1164,7 @@ export class StationLineup implements LiveOrder {
         }
         // The committed head keeps its own order and stays in front, which is the one
         // thing a shuffle must not touch: those items are already with the player.
-        this.itemList = [...head, ...tail];
+        this.itemList = [...head, ...(smart === undefined ? tail : programmeShuffled(tail, smart, lastAiredArtistOf(head)))];
         return { result: OK, dropped: planned.filter(item => !isTrackItem(item)) };
     }
 
@@ -1236,3 +1258,41 @@ const toItem = (track: RundownTrack): StationLineupItem => ({ id: randomUUID(), 
 
 /** Narrow an item to the records, for anything that reasons about what the station is PLAYING. */
 export const isTrackItem = (item: StationLineupItem): item is StationLineupTrackItem => item.kind === 'track';
+
+/**
+ * A shuffled tail, programmed: what has not aired lately in front, what has behind, each half
+ * artist-spaced. The order inside each half is the random one it arrived in, except where spacing
+ * has to move a record.
+ *
+ * Keyed on the lead `artist` and never `artists`, as `play_history` and every rotation rule are:
+ * the keys here have to match the history's byte for byte or nothing counts as recent.
+ */
+const programmeShuffled = (tail: readonly StationLineupTrackItem[], smart: SmartShuffleOrder, seed: string | undefined): StationLineupTrackItem[] => {
+    const keyed = tail.map(item => ({
+        item,
+        songKey: songKey(item.track.title, [item.track.artist]),
+        artistKey: artistKey([item.track.artist]),
+    }));
+    const fresh = spaceArtists(
+        keyed.filter(entry => !smart.recentSongKeys.has(entry.songKey)),
+        seed,
+    );
+    const stale = spaceArtists(
+        keyed.filter(entry => smart.recentSongKeys.has(entry.songKey)),
+        fresh.at(-1)?.artistKey ?? seed,
+    );
+    return [...fresh, ...stale].map(entry => entry.item);
+};
+
+/**
+ * The artist of the last record the player has, or has had, from the head: what the shuffled tail
+ * will follow on air. Removed, skipped and unavailable records never aired, so they are not what the
+ * tail follows.
+ */
+const lastAiredArtistOf = (head: readonly StationLineupItem[]): string | undefined => {
+    const last = head
+        .filter(isTrackItem)
+        .filter(item => item.state === 'handed' || item.state === 'airing' || item.state === 'played')
+        .at(-1);
+    return last === undefined ? undefined : artistKey([last.track.artist]);
+};

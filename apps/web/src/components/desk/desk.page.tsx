@@ -199,7 +199,11 @@ export function DeskPage() {
                         disable themselves instead, because neither means anything with nothing on. */}
                     {loaded ? (
                         <Group gap="xs" wrap="wrap">
-                            <Tooltip label="Shuffles everything the player is not already holding." multiline maw={320}>
+                            <Tooltip
+                                label="Shuffles everything the player is not already holding. With smart shuffle on, one artist stays off its own heels and anything aired lately goes toward the back."
+                                multiline
+                                maw={320}
+                            >
                                 <Button
                                     variant="default"
                                     size="compact-md"

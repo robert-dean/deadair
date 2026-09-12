@@ -199,6 +199,8 @@ argument and is reasoned rather than measured, so a record airing twice is the f
 `MAX_HAND_OVERS` STAYS at 3: it covers a Liquidsoap that restarted and dropped what it held, which is not an
 audio-availability fact.
 
+**A smart shuffle programmes the tail it shuffles, and reads nothing to do it.** With `rotation.smartShuffle` on, `DirectorConsoleService.shuffleOrder` reads the songs aired inside the horizon from `play_history` and posts them on the `shuffle` command, so the edit pass stays synchronous and the director stays the only writer. `StationLineup.shuffleRemaining` then shuffles as before and splits the result: what has not aired lately in front, what has behind, each half artist-spaced by `spaceArtists`, the first seeded with the last record the player holds. Off, it is the plain Fisher-Yates it always was. The keys never reach the activity row: it records that the shuffle was smart, not a copy of the history.
+
 **Prepared is not handed, and the transport never hands over past a gap.** A commit PREPARES a record and
 leaves it `planned`. It becomes `handed` only when the pusher gives it to Liquidsoap, and with nobody listening
 that never happens (`WARM_LEAD` is 0). So an idle station's next record sits prepared and `planned`, and

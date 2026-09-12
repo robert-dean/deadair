@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.4.1] — 2026-09-12
+
+- The console's Copy buttons work when it is opened over plain HTTP at a network address, such as `http://192.168.1.10:8080` on a home server. Before, they copied nothing there and said nothing either, because the browser only offers the clipboard function they used on HTTPS or on localhost. They now fall back to the browser's older way of copying, and if that is refused as well the button reads "Copy failed" and shows the text already selected, ready to copy with the keyboard. This covers the restart command on the silence diagnosis and the stale-config alert, the plugin OAuth callback URL, the authenticator key during enrolment, and the build revision and stream addresses on the check-up.
+
 ## [0.4.0] — 2026-09-12
 
 - Smart shuffle: records the station has aired lately are now less likely to come round again soon, so the rotation works through more of your library before it repeats itself. It is a lean rather than a rule. A record that has just aired keeps a quarter of its usual chance of being drawn and warms back up evenly over a fortnight, anything outside the repeat window can still play, and a small library still plays everything it holds. It is on by default, and Settings > Rotation has a Smart shuffle switch and the number of days a record stays cold. The similarity mix leans the same way, taking a fresher record from each similar artist rather than always their best known, and a model choosing records now sees on each search result how many days ago it aired, so it can prefer one it has not played lately. Turning it off restores the previous behaviour exactly. The Shuffle button on the desk is smart too: it keeps one artist off its own heels and moves anything aired lately toward the back of what it shuffles.
@@ -85,7 +89,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/robert-dean/deadair/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/robert-dean/deadair/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/robert-dean/deadair/compare/v0.2.4...v0.3.0
 [0.2.4]: https://github.com/robert-dean/deadair/compare/v0.2.3...v0.2.4

@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.2.4] — 2026-09-12
+
+- Shuffling the running order while nobody is listening no longer makes the station jump to the record it had lined up before the shuffle when a listener arrives, skipping everything the shuffle put in front of it. The shuffled order now plays from its new first record, and the same holds for moving or adding an item at the head.
+
 ## [0.2.3] — 2026-09-11
 
 - An audition now keeps what the model wrote for a break the station refused, beside the reason, so a decline such as "read a sample line back" can be checked against the words.
@@ -70,7 +74,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.2.3...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.2.4...HEAD
+[0.2.4]: https://github.com/robert-dean/deadair/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/robert-dean/deadair/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/robert-dean/deadair/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/robert-dean/deadair/compare/v0.2.0...v0.2.1

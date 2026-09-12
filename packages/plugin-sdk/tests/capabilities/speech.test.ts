@@ -6,7 +6,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { cuesIn, SPEECH_CUES, withoutCues, type SpeechCue } from '../../src/capabilities/speech.js';
+import { cuesIn, isSpeechDelivery, SPEECH_CUES, SPEECH_DELIVERIES, withoutCues, type SpeechCue } from '../../src/capabilities/speech.js';
 
 describe('SPEECH_CUES', () => {
     // This asserted that every cue was a SINGLE word, and said in as many words that the day
@@ -91,5 +91,42 @@ describe('withoutCues', () => {
         const kept: SpeechCue[] = ['gasp'];
 
         expect(withoutCues('[chuckle] [gasp] Look at that.', kept)).toBe('[gasp] Look at that.');
+    });
+});
+
+// The station's word for how a whole line is read. Pure, like the cues, and the property worth pinning
+// is the same one in the other direction: the vocabulary is closed, so only an exact word counts, and
+// the cue machinery leaves a delivery mark alone because lifting it is the writer's job, not this file's.
+describe('SPEECH_DELIVERIES', () => {
+    it('is two readings either side of an ordinary one, which is absent rather than named', () => {
+        expect([...SPEECH_DELIVERIES]).toEqual(['hushed', 'frantic']);
+    });
+
+    it('shares no word with the cues, since a cue and a delivery mean different things in brackets', () => {
+        for (const delivery of SPEECH_DELIVERIES) expect(SPEECH_CUES as readonly string[]).not.toContain(delivery);
+    });
+});
+
+describe('isSpeechDelivery', () => {
+    it('accepts the station words exactly as written', () => {
+        expect(isSpeechDelivery('hushed')).toBe(true);
+        expect(isSpeechDelivery('frantic')).toBe(true);
+    });
+
+    it('refuses anything else, including a word in the wrong case and a number', () => {
+        // A closed vocabulary is only a guard if the check is exact. The host normalises case where it
+        // reads a model's answer, and nowhere else should anything be let through on a near miss.
+        expect(isSpeechDelivery('Hushed')).toBe(false);
+        expect(isSpeechDelivery('shouty')).toBe(false);
+        expect(isSpeechDelivery('')).toBe(false);
+        expect(isSpeechDelivery(0.9)).toBe(false);
+        expect(isSpeechDelivery(undefined)).toBe(false);
+    });
+});
+
+describe('withoutCues and a delivery mark', () => {
+    it('leaves a delivery mark where it is, because it is not a cue', () => {
+        expect(withoutCues('[hushed] Something is out there. [sigh]')).toBe('[hushed] Something is out there.');
+        expect(cuesIn('[frantic] Go, go, go.')).toEqual([]);
     });
 });

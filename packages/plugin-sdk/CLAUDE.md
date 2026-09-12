@@ -44,6 +44,15 @@ are what keep that working rather than what it is designed around.
 
 **A plugin extends `Plugin` and registers its own teardown.** `packages/plugin-sdk/src/plugin.base.ts`: `this.host` is a getter that throws a sentence naming the plugin rather than a `TypeError`, and `register(disposer)` puts an undo beside its setup, run last-registered-first on unload even when one throws. This matters more in-process, not less, because a timer a plugin forgets lives in the API server until a restart and an operator reloads plugins on every config change. Extending it is optional; the host only ever asks for `PluginLifecycle`. Note `host` being a getter costs TypeScript's narrowing of other properties across a read of it.
 
+**A speech plugin's delivery is a word it translates, never a number it is handed.** `SpeechRequest.delivery`
+(`hushed`, `frantic`) is the one thing about a READING the host carries, and it is on the request for the same
+reason a cue is in the text: the station asks in its own vocabulary and each engine translates. The obvious
+shape was an `exaggeration` field, which is one engine family's scale on the contract, and it would have tied
+every script the station writes to the engine it was written for. The numbers stay in each plugin's voice map.
+`listDeliveries` is `listCues`' twin and carries its one failure mode: claiming a delivery the loaded engine
+cannot perform is the only way to break it, because the host drops everything unclaimed and the writer is
+offered only what was claimed. See README § "Cues and deliveries".
+
 ## Config fields
 
 **A list an operator adds to is a `list` config field, not a box with a separator in it.**

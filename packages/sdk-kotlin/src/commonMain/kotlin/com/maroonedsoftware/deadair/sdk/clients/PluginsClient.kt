@@ -79,6 +79,18 @@ class PluginsClient(private val http: SdkHttp) {
     }
 
     /**
+     * Remove plugin
+     * Removes a plugin the operator installed: stops it and deletes its folder. Its settings are kept, so importing it again brings them back. A bundled plugin is refused
+     * @throws SdkError on 404, 409
+     */
+    suspend fun removePlugin(id: String): List<PluginSummary> {
+        val response = http.execute(HttpMethod.Delete) {
+            path("plugins", segment(id))
+        }
+        return http.decodeJson(response)
+    }
+
+    /**
      * Update plugin configuration
      * Validates against the plugin's own config schema, encrypts secrets, persists, and reinitializes
      */

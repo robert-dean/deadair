@@ -1,7 +1,7 @@
 ---
 title: 'Suggest plugin config options'
 sidebar_label: 'Suggest plugin config options'
-sidebar_position: 12
+sidebar_position: 13
 mdx:
     format: 'md'
 ---

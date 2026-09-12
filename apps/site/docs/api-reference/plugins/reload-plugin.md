@@ -1,7 +1,7 @@
 ---
 title: 'Reload plugin'
 sidebar_label: 'Reload plugin'
-sidebar_position: 10
+sidebar_position: 11
 mdx:
     format: 'md'
 ---

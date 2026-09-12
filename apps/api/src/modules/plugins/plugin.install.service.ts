@@ -8,7 +8,7 @@ import { PluginInstaller } from './plugin.installer.js';
 import { PluginLifecycleManager } from './plugin.lifecycle.manager.js';
 import { PluginRegistry } from './plugin.registry.js';
 import { PluginsService } from './plugins.service.js';
-import type { PluginImportResult } from './types/plugins.types.js';
+import type { PluginImportResult, PluginSummary } from './types/plugins.types.js';
 
 /**
  * Putting a plugin into the plugins directory from the console, in the order the lifecycle needs.
@@ -80,6 +80,41 @@ export class PluginInstallService {
 
             this.note(id, 'plugin.imported', `An operator imported ${staged.name} ${staged.version}.`);
             return { pluginId: id, restartRequired: staged.restartRequired, plugins: await this.pluginsService.listPlugins() };
+        });
+    }
+
+    /**
+     * Takes an installed plugin off the station: stops it, deletes its folder, and answers with the
+     * catalogue as it now stands.
+     *
+     * Its settings, its grants and what it stored are KEPT, as disabling keeps them, and as deleting the
+     * folder by hand always has: the row is keyed on the plugin's id, so importing it again brings back
+     * its configuration and the trust it was already given. A folder linked in from a checkout loses
+     * only the link (`PluginInstaller.remove`).
+     *
+     * @throws 404 no plugin with that id. 409 it is bundled with the station, which has no folder of
+     *   its own to delete and would be back on the next boot anyway.
+     */
+    async removePlugin(id: string): Promise<PluginSummary[]> {
+        await this.accessControl.require({ namespace: 'plugin', id }, 'configure');
+
+        return this.pluginInstaller.exclusive(async () => {
+            const record = this.pluginRegistry.get(id);
+            if (!record) throw httpError(404).withDetails({ message: `plugin "${id}" is not installed` });
+            if (record.origin !== 'installed') {
+                throw httpError(409).withDetails({
+                    message: `${record.manifest?.name ?? id} is bundled with the station; turn it off instead, since it comes back with the station itself`,
+                });
+            }
+
+            await this.pluginLifecycleManager.disposePlugin(id);
+            await this.pluginInstaller.remove(record.dir);
+            // The folder is gone, so this is the path that drops the record.
+            await this.pluginLifecycleManager.rescan();
+
+            const version = record.manifest?.version;
+            this.note(id, 'plugin.removed', `An operator removed ${record.manifest?.name ?? id}${version === undefined ? '' : ` ${version}`}.`);
+            return this.pluginsService.listPlugins();
         });
     }
 

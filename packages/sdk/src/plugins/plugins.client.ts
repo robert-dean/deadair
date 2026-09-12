@@ -70,6 +70,15 @@ export class PluginsClient {
     }
 
     /**
+     * @name Remove plugin
+     * @description Removes a plugin the operator installed: stops it and deletes its folder. Its settings are kept, so importing it again brings them back. A bundled plugin is refused
+     */
+    async removePlugin(id: string): Promise<PluginSummary[]> {
+        const result = await this.fetch(`/plugins/${encodeURIComponent(id)}`, { method: 'DELETE' });
+        return (await parseJson<PluginSummary[]>(result)).map(revivePluginSummary);
+    }
+
+    /**
      * @name Update plugin configuration
      * @description Validates against the plugin's own config schema, encrypts secrets, persists, and reinitializes
      */

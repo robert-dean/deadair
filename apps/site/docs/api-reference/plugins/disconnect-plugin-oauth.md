@@ -1,7 +1,7 @@
 ---
 title: 'Disconnect plugin oauth'
 sidebar_label: 'Disconnect plugin oauth'
-sidebar_position: 17
+sidebar_position: 18
 mdx:
     format: 'md'
 ---

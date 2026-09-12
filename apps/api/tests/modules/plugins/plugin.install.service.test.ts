@@ -177,3 +177,49 @@ describe('PluginInstallService.importPlugin', () => {
         expect(calls).toEqual(['stage', 'discard']);
     });
 });
+
+describe('PluginInstallService.removePlugin', () => {
+    it('stops the plugin, deletes its folder, rescans, and answers the catalogue', async () => {
+        const existing = record({ id: 'example.charts', dir: '/data/plugins/example-charts-1.0.0' });
+        const { service, calls, activity, accessControl } = harness({ existing });
+
+        const plugins = await service.removePlugin('example.charts');
+
+        expect(calls).toEqual(['dispose example.charts', 'remove /data/plugins/example-charts-1.0.0', 'rescan']);
+        expect(plugins).toEqual([{ id: 'example.charts' }]);
+        expect(accessControl.require).toHaveBeenCalledWith({ namespace: 'plugin', id: 'example.charts' }, 'configure');
+        expect(activity.record).toHaveBeenCalledWith(expect.objectContaining({ kind: 'plugin.removed', data: { pluginId: 'example.charts' } }));
+    });
+
+    it('removes a plugin that never loaded, by the folder the loader read', async () => {
+        const broken: PluginRecord = {
+            id: 'broken-plugin-1.0.0',
+            dir: '/data/plugins/broken-plugin-1.0.0',
+            origin: 'installed',
+            status: 'failed',
+            error: 'nope',
+        };
+        const { service, calls } = harness({ existing: broken });
+
+        await service.removePlugin('broken-plugin-1.0.0');
+
+        expect(calls).toContain('remove /data/plugins/broken-plugin-1.0.0');
+    });
+
+    it('refuses a bundled plugin and touches nothing', async () => {
+        const existing = record({ id: 'deadair.spotify', origin: 'bundled', manifest: manifest('deadair.spotify', 'Spotify') });
+        const { service, calls, activity } = harness({ existing });
+
+        expect(await statusOf(service.removePlugin('deadair.spotify'))).toBe(409);
+
+        expect(calls).toEqual([]);
+        expect(activity.record).not.toHaveBeenCalled();
+    });
+
+    it('answers 404 for a plugin the station does not have', async () => {
+        const { service, calls } = harness();
+
+        expect(await statusOf(service.removePlugin('nobody.here'))).toBe(404);
+        expect(calls).toEqual([]);
+    });
+});

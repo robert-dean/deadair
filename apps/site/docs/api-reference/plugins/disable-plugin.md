@@ -1,7 +1,7 @@
 ---
 title: 'Disable plugin'
 sidebar_label: 'Disable plugin'
-sidebar_position: 8
+sidebar_position: 9
 mdx:
     format: 'md'
 ---

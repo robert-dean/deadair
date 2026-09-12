@@ -88,6 +88,20 @@ public sealed class PluginsClient(SdkHttp http)
     }
 
     /// <summary>
+    /// Remove plugin
+    /// Removes a plugin the operator installed: stops it and deletes its folder. Its settings are kept, so importing it again brings them back. A bundled plugin is refused
+    /// </summary>
+    /// <exception cref="SdkException">On 404, 409.</exception>
+    public async Task<List<PluginSummary>> RemovePluginAsync(string id, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Delete,
+            http.Path("plugins", http.Segment(id)),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<List<PluginSummary>>(response);
+    }
+
+    /// <summary>
     /// Update plugin configuration
     /// Validates against the plugin's own config schema, encrypts secrets, persists, and reinitializes
     /// </summary>

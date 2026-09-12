@@ -51,6 +51,15 @@ public final class PluginsClient: Sendable {
         return try http.decodeJSON(PluginDetail.self, from: response)
     }
 
+    /// Remove plugin
+    /// Removes a plugin the operator installed: stops it and deletes its folder. Its settings are kept, so importing it again brings them back. A bundled plugin is refused
+    /// - Throws: `SdkError` on 404, 409
+    public func removePlugin(id: String) async throws -> [PluginSummary] {
+        let request = try SdkRequest(method: "DELETE", path: ["plugins", http.segment(id)])
+        let response = try await http.execute(request)
+        return try http.decodeJSON([PluginSummary].self, from: response)
+    }
+
     /// Update plugin configuration
     /// Validates against the plugin's own config schema, encrypts secrets, persists, and reinitializes
     public func updatePluginConfiguration(id: String, body: PluginConfigInput) async throws -> PluginDetail {

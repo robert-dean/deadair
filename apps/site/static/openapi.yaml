@@ -2047,6 +2047,31 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/PluginDetail'
+        delete:
+            operationId: removePlugin
+            summary: 'Remove plugin'
+            description: 'Removes a plugin the operator installed: stops it and deletes its folder. Its settings are kept, so importing it again brings them back. A bundled plugin is refused'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 200
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                type: array
+                                items:
+                                    '$ref': '#/components/schemas/PluginSummary'
+                '404':
+                    description: 'Not found'
+                '409':
+                    description: Conflict
     '/plugins/{id}/config':
         put:
             operationId: updatePluginConfig

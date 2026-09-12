@@ -114,6 +114,18 @@ operation /plugins/{id}: {
             }
         }
     }
+
+    delete: { # Removes a plugin the operator installed: stops it and deletes its folder. Its settings are kept, so importing it again brings them back. A bundled plugin is refused
+        name: Remove plugin
+        service: PluginInstallService.removePlugin
+        response: {
+            200: {
+                application/json: array(PluginSummary)
+            }
+            404:
+            409:
+        }
+    }
 }
 
 operation /plugins/{id}/config: {

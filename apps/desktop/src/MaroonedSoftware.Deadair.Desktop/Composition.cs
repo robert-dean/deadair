@@ -1,4 +1,5 @@
 using Avalonia.Threading;
+using MaroonedSoftware.Deadair.Desktop.Core;
 using MaroonedSoftware.Deadair.Desktop.Core.Auth;
 using MaroonedSoftware.Deadair.Desktop.Core.Diagnostics;
 using MaroonedSoftware.Deadair.Desktop.Core.Net;
@@ -7,6 +8,7 @@ using MaroonedSoftware.Deadair.Desktop.Core.Plugins;
 using MaroonedSoftware.Deadair.Desktop.Core.Settings;
 using MaroonedSoftware.Deadair.Desktop.Core.Station;
 using MaroonedSoftware.Deadair.Desktop.Core.Ui;
+using MaroonedSoftware.Deadair.Desktop.Core.Updates;
 using MaroonedSoftware.Deadair.Desktop.Player.Mac;
 using MaroonedSoftware.Deadair.Desktop.PluginSdk.Playback;
 using MaroonedSoftware.Deadair.Desktop.Services;
@@ -81,6 +83,18 @@ internal static class Composition
 
         // The log Program opened before anything else, so the pages can say where it is.
         services.AddSingleton(_ => new AppLog(FileLog.Shared));
+
+        // The update check, with a client of its OWN, made here and never registered as HttpClient:
+        // a second HttpClient registration would quietly replace the station's for everything that
+        // resolves one. Not the station's client, because that one carries the operator's bearer token
+        // on every request, and its one-listener rule is about the station, which GitHub is not. The
+        // same User-Agent, because GitHub refuses a request without one.
+        services.AddSingleton(_ =>
+        {
+            var github = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+            github.DefaultRequestHeaders.UserAgent.ParseAdd(UserAgent.Value);
+            return new UpdateChecker(github, AppVersion.Number);
+        });
 
         // Plugins. The manager is disposed with the container, after the window has closed, which is
         // the same moment the pollers stop — a plugin holding a connection to a speaker has to be

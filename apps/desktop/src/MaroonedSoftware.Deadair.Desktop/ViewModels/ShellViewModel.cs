@@ -6,6 +6,7 @@ using MaroonedSoftware.Deadair.Desktop.Core.Plugins;
 using MaroonedSoftware.Deadair.Desktop.Core.Settings;
 using MaroonedSoftware.Deadair.Desktop.Core.Station;
 using MaroonedSoftware.Deadair.Desktop.Core.Ui;
+using MaroonedSoftware.Deadair.Desktop.Core.Updates;
 using MaroonedSoftware.Deadair.Desktop.Services;
 using MaroonedSoftware.Deadair.Desktop.Themes;
 
@@ -44,6 +45,9 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     /// </summary>
     private readonly PluginManager? _plugins;
 
+    /// <summary>Optional for the same reason: a shot must not ask GitHub anything.</summary>
+    private readonly UpdateChecker? _updates;
+
     public ShellViewModel(
         ISettingsStore settings,
         SessionManager session,
@@ -61,11 +65,13 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         VoiceViewModel voice,
         ThemeManager themes,
         IUiDispatcher dispatcher,
-        PluginManager? plugins = null)
+        PluginManager? plugins = null,
+        UpdateChecker? updates = null)
     {
         _settings = settings;
         _session = session;
         _dispatcher = dispatcher;
+        _updates = updates;
         Setup = setup;
         Listener = listener;
         Login = login;
@@ -180,6 +186,12 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         // where it was left. What a failed read means for the setup screen is said now.
         Setup.RefreshSettingsProblem();
 
+        // Not awaited: attaching to the station must never wait on GitHub.
+        if (_updates is not null && _settings.Current.CheckForUpdates)
+        {
+            _ = CheckForUpdatesAsync(_updates);
+        }
+
         // After the settings and before anything asks a plugin for anything: which plugins run is a
         // decision kept in that file, so starting them first would start the wrong ones.
         if (_plugins is not null)
@@ -288,6 +300,23 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     /// <summary>Back to what is on air, from the player bar on any other page.</summary>
     [RelayCommand]
     private void ShowDesk() => Navigation.Show(new Nav.Destination.Desk());
+
+    /// <summary>A newer desktop release, if the check at launch found one.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(UpdateNoticeText))]
+    private UpdateAvailable? _updateNotice;
+
+    public string? UpdateNoticeText => UpdateNotice is null ? null : UpdateCheck.Describe(UpdateNotice);
+
+    private async Task CheckForUpdatesAsync(UpdateChecker updates)
+    {
+        var found = await updates.CheckAsync().ConfigureAwait(false);
+
+        if (found is not null)
+        {
+            _dispatcher.Post(() => UpdateNotice = found);
+        }
+    }
 
     /// <summary>The app's window, for the menus. Absent in a headless render, where there is none to keep.</summary>
     public IWindowKeeper? Window { get; set; }

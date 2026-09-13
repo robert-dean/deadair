@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Text.Json;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using MaroonedSoftware.Deadair.Desktop.Core;
 using MaroonedSoftware.Deadair.Desktop.Core.Auth;
 using MaroonedSoftware.Deadair.Desktop.Core.NowPlaying;
 using MaroonedSoftware.Deadair.Desktop.Core.Playback;
@@ -118,6 +119,13 @@ public sealed partial class SettingsViewModel(
     /// </remarks>
     [ObservableProperty]
     private bool _nextSkips;
+
+    /// <summary>Whether the app asks GitHub for a newer release when it starts. Saved at once, like the others.</summary>
+    [ObservableProperty]
+    private bool _checkForUpdates = true;
+
+    /// <summary>This build, beside the card's heading, so a notice about a newer one has something to compare with.</summary>
+    public static string Version { get; } = $"VERSION {AppVersion.Current}";
 
     [ObservableProperty]
     private bool _busy;
@@ -241,6 +249,7 @@ public sealed partial class SettingsViewModel(
         _station = station;
         Appearance = settings.Current.Appearance;
         NextSkips = settings.Current.NextSkips;
+        CheckForUpdates = settings.Current.CheckForUpdates;
         MarkChosenFormat(settings.Current.Format);
         SettingsProblem = DescribeProblem(settings.Problem);
     }
@@ -296,6 +305,8 @@ public sealed partial class SettingsViewModel(
     }
 
     partial void OnNextSkipsChanged(bool value) => _ = settings.UpdateAsync(current => current with { NextSkips = value });
+
+    partial void OnCheckForUpdatesChanged(bool value) => _ = settings.UpdateAsync(current => current with { CheckForUpdates = value });
 
     [RelayCommand]
     private async Task LoadAsync(CancellationToken cancellationToken)

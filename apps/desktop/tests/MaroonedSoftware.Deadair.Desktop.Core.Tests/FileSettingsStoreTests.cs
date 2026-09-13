@@ -197,6 +197,35 @@ public class FileSettingsStoreTests : IDisposable
         Assert.Null(store.Current.Window);
     }
 
+    /// <summary>Every settings file written before the check existed is one of these, and it is on for them.</summary>
+    [Fact]
+    public async Task AFileWithoutTheUpdateCheckKeyReadsAsOn()
+    {
+        Directory.CreateDirectory(_directory);
+        await File.WriteAllTextAsync(
+            Path.Combine(_directory, "settings.json"),
+            """{"station":"https://radio.example.com","volume":0.4}""",
+            TestContext.Current.CancellationToken);
+
+        using var store = new FileSettingsStore(_directory);
+        await store.LoadAsync(TestContext.Current.CancellationToken);
+
+        Assert.True(store.Current.CheckForUpdates);
+    }
+
+    [Fact]
+    public async Task RemembersThatTheUpdateCheckWasTurnedOff()
+    {
+        using var store = new FileSettingsStore(_directory);
+
+        await store.UpdateAsync(settings => settings with { CheckForUpdates = false }, TestContext.Current.CancellationToken);
+
+        using var reopened = new FileSettingsStore(_directory);
+        await reopened.LoadAsync(TestContext.Current.CancellationToken);
+
+        Assert.False(reopened.Current.CheckForUpdates);
+    }
+
     private const string Rubbish = "{ this is not json";
 
     private async Task<string> WriteRubbishAsync()

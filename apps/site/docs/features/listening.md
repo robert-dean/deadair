@@ -52,6 +52,8 @@ Listening needs no account. Signed in, it shows the running order, which it can 
 
 It is built from source with .NET 10. The bundle it produces is not notarised, so macOS refuses the first launch. On macOS 15 and later a right-click and **Open** no longer gets past that: open it once, let it refuse, then press **Open Anyway** in System Settings › Privacy & Security, or run `xattr -dr com.apple.quarantine` on the app. The build instructions are in [the app's directory](https://github.com/robert-dean/deadair/tree/main/apps/desktop).
 
+Apart from your station, the one thing the desktop app talks to is GitHub: at launch it asks once whether there is a newer desktop release, sending nothing but its own name and version, and offers a link if there is. Turn it off under **Settings**, **Updates**.
+
 ## In the console
 
 The console does not play the station, deliberately: it is the desk, and the listening surfaces are the mount and the three apps. Which formats are published, and whether HLS is on, are under **Settings**, **Stream**. What puts the station on air is under **Settings**, **Playout**, and on the **Desk** under **Why is it not on air?**. The listener count and the published mounts are on **Check-up**, **Machinery**.

@@ -967,6 +967,18 @@ It keeps its settings in `~/Library/Application Support/deadair/settings.json`, 
 file from anything to do with a session: signing out must not take the station address with it,
 because somebody who signs out is still a listener. The session itself is in the Keychain.
 
+**It asks GitHub once at launch whether there is a newer desktop release, unless Settings says not
+to.** On by default; one request, no install, a link in the sidebar. It reads
+`git/matching-refs/tags/desktop-v` and NOT the releases list: the station's own releases share this
+repository and ship several a day (eight in the two days before this was written), so a page of
+releases stops reaching the newest desktop one within a week or two, and `releases/latest` answers
+the station's. It has an `HttpClient` of its own, built inside `UpdateChecker`'s registration and
+never registered as `HttpClient`, because the station's client carries the operator's bearer token
+and a second `HttpClient` registration would replace the station's for everything that resolves one.
+Every failure answers nothing and writes a log line. No desktop release existed when it was written,
+so a live check answers "0.1.0 is the newest" (measured) and the notice is posed in a Shots frame,
+`sidebar-update`, rather than seen for real.
+
 **Its log is `~/Library/Logs/deadair/deadair.log`**, which Console.app lists on its own, and
 Settings has a Reveal in Finder button for it. `Program.Main` adds the listener before Avalonia is
 built, because `LogToTrace` and everything else in the app writes through `Trace`; before this there

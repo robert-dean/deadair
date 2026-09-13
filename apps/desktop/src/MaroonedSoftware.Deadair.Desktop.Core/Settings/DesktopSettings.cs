@@ -97,6 +97,15 @@ public sealed record DesktopSettings
     [JsonPropertyName("nextSkips")]
     public bool NextSkips { get; init; }
 
+    /// <summary>Whether the app asks GitHub at launch if there is a newer desktop release.</summary>
+    /// <remarks>
+    /// On by default; an absent key reads as on, because the initialiser is what the reader leaves in
+    /// place. It is one request at launch carrying nothing but the User-Agent, and turning it off is
+    /// on the Settings page beside a sentence saying exactly that.
+    /// </remarks>
+    [JsonPropertyName("checkForUpdates")]
+    public bool CheckForUpdates { get; init; } = true;
+
     /// <summary>Where the window was left. Absent means the default frame, centred.</summary>
     /// <remarks>
     /// Written by the app as the window moves, not chosen by anybody, so it is the one key here

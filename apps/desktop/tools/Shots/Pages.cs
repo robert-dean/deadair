@@ -6,6 +6,7 @@ using MaroonedSoftware.Deadair.Desktop.Core.Playback;
 using MaroonedSoftware.Deadair.Desktop.Core.Settings;
 using MaroonedSoftware.Deadair.Desktop.Core.Text;
 using MaroonedSoftware.Deadair.Desktop.Core.Ui;
+using MaroonedSoftware.Deadair.Desktop.Core.Updates;
 using MaroonedSoftware.Deadair.Desktop.ViewModels;
 using MaroonedSoftware.Deadair.Desktop.Views;
 using MaroonedSoftware.Deadair.Sdk.Models;
@@ -54,6 +55,7 @@ internal static class Pages
         yield return ("output-picker-here", Picker(onASpeaker: false), 1180, 720);
         yield return ("sidebar", Rail(operatorSignedIn: true), 1180, 720);
         yield return ("sidebar-signed-out", Rail(operatorSignedIn: false), 1180, 720);
+        yield return ("sidebar-update", Rail(operatorSignedIn: false, update: true), 1180, 720);
         yield return ("login", SignIn(revealed: false), 1180, 720);
         yield return ("login-revealed", SignIn(revealed: true), 1180, 720);
     }
@@ -97,13 +99,24 @@ internal static class Pages
     }
 
     /// <summary>The sidebar, signed in, so every section and both states of an entry are in frame.</summary>
-    private static Border Rail(bool operatorSignedIn) =>
-        new()
+    private static Border Rail(bool operatorSignedIn, bool update = false)
+    {
+        var shell = Fakes.Shell(operatorSignedIn);
+
+        // The notice a newer desktop release puts above the account, posed rather than fetched: a
+        // shot must not ask GitHub anything.
+        if (update)
+        {
+            shell.UpdateNotice = new UpdateAvailable(new Version(0, 2, 0), new Uri("https://github.com/robert-dean/deadair/releases/tag/desktop-v0.2.0"));
+        }
+
+        return new()
         {
             Width = 220,
             HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left,
-            Child = new Sidebar { DataContext = Fakes.Shell(operatorSignedIn) },
+            Child = new Sidebar { DataContext = shell },
         };
+    }
 
     /// <summary>The sign-in panel at the width the sidebar's flyout gives it.</summary>
     private static Border SignIn(bool revealed)

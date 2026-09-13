@@ -83,6 +83,14 @@
             </Panel>
         </Border>
 
+        <!-- A newer desktop release, found by the one check at launch. A link to its page rather
+             than an install: the app is not notarised, and the page says how to open the download.
+             Above the account, where it is seen without being in the way of the rail. -->
+        <HyperlinkButton DockPanel.Dock="Bottom" Margin="16,0,12,8" Padding="4,2" FontSize="12"
+                         IsVisible="{Binding UpdateNotice, Converter={x:Static ObjectConverters.IsNotNull}}"
+                         NavigateUri="{Binding UpdateNotice.Page, FallbackValue={x:Null}}"
+                         Content="{Binding UpdateNoticeText}" />
+
         <ScrollViewer VerticalScrollBarVisibility="Auto">
             <ItemsControl ItemsSource="{Binding Navigation.Sections}" Margin="0,6,0,0">
                 <ItemsControl.ItemTemplate>

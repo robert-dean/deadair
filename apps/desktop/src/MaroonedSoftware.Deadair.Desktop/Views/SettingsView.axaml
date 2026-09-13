@@ -59,7 +59,11 @@
                      station's settings rather than among them, and why neither of these has a Save. -->
                 <Border Classes="card" MaxWidth="900" HorizontalAlignment="Stretch">
                     <StackPanel Spacing="18">
-                        <TextBlock Classes="h3" Text="This app" />
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <TextBlock Classes="h3" Text="This app" VerticalAlignment="Center" />
+                            <TextBlock Classes="eyebrow" VerticalAlignment="Center"
+                                       Text="{x:Static vm:SettingsViewModel.Version}" />
+                        </StackPanel>
 
                         <!-- Everything below still changes when pressed; this says it will not last. -->
                         <TextBlock Text="{Binding SettingsProblem}"
@@ -161,6 +165,14 @@
                                 </StackPanel>
                             </Border>
                             <TextBlock Classes="dimmed" TextWrapping="Wrap" Text="{Binding SleepNote}" />
+                        </StackPanel>
+
+                        <!-- The one request this app makes to anybody but the station, said in full. -->
+                        <StackPanel Spacing="6">
+                            <TextBlock Classes="dimmed" Text="Updates" />
+                            <CheckBox IsChecked="{Binding CheckForUpdates}" Content="Check for a new version when the app starts" />
+                            <TextBlock Classes="dimmed" TextWrapping="Wrap"
+                                       Text="One request to api.github.com at launch, for the list of desktop releases. It carries nothing about you or your station beyond this app's name and version. A newer one is offered as a link, never installed." />
                         </StackPanel>
 
                         <!-- Here rather than on the check-up: that page needs an operator, and a

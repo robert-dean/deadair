@@ -35,8 +35,8 @@
     </Overview>
     <Category>MediaApp:Music MediaServer:Music</Category>
     <Requires>
-        An x86-64 server: there is no arm64 image yet. On the latest and slim tags, a PostgreSQL database that
-        already exists and a Redis server; the full tag brings both. On the slim tag, a speech server as well.
+        An x86-64 server: there is no arm64 image yet. On the latest and slim tags, a PostgreSQL 13 or newer database
+        that already exists and a Redis server; the full tag brings both. On the slim tag, a speech server as well.
         Music comes from your own Spotify account or Subsonic server, such as Navidrome, because the station
         holds none of its own.
     </Requires>
@@ -94,18 +94,18 @@
         Type="Variable" Display="always" Required="true" Mask="true"></Config>
 
     <Config Name="Database host" Target="DATABASE_HOST" Default="" Mode=""
-        Description="Your PostgreSQL server. Leave every database and cache field blank on the full tag, which runs its own."
+        Description="Your PostgreSQL server, version 13 or newer (17 is what the station is tested on). No extensions needed. Leave every database and cache field blank on the full tag, which runs its own."
         Type="Variable" Display="always" Required="false" Mask="false"></Config>
 
     <Config Name="Database port" Target="DATABASE_PORT" Default="5432" Mode=""
         Description="" Type="Variable" Display="always" Required="false" Mask="false">5432</Config>
 
     <Config Name="Database name" Target="DATABASE_NAME" Default="deadair" Mode=""
-        Description="Must already exist; the station creates its own schema inside it, not the database itself."
+        Description="Must already exist, owned by the database user below; the station creates its own schema inside it, not the database itself."
         Type="Variable" Display="always" Required="false" Mask="false">deadair</Config>
 
     <Config Name="Database user" Target="DATABASE_USER" Default="" Mode=""
-        Description="Owns the schema: the station applies its migrations as this user at every start."
+        Description="Owns the schema: the station applies its migrations as this user at every start. It needs CREATEROLE, or a role named app_user created beforehand by a superuser (CREATE ROLE app_user NOLOGIN), because the first migration makes one."
         Type="Variable" Display="always" Required="false" Mask="false"></Config>
 
     <Config Name="Database password" Target="DATABASE_PASSWORD" Default="" Mode=""

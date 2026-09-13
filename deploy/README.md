@@ -52,6 +52,33 @@ with no `-w0`.
 
 If you are not using the `full` tag, you also need a PostgreSQL database that already exists (the
 station creates its own schema inside it, not the database itself) and a Redis to put sessions in.
+The next section is what that database has to be.
+
+## Bringing your own database
+
+**PostgreSQL 13 or newer, and no extensions.** 13 is the job queue's floor and nothing in the
+schema asks for more. The one extension it uses is `plpgsql`, which every database already has. The
+station is developed and tested on 17, which is what the `full` tag bundles, and its migrations have
+been walked from zero on 13, 15 and 18.
+
+**The user the station connects as should own the database.** Three things are created inside it:
+the station's `deadair` schema, the job queue's `pgboss` schema when it starts, and the migration
+bookkeeping table in `public`. On PostgreSQL 15 and later only the database's owner may create
+anything in `public` by default, so a user that was merely granted access fails there.
+
+**It also needs `CREATEROLE`, or an `app_user` role made for it beforehand.** The first migration
+creates a role named `app_user`, which the station's default grants are written to for the optional
+runtime user (`DATABASE_APP_USER`), and it creates it whether or not you ever set one. Without
+`CREATEROLE` the first start stops with `permission denied to create role`. As a superuser, once:
+
+```sql
+CREATE ROLE deadair LOGIN PASSWORD 'choose-one';
+CREATE DATABASE deadair OWNER deadair;
+CREATE ROLE app_user NOLOGIN;
+```
+
+If you would rather the station made `app_user` itself, run `ALTER ROLE deadair CREATEROLE` in
+place of the last line.
 
 ## The station's address
 

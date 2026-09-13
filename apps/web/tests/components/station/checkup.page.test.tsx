@@ -94,6 +94,20 @@ describe('CheckupPage', () => {
     });
 
     /**
+     * The whole origin, escaped, so a plain-http station on a home network is handed over as http:
+     * the app's `deadair://host` shorthand would make it https and point the app at nothing.
+     */
+    it('offers the station to the desktop app by its whole origin', async () => {
+        allWell();
+
+        render(<CheckupPage />);
+
+        const link = await screen.findByRole('link', { name: 'Open in the desktop app' });
+        expect(link).toHaveAttribute('href', `deadair://connect?station=${encodeURIComponent(window.location.origin)}`);
+        expect(link).not.toHaveAttribute('target');
+    });
+
+    /**
      * A loop that has registered and never finished a pass is a different fact from one that
      * stopped, which is why the contract carries `startedAt` beside `lastBeat`.
      */

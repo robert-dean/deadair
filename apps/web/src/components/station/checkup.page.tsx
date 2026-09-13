@@ -1,4 +1,4 @@
-import { Card, Code, Group, Progress, Stack, Table, Text } from '@mantine/core';
+import { Anchor, Card, Code, Group, Progress, Stack, Table, Text } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import type { PlayoutMount, PluginSummary, StationHeartbeat } from '@deadair/sdk';
 import type { DateTime } from 'luxon';
@@ -421,6 +421,13 @@ function Mounts({ mounts }: { mounts: PlayoutMount[] }) {
                     <CopyButton value={`${window.location.origin}${mount.path}`} />
                 </Group>
             ))}
+            {/* The whole origin, escaped, rather than the host: a station on a home network is
+                plain http, and the app's shorthand form would turn it into https and point it at
+                nothing. No new tab, which a custom scheme would leave behind empty. The app only
+                offers the station; it switches when somebody presses Connect. */}
+            <Anchor size="xs" c="dimmed" w="fit-content" href={`deadair://connect?station=${encodeURIComponent(window.location.origin)}`}>
+                Open in the desktop app
+            </Anchor>
         </Stack>
     );
 }

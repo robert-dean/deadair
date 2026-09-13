@@ -76,6 +76,11 @@ struct NowPlayingScreen: View {
                     } label: {
                         Label("Played", systemImage: "clock.arrow.circlepath")
                     }
+                    NavigationLink {
+                        WhatsOnScreen()
+                    } label: {
+                        Label("What's on", systemImage: "calendar")
+                    }
                 }
                 NavigationLink {
                     SettingsScreen()

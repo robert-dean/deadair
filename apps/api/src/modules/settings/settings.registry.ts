@@ -1359,6 +1359,18 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
     },
     {
         group: 'mail',
+        key: MAIL_KEYS.verifyCertificate,
+        label: "Check the server's certificate",
+        type: 'boolean',
+        default: MAIL_DEFAULTS.verifyCertificate,
+        dependsOn: MAIL_KEYS.host,
+        help:
+            'Turn this off for a mail server with a self-signed certificate, or one from your own certificate authority, which otherwise ' +
+            'fails with "unable to verify the first certificate". Off, the station accepts any certificate at all, so it cannot tell your ' +
+            'server from something pretending to be it: leave it on for anything reached across the internet.',
+    },
+    {
+        group: 'mail',
         key: MAIL_KEYS.user,
         label: 'Username',
         type: 'string',

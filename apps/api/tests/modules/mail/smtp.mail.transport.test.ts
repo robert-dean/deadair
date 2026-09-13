@@ -16,7 +16,7 @@ vi.mock('nodemailer', () => ({ createTransport: (options: Record<string, unknown
 const { SmtpMailTransport } = await import('../../../src/modules/mail/smtp.mail.transport.js');
 
 const ENVELOPE = { to: 'someone@example.com', subject: 'Your code', text: 'plain', html: '<p>html</p>' };
-const SETTINGS = { host: 'smtp.example.com', port: 587, secure: false, from: 'radio@example.com' };
+const SETTINGS = { host: 'smtp.example.com', port: 587, secure: false, verifyCertificate: true, from: 'radio@example.com' };
 
 let logger: Logger;
 
@@ -43,6 +43,22 @@ describe('sending over SMTP', () => {
         expect(createTransport).toHaveBeenCalledWith(
             expect.objectContaining({ connectionTimeout: 10_000, greetingTimeout: 10_000, socketTimeout: 10_000 }),
         );
+    });
+
+    // No `tls` block at all rather than `rejectUnauthorized: true`, so nodemailer's own strict
+    // default is what applies and nothing here can weaken it by accident.
+    it("leaves the certificate check to nodemailer's default while the setting is on", async () => {
+        await transport().send(ENVELOPE, SETTINGS, 'Dead Air');
+
+        expect(createTransport).toHaveBeenCalledWith(expect.not.objectContaining({ tls: expect.anything() }));
+    });
+
+    // #98: a self-signed certificate fails with "unable to verify the first certificate" and the
+    // station could not send at all.
+    it('accepts any certificate when the operator turned the check off', async () => {
+        await transport().send(ENVELOPE, { ...SETTINGS, verifyCertificate: false }, 'Dead Air');
+
+        expect(createTransport).toHaveBeenCalledWith(expect.objectContaining({ tls: { rejectUnauthorized: false } }));
     });
 
     it('sends no auth block at all when no username is stored', async () => {

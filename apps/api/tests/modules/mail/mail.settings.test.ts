@@ -53,6 +53,7 @@ describe('resolving the mail settings', () => {
             host: 'smtp.example.com',
             port: MAIL_DEFAULTS.port,
             secure: false,
+            verifyCertificate: true,
             from: 'radio@example.com',
         });
     });
@@ -92,6 +93,20 @@ describe('resolving the mail settings', () => {
         const settings = resolveMailSettings(configOf({ ...configured, [MAIL_KEYS.secure]: 'perhaps' }), encryptionOf());
 
         expect(settings?.secure).toBe(MAIL_DEFAULTS.secure);
+    });
+
+    // The one switch here whose default is ON, so `'false'` read as truthy would leave it on and the
+    // operator with the certificate error they turned it off to get past.
+    it('reads the certificate check as off when the column says "false"', () => {
+        const settings = resolveMailSettings(configOf({ ...configured, [MAIL_KEYS.verifyCertificate]: 'false' }), encryptionOf());
+
+        expect(settings?.verifyCertificate).toBe(false);
+    });
+
+    it('keeps checking the certificate for a value that means neither, since that is the safe side', () => {
+        const settings = resolveMailSettings(configOf({ ...configured, [MAIL_KEYS.verifyCertificate]: 'perhaps' }), encryptionOf());
+
+        expect(settings?.verifyCertificate).toBe(true);
     });
 
     it('decrypts the stored password', () => {

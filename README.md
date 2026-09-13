@@ -146,6 +146,11 @@ emailed code it cannot deliver, so a station with no mail configured signs you i
 alone. That is deliberate. The alternative is arriving at a fresh install that asks for a code it
 cannot send, on the account that would have configured the sending.
 
+A mail server with a self-signed certificate, or one from your own certificate authority, fails with
+"unable to verify the first certificate". Turn off **Check the server's certificate** under Settings →
+Mail for that one. Off, the station accepts any certificate at all, so keep it on for a server reached
+across the internet.
+
 A sign-in link is worth one warning: **it is the whole of the sign-in**, so anybody who can read
 that message can get in. It works once, it expires in half an hour, and it should not be forwarded.
 An account with an authenticator enrolled is still asked for the code afterwards — a link proves

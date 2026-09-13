@@ -26,6 +26,20 @@ export const MAIL_KEYS = {
      * will not start until it is asked in plaintext.
      */
     secure: 'mail.secure',
+    /**
+     * Whether the server's certificate has to chain to a public authority and name the host. On by
+     * default, and turned off for the mail server a homelab actually runs: a self-signed
+     * certificate, or one issued by the operator's own CA, fails Node's check with "unable to verify
+     * the first certificate" and the station could not send at all (#98).
+     *
+     * A switch rather than a field for the operator's CA, because the switch is the one that works
+     * for every such server. A pasted CA still fails a certificate that names a different host from
+     * the one typed above, which is the common case for a certificate made by hand and reached by a
+     * LAN name, and pulling the PEM off a server takes `openssl s_client` before the field is any
+     * use. `NODE_EXTRA_CA_CERTS` in the environment remains the way to trust a CA properly, and it
+     * needs nothing from here.
+     */
+    verifyCertificate: 'mail.verifyCertificate',
     user: 'mail.user',
     password: 'mail.password',
     from: 'mail.from',
@@ -34,6 +48,7 @@ export const MAIL_KEYS = {
 export const MAIL_DEFAULTS = {
     port: 587,
     secure: false,
+    verifyCertificate: true,
 } as const;
 
 /** The bounds `resolveMailSettings` clamps a stored port to, shared with the registry's `min`/`max`. */
@@ -45,6 +60,8 @@ export interface MailSettings {
     host: string;
     port: number;
     secure: boolean;
+    /** False accepts whatever certificate the server presents. See {@link MAIL_KEYS.verifyCertificate}. */
+    verifyCertificate: boolean;
     /** Absent when the server takes no credentials, which a local relay usually does not. */
     user?: string;
     password?: string;
@@ -97,6 +114,8 @@ export function resolveMailSettings(config: AppConfig, encryption: EncryptionPro
         // out-of-range figure at the point somebody types one.
         port: clamp(numberOr(config, MAIL_KEYS.port, MAIL_DEFAULTS.port), MIN_MAIL_PORT, MAX_MAIL_PORT),
         secure: settingIsOn(config, MAIL_KEYS.secure, MAIL_DEFAULTS.secure),
+        // A value nobody can parse takes the default, which here is the safe side: checking.
+        verifyCertificate: settingIsOn(config, MAIL_KEYS.verifyCertificate, MAIL_DEFAULTS.verifyCertificate),
         ...(user ? { user } : {}),
         ...(password ? { password } : {}),
         from,

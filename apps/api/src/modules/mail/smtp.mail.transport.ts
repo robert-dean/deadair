@@ -41,6 +41,9 @@ export class SmtpMailTransport extends MailTransport {
             port: settings.port,
             secure: settings.secure,
             ...(settings.user ? { auth: { user: settings.user, pass: settings.password ?? '' } } : {}),
+            // Covers STARTTLS as well as TLS from the first byte: nodemailer hands the same `tls`
+            // options to the upgrade on 587 as to the connection on 465.
+            ...(settings.verifyCertificate ? {} : { tls: { rejectUnauthorized: false } }),
             connectionTimeout: SMTP_TIMEOUT_MS,
             greetingTimeout: SMTP_TIMEOUT_MS,
             socketTimeout: SMTP_TIMEOUT_MS,

@@ -13,5 +13,9 @@ namespace MaroonedSoftware.Deadair.Desktop.Core.Net;
 public static class UserAgent
 {
     /// <summary>Named after the app and its version, so a station's logs can tell this client apart.</summary>
-    public const string Value = "deadair-desktop/0.1.0";
+    /// <remarks>
+    /// The version is <see cref="AppVersion.Current"/>, which is what the build stamped. It was a
+    /// literal here, a third copy of a number that lives in <c>Directory.Build.props</c>.
+    /// </remarks>
+    public static readonly string Value = "deadair-desktop/" + AppVersion.Current;
 }

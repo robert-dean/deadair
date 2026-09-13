@@ -76,6 +76,8 @@ const build = (
     const known = new Map<string, Segment>((options.idents ?? [ident('seg-1')]).map(segment => [segment.id, segment]));
     /** When each row last moved, standing in for the `updated_at` the database keeps by trigger. */
     const touched = new Map<string, number>();
+    /** The state each row's LAST transition came from, standing in for the newest `segment_events` row. */
+    const cameFrom = new Map<string, Segment['state']>();
     const plan = vi.fn(async (input: PlannedSegment) => {
         const segment = { id: `planned-${++planned}`, state: 'planned', source: 'render', ...input } as Segment;
         known.set(segment.id, segment);
@@ -134,6 +136,7 @@ const build = (
             }
             if (segment?.state === 'rendering' && at < before.rendering && segment.script !== undefined) {
                 known.set(id, { ...segment, state: 'written' });
+                cameFrom.set(id, 'rendering');
                 released.rendering.push(id);
             }
         }
@@ -146,6 +149,15 @@ const build = (
         ids.flatMap(id => {
             const segment = known.get(id);
             return segment?.state === 'failed' && segment.script !== undefined ? [{ id, failures: failures.get(id) ?? 1 }] : [];
+        }),
+    );
+
+    // A render given back unspoken, judged the way the SQL judges it: by where the row last came
+    // from, so a break the writer has only just finished is not mistaken for one.
+    const handedBack = vi.fn(async (ids: readonly string[]) =>
+        ids.filter(id => {
+            const segment = known.get(id);
+            return segment?.state === 'written' && segment.script !== undefined && cameFrom.get(id) === 'rendering';
         }),
     );
 
@@ -170,6 +182,7 @@ const build = (
                 reprojectAirTimes,
                 releaseStranded,
                 failedWithScript,
+                handedBack,
             } as unknown as SegmentRepository,
             writers as never,
             speech as never,
@@ -188,9 +201,11 @@ const build = (
         reprojectAirTimes,
         releaseStranded,
         failedWithScript,
+        handedBack,
         send,
         known,
         touched,
+        cameFrom,
         failures,
     };
 };
@@ -1462,6 +1477,84 @@ describe('BreakPlanner.ripen', () => {
 
             expect(result.released).toEqual([segmentId]);
             expect(result.rerendered).toEqual([segmentId]);
+            // Once, although the sweep's hand-back is also a row that last came out of `rendering`
+            // and so answers to both of the questions the retry asks.
+            expect(rendered(built.send)).toEqual([segmentId]);
+        });
+
+        // The render job hands a row back to `written` rather than failing it when the engine answered
+        // `unavailable`: on the running station, a GPU too full for the voice model at the start of
+        // every session. Nothing asked for those rows again, and the director passed over each one
+        // at its slot while the welcomes beside it, which retry through the request path, recovered.
+        describe('a render the job handed back unspoken', () => {
+            const handedBack = async () => {
+                const built = build({ canWrite: true });
+                const lineup = await lineupOf(12);
+                await built.planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }), clock());
+
+                const at = lineup.all().findIndex(item => item.kind === 'segment');
+                const segmentId = (lineup.all()[at] as { segmentId: string }).segmentId;
+                built.known.set(segmentId, { ...built.known.get(segmentId)!, state: 'written', script: 'That was the last one.' });
+                built.cameFrom.set(segmentId, 'rendering');
+
+                return { built, lineup, segmentId, at };
+            };
+
+            it('asks again for its audio, and not for its words', async () => {
+                const { built, lineup, segmentId } = await handedBack();
+
+                expect((await built.planner.ripen(lineup, clock())).rerendered).toEqual([segmentId]);
+                expect(rendered(built.send)).toEqual([segmentId]);
+                expect(asked(built.send)).toEqual([]);
+            });
+
+            it('keeps asking on every pass, because being turned away is not a failure', async () => {
+                // None of the three attempts is spent: the engine was not there, and nothing about
+                // the break was judged. What stops it is the break leaving the window.
+                const { built, lineup, segmentId } = await handedBack();
+                built.failures.set(segmentId, 3);
+
+                for (let pass = 0; pass < 4; pass += 1) await built.planner.ripen(lineup, clock());
+
+                expect(rendered(built.send)).toEqual([segmentId, segmentId, segmentId, segmentId]);
+            });
+
+            it('leaves a break the writer has only just finished to the render job already on its way', async () => {
+                // The same state, and the reason the question is about the LAST transition: asking
+                // would be free, but reporting it as a break that never got its audio would not be true.
+                const { built, lineup, segmentId } = await handedBack();
+                built.cameFrom.set(segmentId, 'writing');
+
+                expect((await built.planner.ripen(lineup, clock())).rerendered).toEqual([]);
+                expect(rendered(built.send)).toEqual([]);
+            });
+
+            it('asks for nothing when no plugin can speak', async () => {
+                const built = build({ canWrite: true, speaker: false });
+                const lineup = await lineupOf(12);
+                await built.planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }), clock());
+                const segmentId = (lineup.all().find(item => item.kind === 'segment') as { segmentId: string }).segmentId;
+                built.known.set(segmentId, { ...built.known.get(segmentId)!, state: 'written', script: 'Coming up.' });
+                built.cameFrom.set(segmentId, 'rendering');
+
+                expect((await built.planner.ripen(lineup, clock())).rerendered).toEqual([]);
+                expect(built.handedBack).not.toHaveBeenCalled();
+            });
+
+            it('has it written again rather than spoken when its promise has broken', async () => {
+                // Those words are wrong as well as unspoken. Unlike a failed row, a written one can
+                // be reopened, so the break gets new words instead of audio for the old ones.
+                const { built, lineup, segmentId, at } = await handedBack();
+                const promised = lineup.nextTrackAfter(lineup.all()[at]!.id)!.id;
+                built.known.set(segmentId, { ...built.known.get(segmentId)!, claimsItemId: promised });
+                lineup.move(promised, lineup.all().length - 1);
+
+                const result = await built.planner.ripen(lineup, clock());
+
+                expect(result.rerendered).toEqual([]);
+                expect(result.rewritten).toEqual([segmentId]);
+                expect(asked(built.send)).toEqual([segmentId]);
+            });
         });
     });
 

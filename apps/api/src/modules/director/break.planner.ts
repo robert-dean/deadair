@@ -988,32 +988,6 @@ export class BreakPlanner {
     }
 
     /**
-     * Ask again for the audio of a break whose words survived a render that did not.
-     *
-     * Every failed segment on this station is the same thing: a speech server that was not running,
-     * with a perfectly good script sitting beside the error. `claimForRender` has always accepted
-     * `failed` and re-spoken the words on the row — that is what the operator's own retry does — and
-     * nothing ever asked on the station's behalf, so a break lost to a restart stayed lost.
-     *
-     * Three bounds, and each one closes a way this could churn.
-     *
-     * **No speaker, no asking.** A station with no speech plugin installed cannot render anything,
-     * and four of the six failures in this station's history are exactly that. Checked first because
-     * it costs nothing and removes the loudest case entirely.
-     *
-     * **Three failures and it stops.** A break that has failed three times is more likely to be one
-     * nothing can speak than a run of bad luck, and without a cap a dead engine would have every
-     * failed break in the window re-sent on every boundary, for as long as it stays dead.
-     *
-     * **Nothing whose claim has broken.** Those words are wrong as well as unspoken, so paying for
-     * the audio would buy a break the hand-over check drops anyway. They are left `failed`, which is
-     * what they already were: `reopenSegments` deliberately does not reach a failed row, and
-     * widening it to would be a different argument than this one.
-     *
-     * A send is idempotent, because `claimForRender` is a conditional update — so a duplicate is
-     * free, exactly as it is for the write job.
-     */
-    /**
      * Ask again for the audio of ONE break that is not in the running order.
      *
      * The same question {@link retryRenders} answers for the window, for the one case that walk
@@ -1052,16 +1026,58 @@ export class BreakPlanner {
         }
     }
 
+    /**
+     * Ask again for the audio of a break whose words survived a render that did not.
+     *
+     * Every failed segment on this station is the same thing: a speech server that was not running,
+     * with a perfectly good script sitting beside the error. `claimForRender` has always accepted
+     * `failed` and re-spoken the words on the row — that is what the operator's own retry does — and
+     * nothing ever asked on the station's behalf, so a break lost to a restart stayed lost.
+     *
+     * **A render that was handed back is asked for too, and uncounted.** `RenderSegmentJob` returns a
+     * row to `written` rather than failing it when the engine answered `unavailable`, which is a GPU
+     * too full to load the model as often as it is a plugin mid-restart. Those rows reach here through
+     * `handedBack`, and they spend none of the three attempts below, because nothing about the break
+     * was judged. What bounds them instead is the window: a row is asked for once per boundary for
+     * as long as it is in reach, which is a handful of times, and an engine that recovers in that
+     * span speaks it. This path used to read only `failed` rows, and the handed-back ones sat at
+     * `written` until the director passed over them at their slots.
+     *
+     * Three bounds, and each one closes a way this could churn.
+     *
+     * **No speaker, no asking.** A station with no speech plugin installed cannot render anything,
+     * and four of the six failures in this station's history are exactly that. Checked first because
+     * it costs nothing and removes the loudest case entirely.
+     *
+     * **Three failures and it stops.** A break that has failed three times is more likely to be one
+     * nothing can speak than a run of bad luck, and without a cap a dead engine would have every
+     * failed break in the window re-sent on every boundary, for as long as it stays dead.
+     *
+     * **Nothing whose claim has broken.** Those words are wrong as well as unspoken, so paying for
+     * the audio would buy a break the hand-over check drops anyway. They are left `failed`, which is
+     * what they already were: `reopenSegments` deliberately does not reach a failed row, and
+     * widening it to would be a different argument than this one.
+     *
+     * A send is idempotent, because `claimForRender` is a conditional update — so a duplicate is
+     * free, exactly as it is for the write job.
+     */
     private async retryRenders(ids: readonly string[], stale: ReadonlyMap<string, BrokenClaim>, alsoRender: readonly string[]): Promise<string[]> {
         if (this.speech.speaker() === undefined) return [];
 
         try {
             const failed = await this.segments.failedWithScript(ids);
+            const handedBack = await this.segments.handedBack(ids);
+            // A set, because the sweep's own hand-back is also a `rendering → written` transition and
+            // so arrives through both of the last two sources.
             const retry = [
-                ...failed.filter(row => row.failures < MAX_RENDER_ATTEMPTS && !stale.has(row.id)).map(row => row.id),
-                // A render handed back by the sweep above: it is `written` with its words intact and
-                // nothing else would ever ask for its audio.
-                ...alsoRender.filter(id => !stale.has(id)),
+                ...new Set([
+                    ...failed.filter(row => row.failures < MAX_RENDER_ATTEMPTS && !stale.has(row.id)).map(row => row.id),
+                    // A render handed back by the sweep above: it is `written` with its words intact and
+                    // nothing else would ever ask for its audio.
+                    ...alsoRender.filter(id => !stale.has(id)),
+                    // A render the job itself handed back because nothing could speak yet. See above.
+                    ...handedBack.filter(id => !stale.has(id)),
+                ]),
             ];
             if (retry.length === 0) return [];
 

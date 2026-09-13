@@ -1273,6 +1273,49 @@ export class SegmentRepository extends DataRepository {
         return rows.map(row => ({ id: row.id, failures: Number(row.failures) }));
     }
 
+    /**
+     * The breaks here that a renderer handed back unspoken: `written`, with words, and the last thing
+     * that happened to them was a render letting go of its claim.
+     *
+     * The sibling of {@link failedWithScript} for {@link releaseForRetry}'s rows, which that one cannot
+     * see because they are not `failed`, and not being `failed` is the whole point of handing them
+     * back. Without this nothing asked for them again: the render sweep read only `failed` rows,
+     * `ripen` offers only `planned` ones, and every break a cold speech engine turned away at the
+     * start of a session sat at `written` until the director passed over it at its slot. The running
+     * station lost 19 that way between 11 and 13 September, while the welcomes beside them, which go
+     * through the request path, recovered.
+     *
+     * Judged by the row's LAST transition rather than by its state alone, because `written` is also
+     * the ordinary state of a break the writer has just finished, whose render job is already on its
+     * way. Asking for that one again would be free, since `claimForRender` is conditional, but
+     * reporting it to the operator as a break that never got its audio would not be true.
+     */
+    async handedBack(ids: readonly string[]): Promise<string[]> {
+        if (ids.length === 0) return [];
+
+        const rows = await this.db
+            .selectFrom('deadair.segments as s')
+            .select('s.id')
+            .where('s.id', 'in', [...ids])
+            .where('s.state', '=', 'written')
+            .where('s.script', 'is not', null)
+            .where(eb =>
+                eb(
+                    eb
+                        .selectFrom('deadair.segmentEvents as e')
+                        .select('e.fromState')
+                        .whereRef('e.segmentId', '=', 's.id')
+                        .orderBy('e.createdAt', 'desc')
+                        .limit(1),
+                    '=',
+                    'rendering',
+                ),
+            )
+            .execute();
+
+        return rows.map(row => row.id);
+    }
+
     /** One stranded state, back to where its work starts. */
     private async release(ids: readonly string[], from: SegmentState, to: SegmentState, before: number, reason: string): Promise<string[]> {
         let query = this.db
@@ -1395,8 +1438,8 @@ export class SegmentRepository extends DataRepository {
     /**
      * Hand a render back because the HOST was not ready, not because the segment was wrong.
      *
-     * `rendering → written`, which is where {@link claimForRender} starts, so the existing
-     * `retryRenders` path picks the row up again with none of `MAX_RENDER_ATTEMPTS` spent — the
+     * `rendering → written`, which is where {@link claimForRender} starts, so `retryRenders` picks
+     * the row up again through {@link handedBack} with none of `MAX_RENDER_ATTEMPTS` spent — the
      * words are intact and nothing about them has been judged. That is the difference this method
      * exists to draw: {@link markFailed} says the station tried and could not, and this says it
      * never got to try. Counting the second as the first is what

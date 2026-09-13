@@ -145,3 +145,29 @@ describe('SegmentRepository.plan', () => {
         expect(statements[0]?.parameters).not.toContain('hushed');
     });
 });
+
+// The render sweep's only way to see a break a renderer gave back unspoken. `written` alone would also
+// match a break the writer has just finished, so what this pins is that the SQL asks about the row's
+// LAST transition, and asks about nothing but rows with words on them.
+describe('SegmentRepository.handedBack', () => {
+    it('asks for written rows with words whose last transition came out of rendering', async () => {
+        const statements: Statement[] = [];
+        const ids = await new SegmentRepository(fakeDb([{ id: 'seg-1' }], statements), identity()).handedBack(['seg-1', 'seg-2']);
+
+        expect(ids).toEqual(['seg-1']);
+        const [statement] = statements;
+        expect(statement?.sql).toMatch(/"s"\."state" = \$\d+/);
+        expect(statement?.sql).toContain('"s"."script" is not null');
+        expect(statement?.sql).toMatch(
+            /\(select "e"\."from_state" from "deadair"\."segment_events" as "e" where "e"\."segment_id" = "s"\."id" order by "e"\."created_at" desc limit \$\d+\) = \$\d+/,
+        );
+        expect(statement?.parameters).toEqual(expect.arrayContaining(['seg-1', 'seg-2', 'written', 'rendering']));
+    });
+
+    it('costs no query when the window holds nothing', async () => {
+        const statements: Statement[] = [];
+
+        expect(await new SegmentRepository(fakeDb([], statements), identity()).handedBack([])).toEqual([]);
+        expect(statements).toEqual([]);
+    });
+});

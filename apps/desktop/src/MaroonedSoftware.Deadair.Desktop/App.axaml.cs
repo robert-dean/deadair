@@ -41,6 +41,9 @@ public partial class App : Application
             window.RememberFrame(settings);
             desktop.MainWindow = window;
 
+            // Before StartAsync, so the Dock's reopen is heard from the first moment the app runs.
+            shell.Window = new WindowKeeper(desktop, window);
+
             // For the native menu in App.axaml and nothing else. A NativeMenu has no visual parent,
             // so it cannot inherit the window's; windows still set their own and none of them read
             // this.

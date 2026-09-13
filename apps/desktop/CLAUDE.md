@@ -402,6 +402,22 @@ drop it".** Two things here are unmeasured: whether macOS keeps a Now Playing en
 is producing no audio itself, and whether Avalonia's headless renderer can capture a flyout at all
 (the picker is rendered as a control on its own on the assumption that it cannot).
 
+## Closing is not quitting
+
+**Closing the window hides it and the station plays on; only a quit ends the app.** It used to quit,
+Avalonia's default, which stopped the radio for anybody who only wanted the window out of the way.
+`Services/WindowKeeper` sets `ShutdownMode.OnExplicitShutdown`, cancels the person's own close and
+hides instead, and shows the window again on the Dock's reopen. Its one rule,
+`HidesInsteadOfClosing`, is deliberately narrow and tested: every way out of an Avalonia app closes
+the window on its way, so a hide for anything but the person's own close (the app quitting, a
+logout, code) would make the app impossible to quit.
+
+**Dock reopening arrives only for a bundled app.** A `dotnet run` has no bundle identifier for macOS
+to route it to, so under `dotnet run` the menu-bar icon's Show is the way back. Measured against the
+bundle: the close button leaves zero windows and the process running, `open` on the running bundle
+(which is what a Dock click sends) brings the window back where it was, and a quit exits with the
+log's closing line.
+
 ## The system's own now-playing display
 
 **It only works from a bundled application.** A plain `dotnet run` has no bundle identifier, so macOS

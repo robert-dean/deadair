@@ -25,7 +25,8 @@
     <key>NSHighResolutionCapable</key>
     <true/>
     <!-- The app is a radio: it keeps playing while nothing is on screen, so it belongs in the Dock
-         rather than as a background agent. -->
+         rather than as a background agent. Closing its window hides it and the station plays on;
+         the Dock icon is how the window comes back, which is one more reason it stays there. -->
     <key>LSUIElement</key>
     <false/>
 </dict>

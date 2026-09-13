@@ -6,6 +6,7 @@ using MaroonedSoftware.Deadair.Desktop.Core.Plugins;
 using MaroonedSoftware.Deadair.Desktop.Core.Settings;
 using MaroonedSoftware.Deadair.Desktop.Core.Station;
 using MaroonedSoftware.Deadair.Desktop.Core.Ui;
+using MaroonedSoftware.Deadair.Desktop.Services;
 using MaroonedSoftware.Deadair.Desktop.Themes;
 
 // The `Navigation` property below shadows the namespace of the same name, so the destination types
@@ -282,6 +283,24 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     /// <summary>Back to what is on air, from the player bar on any other page.</summary>
     [RelayCommand]
     private void ShowDesk() => Navigation.Show(new Nav.Destination.Desk());
+
+    /// <summary>The app's window, for the menus. Absent in a headless render, where there is none to keep.</summary>
+    public IWindowKeeper? Window { get; set; }
+
+    /// <summary>Brings the window back, from the menu-bar icon.</summary>
+    [RelayCommand]
+    private void ShowWindow() => Window?.Show();
+
+    /// <summary>The Window menu's Close: hides, since closing is not quitting.</summary>
+    [RelayCommand]
+    private void HideWindow() => Window?.Hide();
+
+    [RelayCommand]
+    private void MinimizeWindow() => Window?.Minimize();
+
+    /// <summary>The one way to stop the app, now that closing the window does not.</summary>
+    [RelayCommand]
+    private void Quit() => Window?.Quit();
 
     [RelayCommand]
     private async Task SignOutAsync(CancellationToken cancellationToken)

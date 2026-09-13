@@ -598,6 +598,14 @@ osascript -e 'tell application "System Events" to tell process "deadair" \
 equivalent and `enabled of menu item` to prove a Command bound. This works against a plain
 `dotnet run`, which is a far faster loop than rebuilding the bundle.
 
+**A cover is decoded at the size it is drawn, not the size it arrived.** Row covers go through
+`ArtworkLoader` at 128 pixels wide (rows are 36 units, 72 pixels at 2x) and the playing record's at
+800 (the desk's cover tops out at 400 units). A hotlinked cover is commonly 1000 pixels square and
+sometimes three times that, and the loader keeps 200, so full-size decoding could hold 800 MB of
+pixels to draw thumbnails. The system's Now Playing display still gets the bytes as they arrived.
+Not measured on a long session, and not looked at since the change, because this session cannot
+capture the screen: worth a glance at the desk and History the next time the app is open.
+
 **Icons are `StreamGeometry` in `Themes/Icons.axaml`, keyed by name.** Fluent's Regular 20 set, pasted
 as path data rather than pulled in as a package, because this app draws about twenty icons and a
 package would be a dependency, a licence and a renderer for that. Every one inherits `Foreground`, so

@@ -55,6 +55,14 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
     private IDisposable? _lease;
     private StationUrl _station;
     private DateTimeOffset? _readAt;
+    /// <summary>The width the playing record's cover is decoded to, in pixels.</summary>
+    /// <remarks>
+    /// The largest it is drawn is the desk's cover at 400 units (<c>DeskView.Largest</c>), which is 800
+    /// pixels on a Retina display; the bar draws the same bitmap at 56. A hotlinked cover can be three
+    /// thousand pixels square, which is 36 megabytes to draw a 400-unit square.
+    /// </remarks>
+    private const int HeroDecodeWidth = 800;
+
     private string? _artworkShowing;
     private byte[]? _artworkBytes;
     private bool _hasAppliedItem;
@@ -592,9 +600,11 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
             await stream.CopyToAsync(buffer).ConfigureAwait(false);
             buffer.Position = 0;
 
+            // The bytes as they arrived go to the system's Now Playing display, which scales them
+            // itself; only the bitmap this app draws is decoded down.
             var bytes = buffer.ToArray();
             buffer.Position = 0;
-            var bitmap = new Bitmap(buffer);
+            var bitmap = Bitmap.DecodeToWidth(buffer, HeroDecodeWidth, BitmapInterpolationMode.HighQuality);
 
             _dispatcher.Post(() =>
             {

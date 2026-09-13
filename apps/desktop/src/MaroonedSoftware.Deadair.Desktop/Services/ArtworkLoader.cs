@@ -30,6 +30,17 @@ public sealed class ArtworkLoader(HttpClient http) : IDisposable
     /// <summary>Enough for several pages of scrollback, and small: these are thumbnails.</summary>
     private const int Keep = 200;
 
+    /// <summary>The width every cover here is decoded to, in pixels.</summary>
+    /// <remarks>
+    /// These covers are drawn at 36 units (<c>Artwork.Size</c>, and every list passes 36), which is 72
+    /// pixels on a Retina display; 128 leaves room for a 56-unit row without revisiting this. They were
+    /// decoded at whatever size arrived, which for a hotlinked cover is commonly 1000 pixels square and
+    /// sometimes three times that: four megabytes of pixels each at the smaller size, and with
+    /// <see cref="Keep"/> at 200 the cache could hold 800 of them to draw thumbnails. At 128 the whole
+    /// cache is under 13. Not measured on a long session; the arithmetic was reason enough.
+    /// </remarks>
+    private const int DecodeWidth = 128;
+
     private readonly Dictionary<string, Task<Bitmap?>> _inFlight = [];
     private readonly Dictionary<string, Bitmap?> _done = [];
     private readonly Queue<string> _order = new();
@@ -83,7 +94,7 @@ public sealed class ArtworkLoader(HttpClient http) : IDisposable
             await stream.CopyToAsync(buffer).ConfigureAwait(false);
             buffer.Position = 0;
 
-            bitmap = new Bitmap(buffer);
+            bitmap = Bitmap.DecodeToWidth(buffer, DecodeWidth, BitmapInterpolationMode.HighQuality);
         }
         catch (Exception)
         {

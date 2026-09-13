@@ -6,6 +6,10 @@
 final class ManualClock {
     private var now: Duration = .zero
     private var nextId = 0
+    private let base = ContinuousClock.now
+
+    /// The clock's reading as an instant, for code that asks what time it is as well as waits.
+    var instant: ContinuousClock.Instant { base + now }
     private var pending: [(id: Int, at: Duration, run: @MainActor () -> Void)] = []
 
     var schedule: Schedule {

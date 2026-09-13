@@ -61,6 +61,11 @@ struct NowPlayingScreen: View {
                         Text(note.words).font(.footnote).foregroundStyle(.orange).multilineTextAlignment(.center)
                     }
                 }
+
+                // Only while the station is playing: there is nothing to put to sleep otherwise.
+                if model.listening.wantsToPlay {
+                    SleepMenu(canWaitForRecord: reading.flatMap { Playhead.project($0.value.track, readAt: $0.readAt, now: .now) } != nil)
+                }
             }
             .padding()
         }
@@ -127,6 +132,41 @@ struct PlayButton: View {
                 Text(words).font(.footnote).foregroundStyle(.secondary)
             }
         }
+    }
+}
+
+/// The sleep timer: a moon that opens the choices, and the countdown beside it while one is set.
+///
+/// "After this record" is offered only when the station can say how much of the record is left,
+/// the rule the progress bar already keeps: a timer set against a guess would stop the station at
+/// the wrong moment for somebody who is by then asleep.
+struct SleepMenu: View {
+    @Environment(AppModel.self) private var model
+    let canWaitForRecord: Bool
+
+    var body: some View {
+        let timer = model.listening.sleepTimer
+        Menu {
+            ForEach(SleepTimer.choices, id: \.self) { minutes in
+                Button(String(localized: "\(minutes) minutes")) { timer.arm(.minutes(minutes)) }
+            }
+            Button(String(localized: "After this record")) { timer.arm(.afterRecord) }
+                .disabled(!canWaitForRecord)
+            if timer.state != .off {
+                Button(String(localized: "Turn off the timer"), role: .destructive) { timer.clear() }
+            }
+        } label: {
+            // Ticks once a second, which only matters while a countdown is showing.
+            TimelineView(.periodic(from: .now, by: 1)) { _ in
+                Label {
+                    Text(timer.line(at: .now)?.words ?? String(localized: "Sleep timer"))
+                } icon: {
+                    Image(systemName: timer.state == .off ? "moon.zzz" : "moon.zzz.fill")
+                }
+                .font(.footnote)
+            }
+        }
+        .accessibilityLabel(Text("Sleep timer"))
     }
 }
 

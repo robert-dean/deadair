@@ -24,6 +24,8 @@ extension Message {
         case .onTheMic(nil): String(localized: "The host is on the mic")
         case .showWithHost(let show, let host): String(localized: "\(show) · with \(host)")
         case .withHost(let host): String(localized: "with \(host)")
+        case .stopsIn(let span): String(localized: "Stops in \(span.words)")
+        case .stopsAfterThisRecord: String(localized: "Stops after this record")
 
         case .answeredAs(let name): String(localized: "Found \(name).")
         case .notEncrypted: String(localized: "Not encrypted. Fine on your own network.")

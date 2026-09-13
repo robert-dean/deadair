@@ -22,6 +22,8 @@ import Observation
 @Observable
 final class Listening {
     let conductor: PlaybackConductor
+    /// Stops the station after a while, or after this record. Cleared by any stop.
+    let sleepTimer: SleepTimer
     /// The mount being played, and whether it is the format that was asked for.
     private(set) var choice: MountChoice?
 
@@ -44,6 +46,9 @@ final class Listening {
         player = StationPlayer(userAgent: userAgent)
         system = SystemNowPlaying()
         gate = NowPlayingGate()
+        sleepTimer = SleepTimer()
+        sleepTimer.onFire = { [weak self] in self?.stop() }
+        sleepTimer.onVolume = { [weak self] volume in self?.player.volume = volume }
 
         gate.push = { [weak self] reading in self?.publish(reading) }
         player.onPhase = { [weak self] phase in self?.observed(phase) }
@@ -70,6 +75,9 @@ final class Listening {
 
     /// The listener pressed stop, or something they would count as stop happened.
     func stop() {
+        // Whatever stopped it (the button, a call, headphones out, the timer itself), the timer was
+        // for that session and must not fire into the next one.
+        sleepTimer.onStopped()
         conductor.released()
         player.stop()
         Platform.deactivateAudio()
@@ -142,6 +150,7 @@ final class Listening {
         guard conductor.wantsToPlay else { return }
         retarget(force: false)
         gate.onPoll(nowPlaying.state.latest?.value, buffered: player.buffered)
+        sleepTimer.onReading(nowPlaying.state.latest, buffered: player.buffered)
     }
 
     private func publish(_ reading: NowPlaying?) {

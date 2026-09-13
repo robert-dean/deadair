@@ -34,6 +34,9 @@ public enum Message: Equatable, Sendable {
     case showWithHost(show: String, host: String)
     /// The same line when the show has no name to give: "with Cass".
     case withHost(String)
+    /// The sleep timer's countdown: "Stops in 14 min". Never less than a minute.
+    case stopsIn(Span)
+    case stopsAfterThisRecord
 
     // MARK: The address field
 

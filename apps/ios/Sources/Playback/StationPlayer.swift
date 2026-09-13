@@ -67,6 +67,13 @@ final class StationPlayer {
         report(.stopped)
     }
 
+    /// The player's own volume, which the sleep timer fades. `AVPlayer` keeps it across a stop and a
+    /// rebuilt player starts at one, so the timer's putting it back is what the next play hears.
+    var volume: Float {
+        get { player.volume }
+        set { player.volume = newValue }
+    }
+
     /// Throw the player away and build another, for when the media server has restarted under it.
     func rebuild() {
         stop()

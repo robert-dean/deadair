@@ -216,6 +216,35 @@ public sealed partial class TransportViewModel : ObservableObject, IAsyncDisposa
         _ => "Something went wrong.",
     };
 
+    /// <summary>
+    /// Stops reading the station's playout and forgets it, before the app is pointed at another.
+    /// </summary>
+    /// <remarks>
+    /// A second <see cref="Attach"/> without this would leave the old repository polling the old
+    /// station with whatever session is current, which after a switch is the NEW station's token.
+    /// </remarks>
+    public async Task DetachAsync()
+    {
+        _lease?.Dispose();
+        _lease = null;
+
+        if (_repository is not null)
+        {
+            _repository.Changed -= OnReading;
+            await _repository.DisposeAsync().ConfigureAwait(true);
+            _repository = null;
+        }
+
+        StreamUp = false;
+        OnAir = false;
+        Queued = 0;
+        Silence = string.Empty;
+        Remedy = null;
+        SilenceTone = StatusTone.Off;
+        ShowSilence = false;
+        NoticeText = null;
+    }
+
     public async ValueTask DisposeAsync()
     {
         _lease?.Dispose();

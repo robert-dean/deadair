@@ -104,6 +104,23 @@
                                        Text="Follows macOS unless you choose one." />
                         </StackPanel>
 
+                        <!-- The station itself, and the way to point the app at another without
+                             starting again. The button is the shell's: changing station is the whole
+                             app's business, not this page's. -->
+                        <StackPanel Spacing="6">
+                            <TextBlock Classes="dimmed" Text="Station" />
+                            <StackPanel Orientation="Horizontal" Spacing="16">
+                                <StackPanel Spacing="1" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding StationName}" />
+                                    <TextBlock Classes="mono dimmed" FontSize="11" Text="{Binding StationAddress}" />
+                                </StackPanel>
+                                <Button Classes="ghost" Content="Change station…" VerticalAlignment="Center"
+                                        Command="{Binding $parent[Window].((vm:ShellViewModel)DataContext).ChangeStationCommand}" />
+                            </StackPanel>
+                            <TextBlock Classes="dimmed" TextWrapping="Wrap"
+                                       Text="Asks for the new address. Listening here stops only once the new station answers and you connect. A sign-in is kept for each station, so coming back finds you still signed in." />
+                        </StackPanel>
+
                         <StackPanel Spacing="6">
                             <TextBlock Classes="dimmed" Text="System Next control" />
                             <CheckBox IsChecked="{Binding NextSkips}" Content="Let the Next key or Control Centre skip the record" />

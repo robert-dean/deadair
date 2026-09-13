@@ -60,6 +60,27 @@ public class SessionManagerTests
         Assert.NotNull(await store.ReadAsync(Origin, TestContext.Current.CancellationToken));
     }
 
+    /// <summary>
+    /// What the Settings page promises beside Change station: a sign-in is kept for each station, so
+    /// going back to one finds you still signed in there.
+    /// </summary>
+    [Fact]
+    public async Task SwitchingBackToAStationFindsItsSessionStillThere()
+    {
+        var (session, _, _) = Build();
+        await session.AttachAsync(Station(Origin), TestContext.Current.CancellationToken);
+        await session.SignInAsync("operator@example.com", "hunter2", TestContext.Current.CancellationToken);
+
+        await session.AttachAsync(Station(Other), TestContext.Current.CancellationToken);
+        Assert.Null(session.AccessToken);
+
+        await session.AttachAsync(Station(Origin), TestContext.Current.CancellationToken);
+
+        var state = Assert.IsType<SessionState.SignedIn>(session.State);
+        Assert.Equal("operator@example.com", state.Email);
+        Assert.NotNull(session.AccessToken);
+    }
+
     [Fact]
     public async Task RestoresASessionFromTheStore()
     {

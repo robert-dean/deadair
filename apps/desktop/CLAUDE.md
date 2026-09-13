@@ -492,6 +492,29 @@ memory, the disk is left alone, and both the setup screen and Settings say so wi
 file is deliberately NOT renamed aside: the next launch would then start clean and write defaults,
 the same loss one launch later beside a file nobody will find.
 
+## Changing station
+
+**The app can be pointed at another station without restarting, and until now `AttachAsync` had only
+ever run once per process.** A second attach over the first would have left the transport and
+running-order pollers reading the OLD station with the NEW station's token, the old record and cover
+on screen, and the old catalog in the library forever (each library tab fetches only while empty).
+So `ShellViewModel.SwitchAsync` detaches first: the listener stops through its own Stop (the old
+station hears its audience go), the pollers are disposed, the pages that fetch only while empty are
+emptied, and then it attaches as a first run would. Programme, History, Check-up and Voice fetch on
+every visit and need nothing.
+
+**Work begun for the old station can land after the switch, and is dropped.** A reading the hold
+was about to release and a cover still downloading both carry the attachment they belong to
+(`ListenerViewModel._attachment`, and the cover's own key), and `NowPlayingHold.Reset` empties the
+hold. Without them the old station's next record would appear on the new station's screen a few
+seconds in.
+
+**Asking is not switching.** Change station (Settings) and a `deadair://` link both show the setup
+screen prefilled, with a way back ("Keep the station I have"); nothing is let go of until the new
+address answers and is connected. The same address again just closes the screen. A sign-in is kept
+per station in the Keychain, so switching back finds the operator signed in: `SessionManager` never
+deleted a session for another origin, whatever its comment used to say.
+
 ## The session
 
 **Listening is accountless and stays that way.** A session buys the `platform.view` reads and the

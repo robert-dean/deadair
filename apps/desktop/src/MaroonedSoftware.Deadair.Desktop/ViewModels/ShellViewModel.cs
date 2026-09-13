@@ -87,7 +87,12 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         _themes = themes;
         _plugins = plugins;
 
-        Setup.Connected += (station, name) => _ = AttachAsync(station, name);
+        Setup.Connected += (station, name) => _ = SwitchAsync(station, name);
+        Setup.Cancelled += () =>
+        {
+            Setup.CanCancel = false;
+            NeedsStation = false;
+        };
         Login.SignedIn += () => ApplySession();
         _session.Changed += state =>
         {
@@ -245,9 +250,83 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
     private string? _loggedSession;
 
+    /// <summary>The station the app is attached to, or null before the first and during a switch.</summary>
+    private StationUrl? _current;
+
+    /// <summary>
+    /// Asks for another station's address, keeping this one until somebody connects to the new one.
+    /// </summary>
+    /// <remarks>
+    /// Nothing is let go of here. The setup screen is only a question, and somebody can decline it
+    /// and be back where they were with the station still playing; nothing moves playback on its own.
+    /// </remarks>
+    [RelayCommand]
+    private void ChangeStation()
+    {
+        Setup.Address = _current?.ToString() ?? string.Empty;
+        Setup.Problem = null;
+        Setup.Note = null;
+        Setup.CanCancel = _current is not null;
+        NeedsStation = true;
+    }
+
+    /// <summary>
+    /// Attaches to a station that has just answered, letting go of the one before it first.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <see cref="AttachAsync"/> had only ever run once per process, and a second call over the
+    /// first would have left the old station's pollers running with the new station's token, the old
+    /// record on screen and the old catalog in the library. So a switch detaches every page that holds
+    /// something of a station and then attaches, as a first run would.
+    /// </para>
+    /// <para>
+    /// The same station again just closes the setup screen: connecting to where you already are is
+    /// not a reason to stop listening.
+    /// </para>
+    /// </remarks>
+    private async Task SwitchAsync(StationUrl station, string? name)
+    {
+        if (_current is { } current && current == station)
+        {
+            Setup.CanCancel = false;
+            Setup.Note = null;
+            NeedsStation = false;
+            return;
+        }
+
+        if (_current is not null)
+        {
+            await DetachAsync().ConfigureAwait(true);
+        }
+
+        await AttachAsync(station, name).ConfigureAwait(true);
+    }
+
+    private async Task DetachAsync()
+    {
+        Trace.WriteLine($"station: {_current} detached");
+
+        // The listener first: its Stop is what tells the old station its audience has gone.
+        await Listener.DetachAsync().ConfigureAwait(true);
+        await Transport.DetachAsync().ConfigureAwait(true);
+        await Order.DetachAsync().ConfigureAwait(true);
+
+        // These fetch only while empty, so they are emptied. Programme, History, Check-up and Voice
+        // fetch on every visit and need nothing.
+        Library.Reset();
+        StationSettings.Reset();
+
+        Navigation.Show(new Nav.Destination.Desk());
+        _current = null;
+    }
+
     private async Task AttachAsync(StationUrl station, string? name)
     {
         Trace.WriteLine($"station: {station} attached");
+        _current = station;
+        Setup.CanCancel = false;
+        Setup.Note = null;
         Listener.Attach(station, name);
 
         if (Listener.Outputs is { } outputs)

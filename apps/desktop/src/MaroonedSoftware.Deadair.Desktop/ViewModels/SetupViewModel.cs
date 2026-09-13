@@ -27,6 +27,28 @@ public sealed partial class SetupViewModel(ISettingsStore settings, StationProbe
     [ObservableProperty]
     private string? _problem;
 
+    /// <summary>
+    /// Something to know that is not a problem: which station the app is on now, when it is being
+    /// asked to move to another.
+    /// </summary>
+    [ObservableProperty]
+    private string? _note;
+
+    /// <summary>Whether there is a station to go back to, and so a way off this screen without connecting.</summary>
+    [ObservableProperty]
+    private bool _canCancel;
+
+    /// <summary>Raised when somebody decides to stay on the station they had.</summary>
+    public event Action? Cancelled;
+
+    [RelayCommand]
+    private void Cancel()
+    {
+        Problem = null;
+        Note = null;
+        Cancelled?.Invoke();
+    }
+
     /// <summary>Said when the settings file could not be read, which is often WHY this screen is showing.</summary>
     /// <remarks>
     /// An unreadable file loses the station address along with everything else, so the first thing

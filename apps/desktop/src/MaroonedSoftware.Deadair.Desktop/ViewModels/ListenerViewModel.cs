@@ -73,6 +73,9 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
     private PlayerPhase? _loggedPhase;
     private string? _appliedItemKey;
 
+    /// <summary>Which station attachment is current, so work begun for an earlier one can tell. See <see cref="DetachAsync"/>.</summary>
+    private int _attachment;
+
     public ListenerViewModel(
         OutputSwitch player,
         ISystemNowPlaying systemNowPlaying,
@@ -392,6 +395,66 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
         _lease = _repository.Subscribe();
     }
 
+    /// <summary>
+    /// Lets go of the station, before the app is pointed at another.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Stops first, through the listener's own Stop, so the connection is dropped (or the speaker
+    /// asked to stop) and the old station hears its audience leave. Then the reading stops, and the
+    /// record on screen goes, so nothing of the old station is left looking like the new one's.
+    /// </para>
+    /// <para>
+    /// A reading the hold was about to release and a cover still downloading can both arrive after
+    /// this. Each carries the attachment it belongs to and is dropped when that is no longer the
+    /// current one, which is what <see cref="_attachment"/> is for.
+    /// </para>
+    /// </remarks>
+    public async Task DetachAsync()
+    {
+        if (Playing)
+        {
+            await ToggleAsync().ConfigureAwait(true);
+        }
+
+        _attachment++;
+        _hold.Reset();
+        _ticker.Stop();
+
+        if (_repository is not null)
+        {
+            _repository.Changed -= OnReading;
+            _lease?.Dispose();
+            _lease = null;
+            await _repository.DisposeAsync().ConfigureAwait(true);
+            _repository = null;
+        }
+
+        _hasAppliedItem = false;
+        _appliedItemKey = null;
+        _artworkShowing = null;
+        _artworkBytes = null;
+        _readAt = null;
+
+        Title = null;
+        Artist = null;
+        Album = null;
+        Artwork = null;
+        OnAir = false;
+        Listeners = 0;
+        ListenersLabel = ListenerCount.Label(0);
+        Stale = false;
+        HasPlayhead = false;
+        Position = 0;
+        Duration = 0;
+        Elapsed = ClockFormat.Unknown;
+        Remaining = ClockFormat.Unknown;
+        OnPropertyChanged(nameof(Initial));
+        OnPropertyChanged(nameof(AirTone));
+
+        _systemNowPlaying.Clear();
+    }
+
     [RelayCommand]
     private async Task ToggleAsync()
     {
@@ -574,7 +637,18 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
         now.Track?.StartedAt.ToString(CultureInfo.InvariantCulture);
 
     /// <summary>A reading the hold has released, raised on its own timer thread rather than the UI one.</summary>
-    private void OnHoldReleased(NowPlayingReading now) => _dispatcher.Post(() => ApplyTrack(now));
+    private void OnHoldReleased(NowPlayingReading now)
+    {
+        var attachment = _attachment;
+        _dispatcher.Post(() =>
+        {
+            // Released for a station the app has since let go of: see DetachAsync.
+            if (attachment == _attachment)
+            {
+                ApplyTrack(now);
+            }
+        });
+    }
 
     /// <summary>
     /// Applies the fields that describe the record itself, and rewrites the system widget and
@@ -675,8 +749,17 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
             buffer.Position = 0;
             var bitmap = Bitmap.DecodeToWidth(buffer, HeroDecodeWidth, BitmapInterpolationMode.HighQuality);
 
+            // Only if this is still the cover wanted. A slow download can finish after the record
+            // has moved on, or after the app has been pointed at another station, and drawing it
+            // then would put an old cover beside a new title.
             _dispatcher.Post(() =>
             {
+                if (key != _artworkShowing)
+                {
+                    bitmap.Dispose();
+                    return;
+                }
+
                 Artwork = bitmap;
                 _artworkBytes = bytes;
                 PublishToSystem();
@@ -688,8 +771,11 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
             // rather than a fault. The view falls back to a quiet square.
             _dispatcher.Post(() =>
             {
-                Artwork = null;
-                _artworkBytes = null;
+                if (key == _artworkShowing)
+                {
+                    Artwork = null;
+                    _artworkBytes = null;
+                }
             });
         }
     }

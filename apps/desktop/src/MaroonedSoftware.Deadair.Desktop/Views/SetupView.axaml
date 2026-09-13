@@ -19,6 +19,15 @@
                 TextWrapping="Wrap"
                 Foreground="{DynamicResource DaTextSecondaryBrush}" />
 
+            <!-- Which station this would replace, when there is one. Not a problem, so not in the
+                 fault colour: somebody followed a link or pressed Change station, and this says
+                 what connecting will leave. -->
+            <TextBlock
+                Text="{Binding Note}"
+                IsVisible="{Binding Note, Converter={x:Static ObjectConverters.IsNotNull}}"
+                TextWrapping="Wrap"
+                Foreground="{DynamicResource DaTextBrush}" />
+
             <TextBox
                 Text="{Binding Address}"
                 PlaceholderText="radio.example.com"
@@ -31,6 +40,14 @@
                 HorizontalAlignment="Stretch"
                 HorizontalContentAlignment="Center"
                 Padding="0,10" />
+
+            <!-- Only when there is a station to go back to; a first run has nowhere else to be. -->
+            <Button
+                Classes="ghost"
+                Content="Keep the station I have"
+                Command="{Binding CancelCommand}"
+                IsVisible="{Binding CanCancel}"
+                HorizontalAlignment="Center" />
 
             <!-- The station's four answers get four sentences: what to do about "not a station" and
                  about "nothing answered" are different things. -->

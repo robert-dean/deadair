@@ -60,9 +60,11 @@ public sealed class SessionManager : IDisposable
     /// Points the manager at a station and loads whatever is held for it.
     /// </summary>
     /// <remarks>
-    /// A session stored against a DIFFERENT origin is deleted rather than kept: a token is only
-    /// meaningful to the station that issued it, and holding one for a station the operator has moved
-    /// away from is keeping a credential for no reason.
+    /// Sessions are stored per origin, so attaching to another station reads that station's and leaves
+    /// the one before it where it is: switching back finds the operator still signed in. This comment
+    /// used to say a session for a different origin was deleted, which the code has never done; the
+    /// app did not switch stations at all until it could be pointed at another from Settings or a
+    /// link. Signing out is what deletes one.
     /// </remarks>
     public async Task AttachAsync(StationUrl station, CancellationToken cancellationToken = default)
     {

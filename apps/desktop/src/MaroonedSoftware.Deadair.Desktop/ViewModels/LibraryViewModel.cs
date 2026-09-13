@@ -129,6 +129,27 @@ public sealed partial class LibraryViewModel(OperatorActions actions, HttpClient
 
     public void Attach(StationUrl station) => _station = station;
 
+    /// <summary>Forgets the old station's catalog, so the next visit fetches the new one's.</summary>
+    /// <remarks>
+    /// Each tab fetches only while its list is empty, which is right for one station and would show
+    /// the old station's records forever after a switch without this.
+    /// </remarks>
+    public void Reset()
+    {
+        Tracks.Clear();
+        Artists.Clear();
+        Albums.Clear();
+        Playlists.Clear();
+        Charts.Clear();
+        Stories.Clear();
+        Notice = null;
+        Search = string.Empty;
+        Page = 0;
+        Total = 0;
+        Summary = string.Empty;
+        Tab = LibraryTab.Tracks;
+    }
+
     partial void OnTabChanged(LibraryTab value)
     {
         OnPropertyChanged(nameof(IsTracks));

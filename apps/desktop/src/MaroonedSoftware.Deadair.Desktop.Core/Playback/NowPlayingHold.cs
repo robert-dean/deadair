@@ -107,6 +107,29 @@ public sealed class NowPlayingHold(TimeProvider? time = null) : IDisposable
         Released?.Invoke(reading);
     }
 
+    /// <summary>
+    /// Forgets the current item and anything held, for a listener pointed at a different station.
+    /// </summary>
+    /// <remarks>
+    /// Without it a record the old station announced a moment before the switch would be released
+    /// onto the new station's screen a few seconds later. A timer already firing when this runs
+    /// finds nothing pending and does nothing.
+    /// </remarks>
+    public void Reset()
+    {
+        lock (_gate)
+        {
+            _timer?.Dispose();
+            _timer = null;
+            _hasPending = false;
+            _pendingReading = null;
+            _pendingKey = null;
+            _hasCurrentKey = false;
+            _currentKey = null;
+            Current = null;
+        }
+    }
+
     public void Dispose()
     {
         lock (_gate)

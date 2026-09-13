@@ -61,9 +61,19 @@ public sealed partial class OutputsViewModel(OutputCatalog catalog, IUiDispatche
     public void Attach(StationUrl station)
     {
         _station = station;
-        catalog.Changed += () => dispatcher.Post(Refresh);
+
+        // Once, however many stations the app is pointed at: the catalog is this install's, not a
+        // station's, and a second subscription would redraw the picker twice for every change.
+        if (!_following)
+        {
+            _following = true;
+            catalog.Changed += () => dispatcher.Post(Refresh);
+        }
+
         Refresh();
     }
+
+    private bool _following;
 
     /// <summary>Goes back to wherever the station was last playing, at launch.</summary>
     public async Task RestoreAsync()

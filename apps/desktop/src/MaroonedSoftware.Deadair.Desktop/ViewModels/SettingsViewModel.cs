@@ -244,9 +244,31 @@ public sealed partial class SettingsViewModel(
         OnPropertyChanged(nameof(HasPlugins));
     }
 
+    /// <summary>The station this app is pointed at, as its name.</summary>
+    [ObservableProperty]
+    private string _stationName = string.Empty;
+
+    /// <summary>And as its address, which is what somebody changing it needs to see.</summary>
+    [ObservableProperty]
+    private string _stationAddress = string.Empty;
+
+    /// <summary>Forgets the old station's settings, so the next visit fetches the new one's.</summary>
+    /// <remarks>
+    /// The page fetches only while it has no groups, and the formats come from the listener's
+    /// readings, so both would go on describing the old station without this.
+    /// </remarks>
+    public void Reset()
+    {
+        Groups.Clear();
+        ApplyMounts([]);
+        Notice = null;
+    }
+
     public void Attach(StationUrl station)
     {
         _station = station;
+        StationAddress = station.ToString();
+        StationName = settings.Current.StationName ?? station.Origin.Host;
         Appearance = settings.Current.Appearance;
         NextSkips = settings.Current.NextSkips;
         CheckForUpdates = settings.Current.CheckForUpdates;

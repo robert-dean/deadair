@@ -224,6 +224,36 @@ public sealed partial class RunningOrderViewModel : ObservableObject, IAsyncDisp
         return 0;
     }
 
+    /// <summary>
+    /// Stops reading the running order and forgets it, before the app is pointed at another station.
+    /// </summary>
+    /// <remarks>The same reason as the transport's: an old repository left polling carries the new station's token.</remarks>
+    public async Task DetachAsync()
+    {
+        _lease?.Dispose();
+        _lease = null;
+
+        if (_repository is not null)
+        {
+            _repository.Changed -= OnReading;
+            await _repository.DisposeAsync().ConfigureAwait(true);
+            _repository = null;
+        }
+
+        _items = [];
+        Items.Clear();
+        _droppedTrack = null;
+        _droppedAt = null;
+        _droppedTitle = null;
+        Name = string.Empty;
+        Brief = null;
+        Host = null;
+        RunsDryLabel = string.Empty;
+        IsShort = false;
+        CanUndo = false;
+        UndoLabel = null;
+    }
+
     public async ValueTask DisposeAsync()
     {
         _lease?.Dispose();

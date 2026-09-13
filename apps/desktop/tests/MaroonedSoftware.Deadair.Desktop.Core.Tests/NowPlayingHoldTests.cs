@@ -116,6 +116,32 @@ public class NowPlayingHoldTests
         Assert.Same(third, hold.Current);
     }
 
+    /// <summary>
+    /// A record the old station announced just before a switch must never be released onto the new
+    /// station's screen, and the new station's first record is new rather than "the same item".
+    /// </summary>
+    [Fact]
+    public void AResetDropsWhatWasHeld_AndForgetsWhatWasCurrent()
+    {
+        var time = new FakeTimeProvider();
+        var hold = new NowPlayingHold(time);
+        hold.Offer("100", Reading("100"));
+        time.Advance(NowPlayingHold.NowPlayingLead);
+        hold.Offer("200", Reading("200"));
+
+        var released = new List<NowPlayingReading>();
+        hold.Released += released.Add;
+
+        hold.Reset();
+        time.Advance(NowPlayingHold.NowPlayingLead);
+
+        Assert.Empty(released);
+        Assert.Null(hold.Current);
+
+        // The same key as before the reset is new to it now, so it waits like any new item.
+        Assert.Null(hold.Offer("100", Reading("100")));
+    }
+
     private static NowPlayingReading Reading(string startedAt, long listeners = 0) => new()
     {
         Station = "deadair",

@@ -1,4 +1,8 @@
+using System.Diagnostics;
+using System.Runtime.InteropServices;
 using Avalonia;
+using MaroonedSoftware.Deadair.Desktop.Core;
+using MaroonedSoftware.Deadair.Desktop.Core.Diagnostics;
 
 namespace MaroonedSoftware.Deadair.Desktop;
 
@@ -12,6 +16,20 @@ internal static class Program
     [STAThread]
     public static void Main(string[] args)
     {
+        // First, before Avalonia: `LogToTrace` below writes through Trace, and so does everything else
+        // in the app, so a listener added any later misses whatever went wrong while starting.
+        var log = FileLog.Open(FileLog.DefaultDirectory());
+        FileLog.Shared = log;
+        var listener = log.AsTraceListener();
+        Trace.Listeners.Add(listener);
+
+        // The two ways an exception leaves without anybody catching it. Neither is handled here, only
+        // written down, so the process does whatever it would have done anyway, with a record of why.
+        AppDomain.CurrentDomain.UnhandledException += (_, e) => Trace.WriteLine($"unhandled: {e.ExceptionObject}");
+        TaskScheduler.UnobservedTaskException += (_, e) => Trace.WriteLine($"unobserved task: {e.Exception}");
+
+        Trace.WriteLine($"deadair {AppVersion.Current} starting on {RuntimeInformation.OSDescription}, log at {log.FilePath}");
+
         var builder = BuildAvaloniaApp();
         builder.StartWithClassicDesktopLifetime(args);
 
@@ -22,6 +40,10 @@ internal static class Program
         {
             app.DisposeServicesAsync().AsTask().GetAwaiter().GetResult();
         }
+
+        Trace.WriteLine("deadair exiting");
+        Trace.Listeners.Remove(listener);
+        log.Dispose();
     }
 
     /// <summary>Used by the visual designer as well as by <see cref="Main"/>, so it stays parameterless.</summary>

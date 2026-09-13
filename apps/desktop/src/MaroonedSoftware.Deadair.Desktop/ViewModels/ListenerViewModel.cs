@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Globalization;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -57,6 +58,7 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
     private string? _artworkShowing;
     private byte[]? _artworkBytes;
     private bool _hasAppliedItem;
+    private PlayerPhase? _loggedPhase;
     private string? _appliedItemKey;
 
     public ListenerViewModel(
@@ -263,6 +265,7 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
 
     private void OnTargetChanged(Output output) => _dispatcher.Post(() =>
     {
+        Trace.WriteLine($"output: {output.Name}");
         OutputName = output.Name;
         OnDevice = !output.IsLocal;
 
@@ -374,6 +377,14 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
 
     private void OnPlayerStatus(PlayerStatus status) => _dispatcher.Post(() =>
     {
+        // Here because this is the one place that hears this Mac's player and a speaker's alike. A
+        // phase, not every report: a network player can repeat itself on each poll.
+        if (status.Phase != _loggedPhase)
+        {
+            _loggedPhase = status.Phase;
+            Trace.WriteLine(status.Detail is null ? $"player: {status.Phase}" : $"player: {status.Phase} ({status.Detail})");
+        }
+
         _conductor.Observed(status);
         Apply();
         PublishToSystem();

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 
 namespace MaroonedSoftware.Deadair.Desktop.Core.Settings;
@@ -77,6 +78,7 @@ public sealed class FileSettingsStore : ISettingsStore, IDisposable
             // An install with no preferences is a working app; a refusal to start is not. What it
             // must not become is an install that saves those empty preferences over the file.
             Problem = new SettingsFileProblem(_path, exception.Message);
+            Trace.WriteLine($"settings: could not read {_path}, and nothing will be saved to it this session: {exception.Message}");
         }
     }
 

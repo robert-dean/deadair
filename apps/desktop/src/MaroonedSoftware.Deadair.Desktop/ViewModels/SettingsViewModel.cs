@@ -7,6 +7,7 @@ using MaroonedSoftware.Deadair.Desktop.Core.Playback;
 using MaroonedSoftware.Deadair.Desktop.Core.Plugins;
 using MaroonedSoftware.Deadair.Desktop.Core.Settings;
 using MaroonedSoftware.Deadair.Desktop.Core.Station;
+using MaroonedSoftware.Deadair.Desktop.Services;
 using MaroonedSoftware.Deadair.Desktop.Themes;
 using MaroonedSoftware.Deadair.Sdk;
 using MaroonedSoftware.Deadair.Sdk.Models;
@@ -62,9 +63,25 @@ public sealed partial class SettingsViewModel(
     HttpClient http,
     ISettingsStore settings,
     ThemeManager themes,
-    IPluginCatalog? plugins = null) : ObservableObject
+    IPluginCatalog? plugins = null,
+    AppLog? log = null) : ObservableObject
 {
     private StationUrl _station;
+
+    /// <summary>Whether there is a log file to show, which there is not in a headless render.</summary>
+    public bool CanRevealLog => log?.CanReveal == true;
+
+    /// <summary>Where the log is, said on the page so it can be found without the button too.</summary>
+    public string LogNote => log?.FilePath is { } path
+        ? $"What this app did and what went wrong, kept on this Mac and never sent anywhere: {path}"
+        : "This copy of the app is not keeping a log.";
+
+    /// <remarks>
+    /// On this page rather than the check-up, because the check-up needs an operator and a listener
+    /// with a problem has no account.
+    /// </remarks>
+    [RelayCommand]
+    private void RevealLog() => log?.Reveal();
 
     public ObservableCollection<SettingGroupViewModel> Groups { get; } = [];
 

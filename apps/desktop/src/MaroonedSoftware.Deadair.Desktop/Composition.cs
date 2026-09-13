@@ -1,5 +1,6 @@
 using Avalonia.Threading;
 using MaroonedSoftware.Deadair.Desktop.Core.Auth;
+using MaroonedSoftware.Deadair.Desktop.Core.Diagnostics;
 using MaroonedSoftware.Deadair.Desktop.Core.Net;
 using MaroonedSoftware.Deadair.Desktop.Core.Playback;
 using MaroonedSoftware.Deadair.Desktop.Core.Plugins;
@@ -77,6 +78,9 @@ internal static class Composition
         // can reach it. Here rather than in the control, because this file is the only one that
         // knows how the app is wired — including that there is exactly one HttpClient.
         services.AddSingleton(provider => new ArtworkLoader(provider.GetRequiredService<HttpClient>()));
+
+        // The log Program opened before anything else, so the pages can say where it is.
+        services.AddSingleton(_ => new AppLog(FileLog.Shared));
 
         // Plugins. The manager is disposed with the container, after the window has closed, which is
         // the same moment the pollers stop — a plugin holding a connection to a speaker has to be

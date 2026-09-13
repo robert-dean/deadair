@@ -881,6 +881,18 @@ It keeps its settings in `~/Library/Application Support/deadair/settings.json`, 
 file from anything to do with a session: signing out must not take the station address with it,
 because somebody who signs out is still a listener. The session itself is in the Keychain.
 
+**Its log is `~/Library/Logs/deadair/deadair.log`**, which Console.app lists on its own, and
+Settings has a Reveal in Finder button for it. `Program.Main` adds the listener before Avalonia is
+built, because `LogToTrace` and everything else in the app writes through `Trace`; before this there
+was no listener at all and a bundled app logged nowhere. The file is rotated to `.1` at startup once
+it is over 4 MiB, every line is flushed as it is written, and a failure to write drops the line
+rather than throwing, because a listener that throws inside `Trace.WriteLine` crashes whoever was
+logging. It carries no account address, since it exists to be attached to a bug report.
+
+The version the app reports (the User-Agent, the log's first line) is `AppVersion.Current`, read
+from the stamped assembly. The SDK appends `+<commit>` to the informational version inside any git
+checkout; `AppVersion.Strip` drops it so the agent does not change with every commit.
+
 The version is `apps/desktop/package.json`, bumped by a changeset naming `@deadair/desktop` and
 copied into `Directory.Build.props` by `pnpm release:version`; CI fails when the two disagree, so edit
 the manifest and never the props. The changelog is `apps/desktop/CHANGELOG.md`, written from the same

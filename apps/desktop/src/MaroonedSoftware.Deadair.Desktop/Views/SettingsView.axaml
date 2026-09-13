@@ -138,6 +138,16 @@
                             <TextBlock Classes="dimmed" TextWrapping="Wrap"
                                        Text="What the station is publishing. Takes effect the next time you press Listen." />
                         </StackPanel>
+
+                        <!-- Here rather than on the check-up: that page needs an operator, and a
+                             listener with a problem has no account. -->
+                        <StackPanel Spacing="6">
+                            <TextBlock Classes="dimmed" Text="Log" />
+                            <Button Classes="ghost" Content="Reveal in Finder" HorizontalAlignment="Left"
+                                    IsVisible="{Binding CanRevealLog}"
+                                    Command="{Binding RevealLogCommand}" />
+                            <TextBlock Classes="dimmed" TextWrapping="Wrap" Text="{Binding LogNote}" />
+                        </StackPanel>
                     </StackPanel>
                 </Border>
 

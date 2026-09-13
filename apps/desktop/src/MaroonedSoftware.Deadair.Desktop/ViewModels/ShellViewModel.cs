@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MaroonedSoftware.Deadair.Desktop.Core.Auth;
@@ -81,7 +82,11 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
         Setup.Connected += (station, name) => _ = AttachAsync(station, name);
         Login.SignedIn += () => ApplySession();
-        _session.Changed += _ => _dispatcher.Post(ApplySession);
+        _session.Changed += state =>
+        {
+            LogSession(state);
+            _dispatcher.Post(ApplySession);
+        };
 
         // NextSkips lives in the settings file rather than on the session, so turning it on or off
         // has to reapply the system's Next button the same way signing in and out already does.
@@ -198,8 +203,32 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         Ready = true;
     }
 
+    /// <summary>
+    /// Writes a change of session to the log, and only a change: a token refresh publishes the same
+    /// state again, and a log that says "signed in" every quarter of an hour says nothing.
+    /// </summary>
+    /// <remarks>No address: the log is for attaching to a bug report, and whose account it was is not needed there.</remarks>
+    private void LogSession(SessionState state)
+    {
+        var said = state switch
+        {
+            SessionState.SignedIn { IsOperator: true } => "signed in as the operator",
+            SessionState.SignedIn => "signed in",
+            _ => "signed out",
+        };
+
+        if (said != _loggedSession)
+        {
+            _loggedSession = said;
+            Trace.WriteLine($"session: {said}");
+        }
+    }
+
+    private string? _loggedSession;
+
     private async Task AttachAsync(StationUrl station, string? name)
     {
+        Trace.WriteLine($"station: {station} attached");
         Listener.Attach(station, name);
 
         if (Listener.Outputs is { } outputs)

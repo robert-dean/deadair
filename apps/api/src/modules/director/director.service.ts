@@ -190,6 +190,23 @@ export const EXTEND_GUARD_MS = 300_000;
 const AIR_TTL_MS = 5_000;
 
 /**
+ * How long the host's on-air name, as last told to the transport, is trusted before a commit pass
+ * reads it again. A recast and a new programme read it at once; this only catches a persona renamed
+ * while it is on, which posts nothing, so a minute is soon enough and one query a minute is nothing.
+ */
+const HOST_TTL_MS = 60_000;
+
+/**
+ * The name a persona goes by on air, or nothing when it has none. The persona's own half of the
+ * precedence every break writer uses (`persona.djName ?? station.djName`); the station's half is
+ * `/nowplaying`'s to apply, per call.
+ */
+function onAirName(persona?: Persona): string | undefined {
+    const name = persona?.djName?.trim();
+    return name ? name : undefined;
+}
+
+/**
  * How long the record may lag the running order.
  *
  * A **throttle, not a debounce**, and the difference is the whole reason this is a
@@ -251,6 +268,8 @@ export class DirectorService {
     /** The last reading of `station_air`, and when it was taken. */
     private air?: StationAir;
     private airReadAt = 0;
+    /** When the host's name was last read for the transport. See {@link HOST_TTL_MS}. */
+    private hostReadAt = 0;
     private active = false;
     /**
      * What puts the station on air, as the setting currently stands.
@@ -624,6 +643,7 @@ export class DirectorService {
         // state and this class owns the order; there is no second copy for the two to disagree
         // about, which is what step 8 of the decision bought.
         this.rundown.attach(this.lineup);
+        await this.announceBroadcast(this.lineup);
 
         // Everything the player was holding belongs to a process that is gone. The items
         // themselves are still in the order, saying they were handed over, and nothing has
@@ -1234,6 +1254,7 @@ export class DirectorService {
         // `air.on` event a few lines below: a broadcast starting is itself part of the broadcast.
         this.identity.began(lineup.broadcastId);
         this.rundown.attach(lineup);
+        await this.announceBroadcast(lineup);
         // After the new order is in place, because that is what `retireSegments` reads to decide
         // whether a break is still wanted somewhere — and none of the outgoing ones can be, which is
         // the whole difference between this and the edit paths. Without it a changeover left every
@@ -1425,6 +1446,10 @@ export class DirectorService {
             // presenting", which would put every break in the tail out of character and rewrite the
             // lot over a transient fault. The change of host above is durable either way.
             const incoming = await this.presenting(lineup.personaId);
+            // Before the early return. A recast means the host CHANGED, so a read that failed cannot
+            // keep the name the transport holds — that is the outgoing host's — and names nobody
+            // until the next reading can say who came in.
+            if (this.lineup === lineup) this.tellTransport(lineup, incoming.read ? onAirName(incoming.persona) : undefined);
             if (!incoming.read) return;
 
             const ids = [
@@ -1465,6 +1490,36 @@ export class DirectorService {
             this.logger.warn(`director: could not read who is presenting (${errorText(error)})`);
             return { read: false };
         }
+    }
+
+    /**
+     * Read who is presenting `lineup` and tell the transport what programme is on.
+     *
+     * Called the moment an order is attached, which is also the moment the transport forgot the last
+     * one, so what `/nowplaying` names is never the programme that just came off.
+     */
+    private async announceBroadcast(lineup: StationLineup): Promise<void> {
+        this.hostReadAt = Date.now();
+        const incoming = await this.presenting(lineup.personaId);
+        // A pass that awaited the read may find a different order attached by the time it returns.
+        if (this.lineup !== lineup) return;
+        // A read that FAILED keeps the host the transport already holds: nothing said the host
+        // changed, and a transient fault on the personas table must not make the station forget who
+        // is talking. The transport forgot any previous programme's host when this order was
+        // attached, so what is kept is only ever this order's.
+        this.tellTransport(lineup, incoming.read ? onAirName(incoming.persona) : this.rundown.broadcast()?.host);
+    }
+
+    /**
+     * Tell the transport the broadcast's name and its host's on-air name.
+     *
+     * The host is the persona's own `djName` and nothing else: the station-wide presenter name is a
+     * setting, and `/nowplaying` falls back to it per call so a rename is heard on the next poll.
+     * The console `label` is never it — that is what the operator calls the character, and the
+     * listener is never told it.
+     */
+    private tellTransport(lineup: StationLineup, host: string | undefined): void {
+        this.rundown.setBroadcast({ name: lineup.name, ...(host === undefined ? {} : { host }) });
     }
 
     /**
@@ -1725,6 +1780,11 @@ export class DirectorService {
         // than only on a change of order: it is one assignment, and it is what makes an operator's
         // change take effect within a track or two instead of at the next broadcast.
         this.rundown.setCrossfade(rules.crossfade);
+        // And what the programme is called, on the same every-pass terms: a relabel (`rebind`) posts
+        // nothing else the transport would hear. The host costs a query, so it is re-read only once
+        // the last reading is a minute old, which is what catches a persona renamed while it is on.
+        if (Date.now() - this.hostReadAt < HOST_TTL_MS) this.tellTransport(lineup, this.rundown.broadcast()?.host);
+        else await this.announceBroadcast(lineup);
 
         // FIRST, and before planting: a break the station was asked for and has already spoken is
         // waiting for a position, and everything below this line either takes items out of the order

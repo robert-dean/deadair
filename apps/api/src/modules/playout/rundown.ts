@@ -279,6 +279,16 @@ export interface NowPlaying {
     remainingMs?: number;
 }
 
+/**
+ * The programme on air, as a listener would be told it: what the broadcast is called and who
+ * presents it, by the name they go by on air. See {@link Rundown.broadcast}.
+ */
+export interface RundownBroadcast {
+    name: string;
+    /** The host's own on-air name. Absent when the persona has none, or none was ever read. */
+    host?: string;
+}
+
 /** The fields of a rundown item that come from a plugin's catalog. */
 export type RundownTrack = Omit<RundownItem, 'id'>;
 
@@ -359,6 +369,8 @@ export class Rundown {
     private armedVoice?: { carrierId: string; itemId: string };
     /** What the director last said about blending this broadcast's boundaries. See {@link crossfade}. */
     private crossfadeEnabled = false;
+    /** What the director last said is on, and who presents it. See {@link broadcast}. */
+    private broadcastOn?: RundownBroadcast;
     /** The last unexplainable id the player named, so it is reported once rather than every tick. */
     private unknownOnAir?: string;
     /**
@@ -391,6 +403,9 @@ export class Rundown {
      */
     attach(order: LiveOrder): void {
         this.order = order;
+        // A new order is a new programme, and the director announces it the moment it attaches
+        // one; holding the last broadcast's name across the gap would name the wrong show.
+        this.broadcastOn = undefined;
     }
 
     /** Give up the running order entirely: what a shutdown does. */
@@ -405,6 +420,7 @@ export class Rundown {
         // order to arrive may be an album, and inheriting a rotation's setting would blend
         // its first boundary before anything got round to saying otherwise.
         this.crossfadeEnabled = false;
+        this.broadcastOn = undefined;
     }
 
     /**
@@ -431,6 +447,27 @@ export class Rundown {
     /** Tell the transport how this broadcast wants its boundaries handled. */
     setCrossfade(enabled: boolean): void {
         this.crossfadeEnabled = enabled;
+    }
+
+    /**
+     * What programme is on, and who presents it, for `/nowplaying` to say.
+     *
+     * Resolved by the DIRECTOR and pushed here, on the same terms as {@link crossfade}: the
+     * running order is the director's, the module edge runs playout <- director, and the host's
+     * name is a persona ROW, while `/nowplaying` is answered out of memory with no database at
+     * all (it is transaction-exempt, and polled every few seconds by every listener). So the
+     * director reads the persona where it already does, and leaves the answer here.
+     *
+     * Forgotten when an order is attached, on a stand-down and on detach. Never guessed: a
+     * transport that has not been told answers nothing, and `/nowplaying` names no show.
+     */
+    broadcast(): RundownBroadcast | undefined {
+        return this.broadcastOn;
+    }
+
+    /** Tell the transport what programme is on. */
+    setBroadcast(broadcast: RundownBroadcast): void {
+        this.broadcastOn = broadcast;
     }
 
     /**
@@ -545,6 +582,8 @@ export class Rundown {
         this.airing = undefined;
         this.armedVoice = undefined;
         this.unknownOnAir = undefined;
+        // A stand-down ends the programme. What comes back on is announced when it is attached.
+        this.broadcastOn = undefined;
         this.announceReset(true);
         this.emit();
     }

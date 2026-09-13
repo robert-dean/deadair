@@ -598,6 +598,47 @@ describe('Rundown.retract and reset', () => {
     });
 });
 
+// What programme is on is the director's to say, because the host's name is a row and the transport
+// answers `/nowplaying` with no database. So the rundown only ever holds what it was last told, and
+// forgets it whenever that could name the wrong show.
+describe('Rundown.broadcast', () => {
+    it('answers nothing until the director has said what is on', () => {
+        expect(rundownWith(['a']).broadcast()).toBeUndefined();
+    });
+
+    it('holds what the director said', () => {
+        const rundown = rundownWith(['a']);
+        rundown.setBroadcast({ name: 'Afternoons', host: 'Ray' });
+
+        expect(rundown.broadcast()).toEqual({ name: 'Afternoons', host: 'Ray' });
+    });
+
+    it('forgets it when a new order is attached, on a stand-down, and on detach', () => {
+        const rundown = rundownWith(['a']);
+
+        rundown.setBroadcast({ name: 'Afternoons' });
+        orderOf(rundown, ['b']);
+        expect(rundown.broadcast()).toBeUndefined();
+
+        rundown.setBroadcast({ name: 'Afternoons' });
+        rundown.reset();
+        expect(rundown.broadcast()).toBeUndefined();
+
+        rundown.setBroadcast({ name: 'Afternoons' });
+        rundown.detach();
+        expect(rundown.broadcast()).toBeUndefined();
+    });
+
+    it('keeps it across a retraction, which changes what the player holds and not the programme', () => {
+        const rundown = rundownWith(['a']);
+        rundown.setBroadcast({ name: 'Afternoons' });
+
+        rundown.retract();
+
+        expect(rundown.broadcast()).toEqual({ name: 'Afternoons' });
+    });
+});
+
 // Preparing is the director telling the transport HOW to play what the order already says. It
 // changes nothing about the order, which is what makes it safe to do on every pass.
 describe('Rundown.prepare', () => {

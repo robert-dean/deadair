@@ -129,7 +129,7 @@ interface Options {
      * `undefined` is a station that has chosen no persona, which is an ordinary state everywhere:
      * the recast then finds every stamped break out of character.
      */
-    personas?: { active?: string; known?: string[] };
+    personas?: { active?: string; known?: string[]; names?: Record<string, string> };
     /** A personas table that cannot be read at all, which must leave the breaks alone. */
     personasFail?: boolean;
     /**
@@ -342,7 +342,8 @@ function build(options: Options = {}) {
 
             const named = lineupPersonaId !== undefined && (options.personas?.known ?? []).includes(lineupPersonaId) ? lineupPersonaId : undefined;
             const id = named ?? options.personas?.active;
-            return id === undefined ? undefined : { id, key: id, label: id, voice: `${id}-voice` };
+            const djName = id === undefined ? undefined : options.personas?.names?.[id];
+            return id === undefined ? undefined : { id, key: id, label: id, voice: `${id}-voice`, ...(djName === undefined ? {} : { djName }) };
         }),
     };
 
@@ -1467,6 +1468,114 @@ describe('DirectorService resuming what it was stopped on', () => {
         await director.start();
 
         expect(await director.resumeAir()).toEqual({ resumed: false });
+    });
+});
+
+// `/nowplaying` names the programme and who presents it, and answers with no database, so the director
+// is what tells the transport. What matters is that it is told at every moment the answer changes, and
+// that it never names the wrong host: the programme that just came off, or the one a recast replaced.
+describe('DirectorService telling the transport what is on', () => {
+    it('names the show it restored at start, and no host when the persona has no on-air name', async () => {
+        const { director, rundown, seed } = build({ items: ['a'], personas: { active: 'classic', known: ['classic'] } });
+        await seed();
+        await director.start();
+
+        // No `host` key at all: the station-wide presenter name is `/nowplaying`'s to fall back to.
+        expect(rundown.broadcast()).toEqual({ name: 'Afternoons' });
+    });
+
+    it('names the host by the name they go by on air, never their console label', async () => {
+        const { director, rundown, seed } = build({ items: ['a'], personas: { active: 'classic', known: ['classic'], names: { classic: 'Ray' } } });
+        await seed();
+        await director.start();
+
+        expect(rundown.broadcast()).toEqual({ name: 'Afternoons', host: 'Ray' });
+    });
+
+    it('names a new programme and its host when the station is put on air', async () => {
+        const { director, rundown, seed } = build({
+            items: ['a'],
+            personas: { active: 'classic', known: ['classic', 'pirate'], names: { classic: 'Ray', pirate: 'Cap Ray' } },
+        });
+        await seed();
+        await director.start();
+
+        await director.post({
+            kind: 'putOnAir',
+            binding: { name: 'Something else', personaId: 'pirate', mode: 'rotation', onEnd: 'extend', source: 'import' },
+            tracks: [track('x'), track('y')],
+        });
+
+        expect(rundown.broadcast()).toEqual({ name: 'Something else', host: 'Cap Ray' });
+    });
+
+    it('changes the host when the broadcast is recast', async () => {
+        const { director, rundown, seed } = build({
+            items: ['a'],
+            personas: { active: 'classic', known: ['classic', 'pirate'], names: { classic: 'Ray', pirate: 'Cap Ray' } },
+        });
+        await seed();
+        await director.start();
+
+        await director.post({ kind: 'recast', bind: { personaId: 'pirate' } });
+
+        expect(rundown.broadcast()).toEqual({ name: 'Afternoons', host: 'Cap Ray' });
+    });
+
+    it('changes the host when the station itself changes character', async () => {
+        const options = { items: ['a'], personas: { active: 'classic', known: ['classic', 'pirate'], names: { classic: 'Ray', pirate: 'Cap Ray' } } };
+        const { director, rundown, seed } = build(options);
+        await seed();
+        await director.start();
+
+        // The personas service makes the new one active first, then posts a recast with no binding.
+        options.personas.active = 'pirate';
+        await director.post({ kind: 'recast' });
+
+        expect(rundown.broadcast()).toEqual({ name: 'Afternoons', host: 'Cap Ray' });
+    });
+
+    it('names nobody, rather than the outgoing host, when a recast cannot read who came in', async () => {
+        const options: Options = { items: ['a'], personas: { active: 'classic', known: ['classic', 'pirate'], names: { classic: 'Ray' } } };
+        const { director, rundown, seed } = build(options);
+        await seed();
+        await director.start();
+        expect(rundown.broadcast()?.host).toBe('Ray');
+
+        options.personasFail = true;
+        await director.post({ kind: 'recast', bind: { personaId: 'pirate' } });
+
+        expect(rundown.broadcast()).toEqual({ name: 'Afternoons' });
+    });
+
+    it('re-reads the host once a minute, which is what hears a persona renamed while it is on', async () => {
+        const options = { items: ['a', 'b', 'c'], personas: { active: 'classic', known: ['classic'], names: { classic: 'Ray' } } };
+        const { director, rundown, seed } = build(options);
+        await seed();
+        await director.start();
+
+        options.personas.names.classic = 'Raymond';
+        await wake(rundown);
+        // Inside the minute, the transport keeps what it was told.
+        expect(rundown.broadcast()?.host).toBe('Ray');
+
+        vi.setSystemTime(Date.now() + 61_000);
+        await wake(rundown);
+
+        expect(rundown.broadcast()?.host).toBe('Raymond');
+    });
+
+    it('keeps the host it knew when a later reading fails, because nothing said the host changed', async () => {
+        const options: Options = { items: ['a', 'b', 'c'], personas: { active: 'classic', known: ['classic'], names: { classic: 'Ray' } } };
+        const { director, rundown, seed } = build(options);
+        await seed();
+        await director.start();
+
+        options.personasFail = true;
+        vi.setSystemTime(Date.now() + 61_000);
+        await wake(rundown);
+
+        expect(rundown.broadcast()).toEqual({ name: 'Afternoons', host: 'Ray' });
     });
 });
 

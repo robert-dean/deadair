@@ -11,8 +11,8 @@
 
     <!--
         The AVFoundation shim, built by `native/mac/build.sh` and copied beside the assembly so a
-        `dotnet run` finds it without an install step. The bundle script puts it in
-        Contents/Frameworks for a packaged app.
+        `dotnet run` finds it without an install step. The bundle script puts it in the same place,
+        Contents/MacOS beside the executable, for the same reason: default native probing looks there.
 
         `Condition` rather than a hard reference: the file is gitignored build output, and a checkout
         that has not run the script yet should fail when the player is CONSTRUCTED, with a message

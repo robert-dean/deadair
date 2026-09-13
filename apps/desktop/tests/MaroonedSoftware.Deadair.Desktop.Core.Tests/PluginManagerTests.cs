@@ -339,7 +339,7 @@ public sealed class PluginManagerTests : IDisposable
         var directory = Path.Combine(_root, origin == PluginOrigin.Bundled ? "bundled" : "user", folder);
         Directory.CreateDirectory(directory);
 
-        var source = Path.Combine(AppContext.BaseDirectory, "plugins", "deadair.fixture");
+        var source = Path.Combine(AppContext.BaseDirectory, "plugins", "deadair-fixture");
 
         foreach (var file in Directory.GetFiles(source))
         {

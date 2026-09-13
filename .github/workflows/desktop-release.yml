@@ -10,10 +10,12 @@
 # station's own releases, which are what an operator means by "a deadair release"; a macOS listener
 # sharing it would put two unrelated things in one numbered sequence and make `v0.1.0` ambiguous.
 #
-# The artifact is UNSIGNED. macOS will refuse it on a first launch until somebody right-clicks and
-# chooses Open, which is stated in the release notes rather than left to be discovered. Signing needs
-# an Apple Developer ID and a decision about paying for one; the steps below are shaped so that
-# adding it later is a secret and one extra step rather than a rewrite.
+# The artifact is signed only AD HOC and is not notarised. macOS refuses it on a first launch, and
+# since macOS 15 the old right-click and Open route no longer gets past that: it takes Open Anyway in
+# System Settings, or removing the quarantine flag. Both are stated in the release notes rather than
+# left to be discovered. Notarising needs an Apple Developer ID and a decision about paying for one;
+# the bundle script already signs every Mach-O, so adding it later is swapping the ad hoc identity for
+# a real one, a secret and a notarytool step, rather than a rewrite.
 
 name: Desktop release
 
@@ -110,8 +112,11 @@ jobs:
                   fi
                   cat >> notes.md <<'NOTES'
 
-                  It is unsigned, so the first launch needs a right-click and Open. macOS will otherwise
-                  refuse it without saying why.
+                  It is signed only ad hoc and is not notarised, so macOS refuses the first launch. On
+                  macOS 15 and later, right-click and Open no longer gets past that: open it once, let
+                  it refuse, then go to System Settings › Privacy & Security and press Open Anyway. Or
+                  remove the quarantine flag in Terminal:
+                  `xattr -dr com.apple.quarantine /Applications/deadair.app`
                   NOTES
                   cat notes.md
 

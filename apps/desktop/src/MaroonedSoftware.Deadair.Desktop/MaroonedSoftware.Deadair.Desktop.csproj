@@ -27,7 +27,7 @@
         <!--
             The bundled plugins. `BundledPlugin` is this tree's own item, defined in
             Directory.Build.targets: each one is built before the app and copied whole into
-            plugins/<id>/ beside it, and the app never compiles against any of them. That is
+            plugins/<id, dots as hyphens>/ beside it, and the app never compiles against any of them. That is
             deliberate. If the app could name a type from a plugin it ships, the bundled one would
             work through a path nothing else uses and the third-party path would rot unnoticed.
         -->

@@ -35,8 +35,16 @@
                 Everything the plugin's own build produced: its assembly, its deps.json naming the
                 packages it brought, those packages, and its plugin.json. The loader reads all of it.
             -->
+            <!--
+                The folder is the id with its dots turned into hyphens. codesign reads a dotted
+                directory inside Contents/MacOS as a nested bundle, and a folder called deadair.bluos
+                failed the signed app's strict check with "bundle format unrecognized". The loader
+                identifies a plugin by its manifest, never by its folder, so the name is only a
+                location; it is the same in a build and a publish so the two layouts cannot drift.
+            -->
             <_BundledPluginFile Include="%(BundledPluginAssembly.RootDir)%(BundledPluginAssembly.Directory)**/*"
-                                PluginId="%(BundledPluginAssembly.PluginId)" />
+                                PluginId="%(BundledPluginAssembly.PluginId)"
+                                PluginFolder="$([System.String]::Copy('%(BundledPluginAssembly.PluginId)').Replace('.', '-'))" />
         </ItemGroup>
     </Target>
 
@@ -45,7 +53,7 @@
             DependsOnTargets="CollectBundledPluginFiles"
             Condition="'@(BundledPlugin)' != ''">
         <Copy SourceFiles="@(_BundledPluginFile)"
-              DestinationFiles="@(_BundledPluginFile->'$(OutDir)plugins/%(PluginId)/%(RecursiveDir)%(Filename)%(Extension)')"
+              DestinationFiles="@(_BundledPluginFile->'$(OutDir)plugins/%(PluginFolder)/%(RecursiveDir)%(Filename)%(Extension)')"
               SkipUnchangedFiles="true">
             <Output TaskParameter="CopiedFiles" ItemName="FileWrites" />
         </Copy>
@@ -61,7 +69,7 @@
             DependsOnTargets="CollectBundledPluginFiles"
             Condition="'@(BundledPlugin)' != ''">
         <Copy SourceFiles="@(_BundledPluginFile)"
-              DestinationFiles="@(_BundledPluginFile->'$(PublishDir)plugins/%(PluginId)/%(RecursiveDir)%(Filename)%(Extension)')"
+              DestinationFiles="@(_BundledPluginFile->'$(PublishDir)plugins/%(PluginFolder)/%(RecursiveDir)%(Filename)%(Extension)')"
               SkipUnchangedFiles="true" />
     </Target>
 

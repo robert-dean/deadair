@@ -20,11 +20,12 @@ public sealed class PluginLoaderTests : IDisposable
     private readonly string _root = Path.Combine(Path.GetTempPath(), $"deadair-plugins-{Guid.NewGuid():N}");
 
     /// <summary>
-    /// Where the build put the fixture: <c>plugins/deadair.fixture</c> beside these tests, copied
-    /// there by the same targets that put a bundled plugin inside the app.
+    /// Where the build put the fixture: <c>plugins/deadair-fixture</c> beside these tests, copied
+    /// there by the same targets that put a bundled plugin inside the app. Hyphenated rather than
+    /// named by the id, because codesign reads a dotted folder inside a signed app as a nested bundle.
     /// </summary>
     private static string FixtureSource =>
-        Path.Combine(AppContext.BaseDirectory, "plugins", "deadair.fixture");
+        Path.Combine(AppContext.BaseDirectory, "plugins", "deadair-fixture");
 
     /// <summary>
     /// The copy mechanism itself, which nothing else would notice breaking: a plugin that fails to
@@ -289,7 +290,7 @@ public sealed class PluginLoaderTests : IDisposable
     [Fact]
     public void ThePluginTheAppShipsLoadsAndCanBeAskedForDevices()
     {
-        var source = Path.Combine(AppContext.BaseDirectory, "plugins", "deadair.bluos");
+        var source = Path.Combine(AppContext.BaseDirectory, "plugins", "deadair-bluos");
         Assert.True(Directory.Exists(source), $"the BluOS plugin was not built into {source}");
 
         var directory = Path.Combine(_root, "bundled", "deadair.bluos");

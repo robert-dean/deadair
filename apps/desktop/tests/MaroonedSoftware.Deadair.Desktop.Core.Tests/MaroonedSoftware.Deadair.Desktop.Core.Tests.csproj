@@ -25,7 +25,7 @@
     <ItemGroup>
         <!--
             The fixture plugin, bundled through the same targets the app uses so that the copy itself
-            is under test: it lands in plugins/deadair.fixture/ beside these tests, complete with its
+            is under test: it lands in plugins/deadair-fixture/ beside these tests, complete with its
             deps.json, and the loader is pointed at it there. Deliberately NOT a ProjectReference:
             nothing here may compile against a plugin, or the test would prove the loader works on an
             assembly the runtime had already loaded for it.

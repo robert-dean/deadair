@@ -50,7 +50,7 @@ It plays through the system's own player, so the stream shows up in the system's
 
 Listening needs no account. Signed in, it shows the running order, which it can reorder and drop from, the timetable, the library, who is presenting and what they have said, and the check-up, and it can change the station's settings.
 
-It is built from source with .NET 10. The bundle it produces is unsigned, so the first launch needs a right-click and **Open**, and macOS will otherwise refuse it without saying why. The build instructions are in [the app's directory](https://github.com/robert-dean/deadair/tree/main/apps/desktop).
+It is built from source with .NET 10. The bundle it produces is not notarised, so macOS refuses the first launch. On macOS 15 and later a right-click and **Open** no longer gets past that: open it once, let it refuse, then press **Open Anyway** in System Settings › Privacy & Security, or run `xattr -dr com.apple.quarantine` on the app. The build instructions are in [the app's directory](https://github.com/robert-dean/deadair/tree/main/apps/desktop).
 
 ## In the console
 

@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # Builds deadair.app for Apple Silicon.
 #
-# `dotnet publish` produces a directory of files, and macOS wants a bundle: executables in
-# Contents/MacOS, dylibs in Contents/Frameworks, and an Info.plist naming the executable. This does
-# that, and puts the AVFoundation shim where the runtime will find it.
+# `dotnet publish` produces a directory of files, and macOS wants a bundle: the executable in
+# Contents/MacOS, resources in Contents/Resources, and an Info.plist naming the executable. This does
+# that, puts the AVFoundation shim beside the executable where the runtime will find it, and signs the
+# result ad hoc.
 #
 # Deliberately NOT `PublishTrimmed`: the generated SDK reads JSON by reflection and the trimmer cannot
 # see it. And deliberately NOT `IncludeNativeLibrariesForSelfExtract`, which is incompatible with
@@ -27,8 +28,11 @@ app="$out/deadair.app"
 
 "$root/native/mac/build.sh"
 
-rm -rf "$app"
-mkdir -p "$app/Contents/MacOS" "$app/Contents/Frameworks" "$app/Contents/Resources"
+# The publish directory too, not only the bundle: publish writes over what is there and deletes
+# nothing, and the whole directory is copied into the app below, so a file an earlier build left
+# behind would ship. Found when a renamed plugin folder turned up in the bundle under both names.
+rm -rf "$app" "$out/publish"
+mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 
 # The projects declare `osx-arm64` in Directory.Build.props, so this publish and an ordinary build
 # agree about what the lock files hold and a packaging run cannot break the next build.
@@ -42,9 +46,12 @@ dotnet publish "$root/src/MaroonedSoftware.Deadair.Desktop" \
 
 cp -R "$out/publish/." "$app/Contents/MacOS/"
 
-# Every dylib belongs in Frameworks. The runtime finds them there because the executable's rpath
-# includes it, and a .app with dylibs loose in MacOS is one that fails notarisation later.
-mkdir -p "$app/Contents/Frameworks"
+# Beside the executable, with the thirty-odd dylibs the self-contained publish already put there
+# (the runtime, Skia, HarfBuzz, Avalonia's native half). This used to say every dylib belongs in
+# Contents/Frameworks while copying this one into MacOS, and the code was the right half: the player
+# is found by the runtime's default native probing, which looks in the application directory and never
+# in Frameworks. Frameworks is Apple's convention for .framework bundles reached through @rpath, not a
+# notarisation rule; the rule is that every Mach-O is signed wherever it sits, which the step below does.
 cp "$root/native/mac/build/libdeadairplayer.dylib" "$app/Contents/MacOS/"
 
 # The icon is a committed .icns rather than one built here: `make-app-icon.py` needs Pillow, and a
@@ -56,6 +63,29 @@ sed "s/__VERSION__/$version/g" "$here/Info.plist.in" > "$app/Contents/Info.plist
 
 chmod +x "$app/Contents/MacOS/deadair"
 
+# Signed ad hoc: innermost first, then the bundle, which seals what is already signed inside it. Not
+# `--deep`, which Apple deprecates for signing and which signs in an order it documents as wrong. This
+# covers the plugins' folders too, since they sit under MacOS.
+#
+# EVERY file under MacOS, not only the dylibs. codesign treats everything in Contents/MacOS as code,
+# so signing just the Mach-O files was measured to fail the strict check on the first managed
+# assembly it met ("code object is not signed at all, In subcomponent: System.Threading.ThreadPool.dll").
+# A file that is not Mach-O carries its signature in extended attributes, which is one more reason the
+# release archives with `ditto`: a plain zip would drop them. The executable itself is signed by the
+# bundle's own signature, last.
+#
+# What ad hoc buys, stated honestly: NOT Gatekeeper's acceptance, which only notarisation gives. It
+# buys a bundle `codesign --verify --strict` passes, so anything that would fail notarisation fails
+# here first, and signing it properly later is swapping `-` for an identity. No `--options runtime`
+# yet: the hardened runtime would need the JIT, unsigned-executable-memory and library-validation
+# entitlements for CoreCLR, and without notarisation it only adds ways for the app not to start.
+find "$app/Contents/MacOS" -type f ! -path "$app/Contents/MacOS/deadair" -print0 \
+    | xargs -0 codesign --force --sign -
+codesign --force --sign - "$app"
+codesign --verify --strict --verbose=2 "$app"
+
 echo "built $app"
 echo
-echo "It is unsigned, so the first launch needs a right-click and Open."
+echo "It is signed only ad hoc and not notarised, so macOS refuses the first launch. macOS 15 removed"
+echo "the right-click and Open route: open it once, let it refuse, then go to System Settings,"
+echo "Privacy & Security, and press Open Anyway. Or: xattr -dr com.apple.quarantine <path to deadair.app>"

@@ -211,11 +211,19 @@ worked example, and its own measurements are in `Plugins: BluOS` below.
 
 **Bundled plugins load through the same path a third-party one does, and that is the point of the
 `BundledPlugin` item in `Directory.Build.targets`.** It becomes a project reference that is built and
-never compiled against, plus a copy of the plugin's whole output under `plugins/<id>/`. If the app
+never compiled against, plus a copy of the plugin's whole output under `plugins/<id>/`, with the
+id's dots written as hyphens (`plugins/deadair-bluos/`). If the app
 could name a type from a plugin it ships, the bundled one would work through a path nothing else uses
 and the third-party path would rot unnoticed. The PUBLISH copy is a second target on purpose: publish
 assembles its own directory and carries nothing the build put in the output one, so without it the
 app bundle ships with no plugins at all — which a successful build does not reveal.
+
+**The folder is hyphenated because codesign reads a dotted directory inside `Contents/MacOS` as a
+nested bundle.** `plugins/deadair.bluos` failed the signed app's strict check with "bundle format
+unrecognized, invalid, or unsuitable". The loader names a plugin from its manifest and never from its
+folder, so the folder is only a location, and it is the same in a build and a publish so the two
+cannot drift. A plugin in the user's plugins directory can be called anything: that folder is not
+inside the signed bundle.
 
 **A plugin csproj needs two properties that look like boilerplate and are not.**
 `EnableDynamicLoading` is the SDK's own switch for a library that is loaded rather than referenced:
@@ -908,7 +916,19 @@ To build something that can be double-clicked:
 apps/desktop/tools/macos/make-app-bundle.sh
 ```
 
-About 112MB, self-contained, and unsigned — so the first launch needs a right-click and Open.
+About 112MB, self-contained, and signed only ad hoc. **macOS 15 removed the right-click and Open
+route past Gatekeeper**, which this file and the release notes both used to give: now it is open it
+once, let it refuse, then System Settings › Privacy & Security › Open Anyway, or
+`xattr -dr com.apple.quarantine` on the bundle. Ad hoc signing does not change that (only
+notarisation does); what it buys is a bundle `codesign --verify --strict` passes, which the script
+checks, so a Mach-O that would fail notarisation fails here first.
+
+**The shim lives in `Contents/MacOS`, beside the thirty-odd dylibs the publish already put there**,
+because the runtime's default native probing looks in the application directory and never in
+`Contents/Frameworks`. The script used to say every dylib belonged in Frameworks while copying this
+one into MacOS; the code was right and the comment was not. Every file is signed innermost first and
+then the bundle, without `--deep`, and without the hardened runtime, which CoreCLR would need three
+entitlements for and which buys nothing before notarisation.
 
 **Publishing for a runtime identifier used to rewrite every `packages.lock.json` to name that RID**,
 after which a plain restore failed in locked mode because no project declared one — one packaging run

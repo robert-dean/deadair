@@ -1,6 +1,7 @@
 package com.maroonedsoftware.deadair.ui.home
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -59,6 +60,8 @@ fun HomeScreen(
     snackbarHost: SnackbarHostState,
     /** The tab's own actions, before Settings. Empty for a tab that has none. */
     actions: @Composable RowScope.() -> Unit = {},
+    /** The player bar over the tabs, or `null` on a tab that has the station's button already. */
+    miniPlayer: (@Composable () -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
     // The bar gives way to a list that scrolls under it and comes back on the first pull down,
@@ -82,16 +85,21 @@ fun HomeScreen(
             )
         },
         bottomBar = {
-            NavigationBar {
-                Tab.entries.forEach { entry ->
-                    NavigationBarItem(
-                        selected = entry == tab,
-                        onClick = { onTab(entry) },
-                        // The item merges its icon and label into one node for a screen reader, so
-                        // a description on the icon as well read every tab twice: "Played, Played".
-                        icon = { Icon(painterResource(entry.icon), contentDescription = null) },
-                        label = { Text(stringResource(entry.label)) },
-                    )
+            // The player bar sits on the tabs rather than inside a tab, so the Scaffold pads the
+            // content by both and a list's last row is never under it; the snackbar lands above both.
+            Column {
+                miniPlayer?.invoke()
+                NavigationBar {
+                    Tab.entries.forEach { entry ->
+                        NavigationBarItem(
+                            selected = entry == tab,
+                            onClick = { onTab(entry) },
+                            // The item merges its icon and label into one node for a screen reader, so
+                            // a description on the icon as well read every tab twice: "Played, Played".
+                            icon = { Icon(painterResource(entry.icon), contentDescription = null) },
+                            label = { Text(stringResource(entry.label)) },
+                        )
+                    }
                 }
             }
         },

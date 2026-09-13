@@ -13,6 +13,8 @@
     <string name="tab_whats_on">What\'s on</string>
     <string name="settings">Settings</string>
     <string name="back">Back</string>
+    <!-- What tapping the player bar over the other tabs does, spoken by TalkBack -->
+    <string name="open_now_playing">Open Now playing</string>
 
     <!-- Now playing -->
     <string name="now_warming_up">Warming up</string>

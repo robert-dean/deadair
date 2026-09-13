@@ -17,11 +17,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -37,7 +34,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -252,32 +248,7 @@ private fun Controls(state: NowPlayingUiState, playhead: Playhead?, onPlay: () -
         }
     }
 
-    // The name lives on the button, not on the icon inside it. While the station warms up the
-    // icon is swapped for a spinner, and a name that went with the icon left TalkBack announcing
-    // an unlabelled button that was still a live stop control — for as long as a warm-up takes,
-    // which on an audience-gated station is every time.
-    val label = stringResource(if (state.playing) R.string.stop else R.string.play)
-    val buffering = stringResource(R.string.buffering)
-    FilledIconButton(
-        onClick = if (state.playing) onStop else onPlay,
-        // Round, which is what a radio's one button is. The default shape is a rounded square.
-        shape = CircleShape,
-        modifier =
-            Modifier.padding(top = 32.dp).size(72.dp).semantics {
-                contentDescription = label
-                if (state.buffering) stateDescription = buffering
-            },
-    ) {
-        if (state.buffering) {
-            CircularProgressIndicator(modifier = Modifier.size(28.dp), strokeWidth = 3.dp)
-        } else {
-            Icon(
-                painterResource(if (state.playing) R.drawable.ic_stop else R.drawable.ic_play),
-                contentDescription = null,
-                modifier = Modifier.size(32.dp),
-            )
-        }
-    }
+    PlayStopButton(playing = state.playing, buffering = state.buffering, onPlay = onPlay, onStop = onStop, modifier = Modifier.padding(top = 32.dp))
 
     Text(
         state.footer.resolve(),

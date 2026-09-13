@@ -108,6 +108,22 @@ fun HomeRoute(
     val air = airState(nowPlaying, playback.requested)
     val choice = chooseMount(reading?.nowPlaying?.mounts.orEmpty(), settings.format)
     val play = rememberPlayWithNotificationsAsked(connection::play)
+    // One state for Now playing and the player bar over the other tabs, so the two cannot disagree
+    // about what is on.
+    val nowState =
+        NowPlayingUiState(
+            air = air,
+            listeners = reading?.nowPlaying?.listeners ?: 0,
+            format = settings.format,
+            playing = playback.requested,
+            buffering = playback.buffering,
+            // Only worth saying while something is actually playing; before that it is a guess
+            // about a station that has not answered yet.
+            fellBackToMp3 = choice.fellBack && playback.requested,
+            stale = nowPlaying is NowPlayingState.Unreachable,
+            show = reading?.nowPlaying?.show,
+        )
+    val artworkUrl = station?.artUrl(reading?.nowPlaying?.track?.artworkUrl)
 
     // The order's own state is read here as well as in its tab, because the app bar's Extend and
     // Shuffle live above the tab and need to know whether there is anything to shuffle. Collected
@@ -140,6 +156,13 @@ fun HomeRoute(
         onTab = { tab = it },
         onSettings = onSettings,
         snackbarHost = snackbarHost,
+        // Everywhere but Now playing, which has the station's button already.
+        miniPlayer =
+            if (tab == Tab.NOW_PLAYING) {
+                null
+            } else {
+                { MiniPlayer(nowState, artworkUrl, onOpen = { tab = Tab.NOW_PLAYING }, onPlay = play, onStop = connection::stop) }
+            },
         actions = {
             val loaded = order as? OrderState.Loaded
             // What it said is a read, so any signed-in listener gets it; the rest are the operator's.
@@ -203,20 +226,8 @@ fun HomeRoute(
                         )
                     }
                 NowPlayingScreen(
-                    state =
-                        NowPlayingUiState(
-                            air = air,
-                            listeners = reading?.nowPlaying?.listeners ?: 0,
-                            format = settings.format,
-                            playing = playback.requested,
-                            buffering = playback.buffering,
-                            // Only worth saying while something is actually playing; before that
-                            // it is a guess about a station that has not answered yet.
-                            fellBackToMp3 = choice.fellBack && playback.requested,
-                            stale = nowPlaying is NowPlayingState.Unreachable,
-                            show = reading?.nowPlaying?.show,
-                        ),
-                    artworkUrl = station?.artUrl(reading?.nowPlaying?.track?.artworkUrl),
+                    state = nowState,
+                    artworkUrl = artworkUrl,
                     // Frozen while the station is unreachable: a bar still sweeping from a reading
                     // minutes old is a moving, confident lie about where the record is.
                     playhead = rememberPlayhead(reading.takeIf { nowPlaying is NowPlayingState.Answered }),

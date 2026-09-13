@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.5.1] — 2026-09-13
+
+- Mail works with a server that has a self-signed certificate. Settings → Mail has a new switch, "Check the server's certificate": turn it off and the station stops failing with "unable to verify the first certificate" against a mail server with its own certificate, or one from your own certificate authority. It stays on by default, and should for any server reached across the internet, because with it off the station cannot tell your server from something pretending to be it.
+
 ## [0.5.0] — 2026-09-13
 
 - `GET /nowplaying` now says what programme is on and who presents it, and whether the station is playing a record or talking. The new `show` field carries the broadcast's name and the host's on-air name: the persona's own on-air name, or the station's presenter name from Settings when the persona has none, and nothing when neither is set. The persona's console label is never shown. `track.kind` is `record` for music and `break` while the station speaks on its own between records, such as an ident, a bulletin or a talk break; during a break `artist` is empty and `title` is the break's label. A presenter talking over the start of a record still counts as the record. Both fields are additions, so existing players keep working, and a station on an older version reads as always playing a record with no show named. The route still answers without touching the database, so polling it costs the station nothing more than before.
@@ -98,7 +102,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.5.1...HEAD
+[0.5.1]: https://github.com/robert-dean/deadair/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/robert-dean/deadair/compare/v0.4.2...v0.5.0
 [0.4.2]: https://github.com/robert-dean/deadair/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/robert-dean/deadair/compare/v0.4.0...v0.4.1

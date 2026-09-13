@@ -9,6 +9,11 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-09-13
+
+- `GET /nowplaying` now says what programme is on and who presents it, and whether the station is playing a record or talking. The new `show` field carries the broadcast's name and the host's on-air name: the persona's own on-air name, or the station's presenter name from Settings when the persona has none, and nothing when neither is set. The persona's console label is never shown. `track.kind` is `record` for music and `break` while the station speaks on its own between records, such as an ident, a bulletin or a talk break; during a break `artist` is empty and `title` is the break's label. A presenter talking over the start of a record still counts as the record. Both fields are additions, so existing players keep working, and a station on an older version reads as always playing a record with no show named. The route still answers without touching the database, so polling it costs the station nothing more than before.
+- The check-up's list of mounts ends with Open in the desktop app, which hands this station's address to the desktop app.
+
 ## [0.4.2] — 2026-09-13
 
 - A break whose audio could not be made because the speech engine was not ready is now asked for again, instead of being passed over at its slot. When the voice server is still loading its model, or cannot load it because another model is holding the GPU, the station keeps the break's words and waits. Nothing ever came back for those breaks: only a welcome was tried a second time, so every other break turned away at the start of a listening session was lost. The station now asks for their audio again each time a record changes while the break is still coming up, and the activity feed says so, as it already did for a break whose render failed outright.
@@ -93,7 +98,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.4.2...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/robert-dean/deadair/compare/v0.4.2...v0.5.0
 [0.4.2]: https://github.com/robert-dean/deadair/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/robert-dean/deadair/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/robert-dean/deadair/compare/v0.3.0...v0.4.0

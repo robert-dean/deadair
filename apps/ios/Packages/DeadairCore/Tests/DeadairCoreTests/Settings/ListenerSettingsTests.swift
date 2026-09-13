@@ -4,11 +4,18 @@ import Testing
 /// What an install remembers, read back from text.
 struct ListenerSettingsTests {
     @Test func readsBackWhatItWrote() {
-        let settings = ListenerSettings(station: station("http://192.168.1.20:8080"), stationName: "Static", format: .hls)
+        let settings = ListenerSettings(station: station("http://192.168.1.20:8080"), stationName: "Static", format: .hls, playOnOpen: true)
 
-        let read = ListenerSettings(stationText: settings.stationText, nameText: settings.stationName, formatText: settings.formatText)
+        let read = ListenerSettings(
+            stationText: settings.stationText, nameText: settings.stationName, formatText: settings.formatText, playOnOpenText: settings.playOnOpenText)
 
         #expect(read == settings)
+    }
+
+    @Test func readsAnythingButOnAsPlayOnOpenOff() {
+        #expect(!ListenerSettings(stationText: nil, nameText: nil, formatText: nil, playOnOpenText: "yes").playOnOpen)
+        #expect(!ListenerSettings(stationText: nil, nameText: nil, formatText: nil, playOnOpenText: nil).playOnOpen)
+        #expect(ListenerSettings(stationText: nil, nameText: nil, formatText: nil, playOnOpenText: "on").playOnOpen)
     }
 
     @Test func treatsAnAddressThatNoLongerParsesAsNoneSoTheAppGoesBackToSetup() {

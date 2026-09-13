@@ -18,6 +18,8 @@ final class AppModel {
     let history: HistoryRepository
     let schedule: ScheduleRepository
 
+    @ObservationIgnored private var openPlay = OpenPlay()
+
     init() {
         let http = StationHttp(userAgent: StationHttp.bundleAgent)
         let settings = SettingsStore()
@@ -59,6 +61,12 @@ final class AppModel {
         session.point(at: station)
         history.reset()
         schedule.reset()
+    }
+
+    /// The app has opened: start the station if the listener asked for that. Answers yes once per
+    /// process at most, so a root view appearing again does not start it again.
+    func opened() {
+        if openPlay.shouldPlay(settings.settings) { listening.play() }
     }
 
     /// Whether the account can read the station's own record of itself. A hint for what to offer,

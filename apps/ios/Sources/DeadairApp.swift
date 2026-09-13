@@ -18,12 +18,17 @@ struct RootView: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
-        if model.settings.settings.station == nil {
-            SetupScreen()
-        } else {
-            NavigationStack {
-                NowPlayingScreen()
+        Group {
+            if model.settings.settings.station == nil {
+                SetupScreen()
+            } else {
+                NavigationStack {
+                    NowPlayingScreen()
+                }
             }
         }
+        // The first appearance, not every foregrounding (which is what `scenePhase` would give);
+        // `OpenPlay` answers yes once per process however often this runs.
+        .task { model.opened() }
     }
 }

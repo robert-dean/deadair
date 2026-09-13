@@ -13,6 +13,14 @@ struct SettingsScreen: View {
                 if let entry { AddressField(entry: entry) }
             }
             FormatSection()
+            Section {
+                // The explicit-closure setter, not the method passed straight in: see apps/ios/CLAUDE.md.
+                Toggle("Play when the app opens", isOn: Binding(get: { model.settings.settings.playOnOpen }, set: { model.settings.setPlayOnOpen($0) }))
+            } header: {
+                Text("Listening")
+            } footer: {
+                Text("Starts the station as the app opens, unless it is already playing. The station comes on air when you tune in, so the first seconds are quiet.")
+            }
             AccountSection()
         }
         .navigationTitle("Settings")

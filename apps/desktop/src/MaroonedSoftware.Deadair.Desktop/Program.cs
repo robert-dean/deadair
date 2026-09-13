@@ -33,15 +33,14 @@ internal static class Program
         var builder = BuildAvaloniaApp();
         builder.StartWithClassicDesktopLifetime(args);
 
-        // After the loop, not during shutdown. The pollers stop here, and blocking is safe because
-        // there is no dispatcher left to starve — see `App.DisposeServicesAsync` for what closing the
-        // window used to do instead.
+        // Reached only when the loop ends of its own accord, which a quit on macOS never does: AppKit
+        // ends the process from inside the shutdown. So the container is let go of in the lifetime's
+        // Exit (see `App.ReleaseOnExit`), and this is only a fallback that finds it already gone.
         if (builder.Instance is App app)
         {
             app.DisposeServicesAsync().AsTask().GetAwaiter().GetResult();
         }
 
-        Trace.WriteLine("deadair exiting");
         Trace.Listeners.Remove(listener);
         log.Dispose();
     }

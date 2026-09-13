@@ -383,6 +383,14 @@ is looking at the answer.
 stopped by the plugin that owns it while that plugin is still there to stop it. The remembered choice
 survives: the app took the plugin away for a moment, the operator did not change their mind.
 
+**Quitting lets go of the speaker too, and for a while it did not.** The container used to be
+disposed in `Program.Main` after the main loop, and on macOS a quit (menu, ⌘Q, Dock, logout) never
+returns from that loop: AppKit calls `exit` from inside Avalonia's shutdown. Found only because the
+new log's `deadair exiting` line never appeared, with an exit code of 0. So the device player's
+dispose, which is the request that stops the speaker, never ran. The disposal now happens in the
+lifetime's `Exit` event, on the pool, waited for with a five-second bound (`App.ReleaseOnExit`).
+Measured that `Exit` runs on a menu quit; NOT yet measured against a speaker that was playing.
+
 **The bar shows the speaker as an ICON and not a name.** The first version drew the name, capped at
 96px, and the 820px frame settled it: the bar is already full at its minimum width and the caption
 pushed the expand button off the end. The icon takes the accent when the station is playing

@@ -16,6 +16,7 @@ struct SettingsScreen: View {
             AccountSection()
         }
         .navigationTitle("Settings")
+        .miniPlayer()
         .onAppear {
             if entry == nil { entry = StationEntry(stored: model.settings.settings.stationText) }
         }

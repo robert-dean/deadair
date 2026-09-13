@@ -32,20 +32,23 @@ final class ArtworkLoader {
 struct ArtworkView: View {
     let url: URL?
     let loader: ArtworkLoader
+    /// The corner and the placeholder's size, for the one place the cover is drawn small.
+    var cornerRadius: CGFloat = 12
+    var placeholderSize: CGFloat = 56
 
     @State private var image: PlatformImage?
 
     var body: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 12).fill(.quaternary)
+            RoundedRectangle(cornerRadius: cornerRadius).fill(.quaternary)
             if let image {
                 Image(platformImage: image).resizable().scaledToFill()
             } else {
-                Image(systemName: "radio").font(.system(size: 56)).foregroundStyle(.secondary)
+                Image(systemName: "radio").font(.system(size: placeholderSize)).foregroundStyle(.secondary)
             }
         }
         .aspectRatio(1, contentMode: .fit)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
         .accessibilityHidden(true)
         .task(id: url) {
             image = nil

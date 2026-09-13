@@ -80,10 +80,13 @@ struct NowPlayingScreen: View {
         }
     }
 
-    private func artworkURL(station: StationUrl?, reading: NowPlaying?) -> URL? {
-        guard reading?.onAir == true else { return nil }
-        return station?.artUrl(reading?.track?.artworkUrl).flatMap(URL.init(string:))
-    }
+}
+
+/// The cover for what is on air, through the station's own art route. Nothing off air: a cover
+/// left over from the last record would say something is playing that is not.
+func artworkURL(station: StationUrl?, reading: NowPlaying?) -> URL? {
+    guard reading?.onAir == true else { return nil }
+    return station?.artUrl(reading?.track?.artworkUrl).flatMap(URL.init(string:))
 }
 
 /// Play, or stop. Never pause: a paused connection is still a listener.

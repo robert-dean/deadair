@@ -5,6 +5,19 @@ namespace MaroonedSoftware.Deadair.Desktop.Core.Tests;
 
 public sealed class ClockFormatTests
 {
+    /// <summary>
+    /// A time of day is said to a person, so it follows their clock: 23:40 in Britain, 11:40 PM in
+    /// the US. Given an explicit offset so the machine's own zone plays no part.
+    /// </summary>
+    [Fact]
+    public void WritesAWallClockTimeInTheGivenCulturesConvention()
+    {
+        var at = new DateTimeOffset(2026, 9, 13, 23, 40, 0, TimeSpan.Zero);
+
+        Assert.Equal("23:40", ClockFormat.WallClock(at, System.Globalization.CultureInfo.GetCultureInfo("en-GB")));
+        Assert.Matches(@"^11:40\sPM$", ClockFormat.WallClock(at, System.Globalization.CultureInfo.GetCultureInfo("en-US")));
+    }
+
     [Fact]
     public void WritesMinutesAndSecondsForAnOrdinaryRecord()
     {

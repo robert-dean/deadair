@@ -104,6 +104,11 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         // connecting to a mount to find out.
         Listener.MountsChanged += StationSettings.ApplyMounts;
 
+        // The sleep timer is chosen on the settings page and kept by the listener, which owns the
+        // only stop; the page is told back when it changes, including when it elapses.
+        StationSettings.SleepRequested += Listener.SetSleep;
+        Listener.SleepChanged += StationSettings.ApplySleep;
+
         // A page fetches when it is opened rather than on a timer. A catalog does not change while
         // somebody is looking at it, and the station rate-limits.
         Navigation.Navigated += destination =>

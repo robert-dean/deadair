@@ -51,6 +51,9 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
     /// </remarks>
     private readonly DispatcherTicker _volumeSettles;
 
+    /// <summary>Stops the listener after a while. Per session: nothing about it is saved.</summary>
+    private readonly SleepTimer _sleep;
+
     private NowPlayingRepository? _repository;
     private IDisposable? _lease;
     private StationUrl _station;
@@ -76,7 +79,8 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
         ISettingsStore settings,
         HttpClient http,
         IUiDispatcher dispatcher,
-        OutputsViewModel? outputs = null)
+        OutputsViewModel? outputs = null,
+        TimeProvider? time = null)
     {
         Outputs = outputs;
         _player = player;
@@ -110,6 +114,51 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
         _ticker = new DispatcherTicker(TimeSpan.FromMilliseconds(500), Tick);
 
         _volumeSettles = new DispatcherTicker(TimeSpan.FromMilliseconds(400), SaveVolume);
+
+        // Owned here because this is the one place that stops the listener. Raised on the timer's
+        // thread, so posted, like the conductor's retry.
+        _sleep = new SleepTimer(time);
+        _sleep.Elapsed += () => _dispatcher.Post(() => _ = OnSleepElapsedAsync());
+    }
+
+    /// <summary>Raised with when the sleep timer will stop the listener, or null once it will not.</summary>
+    public event Action<DateTimeOffset?>? SleepChanged;
+
+    /// <summary>Sets the sleep timer, or with null, cancels it.</summary>
+    /// <remarks>
+    /// Allowed while nothing is playing, and harmless then: elapsing stops what is playing, and if
+    /// that is nothing it does nothing. Disabling the choice until playback starts would only mean
+    /// re-enabling it on every change of phase for no gain.
+    /// </remarks>
+    public void SetSleep(TimeSpan? after)
+    {
+        if (after is { } wait)
+        {
+            _sleep.Set(wait);
+            Trace.WriteLine($"sleep timer: set for {wait.TotalMinutes:0} minutes");
+        }
+        else
+        {
+            _sleep.Cancel();
+        }
+
+        SleepChanged?.Invoke(_sleep.EndsAt);
+    }
+
+    /// <remarks>
+    /// Exactly the listener's own Stop, through <see cref="ToggleAsync"/>: the connection is dropped
+    /// (or the speaker asked to stop), so the station hears the audience go. It never reaches the
+    /// station's playout, which is the operator's to stop and not a timer's.
+    /// </remarks>
+    private async Task OnSleepElapsedAsync()
+    {
+        Trace.WriteLine("sleep timer: time is up");
+        SleepChanged?.Invoke(null);
+
+        if (Playing)
+        {
+            await ToggleAsync().ConfigureAwait(true);
+        }
     }
 
     /// <summary>
@@ -348,6 +397,14 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
     {
         if (Playing)
         {
+            // A stop by hand or by media key ends the timer too, so every way of stopping leaves the
+            // same state behind. An elapsed timer has already cleared itself, so this is then nothing.
+            if (_sleep.IsSet)
+            {
+                _sleep.Cancel();
+                SleepChanged?.Invoke(null);
+            }
+
             _conductor.Released();
             Apply();
             await _player.StopAsync().ConfigureAwait(true);
@@ -668,6 +725,7 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
         _hold.Dispose();
         _ticker.Stop();
         _volumeSettles.Stop();
+        _sleep.Dispose();
         _systemNowPlaying.Clear();
         _lease?.Dispose();
 

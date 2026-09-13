@@ -463,6 +463,16 @@ a progress bar that is confidently wrong is worse than one that is absent.
 request timed out throws away something true and still useful. It is the station's own rule read from
 the other side: a failed reading of the listener count is "could not say", never zero.
 
+**The sleep timer stops the listener and nothing else, and matters more here than in a music app.**
+A connection is an audience to an audience-gated station, so somebody asleep with the app playing
+keeps the station on air for as long as the Mac is awake. `Core/Playback/SleepTimer` is only the
+clock; `ListenerViewModel` owns it because it owns the only stop, and elapsing runs `ToggleAsync`,
+the same Stop a person presses, which drops the connection or asks the speaker to stop. It never
+reaches the station's playout. Any stop cancels it, so every way of stopping leaves the same state.
+It is chosen on the Settings page (the shell carries the choice across, as it does the mounts) and
+saved nowhere: a timer set last night must not stop tonight's listening. The note under it is a
+wall-clock time in the Mac's own 12- or 24-hour convention, so it needs no ticker.
+
 **Settings are tolerant of a bad file, and that hid a real bug once.** `FileSettingsStore` treats an
 unreadable file as an install with no preferences, which is right — the worst case is retyping a
 station address, and refusing to start is worse. But the appearance enum had no string converter, so a

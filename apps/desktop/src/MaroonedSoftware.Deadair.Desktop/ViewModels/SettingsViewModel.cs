@@ -3,6 +3,7 @@ using System.Text.Json;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MaroonedSoftware.Deadair.Desktop.Core.Auth;
+using MaroonedSoftware.Deadair.Desktop.Core.NowPlaying;
 using MaroonedSoftware.Deadair.Desktop.Core.Playback;
 using MaroonedSoftware.Deadair.Desktop.Core.Plugins;
 using MaroonedSoftware.Deadair.Desktop.Core.Settings;
@@ -123,6 +124,59 @@ public sealed partial class SettingsViewModel(
 
     [ObservableProperty]
     private string? _notice;
+
+    private const string SleepOff =
+        "Stops listening after a while, which also tells the station you have gone. Nothing is set.";
+
+    private bool _applyingSleep;
+
+    /// <summary>The sleep timer's choice in minutes, nought for off.</summary>
+    /// <remarks>
+    /// Chosen here and kept by the listener, which owns the only stop. Nothing about it is saved:
+    /// a timer set last night must not stop tonight's listening.
+    /// </remarks>
+    [ObservableProperty]
+    private int _sleepMinutes;
+
+    /// <summary>When it will stop, or what it is for while nothing is set.</summary>
+    [ObservableProperty]
+    private string _sleepNote = SleepOff;
+
+    /// <summary>Raised with the time chosen, or null for off.</summary>
+    public event Action<TimeSpan?>? SleepRequested;
+
+    /// <summary>Told when the timer changed, including when it elapsed or a Stop cancelled it.</summary>
+    /// <remarks>
+    /// Setting <see cref="SleepMinutes"/> back to nought here would otherwise ask the listener to
+    /// cancel a timer that has already gone, so it is done under a guard that keeps it quiet.
+    /// </remarks>
+    public void ApplySleep(DateTimeOffset? endsAt)
+    {
+        SleepNote = endsAt is { } at
+            ? $"Stops at {ClockFormat.WallClock(at.ToLocalTime())}."
+            : SleepOff;
+
+        if (endsAt is null && SleepMinutes != 0)
+        {
+            _applyingSleep = true;
+            try
+            {
+                SleepMinutes = 0;
+            }
+            finally
+            {
+                _applyingSleep = false;
+            }
+        }
+    }
+
+    partial void OnSleepMinutesChanged(int value)
+    {
+        if (!_applyingSleep)
+        {
+            SleepRequested?.Invoke(value > 0 ? TimeSpan.FromMinutes(value) : null);
+        }
+    }
 
     /// <summary>Said when this install's settings file could not be read and is being left alone.</summary>
     /// <remarks>

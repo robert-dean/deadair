@@ -139,6 +139,30 @@
                                        Text="What the station is publishing. Takes effect the next time you press Listen." />
                         </StackPanel>
 
+                        <!-- Chosen here, kept by the listener, saved nowhere. -->
+                        <StackPanel Spacing="6">
+                            <TextBlock Classes="dimmed" Text="Sleep timer" />
+                            <Border CornerRadius="{DynamicResource DaCorner}" Padding="3"
+                                    HorizontalAlignment="Left"
+                                    Background="{DynamicResource DaRaisedBrush}">
+                                <StackPanel Orientation="Horizontal" Spacing="2">
+                                    <RadioButton Classes="segment" GroupName="sleep" Content="Off"
+                                                 IsChecked="{Binding SleepMinutes, Converter={x:Static conv:SleepMinutesConverter.Off}}" />
+                                    <RadioButton Classes="segment" GroupName="sleep" Content="15 min"
+                                                 IsChecked="{Binding SleepMinutes, Converter={x:Static conv:SleepMinutesConverter.Fifteen}}" />
+                                    <RadioButton Classes="segment" GroupName="sleep" Content="30 min"
+                                                 IsChecked="{Binding SleepMinutes, Converter={x:Static conv:SleepMinutesConverter.Thirty}}" />
+                                    <RadioButton Classes="segment" GroupName="sleep" Content="45 min"
+                                                 IsChecked="{Binding SleepMinutes, Converter={x:Static conv:SleepMinutesConverter.FortyFive}}" />
+                                    <RadioButton Classes="segment" GroupName="sleep" Content="1 h"
+                                                 IsChecked="{Binding SleepMinutes, Converter={x:Static conv:SleepMinutesConverter.Sixty}}" />
+                                    <RadioButton Classes="segment" GroupName="sleep" Content="90 min"
+                                                 IsChecked="{Binding SleepMinutes, Converter={x:Static conv:SleepMinutesConverter.Ninety}}" />
+                                </StackPanel>
+                            </Border>
+                            <TextBlock Classes="dimmed" TextWrapping="Wrap" Text="{Binding SleepNote}" />
+                        </StackPanel>
+
                         <!-- Here rather than on the check-up: that page needs an operator, and a
                              listener with a problem has no account. -->
                         <StackPanel Spacing="6">

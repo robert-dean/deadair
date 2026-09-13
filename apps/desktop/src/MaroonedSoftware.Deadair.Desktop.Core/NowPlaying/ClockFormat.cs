@@ -36,4 +36,12 @@ public static class ClockFormat
     /// playhead cannot be formatted by two different rules.
     /// </remarks>
     public static string Remaining(TimeSpan value) => "-" + Elapsed(value);
+
+    /// <summary>A time of day, in the convention of the culture given (the Mac's own, by default).</summary>
+    /// <remarks>
+    /// Unlike the durations above, which are invariant because a playhead is a figure, this is said to
+    /// somebody ("stops at 23:40"), so it follows whether their Mac uses a 12- or 24-hour clock.
+    /// </remarks>
+    public static string WallClock(DateTimeOffset at, CultureInfo? culture = null) =>
+        at.ToString("t", culture ?? CultureInfo.CurrentCulture);
 }

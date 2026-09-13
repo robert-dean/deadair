@@ -71,12 +71,14 @@ fun SettingsScreen(
     session: SessionState,
     account: AccountState,
     dynamicColour: Boolean,
+    playOnOpen: Boolean,
     onBack: () -> Unit,
     onAddressChange: (String) -> Unit,
     onCheck: () -> Unit,
     onConfirm: () -> Unit,
     onFormat: (StreamFormat) -> Unit,
     onDynamicColour: (Boolean) -> Unit,
+    onPlayOnOpen: (Boolean) -> Unit,
     onEmailChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
     onCodeChange: (String) -> Unit,
@@ -161,6 +163,16 @@ fun SettingsScreen(
                         )
                     }
                 }
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+
+                Text(stringResource(R.string.section_listening), style = MaterialTheme.typography.titleMedium)
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.play_on_open)) },
+                    supportingContent = { Text(stringResource(R.string.play_on_open_detail)) },
+                    trailingContent = { Switch(checked = playOnOpen, onCheckedChange = null) },
+                    modifier = Modifier.fillMaxWidth().selectable(selected = playOnOpen, role = Role.Switch, onClick = { onPlayOnOpen(!playOnOpen) }),
+                )
 
                 // Only where there are wallpaper colours to choose between. Below Android 12 the
                 // station's palette is the only one, and a switch that changed nothing would be a lie.

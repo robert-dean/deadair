@@ -84,6 +84,9 @@
     <string name="format_flac">Lossless. Uses the most data</string>
     <string name="format_not_published">Not published by this station</string>
     <string name="section_appearance">Appearance</string>
+    <string name="section_listening">Listening</string>
+    <string name="play_on_open">Play when the app opens</string>
+    <string name="play_on_open_detail">Starts the station as the app opens, unless it is already playing. The first seconds are quiet while the station comes on air.</string>
     <string name="use_wallpaper_colours">Use wallpaper colours</string>
     <string name="use_wallpaper_colours_detail">Off, and the app wears the station\'s own green on carbon</string>
     <string name="privacy_policy">Privacy policy</string>

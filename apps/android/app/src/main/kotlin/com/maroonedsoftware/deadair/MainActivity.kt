@@ -14,6 +14,9 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -27,6 +30,8 @@ import androidx.navigation3.ui.NavDisplay
 import com.maroonedsoftware.deadair.auth.SessionState
 import com.maroonedsoftware.deadair.nowplaying.NowPlayingState
 import com.maroonedsoftware.deadair.playback.PlayerConnection
+import com.maroonedsoftware.deadair.playback.playOnOpen
+import com.maroonedsoftware.deadair.ui.nowplaying.rememberPlayWithNotificationsAsked
 import com.maroonedsoftware.deadair.ui.air.AirSomethingRoute
 import com.maroonedsoftware.deadair.ui.air.ChartRoute
 import com.maroonedsoftware.deadair.ui.air.PlaylistRoute
@@ -106,6 +111,18 @@ private fun Listener(graph: AppGraph) {
     val playback by connection.state.collectAsStateWithLifecycle()
     // Collected here so the poll runs while the app is up. It stops on its own when it is not.
     val nowPlaying by graph.nowPlaying.state.collectAsStateWithLifecycle()
+
+    // Play when the app opens, if the listener asked for that. Decided ONCE per activity, at the
+    // first moment it can be (the controller bound, the settings read), and kept across rotation and
+    // a restore: those are returns, not opens. Toggling the setting on later does not start anything.
+    val playOnce = rememberPlayWithNotificationsAsked(connection::play)
+    var openDecided by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(playback.connected, settings) {
+        if (openDecided) return@LaunchedEffect
+        val play = playOnOpen(playback.connected, settings, playback.requested) ?: return@LaunchedEffect
+        openDecided = true
+        if (play) playOnce()
+    }
 
     val backStack = rememberNavBackStack(NavConfiguration, Destination.Home)
 
@@ -246,6 +263,7 @@ private fun Listener(graph: AppGraph) {
                             session = session,
                             account = account,
                             dynamicColour = loaded.dynamicColour,
+                            playOnOpen = loaded.playOnOpen,
                             onBack = { backStack.removeLastOrNull() },
                             onAddressChange = model::onAddressChange,
                             onCheck = model::check,
@@ -257,6 +275,7 @@ private fun Listener(graph: AppGraph) {
                             },
                             onFormat = model::setFormat,
                             onDynamicColour = model::setDynamicColour,
+                            onPlayOnOpen = model::setPlayOnOpen,
                             onEmailChange = model::onEmailChange,
                             onPasswordChange = model::onPasswordChange,
                             onCodeChange = model::onCodeChange,

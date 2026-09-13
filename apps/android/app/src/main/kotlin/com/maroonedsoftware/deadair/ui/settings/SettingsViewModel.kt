@@ -91,6 +91,10 @@ class SettingsViewModel(
         viewModelScope.launch { store.setDynamicColour(on) }
     }
 
+    fun setPlayOnOpen(on: Boolean) {
+        viewModelScope.launch { store.setPlayOnOpen(on) }
+    }
+
     fun onEmailChange(email: String) {
         _account.value = AccountState.typingEmail(_account.value, email)
     }

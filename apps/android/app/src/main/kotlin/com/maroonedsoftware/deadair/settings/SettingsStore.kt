@@ -33,6 +33,7 @@ class SettingsStore(private val context: Context) {
                 // Likewise a format this build does not know, which is what a downgrade looks like.
                 format = stored[FORMAT]?.let { name -> StreamFormat.entries.firstOrNull { it.name == name } } ?: StreamFormat.MP3,
                 dynamicColour = stored[DYNAMIC_COLOUR] ?: true,
+                playOnOpen = stored[PLAY_ON_OPEN] ?: false,
             )
         }
 
@@ -52,10 +53,15 @@ class SettingsStore(private val context: Context) {
         context.preferences.edit { it[DYNAMIC_COLOUR] = on }
     }
 
+    suspend fun setPlayOnOpen(on: Boolean) {
+        context.preferences.edit { it[PLAY_ON_OPEN] = on }
+    }
+
     private companion object {
         val STATION = stringPreferencesKey("station_url")
         val STATION_NAME = stringPreferencesKey("station_name")
         val FORMAT = stringPreferencesKey("stream_format")
         val DYNAMIC_COLOUR = booleanPreferencesKey("dynamic_colour")
+        val PLAY_ON_OPEN = booleanPreferencesKey("play_on_open")
     }
 }

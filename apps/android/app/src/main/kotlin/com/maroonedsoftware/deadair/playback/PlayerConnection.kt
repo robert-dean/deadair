@@ -19,6 +19,8 @@ data class PlayerUiState(
     val requested: Boolean = false,
     /** The sleep timer, as the service last said. */
     val sleep: SleepState = SleepState.Off,
+    /** Whether the controller has bound, before which `play()` is silently nothing. */
+    val connected: Boolean = false,
 )
 
 /**
@@ -63,6 +65,7 @@ class PlayerConnection(private val context: Context) {
                 controller = future.get().also { it.addListener(listener) }
                 _state.value =
                     _state.value.copy(
+                        connected = true,
                         requested = controller?.playWhenReady ?: false,
                         sleep = controller?.sessionExtras?.let(SleepCommands::stateOf) ?: SleepState.Off,
                     )

@@ -144,4 +144,54 @@ public class NowPlayingDecodeTests
 
         Assert.Equal("S", now.Station);
     }
+
+    [Fact]
+    public void DecodesABreakTheStationSpeaksOnItsOwn_InsideAShowWithAHost()
+    {
+        // The station talking between two records: its own label as the title and no artist, which is
+        // exactly the shape a client that did not read `kind` would draw as a record by nobody.
+        const string json = """
+            {
+              "station": "S", "onAir": true, "listeners": 1, "mounts": [],
+              "show": { "name": "Late Static", "host": "Cass" },
+              "track": { "kind": "break", "title": "Top of the hour", "artist": "", "durationMs": 12000, "startedAt": 42 }
+            }
+            """;
+
+        var now = JsonSerializer.Deserialize<NowPlaying>(json, SdkJson.Options)!;
+
+        Assert.Equal(NowPlayingTrackKind.Break, now.Track!.Kind);
+        Assert.Equal("Top of the hour", now.Track.Title);
+        Assert.Equal("", now.Track.Artist);
+        Assert.Equal("Late Static", now.Show!.Name);
+        Assert.Equal("Cass", now.Show.Host);
+    }
+
+    [Fact]
+    public void ReadsAStationOlderThanKindAndShow_AsPlayingARecordWithNoShowNamed()
+    {
+        // The field's default is the whole reason it has one. A station that predates it answers
+        // without it, and the reading must not fail over that or call its records anything else.
+        const string json = """
+            {"station":"S","onAir":true,"listeners":1,"mounts":[],"track":{"title":"Windowlicker","artist":"Aphex Twin","startedAt":42}}
+            """;
+
+        var now = JsonSerializer.Deserialize<NowPlaying>(json, SdkJson.Options)!;
+
+        Assert.Equal(NowPlayingTrackKind.Record, now.Track!.Kind);
+        Assert.Null(now.Show);
+    }
+
+    [Fact]
+    public void DecodesAShowWithNobodyNamedToPresentIt()
+    {
+        const string json = """
+            {"station":"S","onAir":true,"listeners":1,"mounts":[],"show":{"name":"Overnight"},"track":{"kind":"record","title":"t","artist":"a","startedAt":42}}
+            """;
+
+        var now = JsonSerializer.Deserialize<NowPlaying>(json, SdkJson.Options)!;
+
+        Assert.Equal("Overnight", now.Show!.Name);
+        Assert.Null(now.Show.Host);
+    }
 }

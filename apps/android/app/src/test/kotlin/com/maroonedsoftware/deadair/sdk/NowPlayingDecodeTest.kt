@@ -2,6 +2,7 @@ package com.maroonedsoftware.deadair.sdk
 
 import com.maroonedsoftware.deadair.sdk.models.NowPlaying
 import com.maroonedsoftware.deadair.sdk.models.NowPlayingMountFormat
+import com.maroonedsoftware.deadair.sdk.models.NowPlayingTrackKind
 import com.maroonedsoftware.deadair.sdk.runtime.SdkJson
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -107,5 +108,50 @@ class NowPlayingDecodeTest {
 
         assertEquals(NowPlayingMountFormat.HLS, now.mounts[0].format)
         assertEquals("/live.m3u8", now.mounts[0].path)
+    }
+
+    @Test
+    fun `decodes a break the station speaks on its own, inside a show with a host`() {
+        // The station talking between two records: its own label as the title and no artist, which
+        // is exactly the shape a client that did not read `kind` would draw as a record by nobody.
+        val json =
+            """
+            {
+              "station": "S", "onAir": true, "listeners": 1, "mounts": [],
+              "show": { "name": "Late Static", "host": "Cass" },
+              "track": { "kind": "break", "title": "Top of the hour", "artist": "", "durationMs": 12000, "startedAt": 42 }
+            }
+            """.trimIndent()
+
+        val now = SdkJson.decodeFromString<NowPlaying>(json)
+
+        assertEquals(NowPlayingTrackKind.BREAK, now.track?.kind)
+        assertEquals("Top of the hour", now.track?.title)
+        assertEquals("", now.track?.artist)
+        assertEquals("Late Static", now.show?.name)
+        assertEquals("Cass", now.show?.host)
+    }
+
+    @Test
+    fun `reads a station older than kind and show as playing a record with no show named`() {
+        // The field's default is the whole reason it has one. A station that predates it answers
+        // without it, and the reading must not fail over that or call its records anything else.
+        val json = """{"station":"S","onAir":true,"listeners":1,"mounts":[],"track":{"title":"Windowlicker","artist":"Aphex Twin","startedAt":42}}"""
+
+        val now = SdkJson.decodeFromString<NowPlaying>(json)
+
+        assertEquals(NowPlayingTrackKind.RECORD, now.track?.kind)
+        assertNull(now.show)
+    }
+
+    @Test
+    fun `decodes a show with nobody named to present it`() {
+        val json =
+            """{"station":"S","onAir":true,"listeners":1,"mounts":[],"show":{"name":"Overnight"},"track":{"kind":"record","title":"t","artist":"a","startedAt":42}}"""
+
+        val now = SdkJson.decodeFromString<NowPlaying>(json)
+
+        assertEquals("Overnight", now.show?.name)
+        assertNull(now.show?.host)
     }
 }

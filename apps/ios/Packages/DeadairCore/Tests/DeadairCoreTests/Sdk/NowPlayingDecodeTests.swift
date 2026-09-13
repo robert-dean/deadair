@@ -86,4 +86,40 @@ struct NowPlayingDecodeTests {
         #expect(now.mounts[0].format == .hls)
         #expect(now.mounts[0].path == "/live.m3u8")
     }
+
+    @Test func decodesABreakTheStationSpeaksOnItsOwnInsideAShowWithAHost() throws {
+        // The station talking between two records: its own label as the title and no artist, which
+        // is exactly the shape a client that did not read `kind` would draw as a record by nobody.
+        let now = try decode(
+            """
+            {
+              "station": "S", "onAir": true, "listeners": 1, "mounts": [],
+              "show": { "name": "Late Static", "host": "Cass" },
+              "track": { "kind": "break", "title": "Top of the hour", "artist": "", "durationMs": 12000, "startedAt": 42 }
+            }
+            """)
+
+        #expect(now.track?.kind == .break)
+        #expect(now.track?.title == "Top of the hour")
+        #expect(now.track?.artist == "")
+        #expect(now.show?.name == "Late Static")
+        #expect(now.show?.host == "Cass")
+    }
+
+    @Test func readsAStationOlderThanKindAndShowAsPlayingARecordWithNoShowNamed() throws {
+        // The field's default is the whole reason it has one. A station that predates it answers
+        // without it, and the reading must not fail over that or call its records anything else.
+        let now = try decode(#"{"station":"S","onAir":true,"listeners":1,"mounts":[],"track":{"title":"Windowlicker","artist":"Aphex Twin","startedAt":42}}"#)
+
+        #expect(now.track?.kind == .record)
+        #expect(now.show == nil)
+    }
+
+    @Test func decodesAShowWithNobodyNamedToPresentIt() throws {
+        let now = try decode(
+            #"{"station":"S","onAir":true,"listeners":1,"mounts":[],"show":{"name":"Overnight"},"track":{"kind":"record","title":"t","artist":"a","startedAt":42}}"#)
+
+        #expect(now.show?.name == "Overnight")
+        #expect(now.show?.host == nil)
+    }
 }

@@ -50,7 +50,7 @@ class AirStateTest {
 
     @Test
     fun `says the station is unreachable however good the last reading was`() {
-        val state = NowPlayingState.Unreachable(Reading(NowPlaying("S", true, 3, emptyList(), track), 0))
+        val state = NowPlayingState.Unreachable(Reading(NowPlaying("S", true, 3, emptyList(), track = track), 0))
 
         assertTrue(airState(state, playbackRequested = true) is AirState.Unreachable)
     }

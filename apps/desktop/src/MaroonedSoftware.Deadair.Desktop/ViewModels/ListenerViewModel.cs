@@ -55,6 +55,7 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
     private IDisposable? _lease;
     private StationUrl _station;
     private DateTimeOffset? _readAt;
+
     /// <summary>The width the playing record's cover is decoded to, in pixels.</summary>
     /// <remarks>
     /// The largest it is drawn is the desk's cover at 400 units (<c>DeskView.Largest</c>), which is 800
@@ -125,10 +126,21 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
     private string _stationName = "deadair";
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(NowPlayingLine))]
     private string? _title;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(NowPlayingLine))]
     private string? _artist;
+
+    /// <summary>The record in one line, for the menu-bar icon, where there is room for nothing else.</summary>
+    public string NowPlayingLine => Title is null
+        ? "Nothing on air"
+        : Artist is null ? Title : $"{Title} – {Artist}";
+
+    /// <summary>What the play control says, in a menu that cannot draw the bar's icon.</summary>
+    /// <remarks>"Listen" rather than "Play", because that is the button's word everywhere else in the app.</remarks>
+    public string PlayLabel => Playing ? "Stop" : "Listen";
 
     [ObservableProperty]
     private string? _album;
@@ -629,6 +641,7 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
     {
         Listening = _conductor.State;
         OnPropertyChanged(nameof(Playing));
+        OnPropertyChanged(nameof(PlayLabel));
         OnPropertyChanged(nameof(IsLive));
 
         (ListeningLabel, Tone) = _conductor.State switch

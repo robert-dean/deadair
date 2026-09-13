@@ -418,6 +418,23 @@ bundle: the close button leaves zero windows and the process running, `open` on 
 (which is what a Dock click sends) brings the window back where it was, and a quit exits with the
 log's closing line.
 
+**The menu-bar icon is where the station is while the window is away.** What is on air (a disabled
+first item), Listen or Stop, Skip for the operator, Show and Quit. Skip follows the operator gate and
+not `NextSkips`, because that setting exists for a key pressed without looking and a menu item is
+read and chosen; it is the desk's own `SkipCommand`. Two Avalonia 12 facts it cost a build each to
+learn: the template flag is the ATTACHED property `MacOSProperties.IsTemplateIcon`, not a property of
+`TrayIcon`, and a `TrayIcon` needs its own `x:DataType` for a compiled binding even though it binds
+through the Application's DataContext. The icon is 44 pixels, black on transparent, built by
+`make-app-icon.py` with the dark shapes inside the skull cut out so it still reads as one at 22
+points. Check it by asking macOS, status items being `menu bar 2`:
+
+```bash
+osascript -e 'tell application "System Events" to tell process "deadair" to get {name, enabled} of every menu item of menu 1 of menu bar item 1 of menu bar 2'
+```
+
+(click `menu bar item 1 of menu bar 2` first, or the menu has no items to list). Measured: the item
+is 24 by 24 points, and every command is enabled, which is the sign a native command bound.
+
 ## The system's own now-playing display
 
 **It only works from a bundled application.** A plain `dotnet run` has no bundle identifier, so macOS

@@ -35,11 +35,19 @@ It also copies the mark into the app's `Assets/`, where `Window.Icon` reads it â
 circular badge, which is the shape the mark was drawn as. That is a second copy of a file the console
 already has, which is the same trade `apps/android` makes: the alternative is a build step reaching
 across the tree into a directory this solution deliberately does not know about.
+
+And it writes the menu-bar icon, `Assets/tray-mark.png`, which is a different problem. A menu-bar
+icon is a TEMPLATE: black and transparent only, and macOS paints it the menu bar's own colour, light
+or dark. A plain silhouette of the drawing would be a blob with headphones, because what makes it a
+skull is the dark eyes, nose and teeth inside the cream. So the whole drawing is kept, and every dark
+patch the cream surrounds is cut out of it; the dark patches that reach the green (the headphones and
+the outline) stay solid. It is 44 pixels, the 2x of the 22 points a menu-bar icon is drawn at.
 """
 
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 
 from PIL import Image
@@ -92,7 +100,67 @@ def render(skull, canvas):
     return out
 
 
+TRAY = os.path.join(ASSETS, 'tray-mark.png')
+TRAY_SIZE = 44          # pixels: the 2x of a 22-point menu-bar icon
+LIGHT = 400             # r + g + b above which a pixel of the drawing is the cream of the skull
+
+
+def is_field(pixel):
+    r, g, b, a = pixel
+    return a < 40 or abs(r - GREEN[0]) + abs(g - GREEN[1]) + abs(b - GREEN[2]) <= FIELD_TOLERANCE
+
+
+def template(mark):
+    """The drawing as black on transparent, with the dark shapes inside the cream cut out."""
+    width, height = mark.size
+    px = mark.load()
+
+    drawing = [[not is_field(px[x, y]) for x in range(width)] for y in range(height)]
+    dark = [[drawing[y][x] and sum(px[x, y][:3]) <= LIGHT for x in range(width)] for y in range(height)]
+
+    # A dark patch is a hole when no pixel of it touches the field: the cream is all around it.
+    holes = [[False] * width for _ in range(height)]
+    seen = [[False] * width for _ in range(height)]
+    for sy in range(height):
+        for sx in range(width):
+            if not dark[sy][sx] or seen[sy][sx]:
+                continue
+            patch, stack, reaches_field = [], [(sx, sy)], False
+            seen[sy][sx] = True
+            while stack:
+                x, y = stack.pop()
+                patch.append((x, y))
+                for nx, ny in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
+                    if not (0 <= nx < width and 0 <= ny < height) or not drawing[ny][nx]:
+                        reaches_field = True
+                    elif dark[ny][nx] and not seen[ny][nx]:
+                        seen[ny][nx] = True
+                        stack.append((nx, ny))
+            if not reaches_field:
+                for x, y in patch:
+                    holes[y][x] = True
+
+    out = Image.new('RGBA', (width, height), (0, 0, 0, 0))
+    opx = out.load()
+    for y in range(height):
+        for x in range(width):
+            if drawing[y][x] and not holes[y][x]:
+                opx[x, y] = (0, 0, 0, 255)
+
+    box = out.getbbox()
+    out = out.crop(box)
+    side = max(out.size)
+    square = Image.new('RGBA', (side, side), (0, 0, 0, 0))
+    square.alpha_composite(out, ((side - out.size[0]) // 2, (side - out.size[1]) // 2))
+    return square.resize((TRAY_SIZE, TRAY_SIZE), Image.LANCZOS)
+
+
 def main():
+    if len(sys.argv) > 1 and sys.argv[1] == '--tray-only':
+        template(Image.open(MARK).convert('RGBA')).save(TRAY)
+        print(f'wrote {TRAY}')
+        return
+
     skull = lift_skull(Image.open(MARK).convert('RGBA'))
 
     with tempfile.TemporaryDirectory() as tmp:
@@ -105,6 +173,9 @@ def main():
 
     shutil.copyfile(MARK, os.path.join(ASSETS, 'logo-mark.png'))
     print(f'wrote {os.path.join(ASSETS, "logo-mark.png")}')
+
+    template(Image.open(MARK).convert('RGBA')).save(TRAY)
+    print(f'wrote {TRAY}')
 
 
 if __name__ == '__main__':

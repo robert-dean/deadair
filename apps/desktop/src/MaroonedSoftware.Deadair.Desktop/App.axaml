@@ -46,6 +46,44 @@
         </NativeMenu>
     </NativeMenu.Menu>
 
+    <!--
+        The menu-bar icon. Now that closing the window leaves the station playing, it is where the
+        station is while the window is away: what is on air, Listen or Stop, and the way back.
+
+        A TEMPLATE image, black on transparent, so macOS paints it the menu bar's own colour in light
+        and dark; `tools/macos/make-app-icon.py` builds it from the mark. It binds through the
+        Application's DataContext, which is the shell, exactly as the app menu above does.
+
+        Skip follows the operator gate and NOT the NextSkips setting. That setting exists because a
+        media key fires with no glance at the screen and no second press to reconsider; an item in a
+        menu is read and chosen, which is the same deliberateness as the desk's own button. And it is
+        the desk's own command, so a skip from here and a clicked one cannot disagree about notices.
+    -->
+    <TrayIcon.Icons>
+        <TrayIcons>
+            <TrayIcon x:DataType="vm:ShellViewModel"
+                      Icon="avares://deadair/Assets/tray-mark.png"
+                      MacOSProperties.IsTemplateIcon="True"
+                      ToolTipText="{Binding Listener.NowPlayingLine}">
+                <TrayIcon.Menu>
+                    <NativeMenu x:DataType="vm:ShellViewModel">
+                        <NativeMenuItem Header="{Binding Listener.NowPlayingLine}" IsEnabled="False" />
+                        <NativeMenuItemSeparator />
+                        <NativeMenuItem Header="{Binding Listener.PlayLabel}"
+                                        Command="{Binding Listener.ToggleCommand}" />
+                        <NativeMenuItem Header="Skip"
+                                        IsVisible="{Binding Transport.IsOperator}"
+                                        IsEnabled="{Binding Transport.StreamUp}"
+                                        Command="{Binding Transport.SkipCommand}" />
+                        <NativeMenuItemSeparator />
+                        <NativeMenuItem Header="Show deadair" Command="{Binding ShowWindowCommand}" />
+                        <NativeMenuItem Header="Quit deadair" Command="{Binding QuitCommand}" />
+                    </NativeMenu>
+                </TrayIcon.Menu>
+            </TrayIcon>
+        </TrayIcons>
+    </TrayIcon.Icons>
+
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>

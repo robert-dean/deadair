@@ -56,4 +56,24 @@ public enum Message: Equatable, Sendable {
     case signInExpired
     case factorRefused
     case noRefreshToken
+
+    // MARK: The schedule
+
+    case onAir
+    case dueNow
+    case upNext
+    case afterThat
+    case untitled
+    /// "1 h 30 min left"
+    case left(Span)
+    /// "in 1 h 30 min"
+    case startsIn(Span)
+    case sustainingFor(Span)
+    case noBlockDue
+    /// "20:00–22:00", or "Mon 09:00–11:00" when the block is not on the station's today.
+    case blockHours(BlockHours)
+
+    // MARK: History
+
+    case aired(AiredLabel)
 }

@@ -60,7 +60,8 @@ final class AppModel {
             playing: listening.conductor.state == .playing,
             buffering: listening.conductor.state == .warmingUp,
             fellBackToMp3: listening.wantsToPlay && listening.choice?.fellBack == true,
-            stale: state.isStale
+            stale: state.isStale,
+            show: reading?.show
         )
     }
 }

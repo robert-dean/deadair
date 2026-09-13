@@ -20,6 +20,10 @@ extension Message {
         case .showingLastSaid: String(localized: "Showing what it said last.")
         case .listeners(let count, let format): String(localized: "\(count) listening · \(format.label)")
         case .fellBackToMp3(let wanted): String(localized: "This station does not publish \(wanted.label), so you are hearing MP3.")
+        case .onTheMic(let host?): String(localized: "\(host) is on the mic")
+        case .onTheMic(nil): String(localized: "The host is on the mic")
+        case .showWithHost(let show, let host): String(localized: "\(show) · with \(host)")
+        case .withHost(let host): String(localized: "with \(host)")
 
         case .answeredAs(let name): String(localized: "Found \(name).")
         case .notEncrypted: String(localized: "Not encrypted. Fine on your own network.")

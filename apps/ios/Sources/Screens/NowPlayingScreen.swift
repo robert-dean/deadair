@@ -25,6 +25,14 @@ struct NowPlayingScreen: View {
                     .frame(maxWidth: 360)
 
                 VStack(spacing: 6) {
+                    // The programme first, the way a station's own app leads with the show and its
+                    // host. One line: a label over the record rather than something to read in full.
+                    if let header = ui.header {
+                        Text(header.words)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
                     Text(ui.title.words)
                         .font(.title2.weight(.semibold))
                         .multilineTextAlignment(.center)

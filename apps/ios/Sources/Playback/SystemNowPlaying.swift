@@ -1,3 +1,4 @@
+import DeadairCore
 import DeadairSdk
 import MediaPlayer
 
@@ -44,22 +45,17 @@ final class SystemNowPlaying {
         }
     }
 
-    /// What the system shows for a reading. Off air, the station's name is the title and "Off air"
-    /// the line under it, which is what a lock screen should say about a radio that is quiet.
+    /// What the system shows for a reading. Which line says what is `lockScreenLines`'s decision.
     func show(station: String, reading: NowPlaying?, artwork: PlatformImage?, playing: Bool) {
+        let lines = lockScreenLines(station: station, reading: reading)
         var info: [String: Any] = [
             MPNowPlayingInfoPropertyIsLiveStream: true,
             MPNowPlayingInfoPropertyMediaType: MPNowPlayingInfoMediaType.audio.rawValue,
             MPNowPlayingInfoPropertyPlaybackRate: playing ? 1.0 : 0.0,
+            MPMediaItemPropertyTitle: lines.title.words,
+            MPMediaItemPropertyArtist: lines.artist.words,
         ]
-        if let track = reading?.track, reading?.onAir == true {
-            info[MPMediaItemPropertyTitle] = track.title
-            info[MPMediaItemPropertyArtist] = track.artist
-            info[MPMediaItemPropertyAlbumTitle] = track.album ?? station
-        } else {
-            info[MPMediaItemPropertyTitle] = station
-            info[MPMediaItemPropertyArtist] = String(localized: "Off air")
-        }
+        if let album = lines.album { info[MPMediaItemPropertyAlbumTitle] = album }
         if let artwork {
             let held = HeldImage(image: artwork)
             // `@Sendable` so it does not inherit the main actor: MediaPlayer asks for the image from

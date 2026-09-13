@@ -16,8 +16,14 @@ public struct NowPlayingUiState: Equatable, Sendable {
     public var fellBackToMp3: Bool
     /// Whether what is on screen came from a reading that has since gone stale.
     public var stale: Bool
+    /// The programme on air, as the station last described it. A station-level fact rather than the
+    /// record's, which is why it rides here and not on `AirState.onAir`.
+    public var show: NowPlayingShow?
 
-    public init(air: AirState, listeners: Int, format: StreamFormat, playing: Bool, buffering: Bool, fellBackToMp3: Bool = false, stale: Bool = false) {
+    public init(
+        air: AirState, listeners: Int, format: StreamFormat, playing: Bool, buffering: Bool, fellBackToMp3: Bool = false, stale: Bool = false,
+        show: NowPlayingShow? = nil
+    ) {
         self.air = air
         self.listeners = listeners
         self.format = format
@@ -25,11 +31,21 @@ public struct NowPlayingUiState: Equatable, Sendable {
         self.buffering = buffering
         self.fellBackToMp3 = fellBackToMp3
         self.stale = stale
+        self.show = show
     }
 
+    /// What is on air when it is the station talking between records rather than a record.
+    private var spokenBreak: NowPlayingTrack? {
+        if case .onAir(let track) = air, track.kind == .break { return track }
+        return nil
+    }
+
+    /// During a break, who is talking rather than the break's label: a listener glancing at the
+    /// screen wants to know the music stopped because the host is on, and the label ("Top of the
+    /// hour") is the station's own filing name for it.
     public var title: Message {
         switch air {
-        case .onAir(let track): .text(track.title)
+        case .onAir(let track): spokenBreak == nil ? .text(track.title) : .onTheMic(host: nonBlank(show?.host))
         case .warmingUp: .warmingUp
         case .offAir: .offAir
         case .unreachable: .cantReachStation
@@ -38,7 +54,8 @@ public struct NowPlayingUiState: Equatable, Sendable {
 
     public var subtitle: Message? {
         switch air {
-        case .onAir(let track): track.artist.trimmingCharacters(in: .whitespaces).isEmpty ? nil : .text(track.artist)
+        // A break has no artist, so its label goes where the artist would.
+        case .onAir(let track): nonBlank(spokenBreak == nil ? track.artist : track.title).map(Message.text)
         // An invitation rather than a status. On an audience-gated station this is the normal
         // resting state, and the surprising fact about it is that pressing play is what puts the
         // station on air: a line that read "nobody is listening" over a play button made the
@@ -50,8 +67,21 @@ public struct NowPlayingUiState: Equatable, Sendable {
     }
 
     public var album: String? {
-        if case .onAir(let track) = air { return track.album }
+        if case .onAir(let track) = air, spokenBreak == nil { return track.album }
         return nil
+    }
+
+    /// The line above the record: the show and who presents it, as far as the station said. Only on
+    /// air, because a quiet station has no programme, and a stale show over "can't reach the
+    /// station" would name something nobody can hear.
+    public var header: Message? {
+        guard case .onAir = air else { return nil }
+        switch (nonBlank(show?.name), nonBlank(show?.host)) {
+        case let (name?, host?): return .showWithHost(show: name, host: host)
+        case let (name?, nil): return .text(name)
+        case let (nil, host?): return .withHost(host)
+        case (nil, nil): return nil
+        }
     }
 
     /// Whether the subtitle is a credit that may scroll past, or a sentence that has to wrap.
@@ -69,4 +99,10 @@ public struct NowPlayingUiState: Equatable, Sendable {
 
     /// Said only when the chosen format was not there to be had.
     public var fallbackNote: Message? { fellBackToMp3 ? .fellBackToMp3(wanted: format) : nil }
+}
+
+/// The station's words, or nothing when they are blank: a blank name is no name to show.
+func nonBlank(_ words: String?) -> String? {
+    guard let words, !words.trimmingCharacters(in: .whitespaces).isEmpty else { return nil }
+    return words
 }

@@ -145,6 +145,22 @@ struct NowPlayingGateTests {
         #expect(pushes.count == 1)
         #expect(pushes.last == offAir)
     }
+
+    @Test func aChangeOfHostDuringABreakReachesTheLockScreenWithNothingAboutTheItemMoving() {
+        // The lock screen draws a break from the host's name, so a recast mid-break changes what it
+        // says while the item, its title and its `startedAt` all stay put.
+        let (gate, pushes) = gate()
+        let spoken = NowPlayingTrack(kind: .break, title: "Top of the hour", artist: "", startedAt: 1_000)
+        let before = NowPlaying(station: "Test FM", onAir: true, listeners: 1, mounts: [], show: NowPlayingShow(name: "Late Static", host: "Cass"), track: spoken)
+        var after = before
+        after.show = NowPlayingShow(name: "Late Static", host: "Ray")
+
+        gate.onPoll(before, buffered: .seconds(5))
+        gate.onPoll(after, buffered: .seconds(5))
+
+        #expect(pushes.count == 2)
+        #expect(pushes.last == after)
+    }
 }
 
 @MainActor

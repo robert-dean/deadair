@@ -110,21 +110,31 @@ public final class NowPlayingGate {
     }
 
     /// The fields of a reading that reach the lock screen, Control Center and a car.
+    ///
+    /// The kind and the show among them, because `lockScreenLines` draws a break from the host and
+    /// the show's name: a recast during a break changes what the lock screen says with nothing
+    /// about the item moving.
     private struct Shown: Equatable {
         let present: Bool
         let station: String?
+        let kind: NowPlayingTrackKind?
         let title: String?
         let artist: String?
         let album: String?
         let artworkUrl: String?
+        let show: String?
+        let host: String?
 
         init(_ reading: NowPlaying?) {
             present = reading != nil
             station = reading?.station
+            kind = reading?.track?.kind
             title = reading?.track?.title
             artist = reading?.track?.artist
             album = reading?.track?.album
             artworkUrl = reading?.track?.artworkUrl
+            show = reading?.show?.name
+            host = reading?.show?.host
         }
     }
 }

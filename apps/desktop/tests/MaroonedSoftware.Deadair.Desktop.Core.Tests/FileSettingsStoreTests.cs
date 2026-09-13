@@ -167,6 +167,36 @@ public class FileSettingsStoreTests : IDisposable
         Assert.True(File.Exists(Path.Combine(_directory, "settings.json")));
     }
 
+    [Fact]
+    public async Task RemembersTheWindowFrame()
+    {
+        using var store = new FileSettingsStore(_directory);
+
+        await store.UpdateAsync(
+            settings => settings with { Window = new WindowMemory { X = 120, Y = 80, Width = 1300, Height = 800, Maximized = true } },
+            TestContext.Current.CancellationToken);
+
+        using var reopened = new FileSettingsStore(_directory);
+        await reopened.LoadAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(new WindowMemory { X = 120, Y = 80, Width = 1300, Height = 800, Maximized = true }, reopened.Current.Window);
+    }
+
+    [Fact]
+    public async Task AFileWithoutAWindowKeyMeansTheDefaultFrame()
+    {
+        Directory.CreateDirectory(_directory);
+        await File.WriteAllTextAsync(
+            Path.Combine(_directory, "settings.json"),
+            """{"station":"https://radio.example.com","volume":0.4}""",
+            TestContext.Current.CancellationToken);
+
+        using var store = new FileSettingsStore(_directory);
+        await store.LoadAsync(TestContext.Current.CancellationToken);
+
+        Assert.Null(store.Current.Window);
+    }
+
     private const string Rubbish = "{ this is not json";
 
     private async Task<string> WriteRubbishAsync()

@@ -615,6 +615,16 @@ Every row in this app is its own Grid, so a column that collapses when its conte
 that row alone and the page stops lining up. The same rule is why an `Auto` column cannot align down
 a list.
 
+**The window opens where it was left, if that is still on a screen.** The frame is saved half a
+second after the window stops moving, and read when that save runs rather than when the event fires:
+the first version read it in the event and saved (0, 505) for a window Avalonia was centring at
+(1970, 184). It is restored only if its centre lands on a connected screen's working area, so a
+laptop closed on an external display opens on its own. On macOS a window's position and a screen's
+area are both in points (measured: the saved position matched System Events), so the size is scaled
+by the window's `DesktopScaling`, which is 1 there, and never by a screen's render scaling. The
+settings are read in `App` before the window is built, so it opens in place instead of jumping.
+Measured on a 1x display only; a Retina Mac has not been tried.
+
 ## Navigation
 
 **The rail replaces rather than pushes.** A rail is not history, so pressing Desk after Library does

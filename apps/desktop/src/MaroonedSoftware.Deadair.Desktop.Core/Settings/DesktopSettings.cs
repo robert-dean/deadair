@@ -97,6 +97,15 @@ public sealed record DesktopSettings
     [JsonPropertyName("nextSkips")]
     public bool NextSkips { get; init; }
 
+    /// <summary>Where the window was left. Absent means the default frame, centred.</summary>
+    /// <remarks>
+    /// Written by the app as the window moves, not chosen by anybody, so it is the one key here
+    /// nobody sets on purpose; it lives in this file anyway because a second file for one record
+    /// would be a second thing that can be unreadable.
+    /// </remarks>
+    [JsonPropertyName("window")]
+    public WindowMemory? Window { get; init; }
+
     /// <summary>What has been decided about each plugin, keyed by its id.</summary>
     [JsonPropertyName("plugins")]
     public IReadOnlyDictionary<string, PluginSettings> Plugins { get; init; } = new Dictionary<string, PluginSettings>(StringComparer.Ordinal);

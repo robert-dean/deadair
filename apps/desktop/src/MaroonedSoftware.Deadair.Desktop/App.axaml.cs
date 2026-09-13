@@ -2,6 +2,7 @@ using System.Diagnostics;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using MaroonedSoftware.Deadair.Desktop.Core.Settings;
 using MaroonedSoftware.Deadair.Desktop.Services;
 using MaroonedSoftware.Deadair.Desktop.ViewModels;
 using MaroonedSoftware.Deadair.Desktop.Views;
@@ -30,7 +31,15 @@ public partial class App : Application
 
             var shell = _services.GetRequiredService<ShellViewModel>();
 
-            desktop.MainWindow = new MainWindow { DataContext = shell };
+            // Read before the window exists, so it opens where it was left rather than at the default
+            // frame and then jumping, and in the right appearance on its first frame. Blocking here is
+            // safe: the loop has not started, and the read never comes back to this thread.
+            var settings = _services.GetRequiredService<ISettingsStore>();
+            settings.LoadAsync().GetAwaiter().GetResult();
+
+            var window = new MainWindow { DataContext = shell };
+            window.RememberFrame(settings);
+            desktop.MainWindow = window;
 
             // For the native menu in App.axaml and nothing else. A NativeMenu has no visual parent,
             // so it cannot inherit the window's; windows still set their own and none of them read

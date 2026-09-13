@@ -170,7 +170,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
     public async Task StartAsync()
     {
-        await _settings.LoadAsync().ConfigureAwait(true);
+        // The settings were read before the window was built (see App), so the window could open
+        // where it was left. What a failed read means for the setup screen is said now.
         Setup.RefreshSettingsProblem();
 
         // After the settings and before anything asks a plugin for anything: which plugins run is a

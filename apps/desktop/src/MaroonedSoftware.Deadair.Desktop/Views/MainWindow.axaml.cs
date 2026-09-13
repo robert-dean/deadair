@@ -158,12 +158,21 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// The rail's letters, without a modifier, as the web console has them.
+    /// The rail's letters, without a modifier, as the web console has them, and Space for Listen and Stop.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// Tunnelled so the rail responds before anything else sees the key, and skipped entirely while a
     /// text box has focus — otherwise typing a station address or a password navigates away
     /// mid-word.
+    /// </para>
+    /// <para>
+    /// Space is here and NOT a key equivalent on the Controls menu. AppKit offers every key press to
+    /// the main menu first, so a bare Space on a menu item would take the space bar away from the
+    /// address and password boxes, the same trap an Edit menu sets for paste. Tunnelling also means a
+    /// focused button does not press itself as well; on a Mac, Space presses buttons only with Full
+    /// Keyboard Access turned on, so outside a text box Space means one thing.
+    /// </para>
     /// </remarks>
     private void OnKeyDown(object? sender, KeyEventArgs e)
     {
@@ -176,6 +185,13 @@ public partial class MainWindow : Window
         // volume slider focused, pressing "d" would navigate to the desk mid-drag.
         if (e.KeyModifiers != KeyModifiers.None || FocusManager?.GetFocusedElement() is TextBox or Slider)
         {
+            return;
+        }
+
+        if (e.Key == Key.Space)
+        {
+            shell.Listener.ToggleCommand.Execute(null);
+            e.Handled = true;
             return;
         }
 

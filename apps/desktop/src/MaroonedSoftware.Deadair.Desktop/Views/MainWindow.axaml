@@ -15,6 +15,43 @@
     ExtendClientAreaTitleBarHeightHint="38"
     Background="{DynamicResource DaBgBrush}">
 
+    <!--
+        The rest of the menu bar. The APPLICATION's NativeMenu (App.axaml) is the app menu itself,
+        which is why an item there replaces About; the menus after it belong to the window, and
+        macOS shows them while it is the active one.
+
+        No key equivalent on Listen: a bare Space on a main-menu item would take the space bar from
+        every text box (see OnKeyDown). Close is ⌘W and HIDES, since closing is not quitting; it is
+        not `Window.Close()`, which is a programmatic close and would really close. Still no Edit
+        menu: its Cut, Copy and Paste would take those keys before Avalonia's text boxes do.
+    -->
+    <NativeMenu.Menu>
+        <NativeMenu>
+            <NativeMenuItem Header="Controls">
+                <NativeMenuItem.Menu>
+                    <NativeMenu>
+                        <NativeMenuItem Header="{Binding Listener.PlayLabel}"
+                                        Command="{Binding Listener.ToggleCommand}" />
+                        <NativeMenuItem Header="Skip"
+                                        IsVisible="{Binding Transport.IsOperator}"
+                                        IsEnabled="{Binding Transport.StreamUp}"
+                                        Command="{Binding Transport.SkipCommand}" />
+                    </NativeMenu>
+                </NativeMenuItem.Menu>
+            </NativeMenuItem>
+            <NativeMenuItem Header="Window">
+                <NativeMenuItem.Menu>
+                    <NativeMenu>
+                        <NativeMenuItem Header="Minimize" Gesture="Cmd+M"
+                                        Command="{Binding MinimizeWindowCommand}" />
+                        <NativeMenuItem Header="Close" Gesture="Cmd+W"
+                                        Command="{Binding HideWindowCommand}" />
+                    </NativeMenu>
+                </NativeMenuItem.Menu>
+            </NativeMenuItem>
+        </NativeMenu>
+    </NativeMenu.Menu>
+
     <Panel>
         <!-- Setup sits ABOVE the rest rather than being a page you can navigate away from: an app
              with no station cannot do anything else yet. -->

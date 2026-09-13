@@ -612,7 +612,16 @@ sets the Application's to the shell for that binding and nothing else — every 
 own. An unbound `Command` leaves a native item DISABLED rather than failing, so a menu item that is
 greyed out is a binding that did not resolve.
 
-**There is still no Edit or Window menu, and that is a known gap rather than an oversight.** ⌘C/⌘V
+**There is a Controls menu and a Window menu, and still no Edit menu.** They are the WINDOW's
+`NativeMenu.Menu` (`MainWindow.axaml`), not the Application's, whose menu is the app menu itself;
+macOS shows them while the window is active. Controls is Listen or Stop and the operator's Skip;
+Window is Minimize (⌘M) and Close (⌘W), and Close HIDES, since closing is not quitting. Listen has no
+key equivalent: AppKit offers every key press to the main menu first, so a bare Space there would
+take the space bar from every text box. Space is handled in `MainWindow.OnKeyDown` behind the same
+text-box and slider guard as the rail letters. Measured: the bar reads Apple, deadair, Controls,
+Window; ⌘W leaves zero windows and the app running.
+
+The Edit menu is still a known gap rather than an oversight. ⌘C/⌘V
 work anyway, because Avalonia's own `PlatformHotkeyConfiguration` handles them inside its text
 controls rather than through AppKit's menu key equivalents — which also means an Edit menu carrying
 those gestures would TAKE them first, so adding one is a change that can break working paste and

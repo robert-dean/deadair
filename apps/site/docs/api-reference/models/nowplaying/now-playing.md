@@ -1,6 +1,6 @@
 ---
 title: 'NowPlaying'
-sidebar_position: 3
+sidebar_position: 4
 mdx:
     format: 'md'
 ---
@@ -8,7 +8,7 @@ mdx:
 > What the station is playing, for anything that wants to display it
 
 <details>
-<summary>Attributes (5)</summary>
+<summary>Attributes (6)</summary>
 
 | Attribute   | Type                | Required | Description                                                                                                                                                                                                                                                                                                                                   |
 | ----------- | ------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -16,6 +16,7 @@ mdx:
 | `onAir`     | `boolean`           | Yes      | False means the station is not broadcasting. `track` is absent in that case, which is an ordinary state and not an error                                                                                                                                                                                                                      |
 | `listeners` | `number`            | Yes      | How many people are listening right now. Public because it says only what Icecast's own status document already says to anyone who asks, and a station page should not need a session to show it                                                                                                                                              |
 | `mounts`    | `NowPlayingMount[]` | Yes      | Every way to listen, MP3 first. Never empty: MP3 has no switch. A format the operator has not switched on is ABSENT rather than present and disabled, because a client asking this wants the mounts that are actually there — and a client that had to find out by connecting to each one would put an audience-gated station on air to do it |
+| `show`      | `NowPlayingShow`    | No       | Present whenever `track` is and the station has said what programme it belongs to. Absent off air, and while a station warming up has nothing airing yet                                                                                                                                                                                      |
 | `track`     | `NowPlayingTrack`   | No       |                                                                                                                                                                                                                                                                                                                                               |
 
 </details>

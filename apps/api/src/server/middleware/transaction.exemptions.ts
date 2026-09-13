@@ -70,7 +70,8 @@ export const streamingExemption: TransactionExemption = ({ path }) => path.start
 export const artExemption: TransactionExemption = ({ method, path }) => method === 'GET' && path.startsWith('/art/');
 
 // The public now-playing answer is served entirely out of memory: the rundown holds what is on air
-// and the station's name is pushed into the service at boot. It touches no tenant data and needs no
+// and what programme it belongs to, both pushed there by the director, and the station's names are
+// read off `AppConfig`, which needs no scope. It touches no tenant data and needs no
 // database at all, and it is polled — by a hi-fi streamer, a station page, whatever displays the track
 // — every few seconds by every consumer at once, which is not a reason to spend a pooled connection
 // and a transaction each time. Anything that grows a database read here has to come out of this list.

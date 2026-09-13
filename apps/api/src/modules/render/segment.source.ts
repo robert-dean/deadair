@@ -12,9 +12,10 @@ import type { Segment } from './segment.repository.js';
  *
  * **The rundown deliberately learns nothing from this.** It is a plain item, so
  * `annotate.ts`, the aired notify, `PlayoutStatus`, now-playing and the mount
- * label all keep working with no idea that anything changed. The only two places
- * that know what the id means are the resolver, which turns it into a URL, and
- * the director's play history, which leaves it out.
+ * label all keep working with no idea that anything changed. The only three places
+ * that know what the id means are the resolver, which turns it into a URL, the
+ * director's play history, which leaves it out, and `/nowplaying`, which tells a
+ * listener the station is talking rather than naming an empty artist.
  */
 export const RENDER_PLUGIN_ID = 'deadair.render';
 

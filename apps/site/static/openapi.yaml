@@ -6261,6 +6261,11 @@ components:
         NowPlayingTrack:
             type: object
             properties:
+                kind:
+                    type: string
+                    enum: [record, break]
+                    default: record
+                    description: "`record` is music. `break` is the station speaking on its own between two records (an ident, a bulletin, a talk break), with `artist` empty and `title` the break's own label. A presenter talking over the start of a record is not a break: the record is what is on air, and it stays `record`. Absent means `record`, which is all a station older than this field ever reported"
                 title:
                     type: string
                     minLength: 1
@@ -6268,7 +6273,7 @@ components:
                 artist:
                     type: string
                     maxLength: 400
-                    description: 'Comma-joined, as a display line rather than a list: this is what a player or a device shows, not something to iterate'
+                    description: 'Comma-joined, as a display line rather than a list: this is what a player or a device shows, not something to iterate. Empty for a `break`'
                 album:
                     type: string
                     maxLength: 400
@@ -6287,8 +6292,8 @@ components:
                     type: integer
                     minimum: 0
                     description: 'Absent when the decoder cannot say. It leads the listener by the encoder and client buffers, so it is a display value and not a schedule'
-            required: [title, artist, startedAt]
-            description: 'The track a listener is hearing right now'
+            required: [kind, title, artist, startedAt]
+            description: 'What a listener is hearing right now: a record, or the station talking'
         NowPlayingMount:
             type: object
             properties:
@@ -6307,6 +6312,19 @@ components:
                     description: "Absent for FLAC, which is lossless and has no rate to set, and for HLS, whose rate is the AAC variant's"
             required: [format, path]
             description: 'One way to listen to this station right now'
+        NowPlayingShow:
+            type: object
+            properties:
+                name:
+                    type: string
+                    maxLength: 200
+                    description: "What this broadcast is called. It changes the moment the station changes programme, which can be one record before the new programme's first record is heard: a changeover never cuts a listener off mid-record"
+                host:
+                    type: string
+                    maxLength: 200
+                    description: "Who is presenting, by the name they go by on air. Absent when there is no name to give: no persona on air with one, and no station-wide presenter name set. Never the persona's console label"
+            required: [name]
+            description: 'The programme on air, as a listener would be told it'
         NowPlaying:
             type: object
             properties:
@@ -6326,6 +6344,9 @@ components:
                     items:
                         '$ref': '#/components/schemas/NowPlayingMount'
                     description: 'Every way to listen, MP3 first. Never empty: MP3 has no switch. A format the operator has not switched on is ABSENT rather than present and disabled, because a client asking this wants the mounts that are actually there — and a client that had to find out by connecting to each one would put an audience-gated station on air to do it'
+                show:
+                    '$ref': '#/components/schemas/NowPlayingShow'
+                    description: 'Present whenever `track` is and the station has said what programme it belongs to. Absent off air, and while a station warming up has nothing airing yet'
                 track:
                     '$ref': '#/components/schemas/NowPlayingTrack'
             required: [station, onAir, listeners, mounts]

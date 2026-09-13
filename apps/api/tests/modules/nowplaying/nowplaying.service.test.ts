@@ -6,8 +6,9 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { NowPlayingService } from '../../../src/modules/nowplaying/nowplaying.service.js';
-import type { Rundown, NowPlaying as RundownNowPlaying } from '../../../src/modules/playout/rundown.js';
+import type { Rundown, RundownBroadcast, NowPlaying as RundownNowPlaying } from '../../../src/modules/playout/rundown.js';
 import type { AudienceWatch } from '../../../src/modules/playout/audience.watch.js';
+import { TEMPLATE_KEYS } from '../../../src/modules/director/break.templates.js';
 import { STREAM_KEYS } from '../../../src/modules/stream/stream.settings.js';
 import { settingsConfig } from '../../utils/settings.config.js';
 
@@ -34,8 +35,25 @@ const item = {
     trackId: 'cat-1',
 };
 
-const build = (nowPlaying?: RundownNowPlaying, stationName = 'Static Between Stations', listeners = 0, settings: Record<string, string> = {}) => {
-    const rundown = { nowPlaying: vi.fn(() => nowPlaying) } as unknown as Rundown;
+/** A break the station speaks on its own, as `segmentRundownTrack` puts it into the running order. */
+const spoken = {
+    id: 'item-3',
+    pluginId: 'deadair.render',
+    externalId: 'seg-1',
+    title: 'Top of the hour',
+    artists: [],
+    artist: '',
+    durationMs: 12_000,
+};
+
+const build = (
+    nowPlaying?: RundownNowPlaying,
+    stationName = 'Static Between Stations',
+    listeners = 0,
+    settings: Record<string, string> = {},
+    broadcast?: RundownBroadcast,
+) => {
+    const rundown = { nowPlaying: vi.fn(() => nowPlaying), broadcast: vi.fn(() => broadcast) } as unknown as Rundown;
     // A real `AppConfig` over a plain object, because this service reads SETTINGS and every
     // layer of the config holds strings. A double that answered a boolean for `stream.opusEnabled`
     // would pass whichever way the code read it, which is the failure this repository has already
@@ -55,6 +73,7 @@ describe('NowPlayingService', () => {
             listeners: 12,
             mounts: [MP3_MOUNT],
             track: {
+                kind: 'record',
                 title: 'Windowlicker',
                 artist: 'Aphex Twin, Someone Else',
                 album: 'Windowlicker',
@@ -92,13 +111,93 @@ describe('NowPlayingService', () => {
         const { service } = build({ item, startedAt: 1 });
 
         expect(Object.keys(service.getNowPlaying())).toEqual(['station', 'onAir', 'listeners', 'mounts', 'track']);
+
+        // And with a programme named, the programme and nothing else of the order: not its brief,
+        // not its source, not what comes next.
+        const { service: named } = build({ item, startedAt: 1 }, 'Station', 0, {}, { name: 'Afternoons', host: 'Ray' });
+        expect(Object.keys(named.getNowPlaying())).toEqual(['station', 'onAir', 'listeners', 'mounts', 'show', 'track']);
+        expect(Object.keys(named.getNowPlaying().show ?? {})).toEqual(['name', 'host']);
     });
 
     it('omits what nobody could tell it, rather than sending empty fields', () => {
         const bare = { id: 'item-2', pluginId: 'p', externalId: 'e', title: 'Untitled', artists: [], artist: '' };
         const { service } = build({ item: bare, startedAt: 42 });
 
-        expect(service.getNowPlaying().track).toEqual({ title: 'Untitled', artist: '', startedAt: 42 });
+        expect(service.getNowPlaying().track).toEqual({ kind: 'record', title: 'Untitled', artist: '', startedAt: 42 });
+    });
+
+    describe('the programme and who is talking', () => {
+        // A listener app leads with the show and its host, and says so when the host is the one on
+        // air. Everything here is pushed by the director or read off settings: nothing touches the
+        // database, which is what keeps this route transaction-exempt.
+
+        it('names the show and who is presenting it', () => {
+            const { service } = build({ item, startedAt: 1 }, 'Station', 0, {}, { name: 'Afternoons', host: 'Ray' });
+
+            expect(service.getNowPlaying().show).toEqual({ name: 'Afternoons', host: 'Ray' });
+        });
+
+        it('calls a break the station speaks on its own a break, under its own label', () => {
+            const { service } = build({ item: spoken, startedAt: 42 }, 'Station', 0, {}, { name: 'Afternoons', host: 'Ray' });
+
+            expect(service.getNowPlaying().track).toEqual({ kind: 'break', title: 'Top of the hour', artist: '', durationMs: 12_000, startedAt: 42 });
+        });
+
+        it('leaves a record a record while the presenter talks over its start', () => {
+            // The voice rides the record, and the record is what the listener hears for all but a
+            // few seconds of it. There is no end time for the talking, so nothing could say when to
+            // stop calling it a break.
+            const { service } = build({ item: { ...item, voice: { segmentId: 'seg-2', atMs: 0 } }, startedAt: 1 });
+
+            expect(service.getNowPlaying().track?.kind).toBe('record');
+        });
+
+        it("falls back to the station's presenter name when the host has none of their own", () => {
+            const { service } = build({ item, startedAt: 1 }, 'Station', 0, { [TEMPLATE_KEYS.djName]: 'Ray' }, { name: 'Afternoons' });
+
+            expect(service.getNowPlaying().show).toEqual({ name: 'Afternoons', host: 'Ray' });
+        });
+
+        it("says nothing about a host when the station's presenter name is blank", () => {
+            // A STRING of spaces, which is what an operator who cleared the field may leave behind.
+            const { service } = build({ item, startedAt: 1 }, 'Station', 0, { [TEMPLATE_KEYS.djName]: '   ' }, { name: 'Afternoons' });
+
+            expect(service.getNowPlaying().show).toEqual({ name: 'Afternoons' });
+        });
+
+        it("prefers the host's own on-air name to the station's", () => {
+            const { service } = build(
+                { item, startedAt: 1 },
+                'Station',
+                0,
+                { [TEMPLATE_KEYS.djName]: 'Ray' },
+                { name: 'Afternoons', host: 'Cap Ray' },
+            );
+
+            expect(service.getNowPlaying().show?.host).toBe('Cap Ray');
+        });
+
+        it('names no show while the station is off air, whatever it was last told', () => {
+            const { service } = build(undefined, 'Station', 0, {}, { name: 'Afternoons', host: 'Ray' });
+
+            expect(service.getNowPlaying()).not.toHaveProperty('show');
+        });
+
+        it('names no show the director has not described', () => {
+            const { service } = build({ item, startedAt: 1 });
+
+            expect(service.getNowPlaying()).not.toHaveProperty('show');
+        });
+
+        it("answers the station's presenter name as it stands now", () => {
+            const { service, config } = build({ item, startedAt: 1 }, 'Station', 0, { [TEMPLATE_KEYS.djName]: 'Ray' }, { name: 'Afternoons' });
+
+            expect(service.getNowPlaying().show?.host).toBe('Ray');
+
+            config.set(TEMPLATE_KEYS.djName, 'Raymond');
+
+            expect(service.getNowPlaying().show?.host).toBe('Raymond');
+        });
     });
 
     it('answers the name as it stands now, not as it stood at boot', () => {

@@ -188,6 +188,15 @@ playlist re-fetches keyed on IP and User-Agent, so a client should send ONE stab
 its requests — audio, API and artwork — or it will be counted as several listeners, or as none.
 `apps/android` is the worked example.
 
+**What a client is told about the programme is two facts, and both are pushed rather than read.**
+`show` (the broadcast's name and its host's on-air name) and `track.kind` (a `record`, or a `break` the
+station speaks on its own) are the only things `/nowplaying` says beyond the record. The director
+pushes the show into the rundown when it attaches an order, on a recast and on its commit passes,
+because the host is a persona row and this route answers with no database; the station-wide presenter
+name is the setting it falls back to per call. A presenter talking over the start of a record is
+deliberately NOT reported: the voice rides the record, has no end time anything could report, and the
+record is what the listener hears for all but a few seconds of it.
+
 **A client that hands playback to a network player is producing a SECOND listener, and must transfer
 rather than add.** `apps/desktop` can send the station to a BluOS speaker, and from this side that
 speaker is an ordinary anonymous listener with its own address and its own agent — so a moment with

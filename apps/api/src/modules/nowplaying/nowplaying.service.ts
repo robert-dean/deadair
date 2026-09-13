@@ -1,9 +1,11 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
+import { TEMPLATE_KEYS } from '#modules/director/break.templates.js';
 import { AudienceWatch } from '#modules/playout/audience.watch.js';
 import { Rundown } from '#modules/playout/rundown.js';
+import { isRenderItem } from '#modules/render/segment.source.js';
 import { HLS_PLAYLIST_PATH, STREAM_DEFAULTS, STREAM_KEYS, resolveMountSettings, streamMounts } from '#modules/stream/stream.settings.js';
-import type { NowPlaying, NowPlayingMount } from './types/nowplaying.types.js';
+import type { NowPlaying, NowPlayingMount, NowPlayingShow } from './types/nowplaying.types.js';
 
 /**
  * What the station is playing, for anything that is not the console.
@@ -21,8 +23,10 @@ import type { NowPlaying, NowPlayingMount } from './types/nowplaying.types.js';
  * to anyone listening.
  *
  * **Answers out of memory, with no database work at all.** The rundown holds
- * what is airing, and `AppConfig` is a live view over `deadair.settings`
- * needing no scope, so the station's name is read straight off it on every
+ * what is airing, and what programme it belongs to and who presents it, both
+ * pushed there by the director, which owns the running order and is the one
+ * allowed the persona read. `AppConfig` is a live view over `deadair.settings`
+ * needing no scope, so the station's names are read straight off it on every
  * call rather than fetched through a repository. That is what lets this route
  * be transaction-exempt and lets a device poll it every few seconds without
  * spending a pooled connection on each ask, while a rename still reaches the
@@ -39,6 +43,24 @@ export class NowPlayingService {
     /** What the station calls itself, as the setting currently stands. Read per call, like `getNowPlaying`'s other facts. */
     private stationName(): string {
         return this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title);
+    }
+
+    /**
+     * What the station calls its presenter when the host has no on-air name of their own, or nothing
+     * when that is blank too. The same fallback every break writer applies to `persona.djName`, read
+     * per call like {@link stationName}.
+     */
+    private presenterName(): string | undefined {
+        const name = this.config.get(TEMPLATE_KEYS.djName, '').trim();
+        return name === '' ? undefined : name;
+    }
+
+    /** The programme on air as the director last described it, or nothing when it has not said. */
+    private show(): NowPlayingShow | undefined {
+        const broadcast = this.rundown.broadcast();
+        if (!broadcast) return undefined;
+        const host = broadcast.host ?? this.presenterName();
+        return { name: broadcast.name, ...(host === undefined ? {} : { host }) };
     }
 
     /**
@@ -93,12 +115,18 @@ export class NowPlayingService {
         if (!nowPlaying) return { station: this.stationName(), onAir: false, listeners, mounts };
 
         const { item, startedAt, remainingMs } = nowPlaying;
+        const show = this.show();
         return {
             station: this.stationName(),
             onAir: true,
             listeners,
             mounts,
+            ...(show === undefined ? {} : { show }),
             track: {
+                // A talk-over rides its record (`RundownItem.voice`) and is never an item of its own,
+                // so only a standalone spoken item is a break: the record under a voice-over is what
+                // the listener hears for all but a few seconds of it.
+                kind: isRenderItem(item) ? 'break' : 'record',
                 title: item.title,
                 // A display line, not a list. Everything downstream renders it as text,
                 // and a device that wants one string should not have to join ours.

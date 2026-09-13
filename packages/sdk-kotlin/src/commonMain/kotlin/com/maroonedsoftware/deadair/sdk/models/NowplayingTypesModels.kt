@@ -4,11 +4,13 @@ package com.maroonedsoftware.deadair.sdk.models
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
-/** The track a listener is hearing right now */
+/** What a listener is hearing right now: a record, or the station talking */
 @Serializable
 data class NowPlayingTrack(
+    /** `record` is music. `break` is the station speaking on its own between two records (an ident, a bulletin, a talk break), with `artist` empty and `title` the break's own label. A presenter talking over the start of a record is not a break: the record is what is on air, and it stays `record`. Absent means `record`, which is all a station older than this field ever reported */
+    val kind: NowPlayingTrackKind? = NowPlayingTrackKind.RECORD,
     val title: String,
-    /** Comma-joined, as a display line rather than a list: this is what a player or a device shows, not something to iterate */
+    /** Comma-joined, as a display line rather than a list: this is what a player or a device shows, not something to iterate. Empty for a `break` */
     val artist: String,
     val album: String? = null,
     /** The station's own cached cover where there is one, the provider's URL otherwise. Relative values are paths under the API root */
@@ -31,6 +33,15 @@ data class NowPlayingMount(
     val bitrateKbps: Long? = null,
 )
 
+/** The programme on air, as a listener would be told it */
+@Serializable
+data class NowPlayingShow(
+    /** What this broadcast is called. It changes the moment the station changes programme, which can be one record before the new programme's first record is heard: a changeover never cuts a listener off mid-record */
+    val name: String,
+    /** Who is presenting, by the name they go by on air. Absent when there is no name to give: no persona on air with one, and no station-wide presenter name set. Never the persona's console label */
+    val host: String? = null,
+)
+
 /** What the station is playing, for anything that wants to display it */
 @Serializable
 data class NowPlaying(
@@ -42,8 +53,19 @@ data class NowPlaying(
     val listeners: Long,
     /** Every way to listen, MP3 first. Never empty: MP3 has no switch. A format the operator has not switched on is ABSENT rather than present and disabled, because a client asking this wants the mounts that are actually there — and a client that had to find out by connecting to each one would put an audience-gated station on air to do it */
     val mounts: List<NowPlayingMount>,
+    /** Present whenever `track` is and the station has said what programme it belongs to. Absent off air, and while a station warming up has nothing airing yet */
+    val show: NowPlayingShow? = null,
     val track: NowPlayingTrack? = null,
 )
+
+/** `record` is music. `break` is the station speaking on its own between two records (an ident, a bulletin, a talk break), with `artist` empty and `title` the break's own label. A presenter talking over the start of a record is not a break: the record is what is on air, and it stays `record`. Absent means `record`, which is all a station older than this field ever reported */
+@Serializable
+enum class NowPlayingTrackKind {
+    @SerialName("record")
+    RECORD,
+    @SerialName("break")
+    BREAK,
+}
 
 /** `hls` is the master playlist rather than an Icecast mount, which is why this enum has an arm `PlayoutMount` does not */
 @Serializable

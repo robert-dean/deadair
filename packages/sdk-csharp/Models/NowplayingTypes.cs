@@ -10,13 +10,17 @@ using System.Text.Json.Serialization;
 
 namespace MaroonedSoftware.Deadair.Sdk.Models;
 
-/// <summary>The track a listener is hearing right now</summary>
+/// <summary>What a listener is hearing right now: a record, or the station talking</summary>
 public sealed record NowPlayingTrack
 {
+    /// <summary>`record` is music. `break` is the station speaking on its own between two records (an ident, a bulletin, a talk break), with `artist` empty and `title` the break's own label. A presenter talking over the start of a record is not a break: the record is what is on air, and it stays `record`. Absent means `record`, which is all a station older than this field ever reported</summary>
+    [JsonPropertyName("kind")]
+    public NowPlayingTrackKind Kind { get; init; } = NowPlayingTrackKind.Record;
+
     [JsonPropertyName("title")]
     public required string Title { get; init; }
 
-    /// <summary>Comma-joined, as a display line rather than a list: this is what a player or a device shows, not something to iterate</summary>
+    /// <summary>Comma-joined, as a display line rather than a list: this is what a player or a device shows, not something to iterate. Empty for a `break`</summary>
     [JsonPropertyName("artist")]
     public required string Artist { get; init; }
 
@@ -60,6 +64,19 @@ public sealed record NowPlayingMount
     public long? BitrateKbps { get; init; }
 }
 
+/// <summary>The programme on air, as a listener would be told it</summary>
+public sealed record NowPlayingShow
+{
+    /// <summary>What this broadcast is called. It changes the moment the station changes programme, which can be one record before the new programme's first record is heard: a changeover never cuts a listener off mid-record</summary>
+    [JsonPropertyName("name")]
+    public required string Name { get; init; }
+
+    /// <summary>Who is presenting, by the name they go by on air. Absent when there is no name to give: no persona on air with one, and no station-wide presenter name set. Never the persona's console label</summary>
+    [JsonPropertyName("host")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Host { get; init; }
+}
+
 /// <summary>What the station is playing, for anything that wants to display it</summary>
 public sealed record NowPlaying
 {
@@ -79,9 +96,25 @@ public sealed record NowPlaying
     [JsonPropertyName("mounts")]
     public required List<NowPlayingMount> Mounts { get; init; }
 
+    /// <summary>Present whenever `track` is and the station has said what programme it belongs to. Absent off air, and while a station warming up has nothing airing yet</summary>
+    [JsonPropertyName("show")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public NowPlayingShow? Show { get; init; }
+
     [JsonPropertyName("track")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public NowPlayingTrack? Track { get; init; }
+}
+
+/// <summary>`record` is music. `break` is the station speaking on its own between two records (an ident, a bulletin, a talk break), with `artist` empty and `title` the break's own label. A presenter talking over the start of a record is not a break: the record is what is on air, and it stays `record`. Absent means `record`, which is all a station older than this field ever reported</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<NowPlayingTrackKind>))]
+public enum NowPlayingTrackKind
+{
+    [JsonStringEnumMemberName("record")]
+    Record,
+
+    [JsonStringEnumMemberName("break")]
+    Break,
 }
 
 /// <summary>`hls` is the master playlist rather than an Icecast mount, which is why this enum has an arm `PlayoutMount` does not</summary>

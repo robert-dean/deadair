@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.4.2] — 2026-09-13
+
+- A break whose audio could not be made because the speech engine was not ready is now asked for again, instead of being passed over at its slot. When the voice server is still loading its model, or cannot load it because another model is holding the GPU, the station keeps the break's words and waits. Nothing ever came back for those breaks: only a welcome was tried a second time, so every other break turned away at the start of a listening session was lost. The station now asks for their audio again each time a record changes while the break is still coming up, and the activity feed says so, as it already did for a break whose render failed outright.
+
 ## [0.4.1] — 2026-09-12
 
 - The console's Copy buttons work when it is opened over plain HTTP at a network address, such as `http://192.168.1.10:8080` on a home server. Before, they copied nothing there and said nothing either, because the browser only offers the clipboard function they used on HTTPS or on localhost. They now fall back to the browser's older way of copying, and if that is refused as well the button reads "Copy failed" and shows the text already selected, ready to copy with the keyboard. This covers the restart command on the silence diagnosis and the stale-config alert, the plugin OAuth callback URL, the authenticator key during enrolment, and the build revision and stream addresses on the check-up.
@@ -89,7 +93,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.4.2...HEAD
+[0.4.2]: https://github.com/robert-dean/deadair/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/robert-dean/deadair/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/robert-dean/deadair/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/robert-dean/deadair/compare/v0.2.4...v0.3.0

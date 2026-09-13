@@ -177,10 +177,21 @@ describe('the desktop release’s notes', () => {
         expect(programs.get('apps/desktop/CHANGELOG.md')).toBe([...awkPrograms('release.yml').values()][0]);
     });
 
-    it('find the entry already in the real desktop changelog', () => {
+    it('find the entry already in the real desktop changelog, and nothing past it', () => {
+        // The real file, so whatever the current version's entry happens to say: this used to expect
+        // the 0.1.0 entry's first words, and failed on the first version pull request that moved
+        // the desktop version. What must hold for every version is that the workflow cuts exactly
+        // that version's section, found here without awk, and that the section is not empty.
         const version = JSON.parse(readFileSync(join(root, desktop.manifest), 'utf8')).version;
+        const text = readFileSync(join(root, desktop.changelog), 'utf8');
         const program = programs.get('apps/desktop/CHANGELOG.md')!;
-        expect(runAwk(program, version, readFileSync(join(root, desktop.changelog), 'utf8')).trim()).toMatch(/^- The desktop listener/);
+
+        const after = text.slice(text.indexOf('\n', text.indexOf(`## [${version}]`)) + 1);
+        const end = after.search(/^(## \[|\[[^\]]+\]: )/m);
+        const section = (end === -1 ? after : after.slice(0, end)).trim();
+
+        expect(section).not.toBe('');
+        expect(runAwk(program, version, text).trim()).toBe(section);
     });
 });
 

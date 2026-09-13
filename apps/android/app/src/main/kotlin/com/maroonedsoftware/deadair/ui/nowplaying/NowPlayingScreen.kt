@@ -46,6 +46,8 @@ import coil3.compose.AsyncImage
 import com.maroonedsoftware.deadair.R
 import com.maroonedsoftware.deadair.nowplaying.Playhead
 import com.maroonedsoftware.deadair.nowplaying.clockOf
+import com.maroonedsoftware.deadair.playback.SleepRequest
+import com.maroonedsoftware.deadair.playback.SleepState
 import com.maroonedsoftware.deadair.ui.CentredColumn
 import com.maroonedsoftware.deadair.ui.text.resolve
 import com.maroonedsoftware.deadair.ui.theme.ArtworkMaxWidth
@@ -88,6 +90,10 @@ fun NowPlayingScreen(
     handlers: TransportHandlers? = null,
     /** Where the cover leads, when the record is known. */
     onArtwork: (() -> Unit)? = null,
+    /** The sleep timer, as the service last said. */
+    sleep: SleepState = SleepState.Off,
+    /** Set the sleep timer, or `null` to turn it off. No control is drawn without one. */
+    onSleep: ((SleepRequest?) -> Unit)? = null,
 ) {
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val viewportHeight = maxHeight
@@ -113,7 +119,7 @@ fun NowPlayingScreen(
                     verticalArrangement = Arrangement.Center,
                 ) {
                     Words(state)
-                    Controls(state, playhead, onPlay, onStop, onOpenFormat)
+                    Controls(state, playhead, onPlay, onStop, onOpenFormat, sleep, onSleep)
                     Operator(transport, handlers, silence)
                 }
             }
@@ -126,7 +132,7 @@ fun NowPlayingScreen(
                     cover = { Artwork(url = artworkUrl, stale = state.stale, onOpen = onArtwork) },
                     under = {
                         Words(state, modifier = Modifier.padding(top = 32.dp))
-                        Controls(state, playhead, onPlay, onStop, onOpenFormat)
+                        Controls(state, playhead, onPlay, onStop, onOpenFormat, sleep, onSleep)
                     },
                 )
                 Operator(transport, handlers, silence)
@@ -228,7 +234,15 @@ private fun Words(state: NowPlayingUiState, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun Controls(state: NowPlayingUiState, playhead: Playhead?, onPlay: () -> Unit, onStop: () -> Unit, onOpenFormat: () -> Unit) {
+private fun Controls(
+    state: NowPlayingUiState,
+    playhead: Playhead?,
+    onPlay: () -> Unit,
+    onStop: () -> Unit,
+    onOpenFormat: () -> Unit,
+    sleep: SleepState,
+    onSleep: ((SleepRequest?) -> Unit)?,
+) {
     // Only when the decoder could say how long is left. A bar that appeared with a guessed
     // position would be worse than no bar.
     if (playhead != null) {
@@ -257,6 +271,12 @@ private fun Controls(state: NowPlayingUiState, playhead: Playhead?, onPlay: () -
         textAlign = TextAlign.Center,
         modifier = Modifier.padding(top = 16.dp),
     )
+
+    // Only while the station is playing: there is nothing to put to sleep otherwise, and a timer set
+    // on a stopped player would fire into whatever play came next.
+    if (onSleep != null && state.playing) {
+        SleepControl(sleep = sleep, canWaitForRecord = playhead != null, onSleep = onSleep, modifier = Modifier.padding(top = 8.dp))
+    }
 
     state.fallbackNote?.let {
         // Information, not a fault: the app handled it and the stream is playing. It was in the

@@ -2,6 +2,7 @@ package com.maroonedsoftware.deadair.playback
 
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Metadata
 import androidx.media3.common.Player
@@ -9,6 +10,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.extractor.metadata.icy.IcyInfo
 import com.maroonedsoftware.deadair.AppGraph
 import com.maroonedsoftware.deadair.nowplaying.NowPlayingState
+import com.maroonedsoftware.deadair.nowplaying.Reading
 import com.maroonedsoftware.deadair.sdk.models.NowPlaying
 import com.maroonedsoftware.deadair.sdk.models.NowPlayingMount
 import com.maroonedsoftware.deadair.station.StationUrl
@@ -34,9 +36,35 @@ import kotlinx.coroutines.launch
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @androidx.annotation.OptIn(UnstableApi::class)
-class PlaybackConductor(private val player: Player, private val graph: AppGraph, private val words: LockScreenWords) {
+class PlaybackConductor(
+    private val player: Player,
+    private val graph: AppGraph,
+    private val words: LockScreenWords,
+    /** Where the sleep timer's state goes, for a screen to show. */
+    publishSleep: (SleepState) -> Unit = {},
+    /** Called after the sleep timer has stopped the station, for the service to tidy itself away. */
+    private val onSlept: () -> Unit = {},
+) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val handler = Handler(Looper.getMainLooper())
+
+    /**
+     * Here rather than in the screen, because it has to fire with the activity gone. Its deadlines
+     * are on `elapsedRealtime`, the clock a `Reading` is stamped with. The handler it is scheduled
+     * on counts uptime, which stops in deep sleep; a timer is only ever armed while playing, and
+     * `WAKE_MODE_NETWORK` holds a wake lock for exactly that long.
+     */
+    val sleep =
+        SleepTimer(
+            schedule = ::schedule,
+            now = SystemClock::elapsedRealtime,
+            fade = { player.volume = it },
+            stop = {
+                player.stop()
+                onSlept()
+            },
+            publish = publishSleep,
+        )
     private val policy =
         ReconnectPolicy(
             backoff = Backoff(),
@@ -58,6 +86,9 @@ class PlaybackConductor(private val player: Player, private val graph: AppGraph,
         object : Player.Listener {
             override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
                 this@PlaybackConductor.playWhenReady.value = playWhenReady
+                // Whatever stopped it (a hand on Stop, a headset unplugged, the timer itself), the
+                // timer was for that session and must not fire into the next one.
+                if (!playWhenReady) sleep.onStopped()
             }
         }
 
@@ -115,6 +146,7 @@ class PlaybackConductor(private val player: Player, private val graph: AppGraph,
 
                 retarget()
                 gate.onPoll(now, player.totalBufferedDuration)
+                sleep.onPoll(state.reading(), player.totalBufferedDuration)
             }
             .launchIn(scope)
     }
@@ -125,6 +157,7 @@ class PlaybackConductor(private val player: Player, private val graph: AppGraph,
         player.removeListener(metadataListener)
         policy.cancel()
         gate.cancel()
+        sleep.clear()
         handler.removeCallbacksAndMessages(null)
         scope.cancel()
     }
@@ -153,10 +186,13 @@ class PlaybackConductor(private val player: Player, private val graph: AppGraph,
         return MediaItems.forMount(where, choice, MediaItems.metadataFor(where, null, words))
     }
 
-    private fun NowPlayingState.nowPlaying(): NowPlaying? =
+    private fun NowPlayingState.nowPlaying(): NowPlaying? = reading()?.nowPlaying
+
+    /** The reading, with when it was taken, which the sleep timer needs to project the record's end. */
+    private fun NowPlayingState.reading(): Reading? =
         when (this) {
-            is NowPlayingState.Answered -> reading.nowPlaying
-            is NowPlayingState.Unreachable -> lastGood?.nowPlaying
+            is NowPlayingState.Answered -> reading
+            is NowPlayingState.Unreachable -> lastGood
             NowPlayingState.Loading -> null
         }
 

@@ -39,6 +39,17 @@
     <string name="now_show_with_host">%1$s · with %2$s</string>
     <!-- The same line for a show with no name: "with Cass" -->
     <string name="now_with_host">with %1$s</string>
+    <!-- The sleep timer: its button, its choices, and the line that counts down under the button -->
+    <string name="sleep_timer">Sleep timer</string>
+    <plurals name="sleep_minutes">
+        <item quantity="one">%1$d minute</item>
+        <item quantity="other">%1$d minutes</item>
+    </plurals>
+    <string name="sleep_after_this_record">After this record</string>
+    <string name="sleep_off">Turn off the timer</string>
+    <!-- "Stops in 14 min" -->
+    <string name="sleep_stops_in">Stops in %1$s</string>
+    <string name="sleep_stops_after_record">Stops after this record</string>
     <!-- How far through the record, spoken for the progress bar: "1:42 of 3:58" -->
     <string name="playhead_position">%1$s of %2$s</string>
     <string name="play">Play</string>

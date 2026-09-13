@@ -55,6 +55,8 @@ fun Message.resolve(): String =
         is Message.OnTheMic -> if (host == null) stringResource(R.string.now_on_the_mic_unnamed) else stringResource(R.string.now_on_the_mic, host)
         is Message.ShowWithHost -> stringResource(R.string.now_show_with_host, show, host)
         is Message.WithHost -> stringResource(R.string.now_with_host, host)
+        is Message.StopsIn -> stringResource(R.string.sleep_stops_in, span.resolve())
+        Message.StopsAfterThisRecord -> stringResource(R.string.sleep_stops_after_record)
         is Message.AnsweredAs -> stringResource(R.string.station_answered_as, name)
         Message.NotEncrypted -> stringResource(R.string.station_not_encrypted)
         Message.NotAnAddress -> stringResource(R.string.station_not_an_address)

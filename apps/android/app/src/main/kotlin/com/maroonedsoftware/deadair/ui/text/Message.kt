@@ -64,6 +64,11 @@ sealed interface Message {
     /** The same line when the show has no name to give: "with Cass". */
     data class WithHost(val host: String) : Message
 
+    /** The sleep timer's countdown: "Stops in 14 min". Never less than a minute. */
+    data class StopsIn(val span: Span) : Message
+
+    data object StopsAfterThisRecord : Message
+
     // ── The address field ─────────────────────────────────────────────────────────────────
     data class AnsweredAs(val name: String) : Message
 

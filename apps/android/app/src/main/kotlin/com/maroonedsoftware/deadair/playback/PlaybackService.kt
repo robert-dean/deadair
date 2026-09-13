@@ -1,6 +1,7 @@
 package com.maroonedsoftware.deadair.playback
 
 import android.content.Intent
+import android.os.Bundle
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
@@ -12,6 +13,10 @@ import androidx.media3.datasource.DataSourceBitmapLoader
 import androidx.media3.session.CacheBitmapLoader
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
+import androidx.media3.session.SessionCommand
+import androidx.media3.session.SessionError
+import androidx.media3.session.SessionResult
+import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.SettableFuture
 import com.maroonedsoftware.deadair.DeadairApp
@@ -40,6 +45,9 @@ class PlaybackService : MediaSessionService() {
     private var session: MediaSession? = null
     private var conductor: PlaybackConductor? = null
     private var live: LivePlayer? = null
+
+    /** Whether the task was swiped away while the station played on. */
+    private var taskGone = false
 
     /** The main looper, because everything here touches a `Player`. Cancelled with the service. */
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -108,7 +116,7 @@ class PlaybackService : MediaSessionService() {
                         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
                     ),
                 )
-                .setCallback(Resumption())
+                .setCallback(SessionCallback())
                 // Cached, because the session asks for the same picture every time the metadata
                 // is pushed, and the metadata is pushed every time the record changes. Bounded,
                 // because a cover is decoded into a bitmap in this process and `/api/art` can
@@ -128,7 +136,16 @@ class PlaybackService : MediaSessionService() {
                 offAir = getString(R.string.now_off_air),
                 onTheMic = { host -> if (host == null) getString(R.string.now_on_the_mic_unnamed) else getString(R.string.now_on_the_mic, host) },
             )
-        conductor = PlaybackConductor(live, graph, words).also { it.start() }
+        conductor =
+            PlaybackConductor(
+                live,
+                graph,
+                words,
+                publishSleep = { session?.setSessionExtras(SleepCommands.extras(it)) },
+                // A timer that fires after the task was swiped away would otherwise leave an idle
+                // service and its notification behind: `onTaskRemoved` only stops one that is quiet.
+                onSlept = { if (taskGone) stopSelf() },
+            ).also { it.start() }
 
         // The next control follows the role rather than the launch, so signing in or out of the
         // operator's account adds and removes the button without restarting anything.
@@ -159,7 +176,35 @@ class PlaybackService : MediaSessionService() {
      * There is no position and no queue to restore, which makes this the easy version of a problem
      * most players find hard: the answer is the mount, at zero.
      */
-    private inner class Resumption : MediaSession.Callback {
+    private inner class SessionCallback : MediaSession.Callback {
+        /**
+         * The sleep timer's two commands, for this app's own screen and nobody else. Anything bound
+         * to the session (a head unit, the system's media controls) gets exactly what it got before.
+         */
+        override fun onConnect(session: MediaSession, controller: MediaSession.ControllerInfo): MediaSession.ConnectionResult {
+            val commands = MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS.buildUpon()
+            if (controller.packageName == packageName) commands.add(SleepCommands.ARM).add(SleepCommands.CLEAR)
+            return MediaSession.ConnectionResult.AcceptedResultBuilder(session).setAvailableSessionCommands(commands.build()).build()
+        }
+
+        override fun onCustomCommand(
+            session: MediaSession,
+            controller: MediaSession.ControllerInfo,
+            customCommand: SessionCommand,
+            args: Bundle,
+        ): ListenableFuture<SessionResult> {
+            val sleep = conductor?.sleep ?: return Futures.immediateFuture(SessionResult(SessionError.ERROR_SESSION_DISCONNECTED))
+            when (customCommand.customAction) {
+                SleepCommands.ARM.customAction -> {
+                    val request = SleepCommands.requestOf(args) ?: return Futures.immediateFuture(SessionResult(SessionError.ERROR_BAD_VALUE))
+                    sleep.arm(request)
+                }
+                SleepCommands.CLEAR.customAction -> sleep.clear()
+                else -> return Futures.immediateFuture(SessionResult(SessionError.ERROR_NOT_SUPPORTED))
+            }
+            return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
+        }
+
         override fun onPlaybackResumption(
             mediaSession: MediaSession,
             controller: MediaSession.ControllerInfo,
@@ -189,6 +234,8 @@ class PlaybackService : MediaSessionService() {
         val player = session?.player
         if (player == null || !player.playWhenReady) {
             stopSelf()
+        } else {
+            taskGone = true
         }
     }
 

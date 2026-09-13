@@ -240,6 +240,8 @@ fun HomeRoute(
                     // The cover leads to the record's page, for a signed-in listener: the public
                     // reading names no record, so only the transport reading can say which it is.
                     onArtwork = loaded?.status?.nowPlaying?.item?.trackId?.let { id -> { onTrack(id) } },
+                    sleep = playback.sleep,
+                    onSleep = { request -> if (request == null) connection.clearSleep() else connection.armSleep(request) },
                 )
             }
             Tab.UP_NEXT -> {

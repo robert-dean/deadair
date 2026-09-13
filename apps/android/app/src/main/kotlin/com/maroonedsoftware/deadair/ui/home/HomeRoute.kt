@@ -214,6 +214,7 @@ fun HomeRoute(
                             // it is a guess about a station that has not answered yet.
                             fellBackToMp3 = choice.fellBack && playback.requested,
                             stale = nowPlaying is NowPlayingState.Unreachable,
+                            show = reading?.nowPlaying?.show,
                         ),
                     artworkUrl = station?.artUrl(reading?.nowPlaying?.track?.artworkUrl),
                     // Frozen while the station is unreachable: a bar still sweeping from a reading

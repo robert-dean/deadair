@@ -1,6 +1,7 @@
 package com.maroonedsoftware.deadair.playback
 
 import com.maroonedsoftware.deadair.sdk.models.NowPlaying
+import com.maroonedsoftware.deadair.sdk.models.NowPlayingTrackKind
 
 /**
  * Decides when the poll's reading actually reaches the lock screen.
@@ -128,23 +129,35 @@ class NowPlayingGate(
         pending = null
     }
 
-    /** The fields of a reading that reach the lock screen, the notification and a head unit. */
+    /**
+     * The fields of a reading that reach the lock screen, the notification and a head unit.
+     *
+     * The kind and the show among them, because `lockScreenText` draws a break from the host and the
+     * show's name: a recast during a break changes what the lock screen says with nothing about the
+     * item moving.
+     */
     private data class Shown(
         val onAir: Boolean,
         val station: String?,
+        val kind: NowPlayingTrackKind?,
         val title: String?,
         val artist: String?,
         val album: String?,
         val artworkUrl: String?,
+        val show: String?,
+        val host: String?,
     )
 
     private fun NowPlaying?.shown() =
         Shown(
             onAir = this != null,
             station = this?.station,
+            kind = this?.track?.kind,
             title = this?.track?.title,
             artist = this?.track?.artist,
             album = this?.track?.album,
             artworkUrl = this?.track?.artworkUrl,
+            show = this?.show?.name,
+            host = this?.show?.host,
         )
 }

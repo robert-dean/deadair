@@ -34,7 +34,7 @@ import kotlinx.coroutines.launch
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @androidx.annotation.OptIn(UnstableApi::class)
-class PlaybackConductor(private val player: Player, private val graph: AppGraph, private val offAir: String) {
+class PlaybackConductor(private val player: Player, private val graph: AppGraph, private val words: LockScreenWords) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val handler = Handler(Looper.getMainLooper())
     private val policy =
@@ -150,7 +150,7 @@ class PlaybackConductor(private val player: Player, private val graph: AppGraph,
         format = settings.format
         val choice = chooseMount(mounts, settings.format)
         current = choice
-        return MediaItems.forMount(where, choice, MediaItems.metadataFor(where, null, offAir))
+        return MediaItems.forMount(where, choice, MediaItems.metadataFor(where, null, words))
     }
 
     private fun NowPlayingState.nowPlaying(): NowPlaying? =
@@ -176,7 +176,7 @@ class PlaybackConductor(private val player: Player, private val graph: AppGraph,
         current = choice
         policy.cancel()
         gate.cancel()
-        player.setMediaItem(MediaItems.forMount(where, choice, MediaItems.metadataFor(where, null, offAir)))
+        player.setMediaItem(MediaItems.forMount(where, choice, MediaItems.metadataFor(where, null, words)))
         if (wasPlaying) {
             player.prepare()
             player.play()
@@ -194,6 +194,6 @@ class PlaybackConductor(private val player: Player, private val graph: AppGraph,
     private fun pushMetadata(now: NowPlaying?) {
         val where = station ?: return
         val item = player.currentMediaItem ?: return
-        player.replaceMediaItem(0, item.buildUpon().setMediaMetadata(MediaItems.metadataFor(where, now, offAir)).build())
+        player.replaceMediaItem(0, item.buildUpon().setMediaMetadata(MediaItems.metadataFor(where, now, words)).build())
     }
 }

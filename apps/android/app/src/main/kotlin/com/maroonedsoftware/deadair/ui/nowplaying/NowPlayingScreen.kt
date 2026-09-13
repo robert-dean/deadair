@@ -185,6 +185,18 @@ private fun Words(state: NowPlayingUiState, modifier: Modifier = Modifier) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
+        // The programme first, the way a station's own app leads with the show and its host. One
+        // line: it is a label over the record rather than something to read in full.
+        state.header?.let {
+            Text(
+                it.resolve(),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
         Text(
             state.title.resolve(),
             style = MaterialTheme.typography.headlineSmall,

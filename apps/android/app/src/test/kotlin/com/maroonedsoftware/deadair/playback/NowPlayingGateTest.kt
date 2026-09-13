@@ -1,7 +1,9 @@
 package com.maroonedsoftware.deadair.playback
 
 import com.maroonedsoftware.deadair.sdk.models.NowPlaying
+import com.maroonedsoftware.deadair.sdk.models.NowPlayingShow
 import com.maroonedsoftware.deadair.sdk.models.NowPlayingTrack
+import com.maroonedsoftware.deadair.sdk.models.NowPlayingTrackKind
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -223,5 +225,23 @@ class NowPlayingGateTest {
         // Still off air, nothing shown different: a no-op rather than a second push.
         gate.onPoll(offAir, bufferedMs = 5_000)
         assertEquals(1, pushes)
+    }
+
+    @Test
+    fun `a change of host during a break reaches the lock screen with nothing about the item moving`() = runTest {
+        // The lock screen draws a break from the host's name, so a recast mid-break changes what it
+        // says while the item, its title and its `startedAt` all stay put.
+        var pushed: NowPlaying? = null
+        var pushes = 0
+        val gate = gate { pushed = it; pushes += 1 }
+        val spoken = NowPlayingTrack(kind = NowPlayingTrackKind.BREAK, title = "Top of the hour", artist = "", startedAt = 1_000)
+        val before = NowPlaying(station = "Test FM", onAir = true, listeners = 1, mounts = emptyList(), show = NowPlayingShow(name = "Late Static", host = "Cass"), track = spoken)
+
+        gate.onPoll(before, bufferedMs = 5_000)
+        val after = before.copy(show = NowPlayingShow(name = "Late Static", host = "Ray"))
+        gate.onPoll(after, bufferedMs = 5_000)
+
+        assertEquals(2, pushes)
+        assertEquals(after, pushed)
     }
 }

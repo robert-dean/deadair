@@ -29,6 +29,14 @@
     <!-- Who is listening, then how: "3 listening · MP3" -->
     <string name="now_footer">%1$s · %2$s</string>
     <string name="now_fell_back_to_mp3">This station does not publish %1$s. Playing MP3.</string>
+    <!-- The title while the station talks between records, naming the host: "Cass is on the mic" -->
+    <string name="now_on_the_mic">%1$s is on the mic</string>
+    <!-- The same, when the station named nobody -->
+    <string name="now_on_the_mic_unnamed">The host is on the mic</string>
+    <!-- The line above the record: the show, then its host. "Late Static · with Cass" -->
+    <string name="now_show_with_host">%1$s · with %2$s</string>
+    <!-- The same line for a show with no name: "with Cass" -->
+    <string name="now_with_host">with %1$s</string>
     <!-- How far through the record, spoken for the progress bar: "1:42 of 3:58" -->
     <string name="playhead_position">%1$s of %2$s</string>
     <string name="play">Play</string>

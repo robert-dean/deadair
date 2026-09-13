@@ -123,7 +123,12 @@ class PlaybackService : MediaSessionService() {
                 )
                 .build()
 
-        conductor = PlaybackConductor(live, graph, offAir = getString(R.string.now_off_air)).also { it.start() }
+        val words =
+            LockScreenWords(
+                offAir = getString(R.string.now_off_air),
+                onTheMic = { host -> if (host == null) getString(R.string.now_on_the_mic_unnamed) else getString(R.string.now_on_the_mic, host) },
+            )
+        conductor = PlaybackConductor(live, graph, words).also { it.start() }
 
         // The next control follows the role rather than the launch, so signing in or out of the
         // operator's account adds and removes the button without restarting anything.

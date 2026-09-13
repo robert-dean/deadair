@@ -166,6 +166,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     public async Task StartAsync()
     {
         await _settings.LoadAsync().ConfigureAwait(true);
+        Setup.RefreshSettingsProblem();
 
         // After the settings and before anything asks a plugin for anything: which plugins run is a
         // decision kept in that file, so starting them first would start the wrong ones.

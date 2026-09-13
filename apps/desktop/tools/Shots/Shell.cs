@@ -493,6 +493,8 @@ internal static class Fakes
     {
         public DesktopSettings Current { get; private set; } = new();
 
+        public SettingsFileProblem? Problem => null;
+
         public event Action<DesktopSettings>? Changed;
 
         public Task LoadAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;

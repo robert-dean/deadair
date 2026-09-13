@@ -423,6 +423,16 @@ and noticing it opened no connection. The converter is on the enum now and a tes
 reads as names; the lesson is that a deliberate catch needs a test proving the ordinary path through
 it works.
 
+**And a file that could not be read is never written over, which the tolerance did not originally
+say.** Starting clean was only half of it; the other half was the first write of the session. A
+volume change, a plugin saving its configuration, anything, wrote the defaults the app had fallen
+back to over the file, and the station address and every plugin's settings went with them. A file
+from a newer build did it on a downgrade. Found by comparing against Sonora, which refuses to write
+a file it could not parse. Now a failed load sets `ISettingsStore.Problem`, changes keep applying in
+memory, the disk is left alone, and both the setup screen and Settings say so with the path. The
+file is deliberately NOT renamed aside: the next launch would then start clean and write defaults,
+the same loss one launch later beside a file nobody will find.
+
 ## The session
 
 **Listening is accountless and stays that way.** A session buys the `platform.view` reads and the

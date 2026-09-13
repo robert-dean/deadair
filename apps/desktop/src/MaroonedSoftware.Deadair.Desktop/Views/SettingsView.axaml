@@ -61,6 +61,12 @@
                     <StackPanel Spacing="18">
                         <TextBlock Classes="h3" Text="This app" />
 
+                        <!-- Everything below still changes when pressed; this says it will not last. -->
+                        <TextBlock Text="{Binding SettingsProblem}"
+                                   IsVisible="{Binding SettingsProblem, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                   TextWrapping="Wrap"
+                                   Foreground="{DynamicResource DaToneFaultBrush}" />
+
                         <StackPanel Spacing="6">
                             <TextBlock Classes="dimmed" Text="Appearance" />
                             <Border CornerRadius="{DynamicResource DaCorner}" Padding="3"

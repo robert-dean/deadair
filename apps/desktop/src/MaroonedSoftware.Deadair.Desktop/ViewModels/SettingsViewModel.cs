@@ -107,6 +107,21 @@ public sealed partial class SettingsViewModel(
     [ObservableProperty]
     private string? _notice;
 
+    /// <summary>Said when this install's settings file could not be read and is being left alone.</summary>
+    /// <remarks>
+    /// Without it, the failure is invisible in the worst way: every change on this page appears to
+    /// work, and is gone at the next launch. The path is in the sentence because the remedy is to
+    /// open that file.
+    /// </remarks>
+    [ObservableProperty]
+    private string? _settingsProblem;
+
+    /// <summary>The one sentence for a settings file nobody can read, shared with the setup screen.</summary>
+    internal static string? DescribeProblem(SettingsFileProblem? problem) => problem is null
+        ? null
+        : $"Your settings file could not be read, so nothing you change is being saved. Fix or remove it and "
+            + $"start the app again: {problem.Path}";
+
     /// <summary>Every format the station could publish, in the order a listener would try them.</summary>
     public IReadOnlyList<FormatChoiceViewModel> Formats { get; } =
     [
@@ -156,6 +171,7 @@ public sealed partial class SettingsViewModel(
         Appearance = settings.Current.Appearance;
         NextSkips = settings.Current.NextSkips;
         MarkChosenFormat(settings.Current.Format);
+        SettingsProblem = DescribeProblem(settings.Problem);
     }
 
     /// <summary>

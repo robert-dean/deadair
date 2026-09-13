@@ -16,6 +16,16 @@ namespace MaroonedSoftware.Deadair.Desktop.Core.Settings;
 /// A file that cannot be read is treated as an install with no preferences rather than as an error.
 /// The worst case is somebody retyping a station address; refusing to start would be worse.
 /// </para>
+/// <para>
+/// <b>And a file that cannot be read is never written over.</b> Starting clean used to be half of
+/// that, and the other half was the first write of the session: a volume change, a plugin's saved
+/// configuration, anything at all, wrote the defaults the app had fallen back to over the file it
+/// could not understand, and the station address and every plugin's settings went with them. A file
+/// from a newer build did exactly this on a downgrade. So a load that fails sets
+/// <see cref="Problem"/>, changes keep applying in memory, and the disk is left alone until somebody
+/// fixes or removes the file. It is not renamed aside either: the next launch would then start clean
+/// and write defaults, which is the same loss one launch later beside a file nobody will find.
+/// </para>
 /// </remarks>
 public sealed class FileSettingsStore : ISettingsStore, IDisposable
 {
@@ -31,6 +41,8 @@ public sealed class FileSettingsStore : ISettingsStore, IDisposable
     }
 
     public DesktopSettings Current { get; private set; } = new();
+
+    public SettingsFileProblem? Problem { get; private set; }
 
     public event Action<DesktopSettings>? Changed;
 
@@ -59,10 +71,12 @@ public sealed class FileSettingsStore : ISettingsStore, IDisposable
         {
             throw;
         }
-        catch (Exception)
+        catch (Exception exception)
         {
-            // A truncated write, a hand-edit, a file from a newer build. An install with no
-            // preferences is a working app; a refusal to start is not.
+            // A hand-edit or a file from a newer build (the write below cannot leave a truncated one).
+            // An install with no preferences is a working app; a refusal to start is not. What it
+            // must not become is an install that saves those empty preferences over the file.
+            Problem = new SettingsFileProblem(_path, exception.Message);
         }
     }
 
@@ -88,14 +102,19 @@ public sealed class FileSettingsStore : ISettingsStore, IDisposable
             settings = change(Current) ?? throw new InvalidOperationException("a settings change answered null");
             Current = settings;
 
-            Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
+            // Applied, and not written: see the class remarks. Everything subscribed still hears
+            // about it below, so the session behaves exactly as it would with a good file.
+            if (Problem is null)
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
 
-            // Written beside and moved into place, so an interrupted write leaves the previous
-            // settings rather than half of the new ones.
-            var temporary = _path + ".tmp";
-            await File.WriteAllTextAsync(temporary, JsonSerializer.Serialize(settings, Format), cancellationToken)
-                .ConfigureAwait(false);
-            File.Move(temporary, _path, overwrite: true);
+                // Written beside and moved into place, so an interrupted write leaves the previous
+                // settings rather than half of the new ones.
+                var temporary = _path + ".tmp";
+                await File.WriteAllTextAsync(temporary, JsonSerializer.Serialize(settings, Format), cancellationToken)
+                    .ConfigureAwait(false);
+                File.Move(temporary, _path, overwrite: true);
+            }
         }
         finally
         {

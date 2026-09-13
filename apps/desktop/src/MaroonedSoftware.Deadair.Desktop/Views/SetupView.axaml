@@ -45,6 +45,14 @@
                 IsVisible="{Binding Busy}"
                 Foreground="{DynamicResource DaTextDimmedBrush}" />
 
+            <!-- Often the reason this screen is showing at all: an unreadable settings file takes the
+                 address with it, and an address typed here now will not be kept either. -->
+            <TextBlock
+                Text="{Binding SettingsProblem}"
+                IsVisible="{Binding SettingsProblem, Converter={x:Static ObjectConverters.IsNotNull}}"
+                TextWrapping="Wrap"
+                Foreground="{DynamicResource DaToneFaultBrush}" />
+
         </StackPanel>
     </Border>
 

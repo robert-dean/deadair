@@ -1,9 +1,22 @@
 namespace MaroonedSoftware.Deadair.Desktop.Core.Settings;
 
+/// <summary>A settings file that exists and could not be read, and so is not being written.</summary>
+/// <param name="Path">The file, so whoever reads the notice knows which one to open.</param>
+/// <param name="Reason">What the reader said about it.</param>
+public sealed record SettingsFileProblem(string Path, string Reason);
+
 /// <summary>Where <see cref="DesktopSettings"/> is kept.</summary>
 public interface ISettingsStore
 {
     DesktopSettings Current { get; }
+
+    /// <summary>Why the file on disk is being left alone this session, or null while it is written.</summary>
+    /// <remarks>
+    /// Set by a load that found a file it could not read. Changes still apply for the rest of the
+    /// session; they are simply not written, because the only thing a write could put there is the
+    /// defaults the app fell back to, over whatever the file actually said.
+    /// </remarks>
+    SettingsFileProblem? Problem { get; }
 
     event Action<DesktopSettings>? Changed;
 

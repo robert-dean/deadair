@@ -67,10 +67,21 @@ struct NowPlayingScreen: View {
         .navigationTitle(reading?.value.station ?? model.settings.settings.stationName ?? "deadair")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            NavigationLink {
-                SettingsScreen()
-            } label: {
-                Label("Settings", systemImage: "gearshape")
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                // The station's own record of itself, for a signed-in account. Absent otherwise
+                // rather than offered and refused: listening needs no account.
+                if model.signedIn {
+                    NavigationLink {
+                        HistoryScreen()
+                    } label: {
+                        Label("Played", systemImage: "clock.arrow.circlepath")
+                    }
+                }
+                NavigationLink {
+                    SettingsScreen()
+                } label: {
+                    Label("Settings", systemImage: "gearshape")
+                }
             }
         }
         .refreshable { model.nowPlaying.retry() }

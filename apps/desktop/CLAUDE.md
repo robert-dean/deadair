@@ -515,6 +515,23 @@ address answers and is connected. The same address again just closes the screen.
 per station in the Keychain, so switching back finds the operator signed in: `SessionManager` never
 deleted a session for another origin, whatever its comment used to say.
 
+**A `deadair://` link proposes a station; it never switches to one.** `Core/Station/StationLink`
+reads `deadair://connect?station=<escaped origin>`, which is what the console writes and the only
+form that can name a plain-http station on a home network, and `deadair://host[:port]` as https
+shorthand; anything else is refused. The bundle registers the scheme in `Info.plist.in`, macOS
+delivers the link to the running instance (so there is no single-instance code), and
+`WindowKeeper.UriOpened` hands it to `ShellViewModel.OpenStationAsync`, which waits for `StartAsync`
+first because a link that LAUNCHED the app arrives while the settings are still being read. Only a
+registered bundle receives one:
+
+```bash
+/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f apps/desktop/artifacts/deadair.app
+open "deadair://connect?station=https%3A%2F%2Fradio.example.com"
+```
+
+Measured against the bundle: the same station while running, a different origin while running (it
+offered and switched nothing), and a cold launch from a link each wrote `link: offered` to the log.
+
 ## The session
 
 **Listening is accountless and stays that way.** A session buys the `platform.view` reads and the

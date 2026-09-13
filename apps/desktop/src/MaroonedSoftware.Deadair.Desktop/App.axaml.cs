@@ -3,6 +3,7 @@ using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using MaroonedSoftware.Deadair.Desktop.Core.Settings;
+using MaroonedSoftware.Deadair.Desktop.Core.Station;
 using MaroonedSoftware.Deadair.Desktop.Services;
 using MaroonedSoftware.Deadair.Desktop.ViewModels;
 using MaroonedSoftware.Deadair.Desktop.Views;
@@ -41,8 +42,21 @@ public partial class App : Application
             window.RememberFrame(settings);
             desktop.MainWindow = window;
 
-            // Before StartAsync, so the Dock's reopen is heard from the first moment the app runs.
-            shell.Window = new WindowKeeper(desktop, window);
+            // Before StartAsync, so the Dock's reopen and a link that launched the app are heard from
+            // the first moment it runs.
+            var keeper = new WindowKeeper(desktop, window);
+            keeper.UriOpened += uri =>
+            {
+                if (StationLink.TryParse(uri, out var station))
+                {
+                    _ = shell.OpenStationAsync(station);
+                }
+                else
+                {
+                    Trace.WriteLine($"link: {uri.Scheme}:// link that names no station, ignored");
+                }
+            };
+            shell.Window = keeper;
 
             // For the native menu in App.axaml and nothing else. A NativeMenu has no visual parent,
             // so it cannot inherit the window's; windows still set their own and none of them read

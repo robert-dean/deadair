@@ -64,6 +64,8 @@ public sealed class WindowKeeper : IWindowKeeper
             }
         };
 
+        // Subscribed here, which App does before the shell starts: Avalonia does not hold an
+        // activation for a handler that arrives later, and a link that launched the app arrives early.
         if (Application.Current?.TryGetFeature<IActivatableLifetime>() is { } activation)
         {
             activation.Activated += (_, e) =>
@@ -72,9 +74,20 @@ public sealed class WindowKeeper : IWindowKeeper
                 {
                     Show();
                 }
+                else if (e is ProtocolActivatedEventArgs { Kind: ActivationKind.OpenUri, Uri: { } uri })
+                {
+                    UriOpened?.Invoke(uri);
+                }
             };
         }
     }
+
+    /// <summary>Raised with a link macOS handed the app, a <c>deadair://</c> one being the only kind it registers for.</summary>
+    /// <remarks>
+    /// macOS delivers it to the instance already running, which is why there is no single-instance
+    /// machinery anywhere in this app: a second launch of a bundle is the system's to prevent, and it does.
+    /// </remarks>
+    public event Action<Uri>? UriOpened;
 
     /// <summary>Whether a close should hide the window rather than close it.</summary>
     public static bool HidesInsteadOfClosing(WindowCloseReason reason, bool isProgrammatic) =>

@@ -20,6 +20,20 @@
          convention. Get it wrong and macOS shows the blank document icon rather than complaining. -->
     <key>CFBundleIconFile</key>
     <string>deadair</string>
+    <!-- deadair:// links, which name a station for the app to be pointed at (the console's check-up
+         offers one). macOS routes them only to a bundle it has registered, so a `dotnet run` never
+         receives one; `lsregister -f` on a rebuilt bundle is how a new registration is picked up. -->
+    <key>CFBundleURLTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleURLName</key>
+            <string>com.maroonedsoftware.deadair.desktop</string>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>deadair</string>
+            </array>
+        </dict>
+    </array>
     <key>LSMinimumSystemVersion</key>
     <string>13.0</string>
     <key>NSHighResolutionCapable</key>

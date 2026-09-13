@@ -225,6 +225,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         }
 
         Ready = true;
+        _started.TrySetResult();
     }
 
     /// <summary>
@@ -252,6 +253,46 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
     /// <summary>The station the app is attached to, or null before the first and during a switch.</summary>
     private StationUrl? _current;
+
+    /// <summary>Set once <see cref="StartAsync"/> has decided whether there is a station, for a link that arrives before it has.</summary>
+    private readonly TaskCompletionSource _started = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    /// <summary>
+    /// Offers a station a <c>deadair://</c> link named, and connects to it only if somebody says so.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Waits for <see cref="StartAsync"/> first: a link that launched the app arrives while the
+    /// settings are still being read, and deciding before then whether there is a station already
+    /// would decide wrongly.
+    /// </para>
+    /// <para>
+    /// The station already here: just the window, brought forward. None yet: the setup screen,
+    /// filled in. A different one: the setup screen, filled in, saying what connecting will leave,
+    /// with a way back; the current station keeps playing until the new one answers, because a link
+    /// is a suggestion and nothing moves playback on its own.
+    /// </para>
+    /// </remarks>
+    public async Task OpenStationAsync(StationUrl link)
+    {
+        await _started.Task.ConfigureAwait(true);
+
+        Trace.WriteLine($"link: offered {link}");
+        Window?.Show();
+
+        if (_current is { } current && current == link)
+        {
+            return;
+        }
+
+        Setup.Address = link.ToString();
+        Setup.Problem = null;
+        Setup.Note = _current is null
+            ? null
+            : $"You are listening to {Listener.StationName}. Connect to switch to this station instead.";
+        Setup.CanCancel = _current is not null;
+        NeedsStation = true;
+    }
 
     /// <summary>
     /// Asks for another station's address, keeping this one until somebody connects to the new one.

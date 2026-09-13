@@ -39,6 +39,14 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!--
+                "Play deadair" to the car's assistant. Android Auto asks for this to offer voice at
+                all; what it plays is decided by the session, which has only the station to give.
+            -->
+            <intent-filter>
+                <action android:name="android.media.action.MEDIA_PLAY_FROM_SEARCH" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
         </activity>
 
         <!--
@@ -56,8 +64,10 @@
         </receiver>
 
         <!--
-            Exported, and it has to be: the session is how the lock screen, a Bluetooth head unit
-            and Android's own media controls reach this app, and none of them are this app.
+            Exported, and it has to be: the session is how the lock screen, a Bluetooth head unit,
+            Android Auto and Android's own media controls reach this app, and none of them are this
+            app. The library action is what a Media3 browser looks for, the legacy browser action is
+            what Android Auto looks for, and the session action stays for this app's own controller.
         -->
         <service
             android:name=".playback.PlaybackService"
@@ -65,8 +75,15 @@
             android:foregroundServiceType="mediaPlayback"
             tools:ignore="ExportedService">
             <intent-filter>
+                <action android:name="androidx.media3.session.MediaLibraryService" />
+                <action android:name="android.media.browse.MediaBrowserService" />
                 <action android:name="androidx.media3.session.MediaSessionService" />
             </intent-filter>
         </service>
+
+        <!-- What tells Android Auto this is a media app, and so lists it in the car. -->
+        <meta-data
+            android:name="com.google.android.gms.car.application"
+            android:resource="@xml/automotive_app_desc" />
     </application>
 </manifest>

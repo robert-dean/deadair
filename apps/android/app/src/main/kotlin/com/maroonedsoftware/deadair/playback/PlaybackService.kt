@@ -5,17 +5,20 @@ import android.os.Bundle
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
+import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.datasource.DataSourceBitmapLoader
 import androidx.media3.session.CacheBitmapLoader
+import androidx.media3.session.LibraryResult
+import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
-import androidx.media3.session.MediaSessionService
 import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionError
 import androidx.media3.session.SessionResult
+import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.SettableFuture
@@ -29,6 +32,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -36,13 +40,17 @@ import kotlinx.coroutines.launch
 /**
  * The station, playing, with the app in the background.
  *
- * A `MediaSessionService` rather than a player owned by the screen, because listening to the radio
- * is exactly the thing somebody does while looking at something else. The session is also what
- * puts the controls on the lock screen and answers a Bluetooth head unit.
+ * A service rather than a player owned by the screen, because listening to the radio is exactly the
+ * thing somebody does while looking at something else. The session is also what puts the controls on
+ * the lock screen and answers a Bluetooth head unit.
+ *
+ * A LIBRARY service, so Android Auto can list the station and a car can start it: the library is one
+ * folder holding the station and nothing else. Everything that is not a car (the screen, the lock
+ * screen, a headset) sees exactly the session it always did.
  */
 @OptIn(UnstableApi::class)
-class PlaybackService : MediaSessionService() {
-    private var session: MediaSession? = null
+class PlaybackService : MediaLibraryService() {
+    private var session: MediaLibrarySession? = null
     private var conductor: PlaybackConductor? = null
     private var live: LivePlayer? = null
 
@@ -107,7 +115,7 @@ class PlaybackService : MediaSessionService() {
             }
         this.live = live
         session =
-            MediaSession.Builder(this, live)
+            MediaLibrarySession.Builder(this, live, StationLibrary())
                 .setSessionActivity(
                     PendingIntent.getActivity(
                         this,
@@ -116,7 +124,6 @@ class PlaybackService : MediaSessionService() {
                         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
                     ),
                 )
-                .setCallback(SessionCallback())
                 // Cached, because the session asks for the same picture every time the metadata
                 // is pushed, and the metadata is pushed every time the record changes. Bounded,
                 // because a cover is decoded into a bitmap in this process and `/api/art` can
@@ -162,7 +169,27 @@ class PlaybackService : MediaSessionService() {
         live?.setCanSkip(operator)
     }
 
-    override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session
+    override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? = session
+
+    /** What the station calls itself, as last kept, for a car's list. */
+    private suspend fun stationName(): String? {
+        val settings = (application as DeadairApp).graph.settings.settings.first()
+        val station = settings.station ?: return null
+        return settings.stationName ?: station.origin
+    }
+
+    /** A future answered on the main scope, for the callbacks that have to read the settings first. */
+    private fun <T> answer(block: suspend () -> T): ListenableFuture<T> {
+        val future = SettableFuture.create<T>()
+        scope.launch {
+            try {
+                future.set(block())
+            } catch (error: Exception) {
+                future.setException(error)
+            }
+        }
+        return future
+    }
 
     /**
      * What a media button reaches when nothing is playing and the app is not running.
@@ -176,13 +203,13 @@ class PlaybackService : MediaSessionService() {
      * There is no position and no queue to restore, which makes this the easy version of a problem
      * most players find hard: the answer is the mount, at zero.
      */
-    private inner class SessionCallback : MediaSession.Callback {
+    private inner class StationLibrary : MediaLibrarySession.Callback {
         /**
          * The sleep timer's two commands, for this app's own screen and nobody else. Anything bound
-         * to the session (a head unit, the system's media controls) gets exactly what it got before.
+         * to the session (a head unit, a car, the system's media controls) gets the ordinary set.
          */
         override fun onConnect(session: MediaSession, controller: MediaSession.ControllerInfo): MediaSession.ConnectionResult {
-            val commands = MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS.buildUpon()
+            val commands = MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS.buildUpon()
             if (controller.packageName == packageName) commands.add(SleepCommands.ARM).add(SleepCommands.CLEAR)
             return MediaSession.ConnectionResult.AcceptedResultBuilder(session).setAvailableSessionCommands(commands.build()).build()
         }
@@ -204,6 +231,63 @@ class PlaybackService : MediaSessionService() {
             }
             return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
         }
+
+        /** One folder, of radio stations. An install with no station kept has nothing to offer. */
+        override fun onGetLibraryRoot(
+            session: MediaLibrarySession,
+            browser: MediaSession.ControllerInfo,
+            params: LibraryParams?,
+        ): ListenableFuture<LibraryResult<MediaItem>> =
+            answer {
+                val name = stationName() ?: return@answer LibraryResult.ofError(SessionError.ERROR_NOT_SUPPORTED)
+                LibraryResult.ofItem(MediaItems.root(name), params)
+            }
+
+        /** Exactly one child, the station: see `MediaItems.stationEntry` for why never more. */
+        override fun onGetChildren(
+            session: MediaLibrarySession,
+            browser: MediaSession.ControllerInfo,
+            parentId: String,
+            page: Int,
+            pageSize: Int,
+            params: LibraryParams?,
+        ): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> =
+            answer {
+                val name = stationName()
+                if (parentId != MediaItems.ROOT_ID || name == null) return@answer LibraryResult.ofError(SessionError.ERROR_BAD_VALUE)
+                LibraryResult.ofItemList(ImmutableList.of(MediaItems.stationEntry(name)), params)
+            }
+
+        override fun onGetItem(
+            session: MediaLibrarySession,
+            browser: MediaSession.ControllerInfo,
+            mediaId: String,
+        ): ListenableFuture<LibraryResult<MediaItem>> =
+            answer {
+                val name = stationName()
+                if (mediaId != MediaItems.STATION_ID || name == null) return@answer LibraryResult.ofError(SessionError.ERROR_BAD_VALUE)
+                LibraryResult.ofItem(MediaItems.stationEntry(name), null)
+            }
+
+        /**
+         * A car tapping the station hands back only its `mediaId`: the URI does not cross the binder.
+         * So the item is resolved here, to the mount the settings and the station agree on, through
+         * the same `resumptionItem` a media button uses. Media3's own `onSetMediaItems` comes through
+         * here as well, and so does a voice search, which arrives with no id: the library holds one
+         * station, so "play something" and "play deadair" both mean it.
+         */
+        override fun onAddMediaItems(
+            mediaSession: MediaSession,
+            controller: MediaSession.ControllerInfo,
+            mediaItems: List<MediaItem>,
+        ): ListenableFuture<List<MediaItem>> =
+            answer {
+                if (mediaItems.any { it.mediaId.isNotEmpty() && it.mediaId != MediaItems.STATION_ID }) {
+                    throw UnsupportedOperationException("This library holds one station")
+                }
+                val item = conductor?.resumptionItem() ?: throw UnsupportedOperationException("This install has no station")
+                listOf(item)
+            }
 
         override fun onPlaybackResumption(
             mediaSession: MediaSession,

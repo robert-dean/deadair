@@ -144,6 +144,16 @@ arms for that reason and a steering wheel cannot. It is also not gated on there 
 skip — the screen's Skip is, because it has the transport reading in front of it, and the playback
 service deliberately collects none of that.
 
+**Android Auto's library holds exactly one item, the station, and must never hold a second.**
+`PlaybackService` is a `MediaLibraryService` for Auto's sake: a root folder of radio stations with
+the station in it, answered from the kept settings. Two things about it look like room to grow and
+are not. A second item (one per format, say) gives the player a real next item, and a head unit a
+"next" that is not the operator's Skip, which is the paragraph above undone. And the entry carries no
+URI: a browser in another process hands back only the `mediaId` when somebody taps it, so
+`onAddMediaItems` resolves it through the same `resumptionItem` a media button uses, which is also
+what a voice search with no id at all resolves to. The library never learns which mounts exist by
+connecting, for the reason every other screen does not.
+
 ## The session, and the one rule that is not obvious
 
 **Listening is accountless and stays that way.** A session buys the `platform.view` reads and

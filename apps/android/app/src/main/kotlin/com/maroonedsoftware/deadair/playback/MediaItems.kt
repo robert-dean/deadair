@@ -12,6 +12,50 @@ import com.maroonedsoftware.deadair.station.StreamFormat
 
 /** Turning a station and a format into something the player can be handed. */
 object MediaItems {
+    /** The root of what a car or another browser is offered. */
+    const val ROOT_ID = "root"
+
+    /** The station, the only thing there is to play. Every item handed to the player carries it. */
+    const val STATION_ID = "station"
+
+    /**
+     * The root a car's media browser opens on: one folder, of radio stations, holding exactly one.
+     */
+    fun root(name: String): MediaItem =
+        MediaItem.Builder()
+            .setMediaId(ROOT_ID)
+            .setMediaMetadata(
+                MediaMetadata.Builder()
+                    .setTitle(name)
+                    .setIsBrowsable(true)
+                    .setIsPlayable(false)
+                    .setMediaType(MediaMetadata.MEDIA_TYPE_FOLDER_RADIO_STATIONS)
+                    .build(),
+            )
+            .build()
+
+    /**
+     * The station as a car lists it: a name and nothing to fetch yet.
+     *
+     * No URI, because a browser in another process hands back only the `mediaId` when somebody
+     * taps it, and the mount is chosen at that moment from the settings and the station's own
+     * `mounts[]` (the session's `onAddMediaItems`). A second item, one per format say, would give
+     * the player a real next item and a head unit a "next" that is not the operator's skip.
+     */
+    fun stationEntry(name: String): MediaItem =
+        MediaItem.Builder()
+            .setMediaId(STATION_ID)
+            .setMediaMetadata(
+                MediaMetadata.Builder()
+                    .setTitle(name)
+                    .setStation(name)
+                    .setIsBrowsable(false)
+                    .setIsPlayable(true)
+                    .setMediaType(MediaMetadata.MEDIA_TYPE_RADIO_STATION)
+                    .build(),
+            )
+            .build()
+
     /**
      * The item for one mount.
      *
@@ -26,6 +70,7 @@ object MediaItems {
     fun forMount(station: StationUrl, choice: MountChoice, metadata: MediaMetadata): MediaItem {
         val builder =
             MediaItem.Builder()
+                .setMediaId(STATION_ID)
                 .setUri(station.mountUrl(choice.path))
                 .setMediaMetadata(metadata)
 

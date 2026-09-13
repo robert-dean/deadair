@@ -83,6 +83,8 @@ In a car, the same session carries what a head unit can do. Pause stops the stre
 pausing it, because a live stream has no pause worth having. The next button is the operator's Skip
 and is offered to nobody else, so a listener's stereo draws no button at all rather than one that
 would be refused. Pressing play on the wheel starts the station even when the app is not running.
+In Android Auto the app is listed among the media apps, and its library is one folder holding the
+station: tap it, or ask the car's assistant to play deadair, and it starts.
 
 What an account adds is the station's own account of itself — what it has played, what is on next —
 which sits behind `platform.view` because it is the console's data being read by a phone. The

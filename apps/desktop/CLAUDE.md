@@ -622,6 +622,11 @@ before the window is even open. **The setup screen is where the mark does go**: 
 nothing else on screen and a 420-unit column to spend, so it carries the mark at 96 units (half its
 pixels, so it is crisp at 2x) over the same letter-spaced wordmark the strip has, and the two
 frames named `setup` in `tools/Shots` are how it is looked at.
+**Enter in the address box connects**, because Connect is `IsDefault`. That is safe on a screen
+hidden most of the time only because Avalonia 12's default button answers Enter when it is
+EFFECTIVELY visible and enabled (`Button.RootDefaultKeyDown`); a check on its own `IsVisible`, as
+older versions had, would have connected from every text box in the app. A single-line `TextBox`
+leaves Enter unhandled, which is how it reaches the window's root where the default button listens.
 
 **Two earlier versions of this icon were wrong in the same way, and neither was visible in the
 file.** The first drew `logo.png` above 128px and the mark below, which is two icons wearing one

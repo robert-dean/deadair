@@ -609,7 +609,10 @@ the shape the mark was drawn as.
 console's header carries both and this app is the same app, so the pairing looked obviously right;
 on a 38px strip beside the traffic lights it reads as clutter rather than as identity, because the
 strip is already crowded by the 80px the window's buttons need. The icon says which app this is
-before the window is even open.
+before the window is even open. **The setup screen is where the mark does go**: a first run has
+nothing else on screen and a 420-unit column to spend, so it carries the mark at 96 units (half its
+pixels, so it is crisp at 2x) over the same letter-spaced wordmark the strip has, and the two
+frames named `setup` in `tools/Shots` are how it is looked at.
 
 **Two earlier versions of this icon were wrong in the same way, and neither was visible in the
 file.** The first drew `logo.png` above 128px and the mark below, which is two icons wearing one

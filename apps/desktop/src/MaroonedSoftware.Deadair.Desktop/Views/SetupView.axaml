@@ -8,10 +8,22 @@
     <Border Padding="48">
         <StackPanel MaxWidth="420" Spacing="18" VerticalAlignment="Center" HorizontalAlignment="Center">
 
+            <!-- The mark, at half its pixel size so it is crisp on a Retina display. This is the one
+                 screen with room for it: the sidebar's strip tried it and took it out (see
+                 apps/desktop/CLAUDE.md), and here it is the only thing above the fold on a first run. -->
+            <Image
+                Source="avares://deadair/Assets/logo-mark.png"
+                Width="96"
+                Height="96"
+                Margin="0,0,0,6"
+                HorizontalAlignment="Center" />
+
             <TextBlock
                 Text="deadair"
-                FontSize="34"
-                FontWeight="SemiBold"
+                FontSize="{DynamicResource DaFontSizeH1}"
+                FontWeight="Bold"
+                LetterSpacing="1.4"
+                HorizontalAlignment="Center"
                 Foreground="{DynamicResource DaAccentBrush}" />
 
             <TextBlock
@@ -29,6 +41,7 @@
                 Foreground="{DynamicResource DaTextBrush}" />
 
             <TextBox
+                x:Name="AddressBox"
                 Text="{Binding Address}"
                 PlaceholderText="radio.example.com"
                 FontFamily="{DynamicResource DaFontMono}"

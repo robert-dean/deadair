@@ -2020,9 +2020,10 @@ const wrongDayPartIn = (script: string, guard: AnswerGuard): string | undefined 
  * a reason to miss it. They are CUT out of the lower-cased text itself, though, and not out of the
  * bare-words copy. The copy threw every stop away, and {@link namesWrongSky} needs the stops: it
  * looks for a sentence that OPENS on "Night falls", and with no stops left every word looks like
- * the middle of one sentence. Both older checks read the result exactly as they read the bare copy:
- * `saysTime` lower-cases before its `includes`, `saysWholeWord` bounds on letters, and the
- * no-records path above always handed them the punctuated script anyway.
+ * the middle of one sentence. `namesWrongTimeOfDay` needs them too, since it passes over a word
+ * inside a comparison and a comparison ends at the next comma or stop. Both older checks read the
+ * result exactly as they read the bare copy: `saysTime` lower-cases before its `includes`, `wholeWord`
+ * bounds on letters, and the no-records path above always handed them the punctuated script anyway.
  */
 const withoutRecordNames = (script: string, guard: AnswerGuard): string => {
     const records = (guard.names ?? []).filter((record): record is BreakTrack => record !== undefined);

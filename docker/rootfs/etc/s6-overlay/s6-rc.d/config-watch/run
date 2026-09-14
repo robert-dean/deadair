@@ -23,6 +23,16 @@ esac
 
 mtime() { stat -c %Y "$1" 2>/dev/null || true; }
 
+# The audio chain is restarted DOWN-then-UP rather than with `-r`, and the difference is the whole
+# point. `-r` sends the stop signal and waits for the process to exit on its own; the supervisor
+# escalates to a kill only for a service taken DOWN (`-d`), after the `timeout-kill` in its service
+# directory. Measured against this image's s6-overlay: a service ignoring the stop signal survived
+# `-ruwr` indefinitely, and `-wD -d` killed it at the timeout. On 2026-09-13 Liquidsoap was exactly
+# that service, stuck in its own shutdown, and a `-r` would have left this loop waiting behind it.
+restart_audio_chain() {
+    s6-svc -wD -d /run/service/liquidsoap && s6-svc -wu -u /run/service/liquidsoap
+}
+
 icecast_config=/data/streamconfig/icecast.xml
 radio_config=/data/streamconfig/radio.env
 
@@ -49,7 +59,7 @@ while sleep "$interval"; do
     if [ "$radio_now" != "$radio_seen" ] && [ "$radio_now" = "$radio_previous" ]; then
         echo "config-watch: the audio chain's config changed; restarting it"
         radio_seen="$radio_now"
-        s6-svc -ruwr /run/service/liquidsoap || echo "config-watch: could not restart the audio chain" >&2
+        restart_audio_chain || echo "config-watch: could not restart the audio chain" >&2
         s6-svc -ruwr /run/service/shim || echo "config-watch: could not restart the track shim" >&2
     fi
 

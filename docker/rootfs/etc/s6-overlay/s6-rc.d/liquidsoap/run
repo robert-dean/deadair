@@ -1,5 +1,13 @@
 #!/bin/sh
 # The audio chain: what plays, what ducks under what, and what is handed to the stream.
+#
+# `timeout-kill` beside this file is what makes a restart finish. Measured on 2026-09-13: a
+# Liquidsoap that had stopped playing what it was handed also stopped at "Waiting for main threads
+# to terminate" when it was told to stop, and never got further. Without the timeout the supervisor
+# sends the stop signal and waits for ever, and so does anything that asked for the restart. The
+# timeout applies only to a service taken DOWN, never to `s6-svc -r`, which is why the config watch
+# restarts this one down-then-up. Ten seconds is generous against an ordinary shutdown, which the
+# log shows taking under one.
 exec 2>&1
 
 # Every setting reaches Liquidsoap through this file and no other way — there is no command line

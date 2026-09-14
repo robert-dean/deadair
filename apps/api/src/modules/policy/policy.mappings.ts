@@ -33,6 +33,8 @@ import { Injectable } from 'injectkit';
 import { PLATFORM_NAMESPACE, rolesGrant } from '#modules/permissions/platform.roles.js';
 import { ServerPolicyEnvelope } from './policy.envelope.js';
 import { DeadairMfaRequiredPolicy } from '#modules/authentication/mfa.required.policy.js';
+import type { ApiKeyGrant } from '#modules/authentication/api.key.scopes.js';
+import type { UserActor } from '#modules/permissions/authorization.context.js';
 
 /**
  * Policy names this application adds on top of the authentication library's.
@@ -46,6 +48,24 @@ export interface RequirePolicyContext {
     session: AuthenticationSession;
 }
 
+/** Whether the request was made with an API key that was not granted `grant`. A signed-in person never lacks one. */
+const keyLacks = (actor: UserActor, grant: ApiKeyGrant): boolean => actor.apiKey !== undefined && !actor.apiKey.grants.has(grant);
+
+/** The two platform gates, which share one way of refusing an API key that was not granted enough. */
+abstract class PlatformPolicy extends Policy<RequirePolicyContext, ServerPolicyEnvelope> {
+    /**
+     * The owner may do this and the key they sent may not. Said as RFC 6750 says it, which is also
+     * how ServerKit's own key policy says it, so a client can tell "this key cannot do that" from
+     * "nobody on this account can": the console's `isInsufficientScope` already reads exactly this
+     * challenge.
+     */
+    protected insufficientScope(scope: ApiKeyGrant): PolicyResult {
+        return this.deny('insufficient_scope', { kind: 'insufficient_scope', scope }).withHeaders({
+            'WWW-Authenticate': `Bearer error="insufficient_scope", scope="${scope}"`,
+        });
+    }
+}
+
 /**
  * Gate for operator-only routes: the `platform:manage` permission, which the
  * `admin` platform role grants (see `data/permissions/core.perm` and
@@ -57,10 +77,12 @@ export interface RequirePolicyContext {
  * cost of a query.
  */
 @Injectable()
-export class PlatformManagePolicy extends Policy<RequirePolicyContext, ServerPolicyEnvelope> {
+export class PlatformManagePolicy extends PlatformPolicy {
     async evaluate(_context: RequirePolicyContext, envelope: ServerPolicyEnvelope): Promise<PolicyResult> {
         const actor = envelope.actor;
-        if (actor.kind === 'user' && rolesGrant(actor.platformRoles, PLATFORM_NAMESPACE, 'manage')) return this.allow();
+        if (actor.kind === 'user' && rolesGrant(actor.platformRoles, PLATFORM_NAMESPACE, 'manage')) {
+            return keyLacks(actor, 'manage') ? this.insufficientScope('manage') : this.allow();
+        }
         return this.deny('platform_manage_required', { kind: 'permission_required', permission: 'platform:manage' });
     }
 }
@@ -76,10 +98,12 @@ export class PlatformManagePolicy extends Policy<RequirePolicyContext, ServerPol
  * cost of a query.
  */
 @Injectable()
-export class PlatformViewPolicy extends Policy<RequirePolicyContext, ServerPolicyEnvelope> {
+export class PlatformViewPolicy extends PlatformPolicy {
     async evaluate(_context: RequirePolicyContext, envelope: ServerPolicyEnvelope): Promise<PolicyResult> {
         const actor = envelope.actor;
-        if (actor.kind === 'user' && rolesGrant(actor.platformRoles, PLATFORM_NAMESPACE, 'view')) return this.allow();
+        if (actor.kind === 'user' && rolesGrant(actor.platformRoles, PLATFORM_NAMESPACE, 'view')) {
+            return keyLacks(actor, 'view') ? this.insufficientScope('view') : this.allow();
+        }
         return this.deny('platform_view_required', { kind: 'permission_required', permission: 'platform:view' });
     }
 }

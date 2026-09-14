@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.7.1] — 2026-09-14
+
+- A break that uses a time of day in a comparison ("the riffs hit like an unmarked car at midnight", "smooth as a midnight train") is no longer sent to the floor for naming the wrong time. Saying it is midnight when it is not is still refused.
+
 ## [0.7.0] — 2026-09-14
 
 - The typed client for the station's API is published to npm as `@deadair/sdk`, beside the plugin SDK, carrying the station's version, so the SDK that shares a station's version number is the client for that station. It is the client the console is built on, with Luxon's types now among its dependencies so a TypeScript project gets typed dates without installing them itself. The repository has a small example client in `examples/sdk/now-playing`, which CI builds against the SDK as it would be published.
@@ -110,7 +114,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.7.1...HEAD
+[0.7.1]: https://github.com/robert-dean/deadair/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/robert-dean/deadair/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/robert-dean/deadair/compare/v0.5.1...v0.6.0
 [0.5.1]: https://github.com/robert-dean/deadair/compare/v0.5.0...v0.5.1

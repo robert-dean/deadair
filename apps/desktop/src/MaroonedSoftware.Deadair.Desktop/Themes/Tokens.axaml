@@ -56,6 +56,9 @@
 
 
             <BoxShadows x:Key="DaHeroShadow">0 16 48 0 #8C000000</BoxShadows>
+            <!-- The accent at under half strength, three units outside the border: what a Mac draws
+                 around the field that has the keyboard. -->
+            <BoxShadows x:Key="DaFocusRing">0 0 0 3 #732fd98c</BoxShadows>
         </ResourceDictionary>
 
         <!-- Neutral near-white rather than paper. The tally stays red, because it is the one colour
@@ -85,6 +88,7 @@
 
 
             <BoxShadows x:Key="DaHeroShadow">0 12 32 0 #2E000000</BoxShadows>
+            <BoxShadows x:Key="DaFocusRing">0 0 0 3 #660e7247</BoxShadows>
         </ResourceDictionary>
 
     </ResourceDictionary.ThemeDictionaries>

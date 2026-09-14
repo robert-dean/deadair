@@ -738,6 +738,19 @@ package would be a dependency, a licence and a renderer for that. Every one inhe
 nothing here names a colour. A key is a string, so a typo is a blank square rather than an error —
 `NavigationTests` reads the dictionary and asserts every entry names one that is really there.
 
+**A text box is drawn as a Mac draws one, and the whole of it is in `Styles.axaml` under Inputs.**
+Fluent's field is a Windows 11 field: on focus it paints a two-unit accent border with a thicker
+bottom edge, and on hover it lightens, neither of which an `NSTextField` does. So the style sets a
+hairline in `DaBorderStrong` on the panel surface, keeps hover identical, and shows focus as a
+hairline in the accent plus a soft ring OUTSIDE the field — a `BoxShadow` with a three-unit spread
+and no blur, from the per-appearance `DaFocusRing` token, because the accent differs between light
+and dark. Two things cost a build each. Fluent applies its states to `/template/ Border#PART_BorderElement`,
+so a setter on the TextBox itself is overridden the moment the box is focused and the states have
+to be restated on that element. And a `Focus()` asked for in `AttachedToVisualTree` is refused with
+nothing said, because the page is attached when it becomes the window's content and that is before
+the window is shown; `tools/Shots` focuses on `Loaded` for the `setup-focused` frame, which is the
+only way to look at a focus ring without a screen.
+
 **Fluent's own accent is repointed through `FluentTheme.Palettes`.** Without it a stock control draws
 Avalonia's blue beside this app's green. The volume thumb is the one that shows it, and it is NOT
 reachable from a style: three selectors were tried against it with a garish test colour and none

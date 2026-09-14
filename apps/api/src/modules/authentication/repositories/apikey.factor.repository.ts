@@ -83,7 +83,11 @@ export class DeadairApiKeyRepository extends DataRepository implements ApiKeyRep
                 name: key.name,
                 hint: key.hint,
                 secretHash: key.secretHash,
-                createdAt: key.createdAt,
+                // `created_at` is left to the database rather than taken from `key.createdAt`. Its
+                // default and `updated_at`'s are both `now()`, the START of the request's transaction,
+                // while ServerKit stamped `createdAt` from this process's clock a moment later, so
+                // passing it through fails `updated_at >= created_at` on every insert. The record
+                // handed back is the row, so the key's creation time is the database's either way.
                 expiresAt: key.expiresAt ?? null,
             })
             .returningAll()

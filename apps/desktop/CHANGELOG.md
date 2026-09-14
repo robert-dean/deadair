@@ -8,6 +8,10 @@ changes are in the [root changelog](../../CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.2.1] — 2026-09-14
+
+- The app runs under macOS's hardened runtime, the first step towards a notarised download that opens without a warning. Nothing about opening it changes yet: it is still signed ad hoc.
+
 ## [0.2.0] — 2026-09-13
 
 - The app can be pointed at a different station from Settings, with Change station, without restarting. Listening stops only once the new station answers, and a sign-in is kept for each station.
@@ -29,6 +33,7 @@ changes are in the [root changelog](../../CHANGELOG.md).
   address on first run. Listening needs no account; the desk appears when you sign in as the
   operator.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.2.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.2.1...HEAD
+[0.2.1]: https://github.com/robert-dean/deadair/compare/desktop-v0.2.0...desktop-v0.2.1
 [0.2.0]: https://github.com/robert-dean/deadair/compare/desktop-v0.1.0...desktop-v0.2.0
 [0.1.0]: https://github.com/robert-dean/deadair/releases/tag/desktop-v0.1.0

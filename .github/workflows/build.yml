@@ -301,6 +301,54 @@ jobs:
               working-directory: apps/api
               run: pnpm plugin:prove ../../examples/plugins/apple-music-charts --expect example.apple-music-charts
 
+    # The client SDK, used the way somebody outside this repository uses it: plain `npm`, no
+    # workspace, against the tarball this commit packs. `apps/web` resolves the SDK through the
+    # workspace, where the SDK's own devDependencies are installed beside it, so the console keeps
+    # compiling through a tarball whose declarations import a type package the SDK never depended on.
+    # `@types/luxon` was exactly that until the SDK was first made public. The example type-checks
+    # with `skipLibCheck` off, which is what turns that from a silent `any` into an error.
+    sdk-example:
+        if: inputs.node
+        runs-on: ubuntu-latest
+        timeout-minutes: 10
+        defaults:
+            run:
+                working-directory: examples/sdk/now-playing
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v7
+              with:
+                  persist-credentials: false
+
+            - name: Install pnpm
+              uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+
+            - name: Setup Node
+              uses: actions/setup-node@v7
+              with:
+                  node-version: 26
+                  cache: pnpm
+
+            - name: Build and pack the SDK
+              working-directory: .
+              run: |
+                  pnpm install --frozen-lockfile --filter '@deadair/sdk...'
+                  pnpm --filter @deadair/sdk build
+                  pnpm --filter @deadair/sdk pack --pack-destination "$RUNNER_TEMP/sdk-pack"
+
+            - name: Install the example against the packed SDK
+              run: |
+                  set -euo pipefail
+                  tarball="$(ls "$RUNNER_TEMP"/sdk-pack/deadair-sdk-*.tgz)"
+                  npm pkg set "dependencies.@deadair/sdk=file:${tarball}"
+                  npm install --no-package-lock --no-audit --no-fund
+
+            - name: Type-check and build it
+              run: |
+                  npm run typecheck
+                  npm run build
+
     # The measurement sidecar is Python, not TypeScript, and stands alone here rather than
     # riding the turbo test path or the root `vitest.config.ts` — a Python job has nothing to
     # share with either.

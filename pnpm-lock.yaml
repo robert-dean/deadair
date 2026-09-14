@@ -492,6 +492,9 @@ importers:
 
   packages/sdk:
     dependencies:
+      '@types/luxon':
+        specifier: ^3.7.3
+        version: 3.7.3
       decimal.js:
         specifier: ^10.6.0
         version: 10.6.0
@@ -505,9 +508,6 @@ importers:
       '@repo/config-typescript':
         specifier: workspace:*
         version: link:../config-typescript
-      '@types/luxon':
-        specifier: ^3.7.3
-        version: 3.7.3
 
   plugins/analyzer:
     devDependencies:

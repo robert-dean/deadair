@@ -1,14 +1,36 @@
 {
     "name": "@deadair/sdk",
     "version": "0.6.0",
-    "private": true,
+    "description": "A typed client for the deadair station's HTTP API, generated from the same contracts the station serves.",
+    "keywords": [
+        "deadair",
+        "radio",
+        "sdk",
+        "client"
+    ],
+    "homepage": "https://deadair.radio/docs/api-reference",
+    "bugs": {
+        "url": "https://github.com/robert-dean/deadair/issues"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/robert-dean/deadair.git",
+        "directory": "packages/sdk"
+    },
     "type": "module",
     "main": "./dist/index.js",
     "module": "./dist/index.js",
     "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "default": "./dist/index.js"
+        }
+    },
     "license": "MIT",
     "files": [
-        "dist/**"
+        "dist/**",
+        "LICENSE"
     ],
     "scripts": {
         "build": "tsup src/index.ts --format esm --sourcemap && tsc --emitDeclarationOnly --declaration",
@@ -17,12 +39,15 @@
         "format": "prettier --write . --ignore-path ../../.prettierignore"
     },
     "dependencies": {
+        "@types/luxon": "^3.7.3",
         "decimal.js": "^10.6.0",
         "luxon": "^3.7.2"
     },
     "devDependencies": {
         "@repo/config-eslint": "workspace:*",
-        "@repo/config-typescript": "workspace:*",
-        "@types/luxon": "^3.7.3"
+        "@repo/config-typescript": "workspace:*"
+    },
+    "publishConfig": {
+        "access": "public"
     }
 }

@@ -1,0 +1,19 @@
+{
+    "compilerOptions": {
+        "target": "es2024",
+        "lib": ["es2024", "DOM"],
+        "module": "NodeNext",
+        "moduleResolution": "NodeNext",
+        "strict": true,
+        "noUncheckedIndexedAccess": true,
+        "isolatedModules": true,
+        // Off on purpose, and the reason this example exists in CI. With it on, a declaration the
+        // SDK ships but cannot resolve (a type package it forgot to depend on) is not an error, it is
+        // a silent `any` on every field of that type, and a consumer only finds out by accident.
+        "skipLibCheck": false,
+        "outDir": "dist",
+        "rootDir": "src",
+        "types": ["node"]
+    },
+    "include": ["src"]
+}

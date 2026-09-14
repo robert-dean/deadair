@@ -744,6 +744,20 @@ socket and nothing can restart anything but itself. Two things about it are deli
   running replaced credentials for minutes — in the reseed case, minutes of a station already off
   the air. The one thing lost is an armed talk-over cue.
 
+Two more things ride on the same watch, both added after 2026-09-13, when a Liquidsoap stopped
+playing what it was handed and then hung in its own shutdown:
+
+- **The app can ask for the audio chain back.** A second `config-watch.sh` in the Liquidsoap
+  container watches `/streamconfig/liquidsoap.restart`, which the app writes when the chain has held
+  a record for a minute without playing it or not answered for a minute (see
+  `docs/internals/playout.md`, "When the audio chain hangs"). A new mtime there restarts the
+  container exactly as a new `radio.env` does, the shim included. The production image restarts
+  Liquidsoap alone.
+- **A stop that does not finish becomes a kill.** `kill -TERM 1` is followed, if the container is
+  still there `CONFIG_WATCH_STOP_GRACE_S` (10) seconds later, by `kill -KILL -1`. The kernel ignores
+  SIGKILL sent to PID 1 from inside its own container, so the Liquidsoap service runs under
+  `init: true` to put Liquidsoap one level down, where the kill reaches it.
+
 Set `CONFIG_WATCH_INTERVAL_S=0` on either service to turn the watch off and choose the moment
 yourself. The app's own drift warning still stands either way.
 

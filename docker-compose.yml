@@ -216,6 +216,11 @@ services:
         image: deadair-liquidsoap
         container_name: deadair-liquidsoap
         restart: unless-stopped
+        # An init as PID 1, with Liquidsoap as its child, so that a Liquidsoap that will not stop can
+        # still be killed. The kernel ignores SIGKILL sent to PID 1 from inside its own container, and
+        # on 2026-09-13 Liquidsoap hung in its own shutdown, so config-watch.sh's escalation from a stop
+        # to a kill only reaches it from here. See stream/config-watch.sh.
+        init: true
         # The Spotify login is the shim's OWN, authorized once through a browser and kept on the
         # streamstate volume below. The app also pushes a login to POST /session as it resolves
         # each track (gated on SPOTIFY_SHIM_SECRET, which the app seeds in the DB and materializes
@@ -251,10 +256,13 @@ services:
         # brings it back with the shim restarted alongside it (which it must be: the shim inherits
         # this same sourced environment). The restart is safe unattended because the running order
         # lives in the APP's memory — PlayoutPusher re-pushes and re-asserts the lease on its next
-        # reconcile. See stream/config-watch.sh.
+        # reconcile. A second config-watch runs over liquidsoap.restart, which the app writes when the
+        # audio chain has stopped playing what it is handed (docs/internals/playout.md, "When the
+        # audio chain hangs"). Here that restarts the shim too, which the production image avoids and
+        # a dev stack can afford. See stream/config-watch.sh.
         command:
             [
-                'cfg=/streamconfig/radio.env; [ -f "$$cfg" ] || cfg=/defaults/radio.env; set -a; . "$$cfg"; sh /usr/local/bin/spotify-shim-run.sh & sh /usr/local/bin/config-watch.sh /streamconfig/radio.env "$${CONFIG_WATCH_INTERVAL_S:-5}" & exec liquidsoap /radio/radio.liq',
+                'cfg=/streamconfig/radio.env; [ -f "$$cfg" ] || cfg=/defaults/radio.env; set -a; . "$$cfg"; sh /usr/local/bin/spotify-shim-run.sh & sh /usr/local/bin/config-watch.sh /streamconfig/radio.env "$${CONFIG_WATCH_INTERVAL_S:-5}" & sh /usr/local/bin/config-watch.sh /streamconfig/liquidsoap.restart "$${CONFIG_WATCH_INTERVAL_S:-5}" & exec liquidsoap /radio/radio.liq',
             ]
         volumes:
             - ./stream/radio.liq:/radio/radio.liq:ro

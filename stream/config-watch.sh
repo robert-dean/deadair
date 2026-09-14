@@ -1,7 +1,10 @@
 #!/bin/sh
 # Restart this container when the app re-renders the config it booted with.
 #
-# Backgrounded by the entrypoint of both stream containers, before each execs its real process.
+# Backgrounded by the entrypoint of both stream containers, before each execs its real process. The
+# Liquidsoap container runs a second one over `liquidsoap.restart`, the file the app writes to ask
+# for the audio chain back when it has stopped playing: a new mtime there is a request, handled
+# exactly as a new config is.
 #
 # ── Why ────────────────────────────────────────────────────────────────────────────────────────
 # Icecast reads icecast.xml once and Liquidsoap sources radio.env once, in the entrypoint. Nothing
@@ -48,6 +51,8 @@ set -u
 
 TARGET="${1:?config-watch: no path to watch}"
 INTERVAL="${2:-5}"
+# How long the real process gets to stop before it is killed. See the escalation below.
+STOP_GRACE_S="${CONFIG_WATCH_STOP_GRACE_S:-10}"
 
 log() { echo "config-watch: $*" >&2; }
 
@@ -88,13 +93,25 @@ while sleep "$INTERVAL"; do
     # and it would restart twice when a reseed changes both files at once and this one is touched
     # in two passes. Requiring the new mtime to survive a poll costs one interval and removes both.
     if [ "$now" != "$booted" ] && [ "$now" = "$previous" ]; then
-        log "$TARGET changed (${booted:-none} -> ${now:-none}); stopping so the restart policy brings this container back on the new config"
-        # PID 1 is the real process: every entrypoint here `exec`s it, so this signals the thing
-        # that has to go, not a shell wrapping it. Terminating it exits the container, and compose's
-        # `restart: unless-stopped` starts it again with an entrypoint that re-reads the file. An
-        # in-place re-exec would not do: the Liquidsoap entrypoint also backgrounds the track shim,
-        # which has to be restarted with it because it inherits the same sourced environment.
+        log "$TARGET changed (${booted:-none} -> ${now:-none}); stopping so the restart policy brings this container back"
+        # PID 1 is the real process, or an init whose only child is: every entrypoint here `exec`s
+        # it, so this signals the thing that has to go, not a shell wrapping it. Terminating it exits
+        # the container, and compose's `restart: unless-stopped` starts it again with an entrypoint
+        # that re-reads the file. An in-place re-exec would not do: the Liquidsoap entrypoint also
+        # backgrounds the track shim, which has to be restarted with it because it inherits the same
+        # sourced environment.
         kill -TERM 1
+
+        # Reached only if that did not work, since a container that stopped took this script with
+        # it. Measured on 2026-09-13: a Liquidsoap that had stopped playing also stopped halfway
+        # through its own shutdown and never exited, and a stop that never finishes is a restart
+        # that never happens. So everything else in the container is killed, which ends the real
+        # process and the container with it. The kernel ignores SIGKILL sent to PID 1 from inside its
+        # own container, so this reaches Liquidsoap only because compose runs that service under an
+        # init (`init: true`); Icecast has never needed it and runs as PID 1, where this is a no-op.
+        sleep "$STOP_GRACE_S"
+        log "still running ${STOP_GRACE_S}s after being asked to stop; killing it"
+        kill -KILL -1
         exit 0
     fi
 

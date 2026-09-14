@@ -7,6 +7,7 @@ import { IcecastEventFeed } from './icecast.eventfeed.client.js';
 import { HlsAudience } from './hls.audience.js';
 import { IcecastStatsClient } from './icecast.stats.client.js';
 import { SpotifyShimClient } from './spotify.shim.client.js';
+import { AudioChainRestart } from './stream.restart.js';
 import { StreamService } from './stream.service.js';
 import { MOUNT_PATHS, streamMounts } from './stream.settings.js';
 import { StreamConfigWatch } from './stream.staleness.js';
@@ -59,6 +60,11 @@ export const StreamModule: ServerKitModule = {
         // be a fresh empty one per request, so every listener would be forgotten by the
         // request that noticed them and the count would be permanently zero.
         registry.register(HlsAudience).useClass(HlsAudience).asSingleton();
+
+        // The one way this process can ask for the audio chain back. A singleton because its caller,
+        // the playout watchdog, runs off a timer with no request scope, and it holds nothing but the
+        // live config view it reads the directory from.
+        registry.register(AudioChainRestart).useClass(AudioChainRestart).asSingleton();
     },
 
     ready: async (container: Container, signal: AbortSignal) => {

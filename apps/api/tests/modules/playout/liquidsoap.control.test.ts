@@ -728,6 +728,41 @@ describe('PlayoutControlClient.downSince', () => {
     });
 });
 
+describe('PlayoutControlClient.lastReading', () => {
+    // What the audio chain watchdog judges "holding a record and not playing it" from, on a timer
+    // of its own, without making a call of its own.
+    const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
+    const endpoint = {
+        resolve: async () => 'http://stream.test:8005',
+        secret: () => 'a-secret',
+        invalidate: vi.fn(),
+    } as unknown as LiquidsoapEndpoint;
+    const staleness = { noteLiquidsoap: vi.fn() } as unknown as StreamConfigWatch;
+
+    it('is absent before anything has answered', () => {
+        expect(new PlayoutControlClient(endpoint, staleness, logger).lastReading()).toBeUndefined();
+    });
+
+    it('keeps the last reading through a call that failed, which downSince is there to qualify', async () => {
+        vi.stubGlobal('fetch', async () => new Response(JSON.stringify({ queued: 1, ready: false }), { status: 200 }));
+        const client = new PlayoutControlClient(endpoint, staleness, logger);
+        try {
+            await client.status();
+            expect(client.lastReading()).toEqual({ queued: 1, ready: false });
+
+            vi.stubGlobal('fetch', async () => {
+                throw new Error('connect ECONNREFUSED');
+            });
+            await client.status();
+
+            expect(client.lastReading()).toEqual({ queued: 1, ready: false });
+            expect(client.downSince()).toBeDefined();
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+});
+
 describe('PlayoutControlClient.starvedSince', () => {
     // A gap on the mount is the one state the app cannot observe for itself: the
     // reconcile loop looks every couple of seconds, so anything shorter never appears in

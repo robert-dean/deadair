@@ -164,6 +164,8 @@ export class PlayoutControlClient {
     private starvedAt?: number;
     /** Consecutive timed-out calls. Reset by anything that answers. See the catch in {@link call}. */
     private timeouts = 0;
+    /** What the last call that produced a reading said. See {@link lastReading}. */
+    private reading?: QueueStatus;
 
     constructor(
         private readonly endpoint: LiquidsoapEndpoint,
@@ -251,6 +253,21 @@ export class PlayoutControlClient {
      */
     starvedSince(): number | undefined {
         return this.starvedAt;
+    }
+
+    /**
+     * The last reading the stream gave, from whichever call took it.
+     *
+     * Kept from the last call that produced one rather than cleared by a failure, so it is only
+     * worth reading beside {@link downSince}: while the stream is not answering, this describes a
+     * moment before it stopped. `undefined` before anything has answered.
+     *
+     * It is here for the audio chain watchdog, which runs on its own timer and needs the same two
+     * facts this loop is told on every pass, whether the queue is producing and what it is holding,
+     * without taking a reading of its own and becoming a second caller to disagree with.
+     */
+    lastReading(): QueueStatus | undefined {
+        return this.reading;
     }
 
     /**
@@ -408,6 +425,7 @@ export class PlayoutControlClient {
     private read(body: unknown): QueueStatus | undefined {
         const reading = parseReading(body);
         this.onAir = reading?.driving ?? false;
+        if (reading !== undefined) this.reading = reading;
         // A call that produced no reading hands over `undefined` rather than a default:
         // a stream nobody could reach has not told us anything about its config, and the
         // watch must not accuse it on the strength of a failed request.

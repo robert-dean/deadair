@@ -18,6 +18,7 @@ import { PluginTrackResolver } from './providers/plugin.resolver.js';
 import { TrackAudioResolver } from './providers/track.audio.resolver.js';
 import { SegmentTrackResolver } from './providers/segment.resolver.js';
 import { PlayoutPusher } from './playout.pusher.js';
+import { AudioChainWatch } from './audio.chain.watch.js';
 import { PlayoutService } from './playout.service.js';
 import { Rundown } from './rundown.js';
 
@@ -124,6 +125,10 @@ export const PlayoutModule: ServerKitModule = {
 
         registry.register(Rundown).useClass(Rundown).asSingleton();
         registry.register(PlayoutPusher).useClass(PlayoutPusher).asSingleton();
+        // Singleton for the pusher's reasons, and because what it remembers between readings (when it
+        // last asked for a restart, and how many have not helped) is the bound that stops a restart
+        // becoming a loop. A scoped copy would forget it and ask every two seconds.
+        registry.register(AudioChainWatch).useClass(AudioChainWatch).asSingleton();
 
         // Singleton because it IS the station's reading of its audience: a per-request
         // copy would poll Icecast once per call and answer from a window of its own.
@@ -154,6 +159,9 @@ export const PlayoutModule: ServerKitModule = {
         // simply probes and stays quiet, and a stack started later is picked up on
         // its own.
         container.get(PlayoutPusher).start();
+        // Beside the loop it watches, and started whether or not the stream is up for the same reason:
+        // a chain that never answers is one of the two things it is there to notice.
+        container.get(AudioChainWatch).start();
 
         // Started here rather than in StreamModule, next to the loop that will be held
         // on its reading: the mount it watches was pushed into the stats client by
@@ -162,6 +170,7 @@ export const PlayoutModule: ServerKitModule = {
     },
 
     shutdown: async (container: Container) => {
+        container.get(AudioChainWatch).stop();
         container.get(PlayoutPusher).stop();
         container.get(AudienceWatch).stop();
     },

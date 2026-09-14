@@ -233,6 +233,36 @@ not in memory. A cause CHANGE is logged on the edge, keyed like `StreamConfigWat
 written to `deadair.station_events` on the same edge, which is what makes "why was the station quiet at 3am"
 answerable at all.
 
+## When the audio chain hangs
+
+**The station asks for Liquidsoap back when it holds a record for a minute without playing it, or answers
+nothing for a minute.** On 2026-09-13 a listener arrived, the transport handed over a record, and Liquidsoap
+wrote its last log line for ten minutes: it never prepared the record and never switched to the programme,
+while its control API went on answering most calls. The diagnosis said `starved` the whole time, correctly, and
+every console action went to a process no longer acting on anything. A restart by hand brought it back and the
+same record played within six seconds. `audio.chain.watchdog.ts` is the judgement and `audio.chain.watch.ts`
+runs it every two seconds on its own timer, since the transport's pass is the thing that stalls when the chain
+stops answering.
+
+**A probe of the control API would have missed it**, which is why "holding and not playing" is its own
+signature: Liquidsoap's own starve push, plus its latest reading saying the queue holds a request and is not
+producing. The holding half is what makes it a fault in the player, since a starve with nothing queued is the
+transport having nothing to give. The `ready: false` half is required because the starve clock on
+`PlayoutControlClient` is cleared only by a reported recovery, and a Liquidsoap restarted on its own has none
+to report, so the clock can run on over a chain that is playing. "Not answering" is judged with or without an
+audience, because a restart nobody hears is the cheapest there is. A minute is several times the worst stall
+the live log shows the chain recovering from on its own (62 status and 15 lease timeouts in ten days, none
+longer than about twelve seconds).
+
+**The app never restarts anything itself.** `AudioChainRestart` writes `liquidsoap.restart` beside the rendered
+config, and the container's config watch restarts Liquidsoap alone when its mtime moves: the same road a
+settings change already takes, and the same argument for having no Docker socket. The restart is bounded on
+that side too (see `docs/internals/deployment.md`). Nothing here touches the running order: a player that comes
+back empty is already a non-event to the transport. **It is bounded so it cannot become a loop**: one request
+per five minutes, and after three with no working reading between them, one `chain.gaveUp` line and nothing
+more until the chain is seen working. `playout.restartStuckChain` turns it off for an operator who would rather
+look at a stuck chain than have it cleared.
+
 ## What happened
 
 **The activity feed is a union of three tables and owns only one of them.** `GET /activity` reads
@@ -260,7 +290,7 @@ same millisecond. `apps/api/scripts/activity.smoke.ts` is what covers the union,
 SQL.
 
 **What writes to it, and the two rules learned by running it.** Beyond the transport's own edges
-(`silence.cause`, `gap`) the producers are the director (`air.on`/`air.off`, `order.caughtUp`, `item.skipped`,
+(`silence.cause`, `gap`) and the audio chain watchdog's (`chain.restart`, `chain.gaveUp`) the producers are the director (`air.on`/`air.off`, `order.caughtUp`, `item.skipped`,
 `break.claimStale`, `set.generated`), the render path (`break.degraded`, `production.unplanned` — a programme
 whose outline the model could not write TWICE, which degrades to what a `quick` production does by design and
 had been doing so in silence for 8 of this station's 12 productions), the catalog (`binding.benched`,

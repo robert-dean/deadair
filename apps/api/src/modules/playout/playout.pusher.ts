@@ -338,7 +338,7 @@ export class PlayoutPusher {
             // and a download per track, and an empty mount is the one case where nobody
             // benefits from spending them. `always` mode opens the gate permanently and
             // gets exactly the behaviour this loop had before the gate existed.
-            const onAir = this.onAirNow();
+            const onAir = this.wantsAir();
             const reading = onAir ? await this.renewAndRead() : await this.control.status();
             // Stream not up, or not yet reachable. Try again next tick.
             if (!reading) return;
@@ -386,7 +386,7 @@ export class PlayoutPusher {
                 // a loop trusting the reading it started with keeps filling the player's lead for a
                 // mount nobody is hearing. That is exactly what WARM_LEAD exists to prevent, paid
                 // for in a provider fetch and a download per track.
-                if (!this.onAirNow()) return;
+                if (!this.wantsAir()) return;
 
                 const pulled = await this.rundown.next();
                 // Nothing left, or the running order was replaced while this item was being
@@ -605,8 +605,11 @@ export class PlayoutPusher {
      * something to air, and somebody to hear it. Neither is remembered. The
      * rundown and the audience watch are each the only thing that knows its own
      * half, and a copy kept here would be the thing that goes stale.
+     *
+     * Public for the audio chain watchdog, which judges a starve only while the station wants the
+     * mount and must ask the same question this loop does rather than a copy of it.
      */
-    private onAirNow(): boolean {
+    wantsAir(): boolean {
         return this.rundown.hasProgramme() && this.audience.gateOpen();
     }
 

@@ -9,6 +9,7 @@ import {
     TARGET_LUFS_KEY,
 } from '#modules/playout/gain.js';
 import { DEFAULT_TRACK_CACHE_MAX_BYTES, TRACK_CACHE_MAX_BYTES_KEY } from '#modules/playout/audio/track.cache.limit.js';
+import { DEFAULT_RESTART_STUCK_CHAIN, RESTART_STUCK_CHAIN_KEY } from '#modules/playout/audio.chain.watchdog.js';
 import { DEFAULT_AUTO_EXTEND, DEFAULT_RULES, ROTATION_KEYS } from '#modules/director/rotation.rules.js';
 import { DEFAULT_MAX_TRACK_SECONDS, DEFAULT_MIN_TRACK_SECONDS, TRACK_LENGTH_KEYS } from '#modules/director/track.length.js';
 import { DEFAULT_TEMPLATES, TEMPLATE_KEYS, TEMPLATE_VOCABULARY } from '#modules/director/break.templates.js';
@@ -864,6 +865,14 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         unit: 'bytes',
         default: DEFAULT_TRACK_CACHE_MAX_BYTES,
         help: 'The station keeps every record it fetches, so playing one twice costs one download and a record can be committed to the running order the moment its audio is here. Left empty it keeps everything, which is the old behaviour; set it and the least recently played records are dropped once the total goes over. A record about to air is never dropped, and the row is kept either way, so a record that goes is simply fetched again next time it comes round.',
+    },
+    {
+        group: 'playout',
+        key: RESTART_STUCK_CHAIN_KEY,
+        label: 'Restart the audio chain when it gets stuck',
+        type: 'boolean',
+        default: DEFAULT_RESTART_STUCK_CHAIN,
+        help: 'The audio chain can stop playing what it is handed while still looking alive, which leaves listeners on the fallback bed until somebody restarts it. With this on, the station asks for it to be restarted after a minute of holding a record without playing it, or a minute of not answering at all: at most once every five minutes, and never more than three times without it coming back. Each restart is in the activity feed. Turn it off to leave a stuck chain as it is and look at it.',
     },
 
     // ── render ─────────────────────────────────────────────────────────────────

@@ -37,6 +37,16 @@
  * saying so and then nothing until it recovers by some other means.
  */
 
+/**
+ * The operator's switch, read through `settingIsOn` because a setting is a string.
+ *
+ * On by default, because what it replaces is a station on its bed until somebody notices. Off is for
+ * an operator who would rather keep a stuck chain stuck and look at it, and it sits beside the
+ * container's own `CONFIG_WATCH_INTERVAL_S=0`, which stops the request being acted on at all.
+ */
+export const RESTART_STUCK_CHAIN_KEY = 'playout.restartStuckChain';
+export const DEFAULT_RESTART_STUCK_CHAIN = true;
+
 /** How long a chain may hold a record without playing it before it is judged stuck. */
 export const STUCK_AFTER_MS = 60_000;
 

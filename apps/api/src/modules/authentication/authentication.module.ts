@@ -81,6 +81,8 @@ import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js
 import { SignInMailLimiter } from './sign.in.mail.limiter.js';
 import { DeadairApiKeyRepository } from './repositories/apikey.factor.repository.js';
 import { API_KEY_PREFIX, API_KEY_USE_WINDOW } from './api.key.options.js';
+import { ApiKeysService } from './api.keys.service.js';
+import { StrongFactorGate } from './strong.factor.gate.js';
 
 let otpDevBypassEnabled = false;
 
@@ -324,6 +326,9 @@ export const AuthenticationModule: ServerKitModule = {
             .useFactory(() => new OidcFactorServiceOptions(Duration.fromObject({ minutes: 10 }), Duration.fromObject({ minutes: 15 })))
             .asScoped();
         registry.register(OidcFactorService).useClass(OidcFactorService).asScoped();
+
+        registry.register(StrongFactorGate).useClass(StrongFactorGate).asScoped();
+        registry.register(ApiKeysService).useClass(ApiKeysService).asScoped();
 
         registry.register(AuthenticationService).useClass(AuthenticationService).asScoped();
         registry.register(AuthenticationRegistrationService).useClass(AuthenticationRegistrationService).asScoped();

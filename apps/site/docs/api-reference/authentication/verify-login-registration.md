@@ -1,7 +1,7 @@
 ---
 title: 'Verify login registration'
 sidebar_label: 'Verify login registration'
-sidebar_position: 3
+sidebar_position: 7
 mdx:
     format: 'md'
 ---

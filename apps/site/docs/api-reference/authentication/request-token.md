@@ -1,7 +1,7 @@
 ---
 title: 'Request token'
 sidebar_label: 'Request token'
-sidebar_position: 1
+sidebar_position: 5
 mdx:
     format: 'md'
 ---

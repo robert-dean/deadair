@@ -357,7 +357,15 @@ contract AuthSession: { # Who the caller is, as the station sees them
 contract Login: { # A successful authentication record
     id: readonly bigint # The login event identifier
     actorId: readonly uuid # The actor that authenticated
-    factorType: readonly enum(phone, password, authenticator, email, fido, oidc) # The factor that satisfied the primary authentication
+    factorType: readonly enum(
+        phone,
+        password,
+        authenticator,
+        email,
+        fido,
+        oidc,
+        apikey
+    ) # The factor that satisfied the primary authentication, or `apikey` for a request made with one of the account's API keys
     factorId?: readonly uuid | null # The specific factor record id, when available
     sessionToken?: readonly string(max=255) | null # The session minted at this login, when available
     mfaSatisfied: readonly boolean # Whether MFA was required and satisfied at login
@@ -369,4 +377,33 @@ contract Login: { # A successful authentication record
 contract ActorPreferences: { # The current user's display preferences, auto-detected by the SPA from the browser (Intl timezone + navigator.language). Omitted fields are left unchanged (absent = never set).
     locale?: string(max=32) # RFC 5646 locale, e.g. "en-US"
     timezone?: string(max=64) # Olson timezone, e.g. "America/New_York"
+}
+
+# What an API key may be granted. `view` covers every route a listener may read; `manage` covers the rest, and includes `view`
+contract ApiKeyScope: enum(view, manage)
+
+contract ApiKey: { # A personal API key, as its owner sees it in a list. The token itself is never returned after it is issued
+    id: uuid # The key's identifier, for rotating or revoking it
+    name: string(max=100) # What the account called the key
+    hint: string(max=16) # The token's first characters, enough to recognise the key in a config file and far too few to use
+    scopes: array(ApiKeyScope) # What the key was granted. A key never does more than the account that owns it
+    createdAt: datetime # When the key was issued
+    expiresAt?: datetime # When the key stops working. Absent means it never expires
+    lastUsedAt?: datetime # When the key was last used, to within five minutes. Absent means it has not been used
+    revokedAt?: datetime # When the key was revoked. Present means every request made with it is refused
+}
+
+contract ApiKeyList: { # Every API key the account holds, newest first, revoked and expired keys included
+    keys: array(ApiKey)
+}
+
+contract ApiKeyCreate: { # A new API key
+    name: string(min=1, max=100) # What to call the key, so a list of several says which is which
+    scopes: array(ApiKeyScope) # What the key may do. At least one; `manage` includes `view`
+    expiresAt?: datetime # When the key should stop working. Omit for a key that never expires
+}
+
+contract ApiKeyIssued: { # A key and its token. The only time the token is ever returned: store it now, because nothing can show it again
+    key: ApiKey # The key as it will appear in the list
+    token: string # The bearer token, sent as `Authorization: Bearer <token>`
 }

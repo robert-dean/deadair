@@ -15,14 +15,17 @@ import {
     reviveAuthenticationRegistration,
     reviveAuthenticationTokenResponseOutput,
 } from './types/authentication.types.js';
+import { AuthenticationApikeysClient } from './authentication.apikeys.client.js';
 import { AuthenticationFactorsClient } from './authentication.factor.client.js';
 import { AuthenticationSessionsClient } from './authentication.sessions.client.js';
 
 export class AuthenticationClient {
+    readonly apikeys: AuthenticationApikeysClient;
     readonly factors: AuthenticationFactorsClient;
     readonly sessions: AuthenticationSessionsClient;
 
     constructor(private fetch: SdkFetch) {
+        this.apikeys = new AuthenticationApikeysClient(fetch);
         this.factors = new AuthenticationFactorsClient(fetch);
         this.sessions = new AuthenticationSessionsClient(fetch);
     }

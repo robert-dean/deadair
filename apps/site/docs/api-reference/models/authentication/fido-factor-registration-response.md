@@ -1,6 +1,6 @@
 ---
 title: 'FidoFactorRegistrationResponse'
-sidebar_position: 70
+sidebar_position: 75
 mdx:
     format: 'md'
 ---

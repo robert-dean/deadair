@@ -355,7 +355,7 @@ data class Login(
     val id: BigInt,
     /** The actor that authenticated */
     val actorId: Uuid,
-    /** The factor that satisfied the primary authentication */
+    /** The factor that satisfied the primary authentication, or `apikey` for a request made with one of the account's API keys */
     val factorType: LoginFactorType,
     /** The specific factor record id, when available */
     val factorId: Uuid? = null,
@@ -383,6 +383,15 @@ data class ActorPreferences(
     /** Olson timezone, e.g. "America/New_York" */
     val timezone: String? = null,
 )
+
+/** What an API key may be granted. `view` covers every route a listener may read; `manage` covers the rest, and includes `view` */
+@Serializable
+enum class ApiKeyScope {
+    @SerialName("view")
+    VIEW,
+    @SerialName("manage")
+    MANAGE,
+}
 
 @Serializable
 data class BaseAuthenticationRequest(
@@ -534,6 +543,38 @@ data class AuthSession(
     val actorId: String,
     /** Every platform role the caller holds, sorted. Empty for an account nobody has granted one, which today is any account that did not come in through onboarding */
     val roles: List<PlatformRole>,
+)
+
+/** A personal API key, as its owner sees it in a list. The token itself is never returned after it is issued */
+@Serializable
+data class ApiKey(
+    /** The key's identifier, for rotating or revoking it */
+    val id: Uuid,
+    /** What the account called the key */
+    val name: String,
+    /** The token's first characters, enough to recognise the key in a config file and far too few to use */
+    val hint: String,
+    /** What the key was granted. A key never does more than the account that owns it */
+    val scopes: List<ApiKeyScope>,
+    /** When the key was issued */
+    val createdAt: Instant,
+    /** When the key stops working. Absent means it never expires */
+    val expiresAt: Instant? = null,
+    /** When the key was last used, to within five minutes. Absent means it has not been used */
+    val lastUsedAt: Instant? = null,
+    /** When the key was revoked. Present means every request made with it is refused */
+    val revokedAt: Instant? = null,
+)
+
+/** A new API key */
+@Serializable
+data class ApiKeyCreate(
+    /** What to call the key, so a list of several says which is which */
+    val name: String,
+    /** What the key may do. At least one; `manage` includes `view` */
+    val scopes: List<ApiKeyScope>,
+    /** When the key should stop working. Omit for a key that never expires */
+    val expiresAt: Instant? = null,
 )
 
 /** Represents an application authentication request */
@@ -768,6 +809,21 @@ data class PublicKeyCredentialWithAttestation(
     val clientExtensionResults: SimpleClientExtensionResults,
     /** The authenticator attestation response */
     val response: FidoAuthenticatorAttestationResponse,
+)
+
+/** Every API key the account holds, newest first, revoked and expired keys included */
+@Serializable
+data class ApiKeyList(
+    val keys: List<ApiKey>,
+)
+
+/** A key and its token. The only time the token is ever returned: store it now, because nothing can show it again */
+@Serializable
+data class ApiKeyIssued(
+    /** The key as it will appear in the list */
+    val key: ApiKey,
+    /** The bearer token, sent as `Authorization: Bearer <token>` */
+    val token: String,
 )
 
 @Serializable
@@ -1087,7 +1143,7 @@ enum class SessionFactorKind {
     BIOMETRIC,
 }
 
-/** The factor that satisfied the primary authentication */
+/** The factor that satisfied the primary authentication, or `apikey` for a request made with one of the account's API keys */
 @Serializable
 enum class LoginFactorType {
     @SerialName("phone")
@@ -1102,4 +1158,6 @@ enum class LoginFactorType {
     FIDO,
     @SerialName("oidc")
     OIDC,
+    @SerialName("apikey")
+    APIKEY,
 }

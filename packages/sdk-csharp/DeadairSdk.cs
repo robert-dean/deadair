@@ -21,6 +21,7 @@ public sealed class DeadairSdk : IDisposable
         Http = new SdkHttp(options);
         Activity = new ActivityClient(Http);
         Art = new ArtClient(Http);
+        AuthenticationApikeys = new AuthenticationApikeysClient(Http);
         Authentication = new AuthenticationClient(Http);
         AuthenticationFactor = new AuthenticationFactorClient(Http);
         AuthenticationSessions = new AuthenticationSessionsClient(Http);
@@ -54,6 +55,8 @@ public sealed class DeadairSdk : IDisposable
     public ActivityClient Activity { get; }
 
     public ArtClient Art { get; }
+
+    public AuthenticationApikeysClient AuthenticationApikeys { get; }
 
     public AuthenticationClient Authentication { get; }
 

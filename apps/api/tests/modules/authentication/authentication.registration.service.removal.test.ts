@@ -11,6 +11,9 @@ import { httpError, IsHttpError } from '@maroonedsoftware/errors';
 
 import { AuthenticationRegistrationService } from '../../../src/modules/authentication/authentication.registration.service.js';
 import { AuthorizationContext } from '../../../src/modules/permissions/authorization.context.js';
+import { StrongFactorGate } from '../../../src/modules/authentication/strong.factor.gate.js';
+import type { ActorsRepository } from '../../../src/modules/authentication/repositories/actors.repository.js';
+import type { PolicyService } from '@maroonedsoftware/policies';
 
 const ACTOR_ID = '11111111-1111-4111-8111-111111111111';
 const FACTOR_ID = 'totp-1';
@@ -44,7 +47,8 @@ const build = (options: { authenticated?: boolean; enrolled?: { method: string }
     };
 
     const service = Object.create(AuthenticationRegistrationService.prototype) as AuthenticationRegistrationService;
-    Object.assign(service, { authorizationContext, actorsRepository, policyService, authenticatorFactorService });
+    const strongFactorGate = new StrongFactorGate(actorsRepository as unknown as ActorsRepository, policyService as unknown as PolicyService);
+    Object.assign(service, { authorizationContext, strongFactorGate, authenticatorFactorService });
 
     const remove = (method = 'authenticator', methodId = FACTOR_ID) => service.removeFactor(method as never, methodId);
 

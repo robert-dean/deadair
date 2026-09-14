@@ -5,8 +5,8 @@ mdx:
     format: 'md'
 ---
 
-Every deadair station serves the same HTTP API. The console is built on it, and so are the Android
-and desktop listeners. The pages in this section are generated from the station's contracts
+Every deadair station serves the same HTTP API. The console is built on it, and so are the Android,
+desktop and iOS listeners. The pages in this section are generated from the station's contracts
 ([`apps/api/data/contracts`](https://github.com/robert-dean/deadair/tree/main/apps/api/data/contracts))
 whenever they change, so they describe the `main` branch.
 
@@ -39,9 +39,17 @@ listener and admin roles grant, and most writes need `platform.manage`, which on
 
 ## Clients
 
-The same contracts generate a typed client for TypeScript (`packages/sdk`), Kotlin
-(`packages/sdk-kotlin`) and C# (`packages/sdk-csharp`), all in the repository and none published
-to a package registry yet. Each page names the TypeScript client's method for its route.
+The same contracts generate a typed client for TypeScript, published to npm as
+[`@deadair/sdk`](https://www.npmjs.com/package/@deadair/sdk). Each page names its method for the
+route. It carries the station's version, so use the one that matches the station you talk to:
+
+```bash
+npm install @deadair/sdk
+```
+
+They also generate the Kotlin (`packages/sdk-kotlin`), C# (`packages/sdk-csharp`) and Swift
+(`packages/sdk-swift`) clients the listener apps are built on. Those are in the repository and not
+published to a package registry.
 
 For any other language, the same API is described as an OpenAPI 3.1 document at
 [`/openapi.yaml`](pathname:///openapi.yaml), generated alongside these pages, which most client

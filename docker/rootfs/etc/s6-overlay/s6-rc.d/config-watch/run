@@ -1,6 +1,7 @@
 #!/bin/sh
 # Neither the stream server nor the audio chain re-reads its config, so something has to notice
-# when the app has written a new one and restart the two that care.
+# when the app has written a new one and restart the two that care. It also carries the station's
+# request to restart an audio chain that has stopped playing: see `restart_request` below.
 #
 # In the compose deployment this stopped the container and let the restart policy bring it back,
 # because there the container WAS the process. Here the supervisor is one level up and can restart
@@ -35,18 +36,27 @@ restart_audio_chain() {
 
 icecast_config=/data/streamconfig/icecast.xml
 radio_config=/data/streamconfig/radio.env
+# Not a config: the station asking for the audio chain to be restarted because it has stopped
+# playing what it is handed. The app has no business holding a supervisor's control socket, so it
+# says so the way it already says everything else this loop acts on, by writing a file here. Only
+# the mtime is read, exactly as for the other two. Only Liquidsoap goes: the shim's config has not
+# changed, and restarting it would cost its session for nothing.
+restart_request=/data/streamconfig/liquidsoap.restart
 
 # What was true when the services below us started. A file appearing for the first time is a
 # change like any other: on a cold station it is THE change, the one where the settings the
-# operator entered replace the committed defaults.
+# operator entered replace the committed defaults. For the restart request the same rule means a
+# file left from before this container started is history, and only a new write is a request.
 icecast_seen=$(mtime "$icecast_config")
 radio_seen=$(mtime "$radio_config")
+restart_seen=$(mtime "$restart_request")
 
 echo "config-watch: watching every ${interval}s"
 
 while sleep "$interval"; do
     icecast_now=$(mtime "$icecast_config")
     radio_now=$(mtime "$radio_config")
+    restart_now=$(mtime "$restart_request")
 
     # Only act once the file has stopped moving: the app writes by rename, and a restart raced
     # against a half-written config is a station that reads the wrong one and stays wrong.
@@ -61,8 +71,18 @@ while sleep "$interval"; do
         radio_seen="$radio_now"
         restart_audio_chain || echo "config-watch: could not restart the audio chain" >&2
         s6-svc -ruwr /run/service/shim || echo "config-watch: could not restart the track shim" >&2
+        # That restart answers any request that arrived with it. A second one straight after
+        # would cut the fresh process for nothing.
+        restart_seen="$restart_now"
+    fi
+
+    if [ "$restart_now" != "$restart_seen" ] && [ "$restart_now" = "$restart_previous" ]; then
+        echo "config-watch: the station asked for the audio chain to be restarted; restarting it"
+        restart_seen="$restart_now"
+        restart_audio_chain || echo "config-watch: could not restart the audio chain" >&2
     fi
 
     icecast_previous="$icecast_now"
     radio_previous="$radio_now"
+    restart_previous="$restart_now"
 done

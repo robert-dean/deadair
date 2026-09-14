@@ -36,7 +36,11 @@ is the same mechanism doing less damage. **A restart of the audio chain is bound
 through its own shutdown, and a supervisor waiting for a process that will never exit is a restart that never
 finishes. **The timeout applies only to a service taken DOWN**, so the config watch restarts the audio chain with
 `s6-svc -wD -d` then `-wu -u` and never with `-r`: measured against this image's s6-overlay, a service ignoring
-the stop signal survived `-ruwr` indefinitely, with or without the timeout, and `-d` killed it on time.
+the stop signal survived `-ruwr` indefinitely, with or without the timeout, and `-d` killed it on time. **The
+same watch is how the station asks for the audio chain back**: a new mtime on `/data/streamconfig/liquidsoap.restart`
+restarts Liquidsoap alone, the shim keeping its session. A file already there when the watch starts is history
+rather than a request, and the watch reads nothing but the mtime, so the app never holds the supervisor's
+control socket and the request cannot carry anything the watch would have to trust.
 
 **Migrations run at boot** and wait for the database rather than depending on it, so one rule covers a bundled
 database and an operator's slower one. The URL `scripts/migrate` composes carries `search_path=public` for the

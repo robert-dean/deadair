@@ -211,13 +211,17 @@ private key it generates in the Actions **secrets** as `RELEASE_APP_PRIVATE_KEY`
 App makes can start workflows where the workflow token's cannot, and none listens: `release.yml` runs
 on pushes to main, and the Android release's tags are `android-v*`.
 
-**The plugin SDK goes to npm by trusted publishing, with no npm token stored anywhere.** The `npm`
-job runs after `publish`, so every version on npm has a tag and a release behind it, and npm trades
-the job's OIDC identity for a token that lasts one command and is accepted only from this
-repository's `release.yml`. npm configures that trust only on a package that already exists, so the
-first version was published once by hand with `scripts/bootstrap.npm.packages.sh`, from its release
-tag; until that is run the job warns and publishes nothing. It packs with pnpm, which rewrites
-`workspace:` ranges, and publishes with npm, which does the OIDC exchange.
+**The two SDKs go to npm by trusted publishing, with no npm token stored anywhere.** The `npm` job
+publishes `@deadair/plugin-sdk` and `@deadair/sdk`, the list being `PACKAGES` in the job and in
+`scripts/bootstrap.npm.packages.sh`, kept in step by hand. It runs after `publish`, so every version
+on npm has a tag and a release behind it, and npm trades the job's OIDC identity for a token that
+lasts one command and is accepted only from this repository's `release.yml`. npm configures that
+trust only on a package that already exists, so each package's first version is published once by
+hand with the bootstrap script, from its release tag; until that is run for a package the job warns
+about it and publishes nothing for it. The script skips a package that is still private at the
+newest tag, which is what the client SDK is until the first release that ships it public. The job
+packs with pnpm, which rewrites `workspace:` ranges, and publishes with npm, which does the OIDC
+exchange.
 
 **The version pull request is not `changesets/action`**, which the kits use. That action writes the
 pull request's body out of every bumped package's `CHANGELOG.md` and dies on the first that has

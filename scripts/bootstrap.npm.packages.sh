@@ -25,11 +25,11 @@ set -euo pipefail
 REPO="robert-dean/deadair"
 WORKFLOW_FILE="release.yml"
 
-# What goes on npm. The `npm` job in release.yml publishes the plugin SDK and nothing else, so this
-# names it rather than globbing `packages/`: everything else there is private today, but a package
+# What goes on npm. The `npm` job in release.yml publishes the two SDKs and nothing else, so this
+# names them rather than globbing `packages/`: everything else there is private today, but a package
 # made public without a publish step in CI would be trusted here and then never published again.
-# Keep this list and that job in step.
-PACKAGES=(packages/plugin-sdk)
+# Keep this list and PACKAGES in that job in step.
+PACKAGES=(packages/plugin-sdk packages/sdk)
 
 cd "$(git rev-parse --show-toplevel)"
 
@@ -65,8 +65,8 @@ for dir in "${PACKAGES[@]}"; do
     # 1. The first version, if npm has none.
     #
     # Built from a release tag rather than from this working tree, so the first version on npm is the
-    # source that release shipped. The SDK is in the station's fixed version group, so its version IS
-    # the station's and the tag is `v<version>`. The version is read from main's manifest, which
+    # source that release shipped. Both SDKs are in the station's fixed version group, so a package's
+    # version IS the station's and the tag is `v<version>`. The version is read from main's manifest, which
     # carries the last release's number between releases, so it names the newest tag.
     if npm view "$name" version > /dev/null 2>&1; then
         echo "exists:   ${name}"
@@ -84,8 +84,18 @@ for dir in "${PACKAGES[@]}"; do
         git worktree add --quiet --detach "$source_tree" "$tag"
         tagged="$(node -p "require('${source_tree}/${dir}/package.json').version")"
         if [ "$tagged" != "$version" ]; then
-            echo "${tag} has ${name} at ${tagged}, not ${version}. Is the SDK still in the fixed version group?"
+            echo "${tag} has ${name} at ${tagged}, not ${version}. Is it still in the fixed version group?"
             exit 1
+        fi
+
+        # A package made public after the newest release is still private at its tag, and pnpm refuses
+        # to publish it. That is not an error: the release that first ships it public is the one to
+        # publish from, and until then CI warns about it and publishes nothing.
+        if [ "$(node -p "require('${source_tree}/${dir}/package.json').private === true")" = true ]; then
+            echo "skipped:  ${name} is private at ${tag}. Run this again once a release has shipped it public."
+            cleanup
+            source_tree=""
+            continue
         fi
 
         echo "building: ${name} ${version} from ${tag}"

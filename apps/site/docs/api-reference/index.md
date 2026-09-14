@@ -31,6 +31,27 @@ Authorization: Bearer <access_token>
 An account with a second factor enrolled verifies it through the other Authentication routes as
 part of signing in.
 
+### API keys
+
+For a script or an integration, use an API key rather than a password. Create one in the console
+under Settings → Security, or with [Create API key](./authentication/create-api-key.md) from a
+signed-in session, and send it the same way:
+
+```
+Authorization: Bearer da_…
+```
+
+A key is shown once, when it is created or rotated, and the station keeps only a fingerprint of it.
+It acts as the account that made it, with one of two scopes: `view` reaches the routes that need
+`platform.view`, and `manage` reaches the ones that need `platform.manage` as well. A key never does
+more than its account: a listener's key can only read, whatever it was given, and an account that
+loses a role loses it from every key on the next request. A route a key's scope does not cover
+answers 403 with `WWW-Authenticate: Bearer error="insufficient_scope", scope="manage"`, so a client
+can tell a key that is too narrow from an account that may not.
+
+No key can sign in, change how its account signs in, or create, rotate or revoke keys. Those need
+the person.
+
 ## Permissions
 
 Each page says what its route needs. Most reads need the `platform.view` policy, which both the

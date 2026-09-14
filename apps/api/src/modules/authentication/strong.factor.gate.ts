@@ -10,7 +10,7 @@ const BOOTSTRAP_METHODS = ['email', 'password', 'oidc'] as const;
  * The step-up in front of every change a stolen session would most like to make to an account's
  * credentials: binding or removing a factor, and minting or rotating an API key.
  *
- * Email, password, and oidc are the bootstrap factors — a login can have only these at registration
+ * Email, password, and oidc are the bootstrap factors: a login can have only these at registration
  * without ever proving a stronger factor, so a recent strong-factor verification cannot be required
  * before binding the first one (chicken-and-egg). Email is `kind: 'possession'` in the session
  * taxonomy but treated as weak here because email control alone is the threat being hardened

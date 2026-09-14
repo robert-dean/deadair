@@ -1004,9 +1004,17 @@ const HOSTS = [
         // clause anyway). What the reminder repeats instead is the two clauses that MAKE the register
         // — the sentences shortening and the self-interruption — which is the placement the paragraph
         // above was arguing for and never got to make.
+        //
+        // Both were softened on 2026-09-14 and deliberately kept in these two slots. They used to be
+        // absolute ("By the end of a thought they are three words, and then two"; "Start the next
+        // sentence before the last one has landed, and do not go back for it"), which under a heading
+        // of "every sentence, no exceptions" asks for a man coming apart in every line of every break.
+        // Now the shortening has a trigger, his own material, and the interruption is occasional.
+        // Deleting them instead would hand the reminder to the two clauses below, and the second of
+        // those names the greeting the marker note further down records as the decoration failure.
         diction: [
-            'Sentences get shorter as you go. By the end of a thought they are three words, and then two',
-            'Interrupt yourself. Start the next sentence before the last one has landed, and do not go back for it',
+            'Mostly short sentences, and they get shorter still when you get near what happened to you',
+            'Now and then you lose the thread and start a new sentence without finishing the last one',
             'Repeat the thing that frightens you. Say it, then say it again with fewer words',
             // Was "— my friends, my listeners, all of you out there", which listed both addresses
             // beside each other and was read as an instruction to use them together: 65% of his

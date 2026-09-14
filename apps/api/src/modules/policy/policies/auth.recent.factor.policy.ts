@@ -24,6 +24,20 @@ export class AuthRecentFactorPolicy extends Policy<AuthRecentFactorPolicyContext
                 actorKind: envelope.actor.kind,
             });
         }
+        // A request made with an API key carries one `apikey` factor, of kind `possession`,
+        // authenticated at the moment the request arrived. Read naively that is the freshest strong
+        // factor there could be, so it has to be refused here rather than left to the constraints
+        // below. `step_up_unavailable` and not `step_up_required`: nothing a machine can do will
+        // satisfy it, and the console must not open a re-verify dialog for one.
+        if (envelope.actor.apiKey) {
+            return this.deny('step-up is only meaningful for a session a person signed in to', {
+                kind: 'step_up_unavailable',
+                actorKind: 'apikey',
+            });
+        }
+        // Belt to the braces above, for any path that ever builds an actor from a key's factors
+        // without the `apiKey` field.
+        const excludeMethods: ReadonlyArray<AuthenticationFactorMethod> = [...(context.excludeMethods ?? []), 'apikey'];
         const requirement: StepUpRequirement = {
             within: context.within,
             ...(context.anyOfMethods ? { acceptableMethods: context.anyOfMethods } : {}),
@@ -35,7 +49,7 @@ export class AuthRecentFactorPolicy extends Policy<AuthRecentFactorPolicyContext
                 matchesFactorConstraints(f, {
                     anyOfKinds: context.anyOfKinds,
                     anyOfMethods: context.anyOfMethods,
-                    excludeMethods: context.excludeMethods,
+                    excludeMethods,
                 }) && isFactorRecent(f, envelope.now, context.within),
         );
         if (matched) return this.allow();

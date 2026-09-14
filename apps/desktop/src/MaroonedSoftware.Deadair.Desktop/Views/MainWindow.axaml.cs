@@ -1,3 +1,5 @@
+using System.ComponentModel;
+using System.Diagnostics;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -16,6 +18,82 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         AddHandler(KeyDownEvent, OnKeyDown, Avalonia.Interactivity.RoutingStrategies.Tunnel);
+        DataContextChanged += (_, _) => WatchStation();
+    }
+
+    private ShellViewModel? _watched;
+    private bool _menuUp;
+
+    /// <summary>Puts the window's menus on the bar the first time the shell has a station.</summary>
+    private void WatchStation()
+    {
+        if (_watched is not null)
+        {
+            _watched.PropertyChanged -= OnShellChanged;
+        }
+
+        _watched = DataContext as ShellViewModel;
+
+        if (_watched is not null)
+        {
+            _watched.PropertyChanged += OnShellChanged;
+            ShowMenusIfAttached();
+        }
+    }
+
+    private void OnShellChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(ShellViewModel.HasStation))
+        {
+            ShowMenusIfAttached();
+        }
+    }
+
+    /// <summary>
+    /// Sets the Controls and Window menus on the window once a station is attached, and never again.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Once, because the exporter's first export works and its in-place update does not. Measured
+    /// with a settings file set aside so the app started as a first run, the app activated, and the
+    /// bar read through the accessibility API. Binding <c>IsVisible</c> on the Controls item hid it
+    /// correctly, and then the moment the address connected and it became visible the bar went from
+    /// Apple, deadair, Window to Apple, deadair and stayed there through a deactivate and reactivate.
+    /// Removing the item from the menu's Items and inserting it back did exactly the same. Both
+    /// changes reach <c>AvaloniaNativeMenuExporter.DoLayoutReset</c>, which on a menu that has
+    /// already been exported calls <c>Update</c> on the native menu instead of setting it on the
+    /// window, and after that update the window's menus are gone for good. The unchanged menu,
+    /// exported once at startup, read Apple, deadair, Controls, Window before and after connecting.
+    /// </para>
+    /// <para>
+    /// So the menu is a resource rather than the window's <c>NativeMenu.Menu</c> in XAML, and it goes
+    /// on the window here, along the first-export path, when the shell first reports a station. The
+    /// native side (<c>WindowBaseImpl::SetMainMenu</c>) stores it and puts it on the bar at once if
+    /// the window is key, or else when the window next becomes key; measured both ways, with the
+    /// harness's own accessibility actions being what deactivated the window in the runs that showed
+    /// the second. Nothing here activates the window to force the first: the window somebody has just
+    /// pressed Connect in is key already, and an app launched at login would be dragged to the front.
+    /// </para>
+    /// <para>
+    /// The price is that a first run has no Window menu either, so ⌘M and ⌘W do nothing on the setup
+    /// screen; the red button still hides the window as it always did. A change of station flips
+    /// <see cref="ShellViewModel.HasStation"/> off and on again in under a second and touches nothing
+    /// here.
+    /// </para>
+    /// </remarks>
+    private void ShowMenusIfAttached()
+    {
+        if (_menuUp || _watched is not { HasStation: true })
+        {
+            return;
+        }
+
+        if (Resources.TryGetValue("StationMenu", out var resource) && resource is NativeMenu menu)
+        {
+            NativeMenu.SetMenu(this, menu);
+            _menuUp = true;
+            Trace.WriteLine("menu: window menus set");
+        }
     }
 
     /// <summary>

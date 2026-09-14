@@ -435,6 +435,15 @@ osascript -e 'tell application "System Events" to tell process "deadair" to get 
 (click `menu bar item 1 of menu bar 2` first, or the menu has no items to list). Measured: the item
 is 24 by 24 points, and every command is enabled, which is the sign a native command bound.
 
+**It is not there on a first run.** The `TrayIcon` is declared `IsVisible="False"` and
+`App.ShowTrayOnceAttached` shows it the first time the shell reports a station, then leaves it:
+there is no station for it to stand for until then, and its Listen would play nothing. Once rather
+than bound to `HasStation`, because that drops for the moment a change of station takes and a
+binding would blink the icon. Measured twice with the settings file set aside: `menu bar 2` did not
+exist on the setup screen, and after an address connected it held one item whose menu read Nothing
+on air, Listen, Show deadair, Quit deadair. A first run therefore has no Show, so a window closed on
+the setup screen comes back only from the Dock, which a `dotnet run` does not have.
+
 ## The system's own now-playing display
 
 **It only works from a bundled application.** A plain `dotnet run` has no bundle identifier, so macOS
@@ -665,9 +674,31 @@ sets the Application's to the shell for that binding and nothing else — every 
 own. An unbound `Command` leaves a native item DISABLED rather than failing, so a menu item that is
 greyed out is a binding that did not resolve.
 
-**There is a Controls menu and a Window menu, and still no Edit menu.** They are the WINDOW's
-`NativeMenu.Menu` (`MainWindow.axaml`), not the Application's, whose menu is the app menu itself;
-macOS shows them while the window is active. Controls is Listen or Stop and the operator's Skip;
+**Settings and Controls are absent until a station is attached, and the two halves of that are
+done differently because the native menu exporter only reliably does one thing.** Both follow the
+shell's `HasStation`, which is NOT the inverse of `NeedsStation`: Change station and a `deadair://`
+link show the setup screen over a station that is still attached and playing, and both menus are
+still meaningful there. On a first run they are not — there is no Settings page to open under the
+setup screen and nothing to listen to or skip. Settings is an `IsVisible` binding on the item in
+the app menu, and that works: measured with the settings file set aside, the app menu had no
+Settings item on the first boot and had it, enabled, once an address connected. The WINDOW's menus
+cannot be done that way. `IsVisible` on the top-level Controls item hid it, and then the moment it
+became visible the bar went from Apple, deadair, Window to Apple, deadair and stayed there through
+a deactivate and reactivate; taking the item out of the menu's `Items` and putting it back did
+exactly the same. Every change to an already-exported window menu goes through the exporter's
+in-place `Update`, and after that update the window's menus are gone from the bar for good, while
+the unchanged menu read Apple, deadair, Controls, Window before and after connecting. So the window
+menu is a RESOURCE in `MainWindow.axaml` and `MainWindow.ShowMenusIfAttached` sets it on the window
+once, along the first-export path, when the shell first reports a station, and never touches it
+again (Skip's `IsVisible` still binds, and flips only after the menu is up, which is the one such
+change the app already had). The native side stores a menu set on a window and puts it on the bar
+at once if the window is key or when it next becomes key; measured both, the second only when the
+test harness's own accessibility actions had deactivated the window. The price is that a first run
+has no Window menu either, so ⌘M and ⌘W do nothing on the setup screen.
+
+**There is a Controls menu and a Window menu, and still no Edit menu.** They are the WINDOW's menu
+(a resource in `MainWindow.axaml`, set on the window by its code-behind as above), not the
+Application's, whose menu is the app menu itself; macOS shows them while the window is active. Controls is Listen or Stop and the operator's Skip;
 Window is Minimize (⌘M) and Close (⌘W), and Close HIDES, since closing is not quitting. Listen has no
 key equivalent: AppKit offers every key press to the main menu first, so a bare Space there would
 take the space bar from every text box. Space is handled in `MainWindow.OnKeyDown` behind the same

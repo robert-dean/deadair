@@ -182,6 +182,19 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private bool _needsStation = true;
 
+    /// <summary>
+    /// Whether a station is attached. False on a first run until the setup screen's address answers,
+    /// and false again for the moment between letting one station go and attaching the next.
+    /// </summary>
+    /// <remarks>
+    /// Not the inverse of <see cref="NeedsStation"/>: Change station and a <c>deadair://</c> link show
+    /// the setup screen OVER a station that is still attached and playing. The menu bar's Settings and
+    /// Controls follow this rather than that, because on a first run there is nothing for either to
+    /// act on, while during a change of station there still is.
+    /// </remarks>
+    [ObservableProperty]
+    private bool _hasStation;
+
     [ObservableProperty]
     private bool _ready;
 
@@ -360,12 +373,14 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
         Navigation.Show(new Nav.Destination.Desk());
         _current = null;
+        HasStation = false;
     }
 
     private async Task AttachAsync(StationUrl station, string? name)
     {
         Trace.WriteLine($"station: {station} attached");
         _current = station;
+        HasStation = true;
         Setup.CanCancel = false;
         Setup.Note = null;
         Listener.Attach(station, name);

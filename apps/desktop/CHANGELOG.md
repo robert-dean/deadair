@@ -8,6 +8,13 @@ changes are in the [root changelog](../../CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.2.2] — 2026-09-14
+
+- The Settings and Controls menus and the menu-bar icon stay out of the way until a station has been connected. There was nothing for any of them to do on a first run.
+- Text fields look like the Mac's own: a hairline border, no change on hover, and a soft focus ring rather than a thick coloured edge.
+- Pressing Return in the station address box connects, without reaching for the Connect button.
+- The first-run screen shows the station's mark above the wordmark instead of the word alone.
+
 ## [0.2.1] — 2026-09-14
 
 - The app runs under macOS's hardened runtime, the first step towards a notarised download that opens without a warning. Nothing about opening it changes yet: it is still signed ad hoc.
@@ -33,7 +40,8 @@ changes are in the [root changelog](../../CHANGELOG.md).
   address on first run. Listening needs no account; the desk appears when you sign in as the
   operator.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.2.1...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.2.2...HEAD
+[0.2.2]: https://github.com/robert-dean/deadair/compare/desktop-v0.2.1...desktop-v0.2.2
 [0.2.1]: https://github.com/robert-dean/deadair/compare/desktop-v0.2.0...desktop-v0.2.1
 [0.2.0]: https://github.com/robert-dean/deadair/compare/desktop-v0.1.0...desktop-v0.2.0
 [0.1.0]: https://github.com/robert-dean/deadair/releases/tag/desktop-v0.1.0

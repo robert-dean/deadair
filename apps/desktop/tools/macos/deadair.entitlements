@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- What the hardened runtime has to allow for the app to start at all. Notarisation requires the
+     hardened runtime, and each key here was measured by launching the bundle without it on
+     2026-09-14 (macOS 26.6, .NET 10). Nothing is here on a guess: Microsoft's list for .NET also
+     names allow-unsigned-executable-memory, and the app starts and runs without it. -->
+<plist version="1.0">
+<dict>
+    <!-- CoreCLR compiles to executable memory. Without this the runtime cannot map its code heap and
+         the app dies before Main with "Failed to create CoreCLR, HRESULT: 0x80070008". -->
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+    <!-- Library validation admits only dylibs carrying the executable's own Team ID, and an ad hoc
+         signature has no Team ID, so without this the apphost cannot open libhostfxr.dylib ("mapping
+         process and mapped file (non-platform) have different Team IDs"). Under a Developer ID every
+         dylib in the bundle carries the same Team ID, so this may be removable then; measure it there
+         before taking it out. -->
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+</dict>
+</plist>

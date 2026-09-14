@@ -76,13 +76,27 @@ chmod +x "$app/Contents/MacOS/deadair"
 #
 # What ad hoc buys, stated honestly: NOT Gatekeeper's acceptance, which only notarisation gives. It
 # buys a bundle `codesign --verify --strict` passes, so anything that would fail notarisation fails
-# here first, and signing it properly later is swapping `-` for an identity. No `--options runtime`
-# yet: the hardened runtime would need the JIT, unsigned-executable-memory and library-validation
-# entitlements for CoreCLR, and without notarisation it only adds ways for the app not to start.
+# here first, and signing it properly later is swapping `-` for an identity.
+#
+# Under the hardened runtime, because notarisation refuses anything without it and because it is the
+# part that can stop the app starting, which is worth finding out on an ad hoc build rather than on
+# the first notarised one. Every nested file gets the flag, not only the executable: `createdump` is
+# a second executable in the publish and notarisation checks it too. The entitlements go on the
+# bundle's signature, which is the main executable's, and `deadair.entitlements` says what each one is
+# for and what happened without it.
 find "$app/Contents/MacOS" -type f ! -path "$app/Contents/MacOS/deadair" -print0 \
-    | xargs -0 codesign --force --sign -
-codesign --force --sign - "$app"
+    | xargs -0 codesign --force --options runtime --sign -
+codesign --force --options runtime --entitlements "$here/deadair.entitlements" --sign - "$app"
 codesign --verify --strict --verbose=2 "$app"
+
+# `--verify` passes a bundle with no hardened runtime just as happily, so check the flag outright.
+# Captured first rather than piped into `grep -q`, which exits at the first match, leaves codesign
+# writing to a closed pipe, and under `pipefail` turns a pass into a failure.
+signature="$(codesign --display --verbose=2 "$app" 2>&1)"
+if ! grep -q '^CodeDirectory.*flags=.*runtime' <<< "$signature"; then
+    echo "the bundle is not signed with the hardened runtime" >&2
+    exit 1
+fi
 
 echo "built $app"
 echo

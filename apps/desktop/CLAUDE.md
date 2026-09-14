@@ -1057,8 +1057,28 @@ checks, so a Mach-O that would fail notarisation fails here first.
 because the runtime's default native probing looks in the application directory and never in
 `Contents/Frameworks`. The script used to say every dylib belonged in Frameworks while copying this
 one into MacOS; the code was right and the comment was not. Every file is signed innermost first and
-then the bundle, without `--deep`, and without the hardened runtime, which CoreCLR would need three
-entitlements for and which buys nothing before notarisation.
+then the bundle, without `--deep`.
+
+**The bundle runs under the hardened runtime already, ad hoc and all, because that is the part of
+notarising that can stop the app starting.** Measured 2026-09-14 by re-signing one bundle three ways
+and launching each. With no entitlements the apphost cannot open `libhostfxr.dylib`: library
+validation admits only dylibs carrying the executable's Team ID, and an ad hoc signature has none.
+With `disable-library-validation` alone, CoreCLR dies before `Main` with `Failed to create CoreCLR,
+HRESULT: 0x80070008`, which is its code heap being refused. With `allow-jit` as well it starts and
+logs exactly what an unhardened build logs. `allow-unsigned-executable-memory`, which Microsoft's list
+for .NET also names, was not needed. So `tools/macos/deadair.entitlements` holds two keys, and the
+library-validation one is probably removable under a Developer ID, where every dylib shares the
+Team ID; measure that there rather than assume it. `createdump` is a second executable in the publish
+and gets the runtime flag too, since notarisation checks every executable.
+
+What that measurement did not cover is playback: `libdeadairplayer` is opened lazily, on the first
+Listen, and the launch never pressed it. It is opened through the same runtime path as Avalonia's and
+Skia's native libraries, which did load, so a failure there would be a surprise rather than a gap.
+
+**A test launch cannot be pointed at a throwaway settings file by moving `HOME`.** The log follows
+`HOME` (it is under `UserProfile`) and the settings do not: `SpecialFolder.ApplicationData` resolved
+against the account's real home, so a launch under a fake `HOME` still read and wrote the real
+`~/Library/Application Support/deadair/settings.json`. Found by doing it.
 
 **Publishing for a runtime identifier used to rewrite every `packages.lock.json` to name that RID**,
 after which a plain restore failed in locked mode because no project declared one — one packaging run

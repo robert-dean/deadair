@@ -10,6 +10,7 @@ import { AppearanceCard } from './appearance.card';
 import { ConfigFieldsForm } from './config.fields.form';
 import { PluginGrantsCard } from './plugin.grants.card';
 import { SecurityCard } from './security.card';
+import { ApiKeysCard } from './api.keys.card';
 import { SETTINGS_SECTIONS, type SettingsSection, type SettingsSectionId } from './settings.shell';
 import { UnsavedGuard } from './unsaved.guard';
 import { StorageCard } from './storage.card';
@@ -58,7 +59,15 @@ function StandaloneSection({ section }: { section: SettingsSection }) {
     if (section.id === 'appearance') return <AppearanceCard />;
     if (section.id === 'storage') return <StorageCard />;
     if (section.id === 'grants') return <PluginGrantsCard />;
-    if (section.id === 'security') return <SecurityCard />;
+    // Keys beside the factors rather than in a section of their own: both are how this account gets
+    // in, and a sibling card rather than a child keeps each card's data and tests to itself.
+    if (section.id === 'security')
+        return (
+            <Stack gap="lg">
+                <SecurityCard />
+                <ApiKeysCard />
+            </Stack>
+        );
 
     // A section with no group and no card of its own is a list entry nobody finished. Said out
     // loud rather than rendered as a blank page.

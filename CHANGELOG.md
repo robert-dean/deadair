@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.7.0] — 2026-09-14
+
+- The typed client for the station's API is published to npm as `@deadair/sdk`, beside the plugin SDK, carrying the station's version, so the SDK that shares a station's version number is the client for that station. It is the client the console is built on, with Luxon's types now among its dependencies so a TypeScript project gets typed dates without installing them itself. The repository has a small example client in `examples/sdk/now-playing`, which CI builds against the SDK as it would be published.
+
 ## [0.6.0] — 2026-09-14
 
 - The station now restarts its audio chain when it gets stuck. The audio chain can stop playing what it is handed while still looking alive, which leaves listeners on the fallback bed until somebody restarts the container. Now, if it holds a record for a minute without playing it, or does not answer at all for a minute, the station asks for it to be restarted, and it is back within about twenty seconds with the running order where it was. It asks at most once every five minutes and gives up after three restarts that did not help, and every restart, and giving up, is in the activity feed. A stuck audio chain is also now killed after ten seconds if it will not stop on its own, including when a stream setting changes. The new "Restart the audio chain when it gets stuck" setting under Playout is on by default; turn it off to leave a stuck chain alone and look at it.
@@ -106,7 +110,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/robert-dean/deadair/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/robert-dean/deadair/compare/v0.5.1...v0.6.0
 [0.5.1]: https://github.com/robert-dean/deadair/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/robert-dean/deadair/compare/v0.4.2...v0.5.0

@@ -9,6 +9,9 @@ import styles from './index.module.css';
 
 const repository = 'https://github.com/robert-dean/deadair';
 const playStore = 'https://play.google.com/store/apps/details?id=com.maroonedsoftware.deadair';
+/** The Stream Deck plugin's releases. The Marketplace listing replaces this once Elgato has approved it. */
+const streamDeckReleases = `${repository}/releases?q=streamdeck`;
+const sdkPackage = 'https://www.npmjs.com/package/@deadair/sdk';
 
 /** The four facts worth reading before anything else, as a strip under the hero's buttons. */
 const facts = ['Self-hosted', 'Your music', 'Any model, or none', 'MIT licensed'];
@@ -348,7 +351,7 @@ export default function Home() {
 
                 <section className={styles.section}>
                     <h2>Listen.</h2>
-                    <div className={styles.listen}>
+                    <div className={styles.cards}>
                         <div className={styles.tag}>
                             <p className="da-eyebrow">The mount</p>
                             <p>
@@ -376,6 +379,31 @@ export default function Home() {
                             <p>
                                 A listener with a real player and the operator’s desk in one window, on Apple Silicon.{' '}
                                 <Link href={`${repository}/tree/main/apps/desktop`}>Build it from source.</Link>
+                            </p>
+                        </div>
+                    </div>
+                </section>
+
+                <section className={styles.section}>
+                    <h2>Drive it from anything.</h2>
+                    <div className={styles.cards}>
+                        <div className={styles.tag}>
+                            <p className="da-eyebrow">Stream Deck</p>
+                            <p>
+                                The desk on keys: what is on air with its cover, Skip, and a Stop that asks twice. It does not play the station.{' '}
+                                <Link href={streamDeckReleases}>Download it</Link>, or{' '}
+                                <Link to="/docs/features/console#on-a-stream-deck">read what it does</Link>.
+                            </p>
+                        </div>
+                        <div className={styles.tag}>
+                            <p className="da-eyebrow">Your own code</p>
+                            <p>
+                                The console is built on the same HTTP API, and its typed client is on npm as{' '}
+                                <Link href={sdkPackage}>
+                                    <code>@deadair/sdk</code>
+                                </Link>
+                                . An API key from Settings, Security lets a script, a home-automation hub or your own app read the station or drive
+                                it. <Link to="/docs/api-reference">The API reference.</Link>
                             </p>
                         </div>
                     </div>

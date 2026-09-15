@@ -9,6 +9,11 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.8.2] — 2026-09-15
+
+- A pronunciation entry for a name that starts with punctuation (`?uestlove`, `.38 Special`) now matches. Taking a soundboard hit out of a script no longer closes every space in front of punctuation elsewhere in it, which had glued such names to the word before them, in the stored script as well as on the way to the engine.
+- What a pronunciation entry says now reaches the speech engine exactly as it was written. A respelling with stressed syllables in capitals (`UN-guhr`) is no longer read as an initialism, and Kokoro's inline phoneme markup (`[Jordache](/ʒɔrdæʃ/)`) keeps its brackets and slashes.
+
 ## [0.8.1] — 2026-09-15
 
 - The eighties persona seed is now a valley girl, Tiffani, in place of the bright video-age jock. She talks in uptalk, loves whatever the station plays because it is on the radio, and cannot understand the music nobody plays. A station that already has the old jock keeps him: seeds are only written to an empty station, and "Restore built-ins" adds missing ones without overwriting.
@@ -122,7 +127,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.8.1...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.8.2...HEAD
+[0.8.2]: https://github.com/robert-dean/deadair/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/robert-dean/deadair/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/robert-dean/deadair/compare/v0.7.1...v0.8.0
 [0.7.1]: https://github.com/robert-dean/deadair/compare/v0.7.0...v0.7.1

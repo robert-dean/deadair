@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.8.1] — 2026-09-15
+
+- The eighties persona seed is now a valley girl, Tiffani, in place of the bright video-age jock. She talks in uptalk, loves whatever the station plays because it is on the radio, and cannot understand the music nobody plays. A station that already has the old jock keeps him: seeds are only written to an empty station, and "Restore built-ins" adds missing ones without overwriting.
+
 ## [0.8.0] — 2026-09-15
 
 - API keys, for a script or an integration that should reach the station without your password. Settings → Security has a new card to create one, read-only or read-and-manage, with an expiry if you want one; the key is shown once, and can be rotated or revoked from the same card. A key acts as your account and never does more than it can, so a listener's key only reads. It cannot sign in, change how you sign in, or make other keys. Send it as `Authorization: Bearer da_…`.
@@ -118,7 +122,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.8.1...HEAD
+[0.8.1]: https://github.com/robert-dean/deadair/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/robert-dean/deadair/compare/v0.7.1...v0.8.0
 [0.7.1]: https://github.com/robert-dean/deadair/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/robert-dean/deadair/compare/v0.6.0...v0.7.0

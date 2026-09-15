@@ -28,6 +28,23 @@ import type { HostFetchInit, PluginHost } from './plugin.host.js';
  * worth asking and this file does not — and putting a cache behind a pure
  * parser would hide it from the one caller that must not be surprised by it.
  *
+ * ## A podcast is a feed with an attachment
+ *
+ * A podcast feed is RSS 2.0 with the iTunes namespace on top, and the part a
+ * station needs from it is exactly the part a news reader throws away: the
+ * `enclosure`, which is the audio, and `itunes:duration`, which is how long it
+ * runs. Both are read here onto {@link FeedItem.enclosure} and
+ * {@link FeedItem.durationMs}, and the channel's own description, artwork and
+ * language onto {@link ParsedFeed}, because a second plugin reading a podcast
+ * would otherwise write the same namespace handling again. Every one of those
+ * fields is optional, so a reader that wants none of them (`plugins/rss`) reads
+ * exactly what it read before.
+ *
+ * What an enclosure is NOT is a link. {@link FeedItem.url} is still only ever
+ * the page a person reads, and the audio never arrives there: a news reader
+ * that followed an enclosure as though it were the story would fetch a
+ * sixty-megabyte file to look for paragraphs in it.
+ *
  * ## Tolerant in one specific direction
  *
  * A feed is somebody else's file, served by somebody else's edge, and the ways
@@ -62,6 +79,62 @@ export interface FeedItem {
     publishedAt?: string;
     author?: string;
     categories?: string[];
+    /**
+     * The file attached to this entry, which for a podcast is the episode
+     * itself. See {@link FeedEnclosure}.
+     *
+     * Absent for an entry that attaches nothing, which is every entry of an
+     * ordinary news feed, and for one whose attachment is not at an http(s)
+     * address somebody could fetch.
+     */
+    enclosure?: FeedEnclosure;
+    /**
+     * How long the attachment runs, in whole milliseconds, as the PUBLISHER
+     * says: `itunes:duration`, written as `HH:MM:SS`, `MM:SS` or bare seconds.
+     *
+     * A claim rather than a measurement, and absent where the feed made none
+     * or made one this cannot read. Nothing here guesses one from the
+     * enclosure's size, because a byte count divided by a bitrate nobody
+     * stated is a number that looks measured and is not.
+     */
+    durationMs?: number;
+    /** This entry's own artwork, where it has some (`itunes:image`). Always http(s). */
+    imageUrl?: string;
+    /**
+     * Whether the publisher marked this entry explicit (`itunes:explicit`).
+     *
+     * Absent means the feed did not say, which is not the same as clean: a
+     * reader enforcing a clean-only policy has to demand a positive `false`,
+     * on `ProviderTrack.advisory`'s argument.
+     */
+    explicit?: boolean;
+    /** `itunes:season`, a positive whole number, when the publisher numbers them. */
+    season?: number;
+    /** `itunes:episode`, a positive whole number, when the publisher numbers them. */
+    episode?: number;
+}
+
+/**
+ * A file attached to an entry: RSS 2.0's `<enclosure>` or an Atom
+ * `<link rel="enclosure">`.
+ *
+ * Every part except the address is the publisher's claim and is passed on as
+ * one. `type` in particular is whatever the publisher's CMS wrote, and
+ * `audio/x-m4a`, `audio/mp3` and an empty string are all ordinary: a reader
+ * deciding what it can play reads this and the address's extension together.
+ */
+export interface FeedEnclosure {
+    /** Always http(s). An enclosure at any other address is not reported at all. */
+    url: string;
+    /** The declared media type, lower-cased, e.g. `audio/mpeg`. */
+    type?: string;
+    /**
+     * The declared size in bytes. Absent when the feed wrote nothing, zero, or
+     * something that is not a whole number, all three of which are common: a
+     * great many feeds write `length="0"` because the element requires the
+     * attribute and the publisher did not know.
+     */
+    lengthBytes?: number;
 }
 
 /** A feed, and what it holds. */
@@ -69,6 +142,18 @@ export interface ParsedFeed {
     title?: string;
     /** Where the publication itself lives, as opposed to any one entry. */
     homeUrl?: string;
+    /** What the publication says about itself, as plain text. See {@link FEED_SUMMARY_MAX_CHARS}. */
+    description?: string;
+    /** Who publishes it: `itunes:author`, or an Atom feed's own `author`. */
+    author?: string;
+    /** The publication's artwork: `itunes:image`, or RSS 2.0's `<image><url>`. Always http(s). */
+    imageUrl?: string;
+    /** The language the publication declares, as written (`en`, `en-us`). */
+    language?: string;
+    /** The publication's own labels, including iTunes categories. Deduplicated, order kept. */
+    categories?: string[];
+    /** Whether the publisher marked the whole publication explicit. See {@link FeedItem.explicit}. */
+    explicit?: boolean;
     /** Newest first where the feed said, and otherwise in the order it listed them. */
     items: FeedItem[];
 }
@@ -143,6 +228,27 @@ export function parseFeed(xml: string): ParsedFeed {
     const homeUrl = readLink(channel.link);
     if (homeUrl !== undefined) feed.homeUrl = homeUrl;
 
+    // `itunes:summary` arrives as `summary` once the prefix is gone, and is the
+    // longer of the two where a podcast carries both; `subtitle` is the last
+    // resort, being a line rather than a description.
+    const description = plainText(channel.description ?? channel.summary ?? channel.subtitle);
+    if (description !== undefined) feed.description = description;
+
+    const author = readAuthor(channel.author);
+    if (author !== undefined) feed.author = author;
+
+    const imageUrl = readImage(channel.image);
+    if (imageUrl !== undefined) feed.imageUrl = imageUrl;
+
+    const language = text(channel.language);
+    if (language !== undefined) feed.language = language;
+
+    const categories = readCategories(channel.category);
+    if (categories.length > 0) feed.categories = categories;
+
+    const explicit = readExplicit(channel.explicit);
+    if (explicit !== undefined) feed.explicit = explicit;
+
     return feed;
 }
 
@@ -208,6 +314,24 @@ function readItem(entry: Record<string, unknown>): FeedItem | undefined {
     if (author !== undefined) item.author = author;
     if (categories.length > 0) item.categories = categories;
 
+    const enclosure = readEnclosure(entry.enclosure) ?? readEnclosure(entry.link);
+    if (enclosure !== undefined) item.enclosure = enclosure;
+
+    const durationMs = readDuration(entry.duration);
+    if (durationMs !== undefined) item.durationMs = durationMs;
+
+    const imageUrl = readImage(entry.image);
+    if (imageUrl !== undefined) item.imageUrl = imageUrl;
+
+    const explicit = readExplicit(entry.explicit);
+    if (explicit !== undefined) item.explicit = explicit;
+
+    const season = readOrdinal(entry.season);
+    if (season !== undefined) item.season = season;
+
+    const episode = readOrdinal(entry.episode);
+    if (episode !== undefined) item.episode = episode;
+
     return item;
 }
 
@@ -268,21 +392,164 @@ function readAuthor(value: unknown): string | undefined {
     return text(first.name) ?? text(first['#text']);
 }
 
-/** RSS writes a category as text, Atom as a `term` attribute. Deduplicated, order kept. */
+/**
+ * RSS writes a category as text, Atom as a `term` attribute, and iTunes as a
+ * `text` attribute with its subcategories nested inside it. Deduplicated,
+ * order kept, parents before their children.
+ */
 function readCategories(value: unknown): string[] {
     const seen = new Set<string>();
 
+    const visit = (candidates: unknown[]): void => {
+        for (const candidate of candidates) {
+            const name =
+                typeof candidate === 'string'
+                    ? trimmed(candidate)
+                    : isRecord(candidate)
+                      ? (text(candidate['@_term']) ?? text(candidate['@_text']) ?? text(candidate['#text']))
+                      : undefined;
+            if (name !== undefined) seen.add(name);
+            if (isRecord(candidate)) visit(asArray(candidate.category));
+        }
+    };
+
+    visit(asArray(value));
+    return [...seen];
+}
+
+/**
+ * The first attachment that is at a fetchable address, from either place a
+ * feed writes one.
+ *
+ * RSS 2.0 permits one `<enclosure>` per item and a good number of feeds write
+ * several anyway; Atom writes any number of `<link rel="enclosure">` beside the
+ * page link. Both arrive as a list here, and an AUDIO attachment is preferred
+ * over whatever came first, because a podcast that also attaches its cover as
+ * a second enclosure is ordinary and the cover is not the episode.
+ *
+ * Read off `link` as well as `enclosure`, and only ever the entries whose
+ * `rel` says enclosure: an Atom link with no `rel` is the page, which
+ * `readLink` answers and this must not.
+ */
+function readEnclosure(value: unknown): FeedEnclosure | undefined {
+    const found: FeedEnclosure[] = [];
+
     for (const candidate of asArray(value)) {
-        const name =
-            typeof candidate === 'string'
-                ? trimmed(candidate)
-                : isRecord(candidate)
-                  ? (text(candidate['@_term']) ?? text(candidate['#text']))
-                  : undefined;
-        if (name !== undefined) seen.add(name);
+        if (!isRecord(candidate)) continue;
+
+        // An RSS `<enclosure>` has no `rel`; an Atom link has to say it is one.
+        const rel = text(candidate['@_rel']);
+        const isAtomLink = candidate['@_href'] !== undefined;
+        if (isAtomLink && rel !== 'enclosure') continue;
+
+        const url = webAddress(text(candidate['@_url']) ?? text(candidate['@_href']));
+        if (url === undefined) continue;
+
+        const enclosure: FeedEnclosure = { url };
+        const type = text(candidate['@_type'])?.toLowerCase();
+        if (type !== undefined) enclosure.type = type;
+        const lengthBytes = positiveWhole(text(candidate['@_length']));
+        if (lengthBytes !== undefined) enclosure.lengthBytes = lengthBytes;
+
+        found.push(enclosure);
     }
 
-    return [...seen];
+    return found.find(enclosure => enclosure.type?.startsWith('audio/') === true) ?? found[0];
+}
+
+/**
+ * `itunes:duration` as whole milliseconds, or nothing.
+ *
+ * Three spellings are in the wild and all three are read: `HH:MM:SS`, `MM:SS`,
+ * and bare seconds, any of them with a fraction on the last part. Anything
+ * else — `1h 2m`, `about an hour`, an empty element — answers `undefined`
+ * rather than a guess, on {@link readDate}'s argument: an unknown length is a
+ * fact a reader can act on and a wrong one is not.
+ *
+ * A duration of zero is absent too. Publishers write `0` and `00:00:00` when
+ * their CMS did not know, and a zero-length episode is not a thing anything
+ * should plan around.
+ */
+function readDuration(value: unknown): number | undefined {
+    const raw = text(asArray(value)[0]);
+    if (raw === undefined) return undefined;
+
+    const parts = raw.split(':').map(part => part.trim());
+    if (parts.length > 3) return undefined;
+    if (!parts.every((part, at) => (at === parts.length - 1 ? /^\d+(\.\d+)?$/ : /^\d+$/).test(part))) return undefined;
+
+    // Only the LEADING unit may run past 59: `90:00` is an ordinary way to write an hour and a
+    // half, where `1:90:00` and `12:75` are typos, and reading either would be a guess.
+    if (parts.slice(1).some(part => Number(part) >= 60)) return undefined;
+
+    const seconds = parts.reduce((total, part) => total * 60 + Number(part), 0);
+    const ms = Math.round(seconds * 1_000);
+    return Number.isFinite(ms) && ms > 0 ? ms : undefined;
+}
+
+/**
+ * Artwork, from either of the two shapes a feed writes it in.
+ *
+ * `itunes:image` is an `href` attribute; RSS 2.0's own `<image>` nests a
+ * `<url>`. A podcast channel commonly carries both, which arrive together as
+ * a list once the prefix is gone, and the iTunes one is preferred: it is the
+ * square the directories show, where RSS's is a small banner.
+ */
+function readImage(value: unknown): string | undefined {
+    const candidates = asArray(value);
+
+    for (const candidate of candidates) {
+        if (isRecord(candidate)) {
+            const href = webAddress(text(candidate['@_href']));
+            if (href !== undefined) return href;
+        }
+    }
+
+    for (const candidate of candidates) {
+        const url = isRecord(candidate) ? webAddress(text(candidate.url)) : webAddress(text(candidate));
+        if (url !== undefined) return url;
+    }
+
+    return undefined;
+}
+
+/**
+ * `itunes:explicit`, which has been spelled four ways across the spec's
+ * history. Anything else is absent rather than either answer.
+ */
+function readExplicit(value: unknown): boolean | undefined {
+    const raw = text(asArray(value)[0])?.toLowerCase();
+    if (raw === 'yes' || raw === 'true' || raw === 'explicit') return true;
+    if (raw === 'no' || raw === 'false' || raw === 'clean') return false;
+    return undefined;
+}
+
+/** A season or episode number: a positive whole number, or nothing. */
+const readOrdinal = (value: unknown): number | undefined => positiveWhole(text(asArray(value)[0]));
+
+/** A positive whole number written as text, or nothing. */
+function positiveWhole(raw: string | undefined): number | undefined {
+    if (raw === undefined || !/^\d+$/.test(raw)) return undefined;
+    const parsed = Number(raw);
+    return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : undefined;
+}
+
+/**
+ * An address somebody could fetch, or nothing.
+ *
+ * Art and audio are both handed on to be fetched by something that is not
+ * this plugin, and the SDK's rule for an art URL is that it is http(s) only;
+ * the same rule is applied to the audio for the same reason. `file:`,
+ * `data:` and a relative path are all things a feed can contain.
+ */
+function webAddress(raw: string | undefined): string | undefined {
+    if (raw === undefined) return undefined;
+    try {
+        const { protocol } = new URL(raw);
+        return protocol === 'http:' || protocol === 'https:' ? raw : undefined;
+    } catch {
+        return undefined;
+    }
 }
 
 /**

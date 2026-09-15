@@ -184,6 +184,172 @@ describe('parseFeed', () => {
     });
 });
 
+/**
+ * A podcast feed shaped like the ones the big hosts actually serve: RSS 2.0 with the iTunes
+ * namespace, both kinds of channel image, nested iTunes categories, an Atom self link inside an item,
+ * a cover attached as a second enclosure, and a `length="0"` nobody filled in.
+ */
+const PODCAST = `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>The Long Wave</title>
+        <link>https://longwave.example.com</link>
+        <language>en-gb</language>
+        <description><![CDATA[<p>Conversations about <b>radio</b> &amp; the people who make it.</p>]]></description>
+        <itunes:author>Long Wave Productions</itunes:author>
+        <itunes:explicit>false</itunes:explicit>
+        <image><url>https://longwave.example.com/banner.png</url><title>The Long Wave</title></image>
+        <itunes:image href="https://cdn.example.com/square.jpg"/>
+        <itunes:category text="Society &amp; Culture">
+            <itunes:category text="Documentary"/>
+        </itunes:category>
+        <itunes:category text="Arts"/>
+        <item>
+            <title>Episode 12: The night shift</title>
+            <link>https://longwave.example.com/12</link>
+            <guid isPermaLink="false">longwave-12</guid>
+            <pubDate>Mon, 14 Sep 2026 06:00:00 GMT</pubDate>
+            <description>Who is awake at 3am, and why they listen.</description>
+            <atom:link rel="self" href="https://longwave.example.com/feed.xml"/>
+            <enclosure url="https://cdn.example.com/12-cover.jpg" type="image/jpeg" length="40213"/>
+            <enclosure url="https://cdn.example.com/12.mp3" type="Audio/MPEG" length="0"/>
+            <itunes:duration>1:02:03</itunes:duration>
+            <itunes:image href="https://cdn.example.com/12.jpg"/>
+            <itunes:explicit>yes</itunes:explicit>
+            <itunes:season>2</itunes:season>
+            <itunes:episode>12</itunes:episode>
+        </item>
+        <item>
+            <title>Episode 11: Static</title>
+            <guid>longwave-11</guid>
+            <enclosure url="https://cdn.example.com/11.m4a" type="audio/x-m4a" length="55102934"/>
+            <itunes:duration>3725</itunes:duration>
+        </item>
+        <item>
+            <title>A trailer with nowhere to fetch it from</title>
+            <guid>longwave-trailer</guid>
+            <enclosure url="file:///Users/producer/trailer.mp3" type="audio/mpeg"/>
+            <itunes:duration>not long</itunes:duration>
+        </item>
+    </channel>
+</rss>`;
+
+const ATOM_PODCAST = `<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+    <title>Atom Radio</title>
+    <link href="https://atom.example.net/" rel="alternate"/>
+    <author><name>An Atom Publisher</name></author>
+    <entry>
+        <title>First broadcast</title>
+        <id>tag:atom.example.net,2026:1</id>
+        <link href="https://atom.example.net/1"/>
+        <link rel="enclosure" href="https://atom.example.net/1.ogg" type="audio/ogg" length="1048576"/>
+        <published>2026-09-01T12:00:00Z</published>
+    </entry>
+</feed>`;
+
+describe('parseFeed on a podcast', () => {
+    it('reads the channel as a show', () => {
+        const feed = parseFeed(PODCAST);
+
+        expect(feed).toMatchObject({
+            title: 'The Long Wave',
+            homeUrl: 'https://longwave.example.com',
+            description: 'Conversations about radio & the people who make it.',
+            author: 'Long Wave Productions',
+            language: 'en-gb',
+            explicit: false,
+            categories: ['Society & Culture', 'Documentary', 'Arts'],
+        });
+    });
+
+    it('prefers the square iTunes image over the RSS banner', () => {
+        expect(parseFeed(PODCAST).imageUrl).toBe('https://cdn.example.com/square.jpg');
+    });
+
+    it('reads an episode: its audio, how long it runs, and how it is numbered', () => {
+        const [episode] = parseFeed(PODCAST).items;
+
+        expect(episode).toMatchObject({
+            id: 'longwave-12',
+            title: 'Episode 12: The night shift',
+            url: 'https://longwave.example.com/12',
+            publishedAt: '2026-09-14T06:00:00.000Z',
+            durationMs: 3_723_000,
+            imageUrl: 'https://cdn.example.com/12.jpg',
+            explicit: true,
+            season: 2,
+            episode: 12,
+        });
+    });
+
+    it('takes the audio enclosure over a cover attached ahead of it, and leaves a zero length absent', () => {
+        const [episode] = parseFeed(PODCAST).items;
+
+        expect(episode?.enclosure).toEqual({ url: 'https://cdn.example.com/12.mp3', type: 'audio/mpeg' });
+    });
+
+    it('never mistakes the enclosure, or an Atom self link, for the page', () => {
+        const [episode, second] = parseFeed(PODCAST).items;
+
+        expect(episode?.url).toBe('https://longwave.example.com/12');
+        expect(second?.url).toBeUndefined();
+    });
+
+    it('reads bare seconds and keeps a declared size', () => {
+        const second = parseFeed(PODCAST).items[1];
+
+        expect(second?.durationMs).toBe(3_725_000);
+        expect(second?.enclosure).toEqual({ url: 'https://cdn.example.com/11.m4a', type: 'audio/x-m4a', lengthBytes: 55_102_934 });
+    });
+
+    it('drops an enclosure nobody could fetch, and a duration nobody could read', () => {
+        const trailer = parseFeed(PODCAST).items[2];
+
+        expect(trailer?.title).toBe('A trailer with nowhere to fetch it from');
+        expect(trailer?.enclosure).toBeUndefined();
+        expect(trailer?.durationMs).toBeUndefined();
+    });
+
+    it('reads an Atom enclosure link without taking it for the page', () => {
+        const feed = parseFeed(ATOM_PODCAST);
+        const [entry] = feed.items;
+
+        expect(feed.author).toBe('An Atom Publisher');
+        expect(entry?.url).toBe('https://atom.example.net/1');
+        expect(entry?.enclosure).toEqual({ url: 'https://atom.example.net/1.ogg', type: 'audio/ogg', lengthBytes: 1_048_576 });
+    });
+
+    it('reports nothing new about an ordinary news feed', () => {
+        const feed = parseFeed(RSS);
+
+        expect(feed.items.every(item => item.enclosure === undefined && item.durationMs === undefined)).toBe(true);
+        expect(feed.imageUrl).toBeUndefined();
+    });
+});
+
+describe('itunes:duration', () => {
+    /** One episode carrying this duration, read back. */
+    const durationOf = (value: string): number | undefined =>
+        parseFeed(`<rss><channel><title>t</title><item><title>e</title><duration>${value}</duration></item></channel></rss>`).items[0]?.durationMs;
+
+    it.each([
+        ['01:02:03', 3_723_000],
+        ['1:02:03', 3_723_000],
+        ['62:03', 3_723_000],
+        ['90:00', 5_400_000],
+        ['3723', 3_723_000],
+        ['3723.5', 3_723_500],
+        [' 45:30 ', 2_730_000],
+    ])('reads %s', (value, expected) => {
+        expect(durationOf(value)).toBe(expected);
+    });
+
+    it.each(['', '0', '00:00:00', '1h 2m', 'about an hour', '1:90:00', '12:75', '1:2:3:4', '-5', '1:02:03.5.1'])('refuses %j', value => {
+        expect(durationOf(value)).toBeUndefined();
+    });
+});
+
 /** Enough of a host to answer one request. The rest of the interface is never reached here. */
 const hostAnswering = (response: Response): PluginHost => ({ fetch: vi.fn(async () => response) }) as unknown as PluginHost;
 

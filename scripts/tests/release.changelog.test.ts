@@ -205,6 +205,22 @@ describe('the iOS release’s notes', () => {
     });
 });
 
+describe('the Stream Deck release’s notes', () => {
+    const streamdeck = UNITS.find(unit => unit.id === 'streamdeck')!;
+    const programs = awkPrograms('streamdeck-release.yml');
+
+    it('are cut from the Stream Deck changelog, by the same program as the station’s', () => {
+        expect([...programs.keys()]).toEqual(['apps/streamdeck/CHANGELOG.md']);
+        expect(programs.get('apps/streamdeck/CHANGELOG.md')).toBe([...awkPrograms('release.yml').values()][0]);
+    });
+
+    it('find the entry already in the real Stream Deck changelog', () => {
+        const version = JSON.parse(readFileSync(join(root, streamdeck.manifest), 'utf8')).version;
+        const program = programs.get('apps/streamdeck/CHANGELOG.md')!;
+        expect(runAwk(program, version, readFileSync(join(root, streamdeck.changelog), 'utf8')).trim()).not.toBe('');
+    });
+});
+
 describe('the mirrored versions', () => {
     const gradle = 'android {\n    defaultConfig {\n        versionCode = gitCommitCount.get()\n        versionName = "0.1.0"\n    }\n}\n';
     const xml = '<Project>\n  <PropertyGroup>\n    <Version>0.1.0</Version>\n  </PropertyGroup>\n</Project>\n';

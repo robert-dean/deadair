@@ -1,0 +1,117 @@
+# Building the Stream Deck plugin as something somebody can install, and as the file the Elgato
+# Marketplace is given.
+#
+# `workflow_dispatch` and NOT a push trigger, for `desktop-release.yml`'s reason: a GitHub release is
+# a permanent entry with a version somebody may already have installed, and a push trigger would cut
+# one for every README typo.
+#
+# The tag is `streamdeck-v<version>`, NOT `v<version>`. The bare `v*` namespace is the station's,
+# which is what an operator means by "a deadair release".
+#
+# The release carries the `.streamDeckPlugin` installer, which the Stream Deck app installs on a
+# double-click, on macOS and Windows alike. The Marketplace is not reached from here: the maintainer
+# uploads this same file in Elgato's Maker Console, which takes no API, so a release is the
+# installer's permanent address and the Marketplace listing is a copy of it.
+
+name: Stream Deck release
+
+on:
+    workflow_dispatch:
+        inputs:
+            draft:
+                description: Create the release as a draft rather than publishing it
+                type: boolean
+                default: true
+
+permissions:
+    contents: write
+
+jobs:
+    release:
+        # Ubuntu: the plugin is one JavaScript bundle and the Elgato CLI that packs it is Node.
+        runs-on: ubuntu-latest
+        timeout-minutes: 15
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v7
+              with:
+                  persist-credentials: false
+
+            - name: Install pnpm
+              uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+
+            - name: Setup Node
+              uses: actions/setup-node@v7
+              with:
+                  node-version: 26
+                  cache: pnpm
+
+            - name: Install dependencies
+              run: pnpm install --frozen-lockfile
+
+            # The same gates the ordinary build runs. A release that skipped them would be the one
+            # build nobody checked.
+            - name: Build
+              run: pnpm exec turbo run build --filter='@deadair/streamdeck...'
+
+            - name: Test
+              run: pnpm --filter @deadair/streamdeck test
+
+            # The version is NOT an input, for the desktop release's reason: it is decided in a
+            # changeset, which bumps `apps/streamdeck/package.json`, and `pnpm release:version` copies it
+            # into the manifest's four-part `Version`. The check fails when the two disagree, and the
+            # manifest is what the installer and the Stream Deck app report.
+            - name: Read the version
+              id: version
+              run: |
+                  set -euo pipefail
+                  pnpm release:version --check
+                  version="$(node -p "require('./apps/streamdeck/package.json').version")"
+                  test -n "$version"
+                  echo "value=${version}" >> "$GITHUB_OUTPUT"
+
+            # Pack validates first, and refuses to pack a plugin that does not validate. The package's
+            # script packs a COPY of the plugin folder, because the CLI rewrites the manifest it packs
+            # in its own formatting, and a local pack should not leave the tree dirty. It is called
+            # `installer` because `pnpm pack` is pnpm's own tarball command and wins over a script.
+            - name: Pack the installer
+              run: pnpm --filter @deadair/streamdeck run installer
+
+            # The notes are this version's entry in `apps/streamdeck/CHANGELOG.md`, cut out with the same
+            # awk `release.yml` uses on the station's, written by `pnpm release:version` from the
+            # changesets that named `@deadair/streamdeck`. A version with no entry fails here rather than
+            # publishing an installer with nothing said about it.
+            - name: Take the notes out of the changelog
+              env:
+                  VERSION: ${{ steps.version.outputs.value }}
+              run: |
+                  set -euo pipefail
+                  awk -v v="## [${VERSION}]" '
+                      index($0, v) == 1 { found = 1; next }
+                      found && /^## \[/ { exit }
+                      found && /^\[[^]]+\]: / { exit }
+                      found { print }
+                  ' apps/streamdeck/CHANGELOG.md > notes.md
+                  if ! grep -q '[^[:space:]]' notes.md; then
+                      echo "::error::apps/streamdeck/CHANGELOG.md has no entry for ${VERSION}. Write a changeset naming @deadair/streamdeck."
+                      exit 1
+                  fi
+                  cat >> notes.md <<'NOTES'
+
+                  To install, download `radio.deadair.streamdeck.streamDeckPlugin` and open it: the Stream
+                  Deck app (7.1 or later) installs it. Then open any deadair key's settings and enter the
+                  station's address and an API key, issued in the console under Settings, Security, API
+                  keys, with Read and manage.
+                  NOTES
+                  cat notes.md
+
+            - name: Publish the release
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: |
+                  gh release create "streamdeck-v${{ steps.version.outputs.value }}" \
+                      --title "deadair for Stream Deck ${{ steps.version.outputs.value }}" \
+                      --notes-file notes.md \
+                      ${{ inputs.draft && '--draft' || '' }} \
+                      "apps/streamdeck/artifacts/radio.deadair.streamdeck.streamDeckPlugin"

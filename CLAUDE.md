@@ -27,6 +27,7 @@ was shipped first and was wrong.
 | `apps/android/**`, `packages/sdk-kotlin/**` | [`apps/android/CLAUDE.md`](apps/android/CLAUDE.md) |
 | `apps/desktop/**`, `packages/sdk-csharp/**` | [`apps/desktop/CLAUDE.md`](apps/desktop/CLAUDE.md) |
 | `apps/ios/**`, `packages/sdk-swift/**` | [`apps/ios/CLAUDE.md`](apps/ios/CLAUDE.md) |
+| `apps/streamdeck/**` | [`apps/streamdeck/CLAUDE.md`](apps/streamdeck/CLAUDE.md) |
 | the running order, briefs, periods, committing, track audio | [`docs/internals/director.md`](docs/internals/director.md) |
 | which records get chosen, ratings, advisory, the search tool | [`docs/internals/programming.md`](docs/internals/programming.md) |
 | what a break says, facts, phrasings, bulletins, the format clock | [`docs/internals/breaks.md`](docs/internals/breaks.md) |
@@ -116,6 +117,9 @@ apps/ios          SwiftUI listener app (AVFoundation). Its own Xcode project and
                   version for changesets, as the other two apps' are
 packages/sdk-swift    the same contracts as a Swift/Codable client, for the iOS app. Generated,
                       save for Package.swift; no package.json
+apps/streamdeck   the Elgato Stream Deck plugin (TypeScript, on packages/sdk): Now Playing, Skip,
+                  Stop or start. A workspace member for real, built by turbo and tested in the root
+                  suite, with a CI job and a release unit of its own. Never in the image
 packages/error-codes  shared error code constants
 packages/config-*     shared eslint / tsconfig
 plugins/*             bundled plugins: spotify, navidrome, musicbrainz, lastfm, wikipedia (the

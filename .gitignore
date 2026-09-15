@@ -100,10 +100,9 @@ DerivedData/
 .swiftpm/
 *.xcarchive
 
-# The Stream Deck plugin's installer, which `pnpm --filter @deadair/streamdeck pack` writes and the
-# release workflow attaches to a release. Its bundle is `radio.deadair.streamdeck.sdPlugin/bin/`,
-# which the bare `bin/` above already keeps out, and its settings panel's script is built beside the
-# committed page.
+# The Stream Deck plugin's installer, which its `installer` script writes and the release workflow
+# attaches to a release. Its bundle is `radio.deadair.streamdeck.sdPlugin/bin/`, which the bare `bin/`
+# above already keeps out, and its settings panel's script is built beside the committed page.
 apps/streamdeck/artifacts/
 apps/streamdeck/radio.deadair.streamdeck.sdPlugin/ui/station.js
 *.streamDeckPlugin

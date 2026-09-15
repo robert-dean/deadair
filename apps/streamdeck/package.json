@@ -12,7 +12,7 @@
         "format": "prettier --write . --ignore-path ../../.prettierignore",
         "test": "vitest run",
         "validate": "streamdeck validate radio.deadair.streamdeck.sdPlugin --no-update-check",
-        "pack": "streamdeck pack radio.deadair.streamdeck.sdPlugin --output artifacts --force --no-update-check",
+        "installer": "rm -rf artifacts && mkdir -p artifacts/staging && cp -R radio.deadair.streamdeck.sdPlugin artifacts/staging/ && streamdeck pack artifacts/staging/radio.deadair.streamdeck.sdPlugin --output artifacts --force --no-update-check && rm -rf artifacts/staging",
         "link": "streamdeck link radio.deadair.streamdeck.sdPlugin",
         "restart": "streamdeck restart radio.deadair.streamdeck"
     },

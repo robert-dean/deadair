@@ -32,6 +32,11 @@ export interface NowPlayingFace {
     tone: Tone;
     /** The reading is from before an attempt that failed, so nothing on the key may look live. */
     stale: boolean;
+    /**
+     * The dark shade along the bottom that the title is read against. `false` for a key showing no
+     * title, where it would only darken the cover.
+     */
+    shade?: boolean;
 }
 
 /** Which step a fraction of the way through falls on. */
@@ -67,7 +72,7 @@ export function nowPlayingSvg(face: NowPlayingFace): string {
         `</linearGradient></defs>` +
         `<rect width="${SIZE}" height="${SIZE}" fill="${CARBON}"/>` +
         picture +
-        `<rect y="64" width="${SIZE}" height="80" fill="url(#shade)"/>` +
+        (face.shade === false ? '' : `<rect y="64" width="${SIZE}" height="80" fill="url(#shade)"/>`) +
         bar +
         `</svg>`
     );

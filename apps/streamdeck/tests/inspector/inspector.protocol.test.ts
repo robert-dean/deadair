@@ -12,6 +12,14 @@ describe('inspectorMessages', () => {
         expect(out.setGlobalSettings({ address: 'a' })).toEqual({ event: 'setGlobalSettings', context: 'pi-uuid', payload: { address: 'a' } });
     });
 
+    it('writes the one key’s own settings under its id, beside the global ones', () => {
+        expect(out.setSettings({ showProgress: false, showTitle: true })).toEqual({
+            event: 'setSettings',
+            context: 'pi-uuid',
+            payload: { showProgress: false, showTitle: true },
+        });
+    });
+
     it('asks the plugin for a check as the action it was opened on', () => {
         const message = out.testConnection();
         expect(message).toEqual({

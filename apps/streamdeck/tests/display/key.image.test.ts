@@ -31,6 +31,11 @@ describe('nowPlayingSvg', () => {
         expect(svg).not.toContain('#FF4B4B');
     });
 
+    it('draws no shade for a key that shows no title', () => {
+        expect(nowPlayingSvg({ cover: COVER, tone: 'live', stale: false })).toContain('url(#shade)"/>');
+        expect(nowPlayingSvg({ cover: COVER, tone: 'live', stale: false, shade: false })).not.toContain('fill="url(#shade)"');
+    });
+
     it('draws no bar for a record the station cannot measure', () => {
         expect(nowPlayingSvg({ cover: COVER, tone: 'live', stale: false })).not.toContain('height="8"');
     });

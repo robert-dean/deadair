@@ -11,6 +11,7 @@ which tags `streamdeck-v<version>`. The station's own changes are in the
 ## [0.1.0] — 2026-09-15
 
 - The first release: a Now Playing key with the cover and a moving playhead, Skip, and a Stop key that asks for a second press before it takes the station off air and becomes Start once it has.
+- Each Now Playing key can leave out the progress bar, or the title and artist, from its own settings.
 
 [Unreleased]: https://github.com/robert-dean/deadair/compare/streamdeck-v0.1.0...HEAD
 [0.1.0]: https://github.com/robert-dean/deadair/releases/tag/streamdeck-v0.1.0

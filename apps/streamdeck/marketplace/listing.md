@@ -21,7 +21,8 @@ Under the console's 1,500 characters.
 >
 > Now playing shows what is on air: the cover, the title and who it is by, and a bar that fills as the
 > record plays. When the station is quiet it says why, in the console's own words: ready, off air,
-> warming up. Press it to open the station's console.
+> warming up. Press it to open the station's console. The bar, and the title and artist, can each be
+> turned off per key.
 >
 > Skip ends the record or break on air and plays the next one.
 >

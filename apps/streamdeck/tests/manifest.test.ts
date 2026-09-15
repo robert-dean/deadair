@@ -2,6 +2,8 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
+import { NOW_PLAYING } from '../src/actions/now.playing.options.js';
+
 // `streamdeck validate` checks all of this too, but it fetches the manifest's URLs first and so needs
 // the network, which a test run does not have. These are the parts that break without anybody
 // editing the manifest: an image renamed under it, an action whose id stops matching the plugin's.
@@ -42,6 +44,10 @@ function imageExists(path: string): boolean {
 }
 
 describe('the plugin manifest', () => {
+    it('declares the Now Playing action the code registers', () => {
+        expect(manifest.Actions.map(action => action.UUID)).toContain(NOW_PLAYING);
+    });
+
     it('names every action under the plugin’s own id', () => {
         for (const action of manifest.Actions) {
             expect(action.UUID.startsWith(`${manifest.UUID}.`)).toBe(true);

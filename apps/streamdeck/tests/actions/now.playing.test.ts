@@ -16,14 +16,20 @@ describe('viewFor', () => {
     it('shows a record: its cover, its title and who it is by, and the bar', () => {
         expect(viewFor({ status: airing(), stale: false }, 0, API)).toEqual({
             title: 'Pale Blue…\nThe Velvet…',
-            face: { tone: 'live', stale: false, step: Math.floor((141_000 / 341_000) * PROGRESS_STEPS) },
+            face: { tone: 'live', stale: false, shade: true, step: Math.floor((141_000 / 341_000) * PROGRESS_STEPS) },
             coverUrl: `${API}/${record.artworkUrl}`,
         });
     });
 
     it('shows the station’s own words when nothing is on air', () => {
-        expect(viewFor({ status: waitingForListener(), stale: false }, 0, API)).toEqual({ title: 'ready', face: { tone: 'standby', stale: false } });
-        expect(viewFor({ status: stoodDown(), stale: false }, 0, API)).toEqual({ title: 'off air', face: { tone: 'off', stale: false } });
+        expect(viewFor({ status: waitingForListener(), stale: false }, 0, API)).toEqual({
+            title: 'ready',
+            face: { tone: 'standby', stale: false, shade: true },
+        });
+        expect(viewFor({ status: stoodDown(), stale: false }, 0, API)).toEqual({
+            title: 'off air',
+            face: { tone: 'off', stale: false, shade: true },
+        });
     });
 
     it('keeps the last cover through a failure and says what went wrong instead of the title', () => {
@@ -34,8 +40,34 @@ describe('viewFor', () => {
     });
 
     it('asks to be set up before there is a station', () => {
-        expect(viewFor({ failure: 'unconfigured', stale: false }, 0, undefined)).toEqual({ title: 'Set up', face: { tone: 'off', stale: false } });
-        expect(viewFor({ failure: 'unauthorised', stale: false }, 0, API)).toEqual({ title: 'Key refused', face: { tone: 'fault', stale: false } });
+        expect(viewFor({ failure: 'unconfigured', stale: false }, 0, undefined)).toEqual({
+            title: 'Set up',
+            face: { tone: 'off', stale: false, shade: true },
+        });
+        expect(viewFor({ failure: 'unauthorised', stale: false }, 0, API)).toEqual({
+            title: 'Key refused',
+            face: { tone: 'fault', stale: false, shade: true },
+        });
+    });
+
+    it('leaves out the title and its shade when the key says so, and keeps the cover and the bar', () => {
+        const view = viewFor({ status: airing(), stale: false }, 0, API, { progress: true, title: false });
+        expect(view.title).toBe('');
+        expect(view.face.shade).toBe(false);
+        expect(view.face.step).toBeDefined();
+        expect(view.coverUrl).toBeDefined();
+    });
+
+    it('leaves out the bar when the key says so', () => {
+        const view = viewFor({ status: airing(), stale: false }, 0, API, { progress: false, title: true });
+        expect(view.face.step).toBeUndefined();
+        expect(view.title).toBe('Pale Blue…\nThe Velvet…');
+    });
+
+    it('still says why it is quiet, or what failed, with the title turned off', () => {
+        const hidden = { progress: false, title: false };
+        expect(viewFor({ status: stoodDown(), stale: false }, 0, API, hidden).title).toBe('off air');
+        expect(viewFor({ status: airing(), failure: 'unreachable', stale: true }, 0, API, hidden).title).toBe('No station');
     });
 
     it('draws no bar for a record the decoder cannot measure', () => {
@@ -127,6 +159,28 @@ describe('NowPlayingKeys', () => {
         answers = [airing({ nowPlaying: { item: record, startedAt: 1_000, remainingMs: 180_000 } })];
         await vi.advanceTimersByTimeAsync(2_000);
         expect(key.calls.filter(call => call.startsWith('image ')).length).toBeGreaterThan(before);
+    });
+
+    it('draws each key by its own settings, and redraws one when its settings change', async () => {
+        const plain = fakeKey('plain');
+        const bare = fakeKey('bare');
+        const nowPlaying = keys();
+        nowPlaying.show(plain, {});
+        nowPlaying.show(bare, { showProgress: false, showTitle: false });
+        await vi.advanceTimersByTimeAsync(0);
+        await vi.advanceTimersByTimeAsync(500);
+
+        const lastImage = (key: ReturnType<typeof fakeKey>) => decodeURIComponent(key.calls.filter(call => call.startsWith('image ')).at(-1)!);
+        expect(lastImage(plain)).toContain('height="8"');
+        expect(lastImage(plain)).toContain('url(#shade)');
+        expect(lastImage(bare)).not.toContain('height="8"');
+        expect(lastImage(bare)).not.toContain('url(#shade)');
+        expect(plain.calls).toContain('title Pale Blue…\nThe Velvet…');
+        expect(bare.calls).not.toContain('title Pale Blue…\nThe Velvet…');
+
+        nowPlaying.configure('bare', { showTitle: true });
+        expect(bare.calls.at(-1)).toBe('title Pale Blue…\nThe Velvet…');
+        expect(lastImage(bare)).toContain('height="8"');
     });
 
     it('opens the console at the station’s address when pressed', async () => {

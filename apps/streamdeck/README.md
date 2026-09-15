@@ -9,6 +9,9 @@ top that fills as the record plays, red while the station is on air. When nothin
 why, in the console's own words: _ready_ (waiting for a listener), _off air_ (somebody stopped it),
 _warming up_, and so on. Press it to open the station's console.
 
+Each Now playing key can leave out the bar, or the title and artist, from its settings, for a key
+that is only the cover. It still says why when nothing is playing.
+
 **Skip** ends the record or break on air and plays the next one. When there is nothing to skip it
 shows the warning triangle and does nothing.
 

@@ -126,6 +126,16 @@ is sure to know; drawn that way, the cover shows on a Stream Deck+ (measured, be
 tone. The bar has 36 steps, a redraw every five to eight seconds on an ordinary record, because every
 redraw carries the whole cover again.
 
+**Each Now Playing key can leave out the bar, or the title and artist, or both.** Those are the
+key's own action settings, not global ones: two keys can want different things, and a display choice
+is exactly what should travel in an exported profile. Absent means shown, so an unconfigured key
+draws everything. Turning the title off takes away the record's title and artist and the shade under
+them, and never the station's own words ("ready", "off air") or a failure's ("No station"), because
+a bare placeholder or a silently old cover would say nothing true. Turning the bar off also means
+fewer redraws, since the image then changes only with the cover. The settings panel shows the two
+checkboxes only when it is opened on a Now Playing key, saves on every tick (Elgato's rule for a
+checkbox) with `setSettings`, and the plugin redraws that key alone from `didReceiveSettings`.
+
 **The playhead refuses to guess**, as everywhere else in this tree: no duration or no countdown, no
 bar. It counts ticks rather than reading a clock, so a suspended process stalls the bar instead of
 jumping it.
@@ -147,7 +157,7 @@ hint the station itself stores and the console shows beside the key. The plugin'
 ends, not on every poll.
 
 **The settings panel is written here, not taken from sdpi-components.** Elgato suggests that library,
-but its npm package of the same name is not its author's, the protocol is five messages, and a
+but its npm package of the same name is not its author's, the protocol is six messages, and a
 TypeScript panel shares the address parser and the message types with the plugin that answers it.
 `src/inspector/` is built by tsup into `ui/station.js` beside the committed page.
 
@@ -186,7 +196,9 @@ settings round trip, polling with the bearer and the plugin's User-Agent, the ti
 drawn and the bar stepping, the cover fetched with no `Authorization` header, a press opening the
 console, a skip, an armed and fired Stop, a Start, and the settings panel in a browser saying in turn
 that it needs an address, a key, that a wrong key was refused by a station it found, and that the
-right one connects. The embedded cover, the bar and the shade render in macOS's own SVG renderer.
+right one connects. Two Now Playing keys with different settings, one drawing the cover alone, and
+a settings change redrawing only its own key; the panel's checkboxes opened on a key's own settings
+and sending each tick. The embedded cover, the bar and the shade render in macOS's own SVG renderer.
 
 On a Stream Deck: Robert ran it linked, in developer mode, on a Stream Deck+ with the Stream Deck app
 7.5.1 against his own station on 2026-09-15, and it works. The Now Playing key shows the cover, which

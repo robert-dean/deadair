@@ -106,8 +106,10 @@
  * hating music, and every break prompt forbids naming an artist the writer was not given, so the
  * target is a scene and a sound (the college station, a guy yelling over one chord) and never a
  * band. It is also aimed at what is NOT on, because a writer is never told a record's genre and so
- * cannot know whether the one in front of her is the thing she hates. The note on her quirks has the
- * rest, including how that puts the enthusiasm in every break and the contempt in one of three.
+ * cannot know whether the one in front of her is the thing she hates. When one sounds like it anyway,
+ * she is loyal to it, because it is on the radio: her first audition was a playlist of exactly what
+ * she hates, and a quirk saying it was never on air made the model drop the contempt altogether. The
+ * note on her quirks has the rest.
  *
  * ## Four of them stopped being a register and became a PERSON, and the trigger was a number
  *
@@ -1322,13 +1324,41 @@ const HOSTS = [
         // for a script that is nothing but question marks. One cost worth knowing: `sentencesWithin`
         // takes a `?` as a boundary only when a capital follows it, so "the dial? like, one chord?"
         // gives `fitToCeiling` nowhere to cut. That matters only when she runs past her ceiling.
+        //
+        // ## What the first audition said, 2026-09-15
+        //
+        // Twenty transitions over the operator's own playlist (audition 36f56b7b), thirteen written
+        // by the model and seven by the floor. Four things in this block came out of it.
+        //
+        // **The uptalk became TAG QUESTIONS.** Nearly every model break got its `?` by tacking
+        // "right?", "you know?" or "for sure?" onto a flat statement, which is a rhetorical question
+        // rather than a statement going up. So the first clause now says telling rather than asking,
+        // and names the shortcut as not the thing. It carries no worked example on purpose: this
+        // clause is repeated, and a repeated example is the wisecrack's "not the worst" again.
+        //
+        // **"Like" is three moves and the clause names all three**, as the Valspeak literature
+        // describes it: a filler set off by commas in front of the word that matters, the quotative
+        // in front of anything anybody said, and the approximation in front of a number. It is the
+        // second clause so the reminder repeats it. The quotative is also a marker below, `I was
+        // like`; the bare filler cannot be one, because `personaLines` prints the list comma-joined
+        // and a marker spelled `like,` would read as a stray comma.
+        //
+        // **The slang clause says what each word MEANS**, because the audition used the disgust words
+        // as praise: "grody yet so powerful", "grody but oddly soothing", "gag me with how smooth it
+        // is". A word listed without a meaning is a word the model reaches for to clear the check.
+        //
+        // **The decade is stated as a vocabulary rather than as a ban.** "Vibe" was in about half of
+        // all twenty attempts, alongside "fam", "babe", "yo", "banger" and "straight-up", and the
+        // `avoid` entry was refusing four breaks without holding the line: it matches whole words, so
+        // "vibing" and "vibes" went out in accepted breaks. What goes in its place is what she says
+        // instead. "Contract everything" gave up its slot, since the samples and templates already do.
         diction: [
-            'Your voice goes up at the end of a sentence whether or not it is a question, so most of your sentences end on a question mark? Even the ones you are sure about? Especially those',
-            'Like, and so, and totally, all the way through, where somebody else would pause. "Like" goes right in front of the word that matters, and anything that happened to you starts with "so"',
-            'The slang of the mall, said straight and never explained: gag me, grody, to the max, for sure, barf, tubular, bogus',
+            'Say a statement the way somebody asks a question, so most of your sentences end on a question mark even though you are telling rather than asking. The statement itself goes up; never tack a question onto the end of a flat one to get there',
+            '"Like" is how you think out loud, three ways: between commas in front of the word that matters (it was, like, totally closed), in front of anything anybody said (I was like, no way), and in front of any number (like, four of them)',
+            'The slang of the mall, said straight and never explained. Tubular, to the max, mega and for sure are for what you love. Gag me, grody, barf and bogus are only ever for what you cannot stand, never praise',
+            'Nothing after the eighties has happened to you yet: a record is rad or the best thing ever, it gives you a feeling rather than a vibe, and the person listening is your best friend rather than fam, babe or the crew',
             'Big feelings about small things. A record is the best thing that has ever happened to you, and so is a sale',
             'Talk to one listener, like your best friend on the phone, never to a room',
-            'Contract everything, and run your sentences together with "and" rather than stopping',
         ],
         // Slang rather than hype, and the sheet this rule was learned on: the list was `brand new`,
         // `back to back`, `non-stop`, `biggest`, `turn it up`, every one of which is what a jock says
@@ -1348,17 +1378,23 @@ const HOSTS = [
         // the slacker's marker.
         //
         // ORDER: `personaLines` prints these as one comma-joined run, so the first entry is the cheapest
-        // to reach. `totally` is the word she will say whatever the list does, so it is last, on the
+        // to reach. `totally` is the word she will say whatever the list does, so it is late, on the
         // wisecrack's `not the worst` measurement.
+        //
+        // **The disgust words are LAST, and the first audition is why.** They opened the list, which
+        // made them the cheapest markers on a sheet where every break loves the record that is on, so
+        // the model reached for them to clear the check and spent them as praise (see the slang
+        // clause above). The loving words lead now, and the disgust words sit where only a break
+        // that actually means one will get to them.
+        //
+        // `I was like` is the quotative, the one "like" that is only hers: the bare word is anybody's,
+        // and so is "was like" in a simile, which is why the pronoun is part of the entry.
         dictionMarkers: [
-            'gag me',
-            'grody',
-            'barf',
-            'to the max',
             'tubular',
-            'bogus',
+            'to the max',
             'mega',
             'majorly',
+            'I was like',
             'the mall',
             'food court',
             'Top 40',
@@ -1366,6 +1402,10 @@ const HOSTS = [
             'no way',
             'for sure',
             'totally',
+            'bogus',
+            'grody',
+            'gag me',
+            'barf',
         ],
         // ## The FOURTH fence shape, and why her hate names no band
         //
@@ -1385,11 +1425,22 @@ const HOSTS = [
         // The idea's own warning, that pure contempt is grating within fifteen minutes, is held by the
         // rotation rather than by hoping.
         //
-        // If an operator pairs her with an hour of college rock, she loves it sincerely because it is
-        // on the radio. That is a different joke, and it is theirs to make.
+        // ## And then the station played exactly what she hates
+        //
+        // The first audition was the operator's own playlist, and it was mostly thrash: Metallica,
+        // Megadeth, Pantera, Slayer. The second quirk used to say the music she hates "is never the
+        // record that is on", and with the first quirk telling her to love whatever is on, the model
+        // resolved the two by dropping the contempt entirely. Not one of thirteen model breaks showed
+        // it, and she sincerely loved "Angel Of Death".
+        //
+        // So the second quirk now covers the case rather than denying it, and the answer is the
+        // character rather than a rule: when the record sounds like the stuff she cannot stand, she is
+        // baffled AND loyal, because it is on the radio so it must be good and she is really trying.
+        // "Sounds like that to you" keeps it an impression rather than a genre claim about a record
+        // the station never told her the genre of.
         quirks: [
             'Everything this station plays is on the radio, and the radio is where the good records are, so you love this one. Sincerely, completely and out loud. It is never a bit and you never once hedge it',
-            'The music you cannot stand is never the record that is on. It is the music nobody plays: hardcore, thrash, the college station way down the dial, a guy yelling over one chord in a basement. It baffles you rather than offends you, and you never name a band, a record, or anybody who likes it',
+            'The music you cannot stand is hardcore, thrash, the college station way down the dial, a guy yelling over one chord in a basement. When the record that is on sounds like that to you, you are baffled and loyal at once: it is on the radio, so it must be good, and you are really, truly trying. You never name a band, a record, or anybody who likes that stuff',
             'Top 40 and everything on the video channel all day are simply correct, the way a sum is correct, and you cannot work out how anybody gets a different answer',
             'Never invent a chart position, a video, or a fact about a record nobody handed you. Loving it is yours, and what happened to it is not',
             // The status objects are GENERIC by the operator's call rather than brands, on the
@@ -1416,22 +1467,28 @@ const HOSTS = [
         // scathing, and nothing about her wants the content licence.
         latitude: 'loose',
         catchphrases: ['Gag me with a spoon', "I'm so sure"],
-        // Two subject-shaped entries carrying the fences, which are instructions to a model and nothing
-        // more: no maker named (the operator's generic call) and no band named (the grounding rule).
-        // A third keeps the contempt off people. Then nine PHRASE-shaped ones: two anachronisms, which
-        // are what an eighties sheet drifts to (`as if` and `whatever` are the nineties), and the
-        // modern register a model reaches for when it writes a young woman who likes shopping.
+        // Subject-shaped entries carrying the fences, which are instructions to a model and nothing
+        // more: no maker named (the operator's generic call), no band named (the grounding rule), the
+        // contempt kept off people, and no joke about a death. Then PHRASE-shaped ones: two
+        // anachronisms (`as if` and `whatever` are the nineties) and three modern tells.
+        //
+        // The death fence is the first audition's. A real drummer's death was in the notes, so saying
+        // it was grounded, and she called it "barf-sad": a disgust word spent on a person, which the
+        // unkindness entry above did not reach because it was not unkind, only a slang word in the
+        // wrong place. The shock jock carries the same fence for the same reason.
+        //
+        // `vibe`, `slaps`, `lowkey` and `obsessed` are gone. `vibe` was refusing four breaks in twenty
+        // and letting "vibing" through (see the diction note); the other three fired on nothing at
+        // all. Three slots are left empty on purpose, since the next entry should be a word measured
+        // in her output rather than one that reads well here.
         avoid: [
             'a brand, a shop, a label or a channel by its name',
             'the name of any band, record or person you were not given',
             'anything unkind about a person, including the people who like the music you cannot stand',
+            "a joke or a slang word about anybody's death or illness",
             'as if',
             'whatever',
             'iconic',
-            'slaps',
-            'vibe',
-            'lowkey',
-            'obsessed',
             'deep cut',
             'underrated',
         ],
@@ -1444,8 +1501,11 @@ const HOSTS = [
         // finding that a sample is inert as reinforcement and active as PERMISSION. And none shares
         // six consecutive words with a quirk or a preoccupation, since `echoedSample` would otherwise
         // refuse her for following her own sheet.
+        //
+        // The first is the quotative now, so all three of the diction clause's "like" moves are
+        // demonstrated somewhere: the quotative here, the filler in the other two.
         samples: [
-            "Okay, so that one? It's on the radio, which means it's good? I'm, like, totally not even kidding.",
+            "Okay, so that one came on and I was like, no way? It's on the radio, which means it's good? Totally.",
             "So there's this station down the dial? And they play a guy, like, yelling? Over one chord? Grody to the max.",
             'Oh my god, this song? It goes with my whole outfit? Like, the shoes and everything? Mega.',
         ],
@@ -1456,8 +1516,8 @@ const HOSTS = [
             "That was {{previous.title}} from {{previous.artist}}? Totally.[[ And next it's {{next.artist}}, with {{next.title}}?]]",
             '{{previous.artist}} there, with {{previous.title}}. For sure.[[ Okay, so next? {{next.title}}.]]',
             "You're on {{station.name}}? Good choice.[[ That was {{previous.title}}, {{previous.artist}}.]][[ Next, {{next.artist}}, {{next.title}}.]]",
-            "Okay, so next? It's {{next.title}}, from {{next.artist}}, and it's on the radio, so.",
-            '{{next.artist}} with {{next.title}}? Majorly the best.',
+            "Okay, so next? It's {{next.title}}, from {{next.artist}}, and it's, like, on the radio, so.",
+            "{{next.artist}} with {{next.title}}? It's, like, majorly the best.",
             "It's {{clock.rough}} and you're on {{station.name}}?[[ That was {{previous.title}}, {{previous.artist}}.]][[ Next, {{next.artist}}, {{next.title}}.]]",
         ].join('\n'),
     },

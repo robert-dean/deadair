@@ -181,6 +181,17 @@ in the app's `Plugins` folder; `streamdeck restart radio.deadair.streamdeck` is 
 only enabled in developer mode" (measured, Stream Deck 7.5.1) until `streamdeck dev` has turned that
 on. Installing the packed `.streamDeckPlugin` needs neither.
 
+**After a build, restart the plugin, or the settings panel and the plugin disagree.** The app reads
+`ui/station.html` and its script from disk every time a panel opens, but runs `bin/plugin.js` from
+the moment it last started it. So a rebuilt linked plugin shows the new panel at once while the old
+plugin answers it. Measured on the first day: the Now Playing options were ticked off in the new
+panel and saved on the key (the profile's `manifest.json` said so), and the keys ignored them,
+because the plugin running was from before the options existed. `pnpm --filter @deadair/streamdeck
+run restart` from the checkout that has the plugin; the app's log
+(`~/Library/Logs/ElgatoStreamDeck/StreamDeck.log`) says `Reloaded plugin` when it has. The same is
+why `logs/` in the plugin folder is not to be deleted under a running plugin: it goes on writing to
+the unlinked file, and the next log appears only after a restart.
+
 **The bundle can be driven without the app**, and that is how it was checked. The app launches it
 as `node bin/plugin.js -port <p> -pluginUUID radio.deadair.streamdeck -registerEvent registerPlugin
 -info <json>`, with `info.devices` holding the device every `willAppear` names; a WebSocket server

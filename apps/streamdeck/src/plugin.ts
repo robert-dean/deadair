@@ -7,8 +7,11 @@ import { SkipKeys } from './actions/skip.keys.js';
 import { TransportAction } from './actions/transport.action.js';
 import { TransportKeys } from './actions/transport.keys.js';
 import { ArtworkCache } from './display/artwork.js';
+import { isToPlugin, type ToInspector } from './inspector/inspector.messages.js';
 import { describe, type Failure } from './station/connection.failure.js';
+import { createPublicSdk, createStationSdk } from './station/station.client.js';
 import { StationLink } from './station/station.link.js';
+import { probeStation } from './station/station.probe.js';
 import { redact, type StationSettings } from './station/station.settings.js';
 import { StatusPoller } from './station/status.poller.js';
 
@@ -49,12 +52,36 @@ poller.subscribe(reading => {
     failing = reading.failure;
 });
 
+// The settings the keys are using, which is what the settings panel is told about: it writes them,
+// the app hands them here, and the check runs on what arrived rather than on what the panel typed.
+let settings: StationSettings = {};
+
+/**
+ * Checks the settings and tells the settings panel what it found. Only while a panel is open: the
+ * panel asks for a check itself when it opens, and nobody else reads the answer.
+ */
+async function reportConnection(): Promise<void> {
+    if (streamDeck.ui.action === undefined) return;
+    const result = await probeStation(settings, {
+        anonymous: apiBase => createPublicSdk(apiBase, userAgent),
+        keyed: station => createStationSdk(station, userAgent),
+    });
+    const message: ToInspector = { event: 'connection', ...result };
+    await streamDeck.ui.sendToPropertyInspector(message);
+}
+
 streamDeck.settings.onDidReceiveGlobalSettings<StationSettings>(ev => {
-    logger.info(`Station settings: ${redact(ev.settings)}`);
-    link.apply(ev.settings);
+    settings = ev.settings;
+    logger.info(`Station settings: ${redact(settings)}`);
+    link.apply(settings);
+    void reportConnection();
+});
+streamDeck.ui.onSendToPlugin(ev => {
+    if (isToPlugin(ev.payload)) void reportConnection();
 });
 streamDeck.system.onSystemDidWakeUp(() => link.refresh());
 
 await streamDeck.connect();
-link.apply(await streamDeck.settings.getGlobalSettings<StationSettings>());
+settings = await streamDeck.settings.getGlobalSettings<StationSettings>();
+link.apply(settings);
 if (link.station === undefined) logger.warn(describe('unconfigured').sentence);

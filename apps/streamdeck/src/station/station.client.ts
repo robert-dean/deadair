@@ -20,10 +20,19 @@ export const REQUEST_TIMEOUT_MS = 10_000;
  * logs among the console's and the listener apps'.
  */
 export function createStationSdk(station: Station, userAgent: string): DeadairSdk {
-    const base = createSdkFetch({
-        baseUrl: station.apiBase,
-        headers: { Authorization: `Bearer ${station.apiKey}`, 'User-Agent': userAgent },
-    });
+    return sdkFor(station.apiBase, { Authorization: `Bearer ${station.apiKey}`, 'User-Agent': userAgent });
+}
+
+/**
+ * The station's SDK with no key, for the one route that needs none (`GET /nowplaying`). The settings
+ * check asks it first, because an answer there proves the ADDRESS whatever is wrong with the key.
+ */
+export function createPublicSdk(apiBase: string, userAgent: string): DeadairSdk {
+    return sdkFor(apiBase, { 'User-Agent': userAgent });
+}
+
+function sdkFor(apiBase: string, headers: Record<string, string>): DeadairSdk {
+    const base = createSdkFetch({ baseUrl: apiBase, headers });
     const timed: SdkFetch = (url, init) => base(url, { ...init, signal: init.signal ?? AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
-    return new DeadairSdk({ baseUrl: station.apiBase, fetch: timed });
+    return new DeadairSdk({ baseUrl: apiBase, fetch: timed });
 }

@@ -69,8 +69,9 @@ describe('the plugin manifest', () => {
         expect(['20', '24']).toContain(manifest.Nodejs.Version);
     });
 
-    it('has the property inspector it names', () => {
-        expect(existsSync(join(plugin, manifest.PropertyInspectorPath))).toBe(true);
+    it('has the property inspector it names, loading the script the build writes beside it', () => {
+        const page = readFileSync(join(plugin, manifest.PropertyInspectorPath), 'utf8');
+        expect(page).toContain('<script src="station.js"></script>');
     });
 
     it('offers every action on a key, and only on a key', () => {

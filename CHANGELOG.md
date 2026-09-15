@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.8.0] — 2026-09-15
+
+- API keys, for a script or an integration that should reach the station without your password. Settings → Security has a new card to create one, read-only or read-and-manage, with an expiry if you want one; the key is shown once, and can be rotated or revoked from the same card. A key acts as your account and never does more than it can, so a listener's key only reads. It cannot sign in, change how you sign in, or make other keys. Send it as `Authorization: Bearer da_…`.
+
 ## [0.7.1] — 2026-09-14
 
 - A break that uses a time of day in a comparison ("the riffs hit like an unmarked car at midnight", "smooth as a midnight train") is no longer sent to the floor for naming the wrong time. Saying it is midnight when it is not is still refused.
@@ -114,7 +118,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.7.1...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/robert-dean/deadair/compare/v0.7.1...v0.8.0
 [0.7.1]: https://github.com/robert-dean/deadair/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/robert-dean/deadair/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/robert-dean/deadair/compare/v0.5.1...v0.6.0

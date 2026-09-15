@@ -183,6 +183,13 @@ describe('NowPlayingKeys', () => {
         expect(lastImage(bare)).toContain('height="8"');
     });
 
+    it('draws the station’s mark while there is no cover yet', async () => {
+        const key = fakeKey('one');
+        new NowPlayingKeys({ poller, artwork, station: () => station, openConsole: vi.fn(), mark: 'data:image/png;base64,MARK' }).appear(key);
+        const first = decodeURIComponent(key.calls.find(call => call.startsWith('image '))!);
+        expect(first).toContain('xlink:href="data:image/png;base64,MARK"');
+    });
+
     it('opens the console at the station’s address when pressed', async () => {
         const openConsole = vi.fn(async () => undefined);
         const nowPlaying = keys(openConsole);

@@ -79,7 +79,8 @@ function key(x, y, size, image, title = '', label = '') {
     );
 }
 
-const nowPlaying = (face, title) => ({ image: svgUri(nowPlayingSvg(face)), title });
+const mark = fileUri(join(plugin, 'imgs/plugin/mark.png'), 'image/png');
+const nowPlaying = (face, title) => ({ image: svgUri(nowPlayingSvg({ mark, ...face })), title });
 const manifestKey = path => fileUri(join(plugin, path), 'image/svg+xml');
 
 /** A headline and a line under it, top left. */

@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+
 import streamDeck from '@elgato/streamdeck';
 
 import { NowPlayingAction } from './actions/now.playing.action.js';
@@ -23,6 +25,21 @@ const poller = new StatusPoller();
 const link = new StationLink(poller, userAgent);
 const artwork = new ArtworkCache({ userAgent });
 
+/**
+ * The station's mark, drawn on a Now Playing key with no cover. Read off the plugin's own folder
+ * rather than bundled, because it is an image the app already ships beside the bundle; a plugin that
+ * cannot read it draws a plain record instead and says so, rather than failing to start.
+ */
+function readMark(): string | undefined {
+    try {
+        return `data:image/png;base64,${readFileSync(new URL('../imgs/plugin/mark.png', import.meta.url)).toString('base64')}`;
+    } catch (error) {
+        logger.warn(`The station's mark could not be read, so a key with no cover draws a plain record: ${String(error)}`);
+        return undefined;
+    }
+}
+const mark = readMark();
+
 const warn = (sentence: string): void => {
     logger.warn(sentence);
 };
@@ -34,6 +51,7 @@ streamDeck.actions.registerAction(
             artwork,
             station: () => link.station,
             openConsole: origin => streamDeck.system.openUrl(origin),
+            ...(mark === undefined ? {} : { mark }),
         }),
     ),
 );

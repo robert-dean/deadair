@@ -126,6 +126,16 @@ is sure to know; drawn that way, the cover shows on a Stream Deck+ (measured, be
 tone. The bar has 36 steps, a redraw every five to eight seconds on an ordinary record, because every
 redraw carries the whole cover again.
 
+**With no cover to show, the key draws the station's mark**: nothing on air, a break, a cover that
+could not be had. It replaced a drawn record whose label carried the tone in its colour; the mark is
+the station's own colours and cannot, so it says the tone by weight: full while airing or ready for a
+listener, faint (0.4) when stood down, failing or stale, with the words under it saying which.
+`imgs/plugin/mark.png` is the console's `logo-mark.png` at 144 pixels, read off the plugin folder at
+start (`new URL('../imgs/plugin/mark.png', import.meta.url)`, from `bin/`) rather than bundled; a
+plugin that cannot read it logs so and draws the old record instead. The manifest's own Now Playing
+picture is the same quiet face, written by `tools/default.key.mjs` from the renderer, so the key does
+not change picture the moment the plugin first draws.
+
 **Each Now Playing key can leave out the bar, or the title and artist, or both.** Those are the
 key's own action settings, not global ones: two keys can want different things, and a display choice
 is exactly what should travel in an exported profile. Absent means shown, so an unconfigured key

@@ -61,6 +61,10 @@ describe('the plugin manifest', () => {
         }
     });
 
+    it('has the station’s mark where the plugin reads it, at the size a key draws', () => {
+        expect(pngWidth(join(plugin, 'imgs/plugin/mark.png'))).toBe(144);
+    });
+
     it('has the plugin icon as a PNG at the two sizes the store asks for', () => {
         expect(pngWidth(join(plugin, `${manifest.Icon}.png`))).toBe(256);
         expect(pngWidth(join(plugin, `${manifest.Icon}@2x.png`))).toBe(512);

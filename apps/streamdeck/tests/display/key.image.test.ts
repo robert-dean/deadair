@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { nowPlayingSvg, PROGRESS_STEPS, progressStep, svgDataUri } from '../../src/display/key.image.js';
 
 const COVER = 'data:image/jpeg;base64,/9j/4AAQ';
+const MARK = 'data:image/png;base64,iVBORw0KGgo';
 
 describe('progressStep', () => {
     it('falls on whole steps and stays inside the bar', () => {
@@ -40,7 +41,25 @@ describe('nowPlayingSvg', () => {
         expect(nowPlayingSvg({ cover: COVER, tone: 'live', stale: false })).not.toContain('height="8"');
     });
 
-    it('draws the record placeholder in the station’s tone when there is no cover', () => {
+    it('draws the station’s mark when there is no cover, in full while the station is ready', () => {
+        const svg = nowPlayingSvg({ tone: 'standby', stale: false, mark: MARK });
+        expect(svg).toContain(`xlink:href="${MARK}"`);
+        expect(svg).not.toContain('opacity="0.4"');
+    });
+
+    it('draws the mark faint for a station stood down, failing, or read long ago', () => {
+        expect(nowPlayingSvg({ tone: 'off', stale: false, mark: MARK })).toContain('opacity="0.4"');
+        expect(nowPlayingSvg({ tone: 'fault', stale: false, mark: MARK })).toContain('opacity="0.4"');
+        expect(nowPlayingSvg({ tone: 'live', stale: true, mark: MARK })).toContain('opacity="0.4"');
+    });
+
+    it('prefers the cover to the mark', () => {
+        const svg = nowPlayingSvg({ cover: COVER, tone: 'live', stale: false, mark: MARK });
+        expect(svg).toContain(COVER);
+        expect(svg).not.toContain(MARK);
+    });
+
+    it('falls back to a plain record in the station’s tone with no mark to draw', () => {
         const svg = nowPlayingSvg({ tone: 'standby', stale: false });
         expect(svg).not.toContain('<image');
         expect(svg).toContain('r="12" fill="#58A6FF"');

@@ -16,6 +16,8 @@ export interface NowPlayingDependencies {
     station: () => Station | undefined;
     /** Opens the station's console, which is what pressing the key does. */
     openConsole: (origin: string) => Promise<void>;
+    /** The station's mark as a data URI, for a key with no cover to show. */
+    mark?: string;
 }
 
 /** What the key shows, before it becomes an image: the title, and the face with the cover's address instead of its bytes. */
@@ -164,7 +166,8 @@ export class NowPlayingKeys extends StationKeys {
             // A few keys with different options each hold one image at a time; anything older than
             // that is a step of the bar already passed, and is let go rather than kept.
             if (this.composed.size >= 8) this.composed.clear();
-            image = svgDataUri(nowPlayingSvg({ ...view.face, ...(cover === undefined ? {} : { cover }) }));
+            const art = cover === undefined ? (this.deps.mark === undefined ? {} : { mark: this.deps.mark }) : { cover };
+            image = svgDataUri(nowPlayingSvg({ ...view.face, ...art }));
             this.composed.set(key, image);
         }
         return image;

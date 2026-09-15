@@ -6,7 +6,8 @@ Your station on an Elgato Stream Deck: what is on air, Skip, and a Stop that ask
 
 **Now playing** shows the record on air: its cover, its title and who it is by, and a bar along the
 top that fills as the record plays, red while the station is on air. When nothing is playing it shows
-why, in the console's own words: _ready_ (waiting for a listener), _off air_ (somebody stopped it),
+the deadair mark, faint if the station is stopped or not answering, and says why in the console's
+own words: _ready_ (waiting for a listener), _off air_ (somebody stopped it),
 _warming up_, and so on. Press it to open the station's console.
 
 Each Now playing key can leave out the bar, or the title and artist, from its settings, for a key

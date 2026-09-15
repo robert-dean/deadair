@@ -37,6 +37,12 @@ export interface NowPlayingFace {
      * title, where it would only darken the cover.
      */
     shade?: boolean;
+    /**
+     * The station's mark as a data URI, drawn where there is no cover: nothing on air, a break, a
+     * cover that could not be had. Absent draws a plain record instead, which is only for a plugin
+     * that could not read its own mark off disk.
+     */
+    mark?: string;
 }
 
 /** Which step a fraction of the way through falls on. */
@@ -57,9 +63,11 @@ export function progressStep(fraction: number, steps = PROGRESS_STEPS): number {
 export function nowPlayingSvg(face: NowPlayingFace): string {
     const colour = face.stale ? STALE : TONE_COLOURS[face.tone];
     const picture =
-        face.cover === undefined
-            ? placeholder(colour)
-            : `<image x="0" y="0" width="${SIZE}" height="${SIZE}" preserveAspectRatio="xMidYMid slice" xlink:href="${face.cover}"/>`;
+        face.cover !== undefined
+            ? `<image x="0" y="0" width="${SIZE}" height="${SIZE}" preserveAspectRatio="xMidYMid slice" xlink:href="${face.cover}"/>`
+            : face.mark !== undefined
+              ? markImage(face.mark, dimmed(face))
+              : placeholder(colour);
     const bar =
         face.step === undefined
             ? ''
@@ -78,7 +86,22 @@ export function nowPlayingSvg(face: NowPlayingFace): string {
     );
 }
 
-/** A record, its label in the station's tone, for a break, an uncached cover or nothing on air. */
+/**
+ * Whether the mark is drawn faint. The record placeholder said how the station was in its label's
+ * colour; the mark is the station's own colours and cannot, so it says it by weight instead: full
+ * while the station is airing or ready for a listener, faint when it was stood down, is failing, or
+ * the reading is old. The words under it say which.
+ */
+function dimmed(face: NowPlayingFace): boolean {
+    return face.stale || face.tone === 'off' || face.tone === 'fault';
+}
+
+/** The station's mark, where the record placeholder's disc was, above the title. */
+function markImage(mark: string, dim: boolean): string {
+    return `<image x="26" y="14" width="92" height="92" xlink:href="${mark}"${dim ? ' opacity="0.4"' : ''}/>`;
+}
+
+/** A record, its label in the station's tone: the fallback for a plugin with no mark to draw. */
 function placeholder(colour: string): string {
     return (
         `<circle cx="72" cy="60" r="38" fill="#161A18" stroke="#3E4744" stroke-width="2"/>` +

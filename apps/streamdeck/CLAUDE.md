@@ -231,6 +231,8 @@ settles the one thing the harness could not: the app's Qt renderer draws a raste
 in the key's SVG through `xlink:href`. The Now Playing options work on the device too, a key with
 both turned off drawing the cover alone, once the plugin was restarted onto the build that has them.
 
-Not reported separately yet: Skip and Stop pressed on the device with a key that may act, and the
-packed `.streamDeckPlugin` installed by double-click rather than a linked folder, which is the only
-test that `bin/package.json` survives packing.
+Skip, Stop (armed, then fired) and Start work on the device too, pressed against the live station
+with a key issued Read and manage.
+
+Not yet: the packed `.streamDeckPlugin` installed by double-click rather than a linked folder, which is
+the only test that `bin/package.json` survives packing.

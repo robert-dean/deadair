@@ -244,6 +244,58 @@ describe('asking for an episode’s audio', () => {
     });
 });
 
+describe('searching the directory', () => {
+    const entry = (feedUrl: string) => ({ id: `dir-${feedUrl}`, title: 'The Long Wave', feedUrl, author: 'Long Wave Productions' });
+
+    it('asks only the plugins that are directories, and tags each result with the plugin that answered', async () => {
+        const searchShows = vi.fn(async () => [entry('https://longwave.example.com/feed.xml')]);
+        const directory = record(PODCAST);
+        Object.assign(directory.instance as object, { searchShows });
+        const { service } = build([directory, record(OTHER)]);
+
+        const page = await service.searchDirectory({ query: '  long wave ', limit: 5 });
+
+        expect(searchShows).toHaveBeenCalledWith({ query: 'long wave', limit: 5 });
+        expect(page.results).toEqual([
+            {
+                id: 'dir-https://longwave.example.com/feed.xml',
+                pluginId: PODCAST,
+                title: 'The Long Wave',
+                feedUrl: 'https://longwave.example.com/feed.xml',
+                author: 'Long Wave Productions',
+            },
+        ]);
+    });
+
+    it('drops a result nobody could subscribe to, and loses a failing directory without losing the rest', async () => {
+        const failing = record(OTHER);
+        Object.assign(failing.instance as object, {
+            searchShows: vi.fn(async () => {
+                throw new PluginError('directory is down').withCode('upstream');
+            }),
+        });
+        const working = record(PODCAST);
+        Object.assign(working.instance as object, {
+            searchShows: vi.fn(async () => [entry('ftp://nowhere.example.com/feed'), entry('https://ok.example.com/feed.xml')]),
+        });
+        const { service } = build([failing, working]);
+
+        expect((await service.searchDirectory({ query: 'long wave' })).results.map(result => result.feedUrl)).toEqual([
+            'https://ok.example.com/feed.xml',
+        ]);
+    });
+
+    it('asks nobody for blank words', async () => {
+        const searchShows = vi.fn(async () => []);
+        const directory = record(PODCAST);
+        Object.assign(directory.instance as object, { searchShows });
+        const { service } = build([directory]);
+
+        expect(await service.searchDirectory({ query: '   ' })).toEqual({ results: [] });
+        expect(searchShows).not.toHaveBeenCalled();
+    });
+});
+
 describe('reading episodes', () => {
     it('answers the station’s own rows, with instants as ISO-8601 and a fetched flag', async () => {
         const table = episodesTable([

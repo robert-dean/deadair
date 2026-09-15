@@ -2377,6 +2377,24 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/StationShowList'
+    '/podcasts/search':
+        get:
+            operationId: searchDirectory
+            summary: 'Search podcast directory'
+            description: 'Looks a show up in the directories the installed podcast plugins can search'
+            parameters:
+                - name: StationDirectoryQuery
+                  in: query
+                  required: false
+                  schema:
+                      '$ref': '#/components/schemas/StationDirectoryQuery'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/StationDirectoryPage'
     '/podcasts/episodes':
         get:
             operationId: readEpisodes
@@ -8290,6 +8308,72 @@ components:
                     description: 'ISO-8601: when a listener could first have heard it. An episode airs once'
             required: [id, showId, episodeId, showTitle, title, seenAt, fetched]
             description: 'One episode of a programme the station carries, and what the station has done with it'
+        StationDirectoryEntry:
+            type: object
+            properties:
+                id:
+                    type: string
+                    minLength: 1
+                    maxLength: 400
+                    description: "The directory's own id for the show. A key in a list, and nothing more"
+                pluginId:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                    description: 'The plugin whose directory answered, which is the plugin a subscription would go to'
+                title:
+                    type: string
+                    minLength: 1
+                    maxLength: 600
+                feedUrl:
+                    type: string
+                    minLength: 1
+                    maxLength: 2000
+                    description: "Where the show's feed is, which is what subscribing needs"
+                author:
+                    type: string
+                    maxLength: 600
+                description:
+                    type: string
+                    maxLength: 4000
+                artworkUrl:
+                    type: string
+                    maxLength: 2000
+                homeUrl:
+                    type: string
+                    maxLength: 2000
+                categories:
+                    type: array
+                    items:
+                        type: string
+                        minLength: 1
+                        maxLength: 200
+                explicit:
+                    type: boolean
+            required: [id, pluginId, title, feedUrl]
+            description: "A show a podcast plugin's directory knows about, which the station may or may not carry"
+        StationDirectoryQuery:
+            type: object
+            properties:
+                query:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                    description: 'Words to look a show up by: its name, its publisher, its subject'
+                limit:
+                    type: integer
+                    minimum: 1
+                    maximum: 50
+            required: [query]
+        StationDirectoryPage:
+            type: object
+            properties:
+                results:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/StationDirectoryEntry'
+                    description: 'Empty when nothing matched or no directory could be asked, which is not an error'
+            required: [results]
         StationEpisodeQuery:
             type: object
             properties:

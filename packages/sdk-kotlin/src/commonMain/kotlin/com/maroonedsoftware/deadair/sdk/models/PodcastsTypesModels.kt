@@ -59,6 +59,31 @@ data class StationEpisode(
     val airedAt: String? = null,
 )
 
+/** A show a podcast plugin's directory knows about, which the station may or may not carry */
+@Serializable
+data class StationDirectoryEntry(
+    /** The directory's own id for the show. A key in a list, and nothing more */
+    val id: String,
+    /** The plugin whose directory answered, which is the plugin a subscription would go to */
+    val pluginId: String,
+    val title: String,
+    /** Where the show's feed is, which is what subscribing needs */
+    val feedUrl: String,
+    val author: String? = null,
+    val description: String? = null,
+    val artworkUrl: String? = null,
+    val homeUrl: String? = null,
+    val categories: List<String>? = null,
+    val explicit: Boolean? = null,
+)
+
+@Serializable
+data class StationDirectoryQuery(
+    /** Words to look a show up by: its name, its publisher, its subject */
+    val query: String,
+    val limit: Long? = null,
+)
+
 @Serializable
 data class StationEpisodeQuery(
     /** One show's episodes, or absent for every show's, newest first */
@@ -75,4 +100,10 @@ data class StationShowList(
 data class StationEpisodePage(
     /** Newest first. Empty when the station knows of none, which is not an error */
     val episodes: List<StationEpisode>,
+)
+
+@Serializable
+data class StationDirectoryPage(
+    /** Empty when nothing matched or no directory could be asked, which is not an error */
+    val results: List<StationDirectoryEntry>,
 )

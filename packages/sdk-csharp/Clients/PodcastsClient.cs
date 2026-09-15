@@ -34,6 +34,20 @@ public sealed class PodcastsClient(SdkHttp http)
     }
 
     /// <summary>
+    /// Search podcast directory
+    /// Looks a show up in the directories the installed podcast plugins can search
+    /// </summary>
+    public async Task<StationDirectoryPage> SearchPodcastDirectoryAsync(StationDirectoryQuery? query = null, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Get,
+            http.Path("podcasts", "search"),
+            query: http.Params(query),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<StationDirectoryPage>(response);
+    }
+
+    /// <summary>
     /// List episodes
     /// The episodes the station knows about, newest first, with what it has done with each
     /// </summary>

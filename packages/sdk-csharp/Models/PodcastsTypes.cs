@@ -138,6 +138,60 @@ public sealed record StationEpisode
     public string? AiredAt { get; init; }
 }
 
+/// <summary>A show a podcast plugin's directory knows about, which the station may or may not carry</summary>
+public sealed record StationDirectoryEntry
+{
+    /// <summary>The directory's own id for the show. A key in a list, and nothing more</summary>
+    [JsonPropertyName("id")]
+    public required string Id { get; init; }
+
+    /// <summary>The plugin whose directory answered, which is the plugin a subscription would go to</summary>
+    [JsonPropertyName("pluginId")]
+    public required string PluginId { get; init; }
+
+    [JsonPropertyName("title")]
+    public required string Title { get; init; }
+
+    /// <summary>Where the show's feed is, which is what subscribing needs</summary>
+    [JsonPropertyName("feedUrl")]
+    public required string FeedUrl { get; init; }
+
+    [JsonPropertyName("author")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Author { get; init; }
+
+    [JsonPropertyName("description")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Description { get; init; }
+
+    [JsonPropertyName("artworkUrl")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ArtworkUrl { get; init; }
+
+    [JsonPropertyName("homeUrl")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? HomeUrl { get; init; }
+
+    [JsonPropertyName("categories")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? Categories { get; init; }
+
+    [JsonPropertyName("explicit")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Explicit { get; init; }
+}
+
+public sealed record StationDirectoryQuery
+{
+    /// <summary>Words to look a show up by: its name, its publisher, its subject</summary>
+    [JsonPropertyName("query")]
+    public required string Query { get; init; }
+
+    [JsonPropertyName("limit")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? Limit { get; init; }
+}
+
 public sealed record StationEpisodeQuery
 {
     /// <summary>One show's episodes, or absent for every show's, newest first</summary>
@@ -161,4 +215,11 @@ public sealed record StationEpisodePage
     /// <summary>Newest first. Empty when the station knows of none, which is not an error</summary>
     [JsonPropertyName("episodes")]
     public required List<StationEpisode> Episodes { get; init; }
+}
+
+public sealed record StationDirectoryPage
+{
+    /// <summary>Empty when nothing matched or no directory could be asked, which is not an error</summary>
+    [JsonPropertyName("results")]
+    public required List<StationDirectoryEntry> Results { get; init; }
 }

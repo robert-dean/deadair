@@ -53,7 +53,34 @@ export const StationEpisode = z.strictObject({
 export type StationEpisode = z.infer<typeof StationEpisode>;
 
 /**
- * generated from [StationEpisodeQuery](../../../../data/contracts/podcasts/podcasts.types.ck#L45)
+ * A show a podcast plugin's directory knows about, which the station may or may not carry
+ * generated from [StationDirectoryEntry](../../../../data/contracts/podcasts/podcasts.types.ck#L45)
+ */
+export const StationDirectoryEntry = z.strictObject({
+    id: z.string().min(1).max(400).describe("The directory's own id for the show. A key in a list, and nothing more"),
+    pluginId: z.string().min(1).max(200).describe('The plugin whose directory answered, which is the plugin a subscription would go to'),
+    title: z.string().min(1).max(600),
+    feedUrl: z.string().min(1).max(2000).describe("Where the show's feed is, which is what subscribing needs"),
+    author: z.string().max(600).optional(),
+    description: z.string().max(4000).optional(),
+    artworkUrl: z.string().max(2000).optional(),
+    homeUrl: z.string().max(2000).optional(),
+    categories: z.array(z.string().min(1).max(200)).optional(),
+    explicit: z.preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean()).optional(),
+});
+export type StationDirectoryEntry = z.infer<typeof StationDirectoryEntry>;
+
+/**
+ * generated from [StationDirectoryQuery](../../../../data/contracts/podcasts/podcasts.types.ck#L58)
+ */
+export const StationDirectoryQuery = z.strictObject({
+    query: z.string().min(1).max(200).describe('Words to look a show up by: its name, its publisher, its subject'),
+    limit: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(1).max(50)).optional(),
+});
+export type StationDirectoryQuery = z.infer<typeof StationDirectoryQuery>;
+
+/**
+ * generated from [StationEpisodeQuery](../../../../data/contracts/podcasts/podcasts.types.ck#L67)
  */
 export const StationEpisodeQuery = z.strictObject({
     showId: z.string().max(400).optional().describe("One show's episodes, or absent for every show's, newest first"),
@@ -70,9 +97,17 @@ export const StationShowList = z.strictObject({
 export type StationShowList = z.infer<typeof StationShowList>;
 
 /**
- * generated from [StationEpisodePage](../../../../data/contracts/podcasts/podcasts.types.ck#L50)
+ * generated from [StationEpisodePage](../../../../data/contracts/podcasts/podcasts.types.ck#L72)
  */
 export const StationEpisodePage = z.strictObject({
     episodes: z.array(StationEpisode).describe('Newest first. Empty when the station knows of none, which is not an error'),
 });
 export type StationEpisodePage = z.infer<typeof StationEpisodePage>;
+
+/**
+ * generated from [StationDirectoryPage](../../../../data/contracts/podcasts/podcasts.types.ck#L63)
+ */
+export const StationDirectoryPage = z.strictObject({
+    results: z.array(StationDirectoryEntry).describe('Empty when nothing matched or no directory could be asked, which is not an error'),
+});
+export type StationDirectoryPage = z.infer<typeof StationDirectoryPage>;

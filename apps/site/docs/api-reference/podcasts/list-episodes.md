@@ -1,7 +1,7 @@
 ---
 title: 'List episodes'
 sidebar_label: 'List episodes'
-sidebar_position: 2
+sidebar_position: 3
 mdx:
     format: 'md'
 ---

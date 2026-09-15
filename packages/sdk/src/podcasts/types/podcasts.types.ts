@@ -59,7 +59,36 @@ export interface StationEpisode {
 }
 
 /**
- * generated from [StationEpisodeQuery](../../../../../apps/api/data/contracts/podcasts/podcasts.types.ck#L45)
+ * A show a podcast plugin's directory knows about, which the station may or may not carry
+ * generated from [StationDirectoryEntry](../../../../../apps/api/data/contracts/podcasts/podcasts.types.ck#L45)
+ */
+export interface StationDirectoryEntry {
+    /** The directory's own id for the show. A key in a list, and nothing more */
+    id: string;
+    /** The plugin whose directory answered, which is the plugin a subscription would go to */
+    pluginId: string;
+    title: string;
+    /** Where the show's feed is, which is what subscribing needs */
+    feedUrl: string;
+    author?: string;
+    description?: string;
+    artworkUrl?: string;
+    homeUrl?: string;
+    categories?: string[];
+    explicit?: boolean;
+}
+
+/**
+ * generated from [StationDirectoryQuery](../../../../../apps/api/data/contracts/podcasts/podcasts.types.ck#L58)
+ */
+export interface StationDirectoryQuery {
+    /** Words to look a show up by: its name, its publisher, its subject */
+    query: string;
+    limit?: number;
+}
+
+/**
+ * generated from [StationEpisodeQuery](../../../../../apps/api/data/contracts/podcasts/podcasts.types.ck#L67)
  */
 export interface StationEpisodeQuery {
     /** One show's episodes, or absent for every show's, newest first */
@@ -75,9 +104,17 @@ export interface StationShowList {
 }
 
 /**
- * generated from [StationEpisodePage](../../../../../apps/api/data/contracts/podcasts/podcasts.types.ck#L50)
+ * generated from [StationEpisodePage](../../../../../apps/api/data/contracts/podcasts/podcasts.types.ck#L72)
  */
 export interface StationEpisodePage {
     /** Newest first. Empty when the station knows of none, which is not an error */
     episodes: StationEpisode[];
+}
+
+/**
+ * generated from [StationDirectoryPage](../../../../../apps/api/data/contracts/podcasts/podcasts.types.ck#L63)
+ */
+export interface StationDirectoryPage {
+    /** Empty when nothing matched or no directory could be asked, which is not an error */
+    results: StationDirectoryEntry[];
 }

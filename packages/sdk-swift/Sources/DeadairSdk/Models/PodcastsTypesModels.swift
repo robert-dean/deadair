@@ -195,6 +195,105 @@ public struct StationEpisode: Codable, Equatable, Sendable {
     }
 }
 
+/// A show a podcast plugin's directory knows about, which the station may or may not carry
+public struct StationDirectoryEntry: Codable, Equatable, Sendable {
+    /// The directory's own id for the show. A key in a list, and nothing more
+    public var id: String
+    /// The plugin whose directory answered, which is the plugin a subscription would go to
+    public var pluginId: String
+    public var title: String
+    /// Where the show's feed is, which is what subscribing needs
+    public var feedUrl: String
+    public var author: String?
+    public var description: String?
+    public var artworkUrl: String?
+    public var homeUrl: String?
+    public var categories: [String]?
+    public var explicit: Bool?
+
+    public init(id: String, pluginId: String, title: String, feedUrl: String, author: String? = nil, description: String? = nil, artworkUrl: String? = nil, homeUrl: String? = nil, categories: [String]? = nil, explicit: Bool? = nil) {
+        self.id = id
+        self.pluginId = pluginId
+        self.title = title
+        self.feedUrl = feedUrl
+        self.author = author
+        self.description = description
+        self.artworkUrl = artworkUrl
+        self.homeUrl = homeUrl
+        self.categories = categories
+        self.explicit = explicit
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case pluginId = "pluginId"
+        case title = "title"
+        case feedUrl = "feedUrl"
+        case author = "author"
+        case description = "description"
+        case artworkUrl = "artworkUrl"
+        case homeUrl = "homeUrl"
+        case categories = "categories"
+        case explicit = "explicit"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decode(String.self, forKey: .id)
+        self.pluginId = try container.decode(String.self, forKey: .pluginId)
+        self.title = try container.decode(String.self, forKey: .title)
+        self.feedUrl = try container.decode(String.self, forKey: .feedUrl)
+        self.author = try container.decodeIfPresent(String.self, forKey: .author)
+        self.description = try container.decodeIfPresent(String.self, forKey: .description)
+        self.artworkUrl = try container.decodeIfPresent(String.self, forKey: .artworkUrl)
+        self.homeUrl = try container.decodeIfPresent(String.self, forKey: .homeUrl)
+        self.categories = try container.decodeIfPresent([String].self, forKey: .categories)
+        self.explicit = try container.decodeIfPresent(Bool.self, forKey: .explicit)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.id, forKey: .id)
+        try container.encode(self.pluginId, forKey: .pluginId)
+        try container.encode(self.title, forKey: .title)
+        try container.encode(self.feedUrl, forKey: .feedUrl)
+        try container.encodeIfPresent(self.author, forKey: .author)
+        try container.encodeIfPresent(self.description, forKey: .description)
+        try container.encodeIfPresent(self.artworkUrl, forKey: .artworkUrl)
+        try container.encodeIfPresent(self.homeUrl, forKey: .homeUrl)
+        try container.encodeIfPresent(self.categories, forKey: .categories)
+        try container.encodeIfPresent(self.explicit, forKey: .explicit)
+    }
+}
+
+public struct StationDirectoryQuery: Codable, Equatable, Sendable {
+    /// Words to look a show up by: its name, its publisher, its subject
+    public var query: String
+    public var limit: Int?
+
+    public init(query: String, limit: Int? = nil) {
+        self.query = query
+        self.limit = limit
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case query = "query"
+        case limit = "limit"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.query = try container.decode(String.self, forKey: .query)
+        self.limit = try container.decodeIfPresent(Int.self, forKey: .limit)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.query, forKey: .query)
+        try container.encodeIfPresent(self.limit, forKey: .limit)
+    }
+}
+
 public struct StationEpisodeQuery: Codable, Equatable, Sendable {
     /// One show's episodes, or absent for every show's, newest first
     public var showId: String?
@@ -265,5 +364,28 @@ public struct StationEpisodePage: Codable, Equatable, Sendable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(self.episodes, forKey: .episodes)
+    }
+}
+
+public struct StationDirectoryPage: Codable, Equatable, Sendable {
+    /// Empty when nothing matched or no directory could be asked, which is not an error
+    public var results: [StationDirectoryEntry]
+
+    public init(results: [StationDirectoryEntry]) {
+        self.results = results
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case results = "results"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.results = try container.decode([StationDirectoryEntry].self, forKey: .results)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.results, forKey: .results)
     }
 }

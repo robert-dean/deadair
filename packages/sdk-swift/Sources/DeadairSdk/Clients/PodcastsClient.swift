@@ -17,6 +17,15 @@ public final class PodcastsClient: Sendable {
         return try http.decodeJSON(StationShowList.self, from: response)
     }
 
+    /// Search podcast directory
+    /// Looks a show up in the directories the installed podcast plugins can search
+    public func searchPodcastDirectory(query: StationDirectoryQuery? = nil) async throws -> StationDirectoryPage {
+        var request = SdkRequest(method: "GET", path: ["podcasts", "search"])
+        try http.addQuery(&request, query)
+        let response = try await http.execute(request)
+        return try http.decodeJSON(StationDirectoryPage.self, from: response)
+    }
+
     /// List episodes
     /// The episodes the station knows about, newest first, with what it has done with each
     public func listEpisodes(query: StationEpisodeQuery? = nil) async throws -> StationEpisodePage {

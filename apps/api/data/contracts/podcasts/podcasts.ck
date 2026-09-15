@@ -28,6 +28,23 @@ operation /podcasts/shows: {
     }
 }
 
+operation /podcasts/search: {
+    get: { # Looks a show up in the directories the installed podcast plugins can search
+        name: Search podcast directory
+        service: PodcastsService.searchDirectory
+        query: StationDirectoryQuery
+        security: {
+            # An operator action rather than a read: the words go to somebody else's directory.
+            policy: platform.manage
+        }
+        response: {
+            200: {
+                application/json: StationDirectoryPage
+            }
+        }
+    }
+}
+
 operation /podcasts/episodes: {
     get: { # The episodes the station knows about, newest first, with what it has done with each
         name: List episodes

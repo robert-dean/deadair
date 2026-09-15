@@ -1,7 +1,14 @@
 import { z } from 'zod';
 import { ServerKitRouter, requirePolicy } from '@maroonedsoftware/koa';
 import { PodcastsService } from '#src/modules/podcasts/podcasts.service.js';
-import { StationEpisode, StationEpisodePage, StationEpisodeQuery, StationShowList } from '../modules/podcasts/types/podcasts.types.js';
+import {
+    StationDirectoryPage,
+    StationDirectoryQuery,
+    StationEpisode,
+    StationEpisodePage,
+    StationEpisodeQuery,
+    StationShowList,
+} from '../modules/podcasts/types/podcasts.types.js';
 import { parseAndValidate } from '@maroonedsoftware/zod';
 
 /**
@@ -23,8 +30,23 @@ PodcastsRouter.get('/podcasts/shows', requirePolicy({ policy: 'platform.view' })
 });
 
 /**
- * The episodes the station knows about, newest first, with what it has done with each
+ * Looks a show up in the directories the installed podcast plugins can search
  * from [podcasts.ck](../../data/contracts/podcasts/podcasts.ck#L32)
+ */
+PodcastsRouter.get('/podcasts/search', requirePolicy({ policy: 'platform.manage' }), async ctx => {
+    const query = await parseAndValidate(ctx.query, StationDirectoryQuery.strict());
+
+    const service = ctx.container.get(PodcastsService);
+    const result: StationDirectoryPage = await service.searchDirectory(query);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
+ * The episodes the station knows about, newest first, with what it has done with each
+ * from [podcasts.ck](../../data/contracts/podcasts/podcasts.ck#L49)
  */
 PodcastsRouter.get('/podcasts/episodes', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const query = await parseAndValidate(ctx.query, StationEpisodeQuery.strict());
@@ -39,7 +61,7 @@ PodcastsRouter.get('/podcasts/episodes', requirePolicy({ policy: 'platform.view'
 
 /**
  * Fetches one episode's audio into the station's store now, rather than waiting for its slot to come near
- * from [podcasts.ck](../../data/contracts/podcasts/podcasts.ck#L48)
+ * from [podcasts.ck](../../data/contracts/podcasts/podcasts.ck#L65)
  */
 PodcastsRouter.post('/podcasts/episodes/:id/fetch', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { id } = await parseAndValidate(
@@ -59,7 +81,7 @@ PodcastsRouter.post('/podcasts/episodes/:id/fetch', requirePolicy({ policy: 'pla
 
 /**
  * Reads every show's feed again, in the background, rather than waiting for the next scheduled refresh
- * from [podcasts.ck](../../data/contracts/podcasts/podcasts.ck#L64)
+ * from [podcasts.ck](../../data/contracts/podcasts/podcasts.ck#L81)
  */
 PodcastsRouter.post('/podcasts/refresh', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const service = ctx.container.get(PodcastsService);

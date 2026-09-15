@@ -2,7 +2,7 @@ import { Injectable } from 'injectkit';
 import { httpError } from '@maroonedsoftware/errors';
 import { Logger } from '@maroonedsoftware/logger';
 import { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
-import type { PodcastEpisode, PodcastShow } from '@deadair/plugin-sdk';
+import type { PodcastDirectoryEntry, PodcastEpisode, PodcastShow } from '@deadair/plugin-sdk';
 import { asPodcastPlugin, type PodcastPlugin } from '#modules/plugins/plugin.capabilities.js';
 import { byPluginId, pluginsWith } from '#modules/plugins/plugin.selection.js';
 import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
@@ -12,7 +12,16 @@ import type { PodcastEpisodeListing, PodcastEpisodeRecord } from './podcast.epis
 import { PodcastEpisodeRepository } from './podcast.episode.repository.js';
 import { FETCH_RETRY_AFTER_MS } from './podcast.fetch.service.js';
 import { qualifyShowId } from './show.ids.js';
-import type { StationEpisode, StationEpisodePage, StationEpisodeQuery, StationShow, StationShowList } from './types/podcasts.types.js';
+import type {
+    StationDirectoryEntry,
+    StationDirectoryPage,
+    StationDirectoryQuery,
+    StationEpisode,
+    StationEpisodePage,
+    StationEpisodeQuery,
+    StationShow,
+    StationShowList,
+} from './types/podcasts.types.js';
 
 /**
  * How long a plugin is given to say what it carries, when somebody is waiting on the answer.
@@ -48,6 +57,15 @@ export const REFRESH_EPISODES_PER_SHOW = 25;
 
 /** What the console is given when it asks for episodes and says nothing about how many. */
 export const DEFAULT_EPISODE_PAGE = 50;
+
+/** How many directory results the console is given when it says nothing about how many. */
+export const DEFAULT_DIRECTORY_RESULTS = 20;
+
+/**
+ * How long a directory is given to answer. An operator is waiting on it, and a directory that is slow
+ * is a convenience missing rather than a feature broken.
+ */
+export const SEARCH_DIRECTORY_TIMEOUT_MS = 10_000;
 
 /** What one refresh did, for the job's log line. */
 export interface PodcastRefreshSummary {
@@ -145,6 +163,50 @@ export class PodcastsService {
         });
 
         return { episodes: rows.map(toStationEpisode) };
+    }
+
+    /**
+     * Look a show up in every directory an installed podcast plugin can search.
+     *
+     * Each result is tagged with the plugin whose directory answered, because that is where a
+     * subscription to it would go: what a subscription IS belongs to each plugin, so the console
+     * writes it into that plugin's own settings rather than this module reaching into them. A result
+     * the station already carries is left to the console to mark, from the shows it has already read,
+     * rather than costing every search a read of every feed.
+     *
+     * A directory that fails costs its own results, `NewsService`'s rule again.
+     */
+    async searchDirectory(query: StationDirectoryQuery): Promise<StationDirectoryPage> {
+        const words = query.query.trim();
+        const limit = query.limit ?? DEFAULT_DIRECTORY_RESULTS;
+        if (words.length === 0) return { results: [] };
+
+        const results: StationDirectoryEntry[] = [];
+        for (const plugin of this.plugins()) {
+            if (!plugin.searchesShows) continue;
+
+            let found: PodcastDirectoryEntry[] | undefined;
+            try {
+                found = await this.pluginInvoker.invoke(
+                    plugin.record.id,
+                    'podcast.searchShows',
+                    async () => plugin.instance.searchShows?.({ query: words, limit }),
+                    {
+                        timeoutMs: SEARCH_DIRECTORY_TIMEOUT_MS,
+                    },
+                );
+            } catch (error) {
+                this.logger.info(`podcasts: a directory could not be searched (${plugin.record.id}: ${errorText(error)})`);
+                continue;
+            }
+
+            for (const entry of found ?? []) {
+                if (!entry?.id || !entry.title || !isWebAddress(entry.feedUrl)) continue;
+                results.push(toDirectoryEntry(plugin.record.id, entry));
+            }
+        }
+
+        return { results: results.slice(0, limit) };
     }
 
     /**
@@ -257,6 +319,22 @@ function toStationShow(pluginId: string, show: PodcastShow): StationShow {
         ...(show.language === undefined ? {} : { language: show.language }),
         ...(show.categories === undefined ? {} : { categories: show.categories }),
         ...(show.explicit === undefined ? {} : { explicit: show.explicit }),
+    };
+}
+
+/** A plugin's directory result as the console reads it. */
+function toDirectoryEntry(pluginId: string, entry: PodcastDirectoryEntry): StationDirectoryEntry {
+    return {
+        id: entry.id,
+        pluginId,
+        title: entry.title,
+        feedUrl: entry.feedUrl,
+        ...(entry.author === undefined ? {} : { author: entry.author }),
+        ...(entry.description === undefined ? {} : { description: entry.description }),
+        ...(entry.artworkUrl === undefined ? {} : { artworkUrl: entry.artworkUrl }),
+        ...(entry.homeUrl === undefined ? {} : { homeUrl: entry.homeUrl }),
+        ...(entry.categories === undefined ? {} : { categories: entry.categories }),
+        ...(entry.explicit === undefined ? {} : { explicit: entry.explicit }),
     };
 }
 

@@ -42,6 +42,28 @@ contract StationEpisode: { # One episode of a programme the station carries, and
     airedAt?: string(max=40) # ISO-8601: when a listener could first have heard it. An episode airs once
 }
 
+contract StationDirectoryEntry: { # A show a podcast plugin's directory knows about, which the station may or may not carry
+    id: string(min=1, max=400) # The directory's own id for the show. A key in a list, and nothing more
+    pluginId: string(min=1, max=200) # The plugin whose directory answered, which is the plugin a subscription would go to
+    title: string(min=1, max=600)
+    feedUrl: string(min=1, max=2000) # Where the show's feed is, which is what subscribing needs
+    author?: string(max=600)
+    description?: string(max=4000)
+    artworkUrl?: string(max=2000)
+    homeUrl?: string(max=2000)
+    categories?: array(string(min=1, max=200))
+    explicit?: boolean
+}
+
+contract StationDirectoryQuery: {
+    query: string(min=1, max=200) # Words to look a show up by: its name, its publisher, its subject
+    limit?: int(min=1, max=50)
+}
+
+contract StationDirectoryPage: {
+    results: array(StationDirectoryEntry) # Empty when nothing matched or no directory could be asked, which is not an error
+}
+
 contract StationEpisodeQuery: {
     showId?: string(max=400) # One show's episodes, or absent for every show's, newest first
     limit?: int(min=1, max=200)

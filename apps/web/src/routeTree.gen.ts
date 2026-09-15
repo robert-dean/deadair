@@ -17,6 +17,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as LogsRouteImport } from './routes/logs'
 import { Route as NewsRouteImport } from './routes/news'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
+import { Route as PodcastsRouteImport } from './routes/podcasts'
 import { Route as ScheduleRouteImport } from './routes/schedule'
 import { Route as TracesRouteImport } from './routes/traces'
 import { Route as VoiceRouteImport } from './routes/voice'
@@ -84,6 +85,11 @@ const NewsRoute = NewsRouteImport.update({
 const OnboardingRoute = OnboardingRouteImport.update({
   id: '/onboarding',
   path: '/onboarding',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PodcastsRoute = PodcastsRouteImport.update({
+  id: '/podcasts',
+  path: '/podcasts',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ScheduleRoute = ScheduleRouteImport.update({
@@ -237,6 +243,7 @@ export interface FileRoutesByFullPath {
   '/logs': typeof LogsRoute
   '/news': typeof NewsRoute
   '/onboarding': typeof OnboardingRoute
+  '/podcasts': typeof PodcastsRoute
   '/schedule': typeof ScheduleRoute
   '/traces': typeof TracesRoute
   '/voice': typeof VoiceRoute
@@ -275,6 +282,7 @@ export interface FileRoutesByTo {
   '/logs': typeof LogsRoute
   '/news': typeof NewsRoute
   '/onboarding': typeof OnboardingRoute
+  '/podcasts': typeof PodcastsRoute
   '/schedule': typeof ScheduleRoute
   '/traces': typeof TracesRoute
   '/voice': typeof VoiceRoute
@@ -314,6 +322,7 @@ export interface FileRoutesById {
   '/logs': typeof LogsRoute
   '/news': typeof NewsRoute
   '/onboarding': typeof OnboardingRoute
+  '/podcasts': typeof PodcastsRoute
   '/schedule': typeof ScheduleRoute
   '/traces': typeof TracesRoute
   '/voice': typeof VoiceRoute
@@ -354,6 +363,7 @@ export interface FileRouteTypes {
     | '/logs'
     | '/news'
     | '/onboarding'
+    | '/podcasts'
     | '/schedule'
     | '/traces'
     | '/voice'
@@ -392,6 +402,7 @@ export interface FileRouteTypes {
     | '/logs'
     | '/news'
     | '/onboarding'
+    | '/podcasts'
     | '/schedule'
     | '/traces'
     | '/voice'
@@ -430,6 +441,7 @@ export interface FileRouteTypes {
     | '/logs'
     | '/news'
     | '/onboarding'
+    | '/podcasts'
     | '/schedule'
     | '/traces'
     | '/voice'
@@ -469,6 +481,7 @@ export interface RootRouteChildren {
   LogsRoute: typeof LogsRoute
   NewsRoute: typeof NewsRoute
   OnboardingRoute: typeof OnboardingRoute
+  PodcastsRoute: typeof PodcastsRoute
   ScheduleRoute: typeof ScheduleRoute
   TracesRoute: typeof TracesRoute
   VoiceRoute: typeof VoiceRoute
@@ -555,6 +568,13 @@ declare module '@tanstack/react-router' {
       path: '/onboarding'
       fullPath: '/onboarding'
       preLoaderRoute: typeof OnboardingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/podcasts': {
+      id: '/podcasts'
+      path: '/podcasts'
+      fullPath: '/podcasts'
+      preLoaderRoute: typeof PodcastsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/schedule': {
@@ -765,6 +785,7 @@ const rootRouteChildren: RootRouteChildren = {
   LogsRoute: LogsRoute,
   NewsRoute: NewsRoute,
   OnboardingRoute: OnboardingRoute,
+  PodcastsRoute: PodcastsRoute,
   ScheduleRoute: ScheduleRoute,
   TracesRoute: TracesRoute,
   VoiceRoute: VoiceRoute,

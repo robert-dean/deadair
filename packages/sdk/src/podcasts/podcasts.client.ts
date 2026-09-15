@@ -1,6 +1,13 @@
 import type { SdkFetch } from '../sdk-options.js';
 import { parseJson, buildQueryString } from '../sdk-options.js';
-import type { StationEpisode, StationEpisodePage, StationEpisodeQuery, StationShowList } from './types/podcasts.types.js';
+import type {
+    StationDirectoryPage,
+    StationDirectoryQuery,
+    StationEpisode,
+    StationEpisodePage,
+    StationEpisodeQuery,
+    StationShowList,
+} from './types/podcasts.types.js';
 
 export class PodcastsClient {
     constructor(private fetch: SdkFetch) {}
@@ -12,6 +19,18 @@ export class PodcastsClient {
     async listShows(): Promise<StationShowList> {
         const result = await this.fetch(`/podcasts/shows`, { method: 'GET' });
         return await parseJson<StationShowList>(result);
+    }
+
+    /**
+     * @name Search podcast directory
+     * @description Looks a show up in the directories the installed podcast plugins can search
+     */
+    async searchPodcastDirectory(query?: StationDirectoryQuery): Promise<StationDirectoryPage> {
+        const qs = buildQueryString(query);
+        const result = await this.fetch(`/podcasts/search${qs}`, {
+            method: 'GET',
+        });
+        return await parseJson<StationDirectoryPage>(result);
     }
 
     /**

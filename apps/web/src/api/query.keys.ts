@@ -200,6 +200,8 @@ export const queryKeys = {
     podcasts: {
         shows: () => ['podcasts', 'shows'] as const,
         episodes: (showId?: string) => ['podcasts', 'episodes', showId ?? ''] as const,
+        /** A directory search, by the words searched for. Never fetched until somebody searches. */
+        directory: (query: string) => ['podcasts', 'directory', query] as const,
     },
 
     /** One list, because the API answers with the whole library and every write answers with it again. */

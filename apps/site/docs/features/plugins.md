@@ -1,10 +1,10 @@
 ---
 title: Plugins
 sidebar_position: 9
-description: The twelve bundled plugins that bring the station its music, facts, voice, words and measurements, and how trust and permissions work.
+description: The thirteen bundled plugins that bring the station its music, facts, voice, words and measurements, and how trust and permissions work.
 ---
 
-Almost everything the station reaches outside itself is a plugin: where the music comes from, what it knows about a record, how it speaks, which model writes its words, and the program that measures its audio. Twelve are bundled in the image, and each is switched on and configured from its own page. A plugin somebody else wrote is installed by importing it from the console, or by copying it into the plugins folder on the station's data volume, and is then held to exactly the same rules.
+Almost everything the station reaches outside itself is a plugin: where the music comes from, what it knows about a record, how it speaks, which model writes its words, and the program that measures its audio. Thirteen are bundled in the image, and each is switched on and configured from its own page. A plugin somebody else wrote is installed by importing it from the console, or by copying it into the plugins folder on the station's data volume, and is then held to exactly the same rules.
 
 ![The plugin catalogue: a card per plugin and its state](/img/console/plugins.webp)
 *Fig. 1. The plugins.*
@@ -13,7 +13,7 @@ Almost everything the station reaches outside itself is a plugin: where the musi
 
 With no model the station writes its own breaks from its phrasings. With no voice it plays records. With no analyzer every record plays, unmeasured. The one it cannot do without is a music provider: there is nothing to programme until there are records.
 
-## The bundled twelve
+## The bundled thirteen
 
 **Music**
 
@@ -31,6 +31,7 @@ With no model the station writes its own breaks from its phrasings. With no voic
 - **Web search.** SearXNG, self-hosted with no account, or Brave or Tavily, which need a key. Give it sites worth quoting and it reads those, and only those, for background on records.
 - **RSS.** The feeds you point it at, for news bulletins, and optionally the story behind each headline.
 - **Weather.** Open-Meteo, which needs no account and covers the world; the US National Weather Service, free and United States only; or OpenWeatherMap, which needs a key.
+- **Podcasts.** The podcast feeds you subscribe to, so the station can carry somebody else's programme at a time you choose. It can look a show up in Apple's podcast directory. See [podcasts](./podcasts.md).
 
 **Voice and words**
 

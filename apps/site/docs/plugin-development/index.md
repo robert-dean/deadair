@@ -4,7 +4,7 @@ sidebar_position: 0
 description: What a deadair plugin is, what it can do for a station, what the station promises it, and how this section is laid out.
 ---
 
-A plugin is how a station reaches anything outside itself. Twelve come with the station: where the music comes from, what it knows about a record, the news, the weather, the voice, the model that writes its words, and the program that measures its audio. You can write another one, and a station can load it beside those twelve without being rebuilt.
+A plugin is how a station reaches anything outside itself. Thirteen come with the station: where the music comes from, what it knows about a record, the news, the weather, the voice, the model that writes its words, and the program that measures its audio. You can write another one, and a station can load it beside those twelve without being rebuilt.
 
 A plugin is a Node.js package. The station imports it into its own server process, hands it a host to reach the world through, and calls it when it needs what the plugin said it could do. It ships no user interface: it declares its settings, and the console draws the form. It talks to no database: the host keeps its settings, its secrets and anything it wants to remember.
 
@@ -29,6 +29,7 @@ A plugin declares one or more capabilities, and implements the methods each one 
 - **`charts`**: say what is popular, as a ranked list of names.
 - **`similarity`**: say which artists and records sound like which.
 - **`news`**: supply headlines, and the story behind each.
+- **`podcast`**: say which shows the station subscribes to and what each has published, with the address of every episode's audio.
 - **`search`**: search the open web.
 - **`weather`**: say what it is like outside, as measurements.
 - **`scrobble`**: report what the station played to somebody else's service.
@@ -45,4 +46,4 @@ A plugin that answers a question the station already asks is the usual shape: a 
 5. [The example, file by file](./example.md) walks through a complete `charts` plugin.
 6. [The contract](./contract.md) is the reference: every capability, the host, permissions and settings, in detail.
 
-The SDK is `@deadair/plugin-sdk` on npm. Its source, the example, and the twelve bundled plugins are all in [the repository](https://github.com/robert-dean/deadair), and the bundled plugins are the best examples of each capability there are.
+The SDK is `@deadair/plugin-sdk` on npm. Its source, the example, and the thirteen bundled plugins are all in [the repository](https://github.com/robert-dean/deadair), and the bundled plugins are the best examples of each capability there are.

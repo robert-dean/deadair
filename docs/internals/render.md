@@ -184,6 +184,12 @@ unwanted ident unremovable by any route while staying `ready` and therefore book
 `render` segment is refused instead, since the running order names it and `script_history` holds what was
 written for it — the way to have it again is a re-render.
 
+**A third source is `syndicated`: an episode of somebody else's programme**, fetched from the address its
+feed named and written by `SegmentRepository.createSyndicated` born `ready`. It is kept off the shelf by
+`listReady` and `readyKinds` for the joined production row's reason, since it airs once at its show's slot
+rather than whenever a band draws its kind, and it has none of `importFile`'s checksum dedupe, because its
+identity is the episode and not its bytes. See [`podcasts.md`](podcasts.md).
+
 **Nothing guards the live running order**, deliberately: `toPlayerItems` skips a segment it cannot find, which
 is the path a not-ready segment already takes, and reaching from render into the director to ask permission
 would invert the module order for a case that is already benign. The one thing the console must say out loud

@@ -4,7 +4,7 @@ sidebar_position: 3
 description: Testing plugin code against the fake host the SDK ships, and checking that a station would load what you built.
 ---
 
-A plugin reaches the world only through the host it is handed, so the thing to replace in a test is the host. The SDK ships one for that, which is the same double the twelve bundled plugins are tested with.
+A plugin reaches the world only through the host it is handed, so the thing to replace in a test is the host. The SDK ships one for that, which is the same double the thirteen bundled plugins are tested with.
 
 ## The fake host
 

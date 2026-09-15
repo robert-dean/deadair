@@ -132,6 +132,11 @@ under a voice that was not in the mix when the blend was decided. This is a mixe
 rather than something `blendFor` could catch, because at the time it runs for the outgoing item the
 break that will follow does not exist yet.
 
+**Somebody else's programme is spoken word too, and differs in three places only.** An episode of a podcast
+the station carries is a segment, so the mixer never fades into it either; `RundownItem.programme` is what
+gives it its own title and show on the mount, a `record` on `/nowplaying`, and a gain assumed from a
+mastered level rather than the speech engine's. See [`podcasts.md`](podcasts.md) § "On air".
+
 ## Knowing who is listening
 
 **The FEED is the mechanism and the poll is the failsafe.** `IcecastEventFeed` holds `/admin/eventfeed` open

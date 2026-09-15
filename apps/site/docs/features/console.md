@@ -15,7 +15,7 @@ A rail down the left carries four destinations, each with its sections listed be
 
 - **Desk**: what is on air now, what needs you, and the running order, with Skip and Stop beside the thing they act on. See [the running order](./running-order.md).
 - **Programme**: Today, the Timetable across the week, and Sustaining, what plays when nothing is scheduled. See [the programme](./programme.md).
-- **Library**: Tracks, Artists, Playlists, Charts and News. See [the library](./library.md).
+- **Library**: Tracks, Artists, Playlists, Charts, News and Podcasts. See [the library](./library.md) and [podcasts](./podcasts.md).
 - **Voice**: Characters, Auditions, Voices, Segments, Pronunciations, Soundboard, Subjects, Productions, and What it said. See [characters](./characters.md).
 
 Below a rule sit **Check-up**, for what is wrong right now (see [the check-up](./check-up.md)), and **Settings**.

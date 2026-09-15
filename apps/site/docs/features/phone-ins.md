@@ -45,7 +45,7 @@ Every turn is recorded with its speaker, in the same history as the station's br
 
 ## Other productions
 
-The same machinery makes longer programmes in one voice. A clock band naming `podcast`, or "Ask for one" on the Productions tab, commissions one: a title, a brief in your own words, a length (eight to twelve minutes by default), how much to write it, and a presenter. The brief matters most, because the planning pass works from it. "Which productions have callers" decides which kinds are conversations; by default, only `callin`.
+The same machinery makes longer programmes in one voice. A clock band naming `podcast`, or "Ask for one" on the Productions tab, commissions one: a title, a brief in your own words, a length (eight to twelve minutes by default), how much to write it, and a presenter. The brief matters most, because the planning pass works from it. "Which productions have callers" decides which kinds are conversations; by default, only `callin`. Carrying somebody else's podcast is a different thing with a different word: see [podcasts](./podcasts.md).
 
 ## In the console
 

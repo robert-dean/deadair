@@ -54,4 +54,4 @@ Either can also be what the station plays when nothing is scheduled. See [the pr
 
 ## In the console
 
-**Library** in the rail, or the L key: Tracks, Artists, Playlists, Charts and News. A record's page opens from any list, or from its name typed into Jump to anything. A provider's connection, and Spotify's playback authorization, are on its page under Settings → Plugins. Measurement has its own section in Settings.
+**Library** in the rail, or the L key: Tracks, Artists, Playlists, Charts, News and [Podcasts](./podcasts.md). A record's page opens from any list, or from its name typed into Jump to anything. A provider's connection, and Spotify's playback authorization, are on its page under Settings → Plugins. Measurement has its own section in Settings.

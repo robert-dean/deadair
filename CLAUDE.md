@@ -32,6 +32,7 @@ was shipped first and was wrong.
 | what a break says, facts, phrasings, bulletins, the format clock | [`docs/internals/breaks.md`](docs/internals/breaks.md) |
 | personas, their notebooks, their stories, latitude, auditions | [`docs/internals/personas.md`](docs/internals/personas.md) |
 | phone-ins, beats, casting, stitching | [`docs/internals/productions.md`](docs/internals/productions.md) |
+| podcasts the station carries, `syndicated` bands, episode fetches | [`docs/internals/podcasts.md`](docs/internals/podcasts.md) |
 | speech engines, voices, cues, pads, segment stages, pronunciations | [`docs/internals/render.md`](docs/internals/render.md) |
 | the mount, the audience gate, why it is quiet, the activity feed | [`docs/internals/playout.md`](docs/internals/playout.md) |
 | the model, the gate, the tool loop | [`docs/internals/llm.md`](docs/internals/llm.md) |

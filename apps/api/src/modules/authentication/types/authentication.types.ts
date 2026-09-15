@@ -345,8 +345,8 @@ export const Login = z.strictObject({
         .describe('The login event identifier'),
     actorId: z.uuid().describe('The actor that authenticated'),
     factorType: z
-        .enum(['phone', 'password', 'authenticator', 'email', 'fido', 'oidc'])
-        .describe('The factor that satisfied the primary authentication'),
+        .enum(['phone', 'password', 'authenticator', 'email', 'fido', 'oidc', 'apikey'])
+        .describe("The factor that satisfied the primary authentication, or `apikey` for a request made with one of the account's API keys"),
     factorId: z.uuid().nullable().optional().describe('The specific factor record id, when available'),
     sessionToken: z.string().max(255).nullable().optional().describe('The session minted at this login, when available'),
     mfaSatisfied: z
@@ -363,13 +363,20 @@ export type LoginInput = z.infer<typeof LoginInput>;
 
 /**
  * The current user's display preferences, auto-detected by the SPA from the browser (Intl timezone + navigator.language). Omitted fields are left unchanged (absent = never set).
- * generated from [ActorPreferences](../../../../data/contracts/authentication/authentication.types.ck#L369)
+ * generated from [ActorPreferences](../../../../data/contracts/authentication/authentication.types.ck#L377)
  */
 export const ActorPreferences = z.strictObject({
     locale: z.string().max(32).optional().describe('RFC 5646 locale, e.g. "en-US"'),
     timezone: z.string().max(64).optional().describe('Olson timezone, e.g. "America/New_York"'),
 });
 export type ActorPreferences = z.infer<typeof ActorPreferences>;
+
+/**
+ * What an API key may be granted. `view` covers every route a listener may read; `manage` covers the rest, and includes `view`
+ * generated from [ApiKeyScope](../../../../data/contracts/authentication/authentication.types.ck#L383)
+ */
+export const ApiKeyScope = z.enum(['view', 'manage']);
+export type ApiKeyScope = z.infer<typeof ApiKeyScope>;
 
 /**
  * generated from [BaseAuthenticationRequest](../../../../data/contracts/authentication/authentication.types.ck#L26)
@@ -539,6 +546,33 @@ export const AuthSession = z.strictObject({
         ),
 });
 export type AuthSession = z.infer<typeof AuthSession>;
+
+/**
+ * A personal API key, as its owner sees it in a list. The token itself is never returned after it is issued
+ * generated from [ApiKey](../../../../data/contracts/authentication/authentication.types.ck#L385)
+ */
+export const ApiKey = z.strictObject({
+    id: z.uuid().describe("The key's identifier, for rotating or revoking it"),
+    name: z.string().max(100).describe('What the account called the key'),
+    hint: z.string().max(16).describe("The token's first characters, enough to recognise the key in a config file and far too few to use"),
+    scopes: z.array(ApiKeyScope).describe('What the key was granted. A key never does more than the account that owns it'),
+    createdAt: _ZodDatetime.describe('When the key was issued'),
+    expiresAt: _ZodDatetime.optional().describe('When the key stops working. Absent means it never expires'),
+    lastUsedAt: _ZodDatetime.optional().describe('When the key was last used, to within five minutes. Absent means it has not been used'),
+    revokedAt: _ZodDatetime.optional().describe('When the key was revoked. Present means every request made with it is refused'),
+});
+export type ApiKey = z.infer<typeof ApiKey>;
+
+/**
+ * A new API key
+ * generated from [ApiKeyCreate](../../../../data/contracts/authentication/authentication.types.ck#L400)
+ */
+export const ApiKeyCreate = z.strictObject({
+    name: z.string().min(1).max(100).describe('What to call the key, so a list of several says which is which'),
+    scopes: z.array(ApiKeyScope).describe('What the key may do. At least one; `manage` includes `view`'),
+    expiresAt: _ZodDatetime.optional().describe('When the key should stop working. Omit for a key that never expires'),
+});
+export type ApiKeyCreate = z.infer<typeof ApiKeyCreate>;
 
 /**
  * Represents an application authentication request
@@ -773,6 +807,25 @@ export const PublicKeyCredentialWithAttestation = PublicKeyCredential.extend({
     response: FidoAuthenticatorAttestationResponse.describe('The authenticator attestation response'),
 });
 export type PublicKeyCredentialWithAttestation = z.infer<typeof PublicKeyCredentialWithAttestation>;
+
+/**
+ * Every API key the account holds, newest first, revoked and expired keys included
+ * generated from [ApiKeyList](../../../../data/contracts/authentication/authentication.types.ck#L396)
+ */
+export const ApiKeyList = z.strictObject({
+    keys: z.array(ApiKey),
+});
+export type ApiKeyList = z.infer<typeof ApiKeyList>;
+
+/**
+ * A key and its token. The only time the token is ever returned: store it now, because nothing can show it again
+ * generated from [ApiKeyIssued](../../../../data/contracts/authentication/authentication.types.ck#L406)
+ */
+export const ApiKeyIssued = z.strictObject({
+    key: ApiKey.describe('The key as it will appear in the list'),
+    token: z.string().describe('The bearer token, sent as `Authorization: Bearer <token>`'),
+});
+export type ApiKeyIssued = z.infer<typeof ApiKeyIssued>;
 
 /**
  * generated from [LinkAuthenticationLoginStart](../../../../data/contracts/authentication/authentication.types.ck#L171)

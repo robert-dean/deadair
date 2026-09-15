@@ -259,3 +259,41 @@ describe('AccessControlService: canAccess and require both consult rolesGrant in
         await expect(service.require(platformObject, 'view')).resolves.toBeUndefined();
     });
 });
+
+// A request made with an API key acts as its owner, narrowed to what the key was granted. The
+// object-level `plugin:*` walks take the owner as their subject, so the key's ceiling is applied
+// here: `view` needs the view grant, everything else needs manage.
+describe('AccessControlService: an admin acting through an API key', () => {
+    const keyActor = (grants: ReadonlyArray<'view' | 'manage'>): UserActor => ({
+        ...userActor('u-admin', ['admin']),
+        apiKey: { id: 'k-1', name: 'doorbell', grants: new Set(grants) },
+    });
+
+    it('lets a view key read a plugin', async () => {
+        await expect(build(keyActor(['view'])).service.canAccess(OBJECT, 'view')).resolves.toBe(true);
+        await expect(build(keyActor(['view'])).service.require(OBJECT, 'view')).resolves.toBeUndefined();
+        await expect(build(keyActor(['view'])).service.listVisibleIds('plugin', 'view')).resolves.toEqual({ all: true });
+    });
+
+    it.each(['configure', 'enable', 'oauth'])('refuses a view key plugin:%s, whatever its owner may do', async permission => {
+        await expect(build(keyActor(['view'])).service.canAccess(OBJECT, permission)).resolves.toBe(false);
+        await expectForbidden(build(keyActor(['view'])).service.require(OBJECT, permission));
+        await expect(build(keyActor(['view'])).service.listVisibleIds('plugin', permission)).resolves.toEqual({ ids: [], truncated: false });
+    });
+
+    it('lets a manage key configure a plugin its owner may configure', async () => {
+        await expect(build(keyActor(['view', 'manage'])).service.require(OBJECT, 'configure')).resolves.toBeUndefined();
+    });
+
+    it('refuses a key with no grant anything at all, without walking the tuples', async () => {
+        const harness = build(keyActor([]));
+
+        await expect(harness.service.canAccess(OBJECT, 'view')).resolves.toBe(false);
+        await expectForbidden(harness.service.require(OBJECT, 'view'));
+        expect(harness.permissions.checkSubject).not.toHaveBeenCalled();
+    });
+
+    it('reports only what the key may do on a resource', async () => {
+        await expect(build(keyActor(['view'])).service.permissionsForResource(OBJECT)).resolves.toEqual(['view']);
+    });
+});

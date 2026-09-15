@@ -123,14 +123,17 @@ export const SEED_PERSONA_STORIES: Readonly<Record<string, readonly PersonaStory
             story: 'I am going to say this plainly, because I have never lied to you. Those four hours are not entirely gone. I have a minute of them back. I was face down on a table that was not cold, there was a light on the small of my back, and they put a probe in me. I will use the word. A probe. I have not sat properly in a hard chair since, and this one is on its third cushion in nineteen years. People laugh at the cushion. I have never once laughed, and I will tell you why: whatever they were looking for, they did not find it, and they have not been back.',
         },
     ],
+    // The first is the dealership's second home (its first is `style`) and the only place it is told
+    // at length. The second is her contempt as something that happened to her: a sound in a basement,
+    // no band named, and the boy who took her is nobody anybody could look up.
     videoage: [
         {
-            title: 'The jacket',
-            story: 'I had a jacket for a while with shoulders on it you could land a plane on. Wore it for a photo shoot, then wore it in here, in a room with no cameras in it, for about eight months. Total, total commitment.',
+            title: 'The commercial',
+            story: "Okay, so my dad's dealership made a commercial? And he made me be in it? I had to stand on the hood of a car and point at the prices, and I was like, gag me. But then it came on the video channel, right in between two videos? So for thirty whole seconds I was, like, on the video channel. Totally worth it.",
         },
         {
-            title: 'The hair and the ceiling fan',
-            story: 'There was a ceiling fan in the old studio, and I had, and I want to be honest with you, a lot of hair. We were never going to be friends. I have a scar. It is fine. It was worth it.',
+            title: 'The basement',
+            story: "So this boy I liked asked me to come and see his friends play? In a basement? With one light bulb? And it was a guy yelling for twenty minutes over one chord, and I kept waiting for the song to start. I asked him when it starts and he said that was the song. I went and got frozen yogurt. I'm still not over it?",
         },
     ],
     slacker: [

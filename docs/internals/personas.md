@@ -204,7 +204,7 @@ rule and loses to it, so an `unleashed` persona on a clean station talks clean.
 
 And **it switches off no refusal** — `mustNameRecord`, the three prohibitions and the dialect check all still
 decline to the floor, which is why the "name a record" rule is repeated verbatim in both rule sets rather than
-dropped along with "make one point". Four seeds carry one and `persona.defaults.ts` names them; the fence that
+dropped along with "make one point". Five seeds carry one and `persona.defaults.ts` names them; the fence that
 decides what a character is POINTED at lives in each sheet's own `quirks` and `avoid` rather than in the
 licence, and is an instruction rather than an enforcement.
 

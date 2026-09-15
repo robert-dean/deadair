@@ -202,6 +202,52 @@ describe('transposeForSpeech: the operator’s list', () => {
     it('applies alongside the rules rather than instead of them', () => {
         expect(say('Sade & friends, 1984.', entries)).toBe('Shar-day and friends, nineteen eighty-four.');
     });
+
+    // `withoutPads` runs first and used to close every space in front of punctuation, so the name
+    // arrived here as `by?uestlove`, with a letter on its left where the matcher needs a boundary.
+    it('matches a name that starts with punctuation', () => {
+        expect(say('Produced by ?uestlove, of course?', [{ written: '?uestlove', spoken: 'Questlove' }])).toBe('Produced by Questlove, of course?');
+        expect(say('That was .38 Special.', [{ written: '.38 Special', spoken: 'thirty-eight Special' }])).toBe('That was thirty-eight Special.');
+    });
+
+    // What an entry says is handed to the engine untouched, and for a long time it was not: every pass
+    // after the lexicon ran over the spoken form as though it were more writing. See `hold`.
+    describe('what an entry says', () => {
+        // Kokoro's inline phoneme markup. `settle` took the brackets as decoration and the slashes as
+        // separators, and the engine read `Jordache( ʒɔrdæʃ )` aloud.
+        const markup: readonly Pronunciation[] = [{ written: 'Jordache', spoken: '[Jordache](/ʒɔrdæʃ/)' }];
+
+        it('reaches the engine exactly as it was written, markup and all', () => {
+            expect(say('That was Jordache.', markup)).toBe('That was [Jordache](/ʒɔrdæʃ/).');
+        });
+
+        it('is held out of the passes while the words around it still go through them', () => {
+            expect(say('Jordache & friends, 1984.', markup)).toBe('[Jordache](/ʒɔrdæʃ/) and friends, nineteen eighty-four.');
+        });
+
+        // The shape the gloss pass writes: stressed syllables in capitals. `UN` is on
+        // `sayInitialisms`' list, so this went to the engine as `U N-guhr`.
+        it('keeps a respelling’s stressed syllable from being read as an initialism', () => {
+            expect(say('Here is Unger now.', [{ written: 'Unger', spoken: 'UN-guhr' }])).toBe('Here is UN-guhr now.');
+            expect(say('An Epik record.', [{ written: 'Epik', spoken: 'EP-ik' }])).toBe('An EP-ik record.');
+        });
+
+        it('still drops the words when it is empty, and closes the gap they leave', () => {
+            expect(say('That was frankly lovely.', [{ written: 'frankly', spoken: '' }])).toBe('That was lovely.');
+        });
+
+        // The one pass that reads the word AFTER a place: an entry is a name, and an amount in front
+        // of a name is buying it, exactly as it was when the name was still letters.
+        it('still reads as the thing an amount in front of it buys', () => {
+            expect(say('A $20 P!nk shirt.', entries)).toBe('A 20 dollar Pink shirt.');
+        });
+
+        // The code point a spoken form is parked on is private-use, so one already in a script has
+        // to go, or it would come back out as somebody else's words.
+        it('cannot be summoned by a private-use character already in the script', () => {
+            expect(say('Lovely \uE000 stuff from P!nk.', entries)).toBe('Lovely stuff from Pink.');
+        });
+    });
 });
 
 describe('transposeForSpeech: settling', () => {
@@ -211,6 +257,16 @@ describe('transposeForSpeech: settling', () => {
 
     it('does not leave a space in front of its punctuation', () => {
         expect(say('Lovely stuff 🎧, next up.')).toBe('Lovely stuff, next up.');
+    });
+
+    // `break.prompt.ts` tells the writer its punctuation is the delivery control every engine has, on
+    // the promise that `.,!?;:` all survive. A question mark is the one that changes the READING, and
+    // nothing pinned it: it is in no drop-list, which is a fact about today rather than a rule.
+    it('keeps a question a question', () => {
+        expect(say('Did you catch that one?')).toBe('Did you catch that one?');
+        expect(say('Is it Friday yet ?')).toBe('Is it Friday yet?');
+        expect(say('Did you catch that?\nBack to the music.')).toBe('Did you catch that? Back to the music.');
+        expect(say('Have you heard P!nk?', [{ written: 'P!nk', spoken: 'Pink' }])).toBe('Have you heard Pink?');
     });
 
     it('answers with the script when the passes leave nothing', () => {

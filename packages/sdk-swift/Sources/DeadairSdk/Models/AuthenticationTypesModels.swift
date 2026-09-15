@@ -894,7 +894,7 @@ public struct Login: Codable, Equatable, Sendable {
     public var id: BigIntValue
     /// The actor that authenticated
     public var actorId: UUID
-    /// The factor that satisfied the primary authentication
+    /// The factor that satisfied the primary authentication, or `apikey` for a request made with one of the account's API keys
     public var factorType: LoginFactorType
     /// The specific factor record id, when available
     public var factorId: UUID?
@@ -1001,6 +1001,12 @@ public struct ActorPreferences: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.locale, forKey: .locale)
         try container.encodeIfPresent(self.timezone, forKey: .timezone)
     }
+}
+
+/// What an API key may be granted. `view` covers every route a listener may read; `manage` covers the rest, and includes `view`
+public enum ApiKeyScope: String, Codable, CaseIterable, Sendable {
+    case view = "view"
+    case manage = "manage"
 }
 
 public struct BaseAuthenticationRequest: Codable, Equatable, Sendable {
@@ -1523,6 +1529,108 @@ public struct AuthSession: Codable, Equatable, Sendable {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(self.actorId, forKey: .actorId)
         try container.encode(self.roles, forKey: .roles)
+    }
+}
+
+/// A personal API key, as its owner sees it in a list. The token itself is never returned after it is issued
+public struct ApiKey: Codable, Equatable, Sendable {
+    /// The key's identifier, for rotating or revoking it
+    public var id: UUID
+    /// What the account called the key
+    public var name: String
+    /// The token's first characters, enough to recognise the key in a config file and far too few to use
+    public var hint: String
+    /// What the key was granted. A key never does more than the account that owns it
+    public var scopes: [ApiKeyScope]
+    /// When the key was issued
+    public var createdAt: Date
+    /// When the key stops working. Absent means it never expires
+    public var expiresAt: Date?
+    /// When the key was last used, to within five minutes. Absent means it has not been used
+    public var lastUsedAt: Date?
+    /// When the key was revoked. Present means every request made with it is refused
+    public var revokedAt: Date?
+
+    public init(id: UUID, name: String, hint: String, scopes: [ApiKeyScope], createdAt: Date, expiresAt: Date? = nil, lastUsedAt: Date? = nil, revokedAt: Date? = nil) {
+        self.id = id
+        self.name = name
+        self.hint = hint
+        self.scopes = scopes
+        self.createdAt = createdAt
+        self.expiresAt = expiresAt
+        self.lastUsedAt = lastUsedAt
+        self.revokedAt = revokedAt
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case name = "name"
+        case hint = "hint"
+        case scopes = "scopes"
+        case createdAt = "createdAt"
+        case expiresAt = "expiresAt"
+        case lastUsedAt = "lastUsedAt"
+        case revokedAt = "revokedAt"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decode(UUID.self, forKey: .id)
+        self.name = try container.decode(String.self, forKey: .name)
+        self.hint = try container.decode(String.self, forKey: .hint)
+        self.scopes = try container.decode([ApiKeyScope].self, forKey: .scopes)
+        self.createdAt = try container.decode(Date.self, forKey: .createdAt)
+        self.expiresAt = try container.decodeIfPresent(Date.self, forKey: .expiresAt)
+        self.lastUsedAt = try container.decodeIfPresent(Date.self, forKey: .lastUsedAt)
+        self.revokedAt = try container.decodeIfPresent(Date.self, forKey: .revokedAt)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.id, forKey: .id)
+        try container.encode(self.name, forKey: .name)
+        try container.encode(self.hint, forKey: .hint)
+        try container.encode(self.scopes, forKey: .scopes)
+        try container.encode(self.createdAt, forKey: .createdAt)
+        try container.encodeIfPresent(self.expiresAt, forKey: .expiresAt)
+        try container.encodeIfPresent(self.lastUsedAt, forKey: .lastUsedAt)
+        try container.encodeIfPresent(self.revokedAt, forKey: .revokedAt)
+    }
+}
+
+/// A new API key
+public struct ApiKeyCreate: Codable, Equatable, Sendable {
+    /// What to call the key, so a list of several says which is which
+    public var name: String
+    /// What the key may do. At least one; `manage` includes `view`
+    public var scopes: [ApiKeyScope]
+    /// When the key should stop working. Omit for a key that never expires
+    public var expiresAt: Date?
+
+    public init(name: String, scopes: [ApiKeyScope], expiresAt: Date? = nil) {
+        self.name = name
+        self.scopes = scopes
+        self.expiresAt = expiresAt
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case name = "name"
+        case scopes = "scopes"
+        case expiresAt = "expiresAt"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.name = try container.decode(String.self, forKey: .name)
+        self.scopes = try container.decode([ApiKeyScope].self, forKey: .scopes)
+        self.expiresAt = try container.decodeIfPresent(Date.self, forKey: .expiresAt)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.name, forKey: .name)
+        try container.encode(self.scopes, forKey: .scopes)
+        try container.encodeIfPresent(self.expiresAt, forKey: .expiresAt)
     }
 }
 
@@ -2347,6 +2455,59 @@ public struct PublicKeyCredentialWithAttestation: Codable, Equatable, Sendable {
     }
 }
 
+/// Every API key the account holds, newest first, revoked and expired keys included
+public struct ApiKeyList: Codable, Equatable, Sendable {
+    public var keys: [ApiKey]
+
+    public init(keys: [ApiKey]) {
+        self.keys = keys
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case keys = "keys"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.keys = try container.decode([ApiKey].self, forKey: .keys)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.keys, forKey: .keys)
+    }
+}
+
+/// A key and its token. The only time the token is ever returned: store it now, because nothing can show it again
+public struct ApiKeyIssued: Codable, Equatable, Sendable {
+    /// The key as it will appear in the list
+    public var key: ApiKey
+    /// The bearer token, sent as `Authorization: Bearer <token>`
+    public var token: String
+
+    public init(key: ApiKey, token: String) {
+        self.key = key
+        self.token = token
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case key = "key"
+        case token = "token"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.key = try container.decode(ApiKey.self, forKey: .key)
+        self.token = try container.decode(String.self, forKey: .token)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.key, forKey: .key)
+        try container.encode(self.token, forKey: .token)
+    }
+}
+
 public struct LinkAuthenticationLoginStart: Codable, Equatable, Sendable {
     /// The grant type for the request
     public var grantType: String
@@ -2784,7 +2945,7 @@ public enum SessionFactorKind: String, Codable, CaseIterable, Sendable {
     case biometric = "biometric"
 }
 
-/// The factor that satisfied the primary authentication
+/// The factor that satisfied the primary authentication, or `apikey` for a request made with one of the account's API keys
 public enum LoginFactorType: String, Codable, CaseIterable, Sendable {
     case phone = "phone"
     case password = "password"
@@ -2792,4 +2953,5 @@ public enum LoginFactorType: String, Codable, CaseIterable, Sendable {
     case email = "email"
     case fido = "fido"
     case oidc = "oidc"
+    case apikey = "apikey"
 }

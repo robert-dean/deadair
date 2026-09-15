@@ -7,6 +7,8 @@ import { permissionsGrantedByRoles, rolesGrant, rolesGrantingPermission } from '
 import type { ObjectRef, SubjectRef } from '@maroonedsoftware/permissions';
 import type { Actor } from './authorization.context.js';
 import type { ListObjectsOptions, ListObjectsResult } from './list.objects.js';
+import { grantForPermission } from '#modules/authentication/api.key.scopes.js';
+import type { UserActor } from './authorization.context.js';
 
 // Visibility result. `{ all: true }` means the actor bypasses filtering at this
 // permission (system / webhook / platform-role coverage); the caller should
@@ -30,6 +32,13 @@ export interface PermissionsForResourceOpts {
 // union rather than vouching for the caller. Every other system source
 // (`pg-boss`, `cli`, `startup`, `test`) is code we run ourselves.
 const isTrustedSystemActor = (actor: Actor): boolean => actor.kind === 'system' && actor.source !== 'http';
+
+// An API key's ceiling on an object-level check. The `plugin:*` walks below take the OWNER as their
+// subject, so the `apikey` namespace never sees them and cannot narrow them itself: a key needs the
+// `view` grant to read and `manage` to change anything, the platform's own split. A signed-in
+// person has no ceiling.
+const keyAllows = (actor: UserActor, permission: string): boolean =>
+    actor.apiKey === undefined || actor.apiKey.grants.has(grantForPermission(permission));
 
 const denied = (object: ObjectRef, permission: string): never => {
     throw httpError(403).withDetails({
@@ -60,6 +69,7 @@ export class AccessControlService {
             case 'vendor':
                 return true;
             case 'user':
+                if (!keyAllows(actor, permission)) return false;
                 if (
                     await this.permissions.checkSubject(object, permission, {
                         kind: 'concrete',
@@ -89,7 +99,7 @@ export class AccessControlService {
             case 'vendor':
                 return { all: true };
             case 'user': {
-                if (!actor.actorId) return { ids: [], truncated: false };
+                if (!actor.actorId || !keyAllows(actor, permission)) return { ids: [], truncated: false };
                 // If a platform role would grant this permission across the
                 // namespace, the user can see every object — defer to the
                 // unfiltered list path.
@@ -128,7 +138,7 @@ export class AccessControlService {
 
             case 'user': {
                 const actorId = actor.actorId;
-                if (!actorId) {
+                if (!actorId || !keyAllows(actor, permission)) {
                     denied(object, permission);
                     return;
                 }
@@ -184,6 +194,6 @@ export class AccessControlService {
         const fromTuples = new Set(candidates.filter((_, i) => results[i]));
         const fromRoles = permissionsGrantedByRoles(actor.platformRoles, object.namespace, candidates);
         for (const p of fromRoles) fromTuples.add(p);
-        return candidates.filter(p => fromTuples.has(p));
+        return candidates.filter(p => fromTuples.has(p) && keyAllows(actor, p));
     }
 }

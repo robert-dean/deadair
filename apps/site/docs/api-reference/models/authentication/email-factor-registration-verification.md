@@ -1,6 +1,6 @@
 ---
 title: 'EmailFactorRegistrationVerification'
-sidebar_position: 73
+sidebar_position: 78
 mdx:
     format: 'md'
 ---

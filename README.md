@@ -231,7 +231,9 @@ stream/, nginx/        the audio chain (radio.liq), the stream server and the ed
 ```
 
 A station also loads plugins it did not ship with: `@deadair/plugin-sdk` is on npm, and how to write,
-build and install one is at <https://deadair.radio/docs/plugin-development>.
+build and install one is at <https://deadair.radio/docs/plugin-development>. Anything else that talks
+to a station can use `@deadair/sdk`, the typed API client the console is built on, also on npm and
+carrying the station's version. The API it covers is at <https://deadair.radio/docs/api-reference>.
 
 Contracts, permission types and database types are **generated and committed**. Never hand-edit
 them; CI regenerates all three and fails on anything that moved.

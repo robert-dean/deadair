@@ -53,6 +53,12 @@ export class SessionsService {
         // The cookie is already cleared, so report success rather than 401.
         const actor = this.authz.actor;
         if (actor.kind !== 'user') return;
+        // A request made with an API key has no session to end: the one ServerKit minted for it is
+        // unpersisted and gone when the request is. Looked up below, its token would be missing from
+        // the owner's list and read as somebody else's session, a 403 for a caller who asked for
+        // nothing unreasonable. Revoking the key is `DELETE /auth/apikeys/{id}`, from a signed-in
+        // session.
+        if (actor.apiKey) return;
 
         const { actorId, sessionToken } = actor;
         // Authorize: a user can only revoke their own sessions. Confirm the session still belongs

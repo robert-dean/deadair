@@ -15,6 +15,11 @@
  * **`spoken` is handed to the engine untouched.** The host does not interpret it, exactly as it does
  * not interpret a voice id: an operator whose engine accepts inline phoneme markup can put that
  * there, and one whose engine does not spells the name out. Neither is this file's business.
+ * `transposeForSpeech` is what makes the sentence true, by holding every spoken form out of the
+ * passes that run after this one (see `hold` there). For a long time nothing did, and it was false
+ * twice over: `[Kokoro](/kˈOkəɹO/)` lost its brackets and slashes to `settle`, and a respelling the
+ * station mined for itself, `UN-guhr`, reached the engine as `U N-guhr` because `sayInitialisms`
+ * read its stressed syllable as the United Nations.
  *
  * ## Why the defaults are seeds rather than a dictionary
  *
@@ -61,8 +66,12 @@ export const DEFAULT_PRONUNCIATIONS: readonly Pronunciation[] = [
  * Longest written form first, so an entry for a whole band name wins over an entry for a word inside
  * it. Bounded by "not a letter or digit" on each side rather than `\b`, which is an ASCII rule and
  * would misjudge both `Röyksopp` and `P!nk`.
+ *
+ * `hold` decides what actually goes into the text in place of a match, and is handed each spoken form
+ * as it is found. Left out, that is the spoken form itself; `transposeForSpeech` passes one that
+ * parks it where the later passes cannot reach it.
  */
-export function applyPronunciations(text: string, entries: readonly Pronunciation[]): string {
+export function applyPronunciations(text: string, entries: readonly Pronunciation[], hold: (spoken: string) => string = spoken => spoken): string {
     if (entries.length === 0) return text;
 
     const usable = entries.filter(entry => entry.written.trim().length > 0);
@@ -72,7 +81,10 @@ export function applyPronunciations(text: string, entries: readonly Pronunciatio
     const spokenFor = new Map(byLongest.map(entry => [entry.written.toLowerCase(), entry.spoken]));
     const pattern = new RegExp(`(?<![\\p{L}\\p{N}])(?:${byLongest.map(entry => escapeForRegExp(entry.written)).join('|')})(?![\\p{L}\\p{N}])`, 'giu');
 
-    return text.replace(pattern, match => spokenFor.get(match.toLowerCase()) ?? match);
+    return text.replace(pattern, match => {
+        const spoken = spokenFor.get(match.toLowerCase());
+        return spoken === undefined ? match : hold(spoken);
+    });
 }
 
 /**

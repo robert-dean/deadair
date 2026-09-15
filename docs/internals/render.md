@@ -221,6 +221,21 @@ marked-first loses a proposal for good where written-first re-reads and `holds` 
 pattern is why `fact.lead.ts` strips a keyword-less parenthetical now: thirteen claims in this station's store
 read `Lynyrd Skynyrd ( LEH-nerd SKIN-nerd) is an American rock band` and were being spoken that way.
 
+**What an entry says is held out of every pass after the lexicon, and until 15 September nothing held it.**
+The lexicon's own comment promised that `spoken` reached the engine untouched, so an operator on Kokoro could
+write its inline phoneme markup there, while `applyPronunciations` ran second of six and the other four went
+over its output as though it were more writing. `[Jordache](/ʒɔrdæʃ/)` came out of `settle` as `Jordache(
+ʒɔrdæʃ )`, and, more to the point for a table the station fills itself, the gloss pass's capitalised
+syllables were read as initialisms: `UN-guhr` reached the engine as `U N-guhr`. The obvious fix was to say
+in the comment that a spoken form must be a plain respelling, and that answers neither case, because the
+second one IS a plain respelling. So `transposeForSpeech` parks each spoken form on one private-use code
+point while the later passes run and puts it back after `settle`. Not a sentinel spelled from characters:
+`settle`'s own comment is the record of `#CUELAUGH#` losing its hashes to the drop-list, and a single
+code point no pass has in its vocabulary has no inside to reach into. `tidy` removes any private-use
+character a script arrives with, so the only ones present at the end are the station's, and
+`modifiesWhatFollows` reads a held entry as a word, since `a $20 P!nk shirt` read singular when the name
+was still letters.
+
 **What a symbol stands for goes after the whole of what it names, and for `$` that was measured wrong twice.**
 `saySymbols` marks the currency where the digits stop, which is right for `$5.99` and wrong for every amount
 whose size is a separate word: `$17.1 Billion` went to the engine as `17.1#DOLLARS# Billion` and **aired as

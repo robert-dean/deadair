@@ -66,4 +66,20 @@ describe('applyPronunciations', () => {
     it('survives an entry that is a regular expression by accident', () => {
         expect(say('Say .*+ here', [{ written: '.*+', spoken: 'nothing' }])).toBe('Say nothing here');
     });
+
+    // The seam `transposeForSpeech` uses to keep a spoken form out of the passes after this one.
+    it('hands each spoken form to hold and writes in whatever it answers', () => {
+        const entries = [
+            { written: 'Sade', spoken: 'Shar-day' },
+            { written: 'P!nk', spoken: 'Pink' },
+        ];
+        const handed: string[] = [];
+        const hold = (spoken: string): string => {
+            handed.push(spoken);
+            return `<${handed.length}>`;
+        };
+
+        expect(applyPronunciations('Sade, then P!nk.', entries, hold)).toBe('<1>, then <2>.');
+        expect(handed).toEqual(['Shar-day', 'Pink']);
+    });
 });

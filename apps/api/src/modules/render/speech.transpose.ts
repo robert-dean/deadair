@@ -20,7 +20,8 @@
  *    a line break in the middle of a bulletin.
  * 2. **Pronunciations** — the operator's list, BEFORE anything touches symbols, because half of the
  *    entries worth writing are stylized names made of symbols and `&` becoming "and" first would
- *    leave nothing for `P!nk` to match.
+ *    leave nothing for `P!nk` to match. What an entry SAYS is held out of every pass after this one
+ *    and put back at the very end; see {@link hold}.
  * 3. **Symbols** — the ones that stand in for words.
  * 4. **Numbers**, conservatively; see {@link sayNumbers}.
  * 5. **Initialisms** — dotted forms, and a short list of the ones a station says constantly.
@@ -75,13 +76,60 @@ export function transposeForSpeech(text: string, entries: readonly Pronunciation
     // `keepPads`, and a script arriving here with a cue in it is a script that already passed that.
     let spoken = withoutPads(original);
     spoken = tidy(spoken);
-    spoken = applyPronunciations(spoken, entries);
+
+    const held: string[] = [];
+    spoken = applyPronunciations(spoken, entries, said => hold(said, held));
     spoken = saySymbols(spoken);
     spoken = sayNumbers(spoken);
     spoken = sayInitialisms(spoken);
     spoken = settle(spoken);
+    spoken = release(spoken, held);
 
     return spoken.length === 0 ? original : spoken;
+}
+
+/** The first of the code points a held spoken form is parked on, and how many of them there are. */
+const HELD_FROM = 0xe000;
+const HELD_ROOM = 0xf8ff - HELD_FROM + 1;
+const HELD_MARK = /[\uE000-\uF8FF]/g;
+
+/**
+ * Park one entry's spoken form on a single private-use code point, for {@link release} to put back.
+ *
+ * ## Why this has to exist
+ *
+ * A spoken form is already speech. Somebody decided it, an operator by hand or the gloss pass out of
+ * an article, and every pass after the lexicon exists to turn WRITING into speech, so the only thing
+ * those passes can do to one is damage it. They did: a respelling the station mined itself, `UN-guhr`,
+ * went to the engine as `U N-guhr`, because {@link sayInitialisms} read the stressed syllable as the
+ * United Nations; and Kokoro's inline markup, `[Jordache](/ʒɔrdæʃ/)`, came out of {@link settle} as
+ * `Jordache( ʒɔrdæʃ )`, which the engine read aloud.
+ *
+ * ## Why a private-use code point and not a sentinel
+ *
+ * {@link settle} records the trap: every sentinel spelled from characters is a string the passes can
+ * see into, and `#CUELAUGH#` lost its hashes to the drop-list. A private-use code point is in no
+ * pass's vocabulary. It is not a letter, a digit, a space or decoration, so nothing here rewrites it,
+ * and it is ONE character, so there is no inside for a pass to reach. To every boundary test it is
+ * "not a letter or digit", which is what the written form it replaced was bounded by anyway, and
+ * {@link tidy} removes any that arrive in a script, so every one present at the end is one of these.
+ * The one pass that reads the WORD after a place, {@link modifiesWhatFollows}, is told about it.
+ *
+ * An empty spoken form is not held, because there is nothing to protect and dropping the words now
+ * lets {@link settle} close the gap they leave. Past the room there is (6,400 matches in one script,
+ * which no script has), a form goes in unheld, as every form did before this.
+ */
+function hold(said: string, held: string[]): string {
+    if (said.length === 0 || held.length >= HELD_ROOM) return said;
+
+    return String.fromCharCode(HELD_FROM + held.push(said) - 1);
+}
+
+/** Every held spoken form, back where {@link hold} parked it. */
+function release(text: string, held: readonly string[]): string {
+    if (held.length === 0) return text;
+
+    return text.replace(HELD_MARK, mark => held[mark.charCodeAt(0) - HELD_FROM] ?? '');
 }
 
 /**
@@ -100,6 +148,10 @@ function tidy(text: string): string {
             .replace(/\b(?:https?:\/\/|www\.)\S+/gi, ' ')
             // Emoji and their variation selectors, which have no reading at all.
             .replace(/[\p{Extended_Pictographic}\u{FE0F}\u{200D}]/gu, ' ')
+            // A private-use character has no reading either, and it is also what `hold` parks a
+            // lexicon entry's spoken form on: one arriving in a script would come back out of
+            // `release` as somebody else's words.
+            .replace(/\p{Co}/gu, ' ')
             // Markdown emphasis, kept as its own words: `**loud**` is a word, not a mark.
             .replace(/\*\*([^*]+)\*\*/g, '$1')
             .replace(/\*([^*]+)\*/g, '$1')
@@ -297,7 +349,10 @@ const NOT_A_THING_MONEY_BUYS = new Set([
  * dollar." would be wrong in the most audible place there is. See {@link NOT_A_THING_MONEY_BUYS}.
  */
 function modifiesWhatFollows(rest: string): boolean {
-    const next = /^\s+(\p{L}[\p{L}'’-]*)/u.exec(rest);
+    // A held lexicon entry (`\p{Co}`, see `hold`) counts as a word, and as a word not on the list: an
+    // entry is a name, which is what an amount buys, and it read that way when it was still letters.
+    // Taken as punctuation instead, `a $20 P!nk shirt` would turn plural.
+    const next = /^\s+(\p{L}[\p{L}'’-]*|\p{Co})/u.exec(rest);
     if (next === null) return false;
 
     return !NOT_A_THING_MONEY_BUYS.has((next[1] as string).toLowerCase());

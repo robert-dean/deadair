@@ -35,7 +35,7 @@
 
 import type { RundownTrack } from '#modules/playout/rundown.js';
 import type { BreakRequest, BreakRequestResult } from './break.request.js';
-import type { EditResult, StationLineupBinding } from './station.lineup.js';
+import type { EditResult, Interleaved, StationLineupBinding } from './station.lineup.js';
 
 /**
  * A change to the running order made by somebody at the desk.
@@ -129,6 +129,19 @@ export type DirectorCommand =
      * broadcast it was planned for must not replace the tail of whatever replaced it.
      */
     | { kind: 'replaceTail'; tracks: readonly RundownTrack[]; broadcastId: string }
+    /**
+     * A playlist's neighbours have been found: put each one in after the record it sounds like.
+     *
+     * The sibling of {@link appendTracks}, carrying material for the same reason: walking the
+     * similarity plugin and looking the picks up at a provider is the slow half, and all this does
+     * is splice. Each record names its anchor rather than a position, because the order keeps moving
+     * while `MixInSimilarJob` runs and a position counted then means nothing by now. See
+     * `StationLineup.interleave`, which drops whatever no longer has a quiet place to go.
+     *
+     * `broadcastId` is the same guard as {@link appendTracks}'s: neighbours of one playlist must not
+     * land in whatever replaced it.
+     */
+    | { kind: 'interleaveTracks'; inserts: readonly Interleaved[]; broadcastId: string }
     /**
      * Change what the operator has asked this broadcast for. Absent or empty clears it.
      *

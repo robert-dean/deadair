@@ -10,6 +10,7 @@ export type JobNames =
     | 'director.air_chart'
     | 'director.extend_lineup'
     | 'director.replan_lineup'
+    | 'director.mix_in_similar'
     | 'director.write_break'
     | 'director.produce'
     | 'schedule.tick'

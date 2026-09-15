@@ -1747,6 +1747,90 @@ describe('DirectorService going on air', () => {
         expect(jobs.send.mock.calls.filter(call => call[0] === 'catalog.enrich')).toHaveLength(1);
     });
 
+    it('asks for similar records to be mixed in when a playlist goes on air asking for them', async () => {
+        const { director, jobs, seed } = build();
+        await seed();
+        await director.start();
+        jobs.send.mockClear();
+
+        await director.post({
+            kind: 'putOnAir',
+            binding: { name: 'A playlist', mode: 'rotation', onEnd: 'extend', source: 'import', rules: { mixInSimilar: true } },
+            tracks: [track('x'), track('y')],
+        });
+
+        expect(jobs.send).toHaveBeenCalledWith('director.mix_in_similar', { broadcastId: director.order()!.broadcastId });
+    });
+
+    it('asks for no mix from a playlist that did not ask, a setlist that did, or a chart', async () => {
+        const { director, jobs, seed } = build();
+        await seed();
+        await director.start();
+        jobs.send.mockClear();
+
+        for (const binding of [
+            { name: 'Unasked', mode: 'rotation' as const, onEnd: 'extend' as const, source: 'import' },
+            { name: 'A setlist', mode: 'setlist' as const, onEnd: 'stop' as const, source: 'import', rules: { mixInSimilar: true } },
+            { name: 'A chart', mode: 'rotation' as const, onEnd: 'extend' as const, source: 'chart', rules: { mixInSimilar: true } },
+        ]) {
+            await director.post({ kind: 'putOnAir', binding, tracks: [track('x'), track('y')] });
+        }
+
+        expect(jobs.send.mock.calls.filter(call => call[0] === 'director.mix_in_similar')).toEqual([]);
+    });
+
+    it('goes on air even when the mix cannot be asked for', async () => {
+        const { director, jobs, seed } = build();
+        await seed();
+        await director.start();
+        jobs.send.mockImplementation(async (name: string) => {
+            if (name === 'director.mix_in_similar') throw new Error('the broker is not available here');
+            return 'job-1';
+        });
+
+        await director.post({
+            kind: 'putOnAir',
+            binding: { name: 'A playlist', mode: 'rotation', onEnd: 'extend', source: 'import', rules: { mixInSimilar: true } },
+            tracks: [track('x'), track('y')],
+        });
+
+        expect(director.status().name).toBe('A playlist');
+    });
+
+    it('puts mixed-in records after the ones they were found for, and keeps them', async () => {
+        const { director, seed, snapshots } = build();
+        await seed();
+        await director.start();
+        await director.post({
+            kind: 'putOnAir',
+            binding: { name: 'A playlist', mode: 'rotation', onEnd: 'extend', source: 'import', rules: { mixInSimilar: true } },
+            tracks: [track('x'), track('y'), track('z')],
+        });
+        const order = director.order()!;
+        const y = order.items.find(item => item.kind === 'track' && item.track.externalId === 'y')!;
+
+        await director.post({ kind: 'interleaveTracks', inserts: [{ afterItemId: y.id, track: track('near-y') }], broadcastId: order.broadcastId });
+
+        const stored = snapshots.at(-1)!.items.filter(item => item.kind === 'track');
+        expect(stored.map(item => item.kind === 'track' && item.track.externalId)).toEqual(['x', 'y', 'near-y', 'z']);
+        expect(stored[2]).toMatchObject({ mixedIn: true });
+    });
+
+    it('drops records mixed in for a broadcast that has since ended', async () => {
+        const { director, seed, lineup } = build();
+        await seed();
+        await director.start();
+        const before = lineup.size();
+
+        await director.post({
+            kind: 'interleaveTracks',
+            inserts: [{ afterItemId: lineup.all()[0]!.id, track: track('near') }],
+            broadcastId: 'a-broadcast-that-has-ended',
+        });
+
+        expect(lineup.size()).toBe(before);
+    });
+
     it('does not let a broker that will not take the send cost the station its running order', async () => {
         const { director, jobs, seed, lineup } = build();
         await seed();

@@ -38,6 +38,7 @@ import {
     StationLineup,
     isTrackItem,
     type EditResult,
+    type Interleaved,
     type ShuffleResult,
     type StationLineupBinding,
     type StationLineupItem,
@@ -749,6 +750,10 @@ export class DirectorService {
                 await this.appendTracks(command.tracks, command.broadcastId);
                 return undefined;
 
+            case 'interleaveTracks':
+                await this.interleaveTracks(command.inserts, command.broadcastId);
+                return undefined;
+
             case 'replaceTail':
                 await this.replaceTail(command.tracks, command.broadcastId);
                 return undefined;
@@ -1293,6 +1298,29 @@ export class DirectorService {
             data: { name: binding.name, items: tracks.length, source: binding.source, ...(binding.brief ? { brief: binding.brief } : {}) },
         });
         await this.commit();
+        await this.mixInIfAsked(lineup);
+    }
+
+    /**
+     * Ask for a playlist's neighbours to be found, when this broadcast wants them mixed in.
+     *
+     * After the commit rather than before, so the first records are already with the player while
+     * the similarity walk runs: going on air must never wait on an upstream call. A PLAYLIST only
+     * (`source` is `import`): a chart is a published document somebody else wrote, and a station
+     * that fills its own hours already reaches outward through the similar share of every refill.
+     *
+     * A send that fails costs the mix and nothing else, so it is logged and swallowed, the way
+     * {@link topUpIfShort} treats a refill that could not be sent.
+     */
+    private async mixInIfAsked(lineup: StationLineup): Promise<void> {
+        if (lineup.source !== 'import' || lineup.remaining() === 0) return;
+        if (!resolveRules(lineup.mode, lineup.rules, stationRules(this.config)).mixInSimilar) return;
+
+        try {
+            await this.jobs.send('director.mix_in_similar', { broadcastId: lineup.broadcastId });
+        } catch (error) {
+            this.logger.warn(`director: could not ask for similar records to mix in (${errorText(error)})`);
+        }
     }
 
     /**
@@ -1327,6 +1355,34 @@ export class DirectorService {
         // writer. See `BreakPlanner.plant` and `placementsFor`.
         await this.persist();
         this.askForEnrichment('a refill');
+        await this.commit();
+    }
+
+    /**
+     * Put a playlist's neighbours in among its records, each after the one it sounds like.
+     *
+     * The other end of `MixInSimilarJob`, on {@link appendTracks}'s terms: the records arrive
+     * resolved, the broadcast they were found for is checked, and the splice is synchronous.
+     * `StationLineup.interleave` is what keeps every planted break's words true, by only ever using
+     * a gap between two records; anything it cannot place is dropped, and the count says so.
+     */
+    private async interleaveTracks(inserts: readonly Interleaved[], broadcastId: string): Promise<void> {
+        if (inserts.length === 0) return;
+        if (!this.lineup || broadcastId !== this.lineup.broadcastId) {
+            this.logger.warn('director: records mixed in for a broadcast that has ended; dropped', {
+                expected: broadcastId,
+                current: this.lineup?.broadcastId,
+                tracks: inserts.length,
+            });
+            return;
+        }
+
+        const landed = this.lineup.interleave(inserts);
+        this.logger.info('director: mixed records in among the running order', { asked: inserts.length, landed: landed.length });
+        if (landed.length === 0) return;
+
+        await this.persist();
+        this.askForEnrichment('records mixed in');
         await this.commit();
     }
 

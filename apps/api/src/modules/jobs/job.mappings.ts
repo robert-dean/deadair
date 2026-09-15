@@ -14,6 +14,7 @@ import { FETCH_PER_PASS } from '#modules/playout/audio/track.cache.planner.js';
 import { AirChartJob } from '#modules/director/air.chart.job.js';
 import { ExtendLineupJob } from '#modules/director/extend.lineup.job.js';
 import { ReplanLineupJob } from '#modules/director/replan.lineup.job.js';
+import { MixInSimilarJob } from '#modules/director/mix.in.similar.job.js';
 import { ProduceProductionJob } from '#modules/productions/produce.production.job.js';
 import { StitchProductionJob } from '#modules/productions/stitch.production.job.js';
 import { ScheduleTickJob } from '#modules/schedule/schedule.tick.job.js';
@@ -263,6 +264,18 @@ export const JobMappings: Record<JobNames, JobMapping> = {
     'director.replan_lineup': {
         job: ReplanLineupJob,
         policy: { retryLimit: 1, expiresIn: Duration.fromObject({ minutes: 10 }) },
+    },
+
+    // No cron: the director sends this once, when a playlist goes on air asking for its neighbours
+    // to be mixed in. There is nothing about a running order that makes a mix due later.
+    //
+    // NO retry. The work is additive and not idempotent: an attempt that failed after posting would
+    // be retried into a second set of records among the first. A mix that did not happen leaves the
+    // playlist playing exactly as the operator chose it, which is a fine thing to fall back to.
+    // `expiresIn` is the replan's, because a run is one similarity walk and one lookup per anchor.
+    'director.mix_in_similar': {
+        job: MixInSimilarJob,
+        policy: { retryLimit: 0, expiresIn: Duration.fromObject({ minutes: 10 }) },
     },
 
     // No cron: a break is written because the planner put one in a running order, and there is

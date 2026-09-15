@@ -47,7 +47,7 @@ Every record fetched is kept, so a second airing costs no download. "Keep at mos
 
 Two ways to put a whole list on air:
 
-- **A playlist**: open it under Library → Playlists and press Air this playlist. The running order is rebuilt from it, in its order, and your dislikes and explicit-content policy still apply.
+- **A playlist**: open it under Library → Playlists and press Air this playlist. The running order is rebuilt from it, in its order, and your dislikes and explicit-content policy still apply. The arrow beside the button offers **Air with similar records mixed in**, the way a smart shuffle does: every few records, a record by an artist who sounds like the one just played. The playlist still plays in full and in its own order around them. It needs a similarity plugin such as Last.fm, and **Play records the station does not own yet** on. To have every playlist do it, turn on **Mix similar records into a playlist** under Settings, Rotation, which also sets how many of the playlist's records play between mixed-in ones. A setlist never has anything mixed in.
 - **A chart**, from a plugin that publishes one, such as Last.fm. Airing it puts the station on those records for a broadcast; when they run out it programmes itself again. Each entry goes through the same lookup and rules as any other pick.
 
 Either can also be what the station plays when nothing is scheduled. See [the programme](./programme.md).

@@ -91,7 +91,9 @@ export function followTransport(queryClient: QueryClient, status: PlayoutStatus)
 export function usePlayPlaylist() {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: ({ pluginId, playlistId }: { pluginId: string; playlistId: string }) => sdk.playout.playAPlaylist({ pluginId, playlistId }),
+        // `mixInSimilar` only when asked for, so the ordinary press leaves the station setting standing.
+        mutationFn: ({ pluginId, playlistId, mixInSimilar }: { pluginId: string; playlistId: string; mixInSimilar?: boolean }) =>
+            sdk.playout.playAPlaylist({ pluginId, playlistId, ...(mixInSimilar === undefined ? {} : { mixInSimilar }) }),
         onSuccess: status => {
             followTransport(queryClient, status);
         },

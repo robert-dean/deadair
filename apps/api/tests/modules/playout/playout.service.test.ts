@@ -207,6 +207,16 @@ describe('PlayoutService.playPlaylist', () => {
         expect(director.putOnAir).toHaveBeenCalledWith({ pluginId: 'deadair.spotify', playlistId: 'pl_1' });
     });
 
+    it('passes on a request to mix similar records in, and says nothing about it when there was none', async () => {
+        // Absent has to stay absent, or every playlist aired from the console would overrule a
+        // station that has the setting on.
+        const { service, director } = build();
+
+        await service.playPlaylist({ pluginId: 'deadair.spotify', playlistId: 'pl_1', mixInSimilar: true });
+
+        expect(director.putOnAir).toHaveBeenCalledWith({ pluginId: 'deadair.spotify', playlistId: 'pl_1', mixInSimilar: true });
+    });
+
     it('hands the first item over without waiting for the tick', async () => {
         // Otherwise the console's own response describes a station that has not started
         // yet, and the operator sees a stopped transport for up to a reconcile interval.

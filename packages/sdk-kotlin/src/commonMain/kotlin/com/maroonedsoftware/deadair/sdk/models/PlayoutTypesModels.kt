@@ -9,6 +9,8 @@ import kotlinx.serialization.Serializable
 data class PlayoutPlaylistInput(
     val pluginId: String,
     val playlistId: String,
+    /** Whether records that sound like the ones on this playlist are mixed in among them, one every `rotation.mixInEvery` records. The playlist still plays in full and in its own order around them. Absent takes the station's own setting, which is off */
+    val mixInSimilar: Boolean? = null,
 )
 
 /** The published chart to build the running order from */

@@ -7,6 +7,7 @@ options {
 contract PlayoutPlaylistInput: { # The plugin playlist to load into the running order
     pluginId: string(min=1, max=200)
     playlistId: string(min=1, max=400)
+    mixInSimilar?: boolean # Whether records that sound like the ones on this playlist are mixed in among them, one every `rotation.mixInEvery` records. The playlist still plays in full and in its own order around them. Absent takes the station's own setting, which is off
 }
 
 contract PlayoutChartInput: { # The published chart to build the running order from

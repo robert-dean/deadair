@@ -299,7 +299,12 @@ export class PlayoutService {
      * actor's view of the plugin.
      */
     async playPlaylist(input: PlayoutPlaylistInput): Promise<PlayoutStatus> {
-        await this.director.putOnAir({ pluginId: input.pluginId, playlistId: input.playlistId });
+        // `mixInSimilar` only when it was sent: absent leaves the station's own setting standing.
+        await this.director.putOnAir({
+            pluginId: input.pluginId,
+            playlistId: input.playlistId,
+            ...(input.mixInSimilar === undefined ? {} : { mixInSimilar: input.mixInSimilar }),
+        });
 
         // Hand the first item over now rather than waiting out the reconcile tick,
         // so the console's own response already reflects a station that is starting.

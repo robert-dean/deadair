@@ -18,6 +18,11 @@ public sealed record PlayoutPlaylistInput
 
     [JsonPropertyName("playlistId")]
     public required string PlaylistId { get; init; }
+
+    /// <summary>Whether records that sound like the ones on this playlist are mixed in among them, one every `rotation.mixInEvery` records. The playlist still plays in full and in its own order around them. Absent takes the station's own setting, which is off</summary>
+    [JsonPropertyName("mixInSimilar")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? MixInSimilar { get; init; }
 }
 
 /// <summary>The published chart to build the running order from</summary>

@@ -5,27 +5,33 @@ import Foundation
 public struct PlayoutPlaylistInput: Codable, Equatable, Sendable {
     public var pluginId: String
     public var playlistId: String
+    /// Whether records that sound like the ones on this playlist are mixed in among them, one every `rotation.mixInEvery` records. The playlist still plays in full and in its own order around them. Absent takes the station's own setting, which is off
+    public var mixInSimilar: Bool?
 
-    public init(pluginId: String, playlistId: String) {
+    public init(pluginId: String, playlistId: String, mixInSimilar: Bool? = nil) {
         self.pluginId = pluginId
         self.playlistId = playlistId
+        self.mixInSimilar = mixInSimilar
     }
 
     private enum CodingKeys: String, CodingKey {
         case pluginId = "pluginId"
         case playlistId = "playlistId"
+        case mixInSimilar = "mixInSimilar"
     }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.pluginId = try container.decode(String.self, forKey: .pluginId)
         self.playlistId = try container.decode(String.self, forKey: .playlistId)
+        self.mixInSimilar = try container.decodeIfPresent(Bool.self, forKey: .mixInSimilar)
     }
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(self.pluginId, forKey: .pluginId)
         try container.encode(self.playlistId, forKey: .playlistId)
+        try container.encodeIfPresent(self.mixInSimilar, forKey: .mixInSimilar)
     }
 }
 

@@ -234,5 +234,6 @@ both turned off drawing the cover alone, once the plugin was restarted onto the 
 Skip, Stop (armed, then fired) and Start work on the device too, pressed against the live station
 with a key issued Read and manage.
 
-Not yet: the packed `.streamDeckPlugin` installed by double-click rather than a linked folder, which is
-the only test that `bin/package.json` survives packing.
+And the packed `.streamDeckPlugin`, built by the `installer` script and installed by double-click
+over an unlinked dev copy, works the same: the ES module survives packing and the keys kept their
+settings, which the app stores against the plugin's id rather than its folder.

@@ -320,6 +320,26 @@ describe('parseFeed on a podcast', () => {
         expect(entry?.enclosure).toEqual({ url: 'https://atom.example.net/1.ogg', type: 'audio/ogg', lengthBytes: 1_048_576 });
     });
 
+    it('reads an entry that names itself twice, once in each namespace', () => {
+        // With the prefix gone `<title>` and `<itunes:title>` are two `title`s, and this is how most
+        // of the big hosts write an episode. Until it was read, every such entry was dropped as
+        // untitled: NPR's Planet Money feed parsed to a channel with no episodes in it.
+        const feed = parseFeed(`<rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd"><channel>
+            <title>A show</title>
+            <itunes:title>A show, again</itunes:title>
+            <item>
+                <title>Episode 7: The long one</title>
+                <itunes:title>The long one</itunes:title>
+                <guid>ep7</guid>
+                <enclosure url="https://cdn.example.com/7.mp3" type="audio/mpeg" length="1"/>
+            </item>
+        </channel></rss>`);
+
+        expect(feed.title).toBe('A show');
+        expect(feed.items).toHaveLength(1);
+        expect(feed.items[0]).toMatchObject({ id: 'ep7', title: 'Episode 7: The long one' });
+    });
+
     it('reports nothing new about an ordinary news feed', () => {
         const feed = parseFeed(RSS);
 

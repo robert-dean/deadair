@@ -604,10 +604,25 @@ const trimmed = (value: string): string | undefined => (value.trim().length === 
  * becomes `{ '#text': …, '@_type': … }`. Reading only the first shape is the
  * single easiest way to lose a title, because `type="html"` on one is entirely
  * ordinary.
+ *
+ * And it is an ARRAY when the element is repeated, which `removeNSPrefix`
+ * makes far commoner than any feed intends: a podcast writes both `<title>`
+ * and `<itunes:title>`, and with the prefix gone those are two `title`s. The
+ * first readable one is the answer, which is the plain RSS element wherever a
+ * publisher wrote both in the usual order. Before this, every entry of such a
+ * feed was dropped as having no title at all — measured on NPR's Planet Money
+ * feed, 355 entries and none of them read.
  */
 function text(value: unknown): string | undefined {
     if (typeof value === 'string') return trimmed(value);
     if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+    if (Array.isArray(value)) {
+        for (const candidate of value) {
+            const found = text(candidate);
+            if (found !== undefined) return found;
+        }
+        return undefined;
+    }
     if (isRecord(value)) return text(value['#text']);
 
     return undefined;

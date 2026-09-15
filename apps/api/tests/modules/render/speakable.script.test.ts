@@ -40,9 +40,61 @@ describe('what survives', () => {
         expect(spoken('(laughs) Hello there.')).toBe('Hello there.');
     });
 
-    it('drops the asterisks a model puts round a title, which went out on air with them in', () => {
-        // Measured: `the album is *The Soft Parade*` reached the engine, which reads the asterisk.
-        expect(spoken('The album is *The Soft Parade*, and I love it.')).toBe('The album is , and I love it.');
+    it('drops the asterisks a model puts round a title, and keeps the title', () => {
+        // Measured: `the album is *The Soft Parade*` reached the engine, which reads the asterisk. The
+        // first fix took the title out with the marks, and this test pinned "The album is , and I love it."
+        expect(spoken('The album is *The Soft Parade*, and I love it.')).toBe('The album is The Soft Parade, and I love it.');
+    });
+
+    describe('asterisks, which are emphasis far more often than a stage direction', () => {
+        // Measured on the live station: of 30 captured talk-break answers with a `*...*` run in them,
+        // 28 had put a title, an artist or an album in italics and 2 had stressed a word. None was a
+        // stage direction. Deleting the run aired a hole where the record's name had been.
+
+        it('keeps a title a model italicised, which is how it names records it was shown', () => {
+            // Verbatim, audition 36f56b7b ordinal 19: both titles went, and the break was refused as
+            // being about neither record.
+            const answer = 'The last beat that just spun off was *Tornado Of Souls* and next we hit *Electric Eye*.';
+
+            expect(spoken(answer)).toBe('The last beat that just spun off was Tornado Of Souls and next we hit Electric Eye.');
+        });
+
+        it('keeps a title that is not a record on the order, since nothing else can tell it from one', () => {
+            // An album and a film, both measured, and neither is anything the writer was shown.
+            expect(spoken('A straightforward anthem from *The Colour and the Shape*, it keeps climbing.')).toBe(
+                'A straightforward anthem from The Colour and the Shape, it keeps climbing.',
+            );
+            expect(spoken('It pulls a line out of *The Dark Knight*.')).toBe('It pulls a line out of The Dark Knight.');
+        });
+
+        it('keeps a stressed word, which reads as a hole when it goes', () => {
+            expect(spoken('The master changed so the sax would actually *talk* instead of whisper.')).toBe(
+                'The master changed so the sax would actually talk instead of whisper.',
+            );
+            // The exclamations that put this rule here in the first place are words the persona is
+            // asked to say out loud. It was only ever the asterisks that could not be read.
+            expect(spoken('*yikes* That was loud.')).toBe('yikes That was loud.');
+        });
+
+        it('reads bold the same way', () => {
+            expect(spoken('Here comes **Miles From Nowhere** by Yusuf.')).toBe('Here comes Miles From Nowhere by Yusuf.');
+            expect(spoken('Next up, **“As Above So Below”**—this one is insane.')).toBe('Next up, “As Above So Below”—this one is insane.');
+        });
+
+        it('keeps every word of a title the model tried to stress inside itself', () => {
+            // Verbatim. The old strip read this as two runs and aired "Wanna".
+            expect(spoken('Tonight’s next riff—*I *Wanna* Rock.*')).toBe('Tonight’s next riff—I Wanna Rock.');
+        });
+
+        it('still drops a run that is a stage direction', () => {
+            expect(spoken('*laughs nervously* Well, that happened.')).toBe('Well, that happened.');
+            expect(spoken('That was the one. **sighs** Anyway.')).toBe('That was the one. Anyway.');
+        });
+
+        it('drops an italicised title carrying a stage-direction word, which is the known price', () => {
+            // 10 of the live station's 1,388 tracks. Pinned so that changing it is a decision.
+            expect(spoken('That was *Beat It*, and it still works.')).toBe('That was , and it still works.');
+        });
     });
 
     it('keeps only the first reaction, however many were written', () => {

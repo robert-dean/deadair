@@ -158,7 +158,9 @@ the named half checkable: `named-nothing` declines a script that carries neither
 anything it was shown. It is on the talk break ALONE — a welcome frequently has no record and a
 bulletin's job is the stories — and `namedRecordIn` is deliberately generous (title, title with any
 parenthetical dropped, or artist), because what is being caught is a break about no record at all and
-every refusal costs the station the model's sentence.
+every refusal costs the station the model's sentence. It reads the TIDIED script, so whatever the tidying
+deletes is a name it cannot see: a title in markdown italics was refused as naming nothing until
+`speakableScript` stopped deleting `*...*` runs whole (`render.md` § "Speech, voices and cues").
 
 **Three more things the prompt never said, each one a silence a model filled.** It never said what
 half of the DAY it was, because `roughTime` is twelve-hour with no am or pm — right for a listener

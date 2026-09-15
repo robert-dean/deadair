@@ -112,11 +112,17 @@ export function speakableScript(text: string, options: SpeakableOptions): string
     // afterwards would be admitted into a script the strip had already emptied of pads.
     script = keepPads(keepReactions(script, kept, ceiling), pads, options.maxPads ?? MAX_PADS)
         .replace(/\[[^\]]*\]/g, match => (isReaction(match, kept) || isPad(match) ? match.toLowerCase() : ' '))
-        .replace(/\*[^*]*\*/g, ' ')
-        // A narrow list, and matched on the stem so "laughs" and "sighing" count. Parentheses are
-        // deliberately NOT stripped wholesale: "(Don't Fear) The Reaper" is a title, and a
-        // parenthetical inside a sentence is ordinary speech.
-        .replace(/\((?:[^()]*\b(?:laugh|sigh|pause|beat|music|sfx|voice|warmly|softly|upbeat|chuckl)\w*[^()]*)\)/gi, ' ');
+        // Asterisks are EMPHASIS, and the marks go while the words stay. Only a run that reads as a
+        // stage direction is dropped whole. This rule deleted every `*...*` run for as long as it
+        // existed, and measured over every answer the live station had captured, not one of them was
+        // a stage direction: 28 of 30 were a title, an artist or an album in markdown italics and the
+        // other two were a stressed word. So the station aired "Next up, by The Verve Pipe" with the
+        // title gone, and refused "that was *Tornado Of Souls*" for naming neither record it was
+        // shown. Bold (`**x**`) is the same shape with more marks and is read the same way.
+        .replace(/(\*{1,3})([^*]+?)\1/g, (_run, _marks: string, words: string) => (isStageDirection(words) ? ' ' : words))
+        // Parentheses are deliberately NOT stripped wholesale: "(Don't Fear) The Reaper" is a title,
+        // and a parenthetical inside a sentence is ordinary speech.
+        .replace(/\([^()]*\)/g, run => (isStageDirection(run) ? ' ' : run));
 
     // Quotation marks around the WHOLE thing, which is a model quoting itself rather than a script
     // containing a quote. Only when they wrap everything, so a quoted lyric inside a line survives.
@@ -127,6 +133,18 @@ export function speakableScript(text: string, options: SpeakableOptions): string
     script = script.replace(/\s{2,}/g, ' ').trim();
     return script.length === 0 ? undefined : script;
 }
+
+/**
+ * Whether a run of text is a note to the performer rather than words: `laughs`, `sighing`, `music swells`.
+ *
+ * A narrow list, and matched on the stem so "laughs" and "sighing" count. One list for both notations
+ * a model writes a stage direction in, so `*sighs*` and `(sighs)` cannot be judged differently.
+ *
+ * The known price is a title that carries one of these words and arrives italicised: `*Beat It*` is
+ * dropped as though it were a direction. That is 10 of the live station's 1,388 tracks and 3 of its
+ * first 1,433 plays, against every italicised title on the station before this list was consulted.
+ */
+const isStageDirection = (run: string): boolean => /\b(?:laugh|sigh|pause|beat|music|sfx|voice|warmly|softly|upbeat|chuckl)\w*/i.test(run);
 
 /**
  * Whether a bracketed run is a pad hit that {@link keepPads} has already approved.

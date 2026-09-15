@@ -57,6 +57,18 @@ vocabulary, and why every matcher built from the list orders the longest form fi
 in it. The other half is that `readAnswer`'s tidying is `speakableScript` and BOTH paths call it: a production
 beat never had it, so `the album is *The Soft Parade*` went to an engine that reads asterisks.
 
+**Asterisks are emphasis, so the marks go and the words stay.** The strip used to delete every `*...*` run as a
+stage direction, and the test for the fix above pinned what that produced: "The album is , and I love it."
+Measured on 2026-09-15 over every answer the live station had captured (1,885 of them): 30 talk breaks carried a
+`*...*` run, and not one was a stage direction. 28 were a title, an artist or an album in markdown italics and
+2 were a stressed word. 17 of those scripts were written for air with a hole where the name had been ("Next up,
+by The Verve Pipe"), and the break path refused others as `named-nothing` for naming a record the strip had taken out.
+Under today's checks that is still 2 live breaks and 1 audition (`*Tornado Of Souls*`). So a run is now unwrapped
+unless it reads as a stage direction, on the same stem list `(laughs)` is judged by. The title-only unwrap was
+considered and is the weaker fix: half the runs were an album, a film or an ordinary word, which no record the
+writer was shown would ever match. The known price is an italicised title carrying one of those words
+(`*Beat It*`), which is 10 of the station's 1,388 tracks.
+
 **How a line is READ has two halves, and only one of them crosses the boundary.** A voice's baseline is the plugin's own config: `plugins/chatterbox` has `exaggeration` and `cfgWeight` columns beside `speed`, because a number on that engine's scale means nothing to Kokoro. A break's reading is a WORD, `SpeechRequest.delivery` (`hushed` or `frantic`), and it crosses for the reason a cue does: the station asks in its own vocabulary and each engine translates, so a change of engine rewrites no row. The obvious shape was an `exaggeration` field on the request, which would have put one engine family's scale into the contract and tied every script to it. `listDeliveries` is `listCues`' twin, `SpeechService` drops an unclaimed delivery exactly where it strips an unclaimed cue, and Chatterbox's translation (`chatterbox.delivery.ts`) is a move on the voice's own dials rather than a fixed point, so a voice that is intense at rest stays more intense than its neighbours when hushed. Three things are load-bearing.
 
 **On Chatterbox it is reactions or readings, never both, and the live station has reactions.** The `turbo` model performs the paralinguistic tags and DISCARDS both dials (upstream logs that it is ignoring them); `original` and `multilingual` read the dials and perform no tags. So the plugin gates on the resident model's `type` from `/api/model-info`, which `ensureLoaded` already fetches before every synthesis and now hands back rather than discarding, and it gates on an allowlist, since sending to an unknown build changes a rendering nobody predicted. Test connection says which of the two the loaded model does, because it is the only place an operator can learn that a dial they set is inert.

@@ -9,6 +9,13 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.8.3] — 2026-09-15
+
+- A programme booked on the format clock is commissioned once. The time a clock band next falls due used to carry the milliseconds of the moment it was asked, so every pass of the station's scheduler saw the same slot as a new one and could commission the same phone-in or podcast again, as often as every pass for the three hours before it aired.
+- The eighties persona seed is now a valley girl, Tiffani, in place of the bright video-age jock. She talks in uptalk, loves whatever the station plays because it is on the radio, and cannot understand the music nobody plays. A station that already has the old jock keeps him: seeds are only written to an empty station, and "Restore built-ins" adds missing ones without overwriting.
+- A title, artist or album the model wrote in markdown italics or bold (`*Electric Eye*`) now keeps its words and loses only the asterisks. Every `*...*` run used to be deleted as a stage direction, which aired breaks with a hole where the record's name had been and refused others for naming neither record they were shown. A run that reads as a stage direction (`*laughs*`, `*sighs*`) is still dropped.
+- The valley girl seed is revised after her first audition. She uses "like" as a discourse marker (the filler, "I was like", and "like, four of them"), her uptalk is a statement going up rather than a question tacked onto the end, and her disgust slang is no longer spent as praise. She now stays loyal to a record on air that sounds like the music she cannot stand, and she no longer jokes about a death.
+
 ## [0.8.2] — 2026-09-15
 
 - A pronunciation entry for a name that starts with punctuation (`?uestlove`, `.38 Special`) now matches. Taking a soundboard hit out of a script no longer closes every space in front of punctuation elsewhere in it, which had glued such names to the word before them, in the stored script as well as on the way to the engine.
@@ -127,7 +134,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.8.2...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.8.3...HEAD
+[0.8.3]: https://github.com/robert-dean/deadair/compare/v0.8.2...v0.8.3
 [0.8.2]: https://github.com/robert-dean/deadair/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/robert-dean/deadair/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/robert-dean/deadair/compare/v0.7.1...v0.8.0

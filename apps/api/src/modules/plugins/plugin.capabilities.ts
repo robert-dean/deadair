@@ -6,6 +6,7 @@ import {
     PLUGIN_CAPABILITY_LLM,
     PLUGIN_CAPABILITY_MIXER,
     PLUGIN_CAPABILITY_NEWS,
+    PLUGIN_CAPABILITY_PODCAST,
     PLUGIN_CAPABILITY_SCROBBLE,
     PLUGIN_CAPABILITY_SEARCH,
     PLUGIN_CAPABILITY_SIMILARITY,
@@ -21,6 +22,7 @@ import {
     type MixerProvider,
     type MusicProviderPluginInstance,
     type NewsPluginInstance,
+    type PodcastPluginInstance,
     type PluginManifest,
     type SearchPluginInstance,
     type SpeechPluginInstance,
@@ -299,6 +301,53 @@ export const asNewsPlugin = (record: PluginRecord): NewsPlugin | undefined => {
     if (!implementsNews(record.manifest, record.instance)) return undefined;
 
     return { record, manifest: record.manifest, instance: record.instance as NewsPluginInstance };
+};
+
+/**
+ * The two methods that earn the `podcast` capability, on {@link NEWS_METHODS}'s argument: a show id
+ * is scoped to the plugin that minted it, so a plugin that lists episodes without listing shows is
+ * unreachable, and one that lists shows without episodes is a menu with no kitchen.
+ *
+ * `searchShows` is deliberately not one of them. A plugin that reads only the feeds it was given is a
+ * complete podcast plugin; being a directory as well is reported as {@link PodcastPlugin.searchesShows}.
+ */
+export const PODCAST_METHODS = ['listShows', 'listEpisodes'] as const satisfies ReadonlyArray<keyof PodcastPluginInstance>;
+
+/** A plugin narrowed to "can say what programmes the station carries, and what they published". */
+export interface PodcastPlugin {
+    record: PluginRecord;
+    manifest: PluginManifest;
+    instance: PodcastPluginInstance;
+    /**
+     * Whether `searchShows` is there to call, so a caller looking for a directory can skip the ones
+     * that are not, on {@link CatalogPlugin.searchesTracks}'s pattern.
+     */
+    searchesShows: boolean;
+}
+
+/** {@link implementsCatalog}'s rule, applied to the `podcast` capability. */
+export const implementsPodcast = (manifest: PluginManifest | undefined, instance: unknown): boolean => {
+    if (!manifest?.capabilities.includes(PLUGIN_CAPABILITY_PODCAST)) return false;
+    return PODCAST_METHODS.every(method => typeof (instance as Record<string, unknown>)[method] === 'function');
+};
+
+/**
+ * The podcast-capable view of a record, or `undefined` when it is not one.
+ *
+ * No `priority`, for {@link asNewsPlugin}'s reason: two podcast plugins carry two sets of
+ * subscriptions, and there is nothing to rank. The host fans out over every one.
+ */
+export const asPodcastPlugin = (record: PluginRecord): PodcastPlugin | undefined => {
+    if (record.status !== 'active' || !record.manifest || !record.instance) return undefined;
+    if (!implementsPodcast(record.manifest, record.instance)) return undefined;
+
+    const instance = record.instance as PodcastPluginInstance;
+    return {
+        record,
+        manifest: record.manifest,
+        instance,
+        searchesShows: typeof (instance as unknown as Record<string, unknown>).searchShows === 'function',
+    };
 };
 
 /** The one method that earns the `search` capability. */

@@ -33,6 +33,7 @@ const BOUNDARY_SOURCE_FILES = [
     'capabilities/mixer.ts',
     'capabilities/charts.ts',
     'capabilities/news.ts',
+    'capabilities/podcast.ts',
     'capabilities/similarity.ts',
     'capabilities/search.ts',
     'capabilities/weather.ts',

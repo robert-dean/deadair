@@ -20,6 +20,7 @@ A plugin extends deadair by declaring capabilities:
 | `charts`     | say what is popular: a chart id in, ranked names out           |
 | `similarity` | say who else sounds like this: an artist in, artists out       |
 | `news`       | say what happened outside the station: a feed in, entries out  |
+| `podcast`    | carry somebody else's programme: a show in, episodes out       |
 | `search`     | ask the open web a question: words in, pages out               |
 | `weather`    | say what it is like outside: a place in, measurements out       |
 | `scrobble`   | report what the station played to somebody else's service      |
@@ -563,6 +564,62 @@ only for something the operator has to go and fix.
 Note what `search` is not. Looking for something to PLAY is `searchTracks` on
 the catalog capability, which answers with provider ids the station can resolve
 into audio. Nothing a search plugin returns can be scheduled.
+
+## Carrying podcasts
+
+A `podcast` plugin says what programmes the station subscribes to and what each
+has published. Two methods are required and one is optional:
+
+```ts
+async listShows(): Promise<PodcastShow[]> {
+    return this.subscriptions.map(row => ({ id: row.id, title: row.name, feedUrl: row.url }));
+}
+
+async listEpisodes({ showId, limit, since }: PodcastEpisodesQuery): Promise<PodcastEpisode[]> {
+    const feed = await fetchFeed(this.host, this.feedFor(showId));
+    return feed.items
+        .filter(item => item.enclosure !== undefined)                 // no audio, no episode
+        .map(item => ({ id: item.id, showId, showTitle: feed.title ?? '', title: item.title,
+                        durationMs: item.durationMs, audio: { url: item.enclosure!.url } }))
+        .slice(0, limit);
+}
+```
+
+`parseFeed` reads a podcast feed's enclosure and `itunes:duration` for you, so
+most of a feed-reading podcast plugin is the mapping above. Four things about it
+are easy to get wrong.
+
+**You never fetch the audio.** `audio.url` is an address the HOST fetches, once,
+hours before the episode is due on air, into the station's own store. An episode
+is far larger than any body a plugin is allowed to read through `host.fetch`,
+and when it is wanted is a station decision you cannot see. So the address has
+to carry whatever it needs, like `resolveStreamUrl`'s: it is fetched with no
+headers from you.
+
+**An id is a promise.** The station remembers which episodes it has fetched and
+aired by `PodcastEpisode.id`, so the same episode must have the same id on every
+call, or it is fetched and aired twice. `FeedItem.id` already keeps that promise.
+
+**Leave out what cannot be carried.** An entry with no enclosure, or one at an
+address nothing can fetch, is not an episode the station can air; handing it over
+only makes the host drop it. And `durationMs` is the publisher's claim, passed
+on as one. Do not estimate a length from a file size.
+
+**An empty array is an answer**, on the terms `search` and `news` set: a show
+whose feed is down, an id you no longer recognise and a show with nothing
+published are one outcome to the host, and one show's bad day must not cost the
+others.
+
+`searchShows` is a directory, for an operator looking for something to subscribe
+to, and it answers with `PodcastDirectoryEntry` rather than `PodcastShow`: its
+`id` is the directory's own and its `feedUrl` is what subscribing needs. What a
+subscription IS stays yours, which is why there is no method for it.
+
+Note what this capability is not: a `catalog`. An episode is not a record, and
+every rule the station applies to a record, from rotation and artist spacing to
+crossfading and scrobbling, is wrong for an hour of somebody else's programme.
+The station carries an episode the way it carries a programme it made itself:
+one item, aired whole, as speech, when a clock band names the show.
 
 ## Saying what it is like outside
 

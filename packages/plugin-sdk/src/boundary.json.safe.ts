@@ -40,6 +40,14 @@ import type { AnalysisRef, TrackAnalysis, TrackCuePoints, TrackLoudness, TrackTa
 import type { AudioJoin, AudioOverlay } from './capabilities/mixer.js';
 import type { ChartDescriptor, ChartEntry, ChartQuery } from './capabilities/charts.js';
 import type { NewsFeedDescriptor, NewsItem, NewsQuery } from './capabilities/news.js';
+import type {
+    PodcastAudio,
+    PodcastDirectoryEntry,
+    PodcastDirectoryQuery,
+    PodcastEpisode,
+    PodcastEpisodesQuery,
+    PodcastShow,
+} from './capabilities/podcast.js';
 import type { ScrobblePlay, ScrobbleRejection, ScrobbleResult } from './capabilities/scrobble.js';
 import type { SearchQuery, SearchResult } from './capabilities/search.js';
 import type { ArtistTrack, SimilarArtist } from './capabilities/similarity.js';
@@ -187,6 +195,12 @@ export type AssertAllBoundaryPayloadsAreJsonSafe = AssertAllTrue<{
     NewsFeedDescriptor: IsJsonSafe<NewsFeedDescriptor>;
     NewsQuery: IsJsonSafe<NewsQuery>;
     NewsItem: IsJsonSafe<NewsItem>;
+    PodcastShow: IsJsonSafe<PodcastShow>;
+    PodcastAudio: IsJsonSafe<PodcastAudio>;
+    PodcastEpisode: IsJsonSafe<PodcastEpisode>;
+    PodcastEpisodesQuery: IsJsonSafe<PodcastEpisodesQuery>;
+    PodcastDirectoryQuery: IsJsonSafe<PodcastDirectoryQuery>;
+    PodcastDirectoryEntry: IsJsonSafe<PodcastDirectoryEntry>;
     SimilarArtist: IsJsonSafe<SimilarArtist>;
     ArtistTrack: IsJsonSafe<ArtistTrack>;
     SearchQuery: IsJsonSafe<SearchQuery>;
@@ -255,6 +269,12 @@ export const JSON_SAFE_PAYLOAD_TYPES = [
     'NewsFeedDescriptor',
     'NewsQuery',
     'NewsItem',
+    'PodcastShow',
+    'PodcastAudio',
+    'PodcastEpisode',
+    'PodcastEpisodesQuery',
+    'PodcastDirectoryQuery',
+    'PodcastDirectoryEntry',
     'SimilarArtist',
     'ArtistTrack',
     'SearchQuery',
@@ -299,6 +319,7 @@ export const BOUNDARY_METHOD_TYPES = [
     'MixerProvider',
     'ChartsProvider',
     'NewsProvider',
+    'PodcastProvider',
     'SimilarityProvider',
     'SearchProvider',
     'WeatherProvider',

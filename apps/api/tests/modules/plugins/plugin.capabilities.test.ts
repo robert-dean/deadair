@@ -11,6 +11,7 @@ import {
     asCatalogPlugin,
     asLlmPlugin,
     asMixerPlugin,
+    asPodcastPlugin,
     asSpeechPlugin,
     asStreamPlugin,
     implementsStream,
@@ -192,5 +193,34 @@ describe('asMixerPlugin', () => {
         const both = record(['analysis', 'mixer'], { ...analysisMethods, ...mixerMethods });
         expect(asAnalysisPlugin(both)).toBeDefined();
         expect(asMixerPlugin(both)).toBeDefined();
+    });
+});
+
+describe('asPodcastPlugin', () => {
+    /** The two methods `podcast` requires, as bare stubs. */
+    const podcastMethods = { listShows: async () => [], listEpisodes: async () => [] };
+
+    it('accepts a plugin that lists shows and their episodes', () => {
+        expect(asPodcastPlugin(record(['podcast'], podcastMethods))).toMatchObject({ searchesShows: false });
+    });
+
+    it('reports a directory as a directory, without requiring one', () => {
+        expect(asPodcastPlugin(record(['podcast'], { ...podcastMethods, searchShows: async () => [] }))?.searchesShows).toBe(true);
+    });
+
+    it('refuses a plugin that lists shows and has no way to list what they published', () => {
+        expect(asPodcastPlugin(record(['podcast'], { listShows: async () => [] }))).toBeUndefined();
+    });
+
+    it('refuses a plugin that implements the methods and never declared the capability', () => {
+        // A news plugin that happens to have the methods is still a news plugin: the operator was
+        // told it reads headlines, not that it puts programmes on air.
+        expect(asPodcastPlugin(record(['news'], podcastMethods))).toBeUndefined();
+    });
+
+    it('refuses a plugin that is not running', () => {
+        for (const status of ['discovered', 'disabled', 'misconfigured', 'failed'] as const) {
+            expect(asPodcastPlugin(record(['podcast'], podcastMethods, status))).toBeUndefined();
+        }
     });
 });

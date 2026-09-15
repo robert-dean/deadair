@@ -91,6 +91,20 @@ export const PLUGIN_CAPABILITY_CHARTS = 'charts';
 export const PLUGIN_CAPABILITY_NEWS = 'news';
 
 /**
+ * The plugin can say what programmes the station subscribes to, and what each
+ * has published: a show in, episodes out, each with the address of its audio.
+ *
+ * Separate from {@link PLUGIN_CAPABILITY_NEWS} although both read somebody
+ * else's feed, because what comes back is not a fact to say but a programme to
+ * AIR, and the station carries it rather than reading it out. And separate from
+ * {@link PLUGIN_CAPABILITY_CATALOG} although both end in audio, because an
+ * episode is not a record: every rule the station applies to a record, from
+ * rotation to scrobbling, is wrong for an hour of somebody else's programme.
+ * `capabilities/podcast.ts` says why at length.
+ */
+export const PLUGIN_CAPABILITY_PODCAST = 'podcast';
+
+/**
  * The plugin can say who else sounds like this: an artist in, artists out.
  *
  * Separate from {@link PLUGIN_CAPABILITY_ENRICHMENT} for the reason
@@ -156,6 +170,7 @@ export const KNOWN_PLUGIN_CAPABILITIES = [
     PLUGIN_CAPABILITY_MIXER,
     PLUGIN_CAPABILITY_CHARTS,
     PLUGIN_CAPABILITY_NEWS,
+    PLUGIN_CAPABILITY_PODCAST,
     PLUGIN_CAPABILITY_SIMILARITY,
     PLUGIN_CAPABILITY_SEARCH,
     PLUGIN_CAPABILITY_WEATHER,

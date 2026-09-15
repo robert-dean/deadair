@@ -20,6 +20,14 @@ import type { LlmModelInfo, LlmRequest, LlmResult } from '../src/capabilities/ll
 import type { AnalysisRef, TrackAnalysis, TrackCuePoints, TrackLoudness, TrackTaggedLoudness } from '../src/capabilities/analysis.js';
 import type { ChartDescriptor, ChartEntry, ChartQuery } from '../src/capabilities/charts.js';
 import type { NewsFeedDescriptor, NewsItem, NewsQuery } from '../src/capabilities/news.js';
+import type {
+    PodcastAudio,
+    PodcastDirectoryEntry,
+    PodcastDirectoryQuery,
+    PodcastEpisode,
+    PodcastEpisodesQuery,
+    PodcastShow,
+} from '../src/capabilities/podcast.js';
 import type { ArtistTrack, SimilarArtist } from '../src/capabilities/similarity.js';
 import type { ScrobblePlay, ScrobbleRejection, ScrobbleResult } from '../src/capabilities/scrobble.js';
 
@@ -423,6 +431,64 @@ export const newsItemFixture: NewsItem = {
     url: 'https://example.com/bridge',
     publishedAt: '2026-08-15T08:41:00.000Z',
     categories: ['Local', 'Transport'],
+};
+
+export const podcastShowFixture: PodcastShow = {
+    id: 'longwave',
+    title: 'The Long Wave',
+    author: 'Long Wave Productions',
+    description: 'Conversations about radio and the people who make it.',
+    artworkUrl: 'https://cdn.example.com/square.jpg',
+    homeUrl: 'https://longwave.example.com',
+    feedUrl: 'https://longwave.example.com/feed.xml',
+    language: 'en-gb',
+    categories: ['Society & Culture', 'Documentary'],
+    explicit: false,
+};
+
+/** Only the address is load-bearing; the type and size are the publisher's claims. */
+export const podcastAudioFixture: PodcastAudio = {
+    url: 'https://cdn.example.com/12.mp3',
+    mimeType: 'audio/mpeg',
+    lengthBytes: 59_572_224,
+};
+
+/** `durationMs` is an integer and `publishedAt` a string, the two fields a `Date` or a `Duration` would reach for. */
+export const podcastEpisodeFixture: PodcastEpisode = {
+    id: 'longwave-12',
+    showId: 'longwave',
+    showTitle: 'The Long Wave',
+    title: 'Episode 12: The night shift',
+    summary: 'Who is awake at 3am, and why they listen.',
+    url: 'https://longwave.example.com/12',
+    publishedAt: '2026-09-14T06:00:00.000Z',
+    durationMs: 3_723_000,
+    audio: podcastAudioFixture,
+    artworkUrl: 'https://cdn.example.com/12.jpg',
+    season: 2,
+    number: 12,
+    explicit: true,
+};
+
+export const podcastEpisodesQueryFixture: PodcastEpisodesQuery = {
+    showId: 'longwave',
+    limit: 25,
+    since: '2026-09-01T00:00:00.000Z',
+};
+
+export const podcastDirectoryQueryFixture: PodcastDirectoryQuery = {
+    query: 'long wave radio',
+    limit: 10,
+};
+
+export const podcastDirectoryEntryFixture: PodcastDirectoryEntry = {
+    id: '1234567890',
+    title: 'The Long Wave',
+    feedUrl: 'https://longwave.example.com/feed.xml',
+    author: 'Long Wave Productions',
+    artworkUrl: 'https://cdn.example.com/square.jpg',
+    categories: ['Documentary'],
+    explicit: false,
 };
 
 /** Carries both ids, since a source that knows an MBID and its own id should hand over both. */

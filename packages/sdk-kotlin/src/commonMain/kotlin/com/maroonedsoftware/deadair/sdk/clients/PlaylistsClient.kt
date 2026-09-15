@@ -29,4 +29,24 @@ class PlaylistsClient(private val http: SdkHttp) {
         }
         return http.decodeJson(response)
     }
+
+    /**
+     * Hide playlist
+     * Hides one playlist from this station: the listing marks it hidden, the pickers stop offering it and the library sync stops reading it. Hiding one already hidden changes nothing
+     */
+    suspend fun hidePlaylist(pluginId: String, playlistId: String) {
+        http.execute(HttpMethod.Put) {
+            path("playlists", segment(pluginId), segment(playlistId), "hidden")
+        }
+    }
+
+    /**
+     * Show playlist
+     * Shows a hidden playlist again. Showing one that is not hidden changes nothing
+     */
+    suspend fun showPlaylist(pluginId: String, playlistId: String) {
+        http.execute(HttpMethod.Delete) {
+            path("playlists", segment(pluginId), segment(playlistId), "hidden")
+        }
+    }
 }

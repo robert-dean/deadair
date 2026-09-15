@@ -8,6 +8,7 @@ import { ArtistsRepository } from './artists.repository.js';
 import { AlbumsRepository } from './albums.repository.js';
 import { TracksRepository } from './tracks.repository.js';
 import { TasteRepository } from './taste.repository.js';
+import { HiddenPlaylistsRepository } from './hidden.playlists.repository.js';
 import { CatalogPlaceholderRepository } from './ingest/catalog.placeholder.repository.js';
 import { CatalogPlaceholderService } from './ingest/catalog.placeholder.service.js';
 import { CatalogResolverRepository } from './ingest/catalog.resolver.repository.js';
@@ -27,6 +28,9 @@ export const CatalogModule: ServerKitModule = {
         // here rather than in either of them: the two ask the same question for different reasons,
         // and two spellings of "what has the operator rated" would eventually disagree.
         registry.register(TasteRepository).useClass(TasteRepository).asScoped();
+        // The provider playlists an operator hid. Here rather than in `PlaylistsModule` because the
+        // sync below skips them too, and this module registers first.
+        registry.register(HiddenPlaylistsRepository).useClass(HiddenPlaylistsRepository).asScoped();
 
         // `ingest/` — writes, as opposed to the read side above. Scoped like
         // its siblings: the job runner gives every execution its own scope, so

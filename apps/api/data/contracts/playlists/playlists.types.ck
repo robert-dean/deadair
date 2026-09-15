@@ -18,6 +18,7 @@ contract CatalogPlaylist: {
     artworkUrl?: string(max=2000)
     permissions?: array(PlaylistPermission) # What the SOURCE permits on this playlist's items, not what this actor may do. Empty means the source permits nothing; absent means it did not say
     madeByProvider?: boolean # The source made this playlist itself rather than a person: an editorial list, or one generated for the account like Discover Weekly. Absent when it did not say
+    hidden?: boolean # An operator hid this playlist from this station, so pickers leave it out and the library sync does not read it. Absent when it is not hidden
 }
 
 # One record as its PROVIDER describes it, plus what the catalog can say about the same copy.

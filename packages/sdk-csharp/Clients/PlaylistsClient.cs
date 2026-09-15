@@ -45,4 +45,28 @@ public sealed class PlaylistsClient(SdkHttp http)
             cancellationToken: cancellationToken).ConfigureAwait(false);
         return http.ReadJson<CatalogPlaylistTracks>(response);
     }
+
+    /// <summary>
+    /// Hide playlist
+    /// Hides one playlist from this station: the listing marks it hidden, the pickers stop offering it and the library sync stops reading it. Hiding one already hidden changes nothing
+    /// </summary>
+    public async Task HidePlaylistAsync(string pluginId, string playlistId, CancellationToken cancellationToken = default)
+    {
+        await http.ExecuteAsync(
+            HttpMethod.Put,
+            http.Path("playlists", http.Segment(pluginId), http.Segment(playlistId), "hidden"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Show playlist
+    /// Shows a hidden playlist again. Showing one that is not hidden changes nothing
+    /// </summary>
+    public async Task ShowPlaylistAsync(string pluginId, string playlistId, CancellationToken cancellationToken = default)
+    {
+        await http.ExecuteAsync(
+            HttpMethod.Delete,
+            http.Path("playlists", http.Segment(pluginId), http.Segment(playlistId), "hidden"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+    }
 }

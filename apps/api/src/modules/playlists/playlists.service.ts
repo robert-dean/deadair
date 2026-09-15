@@ -3,6 +3,7 @@ import { httpError } from '@maroonedsoftware/errors';
 import { Logger } from '@maroonedsoftware/logger';
 import { PLUGIN_CAPABILITY_CATALOG, type MusicProviderPluginInstance, type PluginManifest } from '@deadair/plugin-sdk';
 import { TracksRepository } from '#modules/catalog/tracks.repository.js';
+import { HiddenPlaylistsRepository, hiddenPlaylistKey } from '#modules/catalog/hidden.playlists.repository.js';
 import { AccessControlService, isAllVisible } from '#modules/permissions/access.control.service.js';
 import { asCatalogPlugin, implementsCatalog } from '#modules/plugins/plugin.capabilities.js';
 import { pluginHttpError } from '#modules/plugins/plugin.error.http.js';
@@ -44,11 +45,12 @@ const unavailableReason = (record: PluginRecord): string | undefined => {
  * catalog-capable plugin's playlists, aggregated, and one plugin's playlist
  * tracks on demand.
  *
- * Nothing here is persisted, and every answer about what a playlist HOLDS is a
- * live call through {@link PluginInvoker}, which is what keeps a slow or
- * crashing plugin from becoming a slow or crashing request. The one database
- * read is {@link catalogIds}, which says nothing about the playlist and only
- * names what the station already has of the same copies.
+ * Nothing about a provider's playlist is persisted, and every answer about what
+ * a playlist HOLDS is a live call through {@link PluginInvoker}, which is what
+ * keeps a slow or crashing plugin from becoming a slow or crashing request. The
+ * database is asked two things: {@link catalogIds}, which names what the station
+ * already has of the same copies, and which playlists an operator has hidden,
+ * which is the one thing written here and holds nothing but the pair.
  */
 @Injectable()
 export class PlaylistsService {
@@ -59,6 +61,9 @@ export class PlaylistsService {
         // Read-only, and only ever to answer "does the station already hold this copy". A playlist
         // is the provider's list and nothing here writes to the catalog.
         private readonly tracks: TracksRepository,
+        // The playlists an operator hid. This service marks them and writes them; it never drops one
+        // from the listing, because the console still has to be able to show them again.
+        private readonly hidden: HiddenPlaylistsRepository,
         private readonly logger: Logger,
     ) {}
 
@@ -73,6 +78,9 @@ export class PlaylistsService {
      */
     async listPlaylists(): Promise<CatalogPlaylistPage> {
         const { usable: candidates, unavailable } = await this.catalogCapablePlugins();
+        // Read beside the fan-out rather than before it: it is one small query against the station's
+        // own database, and the plugins are the slow part.
+        const hiddenKeys = this.hiddenKeys();
 
         const settled = await Promise.allSettled(
             candidates.map(async ({ record, manifest }) => {
@@ -84,6 +92,7 @@ export class PlaylistsService {
             }),
         );
 
+        const hidden = await hiddenKeys;
         const playlists: CatalogPlaylist[] = [];
         // Seeded with the plugins that could not even be called. A source the operator
         // turned on and which is not working is the single most useful thing this page
@@ -105,6 +114,9 @@ export class PlaylistsService {
                         artworkUrl: playlist.artworkUrl,
                         permissions: playlist.permissions,
                         madeByProvider: playlist.madeByProvider,
+                        // Marked rather than removed: the console folds these away and offers them
+                        // back, which it cannot do for a playlist this page never mentioned.
+                        ...(hidden.has(hiddenPlaylistKey(record.id, playlist.id)) ? { hidden: true } : {}),
                     });
                 }
                 return;
@@ -116,6 +128,31 @@ export class PlaylistsService {
         });
 
         return { playlists, errors };
+    }
+
+    /**
+     * Hide one playlist from this station.
+     *
+     * Gated on seeing the plugin, as reading its tracks is, and on nothing about the plugin's
+     * health: the pair is text, a row for a playlist the provider no longer has is inert, and an
+     * operator tidying the page must not be stopped because the provider happens to be down. The
+     * route's own floor (`platform.manage`) is what makes this a write only an admin can make.
+     *
+     * @throws 403 when the actor cannot see the plugin.
+     */
+    async hidePlaylist(pluginId: string, playlistId: string): Promise<void> {
+        await this.accessControl.require({ namespace: 'plugin', id: pluginId }, 'view');
+        await this.hidden.hide(pluginId, playlistId);
+    }
+
+    /**
+     * Show a hidden playlist again. The same gate as {@link hidePlaylist}, for the same reasons.
+     *
+     * @throws 403 when the actor cannot see the plugin.
+     */
+    async showPlaylist(pluginId: string, playlistId: string): Promise<void> {
+        await this.accessControl.require({ namespace: 'plugin', id: pluginId }, 'view');
+        await this.hidden.show(pluginId, playlistId);
     }
 
     /**
@@ -298,6 +335,22 @@ export class PlaylistsService {
      * @throws 403 not visible to the actor, 404 unknown id, 501 no catalog
      *   capability, 503 installed but not active.
      */
+    /**
+     * The hidden pairs, or none at all when they cannot be read.
+     *
+     * Never fails the listing, on {@link catalogIds}' argument: the playlists are the answer and the
+     * mark is decoration. A station whose database blips shows a hidden playlist for one read, which
+     * is a far smaller surprise than a Playlists page that will not load.
+     */
+    private async hiddenKeys(): Promise<Set<string>> {
+        try {
+            return await this.hidden.keys();
+        } catch (error) {
+            this.logger.warn('could not read the hidden playlists; listing every playlist unmarked', { error: serverkitErrorText(error) });
+            return new Set();
+        }
+    }
+
     private async requireCatalogCapable(pluginId: string): Promise<{ record: PluginRecord; manifest: PluginManifest }> {
         await this.accessControl.require({ namespace: 'plugin', id: pluginId }, 'view');
 

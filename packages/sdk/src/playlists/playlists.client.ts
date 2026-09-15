@@ -22,4 +22,20 @@ export class PlaylistsClient {
         const result = await this.fetch(`/playlists/${encodeURIComponent(pluginId)}/${encodeURIComponent(playlistId)}/tracks`, { method: 'GET' });
         return await parseJson<CatalogPlaylistTracks>(result);
     }
+
+    /**
+     * @name Hide playlist
+     * @description Hides one playlist from this station: the listing marks it hidden, the pickers stop offering it and the library sync stops reading it. Hiding one already hidden changes nothing
+     */
+    async hidePlaylist(pluginId: string, playlistId: string): Promise<void> {
+        await this.fetch(`/playlists/${encodeURIComponent(pluginId)}/${encodeURIComponent(playlistId)}/hidden`, { method: 'PUT' });
+    }
+
+    /**
+     * @name Show playlist
+     * @description Shows a hidden playlist again. Showing one that is not hidden changes nothing
+     */
+    async showPlaylist(pluginId: string, playlistId: string): Promise<void> {
+        await this.fetch(`/playlists/${encodeURIComponent(pluginId)}/${encodeURIComponent(playlistId)}/hidden`, { method: 'DELETE' });
+    }
 }

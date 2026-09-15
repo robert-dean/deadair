@@ -1938,6 +1938,45 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/CatalogPlaylistTracks'
+    '/playlists/{pluginId}/{playlistId}/hidden':
+        put:
+            operationId: hidePlaylist
+            summary: 'Hide playlist'
+            description: 'Hides one playlist from this station: the listing marks it hidden, the pickers stop offering it and the library sync stops reading it. Hiding one already hidden changes nothing'
+            parameters:
+                - name: pluginId
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 200
+                - name: playlistId
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 400
+        delete:
+            operationId: showPlaylist
+            summary: 'Show playlist'
+            description: 'Shows a hidden playlist again. Showing one that is not hidden changes nothing'
+            parameters:
+                - name: pluginId
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 200
+                - name: playlistId
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 400
     '/playout/status':
         get:
             operationId: getStatus
@@ -7556,6 +7595,9 @@ components:
                 madeByProvider:
                     type: boolean
                     description: 'The source made this playlist itself rather than a person: an editorial list, or one generated for the account like Discover Weekly. Absent when it did not say'
+                hidden:
+                    type: boolean
+                    description: 'An operator hid this playlist from this station, so pickers leave it out and the library sync does not read it. Absent when it is not hidden'
             required: [pluginId, pluginName, id, name]
             description: 'A playlist a catalog-capable plugin offers, tagged with the plugin it came from so an aggregated list is addressable'
         CatalogTrack:

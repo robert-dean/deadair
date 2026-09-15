@@ -123,6 +123,11 @@ public sealed record CatalogPlaylist
     [JsonPropertyName("madeByProvider")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? MadeByProvider { get; init; }
+
+    /// <summary>An operator hid this playlist from this station, so pickers leave it out and the library sync does not read it. Absent when it is not hidden</summary>
+    [JsonPropertyName("hidden")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Hidden { get; init; }
 }
 
 public sealed record CatalogPlaylistTracks

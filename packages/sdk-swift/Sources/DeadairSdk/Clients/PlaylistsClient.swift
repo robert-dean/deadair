@@ -24,4 +24,18 @@ public final class PlaylistsClient: Sendable {
         let response = try await http.execute(request)
         return try http.decodeJSON(CatalogPlaylistTracks.self, from: response)
     }
+
+    /// Hide playlist
+    /// Hides one playlist from this station: the listing marks it hidden, the pickers stop offering it and the library sync stops reading it. Hiding one already hidden changes nothing
+    public func hidePlaylist(pluginId: String, playlistId: String) async throws {
+        let request = try SdkRequest(method: "PUT", path: ["playlists", http.segment(pluginId), http.segment(playlistId), "hidden"])
+        _ = try await http.execute(request)
+    }
+
+    /// Show playlist
+    /// Shows a hidden playlist again. Showing one that is not hidden changes nothing
+    public func showPlaylist(pluginId: String, playlistId: String) async throws {
+        let request = try SdkRequest(method: "DELETE", path: ["playlists", http.segment(pluginId), http.segment(playlistId), "hidden"])
+        _ = try await http.execute(request)
+    }
 }

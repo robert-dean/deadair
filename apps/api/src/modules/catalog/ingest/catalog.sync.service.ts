@@ -8,6 +8,7 @@ import { pluginsWith } from '#modules/plugins/plugin.selection.js';
 import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
 import { CatalogResolverService } from './catalog.resolver.service.js';
+import { HiddenPlaylistsRepository, hiddenPlaylistKey } from '../hidden.playlists.repository.js';
 import { resolveSweepMaxPercent, SWEEP_MAX_PERCENT_KEY, type SweepOutcome } from './catalog.sweep.guard.js';
 import { serverkitErrorText } from '#modules/shared/error.text.js';
 import { PLUGIN_PAGE_SIZE, pluginPages } from '#modules/plugins/plugin.paging.js';
@@ -49,7 +50,8 @@ export interface PluginSyncSummary {
  * Nothing about the playlists themselves is written. `deadair.playlists` is for
  * playlists deadair owns; a provider's own are read live and pass through as
  * `CatalogPlaylist` (see `PlaylistsService`). This walks them and keeps the
- * tracks.
+ * tracks. The one thing the station records about a provider's playlist is that
+ * an operator hid it (`deadair.hidden_playlists`), and a hidden one is not walked.
  *
  * Everything here is sequential — plugins one at a time, pages one at a time —
  * which is the point rather than an oversight. The upstreams are rate limited,
@@ -67,6 +69,7 @@ export class CatalogSyncService {
         private readonly pluginRegistry: PluginRegistry,
         private readonly pluginInvoker: PluginInvoker,
         private readonly resolver: CatalogResolverService,
+        private readonly hidden: HiddenPlaylistsRepository,
         private readonly jobBroker: JobBroker,
         private readonly config: AppConfig,
         private readonly logger: Logger,
@@ -183,6 +186,14 @@ export class CatalogSyncService {
      * One plugin's walk: every readable playlist, every page of it, every track
      * ingested, then the sweep for what this plugin stopped offering.
      *
+     * A playlist an operator hid is not read at all, which is what hiding one is
+     * FOR: it says the playlist is not part of this station's library. The sweep
+     * follows from that on purpose. A record found only in hidden playlists never
+     * reaches `seen`, so the sweep treats it as gone from this provider, exactly as
+     * it would had the playlist been deleted upstream, and under the same
+     * `too-many` guard. A record that is also in a playlist still shown is seen
+     * there and untouched.
+     *
      * The sweep runs only on a clean walk. A walk that threw saw an unknown
      * fraction of the library, and marking everything it missed as missing would
      * turn one failed HTTP page into a catalog-wide outage.
@@ -211,8 +222,17 @@ export class CatalogSyncService {
         };
 
         try {
+            // Inside the try: a walk that cannot tell which playlists were hidden would read them
+            // and ingest what the operator asked to leave out, so it fails like any other walk that
+            // could not finish, and nothing is swept.
+            const hidden = await this.hidden.keys();
+
             for await (const playlist of this.playlists(candidate, onTruncated, signal)) {
                 summary.playlists++;
+                if (hidden.has(hiddenPlaylistKey(pluginId, playlist.id))) {
+                    this.logger.debug('skipping a playlist the operator hid', { plugin: pluginId, playlist: playlist.id });
+                    continue;
+                }
                 if (!this.isReadable(playlist)) {
                     this.logger.debug('skipping a playlist the account may not read', { plugin: pluginId, playlist: playlist.id });
                     continue;

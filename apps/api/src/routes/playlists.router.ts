@@ -11,7 +11,7 @@ export const PlaylistsRouter = ServerKitRouter();
 
 /**
  * Fans out across every installed plugin that declares AND implements the `catalog` capability
- * from [playlists.ck](../../data/contracts/playlists/playlists.ck#L17)
+ * from [playlists.ck](../../data/contracts/playlists/playlists.ck#L19)
  */
 PlaylistsRouter.get('/playlists', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const service = ctx.container.get(PlaylistsService);
@@ -24,7 +24,7 @@ PlaylistsRouter.get('/playlists', requirePolicy({ policy: 'platform.view' }), as
 
 /**
  * One playlist's tracks from one plugin
- * from [playlists.ck](../../data/contracts/playlists/playlists.ck#L33)
+ * from [playlists.ck](../../data/contracts/playlists/playlists.ck#L40)
  */
 PlaylistsRouter.get('/playlists/:pluginId/:playlistId/tracks', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const { pluginId, playlistId } = await parseAndValidate(
@@ -41,4 +41,42 @@ PlaylistsRouter.get('/playlists/:pluginId/:playlistId/tracks', requirePolicy({ p
     ctx.status = 200;
     ctx.type = 'application/json';
     ctx.body = result;
+});
+
+/**
+ * Hides one playlist from this station: the listing marks it hidden, the pickers stop offering it and the library sync stops reading it. Hiding one already hidden changes nothing
+ * from [playlists.ck](../../data/contracts/playlists/playlists.ck#L60)
+ */
+PlaylistsRouter.put('/playlists/:pluginId/:playlistId/hidden', requirePolicy({ policy: 'platform.manage' }), async ctx => {
+    const { pluginId, playlistId } = await parseAndValidate(
+        ctx.params,
+        z.strictObject({
+            pluginId: z.string().min(1).max(200),
+            playlistId: z.string().min(1).max(400),
+        }),
+    );
+
+    const service = ctx.container.get(PlaylistsService);
+    await service.hidePlaylist(pluginId, playlistId);
+
+    ctx.status = 204;
+});
+
+/**
+ * Shows a hidden playlist again. Showing one that is not hidden changes nothing
+ * from [playlists.ck](../../data/contracts/playlists/playlists.ck#L64)
+ */
+PlaylistsRouter.delete('/playlists/:pluginId/:playlistId/hidden', requirePolicy({ policy: 'platform.manage' }), async ctx => {
+    const { pluginId, playlistId } = await parseAndValidate(
+        ctx.params,
+        z.strictObject({
+            pluginId: z.string().min(1).max(200),
+            playlistId: z.string().min(1).max(400),
+        }),
+    );
+
+    const service = ctx.container.get(PlaylistsService);
+    await service.showPlaylist(pluginId, playlistId);
+
+    ctx.status = 204;
 });

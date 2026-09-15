@@ -14,6 +14,7 @@ import type { PluginManifest, ProviderPlaylist, ProviderTrack } from '@deadair/p
 import { PluginError } from '@deadair/plugin-sdk';
 
 import { CatalogSyncService } from '../../../../src/modules/catalog/ingest/catalog.sync.service.js';
+import { hiddenPlaylistKey, type HiddenPlaylistsRepository } from '../../../../src/modules/catalog/hidden.playlists.repository.js';
 import type { CatalogResolverService, IngestResult } from '../../../../src/modules/catalog/ingest/catalog.resolver.service.js';
 import { DEFAULT_SWEEP_MAX_PERCENT, SWEEP_MAX_PERCENT_KEY, type SweepOutcome } from '../../../../src/modules/catalog/ingest/catalog.sweep.guard.js';
 import type { JobBroker } from '@maroonedsoftware/jobbroker';
@@ -146,17 +147,21 @@ function fakeJobBroker(options: { failing?: boolean } = {}) {
 const stubConfig = (settings: Record<string, string> = {}): AppConfig =>
     ({ get: (key: string, fallback?: unknown) => settings[key] ?? fallback }) as unknown as AppConfig;
 
+/** The playlists an operator hid, as the repository answers them. Nothing, unless a case says so. */
+const hiddenPlaylists = (keys: string[] = []) => ({ keys: vi.fn(async () => new Set(keys)) }) as unknown as HiddenPlaylistsRepository;
+
 function build(
     records: PluginRecord[],
     resolver: CatalogResolverService,
     broker: JobBroker = fakeJobBroker().broker,
     config: AppConfig = stubConfig(),
+    hidden: HiddenPlaylistsRepository = hiddenPlaylists(),
 ) {
     const registry = new PluginRegistry();
     registry.setAll(records);
     const invoker = new PluginInvoker(registry, stubPluginLog().log);
     const logger = stubLogger();
-    return { service: new CatalogSyncService(registry, invoker, resolver, broker, config, logger), registry, logger };
+    return { service: new CatalogSyncService(registry, invoker, resolver, hidden, broker, config, logger), registry, logger };
 }
 
 describe('CatalogSyncService.syncAll', () => {
@@ -301,6 +306,64 @@ describe('CatalogSyncService.syncAll', () => {
             await service.syncAll();
 
             expect(ingested).toEqual([]);
+        });
+    });
+
+    describe('playlists an operator hid', () => {
+        it('never asks for the tracks of a hidden playlist, and still counts it as listed', async () => {
+            const provider = fakeProvider({
+                playlists: [playlist('p1'), playlist('p2')],
+                tracks: { p1: [track('t1')], p2: [track('t2')] },
+            });
+            const { resolver, ingested } = fakeResolver();
+            const hidden = hiddenPlaylists([hiddenPlaylistKey(SPOTIFY_ID, 'p1')]);
+            const { service } = build([record(SPOTIFY_ID, { instance: provider.instance as never })], resolver, undefined, undefined, hidden);
+
+            const summaries = await service.syncAll();
+
+            expect(provider.calls).not.toContain('getPlaylistTracks:p1:0');
+            expect(ingested).toEqual(['t2']);
+            expect(summaries[0]).toMatchObject({ playlists: 2 });
+        });
+
+        it('hides a playlist on its own plugin only', async () => {
+            const provider = fakeProvider({ playlists: [playlist('p1')], tracks: { p1: [track('t1')] } });
+            const { resolver, ingested } = fakeResolver();
+            const hidden = hiddenPlaylists([hiddenPlaylistKey('deadair.navidrome', 'p1')]);
+            const { service } = build([record(SPOTIFY_ID, { instance: provider.instance as never })], resolver, undefined, undefined, hidden);
+
+            await service.syncAll();
+
+            expect(ingested).toEqual(['t1']);
+        });
+
+        // Hiding says the playlist is not part of the library, so a record only it held is swept the
+        // way a record in a deleted playlist would be. One also in a shown playlist is seen there.
+        it('leaves out of the sweep what only a hidden playlist held', async () => {
+            const provider = fakeProvider({
+                playlists: [playlist('p1'), playlist('p2')],
+                tracks: { p1: [track('only-hidden'), track('both')], p2: [track('both')] },
+            });
+            const { resolver, swept } = fakeResolver();
+            const hidden = hiddenPlaylists([hiddenPlaylistKey(SPOTIFY_ID, 'p1')]);
+            const { service } = build([record(SPOTIFY_ID, { instance: provider.instance as never })], resolver, undefined, undefined, hidden);
+
+            await service.syncAll();
+
+            expect(swept[0]?.seen).toEqual(['both']);
+        });
+
+        it('fails the walk, and sweeps nothing, when it cannot tell which playlists were hidden', async () => {
+            const provider = fakeProvider({ playlists: [playlist('p1')], tracks: { p1: [track('t1')] } });
+            const { resolver, ingested, swept } = fakeResolver();
+            const hidden = { keys: vi.fn(async () => Promise.reject(new Error('connection terminated'))) } as unknown as HiddenPlaylistsRepository;
+            const { service } = build([record(SPOTIFY_ID, { instance: provider.instance as never })], resolver, undefined, undefined, hidden);
+
+            const summaries = await service.syncAll();
+
+            expect(summaries[0]?.error).toContain('connection terminated');
+            expect(ingested).toEqual([]);
+            expect(swept).toEqual([]);
         });
     });
 

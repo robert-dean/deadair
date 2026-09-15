@@ -17,6 +17,7 @@ import type { PermissionsService } from '../../../src/modules/permissions/permis
 import { PluginInvoker } from '../../../src/modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '../../../src/modules/plugins/plugin.registry.js';
 import type { PluginRecord } from '../../../src/modules/plugins/types/plugin.record.js';
+import { hiddenPlaylistKey } from '../../../src/modules/catalog/hidden.playlists.repository.js';
 import { PlaylistsService } from '../../../src/modules/playlists/playlists.service.js';
 import { stubPluginLog } from '../../utils/plugin.log.fixture.js';
 
@@ -122,6 +123,7 @@ interface Harness {
     registry: PluginRegistry;
     listVisibleIdsSpy: ReturnType<typeof vi.fn>;
     findByBindings: ReturnType<typeof vi.fn>;
+    hidden: { keys: ReturnType<typeof vi.fn>; hide: ReturnType<typeof vi.fn>; show: ReturnType<typeof vi.fn> };
     logger: Logger;
 }
 
@@ -149,16 +151,23 @@ function makeService(actor: Actor, fixture: FakePermissionsFixture = new FakePer
     const listVisibleIdsSpy = vi.spyOn(accessControl, 'listVisibleIds');
     const logger = stubLogger();
     const findByBindings = vi.fn(async (_pluginId: string, externalIds: readonly string[]) => catalogRows(externalIds));
+    // Nothing hidden unless a case says otherwise.
+    const hidden = {
+        keys: vi.fn(async () => new Set<string>()),
+        hide: vi.fn(async () => undefined),
+        show: vi.fn(async () => undefined),
+    };
 
     const service = new PlaylistsService(
         registry,
         new PluginInvoker(registry, stubPluginLog().log),
         accessControl,
         { findByBindings } as never,
+        hidden as never,
         logger,
     );
 
-    return { service, registry, listVisibleIdsSpy, findByBindings, logger };
+    return { service, registry, listVisibleIdsSpy, findByBindings, hidden, logger };
 }
 
 /** The service's own page size. A test that disagreed with it would prove nothing. */
@@ -353,6 +362,33 @@ describe('PlaylistsService.listPlaylists', () => {
 
         expect(page.playlists.find(playlist => playlist.id === 'discover')?.madeByProvider).toBe(true);
         expect(page.playlists.find(playlist => playlist.id === 'mine')?.madeByProvider).toBeUndefined();
+    });
+
+    it('marks the playlists an operator hid, on their own plugin only, and still lists them', async () => {
+        const { service, registry, hidden } = makeService(userActor('u-admin', ['admin']));
+        registry.upsert(record(SPOTIFY_ID));
+        registry.upsert(record(OTHER_ID, { manifest: manifest({ id: OTHER_ID, name: 'Other' }) }));
+        hidden.keys.mockResolvedValue(new Set([hiddenPlaylistKey(SPOTIFY_ID, 'p1')]));
+
+        const page = await service.listPlaylists();
+
+        // Both plugins offer a `p1`; only Spotify's was hidden, and it is marked rather than dropped
+        // so the console can offer it back.
+        expect(page.playlists).toHaveLength(2);
+        expect(page.playlists.find(playlist => playlist.pluginId === SPOTIFY_ID)?.hidden).toBe(true);
+        expect(page.playlists.find(playlist => playlist.pluginId === OTHER_ID)).not.toHaveProperty('hidden');
+    });
+
+    it('lists every playlist unmarked, and warns, when the hidden ones cannot be read', async () => {
+        const { service, registry, hidden, logger } = makeService(userActor('u-admin', ['admin']));
+        registry.upsert(record(SPOTIFY_ID));
+        hidden.keys.mockRejectedValue(new Error('connection terminated'));
+
+        const page = await service.listPlaylists();
+
+        expect(page.playlists).toHaveLength(1);
+        expect(page.playlists[0]).not.toHaveProperty('hidden');
+        expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('hidden playlists'), expect.anything());
     });
 
     it('pages each plugin to the end rather than taking its default page', async () => {
@@ -599,5 +635,39 @@ describe('PlaylistsService.getPlaylistTracks', () => {
         registry.upsert(record(SPOTIFY_ID));
 
         await expectHttpStatus(service.getPlaylistTracks(SPOTIFY_ID, 'p1'), 403);
+    });
+});
+
+describe('PlaylistsService.hidePlaylist and showPlaylist', () => {
+    it('hides and shows the named pair for an actor who can see the plugin', async () => {
+        const { service, hidden } = makeService(userActor('u-admin', ['admin']));
+
+        await service.hidePlaylist(SPOTIFY_ID, 'p1');
+        await service.showPlaylist(SPOTIFY_ID, 'p1');
+
+        expect(hidden.hide).toHaveBeenCalledWith(SPOTIFY_ID, 'p1');
+        expect(hidden.show).toHaveBeenCalledWith(SPOTIFY_ID, 'p1');
+    });
+
+    // Tidying the page must not wait on the provider: a playlist hidden while its plugin is down, or
+    // after it was uninstalled, is a row nothing reads until the plugin is back.
+    it('hides a playlist whether or not its plugin is installed and running', async () => {
+        const { service, registry, hidden } = makeService(userActor('u-admin', ['admin']));
+        registry.upsert(record(SPOTIFY_ID, { status: 'failed', instance: undefined }));
+
+        await service.hidePlaylist(SPOTIFY_ID, 'p1');
+        await service.hidePlaylist('deadair.gone', 'p9');
+
+        expect(hidden.hide).toHaveBeenCalledTimes(2);
+    });
+
+    it('refuses an actor who cannot see the plugin, and writes nothing', async () => {
+        const { service, hidden } = makeService(userActor('u-nobody', []));
+
+        await expectHttpStatus(service.hidePlaylist(SPOTIFY_ID, 'p1'), 403);
+        await expectHttpStatus(service.showPlaylist(SPOTIFY_ID, 'p1'), 403);
+
+        expect(hidden.hide).not.toHaveBeenCalled();
+        expect(hidden.show).not.toHaveBeenCalled();
     });
 });

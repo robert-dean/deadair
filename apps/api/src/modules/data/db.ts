@@ -284,6 +284,13 @@ export interface DeadairFacts {
   updatedAt: Generated<DateTime>;
 }
 
+export interface DeadairHiddenPlaylists {
+  createdAt: Generated<DateTime>;
+  playlistId: string;
+  pluginId: string;
+  stationKey: Generated<string>;
+}
+
 export interface DeadairLoginEvents {
   actorId: string;
   factorId: string | null;
@@ -886,6 +893,7 @@ export interface DB {
   "deadair.clockBands": DeadairClockBands;
   "deadair.factExtractions": DeadairFactExtractions;
   "deadair.facts": DeadairFacts;
+  "deadair.hiddenPlaylists": DeadairHiddenPlaylists;
   "deadair.loginEvents": DeadairLoginEvents;
   "deadair.loginFailureCounters": DeadairLoginFailureCounters;
   "deadair.pads": DeadairPads;

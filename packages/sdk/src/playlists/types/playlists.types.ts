@@ -11,7 +11,7 @@ export type PlaylistPermission = 'read' | 'edit';
  * listing of what a playlist holds, not of what the station has ingested. The three ids below are the
  * station's own and are absent for anything it has never seen, which on most playlists is plenty of
  * rows — a playlist is a provider's list and the library is what a sync has walked
- * generated from [CatalogTrack](../../../../../apps/api/data/contracts/playlists/playlists.types.ck#L29)
+ * generated from [CatalogTrack](../../../../../apps/api/data/contracts/playlists/playlists.types.ck#L30)
  */
 export interface CatalogTrack {
     /** The PROVIDER's id for this copy, which is what an import names it by. Never a `deadair.tracks` id */
@@ -33,7 +33,7 @@ export interface CatalogTrack {
 
 /**
  * One catalog-capable plugin that could not be listed
- * generated from [CatalogSourceError](../../../../../apps/api/data/contracts/playlists/playlists.types.ck#L43)
+ * generated from [CatalogSourceError](../../../../../apps/api/data/contracts/playlists/playlists.types.ck#L44)
  */
 export interface CatalogSourceError {
     pluginId: string;
@@ -57,10 +57,12 @@ export interface CatalogPlaylist {
     permissions?: PlaylistPermission[];
     /** The source made this playlist itself rather than a person: an editorial list, or one generated for the account like Discover Weekly. Absent when it did not say */
     madeByProvider?: boolean;
+    /** An operator hid this playlist from this station, so pickers leave it out and the library sync does not read it. Absent when it is not hidden */
+    hidden?: boolean;
 }
 
 /**
- * generated from [CatalogPlaylistTracks](../../../../../apps/api/data/contracts/playlists/playlists.types.ck#L54)
+ * generated from [CatalogPlaylistTracks](../../../../../apps/api/data/contracts/playlists/playlists.types.ck#L55)
  */
 export interface CatalogPlaylistTracks {
     pluginId: string;
@@ -69,7 +71,7 @@ export interface CatalogPlaylistTracks {
 }
 
 /**
- * generated from [CatalogPlaylistPage](../../../../../apps/api/data/contracts/playlists/playlists.types.ck#L49)
+ * generated from [CatalogPlaylistPage](../../../../../apps/api/data/contracts/playlists/playlists.types.ck#L50)
  */
 export interface CatalogPlaylistPage {
     playlists: CatalogPlaylist[];

@@ -18,7 +18,9 @@
  * answer to it. The first plausible story — that a sheet whose markers are single slang words lands
  * one wherever the sentence goes — is contradicted by the recall column the moment it is printed:
  * `videoage` declines least of anybody and carries a marker in 15.7% of its answers, against
- * `conspiracy`'s 60.6%. Read the caveats below before building anything on that number.
+ * `conspiracy`'s 60.6%. Read the caveats below before building anything on that number. Both of
+ * `videoage`'s figures are the bright eighties jock the key held before it became a valley girl on
+ * 2026-09-15, so they describe a sheet that no longer ships.
  *
  * So every sheet change is judged here rather than argued about. The alternative is what happened
  * to the last one: a marker list was fixed on a measurement of recall against the SEEDS, predicted a

@@ -1,15 +1,14 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
-import type { ArtistTrack } from '@deadair/plugin-sdk';
 import { DateTime } from 'luxon';
 import { Logger } from '@maroonedsoftware/logger';
 import { SimilarityService } from '#modules/similarity/similarity.service.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
 import { PlayHistoryRepository } from './play.history.repository.js';
 import { DISCOVER_DEFAULT, DISCOVER_KEY } from './pick.resolver.js';
-import { bindsAnything, withinPeriod } from './candidates.repository.js';
-import { artistKey, songKey } from './rotation.keys.js';
+import { bindsAnything } from './candidates.repository.js';
 import { SetGenerator, type SetInputs, type TrackPick } from './set.generator.js';
+import { SimilarPicker, type NeighbourWalk } from './similar.picker.js';
 import { freshnessOf, historyDaysFor, resolveSmartShuffle } from './smart.shuffle.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
@@ -94,12 +93,6 @@ export const DEFAULT_SIMILAR_MIX = 0.4;
  */
 const MAX_SEEDS = 4;
 
-/** Neighbours asked for per seed. Past this the list stops resembling the seed in any useful way. */
-const NEIGHBOURS_PER_SEED = 8;
-
-/** Records asked for per neighbour. A handful, because the batch is spread across many artists. */
-const TRACKS_PER_ARTIST = 3;
-
 @Injectable()
 export class SimilarSetGenerator extends SetGenerator {
     readonly name = SIMILAR_GENERATOR;
@@ -112,6 +105,7 @@ export class SimilarSetGenerator extends SetGenerator {
 
     constructor(
         private readonly similarity: SimilarityService,
+        private readonly picker: SimilarPicker,
         private readonly history: PlayHistoryRepository,
         private readonly identity: StationIdentity,
         private readonly config: AppConfig,
@@ -174,11 +168,18 @@ export class SimilarSetGenerator extends SetGenerator {
         const freshness = (song: string): number => freshnessOf(lastAired.get(song), now, smartShuffle.horizonDays);
 
         const picks: TrackPick[] = [];
-        const takenSongs = new Set(inputs.avoidSongKeys ?? []);
-        const takenArtists = new Set<string>();
         // Absent unless the broadcast named one, and `bindsAnything` is what tells a window with no
-        // ends set apart from a real bound.
+        // ends set apart from a real bound. The period is applied inside the walk rather than left
+        // to the resolver (see `similar.picker.ts`), and it is needed at all because the argument
+        // that excuses this binding from `ignoresBrief`, that its seeds actually aired, is much
+        // weaker for a period than for a style.
         const era = bindsAnything(inputs.era) ? inputs.era : undefined;
+        const walk: NeighbourWalk = {
+            takenSongs: new Set(inputs.avoidSongKeys ?? []),
+            takenArtists: new Set<string>(),
+            ...(era === undefined ? {} : { era }),
+            freshness,
+        };
 
         try {
             // Seed at a time rather than gathering every neighbour first, so a batch that fills
@@ -187,60 +188,7 @@ export class SimilarSetGenerator extends SetGenerator {
             // comes from having several seeds at all.
             for (const seed of seeds) {
                 if (picks.length >= want) break;
-
-                for (const neighbour of await this.similarity.similarTo({ name: seed }, NEIGHBOURS_PER_SEED)) {
-                    if (picks.length >= want) break;
-
-                    // One record per artist within a batch. The per-artist cap downstream would
-                    // catch this, but spending the upstream calls first and having them rejected
-                    // is the same batch for more requests.
-                    const neighbourKey = artistKey([neighbour.name]);
-                    if (takenArtists.has(neighbourKey)) continue;
-                    takenArtists.add(neighbourKey);
-
-                    const tracks = await this.similarity.topTracks(
-                        { name: neighbour.name, ...(neighbour.mbid === undefined ? {} : { mbid: neighbour.mbid }) },
-                        TRACKS_PER_ARTIST,
-                    );
-
-                    // Every track of this neighbour's that could be named, in the order the source
-                    // ranked them. The walk then takes ONE, as it always has.
-                    const eligible: { track: ArtistTrack; song: string }[] = [];
-                    for (const track of tracks) {
-                        const song = songKey(track.title, [track.artist]);
-                        if (takenSongs.has(song)) continue;
-
-                        // The PERIOD, applied here rather than left to the resolver, and the
-                        // difference is not efficiency. `PickResolver` drops an out-of-period pick
-                        // whatever named it, so handing one over converts this binding's share of
-                        // the batch into NOTHING — where declining to name it lets
-                        // `SetGeneratorChain` top up from `CatalogSetGenerator`, which narrows on
-                        // the same period in SQL and can actually fill the slot. **A short answer
-                        // from here is strictly better than a doomed full one.**
-                        //
-                        // It is needed at all because the argument that excuses this binding from
-                        // `ignoresBrief` does not stretch this far. That argument is that its seeds
-                        // are records which actually aired, so under a brief it draws from the
-                        // brief's own results — true, and much weaker for a period than for a
-                        // style: a neighbour of a 1975 record is stylistically close and easily
-                        // from 1998. It skews in-period without landing in it.
-                        //
-                        // An unknown year passes, exactly as it does in the draw and at the
-                        // resolver. All three have to agree or a record is eligible in one place
-                        // and not another.
-                        if (era !== undefined && !withinPeriod(track.year, era)) continue;
-
-                        eligible.push({ track, song });
-                    }
-
-                    const chosen = freshestFirst(eligible, entry => freshness(entry.song));
-                    if (chosen === undefined) continue;
-
-                    takenSongs.add(chosen.song);
-                    // No `trackId`: this has not read the catalog. The resolver matches by name,
-                    // which is the one place that decision belongs.
-                    picks.push({ title: chosen.track.title, artist: chosen.track.artist });
-                }
+                await this.picker.pickFromNeighbours(seed, want - picks.length, walk, picks);
             }
         } catch (error) {
             // The chain absorbs a throw anyway. Caught here so whatever was already gathered is
@@ -336,30 +284,3 @@ function readMix(value: unknown): number {
     if (!Number.isFinite(mix) || mix <= 0) return 0;
     return Math.min(mix, 1);
 }
-
-/**
- * The freshest of a neighbour's eligible tracks, ties going to the one the source ranked higher.
- *
- * What makes the similarity walk a smart shuffle too. It used to take each neighbour's first track,
- * and a neighbour's first track is the same record every time that neighbour comes up: measured on the
- * live station on 2026-09-12, the most-aired records of the fortnight were canonical hits aired five to
- * seven times each. Choosing the freshest of the few the source offers keeps the neighbour and changes
- * the record, and it drops nothing: the neighbour still contributes one.
- *
- * A ranking by freshness rather than a weighted draw, deliberately, and it is a choice between three
- * rather than a sort of the library. The source's own order is a real signal (its best-known track
- * first), so with nothing aired lately the answer is exactly the old one; a draw would spend that
- * signal even when there was no repetition to avoid.
- */
-const freshestFirst = <T>(eligible: readonly T[], freshnessOf: (entry: T) => number): T | undefined => {
-    let best: T | undefined;
-    let bestFreshness = -1;
-    for (const entry of eligible) {
-        const freshness = freshnessOf(entry);
-        if (freshness > bestFreshness) {
-            best = entry;
-            bestFreshness = freshness;
-        }
-    }
-    return best;
-};

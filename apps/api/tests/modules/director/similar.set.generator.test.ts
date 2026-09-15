@@ -10,6 +10,7 @@ import type { ArtistTrack, SimilarArtist } from '@deadair/plugin-sdk';
 import { DateTime } from 'luxon';
 
 import { DEFAULT_SIMILAR_MIX, SIMILAR_GENERATOR_KEYS, SimilarSetGenerator } from '../../../src/modules/director/similar.set.generator.js';
+import { SimilarPicker } from '../../../src/modules/director/similar.picker.js';
 import type { SimilarityService } from '../../../src/modules/similarity/similarity.service.js';
 import type { PlayHistoryRepository } from '../../../src/modules/director/play.history.repository.js';
 import { DEFAULT_RULES, type ResolvedRules } from '../../../src/modules/director/rotation.rules.js';
@@ -67,7 +68,7 @@ function build(options: Options = {}) {
     if (options.broadcast !== undefined) identity.began(options.broadcast);
 
     return {
-        generator: new SimilarSetGenerator(similarity, history, identity, config, logger as unknown as Logger),
+        generator: new SimilarSetGenerator(similarity, new SimilarPicker(similarity), history, identity, config, logger as unknown as Logger),
         similarTo,
         topTracks,
         recentArtists,

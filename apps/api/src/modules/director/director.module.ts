@@ -28,6 +28,7 @@ import { EraWatch } from './era.watch.js';
 import { CatalogSetGenerator } from './catalog.set.generator.js';
 import { ChartSetGenerator } from './chart.set.generator.js';
 import { ModelSetGenerator } from './model.set.generator.js';
+import { SimilarPicker } from './similar.picker.js';
 import { SimilarSetGenerator } from './similar.set.generator.js';
 import { DirectorConsoleService } from './director.console.service.js';
 import { DirectorService } from './director.service.js';
@@ -73,6 +74,7 @@ export const DirectorModule: ServerKitModule = {
         // that named six of fifteen has done most of the job — which is why a set is not a break.
         registry.register(ModelSetGenerator).useClass(ModelSetGenerator).asScoped();
         registry.register(ChartSetGenerator).useClass(ChartSetGenerator).asScoped();
+        registry.register(SimilarPicker).useClass(SimilarPicker).asScoped();
         registry.register(SimilarSetGenerator).useClass(SimilarSetGenerator).asScoped();
         // A SINGLETON among scoped generators, and only because it holds one boolean. The draw
         // below discovers that the advisory policy has left the station nothing to play, and a feed

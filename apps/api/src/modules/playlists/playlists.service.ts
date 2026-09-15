@@ -104,6 +104,7 @@ export class PlaylistsService {
                         trackCount: playlist.trackCount,
                         artworkUrl: playlist.artworkUrl,
                         permissions: playlist.permissions,
+                        madeByProvider: playlist.madeByProvider,
                     });
                 }
                 return;

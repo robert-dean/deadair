@@ -129,8 +129,10 @@ public struct CatalogPlaylist: Codable, Equatable, Sendable {
     public var artworkUrl: String?
     /// What the SOURCE permits on this playlist's items, not what this actor may do. Empty means the source permits nothing; absent means it did not say
     public var permissions: [PlaylistPermission]?
+    /// The source made this playlist itself rather than a person: an editorial list, or one generated for the account like Discover Weekly. Absent when it did not say
+    public var madeByProvider: Bool?
 
-    public init(pluginId: String, pluginName: String, id: String, name: String, description: String? = nil, trackCount: Int? = nil, artworkUrl: String? = nil, permissions: [PlaylistPermission]? = nil) {
+    public init(pluginId: String, pluginName: String, id: String, name: String, description: String? = nil, trackCount: Int? = nil, artworkUrl: String? = nil, permissions: [PlaylistPermission]? = nil, madeByProvider: Bool? = nil) {
         self.pluginId = pluginId
         self.pluginName = pluginName
         self.id = id
@@ -139,6 +141,7 @@ public struct CatalogPlaylist: Codable, Equatable, Sendable {
         self.trackCount = trackCount
         self.artworkUrl = artworkUrl
         self.permissions = permissions
+        self.madeByProvider = madeByProvider
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -150,6 +153,7 @@ public struct CatalogPlaylist: Codable, Equatable, Sendable {
         case trackCount = "trackCount"
         case artworkUrl = "artworkUrl"
         case permissions = "permissions"
+        case madeByProvider = "madeByProvider"
     }
 
     public init(from decoder: Decoder) throws {
@@ -162,6 +166,7 @@ public struct CatalogPlaylist: Codable, Equatable, Sendable {
         self.trackCount = try container.decodeIfPresent(Int.self, forKey: .trackCount)
         self.artworkUrl = try container.decodeIfPresent(String.self, forKey: .artworkUrl)
         self.permissions = try container.decodeIfPresent([PlaylistPermission].self, forKey: .permissions)
+        self.madeByProvider = try container.decodeIfPresent(Bool.self, forKey: .madeByProvider)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -174,6 +179,7 @@ public struct CatalogPlaylist: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.trackCount, forKey: .trackCount)
         try container.encodeIfPresent(self.artworkUrl, forKey: .artworkUrl)
         try container.encodeIfPresent(self.permissions, forKey: .permissions)
+        try container.encodeIfPresent(self.madeByProvider, forKey: .madeByProvider)
     }
 }
 

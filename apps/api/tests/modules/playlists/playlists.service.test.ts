@@ -1,10 +1,10 @@
 // Service-level unit tests for `PlaylistsService`: the read-only, no-database
 // aggregation of every active catalog-capable plugin's playlists, and the
 // on-demand fetch of one plugin's playlist tracks. Both routes sit behind
-// `requirePolicy({ policy: false })` (see `playlists.router.ts`), which is an
-// authentication floor only; each entry point narrows to `plugin:view` itself
-// — `listPlaylists` by filtering with `listVisibleIds`, `getPlaylistTracks` by
-// calling `require` per object.
+// `requirePolicy({ policy: 'platform.view' })` (see `playlists.router.ts`),
+// which every role that can sign in holds; each entry point narrows to
+// `plugin:view` itself: `listPlaylists` by filtering with `listVisibleIds`,
+// `getPlaylistTracks` by calling `require` per object.
 
 import { describe, expect, it, vi } from 'vitest';
 import type { Logger } from '@maroonedsoftware/logger';
@@ -341,6 +341,20 @@ describe('PlaylistsService.listPlaylists', () => {
         expect(page.errors).toEqual([]);
     });
 
+    it("carries a provider's mark on the playlists it made itself, and leaves the rest unmarked", async () => {
+        const listPlaylists = vi.fn(async () => [
+            { id: 'discover', name: 'Discover Weekly', madeByProvider: true },
+            { id: 'mine', name: 'Mine' },
+        ]);
+        const { service, registry } = makeService(userActor('u-admin', ['admin']));
+        registry.upsert(record(SPOTIFY_ID, { instance: catalogInstance({ listPlaylists }) as never }));
+
+        const page = await service.listPlaylists();
+
+        expect(page.playlists.find(playlist => playlist.id === 'discover')?.madeByProvider).toBe(true);
+        expect(page.playlists.find(playlist => playlist.id === 'mine')?.madeByProvider).toBeUndefined();
+    });
+
     it('pages each plugin to the end rather than taking its default page', async () => {
         const listPlaylists = pagedBy(75, index => ({ id: `p${index}`, name: `Playlist ${index}` }));
         const { service, registry } = makeService(userActor('u-admin', ['admin']));
@@ -353,7 +367,7 @@ describe('PlaylistsService.listPlaylists', () => {
         expect(listPlaylists.mock.calls.map(([options]) => options?.offset)).toEqual([0, PAGE_SIZE]);
     });
 
-    it('never calls AccessControlService.require, matching the route floor of policy: false', async () => {
+    it('never calls AccessControlService.require, narrowing by visibility instead', async () => {
         const { service, registry, listVisibleIdsSpy } = makeService(httpSystemActor);
         registry.upsert(record(SPOTIFY_ID));
 
@@ -546,7 +560,7 @@ describe('PlaylistsService.getPlaylistTracks', () => {
         await expectHttpStatus(service.getPlaylistTracks(SPOTIFY_ID, 'p1'), 500);
     });
 
-    it('throws 403 for an actor with no plugin grant, even though the route floor is policy: false', async () => {
+    it('throws 403 for an actor with no plugin grant, even though the route floor admits them', async () => {
         const { service, registry } = makeService(userActor('u-nobody', []));
         registry.upsert(record(SPOTIFY_ID));
 

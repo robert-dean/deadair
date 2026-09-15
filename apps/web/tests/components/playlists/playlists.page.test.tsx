@@ -4,7 +4,7 @@ import { SdkError } from '@deadair/sdk';
 
 import { PlaylistsPage } from '../../../src/components/playlists/playlists.page';
 import { catalogPlaylist, catalogPlaylistPage, catalogSourceError } from '../../utils/playlist.fixture';
-import { render, screen } from '../../utils/render';
+import { render, screen, setupUser } from '../../utils/render';
 
 const listImportablePlaylists = vi.fn();
 
@@ -37,6 +37,65 @@ describe('PlaylistsPage', () => {
         expect(await screen.findByText('Friday Night')).toBeInTheDocument();
         expect(screen.getByText('Late Night')).toBeInTheDocument();
         expect(screen.getByText('2 available')).toBeInTheDocument();
+    });
+
+    it('folds the playlists a provider made behind a button that counts them and names the maker', async () => {
+        listImportablePlaylists.mockResolvedValue(
+            catalogPlaylistPage({
+                playlists: [
+                    catalogPlaylist(),
+                    catalogPlaylist({ id: 'discover', name: 'Discover Weekly', madeByProvider: true }),
+                    catalogPlaylist({ id: 'mix-1', name: 'Daily Mix 1', madeByProvider: true }),
+                ],
+            }),
+        );
+        const user = setupUser();
+
+        render(<PlaylistsPage />);
+
+        expect(await screen.findByText('Friday Night')).toBeInTheDocument();
+        // The count is what a person chose, not everything the source pushes at the account.
+        expect(screen.getByText('1 available')).toBeInTheDocument();
+        expect(screen.queryByText('Discover Weekly')).not.toBeInTheDocument();
+
+        await user.click(screen.getByRole('button', { name: 'Show 2 made by Spotify' }));
+
+        expect(screen.getByText('Discover Weekly')).toBeInTheDocument();
+        expect(screen.getByText('Daily Mix 1')).toBeInTheDocument();
+
+        await user.click(screen.getByRole('button', { name: 'Collapse the 2 made by Spotify' }));
+
+        expect(screen.queryByText('Discover Weekly')).not.toBeInTheDocument();
+    });
+
+    // A page holding nothing but Spotify's own playlists still has something to show: the button is
+    // the story, and an empty state beside it would tell the operator to enable a plugin that is
+    // plainly working.
+    it('offers the folded playlists rather than an empty state when those are all there is', async () => {
+        listImportablePlaylists.mockResolvedValue(
+            catalogPlaylistPage({ playlists: [catalogPlaylist({ id: 'discover', name: 'Discover Weekly', madeByProvider: true })] }),
+        );
+
+        render(<PlaylistsPage />);
+
+        expect(await screen.findByRole('button', { name: 'Show 1 made by Spotify' })).toBeInTheDocument();
+        expect(screen.getByText('0 available')).toBeInTheDocument();
+        expect(screen.queryByText('No playlists are available')).not.toBeInTheDocument();
+    });
+
+    it('names every provider whose playlists are folded', async () => {
+        listImportablePlaylists.mockResolvedValue(
+            catalogPlaylistPage({
+                playlists: [
+                    catalogPlaylist({ id: 'discover', madeByProvider: true }),
+                    catalogPlaylist({ id: 'station', pluginId: 'deadair.tidal', pluginName: 'Tidal', madeByProvider: true }),
+                ],
+            }),
+        );
+
+        render(<PlaylistsPage />);
+
+        expect(await screen.findByRole('button', { name: 'Show 2 made by Spotify and Tidal' })).toBeInTheDocument();
     });
 
     it('says so when no plugin has anything to offer', async () => {

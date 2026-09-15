@@ -46,4 +46,5 @@ export const bundledPluginDirs: string[] = [
     resolveBundledPluginDir('plugins/rss'),
     resolveBundledPluginDir('plugins/websearch'),
     resolveBundledPluginDir('plugins/weather'),
+    resolveBundledPluginDir('plugins/podcast'),
 ];

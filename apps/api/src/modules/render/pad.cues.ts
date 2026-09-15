@@ -60,16 +60,67 @@ export function padsIn(text: string): string[] {
  * read the word "sfx" out loud.
  *
  * Only `[sfx:…]` is touched. Anything else in brackets is somebody else's problem and stays exactly
- * as it arrived; `speakableScript` is what decides the fate of a bare `[warmly]`.
+ * as it arrived; `speakableScript` is what decides the fate of a bare `[warmly]`. The same goes for
+ * the spacing: see {@link rewritePads}.
  */
 export function withoutPads(text: string, keep: Iterable<string> = []): string {
     const kept = new Set<string>([...keep].map(name => name.toLowerCase()));
 
-    return text
-        .replace(padPattern(), (match, name: string) => (kept.has(name.toLowerCase()) ? match : ' '))
-        .replace(/[^\S\n]{2,}/g, ' ')
-        .replace(/[^\S\n]+([.,!?;:])/g, '$1')
-        .trim();
+    return rewritePads(text, (match, name) => (kept.has(name.toLowerCase()) ? match : undefined)).trim();
+}
+
+/**
+ * Punctuation that ends something, which a removed pad's gap closes onto.
+ *
+ * A run of marks with no letter or digit straight after it: `[sfx:rimshot], and` is a hit and then a
+ * comma, and `[sfx:rimshot] ?uestlove` is a hit and then a NAME that happens to start with one.
+ */
+const ENDING_PUNCTUATION = /^[.,!?;:]+(?![\p{L}\p{N}])/u;
+
+/**
+ * Every pad hit as `rewrite` answers for it, and every one it answers `undefined` for taken out along
+ * with the gap it leaves.
+ *
+ * ## Only the gap a pad left
+ *
+ * This used to take the hits out and then tidy the WHOLE text: every run of spaces collapsed, and
+ * every space in front of `.,!?;:` closed, whether or not a pad had been anywhere near it. That
+ * reads as harmless and was not, because {@link withoutPads} is the first thing `transposeForSpeech`
+ * does, ahead of the lexicon, and {@link keepPads} is what `speakableScript` runs on every answer
+ * before the script is STORED. So `Produced by ?uestlove` became `Produced by?uestlove` on its way
+ * to the lexicon, whose matcher is bounded by "not a letter or digit" and now had a `y` on the left,
+ * and the entry for `?uestlove` could never fire. `.38 Special` went the same way. At write time it
+ * was worse, since the glued form is what the row keeps and no entry added later can reach it.
+ *
+ * So a removed hit takes its own whitespace with it and leaves one space only when there are words on
+ * both sides of it: nothing at the start or end of a line, and nothing in front of punctuation that
+ * ends something ({@link ENDING_PUNCTUATION}). Text away from a pad comes out exactly as it went in.
+ */
+function rewritePads(text: string, rewrite: (match: string, name: string) => string | undefined): string {
+    let said = '';
+    let at = 0;
+
+    for (const match of text.matchAll(padPattern())) {
+        said += text.slice(at, match.index);
+        at = match.index + match[0].length;
+
+        const kept = rewrite(match[0], match[1]!);
+        if (kept !== undefined) {
+            said += kept;
+            continue;
+        }
+
+        said = said.replace(/[^\S\n]+$/, '');
+        at += /^[^\S\n]*/.exec(text.slice(at))![0].length;
+
+        const before = said.at(-1);
+        const after = text.slice(at);
+        const wordsBothSides =
+            before !== undefined && before !== '\n' && after.length > 0 && !after.startsWith('\n') && !ENDING_PUNCTUATION.test(after);
+        if (wordsBothSides) said += ' ';
+    }
+
+    return said + text.slice(at);
 }
 
 /** How a pad is written into a script, and into the sentence of the prompt that offers it. */
@@ -90,15 +141,11 @@ export function keepPads(text: string, offered: Iterable<string>, ceiling: numbe
     const allowed = new Set<string>([...offered].map(name => name.toLowerCase()));
     let seen = 0;
 
-    return text
-        .replace(padPattern(), (match, name: string) => {
-            if (!allowed.has(name.toLowerCase())) return ' ';
-            seen += 1;
-            return seen <= ceiling ? match.toLowerCase() : ' ';
-        })
-        .replace(/[^\S\n]{2,}/g, ' ')
-        .replace(/[^\S\n]+([.,!?;:])/g, '$1')
-        .trim();
+    return rewritePads(text, (match, name) => {
+        if (!allowed.has(name.toLowerCase())) return undefined;
+        seen += 1;
+        return seen <= ceiling ? match.toLowerCase() : undefined;
+    }).trim();
 }
 
 /** One piece of a script: words to speak, or a pad to play. */

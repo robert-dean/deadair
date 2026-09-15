@@ -203,6 +203,13 @@ describe('transposeForSpeech: the operator’s list', () => {
         expect(say('Sade & friends, 1984.', entries)).toBe('Shar-day and friends, nineteen eighty-four.');
     });
 
+    // `withoutPads` runs first and used to close every space in front of punctuation, so the name
+    // arrived here as `by?uestlove`, with a letter on its left where the matcher needs a boundary.
+    it('matches a name that starts with punctuation', () => {
+        expect(say('Produced by ?uestlove, of course?', [{ written: '?uestlove', spoken: 'Questlove' }])).toBe('Produced by Questlove, of course?');
+        expect(say('That was .38 Special.', [{ written: '.38 Special', spoken: 'thirty-eight Special' }])).toBe('That was thirty-eight Special.');
+    });
+
     // What an entry says is handed to the engine untouched, and for a long time it was not: every pass
     // after the lexicon ran over the spoken form as though it were more writing. See `hold`.
     describe('what an entry says', () => {

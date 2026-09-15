@@ -96,6 +96,14 @@ strip and the strip spares what it left, or a pad admitted afterwards is admitte
 emptied of pads; and `transposeForSpeech` removes pads FIRST, because `SPARE_CUES`' character class contains
 `[` and `]`, so a pad reaching it arrives at the engine as the bare text `sfx:airhorn` and is read aloud.
 
+**Going first means the pad strip tidies for the lexicon too, so it closes only the gap a pad left.** Both
+`withoutPads` and `keepPads` used to take the hits out and then close every space in front of `.,!?;:` in
+the whole script. That glued `Produced by ?uestlove` into `by?uestlove` ahead of `applyPronunciations`,
+whose matcher needs a non-letter on the left, so the entry could never fire (`.38 Special` likewise). Through
+`keepPads` it reached the STORED script as well. `rewritePads` now takes each removed hit's own whitespace
+with it and leaves a space only between words, closing onto punctuation only where that punctuation ends
+something rather than opens a name.
+
 **The hit is resolved at WRITE time onto `segments.pads`**, because a name is unique per board and only the
 writer held the presenting character's board — a renderer resolving it again would have to ask who is
 presenting NOW, which after a recast is somebody else with a different rack.

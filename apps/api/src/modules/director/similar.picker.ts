@@ -82,7 +82,39 @@ export class SimilarPicker {
         }
         return into;
     }
+
+    /**
+     * One record that sounds like this RECORD, appended to `into`, or nothing.
+     *
+     * Asks the record-level question first where a plugin can answer it, because a neighbour chosen
+     * from the record itself is closer to what a listener just heard than one chosen from its
+     * artist: an artist's neighbour is only as close as their best known track happens to be. Takes
+     * the freshest record by an artist the walk has not already given one, ties to the source's own
+     * ranking, on {@link pickFromNeighbours}' rules. With no such plugin, or nothing it offered
+     * usable, it walks the anchor's artist instead, which is every station before this existed.
+     */
+    async pickLike(anchor: { title: string; artist: string }, walk: NeighbourWalk, into: TrackPick[] = []): Promise<TrackPick[]> {
+        if (this.similarity.canNameSimilarTracks()) {
+            const tracks = await this.similarity.similarTracks({ artist: anchor.artist, title: anchor.title }, SIMILAR_TRACKS_PER_RECORD);
+            const eligible = eligibleOf(tracks, walk).filter(entry => !walk.takenArtists.has(artistKey([entry.track.artist])));
+            const chosen = freshestFirst(eligible, entry => walk.freshness(entry.song));
+
+            if (chosen !== undefined) {
+                walk.takenSongs.add(chosen.song);
+                walk.takenArtists.add(artistKey([chosen.track.artist]));
+                into.push({ title: chosen.track.title, artist: chosen.track.artist });
+                return into;
+            }
+        }
+        return await this.pickFromNeighbours(anchor.artist, 1, walk, into);
+    }
 }
+
+/**
+ * Records asked for that sound like one record. More than a neighbour's top tracks, because the
+ * answer is spread across many artists and most of them are already on the playlist.
+ */
+const SIMILAR_TRACKS_PER_RECORD = 10;
 
 /**
  * Every track of a neighbour's that could be named, in the order the source ranked them.

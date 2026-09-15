@@ -1,6 +1,6 @@
 import { Injectable } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
-import type { ArtistRef, ArtistTrack, SimilarArtist } from '@deadair/plugin-sdk';
+import type { ArtistRef, ArtistTrack, SimilarArtist, TrackRef } from '@deadair/plugin-sdk';
 import { asSimilarityPlugin, type SimilarityPlugin } from '#modules/plugins/plugin.capabilities.js';
 import { byPluginId, pluginsWith } from '#modules/plugins/plugin.selection.js';
 import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
@@ -184,6 +184,44 @@ export class SimilarityService {
         }
 
         return [];
+    }
+
+    /**
+     * Records that sound like one record, from the plugins that can say.
+     *
+     * {@link topTracks}' rule rather than {@link similarTo}'s: the FIRST usable answer wins, because
+     * this is a ranked list from one source and two interleaved are an order neither stands behind.
+     * Not cached, for the same reason: the caller asks about a handful of records per run, each a
+     * different one. An empty answer is the caller's cue to fall back to the artist walk.
+     */
+    async similarTracks(ref: TrackRef, limit: number): Promise<ArtistTrack[]> {
+        for (const plugin of this.plugins()) {
+            if (!plugin.namesSimilarTracks) continue;
+
+            try {
+                const tracks = await this.pluginInvoker.invoke(
+                    plugin.record.id,
+                    'similarity.similarTracks',
+                    // Non-null for the reason `topTracks` gives: `namesSimilarTracks` is the check.
+                    async () => plugin.instance.similarTracks!(ref, limit),
+                    { timeoutMs: INVOKE_TIMEOUT_MS },
+                );
+
+                const usable = (tracks ?? []).filter(track => track?.title?.trim() && track.artist?.trim());
+                if (usable.length > 0) return usable.slice(0, limit);
+            } catch (error) {
+                this.logger.info(
+                    `similarity: a plugin could not name records like "${ref.title}" by "${ref.artist}" (${plugin.record.id}: ${errorText(error)})`,
+                );
+            }
+        }
+
+        return [];
+    }
+
+    /** Whether anything can name records that sound like one record, as opposed to only by an artist. */
+    canNameSimilarTracks(): boolean {
+        return this.plugins().some(plugin => plugin.namesSimilarTracks);
     }
 
     /**

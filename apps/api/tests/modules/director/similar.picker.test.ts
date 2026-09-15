@@ -11,6 +11,8 @@ import { artistKey, songKey } from '../../../src/modules/director/rotation.keys.
 import type { TrackPick } from '../../../src/modules/director/set.generator.js';
 
 interface Options {
+    /** Records like one record. Absent is a plugin that answers about artists only. */
+    like?: ArtistTrack[];
     similar?: SimilarArtist[];
     /** Records per neighbour, by neighbour name. A neighbour missing here names one record of its own. */
     tracks?: Record<string, ArtistTrack[]>;
@@ -22,8 +24,14 @@ function build(options: Options = {}) {
         async (ref: { name: string }, _limit: number): Promise<ArtistTrack[]> =>
             options.tracks?.[ref.name] ?? [{ title: `${ref.name} Song`, artist: ref.name }],
     );
-    const similarity = { similarTo, topTracks } as unknown as SimilarityService;
-    return { picker: new SimilarPicker(similarity), similarTo, topTracks };
+    const similarTracks = vi.fn(async (_ref: { artist: string; title: string }, _limit: number) => options.like ?? []);
+    const similarity = {
+        similarTo,
+        topTracks,
+        similarTracks,
+        canNameSimilarTracks: () => options.like !== undefined,
+    } as unknown as SimilarityService;
+    return { picker: new SimilarPicker(similarity), similarTo, topTracks, similarTracks };
 }
 
 const walk = (overrides: Partial<NeighbourWalk> = {}): NeighbourWalk => ({
@@ -138,5 +146,45 @@ describe('SimilarPicker.pickFromNeighbours', () => {
 
         await expect(picker.pickFromNeighbours('Portishead', 2, walk(), into)).rejects.toThrow('upstream went away');
         expect(into).toEqual([{ title: 'Overcome', artist: 'Tricky' }]);
+    });
+});
+
+describe('SimilarPicker.pickLike', () => {
+    const teardrop = { title: 'Teardrop', artist: 'Massive Attack' };
+
+    it('asks about the record itself first, and takes the freshest by an artist not yet given one', async () => {
+        const stale = new Set([songKey('Overcome', ['Tricky'])]);
+        const { picker, similarTracks, similarTo } = build({
+            like: [
+                { title: 'Angel', artist: 'Massive Attack' },
+                { title: 'Overcome', artist: 'Tricky' },
+                { title: 'Glory Box', artist: 'Portishead' },
+            ],
+        });
+
+        const picks = await picker.pickLike(
+            teardrop,
+            walk({ takenArtists: new Set([artistKey(['Massive Attack'])]), freshness: song => (stale.has(song) ? 0.1 : 1) }),
+        );
+
+        expect(similarTracks).toHaveBeenCalledWith({ artist: 'Massive Attack', title: 'Teardrop' }, expect.any(Number));
+        expect(picks).toEqual([{ title: 'Glory Box', artist: 'Portishead' }]);
+        expect(similarTo).not.toHaveBeenCalled();
+    });
+
+    it('walks the artist instead when nothing it offered is usable', async () => {
+        const { picker, similarTo } = build({ like: [{ title: 'Late', artist: 'Tricky', year: 1998 }] });
+
+        const picks = await picker.pickLike(teardrop, walk({ era: { from: 1970, to: 1979 } }));
+
+        expect(similarTo).toHaveBeenCalledWith({ name: 'Massive Attack' }, expect.any(Number));
+        expect(picks).toEqual([{ title: 'Tricky Song', artist: 'Tricky' }]);
+    });
+
+    it('walks the artist without asking when no plugin can answer about a record', async () => {
+        const { picker, similarTracks } = build();
+
+        expect(await picker.pickLike(teardrop, walk())).toEqual([{ title: 'Tricky Song', artist: 'Tricky' }]);
+        expect(similarTracks).not.toHaveBeenCalled();
     });
 });

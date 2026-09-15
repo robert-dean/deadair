@@ -53,6 +53,8 @@ interface Options {
     records?: RundownTrack[];
     hasSimilarity?: boolean;
     canNameTracks?: boolean;
+    /** Records like one record, by anchor title. Absent is a plugin that answers about artists only. */
+    similarTracks?: (title: string) => ArtistTrack[];
     /** What the resolver keeps, by pick. Defaults to every pick, as a record by the name it was asked for. */
     resolvable?: (picks: readonly TrackPick[]) => RundownTrack[];
     /** A neighbour per seed artist. Defaults to `Near<seed>`, whose one record is `Like <seed>`. */
@@ -82,6 +84,8 @@ function build(options: Options = {}) {
     const similarity = {
         hasSimilarity: () => options.hasSimilarity ?? true,
         canNameTracks: () => options.canNameTracks ?? true,
+        canNameSimilarTracks: () => options.similarTracks !== undefined,
+        similarTracks: vi.fn(async (ref: { title: string }) => options.similarTracks?.(ref.title) ?? []),
         similarTo,
         topTracks,
     } as unknown as SimilarityService;
@@ -276,6 +280,32 @@ describe('MixInSimilarJob', () => {
         await job.run({ broadcastId: lineup.broadcastId });
 
         expect(titles(lineup)).toEqual(['P0', 'P1', 'Overcome']);
+    });
+});
+
+describe('MixInSimilarJob with a plugin that can answer about one record', () => {
+    it('mixes in a record like the anchor itself, and walks the artist where that has nothing', async () => {
+        const { job, lineup, similarTo } = build({
+            similarTracks: title => (title === 'P1' ? [{ title: 'Like P1 Itself', artist: 'Elsewhere' }] : []),
+        });
+
+        await job.run({ broadcastId: lineup.broadcastId });
+
+        expect(titles(lineup)).toEqual(['P0', 'P1', 'Like P1 Itself', 'P2', 'P3', 'Like Artist3', 'P4', 'P5', 'Like Artist5']);
+        // The artist walk only for the two anchors the record-level answer left empty.
+        expect(similarTo.mock.calls.map(call => call[0].name)).toEqual(['Artist3', 'Artist5']);
+    });
+
+    it('works with only the record-level answer, where nothing can name records by an artist', async () => {
+        const { job, lineup, recorded } = build({
+            canNameTracks: false,
+            similarTracks: title => [{ title: `Like ${title}`, artist: `Near ${title}` }],
+        });
+
+        await job.run({ broadcastId: lineup.broadcastId });
+
+        expect(titles(lineup).filter(title => title.startsWith('Like'))).toEqual(['Like P1', 'Like P3', 'Like P5']);
+        expect(recorded()).toEqual([expect.objectContaining({ kind: 'order.mixedIn' })]);
     });
 });
 

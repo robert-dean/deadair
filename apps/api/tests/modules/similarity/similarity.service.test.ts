@@ -35,6 +35,8 @@ interface InstanceOptions {
     similarArtists?: unknown;
     /** Absent means a source that only says who sounds alike, which is a legitimate plugin. */
     artistTopTracks?: unknown;
+    /** Absent means a source that answers about artists only, which is every one before this existed. */
+    similarTracks?: unknown;
 }
 
 function record(id: string, options: InstanceOptions = {}, overrides: Partial<PluginRecord> = {}): PluginRecord {
@@ -43,6 +45,7 @@ function record(id: string, options: InstanceOptions = {}, overrides: Partial<Pl
         similarArtists: options.similarArtists ?? vi.fn(async (): Promise<SimilarArtist[]> => [{ name: 'Massive Attack', match: 0.9 }]),
     };
     if (options.artistTopTracks) instance.artistTopTracks = options.artistTopTracks;
+    if (options.similarTracks) instance.similarTracks = options.similarTracks;
 
     return { id, dir: `/plugins/${id}`, origin: 'bundled', status: 'active', manifest: manifest(id), instance: instance as never, ...overrides };
 }
@@ -223,5 +226,43 @@ describe('naming records by an artist', () => {
         const service = build([record(LASTFM, { artistTopTracks })]);
 
         expect(await service.topTracks({ name: 'Massive Attack' }, 5)).toEqual([]);
+    });
+});
+
+describe('naming records like one record', () => {
+    const like = (...titles: string[]): ArtistTrack[] => titles.map(title => ({ title, artist: 'Tricky' }));
+    const teardrop = { artist: 'Massive Attack', title: 'Teardrop' };
+
+    it('says whether anything can, apart from whether anything can name records by an artist', () => {
+        expect(build([record(LASTFM, { artistTopTracks: vi.fn() })]).canNameSimilarTracks()).toBe(false);
+        expect(build([record(LASTFM, { similarTracks: vi.fn() })]).canNameSimilarTracks()).toBe(true);
+    });
+
+    it('takes the first source that answers, and asks it about the record it was handed', async () => {
+        const first = vi.fn(async () => like('Overcome'));
+        const second = vi.fn(async () => like('Aftermath'));
+        const service = build([record(LASTFM, { similarTracks: first }), record(OTHER, { similarTracks: second })]);
+
+        expect((await service.similarTracks(teardrop, 5)).map(track => track.title)).toEqual(['Overcome']);
+        expect(first).toHaveBeenCalledWith(teardrop, 5);
+        expect(second).not.toHaveBeenCalled();
+    });
+
+    it('skips a plugin that never wrote the method, and falls through one with nothing to say', async () => {
+        const service = build([
+            record(LASTFM),
+            record(OTHER, { similarTracks: vi.fn(async () => []) }),
+            record('deadair.third', { similarTracks: vi.fn(async () => like('Aftermath')) }),
+        ]);
+
+        expect((await service.similarTracks(teardrop, 5)).map(track => track.title)).toEqual(['Aftermath']);
+    });
+
+    it('answers with nothing when every source failed, so the caller walks the artists instead', async () => {
+        const similarTracks = vi.fn(async () => {
+            throw new PluginError('upstream is down').withCode('upstream');
+        });
+
+        expect(await build([record(LASTFM, { similarTracks })]).similarTracks(teardrop, 5)).toEqual([]);
     });
 });

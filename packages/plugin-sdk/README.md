@@ -18,7 +18,7 @@ A plugin extends deadair by declaring capabilities:
 | `analysis`   | measure a track's audio: bytes in, cue points and loudness out  |
 | `mixer`      | make one piece of audio out of several: parts in, audio out    |
 | `charts`     | say what is popular: a chart id in, ranked names out           |
-| `similarity` | say who else sounds like this: an artist in, artists out       |
+| `similarity` | say what sounds like this: an artist or a record in, names out |
 | `news`       | say what happened outside the station: a feed in, entries out  |
 | `podcast`    | carry somebody else's programme: a show in, episodes out       |
 | `search`     | ask the open web a question: words in, pages out               |

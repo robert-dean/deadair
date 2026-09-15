@@ -513,6 +513,12 @@ export interface SimilarityPlugin {
      * cannot programme an hour.
      */
     namesTracks: boolean;
+    /**
+     * Whether `similarTracks` is there to call: records that sound like one RECORD, rather than
+     * records by artists who sound like one artist. Optional on top of {@link namesTracks}, and a
+     * caller that wants it falls back to the artist walk when it is absent.
+     */
+    namesSimilarTracks: boolean;
 }
 
 /** {@link implementsCatalog}'s rule, applied to the `similarity` capability. */
@@ -523,6 +529,9 @@ export const implementsSimilarity = (manifest: PluginManifest | undefined, insta
 
 /** Whether this plugin can name records by an artist, as opposed to only naming the artist. */
 export const implementsArtistTopTracks = (instance: unknown): boolean => typeof (instance as Record<string, unknown>).artistTopTracks === 'function';
+
+/** Whether this plugin can name records that sound like one record. */
+export const implementsSimilarTracks = (instance: unknown): boolean => typeof (instance as Record<string, unknown>).similarTracks === 'function';
 
 /**
  * The similarity-capable view of a record, or `undefined` when it is not one.
@@ -540,7 +549,13 @@ export const asSimilarityPlugin = (record: PluginRecord): SimilarityPlugin | und
     if (!implementsSimilarity(record.manifest, record.instance)) return undefined;
 
     const instance = record.instance as SimilarityPluginInstance;
-    return { record, manifest: record.manifest, instance, namesTracks: implementsArtistTopTracks(instance) };
+    return {
+        record,
+        manifest: record.manifest,
+        instance,
+        namesTracks: implementsArtistTopTracks(instance),
+        namesSimilarTracks: implementsSimilarTracks(instance),
+    };
 };
 
 /**

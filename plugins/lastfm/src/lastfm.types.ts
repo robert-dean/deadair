@@ -72,6 +72,13 @@ export interface LastfmSimilarArtistsResponse {
     };
 }
 
+/** `track.getSimilar`: records scored by co-listening against the one asked about, each with its own artist. */
+export interface LastfmSimilarTracksResponse {
+    similartracks?: {
+        track?: LastfmMaybeList<LastfmTrack & { match?: string | number }>;
+    };
+}
+
 export interface LastfmTrack {
     name?: string;
     mbid?: string;

@@ -1,4 +1,4 @@
-import type { ArtistRef } from './enrichment.js';
+import type { ArtistRef, TrackRef } from './enrichment.js';
 
 /**
  * The `similarity` kind. A similarity plugin answers "who else sounds like this",
@@ -102,4 +102,19 @@ export interface SimilarityProvider {
      * is its own id coming back.
      */
     artistTopTracks?(ref: ArtistRef, limit: number): Promise<ArtistTrack[]>;
+
+    /**
+     * Records that sound like this one record, best first.
+     *
+     * Optional, and a finer question than {@link similarArtists}: that one answers who sounds
+     * like an ARTIST, and a record chosen from the answer is only as close as the artist's best
+     * known track happens to be. This answers from the record itself, which is what the host wants
+     * when it is putting something straight after a record a listener has just heard.
+     *
+     * `ref` is the enrichment capability's {@link TrackRef}; a source that matches on a
+     * MusicBrainz recording id should prefer `mbid` when it is there. Every record answered must
+     * carry its own LEAD artist, which is usually not the one asked about. An empty array is an
+     * ordinary answer, and the host falls back to the artist-level walk when it gets one.
+     */
+    similarTracks?(ref: TrackRef, limit: number): Promise<ArtistTrack[]>;
 }

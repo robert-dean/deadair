@@ -110,7 +110,7 @@ export class MixInSimilarJob extends PlainJob<MixInSimilarPayload> {
         const anchors = anchorsOf(lineup.all().filter(isTrackItem), rules.mixInEvery);
         if (anchors.length === 0) return;
 
-        if (!this.similarity.hasSimilarity() || !this.similarity.canNameTracks()) {
+        if (!this.similarity.hasSimilarity() || !(this.similarity.canNameSimilarTracks() || this.similarity.canNameTracks())) {
             // The operator asked for something the station cannot do, and the only other trace of
             // that would be a playlist playing exactly as it always did.
             void this.activity.record({
@@ -136,7 +136,8 @@ export class MixInSimilarJob extends PlainJob<MixInSimilarPayload> {
 
             const found: TrackPick[] = [];
             try {
-                await this.picker.pickFromNeighbours(anchor.track.artist, 1, walk, found);
+                // From the record itself where a plugin can say, and from its artist otherwise.
+                await this.picker.pickLike(anchor.track, walk, found);
             } catch (error) {
                 // One anchor's upstream failing is not a reason to give up on the rest.
                 this.logger.debug(`director: could not find a neighbour of "${anchor.track.artist}" (${errorText(error)})`);

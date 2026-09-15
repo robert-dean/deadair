@@ -36,6 +36,7 @@ import {
     type LastfmScrobbleResponse,
     type LastfmSessionResponse,
     type LastfmSimilarArtistsResponse,
+    type LastfmSimilarTracksResponse,
     type LastfmTokenResponse,
     type LastfmTopTracksResponse,
     type LastfmTrackInfoResponse,
@@ -489,6 +490,42 @@ export class LastfmPlugin extends Plugin implements EnrichmentProvider, ChartsPr
                 // the pick path matches on what it is given.
                 const artist = artistNameOf(track.artist) ?? ref.name;
                 if (!title) continue;
+
+                tracks.push({ title, artist });
+            }
+
+            return tracks;
+        } catch (error) {
+            if (this.isNotFound(error)) return [];
+            throw error;
+        }
+    }
+
+    /**
+     * What sounds like one record, from co-listening with that record rather than with its artist.
+     *
+     * The closer of the two answers when the host is putting something straight after a record a
+     * listener has just heard. Every record carries its OWN artist, which is the point: the answer
+     * is mostly other artists, and the pick path matches on the lead it is given. Records by the
+     * artist asked about are left in; the host decides whether it wants another by them.
+     */
+    async similarTracks(ref: TrackRef, limit: number): Promise<ArtistTrack[]> {
+        if (!this.client) return [];
+
+        try {
+            const response = await this.client.get<LastfmSimilarTracksResponse>('track.getSimilar', {
+                ...(ref.mbid ? { mbid: ref.mbid } : { artist: ref.artist, track: ref.title }),
+                limit: String(Math.max(1, Math.min(limit || DEFAULT_SIMILAR_LIMIT, 100))),
+                autocorrect: '1',
+            });
+
+            const tracks: ArtistTrack[] = [];
+            for (const track of asList(response.similartracks?.track)) {
+                const title = track?.name?.trim();
+                const artist = artistNameOf(track?.artist);
+                // A record with no artist of its own cannot be matched to anything, and guessing
+                // the one asked about would name a record by the wrong act.
+                if (!title || !artist) continue;
 
                 tracks.push({ title, artist });
             }

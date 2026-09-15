@@ -87,6 +87,7 @@ contract PutOnAirInput: { # Put the station on air, building its running order f
     eraFrom?: int(min=1900, max=2100) # The earliest release year this broadcast plays. Absent means no lower bound, and a record whose year the catalog does not know is played whatever the period
     eraTo?: int(min=1900, max=2100) # The latest release year, on the same terms. Set with `eraFrom` for a decade; either may stand alone
     callins?: boolean # Whether somebody phones in during this broadcast. A call is a short programme rather than a break: a few turns in a few voices, entering the running order as one block, spaced by `rotation.callinEveryMinutes`. Absent takes the station's own setting, which is off
+    mixInSimilar?: boolean # Whether records that sound like the ones on this playlist are mixed in among them, one every `rotation.mixInEvery` records, found through the similarity plugin. The playlist still plays in full and in its own order around them. Absent takes the station's own setting, which is off. A setlist and a feature never have anything mixed in
     mode?: StationMode
     onEnd?: StationOnEnd
 }

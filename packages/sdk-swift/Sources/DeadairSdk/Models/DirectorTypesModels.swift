@@ -345,10 +345,12 @@ public struct PutOnAirInput: Codable, Equatable, Sendable {
     public var eraTo: Int?
     /// Whether somebody phones in during this broadcast. A call is a short programme rather than a break: a few turns in a few voices, entering the running order as one block, spaced by `rotation.callinEveryMinutes`. Absent takes the station's own setting, which is off
     public var callins: Bool?
+    /// Whether records that sound like the ones on this playlist are mixed in among them, one every `rotation.mixInEvery` records, found through the similarity plugin. The playlist still plays in full and in its own order around them. Absent takes the station's own setting, which is off. A setlist and a feature never have anything mixed in
+    public var mixInSimilar: Bool?
     public var mode: StationMode?
     public var onEnd: StationOnEnd?
 
-    public init(pluginId: String? = nil, playlistId: String? = nil, chartId: String? = nil, chartOrder: PutOnAirInputChartOrder? = nil, name: String? = nil, brief: String? = nil, personaId: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, callins: Bool? = nil, mode: StationMode? = nil, onEnd: StationOnEnd? = nil) {
+    public init(pluginId: String? = nil, playlistId: String? = nil, chartId: String? = nil, chartOrder: PutOnAirInputChartOrder? = nil, name: String? = nil, brief: String? = nil, personaId: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, mode: StationMode? = nil, onEnd: StationOnEnd? = nil) {
         self.pluginId = pluginId
         self.playlistId = playlistId
         self.chartId = chartId
@@ -359,6 +361,7 @@ public struct PutOnAirInput: Codable, Equatable, Sendable {
         self.eraFrom = eraFrom
         self.eraTo = eraTo
         self.callins = callins
+        self.mixInSimilar = mixInSimilar
         self.mode = mode
         self.onEnd = onEnd
     }
@@ -374,6 +377,7 @@ public struct PutOnAirInput: Codable, Equatable, Sendable {
         case eraFrom = "eraFrom"
         case eraTo = "eraTo"
         case callins = "callins"
+        case mixInSimilar = "mixInSimilar"
         case mode = "mode"
         case onEnd = "onEnd"
     }
@@ -390,6 +394,7 @@ public struct PutOnAirInput: Codable, Equatable, Sendable {
         self.eraFrom = try container.decodeIfPresent(Int.self, forKey: .eraFrom)
         self.eraTo = try container.decodeIfPresent(Int.self, forKey: .eraTo)
         self.callins = try container.decodeIfPresent(Bool.self, forKey: .callins)
+        self.mixInSimilar = try container.decodeIfPresent(Bool.self, forKey: .mixInSimilar)
         self.mode = try container.decodeIfPresent(StationMode.self, forKey: .mode)
         self.onEnd = try container.decodeIfPresent(StationOnEnd.self, forKey: .onEnd)
     }
@@ -406,6 +411,7 @@ public struct PutOnAirInput: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.eraFrom, forKey: .eraFrom)
         try container.encodeIfPresent(self.eraTo, forKey: .eraTo)
         try container.encodeIfPresent(self.callins, forKey: .callins)
+        try container.encodeIfPresent(self.mixInSimilar, forKey: .mixInSimilar)
         try container.encodeIfPresent(self.mode, forKey: .mode)
         try container.encodeIfPresent(self.onEnd, forKey: .onEnd)
     }

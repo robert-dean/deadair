@@ -102,6 +102,20 @@ export interface ResolvedRules {
      * keeps the station from talking over one keeps it from blending over one.
      */
     crossfade: boolean;
+    /**
+     * Whether records that sound like the broadcast's own are mixed in among them.
+     *
+     * What a playlist put on air asks for when it wants to sound like Spotify's Smart Shuffle: the
+     * playlist as it is, with a record by a neighbouring artist every {@link mixInEvery} records.
+     * Distinct from `rotation.similarMix`, which is how much of a REFILL the similarity walk names;
+     * this is about the material a broadcast STARTS with, which no refill ever touches.
+     *
+     * `NO_RULES` zeroes it, so a setlist and a feature never have anything mixed in. Somebody
+     * sequenced those, and a record the station chose landing in the middle is undoing the work.
+     */
+    mixInSimilar: boolean;
+    /** How many of the broadcast's own records come between one mixed-in record and the next. */
+    mixInEvery: number;
 }
 
 /**
@@ -152,6 +166,12 @@ export const DEFAULT_RULES: ResolvedRules = {
     // A rotation only. A setlist and a feature start from everything off and stay cold, which is
     // the point of them; see `resolveRules`.
     crossfade: true,
+    // OFF, on the chart mix's argument: a playlist is what the operator chose, and adding records
+    // to it is a thing to ask for rather than something going on air does by itself.
+    mixInSimilar: false,
+    // One in five, roughly what Spotify's Smart Shuffle lands on: often enough to hear, rare enough
+    // that the playlist is still the thing being played.
+    mixInEvery: 4,
 };
 
 /**
@@ -173,7 +193,16 @@ export const ROTATION_KEYS = {
     callinEveryMinutes: 'rotation.callinEveryMinutes',
     breakEveryMinutes: 'rotation.breakEveryMinutes',
     crossfade: 'rotation.crossfade',
+    mixInSimilar: 'rotation.mixInSimilar',
+    mixInEvery: 'rotation.mixInEvery',
 } as const;
+
+/**
+ * The range the resolver clamps a stored {@link ResolvedRules.mixInEvery} to, and the registry
+ * declares so the console refuses the same figures. One is a neighbour after every record, which is
+ * as dense as it can go and still leave the playlist audible; past twenty it is barely there.
+ */
+export const MIX_IN_EVERY_RANGE = { min: 1, max: 20 } as const;
 
 /** What `rotation.autoExtend` is when the operator has never touched it. */
 export const DEFAULT_AUTO_EXTEND = true;
@@ -235,6 +264,12 @@ export function stationRules(config: AppConfig): ResolvedRules {
         callinEveryMinutes: number(ROTATION_KEYS.callinEveryMinutes, DEFAULT_RULES.callinEveryMinutes),
         breakEveryMinutes: number(ROTATION_KEYS.breakEveryMinutes, DEFAULT_RULES.breakEveryMinutes),
         crossfade: boolean(ROTATION_KEYS.crossfade, DEFAULT_RULES.crossfade),
+        mixInSimilar: boolean(ROTATION_KEYS.mixInSimilar, DEFAULT_RULES.mixInSimilar),
+        // Clamped rather than refused, on the settings rule: this reads a row that is already stored.
+        mixInEvery: Math.min(
+            MIX_IN_EVERY_RANGE.max,
+            Math.max(MIX_IN_EVERY_RANGE.min, Math.floor(numberOr(config, ROTATION_KEYS.mixInEvery, DEFAULT_RULES.mixInEvery))),
+        ),
     };
 }
 
@@ -261,6 +296,8 @@ export const NO_RULES: ResolvedRules = {
     callins: false,
     callinEveryMinutes: 0,
     crossfade: false,
+    mixInSimilar: false,
+    mixInEvery: 0,
 };
 
 /**
@@ -317,6 +354,11 @@ export const resolveRules = (mode: StationLineupMode, overrides?: StationLineupR
         callinEveryMinutes: overrides?.callinEveryMinutes ?? base.callinEveryMinutes,
         breakEveryMinutes: overrides?.breakEveryMinutes ?? base.breakEveryMinutes,
         crossfade: overrides?.crossfade ?? base.crossfade,
+        // Only a rotation may have anything mixed in, whatever the override says. `mayGenerate` is
+        // the same fact about the mode, and asking the station to choose records for a setlist is
+        // generating into it by another door.
+        mixInSimilar: base.mayGenerate && (overrides?.mixInSimilar ?? base.mixInSimilar),
+        mixInEvery: base.mixInEvery,
     };
 };
 

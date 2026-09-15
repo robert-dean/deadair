@@ -16,6 +16,7 @@ import {
     DEFAULT_RULES,
     filterByHistory,
     FRESH_FLOOR,
+    MIX_IN_EVERY_RANGE,
     stationAutoExtends,
     rejectDisliked,
     resolveRules,
@@ -102,7 +103,26 @@ describe('resolveRules', () => {
             // Same argument, one step further: somebody decided where these records stop
             // and start, and overlapping two of them overrules that decision.
             crossfade: false,
+            // And the station choosing records to put among theirs is generating into a
+            // sequence somebody made by hand.
+            mixInSimilar: false,
+            mixInEvery: 0,
         });
+    });
+
+    it('never mixes anything into a setlist or a feature, even when the broadcast asks', () => {
+        // Unlike crossfade, which a setlist may ask for. Mixing in is the station CHOOSING records,
+        // and nothing may be generated into a mode that is given rather than programmed.
+        expect(resolveRules('setlist', { mixInSimilar: true }).mixInSimilar).toBe(false);
+        expect(resolveRules('feature', { mixInSimilar: true }).mixInSimilar).toBe(false);
+    });
+
+    it('lets a rotation broadcast ask for records to be mixed in, or decline the station default', () => {
+        expect(resolveRules('rotation', { mixInSimilar: true }).mixInSimilar).toBe(true);
+
+        const station = { ...DEFAULT_RULES, mixInSimilar: true, mixInEvery: 6 };
+        expect(resolveRules('rotation', undefined, station)).toMatchObject({ mixInSimilar: true, mixInEvery: 6 });
+        expect(resolveRules('rotation', { mixInSimilar: false }, station).mixInSimilar).toBe(false);
     });
 
     it('turns everything off for a feature, which is one artist by definition', () => {
@@ -235,6 +255,23 @@ describe('stationRules', () => {
         const { config } = settingsConfig({ [ROTATION_KEYS.maxPerAlbum]: 'banana' });
 
         expect(stationRules(config).maxPerAlbum).toBe(DEFAULT_RULES.maxPerAlbum);
+    });
+
+    it('reads the mix-in switch as the string it is, off by default', () => {
+        // The off-case through the string, because a real boolean passes either way.
+        expect(DEFAULT_RULES.mixInSimilar).toBe(false);
+        expect(stationRules(settingsConfig({ [ROTATION_KEYS.mixInSimilar]: 'false' }).config).mixInSimilar).toBe(false);
+        expect(stationRules(settingsConfig({ [ROTATION_KEYS.mixInSimilar]: 'true' }).config).mixInSimilar).toBe(true);
+    });
+
+    it('clamps the mix-in spacing into range rather than refusing a stored row', () => {
+        const every = (value: string) => stationRules(settingsConfig({ [ROTATION_KEYS.mixInEvery]: value }).config).mixInEvery;
+
+        expect(every('6')).toBe(6);
+        expect(every('0')).toBe(MIX_IN_EVERY_RANGE.min);
+        expect(every('500')).toBe(MIX_IN_EVERY_RANGE.max);
+        expect(every('2.7')).toBe(2);
+        expect(every('banana')).toBe(DEFAULT_RULES.mixInEvery);
     });
 
     it('does not read auto-extend, because that decides a default rather than a rule', () => {

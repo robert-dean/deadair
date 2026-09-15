@@ -251,6 +251,13 @@ export interface StationLineupRules {
     /** Minutes of airtime between one break and the next of the same kind. `0` is `breaks: false`. */
     breakEveryMinutes?: number;
     /**
+     * Whether records that sound like this broadcast's own are mixed in among them.
+     *
+     * Off unless somebody asked, and ignored for a `setlist` and a `feature` whatever it says: the
+     * mode's baseline is what turns it off there, as it does breaks.
+     */
+    mixInSimilar?: boolean;
+    /**
      * Whether one record may be blended into the next.
      *
      * Off for a `setlist` and a `feature` without anybody setting it, by the same

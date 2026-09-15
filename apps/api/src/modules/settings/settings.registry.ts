@@ -10,7 +10,7 @@ import {
 } from '#modules/playout/gain.js';
 import { DEFAULT_TRACK_CACHE_MAX_BYTES, TRACK_CACHE_MAX_BYTES_KEY } from '#modules/playout/audio/track.cache.limit.js';
 import { DEFAULT_RESTART_STUCK_CHAIN, RESTART_STUCK_CHAIN_KEY } from '#modules/playout/audio.chain.watchdog.js';
-import { DEFAULT_AUTO_EXTEND, DEFAULT_RULES, ROTATION_KEYS } from '#modules/director/rotation.rules.js';
+import { DEFAULT_AUTO_EXTEND, DEFAULT_RULES, MIX_IN_EVERY_RANGE, ROTATION_KEYS } from '#modules/director/rotation.rules.js';
 import { DEFAULT_MAX_TRACK_SECONDS, DEFAULT_MIN_TRACK_SECONDS, TRACK_LENGTH_KEYS } from '#modules/director/track.length.js';
 import { DEFAULT_TEMPLATES, TEMPLATE_KEYS, TEMPLATE_VOCABULARY } from '#modules/director/break.templates.js';
 import { WELCOME_KEYS, WELCOME_TEMPLATES } from '#modules/director/welcome.writer.js';
@@ -605,6 +605,25 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         step: 0.05,
         control: 'slider',
         help: 'A share between 0 and 1 of each hour taken from acts that resemble the ones just played, rather than drawn from your library. This is how a station stops sounding like it owns two hundred songs, so it is on by default — unlike the chart mix above, which is a format rather than a habit. 0 turns it off. Needs a similarity plugin installed, and needs "Play records the station does not own yet" on, because the point of it is acts your library does not hold.',
+    },
+    {
+        group: 'rotation',
+        key: ROTATION_KEYS.mixInSimilar,
+        label: 'Mix similar records into a playlist',
+        type: 'boolean',
+        default: DEFAULT_RULES.mixInSimilar,
+        help: 'When a playlist goes on air, put a record by an artist who sounds like one of its own in among them every few records, the way a smart shuffle does. The playlist still plays in full and in its own order around them. This is the default for a playlist, and the form that puts one on air can ask for it even with this off. A setlist or a feature never has anything mixed in. Separate from the share above, which is about the hours the station programmes for itself. Needs a similarity plugin that can name records, and "Play records the station does not own yet" on.',
+    },
+    {
+        group: 'rotation',
+        key: ROTATION_KEYS.mixInEvery,
+        label: 'Playlist records between mixed-in ones',
+        type: 'number',
+        default: DEFAULT_RULES.mixInEvery,
+        dependsOn: ROTATION_KEYS.mixInSimilar,
+        min: MIX_IN_EVERY_RANGE.min,
+        max: MIX_IN_EVERY_RANGE.max,
+        help: "How many of the playlist's own records play between one mixed-in record and the next. Four is roughly one in five of what a listener hears. A mixed-in record never goes next to a break, so the spacing can stretch by a record where one is in the way.",
     },
     {
         group: 'rotation',

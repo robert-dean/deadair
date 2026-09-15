@@ -29,7 +29,7 @@ import { NO_RULES, stationAutoExtends } from './rotation.rules.js';
 import { PlayHistoryRepository } from './play.history.repository.js';
 import { resolveSmartShuffle } from './smart.shuffle.js';
 import { StationAirRepository } from './station.air.repository.js';
-import type { EditResult, StationLineupBinding, StationLineupSegmentItem, StationLineupSnapshot } from './station.lineup.js';
+import type { EditResult, StationLineupBinding, StationLineupRules, StationLineupSegmentItem, StationLineupSnapshot } from './station.lineup.js';
 import type {
     AirSource,
     AddStationSegmentInput,
@@ -377,11 +377,11 @@ export class DirectorConsoleService {
             // is the same answer a persona deleted mid-broadcast gets. Refusing to go on air over a
             // stale id would be the station declining to broadcast over a question about its DJ.
             ...(input.personaId?.trim() ? { personaId: input.personaId.trim() } : {}),
-            // A per-broadcast rule rather than a field of its own, which is where every other
+            // Per-broadcast rules rather than fields of their own, which is where every other
             // switch about what a broadcast DOES lives. Absent leaves the station's own setting
-            // standing, and a `setlist` or a `feature` takes no calls whatever this says because
-            // `NO_RULES` is what those modes resolve from.
-            ...(input.callins === undefined ? {} : { rules: { callins: input.callins } }),
+            // standing, and a `setlist` or a `feature` takes no calls and has nothing mixed in
+            // whatever these say, because `NO_RULES` is what those modes resolve from.
+            ...rulesAskedFor(input),
             ...(slot === undefined ? {} : { slotId: slot.id }),
             // Who chose this, which the slot stamp above cannot answer. `onSlot` is the tick handing
             // back what it resolved, and `sustaining` is the tick filling a gap; everything else
@@ -1113,6 +1113,18 @@ function describeEdit(edit: OrderEdit): string {
 function sourceOf(input: PutOnAirInput): string {
     if (input.chartId !== undefined) return 'chart';
     return input.pluginId === undefined ? 'director' : 'import';
+}
+
+/**
+ * The per-broadcast rules an operator asked for, as the binding's `rules`, or nothing when they asked
+ * for none. Only what was actually sent: an absent switch leaves the station's setting in force.
+ */
+function rulesAskedFor(input: PutOnAirInput): { rules?: StationLineupRules } {
+    const rules: StationLineupRules = {
+        ...(input.callins === undefined ? {} : { callins: input.callins }),
+        ...(input.mixInSimilar === undefined ? {} : { mixInSimilar: input.mixInSimilar }),
+    };
+    return Object.keys(rules).length === 0 ? {} : { rules };
 }
 
 /** The plugin behind whichever source was named, or `undefined` for a broadcast the station fills itself. */

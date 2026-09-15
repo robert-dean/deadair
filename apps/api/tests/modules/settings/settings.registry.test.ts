@@ -26,6 +26,8 @@ import {
     SMART_SHUFFLE_KEYS,
 } from '../../../src/modules/director/smart.shuffle.js';
 import { ConfigFieldOptionSource } from '../../../src/modules/plugins/types/plugins.types.js';
+import { DEFAULT_RULES, ROTATION_KEYS, stationRules } from '../../../src/modules/director/rotation.rules.js';
+import { settingsConfig } from '../../utils/settings.config.js';
 
 describe('the settings registry', () => {
     it('declares every key exactly once', () => {
@@ -167,6 +169,22 @@ describe('the settings registry', () => {
         // Hidden while the switch is off, because a horizon for a lean that is not applied is a
         // number that changes nothing.
         expect(days.dependsOn).toBe(SMART_SHUFFLE_KEYS.enabled);
+    });
+
+    it('declares mixing into a playlist over the same default and range its resolver uses', () => {
+        // Asked of `stationRules` with the setting as the string it is stored as, since that is
+        // the only way this resolver is ever handed one.
+        const every = (value: number) => stationRules(settingsConfig({ [ROTATION_KEYS.mixInEvery]: String(value) }).config).mixInEvery;
+
+        expect(findDescriptor(ROTATION_KEYS.mixInSimilar)!.default).toBe(DEFAULT_RULES.mixInSimilar);
+
+        const spacing = findDescriptor(ROTATION_KEYS.mixInEvery)!;
+        expect(spacing.default).toBe(DEFAULT_RULES.mixInEvery);
+        expect(every(spacing.min!)).toBe(spacing.min);
+        expect(every(spacing.max!)).toBe(spacing.max);
+        expect(every(spacing.max! + 1)).toBe(spacing.max);
+        expect(every(spacing.min! - 1)).toBe(spacing.min);
+        expect(spacing.dependsOn).toBe(ROTATION_KEYS.mixInSimilar);
     });
 
     it('bounds both analysis pauses at the ceiling the resolver enforces', () => {

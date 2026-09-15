@@ -75,6 +75,37 @@ describe('commissioning what the clock wants', () => {
         expect(again.opened).toEqual([]);
     });
 
+    // The same slot asked about by two commit passes a fraction of a second apart: `now` is
+    // `Date.now()`, which carries milliseconds, and the slot was once computed with them. The second
+    // pass then saw a slot 687ms away from the one it had commissioned, called it unscheduled, and
+    // commissioned the same programme again, on every pass for the three hours before it aired.
+    it('commissions once when two passes ask a fraction of a second apart', async () => {
+        const opened: Record<string, unknown>[] = [];
+        const productions = {
+            // The table as the two passes see it: whatever the first one opened is scheduled.
+            scheduledAfter: vi.fn(async () => opened.map(row => ({ kind: row.kind as string, scheduledFor: row.scheduledFor as number }))),
+            standingIn: vi.fn(async () => ({ pending: false })),
+            open: vi.fn(async (input: Record<string, unknown>) => {
+                opened.push(input);
+                return { id: `p${opened.length}`, ...input };
+            }),
+        };
+        const bands = { active: vi.fn(async () => [{ kind: 'callin', at: 'clock', minute: 30 }]) };
+        const scheduler = new ProductionScheduler(
+            productions as never,
+            bands as never,
+            { send: vi.fn(async () => undefined) } as never,
+            config(),
+            logger as never,
+        );
+
+        await scheduler.ripen(now + 123, {});
+        await scheduler.ripen(now + 687, {});
+
+        expect(opened).toHaveLength(1);
+        expect(opened[0]?.scheduledFor).toBe(Date.UTC(2026, 7, 25, 12, 30));
+    });
+
     it('sends the first pass rather than running one', async () => {
         const { scheduler, jobs } = build();
 

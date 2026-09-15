@@ -2395,6 +2395,26 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/StationEpisodePage'
+    '/podcasts/episodes/{id}/fetch':
+        post:
+            operationId: requestFetch
+            summary: 'Fetch episode'
+            description: "Fetches one episode's audio into the station's store now, rather than waiting for its slot to come near"
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 100
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/StationEpisode'
     '/podcasts/refresh':
         post:
             operationId: requestRefresh

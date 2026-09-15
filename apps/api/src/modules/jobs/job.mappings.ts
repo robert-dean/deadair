@@ -27,6 +27,7 @@ import { PruneActivityJob } from '#modules/activity/prune.activity.job.js';
 import { SweepTrackCacheJob } from '#modules/playout/audio/sweep.track.cache.job.js';
 import { ScrobbleFlushJob } from '#modules/scrobble/scrobble.flush.job.js';
 import { RefreshPodcastsJob } from '#modules/podcasts/refresh.podcasts.job.js';
+import { FetchEpisodeJob } from '#modules/podcasts/fetch.episode.job.js';
 
 /**
  * What a job name maps to. The bare constructor is the short form for an
@@ -450,6 +451,16 @@ export const JobMappings: Record<JobNames, JobMapping> = {
     'podcasts.refresh': {
         job: RefreshPodcastsJob,
         cron: '17,47 * * * *',
+        policy: { retryLimit: 0, expiresIn: Duration.fromObject({ minutes: 20 }) },
+    },
+
+    // No cron: sent when an episode's audio is wanted, by the scheduler as its slot approaches or by
+    // an operator. No retry either: every failure is written on the episode, and whatever asks next is
+    // the retry, which the episode's own `fetch_requested_at` keeps from being asked twice at once.
+    // `expiresIn` clears the fetch's own deadline (`EPISODE_FETCH_TIMEOUT_MS`, fifteen minutes), so a
+    // wedged download is reclaimed rather than holding a worker.
+    'podcasts.fetch': {
+        job: FetchEpisodeJob,
         policy: { retryLimit: 0, expiresIn: Duration.fromObject({ minutes: 20 }) },
     },
 };

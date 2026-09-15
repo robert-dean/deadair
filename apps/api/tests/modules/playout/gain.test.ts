@@ -6,6 +6,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    ASSUMED_PROGRAMME_LUFS,
     ASSUMED_SPEECH_LUFS,
     CEILING_DBTP,
     MAX_GAIN_DB,
@@ -17,6 +18,7 @@ import {
     resolveSpeechTrimDb,
     TRUE_PEAK_ALLOWANCE_DB,
     gainFor,
+    programmeGainFor,
     speechGainFor,
 } from '../../../src/modules/playout/gain.js';
 
@@ -183,5 +185,24 @@ describe('resolveSpeechTrimDb', () => {
     it('clamps rather than rejecting, because nothing here is worth silence', () => {
         expect(resolveSpeechTrimDb(90)).toBe(MAX_SPEECH_TRIM_DB);
         expect(resolveSpeechTrimDb(-90)).toBe(MIN_SPEECH_TRIM_DB);
+    });
+});
+
+// An episode of somebody else's programme: spoken word, so it belongs where the station's voice does,
+// but mastered, so it is not assumed to be as quiet as a speech engine.
+describe('programmeGainFor', () => {
+    it("assumes a mastered level for an unmeasured episode, not the speech engine's", () => {
+        expect(programmeGainFor({}, TARGET, TRIM)).toBe(TARGET - TRIM - ASSUMED_PROGRAMME_LUFS);
+        // At the station's own default target an unmeasured episode is turned DOWN a little, where
+        // the speech-engine assumption would have turned it up by more than eleven decibels.
+        expect(programmeGainFor({}, DEFAULT_TARGET_LUFS, TRIM)).toBeLessThan(speechGainFor({}, DEFAULT_TARGET_LUFS, TRIM) - 10);
+    });
+
+    it('uses the measurement once there is one, exactly as a break does', () => {
+        expect(programmeGainFor({ loudnessLufs: -24 }, TARGET, TRIM)).toBe(speechGainFor({ loudnessLufs: -24 }, TARGET, TRIM));
+    });
+
+    it('is bounded by the same cap', () => {
+        expect(programmeGainFor({ loudnessLufs: -70 }, TARGET, TRIM)).toBe(MAX_GAIN_DB);
     });
 });

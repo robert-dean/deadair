@@ -126,7 +126,11 @@ export class NowPlayingService {
                 // A talk-over rides its record (`RundownItem.voice`) and is never an item of its own,
                 // so only a standalone spoken item is a break: the record under a voice-over is what
                 // the listener hears for all but a few seconds of it.
-                kind: isRenderItem(item) ? 'break' : 'record',
+                // And somebody else's programme is not a break either: it has a title and a show, and a
+                // listener's screen should name them rather than say the station is talking. It is
+                // reported as a `record` because that is the arm that means "this has its own title
+                // and artist"; the enum stays two arms, since every listener app switches on it.
+                kind: isRenderItem(item) && item.programme !== true ? 'break' : 'record',
                 title: item.title,
                 // A display line, not a list. Everything downstream renders it as text,
                 // and a device that wants one string should not have to join ours.

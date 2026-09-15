@@ -13,6 +13,7 @@ import {
     SEGMENT_EXTENSIONS,
     SegmentStore,
     isSegmentExtension,
+    sniffSegmentExtension,
     subdirectoryIsSafe,
 } from '../../../src/modules/render/segment.store.js';
 
@@ -76,5 +77,39 @@ describe('subdirectoryIsSafe', () => {
         expect(subdirectoryIsSafe('a\\b')).toBe(false);
         expect(subdirectoryIsSafe('.hidden')).toBe(false);
         expect(subdirectoryIsSafe('   ')).toBe(false);
+    });
+});
+
+// What a file IS, from its first bytes. A publisher's media type is whatever their CMS wrote, and the
+// extension decides what Liquidsoap is told the file is, so this reads the bytes instead.
+describe('sniffSegmentExtension', () => {
+    const bytes = (...values: number[]): Uint8Array => new Uint8Array(values);
+    const text = (value: string, pad = 12): Uint8Array => {
+        const out = new Uint8Array(Math.max(pad, value.length));
+        for (let at = 0; at < value.length; at += 1) out[at] = value.charCodeAt(at);
+        return out;
+    };
+
+    it.each([
+        ['an MP3 behind an ID3 tag', text('ID3\u0004\u0000'), 'mp3'],
+        ['a bare MPEG-1 layer III frame', bytes(0xff, 0xfb, 0x90, 0x64, 0, 0, 0, 0, 0, 0, 0, 0), 'mp3'],
+        ['a bare MPEG-2 layer III frame', bytes(0xff, 0xf3, 0x90, 0x64, 0, 0, 0, 0, 0, 0, 0, 0), 'mp3'],
+        ['an M4A', text('\u0000\u0000\u0000\u0020ftypM4A '), 'm4a'],
+        ['an Ogg stream', text('OggS'), 'ogg'],
+        ['a FLAC file', text('fLaC'), 'flac'],
+        ['a WAV file', text('RIFF\u0000\u0000\u0000\u0000WAVE'), 'wav'],
+    ] as const)('files %s as %s', (_label, head, expected) => {
+        expect(sniffSegmentExtension(head)).toBe(expected);
+    });
+
+    // ADTS begins with the same sync word as an MP3 frame. Filed as either, it airs as silence.
+    it('refuses raw AAC, which begins like an MP3 frame and is neither that nor an M4A', () => {
+        expect(sniffSegmentExtension(bytes(0xff, 0xf1, 0x50, 0x80, 0, 0, 0, 0, 0, 0, 0, 0))).toBeUndefined();
+        expect(sniffSegmentExtension(bytes(0xff, 0xf9, 0x50, 0x80, 0, 0, 0, 0, 0, 0, 0, 0))).toBeUndefined();
+    });
+
+    it('refuses what is not audio at all, like an error page served with a 200', () => {
+        expect(sniffSegmentExtension(text('<!DOCTYPE html>'))).toBeUndefined();
+        expect(sniffSegmentExtension(new Uint8Array(0))).toBeUndefined();
     });
 });

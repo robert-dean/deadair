@@ -41,6 +41,25 @@ operation /podcasts/episodes: {
     }
 }
 
+operation /podcasts/episodes/{id}/fetch: {
+    params: {
+        id: string(min=1, max=100)
+    }
+    post: { # Fetches one episode's audio into the station's store now, rather than waiting for its slot to come near
+        name: Fetch episode
+        service: PodcastsService.requestFetch
+        security: {
+            # An operator action: it downloads a programme, which can be a few hundred megabytes.
+            policy: platform.manage
+        }
+        response: {
+            200: {
+                application/json: StationEpisode
+            }
+        }
+    }
+}
+
 operation /podcasts/refresh: {
     post: { # Reads every show's feed again, in the background, rather than waiting for the next scheduled refresh
         name: Refresh podcasts

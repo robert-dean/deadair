@@ -6,7 +6,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { itemAnnotations, type AnnotationContext } from '../../../src/modules/playout/annotate.js';
-import { DEFAULT_SPEECH_TRIM_DB, DEFAULT_TARGET_LUFS, speechGainFor } from '../../../src/modules/playout/gain.js';
+import { DEFAULT_SPEECH_TRIM_DB, DEFAULT_TARGET_LUFS, programmeGainFor, speechGainFor } from '../../../src/modules/playout/gain.js';
 import { RENDER_PLUGIN_ID } from '../../../src/modules/render/segment.source.js';
 import type { RundownItem } from '../../../src/modules/playout/rundown.js';
 
@@ -99,5 +99,45 @@ describe('listenerTitle, through itemAnnotations', () => {
     // `artists` is empty for a segment, so the ICY line Icecast composes is the bare station name.
     it('sends no artist for a break, so the mount does not read as a band nobody has heard of', () => {
         expect(itemAnnotations(labelled('Station ident'), context(true)).artist).toBeUndefined();
+    });
+});
+
+// Somebody else's programme comes out of the station's own store as a segment, and is spoken word to
+// the mixer, but it is not the station talking: it has a title a listener wants and a level somebody
+// mastered. See `RundownItem.programme`.
+describe('a carried programme, through itemAnnotations', () => {
+    const programme = (loudnessLufs?: number): RundownItem => ({
+        id: 'item-3',
+        pluginId: RENDER_PLUGIN_ID,
+        externalId: 'seg-3',
+        title: 'Episode 12: The night shift',
+        artists: ['The Long Wave'],
+        artist: '',
+        programme: true,
+        ...(loudnessLufs === undefined ? {} : { loudnessLufs }),
+    });
+
+    it('names the episode and the show on the mount, as a record would be named', () => {
+        const annotations = itemAnnotations(programme(), context(true));
+
+        expect(annotations.title).toBe('Episode 12: The night shift');
+        expect(annotations.artist).toBe('The Long Wave');
+    });
+
+    it('is still spoken word to the mixer, so nothing is ever faded into it', () => {
+        expect(itemAnnotations(programme(), context(true)).deadair_speech).toBe('1');
+    });
+
+    // The loudest way this could go wrong: an unmeasured episode levelled as though it came out of the
+    // station's speech engine gets eleven and a half decibels it does not need, for an hour.
+    it("levels an unmeasured episode from a mastered level, not a speech engine's", () => {
+        const stamped = itemAnnotations(programme(), context(true)).liq_amplify;
+
+        expect(stamped).toBe(`${programmeGainFor({}, DEFAULT_TARGET_LUFS, DEFAULT_SPEECH_TRIM_DB)} dB`);
+        expect(stamped).not.toBe(`${speechGainFor({}, DEFAULT_TARGET_LUFS, DEFAULT_SPEECH_TRIM_DB)} dB`);
+    });
+
+    it("levels it whether or not record levelling is on, like the station's own voice", () => {
+        expect(itemAnnotations(programme(-20), context(false)).liq_amplify).toBe(itemAnnotations(programme(-20), context(true)).liq_amplify);
     });
 });

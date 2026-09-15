@@ -21,4 +21,5 @@ export type JobNames =
     | 'render.prune_script_history'
     | 'activity.prune_events'
     | 'scrobble.flush'
-    | 'podcasts.refresh';
+    | 'podcasts.refresh'
+    | 'podcasts.fetch';

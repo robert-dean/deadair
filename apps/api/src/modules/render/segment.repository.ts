@@ -316,6 +316,19 @@ export interface ImportedSegment {
     durationMs?: number;
 }
 
+/** What {@link SegmentRepository.createSyndicated} writes. */
+export interface SyndicatedSegment {
+    kind: string;
+    /** What the console calls it: the show and the episode. */
+    label: string;
+    audioChecksum: string;
+    audioExt: SegmentExtension;
+    /** The publisher's claim, when the feed made one. */
+    durationMs?: number;
+    /** Which show and episode this is, flat, for the planner and the mount: see `segments.context`. */
+    context: BreakContext;
+}
+
 interface SegmentRow {
     id: string;
     kind: string;
@@ -388,6 +401,17 @@ const instant = (millis: number) => sql<never>`to_timestamp(${millis} / 1000.0)`
 
 /** What the library scan writes, and what the repository recognises as an import. */
 export const LIBRARY_SOURCE = 'library';
+
+/**
+ * An episode of somebody else's programme, fetched from the address its feed named.
+ *
+ * A third source rather than `library`, and the difference is the whole point: a library segment is
+ * something the station can say again and again, drawn from the shelf whenever a band names its kind,
+ * where an episode airs ONCE, at the slot a band gave its show, and is placed by the podcasts module
+ * rather than drawn. So it is kept off the shelf ({@link SegmentRepository.listReady}), and it gets
+ * none of `importFile`'s checksum dedupe, since its identity is the episode it is and not its bytes.
+ */
+export const SYNDICATED_SOURCE = 'syndicated';
 
 /**
  * A timestamp column as epoch millis.
@@ -644,6 +668,9 @@ export class SegmentRepository extends DataRepository {
             .where('kind', '=', kind)
             .where('state', '=', 'ready')
             .where('productionId', 'is', null)
+            // Nor is an episode of somebody else's programme: it airs once, at its show's slot, and
+            // a shelf draw would put last week's episode on again at random. See SYNDICATED_SOURCE.
+            .where('source', '!=', SYNDICATED_SOURCE)
             .orderBy('createdAt', 'asc')
             .execute();
 
@@ -671,6 +698,9 @@ export class SegmentRepository extends DataRepository {
             // ever made a phone-in would otherwise be told its `callin` band can be filled from the
             // shelf, which is the console reporting the wrong answer to the one question this asks.
             .where('productionId', 'is', null)
+            // And an episode is not a shelf kind either: `syndicated` is offered on the format clock
+            // because a podcast plugin can carry it, never because an episode happens to be held.
+            .where('source', '!=', SYNDICATED_SOURCE)
             .execute();
 
         return rows.map(row => row.kind);
@@ -1577,6 +1607,34 @@ export class SegmentRepository extends DataRepository {
             .executeTakeFirst();
 
         return Number(result.numDeletedRows) > 0;
+    }
+
+    /**
+     * Keep an episode of somebody else's programme as a segment, born `ready`.
+     *
+     * Always a new row. {@link importFile} dedupes on the bytes because two identical recordings are
+     * one ident; two episodes are two episodes even if a publisher uploaded the same file twice, and
+     * the podcasts module's own table is what says which episode a row is.
+     */
+    async createSyndicated(carried: SyndicatedSegment): Promise<Segment> {
+        const row = await this.db
+            .insertInto('deadair.segments')
+            .values({
+                stationKey: this.identity.stationKey,
+                kind: carried.kind,
+                label: carried.label,
+                source: SYNDICATED_SOURCE,
+                audioChecksum: carried.audioChecksum,
+                audioExt: carried.audioExt,
+                durationMs: carried.durationMs ?? null,
+                context: sql<string>`${JSON.stringify(carried.context)}::jsonb`,
+                // The audio is the whole of it: there is nothing left to write or speak.
+                state: 'ready',
+            })
+            .returning(SEGMENT_COLUMNS)
+            .executeTakeFirstOrThrow();
+
+        return toSegment(row);
     }
 
     async importFile(imported: ImportedSegment): Promise<{ segment: Segment; created: boolean }> {

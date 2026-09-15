@@ -171,3 +171,51 @@ describe('SegmentRepository.handedBack', () => {
         expect(statements).toEqual([]);
     });
 });
+
+// An episode of somebody else's programme is a segment that airs ONCE, at its show's slot, and is
+// placed by the podcasts module. So it must never be drawn off the shelf, and never make `syndicated`
+// look like a kind the shelf can fill.
+describe('syndicated segments', () => {
+    it('are written as their own source, born ready, with the episode in the context', async () => {
+        const statements: Statement[] = [];
+        const repository = new SegmentRepository(
+            fakeDb([claimedRow({ source: 'syndicated', kind: 'syndicated', state: 'ready' })], statements),
+            identity(),
+        );
+
+        await repository.createSyndicated({
+            kind: 'syndicated',
+            label: 'The Long Wave: Episode 12',
+            audioChecksum: 'a'.repeat(64),
+            audioExt: 'mp3',
+            durationMs: 3_723_000,
+            context: { showTitle: 'The Long Wave', episodeTitle: 'Episode 12' },
+        });
+
+        const [insert] = statements;
+        expect(insert?.sql).toContain('insert into "deadair"."segments"');
+        expect(insert?.sql).not.toContain('on conflict');
+        expect(insert?.parameters).toEqual(expect.arrayContaining(['syndicated', 'ready', 'The Long Wave: Episode 12', 3_723_000]));
+        expect(insert?.parameters).toContain(JSON.stringify({ showTitle: 'The Long Wave', episodeTitle: 'Episode 12' }));
+    });
+
+    it('are kept off the shelf a band draws from', async () => {
+        const statements: Statement[] = [];
+        const repository = new SegmentRepository(fakeDb([], statements), identity());
+
+        await repository.listReady('syndicated');
+
+        expect(statements[0]?.sql).toContain('"source" != $');
+        expect(statements[0]?.parameters).toContain('syndicated');
+    });
+
+    it('never make a kind look fillable from the shelf', async () => {
+        const statements: Statement[] = [];
+        const repository = new SegmentRepository(fakeDb([], statements), identity());
+
+        await repository.readyKinds();
+
+        expect(statements[0]?.sql).toContain('"source" != $');
+        expect(statements[0]?.parameters).toContain('syndicated');
+    });
+});

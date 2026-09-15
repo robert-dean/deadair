@@ -1,4 +1,5 @@
 import { Injectable } from 'injectkit';
+import { httpError } from '@maroonedsoftware/errors';
 import { Logger } from '@maroonedsoftware/logger';
 import { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
 import type { PodcastEpisode, PodcastShow } from '@deadair/plugin-sdk';
@@ -9,6 +10,7 @@ import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
 import { errorText } from '#modules/shared/error.text.js';
 import type { PodcastEpisodeListing, PodcastEpisodeRecord } from './podcast.episode.js';
 import { PodcastEpisodeRepository } from './podcast.episode.repository.js';
+import { FETCH_RETRY_AFTER_MS } from './podcast.fetch.service.js';
 import { qualifyShowId } from './show.ids.js';
 import type { StationEpisode, StationEpisodePage, StationEpisodeQuery, StationShow, StationShowList } from './types/podcasts.types.js';
 
@@ -154,6 +156,25 @@ export class PodcastsService {
      */
     async requestRefresh(): Promise<void> {
         await this.jobs.send('podcasts.refresh', {});
+    }
+
+    /**
+     * Ask for one episode's audio now, and answer with the episode as it then stands.
+     *
+     * Idempotent through the row rather than through the caller's restraint: an episode already held
+     * is answered as it is, and one somebody asked for within {@link FETCH_RETRY_AFTER_MS} is not asked
+     * for again, so an operator pressing the button twice queues one download. The claim and the send
+     * commit together with the request, so a job is never sent for a claim that did not stick.
+     */
+    async requestFetch(id: string): Promise<StationEpisode> {
+        const episode = await this.episodes.get(id);
+        if (episode === undefined) throw httpError(404).withDetails({ message: 'the station does not know that episode' });
+
+        if (episode.segmentId === undefined && (await this.episodes.claimFetch(id, Date.now(), FETCH_RETRY_AFTER_MS))) {
+            await this.jobs.send('podcasts.fetch', { episodeId: id });
+        }
+
+        return toStationEpisode((await this.episodes.get(id)) ?? episode);
     }
 
     /**

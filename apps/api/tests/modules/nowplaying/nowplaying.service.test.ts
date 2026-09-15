@@ -143,6 +143,13 @@ describe('NowPlayingService', () => {
             expect(service.getNowPlaying().track).toEqual({ kind: 'break', title: 'Top of the hour', artist: '', durationMs: 12_000, startedAt: 42 });
         });
 
+        it("names somebody else's programme as a record is named, not as the station talking", () => {
+            const carried = { ...spoken, title: 'Episode 12', artists: ['The Long Wave'], programme: true };
+            const { service } = build({ item: carried, startedAt: 42 });
+
+            expect(service.getNowPlaying().track).toMatchObject({ kind: 'record', title: 'Episode 12', artist: 'The Long Wave' });
+        });
+
         it('leaves a record a record while the presenter talks over its start', () => {
             // The voice rides the record, and the record is what the listener hears for all but a
             // few seconds of it. There is no end time for the talking, so nothing could say when to

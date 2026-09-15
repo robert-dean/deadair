@@ -26,6 +26,14 @@ public final class PodcastsClient: Sendable {
         return try http.decodeJSON(StationEpisodePage.self, from: response)
     }
 
+    /// Fetch episode
+    /// Fetches one episode's audio into the station's store now, rather than waiting for its slot to come near
+    public func fetchEpisode(id: String) async throws -> StationEpisode {
+        let request = try SdkRequest(method: "POST", path: ["podcasts", "episodes", http.segment(id), "fetch"])
+        let response = try await http.execute(request)
+        return try http.decodeJSON(StationEpisode.self, from: response)
+    }
+
     /// Refresh podcasts
     /// Reads every show's feed again, in the background, rather than waiting for the next scheduled refresh
     public func refreshPodcasts() async throws {

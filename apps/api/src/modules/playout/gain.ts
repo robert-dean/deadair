@@ -291,6 +291,34 @@ export function speechGainFor(measured: MeasuredLoudness, targetLufs: number, tr
 }
 
 /**
+ * The level a podcast episode is assumed to be at, in LUFS, when nothing has measured it.
+ *
+ * Minus sixteen is the figure the podcast platforms publish as their target for spoken word, and
+ * mastered programmes land near it. It replaces {@link ASSUMED_SPEECH_LUFS} for an episode because
+ * that one is the level of the station's own speech engine, ten decibels quieter, and assuming it of a
+ * mastered programme would boost an hour of somebody else's show by more than eleven decibels into
+ * the bus limiter, which is the loudest way this could be wrong.
+ */
+export const ASSUMED_PROGRAMME_LUFS = -16;
+
+/**
+ * The gain for an episode of somebody else's programme, in dB, and never nothing.
+ *
+ * {@link speechGainFor}'s shape exactly — the same target less the same trim, the same cap, always an
+ * answer — with one difference, which is the level assumed when there is no measurement. An episode is
+ * spoken word and belongs where the station's voice belongs against the music, a little under it,
+ * which is why the trim applies; what it is NOT is the output of a speech engine, so it is not
+ * assumed to be as quiet as one.
+ */
+export function programmeGainFor(measured: MeasuredLoudness, targetLufs: number, trimDb: number): number {
+    const trim = isFinite(trimDb) ? trimDb : DEFAULT_SPEECH_TRIM_DB;
+    const target = (isFinite(targetLufs) ? targetLufs : DEFAULT_TARGET_LUFS) - trim;
+    const level = isFinite(measured.loudnessLufs) ? measured.loudnessLufs : ASSUMED_PROGRAMME_LUFS;
+
+    return round(clamp(target - level, MAX_GAIN_DB));
+}
+
+/**
  * How much a record can be turned up before it reaches the ceiling.
  *
  * Never negative: a master that already runs above {@link CEILING_DBTP} — and

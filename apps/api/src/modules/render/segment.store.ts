@@ -75,6 +75,46 @@ const EXTENSION_BY_MIME = new Map<string, SegmentExtension>(
  */
 export const extensionForMime = (mime: string): SegmentExtension | undefined => EXTENSION_BY_MIME.get(mime.split(';')[0]!.trim().toLowerCase());
 
+/** How many bytes {@link sniffSegmentExtension} needs to see to decide. */
+export const SNIFF_BYTES = 12;
+
+/**
+ * What a file IS, going by its first bytes rather than by what anybody says about it.
+ *
+ * For audio that arrived from somebody else's server with somebody else's CMS's opinion of its media
+ * type attached: a podcast episode's enclosure. `audio/mp3`, `audio/x-m4a`, `application/octet-stream`
+ * and an empty type are all ordinary there, and a type that is simply wrong is not rare. The
+ * extension decides what the file is SERVED as, and Liquidsoap picks its decoder from that, so a
+ * wrong one fails as silence rather than as an error anybody sees ({@link SEGMENT_CONTENT_TYPES}).
+ * The bytes cannot be wrong about themselves.
+ *
+ * `undefined` for anything this store cannot serve, and one refusal is worth naming: raw AAC in an
+ * ADTS stream begins with the same sync word as an MP3 frame and would be filed as `mp3` by anything
+ * reading only the first byte. It is told apart by the layer bits, which ADTS always sets to zero and
+ * no MP3 frame does, and it is refused rather than filed as `m4a`, because it is not in an MP4
+ * container and a decoder handed it as one fails.
+ */
+export function sniffSegmentExtension(head: Uint8Array): SegmentExtension | undefined {
+    const ascii = (from: number, length: number): string => String.fromCharCode(...head.subarray(from, from + length));
+
+    // An ID3v2 tag in front of the audio is how nearly every podcast MP3 begins.
+    if (ascii(0, 3) === 'ID3') return 'mp3';
+    // An ISO base media file (MP4, M4A): a box size, then `ftyp`.
+    if (ascii(4, 4) === 'ftyp') return 'm4a';
+    if (ascii(0, 4) === 'OggS') return 'ogg';
+    if (ascii(0, 4) === 'fLaC') return 'flac';
+    if (ascii(0, 4) === 'RIFF' && ascii(8, 4) === 'WAVE') return 'wav';
+
+    // A bare MPEG audio frame: eleven sync bits, then the version, then the LAYER. Layer bits of `00`
+    // are reserved in MPEG audio and are exactly what ADTS writes, which is the AAC case above.
+    if (head.length >= 2 && head[0] === 0xff && (head[1]! & 0xe0) === 0xe0) {
+        const layer = (head[1]! >> 1) & 0x03;
+        return layer === 0 ? undefined : 'mp3';
+    }
+
+    return undefined;
+}
+
 /**
  * Segment audio on disk.
  *

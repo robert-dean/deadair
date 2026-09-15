@@ -97,6 +97,19 @@ export interface RundownItem {
      */
     trackId?: string;
     /**
+     * Somebody else's programme, carried whole: an episode of a podcast the station fetched, rather
+     * than something the station said.
+     *
+     * It still comes from the station's own store as a segment, so it is still spoken audio to the
+     * mixer (never faded into, the speech compressor) and still out of the play history. What differs
+     * is everything a listener sees and the level it is corrected to: its title is the episode's own
+     * and its artist the show's rather than the station's name, and its gain assumes a programme
+     * somebody MASTERED rather than the station's quiet speech engine. See `programmeGainFor`.
+     *
+     * Absent on every other item, which is every item there was before this existed.
+     */
+    programme?: boolean;
+    /**
      * Something the station means to SAY over this item, rather than after it.
      *
      * Opaque here, exactly as `trackId` is: the rundown neither reads it nor acts

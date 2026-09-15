@@ -55,6 +55,7 @@ import {
 import { SpeechService } from './speech.service.js';
 import { SAMPLE_TEXT, VoiceSampleStore } from './voice.sample.store.js';
 import { errorText } from '#modules/shared/error.text.js';
+import { readBounded } from '#modules/shared/bounded.body.js';
 
 /**
  * What a segment is when nobody says.
@@ -536,7 +537,8 @@ export class RenderService {
             throw httpError(415).withDetails({ message: `the station serves ${SEGMENT_EXTENSIONS.join(', ')}, and that address is none of them` });
         }
 
-        const bytes = await readBounded(response);
+        // Counted as it arrives rather than trusted from `content-length`: see `shared/bounded.body.ts`.
+        const bytes = await readBounded(response.body, MAX_PAD_BYTES);
         if (bytes === undefined) throw httpError(413).withDetails({ message: `a pad may be at most ${MAX_PAD_BYTES / 1024 / 1024} MB` });
         if (bytes.length === 0) throw httpError(502).withDetails({ message: 'that address answered with no audio' });
 
@@ -1194,40 +1196,4 @@ function decodePath(pathname: string): string {
     } catch {
         return pathname;
     }
-}
-
-/**
- * A body, up to the ceiling, and `undefined` past it.
- *
- * Counted as the chunks arrive rather than checked after: `content-length` is a claim the far end
- * makes and may not make at all, so a station that trusted it would buffer a gigabyte before
- * discovering it had been lied to. The reader is cancelled the moment the total goes over, which
- * stops the transfer as well as the buffering.
- */
-async function readBounded(response: Response): Promise<Buffer | undefined> {
-    const body = response.body;
-    if (body === null) return Buffer.alloc(0);
-
-    const reader = body.getReader();
-    const chunks: Buffer[] = [];
-    let held = 0;
-
-    try {
-        for (;;) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            held += value.byteLength;
-            if (held > MAX_PAD_BYTES) {
-                await reader.cancel();
-                return undefined;
-            }
-
-            chunks.push(Buffer.from(value));
-        }
-    } finally {
-        reader.releaseLock();
-    }
-
-    return Buffer.concat(chunks);
 }

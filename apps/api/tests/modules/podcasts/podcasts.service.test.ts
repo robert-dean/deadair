@@ -197,6 +197,53 @@ describe('refreshing', () => {
     });
 });
 
+describe('asking for an episode’s audio', () => {
+    const held: PodcastEpisodeRecord = {
+        id: 'row-1',
+        showId: `${PODCAST}:longwave`,
+        episodeId: 'ep12',
+        showTitle: 'The Long Wave',
+        title: 'Episode 12',
+        audioUrl: 'https://cdn.example.com/12.mp3',
+        seenAt: 0,
+        fetchAttempts: 0,
+    };
+
+    const withRow = (row: PodcastEpisodeRecord | undefined, claims: boolean) => {
+        const table = episodesTable();
+        Object.assign(table.repository, { get: vi.fn(async () => row), claimFetch: vi.fn(async () => claims) });
+        return table;
+    };
+
+    it('queues a fetch when the claim sticks', async () => {
+        const { service, jobs } = build([record(PODCAST)], withRow(held, true));
+
+        expect((await service.requestFetch('row-1')).fetched).toBe(false);
+        expect(jobs.send).toHaveBeenCalledWith('podcasts.fetch', { episodeId: 'row-1' });
+    });
+
+    it('queues nothing when a fetch is already out, so a second press is one download', async () => {
+        const { service, jobs } = build([record(PODCAST)], withRow(held, false));
+
+        await service.requestFetch('row-1');
+        expect(jobs.send).not.toHaveBeenCalled();
+    });
+
+    it('queues nothing for an episode the station already holds', async () => {
+        const table = withRow({ ...held, segmentId: 'seg-1' }, true);
+        const { service, jobs } = build([record(PODCAST)], table);
+
+        expect((await service.requestFetch('row-1')).fetched).toBe(true);
+        expect(jobs.send).not.toHaveBeenCalled();
+    });
+
+    it('answers 404 for an episode the station does not know', async () => {
+        const { service } = build([record(PODCAST)], withRow(undefined, true));
+
+        await expect(service.requestFetch('nope')).rejects.toMatchObject({ statusCode: 404 });
+    });
+});
+
 describe('reading episodes', () => {
     it('answers the station’s own rows, with instants as ISO-8601 and a fetched flag', async () => {
         const table = episodesTable([

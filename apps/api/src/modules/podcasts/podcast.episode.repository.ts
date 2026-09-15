@@ -95,6 +95,67 @@ export class PodcastEpisodeRepository extends DataRepository {
 
         return rows.map(toRecord);
     }
+
+    /** One episode of this station's, or `undefined` for an id that is not one. */
+    async get(id: string): Promise<PodcastEpisodeRecord | undefined> {
+        const row = await this.db
+            .selectFrom('deadair.podcastEpisodes')
+            .selectAll()
+            .where('id', '=', id)
+            .where('stationKey', '=', this.station.stationKey)
+            .executeTakeFirst();
+
+        return row === undefined ? undefined : toRecord(row);
+    }
+
+    /**
+     * Claim the right to ask for this episode's audio, or learn that somebody already has.
+     *
+     * The idempotence of every fetch lives here, in one conditional UPDATE: it moves
+     * `fetch_requested_at` forward only for an episode the station does not hold yet and has not asked
+     * for within `retryAfterMs`. So a scheduler running every few seconds, an operator pressing the
+     * button twice, and a restart in the middle of a fetch all come down to one row saying whether a
+     * request is already out, rather than to memory that a restart would lose. A fetch that died
+     * without a word simply ages past the window and is asked for again.
+     *
+     * `scheduledFor` records the slot the audio is wanted for, where there is one.
+     */
+    async claimFetch(id: string, now: number, retryAfterMs: number, scheduledFor?: number): Promise<boolean> {
+        const claimed = await this.db
+            .updateTable('deadair.podcastEpisodes')
+            .set({
+                fetchRequestedAt: instant(now),
+                ...(scheduledFor === undefined ? {} : { scheduledFor: instant(scheduledFor) }),
+            })
+            .where('id', '=', id)
+            .where('stationKey', '=', this.station.stationKey)
+            .where('segmentId', 'is', null)
+            .where(where => where.or([where('fetchRequestedAt', 'is', null), where('fetchRequestedAt', '<', instant(now - retryAfterMs))]))
+            .returning('id')
+            .executeTakeFirst();
+
+        return claimed !== undefined;
+    }
+
+    /** The station holds this episode now, in that segment. Clears the failures that came before. */
+    async markFetched(id: string, segmentId: string): Promise<void> {
+        await this.db
+            .updateTable('deadair.podcastEpisodes')
+            .set({ segmentId, fetchAttempts: 0, fetchError: null })
+            .where('id', '=', id)
+            .where('stationKey', '=', this.station.stationKey)
+            .execute();
+    }
+
+    /** A fetch failed, and why. Counted, so a scheduler can stop asking for an episode that never arrives. */
+    async markFetchFailed(id: string, error: string): Promise<void> {
+        await this.db
+            .updateTable('deadair.podcastEpisodes')
+            .set(update => ({ fetchAttempts: sql<number>`${update.ref('fetchAttempts')} + 1`, fetchError: error.slice(0, 2_000) }))
+            .where('id', '=', id)
+            .where('stationKey', '=', this.station.stationKey)
+            .execute();
+    }
 }
 
 /** A listing as the columns a feed is allowed to write. */

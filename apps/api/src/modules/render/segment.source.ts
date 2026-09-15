@@ -1,5 +1,5 @@
 import type { RundownTrack } from '#modules/playout/rundown.js';
-import type { Segment } from './segment.repository.js';
+import { SYNDICATED_SOURCE, type Segment } from './segment.repository.js';
 
 /**
  * Who the running order says a segment's audio comes from.
@@ -35,6 +35,8 @@ export const isRenderItem = (item: { pluginId: string }): boolean => item.plugin
  * absent duration costs a console a countdown and nothing else.
  */
 export function segmentRundownTrack(segment: Segment): RundownTrack {
+    if (segment.source === SYNDICATED_SOURCE) return programmeRundownTrack(segment);
+
     return {
         pluginId: RENDER_PLUGIN_ID,
         externalId: segment.id,
@@ -50,6 +52,40 @@ export function segmentRundownTrack(segment: Segment): RundownTrack {
         // live setting, so what travels is what was MEASURED rather than what was computed from it.
         // Absent until something measures it, which `speechGainFor` treats as an assumed level
         // rather than as no opinion — a break with no gain at all is ten decibels under the music.
+        ...(segment.loudnessLufs === undefined ? {} : { loudnessLufs: segment.loudnessLufs }),
+    };
+}
+
+/**
+ * An episode of somebody else's programme as a line of the running order.
+ *
+ * The one segment that DOES have somebody to be identified by, and the one place the label is not
+ * what a listener should see: `The Long Wave: Episode 12` is the console's name for the row, while a
+ * player's one line of text wants the episode as the title and the show as the artist, which Icecast
+ * renders as `The Long Wave - Episode 12` exactly as it renders a record. Both come off the row's own
+ * context, written when the episode was fetched, and the label is the fallback for a row whose
+ * context something has mangled.
+ *
+ * `artist` stays EMPTY even so. It is what identity is taken from (`RundownItem.artist`), and an
+ * empty key is what keeps a segment out of the repeat window and the artist cooldown; a show's name
+ * there would put a programme into the song key space. Play history leaves every segment out anyway,
+ * so this is belt and braces rather than the mechanism.
+ */
+function programmeRundownTrack(segment: Segment): RundownTrack {
+    const context = segment.context ?? {};
+    const episode = typeof context.episodeTitle === 'string' && context.episodeTitle.length > 0 ? context.episodeTitle : segment.label;
+    const show = typeof context.showTitle === 'string' && context.showTitle.length > 0 ? context.showTitle : undefined;
+    const artworkUrl = typeof context.artworkUrl === 'string' && /^https?:\/\//.test(context.artworkUrl) ? context.artworkUrl : undefined;
+
+    return {
+        pluginId: RENDER_PLUGIN_ID,
+        externalId: segment.id,
+        title: episode,
+        artists: show === undefined ? [] : [show],
+        artist: '',
+        programme: true,
+        ...(segment.durationMs === undefined ? {} : { durationMs: segment.durationMs }),
+        ...(artworkUrl === undefined ? {} : { artworkUrl }),
         ...(segment.loudnessLufs === undefined ? {} : { loudnessLufs: segment.loudnessLufs }),
     };
 }

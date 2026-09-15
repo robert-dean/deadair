@@ -48,6 +48,19 @@ public sealed class PodcastsClient(SdkHttp http)
     }
 
     /// <summary>
+    /// Fetch episode
+    /// Fetches one episode's audio into the station's store now, rather than waiting for its slot to come near
+    /// </summary>
+    public async Task<StationEpisode> FetchEpisodeAsync(string id, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Post,
+            http.Path("podcasts", "episodes", http.Segment(id), "fetch"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<StationEpisode>(response);
+    }
+
+    /// <summary>
     /// Refresh podcasts
     /// Reads every show's feed again, in the background, rather than waiting for the next scheduled refresh
     /// </summary>

@@ -17,7 +17,7 @@
 
 import { isRenderItem } from '#modules/render/segment.source.js';
 import { blendFor } from './crossfade.js';
-import { gainFor, speechGainFor, type MeasuredLoudness } from './gain.js';
+import { gainFor, programmeGainFor, speechGainFor, type MeasuredLoudness } from './gain.js';
 import type { RundownItem } from './rundown.js';
 
 /** The metadata key carrying the rundown item id. Must match `radio.liq`. */
@@ -186,7 +186,8 @@ export function itemAnnotations(item: RundownItem, context: AnnotationContext): 
  * than merely over-shares.
  */
 export function listenerTitle(item: RundownItem, stationName: string): string {
-    if (!isRenderItem(item)) return item.title;
+    // Somebody else's programme has a real title, exactly as a record does, and a listener wants it.
+    if (!isRenderItem(item) || item.programme === true) return item.title;
     return stationName.trim() || item.title;
 }
 
@@ -252,6 +253,9 @@ function gainAnnotations(item: RundownItem, { targetLufs, speechTrimDb, leveling
     // somebody else mastered: see `speechGainFor`, and {@link voiceAnnotations} for the other
     // path the same audio can take to the player. Unaffected by `levelingEnabled`, which is a
     // record-only knob — see the field's own doc comment for why.
+    // Somebody else's programme is spoken word too, and levelled like the station's voice, but from a
+    // mastered level rather than a speech engine's: see `programmeGainFor`.
+    if (isRenderItem(item) && item.programme === true) return { liq_amplify: `${programmeGainFor(item, targetLufs, speechTrimDb)} dB` };
     if (isRenderItem(item)) return voiceAnnotations(item, targetLufs, speechTrimDb);
     if (!levelingEnabled) return {};
 

@@ -241,7 +241,8 @@ export default function Home() {
                     <h2>The rest of the desk.</h2>
                     <p className={styles.sectionLede}>
                         A broadcast desk rather than a player. It deliberately does not play the station: the listeners have the mount. It is what you
-                        open to see what is going out, what is coming up, and what needs you.
+                        open to see what is going out, what is coming up, and what needs you. What is on air, Skip and Stop also come as keys, on{' '}
+                        <Link to="/docs/features/console#on-a-stream-deck">an Elgato Stream Deck</Link>.
                     </p>
                     <ConsoleTour stops={tour} />
                 </section>

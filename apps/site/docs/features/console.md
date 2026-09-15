@@ -1,7 +1,7 @@
 ---
 title: The console
 sidebar_position: 11
-description: The broadcast desk you run the station from, how it is laid out, what it records about itself, and how you sign in to it.
+description: The broadcast desk you run the station from, how it is laid out, what it records about itself, how you sign in to it, and the same desk on a Stream Deck.
 ---
 
 The console is a broadcast desk rather than a player. It shows what is going out, what needs you and what is coming, and it deliberately does not play the station: listeners use the stream itself, or the Android and desktop apps (see [listening](./listening.md)). Everything you do in it acts on the one broadcast every listener hears, which is why its button says Air this playlist rather than Play.
@@ -52,6 +52,20 @@ The choice is remembered on that browser and changes nothing about the station. 
 ## On a phone
 
 On a narrow screen the rail becomes a bar across the bottom with the four destinations, one thumb-sized tap each. Check-up, Settings and Logout sit behind the menu in the top corner, beside a search button for Jump to anything. Most tables become cards rather than scrolling sideways, so a control you need is never off the edge of the screen.
+
+## On a Stream Deck
+
+The desk comes as keys too: a plugin for the Elgato Stream Deck puts what is on air, Skip and Stop under your fingers. Like the console, it never plays the station.
+
+- **Now playing** shows the record's cover, its title and who it is by, and a bar along the top that fills as it plays, red while the station is on air. When nothing is playing it shows the deadair mark and says why in the console's own words: _ready_, _off air_, _warming up_. Pressing it opens the console. Each Now playing key can leave out the bar, or the title and artist, for a key that is only the cover.
+- **Skip** ends the record or break on air, the same Skip the console has.
+- **Stop or start** is Stop while the station is on air. Press it once and it says _Confirm_; press it again within five seconds and the station stops. Leave it and it forgets. Once the station is stopped, the same key is Start.
+
+A key that cannot reach the station says so (_No station_, _Key refused_) and keeps the last cover it had, faint, so nothing on it looks current when it is not.
+
+It talks to the station with an API key rather than your password. Issue one under **Settings → Security**, **API keys**: **Read only** is enough for Now playing, and Skip and Stop need **Read and manage**. Then drag a deadair key onto the Stream Deck, open its settings, and enter your station's address and the key once; every deadair key shares them, and **Test connection** says whether both work. The key stays on that computer and is never written into a Stream Deck profile you export.
+
+It needs the Stream Deck app 7.1 or later, on macOS or Windows. Download `radio.deadair.streamdeck.streamDeckPlugin` from [the latest Stream Deck release](https://github.com/robert-dean/deadair/releases?q=streamdeck) and open it, and the Stream Deck app installs it. The source is in [the plugin's directory](https://github.com/robert-dean/deadair/tree/main/apps/streamdeck).
 
 ## Signing in
 

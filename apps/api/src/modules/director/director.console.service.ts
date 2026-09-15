@@ -1021,6 +1021,7 @@ export class DirectorConsoleService {
                     // One more reason for this one to be absent: a single ingested outside any
                     // release has no album to reach.
                     ...(row?.albumId === undefined ? {} : { albumId: row.albumId }),
+                    ...(item.mixedIn === true ? { mixedIn: true } : {}),
                 };
             }),
         };

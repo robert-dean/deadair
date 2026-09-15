@@ -519,6 +519,23 @@ describe('DeskPage: the running order and the broadcast controls', () => {
         expect(screen.getByText('deterministic')).toBeInTheDocument();
     });
 
+    it('says which records the station mixed in, and nothing about the ones the playlist named', async () => {
+        getTheRunningOrder.mockResolvedValue(
+            order({
+                items: [
+                    orderItem({ id: 'item-1', title: 'Windowlicker' }),
+                    orderItem({ id: 'item-2', title: 'Overcome', artists: ['Tricky'], mixedIn: true }),
+                ],
+            }),
+        );
+        getStationAir.mockResolvedValue(stationAir());
+
+        render(<DeskPage />);
+
+        expect(await screen.findByText('Overcome')).toBeInTheDocument();
+        expect(screen.getAllByText('mixed in')).toHaveLength(1);
+    });
+
     it('says nothing about a writer for a recording somebody made', async () => {
         getTheRunningOrder.mockResolvedValue(order({ items: [orderItem({ id: 'seg-1', kind: 'segment', title: 'Top of the hour', artists: [] })] }));
         getStationAir.mockResolvedValue(stationAir());

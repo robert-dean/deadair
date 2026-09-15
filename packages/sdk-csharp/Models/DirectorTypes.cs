@@ -354,6 +354,11 @@ public sealed record StationOrderItem
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public Rating? Rating { get; init; }
 
+    /// <summary>The station chose this record to sound like the playlist around it, rather than the playlist naming it. Absent on everything the playlist named, and on a segment</summary>
+    [JsonPropertyName("mixedIn")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? MixedIn { get; init; }
+
     /// <summary>Which segment this plays. Present only on a segment</summary>
     [JsonPropertyName("segmentId")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

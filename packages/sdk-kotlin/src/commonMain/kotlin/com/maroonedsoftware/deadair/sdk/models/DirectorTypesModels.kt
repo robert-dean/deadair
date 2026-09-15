@@ -210,6 +210,8 @@ data class StationOrderItem(
     val albumId: String? = null,
     /** What the station thinks of this record, read as the order is drawn rather than stored on it. Absent on a segment, and on a record the catalog has never seen */
     val rating: Rating? = null,
+    /** The station chose this record to sound like the playlist around it, rather than the playlist naming it. Absent on everything the playlist named, and on a segment */
+    val mixedIn: Boolean? = null,
     /** Which segment this plays. Present only on a segment */
     val segmentId: String? = null,
     val segmentState: StationOrderItemSegmentState? = null,

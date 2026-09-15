@@ -1125,6 +1125,18 @@ describe('DirectorConsoleService editing the running order', () => {
         expect(drawn.items[0]!.albumId).toBeUndefined();
     });
 
+    it('says which records the station mixed in, and nothing about the ones the playlist named', async () => {
+        const order = new StationLineup({ name: 'Afternoons', mode: 'rotation', onEnd: 'extend', source: 'import' });
+        const [anchor] = order.append([{ pluginId: 'p', externalId: 't0', title: 'Named', artists: ['X'], artist: 'X' }]);
+        order.interleave([{ afterItemId: anchor!.id, track: { pluginId: 'p', externalId: 't1', title: 'Found', artists: ['Y'], artist: 'Y' } }]);
+        const { service } = build({ order });
+
+        const drawn = await service.getOrder();
+
+        expect(drawn.items.map(item => item.mixedIn)).toEqual([undefined, true]);
+        expect(drawn.items[0]).not.toHaveProperty('mixedIn');
+    });
+
     it('draws an empty running order rather than a 404 when nothing is on', async () => {
         // Nothing on air is an ordinary state. The console shows an empty order and the operator
         // puts something on.

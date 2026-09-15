@@ -54,6 +54,7 @@ contract StationOrderItem: { # One item of the live running order, and where it 
     artistId?: string(max=100) # The canonical artist behind that track, so a console can reach their page from the running order. Absent on a segment, and on a record the catalog has never seen
     albumId?: string(max=100) # The release that track was ingested inside. Absent for the two reasons above and for a third: a single ingested outside any release has none
     rating?: Rating # What the station thinks of this record, read as the order is drawn rather than stored on it. Absent on a segment, and on a record the catalog has never seen
+    mixedIn?: boolean # The station chose this record to sound like the playlist around it, rather than the playlist naming it. Absent on everything the playlist named, and on a segment
     segmentId?: string(min=1, max=100) # Which segment this plays. Present only on a segment
     segmentState?: enum(planned, writing, written, rendering, ready, failed, gone)
     playable?: boolean # Whether the station can actually air this segment. One that cannot is SKIPPED when it comes round, rather than held open

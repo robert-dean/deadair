@@ -41,7 +41,7 @@ export type StationItemState = 'planned' | 'handed' | 'airing' | 'played' | 'ski
 
 /**
  * Change who is presenting the broadcast that is on air
- * generated from [SetStationHostInput](../../../../../apps/api/data/contracts/director/director.types.ck#L95)
+ * generated from [SetStationHostInput](../../../../../apps/api/data/contracts/director/director.types.ck#L96)
  */
 export interface SetStationHostInput {
     /** Who hosts it from here on. Absent hands it back to whichever persona the station has on air, which is what a broadcast that never named one already does */
@@ -50,7 +50,7 @@ export interface SetStationHostInput {
 
 /**
  * Put something the station says into the running order
- * generated from [AddStationSegmentInput](../../../../../apps/api/data/contracts/director/director.types.ck#L99)
+ * generated from [AddStationSegmentInput](../../../../../apps/api/data/contracts/director/director.types.ck#L100)
  */
 export interface AddStationSegmentInput {
     segmentId: string;
@@ -62,7 +62,7 @@ export interface AddStationSegmentInput {
 
 /**
  * Put a catalog record into the running order. Refused at the door — 404 for a record the catalog does not hold, 422 for one whose audio is not local yet — rather than accepted and left to fail when it comes round
- * generated from [AddStationTrackInput](../../../../../apps/api/data/contracts/director/director.types.ck#L105)
+ * generated from [AddStationTrackInput](../../../../../apps/api/data/contracts/director/director.types.ck#L106)
  */
 export interface AddStationTrackInput {
     trackId: string;
@@ -72,7 +72,7 @@ export interface AddStationTrackInput {
 
 /**
  * Move an item within the running order
- * generated from [MoveStationItemInput](../../../../../apps/api/data/contracts/director/director.types.ck#L110)
+ * generated from [MoveStationItemInput](../../../../../apps/api/data/contracts/director/director.types.ck#L111)
  */
 export interface MoveStationItemInput {
     toIndex: number;
@@ -80,7 +80,7 @@ export interface MoveStationItemInput {
 
 /**
  * Add tracks to the running order now, rather than waiting for it to run short
- * generated from [ExtendStationInput](../../../../../apps/api/data/contracts/director/director.types.ck#L114)
+ * generated from [ExtendStationInput](../../../../../apps/api/data/contracts/director/director.types.ck#L115)
  */
 export interface ExtendStationInput {
     count?: number;
@@ -88,7 +88,7 @@ export interface ExtendStationInput {
 
 /**
  * Throw away everything the player is not already holding and programme it again. Unlike a shuffle, the records themselves change; unlike putting the station on air, the broadcast continues
- * generated from [ReplanStationInput](../../../../../apps/api/data/contracts/director/director.types.ck#L118)
+ * generated from [ReplanStationInput](../../../../../apps/api/data/contracts/director/director.types.ck#L119)
  */
 export interface ReplanStationInput {
     /** How many records to programme. Absent is roughly an hour */
@@ -132,7 +132,7 @@ export interface StationAir {
 
 /**
  * Put the station on air, building its running order from the top
- * generated from [PutOnAirInput](../../../../../apps/api/data/contracts/director/director.types.ck#L79)
+ * generated from [PutOnAirInput](../../../../../apps/api/data/contracts/director/director.types.ck#L80)
  */
 export interface PutOnAirInput {
     /** The plugin whose playlist to build from. Absent starts empty and lets the station generate its own programming */
@@ -191,6 +191,8 @@ export interface StationOrderItem {
     albumId?: string;
     /** What the station thinks of this record, read as the order is drawn rather than stored on it. Absent on a segment, and on a record the catalog has never seen */
     rating?: Rating;
+    /** The station chose this record to sound like the playlist around it, rather than the playlist naming it. Absent on everything the playlist named, and on a segment */
+    mixedIn?: boolean;
     /** Which segment this plays. Present only on a segment */
     segmentId?: string;
     segmentState?: 'planned' | 'writing' | 'written' | 'rendering' | 'ready' | 'failed' | 'gone';
@@ -206,7 +208,7 @@ export interface StationOrderItem {
 
 /**
  * The station's live running order: what is airing, item by item
- * generated from [StationOrder](../../../../../apps/api/data/contracts/director/director.types.ck#L65)
+ * generated from [StationOrder](../../../../../apps/api/data/contracts/director/director.types.ck#L66)
  */
 export interface StationOrder {
     /** What is on, for a console to draw. A label for this broadcast rather than the name of a stored object */

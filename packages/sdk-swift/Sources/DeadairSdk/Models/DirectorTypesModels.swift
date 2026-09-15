@@ -444,6 +444,8 @@ public struct StationOrderItem: Codable, Equatable, Sendable {
     public var albumId: String?
     /// What the station thinks of this record, read as the order is drawn rather than stored on it. Absent on a segment, and on a record the catalog has never seen
     public var rating: Rating?
+    /// The station chose this record to sound like the playlist around it, rather than the playlist naming it. Absent on everything the playlist named, and on a segment
+    public var mixedIn: Bool?
     /// Which segment this plays. Present only on a segment
     public var segmentId: String?
     public var segmentState: StationOrderItemSegmentState?
@@ -456,7 +458,7 @@ public struct StationOrderItem: Codable, Equatable, Sendable {
     /// Heard OVER the record that follows, this far into it, with the music ducked under it. Such an item is never handed to the player in its own right
     public var overAtMs: Int?
 
-    public init(id: String, kind: StationOrderItemKind, state: StationItemState, title: String, artists: [String], durationMs: Int? = nil, pluginId: String? = nil, externalId: String? = nil, album: String? = nil, artworkUrl: String? = nil, year: Int? = nil, trackId: String? = nil, artistId: String? = nil, albumId: String? = nil, rating: Rating? = nil, segmentId: String? = nil, segmentState: StationOrderItemSegmentState? = nil, playable: Bool? = nil, segmentError: String? = nil, segmentWriter: String? = nil, overAtMs: Int? = nil) {
+    public init(id: String, kind: StationOrderItemKind, state: StationItemState, title: String, artists: [String], durationMs: Int? = nil, pluginId: String? = nil, externalId: String? = nil, album: String? = nil, artworkUrl: String? = nil, year: Int? = nil, trackId: String? = nil, artistId: String? = nil, albumId: String? = nil, rating: Rating? = nil, mixedIn: Bool? = nil, segmentId: String? = nil, segmentState: StationOrderItemSegmentState? = nil, playable: Bool? = nil, segmentError: String? = nil, segmentWriter: String? = nil, overAtMs: Int? = nil) {
         self.id = id
         self.kind = kind
         self.state = state
@@ -472,6 +474,7 @@ public struct StationOrderItem: Codable, Equatable, Sendable {
         self.artistId = artistId
         self.albumId = albumId
         self.rating = rating
+        self.mixedIn = mixedIn
         self.segmentId = segmentId
         self.segmentState = segmentState
         self.playable = playable
@@ -496,6 +499,7 @@ public struct StationOrderItem: Codable, Equatable, Sendable {
         case artistId = "artistId"
         case albumId = "albumId"
         case rating = "rating"
+        case mixedIn = "mixedIn"
         case segmentId = "segmentId"
         case segmentState = "segmentState"
         case playable = "playable"
@@ -521,6 +525,7 @@ public struct StationOrderItem: Codable, Equatable, Sendable {
         self.artistId = try container.decodeIfPresent(String.self, forKey: .artistId)
         self.albumId = try container.decodeIfPresent(String.self, forKey: .albumId)
         self.rating = try container.decodeIfPresent(Rating.self, forKey: .rating)
+        self.mixedIn = try container.decodeIfPresent(Bool.self, forKey: .mixedIn)
         self.segmentId = try container.decodeIfPresent(String.self, forKey: .segmentId)
         self.segmentState = try container.decodeIfPresent(StationOrderItemSegmentState.self, forKey: .segmentState)
         self.playable = try container.decodeIfPresent(Bool.self, forKey: .playable)
@@ -546,6 +551,7 @@ public struct StationOrderItem: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.artistId, forKey: .artistId)
         try container.encodeIfPresent(self.albumId, forKey: .albumId)
         try container.encodeIfPresent(self.rating, forKey: .rating)
+        try container.encodeIfPresent(self.mixedIn, forKey: .mixedIn)
         try container.encodeIfPresent(self.segmentId, forKey: .segmentId)
         try container.encodeIfPresent(self.segmentState, forKey: .segmentState)
         try container.encodeIfPresent(self.playable, forKey: .playable)

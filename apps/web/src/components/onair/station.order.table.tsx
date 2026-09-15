@@ -813,6 +813,20 @@ const OrderRow = memo(function OrderRow({
                             over the next record
                         </Badge>
                     )}
+                    {/* A record the station chose to sound like the playlist around it, rather
+                                            than one the playlist named. Grape, because that is the
+                                            palette's colour for what the station authored. */}
+                    {item.mixedIn ? (
+                        <Tooltip
+                            label="The station mixed this in because it sounds like the record before it. The playlist did not name it."
+                            multiline
+                            maw={320}
+                        >
+                            <Badge size="xs" variant="light" color="grape" style={{ flexShrink: 0 }}>
+                                mixed in
+                            </Badge>
+                        </Tooltip>
+                    ) : undefined}
                     {/* Which writer produced the words. Without it a model that
                                             degrades to the station's own phrasings on every single
                                             break looks exactly like a model that is working, and the

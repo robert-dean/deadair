@@ -6110,6 +6110,9 @@ components:
                 rating:
                     '$ref': '#/components/schemas/Rating'
                     description: 'What the station thinks of this record, read as the order is drawn rather than stored on it. Absent on a segment, and on a record the catalog has never seen'
+                mixedIn:
+                    type: boolean
+                    description: 'The station chose this record to sound like the playlist around it, rather than the playlist naming it. Absent on everything the playlist named, and on a segment'
                 segmentId:
                     type: string
                     minLength: 1

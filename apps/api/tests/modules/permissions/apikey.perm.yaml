@@ -1,0 +1,72 @@
+# The `apikey` namespace in core.perm, exercised against the real platform namespace beside it.
+#
+#   admin      holds platform:main.admin and three keys: a manage key, a view key, and a key with
+#              no scope at all.
+#   listener   holds platform:main.listener and a manage key, which must still only view.
+#   nobody     holds no platform role and a manage key, which must do nothing.
+#   mallory    holds platform:main.admin and has written herself a scope on admin's bare key,
+#              which must not make it a key to anything.
+schemaFile: ../../../data/permissions/core.perm
+
+relationships: |-
+    platform:main.admin@user:admin
+    platform:main.listener@user:listener
+    platform:main.admin@user:mallory
+
+    apikey:admin_manage.owner@user:admin
+    apikey:admin_manage.station@platform:main
+    apikey:admin_manage.scoped_view@user:admin
+    apikey:admin_manage.scoped_manage@user:admin
+
+    apikey:admin_view.owner@user:admin
+    apikey:admin_view.station@platform:main
+    apikey:admin_view.scoped_view@user:admin
+
+    apikey:admin_bare.owner@user:admin
+    apikey:admin_bare.station@platform:main
+    apikey:admin_bare.scoped_manage@user:mallory
+
+    apikey:listener_manage.owner@user:listener
+    apikey:listener_manage.station@platform:main
+    apikey:listener_manage.scoped_view@user:listener
+    apikey:listener_manage.scoped_manage@user:listener
+
+    apikey:nobody_manage.owner@user:nobody
+    apikey:nobody_manage.station@platform:main
+    apikey:nobody_manage.scoped_view@user:nobody
+    apikey:nobody_manage.scoped_manage@user:nobody
+
+    apikey:unlinked.owner@user:admin
+    apikey:unlinked.scoped_view@user:admin
+    apikey:unlinked.scoped_manage@user:admin
+
+assertions:
+    assertTrue:
+        # An admin's manage key does everything its owner does.
+        - apikey:admin_manage.view@user:admin
+        - apikey:admin_manage.manage@user:admin
+        # An admin's view key reads.
+        - apikey:admin_view.view@user:admin
+        # Only the owner may revoke a key.
+        - apikey:admin_manage.revoke@user:admin
+        # A listener's manage key still reads, because its owner may.
+        - apikey:listener_manage.view@user:listener
+    assertFalse:
+        # A view key does not manage, however much its owner may.
+        - apikey:admin_view.manage@user:admin
+        # A key with no scope does nothing.
+        - apikey:admin_bare.view@user:admin
+        - apikey:admin_bare.manage@user:admin
+        # A scope written for somebody other than the owner grants nobody anything.
+        - apikey:admin_bare.view@user:mallory
+        - apikey:admin_bare.manage@user:mallory
+        # A key never exceeds its owner: a listener's manage key cannot manage.
+        - apikey:listener_manage.manage@user:listener
+        # An owner with no role on the station has a key to nothing.
+        - apikey:nobody_manage.view@user:nobody
+        - apikey:nobody_manage.manage@user:nobody
+        # Nobody but the owner holds a key's rights, admins included.
+        - apikey:admin_manage.view@user:mallory
+        - apikey:admin_manage.revoke@user:mallory
+        # A key with no station link inherits nothing.
+        - apikey:unlinked.view@user:admin

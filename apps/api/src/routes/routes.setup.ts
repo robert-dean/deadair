@@ -1,6 +1,7 @@
 import { AuthenticationFactorRouter } from './authentication.factor.router.js';
 import { AuthenticationRouter } from './authentication.router.js';
 import { AuthenticationSessionsRouter } from './authentication.sessions.router.js';
+import { AuthenticationApikeysRouter } from './authentication.apikeys.router.js';
 import { ActivityRouter } from './activity.router.js';
 import { HistoryRouter } from './history.router.js';
 import { ArtRouter } from './art.router.js';
@@ -33,6 +34,7 @@ export const routers = [
     AuthenticationRouter,
     AuthenticationFactorRouter,
     AuthenticationSessionsRouter,
+    AuthenticationApikeysRouter,
     ArtRouter,
     ActivityRouter,
     HistoryRouter,

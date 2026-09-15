@@ -166,6 +166,38 @@ export function contradictsDayPart(script: string, part: RoughTime | undefined):
  * obligations, and one list serving both would mean either the station starts saying "teatime" or the
  * check keeps declining to judge it.
  *
+ * ## A comparison is not a claim
+ *
+ * The word used to be enough, and for `midnight` it was not. Replayed on 2026-09-14 over the 89 model
+ * scripts on the live station that carry an air time and say one of these words: the old check
+ * refused 45 for `midnight`, and 15 of them were saying what a RECORD was like and not what time it
+ * was, across four characters. "The riffs hit like an unmarked car at midnight", "smooth as a
+ * midnight train", "louder than any midnight whisper", "like midnight traffic". The sky check beside
+ * this one was written to let exactly that shape through ("like moonlight over a blistered lawn"),
+ * and this one refused it for the word. Those 15 are what now pass; the other 30 and all four
+ * `midday` refusals are refused as before, and nothing is refused that was not.
+ *
+ * So an occurrence inside a comparison is passed over, and a comparison is what
+ * {@link inComparison} says it is: `like`, `than`, or `as a` earlier in the same clause. `as` needs
+ * its article, because "as midnight falls" is the script saying it is falling now. Every other
+ * occurrence is still a claim, so a script that compares once and claims once is refused for the
+ * claim, and every opening in that corpus ("Midnight settles over the house where I sit", "Midnight
+ * on Deadair, my listeners") is refused exactly as before. So are "I'm here alone at midnight" and
+ * "anchoring your midnight rumble", which are the host describing his own show.
+ *
+ * It applies to every word in {@link TIMES_OF_DAY} and not to `midnight` alone, because the argument
+ * is about grammar and holds for all of them ("like a teatime rush"). Only `midnight` was measured:
+ * no comparison around any of the others has been refused on the live station yet.
+ *
+ * Left refused on purpose, because a looser rule would have to guess: "it reminds me of a midnight
+ * raid", "picture a midnight rehearsal", and the host's own "that midnight in nineteen ninety-seven".
+ * Each appears once in that corpus, and each costs one sentence to the floor.
+ *
+ * What it costs is the model hiding a claim inside one ("feels like midnight on Deadair"), which now
+ * passes. That is a false NEGATIVE, on the bargain {@link withoutRecordNames} in `break.prompt.ts`
+ * spells out: a break wrongly passed costs one wrong word, and a break wrongly refused costs the
+ * station a sentence it wanted.
+ *
  * Answers `undefined` when the slot instant or the zone is missing, on {@link contradictsDayPart}'s
  * own bargain: a break that was never told when it airs is not refused for guessing.
  */
@@ -177,12 +209,47 @@ export function namesWrongTimeOfDay(script: string, at: number | undefined, zone
     for (const claim of TIMES_OF_DAY) {
         if (holdsAt(hour, claim)) continue;
 
-        const said = claim.words.find(word => saysWholeWord(script, word));
+        const said = claim.words.find(word => claimsTimeOfDay(script, word));
         if (said !== undefined) return said;
     }
 
     return undefined;
 }
+
+/**
+ * Whether a script says a time-of-day word anywhere other than inside a comparison.
+ *
+ * Bounded on letters for {@link wholeWord}'s reason, and case-insensitive for {@link saysTime}'s.
+ * Every occurrence is asked, not the first, so one comparison cannot excuse a claim later in the
+ * script.
+ */
+const claimsTimeOfDay = (script: string, word: string): boolean => {
+    const text = script.toLowerCase();
+
+    for (const match of text.matchAll(wholeWord(word))) {
+        if (!inComparison(text, match.index)) return true;
+    }
+
+    return false;
+};
+
+/**
+ * The words that open a comparison. `as` only with its article; see {@link namesWrongTimeOfDay}.
+ * Bounded on letters so `unlike`, `likely` and `thank` are none of them.
+ */
+const COMPARES = /(?<![a-z])(?:like|than|as\s+an?)(?![a-z])/;
+
+/**
+ * Where a clause ends: a stop, a colon, a semicolon, a comma, a dash, an ellipsis or a line break.
+ *
+ * The comma is what keeps "feels like a dream, midnight on Deadair" a claim: the comparison is over
+ * by the time the word arrives. The dashes are there for the reason {@link opens} gives: this model
+ * puts them between sentences constantly.
+ */
+const CLAUSE_ENDS = /[.!?;:,—–…\n]/;
+
+/** Whether the text in front of `at` opens a comparison in the same clause. */
+const inComparison = (text: string, at: number): boolean => COMPARES.test(text.slice(0, at).split(CLAUSE_ENDS).at(-1) ?? '');
 
 /**
  * Words for a time of day, and the hours each one is true in.
@@ -347,7 +414,7 @@ const SKY_NOW: readonly { claims: readonly RegExp[]; holds: (at: number, zone: s
 ];
 
 /**
- * Whether a script carries a word, as a word.
+ * Every place a word sits in lower-cased text, as a word.
  *
  * **{@link saysTime} cannot be used for this and the reason is concrete**: it is `includes`, and
  * `noon` is a substring of `afternoon`. Reusing it would have the station's own daypart phrasing
@@ -359,9 +426,10 @@ const SKY_NOW: readonly { claims: readonly RegExp[]; holds: (at: number, zone: s
  * director is the wrong direction, and that one also carries inflections, which a fixed word for a
  * time of day has no use for.
  *
- * Case-insensitive for {@link saysTime}'s reason — a model capitalises the first word of a sentence.
+ * The caller lower-cases, for {@link saysTime}'s reason — a model capitalises the first word of a
+ * sentence. Global, because {@link claimsTimeOfDay} asks about every occurrence and not the first.
  */
-const saysWholeWord = (script: string, word: string): boolean => new RegExp(`(?<![a-z])${word}(?![a-z])`).test(script.toLowerCase());
+const wholeWord = (word: string): RegExp => new RegExp(`(?<![a-z])${word}(?![a-z])`, 'g');
 
 /**
  * The stretch of the day a phrasing names, as against the phrasing itself.
@@ -615,7 +683,7 @@ const DAYPART_LEADS = ['this', 'that', 'the', 'good'] as const;
  * So the noun is what is matched, with {@link DAYPART_LEADS} in front of it. "Tonight" has no
  * determiner and keeps matching bare, exactly as it did.
  *
- * Bounded on letters for {@link saysWholeWord}'s reason and built once rather than per call, since
+ * Bounded on letters for {@link wholeWord}'s reason and built once rather than per call, since
  * the four are fixed at module load.
  */
 const DAYPART_CLAIMS: ReadonlyMap<string, RegExp> = new Map(

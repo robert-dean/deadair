@@ -87,7 +87,7 @@ pointing at something that has never existed:
   there is no event bus: `apps/api/CLAUDE.md` § "How work is dispatched".
 - `apps/api/README.md` for the boot sequence, DI scoping convention and middleware. Its module and
   route tables were checked against `src/modules/modules.ts` and `src/routes/routes.setup.ts` on
-  2026-09-09 and list all 37 modules and all 29 routers in registration order. Those two files stay
+  2026-09-09 and list all 37 modules and all 30 routers in registration order. Those two files stay
   the source of truth: verify against them before relying on an entry.
 - `README.md` and `docs/licensing.md` are written for whoever RUNS this rather than for whoever
   works on it. Keep them true.

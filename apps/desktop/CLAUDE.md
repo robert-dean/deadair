@@ -435,6 +435,15 @@ osascript -e 'tell application "System Events" to tell process "deadair" to get 
 (click `menu bar item 1 of menu bar 2` first, or the menu has no items to list). Measured: the item
 is 24 by 24 points, and every command is enabled, which is the sign a native command bound.
 
+**It is not there on a first run.** The `TrayIcon` is declared `IsVisible="False"` and
+`App.ShowTrayOnceAttached` shows it the first time the shell reports a station, then leaves it:
+there is no station for it to stand for until then, and its Listen would play nothing. Once rather
+than bound to `HasStation`, because that drops for the moment a change of station takes and a
+binding would blink the icon. Measured twice with the settings file set aside: `menu bar 2` did not
+exist on the setup screen, and after an address connected it held one item whose menu read Nothing
+on air, Listen, Show deadair, Quit deadair. A first run therefore has no Show, so a window closed on
+the setup screen comes back only from the Dock, which a `dotnet run` does not have.
+
 ## The system's own now-playing display
 
 **It only works from a bundled application.** A plain `dotnet run` has no bundle identifier, so macOS
@@ -609,7 +618,15 @@ the shape the mark was drawn as.
 console's header carries both and this app is the same app, so the pairing looked obviously right;
 on a 38px strip beside the traffic lights it reads as clutter rather than as identity, because the
 strip is already crowded by the 80px the window's buttons need. The icon says which app this is
-before the window is even open.
+before the window is even open. **The setup screen is where the mark does go**: a first run has
+nothing else on screen and a 420-unit column to spend, so it carries the mark at 96 units (half its
+pixels, so it is crisp at 2x) over the same letter-spaced wordmark the strip has, and the two
+frames named `setup` in `tools/Shots` are how it is looked at.
+**Enter in the address box connects**, because Connect is `IsDefault`. That is safe on a screen
+hidden most of the time only because Avalonia 12's default button answers Enter when it is
+EFFECTIVELY visible and enabled (`Button.RootDefaultKeyDown`); a check on its own `IsVisible`, as
+older versions had, would have connected from every text box in the app. A single-line `TextBox`
+leaves Enter unhandled, which is how it reaches the window's root where the default button listens.
 
 **Two earlier versions of this icon were wrong in the same way, and neither was visible in the
 file.** The first drew `logo.png` above 128px and the mark below, which is two icons wearing one
@@ -662,9 +679,31 @@ sets the Application's to the shell for that binding and nothing else — every 
 own. An unbound `Command` leaves a native item DISABLED rather than failing, so a menu item that is
 greyed out is a binding that did not resolve.
 
-**There is a Controls menu and a Window menu, and still no Edit menu.** They are the WINDOW's
-`NativeMenu.Menu` (`MainWindow.axaml`), not the Application's, whose menu is the app menu itself;
-macOS shows them while the window is active. Controls is Listen or Stop and the operator's Skip;
+**Settings and Controls are absent until a station is attached, and the two halves of that are
+done differently because the native menu exporter only reliably does one thing.** Both follow the
+shell's `HasStation`, which is NOT the inverse of `NeedsStation`: Change station and a `deadair://`
+link show the setup screen over a station that is still attached and playing, and both menus are
+still meaningful there. On a first run they are not — there is no Settings page to open under the
+setup screen and nothing to listen to or skip. Settings is an `IsVisible` binding on the item in
+the app menu, and that works: measured with the settings file set aside, the app menu had no
+Settings item on the first boot and had it, enabled, once an address connected. The WINDOW's menus
+cannot be done that way. `IsVisible` on the top-level Controls item hid it, and then the moment it
+became visible the bar went from Apple, deadair, Window to Apple, deadair and stayed there through
+a deactivate and reactivate; taking the item out of the menu's `Items` and putting it back did
+exactly the same. Every change to an already-exported window menu goes through the exporter's
+in-place `Update`, and after that update the window's menus are gone from the bar for good, while
+the unchanged menu read Apple, deadair, Controls, Window before and after connecting. So the window
+menu is a RESOURCE in `MainWindow.axaml` and `MainWindow.ShowMenusIfAttached` sets it on the window
+once, along the first-export path, when the shell first reports a station, and never touches it
+again (Skip's `IsVisible` still binds, and flips only after the menu is up, which is the one such
+change the app already had). The native side stores a menu set on a window and puts it on the bar
+at once if the window is key or when it next becomes key; measured both, the second only when the
+test harness's own accessibility actions had deactivated the window. The price is that a first run
+has no Window menu either, so ⌘M and ⌘W do nothing on the setup screen.
+
+**There is a Controls menu and a Window menu, and still no Edit menu.** They are the WINDOW's menu
+(a resource in `MainWindow.axaml`, set on the window by its code-behind as above), not the
+Application's, whose menu is the app menu itself; macOS shows them while the window is active. Controls is Listen or Stop and the operator's Skip;
 Window is Minimize (⌘M) and Close (⌘W), and Close HIDES, since closing is not quitting. Listen has no
 key equivalent: AppKit offers every key press to the main menu first, so a bare Space there would
 take the space bar from every text box. Space is handled in `MainWindow.OnKeyDown` behind the same
@@ -703,6 +742,19 @@ as path data rather than pulled in as a package, because this app draws about tw
 package would be a dependency, a licence and a renderer for that. Every one inherits `Foreground`, so
 nothing here names a colour. A key is a string, so a typo is a blank square rather than an error —
 `NavigationTests` reads the dictionary and asserts every entry names one that is really there.
+
+**A text box is drawn as a Mac draws one, and the whole of it is in `Styles.axaml` under Inputs.**
+Fluent's field is a Windows 11 field: on focus it paints a two-unit accent border with a thicker
+bottom edge, and on hover it lightens, neither of which an `NSTextField` does. So the style sets a
+hairline in `DaBorderStrong` on the panel surface, keeps hover identical, and shows focus as a
+hairline in the accent plus a soft ring OUTSIDE the field — a `BoxShadow` with a three-unit spread
+and no blur, from the per-appearance `DaFocusRing` token, because the accent differs between light
+and dark. Two things cost a build each. Fluent applies its states to `/template/ Border#PART_BorderElement`,
+so a setter on the TextBox itself is overridden the moment the box is focused and the states have
+to be restated on that element. And a `Focus()` asked for in `AttachedToVisualTree` is refused with
+nothing said, because the page is attached when it becomes the window's content and that is before
+the window is shown; `tools/Shots` focuses on `Loaded` for the `setup-focused` frame, which is the
+only way to look at a focus ring without a screen.
 
 **Fluent's own accent is repointed through `FluentTheme.Palettes`.** Without it a stock control draws
 Avalonia's blue beside this app's green. The volume thumb is the one that shows it, and it is NOT

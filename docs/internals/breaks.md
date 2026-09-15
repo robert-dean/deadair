@@ -202,6 +202,18 @@ asked of breaks and not of productions, because callers tell their stories in ex
 `withoutRecordNames` now keeps the punctuation it used to strip, since an opener needs to see where a
 sentence starts.
 
+**A time-of-day word inside a comparison is not a claim**, and `namesWrongTimeOfDay` refused it for the word
+anyway: "the riffs hit like an unmarked car at midnight" went to the floor at five in the afternoon. Replayed
+on 2026-09-14 over the 89 live model scripts that carry an air time and say "midnight", "midday", "noon",
+"lunchtime", "breakfast" or "teatime", the old check refused 45 for `midnight` and 15 of those were
+comparisons, across four characters. So an occurrence with `like`, `than` or `as a` earlier in the same
+clause is passed over. `as` needs its article, because "as midnight falls" is a claim, and a comma or a
+stop ends the comparison, so "feels like a dream, midnight on Deadair" is still refused. Every occurrence
+is asked, so one simile cannot excuse a claim in the next sentence. The other 30 are refused as before,
+every opening among them ("Midnight settles over the house where I sit"), and nothing is refused that was
+not. The window was not widened: none of the 45 was due to air between one and five in the morning, and a
+break written at two for an eleven o'clock slot is judged at eleven.
+
 **A PRODUCTION gets the daypart and never `roughTime`**, since a programme takes minutes to write and more to
 render and an hour phrasing's window is seven or eight minutes wide; `checkBeat` asks the same question, which
 on a station writing `outlined` productions never runs, so there it is prevention alone. The whole of it rests

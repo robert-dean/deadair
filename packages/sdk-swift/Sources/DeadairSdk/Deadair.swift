@@ -8,6 +8,7 @@ public final class Deadair: Sendable {
     public let http: SdkHttp
     public let activity: ActivityClient
     public let art: ArtClient
+    public let authenticationApikeys: AuthenticationApikeysClient
     public let authentication: AuthenticationClient
     public let authenticationFactor: AuthenticationFactorClient
     public let authenticationSessions: AuthenticationSessionsClient
@@ -40,6 +41,7 @@ public final class Deadair: Sendable {
         self.http = http
         self.activity = ActivityClient(http: http)
         self.art = ArtClient(http: http)
+        self.authenticationApikeys = AuthenticationApikeysClient(http: http)
         self.authentication = AuthenticationClient(http: http)
         self.authenticationFactor = AuthenticationFactorClient(http: http)
         self.authenticationSessions = AuthenticationSessionsClient(http: http)

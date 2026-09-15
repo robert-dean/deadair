@@ -8,10 +8,22 @@
     <Border Padding="48">
         <StackPanel MaxWidth="420" Spacing="18" VerticalAlignment="Center" HorizontalAlignment="Center">
 
+            <!-- The mark, at half its pixel size so it is crisp on a Retina display. This is the one
+                 screen with room for it: the sidebar's strip tried it and took it out (see
+                 apps/desktop/CLAUDE.md), and here it is the only thing above the fold on a first run. -->
+            <Image
+                Source="avares://deadair/Assets/logo-mark.png"
+                Width="96"
+                Height="96"
+                Margin="0,0,0,6"
+                HorizontalAlignment="Center" />
+
             <TextBlock
                 Text="deadair"
-                FontSize="34"
-                FontWeight="SemiBold"
+                FontSize="{DynamicResource DaFontSizeH1}"
+                FontWeight="Bold"
+                LetterSpacing="1.4"
+                HorizontalAlignment="Center"
                 Foreground="{DynamicResource DaAccentBrush}" />
 
             <TextBlock
@@ -29,13 +41,20 @@
                 Foreground="{DynamicResource DaTextBrush}" />
 
             <TextBox
+                x:Name="AddressBox"
                 Text="{Binding Address}"
                 PlaceholderText="radio.example.com"
                 FontFamily="{DynamicResource DaFontMono}"
                 IsEnabled="{Binding !Busy}" />
 
+            <!-- The default button, so Enter in the address box connects, as it does in any Mac dialog.
+                 Safe on a screen that is hidden most of the time: Avalonia 12 answers Enter only for a
+                 default button that is EFFECTIVELY visible and enabled, and this one is neither once a
+                 station is attached, nor while the box is empty or a probe is running. The box leaves
+                 Enter unhandled because it does not accept returns, so it reaches the window. -->
             <Button
                 Content="Connect"
+                IsDefault="True"
                 Command="{Binding ConnectCommand}"
                 HorizontalAlignment="Stretch"
                 HorizontalContentAlignment="Center"

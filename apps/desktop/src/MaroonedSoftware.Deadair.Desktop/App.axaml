@@ -38,10 +38,16 @@
         Settings is the one item macOS users reach for by muscle memory, and ⌘, is the only place it
         can be. It binds through the App's DataContext, which `App.OnFrameworkInitializationCompleted`
         sets to the shell for exactly this: a native menu has no visual parent to inherit one from.
+
+        Hidden until a station is attached. On a first run the setup screen is the whole app, and a
+        Settings page for a station that does not exist yet would open UNDER it; the item follows
+        `HasStation` rather than `NeedsStation` so that changing station, which shows the same screen
+        over a station still playing, leaves it in place.
     -->
     <NativeMenu.Menu>
         <NativeMenu x:DataType="vm:ShellViewModel">
             <NativeMenuItem Header="Settings…" Gesture="Cmd+OemComma"
+                            IsVisible="{Binding HasStation}"
                             Command="{Binding Navigation.ShowSettingsCommand}" />
         </NativeMenu>
     </NativeMenu.Menu>
@@ -58,10 +64,16 @@
         media key fires with no glance at the screen and no second press to reconsider; an item in a
         menu is read and chosen, which is the same deliberateness as the desk's own button. And it is
         the desk's own command, so a skip from here and a clicked one cannot disagree about notices.
+
+        Starts HIDDEN, and `App.ShowTrayOnceAttached` shows it the first time a station attaches and
+        never hides it again. On a first run there is no station for it to be, and its Listen would
+        play nothing. Shown once rather than bound to `HasStation`, which drops for a moment during a
+        change of station and would blink the icon off and on.
     -->
     <TrayIcon.Icons>
         <TrayIcons>
             <TrayIcon x:DataType="vm:ShellViewModel"
+                      IsVisible="False"
                       Icon="avares://deadair/Assets/tray-mark.png"
                       MacOSProperties.IsTemplateIcon="True"
                       ToolTipText="{Binding Listener.NowPlayingLine}">

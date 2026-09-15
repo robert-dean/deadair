@@ -20,13 +20,24 @@
         which is why an item there replaces About; the menus after it belong to the window, and
         macOS shows them while it is the active one.
 
+        A RESOURCE rather than the window's NativeMenu.Menu, and the code-behind (ShowMenusIfAttached)
+        sets it on the window the first time a station attaches. Neither menu belongs on a first run:
+        Controls because there is nothing to listen to or skip, and Window because the two cannot be
+        separated. Everything else was tried and takes BOTH menus off the bar for good: IsVisible on
+        the Controls item, and removing it from and re-adding it to this menu's Items, because
+        every change after the first export goes through the exporter's in-place Update and that
+        is what breaks, while the first export is the path that works. Once set, this menu is never
+        changed again, which is why Skip's IsVisible below is still bound: it flips only when an
+        operator signs in, which is after the menu is up, and is the one such change the app already
+        had before any of this.
+
         No key equivalent on Listen: a bare Space on a main-menu item would take the space bar from
         every text box (see OnKeyDown). Close is ⌘W and HIDES, since closing is not quitting; it is
         not `Window.Close()`, which is a programmatic close and would really close. Still no Edit
         menu: its Cut, Copy and Paste would take those keys before Avalonia's text boxes do.
     -->
-    <NativeMenu.Menu>
-        <NativeMenu>
+    <Window.Resources>
+        <NativeMenu x:Key="StationMenu" x:DataType="vm:ShellViewModel">
             <NativeMenuItem Header="Controls">
                 <NativeMenuItem.Menu>
                     <NativeMenu>
@@ -50,7 +61,7 @@
                 </NativeMenuItem.Menu>
             </NativeMenuItem>
         </NativeMenu>
-    </NativeMenu.Menu>
+    </Window.Resources>
 
     <Panel>
         <!-- Setup sits ABOVE the rest rather than being a page you can navigate away from: an app

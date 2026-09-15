@@ -374,8 +374,32 @@
 
     <!-- ── Inputs ────────────────────────────────────────────────────────────────────────────── -->
 
+    <!-- A text field as macOS draws one: a hairline in the border colour on the panel surface, and
+         focus shown as a soft ring OUTSIDE the field rather than by recolouring the border. Fluent's
+         own focus state paints a two-unit accent border with a thicker bottom edge, which is a
+         Windows 11 field, and it lightens on hover, which a Mac field never does. Fluent applies
+         these states through `/template/ Border#PART_BorderElement`, so they are restated on the
+         same element; a setter on the TextBox itself is overridden the moment it is focused. -->
     <Style Selector="TextBox">
         <Setter Property="CornerRadius" Value="{DynamicResource DaCorner}" />
+        <Setter Property="Background" Value="{DynamicResource DaPanelBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource DaBorderStrongBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="8,5" />
+        <Setter Property="MinHeight" Value="28" />
+    </Style>
+    <Style Selector="TextBox:pointerover /template/ Border#PART_BorderElement">
+        <Setter Property="Background" Value="{DynamicResource DaPanelBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource DaBorderStrongBrush}" />
+    </Style>
+    <Style Selector="TextBox:focus /template/ Border#PART_BorderElement">
+        <Setter Property="Background" Value="{DynamicResource DaPanelBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource DaAccentBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="BoxShadow" Value="{DynamicResource DaFocusRing}" />
+    </Style>
+    <Style Selector="TextBox /template/ TextBlock#PART_Placeholder">
+        <Setter Property="Foreground" Value="{DynamicResource DaTextDimmedBrush}" />
     </Style>
 
     <!-- Volume. Avalonia 12's slider takes the filled half from the control's own Foreground and

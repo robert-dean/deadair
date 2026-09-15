@@ -1,5 +1,7 @@
+using System.ComponentModel;
 using System.Diagnostics;
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using MaroonedSoftware.Deadair.Desktop.Core.Settings;
@@ -62,6 +64,7 @@ public partial class App : Application
             // so it cannot inherit the window's; windows still set their own and none of them read
             // this.
             DataContext = shell;
+            ShowTrayOnceAttached(shell);
 
             // Everything that needs the station address, a settings file or a first reading happens
             // here rather than in a constructor, so the window is on screen while it happens.
@@ -69,6 +72,48 @@ public partial class App : Application
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    /// <summary>
+    /// Shows the menu-bar icon the first time the shell has a station, and leaves it shown.
+    /// </summary>
+    /// <remarks>
+    /// The icon is declared hidden in App.axaml, because on a first run there is no station for it to
+    /// stand for. Once shown it is never hidden again: <see cref="ShellViewModel.HasStation"/> drops
+    /// for the moment between letting one station go and attaching the next, and following it would
+    /// blink the icon. The same once-only shape as the window's menus, for a related reason.
+    /// </remarks>
+    private void ShowTrayOnceAttached(ShellViewModel shell)
+    {
+        if (TrayIcon.GetIcons(this) is not { Count: > 0 } icons)
+        {
+            return;
+        }
+
+        void Show()
+        {
+            foreach (var icon in icons)
+            {
+                icon.IsVisible = true;
+            }
+        }
+
+        if (shell.HasStation)
+        {
+            Show();
+            return;
+        }
+
+        PropertyChangedEventHandler? attached = null;
+        attached = (_, e) =>
+        {
+            if (e.PropertyName == nameof(ShellViewModel.HasStation) && shell.HasStation)
+            {
+                shell.PropertyChanged -= attached;
+                Show();
+            }
+        };
+        shell.PropertyChanged += attached;
     }
 
     /// <summary>How long quitting waits for the container to let go. A speaker's own stop is bounded at three seconds.</summary>

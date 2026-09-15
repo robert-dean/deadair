@@ -429,6 +429,49 @@ describe('namesWrongTimeOfDay', () => {
     it('says nothing about a script that named no time of day at all', () => {
         expect(namesWrongTimeOfDay('That was Blue Monday, from New Order.', at(16, 30), UTC)).toBeUndefined();
     });
+
+    // Every line here was refused on the live station for the word alone, and every one is saying
+    // what a record is like rather than what time it is.
+    it('passes a time of day inside a comparison', () => {
+        const refusedFor = (script: string) => namesWrongTimeOfDay(script, at(17, 0), UTC);
+
+        expect(refusedFor('Man in the Box blows, my friends. The riffs hit like an unmarked car at midnight.')).toBeUndefined();
+        expect(refusedFor('Every verse climbs smooth as a midnight train and somehow it topped the charts.')).toBeUndefined();
+        expect(refusedFor('A heartbreak can still echo louder than any midnight whisper from grey men.')).toBeUndefined();
+        expect(refusedFor('The drums hit back to back like midnight traffic.')).toBeUndefined();
+    });
+
+    it('still refuses a time of day stated as now', () => {
+        const refusedFor = (script: string) => namesWrongTimeOfDay(script, at(15, 0), UTC);
+
+        expect(refusedFor('Midnight settles over the house where I sit.')).toBe('midnight');
+        expect(refusedFor("good afternoon, listeners. I'm here alone at midnight.")).toBe('midnight');
+        expect(refusedFor("I'm Todd Mulcahy, anchoring your midnight rumble.")).toBe('midnight');
+    });
+
+    it('needs the article after as, because "as midnight falls" is a claim', () => {
+        expect(namesWrongTimeOfDay('We keep going as midnight falls.', at(15, 0), UTC)).toBe('midnight');
+    });
+
+    it('ends a comparison at the clause, so a comma is enough to make the word a claim again', () => {
+        expect(namesWrongTimeOfDay('It feels like a dream, midnight on Deadair.', at(15, 0), UTC)).toBe('midnight');
+        expect(namesWrongTimeOfDay('It feels like a dream — midnight on Deadair.', at(15, 0), UTC)).toBe('midnight');
+    });
+
+    it('refuses a claim even when the same word was a comparison earlier on', () => {
+        // Every occurrence is asked, so one simile cannot cover for the opening of the next sentence.
+        expect(namesWrongTimeOfDay('Smooth as a midnight train. Midnight on Deadair, my listeners.', at(15, 0), UTC)).toBe('midnight');
+    });
+
+    it('does not read unlike or likely as a comparison', () => {
+        expect(namesWrongTimeOfDay('Unlike midnight on Deadair.', at(15, 0), UTC)).toBe('midnight');
+        expect(namesWrongTimeOfDay('Likely midnight on Deadair.', at(15, 0), UTC)).toBe('midnight');
+    });
+
+    it('applies to every time of day, not midnight alone', () => {
+        expect(namesWrongTimeOfDay('The chorus hits like a midday sun.', at(20, 0), UTC)).toBeUndefined();
+        expect(namesWrongTimeOfDay('Your midday news.', at(20, 0), UTC)).toBe('midday');
+    });
 });
 
 // The time said with no word for it. A `conspiracy` audition at 15:48 in New York passed "Night

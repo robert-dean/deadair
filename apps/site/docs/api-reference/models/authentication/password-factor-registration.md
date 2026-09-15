@@ -1,6 +1,6 @@
 ---
 title: 'PasswordFactorRegistration'
-sidebar_position: 60
+sidebar_position: 65
 mdx:
     format: 'md'
 ---

@@ -58,6 +58,11 @@ internal static class Pages
         yield return ("sidebar-update", Rail(operatorSignedIn: false, update: true), 1180, 720);
         yield return ("login", SignIn(revealed: false), 1180, 720);
         yield return ("login-revealed", SignIn(revealed: true), 1180, 720);
+
+        // The first thing anybody sees, and the one frame with no shell behind it. The second has
+        // the keyboard in the box, which is the only way to look at a focus ring.
+        yield return ("setup", Setup(focused: false), 1180, 720);
+        yield return ("setup-focused", Setup(focused: true), 1180, 720);
     }
 
     /// <summary>
@@ -145,6 +150,26 @@ internal static class Pages
             Background = null,
             Child = view,
         };
+    }
+
+    /// <summary>The setup screen as a first run shows it: an empty box and nowhere else to go.</summary>
+    private static SetupView Setup(bool focused)
+    {
+        var setup = Fakes.Shell(operatorSignedIn: false).Setup;
+        setup.Address = string.Empty;
+        setup.CanCancel = false;
+
+        var view = new SetupView { DataContext = setup };
+
+        // On Loaded and not on attach: the page is attached the moment it becomes the window's
+        // content, before the window is shown, and focus asked for then is refused with nothing
+        // said. Loaded fires after the first layout, which is after Show.
+        if (focused)
+        {
+            view.Loaded += (_, _) => view.FindControl<TextBox>("AddressBox")?.Focus();
+        }
+
+        return view;
     }
 
     /// <summary>The bar on its own, at the width it really gets, so its columns can be looked at.</summary>

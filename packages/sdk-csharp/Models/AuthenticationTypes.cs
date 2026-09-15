@@ -510,7 +510,7 @@ public sealed record Login
     [JsonPropertyName("actorId")]
     public required Guid ActorId { get; init; }
 
-    /// <summary>The factor that satisfied the primary authentication</summary>
+    /// <summary>The factor that satisfied the primary authentication, or `apikey` for a request made with one of the account's API keys</summary>
     [JsonPropertyName("factorType")]
     public required LoginFactorType FactorType { get; init; }
 
@@ -558,6 +558,17 @@ public sealed record ActorPreferences
     [JsonPropertyName("timezone")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Timezone { get; init; }
+}
+
+/// <summary>What an API key may be granted. `view` covers every route a listener may read; `manage` covers the rest, and includes `view`</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<ApiKeyScope>))]
+public enum ApiKeyScope
+{
+    [JsonStringEnumMemberName("view")]
+    View,
+
+    [JsonStringEnumMemberName("manage")]
+    Manage,
 }
 
 public sealed record BaseAuthenticationRequest
@@ -815,6 +826,62 @@ public sealed record AuthSession
     /// <summary>Every platform role the caller holds, sorted. Empty for an account nobody has granted one, which today is any account that did not come in through onboarding</summary>
     [JsonPropertyName("roles")]
     public required List<PlatformRole> Roles { get; init; }
+}
+
+/// <summary>A personal API key, as its owner sees it in a list. The token itself is never returned after it is issued</summary>
+public sealed record ApiKey
+{
+    /// <summary>The key's identifier, for rotating or revoking it</summary>
+    [JsonPropertyName("id")]
+    public required Guid Id { get; init; }
+
+    /// <summary>What the account called the key</summary>
+    [JsonPropertyName("name")]
+    public required string Name { get; init; }
+
+    /// <summary>The token's first characters, enough to recognise the key in a config file and far too few to use</summary>
+    [JsonPropertyName("hint")]
+    public required string Hint { get; init; }
+
+    /// <summary>What the key was granted. A key never does more than the account that owns it</summary>
+    [JsonPropertyName("scopes")]
+    public required List<ApiKeyScope> Scopes { get; init; }
+
+    /// <summary>When the key was issued</summary>
+    [JsonPropertyName("createdAt")]
+    public required DateTimeOffset CreatedAt { get; init; }
+
+    /// <summary>When the key stops working. Absent means it never expires</summary>
+    [JsonPropertyName("expiresAt")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DateTimeOffset? ExpiresAt { get; init; }
+
+    /// <summary>When the key was last used, to within five minutes. Absent means it has not been used</summary>
+    [JsonPropertyName("lastUsedAt")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DateTimeOffset? LastUsedAt { get; init; }
+
+    /// <summary>When the key was revoked. Present means every request made with it is refused</summary>
+    [JsonPropertyName("revokedAt")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DateTimeOffset? RevokedAt { get; init; }
+}
+
+/// <summary>A new API key</summary>
+public sealed record ApiKeyCreate
+{
+    /// <summary>What to call the key, so a list of several says which is which</summary>
+    [JsonPropertyName("name")]
+    public required string Name { get; init; }
+
+    /// <summary>What the key may do. At least one; `manage` includes `view`</summary>
+    [JsonPropertyName("scopes")]
+    public required List<ApiKeyScope> Scopes { get; init; }
+
+    /// <summary>When the key should stop working. Omit for a key that never expires</summary>
+    [JsonPropertyName("expiresAt")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DateTimeOffset? ExpiresAt { get; init; }
 }
 
 /// <summary>Represents an application authentication request</summary>
@@ -1207,6 +1274,25 @@ public sealed record PublicKeyCredentialWithAttestation
     /// <summary>The authenticator attestation response</summary>
     [JsonPropertyName("response")]
     public required FidoAuthenticatorAttestationResponse Response { get; init; }
+}
+
+/// <summary>Every API key the account holds, newest first, revoked and expired keys included</summary>
+public sealed record ApiKeyList
+{
+    [JsonPropertyName("keys")]
+    public required List<ApiKey> Keys { get; init; }
+}
+
+/// <summary>A key and its token. The only time the token is ever returned: store it now, because nothing can show it again</summary>
+public sealed record ApiKeyIssued
+{
+    /// <summary>The key as it will appear in the list</summary>
+    [JsonPropertyName("key")]
+    public required ApiKey Key { get; init; }
+
+    /// <summary>The bearer token, sent as `Authorization: Bearer &lt;token&gt;`</summary>
+    [JsonPropertyName("token")]
+    public required string Token { get; init; }
 }
 
 public sealed record LinkAuthenticationLoginStart : AuthenticationLoginStart
@@ -1691,7 +1777,7 @@ public enum SessionFactorKind
     Biometric,
 }
 
-/// <summary>The factor that satisfied the primary authentication</summary>
+/// <summary>The factor that satisfied the primary authentication, or `apikey` for a request made with one of the account's API keys</summary>
 [JsonConverter(typeof(JsonStringEnumConverter<LoginFactorType>))]
 public enum LoginFactorType
 {
@@ -1712,4 +1798,7 @@ public enum LoginFactorType
 
     [JsonStringEnumMemberName("oidc")]
     Oidc,
+
+    [JsonStringEnumMemberName("apikey")]
+    Apikey,
 }

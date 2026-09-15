@@ -10,8 +10,11 @@ import { IsHttpError } from '@maroonedsoftware/errors';
 import { ErrorCodes } from '@deadair/error-codes';
 
 import { AppConfig } from '@maroonedsoftware/appconfig';
+import { CacheProvider } from '@maroonedsoftware/cache';
+import { Logger } from '@maroonedsoftware/logger';
 
 import { ActorsRepository } from '../../../src/modules/authentication/repositories/actors.repository.js';
+import { LoginActivityRepository } from '../../../src/modules/authentication/repositories/login.activity.repository.js';
 import { AuthorizationContext } from '../../../src/modules/permissions/authorization.context.js';
 import { DeadairPermissionsTupleRepository } from '../../../src/modules/permissions/permissions.repository.js';
 import { PermissionsService } from '../../../src/modules/permissions/permissions.service.js';
@@ -30,17 +33,33 @@ interface Harness {
     overrides: Map<unknown, unknown>;
 }
 
-const harness = (options: { path?: string; method?: string; actorExists?: boolean; relations?: string[] } = {}): Harness => {
+interface HarnessOptions {
+    path?: string;
+    method?: string;
+    actorExists?: boolean;
+    relations?: string[];
+    /** What the permissions model answers for the key's own object, per grant. */
+    keyGrants?: string[];
+    /** Whether this request is the first in the key's use window. */
+    firstInWindow?: boolean;
+}
+
+const harness = (options: HarnessOptions = {}): Harness & { checkSubject: ReturnType<typeof vi.fn>; insertLogin: ReturnType<typeof vi.fn> } => {
     const existsActive = vi.fn().mockResolvedValue(options.actorExists ?? true);
     const deleteSession = vi.fn().mockResolvedValue(undefined);
     const cookieSet = vi.fn();
     const next = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
     const overrides = new Map<unknown, unknown>();
+    const checkSubject = vi.fn(async (_object: unknown, permission: string) => (options.keyGrants ?? []).includes(permission));
+    const insertLogin = vi.fn().mockResolvedValue(undefined);
 
     const registry = new Map<unknown, unknown>([
         [ActorsRepository, { existsActive }],
         [AuthenticationSessionService, { deleteSession }],
-        [PermissionsService, {}],
+        [PermissionsService, { checkSubject }],
+        [CacheProvider, { add: vi.fn().mockResolvedValue(options.firstInWindow ?? true) }],
+        [LoginActivityRepository, { insertLogin }],
+        [Logger, { warn: vi.fn() }],
         [DeadairPermissionsTupleRepository, { listRelationsForSubjectOnObject: vi.fn().mockResolvedValue(options.relations ?? []) }],
         // Clearing the dead cookie reads TRUST_PROXY to decide whether this request's scheme can
         // be taken off a forwarded header. A layer answers with strings; nothing here sets one.
@@ -68,8 +87,16 @@ const harness = (options: { path?: string; method?: string; actorExists?: boolea
         },
     };
 
-    return { ctx, next, existsActive, deleteSession, cookieSet, overrides };
+    return { ctx, next, existsActive, deleteSession, cookieSet, overrides, checkSubject, insertLogin };
 };
+
+/** The session ServerKit's `ApiKeyService.authenticate` mints: unpersisted, no `actorType`, one claim. */
+const keySession = (ownerKind = 'user') => ({
+    sessionToken: 'random-per-request',
+    subject: ACTOR_ID,
+    claims: { apiKey: { id: 'key-1', name: 'doorbell', owner: { kind: ownerKind, actorId: ACTOR_ID }, scopes: ['view'], metadata: {} } },
+    factors: [{ method: 'apikey', kind: 'possession' }],
+});
 
 describe('authorizationContextMiddleware', () => {
     it('builds a user actor when the session subject is still a live actor', async () => {
@@ -123,6 +150,92 @@ describe('authorizationContextMiddleware', () => {
         expect(h.next).toHaveBeenCalledOnce();
         expect(h.existsActive).not.toHaveBeenCalled();
         expect((h.overrides.get(AuthorizationContext) as AuthorizationContext).actor.kind).toBe('system');
+    });
+
+    describe('a request made with an API key', () => {
+        it('acts as the key’s owner, with the owner’s roles and what the key was granted', async () => {
+            const h = harness({ relations: ['admin'], keyGrants: ['view'] });
+            h.ctx.authenticationSession = keySession();
+
+            await authorizationContextMiddleware()(h.ctx, h.next);
+
+            const actor = (h.overrides.get(AuthorizationContext) as AuthorizationContext).actor;
+            expect(actor.kind).toBe('user');
+            if (actor.kind !== 'user') return;
+            expect(actor.actorId).toBe(ACTOR_ID);
+            expect([...actor.platformRoles]).toEqual(['admin']);
+            expect(actor.apiKey?.id).toBe('key-1');
+            expect([...(actor.apiKey?.grants ?? [])]).toEqual(['view']);
+            expect(h.checkSubject).toHaveBeenCalledWith({ namespace: 'apikey', id: 'key-1' }, 'manage', {
+                kind: 'concrete',
+                namespace: 'user',
+                id: ACTOR_ID,
+            });
+        });
+
+        it('checks the owner is alive even on a bootstrap route, and answers 401 without touching sessions or cookies', async () => {
+            // The bootstrap exemption exists for a browser re-presenting a dead JWT to the route
+            // that replaces it. A key has no such loop, and the session ServerKit minted for it
+            // references nothing stored, so there is nothing to revoke and the cookie is not its own.
+            const h = harness({ path: '/auth/token', actorExists: false });
+            h.ctx.authenticationSession = keySession();
+
+            const error = await authorizationContextMiddleware()(h.ctx, h.next).catch((e: unknown) => e);
+
+            expect(IsHttpError(error) && error.statusCode).toBe(401);
+            expect(IsHttpError(error) && (error.details as { code?: string }).code).toBe(ErrorCodes.SESSION_ACTOR_MISSING);
+            expect(h.deleteSession).not.toHaveBeenCalled();
+            expect(h.cookieSet).not.toHaveBeenCalled();
+            expect(h.next).not.toHaveBeenCalled();
+        });
+
+        it('records the first use in a window as a login event carrying the caller’s address', async () => {
+            const h = harness({ keyGrants: ['view'], firstInWindow: true });
+            h.ctx.authenticationSession = keySession();
+
+            await authorizationContextMiddleware()(h.ctx, h.next);
+
+            expect(h.insertLogin).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    actorId: ACTOR_ID,
+                    factorType: 'apikey',
+                    factorId: 'key-1',
+                    ip: '203.0.113.1',
+                    sessionToken: null,
+                    mfaSatisfied: false,
+                }),
+            );
+        });
+
+        it('records nothing for a later use inside the same window', async () => {
+            const h = harness({ keyGrants: ['view'], firstInWindow: false });
+            h.ctx.authenticationSession = keySession();
+
+            await authorizationContextMiddleware()(h.ctx, h.next);
+
+            expect(h.insertLogin).not.toHaveBeenCalled();
+            expect(h.next).toHaveBeenCalledOnce();
+        });
+
+        it('carries on when recording the use fails, because a good key must not fail on a log write', async () => {
+            const h = harness({ keyGrants: ['view'] });
+            h.insertLogin.mockRejectedValue(new Error('database blip'));
+            h.ctx.authenticationSession = keySession();
+
+            await authorizationContextMiddleware()(h.ctx, h.next);
+
+            expect(h.next).toHaveBeenCalledOnce();
+        });
+
+        it('treats a key owned by anything but a user as the untrusted caller it is', async () => {
+            const h = harness({ keyGrants: ['view', 'manage'] });
+            h.ctx.authenticationSession = keySession('service');
+
+            await authorizationContextMiddleware()(h.ctx, h.next);
+
+            const actor = (h.overrides.get(AuthorizationContext) as AuthorizationContext).actor;
+            expect(actor).toMatchObject({ kind: 'system', source: 'http' });
+        });
     });
 
     // The request half of the trace root. The job half is in `job.trace.test.ts`; both exist so that

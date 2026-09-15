@@ -1,7 +1,7 @@
 ---
 title: 'Logout'
 sidebar_label: 'Logout'
-sidebar_position: 11
+sidebar_position: 15
 mdx:
     format: 'md'
 ---

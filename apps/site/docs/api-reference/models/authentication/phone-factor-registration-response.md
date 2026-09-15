@@ -1,6 +1,6 @@
 ---
 title: 'PhoneFactorRegistrationResponse'
-sidebar_position: 65
+sidebar_position: 70
 mdx:
     format: 'md'
 ---

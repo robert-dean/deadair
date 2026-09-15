@@ -1,6 +1,6 @@
 ---
 title: 'EmailFactorRegistration'
-sidebar_position: 61
+sidebar_position: 66
 mdx:
     format: 'md'
 ---

@@ -3,7 +3,7 @@
 // phone reads — sorted roles, the actor id, and a refusal for anything that is not a person —
 // rather than any resolution of roles, which is the middleware's and is tested there.
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { IsHttpError } from '@maroonedsoftware/errors';
 
 import { SessionsService } from '../../../src/modules/authentication/sessions.service.js';
@@ -50,5 +50,25 @@ describe('SessionsService.readCurrentSession', () => {
 
     it('refuses anything that is not a person', async () => {
         await expect(serviceFor(systemActor).readCurrentSession()).rejects.toSatisfy(IsHttpError);
+    });
+});
+
+describe('SessionsService.revokeCurrentSession', () => {
+    it('ends nothing for a request made with an API key, and still clears the cookie', async () => {
+        // The session ServerKit minted for a key is unpersisted, so it is never in the owner's list;
+        // looked up there, it would read as somebody else's session and answer 403.
+        const activity = { listSessionsForActor: vi.fn(), revokeSession: vi.fn() };
+        const cookies = { clearRefreshToken: vi.fn() };
+        const keyActor: UserActor = { ...userActor('u-5', ['admin']), apiKey: { id: 'k-1', name: 'doorbell', grants: new Set(['view']) } };
+        const service = new SessionsService(
+            activity as unknown as SessionActivityService,
+            new AuthorizationContext(keyActor),
+            cookies as unknown as ResponseCookieJar,
+        );
+
+        await expect(service.revokeCurrentSession()).resolves.toBeUndefined();
+        expect(cookies.clearRefreshToken).toHaveBeenCalledOnce();
+        expect(activity.listSessionsForActor).not.toHaveBeenCalled();
+        expect(activity.revokeSession).not.toHaveBeenCalled();
     });
 });

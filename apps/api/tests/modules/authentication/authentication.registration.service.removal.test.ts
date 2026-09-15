@@ -10,6 +10,10 @@ import { describe, expect, it, vi } from 'vitest';
 import { httpError, IsHttpError } from '@maroonedsoftware/errors';
 
 import { AuthenticationRegistrationService } from '../../../src/modules/authentication/authentication.registration.service.js';
+import { AuthorizationContext } from '../../../src/modules/permissions/authorization.context.js';
+import { StrongFactorGate } from '../../../src/modules/authentication/strong.factor.gate.js';
+import type { ActorsRepository } from '../../../src/modules/authentication/repositories/actors.repository.js';
+import type { PolicyService } from '@maroonedsoftware/policies';
 
 const ACTOR_ID = '11111111-1111-4111-8111-111111111111';
 const FACTOR_ID = 'totp-1';
@@ -43,7 +47,8 @@ const build = (options: { authenticated?: boolean; enrolled?: { method: string }
     };
 
     const service = Object.create(AuthenticationRegistrationService.prototype) as AuthenticationRegistrationService;
-    Object.assign(service, { authorizationContext, actorsRepository, policyService, authenticatorFactorService });
+    const strongFactorGate = new StrongFactorGate(actorsRepository as unknown as ActorsRepository, policyService as unknown as PolicyService);
+    Object.assign(service, { authorizationContext, strongFactorGate, authenticatorFactorService });
 
     const remove = (method = 'authenticator', methodId = FACTOR_ID) => service.removeFactor(method as never, methodId);
 
@@ -98,5 +103,32 @@ describe('removing a factor', () => {
 
         expect(h.policyService.assert).toHaveBeenCalledOnce();
         expect(h.authenticatorFactorService.deleteFactor).toHaveBeenCalledWith(ACTOR_ID, FACTOR_ID);
+    });
+});
+
+describe('verifying a factor registration with an API key', () => {
+    it('is refused before any handler runs, because it would mint the key a signed-in session', async () => {
+        // `verifyFactorRegistration` finishes by creating or updating the session named by the
+        // caller's session token, which for a key is a random per-request id nobody stored. Without
+        // the lock-out in `requireAuthentication` that is a key turning itself into a month-long
+        // sign-in, so it is pinned here against the real context rather than a double.
+        const factorHandlerMap = { get: vi.fn() };
+        const service = Object.create(AuthenticationRegistrationService.prototype) as AuthenticationRegistrationService;
+        Object.assign(service, {
+            factorHandlerMap,
+            authorizationContext: new AuthorizationContext({
+                kind: 'user',
+                sessionToken: 'random-per-request',
+                actorId: ACTOR_ID,
+                factors: [],
+                platformRoles: new Set(['admin']),
+                apiKey: { id: 'k-1', name: 'doorbell', grants: new Set(['view', 'manage']) },
+            }),
+        });
+
+        expect(await statusOf(service.verifyFactorRegistration({ method: 'authenticator', registrationId: 'r-1', code: '123456' } as never))).toBe(
+            403,
+        );
+        expect(factorHandlerMap.get).not.toHaveBeenCalled();
     });
 });

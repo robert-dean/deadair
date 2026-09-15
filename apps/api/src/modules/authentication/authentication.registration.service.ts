@@ -38,8 +38,8 @@ import {
 import { httpError, unauthorizedError } from '@maroonedsoftware/errors';
 import { AuthorizationContext } from '#modules/permissions/authorization.context.js';
 import { CacheProvider } from '@maroonedsoftware/cache';
-import { PolicyService } from '@maroonedsoftware/policies';
 import { SessionActivityService } from './session.activity.service.js';
+import { StrongFactorGate } from './strong.factor.gate.js';
 import { MailService } from '#modules/mail/mail.service.js';
 import { SignInMailLimiter } from './sign.in.mail.limiter.js';
 import { expirationMinutes } from '#modules/mail/mail.expiry.js';
@@ -74,7 +74,7 @@ export class AuthenticationRegistrationService {
         private readonly passwordFactorService: PasswordFactorService,
         private readonly authenticatorFactorService: AuthenticatorFactorService,
         private readonly fidoFactorService: FidoFactorService,
-        private readonly policyService: PolicyService,
+        private readonly strongFactorGate: StrongFactorGate,
         private readonly authorizationContext: AuthorizationContext,
         private readonly cacheProvider: CacheProvider,
         private readonly pkceProvider: PkceProvider,
@@ -247,7 +247,7 @@ export class AuthenticationRegistrationService {
     async registerFactor(request: AuthenticationFactorRegistration): Promise<AuthenticationFactorRegistrationResponse> {
         const { actorId } = this.authorizationContext.requireAuthentication();
 
-        await this.assertRecentStrongFactorIfAnyEnrolled(actorId);
+        await this.strongFactorGate.assertRecentIfAnyEnrolled(actorId);
 
         const handler = this.factorHandlerMap.get(request.method);
         if (!handler || !handler.registerFactor) {
@@ -278,7 +278,7 @@ export class AuthenticationRegistrationService {
             });
         }
 
-        await this.assertRecentStrongFactorIfAnyEnrolled(actorId);
+        await this.strongFactorGate.assertRecentIfAnyEnrolled(actorId);
 
         // Scoped to the caller: the repository answers only this actor's rows, so somebody else's
         // factor id is indistinguishable from one that never existed.
@@ -290,25 +290,6 @@ export class AuthenticationRegistrationService {
         }
 
         await this.authenticatorFactorService.deleteFactor(actorId, methodId);
-    }
-
-    // Email, password, and oidc are the bootstrap factors — a login can have only these at
-    // registration without ever proving a stronger factor, so we can't require a recent
-    // strong-factor verification before binding the first one (chicken-and-egg). Email is
-    // `kind: 'possession'` in the session taxonomy but treated as weak here because email control
-    // alone is the threat we're hardening against. OIDC is similar: the Google session is the
-    // assertion, the SPA can't re-prove it inline without bouncing through the IdP, so it stays
-    // bootstrap-tier. Once any non-bootstrap factor is enrolled, every subsequent bind or removal
-    // requires recent re-verification by something other than email/password/oidc.
-    private async assertRecentStrongFactorIfAnyEnrolled(actorId: string): Promise<void> {
-        const factors = await this.actorsRepository.listFactors(actorId, true);
-        const isBootstrap = (method: string): boolean => method === 'email' || method === 'password' || method === 'oidc';
-        if (!factors.every(factor => isBootstrap(factor.method))) {
-            await this.policyService.assert('auth.session.recent.factor', {
-                within: Duration.fromDurationLike({ minutes: 5 }),
-                excludeMethods: ['email', 'password', 'oidc'],
-            });
-        }
     }
 
     async verifyFactorRegistration(request: AuthenticationFactorRegistrationVerification) {

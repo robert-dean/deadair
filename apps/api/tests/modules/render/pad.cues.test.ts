@@ -41,6 +41,26 @@ describe('withoutPads', () => {
         // Not a bracket stripper. What happens to `[warmly]` is `speakableScript`'s question.
         expect(withoutPads('[laugh] well [warmly] there')).toBe('[laugh] well [warmly] there');
     });
+
+    // It closed EVERY space in front of punctuation, pad or no pad, and it runs ahead of the lexicon:
+    // `by ?uestlove` became `by?uestlove`, and the entry for `?uestlove` could never match again.
+    it('leaves a space in front of punctuation alone when no pad left it there', () => {
+        expect(withoutPads('Produced by ?uestlove, of course.')).toBe('Produced by ?uestlove, of course.');
+        expect(withoutPads('That was .38 Special.')).toBe('That was .38 Special.');
+    });
+
+    it('closes onto punctuation that ends something, and not onto a name that starts with some', () => {
+        expect(withoutPads('Ambitious [sfx:rimshot]... anyway.')).toBe('Ambitious... anyway.');
+        expect(withoutPads('Produced by [sfx:rimshot] ?uestlove.')).toBe('Produced by ?uestlove.');
+    });
+
+    it('leaves one space between the words either side of a run of hits', () => {
+        expect(withoutPads('Well [sfx:airhorn] [sfx:rimshot] there.')).toBe('Well there.');
+    });
+
+    it('keeps the line break a hit sat against', () => {
+        expect(withoutPads('Rain again [sfx:airhorn]\n[sfx:rimshot] The bridge reopens.')).toBe('Rain again\nThe bridge reopens.');
+    });
 });
 
 describe('keepPads', () => {
@@ -63,6 +83,13 @@ describe('keepPads', () => {
 
     it('takes them all out for a character with no board at all', () => {
         expect(keepPads('Well [sfx:airhorn] there.', [])).toBe('Well there.');
+    });
+
+    // Worse here than on the way to an engine: this runs on every answer before the script is
+    // STORED, so a glued `by?uestlove` is what the row would keep and no lexicon entry could reach.
+    it('leaves a space in front of punctuation alone when no pad left it there', () => {
+        expect(keepPads('Produced by ?uestlove, of course.', ['airhorn'])).toBe('Produced by ?uestlove, of course.');
+        expect(keepPads('Produced by [sfx:vuvuzela] ?uestlove.', ['airhorn'])).toBe('Produced by ?uestlove.');
     });
 });
 

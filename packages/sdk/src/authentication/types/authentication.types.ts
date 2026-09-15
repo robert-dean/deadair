@@ -429,8 +429,8 @@ export interface Login {
     id: bigint;
     /** The actor that authenticated */
     actorId: string;
-    /** The factor that satisfied the primary authentication */
-    factorType: 'phone' | 'password' | 'authenticator' | 'email' | 'fido' | 'oidc';
+    /** The factor that satisfied the primary authentication, or `apikey` for a request made with one of the account's API keys */
+    factorType: 'phone' | 'password' | 'authenticator' | 'email' | 'fido' | 'oidc' | 'apikey';
     /** The specific factor record id, when available */
     factorId?: string | null;
     /** The session minted at this login, when available */
@@ -456,7 +456,7 @@ export function reviveLogin(raw: Login): Login {
 
 /**
  * The current user's display preferences, auto-detected by the SPA from the browser (Intl timezone + navigator.language). Omitted fields are left unchanged (absent = never set).
- * generated from [ActorPreferences](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L369)
+ * generated from [ActorPreferences](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L377)
  */
 export interface ActorPreferences {
     /** RFC 5646 locale, e.g. "en-US" */
@@ -464,6 +464,12 @@ export interface ActorPreferences {
     /** Olson timezone, e.g. "America/New_York" */
     timezone?: string;
 }
+
+/**
+ * What an API key may be granted. `view` covers every route a listener may read; `manage` covers the rest, and includes `view`
+ * generated from [ApiKeyScope](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L383)
+ */
+export type ApiKeyScope = 'view' | 'manage';
 
 /**
  * generated from [BaseAuthenticationRequest](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L26)
@@ -667,6 +673,67 @@ export interface AuthSession {
     actorId: string;
     /** Every platform role the caller holds, sorted. Empty for an account nobody has granted one, which today is any account that did not come in through onboarding */
     roles: PlatformRole[];
+}
+
+/**
+ * A personal API key, as its owner sees it in a list. The token itself is never returned after it is issued
+ * generated from [ApiKey](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L385)
+ */
+export interface ApiKey {
+    /** The key's identifier, for rotating or revoking it */
+    id: string;
+    /** What the account called the key */
+    name: string;
+    /** The token's first characters, enough to recognise the key in a config file and far too few to use */
+    hint: string;
+    /** What the key was granted. A key never does more than the account that owns it */
+    scopes: ApiKeyScope[];
+    /** When the key was issued */
+    createdAt: DateTime;
+    /** When the key stops working. Absent means it never expires */
+    expiresAt?: DateTime;
+    /** When the key was last used, to within five minutes. Absent means it has not been used */
+    lastUsedAt?: DateTime;
+    /** When the key was revoked. Present means every request made with it is refused */
+    revokedAt?: DateTime;
+}
+
+/** Rehydrates every wire-encoded scalar in a ApiKey into its runtime type. Mutates and returns `raw`. */
+export function reviveApiKey(raw: ApiKey): ApiKey {
+    const __o0 = raw as unknown as Record<string, unknown>;
+    __o0['createdAt'] = __dt(__o0['createdAt'], 'ApiKey.createdAt');
+    if (__o0['expiresAt'] != null) {
+        __o0['expiresAt'] = __dt(__o0['expiresAt'], 'ApiKey.expiresAt');
+    }
+    if (__o0['lastUsedAt'] != null) {
+        __o0['lastUsedAt'] = __dt(__o0['lastUsedAt'], 'ApiKey.lastUsedAt');
+    }
+    if (__o0['revokedAt'] != null) {
+        __o0['revokedAt'] = __dt(__o0['revokedAt'], 'ApiKey.revokedAt');
+    }
+    return raw;
+}
+
+/**
+ * A new API key
+ * generated from [ApiKeyCreate](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L400)
+ */
+export interface ApiKeyCreate {
+    /** What to call the key, so a list of several says which is which */
+    name: string;
+    /** What the key may do. At least one; `manage` includes `view` */
+    scopes: ApiKeyScope[];
+    /** When the key should stop working. Omit for a key that never expires */
+    expiresAt?: DateTime;
+}
+
+/** Rehydrates every wire-encoded scalar in a ApiKeyCreate into its runtime type. Mutates and returns `raw`. */
+export function reviveApiKeyCreate(raw: ApiKeyCreate): ApiKeyCreate {
+    const __o0 = raw as unknown as Record<string, unknown>;
+    if (__o0['expiresAt'] != null) {
+        __o0['expiresAt'] = __dt(__o0['expiresAt'], 'ApiKeyCreate.expiresAt');
+    }
+    return raw;
 }
 
 /**
@@ -949,6 +1016,44 @@ export interface PublicKeyCredentialWithAttestation extends PublicKeyCredential 
     clientExtensionResults: SimpleClientExtensionResults;
     /** The authenticator attestation response */
     response: FidoAuthenticatorAttestationResponse;
+}
+
+/**
+ * Every API key the account holds, newest first, revoked and expired keys included
+ * generated from [ApiKeyList](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L396)
+ */
+export interface ApiKeyList {
+    keys: ApiKey[];
+}
+
+/** Rehydrates every wire-encoded scalar in a ApiKeyList into its runtime type. Mutates and returns `raw`. */
+export function reviveApiKeyList(raw: ApiKeyList): ApiKeyList {
+    const __o0 = raw as unknown as Record<string, unknown>;
+    {
+        const __a1 = __o0['keys'] as unknown[];
+        for (let __i2 = 0; __i2 < __a1.length; __i2++) {
+            reviveApiKey(__a1[__i2] as never);
+        }
+    }
+    return raw;
+}
+
+/**
+ * A key and its token. The only time the token is ever returned: store it now, because nothing can show it again
+ * generated from [ApiKeyIssued](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L406)
+ */
+export interface ApiKeyIssued {
+    /** The key as it will appear in the list */
+    key: ApiKey;
+    /** The bearer token, sent as `Authorization: Bearer <token>` */
+    token: string;
+}
+
+/** Rehydrates every wire-encoded scalar in a ApiKeyIssued into its runtime type. Mutates and returns `raw`. */
+export function reviveApiKeyIssued(raw: ApiKeyIssued): ApiKeyIssued {
+    const __o0 = raw as unknown as Record<string, unknown>;
+    reviveApiKey(__o0['key'] as never);
+    return raw;
 }
 
 /**

@@ -1,6 +1,11 @@
 import { Registry } from 'injectkit';
 import {
+    ApiKeyAuthenticationHandler,
+    ApiKeyRepository,
+    ApiKeyService,
+    ApiKeyServiceOptions,
     Argon2idPasswordHashProvider,
+    AuthenticationHandlerChain,
     AuthenticationHandlerMap,
     AuthenticationSchemeHandler,
     AuthenticationSessionService,
@@ -11,6 +16,7 @@ import {
     AuthenticatorFactorRepository,
     AuthenticatorFactorService,
     AuthenticatorFactorServiceOptions,
+    ChainedAuthenticationHandler,
     EmailFactorRepository,
     EmailFactorService,
     EmailFactorServiceOptions,
@@ -73,6 +79,10 @@ import { settingIsOn } from '#modules/shared/setting.flags.js';
 import { readSessionKey } from './session.key.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
 import { SignInMailLimiter } from './sign.in.mail.limiter.js';
+import { DeadairApiKeyRepository } from './repositories/apikey.factor.repository.js';
+import { API_KEY_PREFIX, API_KEY_USE_WINDOW } from './api.key.options.js';
+import { ApiKeysService } from './api.keys.service.js';
+import { StrongFactorGate } from './strong.factor.gate.js';
 
 let otpDevBypassEnabled = false;
 
@@ -106,9 +116,42 @@ export const AuthenticationModule: ServerKitModule = {
     setup: async (registry: Registry, config: AppConfig) => {
         registry.register(AuthenticationSchemeHandler).useClass(AuthenticationSchemeHandler).asScoped();
 
-        registry.register(AuthenticationHandlerMap).useMap(AuthenticationHandlerMap).set('bearer', JwtAuthenticationHandler);
+        // One `bearer` scheme, two credentials behind it: a personal API key (`da_…`) and a session
+        // JWT. A scheme holds one handler, so ServerKit's chain tries each in turn and the first
+        // session that is not the sentinel wins. The key handler goes FIRST because its test is a
+        // string prefix and costs nothing, so every JWT is declined by it without a query; the other
+        // way round, every key would be run through `jsonwebtoken.decode` first. A `da_` token that
+        // does not validate falls through to the JWT handler too, which declines it on decode.
+        //
+        // Scoped rather than singleton as ServerKit's README shows: its handlers are singletons and
+        // deadair's JWT handler is scoped, and injectkit refuses a singleton that would capture a
+        // scoped member, at `registry.build()`.
+        registry.register(ApiKeyAuthenticationHandler).useClass(ApiKeyAuthenticationHandler).asScoped();
+        registry
+            .register(AuthenticationHandlerChain)
+            .useArray(AuthenticationHandlerChain)
+            .push(ApiKeyAuthenticationHandler)
+            .push(JwtAuthenticationHandler);
+        registry.register(ChainedAuthenticationHandler).useClass(ChainedAuthenticationHandler).asScoped();
+        registry.register(AuthenticationHandlerMap).useMap(AuthenticationHandlerMap).set('bearer', ChainedAuthenticationHandler);
 
         registry.register(JwtAuthenticationHandler).useClass(JwtAuthenticationHandler).asScoped();
+
+        // Personal API keys. Bearer only: `Authorization: ApiKey …` would be a second spelling of the
+        // same thing for every client to choose between.
+        //
+        // The repository and the service are TRANSIENT, not scoped, and that is load-bearing. The chain
+        // above is resolved inside `authenticationMiddleware`, before `audit.context.middleware` swaps
+        // the request's `Kysely` for its transaction and before `authorizationContextMiddleware` sets
+        // the actor. A scoped `ApiKeyService` built then would hand a route the pool handle and the
+        // startup actor for the rest of the request, so a key created there would commit its row and
+        // its tuples separately, outside the request. Transient means a route gets one built after
+        // both. For the same reason, a station subclass of `ApiKeyAllowedPolicy` must read
+        // `context.owner` and never `envelope.actor`: on the authentication path the envelope's actor
+        // is still the startup default.
+        registry.register(ApiKeyServiceOptions).useValue(new ApiKeyServiceOptions(API_KEY_PREFIX, 32, undefined, undefined, API_KEY_USE_WINDOW));
+        registry.register(ApiKeyRepository).useClass(DeadairApiKeyRepository).asTransient();
+        registry.register(ApiKeyService).useClass(ApiKeyService).asTransient();
 
         registry.register(JwtAuthenticationIssuerMap).useMap(JwtAuthenticationIssuerMap).set('deadair', DeadairJwtAuthenticationIssuer);
 
@@ -283,6 +326,9 @@ export const AuthenticationModule: ServerKitModule = {
             .useFactory(() => new OidcFactorServiceOptions(Duration.fromObject({ minutes: 10 }), Duration.fromObject({ minutes: 15 })))
             .asScoped();
         registry.register(OidcFactorService).useClass(OidcFactorService).asScoped();
+
+        registry.register(StrongFactorGate).useClass(StrongFactorGate).asScoped();
+        registry.register(ApiKeysService).useClass(ApiKeysService).asScoped();
 
         registry.register(AuthenticationService).useClass(AuthenticationService).asScoped();
         registry.register(AuthenticationRegistrationService).useClass(AuthenticationRegistrationService).asScoped();

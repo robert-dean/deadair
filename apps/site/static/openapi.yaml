@@ -67,6 +67,69 @@ paths:
                                 type: string
                 '304':
                     description: 'Response 304'
+    '/auth/apikeys':
+        get:
+            operationId: list
+            summary: 'List API keys'
+            description: "The signed-in account's API keys, newest first, including revoked and expired ones so the list says what was withdrawn and when"
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/ApiKeyList'
+        post:
+            operationId: create
+            summary: 'Create API key'
+            description: 'Issue a new API key for the signed-in account. The token is in this response and nowhere else, ever. Once the account has a strong second factor, this needs one verified in the last five minutes'
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/ApiKeyCreate'
+            responses:
+                '201':
+                    description: Created
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/ApiKeyIssued'
+    '/auth/apikeys/{id}/rotate':
+        post:
+            operationId: rotate
+            summary: 'Rotate API key'
+            description: 'Give a key a new token, so the old one stops working at once. The key keeps its name, scopes and expiry. Needs the same recent second factor as creating one'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/ApiKeyIssued'
+    '/auth/apikeys/{id}':
+        delete:
+            operationId: revoke
+            summary: 'Revoke API key'
+            description: 'Revoke a key. Every request made with it is refused from the next one on. The key stays in the list, marked revoked'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            responses:
+                '204':
+                    description: 'No content'
     '/auth/token':
         post:
             operationId: requestToken
@@ -4480,6 +4543,87 @@ components:
                     description: 'Every platform role the caller holds, sorted. Empty for an account nobody has granted one, which today is any account that did not come in through onboarding'
             required: [actorId, roles]
             description: 'Who the caller is, as the station sees them'
+        ApiKeyScope:
+            type: string
+            enum: [view, manage]
+            description: 'What an API key may be granted. `view` covers every route a listener may read; `manage` covers the rest, and includes `view`'
+        ApiKey:
+            type: object
+            properties:
+                id:
+                    type: string
+                    format: uuid
+                    description: "The key's identifier, for rotating or revoking it"
+                name:
+                    type: string
+                    maxLength: 100
+                    description: 'What the account called the key'
+                hint:
+                    type: string
+                    maxLength: 16
+                    description: "The token's first characters, enough to recognise the key in a config file and far too few to use"
+                scopes:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/ApiKeyScope'
+                    description: 'What the key was granted. A key never does more than the account that owns it'
+                createdAt:
+                    type: string
+                    format: date-time
+                    description: 'When the key was issued'
+                expiresAt:
+                    type: string
+                    format: date-time
+                    description: 'When the key stops working. Absent means it never expires'
+                lastUsedAt:
+                    type: string
+                    format: date-time
+                    description: 'When the key was last used, to within five minutes. Absent means it has not been used'
+                revokedAt:
+                    type: string
+                    format: date-time
+                    description: 'When the key was revoked. Present means every request made with it is refused'
+            required: [id, name, hint, scopes, createdAt]
+            description: 'A personal API key, as its owner sees it in a list. The token itself is never returned after it is issued'
+        ApiKeyList:
+            type: object
+            properties:
+                keys:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/ApiKey'
+            required: [keys]
+            description: 'Every API key the account holds, newest first, revoked and expired keys included'
+        ApiKeyCreate:
+            type: object
+            properties:
+                name:
+                    type: string
+                    minLength: 1
+                    maxLength: 100
+                    description: 'What to call the key, so a list of several says which is which'
+                scopes:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/ApiKeyScope'
+                    description: 'What the key may do. At least one; `manage` includes `view`'
+                expiresAt:
+                    type: string
+                    format: date-time
+                    description: 'When the key should stop working. Omit for a key that never expires'
+            required: [name, scopes]
+            description: 'A new API key'
+        ApiKeyIssued:
+            type: object
+            properties:
+                key:
+                    '$ref': '#/components/schemas/ApiKey'
+                    description: 'The key as it will appear in the list'
+                token:
+                    type: string
+                    description: 'The bearer token, sent as `Authorization: Bearer <token>`'
+            required: [key, token]
+            description: 'A key and its token. The only time the token is ever returned: store it now, because nothing can show it again'
         PhoneFactorRegistration:
             type: object
             properties:

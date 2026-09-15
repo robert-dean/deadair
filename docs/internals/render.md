@@ -57,6 +57,18 @@ vocabulary, and why every matcher built from the list orders the longest form fi
 in it. The other half is that `readAnswer`'s tidying is `speakableScript` and BOTH paths call it: a production
 beat never had it, so `the album is *The Soft Parade*` went to an engine that reads asterisks.
 
+**Asterisks are emphasis, so the marks go and the words stay.** The strip used to delete every `*...*` run as a
+stage direction, and the test for the fix above pinned what that produced: "The album is , and I love it."
+Measured on 2026-09-15 over every answer the live station had captured (1,885 of them): 30 talk breaks carried a
+`*...*` run, and not one was a stage direction. 28 were a title, an artist or an album in markdown italics and
+2 were a stressed word. 17 of those scripts were written for air with a hole where the name had been ("Next up,
+by The Verve Pipe"), and the break path refused others as `named-nothing` for naming a record the strip had taken out.
+Under today's checks that is still 2 live breaks and 1 audition (`*Tornado Of Souls*`). So a run is now unwrapped
+unless it reads as a stage direction, on the same stem list `(laughs)` is judged by. The title-only unwrap was
+considered and is the weaker fix: half the runs were an album, a film or an ordinary word, which no record the
+writer was shown would ever match. The known price is an italicised title carrying one of those words
+(`*Beat It*`), which is 10 of the station's 1,388 tracks.
+
 **How a line is READ has two halves, and only one of them crosses the boundary.** A voice's baseline is the plugin's own config: `plugins/chatterbox` has `exaggeration` and `cfgWeight` columns beside `speed`, because a number on that engine's scale means nothing to Kokoro. A break's reading is a WORD, `SpeechRequest.delivery` (`hushed` or `frantic`), and it crosses for the reason a cue does: the station asks in its own vocabulary and each engine translates, so a change of engine rewrites no row. The obvious shape was an `exaggeration` field on the request, which would have put one engine family's scale into the contract and tied every script to it. `listDeliveries` is `listCues`' twin, `SpeechService` drops an unclaimed delivery exactly where it strips an unclaimed cue, and Chatterbox's translation (`chatterbox.delivery.ts`) is a move on the voice's own dials rather than a fixed point, so a voice that is intense at rest stays more intense than its neighbours when hushed. Three things are load-bearing.
 
 **On Chatterbox it is reactions or readings, never both, and the live station has reactions.** The `turbo` model performs the paralinguistic tags and DISCARDS both dials (upstream logs that it is ignoring them); `original` and `multilingual` read the dials and perform no tags. So the plugin gates on the resident model's `type` from `/api/model-info`, which `ensureLoaded` already fetches before every synthesis and now hands back rather than discarding, and it gates on an allowlist, since sending to an unknown build changes a rendering nobody predicted. Test connection says which of the two the loaded model does, because it is the only place an operator can learn that a dial they set is inert.
@@ -95,6 +107,14 @@ plugin ever sees one: the host reads it, strips it, and hands the mixer URLs.
 strip and the strip spares what it left, or a pad admitted afterwards is admitted into a script already
 emptied of pads; and `transposeForSpeech` removes pads FIRST, because `SPARE_CUES`' character class contains
 `[` and `]`, so a pad reaching it arrives at the engine as the bare text `sfx:airhorn` and is read aloud.
+
+**Going first means the pad strip tidies for the lexicon too, so it closes only the gap a pad left.** Both
+`withoutPads` and `keepPads` used to take the hits out and then close every space in front of `.,!?;:` in
+the whole script. That glued `Produced by ?uestlove` into `by?uestlove` ahead of `applyPronunciations`,
+whose matcher needs a non-letter on the left, so the entry could never fire (`.38 Special` likewise). Through
+`keepPads` it reached the STORED script as well. `rewritePads` now takes each removed hit's own whitespace
+with it and leaves a space only between words, closing onto punctuation only where that punctuation ends
+something rather than opens a name.
 
 **The hit is resolved at WRITE time onto `segments.pads`**, because a name is unique per board and only the
 writer held the presenting character's board — a renderer resolving it again would have to ask who is
@@ -220,6 +240,21 @@ share one transaction and these two repositories cannot, so the only question is
 marked-first loses a proposal for good where written-first re-reads and `holds` recognises it. The same
 pattern is why `fact.lead.ts` strips a keyword-less parenthetical now: thirteen claims in this station's store
 read `Lynyrd Skynyrd ( LEH-nerd SKIN-nerd) is an American rock band` and were being spoken that way.
+
+**What an entry says is held out of every pass after the lexicon, and until 15 September nothing held it.**
+The lexicon's own comment promised that `spoken` reached the engine untouched, so an operator on Kokoro could
+write its inline phoneme markup there, while `applyPronunciations` ran second of six and the other four went
+over its output as though it were more writing. `[Jordache](/ʒɔrdæʃ/)` came out of `settle` as `Jordache(
+ʒɔrdæʃ )`, and, more to the point for a table the station fills itself, the gloss pass's capitalised
+syllables were read as initialisms: `UN-guhr` reached the engine as `U N-guhr`. The obvious fix was to say
+in the comment that a spoken form must be a plain respelling, and that answers neither case, because the
+second one IS a plain respelling. So `transposeForSpeech` parks each spoken form on one private-use code
+point while the later passes run and puts it back after `settle`. Not a sentinel spelled from characters:
+`settle`'s own comment is the record of `#CUELAUGH#` losing its hashes to the drop-list, and a single
+code point no pass has in its vocabulary has no inside to reach into. `tidy` removes any private-use
+character a script arrives with, so the only ones present at the end are the station's, and
+`modifiesWhatFollows` reads a held entry as a word, since `a $20 P!nk shirt` read singular when the name
+was still letters.
 
 **What a symbol stands for goes after the whole of what it names, and for `$` that was measured wrong twice.**
 `saySymbols` marks the currency where the digits stop, which is right for `$5.99` and wrong for every amount

@@ -8,7 +8,7 @@ import { DefaultMfaRequiredPolicy } from '@maroonedsoftware/authentication';
 import { AlwaysAllowPolicy } from '@maroonedsoftware/policies';
 
 import { DeadairMfaRequiredPolicy } from '../../../src/modules/authentication/mfa.required.policy.js';
-import { ServerPolicyMappings } from '../../../src/modules/policy/policy.mappings.js';
+import { PlatformManagePolicy, PlatformViewPolicy, ServerPolicyMappings } from '../../../src/modules/policy/policy.mappings.js';
 
 describe('the policy mappings', () => {
     it('asks for a second factor at sign-in through the station’s rule', () => {
@@ -29,5 +29,13 @@ describe('the policy mappings', () => {
         // Deliberate, and the comment above the mapping says why: an omitted security block would
         // otherwise become an MFA gate, which is not a decision that has been taken.
         expect(ServerPolicyMappings['auth.session.mfa.satisfied']).toBe(AlwaysAllowPolicy);
+    });
+
+    it('gates the two platform permissions through the station’s own policies, which narrow an API key', () => {
+        // Every contract names one of these two, so they are where a key's grants are enforced on a
+        // route. Mapping ServerKit's `ApiKeySessionPolicy` here instead would admit keys only, and
+        // refuse every signed-in person.
+        expect(ServerPolicyMappings['platform.view']).toBe(PlatformViewPolicy);
+        expect(ServerPolicyMappings['platform.manage']).toBe(PlatformManagePolicy);
     });
 });

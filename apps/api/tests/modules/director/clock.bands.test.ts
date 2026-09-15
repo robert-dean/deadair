@@ -79,6 +79,36 @@ describe('nextOccurrence', () => {
         expect(at).toBe(Date.UTC(2026, 2, 30, 0, 30));
     });
 
+    // `after` is `Date.now()` on every commit pass, so it carries milliseconds. The slot must not: the
+    // offset between the wall clock and the instant was once taken from `after` itself, so 13:05:07.687
+    // answered 13:40:00.687, and a slot recognised by its instant was a different slot on every pass.
+    it('answers an instant on the minute whatever milliseconds it was asked with', () => {
+        const from = Date.UTC(2026, 8, 15, 13, 5, 7);
+
+        for (const ms of [0, 1, 123, 500, 687, 999]) {
+            expect(nextOccurrence(anchored(40, 'podcast'), from + ms, LONDON)).toBe(Date.UTC(2026, 8, 15, 13, 40));
+            expect(nextOccurrence(anchored(0, 'news', 9), from + ms, LONDON)).toBe(Date.UTC(2026, 8, 16, 8, 0));
+        }
+    });
+
+    it('stays on the minute through both clock changes, whatever milliseconds it was asked with', () => {
+        for (const ms of [0, 687, 999]) {
+            // Spring forward, 29 March 2026, and the day whose 01:30 never happens.
+            expect(nextOccurrence(anchored(0, 'news', 9), Date.UTC(2026, 2, 28, 12, 0, 0) + ms, LONDON)).toBe(Date.UTC(2026, 2, 29, 8, 0));
+            expect(nextOccurrence(anchored(30, 'news', 1), Date.UTC(2026, 2, 28, 12, 0, 0) + ms, LONDON)).toBe(Date.UTC(2026, 2, 30, 0, 30));
+            // Fall back, 25 October 2026.
+            expect(nextOccurrence(anchored(0, 'news', 9), Date.UTC(2026, 9, 24, 12, 0, 0) + ms, LONDON)).toBe(Date.UTC(2026, 9, 25, 9, 0));
+        }
+    });
+
+    it('still never answers the occurrence happening now, inside its first second', () => {
+        // Truncating to the second must not turn "strictly after" into "at or after": asked at
+        // 09:00:00.687, the 09:00 slot has begun and the answer is 10:00.
+        const now = Date.UTC(2026, 7, 13, 9, 0, 0) + 687;
+
+        expect(nextOccurrence(anchored(0, 'talkbreak'), now, 'UTC')).toBe(Date.UTC(2026, 7, 13, 10, 0));
+    });
+
     it('always answers something later than it was asked about', () => {
         // The property the planner leans on. Every hour of a fortnight, both band shapes.
         for (let hour = 0; hour < 24 * 14; hour++) {

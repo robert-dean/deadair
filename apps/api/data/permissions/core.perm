@@ -31,3 +31,33 @@ namespace plugin {
   permission enable    = owner
   permission oauth     = owner
 }
+
+// A personal API key. It is modelled as an OBJECT rather than as a subject, because the DSL has no
+// walk from one subject to another but it does walk from an object to a parent: `station` links the
+// key to `platform:main`, so `station->view` asks whether the key's OWNER may view the station, and
+// it asks live. A key therefore shrinks with its owner, the moment a role is taken away, and can
+// never be more than the account it acts for, because the intersection is here in the model rather
+// than in whichever service remembered to check.
+//
+// `station` looks redundant with one station per install, and it is not: the DSL cannot name a
+// constant object, so without the tuple there is nothing for `->` to walk and nothing to inherit.
+// Today it always points at `platform:main`. If several stations ever share one install, it stops
+// being constant, and a key is then a key to one of them.
+//
+// `scoped_view` and `scoped_manage` are the grant chosen at creation, written for the owner. The
+// part of the name after `scoped_` IS the scope word the API and the console use
+// (`api.key.scopes.ts` derives the vocabulary from these relation names), so a new scope is a new
+// relation here and nothing else. `manage` includes `view`, as it does on the platform.
+//
+// A delegated grant of any other kind (an MCP client authorised through a browser, say) is the same
+// shape: an object owned by a user, linked to the station, narrowed by `scoped_*` relations.
+namespace apikey {
+  relation owner:         user
+  relation station:       platform
+  relation scoped_view:   user
+  relation scoped_manage: user
+
+  permission view   = owner & (scoped_view | scoped_manage) & station->view
+  permission manage = owner & scoped_manage & station->manage
+  permission revoke = owner
+}

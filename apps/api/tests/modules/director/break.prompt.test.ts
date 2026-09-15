@@ -1273,6 +1273,20 @@ describe('readAnswer, against the records it was shown', () => {
         expect(readAnswer('Tornado Of Souls still sounds like a warning nobody took.', { names: [tornado] })).toBeDefined();
     });
 
+    it('takes a record the model named in markdown italics', () => {
+        // Verbatim off the live station, audition 36f56b7b ordinal 19, refused as `named-nothing`: the
+        // tidying deleted every `*...*` run as a stage direction, so both titles were gone before
+        // anything asked whether a record had been named.
+        const tornado = { title: 'Tornado Of Souls - 2004 Remix', artist: 'Megadeth' };
+        const eye = { title: 'Electric Eye', artist: 'Judas Priest' };
+        const answer = 'The last beat that just spun off was *Tornado Of Souls* and next we hit *Electric Eye*.';
+
+        expect(readAnswer(answer, { names: [tornado, eye] })).toBe(
+            'The last beat that just spun off was Tornado Of Souls and next we hit Electric Eye.',
+        );
+        expect(writeDecline(answer, { names: [tornado, eye] })).toBeUndefined();
+    });
+
     it('asks nothing of a break that was shown no records', () => {
         // Every welcome, and a link at the top of an order. A break cannot be refused for failing to
         // name something it was never given.

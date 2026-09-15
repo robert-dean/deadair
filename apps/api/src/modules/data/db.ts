@@ -30,6 +30,18 @@ export interface DeadairActors {
   updatedAt: Generated<DateTime>;
 }
 
+export interface DeadairActorsApikeyFactors {
+  actorId: string;
+  createdAt: Generated<DateTime>;
+  expiresAt: DateTime | null;
+  hint: string;
+  id: Generated<string>;
+  name: string;
+  revokedAt: DateTime | null;
+  secretHash: string;
+  updatedAt: Generated<DateTime>;
+}
+
 export interface DeadairActorsAuthenticatorFactors {
   active: Generated<boolean>;
   actorId: string;
@@ -827,6 +839,7 @@ export interface SchemaMigrations {
 
 export interface DB {
   "deadair.actors": DeadairActors;
+  "deadair.actorsApikeyFactors": DeadairActorsApikeyFactors;
   "deadair.actorsAuthenticatorFactors": DeadairActorsAuthenticatorFactors;
   "deadair.actorsEmailFactors": DeadairActorsEmailFactors;
   "deadair.actorSessionEvents": DeadairActorSessionEvents;

@@ -136,7 +136,14 @@ function alignedTo(band: AnchoredBand, around: number, zone: string): number | u
     // The zone's offset at this moment, which is what turns a wall-clock reading back into an
     // instant. Taken at `around` rather than at the answer, then checked: if the shift crossed a
     // transition the reading back will not match, and the band is treated as not existing there.
-    const offset = around - Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second);
+    //
+    // Taken at `around` truncated to the second, because the clock reading has no milliseconds and
+    // `around` usually does (it is `Date.now()` on every commit pass). Subtracting the one from the
+    // other left `around % 1000` in the offset and so in the answer: 13:05:07.687 answered
+    // 13:40:00.687, a different instant on every pass for the same slot, and the production
+    // scheduler, which recognises a slot it has commissioned by its instant, commissioned it again.
+    const whole = Math.floor(around / 1000) * 1000;
+    const offset = whole - Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second);
     const at = Date.UTC(wanted.year, wanted.month - 1, wanted.day, wanted.hour, wanted.minute, 0) + offset;
 
     const check = readClock(at, zone);

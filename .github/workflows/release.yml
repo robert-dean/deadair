@@ -6,6 +6,10 @@ name: Release
 # the `versions` job below opens from the pending changesets. That run adds the version tags, the
 # `v*` git tag and the GitHub release on top, in that order and after the tests.
 #
+# The Stream Deck plugin follows the same rule on its own clock: a push where
+# `apps/streamdeck/package.json` names a version with no `streamdeck-v*` tag releases the plugin, from
+# `streamdeck-release.yml`, after this push's build. The other listener apps are released by hand.
+#
 # It was a tag trigger, with the tag pushed by hand. The tag is now a consequence of the merge, cut
 # by `publish` once the build is green, so a release can no longer name a commit nobody tested, and
 # nothing listens for a tag any more: one created with the workflow token triggers nothing anyway.
@@ -81,6 +85,46 @@ jobs:
                   echo "value=${version}" >> "$GITHUB_OUTPUT"
                   echo "line=${line}" >> "$GITHUB_OUTPUT"
 
+    # The Stream Deck plugin's version this push releases, or the empty string, by `version`'s rule
+    # and its reasons: a version with no `streamdeck-v*` tag, asked of the API, on main only. Its own
+    # job rather than a second output of `version`, because the two release independently and
+    # `version`'s output decides a great deal the plugin has nothing to do with.
+    streamdeck-version:
+        runs-on: ubuntu-latest
+        timeout-minutes: 5
+        outputs:
+            value: ${{ steps.read.outputs.value }}
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v7
+              with:
+                  persist-credentials: false
+                  sparse-checkout: apps/streamdeck/package.json
+                  sparse-checkout-cone-mode: false
+
+            - name: Read the manifest and ask whether it is released
+              id: read
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: |
+                  set -euo pipefail
+                  version="$(jq -r .version apps/streamdeck/package.json)"
+                  if [ -z "$version" ] || [ "$version" = null ]; then
+                      echo "::error::apps/streamdeck/package.json has no version."
+                      exit 1
+                  fi
+                  refs="$(gh api "repos/${GITHUB_REPOSITORY}/git/matching-refs/tags/streamdeck-v${version}" --jq '.[].ref')"
+                  if [ "${GITHUB_REF}" != refs/heads/main ]; then
+                      echo "Not main, so not a release."
+                      version=""
+                  elif printf '%s\n' "$refs" | grep -qx "refs/tags/streamdeck-v${version}"; then
+                      echo "streamdeck-v${version} is already released."
+                      version=""
+                  else
+                      echo "streamdeck-v${version} has no tag, so this push releases it."
+                  fi
+                  echo "value=${version}" >> "$GITHUB_OUTPUT"
+
     # Which parts of the tree this push changed.
     changes:
         uses: ./.github/workflows/changes.yml
@@ -91,18 +135,34 @@ jobs:
     # a README typo: judged by its own diff it would run no tests, and would release the very commit
     # whose tests failed. The one build that gets a version number is never the one nobody checked.
     # Waiting on `version` as well as `changes` costs nothing: it is the quicker of the two.
+    #
+    # A Stream Deck release turns on the three jobs that check the plugin, for the same reason: the
+    # push retrying a failed plugin release can be a typo too.
     build:
-        needs: [version, changes]
+        needs: [version, streamdeck-version, changes]
         uses: ./.github/workflows/build.yml
         with:
-            tree: ${{ needs.version.outputs.value != '' || needs.changes.outputs.tree == 'true' }}
-            node: ${{ needs.version.outputs.value != '' || needs.changes.outputs.node == 'true' }}
+            tree: ${{ needs.version.outputs.value != '' || needs.streamdeck-version.outputs.value != '' || needs.changes.outputs.tree == 'true' }}
+            node: ${{ needs.version.outputs.value != '' || needs.streamdeck-version.outputs.value != '' || needs.changes.outputs.node == 'true' }}
             generated: ${{ needs.version.outputs.value != '' || needs.changes.outputs.generated == 'true' }}
             sidecar: ${{ needs.version.outputs.value != '' || needs.changes.outputs.sidecar == 'true' }}
             android: ${{ needs.version.outputs.value != '' || needs.changes.outputs.android == 'true' }}
             desktop: ${{ needs.version.outputs.value != '' || needs.changes.outputs.desktop == 'true' }}
             ios: ${{ needs.version.outputs.value != '' || needs.changes.outputs.ios == 'true' }}
-            streamdeck: ${{ needs.version.outputs.value != '' || needs.changes.outputs.streamdeck == 'true' }}
+            streamdeck: ${{ needs.version.outputs.value != '' || needs.streamdeck-version.outputs.value != '' || needs.changes.outputs.streamdeck == 'true' }}
+        secrets: inherit
+
+    # The Stream Deck plugin's release: its installer on a `streamdeck-v*` GitHub release, published
+    # rather than drafted. After `build`, so a release never names a commit whose tests failed, and
+    # nothing else waits on it: the station's images and tags have no reason to.
+    streamdeck:
+        needs: [streamdeck-version, build]
+        if: needs.streamdeck-version.outputs.value != ''
+        permissions:
+            contents: write
+        uses: ./.github/workflows/streamdeck-release.yml
+        with:
+            draft: false
         secrets: inherit
 
     # Deliberately NOT `needs: [build]`. It was, and the cost was the whole of the build job on

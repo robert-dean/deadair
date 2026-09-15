@@ -180,8 +180,10 @@ pull request waited for. A pull request's image build now exports nothing (`type
 **A release is a version the manifest names and the repository has no tag for.** Five things are
 versioned by changesets, each with its own changelog: the station (seventeen packages in one `fixed`
 group, because they ship in one image), `@deadair/android`, `@deadair/desktop`, `@deadair/ios` and
-`@deadair/streamdeck`. The last four are published by their own workflows or by hand, under
-`<app>-v*` tags; what follows is the station's. `release.yml`'s
+`@deadair/streamdeck`. The listener apps are published by their own workflows or by hand, under
+`<app>-v*` tags. The Stream Deck plugin releases itself by the station's rule below, from
+`release.yml`'s `streamdeck-version` and `streamdeck` jobs, as a `streamdeck-v*` release carrying its
+installer. What follows is the station's. `release.yml`'s
 `version` job reads the station's number off `apps/api/package.json` and asks the API for a `v<it>`
 tag; none means this push is the release. That is true of exactly one commit per version, the merge
 of the `chore: update versions` pull request, because between releases main carries the LAST

@@ -2,8 +2,8 @@
 
 Notable changes to the Stream Deck plugin, newest first. Its version is `package.json`'s, mirrored
 into the plugin manifest's four-part `Version` by `pnpm release:version`; entries are written from
-changesets naming `@deadair/streamdeck`. A release is the Stream Deck release workflow, run by hand,
-which tags `streamdeck-v<version>`. The station's own changes are in the
+changesets naming `@deadair/streamdeck`. A release cuts itself on the push to main that moves that
+version (the merge of the version pull request), tagged `streamdeck-v<version>`. The station's own changes are in the
 [root changelog](../../CHANGELOG.md).
 
 ## [Unreleased]

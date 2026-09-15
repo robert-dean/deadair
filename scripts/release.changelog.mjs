@@ -190,7 +190,7 @@ export function pullRequestBody(released) {
     const sections = released.map(({ label, previous, version, body }) => `### ${label} ${previous} to ${version}\n\n${body}`);
     return [
         ...sections,
-        'Merging this releases the station: `release.yml` sees a version with no tag, tags it once the tests pass, and publishes the GitHub release from `CHANGELOG.md`. The listener apps and the Stream Deck plugin are numbered here and published by their own workflows.',
+        'Merging this releases the station: `release.yml` sees a version with no tag, tags it once the tests pass, and publishes the GitHub release from `CHANGELOG.md`. The Stream Deck plugin is released by the same run when its version moves, from `apps/streamdeck/CHANGELOG.md`, as a `streamdeck-v*` release with its installer. The listener apps are numbered here and published by their own workflows.',
         'This pull request was opened with the workflow token, so no checks run on it. The merge runs every one of them before anything is tagged. To change what an entry says, edit the changeset on `main`; this branch is rebuilt from `main` on every push.',
     ].join('\n\n');
 }

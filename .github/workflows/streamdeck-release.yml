@@ -1,17 +1,20 @@
-# Building the Stream Deck plugin as something somebody can install, and as the file the Elgato
-# Marketplace is given.
+# Releasing the Stream Deck plugin: building it, packing the installer, and publishing it as a GitHub
+# release tagged `streamdeck-v<version>`.
 #
-# `workflow_dispatch` and NOT a push trigger, for `desktop-release.yml`'s reason: a GitHub release is
-# a permanent entry with a version somebody may already have installed, and a push trigger would cut
-# one for every README typo.
+# `release.yml` calls this on the push that RELEASES it: a push to main where
+# `apps/streamdeck/package.json` names a version with no `streamdeck-v*` tag, which is true of one
+# commit per version, the merge of the version pull request. That is the station's own rule, so a
+# typo in a README releases nothing, and a release waits for the build and tests of that push. It
+# can also be run by hand, to retry a release that failed or to draft one; a hand run releases only
+# from main, for the station's reason: a tag must never name a commit main never had.
 #
 # The tag is `streamdeck-v<version>`, NOT `v<version>`. The bare `v*` namespace is the station's,
 # which is what an operator means by "a deadair release".
 #
 # The release carries the `.streamDeckPlugin` installer, which the Stream Deck app installs on a
 # double-click, on macOS and Windows alike. The Marketplace is not reached from here: the maintainer
-# uploads this same file in Elgato's Maker Console, which takes no API, so a release is the
-# installer's permanent address and the Marketplace listing is a copy of it.
+# uploads this same file in Elgato's Maker Console, whose documentation describes no API, so a
+# release is the installer's permanent address and the Marketplace listing is a copy of it.
 
 name: Stream Deck release
 
@@ -22,6 +25,12 @@ on:
                 description: Create the release as a draft rather than publishing it
                 type: boolean
                 default: true
+    workflow_call:
+        inputs:
+            draft:
+                description: Create the release as a draft rather than publishing it
+                type: boolean
+                default: false
 
 permissions:
     contents: write
@@ -33,6 +42,12 @@ jobs:
         timeout-minutes: 15
 
         steps:
+            - name: Refuse anything but main
+              if: github.ref != 'refs/heads/main'
+              run: |
+                  echo "::error::A Stream Deck release is cut from main only, so its tag names a commit main has."
+                  exit 1
+
             - name: Checkout
               uses: actions/checkout@v7
               with:
@@ -50,8 +65,8 @@ jobs:
             - name: Install dependencies
               run: pnpm install --frozen-lockfile
 
-            # The same gates the ordinary build runs. A release that skipped them would be the one
-            # build nobody checked.
+            # The same gates the ordinary build runs. Called from `release.yml` they have run already,
+            # and run again here in a minute; run by hand, nothing else would have run them.
             - name: Build
               run: pnpm exec turbo run build --filter='@deadair/streamdeck...'
 
@@ -106,12 +121,74 @@ jobs:
                   NOTES
                   cat notes.md
 
-            - name: Publish the release
+            # The station's `publish` job's arrangement, and for its reason: GitHub refuses the workflow
+            # token a tag on a commit main has moved past with a workflow change, which is how the
+            # station's 0.2.0 went out from the wrong run. A job-level `if` cannot read a secret, so
+            # whether the App is configured is a step's output.
+            - name: Look for the release App
+              id: app
               env:
-                  GH_TOKEN: ${{ github.token }}
+                  CLIENT_ID: ${{ vars.RELEASE_APP_CLIENT_ID }}
+                  PRIVATE_KEY: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
               run: |
-                  gh release create "streamdeck-v${{ steps.version.outputs.value }}" \
-                      --title "deadair for Stream Deck ${{ steps.version.outputs.value }}" \
+                  if [ -n "${CLIENT_ID}" ] && [ -n "${PRIVATE_KEY}" ]; then
+                      echo "present=true" >> "$GITHUB_OUTPUT"
+                  else
+                      echo "::warning::The release App is not configured (RELEASE_APP_CLIENT_ID, RELEASE_APP_PRIVATE_KEY), so this publishes with the workflow token, which GitHub refuses if main has moved on with a workflow change."
+                      echo "present=false" >> "$GITHUB_OUTPUT"
+                  fi
+
+            - name: Mint the App token
+              id: token
+              if: steps.app.outputs.present == 'true'
+              uses: actions/create-github-app-token@v3
+              with:
+                  client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
+                  private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+                  permission-contents: write
+                  permission-workflows: write
+
+            # The tag first, and the release on it with `--verify-tag`, so the release can only ever
+            # name the tag this step made on this commit. As in `publish`: a tag this step made is
+            # deleted again if the release cannot be created, because `release.yml` reads "there is a
+            # tag" as "this version went out" and would never retry; and a release that already exists
+            # is success, so re-running a run that got this far stays green.
+            - name: Tag it, then publish it
+              env:
+                  GH_TOKEN: ${{ steps.token.outputs.token || github.token }}
+                  VERSION: ${{ steps.version.outputs.value }}
+                  DRAFT: ${{ inputs.draft }}
+              run: |
+                  set -euo pipefail
+                  tag="streamdeck-v${VERSION}"
+
+                  if gh release view "$tag" > /dev/null 2>&1; then
+                      echo "${tag} is already released."
+                      exit 0
+                  fi
+
+                  existing="$(gh api "repos/${GITHUB_REPOSITORY}/git/matching-refs/tags/${tag}" --jq ".[] | select(.ref == \"refs/tags/${tag}\") | .object.sha")"
+                  made=false
+                  if [ -z "$existing" ]; then
+                      if ! gh api "repos/${GITHUB_REPOSITORY}/git/refs" -f ref="refs/tags/${tag}" -f sha="${GITHUB_SHA}" > /dev/null; then
+                          echo "::error::Could not create ${tag}. If this is a 403 and the release App is not configured, see \"Releasing\" in docs/internals/deployment.md; the next push to main releases ${VERSION} either way."
+                          exit 1
+                      fi
+                      made=true
+                  elif [ "$existing" != "$GITHUB_SHA" ]; then
+                      echo "::error::${tag} already points at ${existing}, not ${GITHUB_SHA}, and has no release. Delete the tag if nothing shipped from it, and the next push to main releases ${VERSION}."
+                      exit 1
+                  fi
+
+                  draft=()
+                  if [ "$DRAFT" = true ]; then draft=(--draft); fi
+                  if ! gh release create "$tag" --verify-tag "${draft[@]}" \
+                      --title "deadair for Stream Deck ${VERSION}" \
                       --notes-file notes.md \
-                      ${{ inputs.draft && '--draft' || '' }} \
-                      "apps/streamdeck/artifacts/radio.deadair.streamdeck.streamDeckPlugin"
+                      "apps/streamdeck/artifacts/radio.deadair.streamdeck.streamDeckPlugin"; then
+                      if [ "$made" = true ]; then
+                          gh api -X DELETE "repos/${GITHUB_REPOSITORY}/git/refs/tags/${tag}" ||
+                              echo "::error::Could not delete ${tag} after the release failed. Delete it by hand, or no later push will retry ${VERSION}."
+                      fi
+                      exit 1
+                  fi

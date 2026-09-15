@@ -23,9 +23,21 @@ fetched for it.
 **Its own release unit.** `@deadair/streamdeck` has its own changelog and `streamdeck-v*` tags, and
 `pnpm release:version` mirrors `package.json`'s version into the manifest's four-part `Version`
 (`0.1.0` becomes `0.1.0.0`; the fourth part is left alone). The build job's `--check` fails when the
-two disagree, so edit the package's version and never the manifest's. A release is the Stream Deck
-release workflow, run by hand; the Marketplace is the same `.streamDeckPlugin` uploaded in Elgato's
-Maker Console, which has no API.
+two disagree, so edit the package's version and never the manifest's.
+
+**A release cuts itself, by the station's rule.** `release.yml`'s `streamdeck-version` job asks the API
+whether `streamdeck-v<version>` exists; on the push to main where it does not (the merge of the
+version pull request that moved the plugin's version), the `streamdeck` job calls
+`streamdeck-release.yml` after that push's build and tests, and publishes the installer on a GitHub
+release. A typo moves no version and releases nothing. The tag is made first and the release on it
+with `--verify-tag`, with the release App's token when it is configured, exactly as the station's
+`publish` does and for its reason: the workflow token is refused a tag on a commit main has moved past
+with a workflow change. A tag made for a release that then failed is deleted, so the next push
+retries. The same workflow runs by hand, from main only, to retry or to draft. So releasing the plugin
+is: a changeset naming `@deadair/streamdeck`, then merging the version pull request.
+
+The Marketplace is the one step left by hand: the same `.streamDeckPlugin`, uploaded in Elgato's Maker
+Console, whose documentation describes no API.
 
 **The Marketplace listing is in `marketplace/`**: the text typed into the Maker Console
 (`listing.md`) and the thumbnail and three gallery images it takes, 1920 × 960. The pictures are drawn

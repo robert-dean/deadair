@@ -659,6 +659,8 @@ jobs:
                   set -euo pipefail
                   test -f plugin.js
                   grep -qx '{ "type": "module" }' package.json || { echo "::error::bin/package.json does not make the bundle an ES module"; exit 1; }
+                  # JavaScript in single quotes: its `${...}` is a template string for Node, not the shell's.
+                  # shellcheck disable=SC2016
                   node --input-type=module -e '
                       import { builtinModules } from "node:module";
                       import { readFileSync } from "node:fs";

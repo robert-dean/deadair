@@ -67,9 +67,12 @@ export function PlaylistsPage() {
     // What a person chose is the page; what the service made for the account (Discover Weekly, a
     // Daily Mix, an editorial list) is folded under it. On Spotify those are also the playlists it
     // refuses to share, so left inline they bury the operator's own under cards that cannot be used.
+    // Whatever the operator hid is folded last, and hiding wins: a hidden Daily Mix is in that group
+    // and not the other, since that is the one an operator looks in to take a decision back.
     const all = playlists.data?.playlists ?? [];
-    const providerMade = all.filter(playlist => playlist.madeByProvider === true);
-    const chosen = all.filter(playlist => playlist.madeByProvider !== true);
+    const hidden = all.filter(playlist => playlist.hidden === true);
+    const providerMade = all.filter(playlist => playlist.hidden !== true && playlist.madeByProvider === true);
+    const chosen = all.filter(playlist => playlist.hidden !== true && playlist.madeByProvider !== true);
 
     return (
         <Stack gap="lg">
@@ -128,6 +131,8 @@ export function PlaylistsPage() {
             {chosen.length > 0 ? <PlaylistGrid playlists={chosen} /> : undefined}
 
             <FoldedPlaylists playlists={providerMade} what={`made by ${makers(providerMade)}`} />
+
+            <FoldedPlaylists playlists={hidden} what="hidden" />
         </Stack>
     );
 }

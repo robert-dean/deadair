@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { chartsListOptions } from '../../api/charts.queries';
 import { playlistsListOptions } from '../../api/playlists.queries';
 import { usePersonas } from '../../api/personas.queries';
+import { offerablePlaylists } from '../playlists/playlist.offerable';
 
 /**
  * What a broadcast IS, as one field set, wherever it is being described.
@@ -111,7 +112,8 @@ export function SourceField({ description, ...input }: GetInputPropsReturnType &
     const playlists = useQuery(playlistsListOptions);
     const charts = useQuery(chartsListOptions);
 
-    const playlistOptions = (playlists.data?.playlists ?? []).map(entry => ({
+    const chosen = splitSource(typeof input.value === 'string' ? input.value : undefined);
+    const playlistOptions = offerablePlaylists(playlists.data?.playlists ?? [], chosen?.kind === 'playlist' ? chosen : undefined).map(entry => ({
         value: sourceValue(entry.pluginId, entry.id),
         label: `${entry.name} — ${entry.pluginName}`,
     }));

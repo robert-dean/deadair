@@ -1,24 +1,56 @@
-import { Anchor, Badge, Card, Divider, Group, Stack, Text } from '@mantine/core';
+import { ActionIcon, Anchor, Badge, Card, Divider, Group, Menu, Stack, Text, Tooltip } from '@mantine/core';
+import { IconDots } from '@tabler/icons-react';
 import { Link } from '@tanstack/react-router';
 import type { CatalogPlaylist } from '@deadair/sdk';
 
+import { useSetPlaylistHidden } from '../../api/playlists.queries';
+import { apiErrorMessage } from '../../api/sdk.error';
 import { PlayPlaylistButton } from '../playout/play.playlist.button';
+import { canReadTracks } from './playlist.offerable';
 
 export interface PlaylistCardProps {
     playlist: CatalogPlaylist;
 }
 
 /**
- * Whether the source will hand over this playlist's tracks.
+ * Hide this playlist from the station, or show it again.
  *
- * Absent permissions mean the source did not say, and that has to stay
- * clickable: most providers never populate the field at all, and Spotify leaves
- * it off when it could not check. Reading "no answer" as "refused" would hide
- * playlists that work perfectly well. Only an explicit list that omits `read`
- * disables the link.
+ * On every card, refused ones included, which is why it sits in the title row rather than beside Air
+ * in the footer: a playlist Spotify will not share has no footer controls, and it is the first kind
+ * an operator wants gone. The pending state and any failure live on the trigger, as they do on
+ * the personas page, because a menu item has no `loading` and the dropdown closes on the click.
  */
-function canReadTracks(playlist: CatalogPlaylist): boolean {
-    return playlist.permissions?.includes('read') ?? true;
+function PlaylistMenu({ playlist }: { playlist: CatalogPlaylist }) {
+    const change = useSetPlaylistHidden();
+    const hidden = playlist.hidden === true;
+    const failure = change.isError ? apiErrorMessage(change.error, hidden ? 'It could not be shown again.' : 'It could not be hidden.') : undefined;
+
+    return (
+        <Menu position="bottom-end" withinPortal>
+            <Menu.Target>
+                <Tooltip label={failure} disabled={!failure} color="red" multiline maw={320}>
+                    <ActionIcon
+                        variant="subtle"
+                        color={failure ? 'red' : 'gray'}
+                        loading={change.isPending}
+                        aria-label={`More about ${playlist.name}`}
+                    >
+                        <IconDots size={16} />
+                    </ActionIcon>
+                </Tooltip>
+            </Menu.Target>
+            <Menu.Dropdown>
+                <Menu.Item onClick={() => change.mutate({ pluginId: playlist.pluginId, playlistId: playlist.id, hidden: !hidden })}>
+                    {hidden ? 'Show again' : 'Hide'}
+                </Menu.Item>
+                <Menu.Label maw={260} style={{ whiteSpace: 'normal' }}>
+                    {hidden
+                        ? 'Offered in the pickers again, and read by the library sync.'
+                        : 'Left out of every picker and the library sync. Nothing is deleted.'}
+                </Menu.Label>
+            </Menu.Dropdown>
+        </Menu>
+    );
 }
 
 /** One importable playlist: what it is, which plugin offers it, and a way in. */
@@ -26,14 +58,17 @@ export function PlaylistCard({ playlist }: PlaylistCardProps) {
     return (
         <Card padding="lg">
             <Stack gap="sm" h="100%">
-                <Stack gap="xxxs">
-                    <Text fw={600} size="lg" lh={1.2}>
-                        {playlist.name}
-                    </Text>
-                    <Badge size="sm" variant="light" color="gray" tt="none">
-                        {playlist.pluginName}
-                    </Badge>
-                </Stack>
+                <Group justify="space-between" align="flex-start" wrap="nowrap" gap="xs">
+                    <Stack gap="xxxs" style={{ minWidth: 0 }}>
+                        <Text fw={600} size="lg" lh={1.2}>
+                            {playlist.name}
+                        </Text>
+                        <Badge size="sm" variant="light" color="gray" tt="none">
+                            {playlist.pluginName}
+                        </Badge>
+                    </Stack>
+                    <PlaylistMenu playlist={playlist} />
+                </Group>
 
                 <Text size="sm" c="dimmed" lineClamp={2}>
                     {playlist.description ?? 'No description.'}

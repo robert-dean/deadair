@@ -98,6 +98,43 @@ describe('PlaylistsPage', () => {
         expect(await screen.findByRole('button', { name: 'Show 2 made by Spotify and Tidal' })).toBeInTheDocument();
     });
 
+    it('folds what the operator hid into its own group, last', async () => {
+        listImportablePlaylists.mockResolvedValue(
+            catalogPlaylistPage({
+                playlists: [catalogPlaylist(), catalogPlaylist({ id: 'gone', name: "A friend's mix", hidden: true })],
+            }),
+        );
+        const user = setupUser();
+
+        render(<PlaylistsPage />);
+
+        expect(await screen.findByText('Friday Night')).toBeInTheDocument();
+        expect(screen.getByText('1 available')).toBeInTheDocument();
+        expect(screen.queryByText("A friend's mix")).not.toBeInTheDocument();
+
+        await user.click(screen.getByRole('button', { name: 'Show 1 hidden' }));
+
+        expect(screen.getByText("A friend's mix")).toBeInTheDocument();
+    });
+
+    // The hidden group is where an operator goes to take a decision back, so a hidden Daily Mix is
+    // there and not also among Spotify's own.
+    it('counts a hidden playlist the provider made as hidden, not as made by the provider', async () => {
+        listImportablePlaylists.mockResolvedValue(
+            catalogPlaylistPage({
+                playlists: [
+                    catalogPlaylist({ id: 'discover', name: 'Discover Weekly', madeByProvider: true }),
+                    catalogPlaylist({ id: 'mix', name: 'Daily Mix 1', madeByProvider: true, hidden: true }),
+                ],
+            }),
+        );
+
+        render(<PlaylistsPage />);
+
+        expect(await screen.findByRole('button', { name: 'Show 1 made by Spotify' })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Show 1 hidden' })).toBeInTheDocument();
+    });
+
     it('says so when no plugin has anything to offer', async () => {
         listImportablePlaylists.mockResolvedValue(catalogPlaylistPage({ playlists: [] }));
 

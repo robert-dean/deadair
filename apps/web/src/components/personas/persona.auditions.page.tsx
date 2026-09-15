@@ -9,6 +9,7 @@ import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
 import { PageSkeleton } from '../shared/page.skeleton';
 import { splitSource, sourceValue } from '../programme/programme.fields';
+import { offerablePlaylists } from '../playlists/playlist.offerable';
 import { PersonaAuditionCard } from './persona.audition.card';
 
 /** What an operator gets if they press Start without thinking about it: an hour of radio, roughly. */
@@ -79,7 +80,7 @@ export function PersonaAuditionsPage({ persona }: { persona?: string }) {
                     <Select
                         label="Playlist"
                         description="Read once, when you press Start."
-                        data={(playlists.data?.playlists ?? []).map(one => ({
+                        data={offerablePlaylists(playlists.data?.playlists ?? [], playlist).map(one => ({
                             value: sourceValue(one.pluginId, one.id),
                             label: `${one.name} — ${one.pluginName}`,
                         }))}

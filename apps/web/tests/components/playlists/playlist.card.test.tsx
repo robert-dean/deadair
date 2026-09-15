@@ -1,9 +1,27 @@
 import type { ReactNode } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { SdkError, type CatalogPlaylistPage } from '@deadair/sdk';
 
+import { queryKeys } from '../../../src/api/query.keys';
 import { PlaylistCard } from '../../../src/components/playlists/playlist.card';
-import { catalogPlaylist } from '../../utils/playlist.fixture';
-import { render, screen } from '../../utils/render';
+import { catalogPlaylist, catalogPlaylistPage } from '../../utils/playlist.fixture';
+import { createTestQueryClient, render, screen, setupUser, waitFor } from '../../utils/render';
+
+const hidePlaylist = vi.fn();
+const showPlaylist = vi.fn();
+
+vi.mock('../../../src/api/client', () => ({
+    sdk: {
+        playlists: {
+            hidePlaylist: (...args: unknown[]) => hidePlaylist(...args),
+            showPlaylist: (...args: unknown[]) => showPlaylist(...args),
+        },
+    },
+}));
+
+afterEach(() => {
+    vi.resetAllMocks();
+});
 
 vi.mock('@tanstack/react-router', () => ({
     Link: ({ children, to, params, ...rest }: { children?: ReactNode; to?: string; params?: Record<string, string> }) => (
@@ -67,5 +85,73 @@ describe('PlaylistCard', () => {
         render(<PlaylistCard playlist={catalogPlaylist({ permissions: undefined })} />);
 
         expect(screen.getByRole('link', { name: 'View tracks' })).toBeInTheDocument();
+    });
+
+    describe('its menu', () => {
+        const openMenu = async (user: ReturnType<typeof setupUser>, name: string) => {
+            await user.click(screen.getByRole('button', { name: `More about ${name}` }));
+        };
+
+        it('hides the playlist and marks it hidden in the cached listing, without refetching', async () => {
+            hidePlaylist.mockResolvedValue(undefined);
+            const queryClient = createTestQueryClient();
+            const playlist = catalogPlaylist();
+            queryClient.setQueryData(queryKeys.playlists.list(), catalogPlaylistPage({ playlists: [playlist, catalogPlaylist({ id: 'other' })] }));
+            const user = setupUser();
+
+            render(<PlaylistCard playlist={playlist} />, { queryClient });
+            await openMenu(user, 'Friday Night');
+            await user.click(await screen.findByRole('menuitem', { name: 'Hide' }));
+
+            await waitFor(() => expect(hidePlaylist).toHaveBeenCalledWith('deadair.spotify', 'playlist-1'));
+            await waitFor(() => {
+                const page = queryClient.getQueryData<CatalogPlaylistPage>(queryKeys.playlists.list());
+                expect(page?.playlists.find(one => one.id === 'playlist-1')?.hidden).toBe(true);
+            });
+            // Only the one it named: the other card on the page is untouched.
+            const page = queryClient.getQueryData<CatalogPlaylistPage>(queryKeys.playlists.list());
+            expect(page?.playlists.find(one => one.id === 'other')?.hidden).toBeUndefined();
+        });
+
+        it('offers a hidden playlist back, and unmarks it once shown', async () => {
+            showPlaylist.mockResolvedValue(undefined);
+            const queryClient = createTestQueryClient();
+            const playlist = catalogPlaylist({ hidden: true });
+            queryClient.setQueryData(queryKeys.playlists.list(), catalogPlaylistPage({ playlists: [playlist] }));
+            const user = setupUser();
+
+            render(<PlaylistCard playlist={playlist} />, { queryClient });
+            await openMenu(user, 'Friday Night');
+            await user.click(await screen.findByRole('menuitem', { name: 'Show again' }));
+
+            await waitFor(() => expect(showPlaylist).toHaveBeenCalledWith('deadair.spotify', 'playlist-1'));
+            await waitFor(() => {
+                const page = queryClient.getQueryData<CatalogPlaylistPage>(queryKeys.playlists.list());
+                expect(page?.playlists[0]?.hidden).toBeUndefined();
+            });
+        });
+
+        // The refused card has no footer controls at all, and it is the first kind an operator
+        // wants gone, so the menu cannot live down there with Air.
+        it('is on a card whose source refuses its tracks', () => {
+            render(<PlaylistCard playlist={catalogPlaylist({ name: 'Discover Weekly', permissions: [] })} />);
+
+            expect(screen.getByRole('button', { name: 'More about Discover Weekly' })).toBeInTheDocument();
+        });
+
+        it('says so on the trigger when the station refuses', async () => {
+            hidePlaylist.mockRejectedValue(
+                new SdkError(403, 'Forbidden', { statusCode: 403, message: 'Only an admin can hide a playlist.' }, new Headers()),
+            );
+            const user = setupUser();
+
+            render(<PlaylistCard playlist={catalogPlaylist()} />);
+            await openMenu(user, 'Friday Night');
+            await user.click(await screen.findByRole('menuitem', { name: 'Hide' }));
+
+            await waitFor(() => expect(hidePlaylist).toHaveBeenCalled());
+            await user.hover(screen.getByRole('button', { name: 'More about Friday Night' }));
+            expect(await screen.findByText('Only an admin can hide a playlist.')).toBeInTheDocument();
+        });
     });
 });

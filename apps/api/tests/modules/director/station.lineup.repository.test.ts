@@ -67,6 +67,13 @@ const items = (): StationLineupItem[] => [
             year: 1984,
         },
     },
+    {
+        id: 'item-mixed-in',
+        kind: 'track',
+        state: 'planned',
+        track: { pluginId: 'spotify', externalId: 'ext-2', title: 'A Neighbour', artist: 'Somebody Similar', artists: ['Somebody Similar'] },
+        mixedIn: true,
+    },
     { id: 'item-break', kind: 'segment', state: 'planned', segmentId: 'seg-break' },
     { id: 'item-news', kind: 'segment', state: 'handed', segmentId: 'seg-news', segmentKind: 'news' },
     { id: 'item-episode', kind: 'segment', state: 'planned', segmentId: 'seg-episode', segmentKind: 'syndicated', durationMs: 3_723_000 },
@@ -145,6 +152,34 @@ describe('StationLineupRepository round trip', () => {
         expect(byId.get('item-break')).not.toHaveProperty('segmentKind');
         expect(byId.get('item-break')).not.toHaveProperty('groupId');
         expect(byId.get('item-break')).not.toHaveProperty('durationMs');
+        // And a record the station mixed in stays badged, while one the playlist named carries nothing.
+        expect(byId.get('item-mixed-in')).toMatchObject({ mixedIn: true });
+        expect(byId.get('item-track')).not.toHaveProperty('mixedIn');
+    });
+
+    it('reads a mixed-in flag that is not literally true as absent', async () => {
+        const row = {
+            ...rowFrom(
+                await (async () => {
+                    const saved: Captured = {};
+                    await new StationLineupRepository(fakeDb([], saved)).save(lineup().toSnapshot());
+                    return saved;
+                })(),
+            ),
+            items: [
+                {
+                    id: 'x',
+                    kind: 'track',
+                    state: 'planned',
+                    track: { pluginId: 'p', externalId: 'e', title: 't', artist: 'a', artists: ['a'] },
+                    mixedIn: 'yes',
+                },
+            ],
+        };
+
+        const loaded = await new StationLineupRepository(fakeDb([row], {})).load();
+
+        expect(loaded?.toSnapshot().items[0]).not.toHaveProperty('mixedIn');
     });
 
     it('drops a segment kind or group that is not a string rather than airing it', async () => {

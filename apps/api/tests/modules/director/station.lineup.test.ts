@@ -689,6 +689,120 @@ describe('StationLineup putting a track back at a position', () => {
     });
 });
 
+// A playlist mixing in its neighbours. Each record names the line it was chosen to sound like, and
+// the rule that shapes everything below is that a break's words are checked against the records
+// either side of it: an insert may only ever go between two records with nothing between them.
+describe('StationLineup interleaving', () => {
+    const anchorOf = (lineup: StationLineup, externalId: string): string =>
+        lineup.all().find(item => item.kind === 'track' && item.track.externalId === externalId)!.id;
+
+    it('puts a record in just after the one it was chosen to sound like, and says so on the item', () => {
+        const lineup = lineupWith(['a', 'b', 'c']);
+
+        const landed = lineup.interleave([{ afterItemId: anchorOf(lineup, 'a'), track: track('x') }]);
+
+        expect(idsOf(lineup.all())).toEqual(['a', 'x', 'b', 'c']);
+        expect(landed).toHaveLength(1);
+        expect(lineup.all()[1]).toMatchObject({ kind: 'track', state: 'planned', mixedIn: true });
+        // The playlist's own records carry nothing.
+        expect(lineup.all()[0]).not.toHaveProperty('mixedIn');
+    });
+
+    it('lands several at once, each after its own anchor, however the earlier ones moved the rest', () => {
+        const lineup = lineupWith(['a', 'b', 'c', 'd']);
+
+        lineup.interleave([
+            { afterItemId: anchorOf(lineup, 'a'), track: track('x') },
+            { afterItemId: anchorOf(lineup, 'c'), track: track('y') },
+        ]);
+
+        expect(idsOf(lineup.all())).toEqual(['a', 'x', 'b', 'c', 'y', 'd']);
+    });
+
+    it('can land at the very end of the order', () => {
+        const lineup = lineupWith(['a', 'b']);
+
+        lineup.interleave([{ afterItemId: anchorOf(lineup, 'b'), track: track('x') }]);
+
+        expect(idsOf(lineup.all())).toEqual(['a', 'b', 'x']);
+    });
+
+    it("steps past a break after the anchor rather than moving the break's words", () => {
+        // "That was A" and "coming up, B" are both checked against the records either side of the
+        // break. Putting X in on either side of it would falsify one of them.
+        const lineup = lineupWith(['a', 'b', 'c']);
+        lineup.insertSegment('talk', 1);
+
+        lineup.interleave([{ afterItemId: anchorOf(lineup, 'a'), track: track('x') }]);
+
+        expect(idsOf(lineup.all())).toEqual(['a', 'segment:talk', 'b', 'x', 'c']);
+    });
+
+    it('treats a break already cut from the order as no break at all', () => {
+        const lineup = lineupWith(['a', 'b']);
+        lineup.insertSegment('talk', 1);
+        lineup.remove(lineup.all()[1]!.id);
+
+        lineup.interleave([{ afterItemId: anchorOf(lineup, 'a'), track: track('x') }]);
+
+        expect(idsOf(lineup.all())).toEqual(['a', 'x', 'segment:talk', 'b']);
+    });
+
+    it('drops a record with no quiet gap within reach of its anchor rather than drifting far from it', () => {
+        const lineup = lineupWith(['a', 'b', 'c', 'd']);
+        lineup.insertSegment('one', 1);
+        lineup.insertSegment('two', 3);
+        lineup.insertSegment('three', 5);
+
+        const landed = lineup.interleave([{ afterItemId: anchorOf(lineup, 'a'), track: track('x') }]);
+
+        expect(landed).toEqual([]);
+        expect(idsOf(lineup.all())).toEqual(['a', 'segment:one', 'b', 'segment:two', 'c', 'segment:three', 'd']);
+    });
+
+    it('never puts two mixed-in records back to back', () => {
+        const lineup = lineupWith(['a', 'b', 'c']);
+        const a = anchorOf(lineup, 'a');
+
+        lineup.interleave([
+            { afterItemId: a, track: track('x') },
+            { afterItemId: a, track: track('y') },
+        ]);
+
+        expect(idsOf(lineup.all())).toEqual(['a', 'x', 'b', 'y', 'c']);
+    });
+
+    it('drops a record whose anchor the order no longer holds', () => {
+        const lineup = lineupWith(['a', 'b']);
+
+        expect(lineup.interleave([{ afterItemId: 'gone', track: track('x') }])).toEqual([]);
+        expect(idsOf(lineup.all())).toEqual(['a', 'b']);
+    });
+
+    it('drops a record whose anchor is already with the player', () => {
+        // It was chosen to follow that line, and the player has the line: following whatever comes
+        // after it instead is not what was asked for.
+        const lineup = lineupWith(['a', 'b', 'c']);
+        const a = anchorOf(lineup, 'a');
+        hand(lineup, 1);
+
+        expect(lineup.interleave([{ afterItemId: a, track: track('x') }])).toEqual([]);
+        expect(idsOf(lineup.all())).toEqual(['a', 'b', 'c']);
+    });
+
+    it('never lands a record ahead of something the player already holds', () => {
+        // A retraction can leave a planned record in front of a handed one. The gap after it is
+        // inside the head, which no edit may touch.
+        const lineup = lineupWith(['a', 'b', 'c']);
+        const a = anchorOf(lineup, 'a');
+        lineup.markHanded(anchorOf(lineup, 'b'));
+
+        lineup.interleave([{ afterItemId: a, track: track('x') }]);
+
+        expect(idsOf(lineup.all())).toEqual(['a', 'b', 'x', 'c']);
+    });
+});
+
 describe('StationLineup at the end of the order', () => {
     it('offers everything again when it is told to repeat', () => {
         // What `on_end: 'repeat'` is now: a state put back rather than an index moved

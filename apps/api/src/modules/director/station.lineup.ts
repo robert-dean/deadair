@@ -109,7 +109,41 @@ interface StationLineupLine {
 export interface StationLineupTrackItem extends StationLineupLine {
     kind: 'track';
     track: RundownTrack;
+    /**
+     * The station chose this record to sound like the playlist around it, rather than the playlist
+     * naming it. See {@link StationLineup.interleave}.
+     *
+     * Safe to keep on the item by the rule {@link StationLineupSegmentItem.segmentKind} states: it is
+     * set when the item is created and never updated anywhere, so there is no later value for it to
+     * disagree with. It is on the item rather than anywhere durable because it is a fact about this
+     * running order, and a running order is consumed.
+     *
+     * Absent on everything else, which is every record there was before this existed.
+     */
+    mixedIn?: boolean;
 }
+
+/**
+ * A record to go into the order after a named line, rather than at a position.
+ *
+ * Named rather than numbered because it is computed by a job while the order keeps moving: a
+ * position counted when the job read the order means nothing by the time the director applies it,
+ * while the line it was chosen to sound like is still the line.
+ */
+export interface Interleaved {
+    /** The planned record this one was chosen to sound like. It lands after it, or just past it. */
+    afterItemId: string;
+    track: RundownTrack;
+}
+
+/**
+ * How many records past its anchor an interleaved record may land, looking for a quiet gap.
+ *
+ * Two, because the reason it exists is that a break sits in the gap after the anchor, and breaks are
+ * a quarter of an hour apart: the gap one record on is almost always free. Further than that and the
+ * record no longer follows what it was chosen to sound like, which is the whole of what it was for.
+ */
+const MAX_INTERLEAVE_DRIFT = 2;
 
 /**
  * Something the station says rather than plays: an ident, a stinger, a talk break.
@@ -950,6 +984,71 @@ export class StationLineup implements LiveOrder {
         const added = tracks.map(toItem);
         this.itemList.push(...added);
         return added;
+    }
+
+    /**
+     * Put records in among the planned ones, each just after the record it was chosen to sound like.
+     *
+     * What a playlist mixing in its neighbours lands through. Each insert names its ANCHOR, and an
+     * anchor the order no longer holds, or has already handed to the player, drops its insert: the
+     * record was chosen to follow that line, and following a different one is not what was asked for.
+     *
+     * **An insert only ever goes into a quiet gap**, between two planned records with nothing
+     * between them. A break's words are checked against the nearest record either side of it
+     * ({@link previousTrackBefore}, {@link nextTrackAfter}), so a record put in beside a break would
+     * make "that was X" or "coming up, Y" false and cost the break at hand-over. A gap between two
+     * adjacent records moves no claim at all. When the gap after the anchor holds a break, the
+     * insert looks up to {@link MAX_INTERLEAVE_DRIFT} records further on, and is dropped if none of
+     * those gaps is quiet either. **Never beside another interleaved record**, so two never run back
+     * to back and a listener hears the playlist between them.
+     *
+     * Applied in the order given and each position found afresh, rather than computed up front:
+     * anchors are named, so an earlier insert moving everything after it by one changes nothing
+     * about where a later one belongs.
+     *
+     * @returns the items that landed, which may be fewer than were asked for.
+     */
+    interleave(inserts: readonly Interleaved[]): StationLineupItem[] {
+        const landed: StationLineupItem[] = [];
+
+        for (const insert of inserts) {
+            const at = this.itemList.findIndex(item => item.id === insert.afterItemId);
+            const anchor = this.itemList[at];
+            if (anchor?.kind !== 'track' || anchor.state !== 'planned') continue;
+
+            const gap = this.quietGapFrom(at);
+            if (gap === undefined) continue;
+
+            const item: StationLineupTrackItem = { id: randomUUID(), kind: 'track', state: 'planned', track: insert.track, mixedIn: true };
+            this.itemList.splice(gap, 0, item);
+            landed.push(item);
+        }
+        return landed;
+    }
+
+    /**
+     * Where a record can go in at or just after the record at `from` without moving a break's words.
+     *
+     * `undefined` when there is nowhere within {@link MAX_INTERLEAVE_DRIFT} records.
+     */
+    private quietGapFrom(from: number): number | undefined {
+        const committed = this.committedThrough();
+        let passed = 0;
+
+        for (let index = from; index < this.itemList.length && passed <= MAX_INTERLEAVE_DRIFT; index++) {
+            const item = this.itemList[index]!;
+            if (item.kind !== 'track') continue;
+            passed += 1;
+            // The gap after the head's last record is fair game, as it is for any insert: what may
+            // not happen is a record going in AHEAD of something the player already holds.
+            if (item.mixedIn || index + 1 < committed) continue;
+
+            // The next line that will actually be heard. A segment already cut from the order says
+            // nothing and claims nothing, so it does not make a gap noisy.
+            const next = this.itemList.slice(index + 1).find(line => line.state !== 'removed');
+            if (next === undefined || (next.kind === 'track' && next.state === 'planned' && !next.mixedIn)) return index + 1;
+        }
+        return undefined;
     }
 
     /**

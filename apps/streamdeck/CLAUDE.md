@@ -27,6 +27,22 @@ two disagree, so edit the package's version and never the manifest's. A release 
 release workflow, run by hand; the Marketplace is the same `.streamDeckPlugin` uploaded in Elgato's
 Maker Console, which has no API.
 
+**The Marketplace listing is in `marketplace/`**: the text typed into the Maker Console
+(`listing.md`) and the thumbnail and three gallery images it takes, 1920 × 960. The pictures are drawn
+by `tools/marketplace.media.mjs` from the plugin's own `nowPlayingSvg`, so the listing shows what a
+key actually draws, and rasterised by macOS's `sips`; run it by hand when a key changes and commit
+what it writes, as the desktop commits its generated icons. The covers in them are abstract shapes
+and the records made up, because a listing is no place for somebody else's album art. Two things it
+cost a render each to learn: that renderer ignores SVG 2's `paint-order`, so an outlined title came
+out black and the titles are white over a shadow copy instead; and Node runs the renderer's `.ts`
+straight through its type stripping, which works only because `key.image.ts` imports types alone.
+
+Elgato's guidelines, checked on 2026-09-15: the plugin UUID in `{domain}.{product}` form and every
+action's under it, never changed after publishing; the plugin icon a 256 and 512 PNG; category and
+action icons white and monochrome on transparent (SVG preferred); key images that change with state,
+at most ten updates a second; settings that save on change with validation feedback and no Save
+button. The product's name cannot be changed in the Maker Console once submitted.
+
 ## The bundle
 
 **One ES module at `radio.deadair.streamdeck.sdPlugin/bin/plugin.js`, with `bin/package.json` saying

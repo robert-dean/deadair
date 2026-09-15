@@ -11,6 +11,7 @@ import {
     EraFields,
     EraNote,
     HostField,
+    MixInSimilarField,
     ShapeFields,
     ShapeNote,
     SourceField,
@@ -98,6 +99,8 @@ export function SlotEditor({ target, onClose, onSubmit, onDelete, saving, deleti
             // Sent only when it is ON, so an unticked box leaves the station's own setting standing
             // rather than saying this slot takes no calls. The same three-way `putOnAir` has.
             ...(values.callins ? { callins: true } : {}),
+            // The same three-way, and only beside a playlist: nothing else is ever mixed into.
+            ...(values.mixInSimilar && source?.kind === 'playlist' ? { mixInSimilar: true } : {}),
             mode: values.mode,
             onEnd: values.onEnd,
         });
@@ -179,6 +182,10 @@ export function SlotEditor({ target, onClose, onSubmit, onDelete, saving, deleti
                     <ShapeNote what="block" />
 
                     <CallinsField {...form.getInputProps('callins', { type: 'checkbox' })} />
+
+                    {splitSource(form.values.source)?.kind === 'playlist' ? (
+                        <MixInSimilarField {...form.getInputProps('mixInSimilar', { type: 'checkbox' })} />
+                    ) : undefined}
 
                     <Text size="xs" c="dimmed">
                         Saving changes nothing that is on air now. The station moves when this slot next begins.
@@ -267,6 +274,8 @@ interface FormValues {
     eraTo: number | string;
     /** Ticked sends `true`; unticked sends nothing, which is not the same as `false`. See `CallinsField`. */
     callins: boolean;
+    /** The same three-way as `callins`, and drawn only for a playlist. */
+    mixInSimilar: boolean;
     mode: ScheduleSlot['mode'];
     onEnd: ScheduleSlot['onEnd'];
 }
@@ -296,6 +305,7 @@ function valuesOf(target?: EditorTarget): FormValues {
         eraFrom: slot?.eraFrom ?? '',
         eraTo: slot?.eraTo ?? '',
         callins: slot?.callins ?? false,
+        mixInSimilar: slot?.mixInSimilar ?? false,
         mode: slot?.mode ?? 'rotation',
         onEnd: slot?.onEnd ?? 'extend',
     };

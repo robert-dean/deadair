@@ -403,6 +403,7 @@ function draftOf(body: ScheduleSlotInput): ScheduleSlotDraft {
         // `=== undefined` rather than a falsy test: `false` is a real answer meaning this slot takes
         // no calls, which is not the same as never having been asked.
         ...(body.callins === undefined ? {} : { callins: body.callins }),
+        ...(body.mixInSimilar === undefined ? {} : { mixInSimilar: body.mixInSimilar }),
         mode: body.mode,
         onEnd: body.onEnd,
     };
@@ -426,6 +427,7 @@ function forTheWire(slot: ScheduleSlot): ScheduleSlotList['slots'][number] {
         ...(slot.era?.from === undefined ? {} : { eraFrom: slot.era.from }),
         ...(slot.era?.to === undefined ? {} : { eraTo: slot.era.to }),
         ...(slot.callins === undefined ? {} : { callins: slot.callins }),
+        ...(slot.mixInSimilar === undefined ? {} : { mixInSimilar: slot.mixInSimilar }),
         mode: slot.mode,
         onEnd: slot.onEnd,
     };

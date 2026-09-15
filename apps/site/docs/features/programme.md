@@ -11,7 +11,7 @@ The programme answers two questions: what the station plays across the day, and 
 
 ## The timetable
 
-A block is a named stretch of time on chosen days: breakfast, weekdays, six until ten. It says what to play (a playlist, a chart, or nothing, leaving the station to fill it), who hosts it, a brief in your own words, an optional period, a mode, and what happens when it runs out. Two blocks may not overlap.
+A block is a named stretch of time on chosen days: breakfast, weekdays, six until ten. It says what to play (a playlist, a chart, or nothing, leaving the station to fill it), who hosts it, a brief in your own words, an optional period, a mode, and what happens when it runs out. A block playing a playlist can also mix similar records in among it, the way **Air with similar records mixed in** does from the library. Two blocks may not overlap.
 
 A schedule need not cover the day. The hours no block claims play the sustaining source: a playlist or a chart, or a brief and a period, with no times attached.
 

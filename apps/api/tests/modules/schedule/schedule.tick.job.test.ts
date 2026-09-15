@@ -187,6 +187,24 @@ describe('ScheduleTickJob', () => {
         expect(vi.mocked(console.putOnAir).mock.calls[0]?.[0]).not.toHaveProperty('eraTo');
     });
 
+    it('carries a slot’s wish to mix similar records in, including a slot declining the station default', async () => {
+        const mixing = build({ inForce: slot('mixing', { mixInSimilar: true }) });
+        await mixing.tick();
+        expect(mixing.console.putOnAir).toHaveBeenCalledWith(expect.objectContaining({ mixInSimilar: true }), expect.anything());
+
+        const declining = build({ inForce: slot('declining', { mixInSimilar: false }) });
+        await declining.tick();
+        expect(declining.console.putOnAir).toHaveBeenCalledWith(expect.objectContaining({ mixInSimilar: false }), expect.anything());
+    });
+
+    it('says nothing about mixing when a slot does not, so the station setting stands', async () => {
+        const { tick, console } = build({ inForce: slot('morning') });
+
+        await tick();
+
+        expect(vi.mocked(console.putOnAir).mock.calls[0]?.[0]).not.toHaveProperty('mixInSimilar');
+    });
+
     it('carries the sustaining period through a gap too', async () => {
         const { tick, console } = build({ inForce: undefined, airing: 'breakfast', sustaining: { era: { from: 1990 } } });
 

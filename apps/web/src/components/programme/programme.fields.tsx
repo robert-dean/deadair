@@ -190,7 +190,10 @@ export function BriefField({ description, ...input }: GetInputPropsReturnType & 
     return (
         <Textarea
             label="Asked to play"
-            description={description ?? 'In your own words, for the model that chooses records. Leave it empty and the station plays its ordinary rotation. The host only presents.'}
+            description={
+                description ??
+                'In your own words, for the model that chooses records. Leave it empty and the station plays its ordinary rotation. The host only presents.'
+            }
             autosize
             minRows={2}
             maxLength={BRIEF_MAX}
@@ -313,6 +316,23 @@ export function CallinsField(input: GetInputPropsReturnType) {
         <Checkbox
             label="Take calls during this broadcast"
             description="A phone-in is written and spoken a turn at a time, so it lands minutes after it is asked for. A setlist or a feature takes none whatever this says."
+            {...input}
+        />
+    );
+}
+
+/**
+ * Whether records that sound like the playlist's own are mixed in among them.
+ *
+ * {@link CallinsField}'s three-way, for its reason: ticked sends `true` and unticked sends nothing,
+ * so `rotation.mixInSimilar` stands for a slot nobody ticked. Only worth drawing beside a playlist,
+ * since nothing else is ever mixed into.
+ */
+export function MixInSimilarField(input: GetInputPropsReturnType) {
+    return (
+        <Checkbox
+            label="Mix in similar records"
+            description="Every few records, one by an artist who sounds like the one just played, found through a similarity plugin. The playlist still plays in full around them. A setlist or a feature never has anything mixed in."
             {...input}
         />
     );

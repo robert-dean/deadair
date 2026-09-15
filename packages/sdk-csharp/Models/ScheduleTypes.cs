@@ -77,6 +77,11 @@ public sealed record ScheduleSlot
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? Callins { get; init; }
 
+    /// <summary>Whether records that sound like this slot's playlist are mixed in among its records, one every `rotation.mixInEvery` records. Absent leaves the station's own setting standing, exactly as it does when an operator airs a playlist by hand; a slot with no playlist, or a `setlist` or a `feature`, never mixes whatever this says</summary>
+    [JsonPropertyName("mixInSimilar")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? MixInSimilar { get; init; }
+
     [JsonPropertyName("mode")]
     public required ScheduleSlotMode Mode { get; init; }
 
@@ -147,6 +152,11 @@ public sealed record ScheduleSlotInput
     [JsonPropertyName("callins")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? Callins { get; init; }
+
+    /// <summary>Whether records that sound like this slot's playlist are mixed in among its records, one every `rotation.mixInEvery` records. Absent leaves the station's own setting standing, exactly as it does when an operator airs a playlist by hand; a slot with no playlist, or a `setlist` or a `feature`, never mixes whatever this says</summary>
+    [JsonPropertyName("mixInSimilar")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? MixInSimilar { get; init; }
 
     [JsonPropertyName("mode")]
     public required ScheduleSlotMode Mode { get; init; }

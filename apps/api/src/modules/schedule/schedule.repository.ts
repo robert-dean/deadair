@@ -107,6 +107,7 @@ function columnsOf(draft: ScheduleSlotDraft) {
         eraFrom: draft.era?.from ?? null,
         eraTo: draft.era?.to ?? null,
         callins: draft.callins ?? null,
+        mixInSimilar: draft.mixInSimilar ?? null,
         mode: draft.mode,
         onEnd: draft.onEnd,
     };
@@ -135,6 +136,7 @@ function toSlot(row: {
     eraFrom: number | null;
     eraTo: number | null;
     callins: boolean | null;
+    mixInSimilar: boolean | null;
     mode: 'rotation' | 'setlist' | 'feature';
     onEnd: 'extend' | 'repeat' | 'stop';
 }): ScheduleSlot {
@@ -166,6 +168,8 @@ function toSlot(row: {
         // `== null` rather than a falsy test, because `false` is a real answer here and means the
         // opposite of absent: this slot takes no calls, on a station that otherwise would.
         ...(row.callins == null ? {} : { callins: row.callins }),
+        // The same `== null`, for the same reason: `false` is a slot declining a station default.
+        ...(row.mixInSimilar == null ? {} : { mixInSimilar: row.mixInSimilar }),
         mode: row.mode,
         onEnd: row.onEnd,
     };

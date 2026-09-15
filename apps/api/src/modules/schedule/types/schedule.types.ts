@@ -60,6 +60,12 @@ export const ScheduleSlot = z.strictObject({
         .describe(
             "Whether somebody phones in during this stretch of the day. Absent leaves the station's own setting standing, exactly as it does when an operator briefs a broadcast by hand; a `setlist` or a `feature` takes no calls whatever this says",
         ),
+    mixInSimilar: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .optional()
+        .describe(
+            "Whether records that sound like this slot's playlist are mixed in among its records, one every `rotation.mixInEvery` records. Absent leaves the station's own setting standing, exactly as it does when an operator airs a playlist by hand; a slot with no playlist, or a `setlist` or a `feature`, never mixes whatever this says",
+        ),
     mode: z.enum(['rotation', 'setlist', 'feature']),
     onEnd: z.enum(['extend', 'repeat', 'stop']),
 });
@@ -120,6 +126,12 @@ export const ScheduleSlotInput = z.strictObject({
         .describe(
             "Whether somebody phones in during this stretch of the day. Absent leaves the station's own setting standing, exactly as it does when an operator briefs a broadcast by hand; a `setlist` or a `feature` takes no calls whatever this says",
         ),
+    mixInSimilar: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .optional()
+        .describe(
+            "Whether records that sound like this slot's playlist are mixed in among its records, one every `rotation.mixInEvery` records. Absent leaves the station's own setting standing, exactly as it does when an operator airs a playlist by hand; a slot with no playlist, or a `setlist` or a `feature`, never mixes whatever this says",
+        ),
     mode: z.enum(['rotation', 'setlist', 'feature']),
     onEnd: z.enum(['extend', 'repeat', 'stop']),
 });
@@ -127,7 +139,7 @@ export type ScheduleSlotInput = z.infer<typeof ScheduleSlotInput>;
 
 /**
  * A window of the station's day to draw
- * generated from [ScheduleTimetableQuery](../../../../data/contracts/schedule/schedule.types.ck#L32)
+ * generated from [ScheduleTimetableQuery](../../../../data/contracts/schedule/schedule.types.ck#L33)
  */
 export const ScheduleTimetableQuery = z.strictObject({
     from: z
@@ -147,7 +159,7 @@ export type ScheduleTimetableQuery = z.infer<typeof ScheduleTimetableQuery>;
 
 /**
  * One block: this slot, on this day, between these two times
- * generated from [ScheduleOccurrence](../../../../data/contracts/schedule/schedule.types.ck#L45)
+ * generated from [ScheduleOccurrence](../../../../data/contracts/schedule/schedule.types.ck#L46)
  */
 export const ScheduleOccurrence = z.strictObject({
     slotId: z.string().min(1).max(100),
@@ -164,7 +176,7 @@ export const ScheduleOccurrence = z.strictObject({
 export type ScheduleOccurrence = z.infer<typeof ScheduleOccurrence>;
 
 /**
- * generated from [ScheduleSlotList](../../../../data/contracts/schedule/schedule.types.ck#L27)
+ * generated from [ScheduleSlotList](../../../../data/contracts/schedule/schedule.types.ck#L28)
  */
 export const ScheduleSlotList = z.strictObject({
     slots: z.array(ScheduleSlot),
@@ -178,7 +190,7 @@ export type ScheduleSlotListInput = z.infer<typeof ScheduleSlotListInput>;
 
 /**
  * The station's day as blocks, ready to draw
- * generated from [ScheduleTimetable](../../../../data/contracts/schedule/schedule.types.ck#L38)
+ * generated from [ScheduleTimetable](../../../../data/contracts/schedule/schedule.types.ck#L39)
  */
 export const ScheduleTimetable = z.strictObject({
     from: z
@@ -195,7 +207,7 @@ export type ScheduleTimetable = z.infer<typeof ScheduleTimetable>;
 
 /**
  * Which slot the clock says should be on right now, and what follows it
- * generated from [ScheduleNow](../../../../data/contracts/schedule/schedule.types.ck#L53)
+ * generated from [ScheduleNow](../../../../data/contracts/schedule/schedule.types.ck#L54)
  */
 export const ScheduleNow = z.strictObject({
     now: z

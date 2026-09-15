@@ -214,6 +214,8 @@ export class ScheduleTickJob extends PlainJob {
                     // `putOnAir` gives an operator briefing by hand. Passing `false` for an unset
                     // slot would have every scheduled show overrule a station that takes calls.
                     ...(slot.callins === undefined ? {} : { callins: slot.callins }),
+                    // The same three-way, for the same reason: absent is the station's setting.
+                    ...(slot.mixInSimilar === undefined ? {} : { mixInSimilar: slot.mixInSimilar }),
                     mode: slot.mode,
                     onEnd: slot.onEnd,
                 },

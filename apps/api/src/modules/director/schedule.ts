@@ -121,6 +121,14 @@ export interface ScheduleSlot {
      * modes resolve from.
      */
     callins?: boolean;
+    /**
+     * Whether records that sound like this slot's playlist are mixed in among them.
+     *
+     * The same three-way as {@link callins}, and for its reason: absent leaves the station's own
+     * `rotation.mixInSimilar` standing. A slot with no playlist, or a `setlist` or a `feature`,
+     * never mixes whatever this says.
+     */
+    mixInSimilar?: boolean;
     mode: StationLineupMode;
     onEnd: StationLineupOnEnd;
 }

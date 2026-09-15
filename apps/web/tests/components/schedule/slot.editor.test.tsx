@@ -201,6 +201,30 @@ describe('SlotEditor', () => {
         expect(draft.sourcePlaylistId).toBe(offered.id);
     });
 
+    it('offers mixing similar records in only beside a playlist, and sends it only when ticked', async () => {
+        // The same three-way as call-ins: an untouched box leaves `rotation.mixInSimilar` standing.
+        const offered = { pluginId: 'deadair.spotify', id: 'pl_1', name: 'Evergreen Rock', pluginName: 'Spotify' };
+        listImportablePlaylists.mockResolvedValue({ playlists: [offered], errors: [] });
+        listPersonas.mockResolvedValue(PERSONAS);
+        const onSubmit = vi.fn();
+        const user = setupUser();
+
+        render(<SlotEditor target={{ kind: 'new' }} onClose={noop} onSubmit={onSubmit} onDelete={noop} saving={false} deleting={false} />);
+        await screen.findByRole('combobox', { name: 'Playing from' });
+        // A slot the station fills itself has nothing to mix into, so there is nothing to offer.
+        expect(screen.queryByRole('checkbox', { name: /Mix in similar records/ })).toBeNull();
+
+        await user.type(screen.getByRole('textbox', { name: 'Name' }), 'Breakfast');
+        await user.click(screen.getByRole('combobox', { name: 'Playing from' }));
+        await user.click(await screen.findByRole('option', { name: `${offered.name} — ${offered.pluginName}` }));
+        await user.click(screen.getByRole('button', { name: 'Save' }));
+        expect(onSubmit.mock.calls[0]?.[0]).not.toHaveProperty('mixInSimilar');
+
+        await user.click(screen.getByRole('checkbox', { name: /Mix in similar records/ }));
+        await user.click(screen.getByRole('button', { name: 'Save' }));
+        expect(onSubmit.mock.calls[1]?.[0].mixInSimilar).toBe(true);
+    });
+
     it('opens a slot that plays a chart on its chart, and on the way round it plays it', async () => {
         listImportablePlaylists.mockResolvedValue(PLAYLISTS);
         listPersonas.mockResolvedValue(PERSONAS);

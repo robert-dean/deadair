@@ -604,6 +604,7 @@ export interface DeadairScheduleSlots {
   eraTo: number | null;
   id: Generated<string>;
   label: Generated<string>;
+  mixInSimilar: boolean | null;
   mode: Generated<"rotation" | "setlist" | "feature">;
   onEnd: Generated<"extend" | "repeat" | "stop">;
   personaId: string | null;

@@ -214,7 +214,8 @@ and sending each tick. The embedded cover, the bar and the shade render in macOS
 On a Stream Deck: Robert ran it linked, in developer mode, on a Stream Deck+ with the Stream Deck app
 7.5.1 against his own station on 2026-09-15, and it works. The Now Playing key shows the cover, which
 settles the one thing the harness could not: the app's Qt renderer draws a raster `<image>` embedded
-in the key's SVG through `xlink:href`.
+in the key's SVG through `xlink:href`. The Now Playing options work on the device too, a key with
+both turned off drawing the cover alone, once the plugin was restarted onto the build that has them.
 
 Not reported separately yet: Skip and Stop pressed on the device with a key that may act, and the
 packed `.streamDeckPlugin` installed by double-click rather than a linked folder, which is the only

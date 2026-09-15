@@ -686,6 +686,13 @@ ones it implements in `manifest.capabilities`:
     size: page internally if your upstream's own ceiling is lower, since a
     short answer is indistinguishable from a genuinely thin search.
 
+    `listPlaylists` follows the same rule from the other side: never leave a
+    playlist out of a page. The host reads a short page as the end of the list,
+    so one playlist dropped takes every playlist after it along. Report what you
+    know about each one instead (`permissions` for what the source will let the
+    account do, `madeByProvider` for a playlist the service made itself, such as
+    an editorial list or Discover Weekly) and the host decides what to show.
+
 - **`stream`** — `resolveStreamUrl`: hand back a complete URL the audio consumer
   can fetch directly, carrying its own authentication, because it is fetched
   with no headers from us. A provider that cannot answer it plays its own audio

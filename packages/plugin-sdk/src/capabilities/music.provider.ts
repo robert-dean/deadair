@@ -129,6 +129,19 @@ export interface ProviderPlaylist {
      * API changes only the owned half can be read at all.
      */
     permissions?: ProviderPlaylistPermission[];
+    /**
+     * Whether the SERVICE made this playlist itself rather than a person: an
+     * editorial list, or one generated for the account like Discover Weekly or a
+     * Daily Mix. A console folds these away so a listing full of what the
+     * service pushes at the account does not bury what the operator chose.
+     *
+     * `true` or absent, never `false`: absent means the provider did not say,
+     * and most have no such concept. It is a fact about the playlist and never a
+     * reason to leave it out of `listPlaylists`, because the host reads a short
+     * page as the end of the list and a playlist dropped from one takes every
+     * playlist after it with it. Report it and let the host decide.
+     */
+    madeByProvider?: boolean;
 }
 
 /** A playable stream, plus how long the URL stays good for. */

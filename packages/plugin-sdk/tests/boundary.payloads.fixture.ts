@@ -335,6 +335,7 @@ export const providerPlaylistFixture: ProviderPlaylist = {
     description: 'Slow songs for slow nights',
     trackCount: 12,
     artworkUrl: 'https://images.example.com/late-night.jpg',
+    madeByProvider: true,
 };
 
 export const providerStreamFixture: ProviderStream = {

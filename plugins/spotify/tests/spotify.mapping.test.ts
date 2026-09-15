@@ -232,6 +232,27 @@ describe('mapPlaylist', () => {
         expect(unknown?.permissions).toBeUndefined();
     });
 
+    it('marks a playlist Spotify made itself, whether or not the account is known', () => {
+        const discover = mapPlaylist({ id: 'pl-1', name: 'Discover Weekly', owner: { id: 'spotify' } }, 'me-1');
+        const unknownAccount = mapPlaylist({ id: 'pl-2', name: 'Daily Mix 1', owner: { id: 'spotify' } });
+
+        expect(discover?.madeByProvider).toBe(true);
+        // Ownership by Spotify is a fact about the playlist, not about this account, so it does not
+        // wait on the profile call the permissions do.
+        expect(unknownAccount?.madeByProvider).toBe(true);
+    });
+
+    it('says nothing about who made a playlist a person owns', () => {
+        const owned = mapPlaylist({ id: 'pl-1', name: 'Mine', owner: { id: 'me-1' } }, 'me-1');
+        const friends = mapPlaylist({ id: 'pl-2', name: 'Theirs', owner: { id: 'friend' } }, 'me-1');
+        const ownerless = mapPlaylist({ id: 'pl-3', name: 'Mystery' }, 'me-1');
+
+        // Absent rather than false: the SDK reads a missing key as "did not say".
+        expect(owned).not.toHaveProperty('madeByProvider');
+        expect(friends).not.toHaveProperty('madeByProvider');
+        expect(ownerless).not.toHaveProperty('madeByProvider');
+    });
+
     it('carries the popularity, which is what a browse is ordered by', () => {
         const track = mapTrack({ id: 'track-1', name: 'Respect', popularity: 82 });
 

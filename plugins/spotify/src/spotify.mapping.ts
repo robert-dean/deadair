@@ -156,6 +156,14 @@ export function mapTrack(track: SpotifyTrack | null | undefined): ProviderTrack 
     };
 }
 
+/**
+ * The account every playlist Spotify makes itself is owned by: the editorial lists, and the ones it
+ * generates for this account (Discover Weekly, the Daily Mixes, Release Radar). One comparison
+ * catches the whole kind, including whatever Spotify starts making next, with no list of names to
+ * keep up to date.
+ */
+export const SPOTIFY_EDITORIAL_OWNER_ID = 'spotify';
+
 export function mapPlaylist(playlist: SpotifyPlaylist | null | undefined, currentUserId?: string): ProviderPlaylist | undefined {
     if (!playlist?.id || !playlist.name) return undefined;
 
@@ -166,6 +174,9 @@ export function mapPlaylist(playlist: SpotifyPlaylist | null | undefined, curren
         trackCount: playlist.items?.total ?? playlist.tracks?.total,
         artworkUrl: pickArtwork(playlist.images),
         permissions: playlistPermissions(playlist, currentUserId),
+        // Only when it is true. The SDK reads absent as "did not say", and a `false` on every
+        // playlist a person made would be a claim this mapping has no better grounds for.
+        ...(playlist.owner?.id === SPOTIFY_EDITORIAL_OWNER_ID ? { madeByProvider: true } : {}),
     };
 }
 

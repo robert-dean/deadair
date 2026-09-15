@@ -1,0 +1,26 @@
+{
+    "name": "@deadair/streamdeck",
+    "version": "0.1.0",
+    "private": true,
+    "description": "The station on a Stream Deck: what is on air, Skip, and Stop or Start.",
+    "license": "MIT",
+    "type": "module",
+    "scripts": {
+        "build": "tsc --noEmit && tsup",
+        "typecheck": "tsc --noEmit -p tsconfig.tests.json",
+        "lint": "eslint --fix",
+        "format": "prettier --write . --ignore-path ../../.prettierignore",
+        "test": "vitest run",
+        "validate": "streamdeck validate radio.deadair.streamdeck.sdPlugin --no-update-check",
+        "pack": "streamdeck pack radio.deadair.streamdeck.sdPlugin --output artifacts --force --no-update-check",
+        "link": "streamdeck link radio.deadair.streamdeck.sdPlugin",
+        "restart": "streamdeck restart radio.deadair.streamdeck"
+    },
+    "devDependencies": {
+        "@deadair/sdk": "workspace:*",
+        "@elgato/cli": "^1.9.0",
+        "@elgato/streamdeck": "^2.1.2",
+        "@repo/config-eslint": "workspace:*",
+        "@repo/config-typescript": "workspace:*"
+    }
+}

@@ -2,7 +2,7 @@
 # Which parts of the tree a push or a pull request changed, as one true/false flag per part.
 #
 # Every job that is not worth running for every commit reads one of these: the tests, the sidecar,
-# the three listener apps, the codegen check, the images and which of the images a pull request builds. The rules live here rather than in the
+# the three listener apps, the Stream Deck plugin, the codegen check, the images and which of the images a pull request builds. The rules live here rather than in the
 # workflows so that there is one list, and so that it can be run by hand against real history:
 #
 #     BASE=<commit> HEAD_REF=<commit> .github/scripts/changes.sh
@@ -19,7 +19,7 @@
 
 set -euo pipefail
 
-FLAGS="tree node generated sidecar android desktop ios image variants"
+FLAGS="tree node generated sidecar android desktop ios streamdeck image variants"
 HEAD_REF="${HEAD_REF:-HEAD}"
 
 emit() {
@@ -92,8 +92,10 @@ fi
 
 # The TypeScript workspace the test suite covers, the root config that shapes it, and the release
 # scripts, whose tests the root config also runs. And the example plugin, which is outside the
-# workspace on purpose and is built and loaded by a job of its own under this same flag.
-flag node "^(apps/api/|apps/web/|plugins/|packages/|examples/|scripts/|package\.json$|pnpm-lock\.yaml$|pnpm-workspace\.yaml$|turbo\.json$|vitest\.config\.ts$)|${build_yml}" "${listener_sdks}|\.md$"
+# workspace on purpose and is built and loaded by a job of its own under this same flag. The Stream
+# Deck plugin is in it too: unlike the three listener apps it is TypeScript, and its tests run in the
+# same root suite, so a commit touching only that app has something for them to say.
+flag node "^(apps/api/|apps/web/|apps/streamdeck/|plugins/|packages/|examples/|scripts/|package\.json$|pnpm-lock\.yaml$|pnpm-workspace\.yaml$|turbo\.json$|vitest\.config\.ts$)|${build_yml}" "${listener_sdks}|\.md$"
 
 # Everything `pnpm codegen` reads or writes: the contracts, permissions and migrations under
 # `apps/api`, the four SDKs, the website's API reference and spec, and the tool versions.
@@ -103,6 +105,9 @@ flag sidecar "^analysis/|${build_yml}" '\.md$'
 flag android "^(apps/android/|packages/sdk-kotlin/)|${build_yml}"
 flag desktop "^(apps/desktop/|packages/sdk-csharp/)|${build_yml}"
 flag ios "^(apps/ios/|packages/sdk-swift/)|${build_yml}"
+# The Stream Deck plugin's own job, which validates and packs what the Stream Deck app would install.
+# Its build and tests are `node`'s above; this is only the part nothing else checks.
+flag streamdeck "^apps/streamdeck/|${build_yml}"
 
 # What the Dockerfile copies in, less what `.dockerignore` keeps out: the station's workspace, the
 # audio chain, the sidecar, the pads and the image's own config. Tests and prose change nothing in it.

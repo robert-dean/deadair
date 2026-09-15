@@ -31,6 +31,9 @@ on:
             ios:
                 description: The iOS listener or its SDK
                 value: ${{ jobs.changes.outputs.ios }}
+            streamdeck:
+                description: The Stream Deck plugin
+                value: ${{ jobs.changes.outputs.streamdeck }}
             image:
                 description: Anything the station image is built from
                 value: ${{ jobs.changes.outputs.image }}
@@ -53,6 +56,7 @@ jobs:
             android: ${{ steps.detect.outputs.android }}
             desktop: ${{ steps.detect.outputs.desktop }}
             ios: ${{ steps.detect.outputs.ios }}
+            streamdeck: ${{ steps.detect.outputs.streamdeck }}
             image: ${{ steps.detect.outputs.image }}
             variants: ${{ steps.detect.outputs.variants }}
 

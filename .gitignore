@@ -100,6 +100,12 @@ DerivedData/
 .swiftpm/
 *.xcarchive
 
+# The Stream Deck plugin's installer, which `pnpm --filter @deadair/streamdeck pack` writes and the
+# release workflow attaches to a release. Its bundle is `radio.deadair.streamdeck.sdPlugin/bin/`,
+# which the bare `bin/` above already keeps out.
+apps/streamdeck/artifacts/
+*.streamDeckPlugin
+
 # Signing keys, which live outside the repo and are ignored here anyway as a second line of
 # defence. The upload key is the one artifact this project cannot regenerate: lose it and the
 # published app can never be updated again, only replaced under a new application id.

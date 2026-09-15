@@ -34,6 +34,10 @@ on:
                 description: The iOS listener or its SDK changed
                 type: boolean
                 default: true
+            streamdeck:
+                description: The Stream Deck plugin changed
+                type: boolean
+                default: true
 
 # The build reads the repo and nothing else. Publishing is the images workflow's job,
 # with its own credentials.
@@ -607,6 +611,74 @@ jobs:
                   xcodebuild build -quiet -project Deadair.xcodeproj -scheme Deadair
                   -destination 'generic/platform=iOS Simulator' -derivedDataPath .derived
                   CODE_SIGNING_ALLOWED=NO
+
+    # The Stream Deck plugin, checked the way the Stream Deck app will see it.
+    #
+    # Its type check is the `build` job's and its tests are in the root suite, because unlike the three
+    # listener apps it is a TypeScript workspace member for real. What neither of those proves is the
+    # thing a Stream Deck actually installs: one bundled file with no `node_modules` beside it, a
+    # `package.json` making Node read it as an ES module, and a manifest Elgato's own validator accepts,
+    # every image it names included. So this builds the bundle, validates the plugin folder and packs
+    # it without writing the installer. The validator fetches the manifest's `URL` and `SupportURL`,
+    # so a dead link fails here rather than in the Marketplace's review.
+    #
+    # Ubuntu, because the Elgato CLI is Node and a zip writer and needs no Stream Deck installed.
+    streamdeck:
+        if: inputs.streamdeck
+        runs-on: ubuntu-latest
+        timeout-minutes: 15
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v7
+              with:
+                  persist-credentials: false
+
+            - name: Install pnpm
+              uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+
+            - name: Setup Node
+              uses: actions/setup-node@v7
+              with:
+                  node-version: 26
+                  cache: pnpm
+
+            - name: Install dependencies
+              run: pnpm install --frozen-lockfile
+
+            # The plugin and the station SDK it inlines, and nothing else.
+            - name: Build the bundle
+              run: pnpm exec turbo run build --filter='@deadair/streamdeck...'
+
+            # A bundle that still reaches for a package would load on a developer's machine, where
+            # `node_modules` is right there, and fail on every Stream Deck, where it is not. Node's own
+            # modules are the only imports allowed to survive bundling.
+            - name: Check the bundle stands alone
+              working-directory: apps/streamdeck/radio.deadair.streamdeck.sdPlugin/bin
+              run: |
+                  set -euo pipefail
+                  test -f plugin.js
+                  grep -qx '{ "type": "module" }' package.json || { echo "::error::bin/package.json does not make the bundle an ES module"; exit 1; }
+                  node --input-type=module -e '
+                      import { builtinModules } from "node:module";
+                      import { readFileSync } from "node:fs";
+                      const text = readFileSync("plugin.js", "utf8");
+                      // What ws reaches for inside a try and runs without.
+                      const optional = new Set(["bufferutil", "utf-8-validate"]);
+                      const named = [...text.matchAll(/(?:\bfrom\s*|\bimport\(\s*|__require\(\s*)["\x27]([^"\x27.][^"\x27]*)["\x27]/g)].map(m => m[1]);
+                      const strays = [...new Set(named)].filter(name => !builtinModules.includes(name.replace(/^node:/, "")) && !optional.has(name));
+                      if (strays.length > 0) {
+                          console.log(`::error::the bundle reaches for packages it did not inline: ${strays.join(", ")}`);
+                          process.exit(1);
+                      }
+                  '
+
+            - name: Validate the plugin
+              run: pnpm --filter @deadair/streamdeck validate
+
+            - name: Pack it without writing the installer
+              working-directory: apps/streamdeck
+              run: pnpm exec streamdeck pack radio.deadair.streamdeck.sdPlugin --dry-run --no-update-check
 
     # Whether what is COMMITTED is what the inputs actually produce.
     #

@@ -20,6 +20,10 @@
             ],
             "outputs": ["dist/**"]
         },
+        "@deadair/streamdeck#build": {
+            "dependsOn": ["^build"],
+            "outputs": ["radio.deadair.streamdeck.sdPlugin/bin/**"]
+        },
         "format": {
             "dependsOn": ["^format"]
         },

@@ -1,5 +1,6 @@
-// Turns the pending changesets into versions and changelog entries, for the four things this tree
-// releases: the station, the Android listener, the desktop app and the iOS listener.
+// Turns the pending changesets into versions and changelog entries, for the five things this tree
+// releases: the station, the Android listener, the desktop app, the iOS listener and the Stream Deck
+// plugin.
 //
 //     pnpm release:version [--summary <file>]    bump, write the changelogs, mirror the app versions
 //     pnpm release:version --sync                 mirror the app versions only
@@ -66,7 +67,7 @@ function check() {
     if (drift > 0) {
         fail('Change the version in package.json (or write a changeset), then run pnpm release:version --sync.');
     }
-    console.log('The listener apps’ versions are in step with their manifests.');
+    console.log('The apps’ versions are in step with their manifests.');
 }
 
 function version(summaryFile) {

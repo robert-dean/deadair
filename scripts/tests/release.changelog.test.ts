@@ -23,6 +23,7 @@ const desktop = UNITS.find(unit => unit.id === 'desktop')!;
 const android = MIRRORS.find(mirror => mirror.unit === 'android')!;
 const props = MIRRORS.find(mirror => mirror.unit === 'desktop')!;
 const xcconfig = MIRRORS.find(mirror => mirror.unit === 'ios')!;
+const streamdeck = MIRRORS.find(mirror => mirror.unit === 'streamdeck')!;
 
 const changelog = `# Changelog
 
@@ -59,10 +60,11 @@ function runAwk(program: string, version: string, text: string): string {
 }
 
 describe('unitOf', () => {
-    it('puts each listener app in its own unit and everything else versioned in the station', () => {
+    it('puts each app in its own unit and everything else versioned in the station', () => {
         expect(unitOf('@deadair/android', ignored)).toBe('android');
         expect(unitOf('@deadair/desktop', ignored)).toBe('desktop');
         expect(unitOf('@deadair/ios', ignored)).toBe('ios');
+        expect(unitOf('@deadair/streamdeck', ignored)).toBe('streamdeck');
         expect(unitOf('@deadair/plugin-rss', ignored)).toBe('station');
         expect(unitOf('@deadair/api', ignored)).toBe('station');
     });
@@ -221,6 +223,24 @@ describe('the mirrored versions', () => {
         const config = '// A comment naming MARKETING_VERSION = 9.9.9 is not the setting.\nMARKETING_VERSION = 0.1.0\nCURRENT_PROJECT_VERSION = 1\n';
         expect(readMirror(config, xcconfig)).toBe('0.1.0');
         expect(writeMirror(config, xcconfig, '0.2.0')).toBe(config.replace('= 0.1.0', '= 0.2.0'));
+    });
+
+    it('are read and rewritten in a Stream Deck manifest, leaving the build number and the other versions alone', () => {
+        const manifest = [
+            '{',
+            '    "UUID": "radio.deadair.streamdeck",',
+            '    "Version": "0.1.0.0",',
+            '    "Software": {',
+            '        "MinimumVersion": "7.1"',
+            '    },',
+            '    "Nodejs": {',
+            '        "Version": "24"',
+            '    }',
+            '}',
+            '',
+        ].join('\n');
+        expect(readMirror(manifest, streamdeck)).toBe('0.1.0');
+        expect(writeMirror(manifest, streamdeck, '0.2.0')).toBe(manifest.replace('"0.1.0.0"', '"0.2.0.0"'));
     });
 
     it('refuse a file that states the version twice or not at all', () => {

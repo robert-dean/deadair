@@ -1,19 +1,20 @@
 // The pure half of `release.version.mjs`: what goes into a changelog entry, where it goes, and the
-// build file each listener app's version is mirrored into. Nothing here touches the disk, so
+// build file each app's version is mirrored into. Nothing here touches the disk, so
 // all of it is tested by `tests/release.changelog.test.ts`.
 
 export const REPO = 'https://github.com/robert-dean/deadair';
 
 /**
- * The four things this tree releases. The station is every versioned package that ships in the
+ * The five things this tree releases. The station is every versioned package that ships in the
  * image, sharing one number through the `fixed` group in `.changeset/config.json`, so its version is
  * read off `apps/api` as a representative. The three listener apps have a manifest each for no
- * reason but this one.
+ * reason but this one. The Stream Deck plugin's manifest is a real package's, but it is released on
+ * its own clock for the listener apps' reason: it is installed by somebody, not pulled with the image.
  *
  * `tag` is the git tag a version is released under, which the changelog's compare links name. The
  * station's is cut by `release.yml`; the apps' are pushed by hand (Android, iOS) or cut by their
- * release workflow (desktop), in namespaces of their own because the bare `v*` belongs to the
- * station.
+ * release workflow (desktop, Stream Deck), in namespaces of their own because the bare `v*` belongs
+ * to the station.
  */
 export const UNITS = [
     { id: 'station', label: 'Station', manifest: 'apps/api/package.json', changelog: 'CHANGELOG.md', tag: version => `v${version}` },
@@ -38,23 +39,38 @@ export const UNITS = [
         changelog: 'apps/ios/CHANGELOG.md',
         tag: version => `ios-v${version}`,
     },
+    {
+        id: 'streamdeck',
+        label: 'Stream Deck',
+        manifest: 'apps/streamdeck/package.json',
+        changelog: 'apps/streamdeck/CHANGELOG.md',
+        tag: version => `streamdeck-v${version}`,
+    },
 ];
 
 /**
- * Where each listener app's version is written a second time, for the build tool that stamps the
- * artifact. Gradle, MSBuild and Xcode cannot read a package.json, so the number is copied into these
- * and `--check` fails CI when a hand edit moves one copy without the other.
+ * Where each app's version is written a second time, for the build tool that stamps the artifact.
+ * Gradle, MSBuild, Xcode and the Stream Deck app cannot read a package.json, so the number is copied
+ * into these and `--check` fails CI when a hand edit moves one copy without the other.
  *
  * Each pattern must match exactly once. `Directory.Build.props` holds the app's `<Version>`; the
  * desktop plugin SDK's own `<Version>` is the plugin ABI, lives in a different file, and is never
  * opened here. `Version.xcconfig` holds `MARKETING_VERSION`, which the project file never states
  * itself, because a setting in the project file silently beats the same setting in an xcconfig.
- * The third group is empty so the pattern has the shape `writeMirror` splices around.
+ * The third group is empty so the pattern has the shape `writeMirror` splices around. The Stream
+ * Deck manifest's `Version` has FOUR parts, `major.minor.patch.build`, so the third group carries the
+ * build number and it is left alone. The pattern wants three numbers before it, which is what keeps
+ * it off `Nodejs.Version` ("24") and `Software.MinimumVersion` in the same file.
  */
 export const MIRRORS = [
     { unit: 'android', file: 'apps/android/app/build.gradle.kts', pattern: /^(\s*versionName = ")([^"]*)(")$/gm },
     { unit: 'desktop', file: 'apps/desktop/Directory.Build.props', pattern: /(<Version>)([^<]*)(<\/Version>)/g },
     { unit: 'ios', file: 'apps/ios/Config/Version.xcconfig', pattern: /^(MARKETING_VERSION = )(\S+)()$/gm },
+    {
+        unit: 'streamdeck',
+        file: 'apps/streamdeck/radio.deadair.streamdeck.sdPlugin/manifest.json',
+        pattern: /^(\s*"Version": ")(\d+\.\d+\.\d+)(\.\d+",?)$/gm,
+    },
 ];
 
 const BUMP_ORDER = { major: 0, minor: 1, patch: 2 };
@@ -75,6 +91,9 @@ export function unitOf(name, ignored) {
     }
     if (name === '@deadair/ios') {
         return 'ios';
+    }
+    if (name === '@deadair/streamdeck') {
+        return 'streamdeck';
     }
     return 'station';
 }
@@ -171,7 +190,7 @@ export function pullRequestBody(released) {
     const sections = released.map(({ label, previous, version, body }) => `### ${label} ${previous} to ${version}\n\n${body}`);
     return [
         ...sections,
-        'Merging this releases the station: `release.yml` sees a version with no tag, tags it once the tests pass, and publishes the GitHub release from `CHANGELOG.md`. The listener apps are numbered here and published by their own workflows.',
+        'Merging this releases the station: `release.yml` sees a version with no tag, tags it once the tests pass, and publishes the GitHub release from `CHANGELOG.md`. The listener apps and the Stream Deck plugin are numbered here and published by their own workflows.',
         'This pull request was opened with the workflow token, so no checks run on it. The merge runs every one of them before anything is tagged. To change what an entry says, edit the changeset on `main`; this branch is rebuilt from `main` on every push.',
     ].join('\n\n');
 }

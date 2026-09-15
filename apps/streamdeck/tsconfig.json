@@ -1,0 +1,15 @@
+{
+    "extends": "@repo/config-typescript/base.json",
+    "compilerOptions": {
+        // The Stream Deck SDK's `@action` is a STANDARD decorator, and the base config's legacy
+        // `experimentalDecorators` types it as the other kind, so this package turns both off.
+        "experimentalDecorators": false,
+        "emitDecoratorMetadata": false,
+        "noImplicitOverride": true,
+        // tsup writes the bundle; tsc only checks it.
+        "noEmit": true,
+        "rootDir": "./src"
+    },
+    "include": ["./src/**/*"],
+    "exclude": ["node_modules", "radio.deadair.streamdeck.sdPlugin"]
+}

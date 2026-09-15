@@ -24,7 +24,8 @@ stream/music/*
 apps/site/*
 !apps/site/package.json
 
-# The three listener apps and the SDKs generated for them, none of which the station runs. They reached
+# The three listener apps, the Stream Deck plugin and the SDKs generated for the three, none of which
+# the station runs. They reached
 # the image only through `COPY apps` and `COPY packages`, which made an Android-only commit rebuild
 # the JavaScript workspace in all three variants and shipped the Kotlin and C# sources inside it. On a
 # developer's machine the context also carried their build output, which is ignored by git and was
@@ -33,13 +34,17 @@ apps/site/*
 #
 # Each app's manifest stays, for the site's reason above: it holds nothing but a name and a version
 # (it exists so changesets can number the app's releases), but it makes the app a workspace member,
-# and the lockfile the frozen install checks against names every member.
+# and the lockfile the frozen install checks against names every member. The Stream Deck plugin's
+# manifest holds more than that, since it is a TypeScript package for real, but everything it names
+# is a devDependency, which the image's prod prune removes.
 apps/android/*
 !apps/android/package.json
 apps/desktop/*
 !apps/desktop/package.json
 apps/ios/*
 !apps/ios/package.json
+apps/streamdeck/*
+!apps/streamdeck/package.json
 packages/sdk-kotlin
 packages/sdk-csharp
 packages/sdk-swift

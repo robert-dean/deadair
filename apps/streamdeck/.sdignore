@@ -1,0 +1,4 @@
+# What `streamdeck pack` leaves out of the installer. Source maps are excluded by the CLI already;
+# this says so again so a change of default cannot ship one.
+*.map
+logs/

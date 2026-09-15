@@ -6,7 +6,7 @@ import { describe } from '../station/connection.failure.js';
 import type { Station } from '../station/station.settings.js';
 import type { Reading, StatusPoller } from '../station/status.poller.js';
 import { readTransport } from '../station/transport.reading.js';
-import { FacePainter, type KeyFace } from './key.face.js';
+import { StationKeys } from './station.keys.js';
 
 export interface NowPlayingDependencies {
     poller: Pick<StatusPoller, 'acquire' | 'subscribe'>;
@@ -63,66 +63,47 @@ export function viewFor(reading: Reading, carriedMs: number, apiBase: string | u
 /**
  * Every Now Playing key on the deck, drawn from the one poller.
  *
- * The first key to appear takes hold of the poller and starts the half-second clock that carries the
- * bar between readings; the last one to go lets go of both. The image is composed only when what it
- * shows changes (another cover, another step of the bar, another tone), which on an ordinary record
- * is every few seconds, never every tick.
+ * Holding the poller also starts the half-second clock that carries the bar between readings, and
+ * letting go stops it. The image is composed only when what it shows changes (another cover, another
+ * step of the bar, another tone), which on an ordinary record is every few seconds, never every tick.
  */
-export class NowPlayingKeys {
-    private readonly painter = new FacePainter();
+export class NowPlayingKeys extends StationKeys {
     private readonly clock = new PlayheadClock();
-    private reading: Reading = { stale: false };
-    private release?: () => void;
-    private unsubscribe?: () => void;
     private ticker?: ReturnType<typeof setInterval>;
     private composed?: { key: string; image: string };
     /** The cover being fetched, so a tick while it downloads does not ask for it again. */
     private fetching?: string;
 
-    constructor(private readonly deps: NowPlayingDependencies) {}
-
-    appear(face: KeyFace): void {
-        this.painter.add(face);
-        if (this.painter.size === 1) {
-            this.release = this.deps.poller.acquire();
-            // Subscribing draws the current reading at once, so the key never shows the manifest's
-            // image for a moment when the plugin already knows what is on air.
-            this.unsubscribe = this.deps.poller.subscribe(reading => {
-                this.reading = reading;
-                this.render();
-            });
-            this.ticker = setInterval(() => {
-                this.clock.tick();
-                this.render();
-            }, TICK_MS);
-        } else {
-            this.render();
-        }
-    }
-
-    disappear(id: string): void {
-        this.painter.remove(id);
-        if (this.painter.size > 0) return;
-        clearInterval(this.ticker);
-        this.unsubscribe?.();
-        this.release?.();
-        this.ticker = undefined;
-        this.unsubscribe = undefined;
-        this.release = undefined;
+    constructor(private readonly deps: NowPlayingDependencies) {
+        super(deps.poller);
     }
 
     /** Pressing the key opens the console, or says there is no station to open. */
     async press(id: string): Promise<void> {
-        const face = this.painter.get(id);
         const station = this.deps.station();
         if (station === undefined) {
-            await face?.showAlert().catch(() => undefined);
+            await this.painter
+                .get(id)
+                ?.showAlert()
+                .catch(() => undefined);
             return;
         }
         await this.deps.openConsole(station.origin);
     }
 
-    private render(): void {
+    protected override onHold(): void {
+        this.ticker = setInterval(() => {
+            this.clock.tick();
+            this.render();
+        }, TICK_MS);
+    }
+
+    protected override onRelease(): void {
+        clearInterval(this.ticker);
+        this.ticker = undefined;
+    }
+
+    protected render(): void {
         const carried = this.clock.carriedFor(this.reading.status?.nowPlaying);
         const view = viewFor(this.reading, carried, this.deps.station()?.apiBase);
         this.painter.paintAll({ title: view.title, image: this.imageFor(view) });

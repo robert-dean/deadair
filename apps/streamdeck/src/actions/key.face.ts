@@ -54,11 +54,21 @@ export class FacePainter {
         return this.keys.get(id)?.face;
     }
 
-    paintAll(frame: Frame): void {
-        for (const painted of this.keys.values()) this.paint(painted, frame);
+    ids(): string[] {
+        return [...this.keys.keys()];
     }
 
-    private paint(painted: Painted, frame: Frame): void {
+    paintAll(frame: Frame): void {
+        for (const painted of this.keys.values()) this.draw(painted, frame);
+    }
+
+    /** One key's frame, for an action whose keys differ from one another. */
+    paint(id: string, frame: Frame): void {
+        const painted = this.keys.get(id);
+        if (painted !== undefined) this.draw(painted, frame);
+    }
+
+    private draw(painted: Painted, frame: Frame): void {
         const { face } = painted;
         if (frame.state !== undefined && frame.state !== painted.state) {
             painted.state = frame.state;

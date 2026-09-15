@@ -55,7 +55,8 @@
             "SupportedInMultiActions": false,
             "States": [
                 {
-                    "Image": "imgs/actions/skip/key"
+                    "Image": "imgs/actions/skip/key",
+                    "TitleAlignment": "bottom"
                 }
             ]
         },
@@ -70,11 +71,13 @@
             "States": [
                 {
                     "Name": "Stop",
-                    "Image": "imgs/actions/transport/stop"
+                    "Image": "imgs/actions/transport/stop",
+                    "TitleAlignment": "bottom"
                 },
                 {
                     "Name": "Start",
-                    "Image": "imgs/actions/transport/start"
+                    "Image": "imgs/actions/transport/start",
+                    "TitleAlignment": "bottom"
                 }
             ]
         }

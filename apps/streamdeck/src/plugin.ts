@@ -2,6 +2,10 @@ import streamDeck from '@elgato/streamdeck';
 
 import { NowPlayingAction } from './actions/now.playing.action.js';
 import { NowPlayingKeys } from './actions/now.playing.js';
+import { SkipAction } from './actions/skip.action.js';
+import { SkipKeys } from './actions/skip.keys.js';
+import { TransportAction } from './actions/transport.action.js';
+import { TransportKeys } from './actions/transport.keys.js';
 import { ArtworkCache } from './display/artwork.js';
 import { describe, type Failure } from './station/connection.failure.js';
 import { StationLink } from './station/station.link.js';
@@ -16,6 +20,10 @@ const poller = new StatusPoller();
 const link = new StationLink(poller, userAgent);
 const artwork = new ArtworkCache({ userAgent });
 
+const warn = (sentence: string): void => {
+    logger.warn(sentence);
+};
+
 streamDeck.actions.registerAction(
     new NowPlayingAction(
         new NowPlayingKeys({
@@ -26,6 +34,8 @@ streamDeck.actions.registerAction(
         }),
     ),
 );
+streamDeck.actions.registerAction(new SkipAction(new SkipKeys(poller, warn)));
+streamDeck.actions.registerAction(new TransportAction(new TransportKeys(poller, warn)));
 
 // A failure is logged when it starts and when it ends, not on every poll that repeats it: a station
 // that is down for an hour is two lines in the log, not eighteen hundred. It starts out as "no station"

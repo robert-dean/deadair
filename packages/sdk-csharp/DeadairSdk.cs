@@ -37,6 +37,7 @@ public sealed class DeadairSdk : IDisposable
         Playlists = new PlaylistsClient(Http);
         Playout = new PlayoutClient(Http);
         Plugins = new PluginsClient(Http);
+        Podcasts = new PodcastsClient(Http);
         Productions = new ProductionsClient(Http);
         Render = new RenderClient(Http);
         Schedule = new ScheduleClient(Http);
@@ -86,6 +87,8 @@ public sealed class DeadairSdk : IDisposable
     public PlayoutClient Playout { get; }
 
     public PluginsClient Plugins { get; }
+
+    public PodcastsClient Podcasts { get; }
 
     public ProductionsClient Productions { get; }
 

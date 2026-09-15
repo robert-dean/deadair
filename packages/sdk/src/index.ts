@@ -29,6 +29,8 @@ export * from './playout/playout.client.js';
 export * from './playout/types/index.js';
 export * from './plugins/plugins.client.js';
 export * from './plugins/types/index.js';
+export * from './podcasts/podcasts.client.js';
+export * from './podcasts/types/index.js';
 export * from './productions/productions.client.js';
 export * from './productions/types/index.js';
 export * from './render/render.client.js';

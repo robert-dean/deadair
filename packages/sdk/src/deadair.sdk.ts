@@ -14,6 +14,7 @@ import { PersonasClient } from './personas/personas.client.js';
 import { PlaylistsClient } from './playlists/playlists.client.js';
 import { PlayoutClient } from './playout/playout.client.js';
 import { PluginsClient } from './plugins/plugins.client.js';
+import { PodcastsClient } from './podcasts/podcasts.client.js';
 import { ProductionsClient } from './productions/productions.client.js';
 import { RenderClient } from './render/render.client.js';
 import { ScheduleClient } from './schedule/schedule.client.js';
@@ -38,6 +39,7 @@ export class DeadairSdk {
     readonly playlists: PlaylistsClient;
     readonly playout: PlayoutClient;
     readonly plugins: PluginsClient;
+    readonly podcasts: PodcastsClient;
     readonly productions: ProductionsClient;
     readonly render: RenderClient;
     readonly schedule: ScheduleClient;
@@ -63,6 +65,7 @@ export class DeadairSdk {
         this.playlists = new PlaylistsClient(sdkFetch);
         this.playout = new PlayoutClient(sdkFetch);
         this.plugins = new PluginsClient(sdkFetch);
+        this.podcasts = new PodcastsClient(sdkFetch);
         this.productions = new ProductionsClient(sdkFetch);
         this.render = new RenderClient(sdkFetch);
         this.schedule = new ScheduleClient(sdkFetch);

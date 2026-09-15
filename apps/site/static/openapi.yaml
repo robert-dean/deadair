@@ -2365,6 +2365,41 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/PluginOAuthResult'
+    '/podcasts/shows':
+        get:
+            operationId: readShows
+            summary: 'List shows'
+            description: 'Every programme every installed podcast plugin carries'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/StationShowList'
+    '/podcasts/episodes':
+        get:
+            operationId: readEpisodes
+            summary: 'List episodes'
+            description: 'The episodes the station knows about, newest first, with what it has done with each'
+            parameters:
+                - name: StationEpisodeQuery
+                  in: query
+                  required: false
+                  schema:
+                      '$ref': '#/components/schemas/StationEpisodeQuery'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/StationEpisodePage'
+    '/podcasts/refresh':
+        post:
+            operationId: requestRefresh
+            summary: 'Refresh podcasts'
+            description: "Reads every show's feed again, in the background, rather than waiting for the next scheduled refresh"
     '/productions':
         get:
             operationId: list
@@ -8106,6 +8141,154 @@ components:
                     type: string
                     maxLength: 2048
                     description: "What a desktop-style flow returns instead of `code`: the provider mints a token before the\nconsent screen and hands the same one back, which the plugin exchanges for a session. Last.fm's\nauth works this way. Listed here because the route parses this query strictly, so an\nundeclared parameter is a 400 before any plugin code runs"
+        StationShow:
+            type: object
+            properties:
+                id:
+                    type: string
+                    minLength: 1
+                    maxLength: 400
+                    description: "Unique across the station: the plugin's own id for the show, qualified with the plugin that offered it"
+                pluginId:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                title:
+                    type: string
+                    minLength: 1
+                    maxLength: 600
+                    description: 'What the show is called, which is what a presenter says out loud'
+                author:
+                    type: string
+                    maxLength: 600
+                description:
+                    type: string
+                    maxLength: 4000
+                    description: 'What the show says about itself, as plain text'
+                artworkUrl:
+                    type: string
+                    maxLength: 2000
+                homeUrl:
+                    type: string
+                    maxLength: 2000
+                feedUrl:
+                    type: string
+                    maxLength: 2000
+                    description: 'Where its feed is, when the plugin reads one'
+                language:
+                    type: string
+                    maxLength: 40
+                categories:
+                    type: array
+                    items:
+                        type: string
+                        minLength: 1
+                        maxLength: 200
+                explicit:
+                    type: boolean
+                    description: 'Whether the publisher marked the whole show explicit. Absent means the publisher did not say, which is not the same as clean'
+            required: [id, pluginId, title]
+            description: 'A programme the station carries, as one installed plugin describes it'
+        StationShowList:
+            type: object
+            properties:
+                shows:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/StationShow'
+            required: [shows]
+        StationEpisode:
+            type: object
+            properties:
+                id:
+                    type: string
+                    minLength: 1
+                    maxLength: 100
+                    description: "The station's own id for this episode"
+                showId:
+                    type: string
+                    minLength: 1
+                    maxLength: 400
+                    description: 'Qualified, matching `StationShow.id`'
+                episodeId:
+                    type: string
+                    minLength: 1
+                    maxLength: 1000
+                    description: "The plugin's own id for the episode, stable across refreshes"
+                showTitle:
+                    type: string
+                    minLength: 1
+                    maxLength: 600
+                title:
+                    type: string
+                    minLength: 1
+                    maxLength: 1000
+                summary:
+                    type: string
+                    maxLength: 4000
+                    description: 'What the publisher says it is about, as plain text'
+                url:
+                    type: string
+                    maxLength: 2000
+                    description: "The episode's page, for a person"
+                publishedAt:
+                    type: string
+                    maxLength: 40
+                    description: ISO-8601
+                durationMs:
+                    type: integer
+                    minimum: 0
+                    description: 'How long the publisher says it runs, in milliseconds'
+                artworkUrl:
+                    type: string
+                    maxLength: 2000
+                explicit:
+                    type: boolean
+                seenAt:
+                    type: string
+                    maxLength: 40
+                    description: 'ISO-8601: when a refresh last saw it in its feed'
+                fetched:
+                    type: boolean
+                    description: 'Whether the station holds its own copy of the audio, ready to air'
+                fetchRequestedAt:
+                    type: string
+                    maxLength: 40
+                    description: 'ISO-8601: when the station last asked for the audio'
+                fetchError:
+                    type: string
+                    maxLength: 2000
+                    description: 'Why the last attempt to fetch the audio failed, when it did'
+                scheduledFor:
+                    type: string
+                    maxLength: 40
+                    description: 'ISO-8601: the slot the audio was fetched for'
+                airedAt:
+                    type: string
+                    maxLength: 40
+                    description: 'ISO-8601: when a listener could first have heard it. An episode airs once'
+            required: [id, showId, episodeId, showTitle, title, seenAt, fetched]
+            description: 'One episode of a programme the station carries, and what the station has done with it'
+        StationEpisodeQuery:
+            type: object
+            properties:
+                showId:
+                    type: string
+                    maxLength: 400
+                    description: "One show's episodes, or absent for every show's, newest first"
+                limit:
+                    type: integer
+                    minimum: 1
+                    maximum: 200
+        StationEpisodePage:
+            type: object
+            properties:
+                episodes:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/StationEpisode'
+                    description: 'Newest first. Empty when the station knows of none, which is not an error'
+            required: [episodes]
         ProductionCastMember:
             type: object
             properties:

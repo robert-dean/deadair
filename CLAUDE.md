@@ -87,8 +87,9 @@ pointing at something that has never existed:
   there is no event bus: `apps/api/CLAUDE.md` § "How work is dispatched".
 - `apps/api/README.md` for the boot sequence, DI scoping convention and middleware. Its module and
   route tables were checked against `src/modules/modules.ts` and `src/routes/routes.setup.ts` on
-  2026-09-09 and list all 37 modules and all 29 routers in registration order. Those two files stay
-  the source of truth: verify against them before relying on an entry.
+  2026-09-09 and listed all 37 modules and all 29 routers in registration order then. Podcasts was
+  added to both on 2026-09-15; `MailModule`, registered since the check, is in neither yet. Those two
+  files stay the source of truth: verify against them before relying on an entry.
 - `README.md` and `docs/licensing.md` are written for whoever RUNS this rather than for whoever
   works on it. Keep them true.
 
@@ -130,7 +131,7 @@ deploy/, unraid/                  how somebody else installs it
 
 `apps/api` modules, in registration order: `logging`, `dataConnections`, `health`, `data`, `crypto`,
 `authentication`, `permissions`, `policy`, `art`, `catalog`, `onboarding`, `settings`, `stream`,
-`plugins`, `jobs`, `playlists`, `charts`, `similarity`, `news`, `search`, `weather`, `topics`,
+`plugins`, `jobs`, `playlists`, `charts`, `similarity`, `news`, `search`, `weather`, `podcasts`, `topics`,
 `scrobble`, `llm`,
 `personas`, `schedule`, `render`, `playout`, `nowplaying`, `analysis`, `director`, `storage`,
 `activity`, `history`, `enrichment`, `productions`, `station`. **`src/modules/modules.ts` is the source of

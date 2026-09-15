@@ -50,6 +50,10 @@ describe('the module list', () => {
         expect(positionOf('Connections')).toBe(1);
     });
 
+    it('registers podcasts after the plugins it reads', () => {
+        expect(tearsDownBefore('Podcasts', 'Plugins')).toBe(true);
+    });
+
     it('stops the job workers before the plugin instances under them are disposed', () => {
         // Nothing else pins this one: Jobs resolves nothing Plugins registers, so the position is a
         // teardown constraint and only a teardown constraint. Workers still dequeuing against

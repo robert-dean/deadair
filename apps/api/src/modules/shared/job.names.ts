@@ -20,4 +20,5 @@ export type JobNames =
     | 'render.stitch_production'
     | 'render.prune_script_history'
     | 'activity.prune_events'
-    | 'scrobble.flush';
+    | 'scrobble.flush'
+    | 'podcasts.refresh';

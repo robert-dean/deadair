@@ -14,6 +14,7 @@ import { PluginsModule } from './plugins/plugins.module.js';
 import { PlaylistsModule } from './playlists/playlists.module.js';
 import { ChartsModule } from './charts/charts.module.js';
 import { NewsModule } from './news/news.module.js';
+import { PodcastsModule } from './podcasts/podcasts.module.js';
 import { TopicsModule } from './topics/topics.module.js';
 import { SimilarityModule } from './similarity/similarity.module.js';
 import { SearchModule } from './search/search.module.js';
@@ -142,6 +143,9 @@ const ordered: ServerKitModule[] = [
     // of break's subjects, which is what fixes it above TopicsModule rather than beside
     // NewsModule by taste.
     WeatherModule,
+    // Beside the three above and for their reasons: after PluginsModule, whose registry and invoker it
+    // reads, and no loop of its own (a cron job re-reads the feeds).
+    PodcastsModule,
     // After every module that OWNS a sort of break's subjects — NewsModule and
     // WeatherModule — and before DirectorModule, which reads one back when a break is written.
     // The vocabulary is the operator's ("technology", "Atlanta") and the registry that says

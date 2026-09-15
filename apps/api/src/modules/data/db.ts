@@ -518,6 +518,33 @@ export interface DeadairPluginStorage {
   value: Json | null;
 }
 
+export interface DeadairPodcastEpisodes {
+  airedAt: DateTime | null;
+  artworkUrl: string | null;
+  audioBytes: number | null;
+  audioMime: string | null;
+  audioUrl: string;
+  createdAt: Generated<DateTime>;
+  durationMs: number | null;
+  episodeId: string;
+  explicit: boolean | null;
+  fetchAttempts: Generated<number>;
+  fetchError: string | null;
+  fetchRequestedAt: DateTime | null;
+  id: Generated<string>;
+  publishedAt: DateTime | null;
+  scheduledFor: DateTime | null;
+  seenAt: Generated<DateTime>;
+  segmentId: string | null;
+  showId: string;
+  showTitle: string;
+  stationKey: Generated<string>;
+  summary: string | null;
+  title: string;
+  updatedAt: Generated<DateTime>;
+  url: string | null;
+}
+
 export interface DeadairProductions {
   actorId: string | null;
   brief: string | null;
@@ -864,6 +891,7 @@ export interface DB {
   "deadair.pluginConfigs": DeadairPluginConfigs;
   "deadair.pluginGrants": DeadairPluginGrants;
   "deadair.pluginStorage": DeadairPluginStorage;
+  "deadair.podcastEpisodes": DeadairPodcastEpisodes;
   "deadair.productions": DeadairProductions;
   "deadair.pronunciations": DeadairPronunciations;
   "deadair.scheduleSlots": DeadairScheduleSlots;

@@ -9,6 +9,14 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.10.0] — 2026-09-15
+
+- A playlist can now be aired with similar records mixed in, the way Spotify's smart shuffle does it. Every few records of the playlist, the station adds a record by an artist who sounds like the one just played, found through a similarity plugin such as Last.fm; the playlist itself still plays in full and in its own order around them. Choose **Air with similar records mixed in** from the arrow beside Air this playlist, or turn on **Mix similar records into a playlist** under Settings, Rotation to have every playlist do it, with the spacing beside it (four of the playlist's records between mixed-in ones by default). It is off by default, a setlist or a feature never has anything mixed in, and every mixed-in record passes the same rules and dislikes as anything else the station picks. A mixed-in record never lands beside a break, so nothing the presenter has already said about the next record is made wrong. The activity feed says how many were found, and says so when none could be. `PutOnAirInput` and `PlayoutPlaylistInput` gain an optional `mixInSimilar`.
+
+  On the Desk, a record the station mixed in carries a **mixed in** badge, so you can tell it from the ones the playlist named. `StationOrderItem` gains an optional `mixedIn`.
+- A similarity plugin can now name records that sound like one record, not only artists who sound like one artist. `SimilarityProvider` gains an optional `similarTracks(ref, limit)`, taking the enrichment capability's `TrackRef` and answering `ArtistTrack`s, each with its own lead artist. The Last.fm plugin implements it with `track.getSimilar`, asking by MusicBrainz recording id when the catalog has one. When a playlist mixes similar records in, the station now asks about the record each one follows first, and falls back to that record's artist when nothing usable comes back or no plugin can answer. A plugin without the method behaves exactly as before.
+- A schedule block that plays a playlist can now ask for similar records to be mixed in among it. The block editor shows **Mix in similar records** whenever the block plays from a playlist; ticked, every changeover to that block mixes neighbours in the same way Air with similar records mixed in does, and left unticked the station's own **Mix similar records into a playlist** setting decides. `ScheduleSlot` gains an optional `mixInSimilar`, stored in a new nullable `schedule_slots.mix_in_similar` column (migration 0029).
+
 ## [0.9.0] — 2026-09-15
 
 - `parseFeed` reads what a podcast feed carries. An entry now reports its audio attachment as `enclosure` (from RSS `<enclosure>` or an Atom `<link rel="enclosure">`, preferring an audio one, http(s) only), how long it runs as `durationMs` from `itunes:duration`, and its artwork, explicit marking, season and episode number. A feed reports its own description, author, artwork, language, categories and explicit marking. Every field is optional, and `url` is still only ever the page, so a news reader sees exactly what it saw before.
@@ -146,7 +154,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/robert-dean/deadair/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/robert-dean/deadair/compare/v0.8.3...v0.9.0
 [0.8.3]: https://github.com/robert-dean/deadair/compare/v0.8.2...v0.8.3
 [0.8.2]: https://github.com/robert-dean/deadair/compare/v0.8.1...v0.8.2

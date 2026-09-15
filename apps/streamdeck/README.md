@@ -21,7 +21,7 @@ again within five seconds and the station stops. Leave it and it forgets. Once t
 the same key is Start, which brings it back at once.
 
 A key that cannot reach the station says so (_No station_, _Key refused_, _Set up_) and keeps showing
-the last record it knew, never in the on-air colour.
+the last record it knew, faint and never in the on-air colour.
 
 ## Setting it up
 

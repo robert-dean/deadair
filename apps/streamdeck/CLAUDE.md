@@ -130,6 +130,10 @@ redraw carries the whole cover again.
 could not be had. It replaced a drawn record whose label carried the tone in its colour; the mark is
 the station's own colours and cannot, so it says the tone by weight: full while airing or ready for a
 listener, faint (0.4) when stood down, failing or stale, with the words under it saying which.
+A cover follows the same rule: when the station stops answering, the key keeps the last cover, since
+one missed reading must not blank it, but faint, so it reads as the last thing known rather than as
+what is on air now. (Swapping it for the faint mark was the other choice, and was not taken because a
+single timeout would flip the key to the mark and back.)
 `imgs/plugin/mark.png` is the console's `logo-mark.png` at 144 pixels, read off the plugin folder at
 start (`new URL('../imgs/plugin/mark.png', import.meta.url)`, from `bin/`) rather than bundled; a
 plugin that cannot read it logs so and draws the old record instead. The manifest's own Now Playing

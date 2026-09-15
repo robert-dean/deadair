@@ -64,7 +64,7 @@ export function nowPlayingSvg(face: NowPlayingFace): string {
     const colour = face.stale ? STALE : TONE_COLOURS[face.tone];
     const picture =
         face.cover !== undefined
-            ? `<image x="0" y="0" width="${SIZE}" height="${SIZE}" preserveAspectRatio="xMidYMid slice" xlink:href="${face.cover}"/>`
+            ? `<image x="0" y="0" width="${SIZE}" height="${SIZE}" preserveAspectRatio="xMidYMid slice" xlink:href="${face.cover}"${dimmed(face) ? ` opacity="${FAINT}"` : ''}/>`
             : face.mark !== undefined
               ? markImage(face.mark, dimmed(face))
               : placeholder(colour);
@@ -86,11 +86,18 @@ export function nowPlayingSvg(face: NowPlayingFace): string {
     );
 }
 
+/** How faint a picture is drawn when it is not the station as it is now. */
+const FAINT = 0.4;
+
 /**
- * Whether the mark is drawn faint. The record placeholder said how the station was in its label's
+ * Whether the picture is drawn faint. The record placeholder said how the station was in its label's
  * colour; the mark is the station's own colours and cannot, so it says it by weight instead: full
  * while the station is airing or ready for a listener, faint when it was stood down, is failing, or
  * the reading is old. The words under it say which.
+ *
+ * A cover follows the same rule. A station that stops answering leaves the last cover on the key,
+ * because one missed reading must not blank it, and at full weight that cover would look current
+ * for as long as the station is gone. Faint, it reads as the last thing known.
  */
 function dimmed(face: NowPlayingFace): boolean {
     return face.stale || face.tone === 'off' || face.tone === 'fault';
@@ -98,7 +105,7 @@ function dimmed(face: NowPlayingFace): boolean {
 
 /** The station's mark, where the record placeholder's disc was, above the title. */
 function markImage(mark: string, dim: boolean): string {
-    return `<image x="26" y="14" width="92" height="92" xlink:href="${mark}"${dim ? ' opacity="0.4"' : ''}/>`;
+    return `<image x="26" y="14" width="92" height="92" xlink:href="${mark}"${dim ? ` opacity="${FAINT}"` : ''}/>`;
 }
 
 /** A record, its label in the station's tone: the fallback for a plugin with no mark to draw. */

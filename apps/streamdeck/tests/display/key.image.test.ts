@@ -53,6 +53,11 @@ describe('nowPlayingSvg', () => {
         expect(nowPlayingSvg({ tone: 'live', stale: true, mark: MARK })).toContain('opacity="0.4"');
     });
 
+    it('draws the last cover faint once the station stops answering, and in full while it answers', () => {
+        expect(nowPlayingSvg({ cover: COVER, step: 9, tone: 'live', stale: true })).toContain(`xlink:href="${COVER}" opacity="0.4"`);
+        expect(nowPlayingSvg({ cover: COVER, step: 9, tone: 'live', stale: false })).not.toContain('opacity="0.4"');
+    });
+
     it('prefers the cover to the mark', () => {
         const svg = nowPlayingSvg({ cover: COVER, tone: 'live', stale: false, mark: MARK });
         expect(svg).toContain(COVER);

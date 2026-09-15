@@ -12,7 +12,7 @@ which tags `streamdeck-v<version>`. The station's own changes are in the
 
 - The first release: a Now Playing key with the cover and a moving playhead, Skip, and a Stop key that asks for a second press before it takes the station off air and becomes Start once it has.
 - Each Now Playing key can leave out the progress bar, or the title and artist, from its own settings.
-- With no cover to show, the Now Playing key shows the deadair mark, faint while the station is stopped or not answering.
+- With no cover to show, the Now Playing key shows the deadair mark, faint while the station is stopped or not answering. When the station stops answering, the last cover stays on the key, faint.
 
 [Unreleased]: https://github.com/robert-dean/deadair/compare/streamdeck-v0.1.0...HEAD
 [0.1.0]: https://github.com/robert-dean/deadair/releases/tag/streamdeck-v0.1.0

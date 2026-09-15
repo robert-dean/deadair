@@ -118,8 +118,9 @@ when there is nothing to resume, and the log says so.
 
 **The cover is embedded in an SVG the app rasterises**, so no image decoder ships: a native one cannot
 go in a packed plugin and a JavaScript one is a megabyte to produce 72 pixels the app scales anyway.
-`xlink:href`, not the bare `href`, because the app's renderer is Qt's and may know only SVG 1.1. The
-data URI is `data:image/svg+xml,` plus `encodeURIComponent`, which is Elgato's documented form.
+`xlink:href`, not the bare `href`, because the app's renderer is Qt's and SVG 1.1 is the spelling it
+is sure to know; drawn that way, the cover shows on a Stream Deck+ (measured, below). The data URI is
+`data:image/svg+xml,` plus `encodeURIComponent`, which is Elgato's documented form.
 
 **It is redrawn only when what it shows changes**: another cover, another step of the bar, another
 tone. The bar has 36 steps, a redraw every five to eight seconds on an ordinary record, because every
@@ -187,6 +188,11 @@ console, a skip, an armed and fired Stop, a Start, and the settings panel in a b
 that it needs an address, a key, that a wrong key was refused by a station it found, and that the
 right one connects. The embedded cover, the bar and the shade render in macOS's own SVG renderer.
 
-Not yet: any of it on a Stream Deck, against the live station, or with a key that may act. In
-particular, whether the app's Qt renderer draws an embedded `<image>` is unmeasured; if it does not,
-`nowPlayingSvg` is the one seam to change.
+On a Stream Deck: Robert ran it linked, in developer mode, on a Stream Deck+ with the Stream Deck app
+7.5.1 against his own station on 2026-09-15, and it works. The Now Playing key shows the cover, which
+settles the one thing the harness could not: the app's Qt renderer draws a raster `<image>` embedded
+in the key's SVG through `xlink:href`.
+
+Not reported separately yet: Skip and Stop pressed on the device with a key that may act, and the
+packed `.streamDeckPlugin` installed by double-click rather than a linked folder, which is the only
+test that `bin/package.json` survives packing.

@@ -106,6 +106,11 @@ export interface ConfigFieldOption {
  * plugin could answer: the ids are qualified with the plugin that offered them, and no plugin knows
  * what the others are called.
  *
+ * `station.podcastShows` is `station.newsFeeds`' twin for the programmes the station carries: every
+ * show every podcast plugin currently lists, by its qualified id and its title, for the topic that
+ * says which show a `syndicated` band on the format clock means. Here for the same reason: the ids
+ * are qualified with the plugin that carries the show, and no plugin knows what the others carry.
+ *
  * The four `plugins.*` members answer the enabled plugins that declare a given capability — speech,
  * llm, mixer, analysis — by id and name, for the settings that pick which plugin a capability with
  * several installed candidates uses. Those settings stay free text (`selectPlugin` in
@@ -127,6 +132,7 @@ export interface ConfigFieldOption {
 export type ConfigFieldOptionSource =
     | 'station.newsCategories'
     | 'station.newsFeeds'
+    | 'station.podcastShows'
     | 'intl.timeZones'
     | 'plugins.speech'
     | 'plugins.llm'
@@ -476,6 +482,7 @@ export const configFieldControlSchema = z.enum(['slider', 'tags']);
 export const configFieldOptionSourceSchema = z.enum([
     'station.newsCategories',
     'station.newsFeeds',
+    'station.podcastShows',
     'intl.timeZones',
     'plugins.speech',
     'plugins.llm',

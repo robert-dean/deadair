@@ -4,6 +4,8 @@ import { AppConfig } from '@maroonedsoftware/appconfig';
 import { PodcastEpisodeRepository } from './podcast.episode.repository.js';
 import { PodcastFetchOptions, PodcastFetchService } from './podcast.fetch.service.js';
 import { PodcastsService } from './podcasts.service.js';
+import { PodcastScheduler } from './podcast.scheduler.js';
+import { SyndicatedSource } from './syndicated.source.js';
 
 /**
  * Somebody else's programmes, out of whatever podcast plugins are installed, and the station's record
@@ -29,5 +31,10 @@ export const PodcastsModule: ServerKitModule = {
             .useFactory(() => new PodcastFetchOptions())
             .asSingleton();
         registry.register(PodcastFetchService).useClass(PodcastFetchService).asScoped();
+        // The clock's two halves: what a `syndicated` band carries, and the fetch ahead of it. Scoped,
+        // and resolved by the director's commit pass through a scope of its own, as the production
+        // scheduler is.
+        registry.register(SyndicatedSource).useClass(SyndicatedSource).asScoped();
+        registry.register(PodcastScheduler).useClass(PodcastScheduler).asScoped();
     },
 };

@@ -17,6 +17,8 @@ import { PersonaRepository } from '#modules/personas/persona.repository.js';
 import type { Persona } from '#modules/personas/persona.js';
 import { ProductionRepository } from '#modules/productions/production.repository.js';
 import { ProductionScheduler } from '#modules/productions/production.scheduler.js';
+import { PodcastEpisodeRepository } from '#modules/podcasts/podcast.episode.repository.js';
+import { PodcastScheduler } from '#modules/podcasts/podcast.scheduler.js';
 import { SegmentRepository, type Segment } from '#modules/render/segment.repository.js';
 import { WARMUP_KIND } from './warmup.writer.js';
 import { isRenderItem, segmentRundownTrack } from '#modules/render/segment.source.js';
@@ -1819,6 +1821,13 @@ export class DirectorService {
             });
         }).catch(error => this.logger.warn(`director: could not commission scheduled productions (${errorText(error)})`));
 
+        // The same reading ahead, for a band that carries somebody else's programme: its audio is
+        // fetched hours before the slot so the planner below only has to place it. Nothing about the
+        // show is passed, because a programme the station did not make is not inside anybody's show.
+        await inScope(this.container, async scope => {
+            await scope.get(PodcastScheduler).ripen(Date.now());
+        }).catch(error => this.logger.warn(`director: could not fetch the programmes the clock will carry (${errorText(error)})`));
+
         // BEFORE committing, so a break planted this pass is in the order before anything is
         // taken from it. The other way round, the tail would be topped up first and the break
         // would land behind the records that had just been handed over.
@@ -2837,6 +2846,16 @@ export class DirectorService {
         // artist cooldown are both reads of it. A segment is not a record and has no artist, so a
         // row for it would put "Station ident" into the song key space and have the station
         // suppress its own idents for a fortnight.
+        //
+        // One segment has something to write down all the same: an episode of somebody else's
+        // programme airs once, and the podcasts module needs to know it has, or the band for its
+        // show would carry it again tomorrow. Written on this edge because this is the moment a
+        // listener could first have heard it, and `void`ed on the same terms as the history row.
+        if (isRenderItem(item) && item.programme === true) {
+            void inScope(this.container, async scope => scope.get(PodcastEpisodeRepository).markAired(item.externalId, Date.now())).catch(error =>
+                this.logger.warn(`director: could not mark a programme aired (${errorText(error)})`),
+            );
+        }
         if (isRenderItem(item)) return;
 
         const source = this.lineup?.source ?? 'director';

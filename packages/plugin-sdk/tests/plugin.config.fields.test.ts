@@ -178,6 +178,7 @@ describe('configFieldSchema', () => {
         for (const declared of [
             'station.newsCategories',
             'station.newsFeeds',
+            'station.podcastShows',
             'intl.timeZones',
             'plugins.speech',
             'plugins.llm',

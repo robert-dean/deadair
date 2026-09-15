@@ -165,6 +165,21 @@ export interface StationLineupSegmentItem extends StationLineupLine {
      * design, and that is exactly what makes them disposable when one cannot be produced in time.
      */
     groupId?: string;
+    /**
+     * How long the segment runs, when that was known the moment it was planted.
+     *
+     * The SECOND field of a segment it is safe to keep a copy of here, and on exactly
+     * {@link segmentKind}'s argument: it is set when the item is created and nothing ever changes it,
+     * so there is no later value for it to disagree with. A break has none — its length is whatever
+     * the words come out as, several passes later — and neither does an ident, whose few seconds
+     * `lengthOf` rounds to nothing on purpose.
+     *
+     * It exists for the one segment long enough to matter: an episode of somebody else's programme,
+     * which the publisher says runs an hour. Without it that hour projects as zero airtime, and every
+     * band on the format clock behind it is planted an hour early or, past `BAND_LATENESS_MS`, not at
+     * all. See `lengthOf` in `air.clock.ts`.
+     */
+    durationMs?: number;
 }
 
 export type StationLineupItem = StationLineupTrackItem | StationLineupSegmentItem;
@@ -177,6 +192,8 @@ export interface SegmentPlacement {
     over?: { atMs: number };
     /** The block this is one beat of. See {@link StationLineupSegmentItem.groupId}. */
     groupId?: string;
+    /** How long it runs, when known at planting. See {@link StationLineupSegmentItem.durationMs}. */
+    durationMs?: number;
 }
 
 export type StationLineupItemKind = 'track' | 'segment';
@@ -965,6 +982,7 @@ export class StationLineup implements LiveOrder {
                 ...(placement.segmentKind === undefined ? {} : { segmentKind: placement.segmentKind }),
                 ...(placement.over === undefined ? {} : { over: placement.over }),
                 ...(placement.groupId === undefined ? {} : { groupId: placement.groupId }),
+                ...(placement.durationMs === undefined ? {} : { durationMs: placement.durationMs }),
             });
         }
         return OK;

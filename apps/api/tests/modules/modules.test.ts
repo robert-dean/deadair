@@ -50,8 +50,9 @@ describe('the module list', () => {
         expect(positionOf('Connections')).toBe(1);
     });
 
-    it('registers podcasts after the plugins it reads', () => {
+    it('registers podcasts after the plugins it reads and before the topics it owns a kind of', () => {
         expect(tearsDownBefore('Podcasts', 'Plugins')).toBe(true);
+        expect(tearsDownBefore('Topics', 'Podcasts')).toBe(true);
     });
 
     it('stops the job workers before the plugin instances under them are disposed', () => {

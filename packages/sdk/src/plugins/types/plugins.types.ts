@@ -64,6 +64,7 @@ export interface ConfigFieldOption {
 export type ConfigFieldOptionSource =
     | 'station.newsCategories'
     | 'station.newsFeeds'
+    | 'station.podcastShows'
     | 'intl.timeZones'
     | 'plugins.speech'
     | 'plugins.llm'

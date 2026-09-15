@@ -21,6 +21,8 @@ import {
 import { StationLineupRepository } from '../../../src/modules/director/station.lineup.repository.js';
 import { ProductionRepository } from '../../../src/modules/productions/production.repository.js';
 import { PlayHistoryRepository } from '../../../src/modules/director/play.history.repository.js';
+import { PodcastEpisodeRepository } from '../../../src/modules/podcasts/podcast.episode.repository.js';
+import { PodcastScheduler } from '../../../src/modules/podcasts/podcast.scheduler.js';
 import { CandidatesRepository } from '../../../src/modules/director/candidates.repository.js';
 import { StationAirRepository, type StationAir } from '../../../src/modules/director/station.air.repository.js';
 import { settingsConfig } from '../../utils/settings.config.js';
@@ -188,6 +190,11 @@ function build(options: Options = {}) {
 
     const history = { record: vi.fn(async () => {}) } as unknown as PlayHistoryRepository;
 
+    // Somebody else's programmes: the fetch ahead of a band, which has nothing to do in any case here,
+    // and the aired mark an episode gets on the same edge a record's history row is written on.
+    const podcastScheduler = { ripen: vi.fn(async () => 0) };
+    const podcastEpisodes = { markAired: vi.fn(async () => {}) };
+
     // Produced episodes. `unfinished` answers nothing by default, so the commit pass's injection
     // step is a no-op unless a test says otherwise; `moveTo` is what a changeover uses to hand back
     // an episode nobody heard, and it reports whether the row was in the state it was guarded on.
@@ -235,6 +242,8 @@ function build(options: Options = {}) {
         { send: vi.fn(async () => {}) } as never,
         station.config,
         logger,
+        // No podcasts: a `syndicated` band would have nothing to carry, and none is scheduled here.
+        { segmentFor: vi.fn(async () => ({ declined: 'no podcasts' })) } as never,
     );
 
     const library = new Map((options.segments ?? []).map(segment => [segment.id!, segment as Segment]));
@@ -371,7 +380,11 @@ function build(options: Options = {}) {
                                   ? cachePlanner
                                   : token === AnalysisRepository
                                     ? analysis
-                                    : history,
+                                    : token === PodcastScheduler
+                                      ? podcastScheduler
+                                      : token === PodcastEpisodeRepository
+                                        ? podcastEpisodes
+                                        : history,
         ),
         disposeAsync: vi.fn(async () => {}),
     };
@@ -427,6 +440,8 @@ function build(options: Options = {}) {
         saved: () => saved,
         jobs,
         history,
+        podcastScheduler,
+        podcastEpisodes,
         airRepository,
         audience,
         activity,
@@ -2070,6 +2085,34 @@ describe('DirectorService committing segments', () => {
         rundown.markAired(segmentItem.id);
         await settle();
 
+        expect(history.record).not.toHaveBeenCalled();
+    });
+
+    // Somebody else's programme airs once, and the band for its show must not carry it again tomorrow,
+    // so the episode is marked on the same edge a record's history row is written on. It is still a
+    // segment, so it writes no history row: a show's name is not a song.
+    it("marks an episode of somebody else's programme aired, and still writes it no history", async () => {
+        const episode = {
+            id: 'seg-episode',
+            kind: 'syndicated',
+            state: 'ready' as const,
+            label: 'The Long Wave: Episode 12',
+            source: 'syndicated',
+            context: { showTitle: 'The Long Wave', episodeTitle: 'Episode 12' },
+        };
+        const { director, lineup, rundown, history, podcastEpisodes, seed } = build({ items: ['a', 'b'], segments: [episode] });
+        await seed();
+        lineup.insertSegment('seg-episode', 0);
+        await director.start();
+        await settle();
+
+        const item = rundown.upcoming().find(candidate => candidate.pluginId === RENDER_PLUGIN_ID)!;
+        expect(item.programme).toBe(true);
+        await rundown.next();
+        rundown.markAired(item.id);
+        await settle();
+
+        expect(podcastEpisodes.markAired).toHaveBeenCalledWith('seg-episode', expect.any(Number));
         expect(history.record).not.toHaveBeenCalled();
     });
 

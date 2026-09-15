@@ -69,6 +69,7 @@ const items = (): StationLineupItem[] => [
     },
     { id: 'item-break', kind: 'segment', state: 'planned', segmentId: 'seg-break' },
     { id: 'item-news', kind: 'segment', state: 'handed', segmentId: 'seg-news', segmentKind: 'news' },
+    { id: 'item-episode', kind: 'segment', state: 'planned', segmentId: 'seg-episode', segmentKind: 'syndicated', durationMs: 3_723_000 },
     { id: 'item-cue', kind: 'segment', state: 'planned', segmentId: 'seg-cue', segmentKind: 'talk', over: { atMs: 4_500 } },
     { id: 'item-beat-1', kind: 'segment', state: 'planned', segmentId: 'seg-beat-1', segmentKind: 'production', groupId: 'episode-1' },
     { id: 'item-beat-2', kind: 'segment', state: 'planned', segmentId: 'seg-beat-2', segmentKind: 'production', groupId: 'episode-1' },
@@ -136,10 +137,14 @@ describe('StationLineupRepository round trip', () => {
         expect(byId.get('item-news')).toMatchObject({ segmentKind: 'news' });
         expect(byId.get('item-beat-1')).toMatchObject({ groupId: 'episode-1' });
         expect(byId.get('item-beat-2')).toMatchObject({ groupId: 'episode-1' });
+        // And an episode keeps the length it was planted with, or the hour it runs projects as nothing
+        // after a restart and every band behind it is planted an hour early.
+        expect(byId.get('item-episode')).toMatchObject({ durationMs: 3_723_000 });
         // And an ordinary break carries neither: absent, not `undefined`, so the shape reaching the
         // planner is the codebase's own "not set" and never a third state.
         expect(byId.get('item-break')).not.toHaveProperty('segmentKind');
         expect(byId.get('item-break')).not.toHaveProperty('groupId');
+        expect(byId.get('item-break')).not.toHaveProperty('durationMs');
     });
 
     it('drops a segment kind or group that is not a string rather than airing it', async () => {

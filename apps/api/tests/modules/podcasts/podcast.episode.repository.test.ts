@@ -164,3 +164,57 @@ describe('PodcastEpisodeRepository.list', () => {
         expect(query?.parameters).toEqual(['main', 'deadair.podcast:73b7fb89', 10]);
     });
 });
+
+describe('PodcastEpisodeRepository.newest', () => {
+    const row = (overrides: Record<string, unknown> = {}) => ({
+        id: 'row-1',
+        show_id: 'deadair.podcast:73b7fb89',
+        episode_id: 'ep12',
+        show_title: 'The Long Wave',
+        title: 'Episode 12',
+        audio_url: 'https://cdn.example.com/12.mp3',
+        published_at: DateTime.fromISO('2026-09-14T06:00:00.000Z'),
+        seen_at: DateTime.fromISO('2026-09-15T08:00:00.000Z'),
+        fetch_attempts: 0,
+        ...overrides,
+    });
+
+    it('reads the newest dated episode of the show, scoped to the station', async () => {
+        const captured: Captured = { queries: [] };
+        const repository = new PodcastEpisodeRepository(fakeDb([row()], captured), new StationIdentity());
+
+        expect((await repository.newest('deadair.podcast:73b7fb89'))?.episodeId).toBe('ep12');
+
+        const [query] = captured.queries;
+        expect(query?.sql).toContain('"published_at" is not null');
+        expect(query?.sql).toContain('order by "published_at" desc');
+        expect(query?.parameters).toEqual(['main', 'deadair.podcast:73b7fb89', 1]);
+    });
+
+    // Newest and never back through the catalogue: a band on a night the show published nothing
+    // declines rather than reaching into last month.
+    it('answers nothing when the newest has already aired, rather than an older one', async () => {
+        const captured: Captured = { queries: [] };
+        const repository = new PodcastEpisodeRepository(
+            fakeDb([row({ aired_at: DateTime.fromISO('2026-09-14T21:00:00.000Z') })], captured),
+            new StationIdentity(),
+        );
+
+        expect(await repository.newest(undefined)).toBeUndefined();
+        expect(captured.queries[0]?.sql).not.toContain('"show_id" =');
+    });
+});
+
+describe('PodcastEpisodeRepository.markAired', () => {
+    it('keeps the first airing, so a second hand-over is not a new one', async () => {
+        const captured: Captured = { queries: [] };
+        const repository = new PodcastEpisodeRepository(fakeDb([], captured), new StationIdentity());
+
+        await repository.markAired('seg-12', Date.parse('2026-09-15T21:00:00.000Z'));
+
+        const [query] = captured.queries;
+        expect(query?.sql).toContain('"aired_at" = coalesce(aired_at, to_timestamp(');
+        expect(query?.sql).toContain('"segment_id" = $');
+        expect(query?.parameters).toContain('seg-12');
+    });
+});

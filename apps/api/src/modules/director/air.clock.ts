@@ -8,8 +8,9 @@
  *
  * ## Everything unknown counts as zero, deliberately
  *
- * A record whose length nobody recorded, a segment (no segment has ever been measured — the column
- * is documented display-only), the overlap a crossfade will eat: all zero. So the answer is a LOWER
+ * A record whose length nobody recorded, a segment planted without one (a break, an ident: only an
+ * episode of somebody else's programme is planted with the length its publisher states), the overlap a
+ * crossfade will eat: all zero. So the answer is a LOWER
  * BOUND on when a boundary airs, and a target resolved against it lands at or AFTER the time it was
  * asked for.
  *
@@ -90,9 +91,11 @@ export function nextBoundaryAtOrAfter(projected: readonly (number | undefined)[]
  * direction this whole file rounds in anyway.
  */
 function lengthOf(item: StationLineupItem): number {
-    // A segment, which nothing has ever measured. Zero rather than a guess: an ident is a few
-    // seconds, and a guess would be the one number here that could push a boundary EARLY.
-    if (!isTrackItem(item)) return 0;
+    // A segment, which is measured only when it was planted knowing how long it runs: an episode of
+    // somebody else's programme, whose publisher says so. Every other segment is zero rather than a
+    // guess: an ident is a few seconds, and a guess would be the one number here that could push a
+    // boundary EARLY.
+    if (!isTrackItem(item)) return item.durationMs ?? 0;
 
     const { durationMs, cueInMs, cueOutMs } = item.track;
     if (cueOutMs !== undefined) return Math.max(0, cueOutMs - (cueInMs ?? 0));

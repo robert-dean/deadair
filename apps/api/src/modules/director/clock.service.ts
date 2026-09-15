@@ -3,6 +3,8 @@ import { AppConfig } from '@maroonedsoftware/appconfig';
 import { ClockBandRepository } from './clock.band.repository.js';
 import { BreakWriterRegistry } from './break.writer.registry.js';
 import { productionKinds } from '#modules/productions/production.scheduler.js';
+import { SYNDICATED_KIND } from '#modules/podcasts/syndicated.kind.js';
+import { PodcastsService } from '#modules/podcasts/podcasts.service.js';
 import { SegmentRepository } from '#modules/render/segment.repository.js';
 import { SpeechService } from '#modules/render/speech.service.js';
 import { TopicRepository } from '#modules/topics/topic.repository.js';
@@ -48,6 +50,7 @@ export class ClockService {
         private readonly speech: SpeechService,
         private readonly segments: SegmentRepository,
         private readonly config: AppConfig,
+        private readonly podcasts: PodcastsService,
     ) {}
 
     async list(): Promise<ClockBandList> {
@@ -58,6 +61,7 @@ export class ClockService {
                 hasVoice: this.speech.speaker() !== undefined,
                 recorded: await this.segments.readyKinds(),
                 produced: [...productionKinds(this.config)],
+                carried: this.podcasts.hasPodcasts() ? [SYNDICATED_KIND] : [],
             }),
         };
     }
@@ -117,15 +121,20 @@ export class ClockService {
  * by `ProductionScheduler`, which reads the same bands hours ahead of their slots, so leaving it out
  * would have the console call the one kind with the most work behind it unproducible.
  *
+ * Programmes the station carries are the fourth, and belong to nobody's writer either: a `syndicated`
+ * band is filled by the planner with an episode a podcast plugin listed, so it is producible exactly
+ * when a podcast plugin is there to list one. Whether a particular show has anything new tonight is a
+ * question for the night, and the band declines on its own when it has not.
+ *
  * Sorted, so the console's suggestion list does not reshuffle between reads for no reason.
  */
 export function producibleKinds(station: StationCapability): string[] {
-    const kinds = new Set([...(station.hasVoice ? station.writable : []), ...station.recorded, ...station.produced]);
+    const kinds = new Set([...(station.hasVoice ? station.writable : []), ...station.recorded, ...station.produced, ...station.carried]);
 
     return [...kinds].sort((left, right) => left.localeCompare(right));
 }
 
-/** The three ways a station can make a break, as {@link producibleKinds} weighs them. */
+/** The ways a station can fill a band, as {@link producibleKinds} weighs them. */
 export interface StationCapability {
     /** Kinds something knows how to write, whether or not there is anything to speak them. */
     writable: readonly string[];
@@ -135,6 +144,8 @@ export interface StationCapability {
     recorded: readonly string[];
     /** Kinds made as episodes rather than at a boundary. See `render.productionKinds`. */
     produced: readonly string[];
+    /** Kinds carried from somebody else: `syndicated`, when a podcast plugin can list episodes. */
+    carried: readonly string[];
 }
 
 /**

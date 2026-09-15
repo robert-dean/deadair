@@ -10,6 +10,8 @@ import { ClockBandRepository } from './clock.band.repository.js';
 import { PersonaRepository } from '#modules/personas/persona.repository.js';
 import { CHATTINESS_SPACING, chattinessOf, type PersonaChattiness } from '#modules/personas/persona.sheet.js';
 import { isProductionKind } from '#modules/productions/production.scheduler.js';
+import { isSyndicatedKind, SYNDICATED_KIND } from '#modules/podcasts/syndicated.kind.js';
+import { SyndicatedSource } from '#modules/podcasts/syndicated.source.js';
 import { stationZone } from './clock.words.js';
 import { SegmentRepository, type Segment, type StrandedRelease } from '#modules/render/segment.repository.js';
 import { SpeechService } from '#modules/render/speech.service.js';
@@ -268,6 +270,7 @@ export class BreakPlanner {
         private readonly jobs: PgBossJobBroker,
         private readonly config: AppConfig,
         private readonly logger: Logger,
+        private readonly carried: SyndicatedSource,
     ) {}
 
     /**
@@ -289,7 +292,19 @@ export class BreakPlanner {
      * the director exactly like one that was never rendered.
      */
     async plant(lineup: StationLineup, rules: ResolvedRules, clock: AirClock): Promise<number> {
-        if (!rules.breaks) return 0;
+        // Programmes FIRST, and into the order before anything else is planned against it. An episode
+        // is placed with the hour its publisher says it runs, and that hour moves every boundary behind
+        // it: planned in one walk with the other bands, a bulletin meant for 10:45 was claimed against
+        // the order as it stood before the programme went in, and would have aired at 11:45. Placed
+        // first, everything below projects against the order with the programme already in it.
+        const bands = await this.bands.active();
+        const programmes = await this.plantProgrammes(
+            lineup,
+            rules,
+            clock,
+            bands.filter(band => isSyndicatedKind(band.kind)),
+        );
+        if (!rules.breaks) return programmes;
 
         // Read once per pass and handed down, which is what keeps `slotsFor` a pure walk over the
         // order: the rules are a document this reads, exactly as the schedule is, and a walk that
@@ -299,12 +314,18 @@ export class BreakPlanner {
         // host, else the station's. Read here rather than inside the walk so `slotsFor` stays a pure
         // function of the order — the reason `bands.active()` is read here too.
         //
-        // A read per pass, and this runs on every boundary. It sits beside the band read that was
-        // already here and behind the same `rules.breaks` gate above, so a station with its breaks
-        // off pays for neither.
+        // A read per pass, and this runs on every boundary. It sits behind the `rules.breaks` gate
+        // above, so a station with its breaks off does not pay for it; the band read does happen
+        // there, because a programme is still carried with the station's own talking switched off.
         const presenting = await this.personas.presenting(lineup.personaId);
-        const wanted = this.slotsFor(lineup, rules, clock, await this.bands.active(), chattinessOf(presenting));
-        if (wanted.length === 0) return 0;
+        const wanted = this.slotsFor(
+            lineup,
+            rules,
+            clock,
+            bands.filter(band => !isSyndicatedKind(band.kind)),
+            chattinessOf(presenting),
+        );
+        if (wanted.length === 0) return programmes;
 
         // Both halves of being able to say something of the station's own: words to say, and a voice
         // to say them in. Without a speaker a written break could never be rendered and would be
@@ -318,13 +339,13 @@ export class BreakPlanner {
             // per pass at info, because an operator wondering why the station never says its own
             // name needs somewhere to look.
             this.logger.info('director: the running order wants a break, but nothing can write one and the library holds no idents');
-            return 0;
+            return programmes;
         }
 
-        const placements = await this.fill(wanted, idents, canWrite, await this.lastKindBefore(lineup, wanted[0]!.atIndex));
-        if (placements.length === 0) return 0;
+        const placements = await this.fill(wanted, idents, canWrite, await this.lastKindBefore(lineup, wanted[0]!.atIndex), segmentsOn(lineup));
+        if (placements.length === 0) return programmes;
 
-        if (!(await this.insert(lineup, placements))) return 0;
+        if (!(await this.insert(lineup, placements))) return programmes;
 
         // Nothing is sent for writing here. A break is written when its slot comes near rather than
         // when it is planted, which is {@link ripen}'s job on the same pass. What that preserves is
@@ -332,6 +353,31 @@ export class BreakPlanner {
         // speech engine anywhere near it, so an order gets its breaks laid out an hour ahead and
         // pays for the words fifteen minutes ahead.
         this.logger.info('director: planted breaks into the running order', { count: placements.length, written: canWrite });
+        return programmes + placements.length;
+    }
+
+    /**
+     * The bands that carry somebody else's programme, placed on their own and before any other.
+     *
+     * Before, for the reason {@link plant} gives: an episode's length moves every boundary behind it.
+     * On their own, because `rules.breaks` is a switch on the station TALKING, and an operator who
+     * turns it off has said nothing about the programme they scheduled at nine: that is a slot in the
+     * schedule, exactly as a production is, and productions go in whatever the switch says. So these
+     * go through the same walk and the same fill as any band, with every other band and the station's
+     * own spacing left out. It costs the band read on a station with its breaks off, which is the read
+     * `ProductionScheduler` already makes there.
+     */
+    private async plantProgrammes(lineup: StationLineup, rules: ResolvedRules, clock: AirClock, programmes: readonly ClockBand[]): Promise<number> {
+        if (programmes.length === 0) return 0;
+
+        const wanted = this.slotsFor(lineup, { ...rules, breakEveryMinutes: 0 }, clock, programmes, chattinessOf(undefined));
+        if (wanted.length === 0) return 0;
+
+        const placements = await this.fill(wanted, [], false, undefined, segmentsOn(lineup));
+        if (placements.length === 0) return 0;
+        if (!(await this.insert(lineup, placements))) return 0;
+
+        this.logger.info('director: put a programme into the running order', { count: placements.length });
         return placements.length;
     }
 
@@ -528,11 +574,12 @@ export class BreakPlanner {
      */
     private async insert(lineup: StationLineup, placements: readonly Placement[]): Promise<boolean> {
         const result = lineup.insertSegments(
-            placements.map(({ segmentId, atIndex, kind, over }) => ({
+            placements.map(({ segmentId, atIndex, kind, over, durationMs }) => ({
                 segmentId,
                 atIndex,
                 segmentKind: kind,
                 ...(over === undefined ? {} : { over }),
+                ...(durationMs === undefined ? {} : { durationMs }),
             })),
         );
         if (result.ok) return true;
@@ -641,10 +688,21 @@ export class BreakPlanner {
                 continue;
             }
 
+            // Somebody else's programme is not a break, and the two rules below that keep breaks
+            // apart are about breaks. A programme beside a talk break is a programme with a
+            // presenter around it, which is what carrying one on the radio sounds like, and dropping
+            // an hour-long slot because the DJ happened to be talking at that boundary would cost the
+            // operator the one thing they scheduled. What still applies is `servedAlready`, which is
+            // what stops the same occurrence being planted twice, and `blockedBy(taken)`, which keeps
+            // two claims of THIS pass out of one gap.
+            const programme = isSyndicatedKind(band.kind);
+
             // Already a break here. Left alone rather than doubled, exactly as the spacing walk
             // leaves one alone — and correct even when it is somebody else's kind, because two
-            // breaks in one gap is worse than a bulletin the DJ introduced.
-            if (items[at]!.kind === 'segment') continue;
+            // breaks in one gap is worse than a bulletin the DJ introduced. A programme on either
+            // side is not a break, for the reason above read the other way: the news at the top of
+            // the hour a programme ends on is exactly where the news goes.
+            if (!programme && isBreakAt(items, at)) continue;
 
             // An occurrence this order already serves, which is the question the line above only
             // LOOKS like it asks. That one asks whether the boundary THIS pass chose is free, and
@@ -666,7 +724,7 @@ export class BreakPlanner {
             // anchored means — so the occurrence is dropped rather than shifted, on the same terms
             // it is dropped when the boundary itself is taken. `taken` is the same question asked
             // about this pass, where the slot is a promise rather than a row.
-            if (items[at - 1]?.kind === 'segment' || blockedBy(taken).has(at)) continue;
+            if ((!programme && isBreakAt(items, at - 1)) || blockedBy(taken).has(at)) continue;
 
             // The PROJECTED time rather than the target, and the difference is what the break will
             // SAY. A band asked for 14:14 and the boundary that can take it airs at 14:17, so words
@@ -1104,7 +1162,13 @@ export class BreakPlanner {
      * gets talk breaks at every slot, and one with no speaker gets idents at every slot. Neither
      * needs a branch anywhere else, and neither is worth skipping a break over.
      */
-    private async fill(wanted: readonly Slot[], idents: readonly Segment[], canWrite: boolean, lastKind: string | undefined): Promise<Placement[]> {
+    private async fill(
+        wanted: readonly Slot[],
+        idents: readonly Segment[],
+        canWrite: boolean,
+        lastKind: string | undefined,
+        onOrder: Set<string>,
+    ): Promise<Placement[]> {
         const placements: Placement[] = [];
         let previousKind = lastKind;
         // Chosen per slot rather than once per pass, so two idents planted together are two
@@ -1124,7 +1188,7 @@ export class BreakPlanner {
             // writes a clock, never once said what time it was. What makes a break a band's is that
             // a time was asked for, not which kind was named.
             if (band !== undefined) {
-                const planted = await this.fillBand(band, atIndex, shelved, airsAt, topic);
+                const planted = await this.fillBand(band, atIndex, shelved, airsAt, topic, onOrder);
                 if (planted !== undefined) placements.push(planted);
                 // The alternation is deliberately NOT advanced. What the operator scheduled is not
                 // the station taking its turn at anything.
@@ -1178,7 +1242,31 @@ export class BreakPlanner {
         shelved: Map<string, readonly Segment[]>,
         airsAt: number | undefined,
         topic: ClockBandSubject | undefined,
+        onOrder: Set<string>,
     ): Promise<Placement | undefined> {
+        // Somebody else's programme is neither written nor drawn off the shelf: the episode this
+        // band's show means is decided by `SyndicatedSource`, the same question the podcasts
+        // scheduler asked hours ago when it fetched the audio, so the episode fetched for nine is
+        // the one placed at nine. It is placed with the length its publisher states, which is what
+        // lets the clock behind it project an hour rather than nothing.
+        if (isSyndicatedKind(kind)) {
+            const answer = await this.carried.segmentFor(topic, onOrder);
+            if ('declined' in answer) {
+                this.logger.info('director: the station clock asks for a programme there is nothing to carry for', { reason: answer.declined });
+                return undefined;
+            }
+
+            // Two bands for one show inside one pass must not both plant the same episode.
+            onOrder.add(answer.segmentId);
+            return {
+                segmentId: answer.segmentId,
+                atIndex,
+                kind: SYNDICATED_KIND,
+                written: false,
+                ...(answer.durationMs === undefined ? {} : { durationMs: answer.durationMs }),
+            };
+        }
+
         if (this.writers.canWrite(kind) && this.speech.speaker() !== undefined) {
             // `airsAt` travels on the row rather than in the write job's payload, because the words
             // are asked for on a LATER pass than this one and nothing recomputes the schedule in
@@ -1305,6 +1393,8 @@ interface Placement {
      * record rather than waiting for its end.
      */
     over?: { atMs: number };
+    /** How long it runs, when that is known now: an episode of somebody else's programme. */
+    durationMs?: number;
 }
 
 /**
@@ -1391,6 +1481,20 @@ const servedAlready = (
  * operator can make with two bands, and nothing here should have an opinion about it — what a
  * listener hears as a fault is the pair with no record at all.
  */
+/**
+ * Whether the item at this index is a BREAK, for the rule that keeps two out of one gap.
+ *
+ * Every segment is, except an episode of somebody else's programme: an hour of a show is not the
+ * station talking, and a bulletin beside one is a bulletin at the end of a programme.
+ */
+const isBreakAt = (items: readonly StationLineupItem[], index: number): boolean => {
+    const item = items[index];
+    return item?.kind === 'segment' && !isSyndicatedKind(item.segmentKind ?? '');
+};
+
+/** Every segment the order already names, for a fill that must not place one twice. */
+const segmentsOn = (lineup: StationLineup): Set<string> => new Set(lineup.all().flatMap(item => (item.kind === 'segment' ? [item.segmentId] : [])));
+
 const blockedBy = (taken: ReadonlySet<number>): Set<number> => {
     const blocked = new Set<number>();
     for (const at of taken) {

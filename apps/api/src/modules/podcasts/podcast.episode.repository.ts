@@ -147,6 +147,45 @@ export class PodcastEpisodeRepository extends DataRepository {
             .execute();
     }
 
+    /**
+     * The episode a band for this show would carry: the show's NEWEST, or nothing if the station has
+     * aired it already. With no show, the newest across every show, on the same terms.
+     *
+     * Newest and never back through the catalogue, which is what carrying a programme means on
+     * radio: a band at nine is where tonight's episode goes, and on a night the show has not published
+     * one the station does not reach into last month instead. An episode that failed to fetch is still
+     * the newest, so the band declines rather than quietly airing an older one; the console says why.
+     *
+     * Undated episodes never count as newest, since there is nothing to say they are.
+     */
+    async newest(showId: string | undefined): Promise<PodcastEpisodeRecord | undefined> {
+        let query = this.db
+            .selectFrom('deadair.podcastEpisodes')
+            .selectAll()
+            .where('stationKey', '=', this.station.stationKey)
+            .where('publishedAt', 'is not', null);
+        if (showId !== undefined) query = query.where('showId', '=', showId);
+
+        const row = await query.orderBy('publishedAt', 'desc').orderBy('id', 'asc').limit(1).executeTakeFirst();
+        if (row === undefined) return undefined;
+
+        const newest = toRecord(row);
+        return newest.airedAt === undefined ? newest : undefined;
+    }
+
+    /**
+     * The segment holding an episode has aired. Kept as the FIRST time, since an episode airs once and
+     * a second hand-over of the same segment (an operator re-adding it) is not a new first airing.
+     */
+    async markAired(segmentId: string, at: number): Promise<void> {
+        await this.db
+            .updateTable('deadair.podcastEpisodes')
+            .set({ airedAt: sql<never>`coalesce(aired_at, ${instant(at)})` })
+            .where('segmentId', '=', segmentId)
+            .where('stationKey', '=', this.station.stationKey)
+            .execute();
+    }
+
     /** A fetch failed, and why. Counted, so a scheduler can stop asking for an episode that never arrives. */
     async markFetchFailed(id: string, error: string): Promise<void> {
         await this.db

@@ -13,6 +13,7 @@ const station = (over: Partial<StationCapability> = {}): StationCapability => ({
     hasVoice: true,
     recorded: [],
     produced: [],
+    carried: [],
     ...over,
 });
 
@@ -33,6 +34,10 @@ describe('producibleKinds', () => {
 
     it('counts a kind made as an episode, which no break writer claims', () => {
         expect(producibleKinds(station({ writable: ['news'], produced: ['podcast'] }))).toEqual(['news', 'podcast']);
+    });
+
+    it('counts a programme carried from somebody else, which no break writer claims either', () => {
+        expect(producibleKinds(station({ writable: ['news'], carried: ['syndicated'] }))).toEqual(['news', 'syndicated']);
     });
 
     it('answers each kind once, however many ways the station can make it', () => {

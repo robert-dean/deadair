@@ -144,7 +144,9 @@ const ordered: ServerKitModule[] = [
     // NewsModule by taste.
     WeatherModule,
     // Beside the three above and for their reasons: after PluginsModule, whose registry and invoker it
-    // reads, and no loop of its own (a cron job re-reads the feeds).
+    // reads, and no loop of its own (a cron job re-reads the feeds). Before TopicsModule, because a
+    // `syndicated` band names its show through a topic kind this module owns, and the owner of a kind
+    // registers ahead of the registry that lists them, which is the edge WeatherModule's comment argues.
     PodcastsModule,
     // After every module that OWNS a sort of break's subjects — NewsModule and
     // WeatherModule — and before DirectorModule, which reads one back when a break is written.

@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import type { ConfigFieldDescriptor, ConfigFieldOption, ConfigFieldOptionSource } from '@deadair/sdk';
 
 import { newsFeedsOptions } from '../../api/news.queries';
+import { podcastShowsOptions } from '../../api/podcast.queries';
 import { pluginConfigSuggestionsOptions, pluginsListOptions } from '../../api/plugins.queries';
 import { topicsOptions } from '../../api/topics.queries';
 
@@ -74,6 +75,7 @@ export function useDeclaredOptions(
     const wanted = declaredSources(fields);
     const topics = useQuery({ ...topicsOptions, enabled: wanted.has('station.newsCategories') });
     const feeds = useQuery({ ...newsFeedsOptions, enabled: wanted.has('station.newsFeeds') });
+    const shows = useQuery({ ...podcastShowsOptions, enabled: wanted.has('station.podcastShows') });
     const wantsModels = wanted.has('llm.models');
     // The plugin list is needed by the four `plugins.*` sources AND by `llm.models`, which has to
     // work out which plugin to ask when the setting naming one is empty.
@@ -112,6 +114,9 @@ export function useDeclaredOptions(
         // ever seen. It is the one source whose entries a plugin minted and only the station can
         // list: the ids carry the plugin that offered them, and no plugin knows the others' names.
         'station.newsFeeds': (feeds.data?.feeds ?? []).map(feed => ({ value: feed.id, label: feed.name })),
+        // The same shape for the programmes the station carries: the qualified id as the value, since
+        // that is what a `syndicated` band's topic stores, and the show's own title as the label.
+        'station.podcastShows': (shows.data?.shows ?? []).map(show => ({ value: show.id, label: show.title })),
         // No query and no round trip: the platform holds this list, and the browser's copy is the
         // one that matters — a zone the operator's own machine cannot name is a zone they cannot
         // check the clock against. `supportedValuesOf` is ES2022 and has been in every engine this

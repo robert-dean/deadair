@@ -81,6 +81,7 @@ public struct ConfigFieldOption: Codable, Equatable, Sendable {
 public enum ConfigFieldOptionSource: String, Codable, CaseIterable, Sendable {
     case stationNewsCategories = "station.newsCategories"
     case stationNewsFeeds = "station.newsFeeds"
+    case stationPodcastShows = "station.podcastShows"
     case intlTimeZones = "intl.timeZones"
     case pluginsSpeech = "plugins.speech"
     case pluginsLlm = "plugins.llm"

@@ -196,6 +196,12 @@ export const queryKeys = {
         stories: (feedId?: string) => ['news', 'stories', feedId ?? ''] as const,
     },
 
+    /** The shows the station carries, and the episodes of them it knows about, narrowed by show. */
+    podcasts: {
+        shows: () => ['podcasts', 'shows'] as const,
+        episodes: (showId?: string) => ['podcasts', 'episodes', showId ?? ''] as const,
+    },
+
     /** One list, because the API answers with the whole library and every write answers with it again. */
     segments: {
         list: () => ['segments', 'list'] as const,

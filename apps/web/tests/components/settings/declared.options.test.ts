@@ -10,6 +10,7 @@ import { pluginSummary } from '../../utils/plugin.fixture';
 
 const listPlugins = vi.fn();
 const listFeeds = vi.fn();
+const listShows = vi.fn();
 const suggestPluginConfigOptions = vi.fn();
 
 vi.mock('../../../src/api/client', () => ({
@@ -21,12 +22,16 @@ vi.mock('../../../src/api/client', () => ({
         news: {
             listFeeds: (...args: unknown[]) => listFeeds(...args),
         },
+        podcasts: {
+            listShows: (...args: unknown[]) => listShows(...args),
+        },
     },
 }));
 
 afterEach(() => {
     listPlugins.mockReset();
     listFeeds.mockReset();
+    listShows.mockReset();
     suggestPluginConfigOptions.mockReset();
 });
 
@@ -92,6 +97,20 @@ describe('useDeclaredOptions', () => {
                 { value: 'deadair.rss:sport', label: 'Sport' },
             ]),
         );
+    });
+
+    // A `syndicated` topic stores the qualified show id, and an operator picks by the show's title.
+    it('resolves station.podcastShows to the shows the podcast plugins carry', async () => {
+        const queryClient = createTestQueryClient();
+        listShows.mockResolvedValue({
+            shows: [{ id: 'deadair.podcast:73b7fb89', pluginId: 'deadair.podcast', title: 'The Long Wave' }],
+        });
+
+        const fields = [stringField({ key: 'show', type: 'select', optionsFrom: 'station.podcastShows' })];
+        const { result } = renderHook(() => useDeclaredOptions(fields), { wrapper: wrapWithQueryClient(queryClient) });
+
+        await waitFor(() => expect(result.current.show).toEqual([{ value: 'deadair.podcast:73b7fb89', label: 'The Long Wave' }]));
+        expect(listFeeds).not.toHaveBeenCalled();
     });
 
     it.each(['plugins.speech', 'plugins.llm', 'plugins.mixer', 'plugins.analysis'] as const)(

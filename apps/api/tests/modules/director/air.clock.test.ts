@@ -61,10 +61,19 @@ describe('projectAirTimes', () => {
         expect(projectAirTimes(items, START, 0)).toEqual([START, START]);
     });
 
-    it('counts a segment as no time at all, because nothing has ever measured one', () => {
+    it('counts a segment planted without a length as no time at all', () => {
         const items = [segment(), track(4 * MINUTE)];
 
         expect(projectAirTimes(items, START, 0)).toEqual([START, START]);
+    });
+
+    // An hour of somebody else's programme counted as nothing would put every band behind it an hour
+    // early, or past the lateness bound, nowhere at all.
+    it('counts an episode planted with its length as the time it runs', () => {
+        const episode: StationLineupItem = { ...segment(), segmentKind: 'syndicated', durationMs: 60 * MINUTE } as StationLineupItem;
+        const items = [episode, track(4 * MINUTE)];
+
+        expect(projectAirTimes(items, START, 0)).toEqual([START, START + 60 * MINUTE]);
     });
 
     it('never projects a boundary later than the truth', () => {

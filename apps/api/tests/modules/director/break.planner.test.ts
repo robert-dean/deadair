@@ -16,6 +16,7 @@ import { StationLineup, type StationLineupSegmentItem } from '../../../src/modul
 import { resolveRules } from '../../../src/modules/director/rotation.rules.js';
 import type { RundownTrack } from '../../../src/modules/playout/rundown.js';
 import type { PlannedSegment, Segment, SegmentRepository } from '../../../src/modules/render/segment.repository.js';
+import type { SyndicatedAnswer } from '../../../src/modules/podcasts/syndicated.source.js';
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
 
@@ -63,6 +64,8 @@ const build = (
         bands?: ClockBand[];
         /** The presenter whose chattiness scales the station's own spacing floor. */
         presenting?: { chattiness?: string };
+        /** What a `syndicated` band would carry. Nothing, by default: no station subscribes to anything. */
+        carried?: SyndicatedAnswer;
     } = {},
 ) => {
     // Answers for the KIND it was asked about, the way the repository does. A blanket answer would
@@ -170,6 +173,9 @@ const build = (
     // The presenter, whose `chattiness` scales the station's own spacing floor. Absent by default,
     // which is the ordinary rung and leaves every existing case's arithmetic untouched.
     const presenting = vi.fn(async () => options.presenting);
+    const segmentFor = vi.fn(
+        async (_subject: unknown, _onOrder: ReadonlySet<string>): Promise<SyndicatedAnswer> => options.carried ?? { declined: 'no podcasts' },
+    );
 
     return {
         planner: new BreakPlanner(
@@ -191,7 +197,9 @@ const build = (
             { send } as never,
             settingsConfig(options.settings ?? {}).config,
             logger,
+            { segmentFor } as never,
         ),
+        segmentFor,
         listReady,
         plan,
         markFailed,
@@ -944,6 +952,120 @@ describe('BreakPlanner against the clock', () => {
         const lineup = await lineupOf(20);
 
         expect(await planner.plant(lineup, rules({ breaks: false }), eightPastNine())).toBe(0);
+    });
+});
+
+// Somebody else's programme on the format clock: placed, never written and never drawn off the shelf,
+// with the length its publisher states so the clock behind it projects an hour rather than nothing.
+describe('BreakPlanner carrying a programme', () => {
+    const eightPastNine = (): AirClock => ({ now: Date.UTC(2026, 7, 13, 9, 8), anchorAt: Date.UTC(2026, 7, 13, 9, 0), from: 0 });
+    const utc = (): Record<string, string> => ({ 'station.timezone': 'UTC' });
+    const at = (minute: number, kind: string, hour?: number): ClockBand => ({ at: 'clock', minute, kind, ...(hour === undefined ? {} : { hour }) });
+    const HOUR = 60 * 60_000;
+
+    it('places the episode the band means at its boundary, with the length its publisher states', async () => {
+        const { planner, plan, listReady } = build({
+            settings: utc(),
+            bands: [at(30, 'syndicated')],
+            carried: { segmentId: 'episode-12', durationMs: HOUR },
+        });
+        const lineup = await lineupOf(20);
+
+        await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 0 }), eightPastNine());
+
+        const planted = lineup.all()[6] as StationLineupSegmentItem;
+        expect(segmentsAt(lineup)).toEqual([6]);
+        expect(planted).toMatchObject({ kind: 'segment', segmentId: 'episode-12', segmentKind: 'syndicated', durationMs: HOUR });
+        // Neither written nor drawn from the shelf.
+        expect(plan).not.toHaveBeenCalled();
+        expect(listReady).not.toHaveBeenCalledWith('syndicated');
+    });
+
+    it('plants nothing when there is nothing to carry, rather than something else', async () => {
+        const { planner } = build({ settings: utc(), bands: [at(30, 'syndicated')], carried: { declined: 'nothing new' }, idents: [ident('seg-1')] });
+        const lineup = await lineupOf(20);
+
+        await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 0 }), eightPastNine());
+
+        expect(segmentsAt(lineup)).toEqual([]);
+    });
+
+    it('tells the source what the order already holds, so an episode is never placed twice', async () => {
+        const { planner, segmentFor } = build({ settings: utc(), bands: [at(30, 'syndicated')], carried: { declined: 'already there' } });
+        const lineup = await lineupOf(20);
+        lineup.insertSegment('episode-12', 12, undefined, 'syndicated');
+
+        await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 0 }), eightPastNine());
+
+        expect(segmentFor.mock.calls[0]?.[1].has('episode-12')).toBe(true);
+    });
+
+    // An hour counted as nothing would put the bulletin behind it an hour early, inside the programme.
+    it('projects the hour the episode runs, so a band behind it lands after it', async () => {
+        const { planner } = build({
+            settings: utc(),
+            bands: [at(30, 'syndicated'), at(45, 'ident', 10)],
+            carried: { segmentId: 'episode-12', durationMs: HOUR },
+            idents: [ident('seg-1')],
+        });
+        const lineup = await lineupOf(40);
+
+        await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 0 }), eightPastNine());
+
+        // The episode goes in at index 6, before the record that would have started at 09:30. It runs
+        // an hour, so the records after it start at 10:30, and the first boundary at or after 10:45
+        // is three records later: index 10, where without the hour it would have been index 20.
+        const segments = segmentsAt(lineup);
+        expect(segments).toEqual([6, 10]);
+    });
+
+    // The news at the top of the hour a programme ends on is exactly where the news goes, and the rule
+    // against two breaks in one gap is about breaks.
+    it('keeps a bulletin at the boundary a programme ends on, rather than dropping it as a second break', async () => {
+        const { planner } = build({
+            settings: utc(),
+            bands: [at(30, 'syndicated'), at(30, 'ident', 10)],
+            carried: { segmentId: 'episode-12', durationMs: HOUR },
+            idents: [ident('seg-1')],
+        });
+        const lineup = await lineupOf(40);
+
+        await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 0 }), eightPastNine());
+
+        // The programme at 6 ends at 10:30, which is the boundary at 7: the ident goes straight after it.
+        expect(segmentsAt(lineup)).toEqual([6, 7]);
+    });
+
+    it('is placed beside a break the station already planted, since a presenter around a programme is the point', async () => {
+        const { planner } = build({ settings: utc(), bands: [at(30, 'syndicated')], carried: { segmentId: 'episode-12' } });
+        const lineup = await lineupOf(20);
+        lineup.insertSegment('talk-1', 6, undefined, 'talkbreak');
+
+        await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 0 }), eightPastNine());
+
+        expect(lineup.all().some(item => item.kind === 'segment' && item.segmentId === 'episode-12')).toBe(true);
+    });
+
+    // The switch is on the station TALKING. A programme an operator scheduled at nine is a slot in the
+    // schedule, as a production is, and goes in whatever the switch says.
+    it("still carries a programme when the station's breaks are switched off, and plants nothing else", async () => {
+        const { planner } = build({
+            settings: utc(),
+            bands: [at(30, 'syndicated'), at(45, 'news')],
+            carried: { segmentId: 'episode-12', durationMs: HOUR },
+            canWrite: true,
+            idents: [ident('seg-1')],
+        });
+        const lineup = await lineupOf(20);
+
+        await planner.plant(lineup, rules({ breaks: false, breakEveryMinutes: 4 * TRACK_MINUTES }), eightPastNine());
+
+        expect(
+            lineup
+                .all()
+                .filter(item => item.kind === 'segment')
+                .map(item => (item as StationLineupSegmentItem).segmentId),
+        ).toEqual(['episode-12']);
     });
 });
 

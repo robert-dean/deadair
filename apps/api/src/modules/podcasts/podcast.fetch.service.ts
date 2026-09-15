@@ -313,8 +313,9 @@ function labelFor(episode: PodcastEpisodeRecord): string {
  * Which episode a segment is, flat, as `segments.context` holds it.
  *
  * What the running order needs to name it on the mount (`programmeRundownTrack`) and what a presenter
- * around it needs to introduce it, written once now so nothing at air time has to reach back into
- * this module to ask.
+ * around it needs to introduce it (the summary, read by `WriteBreakJob`), written once now so nothing
+ * at air time has to reach back into this module to ask. The summary is the publisher's teaser, already
+ * plain text and already capped by the feed parser.
  */
 function contextFor(episode: PodcastEpisodeRecord): Record<string, string | number | boolean> {
     return {
@@ -325,5 +326,6 @@ function contextFor(episode: PodcastEpisodeRecord): Record<string, string | numb
         episodeTitle: episode.title,
         ...(episode.publishedAt === undefined ? {} : { publishedAt: new Date(episode.publishedAt).toISOString() }),
         ...(episode.artworkUrl === undefined ? {} : { artworkUrl: episode.artworkUrl }),
+        ...(episode.summary === undefined ? {} : { summary: episode.summary }),
     };
 }

@@ -88,6 +88,17 @@ export interface BreakTrack {
      * nothing, every break is this.
      */
     facts?: readonly string[];
+    /**
+     * Present when this neighbour is not a record at all but an episode of somebody else's
+     * programme, which the station carries whole. {@link title} is then the episode and {@link artist}
+     * the show, so every phrasing that names a record ("coming up, X from Y") names the programme in a
+     * way a presenter would, and the check that a talk break named what it was shown still applies.
+     *
+     * What differs is how a model is SHOWN it: as a programme to introduce or come out of, never as
+     * a song. `summary` is the publisher's own line about the episode, plain text, which is the one
+     * thing a presenter reaches for when introducing a show they did not make.
+     */
+    programme?: { summary?: string };
 }
 
 /**

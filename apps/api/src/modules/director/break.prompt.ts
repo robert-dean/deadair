@@ -809,8 +809,13 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape:
     // than showing them and asking for restraint. See `BreakPromptShape.showsFacts`.
     const withFacts = shape.showsFacts !== false;
 
-    if (previous) parts.push(`The record that has just finished:\n${describe(previous, withFacts)}`);
-    if (request.next) parts.push(`The record coming up next:\n${describe(request.next, withFacts)}`);
+    // A neighbour may be a programme rather than a record: an episode of somebody else's show the
+    // station carries whole. Said so in the heading, because a model told "the record" introduces an
+    // hour of a podcast as though it were a song.
+    if (previous)
+        parts.push(`${previous.programme === undefined ? 'The record' : 'The programme'} that has just finished:\n${describe(previous, withFacts)}`);
+    if (request.next)
+        parts.push(`${request.next.programme === undefined ? 'The record' : 'The programme'} coming up next:\n${describe(request.next, withFacts)}`);
 
     // Both absent is a legitimate moment — the top of an order with nothing behind it, and every
     // welcome, which is written BEFORE it is placed and so has no neighbours to be given.
@@ -1133,6 +1138,8 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape:
  * two have to name the same thing for either to mean anything.
  */
 function describe(track: BreakTrack, withFacts: boolean): string {
+    if (track.programme !== undefined) return describeProgramme(track, withFacts);
+
     // The title as it is READ rather than as it is filed. Shown the catalogue entry, a model reads it
     // out: a conspiracy-host audition on 2026-09-11 aired "Glycerine by Bush, 2014 remaster" and
     // "Tornado Of Souls by Megadeth, 2004 remix" while the floor beside it said the clean titles.
@@ -1163,6 +1170,25 @@ function describe(track: BreakTrack, withFacts: boolean): string {
 }
 
 /**
+ * An episode of somebody else's programme, as the model is shown it.
+ *
+ * Labelled as what it is, a show and an episode, rather than squeezed into a record's `Title` and
+ * `Artist`: a model shown an artist says "a track from", and a programme has a presenter or a
+ * publisher rather than a band. The one line of material is the publisher's own summary, behind
+ * `withFacts` for `describe`'s reason, and the instruction says what the break is FOR, since a
+ * presenter introducing a show says what it is about and does not review it.
+ */
+function describeProgramme(track: BreakTrack, withFacts: boolean): string {
+    const lines = [`- Show: ${track.artist}`, `- Episode: ${spoken(track.title)}`];
+    if (withFacts && track.durationMs) lines.push(`- Length: ${spokenLength(track.durationMs)}`);
+    if (withFacts && track.programme?.summary?.trim()) lines.push(`- What the publisher says it is about: ${track.programme.summary.trim()}`);
+    lines.push(
+        '- This is a programme the station carries from somebody else, not a record. Name the show, and if it helps, what this episode is about. Do not call it a song or a track.',
+    );
+    return lines.join('\n');
+}
+
+/**
  * A length in words rather than in milliseconds.
  *
  * Minutes and seconds because this is something to TALK about — a record that goes on too long is a
@@ -1175,6 +1201,15 @@ function spokenLength(durationMs: number): string {
     const total = Math.max(0, Math.round(durationMs / 1000));
     const minutes = Math.floor(total / 60);
     const seconds = total % 60;
+
+    // A programme runs an hour and more, and nobody says "sixty-two minutes three seconds" of one:
+    // hours and whole minutes, the seconds dropped because at that length they are not a subject.
+    if (minutes >= 60) {
+        const hours = Math.floor(minutes / 60);
+        const rest = minutes % 60;
+        const spokenHours = `${hours} ${hours === 1 ? 'hour' : 'hours'}`;
+        return rest === 0 ? spokenHours : `${spokenHours} ${rest} minutes`;
+    }
 
     if (minutes === 0) return `${seconds} seconds`;
     if (seconds === 0) return `${minutes} minutes`;

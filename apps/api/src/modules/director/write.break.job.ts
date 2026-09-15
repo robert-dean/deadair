@@ -18,7 +18,8 @@ import type { PersonaStoryForPrompt } from '#modules/personas/persona.story.js';
 import { preoccupationOf, storytellingOf } from '#modules/personas/persona.sheet.js';
 import type { Persona } from '#modules/personas/persona.js';
 import { ScriptHistoryRepository } from '#modules/render/script.history.repository.js';
-import { SegmentRepository, type PadHit } from '#modules/render/segment.repository.js';
+import { SegmentRepository, type PadHit, type Segment } from '#modules/render/segment.repository.js';
+import { isSyndicatedKind } from '#modules/podcasts/syndicated.kind.js';
 import { SpeechService } from '#modules/render/speech.service.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
@@ -200,7 +201,7 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         // Unless it is a break that WANTS no position, which is the other shape described on the
         // class. That question is asked only on this branch, so an ordinary planted break — every
         // break on most stations — costs the walk above and no extra query at all.
-        const found = neighboursOf(lineup, segmentId);
+        const found = neighboursOf(lineup, segmentId, await this.programmesOn(lineup));
         const request = found === undefined ? await this.requestBehind(segmentId) : undefined;
         if (found === undefined && !(request !== undefined && isRenderedFirst(request.urgency))) {
             this.logger.info('director: this break is not in the running order yet, so it will be written on a later pass', {
@@ -461,6 +462,19 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
                 },
             });
         }
+    }
+
+    /**
+     * Every programme segment the order holds, by id, for {@link neighboursOf}.
+     *
+     * One read, and none at all for an order carrying no programme, which is nearly every order: the
+     * segment KIND rides the lineup item, so which lines are programmes is known without asking.
+     */
+    private async programmesOn(lineup: StationLineup): Promise<Map<string, Segment>> {
+        const ids = lineup.all().flatMap(item => (item.kind === 'segment' && isSyndicatedKind(item.segmentKind ?? '') ? [item.segmentId] : []));
+        if (ids.length === 0) return new Map();
+
+        return await this.segments.findByIds(ids);
     }
 
     /**
@@ -910,7 +924,7 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
  * Which of the two reasons a break is absent for — too early, or not placed yet on purpose — is a
  * question about the REQUEST behind it and not about the order, so it is answered by the caller.
  */
-function neighboursOf(lineup: StationLineup, segmentId: string): Neighbours | undefined {
+function neighboursOf(lineup: StationLineup, segmentId: string, programmes: ReadonlyMap<string, Segment> = new Map()): Neighbours | undefined {
     const items = lineup.all();
     const at = items.findIndex(item => item.kind === 'segment' && item.segmentId === segmentId);
     if (at < 0) return undefined;
@@ -918,6 +932,20 @@ function neighboursOf(lineup: StationLineup, segmentId: string): Neighbours | un
     const nearest = (from: number, step: number, adjacentOnly = false): Neighbour | undefined => {
         for (let index = from; index >= 0 && index < items.length; index += step) {
             const item = items[index]!;
+
+            // An episode of somebody else's programme is a neighbour the way a record is: it is what
+            // just played, or what is coming up, and a presenter around it says so. It is found here
+            // from its own segment row, read by the caller, and is subject to the same two rules a
+            // record is — not across an intervening line for what is coming up, and not at all once
+            // nobody will hear it.
+            if (!isTrackItem(item) && programmes.has(item.segmentId)) {
+                if (item.state === 'unavailable' || item.state === 'skipped' || item.state === 'removed') {
+                    if (adjacentOnly) return undefined;
+                    continue;
+                }
+                return { itemId: item.id, track: programmeTrack(programmes.get(item.segmentId)!) };
+            }
+
             // Something else between the break and the record: for a back-announce that is fine,
             // because what already played is a fact and stays one whatever sits in between. For the
             // record COMING UP it is not, and the caller asks for the adjacent line only.
@@ -976,6 +1004,25 @@ function neighboursOf(lineup: StationLineup, segmentId: string): Neighbours | un
     return {
         ...(previous === undefined ? {} : { previous }),
         ...(next === undefined ? {} : { next }),
+    };
+}
+
+/**
+ * An episode of somebody else's programme as a neighbour a writer is shown: the episode as the title
+ * and the show as the artist, so every phrasing that names a record names the programme the way a
+ * presenter would, and `programme` so a model is told it is not a song. Both off the segment's own
+ * context, written when the episode was fetched; the label is the fallback for a mangled one.
+ */
+function programmeTrack(segment: Segment): BreakTrack {
+    const context = segment.context ?? {};
+    const text = (value: unknown): string | undefined => (typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined);
+    const summary = text(context.summary);
+
+    return {
+        title: text(context.episodeTitle) ?? segment.label,
+        artist: text(context.showTitle) ?? 'a programme the station carries',
+        ...(segment.durationMs === undefined ? {} : { durationMs: segment.durationMs }),
+        programme: summary === undefined ? {} : { summary },
     };
 }
 

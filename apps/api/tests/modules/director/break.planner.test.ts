@@ -1046,6 +1046,42 @@ describe('BreakPlanner carrying a programme', () => {
         expect(lineup.all().some(item => item.kind === 'segment' && item.segmentId === 'episode-12')).toBe(true);
     });
 
+    // Carrying a show sounds like carrying it when the presenter hands over to it, so a talk break is
+    // planted in front of the programme, to be written later with the programme as what is coming up.
+    it('plants a talk break in front of the programme when the station talks', async () => {
+        const { planner, plan } = build({
+            settings: utc(),
+            bands: [at(30, 'syndicated')],
+            carried: { segmentId: 'episode-12', durationMs: HOUR },
+            canWrite: true,
+        });
+        const lineup = await lineupOf(20);
+
+        await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 0 }), eightPastNine());
+
+        const segments = lineup.all().filter((item): item is StationLineupSegmentItem => item.kind === 'segment');
+        expect(segments.map(item => item.segmentKind)).toEqual(['talkbreak', 'syndicated']);
+        expect(lineup.all().indexOf(segments[1]!)).toBe(lineup.all().indexOf(segments[0]!) + 1);
+        expect(plan).toHaveBeenCalledWith(expect.objectContaining({ kind: 'talkbreak', airsAt: Date.UTC(2026, 7, 13, 9, 30) }));
+    });
+
+    // A break already at the boundary takes no time, so the earliest boundary at half past is in front
+    // of it: the programme goes in there, the station's own break becomes the way out of it, and the
+    // introduction still goes in front.
+    it('puts a break already at the boundary after the programme, and still introduces it', async () => {
+        const { planner } = build({ settings: utc(), bands: [at(30, 'syndicated')], carried: { segmentId: 'episode-12' }, canWrite: true });
+        const lineup = await lineupOf(20);
+        lineup.insertSegment('talk-1', 6, undefined, 'talkbreak');
+
+        await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 0 }), eightPastNine());
+
+        const around = lineup
+            .all()
+            .filter((item): item is StationLineupSegmentItem => item.kind === 'segment')
+            .map(item => (item.segmentId === 'talk-1' ? 'existing' : item.segmentKind));
+        expect(around).toEqual(['talkbreak', 'syndicated', 'existing']);
+    });
+
     // The switch is on the station TALKING. A programme an operator scheduled at nine is a slot in the
     // schedule, as a production is, and goes in whatever the switch says.
     it("still carries a programme when the station's breaks are switched off, and plants nothing else", async () => {

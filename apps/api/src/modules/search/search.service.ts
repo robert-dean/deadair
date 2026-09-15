@@ -182,9 +182,6 @@ export const MAX_SEARCH_RESULTS = 25;
  * question inside a minute. It is deliberately NOT sized to how fast the web
  * changes — a caller that wants what is new asks with a `recency`, which is part
  * of the key.
- *
- * Both predecessors landed on the same shape for the same reason; subwave's memo
- * was half an hour and is the closest measured number anybody here has.
  */
 export const SEARCH_TTL_MS = 15 * 60 * 1000;
 

@@ -82,6 +82,8 @@ function harness(
         writer?: string;
         /** Settings as the STRINGS a config layer actually holds. See the off-case assertions. */
         settings?: Record<string, string>;
+        /** Episodes of somebody else's programme the order holds, as their segment rows. */
+        programmes?: Segment[];
     } = {},
 ) {
     const segments = {
@@ -93,6 +95,10 @@ function harness(
         writeScript: vi.fn(async () => options.wrote ?? true),
         breaksSincePad: vi.fn(async () => options.breaksSincePad ?? 0),
         markFailed: vi.fn(async () => {}),
+        // Read only for an order that carries a programme, which none of these do unless a test says.
+        findByIds: vi.fn(
+            async (ids: readonly string[]) => new Map((options.programmes ?? []).filter(row => ids.includes(row.id)).map(row => [row.id, row])),
+        ),
     };
     const lineups = { load: vi.fn(async () => options.lineup) };
     // What a break was asked for, for one that came from a request. Read only when the segment names
@@ -743,6 +749,92 @@ describe('WriteBreakJob', () => {
         await job.run({ segmentId: 'seg-1' });
 
         expect(segments.writeScript).toHaveBeenCalledWith('seg-1', expect.objectContaining({ writer: 'a-model' }));
+    });
+
+    // Somebody else's programme beside a break is what a presenter hands over to, or comes out of.
+    // It is shown as a neighbour the way a record is, so every phrasing and the claim guard apply, and
+    // marked as a programme so a model does not introduce an hour of a show as a song.
+    describe('a programme beside the break', () => {
+        const episode: Segment = {
+            id: 'seg-episode',
+            kind: 'syndicated',
+            state: 'ready',
+            label: 'The Long Wave: Episode 12',
+            source: 'syndicated',
+            durationMs: 3_723_000,
+            pads: [],
+            context: { showTitle: 'The Long Wave', episodeTitle: 'Episode 12', summary: 'Who is awake at 3am, and why they listen.' },
+        } as Segment;
+
+        const lineupAround = async (where: 'before' | 'after'): Promise<StationLineup> => {
+            const lineup = new StationLineup({ name: 'Afternoons', mode: 'rotation', onEnd: 'extend', source: 'import' });
+            lineup.append([track('Solid Air', 'John Martyn'), track('Pink Moon', 'Nick Drake')]);
+            // The break at 1, the programme straight after it or straight before it.
+            if (where === 'before')
+                lineup.insertSegments([
+                    { segmentId: 'seg-episode', atIndex: 1, segmentKind: 'syndicated', durationMs: 3_723_000 },
+                    { segmentId: 'seg-1', atIndex: 1 },
+                ]);
+            else
+                lineup.insertSegments([
+                    { segmentId: 'seg-1', atIndex: 1 },
+                    { segmentId: 'seg-episode', atIndex: 1, segmentKind: 'syndicated', durationMs: 3_723_000 },
+                ]);
+            return lineup;
+        };
+
+        it('shows a break in front of a programme the programme as what is coming up', async () => {
+            const lineup = await lineupAround('before');
+            const { job, writers } = harness({ lineup, programmes: [episode] });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            const request = (writers.write.mock.calls[0] as unknown as [BreakWriteRequest])[0];
+            expect(request.previous?.title).toBe('Solid Air');
+            expect(request.next).toEqual({
+                title: 'Episode 12',
+                artist: 'The Long Wave',
+                durationMs: 3_723_000,
+                programme: { summary: 'Who is awake at 3am, and why they listen.' },
+            });
+        });
+
+        it("stamps the claim on the programme's line when the words promised it, so the break goes if the programme does", async () => {
+            const lineup = await lineupAround('before');
+            const programmeLine = lineup.all().find(item => item.kind === 'segment' && item.segmentId === 'seg-episode')!.id;
+            const { job, segments } = harness({
+                lineup,
+                programmes: [episode],
+                written: {
+                    written: { script: 'Coming up, The Long Wave.', label: 'Into The Long Wave', claimsNext: true },
+                    writer: 'deterministic',
+                    attempts: [{ writer: 'deterministic', outcome: 'written', written: { script: 'x', label: 'y' }, durationMs: 1 }],
+                },
+            });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(segments.writeScript).toHaveBeenCalledWith('seg-1', expect.objectContaining({ claimsItemId: programmeLine }));
+        });
+
+        it('shows a break after a programme the programme as what just finished', async () => {
+            const lineup = await lineupAround('after');
+            const { job, writers } = harness({ lineup, programmes: [episode] });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            const request = (writers.write.mock.calls[0] as unknown as [BreakWriteRequest])[0];
+            expect(request.previous).toMatchObject({ title: 'Episode 12', artist: 'The Long Wave', programme: {} });
+            expect(request.next?.title).toBe('Pink Moon');
+        });
+
+        it('reads no segment at all for an order that carries no programme', async () => {
+            const { job, segments } = harness({ lineup: await lineupWithBreak() });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(segments.findByIds).not.toHaveBeenCalled();
+        });
     });
 
     describe('the record of what it wrote', () => {

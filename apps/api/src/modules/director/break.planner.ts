@@ -375,10 +375,54 @@ export class BreakPlanner {
 
         const placements = await this.fill(wanted, [], false, undefined, segmentsOn(lineup));
         if (placements.length === 0) return 0;
-        if (!(await this.insert(lineup, placements))) return 0;
 
-        this.logger.info('director: put a programme into the running order', { count: placements.length });
-        return placements.length;
+        const introduced = await this.introduce(lineup, rules, placements, wanted);
+        if (!(await this.insert(lineup, introduced))) return 0;
+
+        this.logger.info('director: put a programme into the running order', {
+            count: placements.length,
+            introduced: introduced.length - placements.length,
+        });
+        return introduced.length;
+    }
+
+    /**
+     * The programmes, each with a talk break in front of it where the station talks and one is not
+     * already there.
+     *
+     * Carrying somebody else's show sounds like carrying it when the presenter hands over to it, and
+     * left to the station's own spacing that happens only when a break happens to fall on the boundary.
+     * So a break is planted with the programme, written later like any other, and it is shown the
+     * programme as what is coming up (`WriteBreakJob.neighboursOf`), with the claim guard that drops it
+     * if the programme leaves the order. Not planted when the station's breaks are off, since that is
+     * the operator saying the station does not talk, nor when nothing can write or speak one, nor where
+     * a break already sits in front of the boundary.
+     *
+     * Placed at the SAME index as its programme and listed after it: `insertSegments` splices
+     * highest-index-first and, within one index, in list order, so the break lands in front.
+     */
+    private async introduce(
+        lineup: StationLineup,
+        rules: ResolvedRules,
+        placements: readonly Placement[],
+        wanted: readonly Slot[],
+    ): Promise<Placement[]> {
+        if (!rules.breaks || !this.writers.canWrite(TALK_BREAK_KIND) || this.speech.speaker() === undefined) return [...placements];
+
+        const items = lineup.all();
+        const airsAt = new Map(wanted.flatMap(slot => (slot.airsAt === undefined ? [] : [[slot.atIndex, slot.airsAt] as const])));
+        const introduced: Placement[] = [];
+
+        for (const placement of placements) {
+            introduced.push(placement);
+            if (isBreakAt(items, placement.atIndex - 1)) continue;
+
+            const at = airsAt.get(placement.atIndex);
+            const intro = await this.segments.plan({ kind: TALK_BREAK_KIND, label: 'Talk break', ...(at === undefined ? {} : { airsAt: at }) });
+            introduced.push({ segmentId: intro.id, atIndex: placement.atIndex, kind: TALK_BREAK_KIND, written: true });
+        }
+
+        return introduced;
     }
 
     /**

@@ -550,6 +550,43 @@ describe('breakPrompt', () => {
     // The three the running order has always held and the writer never saw. A writer told a title
     // and a name has nothing specific to be specific about, which is what the station's invented
     // years and invented studios were: not a model being careless, a model being asked.
+    // An episode of somebody else's programme beside a break. A model told "the record" introduces an
+    // hour of a podcast as a song, and a record's `Artist` line has it say "a track from".
+    describe('a programme beside the break', () => {
+        const programme = {
+            title: 'Episode 12: The night shift',
+            artist: 'The Long Wave',
+            durationMs: 3_723_000,
+            programme: { summary: 'Who is awake at 3am, and why they listen.' },
+        };
+
+        it('calls it a programme, names the show and the episode, and says what it is about', () => {
+            const said = user(prompt({ kind: 'talkbreak', previous, next: programme }));
+
+            expect(said).toContain('The programme coming up next:');
+            expect(said).toContain('- Show: The Long Wave');
+            expect(said).toContain('- Episode: Episode 12: The night shift');
+            expect(said).toContain('- What the publisher says it is about: Who is awake at 3am, and why they listen.');
+            expect(said).toContain('not a record');
+            expect(said).not.toContain('- Artist: The Long Wave');
+            // The record behind the break is still a record.
+            expect(said).toContain('The record that has just finished:');
+        });
+
+        it('says an hour-long programme in hours and minutes, not in sixty-odd minutes', () => {
+            const said = user(prompt({ kind: 'talkbreak', previous: programme }));
+
+            expect(said).toContain('The programme that has just finished:');
+            expect(said).toContain('- Length: 1 hour 2 minutes');
+        });
+
+        it('says a programme of whole hours without a zero', () => {
+            const said = user(prompt({ kind: 'talkbreak', previous: { ...programme, durationMs: 7_200_000 } }));
+
+            expect(said).toContain('- Length: 2 hours');
+        });
+    });
+
     describe('what the order knows about a record', () => {
         const known = { ...previous, year: 1973, album: 'Solid Air', durationMs: 401_000 };
 

@@ -157,6 +157,15 @@ describe('listenerArtwork, through itemAnnotations', () => {
         expect(itemAnnotations(item, reachable()).url).toBe('https://cdn.example/cover.jpg');
     });
 
+    it("sends the station's own cached copy, as the catalog read hands it over, absolute under the API", () => {
+        // `art/<id>` with no leading slash is the shape `catalog.art.ts` mints, and it is what
+        // every cached cover on the station arrives as: the amp fetches from the station, not
+        // from whichever provider the record came from.
+        const item: RundownItem = { ...record(-9), artworkUrl: 'art/0b1e4a52-1111-4222-8333-444455556666' };
+
+        expect(itemAnnotations(item, reachable()).url).toBe('https://radio.test/api/art/0b1e4a52-1111-4222-8333-444455556666');
+    });
+
     it("makes the station's own cached copy absolute under the API, off the public origin", () => {
         // A device at the far end of a stream cannot resolve a relative path, and the trailing
         // slash an operator may well type into the setting must not become a double one.

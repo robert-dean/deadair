@@ -222,8 +222,13 @@ export function listenerTitle(item: RundownItem, stationName: string): string {
  * `stream/streamurl.check.py` is how that is measured, against a test mount.
  *
  * A record carries its cover, made absolute: the station's own cached copy is
- * a path under the API root, and a device at the far end of a stream cannot
- * resolve a relative one. A break carries the station's logo, for the reason
+ * a path under the API root (`art/<id>`, minted by `catalog.art.ts` wherever the
+ * cache job has fetched one, which is what a device fetches rather than the
+ * provider's CDN), and a device at the far end of a stream cannot resolve a
+ * relative one. `/api` is the prefix the edge adds in front of this API in both
+ * nginx configs, which the API itself does not know and the console configures;
+ * here it is written down, since there is no console to ask. A break carries
+ * the station's logo, for the reason
  * the mount carries the station's name during one: the station is the one
  * talking. So does a record with no cover, because of what Icecast does
  * otherwise. **It KEEPS a tag an update did not mention** (`mp3_set_tag`

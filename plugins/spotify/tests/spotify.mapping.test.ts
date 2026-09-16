@@ -202,12 +202,14 @@ describe('mapPlaylist', () => {
         expect(playlist?.trackCount).toBe(42);
     });
 
-    it('grants read and edit on a playlist the user owns, and nothing on one they only follow', () => {
+    it('grants read and edit on a playlist the user owns, and read alone on one they only follow', () => {
         const owned = mapPlaylist({ id: 'pl-1', name: 'Mine', owner: { id: 'me-1' } }, 'me-1');
         const followed = mapPlaylist({ id: 'pl-2', name: 'Discover Weekly', owner: { id: 'spotify' } }, 'me-1');
 
         expect(owned?.permissions).toEqual(['read', 'edit']);
-        expect(followed?.permissions).toEqual([]);
+        // Readable through the station's own fetcher, which holds the streaming client's session.
+        // Editing is the half with no way round ownership.
+        expect(followed?.permissions).toEqual(['read']);
     });
 
     it('treats a collaborative playlist as usable even when someone else owns it', () => {
@@ -221,15 +223,31 @@ describe('mapPlaylist', () => {
         expect(mapPlaylist({ id: 'pl-1', name: 'Mystery' }, 'me-1')?.permissions).toBeUndefined();
     });
 
-    it('distinguishes "the source permits nothing" from "the source did not say"', () => {
-        const refused = mapPlaylist({ id: 'pl-1', name: 'Theirs', owner: { id: 'spotify' } }, 'me-1');
+    it('distinguishes what the source permits from "the source did not say"', () => {
+        const followed = mapPlaylist({ id: 'pl-1', name: 'Theirs', owner: { id: 'spotify' } }, 'me-1');
         const unknown = mapPlaylist({ id: 'pl-2', name: 'Theirs', owner: { id: 'spotify' } });
 
         // Collapsing these is the regression this shape exists to prevent: a
-        // host that reads `undefined` as "permits nothing" hides the entire
-        // library the first time the profile call fails.
-        expect(refused?.permissions).toEqual([]);
+        // host that reads `undefined` as a refusal hides the entire library the
+        // first time the profile call fails.
+        expect(followed?.permissions).toEqual(['read']);
         expect(unknown?.permissions).toBeUndefined();
+    });
+
+    // Every playlist a listing offers is readable, because the fallback does not depend on who owns
+    // it. A station with no fetcher configured still says so: it cannot air anything at all in that
+    // state, and a failed read is reported like any other provider failure.
+    it('never says a playlist cannot be read', () => {
+        const playlists = [
+            mapPlaylist({ id: 'pl-1', name: 'Mine', owner: { id: 'me-1' } }, 'me-1'),
+            mapPlaylist({ id: 'pl-2', name: 'Editorial', owner: { id: 'spotify' } }, 'me-1'),
+            mapPlaylist({ id: 'pl-3', name: "A friend's", owner: { id: 'friend' } }, 'me-1'),
+            mapPlaylist({ id: 'pl-4', name: 'Shared', owner: { id: 'friend' }, collaborative: true }, 'me-1'),
+        ];
+
+        for (const playlist of playlists) {
+            expect(playlist?.permissions).toContain('read');
+        }
     });
 
     it('marks a playlist Spotify made itself, whether or not the account is known', () => {

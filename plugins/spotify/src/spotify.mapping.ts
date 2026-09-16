@@ -181,33 +181,42 @@ export function mapPlaylist(playlist: SpotifyPlaylist | null | undefined, curren
 }
 
 /**
- * What Spotify will let this account do with the playlist's items.
+ * What this station can do with the playlist's items.
  *
- * Since February 2026 both reading and modifying items are limited to playlists
- * the account owns or collaborates on; everything else answers 403 by design. A
- * listing is full of the other kind, because `GET /me/playlists` returns what
- * the account *follows*: editorial playlists, Daily Mix, Discover Weekly,
- * friends' playlists. Without this they all render as usable and 403 the moment
- * one is opened.
+ * Since February 2026 the Web API limits both reading and modifying items to
+ * playlists the account owns or collaborates on; everything else answers 403 by
+ * design. A listing is full of the other kind, because `GET /me/playlists`
+ * returns what the account *follows*: editorial playlists, Daily Mix, Discover
+ * Weekly, friends' playlists.
  *
- * `read` and `edit` therefore travel together here. That is a fact about
- * Spotify's rules rather than a rule other providers must follow, and the two
- * are separate values precisely so a provider that splits them can say so.
+ * **`read` and `edit` no longer travel together, and the reason is the
+ * fetcher.** The station's track fetcher holds the streaming client's own
+ * session rather than a developer app's, and that session can read a followed
+ * playlist perfectly well — so `getPlaylistTracks` falls back to it and every
+ * playlist here is readable. Modifying one still is not: there is no way round
+ * ownership for a write, and nothing should offer it. The two being separate
+ * values is what makes that sayable.
+ *
+ * `read` is reported whether or not this station has a fetcher configured. A
+ * Spotify station without one cannot air anything at all, so the alternative is
+ * hiding a playlist from an install whose whole Spotify half is unbuilt, and a
+ * read that then fails is a provider failure reported like any other rather
+ * than a playlist that quietly does not exist.
  *
  * `collaborative` counts even though it only says the playlist accepts
  * collaborators rather than that this account is one. That errs permissive on
  * purpose: the cost of being wrong is one handled 403, whereas being wrong the
- * other way silently hides a playlist the account can really use.
+ * other way withholds an `edit` the account really has.
  *
- * Answers `undefined`, not `[]`, when the owner or the account id is unknown.
- * Those are different claims: `[]` says Spotify permits nothing, while
- * `undefined` says we never found out, and a host that conflates them hides the
- * whole library the first time the profile call blips.
+ * Answers `undefined`, not a list, when the owner or the account id is unknown.
+ * Those are different claims: a list is what Spotify permits, while `undefined`
+ * says we never found out, and the host reads the second as "no reason to think
+ * otherwise" rather than as a refusal.
  */
 function playlistPermissions(playlist: SpotifyPlaylist, currentUserId?: string): ProviderPlaylistPermission[] | undefined {
     if (playlist.collaborative) return ['read', 'edit'];
     if (!currentUserId || !playlist.owner?.id) return undefined;
-    return playlist.owner.id === currentUserId ? ['read', 'edit'] : [];
+    return playlist.owner.id === currentUserId ? ['read', 'edit'] : ['read'];
 }
 
 /**

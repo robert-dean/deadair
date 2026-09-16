@@ -330,6 +330,20 @@ outcome on a real install, and the authorization is finished by relaying the add
 says the page will fail before it does. Two things are load-bearing. The address is parsed by the SHIM and
 nowhere else, because two readings of one callback is one of them being wrong eventually.
 
+**That same login is also how the station reads a playlist the Web API will not hand over.** Since February
+2026 the Web API returns a playlist's items only to the account that OWNS them, while `GET /me/playlists`
+returns everything the account FOLLOWS: a friend's playlist, an editorial one, Discover Weekly. The shim is not
+a developer app, so `GET /playlist/{id}` there answers those from the client protocol —
+`/context-resolve/v1/{uri}` for the uris and one batched extended-metadata read per hundred for the titles —
+and `SpotifyPlugin.getPlaylistTracks` falls back to it on a 403, remembering which playlists were refused so a
+43-page walk spends one rather than 43. Measured 2026-09-16: 2142 tracks in 1.3s, 45 in 299ms. Three
+consequences worth knowing before relying on it. The shim resolves a playlist WHOLE and holds it for two
+minutes, because the caller that matters is the hourly `catalog.sync` walking fifty at a time and a resolve per
+page would spend the session the station airs on. Every followed playlist is therefore ingested by that sync,
+which is the intended answer and the reason hiding one exists (`deadair.hidden_playlists`). And **the advisory
+is mostly absent on this path** — `TRACK_V4` omitted `explicit` on 2124 of those 2142 — so a `clean-only`
+station draws almost nothing from a playlist read this way, since an unmarked copy is not a clean one.
+
 And **a fetcher that is DOWN and one that was never AUTHORIZED must never be drawn as one state** — both are
 "no audio" and only the second is fixed by a consent screen — which is why
 `FetcherAuthorizationState.reachable` exists beside `authorized`, why the attention item is raised only for a

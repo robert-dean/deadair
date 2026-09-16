@@ -8,6 +8,7 @@ import {
     type MusicProviderPluginInstance,
     type PlaybackState,
     type PluginConnectionResult,
+    type PluginHost,
     type ProviderPlaylist,
     type ProviderStream,
     type ProviderTrack,
@@ -82,6 +83,16 @@ export class SpotifyPlugin extends Plugin implements MusicProviderPluginInstance
      */
     private currentUserIdCache?: string;
 
+    /**
+     * Playlists this account was refused the items of, so the walk that follows asks the station's
+     * fetcher directly.
+     *
+     * A 2142-track playlist is 43 pages, and without this each one spends a 403 to learn what the
+     * first page already established. Remembered for the life of the connection, like the account
+     * id above: what the Web API will hand over changes when the account does.
+     */
+    private readonly refusedPlaylists = new Set<string>();
+
     protected async onLoad(): Promise<void> {
         const config = await this.host.config.get();
         this.clientId = configString(config.clientId);
@@ -110,6 +121,7 @@ export class SpotifyPlugin extends Plugin implements MusicProviderPluginInstance
         this.api = undefined;
         this.currentUserIdCache = undefined;
         this.deviceIdCache = undefined;
+        this.refusedPlaylists.clear();
     }
 
     async testConnection(): Promise<PluginConnectionResult> {
@@ -234,18 +246,60 @@ export class SpotifyPlugin extends Plugin implements MusicProviderPluginInstance
      * asking.
      */
     async getPlaylistTracks(playlistId: string, options?: GetPlaylistTracksOptions): Promise<ProviderTrack[]> {
-        const query = new URLSearchParams();
+        // Captured before the first await: `this.host` is a getter that throws once the instance is
+        // disposed, and an operator saving the config mid-walk is exactly when that happens.
+        const host = this.host;
         const limit = clampLimit(options?.limit);
+
+        if (this.refusedPlaylists.has(playlistId)) {
+            return this.tracksFromFetcher(host, playlistId, options?.offset, limit);
+        }
+
+        const query = new URLSearchParams();
         if (limit !== undefined) query.set('limit', String(limit));
         if (options?.offset !== undefined) query.set('offset', String(options.offset));
 
         const suffix = query.size > 0 ? `?${query.toString()}` : '';
         const path = `playlists/${encodeURIComponent(playlistId)}/items${suffix}`;
-        const page = await this.getApi().makeRequest<{ items?: SpotifyPlaylistedItem[] }>('GET', path);
 
-        // `item` is the new key and `track` the deprecated one; both are read
-        // so this works either side of the rename.
-        return toProviderTracks((page?.items ?? []).map(row => row.item ?? row.track));
+        try {
+            const page = await this.getApi().makeRequest<{ items?: SpotifyPlaylistedItem[] }>('GET', path);
+
+            // `item` is the new key and `track` the deprecated one; both are read
+            // so this works either side of the rename.
+            return toProviderTracks((page?.items ?? []).map(row => row.item ?? row.track));
+        } catch (error) {
+            if (!(error instanceof SpotifyRequestError) || error.status !== 403) throw error;
+
+            // Spotify refusing a playlist this account neither owns nor collaborates on, which is
+            // most of what `GET /me/playlists` returns. The station's own fetcher holds the
+            // streaming client's session and is not bound by that rule, so it is asked next.
+            this.refusedPlaylists.add(playlistId);
+            host.logger.debug('spotify will not share this playlist; asking the station fetcher', { playlist: playlistId });
+
+            try {
+                return await this.tracksFromFetcher(host, playlistId, options?.offset, limit);
+            } catch (fetcherError) {
+                // A station with no fetcher configured is reported as the refusal it started as: it
+                // behaves exactly as it did before this path existed.
+                if (fetcherError instanceof NoFetcherHere) throw error;
+                throw fetcherError;
+            }
+        }
+    }
+
+    /**
+     * One page of a playlist from the station's own fetcher.
+     *
+     * Throws {@link NoFetcherHere} rather than answering `[]` when there is no fetcher, because an
+     * empty page is how a caller learns it has reached the end of a playlist: answering one here
+     * would turn "this station cannot read it" into "this playlist is empty", which the catalog
+     * would believe.
+     */
+    private async tracksFromFetcher(host: PluginHost, playlistId: string, offset?: number, limit?: number): Promise<ProviderTrack[]> {
+        const tracks = await host.trackFetcher.playlistTracks({ playlistId, offset, limit });
+        if (!tracks) throw new NoFetcherHere();
+        return tracks;
     }
 
     /**
@@ -439,3 +493,12 @@ export class SpotifyPlugin extends Plugin implements MusicProviderPluginInstance
         return this.api;
     }
 }
+
+/**
+ * This station has no track fetcher, as something the playlist path can catch.
+ *
+ * Its own type rather than a sentinel value: the caller has to tell it apart from a fetcher that
+ * tried and failed, and it is never allowed to escape the plugin — `getPlaylistTracks` answers the
+ * provider's own 403 instead, which is what the station has always seen for these playlists.
+ */
+class NoFetcherHere extends Error {}

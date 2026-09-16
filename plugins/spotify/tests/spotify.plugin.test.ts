@@ -376,7 +376,7 @@ describe('SpotifyPlugin', () => {
             ]);
         });
 
-        it('listPlaylists marks the owned half readable and the followed half not', async () => {
+        it('listPlaylists marks every playlist readable and only the owned half editable', async () => {
             const host = createFakePluginHost();
             const plugin = await initedPlugin(host);
             host.queueResponse(
@@ -392,9 +392,11 @@ describe('SpotifyPlugin', () => {
 
             const results = await plugin.listPlaylists();
 
+            // The followed one is readable through the station's fetcher and editable by nobody:
+            // there is no way round ownership for a write.
             expect(results.map(playlist => [playlist.id, playlist.permissions])).toEqual([
                 ['mine', ['read', 'edit']],
-                ['editorial', []],
+                ['editorial', ['read']],
                 ['shared', ['read', 'edit']],
             ]);
         });
@@ -444,6 +446,68 @@ describe('SpotifyPlugin', () => {
             host.queueResponse(apiResponse({ id: 'pl-1', name: 'Someone Elses' }));
 
             await expect(plugin.getPlaylistTracks('pl-1')).resolves.toEqual([]);
+        });
+
+        // Since February 2026 the Web API hands a playlist's items only to the account that owns
+        // them, and a listing is mostly the other kind. The station's own fetcher holds the
+        // streaming client's session, so it is asked next rather than the playlist being lost.
+        it('getPlaylistTracks asks the station fetcher for a playlist Spotify refuses', async () => {
+            const host = createFakePluginHost();
+            const plugin = await initedPlugin(host);
+            host.seedFetchedPlaylist([{ id: 't-9', title: 'From The Fetcher', artists: ['An Artist'] }]);
+            host.queueResponse({ status: 403, statusText: 'Forbidden' });
+
+            const results = await plugin.getPlaylistTracks('pl-1', { limit: 50, offset: 100 });
+
+            expect(results).toEqual([{ id: 't-9', title: 'From The Fetcher', artists: ['An Artist'] }]);
+            expect(host.trackFetcher.playlistTracks).toHaveBeenCalledWith({ playlistId: 'pl-1', offset: 100, limit: 50 });
+        });
+
+        // A 2142-track playlist is 43 pages, and a 403 per page is 42 round trips spent learning
+        // what the first one established.
+        it('getPlaylistTracks stops asking Spotify once it has refused a playlist', async () => {
+            const host = createFakePluginHost();
+            const plugin = await initedPlugin(host);
+            host.seedFetchedPlaylist([]);
+            host.queueResponse({ status: 403, statusText: 'Forbidden' });
+
+            await plugin.getPlaylistTracks('pl-1');
+            await plugin.getPlaylistTracks('pl-1', { offset: 50 });
+
+            expect(host.calls).toHaveLength(1);
+            expect(host.trackFetcher.playlistTracks).toHaveBeenCalledTimes(2);
+        });
+
+        // A station whose stream half was never set up behaves exactly as it did before the
+        // fallback existed: the refusal is what the console has always drawn for these.
+        it('getPlaylistTracks reports the refusal when this station has no fetcher', async () => {
+            const host = createFakePluginHost();
+            const plugin = await initedPlugin(host);
+            host.seedFetchedPlaylist(undefined);
+            host.queueResponse({ status: 403, statusText: 'Forbidden' });
+
+            await expect(plugin.getPlaylistTracks('pl-1')).rejects.toMatchObject({ code: 'forbidden' });
+        });
+
+        // The fetcher having tried and failed is a provider failure, and reporting it as the 403
+        // would tell the caller the account may not read a playlist it very much may.
+        it('getPlaylistTracks reports a failed fetcher read rather than the refusal', async () => {
+            const host = createFakePluginHost();
+            const plugin = await initedPlugin(host);
+            host.seedFetchedPlaylist(new Error('playlist read failed: the context is loading'));
+            host.queueResponse({ status: 403, statusText: 'Forbidden' });
+
+            await expect(plugin.getPlaylistTracks('pl-1')).rejects.toThrow('the context is loading');
+        });
+
+        // A 404 or a 500 is not the ownership rule, so the fetcher is not asked to cover for it.
+        it('getPlaylistTracks does not reach for the fetcher on any other failure', async () => {
+            const host = createFakePluginHost();
+            const plugin = await initedPlugin(host);
+            host.queueResponse({ status: 404, statusText: 'Not Found' });
+
+            await expect(plugin.getPlaylistTracks('pl-1')).rejects.toBeDefined();
+            expect(host.trackFetcher.playlistTracks).not.toHaveBeenCalled();
         });
 
         it('getPlaylistTracks maps hits and drops null tracks', async () => {

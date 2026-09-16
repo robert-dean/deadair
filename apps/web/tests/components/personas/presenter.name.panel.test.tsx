@@ -32,7 +32,8 @@ const host = (label: string, djName?: string): Persona => ({
     kind: 'host',
     label,
     style: 'somebody',
-    active: false,
+    defaultHost: false,
+    presenting: false,
     ...(djName === undefined ? {} : { djName }),
 });
 

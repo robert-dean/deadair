@@ -100,7 +100,9 @@ They do not decide whether the console loads. It talks to `/api` on whatever add
 from, so a wrong value here leaves it working. What they address is everywhere the station sends a
 browser rather than answering it: the link in a sign-in email (`SPA_BASE_URL`), and the return from
 a music provider's authorization (`APP_BASE_URL`). Those are what land nowhere when the value is
-wrong.
+wrong. The stream's public URL, under the stream settings in the console, is derived from
+`SPA_BASE_URL` when it is left empty: it is what Icecast advertises as its hostname and where a
+listener's player is told to fetch artwork from, so a wrong value there is a player showing no cover.
 
 Plain `http://` is fine on your own network. A browser treats a page served that way from anything
 but `localhost` as not secure and withholds a few functions from it. The console works without

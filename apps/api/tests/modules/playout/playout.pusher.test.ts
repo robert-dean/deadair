@@ -405,8 +405,10 @@ describe('PlayoutPusher.reconcile', () => {
     it('relabels with the artwork beside the label, so a relabel never leaves the wrong cover up', async () => {
         // Icecast keeps a tag a metadata update does not mention, so a caption sent alone
         // would leave the previous record's cover under it. A record with no cover of its
-        // own is shown as the station, which is the logo on the public origin.
-        vi.mocked(config.get).mockImplementation((key: string) => (key === STREAM_KEYS.publicUrl ? 'https://radio.test/' : ''));
+        // own is shown as the station, which is the logo on the public origin. The origin
+        // comes from the environment here, as it does on a station whose operator never
+        // filled the setting in.
+        vi.mocked(config.get).mockImplementation((key: string) => (key === 'SPA_BASE_URL' ? 'https://radio.test/' : ''));
         try {
             const { pusher, rundown, spy } = setup(['a'], { queued: 0, ready: true });
             pusher.start();

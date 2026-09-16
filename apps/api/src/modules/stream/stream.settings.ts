@@ -234,7 +234,8 @@ export function resolveStreamSettings(config: AppConfig, encryption: EncryptionP
         title: values.get(STREAM_KEYS.title) ?? STREAM_DEFAULTS.title,
         description: values.get(STREAM_KEYS.description) ?? STREAM_DEFAULTS.description,
         genre: values.get(STREAM_KEYS.genre) ?? STREAM_DEFAULTS.genre,
-        publicUrl: values.get(STREAM_KEYS.publicUrl) ?? STREAM_DEFAULTS.publicUrl,
+        // The one value here that is derived when empty rather than defaulted; see the resolver.
+        publicUrl: resolvePublicUrl(config),
         // The seven keys that decide which mounts exist, through the one resolver that
         // reads them. Spread rather than repeated here because `/nowplaying` needs the
         // same seven and cannot call this function: it holds no scope, and the
@@ -280,6 +281,33 @@ export function resolveStreamSettings(config: AppConfig, encryption: EncryptionP
  */
 export function stationOrigin(publicUrl: string): string {
     return publicUrl.trim().replace(/\/+$/, '');
+}
+
+/**
+ * Where listeners reach the station: `stream.publicUrl` when the operator set one, else the
+ * console's address from the environment, else nothing. Always as an origin, with no trailing
+ * slash.
+ *
+ * Derived rather than defaulted, the way the advertised hostname derives from this setting. An
+ * operator who reaches the station through a tunnel has already written that address once, as
+ * `SPA_BASE_URL` (and `APP_BASE_URL`, which in the image is the same address; see "The station's
+ * address" in deploy/README.md), and a setting asking for it a second time is the kind that stays
+ * blank: the live station had the environment set and this empty, so the mount carried no artwork
+ * and Icecast advertised itself as localhost. The registry's default stays empty, on the rule that
+ * the registry's default and the resolver's agree; what happens to an EMPTY value is a derivation,
+ * and the field's help text says so.
+ */
+export function resolvePublicUrl(config: AppConfig): string {
+    const candidates = [
+        config.get(STREAM_KEYS.publicUrl, STREAM_DEFAULTS.publicUrl),
+        config.get<string, string>('SPA_BASE_URL', ''),
+        config.get<string, string>('APP_BASE_URL', ''),
+    ];
+    for (const candidate of candidates) {
+        const origin = stationOrigin(String(candidate ?? ''));
+        if (origin) return origin;
+    }
+    return '';
 }
 
 /**

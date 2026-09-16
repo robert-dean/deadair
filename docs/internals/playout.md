@@ -136,6 +136,10 @@ would leave the previous record's cover under a caption naming a different one. 
 labels, the bed and off air, get the same logo through `STREAM_ART_URL`, and the relabel body grew a
 second line for it, since a caption sent alone has the same problem. Nothing is sent without a
 public URL: there is no base to make a path absolute against and no address the logo is reachable at.
+That URL is `stream.publicUrl` when set and otherwise the console address the station was deployed
+with (`resolvePublicUrl`: `SPA_BASE_URL`, then `APP_BASE_URL`), because the live station had the
+environment set and the setting empty, which would have been a mount with no artwork and an Icecast
+calling itself localhost.
 Two lists in `radio.liq` have to name `url` for any of it to leave Liquidsoap, the output's
 `icy_metadata` and `settings.encoder.metadata.export`, and the second was found by the tag arriving
 at Icecast with the first alone; the comment beside it records the measurement.

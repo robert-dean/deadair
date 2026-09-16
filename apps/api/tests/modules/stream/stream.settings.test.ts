@@ -123,6 +123,27 @@ describe('resolveStreamSettings', () => {
         expect(settings.title).toBe('Deadair');
         expect(settings.genre).toBe('');
     });
+
+    // The public URL is derived when empty rather than defaulted, the way the advertised hostname
+    // derives from it: the operator wrote the station's address once, in the environment, and the
+    // live station had that set and this empty, so the mount carried no artwork.
+    it('derives the public URL from the console address when the setting is empty', () => {
+        const { config } = settingsConfig({ SPA_BASE_URL: 'https://radio.test/' });
+
+        expect(resolveStreamSettings(config, encryption).publicUrl).toBe('https://radio.test');
+    });
+
+    it('lets the setting win over the environment, and the API address stand in for the console one', () => {
+        const set = settingsConfig({ [STREAM_KEYS.publicUrl]: 'https://listen.test/', SPA_BASE_URL: 'https://radio.test' });
+        expect(resolveStreamSettings(set.config, encryption).publicUrl).toBe('https://listen.test');
+
+        const apiOnly = settingsConfig({ [STREAM_KEYS.publicUrl]: '', APP_BASE_URL: 'http://192.168.1.10:8080' });
+        expect(resolveStreamSettings(apiOnly.config, encryption).publicUrl).toBe('http://192.168.1.10:8080');
+    });
+
+    it('answers nothing when neither the setting nor the environment names an address', () => {
+        expect(resolveStreamSettings(settingsConfig().config, encryption).publicUrl).toBe('');
+    });
 });
 
 describe('streamMounts', () => {

@@ -237,9 +237,10 @@ export function listenerTitle(item: RundownItem, stationName: string): string {
  * a different record, which is the display confidently saying something false.
  * Every item therefore says what to show, and the station's face is the default.
  *
- * Nothing at all without a public URL: there is no base to make a path absolute
- * against and no address the logo is reachable at, and a URL nobody can fetch
- * is worse than none. `radio.liq` follows the same rule for the labels it puts
+ * Nothing at all without a public URL (the setting, else the console address
+ * from the environment; `resolvePublicUrl`): there is no base to make a path
+ * absolute against and no address the logo is reachable at, and a URL nobody
+ * can fetch is worse than none. `radio.liq` follows the same rule for the labels it puts
  * up itself, through `STREAM_ART_URL`, which is {@link stationArtwork} rendered
  * into its environment.
  */

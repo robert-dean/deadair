@@ -8,7 +8,7 @@ import { DEFAULT_LEVELING_ENABLED, LEVELING_ENABLED_KEY, SPEECH_TRIM_KEY, TARGET
 import { settingIsOn } from '#modules/shared/setting.flags.js';
 import { PLAYOUT_LEAD, PlayoutControlClient, type QueueStatus } from './liquidsoap.control.js';
 import { Rundown, type RundownItem } from './rundown.js';
-import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
+import { resolvePublicUrl, STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
 import { errorText } from '#modules/shared/error.text.js';
 
 /**
@@ -180,9 +180,9 @@ export class PlayoutPusher {
         return this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title);
     }
 
-    /** Where listeners reach the station, as the setting currently stands. Read per hand-over, like the name. See `listenerArtwork`. */
+    /** Where listeners reach the station, as the setting and the environment currently stand. Read per hand-over, like the name. See `listenerArtwork`. */
     private publicUrl(): string {
-        return this.config.get(STREAM_KEYS.publicUrl, STREAM_DEFAULTS.publicUrl);
+        return resolvePublicUrl(this.config);
     }
 
     /** Begin draining the running order. Idempotent. */

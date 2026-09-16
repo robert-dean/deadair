@@ -17,6 +17,7 @@ import { PersonaRepository } from '#modules/personas/persona.repository.js';
 import type { Persona } from '#modules/personas/persona.js';
 import { ProductionRepository } from '#modules/productions/production.repository.js';
 import { ProductionScheduler } from '#modules/productions/production.scheduler.js';
+import { NarrationPieceRepository } from '#modules/narrations/narration.piece.repository.js';
 import { NarrationScheduler } from '#modules/narrations/narration.scheduler.js';
 import { isNarrationKind } from '#modules/narrations/narration.kind.js';
 import { PodcastEpisodeRepository } from '#modules/podcasts/podcast.episode.repository.js';
@@ -3031,9 +3032,15 @@ export class DirectorService {
         // show would carry it again tomorrow. Written on this edge because this is the moment a
         // listener could first have heard it, and `void`ed on the same terms as the history row.
         if (isRenderItem(item) && item.programme === true) {
-            void inScope(this.container, async scope => scope.get(PodcastEpisodeRepository).markAired(item.externalId, Date.now())).catch(error =>
-                this.logger.warn(`director: could not mark a programme aired (${errorText(error)})`),
-            );
+            // Both kinds of programme, and both marks are keyed on the SEGMENT that played, so each
+            // is a no-op for the other's rows: one statement matching nothing is cheaper than asking
+            // first which sort of programme this was. For a reading the mark is also the station's
+            // place in the book, which is what stops a serial reading chapter four forever.
+            void inScope(this.container, async scope => {
+                const at = Date.now();
+                await scope.get(PodcastEpisodeRepository).markAired(item.externalId, at);
+                await scope.get(NarrationPieceRepository).markAired(item.externalId, at);
+            }).catch(error => this.logger.warn(`director: could not mark a programme aired (${errorText(error)})`));
         }
         if (isRenderItem(item)) return;
 

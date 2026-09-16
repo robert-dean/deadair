@@ -66,6 +66,8 @@ const build = (
         presenting?: { chattiness?: string };
         /** What a `syndicated` band would carry. Nothing, by default: no station subscribes to anything. */
         carried?: SyndicatedAnswer;
+    /** What a `narration` band is answered with. Declines by default, as `carried` does. */
+    reading?: SyndicatedAnswer;
     } = {},
 ) => {
     // Answers for the KIND it was asked about, the way the repository does. A blanket answer would
@@ -176,6 +178,11 @@ const build = (
     const segmentFor = vi.fn(
         async (_subject: unknown, _onOrder: ReadonlySet<string>): Promise<SyndicatedAnswer> => options.carried ?? { declined: 'no podcasts' },
     );
+    // The same answer shape for a band the station READS rather than carries whole. Declining by
+    // default, exactly as the podcast one does, so every existing case is untouched.
+    const readingFor = vi.fn(
+        async (_subject: unknown, _onOrder: ReadonlySet<string>): Promise<SyndicatedAnswer> => options.reading ?? { declined: 'nothing to read' },
+    );
 
     return {
         planner: new BreakPlanner(
@@ -198,8 +205,10 @@ const build = (
             settingsConfig(options.settings ?? {}).config,
             logger,
             { segmentFor } as never,
+            { segmentFor: readingFor } as never,
         ),
         segmentFor,
+        readingFor,
         listReady,
         plan,
         markFailed,
@@ -979,6 +988,50 @@ describe('BreakPlanner carrying a programme', () => {
         // Neither written nor drawn from the shelf.
         expect(plan).not.toHaveBeenCalled();
         expect(listReady).not.toHaveBeenCalledWith('syndicated');
+    });
+
+    // A reading is carried on exactly the same terms as an episode: planted first, with its own
+    // length, and filled from its own source rather than written or drawn off the shelf.
+    it('places the reading a narration band means at its boundary, with its length', async () => {
+        const { planner, plan, listReady } = build({
+            settings: utc(),
+            bands: [at(30, 'narration')],
+            reading: { segmentId: 'chapter-4', durationMs: 20 * 60_000 },
+        });
+        const lineup = await lineupOf(20);
+
+        await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 0 }), eightPastNine());
+
+        const planted = lineup.all()[6] as StationLineupSegmentItem;
+        expect(segmentsAt(lineup)).toEqual([6]);
+        expect(planted).toMatchObject({ kind: 'segment', segmentId: 'chapter-4', segmentKind: 'narration', durationMs: 20 * 60_000 });
+        expect(plan).not.toHaveBeenCalled();
+        expect(listReady).not.toHaveBeenCalledWith('narration');
+    });
+
+    it('asks the readings source for a narration band and the podcasts source for a syndicated one', async () => {
+        // The one place the two kinds differ: what they have in common is the rules AROUND them, and
+        // what they do not is where the next thing to air comes from.
+        const { planner, segmentFor, readingFor } = build({
+            settings: utc(),
+            bands: [at(30, 'narration')],
+            reading: { segmentId: 'chapter-4' },
+        });
+        const lineup = await lineupOf(20);
+
+        await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 0 }), eightPastNine());
+
+        expect(readingFor).toHaveBeenCalled();
+        expect(segmentFor).not.toHaveBeenCalled();
+    });
+
+    it('plants nothing when a narration band has nothing to read', async () => {
+        const { planner } = build({ settings: utc(), bands: [at(30, 'narration')], reading: { declined: 'nothing left' }, idents: [ident('seg-1')] });
+        const lineup = await lineupOf(20);
+
+        await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 0 }), eightPastNine());
+
+        expect(segmentsAt(lineup)).toEqual([]);
     });
 
     it('plants nothing when there is nothing to carry, rather than something else', async () => {

@@ -35,7 +35,11 @@ export const isRenderItem = (item: { pluginId: string }): boolean => item.plugin
  * absent duration costs a console a countdown and nothing else.
  */
 export function segmentRundownTrack(segment: Segment): RundownTrack {
-    if (segment.source === SYNDICATED_SOURCE) return programmeRundownTrack(segment);
+    // Two ways to be a programme, and this asks the ROW rather than a kind on purpose. An episode is
+    // one by where its audio came from; a reading the station spoke itself is an ordinary `render`
+    // row, and what marks it is the context its beats carried. Reading a module's predicate here
+    // would point `render` at a module registered after it.
+    if (segment.source === SYNDICATED_SOURCE || segment.context?.programme === true) return programmeRundownTrack(segment);
 
     return {
         pluginId: RENDER_PLUGIN_ID,

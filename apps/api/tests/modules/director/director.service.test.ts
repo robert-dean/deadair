@@ -255,6 +255,9 @@ function build(options: Options = {}) {
         logger,
         // No podcasts: a `syndicated` band would have nothing to carry, and none is scheduled here.
         { segmentFor: vi.fn(async () => ({ declined: 'no podcasts' })) } as never,
+        // Nothing to read: this file is not about narration bands, and the planner's own tests
+        // cover them.
+        { segmentFor: vi.fn(async () => ({ declined: 'nothing to read' })) } as never,
     );
 
     const library = new Map((options.segments ?? []).map(segment => [segment.id!, segment as Segment]));

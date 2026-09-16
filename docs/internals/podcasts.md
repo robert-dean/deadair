@@ -191,7 +191,9 @@ because the words go to somebody else's directory, and nothing is sent until som
 - **An episode is never measured.** The sidecar decodes 30 minutes at most, so the gain rests on the
   assumed level. A streaming loudness pass would make it a measurement.
 - **Only the newest episode.** A serial worked through in order, oldest first, would be an option on
-  the topic, and the table already keeps what it would need.
+  the topic, and the table already keeps what it would need. `narration_pieces` does exactly that for
+  the things the station reads ITSELF (`narrations.md`), so the shape is written down; what is not
+  built is bringing it back here, where the question is which episode of somebody else's show to air.
 - **Nothing removes an aired episode's audio.** The segment store grows by an episode per airing.
 - **PodcastIndex**, the other directory worth having, needs a key and is a second plugin row.
 - **A podcast on the operator's own network** is refused by the private-address check.

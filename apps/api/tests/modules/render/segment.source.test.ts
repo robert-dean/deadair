@@ -49,6 +49,34 @@ describe('segmentRundownTrack', () => {
         });
     });
 
+    it('names a reading the station spoke itself by the piece and the series', () => {
+        // The other way to be a programme, and the one this file's `source` check cannot see: a
+        // reading is an ordinary `render` row, so what marks it is the context its beats carried
+        // through the join. Without this the mount would name the station.
+        const reading = segment({
+            kind: 'narration',
+            source: 'render',
+            label: 'Chapter 4',
+            durationMs: 612_000,
+            context: { programme: true, showTitle: 'Frankenstein', episodeTitle: 'Chapter 4' },
+        });
+
+        expect(segmentRundownTrack(reading)).toMatchObject({
+            title: 'Chapter 4',
+            artists: ['Frankenstein'],
+            artist: '',
+            programme: true,
+            durationMs: 612_000,
+        });
+    });
+
+    it('still treats an ordinary break as the station talking', () => {
+        // The context check must not catch a break: `programme` is written by exactly one path.
+        const talk = segment({ kind: 'talk', source: 'render', label: 'Talk break', context: { itemId: 'track-1' } });
+
+        expect(segmentRundownTrack(talk)).not.toHaveProperty('programme');
+    });
+
     it('falls back to the label for an episode whose context something has mangled', () => {
         const mangled = segment({ source: 'syndicated', label: 'The Long Wave: Episode 12', context: { artworkUrl: 'javascript:alert(1)' } });
 

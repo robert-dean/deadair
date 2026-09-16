@@ -10,7 +10,10 @@ import { ClockBandRepository } from './clock.band.repository.js';
 import { PersonaRepository } from '#modules/personas/persona.repository.js';
 import { CHATTINESS_SPACING, chattinessOf, type PersonaChattiness } from '#modules/personas/persona.sheet.js';
 import { isProductionKind } from '#modules/productions/production.scheduler.js';
+import { isNarrationKind, NARRATION_KIND } from '#modules/narrations/narration.kind.js';
+import { NarrationSource } from '#modules/narrations/narration.source.js';
 import { isSyndicatedKind, SYNDICATED_KIND } from '#modules/podcasts/syndicated.kind.js';
+import { isCarriedKind } from './carried.kind.js';
 import { SyndicatedSource } from '#modules/podcasts/syndicated.source.js';
 import { stationZone } from './clock.words.js';
 import { SegmentRepository, type Segment, type StrandedRelease } from '#modules/render/segment.repository.js';
@@ -271,6 +274,12 @@ export class BreakPlanner {
         private readonly config: AppConfig,
         private readonly logger: Logger,
         private readonly carried: SyndicatedSource,
+        // The other half of the same question, for the programmes the station makes out of somebody
+        // else's words rather than fetching whole. Kept as its own dependency rather than folded in
+        // behind one interface: what a podcast band and a narration band have in common is the RULES
+        // around them (`isCarriedKind`), and what they do not is where the next thing to air comes
+        // from, which is the one place they must not be confused.
+        private readonly readings: NarrationSource,
     ) {}
 
     /**
@@ -302,7 +311,7 @@ export class BreakPlanner {
             lineup,
             rules,
             clock,
-            bands.filter(band => isSyndicatedKind(band.kind)),
+            bands.filter(band => isCarriedKind(band.kind)),
         );
         if (!rules.breaks) return programmes;
 
@@ -322,7 +331,7 @@ export class BreakPlanner {
             lineup,
             rules,
             clock,
-            bands.filter(band => !isSyndicatedKind(band.kind)),
+            bands.filter(band => !isCarriedKind(band.kind)),
             chattinessOf(presenting),
         );
         if (wanted.length === 0) return programmes;
@@ -739,7 +748,7 @@ export class BreakPlanner {
             // operator the one thing they scheduled. What still applies is `servedAlready`, which is
             // what stops the same occurrence being planted twice, and `blockedBy(taken)`, which keeps
             // two claims of THIS pass out of one gap.
-            const programme = isSyndicatedKind(band.kind);
+            const programme = isCarriedKind(band.kind);
 
             // Already a break here. Left alone rather than doubled, exactly as the spacing walk
             // leaves one alone — and correct even when it is somebody else's kind, because two
@@ -1293,6 +1302,26 @@ export class BreakPlanner {
         // scheduler asked hours ago when it fetched the audio, so the episode fetched for nine is
         // the one placed at nine. It is placed with the length its publisher states, which is what
         // lets the clock behind it project an hour rather than nothing.
+        if (isNarrationKind(kind)) {
+            // The station's own reading of somebody else's writing. Same answer shape as a podcast's
+            // and the same rules around it, but its own source: what to read next is a question about
+            // a series' order, which `NarrationSource` owns.
+            const answer = await this.readings.segmentFor(topic, onOrder);
+            if ('declined' in answer) {
+                this.logger.info('director: the station clock asks for a reading there is nothing to read', { reason: answer.declined });
+                return undefined;
+            }
+
+            onOrder.add(answer.segmentId);
+            return {
+                segmentId: answer.segmentId,
+                atIndex,
+                kind: NARRATION_KIND,
+                written: false,
+                ...(answer.durationMs === undefined ? {} : { durationMs: answer.durationMs }),
+            };
+        }
+
         if (isSyndicatedKind(kind)) {
             const answer = await this.carried.segmentFor(topic, onOrder);
             if ('declined' in answer) {
@@ -1533,7 +1562,7 @@ const servedAlready = (
  */
 const isBreakAt = (items: readonly StationLineupItem[], index: number): boolean => {
     const item = items[index];
-    return item?.kind === 'segment' && !isSyndicatedKind(item.segmentKind ?? '');
+    return item?.kind === 'segment' && !isCarriedKind(item.segmentKind ?? '');
 };
 
 /** Every segment the order already names, for a fill that must not place one twice. */

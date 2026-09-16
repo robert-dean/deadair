@@ -34,6 +34,7 @@ was shipped first and was wrong.
 | personas, their notebooks, their stories, latitude, auditions | [`docs/internals/personas.md`](docs/internals/personas.md) |
 | phone-ins, beats, casting, stitching | [`docs/internals/productions.md`](docs/internals/productions.md) |
 | podcasts the station carries, `syndicated` bands, episode fetches | [`docs/internals/podcasts.md`](docs/internals/podcasts.md) |
+| books and columns the station reads out, `narration` bands, the two orders | [`docs/internals/narrations.md`](docs/internals/narrations.md) |
 | speech engines, voices, cues, pads, segment stages, pronunciations | [`docs/internals/render.md`](docs/internals/render.md) |
 | the mount, the audience gate, why it is quiet, the activity feed | [`docs/internals/playout.md`](docs/internals/playout.md) |
 | the model, the gate, the tool loop | [`docs/internals/llm.md`](docs/internals/llm.md) |
@@ -137,9 +138,9 @@ deploy/, unraid/                  how somebody else installs it
 
 `apps/api` modules, in registration order: `logging`, `dataConnections`, `health`, `data`, `crypto`,
 `authentication`, `permissions`, `policy`, `art`, `catalog`, `onboarding`, `settings`, `stream`,
-`plugins`, `jobs`, `playlists`, `charts`, `similarity`, `news`, `search`, `weather`, `podcasts`, `topics`,
+`plugins`, `jobs`, `playlists`, `charts`, `similarity`, `news`, `search`, `weather`, `podcasts`, `narrations`, `topics`,
 `scrobble`, `llm`,
-`personas`, `schedule`, `render`, `playout`, `nowplaying`, `analysis`, `director`, `storage`,
+`narrations`, `personas`, `schedule`, `render`, `playout`, `nowplaying`, `analysis`, `director`, `storage`,
 `activity`, `history`, `enrichment`, `productions`, `station`. **`src/modules/modules.ts` is the source of
 truth and the order is load-bearing** — see [`apps/api/CLAUDE.md`](apps/api/CLAUDE.md). Check it
 before assuming a subsystem exists.

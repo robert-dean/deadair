@@ -3,6 +3,8 @@ import { AppConfig } from '@maroonedsoftware/appconfig';
 import { ClockBandRepository } from './clock.band.repository.js';
 import { BreakWriterRegistry } from './break.writer.registry.js';
 import { productionKinds } from '#modules/productions/production.scheduler.js';
+import { NARRATION_KIND } from '#modules/narrations/narration.kind.js';
+import { NarrationsService } from '#modules/narrations/narrations.service.js';
 import { SYNDICATED_KIND } from '#modules/podcasts/syndicated.kind.js';
 import { PodcastsService } from '#modules/podcasts/podcasts.service.js';
 import { SegmentRepository } from '#modules/render/segment.repository.js';
@@ -51,6 +53,7 @@ export class ClockService {
         private readonly segments: SegmentRepository,
         private readonly config: AppConfig,
         private readonly podcasts: PodcastsService,
+        private readonly narrations: NarrationsService,
     ) {}
 
     async list(): Promise<ClockBandList> {
@@ -61,7 +64,13 @@ export class ClockService {
                 hasVoice: this.speech.speaker() !== undefined,
                 recorded: await this.segments.readyKinds(),
                 produced: [...productionKinds(this.config)],
-                carried: this.podcasts.hasPodcasts() ? [SYNDICATED_KIND] : [],
+                carried: [
+                    ...(this.podcasts.hasPodcasts() ? [SYNDICATED_KIND] : []),
+                    // The other kind the station carries rather than writes. Listed here or the
+                    // console calls the band unproducible while the planner happily fills it, which
+                    // is the disagreement `producibleKinds` exists to prevent.
+                    ...(this.narrations.hasNarrations() ? [NARRATION_KIND] : []),
+                ],
             }),
         };
     }

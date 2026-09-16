@@ -19,7 +19,7 @@ import { preoccupationOf, storytellingOf } from '#modules/personas/persona.sheet
 import type { Persona } from '#modules/personas/persona.js';
 import { ScriptHistoryRepository } from '#modules/render/script.history.repository.js';
 import { SegmentRepository, type PadHit, type Segment } from '#modules/render/segment.repository.js';
-import { isSyndicatedKind } from '#modules/podcasts/syndicated.kind.js';
+import { isCarriedKind } from './carried.kind.js';
 import { SpeechService } from '#modules/render/speech.service.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
@@ -471,7 +471,7 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
      * segment KIND rides the lineup item, so which lines are programmes is known without asking.
      */
     private async programmesOn(lineup: StationLineup): Promise<Map<string, Segment>> {
-        const ids = lineup.all().flatMap(item => (item.kind === 'segment' && isSyndicatedKind(item.segmentKind ?? '') ? [item.segmentId] : []));
+        const ids = lineup.all().flatMap(item => (item.kind === 'segment' && isCarriedKind(item.segmentKind ?? '') ? [item.segmentId] : []));
         if (ids.length === 0) return new Map();
 
         return await this.segments.findByIds(ids);

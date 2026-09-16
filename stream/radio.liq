@@ -23,6 +23,32 @@
 # down but never back up and glitches at the end of the voice
 # (savonet/liquidsoap#3714).
 
+# Reading a number out of the environment, hoisted to the top because the logging block below is
+# the first thing that needs one and this script is sequential: a helper defined after its use does
+# not resolve.
+#
+# **An optional key arrives here as the EMPTY STRING, not as an absent one.**
+# `environment.get(key, default=…)` answers its default only when the variable is UNSET, and the
+# app writes every optional key unconditionally — so the default never applies and anything that
+# RAISES on an unparseable value raises on an ordinary switched-off setting. That is not a value
+# falling back to something sensible; it is `Error 14: Uncaught runtime error` during startup,
+# which takes down every output in this file including the mounts that had nothing to do with the
+# setting that was empty.
+#
+# **`string.to_float`, and NOT `float_of_string(default=null, …) ?? fallback`.** That shape is what
+# this was, and it is a misreading of the stdlib that took the station off air: with `default=null`,
+# `float_of_string` RAISES `failure("float_of_string")` on anything it cannot parse — the empty
+# string included — so the `??` it was paired with is unreachable. 2.4.5's own
+# `string.to_float(~default=0., s) = float_of_string(default=default, s)` is the sanctioned form: a
+# non-null default is returned rather than raised, and the result is a plain float.
+#
+# `int_of_float(env_float(...))` is how an INT is read. Never `int_of_string(environment.get(...))`,
+# which is the same trap one type over: `int_of_string("")` raises exactly as `float_of_string("")`
+# does.
+def env_float(name, default) =
+  string.to_float(default=default, string.trim(environment.get(name, default="")))
+end
+
 # Level and destination, both env-driven, because the only way to see what this process is doing
 # has been `docker logs` — which needs a socket the app deliberately does not have, and which an
 # operator on Docker Desktop cannot read from a script either. The shim already writes to
@@ -33,12 +59,19 @@
 # header of every control call, and that endpoint is polled continuously, so it wrote a megabyte a
 # minute against an ordinary station. It was worth every byte once — it is what showed two app
 # processes presenting two DIFFERENT bridge secrets to this port, one of them twenty times a second,
-# which no amount of reading either side could have established. Set LOG_LEVEL in radio.env; no edit
-# here, and no rebuild.
+# which no amount of reading either side could have established. It is `stream.logLevel` in the
+# console now, materialized into radio.env; no edit here, and no rebuild.
+#
+# **Through `env_float` and NOT `int_of_string`,** which is what this was and was safe only for as
+# long as nothing wrote the key: the app writes every optional key unconditionally, so the first
+# release that materialized this one would have handed `int_of_string` the empty string on any
+# station that had not set it, and `int_of_string("")` RAISES. That is `Error 14` at startup and
+# every output in this file gone with it, both Icecast mounts included, over a logging setting.
+# See `env_float` above, which carries the whole argument.
 #
 # stdout stays on: `docker logs` is still the right answer for anyone who has the socket, and the
 # file is an addition rather than a redirect.
-settings.log.level.set(int_of_string(environment.get("LOG_LEVEL", default="3")))
+settings.log.level.set(int_of_float(env_float("LOG_LEVEL", 3.)))
 settings.log.stdout.set(true)
 settings.log.file.set(true)
 settings.log.file.append.set(true)
@@ -78,18 +111,8 @@ talk_over = environment.get("TALK_OVER_TRACKS", default="true") == "true"
 # How far the bed drops under the voice, and how long the ramp takes (director settings
 # duckGainDb / duckFadeMs, materialized into radio.env). Read at startup like talk_over.
 #
-# Tolerate an unset, empty or malformed value: the materializer writes every key whether or not
-# it is set.
-#
-# **`string.to_float`, and NOT `float_of_string(default=null, …) ?? fallback`.** That shape is what
-# this was, and it is a misreading of the stdlib that took the station off air: with `default=null`,
-# `float_of_string` RAISES `failure("float_of_string")` on anything it cannot parse — the empty
-# string included — so the `??` it was paired with is unreachable. 2.4.5's own
-# `string.to_float(~default=0., s) = float_of_string(default=default, s)` is the sanctioned form: a
-# non-null default is returned rather than raised, and the result is a plain float.
-def env_float(name, default) =
-  string.to_float(default=default, string.trim(environment.get(name, default="")))
-end
+# Through `env_float` (defined at the top of this file) because the materializer writes every key
+# whether or not it is set, so an unset one arrives here as the empty string rather than absent.
 duck_gain_db = env_float("DUCK_GAIN_DB", -12.)
 duck_fade_ms = max(1., env_float("DUCK_FADE_MS", 300.))
 

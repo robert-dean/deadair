@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import type { ConfigFieldDescriptor, ConfigFieldOption, ConfigFieldOptionSource } from '@deadair/sdk';
 
 import { newsFeedsOptions } from '../../api/news.queries';
+import { narrationSeriesOptions } from '../../api/narration.queries';
 import { podcastShowsOptions } from '../../api/podcast.queries';
 import { pluginConfigSuggestionsOptions, pluginsListOptions } from '../../api/plugins.queries';
 import { topicsOptions } from '../../api/topics.queries';
@@ -76,6 +77,7 @@ export function useDeclaredOptions(
     const topics = useQuery({ ...topicsOptions, enabled: wanted.has('station.newsCategories') });
     const feeds = useQuery({ ...newsFeedsOptions, enabled: wanted.has('station.newsFeeds') });
     const shows = useQuery({ ...podcastShowsOptions, enabled: wanted.has('station.podcastShows') });
+    const narrationSeries = useQuery({ ...narrationSeriesOptions, enabled: wanted.has('station.narrationSeries') });
     const wantsModels = wanted.has('llm.models');
     // The plugin list is needed by the four `plugins.*` sources AND by `llm.models`, which has to
     // work out which plugin to ask when the setting naming one is empty.
@@ -117,11 +119,10 @@ export function useDeclaredOptions(
         // The same shape for the programmes the station carries: the qualified id as the value, since
         // that is what a `syndicated` band's topic stores, and the show's own title as the label.
         'station.podcastShows': (shows.data?.shows ?? []).map(show => ({ value: show.id, label: show.title })),
-        // The books and columns the station reads out, for a `narration` band's topic. Answered
-        // empty until the Narrations page exists to query: a source that resolves to nothing draws a
-        // field with no suggestions, which is what an operator with no narration plugin should see
-        // anyway, where leaving it out of this record is a typecheck failure.
-        'station.narrationSeries': [],
+        // The books and columns the station reads out, for a `narration` band's topic. The same shape
+        // once more: the qualified id as the value, since that is what the topic stores, and the
+        // series' own title as the label.
+        'station.narrationSeries': (narrationSeries.data?.series ?? []).map(one => ({ value: one.id, label: one.title })),
         // No query and no round trip: the platform holds this list, and the browser's copy is the
         // one that matters — a zone the operator's own machine cannot name is a zone they cannot
         // check the clock against. `supportedValuesOf` is ES2022 and has been in every engine this

@@ -206,6 +206,12 @@ export const queryKeys = {
         directory: (query: string) => ['podcasts', 'directory', query] as const,
     },
 
+    /** The series the station reads out, and the pieces of them it knows about, narrowed by series. */
+    narrations: {
+        series: () => ['narrations', 'series'] as const,
+        pieces: (seriesId?: string) => ['narrations', 'pieces', seriesId ?? ''] as const,
+    },
+
     /** One list, because the API answers with the whole library and every write answers with it again. */
     segments: {
         list: () => ['segments', 'list'] as const,

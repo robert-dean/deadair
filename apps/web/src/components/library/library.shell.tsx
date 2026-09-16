@@ -22,6 +22,7 @@ export const LIBRARY_TABS = [
     { key: 'charts', label: 'Charts', hint: 'What is doing well elsewhere' },
     { key: 'news', label: 'News', hint: 'The stories a bulletin is written from' },
     { key: 'podcasts', label: 'Podcasts', hint: "Somebody else's programmes the station can carry" },
+    { key: 'narrations', label: 'Readings', hint: 'Books and columns the station reads out itself' },
 ] as const satisfies readonly DestinationTab<string>[];
 
 export type LibraryTab = (typeof LIBRARY_TABS)[number]['key'];
@@ -79,11 +80,12 @@ export function LibraryShell({ active, children }: LibraryShellProps) {
  * Exported because the command palette navigates to these too, and a second copy of this table is a
  * second place for a tab and its route to come apart.
  */
-export const LIBRARY_ROUTES: Record<LibraryTab, '/catalog/tracks' | '/catalog' | '/playlists' | '/charts' | '/news' | '/podcasts'> = {
+export const LIBRARY_ROUTES: Record<LibraryTab, '/catalog/tracks' | '/catalog' | '/playlists' | '/charts' | '/news' | '/podcasts' | '/narrations'> = {
     tracks: '/catalog/tracks',
     artists: '/catalog',
     playlists: '/playlists',
     charts: '/charts',
     news: '/news',
     podcasts: '/podcasts',
+    narrations: '/narrations',
 };

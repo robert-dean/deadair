@@ -15,6 +15,7 @@ import { Route as ChartsRouteImport } from './routes/charts'
 import { Route as CheckupRouteImport } from './routes/checkup'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LogsRouteImport } from './routes/logs'
+import { Route as NarrationsRouteImport } from './routes/narrations'
 import { Route as NewsRouteImport } from './routes/news'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as PodcastsRouteImport } from './routes/podcasts'
@@ -75,6 +76,11 @@ const LoginRoute = LoginRouteImport.update({
 const LogsRoute = LogsRouteImport.update({
   id: '/logs',
   path: '/logs',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NarrationsRoute = NarrationsRouteImport.update({
+  id: '/narrations',
+  path: '/narrations',
   getParentRoute: () => rootRouteImport,
 } as any)
 const NewsRoute = NewsRouteImport.update({
@@ -241,6 +247,7 @@ export interface FileRoutesByFullPath {
   '/checkup': typeof CheckupRoute
   '/login': typeof LoginRoute
   '/logs': typeof LogsRoute
+  '/narrations': typeof NarrationsRoute
   '/news': typeof NewsRoute
   '/onboarding': typeof OnboardingRoute
   '/podcasts': typeof PodcastsRoute
@@ -280,6 +287,7 @@ export interface FileRoutesByTo {
   '/checkup': typeof CheckupRoute
   '/login': typeof LoginRoute
   '/logs': typeof LogsRoute
+  '/narrations': typeof NarrationsRoute
   '/news': typeof NewsRoute
   '/onboarding': typeof OnboardingRoute
   '/podcasts': typeof PodcastsRoute
@@ -320,6 +328,7 @@ export interface FileRoutesById {
   '/checkup': typeof CheckupRoute
   '/login': typeof LoginRoute
   '/logs': typeof LogsRoute
+  '/narrations': typeof NarrationsRoute
   '/news': typeof NewsRoute
   '/onboarding': typeof OnboardingRoute
   '/podcasts': typeof PodcastsRoute
@@ -361,6 +370,7 @@ export interface FileRouteTypes {
     | '/checkup'
     | '/login'
     | '/logs'
+    | '/narrations'
     | '/news'
     | '/onboarding'
     | '/podcasts'
@@ -400,6 +410,7 @@ export interface FileRouteTypes {
     | '/checkup'
     | '/login'
     | '/logs'
+    | '/narrations'
     | '/news'
     | '/onboarding'
     | '/podcasts'
@@ -439,6 +450,7 @@ export interface FileRouteTypes {
     | '/checkup'
     | '/login'
     | '/logs'
+    | '/narrations'
     | '/news'
     | '/onboarding'
     | '/podcasts'
@@ -479,6 +491,7 @@ export interface RootRouteChildren {
   CheckupRoute: typeof CheckupRoute
   LoginRoute: typeof LoginRoute
   LogsRoute: typeof LogsRoute
+  NarrationsRoute: typeof NarrationsRoute
   NewsRoute: typeof NewsRoute
   OnboardingRoute: typeof OnboardingRoute
   PodcastsRoute: typeof PodcastsRoute
@@ -554,6 +567,13 @@ declare module '@tanstack/react-router' {
       path: '/logs'
       fullPath: '/logs'
       preLoaderRoute: typeof LogsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/narrations': {
+      id: '/narrations'
+      path: '/narrations'
+      fullPath: '/narrations'
+      preLoaderRoute: typeof NarrationsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/news': {
@@ -783,6 +803,7 @@ const rootRouteChildren: RootRouteChildren = {
   CheckupRoute: CheckupRoute,
   LoginRoute: LoginRoute,
   LogsRoute: LogsRoute,
+  NarrationsRoute: NarrationsRoute,
   NewsRoute: NewsRoute,
   OnboardingRoute: OnboardingRoute,
   PodcastsRoute: PodcastsRoute,

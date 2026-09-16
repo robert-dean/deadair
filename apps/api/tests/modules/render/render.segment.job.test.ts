@@ -486,3 +486,42 @@ describe('RenderSegmentJob landing a pad under the words', () => {
         expect(options.overlays?.[0]).toMatchObject({ duckDb: -6 });
     });
 });
+
+// `SpeechGate` orders its queue by rank and never preempts, so what a priority buys is the order
+// things are admitted in, not the right to interrupt. A programme rendered hours ahead of its slot
+// is several consecutive takes on the station's only engine; at `air` a break planted in the
+// meantime queued behind every one of them at equal rank.
+describe('RenderSegmentJob and what a take is worth at the engine', () => {
+    it('asks the gate in the shape it always did when nobody set a priority', async () => {
+        // Every existing sender means `air` by saying nothing, and the gate defaults to it. Passing
+        // an empty options object instead would be the same behaviour and a different call, so this
+        // pins the ordinary path rather than the new one.
+        const { job, speech } = harness();
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(speech.speak).toHaveBeenLastCalledWith({ text: 'You are listening to Deadair.' });
+    });
+
+    it('passes the priority down to the engine when one was sent', async () => {
+        const { job, speech } = harness();
+
+        await job.run({ segmentId: 'seg-1', priority: 'background' });
+
+        expect(speech.speak).toHaveBeenLastCalledWith({ text: 'You are listening to Deadair.' }, { priority: 'background' });
+    });
+
+    it('ranks every take of a padded break the same', async () => {
+        // A break that got in front of the first half of a padded break and behind the second would
+        // be a break inside a break.
+        const { job, speech } = harness({
+            claimed: segment({ script: 'Ambitious. [sfx:rimshot] They played it anyway.', pads: [{ name: 'rimshot', padId: 'pad-1' }] }),
+        });
+
+        await job.run({ segmentId: 'seg-1', priority: 'background' });
+
+        const calls = (speech.speak as unknown as { mock: { calls: unknown[][] } }).mock.calls;
+        expect(calls.length).toBeGreaterThan(1);
+        for (const call of calls) expect(call[1]).toEqual({ priority: 'background' });
+    });
+});

@@ -214,7 +214,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
             // Every pass is done, so the words exist and the beats are ready to be spoken. The
             // render jobs are sent per beat, which is what lets the speech gate interleave the
             // station's own work between them rather than being held for a whole programme.
-            await this.render(productionId);
+            await this.render(existing);
         } catch (error) {
             // A failure is recorded rather than thrown, for the reason every job in this tree does
             // it: an unhandled throw is a retry against a row that has already moved, and the reason
@@ -653,14 +653,23 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
      * the speech engine is one slot, and a production that held it for a whole programme would make
      * every break in that window wait. Per beat, the station slots in between them.
      */
-    private async render(productionId: string): Promise<void> {
-        const moved = await this.productions.moveTo(productionId, 'rendering', ['checking', 'drafting']);
+    private async render(production: Production): Promise<void> {
+        const moved = await this.productions.moveTo(production.id, 'rendering', ['checking', 'drafting']);
         if (!moved) return;
 
-        const beats = await this.segments.beatsOf(productionId);
-        for (const beat of beats) await this.jobs.send('render.segment', { segmentId: beat.id });
+        // The same earliest-deadline answer its model passes took, one stage later: a programme due
+        // in twenty minutes outranks a refill, and one due tomorrow yields to every break. Without
+        // it each beat queued at `air` and a break planted while a programme was being spoken waited
+        // behind every remaining beat at equal rank.
+        const priority = this.priorityOf(production);
+        const beats = await this.segments.beatsOf(production.id);
+        for (const beat of beats) await this.jobs.send('render.segment', { segmentId: beat.id, priority });
 
-        this.logger.info('productions: a production is written and its beats are being spoken', { production: productionId, beats: beats.length });
+        this.logger.info('productions: a production is written and its beats are being spoken', {
+            production: production.id,
+            beats: beats.length,
+            priority,
+        });
     }
 
     /**

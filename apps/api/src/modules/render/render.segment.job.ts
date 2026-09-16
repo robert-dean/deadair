@@ -15,6 +15,7 @@ import { MixerService } from './mixer.service.js';
 import { SegmentRepository, type Segment } from './segment.repository.js';
 import { extensionForMime, SegmentStore } from './segment.store.js';
 import { SpeechService, type SpokenAudio } from './speech.service.js';
+import type { GatePriority } from '#modules/shared/gate.priority.js';
 import { errorText } from '#modules/shared/error.text.js';
 
 export interface RenderSegmentPayload {
@@ -26,6 +27,17 @@ export interface RenderSegmentPayload {
      * declared required without the mapping refusing it. The run guards on it instead.
      */
     segmentId?: string;
+    /**
+     * How this take ranks against everything else waiting for the one speech engine.
+     *
+     * Absent is `air`, which is what every break is and what every existing sender means by saying
+     * nothing. It is here for the sender that is NOT a break: a programme rendered hours ahead of
+     * its slot is several consecutive takes on the station's only engine, and at `air` a talk break
+     * planted in the meantime queues behind all of them at equal rank. `SpeechGate` orders by rank
+     * and does not preempt, so a break in front of a backgrounded programme waits one take rather
+     * than the whole thing.
+     */
+    priority?: GatePriority;
 }
 
 /**
@@ -113,7 +125,7 @@ export class RenderSegmentJob extends PlainJob<RenderSegmentPayload> {
         }
 
         try {
-            const audio = await this.produce(segment, script);
+            const audio = await this.produce(segment, script, payload.priority);
 
             // The words that went to the engine are kept beside the words on the row, because they
             // are not the same words and only one of them explains the audio. See `SpokenAudio`.
@@ -173,11 +185,11 @@ export class RenderSegmentJob extends PlainJob<RenderSegmentPayload> {
      * speaking the script whole with the cue stripped. A break that loses its drop is a break; a
      * break that loses its audio is a hole in the hour.
      */
-    private async produce(segment: Segment, script: string): Promise<SpokenAudio> {
-        if (segment.pads.length === 0) return await this.say(script, segment);
+    private async produce(segment: Segment, script: string, priority?: GatePriority): Promise<SpokenAudio> {
+        if (segment.pads.length === 0) return await this.say(script, segment, priority);
 
         try {
-            const padded = await this.joinAround(segment, script);
+            const padded = await this.joinAround(segment, script, priority);
             if (padded !== undefined) return padded;
         } catch (error) {
             this.logger.warn('render: could not join a break around its soundboard hit, so it airs as words', {
@@ -190,7 +202,7 @@ export class RenderSegmentJob extends PlainJob<RenderSegmentPayload> {
         // The fallback, and it has to strip the cue itself rather than leaning on
         // `transposeForSpeech` doing it downstream: this is the one path where the words reaching
         // the engine are deliberately not the words on the row.
-        return await this.say(withoutPads(script), segment);
+        return await this.say(withoutPads(script), segment, priority);
     }
 
     /**
@@ -201,12 +213,20 @@ export class RenderSegmentJob extends PlainJob<RenderSegmentPayload> {
      * the drop would be two breaks. The voice and the delivery are both only sent when the row has
      * one, so an ordinary break asks exactly what it always did.
      */
-    private async say(text: string, segment: Segment): Promise<SpokenAudio> {
-        return await this.speech.speak({
+    private async say(text: string, segment: Segment, priority?: GatePriority): Promise<SpokenAudio> {
+        const request = {
             text,
             ...(segment.voice === undefined ? {} : { voice: segment.voice }),
             ...(segment.delivery === undefined ? {} : { delivery: segment.delivery }),
-        });
+        };
+
+        // The gate is asked in exactly the shape it was before priorities existed when nobody set
+        // one, rather than handed an empty options object: `air` is what it defaults to either way,
+        // and leaving the ordinary path untouched is what makes this provably inert for a break.
+        //
+        // Every take of one segment ranks the same, padded or not — a break that got in front of the
+        // first half of a padded break and behind the second would be a break inside a break.
+        return priority === undefined ? await this.speech.speak(request) : await this.speech.speak(request, { priority });
     }
 
     /**
@@ -221,7 +241,7 @@ export class RenderSegmentJob extends PlainJob<RenderSegmentPayload> {
      * fetch. A take is not a segment and never will be, which is exactly why that route addresses the
      * store rather than a row.
      */
-    private async joinAround(segment: Segment, script: string): Promise<SpokenAudio | undefined> {
+    private async joinAround(segment: Segment, script: string, priority?: GatePriority): Promise<SpokenAudio | undefined> {
         const parts = splitOnPads(script);
         if (parts.length === 0) return undefined;
 
@@ -274,7 +294,7 @@ export class RenderSegmentJob extends PlainJob<RenderSegmentPayload> {
                 continue;
             }
 
-            const take = await this.say(part.text, segment);
+            const take = await this.say(part.text, segment, priority);
 
             urls.push(this.signer.sign(storedAudioUrl(base, take.checksum, take.ext)));
             spoken.push(take.spokenText);

@@ -136,3 +136,76 @@ describe('the outline pass', () => {
         expect(record).not.toHaveBeenCalled();
     });
 });
+
+// The station has one speech engine and a programme is many consecutive takes on it. `SpeechGate`
+// orders by rank and never preempts, so the beats went in at `air` — the same rank as a break — and
+// a break planted while a programme was being spoken waited behind every remaining beat.
+describe('sending the beats to be spoken', () => {
+    /** The job with only what `render` touches wired up, on this file's own pattern. */
+    function buildRender(beats: readonly { id: string }[]) {
+        const moveTo = vi.fn(async () => true);
+        const productions = { moveTo } as never;
+        const segments = { beatsOf: vi.fn(async () => beats) } as never;
+        const send = vi.fn(async () => {});
+        const jobs = { send } as never;
+        const config = { get: (_key: string, fallback: unknown) => fallback } as unknown as AppConfig;
+
+        const job = new ProduceProductionJob(
+            productions,
+            segments,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            jobs,
+            config,
+            { record: vi.fn(async () => {}) } as never,
+            { id: 'job-1' } as never,
+            {} as never,
+            logger as never,
+        );
+
+        const render = (job as unknown as { render: (input: Production) => Promise<void> }).render.bind(job);
+        return { render, send, moveTo };
+    }
+
+    it('spends the engine on a programme that is nearly due, at the same rank as a break', async () => {
+        const { render, send } = buildRender([{ id: 'beat-1' }, { id: 'beat-2' }]);
+
+        await render(production({ state: 'checking', scheduledFor: Date.now() + 60_000 }));
+
+        expect(send).toHaveBeenCalledWith('render.segment', { segmentId: 'beat-1', priority: 'air' });
+        expect(send).toHaveBeenCalledWith('render.segment', { segmentId: 'beat-2', priority: 'air' });
+    });
+
+    it('yields to the station for a programme whose slot is hours off', async () => {
+        const { render, send } = buildRender([{ id: 'beat-1' }]);
+
+        await render(production({ state: 'checking', scheduledFor: Date.now() + 6 * 60 * 60_000 }));
+
+        expect(send).toHaveBeenCalledWith('render.segment', { segmentId: 'beat-1', priority: 'background' });
+    });
+
+    it('treats a production nobody scheduled as background, since nothing is waiting on it', async () => {
+        // The standing call-in rule writes no `scheduledFor`: such a production airs when it is
+        // ready rather than at an instant somebody chose.
+        const { render, send } = buildRender([{ id: 'beat-1' }]);
+
+        await render(production({ state: 'checking' }));
+
+        expect(send).toHaveBeenCalledWith('render.segment', { segmentId: 'beat-1', priority: 'background' });
+    });
+
+    it('sends nothing when the row was not there to claim', async () => {
+        const { render, send, moveTo } = buildRender([{ id: 'beat-1' }]);
+        moveTo.mockResolvedValueOnce(false);
+
+        await render(production({ state: 'checking' }));
+
+        expect(send).not.toHaveBeenCalled();
+    });
+});

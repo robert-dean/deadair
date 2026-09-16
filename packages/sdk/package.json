@@ -1,6 +1,6 @@
 {
     "name": "@deadair/sdk",
-    "version": "0.13.1",
+    "version": "0.13.2",
     "description": "A typed client for the deadair station's HTTP API, generated from the same contracts the station serves.",
     "keywords": [
         "deadair",

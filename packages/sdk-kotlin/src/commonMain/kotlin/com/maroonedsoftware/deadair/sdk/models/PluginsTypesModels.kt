@@ -115,6 +115,8 @@ enum class ConfigFieldOptionSource {
     STATION_NEWS_FEEDS,
     @SerialName("station.podcastShows")
     STATION_PODCAST_SHOWS,
+    @SerialName("station.narrationSeries")
+    STATION_NARRATION_SERIES,
     @SerialName("intl.timeZones")
     INTL_TIME_ZONES,
     @SerialName("plugins.speech")

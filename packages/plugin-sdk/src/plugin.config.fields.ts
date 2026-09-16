@@ -111,6 +111,11 @@ export interface ConfigFieldOption {
  * says which show a `syndicated` band on the format clock means. Here for the same reason: the ids
  * are qualified with the plugin that carries the show, and no plugin knows what the others carry.
  *
+ * `station.narrationSeries` is the same shape once more, for the books and columns the station reads
+ * out: every series every narration plugin currently offers, for the topic that says which one a
+ * `narration` band means. Third instance of one argument, which is what makes it a pattern rather
+ * than three special cases: an id a plugin minted and only the station can collect.
+ *
  * The four `plugins.*` members answer the enabled plugins that declare a given capability — speech,
  * llm, mixer, analysis — by id and name, for the settings that pick which plugin a capability with
  * several installed candidates uses. Those settings stay free text (`selectPlugin` in
@@ -133,6 +138,7 @@ export type ConfigFieldOptionSource =
     | 'station.newsCategories'
     | 'station.newsFeeds'
     | 'station.podcastShows'
+    | 'station.narrationSeries'
     | 'intl.timeZones'
     | 'plugins.speech'
     | 'plugins.llm'
@@ -483,6 +489,7 @@ export const configFieldOptionSourceSchema = z.enum([
     'station.newsCategories',
     'station.newsFeeds',
     'station.podcastShows',
+    'station.narrationSeries',
     'intl.timeZones',
     'plugins.speech',
     'plugins.llm',

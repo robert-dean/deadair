@@ -19,6 +19,14 @@ import type { SpeechRequest, SpeechVoice } from '../src/capabilities/speech.js';
 import type { LlmModelInfo, LlmRequest, LlmResult } from '../src/capabilities/llm.js';
 import type { AnalysisRef, TrackAnalysis, TrackCuePoints, TrackLoudness, TrackTaggedLoudness } from '../src/capabilities/analysis.js';
 import type { ChartDescriptor, ChartEntry, ChartQuery } from '../src/capabilities/charts.js';
+import type {
+    NarrationPart,
+    NarrationPiece,
+    NarrationPiecesQuery,
+    NarrationSeries,
+    NarrationText,
+    NarrationTextQuery,
+} from '../src/capabilities/narration.js';
 import type { NewsFeedDescriptor, NewsItem, NewsQuery } from '../src/capabilities/news.js';
 import type {
     PodcastAudio,
@@ -438,6 +446,48 @@ export const newsItemFixture: NewsItem = {
     url: 'https://example.com/bridge',
     publishedAt: '2026-08-15T08:41:00.000Z',
     categories: ['Local', 'Transport'],
+};
+
+export const narrationSeriesFixture: NarrationSeries = {
+    id: 'frankenstein',
+    title: 'Frankenstein',
+    order: 'serial',
+    author: 'Mary Shelley',
+    description: 'A scientist makes a living thing and cannot live with it.',
+    artworkUrl: 'https://cdn.example.com/frankenstein.jpg',
+    homeUrl: 'https://example.com/books/frankenstein',
+    language: 'en',
+};
+
+/** `ordinal` and `wordCount` are integers, which is what a `Duration` or a class would reach for. */
+export const narrationPieceFixture: NarrationPiece = {
+    id: 'frankenstein-ch4',
+    seriesId: 'frankenstein',
+    seriesTitle: 'Frankenstein',
+    title: 'Chapter 4: The laboratory',
+    ordinal: 3,
+    publishedAt: '2026-09-14T06:00:00.000Z',
+    summary: 'Two years of work, and the night it finally moves.',
+    url: 'https://example.com/books/frankenstein/4',
+    wordCount: 3_480,
+};
+
+export const narrationPartFixture: NarrationPart = {
+    text: 'It was on a dreary night of November that I beheld the accomplishment of my toils.',
+};
+
+export const narrationTextFixture: NarrationText = {
+    parts: [narrationPartFixture, { text: 'With an anxiety that almost amounted to agony, I collected the instruments of life around me.' }],
+};
+
+export const narrationPiecesQueryFixture: NarrationPiecesQuery = {
+    seriesId: 'frankenstein',
+    limit: 200,
+};
+
+export const narrationTextQueryFixture: NarrationTextQuery = {
+    seriesId: 'frankenstein',
+    pieceId: 'frankenstein-ch4',
 };
 
 export const podcastShowFixture: PodcastShow = {

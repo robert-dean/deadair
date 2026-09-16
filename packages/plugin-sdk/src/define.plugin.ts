@@ -1,6 +1,7 @@
 import type { ChartsProvider } from './capabilities/charts.js';
 import type { EnrichmentProvider } from './capabilities/enrichment.js';
 import type { MusicProviderCatalog, MusicProviderOAuth, MusicProviderSteer, MusicProviderStream } from './capabilities/music.provider.js';
+import type { NarrationProvider } from './capabilities/narration.js';
 import type { NewsProvider } from './capabilities/news.js';
 import type { PodcastProvider } from './capabilities/podcast.js';
 import type { ScrobbleProvider } from './capabilities/scrobble.js';
@@ -47,6 +48,9 @@ export type ChartsPluginInstance = PluginLifecycle & ChartsProvider;
 
 /** Instance shape for a `news` plugin. */
 export type NewsPluginInstance = PluginLifecycle & NewsProvider;
+
+/** Instance shape for a `narration` plugin. */
+export type NarrationPluginInstance = PluginLifecycle & NarrationProvider;
 
 /** Instance shape for a `podcast` plugin. `searchShows` stays optional, as it is on the capability. */
 export type PodcastPluginInstance = PluginLifecycle & PodcastProvider;

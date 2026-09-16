@@ -652,6 +652,69 @@ crossfading and scrobbling, is wrong for an hour of somebody else's programme.
 The station carries an episode the way it carries a programme it made itself:
 one item, aired whole, as speech, when a clock band names the show.
 
+## Narrating
+
+A `narration` plugin offers text the station reads out, verbatim, as a programme:
+a book by the chapter, a newsletter by the issue, a queue of long reads. Three
+methods, all required:
+
+```ts
+async listSeries(): Promise<NarrationSeries[]> {
+    return this.books.map(book => ({ id: book.id, title: book.title, order: 'serial',
+                                     author: book.author, language: book.language }));
+}
+
+async listPieces({ seriesId, limit }: NarrationPiecesQuery): Promise<NarrationPiece[]> {
+    const book = await this.open(seriesId);                           // [] for an id you do not know
+    return book.chapters.slice(0, limit).map((chapter, ordinal) => ({
+        id: `${seriesId}:${chapter.key}`, seriesId, seriesTitle: book.title,
+        title: chapter.title, ordinal, wordCount: chapter.words,
+    }));
+}
+
+async getText({ seriesId, pieceId }: NarrationTextQuery): Promise<NarrationText | undefined> {
+    const chapter = await this.chapter(seriesId, pieceId);
+    if (chapter === undefined) return undefined;
+    return { parts: chapter.paragraphs.map(text => ({ text })) };     // one part per paragraph
+}
+```
+
+Five things about it are easy to get wrong.
+
+**You never make the audio.** The station speaks it, on whichever engine the
+operator chose, which is what gets your text the pronunciation lexicon, the
+performance cues, the presenter's voice and a real loudness measurement. A
+plugin that synthesised would arrive having skipped all of it, and would be
+fighting the presenter for the one engine slot the station has.
+
+**Say which ORDER the series is in.** `serial` starts at the beginning and works
+through, once each; `latest` airs the newest piece and nothing once it has
+aired. Nothing can infer it, and the two failures are a book read back to front
+and a newsletter stuck on issue one forever.
+
+**An `ordinal` describes the series, not your answer.** Chapter four is `3`
+whether or not the first three were in the page you returned. The station is the
+one keeping its place; `listPieces` is the table of contents, not a cursor, so
+answer a serial from its START and let the host work out what it has aired.
+
+**Strip the furniture, and mind the brackets.** `[Illustration: …]`,
+`[Footnote 12]`, page numbers and running heads are not the author's words and a
+listener cannot place them. Square brackets matter twice over, because that is
+how a script marks a sound effect and a performance cue: bracketed text that
+reaches the speech path is read as an instruction rather than as words, so at
+best it disappears and at worst the presenter coughs mid-sentence.
+
+**An id is a promise**, on the terms `podcast` sets and for a dearer reason. The
+station remembers what it has rendered and aired by `NarrationPiece.id`, and
+rendering a chapter costs real time on the station's own engine, so a plugin that
+renumbers pays to speak the same chapter twice and then airs it twice.
+
+Note what this capability is not: `news`. Both hand over somebody else's words,
+and the line between them is what the station does with them. A news item is a
+fact to MENTION, and what airs is a sentence a model wrote about it; a narration
+piece is read as it stands, and reading it out is the whole programme. A source
+whose text would need summarising is a news source even if it publishes books.
+
 ## Saying what it is like outside
 
 A `weather` plugin has one method, and the caller supplies the place:

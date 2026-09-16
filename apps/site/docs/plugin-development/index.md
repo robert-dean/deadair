@@ -30,6 +30,7 @@ A plugin declares one or more capabilities, and implements the methods each one 
 - **`similarity`**: say which artists and records sound like which.
 - **`news`**: supply headlines, and the story behind each.
 - **`podcast`**: say which shows the station subscribes to and what each has published, with the address of every episode's audio.
+- **`narration`**: offer text the station reads out as a programme — a book by the chapter, a newsletter by the issue — as series, their instalments, and the words of one on request.
 - **`search`**: search the open web.
 - **`weather`**: say what it is like outside, as measurements.
 - **`scrobble`**: report what the station played to somebody else's service.

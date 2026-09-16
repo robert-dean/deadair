@@ -11,6 +11,7 @@ import {
     asCatalogPlugin,
     asLlmPlugin,
     asMixerPlugin,
+    asNarrationPlugin,
     asPodcastPlugin,
     asSpeechPlugin,
     asStreamPlugin,
@@ -193,6 +194,33 @@ describe('asMixerPlugin', () => {
         const both = record(['analysis', 'mixer'], { ...analysisMethods, ...mixerMethods });
         expect(asAnalysisPlugin(both)).toBeDefined();
         expect(asMixerPlugin(both)).toBeDefined();
+    });
+});
+
+describe('asNarrationPlugin', () => {
+    /** The three methods `narration` requires, as bare stubs. */
+    const narrationMethods = { listSeries: async () => [], listPieces: async () => [], getText: async () => undefined };
+
+    it('accepts a plugin that lists series, their pieces and the words of one', () => {
+        expect(asNarrationPlugin(record(['narration'], narrationMethods))).toBeDefined();
+    });
+
+    it('refuses a plugin that lists everything and cannot hand over the words', () => {
+        // A menu the kitchen cannot cook from: the station has nothing to speak, so the band would
+        // decline at every slot with the series looking perfectly healthy in the console.
+        const { getText, ...withoutText } = narrationMethods;
+        void getText;
+        expect(asNarrationPlugin(record(['narration'], withoutText))).toBeUndefined();
+    });
+
+    it('refuses a plugin that implements the methods and never declared the capability', () => {
+        expect(asNarrationPlugin(record(['news'], narrationMethods))).toBeUndefined();
+    });
+
+    it('refuses a plugin that is not running', () => {
+        for (const status of ['discovered', 'disabled', 'misconfigured', 'failed'] as const) {
+            expect(asNarrationPlugin(record(['narration'], narrationMethods, status))).toBeUndefined();
+        }
     });
 });
 

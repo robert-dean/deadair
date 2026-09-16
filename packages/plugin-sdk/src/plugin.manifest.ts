@@ -91,6 +91,25 @@ export const PLUGIN_CAPABILITY_CHARTS = 'charts';
 export const PLUGIN_CAPABILITY_NEWS = 'news';
 
 /**
+ * The plugin can offer text for the station to read out: a series in, its
+ * instalments out, and the words of one on request.
+ *
+ * Separate from {@link PLUGIN_CAPABILITY_NEWS}, the other capability that hands
+ * over somebody else's words, and the line between them is what the station does
+ * with them rather than where they came from. A news item is a fact to MENTION,
+ * so what airs is a sentence a model wrote about it; a narration piece is read
+ * VERBATIM, and reading it out is the whole programme. A source whose text would
+ * need summarising is a news source even if it publishes books.
+ *
+ * And separate from {@link PLUGIN_CAPABILITY_PODCAST}, although both end in a
+ * programme at a clock band, because a podcast plugin names audio somebody else
+ * made and this one hands over words the STATION speaks — in its own voice, with
+ * its own lexicon and cues, measured rather than assumed.
+ * `capabilities/narration.ts` says why at length.
+ */
+export const PLUGIN_CAPABILITY_NARRATION = 'narration';
+
+/**
  * The plugin can say what programmes the station subscribes to, and what each
  * has published: a show in, episodes out, each with the address of its audio.
  *
@@ -170,6 +189,7 @@ export const KNOWN_PLUGIN_CAPABILITIES = [
     PLUGIN_CAPABILITY_MIXER,
     PLUGIN_CAPABILITY_CHARTS,
     PLUGIN_CAPABILITY_NEWS,
+    PLUGIN_CAPABILITY_NARRATION,
     PLUGIN_CAPABILITY_PODCAST,
     PLUGIN_CAPABILITY_SIMILARITY,
     PLUGIN_CAPABILITY_SEARCH,

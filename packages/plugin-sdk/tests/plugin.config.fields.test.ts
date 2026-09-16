@@ -179,6 +179,7 @@ describe('configFieldSchema', () => {
             'station.newsCategories',
             'station.newsFeeds',
             'station.podcastShows',
+            'station.narrationSeries',
             'intl.timeZones',
             'plugins.speech',
             'plugins.llm',

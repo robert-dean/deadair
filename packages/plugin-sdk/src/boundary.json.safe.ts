@@ -39,6 +39,14 @@
 import type { AnalysisRef, TrackAnalysis, TrackCuePoints, TrackLoudness, TrackTaggedLoudness } from './capabilities/analysis.js';
 import type { AudioJoin, AudioOverlay } from './capabilities/mixer.js';
 import type { ChartDescriptor, ChartEntry, ChartQuery } from './capabilities/charts.js';
+import type {
+    NarrationPart,
+    NarrationPiece,
+    NarrationPiecesQuery,
+    NarrationSeries,
+    NarrationText,
+    NarrationTextQuery,
+} from './capabilities/narration.js';
 import type { NewsFeedDescriptor, NewsItem, NewsQuery } from './capabilities/news.js';
 import type {
     PodcastAudio,
@@ -196,6 +204,12 @@ export type AssertAllBoundaryPayloadsAreJsonSafe = AssertAllTrue<{
     NewsFeedDescriptor: IsJsonSafe<NewsFeedDescriptor>;
     NewsQuery: IsJsonSafe<NewsQuery>;
     NewsItem: IsJsonSafe<NewsItem>;
+    NarrationSeries: IsJsonSafe<NarrationSeries>;
+    NarrationPiece: IsJsonSafe<NarrationPiece>;
+    NarrationPart: IsJsonSafe<NarrationPart>;
+    NarrationText: IsJsonSafe<NarrationText>;
+    NarrationPiecesQuery: IsJsonSafe<NarrationPiecesQuery>;
+    NarrationTextQuery: IsJsonSafe<NarrationTextQuery>;
     PodcastShow: IsJsonSafe<PodcastShow>;
     PodcastAudio: IsJsonSafe<PodcastAudio>;
     PodcastEpisode: IsJsonSafe<PodcastEpisode>;
@@ -271,6 +285,12 @@ export const JSON_SAFE_PAYLOAD_TYPES = [
     'NewsFeedDescriptor',
     'NewsQuery',
     'NewsItem',
+    'NarrationSeries',
+    'NarrationPiece',
+    'NarrationPart',
+    'NarrationText',
+    'NarrationPiecesQuery',
+    'NarrationTextQuery',
     'PodcastShow',
     'PodcastAudio',
     'PodcastEpisode',
@@ -321,6 +341,7 @@ export const BOUNDARY_METHOD_TYPES = [
     'MixerProvider',
     'ChartsProvider',
     'NewsProvider',
+    'NarrationProvider',
     'PodcastProvider',
     'SimilarityProvider',
     'SearchProvider',

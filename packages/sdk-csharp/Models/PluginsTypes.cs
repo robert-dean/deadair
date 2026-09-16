@@ -136,6 +136,9 @@ public enum ConfigFieldOptionSource
     [JsonStringEnumMemberName("station.podcastShows")]
     StationPodcastShows,
 
+    [JsonStringEnumMemberName("station.narrationSeries")]
+    StationNarrationSeries,
+
     [JsonStringEnumMemberName("intl.timeZones")]
     IntlTimeZones,
 

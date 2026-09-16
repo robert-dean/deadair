@@ -5,6 +5,7 @@ import {
     PLUGIN_CAPABILITY_ENRICHMENT,
     PLUGIN_CAPABILITY_LLM,
     PLUGIN_CAPABILITY_MIXER,
+    PLUGIN_CAPABILITY_NARRATION,
     PLUGIN_CAPABILITY_NEWS,
     PLUGIN_CAPABILITY_PODCAST,
     PLUGIN_CAPABILITY_SCROBBLE,
@@ -21,6 +22,7 @@ import {
     type LlmPluginInstance,
     type MixerProvider,
     type MusicProviderPluginInstance,
+    type NarrationPluginInstance,
     type NewsPluginInstance,
     type PodcastPluginInstance,
     type PluginManifest,
@@ -301,6 +303,41 @@ export const asNewsPlugin = (record: PluginRecord): NewsPlugin | undefined => {
     if (!implementsNews(record.manifest, record.instance)) return undefined;
 
     return { record, manifest: record.manifest, instance: record.instance as NewsPluginInstance };
+};
+
+/**
+ * All three methods earn the `narration` capability, on {@link NEWS_METHODS}'s argument with one
+ * more step: a series id is scoped to the plugin that minted it, so listing pieces without listing
+ * series is unreachable and listing series without pieces is a menu with no kitchen — and a plugin
+ * that lists both but cannot hand over the WORDS is a menu the kitchen cannot cook from, since the
+ * station has nothing to speak.
+ */
+export const NARRATION_METHODS = ['listSeries', 'listPieces', 'getText'] as const satisfies ReadonlyArray<keyof NarrationPluginInstance>;
+
+/** A plugin narrowed to "can offer text the station reads out". */
+export interface NarrationPlugin {
+    record: PluginRecord;
+    manifest: PluginManifest;
+    instance: NarrationPluginInstance;
+}
+
+/** {@link implementsCatalog}'s rule, applied to the `narration` capability. */
+export const implementsNarration = (manifest: PluginManifest | undefined, instance: unknown): boolean => {
+    if (!manifest?.capabilities.includes(PLUGIN_CAPABILITY_NARRATION)) return false;
+    return NARRATION_METHODS.every(method => typeof (instance as Record<string, unknown>)[method] === 'function');
+};
+
+/**
+ * The narration-capable view of a record, or `undefined` when it is not one.
+ *
+ * No `priority`, for {@link asPodcastPlugin}'s reason: two narration plugins offer two shelves of
+ * things to read, and there is nothing to rank. The host fans out over every one.
+ */
+export const asNarrationPlugin = (record: PluginRecord): NarrationPlugin | undefined => {
+    if (record.status !== 'active' || !record.manifest || !record.instance) return undefined;
+    if (!implementsNarration(record.manifest, record.instance)) return undefined;
+
+    return { record, manifest: record.manifest, instance: record.instance as NarrationPluginInstance };
 };
 
 /**

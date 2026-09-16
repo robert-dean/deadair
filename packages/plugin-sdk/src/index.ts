@@ -5,6 +5,7 @@ export * from './capabilities/enrichment.js';
 export * from './capabilities/llm.js';
 export * from './capabilities/mixer.js';
 export * from './capabilities/music.provider.js';
+export * from './capabilities/narration.js';
 export * from './capabilities/news.js';
 export * from './capabilities/podcast.js';
 export * from './capabilities/scrobble.js';

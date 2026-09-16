@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.12.3] — 2026-09-16
+
+- The mount carries artwork as well as a title. Every ICY update now fills the `StreamUrl` field beside `StreamTitle`: a record's cover, made absolute against the station's public URL, or the station's own logo for a break, the bed and off air, so a player that reads the field never shows the previous record's cover under the wrong caption. The public URL is derived from the console address the station was deployed with (`SPA_BASE_URL`) when the setting is empty, which also gives Icecast a real advertised hostname on a station that never filled it in. `stream/streamurl.check.py` measures whether a given player draws the field, against a throwaway mount rather than the station's; an NAD M10 V2 on BluOS 4.16.22 does, per record, with no reconnect.
+
 ## [0.12.2] — 2026-09-16
 
 - Callers stop being offered as hosts, and a broadcast refuses one. `GET /personas` answers with the whole roster, hosts and callers together, because the personas page draws both — so narrowing it is each surface's own job, and three of them had never done it: the on-air "Presented by" menu, "Hosted by" on a slot or a briefing box, and a production's presenter. Picking a caller there was not cosmetic. `DirectorConsoleService.recast` checked only that the persona existed, so the caller presented the show and `SegmentRepository.recast` rewrote every break in the tail in the character of somebody whose whole premise is that they are phoning in. `recast` now refuses a caller with the sentence `PersonasService.setDefaultHost` already used, and every console surface that offers a host narrows through one `presents` predicate rather than four copies of `kind !== 'caller'`. `putOnAir` still takes a persona id on trust, deliberately and for its own reason, so the endpoint half of that path is unchanged.
@@ -185,7 +189,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.12.2...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.12.3...HEAD
+[0.12.3]: https://github.com/robert-dean/deadair/compare/v0.12.2...v0.12.3
 [0.12.2]: https://github.com/robert-dean/deadair/compare/v0.12.1...v0.12.2
 [0.12.1]: https://github.com/robert-dean/deadair/compare/v0.12.0...v0.12.1
 [0.12.0]: https://github.com/robert-dean/deadair/compare/v0.11.1...v0.12.0

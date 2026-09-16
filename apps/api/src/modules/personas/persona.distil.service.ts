@@ -139,7 +139,7 @@ export class PersonaDistilService {
         // there is a queue and a pass that proposed nothing is not news.
         if (summary.suggested > 0) {
             void this.activity.record({
-                // `director`, like `PersonasService.setActive` beside it: who the station is
+                // `director`, like `PersonasService.setDefaultHost` beside it: who the station is
                 // presenting as is a programming fact, and the feed's five modules are about where
                 // an operator would look rather than about which folder the code is in.
                 module: 'director',

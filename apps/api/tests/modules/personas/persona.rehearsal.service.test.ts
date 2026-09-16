@@ -18,7 +18,7 @@ const persona = (over: Partial<Persona> = {}): Persona => ({
     kind: 'host',
     label: 'Pirate captain',
     style: 'a pirate captain who runs a radio station',
-    active: false,
+    defaultHost: false,
     ...over,
 });
 
@@ -78,7 +78,7 @@ const declinedThenFloor = {
 
 describe('PersonaRehearsalService', () => {
     it('rehearses the persona NAMED, never the one on air', async () => {
-        const personas = { find: vi.fn(async () => persona()), active: vi.fn(), presenting: vi.fn() };
+        const personas = { find: vi.fn(async () => persona()), defaultHost: vi.fn(), presenting: vi.fn() };
         const writers = registry(twoAttempts);
         const service = new PersonaRehearsalService(
             personas as never,
@@ -95,7 +95,7 @@ describe('PersonaRehearsalService', () => {
         // The whole point is hearing a character that is NOT on air, so resolving the presenting one
         // here would make the page answer a different question from the one its button asks.
         expect(personas.presenting).not.toHaveBeenCalled();
-        expect(personas.active).not.toHaveBeenCalled();
+        expect(personas.defaultHost).not.toHaveBeenCalled();
         expect(writers.seen[0]?.persona?.key).toBe('pirate');
     });
 

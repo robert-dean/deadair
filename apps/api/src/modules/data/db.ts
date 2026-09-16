@@ -418,13 +418,13 @@ export interface DeadairPersonaNotes {
 }
 
 export interface DeadairPersonas {
-  active: Generated<boolean>;
   avoid: Generated<Json>;
   background: string | null;
   brevity: string | null;
   catchphrases: Generated<Json>;
   chattiness: string | null;
   createdAt: Generated<DateTime>;
+  defaultHost: Generated<boolean>;
   diction: Generated<Json>;
   dictionMarkers: Generated<Json>;
   djName: string | null;

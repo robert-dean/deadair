@@ -50,7 +50,7 @@ export interface StationSnapshot {
      * The last of those is what {@link SHEET_FIELDS} is for. An update REPLACES the sheet, so a field
      * the file leaves out is a field this station loses, and "Rewrite" on its own does not say that.
      */
-    personas: ReadonlyMap<string, { label: string; active: boolean; filled: ReadonlySet<string> }>;
+    personas: ReadonlyMap<string, { label: string; defaultHost: boolean; filled: ReadonlySet<string> }>;
     /** Story handles per persona key, lower-cased and trimmed, with the details each already holds. */
     stories: ReadonlyMap<string, ReadonlyMap<string, ReadonlySet<string>>>;
     /**
@@ -209,7 +209,7 @@ function entryFor(persona: PersonaFilePersona, station: StationSnapshot): Person
 function personaNotices(
     persona: PersonaFilePersona,
     station: StationSnapshot,
-    held: { label: string; active: boolean; filled: ReadonlySet<string> } | undefined,
+    held: { label: string; defaultHost: boolean; filled: ReadonlySet<string> } | undefined,
 ): PersonaImportNotice[] {
     const notices: PersonaImportNotice[] = [];
 
@@ -233,10 +233,13 @@ function personaNotices(
     // First, because it is the one an operator most needs to see before pressing anything: this
     // rewrites the sheet the station is currently speaking from. Not a fault and not refused — the
     // change is heard on the next break, exactly as an ordinary edit is.
-    if (held?.active === true) {
+    // The NOTICE kind stays `on-air`, which is the contract's word and the operator's: what they are
+    // being warned about is a character the station speaks in, whether it is speaking in it this
+    // minute or the moment the show on air ends.
+    if (held?.defaultHost === true) {
         notices.push({
             kind: 'on-air',
-            message: `"${held.label}" is on air, and this would rewrite the character the station is speaking in right now. The change is heard on the next break`,
+            message: `"${held.label}" is the station's own host, and this would rewrite the character it speaks in. The change is heard on the next break it writes`,
         });
     }
 

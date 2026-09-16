@@ -1,7 +1,7 @@
 // What a character loses on the way into a file, and what it must not.
 //
 // Every case here is one that fails SILENTLY if it regresses. An `id` that travelled would restore
-// onto nothing on the far side and look like an import that worked; an `active` that travelled would
+// onto nothing on the far side and look like an import that worked; a `defaultHost` that travelled would
 // change who is presenting on somebody else's station; a `suggested` story that travelled would hand
 // a stranger a queue of a model's guesses about a character they have never heard. None of the three
 // throws, and none of them is visible in the file unless somebody reads it.
@@ -18,7 +18,7 @@ const persona = (over: Partial<Persona> = {}): Persona => ({
     kind: 'host',
     label: 'The overnight host',
     style: 'a voice for the small hours',
-    active: false,
+    defaultHost: false,
     ...over,
 });
 
@@ -75,10 +75,10 @@ describe('personaForFile', () => {
     // the mapper agreeing with it rather than a second enforcement — but a mapper that spread the
     // row would type-check and would put both back.
     it('never carries the row id or who is on air', () => {
-        const file = personaForFile(persona({ active: true }), []);
+        const file = personaForFile(persona({ defaultHost: true }), []);
 
         expect(file).not.toHaveProperty('id');
-        expect(file).not.toHaveProperty('active');
+        expect(file).not.toHaveProperty('defaultHost');
     });
 
     // A caller is shareable exactly as a host is, and `kind` is what says which. It travelling

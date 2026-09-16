@@ -178,11 +178,11 @@ export class PersonasClient {
     }
 
     /**
-     * @name Put persona on air
-     * @description Puts this persona on air and takes the previous one off
+     * @name Set the station host
+     * @description Makes this persona the station's own host, and the previous one no longer is
      */
-    async putPersonaOnAir(id: string): Promise<PersonaList> {
-        const result = await this.fetch(`/personas/${encodeURIComponent(id)}/active`, { method: 'PUT' });
+    async setTheStationHost(id: string): Promise<PersonaList> {
+        const result = await this.fetch(`/personas/${encodeURIComponent(id)}/default-host`, { method: 'PUT' });
         return await parseJson<PersonaList>(result);
     }
 

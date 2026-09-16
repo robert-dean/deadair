@@ -154,7 +154,7 @@ function ImportResult({ result }: { result: PersonaImportResult }) {
                 {count(result.storiesWritten, 'story', 'stories')} and {count(result.detailsWritten, 'detail', 'details')} added.
             </Text>
             <Text size="sm" mt="xs">
-                Nobody was put on air. Use <strong>Put on air</strong> on a character&apos;s card when you want it presenting.
+                Nobody was put on air. Use <strong>Make station host</strong> on a character&apos;s card when you want it presenting.
             </Text>
         </Alert>
     );

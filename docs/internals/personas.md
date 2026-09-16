@@ -9,8 +9,8 @@ Read the ones covering whatever you are about to change. The always-loaded index
 
 ## The sheet
 
-**Who the station IS is a row, and it is a VOICE and nothing else.** `deadair.personas`, one active per
-station enforced by a partial unique index, with its own contract and its own console page — a table for the
+**Who the station IS is a row, and it is a VOICE and nothing else.** `deadair.personas`, one `default_host`
+per station enforced by a partial unique index, with its own contract and its own console page — a table for the
 reason [station-moment](https://github.com/robert-dean/deadair/discussions/38) argues moods are one: a `ConfigField` describes one row of a form and
 this is a list an operator adds to and switches between. It replaced `llm.breakPersona` and `llm.setPersona`,
 both retired, and the reason it could not stay two settings is what putting one on air does: it changes what

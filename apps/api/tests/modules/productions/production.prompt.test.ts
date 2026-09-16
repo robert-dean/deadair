@@ -20,7 +20,7 @@ const sheet = (over: Partial<Persona> = {}): Persona => ({
     kind: 'caller',
     label: 'Caller who wants proof',
     style: 'a listener who wants to believe it and cannot get there without proof',
-    active: false,
+    defaultHost: false,
     ...over,
 });
 

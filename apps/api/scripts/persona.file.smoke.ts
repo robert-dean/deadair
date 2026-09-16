@@ -103,12 +103,12 @@ await db
             avoid: ['radio voice'],
             samples: ['Stay up, friend.'],
         });
-        await personas.setActive(written.id);
+        await personas.setDefaultHost(written.id);
         const persona = await personas.find(written.id);
         if (persona === undefined) throw new Error('the persona this script just wrote is not there');
 
         say('what a file carries about the character');
-        check('it is on air, so the mapper has something to drop', persona.active, true);
+        check('it is the station\u2019s own host, so the mapper has something to drop', persona.defaultHost, true);
 
         // One story of each state, so the sieve is exercised against rows the database actually
         // wrote rather than against three objects a test made up.
@@ -233,7 +233,7 @@ await db
         check('and its phrasings', theirs?.templates, 'That was {{previous.title}}.');
         // The one thing an import must never do. There is no code in the service that could, and
         // this is the assertion that keeps it that way.
-        check('and it is NOT on air', theirs?.active, false);
+        check('and it is NOT the receiving station\u2019s host', theirs?.defaultHost, false);
 
         const theirShelf = await theirStories.list(KEY);
         check('the stories arrive as the receiving operator’s own', [...new Set(theirShelf.map(story => story.origin))], ['operator']);

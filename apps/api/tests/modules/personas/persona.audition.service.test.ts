@@ -23,7 +23,7 @@ const persona = (over: Partial<Persona> = {}): Persona => ({
     kind: 'host',
     label: 'Pirate captain',
     style: 'a pirate captain who runs a radio station',
-    active: false,
+    defaultHost: false,
     ...over,
 });
 

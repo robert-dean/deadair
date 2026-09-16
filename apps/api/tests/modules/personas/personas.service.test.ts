@@ -18,24 +18,24 @@ const persona = (over: Partial<Persona> = {}): Persona => ({
     kind: 'host',
     label: 'Pirate captain',
     style: 'a pirate captain who runs a radio station',
-    active: true,
+    defaultHost: true,
     ...over,
 });
 
-function build(options: { setActive?: Persona | undefined; postFails?: boolean; roster?: Persona[]; ordersHost?: string } = {}) {
+function build(options: { setDefaultHost?: Persona | undefined; postFails?: boolean; roster?: Persona[]; ordersHost?: string } = {}) {
     const roster = options.roster ?? [persona()];
     const personas = {
-        // Answers whatever `setActive` would, because the two are now asked in sequence: the service
+        // Answers whatever `setDefaultHost` would, because the two are now asked in sequence: the service
         // reads the row first to find out whether it is a caller, so "no such persona" has to be the
         // same answer from both or a 404 case would half-pass.
-        find: vi.fn(async () => ('setActive' in options ? options.setActive : persona())),
-        setActive: vi.fn(async () => ('setActive' in options ? options.setActive : persona())),
+        find: vi.fn(async () => ('setDefaultHost' in options ? options.setDefaultHost : persona())),
+        setDefaultHost: vi.fn(async () => ('setDefaultHost' in options ? options.setDefaultHost : persona())),
         list: vi.fn(async () => roster),
         // The repository's own precedence, doubled: the order's host when it names one that exists,
         // and the station's own behind it. `PersonaRepository.presenting` is where the real one
         // lives, and `persona.repository.test.ts` is what holds it to that.
         presenting: vi.fn(
-            async (id?: string) => (id === undefined ? undefined : roster.find(row => row.id === id)) ?? roster.find(row => row.active),
+            async (id?: string) => (id === undefined ? undefined : roster.find(row => row.id === id)) ?? roster.find(row => row.defaultHost),
         ),
     };
     const director = {
@@ -81,7 +81,7 @@ describe('PersonasService putting a persona on air', () => {
         // had changed.
         const { service, director, afterCommit } = build();
 
-        await service.setActive('p1');
+        await service.setDefaultHost('p1');
         expect(director.post).not.toHaveBeenCalled();
 
         await afterCommit.run();
@@ -94,7 +94,7 @@ describe('PersonasService putting a persona on air', () => {
         // the running order.
         const { service, director, afterCommit } = build();
 
-        await service.setActive('p1');
+        await service.setDefaultHost('p1');
         await afterCommit.run();
 
         expect(director.post).toHaveBeenCalledWith(expect.not.objectContaining({ bind: expect.anything() }));
@@ -103,7 +103,7 @@ describe('PersonasService putting a persona on air', () => {
     it('records the change against the operator who made it', async () => {
         const { service, activity } = build();
 
-        await service.setActive('p1');
+        await service.setDefaultHost('p1');
 
         expect(activity.record).toHaveBeenCalledWith(
             expect.objectContaining({ kind: 'persona.active', detail: expect.stringContaining('Pirate captain'), actorId: 'actor-1' }),
@@ -111,9 +111,9 @@ describe('PersonasService putting a persona on air', () => {
     });
 
     it('says nothing to the show about a persona the station does not have', async () => {
-        const { service, director, afterCommit, activity } = build({ setActive: undefined });
+        const { service, director, afterCommit, activity } = build({ setDefaultHost: undefined });
 
-        await expect(service.setActive('gone')).rejects.toMatchObject({ statusCode: 404 });
+        await expect(service.setDefaultHost('gone')).rejects.toMatchObject({ statusCode: 404 });
         await afterCommit.run();
 
         expect(director.post).not.toHaveBeenCalled();
@@ -123,12 +123,12 @@ describe('PersonasService putting a persona on air', () => {
     it('refuses to put a caller on air, and never writes the row', async () => {
         // Somebody who phones IN cannot present the station. The database refuses it too, and this
         // is the half that answers the operator with a sentence rather than a constraint violation
-        // — which also means `setActive` is never reached, so there is nothing to undo.
-        const { service, personas, director, activity } = build({ setActive: persona({ kind: 'caller', active: false }) });
+        // — which also means `setDefaultHost` is never reached, so there is nothing to undo.
+        const { service, personas, director, activity } = build({ setDefaultHost: persona({ kind: 'caller', defaultHost: false }) });
 
-        await expect(service.setActive('p1')).rejects.toMatchObject({ statusCode: 400 });
+        await expect(service.setDefaultHost('p1')).rejects.toMatchObject({ statusCode: 400 });
 
-        expect(personas.setActive).not.toHaveBeenCalled();
+        expect(personas.setDefaultHost).not.toHaveBeenCalled();
         expect(director.post).not.toHaveBeenCalled();
         expect(activity.record).not.toHaveBeenCalled();
     });
@@ -138,7 +138,7 @@ describe('PersonasService putting a persona on air', () => {
         // command must not turn an operator's change of character into a failed request.
         const { service, afterCommit } = build({ postFails: true });
 
-        await service.setActive('p1');
+        await service.setDefaultHost('p1');
 
         await expect(afterCommit.run()).resolves.toBeUndefined();
         expect(logger.warn).toHaveBeenCalled();
@@ -150,8 +150,8 @@ describe('PersonasService putting a persona on air', () => {
 // in when somebody noticed. The flag is who presents when the broadcast names nobody; this is the
 // other question, answered per request so it cannot drift from what the director is doing.
 describe('PersonasService answering who is presenting', () => {
-    const stationsOwn = persona({ id: 'p1', key: 'videoage', active: true });
-    const guest = persona({ id: 'p2', key: 'wisecrack', active: false });
+    const stationsOwn = persona({ id: 'p1', key: 'videoage', defaultHost: true });
+    const guest = persona({ id: 'p2', key: 'wisecrack', defaultHost: false });
 
     it('names the host the broadcast on air chose, and not the station\u2019s own', async () => {
         const { service } = build({ roster: [stationsOwn, guest], ordersHost: 'p2' });
@@ -159,10 +159,10 @@ describe('PersonasService answering who is presenting', () => {
         const list = await service.list();
 
         expect(list.personas.find(row => row.id === 'p2')?.presenting).toBe(true);
-        // The half that was wrong on the page: the station's own host carries `active` and is not
-        // the one speaking.
+        // The half that was wrong on the page: the station's own host carries `defaultHost` and is
+        // not the one speaking.
         expect(list.personas.find(row => row.id === 'p1')?.presenting).toBe(false);
-        expect(list.personas.find(row => row.id === 'p1')?.active).toBe(true);
+        expect(list.personas.find(row => row.id === 'p1')?.defaultHost).toBe(true);
     });
 
     it('falls back to the station\u2019s own host when the broadcast named nobody', async () => {
@@ -175,9 +175,9 @@ describe('PersonasService answering who is presenting', () => {
     });
 
     it('answers the question on every write, since each one returns the whole roster', async () => {
-        const { service } = build({ roster: [stationsOwn, guest], ordersHost: 'p2', setActive: stationsOwn });
+        const { service } = build({ roster: [stationsOwn, guest], ordersHost: 'p2', setDefaultHost: stationsOwn });
 
-        const list = await service.setActive('p1');
+        const list = await service.setDefaultHost('p1');
 
         // Putting the station's own host on does not take the show off its own: the director keeps
         // the running order's answer, so the page has to keep showing the guest as the one speaking.

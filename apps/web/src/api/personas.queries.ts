@@ -44,7 +44,7 @@ export function usePersonas() {
  * Every write, sharing one success path.
  *
  * The API answers each of them with the whole list rather than the row it touched, because each of
- * them can change more than that row: putting one on air takes another off, and deleting the active
+ * them can change more than that row: making one the station's host takes that off another, deleting that one
  * one leaves the station with none. So the answer is written into the cache and nothing refetches.
  */
 function useListWrite<TArgs>(mutationFn: (args: TArgs) => Promise<PersonaList>) {
@@ -63,7 +63,7 @@ export const useUpdatePersona = () => useListWrite(({ id, body }: { id: string; 
 
 export const useDeletePersona = () => useListWrite((id: string) => sdk.personas.deletePersona(id));
 
-export const usePutPersonaOnAir = () => useListWrite((id: string) => sdk.personas.putPersonaOnAir(id));
+export const useSetStationHost = () => useListWrite((id: string) => sdk.personas.setTheStationHost(id));
 
 /**
  * Put back whichever of the station's own personas are missing.

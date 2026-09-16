@@ -111,7 +111,7 @@ ask is two stations.
 impossible: `PUT /director/air/persona` posts a `recast` command that rewrites `personaId` on the row and
 nothing else on it (`StationLineup.recast`, the sibling of `rebrief` and narrow for the same reason), and
 naming nobody hands the show back to the station's. The personas page reaches a show only when it named no
-host of its own, and `PersonasService.setActive` says so by posting the SAME command with no binding — what
+host of its own, and `PersonasService.setDefaultHost` says so by posting the SAME command with no binding — what
 happened rather than what to do — through `AfterCommit`, since the director reads the personas table on its
 own connection and would otherwise resolve the row as it stood before the write. The second half is that **the
 outgoing host's unaired breaks are written again**: every segment past `committedThrough` goes back to

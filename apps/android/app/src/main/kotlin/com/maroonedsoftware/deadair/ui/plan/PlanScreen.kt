@@ -53,7 +53,7 @@ import com.maroonedsoftware.deadair.sdk.models.StationMode
 import com.maroonedsoftware.deadair.sdk.models.StationOnEnd
 import com.maroonedsoftware.deadair.ui.LoadState
 import com.maroonedsoftware.deadair.ui.order.HostPicker
-import com.maroonedsoftware.deadair.ui.order.activeHost
+import com.maroonedsoftware.deadair.ui.order.stationHost
 import com.maroonedsoftware.deadair.ui.order.hostChoicesOf
 import com.maroonedsoftware.deadair.ui.text.Message
 import com.maroonedsoftware.deadair.ui.text.resolve
@@ -190,7 +190,7 @@ fun PlanScreen(
             // Always offered here: this broadcast does not exist yet, so "whichever persona the
             // station has on air" is a choice about it rather than a handing back.
             stationsOwnEnabled = true,
-            stationsOwnName = known?.activeHost()?.label,
+            stationsOwnName = known?.stationHost()?.label,
             selectedId = state.form.personaId,
             note = null,
             busy = busy,

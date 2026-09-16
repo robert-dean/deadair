@@ -161,14 +161,14 @@ public sealed class PersonasClient(SdkHttp http)
     }
 
     /// <summary>
-    /// Put persona on air
-    /// Puts this persona on air and takes the previous one off
+    /// Set the station host
+    /// Makes this persona the station's own host, and the previous one no longer is
     /// </summary>
-    public async Task<PersonaList> PutPersonaOnAirAsync(string id, CancellationToken cancellationToken = default)
+    public async Task<PersonaList> SetTheStationHostAsync(string id, CancellationToken cancellationToken = default)
     {
         var response = await http.ExecuteAsync(
             HttpMethod.Put,
-            http.Path("personas", http.Segment(id), "active"),
+            http.Path("personas", http.Segment(id), "default-host"),
             cancellationToken: cancellationToken).ConfigureAwait(false);
         return http.ReadJson<PersonaList>(response);
     }

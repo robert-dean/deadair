@@ -144,12 +144,12 @@ class PersonasClient(private val http: SdkHttp) {
     }
 
     /**
-     * Put persona on air
-     * Puts this persona on air and takes the previous one off
+     * Set the station host
+     * Makes this persona the station's own host, and the previous one no longer is
      */
-    suspend fun putPersonaOnAir(id: String): PersonaList {
+    suspend fun setTheStationHost(id: String): PersonaList {
         val response = http.execute(HttpMethod.Put) {
-            path("personas", segment(id), "active")
+            path("personas", segment(id), "default-host")
         }
         return http.decodeJson(response)
     }

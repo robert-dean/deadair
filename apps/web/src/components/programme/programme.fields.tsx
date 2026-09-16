@@ -180,11 +180,12 @@ export function HostField({ markOnAir = false, ...input }: GetInputPropsReturnTy
     const options = (personas.data?.personas ?? []).map(persona => ({
         value: persona.id,
         // Only where a broadcast is being started NOW, because "on air" is a fact about this moment
-        // rather than about a slot that comes round on Tuesdays.
-        label: markOnAir && persona.active ? `${persona.label} (on air)` : persona.label,
+        // rather than about a slot that comes round on Tuesdays. `presenting` rather than the
+        // station's own host, for the same reason: this marks who an operator can hear.
+        label: markOnAir && persona.presenting ? `${persona.label} (on air)` : persona.label,
     }));
 
-    return <Select label="Hosted by" description="Empty means whichever persona the station has on air." data={options} clearable {...input} />;
+    return <Select label="Hosted by" description="Empty means the station\u2019s own host." data={options} clearable {...input} />;
 }
 
 /** What it is asked to play, in the operator's own words. */

@@ -19,9 +19,10 @@ options {
     }
 }
 
-# Every mutation answers the whole list rather than the row it touched. Putting one persona on air
-# takes another off, and deleting one can leave the station with none active, so a caller that got
-# back only the row it named would be holding a list it has to refetch anyway.
+# Every mutation answers the whole list rather than the row it touched. Making one persona the
+# station's host takes that off another, deleting one can leave the station with no host at all, and
+# `presenting` is derived per answer, so a caller that got back only the row it named would be
+# holding a list it has to refetch anyway.
 
 operation /personas: {
     get: { # Every persona this station has, oldest first
@@ -88,7 +89,7 @@ operation /personas/restore: {
 # A character as a file, so it can be kept, edited by hand, or sent to somebody running their own
 # station. The whole roster or one of them; the same shape either way, so a file is a file.
 #
-# It carries no id and no `active`, which is not a decision made here: the file's persona is
+# It carries no id and no `defaultHost`, which is not a decision made here: the file's persona is
 # `PersonaDraftView`, whose two absent fields are exactly those, so importing one can never change
 # who is on air and can never collide with a row it did not mean. What identifies a character across
 # two installs is its `key`.
@@ -167,7 +168,7 @@ operation /personas/import/preview: {
 # and its stories added to, and one it does not is created. Nothing is ever deleted — a story the
 # operator here wrote and the file has never heard of stays exactly where it is.
 #
-# It puts NOBODY on air, and needs no way to: `PUT /personas/{id}/active` is the one path, and it
+# It puts NOBODY on air, and needs no way to: `PUT /personas/{id}/default-host` is the one path, and it
 # already tells the show that is running. So an imported character arrives beside the others and
 # takes over when somebody says so.
 #
@@ -215,13 +216,16 @@ operation /personas/{id}: {
     }
 }
 
-operation /personas/{id}/active: {
+# The station's OWN host, which is not the same as who is on air: a broadcast that named its own host
+# keeps it, and this is who presents once that show ends. `PersonaList.presenting` is the other
+# question, and `POST /director/recast` is what changes who is speaking right now.
+operation /personas/{id}/default-host: {
     params: {
         id: string(min=1, max=100)
     }
-    put: { # Puts this persona on air and takes the previous one off
-        name: Put persona on air
-        service: PersonasService.setActive
+    put: { # Makes this persona the station's own host, and the previous one no longer is
+        name: Set the station host
+        service: PersonasService.setDefaultHost
         response: {
             200: {
                 application/json: PersonaList

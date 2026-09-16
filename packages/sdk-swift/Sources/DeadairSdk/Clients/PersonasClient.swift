@@ -101,10 +101,10 @@ public final class PersonasClient: Sendable {
         return try http.decodeJSON(PersonaList.self, from: response)
     }
 
-    /// Put persona on air
-    /// Puts this persona on air and takes the previous one off
-    public func putPersonaOnAir(id: String) async throws -> PersonaList {
-        let request = try SdkRequest(method: "PUT", path: ["personas", http.segment(id), "active"])
+    /// Set the station host
+    /// Makes this persona the station's own host, and the previous one no longer is
+    public func setTheStationHost(id: String) async throws -> PersonaList {
+        let request = try SdkRequest(method: "PUT", path: ["personas", http.segment(id), "default-host"])
         let response = try await http.execute(request)
         return try http.decodeJSON(PersonaList.self, from: response)
     }

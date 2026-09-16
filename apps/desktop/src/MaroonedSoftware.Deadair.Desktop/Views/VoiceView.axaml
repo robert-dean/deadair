@@ -41,17 +41,17 @@
                                  whether the lamp is drawn or not, or the names do not line up. -->
                             <Ellipse Width="8" Height="8" VerticalAlignment="Top" Margin="0,6,0,0"
                                      HorizontalAlignment="Left"
-                                     Fill="{DynamicResource DaToneLiveBrush}" IsVisible="{Binding Active}" />
+                                     Fill="{DynamicResource DaToneLiveBrush}" IsVisible="{Binding Presenting}" />
                             <StackPanel Grid.Column="1" Spacing="2">
                                 <TextBlock Text="{Binding Label}" Foreground="{DynamicResource DaTextBrush}" />
                                 <TextBlock Text="{Binding Style}" FontSize="12" TextWrapping="Wrap"
                                            MaxWidth="620" HorizontalAlignment="Left"
                                            Foreground="{DynamicResource DaTextDimmedBrush}" />
                             </StackPanel>
-                            <Button Grid.Column="2" Classes="reveal ghost" Content="Put on air"
+                            <Button Grid.Column="2" Classes="reveal ghost" Content="Make station host"
                                     FontSize="11" Padding="8,3"
-                                    VerticalAlignment="Top" IsVisible="{Binding !Active}"
-                                    Command="{Binding $parent[ListBox].((vm:VoiceViewModel)DataContext).PutOnAirCommand}"
+                                    VerticalAlignment="Top" IsVisible="{Binding !IsStationHost}"
+                                    Command="{Binding $parent[ListBox].((vm:VoiceViewModel)DataContext).MakeStationHostCommand}"
                                     CommandParameter="{Binding}" />
                         </Grid>
                     </DataTemplate>

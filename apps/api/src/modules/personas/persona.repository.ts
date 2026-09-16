@@ -6,14 +6,20 @@ import { isPersonaBrevity, isPersonaChattiness, isPersonaLatitude, isPersonaStor
 import { DEFAULT_PERSONA_KIND, isPersonaKind, type Persona, type PersonaDraft } from './persona.js';
 
 /**
- * The personas an operator has written, and which of them is on air.
+ * The personas an operator has written, which of them is the station's own host, and which of them
+ * is presenting.
  *
- * ## One active persona, enforced by the database
+ * Those last two are different questions and the column answers only the first. It was called
+ * `active` until migration 0031, which is a word that reads as "on air" and is not: a broadcast may
+ * name its own host, and then the station's own host is whoever takes over when that show ends. See
+ * {@link presenting}, which is the one place the precedence between them lives.
  *
- * `personas_one_active_idx` is a partial unique index rather than a convention, because two active
- * personas is a state nothing downstream could resolve and every reader would resolve differently —
- * the writer would take one, the voice would take another, and the console would show a third.
- * {@link setActive} therefore clears and sets inside one statement's worth of work, in a
+ * ## One station host, enforced by the database
+ *
+ * `personas_one_default_host_idx` is a partial unique index rather than a convention, because two of
+ * them is a state nothing downstream could resolve and every reader would resolve differently — the
+ * writer would take one, the voice would take another, and the console would show a third.
+ * {@link setDefaultHost} therefore clears and sets inside one statement's worth of work, in a
  * transaction, so there is no instant with two and no instant with none.
  *
  * ## The sheet's lists are jsonb, and are read back defensively
@@ -86,18 +92,21 @@ export class PersonaRepository extends DataRepository {
     }
 
     /**
-     * The persona on air, or `undefined` for a station that has chosen none.
+     * The station's own host, or `undefined` for a station that has chosen none.
+     *
+     * Who presents when the broadcast on air names nobody, which is not the same as who is
+     * presenting — {@link presenting} is that question and this is one of its two answers.
      *
      * `undefined` is an ordinary answer and not a fault: it is what a station whose operator deleted
      * every persona gets, and everything downstream of this treats it as the station it was before
      * personas existed rather than as something to fail over.
      */
-    async active(): Promise<Persona | undefined> {
+    async defaultHost(): Promise<Persona | undefined> {
         const row = await this.db
             .selectFrom('deadair.personas')
             .selectAll()
             .where('stationKey', '=', this.station.stationKey)
-            .where('active', '=', true)
+            .where('defaultHost', '=', true)
             .executeTakeFirst();
 
         return row === undefined ? undefined : toPersona(row);
@@ -113,9 +122,9 @@ export class PersonaRepository extends DataRepository {
      * decision `on delete set null` makes on the column.
      */
     async presenting(lineupPersonaId: string | undefined): Promise<Persona | undefined> {
-        if (lineupPersonaId === undefined) return this.active();
+        if (lineupPersonaId === undefined) return this.defaultHost();
 
-        return (await this.find(lineupPersonaId)) ?? this.active();
+        return (await this.find(lineupPersonaId)) ?? this.defaultHost();
     }
 
     async create(draft: PersonaDraft): Promise<Persona> {
@@ -141,7 +150,7 @@ export class PersonaRepository extends DataRepository {
         return row === undefined ? undefined : toPersona(row);
     }
 
-    /** Whether there was one to delete. The active one going is legitimate; see {@link active}. */
+    /** Whether there was one to delete. The station's own host going is legitimate; see {@link defaultHost}. */
     async remove(id: string): Promise<boolean> {
         const result = await this.db
             .deleteFrom('deadair.personas')
@@ -153,28 +162,32 @@ export class PersonaRepository extends DataRepository {
     }
 
     /**
-     * Put one on air, taking the other off.
+     * Make one the station's own host, taking that off the other.
+     *
+     * NOT "put one on air", which is what this was called and is a different thing: a broadcast that
+     * named its own host keeps it, and this decides who presents once that show ends.
+     * `DirectorService.recast` is the other half, and `PersonasService.setDefaultHost` is what posts
+     * it.
      *
      * Two statements, and the ORDER is forced by the unique index rather than chosen: setting the
-     * new one first collides with the persona already active. They are atomic because the request
+     * new one first collides with the persona that already holds it. They are atomic because the request
      * they run in is already a transaction — `audit.context.middleware` opens one around every
      * request and the scoped `Kysely` a repository holds IS that transaction, so opening a second
      * here throws rather than nesting.
      *
-     * Answers `undefined` when there was nothing to put on air, so a caller can tell a 404 from a
-     * success.
+     * Answers `undefined` when there was no such persona, so a caller can tell a 404 from a success.
      */
-    async setActive(id: string): Promise<Persona | undefined> {
+    async setDefaultHost(id: string): Promise<Persona | undefined> {
         await this.db
             .updateTable('deadair.personas')
-            .set({ active: false })
+            .set({ defaultHost: false })
             .where('stationKey', '=', this.station.stationKey)
-            .where('active', '=', true)
+            .where('defaultHost', '=', true)
             .execute();
 
         const row = await this.db
             .updateTable('deadair.personas')
-            .set({ active: true })
+            .set({ defaultHost: true })
             .where('id', '=', id)
             .where('stationKey', '=', this.station.stationKey)
             .returningAll()
@@ -197,7 +210,7 @@ export class PersonaRepository extends DataRepository {
      * whole of the race, and paying for it with a lock would mean opening a transaction — which is
      * the one thing a repository here must not do, since the request path hands it one already.
      */
-    async seed(drafts: readonly PersonaDraft[], activeKey: string): Promise<number> {
+    async seed(drafts: readonly PersonaDraft[], hostKey: string): Promise<number> {
         if (drafts.length === 0) return 0;
 
         const existing = await this.db
@@ -214,7 +227,7 @@ export class PersonaRepository extends DataRepository {
                 drafts.map(draft => ({
                     stationKey: this.station.stationKey,
                     ...columnsOf(draft),
-                    active: draft.key === activeKey,
+                    defaultHost: draft.key === hostKey,
                 })),
             )
             .onConflict(conflict => conflict.columns(['stationKey', 'key']).doNothing())
@@ -243,7 +256,7 @@ export class PersonaRepository extends DataRepository {
 
         const rows = await this.db
             .insertInto('deadair.personas')
-            .values(drafts.map(draft => ({ stationKey: this.station.stationKey, ...columnsOf(draft), active: false })))
+            .values(drafts.map(draft => ({ stationKey: this.station.stationKey, ...columnsOf(draft), defaultHost: false })))
             .onConflict(conflict => conflict.columns(['stationKey', 'key']).doNothing())
             .returning('key')
             .execute();
@@ -252,7 +265,7 @@ export class PersonaRepository extends DataRepository {
     }
 }
 
-/** A draft as columns. `active` is deliberately absent: it moves through {@link PersonaRepository.setActive} alone. */
+/** A draft as columns. `defaultHost` is deliberately absent: it moves through {@link PersonaRepository.setDefaultHost} alone. */
 function columnsOf(draft: PersonaDraft) {
     return {
         key: draft.key,
@@ -300,7 +313,7 @@ function toPersona(row: {
     kind: string;
     label: string;
     style: string;
-    active: boolean;
+    defaultHost: boolean;
     djName: string | null;
     voice: string | null;
     background: string | null;
@@ -333,7 +346,7 @@ function toPersona(row: {
         kind: isPersonaKind(row.kind) ? row.kind : DEFAULT_PERSONA_KIND,
         label: row.label,
         style: row.style,
-        active: row.active,
+        defaultHost: row.defaultHost,
         ...(row.djName == null ? {} : { djName: row.djName }),
         ...(row.voice == null ? {} : { voice: row.voice }),
         ...(row.background == null ? {} : { background: row.background }),

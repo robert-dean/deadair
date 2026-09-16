@@ -112,11 +112,11 @@ public sealed record Persona
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Templates { get; init; }
 
-    /// <summary>The station's own host: who presents when the broadcast on air names nobody. At most one per station. NOT the same as `presenting`, and a show with its own host is exactly when the two differ</summary>
-    [JsonPropertyName("active")]
-    public required bool Active { get; init; }
+    /// <summary>The station's own host: who presents when the broadcast on air names nobody. At most one per station. Was `active` until it was renamed, because a reader who had not read `PersonaRepository.presenting` reasonably took that to mean "on air", which it is not during a show that named its own host</summary>
+    [JsonPropertyName("defaultHost")]
+    public required bool DefaultHost { get; init; }
 
-    /// <summary>Whether this character is the one writing breaks right now. Derived per request from the running order, falling back to `active`, through the one place that precedence lives (`PersonaRepository.presenting`). Never stored, so it cannot drift from what the director is actually doing</summary>
+    /// <summary>Whether this character is the one writing breaks right now. Derived per request from the running order, falling back to `defaultHost`, through the one place that precedence lives (`PersonaRepository.presenting`). Never stored, so it cannot drift from what the director is actually doing</summary>
     [JsonPropertyName("presenting")]
     public required bool Presenting { get; init; }
 }

@@ -38,10 +38,16 @@ fun hostChoicesOf(personas: List<Persona>, currentId: String?): List<HostChoice>
                 id = persona.id,
                 name = persona.label,
                 djName = persona.djName?.takeIf { it.isNotBlank() && it != persona.label },
-                onAir = persona.active,
+                onAir = persona.defaultHost,
                 current = persona.id == currentId,
             )
         }
 
-/** The station's own host: the one anything that names nobody is presented by. At most one. */
-fun List<Persona>.activeHost(): Persona? = firstOrNull { it.active }
+/**
+ * The station's own host: the one anything that names nobody is presented by. At most one.
+ *
+ * The field was `active` until the API renamed it, which is the same confusion this function's name
+ * had: "active" reads as "on air", and during a broadcast that named its own host it is not. The
+ * roster also carries `presenting` now, which is who is actually speaking.
+ */
+fun List<Persona>.stationHost(): Persona? = firstOrNull { it.defaultHost }

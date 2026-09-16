@@ -38,11 +38,12 @@ const SEED_CHARACTERS: readonly PersonaDraft[] = [...SEED_PERSONAS, ...SEED_CALL
  *
  * ## Every mutation answers the whole list
  *
- * Because every mutation can change more than the row it names. Putting one persona on air takes
- * another off, and deleting the active one leaves the station with none — so a caller handed back
- * only the row it touched would be holding a list it has to fetch again to draw.
+ * Because every mutation can change more than the row it names. Making one persona the station's
+ * host takes that off another, deleting that one leaves the station with no host at all, and
+ * `presenting` is worked out per answer — so a caller handed back only the row it touched would be
+ * holding a list it has to fetch again to draw.
  *
- * ## Which persona is seeded active, and why seeding is guarded on emptiness
+ * ## Which persona is seeded as the station's host, and why seeding is guarded on emptiness
  *
  * A fresh station gets the hosts in `persona.defaults.ts` and the callers in `caller.defaults.ts`,
  * with the classic host on air, so it sounds
@@ -94,7 +95,7 @@ export class PersonasService {
         // `stationDefault` rather than `onAir`, which is what this line said while meaning the
         // other thing. The flag is who presents when the broadcast names nobody; who is actually
         // speaking is `presenting` on the answer.
-        this.logger.info('personas: an operator edited a persona', { key: updated.key, stationDefault: updated.active });
+        this.logger.info('personas: an operator edited a persona', { key: updated.key, stationDefault: updated.defaultHost });
         return this.answer();
     }
 
@@ -106,7 +107,11 @@ export class PersonasService {
     }
 
     /**
-     * Put one persona on air and take the previous one off.
+     * Make one persona the station's own host, so the previous one no longer is.
+     *
+     * NOT "put one on air", which is what this was called: the two are the same thing only while
+     * the broadcast on air has named nobody. See {@link PersonaRepository.presenting}, and
+     * `presenting` on the answer, which is what the console badges.
      *
      * ## It reaches the show that is running, and only sometimes
      *
@@ -126,7 +131,7 @@ export class PersonasService {
      * for, in its quiet form. Best-effort once it runs: a director that would not take the command
      * must not cost the operator a write that has already happened.
      */
-    async setActive(id: string): Promise<PersonaList> {
+    async setDefaultHost(id: string): Promise<PersonaList> {
         // A caller is somebody who phones IN, so putting one on air is a question with no sensible
         // answer rather than an unusual choice. The database refuses it too; this is here so an
         // operator gets a sentence instead of a constraint violation.
@@ -136,14 +141,14 @@ export class PersonasService {
             throw httpError(400).withDetails({ message: `"${asked.label}" is a caller, and a caller cannot present the station` });
         }
 
-        const active = await this.personas.setActive(id);
-        if (active === undefined) throw httpError(404).withDetails({ message: `persona "${id}" does not exist` });
+        const host = await this.personas.setDefaultHost(id);
+        if (host === undefined) throw httpError(404).withDetails({ message: `persona "${id}" does not exist` });
 
         this.afterCommit.add(async () => {
             try {
                 await this.director.post({ kind: 'recast' });
             } catch (error) {
-                this.logger.warn(`personas: the station changed character but the show could not be told (${errorText(error)})`, { key: active.key });
+                this.logger.warn(`personas: the station changed character but the show could not be told (${errorText(error)})`, { key: host.key });
             }
         });
 
@@ -154,14 +159,19 @@ export class PersonasService {
             // beside the `air.recast` this event's other half posts. A chip for one kind of event
             // would be a filter nobody would use.
             module: 'director',
+            // The event KIND is unchanged by the rename, deliberately: `station_events` holds every
+            // one this station has ever posted, and renaming the kind would leave the older rows
+            // describing the same decision under a name nothing reads any more.
             kind: 'persona.active',
-            // The persona's own label, which is the station's own text about its own character.
-            detail: `An operator put ${active.label} on air.`,
-            data: { personaId: active.id, key: active.key },
+            // The persona's own label, which is the station's own text about its own character. It
+            // says "the station's host" rather than "on air" because a show that named its own host
+            // is still presented by that one, and this feed line would otherwise be untrue.
+            detail: `An operator made ${host.label} the station's host.`,
+            data: { personaId: host.id, key: host.key },
             ...(this.actor() === undefined ? {} : { actorId: this.actor() as string }),
         });
 
-        this.logger.info('personas: the station changed character', { key: active.key });
+        this.logger.info('personas: the station changed character', { key: host.key });
         return this.answer();
     }
 
@@ -368,8 +378,8 @@ function isUniqueViolation(error: unknown): boolean {
 /**
  * A submitted persona as a draft.
  *
- * `id` and `active` are `readonly` in the contract and so are absent from what a client may send;
- * `active` moves only through {@link PersonasService.setActive}, which is what keeps "one persona is
+ * `id` and `defaultHost` are `readonly` in the contract and so are absent from what a client may
+ * send; `defaultHost` moves only through {@link PersonasService.setDefaultHost}, which is what keeps "one persona is
  * on air" a fact the database enforces rather than one every write has to remember.
  *
  * Exported for `persona.import.service.ts`, which has the same job to do from a file: a
@@ -426,7 +436,7 @@ function toView(persona: Persona, presentingId: string | undefined): PersonaView
         kind: persona.kind,
         label: persona.label,
         style: persona.style,
-        active: persona.active,
+        defaultHost: persona.defaultHost,
         // Answered for every row rather than only for the one that is true, because a boolean a
         // client has to infer from a missing field is the shape `omitUndefined` is for and this is
         // not optional: a roster where nobody presents is a real state (the station has no active
@@ -457,7 +467,7 @@ function toView(persona: Persona, presentingId: string | undefined): PersonaView
 /**
  * A generated draft as the editor takes it.
  *
- * The saved view minus `id` and `active`, which a draft has neither of. Written out rather than
+ * The saved view minus `id` and `defaultHost`, which a draft has neither of. Written out rather than
  * derived from {@link toView} because the two answer different questions — one is a row and one is a
  * form's contents — and folding them together would mean inventing an id for something that is not
  * a persona yet.

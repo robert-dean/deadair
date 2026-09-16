@@ -269,13 +269,15 @@ internal static class Fakes
             "Marla Vance",
             "Dry, unhurried, and never explains a joke. Speaks as though she has been up all night and "
             + "is the only one who noticed.",
-            Active: true));
+            IsStationHost: true,
+            Presenting: true));
         voice.Personas.Add(new PersonaRowViewModel(
             "2",
             "The Conspiracy Host",
             "Certain about everything, wrong about most of it, and defers to the daypart he is handed.",
-            Active: false));
-        voice.Personas.Add(new PersonaRowViewModel("3", "Newsreader", "Flat, exact, and never editorialises.", false));
+            IsStationHost: false,
+            Presenting: false));
+        voice.Personas.Add(new PersonaRowViewModel("3", "Newsreader", "Flat, exact, and never editorialises.", false, false));
 
         voice.Scripts.Add(new ScriptRowViewModel(
             "11:42", "talk", "model",

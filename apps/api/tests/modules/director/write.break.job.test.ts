@@ -247,7 +247,7 @@ describe('WriteBreakJob', () => {
     it('hands the writers whoever is on air, and nothing when nobody is', async () => {
         // Read here rather than by any writer, for the reason the facts are: the character the
         // station is in is a property of the moment, and each binding uses a different half of it.
-        const persona = { id: 'p-1', key: 'pirate', label: 'Pirate captain', style: 'a pirate captain', active: true } as Persona;
+        const persona = { id: 'p-1', key: 'pirate', label: 'Pirate captain', style: 'a pirate captain', defaultHost: true } as Persona;
         const { job, writers } = harness({ lineup: await lineupWithBreak(), persona });
 
         await job.run({ segmentId: 'seg-1' });
@@ -419,7 +419,7 @@ describe('WriteBreakJob', () => {
         // that declined and a floor that could not read a note either way have between them still
         // used this character's turn, which is the only reading that makes the cooldown mean
         // anything.
-        const persona = { id: 'p-1', key: 'pirate', label: 'Pirate captain', style: 'a pirate captain', active: true } as Persona;
+        const persona = { id: 'p-1', key: 'pirate', label: 'Pirate captain', style: 'a pirate captain', defaultHost: true } as Persona;
         const notebook = { trait: ['has taken to calling the listener a shipmate'], said: ['called Booker T. the tightest band alive'] };
         const { job, writers, notes } = harness({ lineup: await lineupWithBreak(), persona, notebook });
 
@@ -444,7 +444,7 @@ describe('WriteBreakJob', () => {
     it('writes the break anyway when the notebook cannot be read', async () => {
         // Best-effort, exactly like the facts and the broadcast's memory beside it. Nothing about a
         // notebook is worth a silent slot.
-        const persona = { id: 'p-1', key: 'pirate', label: 'Pirate captain', style: 'a pirate captain', active: true } as Persona;
+        const persona = { id: 'p-1', key: 'pirate', label: 'Pirate captain', style: 'a pirate captain', defaultHost: true } as Persona;
         const { job, segments, notes, logger } = harness({ lineup: await lineupWithBreak(), persona });
         notes.forPrompt.mockRejectedValueOnce(new Error('the database is away'));
 
@@ -464,7 +464,7 @@ describe('WriteBreakJob', () => {
                 key: 'conspiracy',
                 label: 'Overnight host',
                 style: 'an overnight host',
-                active: true,
+                defaultHost: true,
                 ...(storytelling === undefined ? {} : { storytelling }),
             }) as Persona;
         const story: PersonaStoryForPrompt = {
@@ -584,7 +584,7 @@ describe('WriteBreakJob', () => {
                 label: 'Overnight host',
                 style: 'an overnight host',
                 kind: 'host',
-                active: true,
+                defaultHost: true,
                 preoccupations,
             }) as Persona;
 
@@ -706,7 +706,7 @@ describe('WriteBreakJob', () => {
     it("speaks a planted break in the persona's voice, and leaves a hand-planned one alone", async () => {
         // Written with the words rather than at render time, so a persona swapped in between cannot
         // have this sentence read out by a different character.
-        const persona = { id: 'p-1', key: 'pirate', label: 'Pirate captain', style: 'a pirate captain', voice: 'salt', active: true } as Persona;
+        const persona = { id: 'p-1', key: 'pirate', label: 'Pirate captain', style: 'a pirate captain', voice: 'salt', defaultHost: true } as Persona;
         const { job, segments } = harness({ lineup: await lineupWithBreak(), persona });
 
         await job.run({ segmentId: 'seg-1' });
@@ -1404,7 +1404,7 @@ describe('WriteBreakJob', () => {
 // choosing not to reach for it has made a judgement about its own sentence, and appending a sound to
 // words somebody else shaped is two rules that disagree.
 describe('WriteBreakJob putting a pad in by itself', () => {
-    const withBoard = { key: 'wisecrack', id: 'p-1', label: 'Wisecrack', kind: 'host', style: 'dry', active: true, soundboard: 'wisecrack' };
+    const withBoard = { key: 'wisecrack', id: 'p-1', label: 'Wisecrack', kind: 'host', style: 'dry', defaultHost: true, soundboard: 'wisecrack' };
     const rack = [
         {
             id: 'pad-1',

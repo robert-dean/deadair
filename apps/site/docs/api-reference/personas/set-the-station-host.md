@@ -1,17 +1,17 @@
 ---
-title: 'Put persona on air'
-sidebar_label: 'Put persona on air'
+title: 'Set the station host'
+sidebar_label: 'Set the station host'
 sidebar_position: 15
 mdx:
     format: 'md'
 ---
 
-Puts this persona on air and takes the previous one off
+Makes this persona the station's own host, and the previous one no longer is
 
-**`PUT`** `/personas/{id}/active`
+**`PUT`** `/personas/{id}/default-host`
 
 :::note
-SDK method: `putPersonaOnAir`
+SDK method: `setTheStationHost`
 Security: authenticated (policy: platform.manage)
 :::
 

@@ -127,7 +127,7 @@ describe('ModelTalkBreakWriter', () => {
             label: 'The shock jock',
             style: 'a shock jock',
             latitude: 'loose' as const,
-            active: true,
+            defaultHost: true,
         };
         // Sixty words, naming a record, in nobody's particular dialect: past the station's ceiling
         // and inside the rung's, and nothing else in the guard has an opinion about it.

@@ -48,7 +48,7 @@ export function HostOnAir({ personaId, personaLabel }: HostOnAirProps) {
     // to `active`; the API answers it now, resolved through `PersonaRepository.presenting` against
     // the running order the director holds. The prop still wins, because it was read from that same
     // order in the same request and so cannot be a stale roster.
-    const stationsOwn = personas.data?.personas.find(persona => persona.active);
+    const stationsOwn = personas.data?.personas.find(persona => persona.defaultHost);
     const hosting = personaLabel ?? personas.data?.personas.find(persona => persona.presenting)?.label;
     const failure = recast.isError ? apiErrorMessage(recast.error, 'The host could not be changed.') : undefined;
 

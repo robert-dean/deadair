@@ -9,8 +9,8 @@ import org.junit.Test
 
 /** Who a broadcast may be handed to, and what each of them is called. */
 class HostChoicesTest {
-    private fun persona(id: String, label: String, kind: PersonaKind? = null, djName: String? = null, active: Boolean = false) =
-        Persona(id = id, key = id, kind = kind, label = label, style = "warm", djName = djName, active = active, presenting = active)
+    private fun persona(id: String, label: String, kind: PersonaKind? = null, djName: String? = null, defaultHost: Boolean = false) =
+        Persona(id = id, key = id, kind = kind, label = label, style = "warm", djName = djName, defaultHost = defaultHost, presenting = defaultHost)
 
     @Test
     fun `a caller is never offered, because one can never be put on air`() {
@@ -34,7 +34,7 @@ class HostChoicesTest {
 
     @Test
     fun `marks the one the station has on air and the one already presenting`() {
-        val choices = hostChoicesOf(listOf(persona("a", "Ash", active = true), persona("b", "Cass")), currentId = "b")
+        val choices = hostChoicesOf(listOf(persona("a", "Ash", defaultHost = true), persona("b", "Cass")), currentId = "b")
 
         assertTrue(choices.single { it.id == "a" }.onAir)
         assertTrue(choices.single { it.id == "b" }.current)
@@ -52,9 +52,9 @@ class HostChoicesTest {
 
     @Test
     fun `the station's own host is the active one`() {
-        val personas = listOf(persona("a", "Ash"), persona("b", "Cass", active = true))
+        val personas = listOf(persona("a", "Ash"), persona("b", "Cass", defaultHost = true))
 
-        assertEquals("Cass", personas.activeHost()?.label)
-        assertNull(listOf(persona("a", "Ash")).activeHost())
+        assertEquals("Cass", personas.stationHost()?.label)
+        assertNull(listOf(persona("a", "Ash")).stationHost())
     }
 }

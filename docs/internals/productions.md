@@ -14,7 +14,7 @@ Read the ones covering whatever you are about to change. The always-loaded index
 [personas](https://github.com/robert-dean/deadair/discussions/25) §1: it sketched the column nullable with a `(station_key, kind)` unique index "with
 nulls distinct", and nulls distinct is Postgres's default, so two null-kind rows would not conflict and the
 station could have TWO active hosts. A caller can never be active at all, refused by
-`personas_caller_inactive_check` as well as by `PersonasService.setActive`, and it ships with no `templates`
+`personas_caller_not_default_check` as well as by `PersonasService.setDefaultHost`, and it ships with no `templates`
 because phrasings are the STATION's floor under a break and a phone-in whose caller was written by a template
 is a phone-in with nobody on the phone. Five callers seed, both speech plugins map them, and the roster is
 five rather than six because the two shipped maps must name the SAME slots and sharing a voice with a host is

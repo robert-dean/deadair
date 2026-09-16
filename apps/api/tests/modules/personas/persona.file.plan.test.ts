@@ -51,7 +51,7 @@ const kinds = (notices: readonly { kind: string }[]): string[] => notices.map(no
  * whether an update would quietly clear one. Empty by default, so a case that is not about that says
  * nothing about it.
  */
-const holding = (label: string, active = false, filled: string[] = []) => ({ label, active, filled: new Set(filled) });
+const holding = (label: string, defaultHost = false, filled: string[] = []) => ({ label, defaultHost, filled: new Set(filled) });
 
 describe('what would happen to each character', () => {
     it('creates a key this station does not hold', () => {

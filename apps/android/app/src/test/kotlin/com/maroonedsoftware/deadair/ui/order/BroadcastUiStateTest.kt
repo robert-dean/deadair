@@ -37,8 +37,8 @@ class BroadcastUiStateTest {
             items = (1..items).map { item("i$it") },
         )
 
-    private fun persona(id: String, label: String, active: Boolean = false) =
-        Persona(id = id, key = id, label = label, style = "warm", active = active, presenting = active)
+    private fun persona(id: String, label: String, defaultHost: Boolean = false) =
+        Persona(id = id, key = id, label = label, style = "warm", defaultHost = defaultHost, presenting = defaultHost)
 
     @Test
     fun `an empty name is no title, which is what the station answers off air`() {
@@ -54,7 +54,7 @@ class BroadcastUiStateTest {
 
     @Test
     fun `the host is the one the broadcast named`() {
-        val ui = BroadcastUiState(order(personaId = "a", personaLabel = "Cass"), listOf(persona("b", "Ash", active = true)))
+        val ui = BroadcastUiState(order(personaId = "a", personaLabel = "Cass"), listOf(persona("b", "Ash", defaultHost = true)))
 
         assertEquals(HostLine.Named("Cass"), ui.host)
         assertEquals(Message.PresentedBy("Cass"), ui.hostMessage)
@@ -62,7 +62,7 @@ class BroadcastUiStateTest {
 
     @Test
     fun `a broadcast that named nobody is presented by the station's own host`() {
-        val ui = BroadcastUiState(order(), listOf(persona("a", "Ash", active = true)))
+        val ui = BroadcastUiState(order(), listOf(persona("a", "Ash", defaultHost = true)))
 
         assertEquals(HostLine.StationsOwn("Ash"), ui.host)
         assertEquals(Message.PresentedBy("Ash"), ui.hostMessage)
@@ -109,7 +109,7 @@ class BroadcastUiStateTest {
 
     @Test
     fun `the picker is offered the station's characters, without the broadcast's own`() {
-        val ui = BroadcastUiState(order(personaId = "a", personaLabel = "Cass"), listOf(persona("a", "Cass"), persona("b", "Ash", active = true)))
+        val ui = BroadcastUiState(order(personaId = "a", personaLabel = "Cass"), listOf(persona("a", "Cass"), persona("b", "Ash", defaultHost = true)))
 
         assertEquals(listOf("Ash", "Cass"), ui.hostChoices.map { it.name })
         assertTrue(ui.hostChoices.single { it.id == "a" }.current)

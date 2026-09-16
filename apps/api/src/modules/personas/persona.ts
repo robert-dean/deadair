@@ -110,6 +110,12 @@ export interface PersonaDraft extends PersonaSheet {
 /** A persona as it is stored. */
 export interface Persona extends PersonaDraft {
     id: string;
-    /** Whether this is the one on air. At most one per station; see the repository's index. */
-    active: boolean;
+    /**
+     * Whether this is the station's OWN host: who presents when the broadcast on air names nobody.
+     *
+     * Not "the one on air", which is what this field was called and read as until migration 0031.
+     * Who is speaking is `PersonaRepository.presenting`, which resolves the running order's host
+     * against this. At most one per station; see the repository's index.
+     */
+    defaultHost: boolean;
 }

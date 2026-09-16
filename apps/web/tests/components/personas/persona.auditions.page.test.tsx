@@ -61,8 +61,24 @@ vi.mock('../../../src/api/client', () => ({
             listPersonas: () =>
                 Promise.resolve({
                     personas: [
-                        { id: 'p1', key: 'classic', kind: 'host', label: 'Classic host', style: 'a classic host', active: true },
-                        { id: 'p2', key: 'theorist', kind: 'caller', label: 'The theorist', style: 'a caller', active: false },
+                        {
+                            id: 'p1',
+                            key: 'classic',
+                            kind: 'host',
+                            label: 'Classic host',
+                            style: 'a classic host',
+                            defaultHost: true,
+                            presenting: true,
+                        },
+                        {
+                            id: 'p2',
+                            key: 'theorist',
+                            kind: 'caller',
+                            label: 'The theorist',
+                            style: 'a caller',
+                            defaultHost: false,
+                            presenting: false,
+                        },
                     ],
                 }),
             listPersonaAuditions: () => Promise.resolve({ auditions: listed }),

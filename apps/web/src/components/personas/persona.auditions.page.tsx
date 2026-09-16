@@ -47,8 +47,10 @@ export function PersonaAuditionsPage({ persona }: { persona?: string }) {
     const [open, setOpen] = useState<string | undefined>(undefined);
 
     // The character the page is about: whichever was picked, else whoever a link named, else the one
-    // on air — which is the one an operator is most likely to be asking about.
-    const personaId = chosen ?? persona ?? hosts.find(one => one.active)?.id ?? hosts[0]?.id ?? '';
+    // presenting — which is the one an operator is most likely to be asking about. `presenting`
+    // rather than the station's own host, because the question is whose breaks they have been
+    // hearing.
+    const personaId = chosen ?? persona ?? hosts.find(one => one.presenting)?.id ?? hosts[0]?.id ?? '';
     const host = hosts.find(one => one.id === personaId);
 
     const runs = usePersonaAuditions(personaId);
@@ -67,7 +69,7 @@ export function PersonaAuditionsPage({ persona }: { persona?: string }) {
                 <Group gap="sm" align="flex-end" wrap="wrap">
                     <Select
                         label="Character"
-                        data={hosts.map(one => ({ value: one.id, label: one.active ? `${one.label} (on air)` : one.label }))}
+                        data={hosts.map(one => ({ value: one.id, label: one.presenting ? `${one.label} (on air)` : one.label }))}
                         value={personaId === '' ? null : personaId}
                         onChange={value => {
                             setChosen(value ?? undefined);

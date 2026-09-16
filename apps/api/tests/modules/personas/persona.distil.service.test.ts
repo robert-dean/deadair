@@ -20,7 +20,7 @@ const persona = (over: Partial<Persona> = {}): Persona => ({
     kind: 'host',
     label: 'Pirate captain',
     style: 'a pirate captain who runs a radio station',
-    active: true,
+    defaultHost: true,
     ...over,
 });
 
@@ -229,7 +229,7 @@ describe('PersonaDistilService', () => {
     // just as much and would otherwise never be read.
     it('reads every character the station has', async () => {
         const { service, personas, history } = harness({ answers: [noted([]), noted([])] });
-        personas.list.mockResolvedValueOnce([persona(), persona({ id: 'p2', key: 'latenight', active: false })]);
+        personas.list.mockResolvedValueOnce([persona(), persona({ id: 'p2', key: 'latenight', defaultHost: false })]);
 
         await service.run();
 

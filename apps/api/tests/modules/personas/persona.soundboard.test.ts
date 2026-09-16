@@ -21,7 +21,7 @@ const stored: Persona = {
     kind: 'host',
     label: 'Wisecrack',
     style: 'a wisecracking late-night host',
-    active: false,
+    defaultHost: false,
     soundboard: 'wisecrack',
 };
 

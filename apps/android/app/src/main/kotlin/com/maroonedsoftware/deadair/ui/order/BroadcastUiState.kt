@@ -51,7 +51,7 @@ data class BroadcastUiState(val order: StationOrder, val personas: List<Persona>
             // from there being nobody: saying "nobody" for that moment would be a lie that corrects
             // itself, and the correction is the part a reader notices.
             val known = personas ?: return HostLine.StationsOwn(null)
-            return known.activeHost()?.let { HostLine.StationsOwn(it.label) } ?: HostLine.Nobody
+            return known.stationHost()?.let { HostLine.StationsOwn(it.label) } ?: HostLine.Nobody
         }
 
     /** The line the header draws. The station's own host is named where the name is known, exactly as the console names it. */
@@ -72,5 +72,5 @@ data class BroadcastUiState(val order: StationOrder, val personas: List<Persona>
     val hostChoices: List<HostChoice> get() = hostChoicesOf(personas.orEmpty(), order.personaId)
 
     /** The station's own host, for the picker's first row to name. */
-    val stationsOwnName: String? get() = personas?.activeHost()?.label
+    val stationsOwnName: String? get() = personas?.stationHost()?.label
 }

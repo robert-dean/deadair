@@ -20,7 +20,7 @@ struct WhatsOnUiStateTests {
     }
 
     private func persona(_ id: String, label: String, djName: String? = nil) -> Persona {
-        Persona(id: id, key: "key-\(id)", label: label, style: "warm", djName: djName, active: true, presenting: true)
+        Persona(id: id, key: "key-\(id)", label: label, style: "warm", djName: djName, defaultHost: true, presenting: true)
     }
 
     private var evening: ScheduleOccurrence { block("slot-1", "Late Night", "2026-09-06 20:00:00", "2026-09-06 22:00:00") }

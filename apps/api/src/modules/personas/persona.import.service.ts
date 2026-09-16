@@ -95,7 +95,7 @@ export class PersonaImportService {
      *
      * ## It puts nobody on air
      *
-     * There is no code here that could, and none is wanted. `PUT /personas/{id}/active` is the one
+     * There is no code here that could, and none is wanted. `PUT /personas/{id}/default-host` is the one
      * path and it already tells the show that is running, through a `recast` posted after the commit.
      * An imported character arrives beside the others and takes over when somebody says so.
      */
@@ -202,7 +202,9 @@ export class PersonaImportService {
      */
     private async snapshot(file: PersonaFile): Promise<StationSnapshot> {
         const held = await this.personas.list();
-        const personas = new Map(held.map(persona => [persona.key, { label: persona.label, active: persona.active, filled: filledFields(persona) }]));
+        const personas = new Map(
+            held.map(persona => [persona.key, { label: persona.label, defaultHost: persona.defaultHost, filled: filledFields(persona) }]),
+        );
 
         const wanted = file.personas.map(persona => persona.key).filter(key => personas.has(key));
         const stories = new Map(await Promise.all(wanted.map(async key => [key, await this.storiesFor(key)] as const)));

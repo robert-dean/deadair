@@ -24,8 +24,8 @@
  *
  * - `id`, because the far side mints its own. What identifies a character across two installs is its
  *   `key`, which is `unique (station_key, key)` and is already what a seeded persona is recognised by.
- * - `active`, because putting somebody on air is a decision about a station rather than a property of
- *   a character. `PersonasService.setActive` is the one path, and it posts the director a `recast`.
+ * - `defaultHost`, because who the station's own host is is a decision about a station rather than a property of
+ *   a character. `PersonasService.setDefaultHost` is the one path, and it posts the director a `recast`.
  * - `station_key`, which is provenance in the envelope and nothing more: an import writes into
  *   whichever station it is running as, so the two need not match. When [multi-station](https://github.com/robert-dean/deadair/discussions/21)
  *   lands this is already right rather than a migration.

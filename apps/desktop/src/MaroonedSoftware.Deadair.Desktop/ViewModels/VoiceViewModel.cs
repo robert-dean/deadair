@@ -12,7 +12,10 @@ using MaroonedSoftware.Deadair.Sdk.Runtime;
 namespace MaroonedSoftware.Deadair.Desktop.ViewModels;
 
 /// <summary>One of the station's presenters.</summary>
-public sealed record PersonaRowViewModel(string Id, string Label, string Style, bool Active);
+/// <summary>One persona on the Voice page. <paramref name="Presenting"/> is who is writing breaks right
+/// now; <paramref name="IsStationHost"/> is who presents when the broadcast on air names nobody. They are
+/// the same character until a show names its own host, and the lamp belongs to the first.</summary>
+public sealed record PersonaRowViewModel(string Id, string Label, string Style, bool IsStationHost, bool Presenting);
 
 /// <summary>One thing the station tried to say.</summary>
 public sealed record ScriptRowViewModel(string When, string Kind, string Writer, string Text, StatusTone Tone);
@@ -137,7 +140,7 @@ public sealed partial class VoiceViewModel(OperatorActions actions, HttpClient h
         Personas.Clear();
         foreach (var persona in list.Personas)
         {
-            Personas.Add(new PersonaRowViewModel(persona.Id, persona.Label, persona.Style, persona.Active));
+            Personas.Add(new PersonaRowViewModel(persona.Id, persona.Label, persona.Style, persona.DefaultHost, persona.Presenting));
         }
     }
 
@@ -248,7 +251,7 @@ public sealed partial class VoiceViewModel(OperatorActions actions, HttpClient h
     }
 
     [RelayCommand]
-    private async Task PutOnAirAsync(PersonaRowViewModel persona)
+    private async Task MakeStationHostAsync(PersonaRowViewModel persona)
     {
         ArgumentNullException.ThrowIfNull(persona);
 
@@ -256,7 +259,7 @@ public sealed partial class VoiceViewModel(OperatorActions actions, HttpClient h
             async token =>
             {
                 using var sdk = Sdk();
-                return await sdk.Personas.PutPersonaOnAirAsync(persona.Id, token).ConfigureAwait(false);
+                return await sdk.Personas.SetTheStationHostAsync(persona.Id, token).ConfigureAwait(false);
             }).ConfigureAwait(true);
 
         if (list is not null)

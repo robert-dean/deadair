@@ -13,7 +13,7 @@ import {
     useCreatePersona,
     useDeletePersona,
     usePersonas,
-    usePutPersonaOnAir,
+    useSetStationHost,
     useRehearsePersona,
     useRestorePersonas,
     useUpdatePersona,
@@ -57,7 +57,7 @@ export function PersonasPage() {
     const create = useCreatePersona();
     const update = useUpdatePersona();
     const remove = useDeletePersona();
-    const putOnAir = usePutPersonaOnAir();
+    const setStationHost = useSetStationHost();
     const restore = useRestorePersonas();
     const rehearse = useRehearsePersona();
     // What the keys on these cards actually sound like, and one player shared by all of them.
@@ -282,7 +282,7 @@ export function PersonasPage() {
                                                 On air now
                                             </Badge>
                                         ) : undefined}
-                                        {persona.active && !persona.presenting ? (
+                                        {persona.defaultHost && !persona.presenting ? (
                                             <Badge color="gray" variant="light">
                                                 Station’s own
                                             </Badge>
@@ -362,23 +362,25 @@ export function PersonasPage() {
                                     somebody who phones in cannot present the station, and the API
                                     and the database both say so. A button that always fails is a
                                     question the page should not have asked. */}
-                                    {persona.active || kindOf(persona) === 'caller' ? undefined : (
+                                    {persona.defaultHost || kindOf(persona) === 'caller' ? undefined : (
                                         <Button
                                             variant="light"
                                             size="compact-sm"
-                                            loading={putOnAir.isPending && putOnAir.variables === persona.id}
+                                            loading={setStationHost.isPending && setStationHost.variables === persona.id}
                                             onClick={() =>
-                                                putOnAir.mutate(persona.id, {
+                                                setStationHost.mutate(persona.id, {
                                                     // The card redraws with the badge moved, which
                                                     // is easy to miss on a page of eleven cards
                                                     // where the one that changed may be scrolled
-                                                    // past. The sentence says WHEN, because taking
-                                                    // over is not immediate.
-                                                    onSuccess: () => notifyDone(`${persona.label} takes over at the next break.`),
+                                                    // past. The sentence says what actually
+                                                    // happened, because this is the station's own
+                                                    // host rather than the show's: a broadcast that
+                                                    // named its own keeps it until that show ends.
+                                                    onSuccess: () => notifyDone(`${persona.label} is the station\u2019s host now.`),
                                                 })
                                             }
                                         >
-                                            Put on air
+                                            Make station host
                                         </Button>
                                     )}
                                     {/* Spends a generation and changes nothing, so it is a plain button
@@ -446,8 +448,8 @@ export function PersonasPage() {
                             {/* Each failure belongs to the button that asked for it. A page-level alert
                             for a per-card button puts the reason at the top of a list of fourteen,
                             where an operator working on the ninth will not see it. */}
-                            {putOnAir.error && putOnAir.variables === persona.id ? (
-                                <CardFailure error={putOnAir.error} fallback="The station is still in the character it was." />
+                            {setStationHost.error && setStationHost.variables === persona.id ? (
+                                <CardFailure error={setStationHost.error} fallback="The station is still in the character it was." />
                             ) : undefined}
 
                             {rehearse.error && rehearse.variables === persona.id ? (
@@ -598,7 +600,7 @@ function ordered(personas: Persona[]): Persona[] {
         (left, right) =>
             rank(kindOf(left)) - rank(kindOf(right)) ||
             Number(right.presenting) - Number(left.presenting) ||
-            Number(right.active) - Number(left.active),
+            Number(right.defaultHost) - Number(left.defaultHost),
     );
 }
 

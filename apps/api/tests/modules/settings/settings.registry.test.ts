@@ -3,10 +3,19 @@
 // choice the console offers that the parser throws away. Both look to an operator like a setting
 // that does nothing, and neither is visible from either side on its own.
 
+import { randomBytes } from 'node:crypto';
+import { EncryptionProvider } from '@maroonedsoftware/encryption';
 import { describe, expect, it } from 'vitest';
 
 import { AIR_MODE_KEY, AIR_MODES, DEFAULT_AIR_MODE, parseAirMode } from '../../../src/modules/playout/air.mode.js';
-import { MP3_BITRATES, STREAM_DEFAULTS, STREAM_KEYS, STREAM_SECRET_KEYS } from '../../../src/modules/stream/stream.settings.js';
+import {
+    LOG_LEVELS,
+    MP3_BITRATES,
+    resolveStreamSettings,
+    STREAM_DEFAULTS,
+    STREAM_KEYS,
+    STREAM_SECRET_KEYS,
+} from '../../../src/modules/stream/stream.settings.js';
 import { SUSTAINING_KEYS } from '../../../src/modules/schedule/schedule.service.js';
 import { findDescriptor, isSecretField, SETTING_DESCRIPTORS, SETTING_GROUPS } from '../../../src/modules/settings/settings.registry.js';
 import {
@@ -28,6 +37,8 @@ import {
 import { ConfigFieldOptionSource } from '../../../src/modules/plugins/types/plugins.types.js';
 import { DEFAULT_RULES, ROTATION_KEYS, stationRules } from '../../../src/modules/director/rotation.rules.js';
 import { settingsConfig } from '../../utils/settings.config.js';
+
+const encryption = new EncryptionProvider(randomBytes(32));
 
 describe('the settings registry', () => {
     it('declares every key exactly once', () => {
@@ -126,6 +137,34 @@ describe('the settings registry', () => {
         expect(findDescriptor(AIR_MODE_KEY)!.default).toBe(DEFAULT_AIR_MODE);
         expect(findDescriptor(STREAM_KEYS.title)!.default).toBe(STREAM_DEFAULTS.title);
         expect(findDescriptor(STREAM_KEYS.bitrate)!.default).toBe(STREAM_DEFAULTS.bitrate);
+    });
+
+    it('offers only log levels its own resolver leaves alone', () => {
+        // The same disagreement this file exists for, on a select rather than a number: a level
+        // the console offers and the resolver then clamps away is an operator choosing 6 and the
+        // audio chain running at 5, with nothing anywhere saying so.
+        for (const level of LOG_LEVELS) {
+            const { config } = settingsConfig({ [STREAM_KEYS.logLevel]: level.value });
+
+            expect(resolveStreamSettings(config, encryption).logLevel, level.value).toBe(Number(level.value));
+        }
+    });
+
+    it('gives every select a default that is one of the options it offers', () => {
+        // `parseSetting` answers an unstored key with the descriptor's default VERBATIM and the
+        // console matches an option by its `value`, which is always text — so a select defaulted
+        // to a number, or to a value that is not on its own menu, draws an empty box on a station
+        // that has never set it. That reads as unset rather than as the default it really is,
+        // which is the number-field failure above one control along.
+        for (const descriptor of SETTING_DESCRIPTORS.filter(candidate => candidate.type === 'select' && candidate.default !== undefined)) {
+            // A menu built at runtime from something else's rows has no options here to match.
+            if (descriptor.options === undefined) continue;
+
+            expect(
+                descriptor.options.map(option => option.value),
+                descriptor.key,
+            ).toContain(descriptor.default);
+        }
     });
 
     it('declares the range its own resolver clamps to', () => {

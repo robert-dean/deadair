@@ -63,6 +63,7 @@ const settings = (overrides: Partial<StreamSettings> = {}): StreamSettings => ({
     language: '',
     icecastHost: 'icecast',
     icecastPort: '8000',
+    logLevel: 3,
     sourcePassword: 'source-pw',
     adminPassword: 'admin-pw',
     harborPassword: 'harbor-pw',
@@ -199,6 +200,23 @@ describe('writeStreamConfig', () => {
         expect(env.get('DUCK_GAIN_DB')).toBe('-12');
         expect(env.get('DUCK_FADE_MS')).toBe('300');
         expect(env.get('VOICE_GAIN_DB')).toBe('0');
+    });
+
+    it('writes the audio chain log level, which radio.liq reads as an integer', () => {
+        const { assetsDir, configDir } = dirs();
+        writeStreamConfig({ settings: settings({ logLevel: 4 }), playout: playout(), assetsDir, configDir });
+
+        expect(parseEnv(readFileSync(join(configDir, 'radio.env'), 'utf8')).get('LOG_LEVEL')).toBe('4');
+    });
+
+    it('writes the log level even at its default, so it is never the empty string radio.liq used to raise on', () => {
+        // The key is written unconditionally like every other optional one, which is exactly why
+        // `radio.liq` had to stop reading it through `int_of_string`: that raises on '' and takes
+        // every output in the file down with it. An empty value here would be that bug.
+        const { assetsDir, configDir } = dirs();
+        writeStreamConfig({ settings: settings(), playout: playout(), assetsDir, configDir });
+
+        expect(parseEnv(readFileSync(join(configDir, 'radio.env'), 'utf8')).get('LOG_LEVEL')).toBe('3');
     });
 
     it('quotes a value containing a single quote so the env file still sources', () => {

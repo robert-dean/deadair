@@ -97,7 +97,7 @@ import {
     MIN_PRODUCTION_MINUTES,
     PRODUCTION_KEYS,
 } from '#modules/productions/production.settings.js';
-import { AAC_BITRATES, MP3_BITRATES, OPUS_BITRATES, STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
+import { AAC_BITRATES, LOG_LEVELS, MP3_BITRATES, OPUS_BITRATES, STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
 // Deliberately NOT in `STREAM_KEYS`: that set is what `isStreamSettingKey` marks as needing the
 // stream config re-rendered and the audio chain restarted, and this one is read per request by a
 // middleware. Putting it there would bounce Liquidsoap to change a list the app alone consults.
@@ -417,6 +417,20 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         default: Number(STREAM_DEFAULTS.icecastPort),
         min: 1,
         max: 65535,
+    },
+    {
+        group: 'stream',
+        key: STREAM_KEYS.logLevel,
+        label: 'Audio chain log detail',
+        // A select rather than a number, because Liquidsoap's 1-5 says nothing about what each
+        // level is for and a spinner would offer 1, which is the level at which the station stops
+        // reporting the faults somebody opened this page to read. `String(...)` for the default so
+        // it matches an option's `value`: the resolver holds this as a number, the console holds
+        // every option as text, and a default that matches no option draws an empty menu.
+        type: 'select',
+        default: String(STREAM_DEFAULTS.logLevel),
+        options: LOG_LEVELS.map(level => ({ value: level.value, label: level.label })),
+        help: 'How much the audio chain writes to its own log, readable under Logs. Saving this restarts the audio chain, so the stream drops for a few seconds. Debug is for leaving on and waiting for a fault to happen again, rather than for turning up while one is happening: the restart clears it. At Debug and above the audio chain also records every header of every call the station makes to it, which includes the playout bridge secret in plain text, so put it back to Normal once you have what you needed.',
     },
 
     // ── housekeeping ───────────────────────────────────────────────────────────

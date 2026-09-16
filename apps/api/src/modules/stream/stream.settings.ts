@@ -3,7 +3,7 @@ import { EncryptionProvider } from '@maroonedsoftware/encryption';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { SettingsRepository } from '#modules/settings/settings.repository.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
-import { numberOr } from '#modules/shared/setting.numbers.js';
+import { numberFrom, numberOr } from '#modules/shared/setting.numbers.js';
 
 /**
  * The `deadair.settings` keys backing the stream config.
@@ -76,6 +76,29 @@ export const STREAM_KEYS = {
     /** Host and port the app tells Liquidsoap to publish to (the compose service). */
     icecastHost: 'stream.icecastHost',
     icecastPort: 'stream.icecastPort',
+    /**
+     * How much the audio chain writes to its own log, as Liquidsoap's own 1-5 scale.
+     *
+     * A setting because the only way to raise it was a container variable, which on unraid
+     * means editing the template and which nothing in the console could show. What made that
+     * worth fixing: on 2026-09-16 Liquidsoap took a record into its queue and never began
+     * resolving it, wrote no log line for the 72 seconds before the watchdog restarted it, and
+     * the reason it stopped is a layer that only logs at 4. The whole diagnosis ended at "raise
+     * the level and wait", which was a thing an operator could not do.
+     *
+     * **Saving this restarts the audio chain**, like every other key in the rendered file, so it
+     * costs the seconds of silence a restart costs — and a restart CLEARS the kind of fault this
+     * is for. It is "set it and wait for the next one", never "turn it up while it is stuck",
+     * and the help text says so.
+     *
+     * **At 4 and above the log holds the playout bridge secret in plain text**, because the harbor
+     * records every header of every `/control/*` call and the app polls that endpoint
+     * continuously. That is why `GET /logs/*` is `platform.manage` rather than `platform.view`
+     * (see `apps/api/README.md`), and it is the reason this is worth an operator putting back
+     * afterwards rather than leaving. What bounds the exposure now is rotation: the secret ages
+     * out of `/data/streamlogs` with the segments rather than sitting in one file for ever.
+     */
+    logLevel: 'stream.logLevel',
     // Secrets below. Stored encrypted, never returned in the clear to a response.
     sourcePassword: 'stream.sourcePassword',
     adminPassword: 'stream.adminPassword',
@@ -143,6 +166,8 @@ export interface StreamSettings {
     language: string;
     icecastHost: string;
     icecastPort: string;
+    /** Liquidsoap's own log level, 1-5. Always an integer, because `radio.liq` reads it as one. */
+    logLevel: number;
     /** Decrypted Icecast source password, `undefined` when unset. */
     sourcePassword?: string;
     /** Decrypted Icecast admin password, `undefined` when unset. */
@@ -197,6 +222,10 @@ export const STREAM_DEFAULTS = {
     language: '',
     icecastHost: 'icecast',
     icecastPort: '8000',
+    // Liquidsoap's own default, and the level every measurement quoted in `radio.liq` was taken
+    // at. 4 is a diagnostic position rather than a place to leave a station: it logs every header
+    // of every control call, and the app polls that endpoint continuously.
+    logLevel: 3,
 } as const;
 
 /**
@@ -250,6 +279,12 @@ export function resolveStreamSettings(config: AppConfig, encryption: EncryptionP
         language: values.get(STREAM_KEYS.language) ?? STREAM_DEFAULTS.language,
         icecastHost: values.get(STREAM_KEYS.icecastHost) ?? STREAM_DEFAULTS.icecastHost,
         icecastPort: values.get(STREAM_KEYS.icecastPort) ?? STREAM_DEFAULTS.icecastPort,
+        // Through `numberFrom` over the raw value rather than `numberOr` beside it, because
+        // `numberOr` answers `Number('')`, which is 0 and finite, so a key stored as the empty
+        // string resolves to zero rather than to the default. Clamped to 1 that would be
+        // "critical only" — a station that stopped logging because a setting was blanked. Clamp
+        // rather than refuse on the resolver rule: this is reading a row that is already stored.
+        logLevel: clamp(numberFrom(values.get(STREAM_KEYS.logLevel), STREAM_DEFAULTS.logLevel), 1, 5),
         sourcePassword: decrypt(values.get(STREAM_KEYS.sourcePassword)),
         adminPassword: decrypt(values.get(STREAM_KEYS.adminPassword)),
         harborPassword: decrypt(values.get(STREAM_KEYS.harborPassword)),
@@ -284,6 +319,24 @@ export const AAC_BITRATES = ['96', '128', '160', '192', '256', '320'] as const;
  * capability.
  */
 export const MP3_BITRATES = ['64', '96', '128', '160', '192', '256', '320'] as const;
+
+/**
+ * The log levels the console offers, named rather than numbered.
+ *
+ * Liquidsoap's scale is 1-5 and its own names for them are not words an operator has any reason
+ * to know, so the menu says what each one is FOR. A closed list on the `OPUS_BITRATES` rule and
+ * not on the `MP3_BITRATES` one: the resolver clamps anything stored into 1-5 anyway, so this is
+ * the shorter menu rather than the limit.
+ *
+ * 1 is deliberately not offered. It is the level at which a station stops reporting the faults an
+ * operator opened this page to read, and nothing is gained by it that 2 does not give.
+ */
+export const LOG_LEVELS = [
+    { value: '2', label: 'Problems only' },
+    { value: '3', label: 'Normal' },
+    { value: '4', label: 'Debug — for diagnosing a fault' },
+    { value: '5', label: 'Trace — everything' },
+] as const;
 
 /** The formats the station can publish. `mp3` is always one of them. */
 export type StreamFormat = 'mp3' | 'opus' | 'aac' | 'flac';

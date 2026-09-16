@@ -123,6 +123,48 @@ describe('resolveStreamSettings', () => {
         expect(settings.title).toBe('Deadair');
         expect(settings.genre).toBe('');
     });
+
+    // Every case below hands over a STRING, because that is what `deadair.settings` holds and what
+    // `AppConfig` answers with. A test that passed a real number here would prove nothing: it
+    // passes either way, which is how the six boolean settings this repository has already been
+    // bitten by stayed broken.
+    it('reads the log level the operator stored', () => {
+        const { config } = settingsConfig({ [STREAM_KEYS.logLevel]: '4' });
+
+        expect(resolveStreamSettings(config, encryption).logLevel).toBe(4);
+    });
+
+    it('defaults the log level to Liquidsoap\'s own 3 when nothing is stored', () => {
+        expect(resolveStreamSettings(settingsConfig().config, encryption).logLevel).toBe(3);
+    });
+
+    it('takes the default for a log level stored as the empty string, rather than reading it as zero', () => {
+        // `Number('')` is 0 and finite, so the `numberOr` beside this resolver would answer zero
+        // and the clamp would make that 1 — a station that quietly stopped reporting its own
+        // faults because somebody blanked a box.
+        const { config } = settingsConfig({ [STREAM_KEYS.logLevel]: '' });
+
+        expect(resolveStreamSettings(config, encryption).logLevel).toBe(3);
+    });
+
+    it('takes the default for a log level that is not a number at all', () => {
+        const { config } = settingsConfig({ [STREAM_KEYS.logLevel]: 'debug' });
+
+        expect(resolveStreamSettings(config, encryption).logLevel).toBe(3);
+    });
+
+    it('clamps a stored log level into the range radio.liq accepts rather than refusing the read', () => {
+        // The resolver rule: this is reading a row that is already stored, and a setting that
+        // will not load stops the render behind it. The console refuses at the point of typing.
+        expect(resolveStreamSettings(settingsConfig({ [STREAM_KEYS.logLevel]: '99' }).config, encryption).logLevel).toBe(5);
+        expect(resolveStreamSettings(settingsConfig({ [STREAM_KEYS.logLevel]: '-4' }).config, encryption).logLevel).toBe(1);
+    });
+
+    it('answers a whole number for a fractional one, because radio.liq reads an int', () => {
+        const { config } = settingsConfig({ [STREAM_KEYS.logLevel]: '3.7' });
+
+        expect(resolveStreamSettings(config, encryption).logLevel).toBe(4);
+    });
 });
 
 describe('streamMounts', () => {

@@ -60,8 +60,18 @@ does not own, and nothing bounded either: Liquidsoap sets `settings.log.file.app
 setting at any version, and the shim's supervisor holds one `>>` across every restart of the binary. Measured
 on the live station, `liquidsoap.log` was 15.5 MB after thirteen days at the default log level, on the same
 volume as the database — and it was already past the 8 MiB a download reads, so more than half of it could not
-be reached from the console at all. That is at the DEFAULT log level; anything that lets an operator raise it
-multiplies the rate, which is what turned an untidy file into something that had to be fixed first.
+be reached from the console at all. That is at the DEFAULT log level, and `stream.logLevel` makes that an
+operator's choice, which is what turned an untidy file into something that had to be fixed first.
+
+**`stream.logLevel` is Liquidsoap's own 1-5, materialized into `radio.env` as `LOG_LEVEL`.** Saving it
+re-renders the file, so the config watch restarts the audio chain like any other stream setting. Two things
+follow that the console says in its own words. A restart CLEARS a stuck audio chain, so raising the level is
+for leaving on and waiting for the fault to happen again rather than for turning up while one is happening —
+which is the position 2026-09-16 ended in, with a diagnosis that ran out at "raise the level and wait" and no
+way for an operator to do it. And **at 4 and above the log holds the playout bridge secret in plain text**,
+because the harbor records every header of every `/control/*` call and the app polls that endpoint
+continuously: that is why `GET /logs/*` is `platform.manage` rather than `platform.view`, and rotation is now
+what ages the secret out rather than leaving it in one file for ever.
 
 **The `log-rotate` service is the answer, and `copytruncate` is not a preference.** Neither writer reopens its
 log, so a rotation that RENAMES the file leaves both appending to an inode with no name: the console shows a

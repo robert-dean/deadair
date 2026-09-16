@@ -497,6 +497,20 @@ export function writeStreamConfig({
             // zero, because `radio.liq` tolerates an unset or empty value and a key that appears
             // only when it is non-default is a key an operator cannot find in the rendered file.
             `VOICE_GAIN_DB=${shell(String(playout.voiceGainDb))}`,
+            // How much the audio chain logs, read at startup with the two above.
+            //
+            // APPENDED rather than filed with the other stream settings, which looks untidy and is
+            // not: the key ORDER is what the config stamp hashes, so moving an existing line would
+            // make every running container read as stale over a release that changed nothing it is
+            // running. Adding a line at the end changes the stamp exactly once, on the upgrade that
+            // introduces it, which is one restart nobody has to explain.
+            //
+            // Always an integer, and that is the resolver's job rather than this line's: `radio.liq`
+            // reads this through `env_float` now, but it read it through `int_of_string` until
+            // the release that added this key, and `int_of_string('')` RAISES — which would have
+            // been every output in that file gone, both mounts included, on any station that had
+            // not set this. The two changes belong to one another.
+            `LOG_LEVEL=${shell(String(settings.logLevel))}`,
         ].join('\n') + '\n';
 
     // The generation of the file, carried IN the file, so the process that sourced it

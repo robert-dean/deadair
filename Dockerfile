@@ -197,6 +197,10 @@ ARG DBMATE_VERSION
 #   libigloo0t64     Icecast 2.5 links it and trixie's own is older than 2.5 requires, so this
 #                    one comes from backports; without it the binary copied in below will not run
 #   nginx            from upstream, which is the same version dev's edge runs
+#   logrotate        the stream logs. Liquidsoap has no rotation setting at any version and the
+#                    shim appends across every restart, so the two files they write grew for as
+#                    long as the station ran. See the `log-rotate` service for why it has to be
+#                    copytruncate and why the segments stay uncompressed
 RUN set -eux; \
     echo 'deb http://deb.debian.org/debian trixie-backports main' > /etc/apt/sources.list.d/trixie-backports.list; \
     apt-get update; \
@@ -210,6 +214,7 @@ RUN set -eux; \
     apt-get install -y --no-install-recommends \
         ffmpeg \
         nginx \
+        logrotate \
         python3 python3-venv \
         media-types \
         tzdata \

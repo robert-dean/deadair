@@ -1,0 +1,90 @@
+#!/bin/sh
+# The stream logs, kept to a size. Liquidsoap and the track shim each append to one file for as
+# long as the station runs, and nothing else bounds either of them.
+#
+# ── Why this exists at all ─────────────────────────────────────────────────────
+# The app's own log is bounded by `RotatingLogStore`. These two are not the app's, and were not
+# bounded by anything: measured on the live station on 2026-09-16, `liquidsoap.log` was 15.5 MB
+# after thirteen days at the default log level, on the same volume as the database. Raising
+# `stream.logLevel` to debug — which is the whole point of that setting — multiplies that rate, so
+# a switch an operator can reach without this in place is a switch that fills their disk.
+#
+# ── copytruncate, and why it is not optional ───────────────────────────────────
+# Neither process reopens its log. Liquidsoap sets `settings.log.file.append` and has no reopen
+# signal (2.4.5 has no rotation setting of any kind), and the shim's supervisor holds a single
+# `>>` redirection across every restart of the binary. So a rotation that RENAMES the file leaves
+# both writing to an inode with no name, which looks exactly like a log that stopped: the console
+# shows a file frozen at the moment of the rotation, and the bytes go nowhere for ever. Copying the
+# file and truncating the original in place keeps the descriptor both processes already hold.
+#
+# The cost of copytruncate is the ordinary one: lines written between the copy and the truncate are
+# lost. That is a handful of lines every few hours against a log that otherwise becomes unreadable,
+# and it is not a trade worth a second mechanism.
+#
+# ── nocompress, and why the reader depends on it ───────────────────────────────
+# `apps/api/src/logging/file.tail.ts` reads the segments back so the console sees one continuous
+# history, and it reads plain files. A `.1.gz` is not a file it opens, and a reader that skipped one
+# would report a gap in the history as though the station had been quiet. The two are a pair; the
+# comment there says so from the other side. `nodateext` is the same coupling: the reader predicts
+# `name.log.1` rather than reading the directory.
+exec 2>&1
+
+interval="${LOG_ROTATE_INTERVAL_S:-300}"
+case "$interval" in
+    '' | 0)
+        echo "log-rotate: disabled; the stream logs will grow for as long as this container runs"
+        # A service that exits is a service the supervisor restarts. Sleep instead, doing nothing.
+        exec sleep infinity
+        ;;
+esac
+
+DATA="${DATA_DIR:-/data}"
+dir="$DATA/streamlogs"
+
+# Beside the Liquidsoap script cache rather than in the log directory, for the reason that one is
+# on the volume at all: it has to survive a restart, or every boot would start the size accounting
+# from zero. It must not be in `streamlogs` itself, which the glob below would then try to rotate.
+state="$DATA/streamstate/logrotate.status"
+
+size="${STREAM_LOG_MAX_SIZE:-8M}"
+keep="${STREAM_LOG_KEEP:-3}"
+
+# Generated rather than shipped, because two of its three numbers are the operator's. In /run,
+# which is a tmpfs: it is derived from the environment on every boot and belongs on the volume no
+# more than the environment does.
+conf=/run/logrotate-streamlogs.conf
+mkdir -p "$DATA/streamstate" 2>/dev/null || true
+
+cat >"$conf" <<EOF
+$dir/*.log {
+    size $size
+    rotate $keep
+    copytruncate
+    nocompress
+    nodateext
+    missingok
+    notifempty
+    su deadair deadair
+}
+EOF
+
+# `su` is what makes logrotate do the work as the user both writers run as, and it is not
+# decoration: without it logrotate refuses a log whose directory is writable by anyone but root,
+# which is every unraid share that was made with the usual 777. The flip side is that it then
+# refuses a file that user does not OWN, so anything already here is taken to it first — an install
+# whose stream logs were created by an earlier image running as root would otherwise never rotate,
+# and would say so once per interval for ever.
+#
+# A glob rather than a walk: this directory holds a handful of files, unlike the media tree
+# `init-station` declines to recurse into for the same reason stated there.
+chown 99:100 "$dir"/*.log "$dir"/*.log.[0-9]* 2>/dev/null || true
+
+echo "log-rotate: keeping $keep segments of $size per stream log, checked every ${interval}s"
+
+while :; do
+    # `|| true` because a rotation that failed must not take this service down: s6 would restart it,
+    # it would fail again, and a log nobody can rotate would become a supervisor loop on top of a
+    # full disk. logrotate has already said why on stderr, which is this service's stdout.
+    logrotate -s "$state" "$conf" || echo "log-rotate: logrotate exited non-zero; the stream logs may still be growing" >&2
+    sleep "$interval"
+done

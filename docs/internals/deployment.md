@@ -51,6 +51,45 @@ also pins its role's path in `scripts/init-database`, but the URL is what covers
 And **everything the station keeps is under `/data`**, so a backup is one directory; the runtime user is
 99:100 to match what a home server's app share is owned by, so there is no ownership step.
 
+## The logs, and which of them are bounded
+
+**Three processes write logs an operator reads, and until 2026-09-16 only one of them was bounded.** The
+app's own log goes through `RotatingLogStore`, which caps it at `LOG_MAX_BYTES × (LOG_MAX_FILES + 1)`, about
+8 MiB. The audio chain and the track shim write their own files into `/data/streamlogs` in formats this app
+does not own, and nothing bounded either: Liquidsoap sets `settings.log.file.append` and has no rotation
+setting at any version, and the shim's supervisor holds one `>>` across every restart of the binary. Measured
+on the live station, `liquidsoap.log` was 15.5 MB after thirteen days at the default log level, on the same
+volume as the database — and it was already past the 8 MiB a download reads, so more than half of it could not
+be reached from the console at all. That is at the DEFAULT log level; anything that lets an operator raise it
+multiplies the rate, which is what turned an untidy file into something that had to be fixed first.
+
+**The `log-rotate` service is the answer, and `copytruncate` is not a preference.** Neither writer reopens its
+log, so a rotation that RENAMES the file leaves both appending to an inode with no name: the console shows a
+log frozen at the moment of the rotation and the bytes go nowhere for ever. Copying and truncating in place
+keeps the descriptor both processes already hold. Verified against the real thing rather than assumed — a
+writer holding the file open across five rotations kept landing in the active file every time. The cost is the
+ordinary one, a handful of lines lost between the copy and the truncate, which is not worth a second
+mechanism.
+
+**`su deadair deadair` is load-bearing twice over.** Without it logrotate refuses a log whose parent directory
+is writable by anyone but root, which is every unraid share made with the usual 777. With it, logrotate also
+refuses a file that user does not own, so the service takes anything already in the directory to 99:100 before
+its first pass — an install whose logs were created by an earlier image running as root would otherwise never
+rotate and would say so once per interval for ever.
+
+**The segments stay uncompressed and keep logrotate's `.1` naming, because the app reads them back.**
+`readSegmentedTail` in `apps/api/src/logging/file.tail.ts` walks `name.log`, `name.log.1`, `name.log.2` … so
+the console still sees one continuous history; without it, rotation would show an operator LESS than the
+unbounded file did, and almost nothing in the minutes after a rotation. A `.gz` is not a file that reader
+opens and a skipped segment would read as a gap in the history rather than as a missing file. The two are a
+pair and each says so.
+
+Three variables, all with defaults that need no operator: `LOG_ROTATE_INTERVAL_S` (300, and `0` disables the
+whole thing on `CONFIG_WATCH_INTERVAL_S`'s convention), `STREAM_LOG_MAX_SIZE` (`8M`) and `STREAM_LOG_KEEP`
+(3). At the defaults each stream log costs at most four files of 8 MiB. **The compose dev tree rotates
+nothing**, which is why the app's read budgets survive rotation rather than being retired by it: the reader
+cannot assume the deployment it is pointed at.
+
 ## What is in front of it
 
 **Behind a tunnel or a reverse proxy, every listener is the same caller until the operator says otherwise.**

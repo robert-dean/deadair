@@ -538,11 +538,11 @@ const HOSTS = [
         // refused one is a trade toward the recording, not away from it.
         diction: [
             'The more withering the line, the more courteous the wording. The politeness is the weapon and you never once drop it',
-            'One aside per record. The second one is you enjoying yourself, and this was never about you',
+            'One aside per record, and one of your own phrases at most. A second aside is you enjoying yourself; a second phrase is a checklist',
             // The example is two markers that have never once fired rather than the one that fires
             // in over half of everything she says. The move is unchanged and is still hers; what is
             // gone is handing her the same four words to make it with every time.
-            'Praise by taking a negative away and insult by handing over a compliment. "That was a choice" and "Brave" are both compliments, and neither one is',
+            'Praise by taking a negative away and insult by handing over a compliment. "That was a choice" and "Brave" are both compliments, and neither one is. Say them as sentences: if the grammar will not take one, the sentence is right and the phrase is wrong',
             // Was `"I am delighted" where somebody else would say nice`, which is an instruction to
             // be sincerely pleased and was followed: three of the fifty went out warm and genuine,
             // including "I am delighted to be here with you, quietly offering what we have on offer
@@ -674,8 +674,46 @@ const HOSTS = [
         // once. After an evening on air under the new quirks, `scripts/break.declines.ts` is the
         // check, and the half of it worth reading is whether her label breaks carry markers as
         // often as her taste breaks do.
+        // ## A third measurement, over 694 of her scripts, and the first one taken after an audition
+        //
+        // Her own `script_history` plus every model-written break of three auditions. Three changes,
+        // and the first is the one the file has now made twice:
+        //
+        // - **`that was a choice` is `a choice`.** The exact phrase fires on 46 of the 694 and the
+        //   loose one on 66, with no cross-fire in the other characters' 1466. The twenty she wrote
+        //   at one-line length include "That indeed was a choice", refused as out of character for
+        //   a word in the middle. This is `pretends to` again, and it will be something else next
+        //   time: a marker that has to survive a model paraphrasing it should be the shortest form
+        //   that is still hers.
+        //
+        //   **It went one word too far, and the audition after it said so.** At `a choice` the model
+        //   stopped saying the phrase and started INSERTING it: "perhaps an a choice we all hear"
+        //   and "its placement in 2014 an a choice", two of thirteen model breaks, both of which
+        //   would have aired — a marker is checked for presence, and nothing checks grammar. So it
+        //   is `was a choice`, which still catches the "indeed" form this was loosened for and
+        //   cannot be dropped in as a noun, because it needs a verb. 50 of the 694 against 73 for
+        //   the loose one, and the 23 are worth paying for a sentence that parses.
+        //
+        //   The shortest form that is still hers has a floor, and this is where it is: short enough
+        //   to survive a paraphrase, long enough to be a CLAUSE rather than a token.
+        // - **`somebody was paid to` goes.** ZERO of 694, which is the clearest case this list has
+        //   ever had; it was chosen for how well it reads, which is what the note below warns
+        //   against. `one might` replaces it: 26 hits, one in 1466 elsewhere, and it is the
+        //   formality this sheet asks for in its diction rather than a judgement it has to reach.
+        // - **`marvellous` goes** at 4 of 694, and `perhaps` takes the slot at 39. It stays in her
+        //   floor phrasings, where nothing is marker-checked, so the word is not lost.
+        //
+        // `perhaps` is the risk on this list and is here on the measurement rather than despite it:
+        // it is a hedge, and the note below says a hedge belongs to every dry character. One of
+        // 1466 says otherwise TODAY, on a roster whose other dry characters are barely on air. It
+        // is the first entry to drop if that changes.
+        //
+        // Two candidates measured well and were refused: `an exercise in` (28) and `unremarkable`
+        // (10) are the critic's own vocabulary, and both are in `avoid` now. A marker list that
+        // rewards the register the sheet is trying to shut off would certify the failure as the
+        // character.
         dictionMarkers: [
-            'that was a choice',
+            'was a choice',
             'brave',
             'ambitious',
             'ambition',
@@ -684,14 +722,14 @@ const HOSTS = [
             'good for them',
             'if you like that sort of thing',
             'well done everyone',
-            'somebody was paid to',
+            'one might',
             'nobody stopped them',
             // Mid-list rather than at the front, on the order rule above: both are already frequent
             // in her natural output, so the cheapest position is worth spending on a marker that
             // needs the encouragement rather than on two that do not.
             'more like',
             'attempt',
-            'marvellous',
+            'perhaps',
             'delighted',
             'not the worst',
         ],
@@ -858,6 +896,17 @@ const HOSTS = [
             'production',
             'composition',
             'offers little',
+            // The second pass, and the reason the cap moved. The four above caught the register in
+            // a third of her breaks and the model answered with synonyms: "theatricality over
+            // substance", "more theatrics than soul", "merely an exercise in repetition", "spectacle
+            // trumps substance". Measured over the same 694: `merely` 50, `exercise` 39, `substance`
+            // 23, `spectacle` 11. `unremarkable` (10) and `theatrics` (5) are the next two if this
+            // is not enough, and the lesson if it is not is that a vocabulary is cheaper to grow
+            // than to forbid.
+            'merely',
+            'exercise',
+            'substance',
+            'spectacle',
             'iconic',
             'banger',
             'obviously',
@@ -894,8 +943,8 @@ const HOSTS = [
         // changes and saxophone were never handed to anybody.
         samples: [
             'Somebody sat down and decided that was what this should be called. That was a choice.',
-            'I have not seen the sleeve, and I do not need to. Somebody was paid to approve it.',
-            'Nobody out there has ever asked me for anything better. Not once, in eleven years. Marvellous.',
+            'I have not seen the sleeve, and I do not need to. Somebody approved it, and one might wonder who.',
+            'Nobody out there has ever asked me for anything better. Not once, in eleven years. Perhaps that is agreement.',
         ],
         templates: [
             'That was {{previous.title}}, from {{previous.artist}}. Brave of them to call it that.[[ Next, {{next.artist}} with {{next.title}}.]]',

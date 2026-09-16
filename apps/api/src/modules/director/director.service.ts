@@ -29,6 +29,8 @@ import { brokenClaim } from './break.claims.js';
 import { BreakPlanner, expiryFor, type AirClock } from './break.planner.js';
 import { isRenderedFirst, type BreakRequest, type BreakRequestResult, type StoredBreakRequest } from './break.request.js';
 import { BreakRequestRepository } from './break.request.repository.js';
+import { ArtRepository } from '#modules/art/art.repository.js';
+import { artPath } from '#modules/art/art.path.js';
 import { CandidatesRepository } from './candidates.repository.js';
 import { DirectorMailbox, type DirectorCommand, type DirectorCommandResult, type OrderEdit, type ResumeResult } from './director.mailbox.js';
 import { PlayHistoryRepository } from './play.history.repository.js';
@@ -2473,6 +2475,66 @@ export class DirectorService {
      * One read for the whole batch rather than one per item, because a commit
      * pass runs on every track boundary and the lead is only three items.
      */
+    /**
+     * The cover for each record in a batch, as a path the station serves itself, and a request for
+     * any it does not hold yet.
+     *
+     * **A line carries whatever its cover was when the record was PICKED**, which is the provider's
+     * own URL for anything the station had not cached by then, and nothing ever revisits it. So a
+     * cover fetched an hour after the pick never reaches the record it belongs to: the running
+     * order still holds the upstream URL, and the mount carries the station's logo instead of a
+     * sleeve for the whole of that record. Resolving here, on every commit pass, is what closes
+     * that gap — the answer is read fresh each time from a store that is still filling.
+     *
+     * **Why the mount cannot simply carry the provider's URL** is in `listenerArtwork`: a player
+     * decides whether a URL is a picture by looking at it and never asks for one that ends in an
+     * id, and the field is broadcast to every listener, so a cover URL carrying a credential must
+     * never reach it. Both halves mean a cover has to be the station's own before it is worth
+     * anything here.
+     *
+     * A URL the store has never seen is asked for, ahead of the sweep's backlog, because the sweep
+     * walks the catalog in URL order and has no idea what is on tonight. **A URL it has seen and
+     * has no bytes for is NOT asked for**: that row is already in the sweep's queue carrying its
+     * own `next_attempt_at`, and asking by name bypasses the backoff, so a cover that 404s would be
+     * refetched on every commit pass for as long as it stayed in the running order.
+     *
+     * Failing to read the store is not a reason to commit nothing, on the rule {@link withLocalAudio}
+     * follows: the batch resolves to nothing, every record carries the logo for now, and the next
+     * pass tries again.
+     */
+    private async stationArtwork(items: readonly StationLineupItem[]): Promise<Map<string, string>> {
+        const upstream = [
+            ...new Set(
+                items.flatMap(item =>
+                    item.kind === 'track' && item.track.artworkUrl !== undefined && /^https?:\/\//i.test(item.track.artworkUrl) ? [item.track.artworkUrl] : [],
+                ),
+            ),
+        ];
+        if (upstream.length === 0) return new Map();
+
+        const held = await inScope(this.container, async scope => scope.get(ArtRepository).findBySourceUrls(upstream)).catch(error => {
+            this.logger.warn(`director: could not tell which covers the station already holds (${errorText(error)})`);
+            return undefined;
+        });
+        if (held === undefined) return new Map();
+
+        const resolved = new Map<string, string>();
+        const unseen: string[] = [];
+        for (const url of upstream) {
+            const asset = held.get(url);
+            if (asset === undefined) unseen.push(url);
+            else if (asset.checksum !== undefined) resolved.set(url, artPath(asset));
+        }
+
+        if (unseen.length > 0) {
+            void this.jobs.send('catalog.cache_art', { urls: unseen }).catch(error => {
+                this.logger.warn(`director: could not ask for ${unseen.length} cover(s) (${errorText(error)})`);
+            });
+        }
+
+        return resolved;
+    }
+
     private async toPlayerItems(items: readonly StationLineupItem[]): Promise<{ items: RundownItem[]; skipped: string[]; unavailable: string[] }> {
         const wanted = items.filter(item => item.kind === 'segment').map(item => item.segmentId);
         const segments =
@@ -2504,6 +2566,9 @@ export class DirectorService {
             catalogued.length === 0
                 ? new Set<string>()
                 : new Set((await inScope(this.container, async scope => scope.get(CandidatesRepository).bindingsFor(catalogued))).keys());
+
+        // The cover each record should be shown with, as the station itself can serve it.
+        const artwork = await this.stationArtwork(items);
 
         const playable: RundownItem[] = [];
         const skipped: string[] = [];
@@ -2543,6 +2608,10 @@ export class DirectorService {
                 playable.push({
                     ...item.track,
                     id: item.id,
+                    // Resolved rather than carried: the line holds whatever the cover was when the
+                    // record was PICKED, which is the upstream URL for anything the station had not
+                    // cached by then. See {@link stationArtwork}.
+                    ...(artwork.get(item.track.artworkUrl ?? '') === undefined ? {} : { artworkUrl: artwork.get(item.track.artworkUrl ?? '')! }),
                     ...(pending === undefined
                         ? {}
                         : {

@@ -143,6 +143,20 @@ and token in its query string, which a station running Navidrome would otherwise
 connected. What is left is the cached copy or the station's logo, and the logo is the honest answer
 for a record whose cover the station does not yet hold.
 
+**A line carries the cover it was PICKED with, so the running order is re-read rather than
+trusted.** Nothing revisits a line once it is in the order, so a cover fetched an hour after the
+pick never reaches the record it belongs to: the line still holds the provider's URL, and by the
+rule above that record airs under the station's logo for its whole length. `stationArtwork` in
+`DirectorService` resolves it on every commit pass instead, reading the art store fresh, and asks
+for anything the store has never seen through `catalog.cache_art` with the URLs named. That request
+jumps the sweep, which walks the catalog in URL order and has no idea what is on tonight: measured
+on 2026-09-16, the store held 1989 covers with 1999 still queued, so a record picked that evening
+could easily reach air while its own cover sat hours down an alphabetical list. A URL the store has
+tried and has no bytes for is deliberately NOT asked for, because that row already carries its own
+`next_attempt_at` and asking by name bypasses the backoff. Unlike the audio gate this fails open in
+both directions: a cover that is late, failed or unreadable costs the logo for that record and
+never holds a slot.
+
 **That is also why a cached cover's URL ends in a filename.** `cachedOrUpstream` in `catalog.art.ts`
 mints `art/<id>/cover.<ext>` from the extension the store recorded, and `GET /art/{id}/{filename}`
 answers it by id while ignoring the name, so a stale name can never serve the wrong bytes and the

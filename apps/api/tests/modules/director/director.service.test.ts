@@ -23,6 +23,7 @@ import { ProductionRepository } from '../../../src/modules/productions/productio
 import { PlayHistoryRepository } from '../../../src/modules/director/play.history.repository.js';
 import { PodcastEpisodeRepository } from '../../../src/modules/podcasts/podcast.episode.repository.js';
 import { PodcastScheduler } from '../../../src/modules/podcasts/podcast.scheduler.js';
+import { ArtRepository } from '../../../src/modules/art/art.repository.js';
 import { CandidatesRepository } from '../../../src/modules/director/candidates.repository.js';
 import { StationAirRepository, type StationAir } from '../../../src/modules/director/station.air.repository.js';
 import { settingsConfig } from '../../utils/settings.config.js';
@@ -87,6 +88,16 @@ interface Options {
      * a track missing from its answer is one no provider will serve.
      */
     servable?: string[];
+    /**
+     * Upstream cover URLs the station already holds bytes for, and ones it has tried and failed.
+     *
+     * A record's own cover is whatever the pick stored, so a test that wants one resolves it
+     * through `withArt`. `heldArt` names the URLs that come back cached; `triedArt` names the ones
+     * with a row and no bytes, which the director must NOT ask for again because that row is
+     * already carrying its own backoff.
+     */
+    heldArt?: string[];
+    triedArt?: string[];
     /**
      * External ids whose audio is already on this machine.
      *
@@ -285,6 +296,24 @@ function build(options: Options = {}) {
         ),
     } as unknown as CandidatesRepository;
 
+    // What the art store holds. A URL nobody named is absent, which is "never seen" and is the one
+    // state the director asks about.
+    const art = {
+        findBySourceUrls: vi.fn(
+            async (urls: readonly string[]) =>
+                new Map(
+                    urls
+                        .filter(url => (options.heldArt ?? []).includes(url) || (options.triedArt ?? []).includes(url))
+                        .map(url => [
+                            url,
+                            (options.heldArt ?? []).includes(url)
+                                ? { id: `asset-${url.split('/').pop()}`, sourceUrl: url, checksum: 'c'.repeat(64), ext: 'jpg' }
+                                : { id: `asset-${url.split('/').pop()}`, sourceUrl: url },
+                        ]),
+                ),
+        ),
+    } as unknown as ArtRepository;
+
     // Which records the station already has the audio for. Defaults to ALL of them, so the tests
     // that are about something else are not silently exercising the cold path; `localAudio` names
     // the external ids that are here for the tests that are about the gate itself.
@@ -374,6 +403,8 @@ function build(options: Options = {}) {
                             ? breaks
                             : token === CandidatesRepository
                               ? candidates
+                              : token === ArtRepository
+                                ? art
                               : token === TrackAudioService
                                 ? trackAudio
                                 : token === TrackCachePlanner
@@ -437,6 +468,7 @@ function build(options: Options = {}) {
         personas,
         candidates,
         lineup,
+        art,
         saved: () => saved,
         jobs,
         history,
@@ -447,6 +479,9 @@ function build(options: Options = {}) {
         activity,
         requests,
         seed: async () => lineup.append((options.items ?? ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']).map(track)),
+        /** The same, with each record carrying the provider's own cover, which is what a pick stores before the art job has reached it. */
+        seedWithUpstreamArt: async () =>
+            lineup.append((options.items ?? ['a', 'b', 'c']).map(externalId => ({ ...track(externalId), artworkUrl: `https://cdn.example/${externalId}` }))),
         /** The same, with every record catalogued, so its copies can be judged before its slot. */
         seedCatalogued: async () => lineup.append((options.items ?? ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']).map(catalogued)),
         setAir: (next: StationAir | undefined) => {
@@ -3802,5 +3837,92 @@ describe('DirectorService holding a listener while it warms up', () => {
         await expect(director.start()).resolves.toBeUndefined();
         // And the commit block behind it still ran.
         expect(rundown.upcoming().length + 1).toBeGreaterThan(0);
+    });
+});
+
+// A line carries whatever its cover was when the record was PICKED, which is the provider's own
+// URL for anything the station had not cached by then, and nothing ever revisits it. The mount can
+// only broadcast art the station serves itself (`listenerArtwork`), so a cover that stayed upstream
+// is a record that airs under the station's logo. Resolving on every commit pass is what closes
+// that, and asking for the ones the store has never seen is what fills it in time.
+describe("DirectorService putting the station's own cover on a record", () => {
+    const coverOf = (item: { artworkUrl?: string }) => item.artworkUrl;
+
+    it("hands over the station's own path for a cover it already holds", async () => {
+        const { director, rundown, seedWithUpstreamArt } = build({ items: ['a'], heldArt: ['https://cdn.example/a'] });
+        await seedWithUpstreamArt();
+
+        await director.start();
+
+        expect(coverOf(rundown.upcoming()[0]!)).toBe('art/asset-a/cover.jpg');
+    });
+
+    it('asks for a cover the store has never seen, so it is here before the record is', async () => {
+        const { director, jobs, seedWithUpstreamArt } = build({ items: ['a'] });
+        await seedWithUpstreamArt();
+
+        await director.start();
+
+        expect(jobs.send).toHaveBeenCalledWith('catalog.cache_art', { urls: ['https://cdn.example/a'] });
+    });
+
+    it('leaves the record under the logo until the bytes arrive, rather than holding the slot', async () => {
+        // The opposite rule to the audio gate next door: a record with no cover still airs.
+        const { director, rundown, seedWithUpstreamArt } = build({ items: ['a'] });
+        await seedWithUpstreamArt();
+
+        await director.start();
+
+        expect(idsOf(rundown.upcoming())).toEqual(['a']);
+        expect(coverOf(rundown.upcoming()[0]!)).toBe('https://cdn.example/a');
+    });
+
+    it('does not ask again for one that has been tried and has no bytes', async () => {
+        // That row is already in the sweep's queue carrying its own next_attempt_at. Asking by name
+        // bypasses the backoff, so a cover that 404s would be refetched on every commit pass for as
+        // long as it stayed in the running order.
+        const { director, jobs, seedWithUpstreamArt } = build({ items: ['a'], triedArt: ['https://cdn.example/a'] });
+        await seedWithUpstreamArt();
+
+        await director.start();
+
+        expect(jobs.send).not.toHaveBeenCalledWith('catalog.cache_art', expect.anything());
+    });
+
+    it('asks once for a cover two records share', async () => {
+        const { director, jobs, lineup, seed } = build({ items: [] });
+        await seed();
+        lineup.append([
+            { ...track('a'), artworkUrl: 'https://cdn.example/same' },
+            { ...track('b'), artworkUrl: 'https://cdn.example/same' },
+        ]);
+
+        await director.start();
+
+        expect(jobs.send).toHaveBeenCalledWith('catalog.cache_art', { urls: ['https://cdn.example/same'] });
+    });
+
+    it('never asks about a cover the station already serves', async () => {
+        // A record picked after its cover was cached carries the station's path from the start, and
+        // there is nothing upstream to look up.
+        const { director, art, jobs, lineup } = build({ items: [] });
+        lineup.append([{ ...track('a'), artworkUrl: 'art/asset-a/cover.jpg' }]);
+
+        await director.start();
+
+        expect(art.findBySourceUrls).not.toHaveBeenCalled();
+        expect(jobs.send).not.toHaveBeenCalledWith('catalog.cache_art', expect.anything());
+    });
+
+    it('commits the order anyway when the store cannot be read', async () => {
+        // The rule the audio gate follows: a read that fails must not take down the pass that keeps
+        // the running order full.
+        const { director, rundown, art, seedWithUpstreamArt } = build({ items: ['a'] });
+        vi.mocked(art.findBySourceUrls).mockRejectedValueOnce(new Error('no database'));
+        await seedWithUpstreamArt();
+
+        await director.start();
+
+        expect(idsOf(rundown.upcoming())).toEqual(['a']);
     });
 });

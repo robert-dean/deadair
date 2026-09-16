@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.12.1] — 2026-09-16
+
+- The deadpan wisecracking host seed stops reviewing records. An audition of twenty breaks came back as record reviews with one of her phrases bolted to the end ("the production, shepherded by Mike Clink at Rumbo Recorders, offers a veneer of technical polish"), which passed her own character check every time because the phrase was present. Three changes: her opening quirk now states the move rather than the attitude (take one decision somebody made, literally, and say what it promised); a new quirk forbids reviewing the record at all; the critic's vocabulary is in `avoid`, which is the only half of a sheet that refuses a script rather than asking; and she carries `brevity: short` beside her `unleashed`, so she keeps the room to say anything and is told to say it in one line.
+
 ## [0.12.0] — 2026-09-16
 
 - The persona flag that says who the station's own host is has been renamed from `active` to `defaultHost`, everywhere: the `personas.default_host` column (migration 0031, applied at boot), the `Persona` contract and all four SDKs, and `PUT /personas/{id}/active`, which is now `PUT /personas/{id}/default-host`. Nothing about who presents changes; the old name said "on air", which it never meant during a broadcast that named its own host, and the console badged the wrong character for exactly that reason. The Personas page button now reads **Make station host** rather than "Put on air", and the desk's persona pickers mark whoever is actually presenting. The operator desk on macOS follows the same rename, and its Voice page lamp now marks the character presenting rather than the station's own host.
@@ -175,7 +179,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.12.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.12.1...HEAD
+[0.12.1]: https://github.com/robert-dean/deadair/compare/v0.12.0...v0.12.1
 [0.12.0]: https://github.com/robert-dean/deadair/compare/v0.11.1...v0.12.0
 [0.11.1]: https://github.com/robert-dean/deadair/compare/v0.11.0...v0.11.1
 [0.11.0]: https://github.com/robert-dean/deadair/compare/v0.10.0...v0.11.0

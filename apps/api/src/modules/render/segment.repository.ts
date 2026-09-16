@@ -304,6 +304,16 @@ export interface JoinedSegment {
     audioChecksum: string;
     audioExt: SegmentExtension;
     durationMs?: number;
+    /**
+     * What this production IS, copied from its first beat. See `segments.context`.
+     *
+     * A phone-in's beats carry none, so this is absent for one and nothing about them changes. It is
+     * load-bearing for a production the station made out of somebody else's words: the joined row is
+     * what airs, and without the context on it `segmentRundownTrack` has no way to know the row is a
+     * programme rather than the station talking — so the mount would name the station, and the aired
+     * edge would never mark the piece as read.
+     */
+    context?: BreakContext;
 }
 
 /** A segment as it is created from an imported file: audio first, everything else described. */
@@ -576,6 +586,7 @@ export class SegmentRepository extends DataRepository {
                 audioChecksum: joined.audioChecksum,
                 audioExt: joined.audioExt,
                 durationMs: joined.durationMs ?? null,
+                context: joined.context === undefined ? null : sql<string>`${JSON.stringify(joined.context)}::jsonb`,
                 state: 'ready',
             })
             .returning(SEGMENT_COLUMNS)

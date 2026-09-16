@@ -148,6 +148,12 @@ export class StitchProductionJob extends PlainJob<StitchProductionPayload> {
             // beats each carried "Title (3/7)".
             label: production.title,
             script: scriptOf(beats),
+            // What the production IS, from the beat that has it. Only a production made out of
+            // somebody else's writing carries one, and for that one it is what makes the joined row
+            // recognisable as a programme rather than as the station talking: the mount names the
+            // piece and its series, and the aired edge can find the row it belongs to. A phone-in's
+            // beats have no context, so this is absent and nothing about a phone-in changes.
+            ...(beats[0]?.context === undefined ? {} : { context: beats[0].context }),
             audioChecksum: checksum,
             audioExt: ext,
             ...(joined.durationMs === undefined ? {} : { durationMs: joined.durationMs }),

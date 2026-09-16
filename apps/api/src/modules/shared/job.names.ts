@@ -24,4 +24,5 @@ export type JobNames =
     | 'scrobble.flush'
     | 'podcasts.refresh'
     | 'podcasts.fetch'
-    | 'narrations.refresh';
+    | 'narrations.refresh'
+    | 'narrations.render';

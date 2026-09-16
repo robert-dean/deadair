@@ -2,6 +2,8 @@ import { Registry } from 'injectkit';
 import { ServerKitModule } from '@maroonedsoftware/koa';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { NarrationPieceRepository } from './narration.piece.repository.js';
+import { NarrationScheduler } from './narration.scheduler.js';
+import { NarrationSource } from './narration.source.js';
 import { NarrationsService } from './narrations.service.js';
 
 /**
@@ -22,5 +24,10 @@ export const NarrationsModule: ServerKitModule = {
         // Scoped with the plugin registry and invoker they read, like every other capability consumer.
         registry.register(NarrationPieceRepository).useClass(NarrationPieceRepository).asScoped();
         registry.register(NarrationsService).useClass(NarrationsService).asScoped();
+        // The clock's two halves: what a `narration` band reads, and making it ahead of the slot.
+        // Scoped, and resolved by the director's commit pass through a scope of its own, as the
+        // podcast scheduler is.
+        registry.register(NarrationSource).useClass(NarrationSource).asScoped();
+        registry.register(NarrationScheduler).useClass(NarrationScheduler).asScoped();
     },
 };

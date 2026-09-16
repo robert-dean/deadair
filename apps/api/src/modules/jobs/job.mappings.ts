@@ -28,6 +28,7 @@ import { PruneActivityJob } from '#modules/activity/prune.activity.job.js';
 import { SweepTrackCacheJob } from '#modules/playout/audio/sweep.track.cache.job.js';
 import { ScrobbleFlushJob } from '#modules/scrobble/scrobble.flush.job.js';
 import { RefreshNarrationsJob } from '#modules/narrations/refresh.narrations.job.js';
+import { RenderPieceJob } from '#modules/narrations/render.piece.job.js';
 import { RefreshPodcastsJob } from '#modules/podcasts/refresh.podcasts.job.js';
 import { FetchEpisodeJob } from '#modules/podcasts/fetch.episode.job.js';
 
@@ -484,5 +485,16 @@ export const JobMappings: Record<JobNames, JobMapping> = {
         job: RefreshNarrationsJob,
         cron: '23,53 * * * *',
         policy: { retryLimit: 0, expiresIn: Duration.fromObject({ minutes: 20 }) },
+    },
+
+    // No cron: sent when a piece is wanted, by the scheduler as its slot approaches or by an operator.
+    // No retry either, on `podcasts.fetch`'s terms — every failure is written on the piece, and
+    // whatever asks next is the retry, which the piece's own `render_requested_at` keeps from being
+    // asked twice at once. `expiresIn` covers reading the words and planting the beats, which is a
+    // plugin fetch and a handful of inserts; the SPEAKING happens in `render.segment` jobs afterwards
+    // and is bounded by its own.
+    'narrations.render': {
+        job: RenderPieceJob,
+        policy: { retryLimit: 0, expiresIn: Duration.fromObject({ minutes: 5 }) },
     },
 };

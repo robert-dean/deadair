@@ -1,6 +1,6 @@
 import type { SdkFetch } from '../sdk-options.js';
 import { parseJson, buildQueryString } from '../sdk-options.js';
-import type { StationPiecePage, StationPieceQuery, StationSeriesList } from './types/narrations.types.js';
+import type { StationPiece, StationPiecePage, StationPieceQuery, StationSeriesList } from './types/narrations.types.js';
 
 export class NarrationsClient {
     constructor(private fetch: SdkFetch) {}
@@ -24,6 +24,15 @@ export class NarrationsClient {
             method: 'GET',
         });
         return await parseJson<StationPiecePage>(result);
+    }
+
+    /**
+     * @name Render piece
+     * @description Has one piece spoken now, rather than waiting for its slot to come near
+     */
+    async renderPiece(id: string): Promise<StationPiece> {
+        const result = await this.fetch(`/narrations/pieces/${encodeURIComponent(id)}/render`, { method: 'POST' });
+        return await parseJson<StationPiece>(result);
     }
 
     /**

@@ -1,4 +1,5 @@
 import { Injectable } from 'injectkit';
+import { httpError } from '@maroonedsoftware/errors';
 import { Logger } from '@maroonedsoftware/logger';
 import { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
 import type { NarrationOrder, NarrationPiece, NarrationSeries } from '@deadair/plugin-sdk';
@@ -43,6 +44,17 @@ export const REFRESH_PIECES_PER_SERIES = 200;
 
 /** What the console is given when it asks for pieces and says nothing about how many. */
 export const DEFAULT_PIECE_PAGE = 100;
+
+/**
+ * How long a render claim stands before the station will ask again.
+ *
+ * Long, and deliberately longer than a podcast's fetch window: a chapter is several takes on the
+ * station's only speech engine, each queued behind whatever else is waiting and each yielding to it,
+ * so a render that is merely slow must not be mistaken for one that died. What this bounds is how
+ * long a render that genuinely vanished — a worker killed mid-job — keeps its piece from being tried
+ * again.
+ */
+export const RENDER_RETRY_AFTER_MS = 60 * 60_000;
 
 /** What a refresh did, for the log and the console's own summary. */
 export interface NarrationRefreshSummary {
@@ -131,6 +143,24 @@ export class NarrationsService {
      */
     async requestRefresh(): Promise<void> {
         await this.jobs.send('narrations.refresh', {});
+    }
+
+    /**
+     * Have one piece spoken now.
+     *
+     * The claim is the same conditional update the scheduler takes, so an operator pressing the
+     * button twice, and an operator pressing it while the scheduler is already asking, both come down
+     * to one render. A piece the station already holds is answered with its row and nothing is sent.
+     */
+    async requestRender(id: string): Promise<StationPiece> {
+        const piece = await this.pieces.get(id);
+        if (piece === undefined) throw httpError(404).withDetails({ message: 'the station does not know that piece' });
+
+        if (piece.segmentId === undefined && (await this.pieces.claimRender(id, Date.now(), RENDER_RETRY_AFTER_MS))) {
+            await this.jobs.send('narrations.render', { pieceId: id });
+        }
+
+        return toStationPiece((await this.pieces.get(id)) ?? piece);
     }
 
     /**

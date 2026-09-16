@@ -41,6 +41,26 @@ operation /narrations/pieces: {
     }
 }
 
+operation /narrations/pieces/{id}/render: {
+    params: {
+        id: string(min=1, max=100)
+    }
+    post: { # Has one piece spoken now, rather than waiting for its slot to come near
+        name: Render piece
+        service: NarrationsService.requestRender
+        security: {
+            # An operator action, and an expensive one: it spends the station's only speech engine on
+            # a whole chapter, which is minutes of it.
+            policy: platform.manage
+        }
+        response: {
+            200: {
+                application/json: StationPiece
+            }
+        }
+    }
+}
+
 operation /narrations/refresh: {
     post: { # Reads every series again, in the background, rather than waiting for the next scheduled refresh
         name: Refresh narrations

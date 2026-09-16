@@ -26,6 +26,14 @@ public final class NarrationsClient: Sendable {
         return try http.decodeJSON(StationPiecePage.self, from: response)
     }
 
+    /// Render piece
+    /// Has one piece spoken now, rather than waiting for its slot to come near
+    public func renderPiece(id: String) async throws -> StationPiece {
+        let request = try SdkRequest(method: "POST", path: ["narrations", "pieces", http.segment(id), "render"])
+        let response = try await http.execute(request)
+        return try http.decodeJSON(StationPiece.self, from: response)
+    }
+
     /// Refresh narrations
     /// Reads every series again, in the background, rather than waiting for the next scheduled refresh
     public func refreshNarrations() async throws {

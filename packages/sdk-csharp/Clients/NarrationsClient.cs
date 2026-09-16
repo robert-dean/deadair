@@ -48,6 +48,19 @@ public sealed class NarrationsClient(SdkHttp http)
     }
 
     /// <summary>
+    /// Render piece
+    /// Has one piece spoken now, rather than waiting for its slot to come near
+    /// </summary>
+    public async Task<StationPiece> RenderPieceAsync(string id, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Post,
+            http.Path("narrations", "pieces", http.Segment(id), "render"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<StationPiece>(response);
+    }
+
+    /// <summary>
     /// Refresh narrations
     /// Reads every series again, in the background, rather than waiting for the next scheduled refresh
     /// </summary>

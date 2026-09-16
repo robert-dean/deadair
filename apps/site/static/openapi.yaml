@@ -1181,6 +1181,26 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/StationPiecePage'
+    '/narrations/pieces/{id}/render':
+        post:
+            operationId: requestRender
+            summary: 'Render piece'
+            description: 'Has one piece spoken now, rather than waiting for its slot to come near'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 100
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/StationPiece'
     '/narrations/refresh':
         post:
             operationId: requestRefresh

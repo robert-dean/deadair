@@ -145,6 +145,10 @@ function SettingsGroupCard({ section, fields, settings, onDirtyChange }: Setting
                     fields={fields}
                     stored={settings.values}
                     secretsConfigured={settings.configured}
+                    // What the three "leave empty to …" settings fall back to. Worked out by the
+                    // station rather than the console, because two of them come from the environment
+                    // it was deployed with and one from the server's own clock.
+                    derived={settings.derived}
                     onSubmit={submission => save.mutateAsync(submission)}
                     pending={save.isPending}
                     succeeded={save.isSuccess}

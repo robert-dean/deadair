@@ -465,6 +465,25 @@ export interface ConfigFieldsFormProps {
     failureMessage: string;
 
     /**
+     * What a field falls back to while it is EMPTY, keyed by field key.
+     *
+     * For the settings whose help text says "leave empty to …": the public URL falls back to the
+     * address the station was deployed with, the advertised hostname to the public URL's, the
+     * station's timezone to the server's own. Each value is worked out server-side and arrives with
+     * the settings read (`StationSettings.derived`), because none of it is anything a browser can
+     * see — two come from the environment the station was deployed with and one from the server's
+     * clock.
+     *
+     * A key present here is drawn twice for one reason each: as the empty field's placeholder, so
+     * the box shows the address listeners are actually being sent to rather than a hint, and as a
+     * line under it, because a placeholder alone reads as an example of what to type and is not
+     * reliably announced to a screen reader.
+     *
+     * Absent for a plugin's config form, which configures nothing the host derives.
+     */
+    derived?: Record<string, string>;
+
+    /**
      * Live choices, keyed by field key, from whatever is being configured.
      *
      * What a descriptor's own `options` cannot be: fixed when the manifest was written, where these
@@ -528,6 +547,7 @@ export function ConfigFieldsForm({
     submitLabel,
     failureTitle,
     failureMessage,
+    derived,
     suggestions,
     suggestionsSupported = false,
     onRefreshSuggestions,
@@ -542,6 +562,15 @@ export function ConfigFieldsForm({
     // a media query through the public props of a form shared by three pages — is worse than the
     // frame.
     const phone = usePhone();
+
+    /**
+     * What this field falls back to while it is empty, where the station worked one out.
+     *
+     * Outranks a descriptor's own `placeholder` where a field declares both, because they are
+     * different kinds of thing: a placeholder is an example of what to type, and this is a fact
+     * about what this station is doing right now.
+     */
+    const inForce = (field: ConfigFieldDescriptor): string | undefined => derived?.[field.key];
 
     const offered = (key: string): readonly ConfigFieldOption[] => {
         const suggested = suggestions?.[key];
@@ -706,6 +735,35 @@ export function ConfigFieldsForm({
         }
     }
 
+    /**
+     * The sentence under a field that is falling back, and nothing at all for one that is not.
+     *
+     * Below the input rather than in the description, exactly as {@link SecretField} puts the state
+     * of a stored secret there and for the same reason: the field's own help text has a claim on
+     * the description, and this is a statement about right now rather than about the setting.
+     *
+     * Only while the box is EMPTY, because that is the only time the fallback is what the station is
+     * using — the moment something is typed the note would be describing a value nothing reads. The
+     * check is deliberately on what the FORM holds rather than on what is stored, so clearing a
+     * field shows what clearing it will mean before the save rather than after.
+     */
+    function derivedNote(field: ConfigFieldDescriptor, index: number) {
+        const value = inForce(field);
+        if (value === undefined) return undefined;
+
+        // A string is the only shape that can be empty in the sense this asks about. Nothing else
+        // has a derivation today, and a `boolean` or a `list` reaching here would be a question
+        // about a different kind of emptiness.
+        const typed = form.getValues()[nameOf(index)];
+        if (typeof typed !== 'string' || typed.trim() !== '') return undefined;
+
+        return (
+            <Text size="xs" c="dimmed">
+                Using {value} while this is empty.
+            </Text>
+        );
+    }
+
     function renderField(field: ConfigFieldDescriptor, index: number) {
         const name = nameOf(index);
         if (field.type === 'note') {
@@ -841,7 +899,7 @@ export function ConfigFieldsForm({
                 );
             }
             case 'url':
-                return suggestionInput(field, name, { inputMode: 'url', placeholder: field.placeholder ?? 'https://' });
+                return suggestionInput(field, name, { inputMode: 'url', placeholder: inForce(field) ?? field.placeholder ?? 'https://' });
             default: {
                 // A `string` that is really a set. Split and joined here and nowhere else, so the
                 // stored value is the same comma-separated line the reader behind it splits.
@@ -873,7 +931,7 @@ export function ConfigFieldsForm({
                         />
                     );
                 }
-                return suggestionInput(field, name, { placeholder: field.placeholder });
+                return suggestionInput(field, name, { placeholder: inForce(field) ?? field.placeholder });
             }
         }
 
@@ -933,9 +991,19 @@ export function ConfigFieldsForm({
                     {fields.map((field, index) => {
                         const rendered = renderField(field, index);
                         if (rendered === undefined) return undefined;
+                        // Wrapped only where there is something to say, so a form with nothing
+                        // derived lays out exactly as it did before any of this existed.
+                        const note = derivedNote(field, index);
                         return (
                             <Box key={field.key} className={FULL_WIDTH_TYPES.has(field.type) ? classes.wide : undefined}>
-                                {rendered}
+                                {note === undefined ? (
+                                    rendered
+                                ) : (
+                                    <Stack gap="xxs">
+                                        {rendered}
+                                        {note}
+                                    </Stack>
+                                )}
                             </Box>
                         );
                     })}

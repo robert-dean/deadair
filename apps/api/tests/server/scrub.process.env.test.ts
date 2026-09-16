@@ -31,6 +31,24 @@ describe('scrubProcessEnv', () => {
         }
     });
 
+    it('deletes both spellings of the cache password and leaves its address alone', () => {
+        // REDIS_URL carries the credentials in its authority, so it is a password written a
+        // different way; REDIS_HOST and the rest are addresses and nothing is gained by hiding them.
+        const env = {
+            REDIS_PASSWORD: 'hunter2',
+            REDIS_URL: 'rediss://station:hunter2@cache:6380',
+            REDIS_HOST: 'cache',
+            REDIS_USERNAME: 'station',
+        } as unknown as NodeJS.ProcessEnv;
+
+        const removed = scrubProcessEnv(env);
+
+        expect(env.REDIS_PASSWORD).toBeUndefined();
+        expect(env.REDIS_URL).toBeUndefined();
+        expect(env.REDIS_HOST).toBe('cache');
+        expect(removed).toEqual(expect.arrayContaining(['REDIS_PASSWORD', 'REDIS_URL']));
+    });
+
     it('leaves a key untouched when it is in neither list', () => {
         const env = { SOME_OTHER_SETTING: 'keep-me' } as unknown as NodeJS.ProcessEnv;
 

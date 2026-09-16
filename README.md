@@ -173,7 +173,8 @@ then clear the sessions, which live in Redis rather than the database:
 redis-cli FLUSHALL
 ```
 
-(`pnpm flush:sessions` in a development checkout.) That turns the challenge off for every account
+(`pnpm flush:sessions` in a development checkout. If your Redis asks for a password, `redis-cli -u
+"$REDIS_URL" FLUSHALL`, or `-a` with the password you gave `REDIS_PASSWORD`.) That turns the challenge off for every account
 on the station, since there is one. Sign in with the password, and enrol the new phone from
 Security.
 

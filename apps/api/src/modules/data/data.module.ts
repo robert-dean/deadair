@@ -13,6 +13,7 @@ import { ServerKitModule } from '@maroonedsoftware/koa';
 import { EmptyUpdateRewriteDialect, KyselyPool, KyselyDefaultPlugins, KyselyPgTypeOverrides } from '@maroonedsoftware/kysely';
 import { CacheProvider } from '@maroonedsoftware/cache';
 import { resolveRuntimeConnection } from './database.connection.js';
+import { describeRedisConnection, resolveRedisConnection } from './redis.connection.js';
 import { IoRedisCacheProvider } from '@maroonedsoftware/cache/ioredis';
 import { errorText } from '#modules/shared/error.text.js';
 
@@ -171,11 +172,18 @@ export const DataModule: ServerKitModule = {
             .register(Redis)
             .useFactory(container => {
                 const logger = container.get(Logger);
-                const redis = new Redis({
-                    host: config.get('REDIS_HOST', 'localhost'),
-                    port: config.get('REDIS_PORT', 6379),
-                    enableOfflineQueue: false,
-                });
+                // Where it is and who to be when connecting to it is decided in one place, because
+                // an operator's Redis may want `AUTH` and TLS and this was `host` and `port` alone
+                // until [#160](https://github.com/robert-dean/deadair/issues/160) said so. Every
+                // other Redis client in the process (both rate limiters, the sign-in mail limiter,
+                // the cache provider and the session store) resolves THIS singleton, so there is
+                // exactly one connection to fix and no second one to forget.
+                const connection = resolveRedisConnection(config);
+                const redis = new Redis({ ...connection, enableOfflineQueue: false });
+                // Said once at boot, and never the password. Which surface the station read is
+                // otherwise invisible: `REDIS_URL` wins over the discrete variables whole, so an
+                // operator who sets both sees their `REDIS_PASSWORD` ignored with nothing to say why.
+                logger.info(`Redis: ${describeRedisConnection(connection)}`);
                 redis.on('error', err => {
                     logger.error(`redis: ${errorText(err)}`);
                 });

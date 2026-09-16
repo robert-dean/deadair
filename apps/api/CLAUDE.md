@@ -98,6 +98,22 @@ operator a session with no actor. The API rejects that state rather than trustin
 `AuthenticationService.revokeIfSubjectIsGone` for the refresh grant, both of which revoke the
 session and answer 401 instead of letting it through as a user who holds no permissions.
 
+**One Redis client, and `resolveRedisConnection` decides what it connects as.** Both rate limiters,
+`SignInMailLimiter`, `IoRedisCacheProvider` and the session store all resolve the single `Redis`
+singleton `DataModule` registers, so there is exactly one place to configure and no second client to
+forget. Until [#160](https://github.com/robert-dean/deadair/issues/160) that place read `REDIS_HOST`
+and `REDIS_PORT` and nothing else, so a Redis wanting `AUTH` could not be pointed at and the reporter
+ran a second daemon instead. `redis.connection.ts` now reads `REDIS_USERNAME`, `REDIS_PASSWORD` and
+`REDIS_TLS` beside them, and accepts `REDIS_URL` as an alternative that **wins whole**: when it is
+set, none of the five discrete variables is consulted, because a merge produces a station connecting
+to the right host as the wrong user, and the `full` image fills the loopback defaults in itself (its
+`database-env` now skips them when a URL is set, which is what makes that rule load-bearing rather
+than tidy). A URL that cannot be parsed stops the boot, on `requiredNumber`'s rule, and no error
+message here ever quotes the value, because a Redis URL carries the password. `REDIS_PORT` goes
+through `requiredNumber` for the reason the whole "a setting is a string" section exists: it was
+`config.get('REDIS_PORT', 6379)`, which handed ioredis the string `'6379'` whenever the variable was
+set and worked only because the connector coerces it.
+
 ## Module lifecycle
 
 **Module lifecycle order is load-bearing, and SHUTDOWN runs in REVERSE registration order.** The list in

@@ -9,7 +9,19 @@ if [ "${WITH_DB:-0}" = "1" ]; then
     DATABASE_USER="${DATABASE_USER:-deadair}"
     DATABASE_PASSWORD="${DATABASE_PASSWORD:-deadair}"
     DATABASE_NAME="${DATABASE_NAME:-deadair}"
-    REDIS_HOST="${REDIS_HOST:-127.0.0.1}"
-    REDIS_PORT="${REDIS_PORT:-6379}"
-    export DATABASE_HOST DATABASE_PORT DATABASE_USER DATABASE_PASSWORD DATABASE_NAME REDIS_HOST REDIS_PORT
+    export DATABASE_HOST DATABASE_PORT DATABASE_USER DATABASE_PASSWORD DATABASE_NAME
+
+    # The cache the same way, except when the operator gave a whole URL. REDIS_URL is read as the
+    # ENTIRE answer (see `apps/api/src/modules/data/redis.connection.ts`), so a loopback host filled
+    # in beside it is a value the station then ignores: harmless in itself, and a puzzle the first
+    # time somebody reads this environment to work out where their sessions actually went.
+    if [ -z "${REDIS_URL:-}" ]; then
+        REDIS_HOST="${REDIS_HOST:-127.0.0.1}"
+        REDIS_PORT="${REDIS_PORT:-6379}"
+    fi
+
+    # The bundled cache takes no credentials and is on loopback, so nothing here fills these in.
+    # They are exported because a `full` image pointed at a Redis elsewhere is as legitimate as one
+    # pointed at another database, and that Redis is the kind that asks for a password.
+    export REDIS_URL REDIS_HOST REDIS_PORT REDIS_USERNAME REDIS_PASSWORD REDIS_TLS
 fi

@@ -52,7 +52,7 @@ with no `-w0`.
 
 If you are not using the `full` tag, you also need a PostgreSQL database that already exists (the
 station creates its own schema inside it, not the database itself) and a Redis to put sessions in.
-The next section is what that database has to be.
+The next two sections are what each of those has to be.
 
 ## Bringing your own database
 
@@ -79,6 +79,43 @@ CREATE ROLE app_user NOLOGIN;
 
 If you would rather the station made `app_user` itself, run `ALTER ROLE deadair CREATEROLE` in
 place of the last line.
+
+## Bringing your own cache
+
+**Any Redis, and it may be one you are already using.** Sessions and refresh-token families live
+here rather than in the database, so losing it signs everybody out and costs nothing else. The
+station holds one connection and every part of it shares that connection.
+
+**It may ask for a password.** Five variables describe it:
+
+| Variable         | What it is                                                                 |
+| ---------------- | -------------------------------------------------------------------------- |
+| `REDIS_HOST`     | where it is                                                                 |
+| `REDIS_PORT`     | `6379` unless you moved it                                                  |
+| `REDIS_USERNAME` | only on Redis 6 or newer with ACLs turned on; leave empty otherwise         |
+| `REDIS_PASSWORD` | what `requirepass` or the ACL is set to; leave empty for a Redis with no `AUTH` |
+| `REDIS_TLS`      | `true` if the connection itself is TLS                                      |
+
+A Redis with only `requirepass` set wants the password and no username, which is the ordinary case
+on a server you run yourself. `REDIS_TLS` is about the connection rather than the password: without
+it the password travels in the clear, which is fine on your own network and is not fine across the
+internet.
+
+**Or give the whole thing as one URL**, which is the shape a hosted Redis hands you:
+
+```
+REDIS_URL=rediss://default:the-password@cache.example.com:6380/0
+```
+
+Set `REDIS_URL` and it is the whole answer: the five variables above are not read at all, so the
+two cannot half-disagree. It is also the only way to name a database index, if you are sharing one
+Redis between applications and want the station in its own. `rediss://` is TLS and `redis://` is
+not. Anything in the password that is not a plain letter or digit has to be percent-encoded, so an
+`@` is written `%40`.
+
+A URL the station cannot read stops it at boot, naming the variable and not quoting it. That is
+deliberate: falling back to a local Redis would start the station and put its sessions somewhere
+nobody chose.
 
 ## The station's address
 

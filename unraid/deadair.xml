@@ -125,6 +125,21 @@
     <Config Name="Cache port" Target="REDIS_PORT" Default="6379" Mode=""
         Description="" Type="Variable" Display="always" Required="false" Mask="false">6379</Config>
 
+    <Config Name="Cache user" Target="REDIS_USERNAME" Default="" Mode=""
+        Description="Only if your Redis asks for one. Redis 6 and newer with ACLs turned on wants a username and a password; anything older, or one with only requirepass set, wants the password alone and this left empty. Empty means the station connects with no AUTH at all, which is what a Redis on your own network usually wants."
+        Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+
+    <Config Name="Cache password" Target="REDIS_PASSWORD" Default="" Mode=""
+        Description="" Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
+
+    <Config Name="Cache over TLS" Target="REDIS_TLS" Default="false" Mode=""
+        Description="Whether the connection to the cache is itself TLS. A managed Redis reached across the internet almost always is; one on this network almost never is. This is the connection rather than the password, and a password travels in the clear without it."
+        Type="Variable" Display="advanced" Required="false" Mask="false">false</Config>
+
+    <Config Name="Cache URL" Target="REDIS_URL" Default="" Mode=""
+        Description="The whole cache as one URL instead, which is the shape a hosted Redis hands you: rediss://default:the-password@cache.example.com:6380/0. Fill this in and it is the WHOLE answer: the four fields above are not read at all, so there is no way for the two to half-disagree. It is also the only way to name a database index, if you are sharing one Redis between applications. rediss:// is TLS, redis:// is not, and anything in the password that is not a plain letter or digit has to be percent-encoded (@ is %40)."
+        Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
+
     <Config Name="Sign-in client id" Target="GOOGLE_OIDC_CLIENT_ID" Default="" Mode=""
         Description="Optional, for signing in with Google. Without this the station signs you in with a one-time code instead. Register the public address followed by /api/auth/login/oidc/callback as the OAuth client's authorized redirect URI in the Google Cloud console."
         Type="Variable" Display="advanced" Required="false" Mask="false"></Config>

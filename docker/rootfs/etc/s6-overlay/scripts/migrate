@@ -13,8 +13,10 @@ if [ -z "${DATABASE_HOST:-}" ] || [ -z "${DATABASE_USER:-}" ] || [ -z "${DATABAS
 deadair: no database.
 
 This image needs DATABASE_HOST, DATABASE_PORT, DATABASE_USER, DATABASE_PASSWORD and
-DATABASE_NAME, and REDIS_HOST and REDIS_PORT beside them. The `full` tag of this image
-brings its own instead, if you would rather not run them yourself.
+DATABASE_NAME, and a cache beside them: REDIS_HOST and REDIS_PORT, plus REDIS_USERNAME,
+REDIS_PASSWORD and REDIS_TLS if yours asks for them, or REDIS_URL instead of all five.
+The `full` tag of this image brings its own instead, if you would rather not run them
+yourself.
 MESSAGE
     exit 1
 fi

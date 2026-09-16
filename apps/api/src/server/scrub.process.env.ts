@@ -25,6 +25,11 @@ export const SCRUBBED_ENV_KEYS: readonly string[] = [
     'AUTHENTICATION_SESSION_JWT_PRIVATE_KEY',
     'DATABASE_PASSWORD',
     'DATABASE_APP_PASSWORD',
+    // `REDIS_URL` for the same reason as the password beside it: a Redis URL carries its credentials
+    // in the authority, so leaving it in the environment leaves the password there spelled
+    // differently. `REDIS_HOST` and the rest are addresses and stay.
+    'REDIS_PASSWORD',
+    'REDIS_URL',
     'GOOGLE_OIDC_CLIENT_SECRET',
 ];
 

@@ -394,7 +394,7 @@ export interface StationLineupSnapshot extends StationLineupBinding {
 }
 
 /** Why an edit was refused, for a console that has to tell someone standing at the desk. */
-export type EditRefusal = 'not-found' | 'already-aired' | 'empty';
+export type EditRefusal = 'not-found' | 'already-aired' | 'empty' | 'not-a-record';
 
 /** The outcome of an edit: it happened, or precisely why it did not. */
 export type EditResult = { ok: true } | { ok: false; reason: EditRefusal; message: string };
@@ -409,6 +409,23 @@ export type EditResult = { ok: true } | { ok: false; reason: EditRefusal; messag
 export interface ShuffleResult {
     readonly result: EditResult;
     readonly dropped: readonly StationLineupItem[];
+}
+
+/**
+ * The outcome of a skip to one record: the items it passed over, and whether the player had any of them.
+ *
+ * `dropped` carries the passed-over items for the reason a shuffle's does: the segments among them
+ * own `deadair.segments` rows describing a break that will now never air.
+ */
+export interface SkipToResult extends ShuffleResult {
+    /**
+     * Whether any passed-over item had already been handed over.
+     *
+     * The player's queue is first in, first out, so what it holds from in front of the target airs
+     * before the target unless it is taken back. False is the case worth keeping cheap: the target
+     * is already the next thing the player holds, and cutting what is on air is all a skip to it needs.
+     */
+    readonly held: boolean;
 }
 
 /**
@@ -1245,6 +1262,51 @@ export class StationLineup implements LiveOrder {
             if (member.kind === 'segment' && member.groupId === group && member.state === 'planned') member.state = 'removed';
         }
         return OK;
+    }
+
+    /**
+     * Pass over everything still to come in front of this record, so that it is the next thing heard.
+     *
+     * The order half of an operator's "skip to". Cutting what is on air is the transport's half and
+     * happens after this, which is why this touches nothing `airing`: that record is still going out
+     * until the player is told otherwise, and `markAiring` will call it `played` at the boundary.
+     *
+     * **Passed-over items are `skipped`, not `removed`.** `removed` is an operator cutting one item
+     * before its turn, and it is not part of {@link committedThrough}'s head: marking a run of
+     * records that way would leave the order in front of the target looking still editable. What
+     * happened here is the station moving past them, which is exactly what `markAiring` would have
+     * recorded had the player got to the target on its own, and the console already reads it that way.
+     *
+     * **Everything in front goes, breaks and talk-over cues included.** A break sits where it does
+     * because of the records either side of it, and the one before the target was written against a
+     * record the listener is now not going to hear. A cue riding the target goes too, although it was
+     * written for it: it is handed over by the director rather than the player, so keeping it would
+     * need its hand-over re-run, and "jump to that record" means the record.
+     *
+     * A record only. A segment's words are about the records around it, so jumping straight into one
+     * would air a back-announce for a record that was just skipped.
+     */
+    skipTo(itemId: string): SkipToResult {
+        const index = this.itemList.findIndex(item => item.id === itemId);
+        if (index < 0) return { result: refuse('not-found', 'that item is not in the running order'), dropped: [], held: false };
+
+        const target = this.itemList[index]!;
+        if (target.kind !== 'track') return { result: refuse('not-a-record', 'only a record can be skipped to'), dropped: [], held: false };
+        if (target.state === 'airing') return { result: refuse('already-aired', 'that record is already on air'), dropped: [], held: false };
+        if (target.state !== 'planned' && target.state !== 'handed') {
+            return { result: refuse('already-aired', 'that record is not still to come'), dropped: [], held: false };
+        }
+
+        const dropped: StationLineupItem[] = [];
+        let held = false;
+        for (const item of this.itemList.slice(0, index)) {
+            if (item.state !== 'planned' && item.state !== 'handed') continue;
+
+            held ||= item.state === 'handed';
+            item.state = 'skipped';
+            dropped.push(item);
+        }
+        return { result: OK, dropped, held };
     }
 
     /**

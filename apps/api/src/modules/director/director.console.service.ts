@@ -1085,6 +1085,8 @@ function describeEdit(edit: OrderEdit): string {
             return 'An operator put a break into the running order.';
         case 'insertTrack':
             return 'An operator put a record into the running order.';
+        case 'skipTo':
+            return 'An operator skipped the station ahead to a record further down the running order, passing over everything in front of it.';
     }
 }
 

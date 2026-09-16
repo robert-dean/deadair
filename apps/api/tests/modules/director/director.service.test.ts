@@ -2783,6 +2783,107 @@ describe('DirectorService editing what is on air', () => {
 
         expect(idsOf(rundown.upcoming())).toEqual(['a']);
     });
+
+    describe('skipping to a record', () => {
+        const recordId = (lineup: StationLineup, externalId: string): string =>
+            lineup
+                .all()
+                .filter(isTrackItem)
+                .find(item => item.track.externalId === externalId)!.id;
+        const records = (items: readonly { pluginId: string; externalId: string }[]) =>
+            idsOf(items.filter(item => item.pluginId !== RENDER_PLUGIN_ID));
+
+        it('prepares the record as the next thing to hand over, with everything in front of it passed over', async () => {
+            const { director, lineup, rundown, seed } = build({ items: ['a', 'b', 'c', 'd'] });
+            await seed();
+            await director.start();
+            expect(records(rundown.upcoming())).toEqual(['a']);
+
+            expect(await director.applyEdit({ kind: 'skipTo', itemId: recordId(lineup, 'c') })).toEqual({ ok: true });
+
+            expect(records(rundown.upcoming())).toEqual(['c']);
+            expect(
+                lineup
+                    .all()
+                    .filter(isTrackItem)
+                    .map(item => item.state),
+            ).toEqual(['skipped', 'skipped', 'planned', 'planned']);
+        });
+
+        it('takes back what the player holds from in front of the record, so it does not air first', async () => {
+            const { director, lineup, rundown, seed } = build({ items: ['a', 'b', 'c', 'd'] });
+            await seed();
+            await director.start();
+            await rundown.next();
+            const resets: boolean[] = [];
+            rundown.onReset(standingDown => resets.push(standingDown));
+
+            await director.applyEdit({ kind: 'skipTo', itemId: recordId(lineup, 'c') });
+
+            // A retraction rather than a stand-down: the station stays on air.
+            expect(resets).toEqual([false]);
+            expect(rundown.servedCount()).toBe(0);
+            expect(records(rundown.upcoming())).toEqual(['c']);
+        });
+
+        it('leaves the player alone when the record is already the next thing it holds', async () => {
+            // Taking the queue back here would throw away a record the player has already fetched
+            // and put the mount on the bed while the same record downloads again.
+            const { director, lineup, rundown, seed } = build({ items: ['a', 'b', 'c'] });
+            await seed();
+            await director.start();
+            await airNext(rundown);
+            await rundown.next();
+            const resets: boolean[] = [];
+            rundown.onReset(standingDown => resets.push(standingDown));
+
+            expect(await director.applyEdit({ kind: 'skipTo', itemId: recordId(lineup, 'b') })).toEqual({ ok: true });
+
+            expect(resets).toEqual([]);
+            expect(records(rundown.upcoming())).toEqual(['b']);
+        });
+
+        it('retires the segment row behind a break it passed over', async () => {
+            const { director, lineup, segmentStub, seed } = build({
+                items: ['a', 'b', 'c'],
+                segments: [{ id: 'talk-1', kind: 'talk', state: 'planned', label: 'Talk break', source: 'render' }],
+            });
+            await seed();
+            await director.start();
+            lineup.insertSegment('talk-1', lineup.all().indexOf(lineup.all().find(item => item.id === recordId(lineup, 'b'))!));
+
+            await director.applyEdit({ kind: 'skipTo', itemId: recordId(lineup, 'c') });
+
+            expect(segmentStub.markFailed).toHaveBeenCalledWith('talk-1', expect.stringContaining('skipped past'), 'planned');
+        });
+
+        it('writes the skip down before the caller is told it happened', async () => {
+            const { director, lineups, lineup, seed } = build();
+            await seed();
+            await director.start();
+            vi.mocked(lineups.save).mockClear();
+
+            await director.applyEdit({ kind: 'skipTo', itemId: recordId(lineup, 'e') });
+
+            expect(lineups.save).toHaveBeenCalled();
+        });
+
+        it('refuses a segment, and takes nothing back for it', async () => {
+            const { director, lineup, rundown, seed } = build({ items: ['a', 'b'] });
+            await seed();
+            await director.start();
+            await rundown.next();
+            lineup.insertSegment('ident-1', lineup.size());
+            const resets: boolean[] = [];
+            rundown.onReset(standingDown => resets.push(standingDown));
+
+            expect(await director.applyEdit({ kind: 'skipTo', itemId: lineup.all()[lineup.size() - 1]!.id })).toMatchObject({
+                ok: false,
+                reason: 'not-a-record',
+            });
+            expect(resets).toEqual([]);
+        });
+    });
 });
 
 // A replan arrives here already chosen and already resolved, because the job that generated it

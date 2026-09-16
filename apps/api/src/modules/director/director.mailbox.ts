@@ -57,7 +57,10 @@ export type OrderEdit =
     // The whole `RundownTrack`, not a trackId, for the reason `insertSegment` carries `segmentKind`:
     // `DirectorConsoleService.addTrackToOrder` has already resolved which provider binding will
     // play and confirmed its audio is local, and the order would otherwise have to do both again.
-    | { kind: 'insertTrack'; track: RundownTrack; atIndex?: number };
+    | { kind: 'insertTrack'; track: RundownTrack; atIndex?: number }
+    // The order half of a skip to one record. Cutting what is on air is the transport's half, done by
+    // the caller once this has answered, since the mailbox must not sit waiting out a boundary.
+    | { kind: 'skipTo'; itemId: string };
 
 /**
  * Something the director has been asked to do.

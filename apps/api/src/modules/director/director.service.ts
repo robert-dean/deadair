@@ -1619,6 +1619,7 @@ export class DirectorService {
     private async edit(edit: OrderEdit): Promise<EditResult> {
         const lineup = this.lineup;
         if (!lineup) return { ok: false, reason: 'not-found', message: 'the station has nothing on air to edit' };
+        if (edit.kind === 'skipTo') return await this.skipTo(lineup, edit.itemId);
 
         const { result, dropped } = this.applyTo(lineup, edit);
         if (!result.ok) return result;
@@ -1635,6 +1636,36 @@ export class DirectorService {
         // An edit to the tail says nothing about what is already with the player, so nothing is
         // retracted. It can leave room for something new, though — a removal shortens the order —
         // so the pass runs.
+        await this.commit();
+        return result;
+    }
+
+    /**
+     * Somebody at the desk wants a record further down the order to be the next thing heard.
+     *
+     * The one edit that reaches into what the player is HOLDING, which every other edit is refused:
+     * the operator is asking for exactly that. What the player holds from in front of the target has
+     * to be taken back, or it airs first, so the rundown is retracted — the same take-back a change
+     * of programming makes, and for the same reason it leaves what is on air alone. Cutting that is
+     * the caller's half, done through the transport once this has answered.
+     *
+     * Only when the player holds something the skip passed over. When the target is already the next
+     * thing it holds, taking the queue back would throw away a record it has already fetched and send
+     * the mount to the bed while the same record downloads again.
+     */
+    private async skipTo(lineup: StationLineup, itemId: string): Promise<EditResult> {
+        const { result, dropped, held } = lineup.skipTo(itemId);
+        if (!result.ok) return result;
+
+        if (held) this.rundown.retract();
+
+        await this.persist();
+        // After the write, on {@link edit}'s argument. A break in front of the target was written
+        // about records the listener is not going to hear, and one being written right now would
+        // finish and sit in the library looking like it is still coming.
+        await this.retireSegments(lineup, dropped, 'the operator skipped past this break');
+        // Prepares the target, which is now the first thing planned, so the transport has it to
+        // hand over before the caller cuts what is on air.
         await this.commit();
         return result;
     }
@@ -1775,7 +1806,7 @@ export class DirectorService {
      * or — for a removal — leave it in the order carrying a mark. Answering in one shape keeps
      * {@link edit} from having to know which of the four is the odd one.
      */
-    private applyTo(lineup: StationLineup, edit: OrderEdit): ShuffleResult {
+    private applyTo(lineup: StationLineup, edit: Exclude<OrderEdit, { kind: 'skipTo' }>): ShuffleResult {
         switch (edit.kind) {
             case 'shuffle':
                 return lineup.shuffleRemaining(edit.smart === undefined ? undefined : { recentSongKeys: new Set(edit.smart.recentSongKeys) });

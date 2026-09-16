@@ -689,6 +689,97 @@ describe('StationLineup putting a track back at a position', () => {
     });
 });
 
+// An operator's "skip to". The one edit that reaches into what the player is holding, so what is
+// tested is where it stops: nothing on air is touched, nothing behind the target moves, and the
+// caller is told whether the player was holding anything it passed over.
+describe('StationLineup skipping to a record', () => {
+    const idOf = (lineup: StationLineup, externalId: string): string =>
+        lineup.all().find(item => item.kind === 'track' && item.track.externalId === externalId)!.id;
+
+    it('passes over everything still to come in front of the record, and nothing behind it', () => {
+        const lineup = lineupWith(['a', 'b', 'c', 'd', 'e']);
+        lineup.markAiring(hand(lineup, 1)[0]!.id);
+        hand(lineup, 1);
+
+        const outcome = lineup.skipTo(idOf(lineup, 'd'));
+
+        expect(outcome.result).toEqual({ ok: true });
+        // The record on air is still going out: cutting it is the transport's half, and the boundary
+        // is what calls it played.
+        expect(statesOf(lineup)).toEqual(['airing', 'skipped', 'skipped', 'planned', 'planned']);
+        expect(idsOf(outcome.dropped)).toEqual(['b', 'c']);
+        expect(idsOf(lineup.nextPlanned(1))).toEqual(['d']);
+    });
+
+    it('says the player was holding something it passed over, which is what makes the caller take the queue back', () => {
+        const lineup = lineupWith(['a', 'b', 'c']);
+        hand(lineup, 2);
+
+        expect(lineup.skipTo(idOf(lineup, 'c')).held).toBe(true);
+    });
+
+    it('says the player held nothing in front when the target is already the next thing it holds', () => {
+        // The cheap case, and worth keeping cheap: taking the queue back would throw away a record
+        // the player has already fetched.
+        const lineup = lineupWith(['a', 'b', 'c']);
+        lineup.markAiring(hand(lineup, 1)[0]!.id);
+        hand(lineup, 1);
+
+        const outcome = lineup.skipTo(idOf(lineup, 'b'));
+
+        expect(outcome).toMatchObject({ result: { ok: true }, dropped: [], held: false });
+        expect(statesOf(lineup)).toEqual(['airing', 'handed', 'planned']);
+    });
+
+    it('passes over the breaks in front of it too, cues included', () => {
+        const lineup = lineupWith(['a', 'b']);
+        lineup.insertSegment('link-1', 1);
+        lineup.insertSegment('cue-1', 2, { atMs: 4_000 });
+
+        const outcome = lineup.skipTo(idOf(lineup, 'b'));
+
+        expect(idsOf(outcome.dropped)).toEqual(['a', 'segment:link-1', 'segment:cue-1']);
+        expect(statesOf(lineup)).toEqual(['skipped', 'skipped', 'skipped', 'planned']);
+    });
+
+    it('leaves what is already behind the station as it was', () => {
+        const lineup = lineupWith(['a', 'b', 'c', 'd']);
+        lineup.markAiring(hand(lineup, 1)[0]!.id);
+        lineup.markAiring(hand(lineup, 1)[0]!.id);
+        lineup.remove(idOf(lineup, 'c'));
+
+        const outcome = lineup.skipTo(idOf(lineup, 'd'));
+
+        expect(idsOf(outcome.dropped)).toEqual([]);
+        expect(statesOf(lineup)).toEqual(['played', 'airing', 'planned']);
+    });
+
+    it('refuses a segment, whose words are about records the skip would pass over', () => {
+        const lineup = lineupWith(['a', 'b']);
+        lineup.insertSegment('link-1', 1);
+        const segment = lineup.all()[1]!;
+
+        expect(lineup.skipTo(segment.id).result).toMatchObject({ ok: false, reason: 'not-a-record' });
+        expect(statesOf(lineup)).toEqual(['planned', 'planned', 'planned']);
+    });
+
+    it('refuses the record already on air, and one behind the station', () => {
+        const lineup = lineupWith(['a', 'b', 'c']);
+        lineup.markAiring(hand(lineup, 1)[0]!.id);
+        lineup.markAiring(hand(lineup, 1)[0]!.id);
+
+        expect(lineup.skipTo(idOf(lineup, 'b')).result).toMatchObject({ ok: false, reason: 'already-aired' });
+        expect(lineup.skipTo(idOf(lineup, 'a')).result).toMatchObject({ ok: false, reason: 'already-aired' });
+        expect(statesOf(lineup)).toEqual(['played', 'airing', 'planned']);
+    });
+
+    it('refuses an item the order does not hold', () => {
+        const lineup = lineupWith(['a']);
+
+        expect(lineup.skipTo('nope').result).toMatchObject({ ok: false, reason: 'not-found' });
+    });
+});
+
 // A playlist mixing in its neighbours. Each record names the line it was chosen to sound like, and
 // the rule that shapes everything below is that a break's words are checked against the records
 // either side of it: an insert may only ever go between two records with nothing between them.

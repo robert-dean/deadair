@@ -16,8 +16,9 @@ import type {
     PluginSecrets,
     PluginStorage,
     PluginTrackFetcher,
+    ProviderTrack,
 } from '@deadair/plugin-sdk';
-import { SpotifyShimClient } from '#modules/stream/spotify.shim.client.js';
+import { SpotifyShimClient, type FetchedPlaylistTrack } from '#modules/stream/spotify.shim.client.js';
 import { PluginConfigService } from './plugin.config.service.js';
 import { invocationRemainingMs, invocationSignal } from './plugin.invocation.deadline.js';
 import { PLUGIN_INVOKE_TIMEOUT_MS } from './plugin.invoker.js';
@@ -823,9 +824,9 @@ export class PluginHostFactory {
     }
 
     /**
-     * The station's track fetcher, for the one provider shape that cannot mint a
-     * URL of its own: audio that is reachable, but only to a process speaking a
-     * protocol the plugin does not.
+     * The station's track fetcher, for the one provider shape that cannot ask its
+     * own provider: audio, or a playlist, that is reachable only to a process
+     * speaking a protocol the plugin does not.
      *
      * Wired straight to the Spotify shim rather than to a registry of fetchers,
      * because there is exactly one and inventing a lookup for it would describe a
@@ -847,6 +848,19 @@ export class PluginHostFactory {
             serve: async request => {
                 guard();
                 return this.spotifyShimClient.serve(request.trackId, request.session);
+            },
+            playlistTracks: async request => {
+                guard();
+                const answer = await this.spotifyShimClient.playlistTracks(request.playlistId, { offset: request.offset, limit: request.limit });
+                if (answer.ok) return answer.value.tracks.map(toProviderTrack);
+
+                // 503 is this station having no fetcher set up, which the SDK spells `undefined` and
+                // a plugin answers exactly as it did before this method existed. Anything else is
+                // the fetcher having tried and failed, which is a provider failure and belongs to
+                // the plugin's own error handling: `upstream` rather than `internal`, because what
+                // went wrong is not the plugin's doing.
+                if (answer.status === 503) return undefined;
+                throw new PluginError(answer.message).withCode('upstream');
             },
         };
     }
@@ -1487,4 +1501,28 @@ export class PluginHostFactory {
             aborted ? 'timeout' : 'upstream',
         );
     }
+}
+
+/**
+ * One track as the fetcher describes it, as the SDK's own shape.
+ *
+ * Every optional field is carried only when the fetcher actually said, which is the same rule the
+ * Spotify plugin's own mapping follows: a station reads a missing advisory as "nobody vouched for
+ * this" and a missing year as "any era", and defaulting either one here would be this file
+ * inventing a fact about a record. `playable` has no counterpart and is dropped: what the station
+ * does about a copy it cannot fetch belongs to the fetch, which answers 410 and writes it off.
+ */
+function toProviderTrack(track: FetchedPlaylistTrack): ProviderTrack {
+    return {
+        id: track.id,
+        title: track.title,
+        artists: track.artists ?? [],
+        album: track.album,
+        durationMs: track.durationMs,
+        isrc: track.isrc,
+        artworkUrl: track.artworkUrl,
+        ...(typeof track.popularity === 'number' ? { popularity: track.popularity } : {}),
+        ...(typeof track.year === 'number' ? { year: track.year } : {}),
+        ...(track.advisory === 'clean' || track.advisory === 'explicit' ? { advisory: track.advisory } : {}),
+    };
 }

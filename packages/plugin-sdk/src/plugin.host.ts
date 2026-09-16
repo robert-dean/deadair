@@ -12,7 +12,7 @@
  * file: they go over HTTP to the track fetcher, so they stay asserted.
  */
 
-import type { ProviderStream } from './capabilities/music.provider.js';
+import type { ProviderStream, ProviderTrack } from './capabilities/music.provider.js';
 
 /** Structured logging. Goes to the host's logger, tagged with the plugin id. */
 export interface PluginLogger {
@@ -116,22 +116,41 @@ export interface TrackFetchRequest {
 }
 
 /**
+ * One page of a playlist, asked of the fetcher rather than of the provider's own API.
+ *
+ * No session, unlike {@link TrackFetchRequest}: the fetcher reads on the login IT holds. That is
+ * not a convenience — a token minted for the plugin's own app is refused for this by the provider,
+ * which is the whole reason the fetcher has an authorization of its own.
+ */
+export interface PlaylistTracksRequest {
+    /** Provider-scoped playlist id, exactly as the plugin's own listing reports it. */
+    playlistId: string;
+    /** Where in the playlist to read from. Absent means the start. */
+    offset?: number;
+    /** How many tracks to describe. Absent lets the fetcher choose its own page size. */
+    limit?: number;
+}
+
+/**
  * The station's own track fetcher: a helper process, running beside the audio
- * player, that speaks a provider's protocol and re-serves the result as plain
- * audio over HTTP.
+ * player, that speaks a provider's protocol on a login of its own.
  *
- * This exists for one shape of provider: the audio is reachable, but only to a
- * process speaking a protocol the plugin does not. Spotify is the reason —
- * its tracks come off the CDN encrypted and are fetched by a separate binary
- * beside Liquidsoap. Without this, such a provider could not implement
- * `MusicProviderStream.resolveStreamUrl` at all, because there is no URL for it
- * to mint. Named in backticks rather than linked: importing that type solely to
- * make a doc reference clickable leaves an import nothing uses, which is a lint
- * failure in a package whose gate is zero warnings.
+ * This exists for one shape of provider: what the plugin needs is reachable,
+ * but only to a process speaking a protocol the plugin does not. Spotify is
+ * the reason on both counts. Its tracks come off the CDN encrypted, so there
+ * is no URL for `MusicProviderStream.resolveStreamUrl` to mint and a separate
+ * binary beside Liquidsoap fetches them instead; and since February 2026 its
+ * Web API hands a playlist's items only to the account that owns them, while
+ * that same binary — holding the streaming client's own session rather than a
+ * developer app's — can still read the ones the account merely follows. Named
+ * in backticks rather than linked: importing that type solely to make a doc
+ * reference clickable leaves an import nothing uses, which is a lint failure
+ * in a package whose gate is zero warnings.
  *
- * Do NOT reach for this when your provider's audio can simply be fetched. Mint
- * the URL yourself and keep your credentials to yourself, which is both simpler
- * and narrower. Requires the `trackFetcher` permission.
+ * Do NOT reach for this for anything you can ask your provider for directly.
+ * Mint the URL yourself, read your own API, and keep your credentials to
+ * yourself, which is both simpler and narrower. Requires the `trackFetcher`
+ * permission.
  */
 export interface PluginTrackFetcher {
     /**
@@ -143,6 +162,25 @@ export interface PluginTrackFetcher {
      * stream side up is a normal state, not a fault.
      */
     serve(request: TrackFetchRequest): Promise<ProviderStream | undefined>;
+    /**
+     * Read a page of a playlist your own API will not hand over.
+     *
+     * For the playlist your provider lists but refuses the contents of. Ask
+     * your API first and reach for this only when it says no: this is a second
+     * protocol, on a session the station also airs from, and it is the
+     * expensive way to learn what you could have been told.
+     *
+     * The two failures are deliberately different. `undefined` is "this
+     * station has no fetcher", exactly as {@link PluginTrackFetcher.serve}
+     * means it, and a plugin should answer whatever it would have answered
+     * before this method existed. A THROW is the fetcher having tried and
+     * failed, which is a provider failure like any other.
+     *
+     * Tracks come back in the playlist's own order, and nothing is left out of
+     * a page: a page shorter than the one asked for means the end of the
+     * playlist, so a caller can walk one the same way it walks its own API's.
+     */
+    playlistTracks(request: PlaylistTracksRequest): Promise<ProviderTrack[] | undefined>;
 }
 
 /**

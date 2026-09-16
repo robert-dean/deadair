@@ -1,6 +1,6 @@
 import { vi } from 'vitest';
 
-import type { HostFetchInit, HostFetchMethod, PluginHost, ProviderStream } from '../index.js';
+import type { HostFetchInit, HostFetchMethod, PluginHost, ProviderStream, ProviderTrack } from '../index.js';
 
 /**
  * Shipped from the SDK rather than copied into each plugin, which three of them
@@ -60,6 +60,12 @@ export interface FakePluginHost extends PluginHost {
     getVaultTokens(): Record<string, string> | undefined;
     /** Set what `host.trackFetcher.serve()` answers with; `undefined` means "this station has no fetcher". */
     seedFetchedTrack(stream: ProviderStream | undefined): void;
+    /**
+     * Set what `host.trackFetcher.playlistTracks()` answers with. `undefined` means "this station
+     * has no fetcher"; pass an `Error` to make it throw, which is the fetcher having tried and
+     * failed and is a different case for a plugin to handle.
+     */
+    seedFetchedPlaylist(tracks: ProviderTrack[] | Error | undefined): void;
 }
 
 /**
@@ -123,6 +129,9 @@ export function createFakePluginHost(): FakePluginHost {
     let tokens: Record<string, string> | undefined;
     let remainingMs = DEFAULT_REMAINING_MS;
     let fetchedTrack: ProviderStream | undefined = { url: 'http://127.0.0.1:3679/track/song-1?t=signed', expiresAt: 1_893_456_000_000 };
+    // Nothing by default: a plugin should ask its own API first, and a test that means to exercise
+    // the fetcher says so.
+    let fetchedPlaylist: ProviderTrack[] | Error | undefined;
 
     const fetchImpl = vi.fn(async (url: string, init?: HostFetchInit): Promise<Response> => {
         calls.push({ url, method: init?.method, headers: init?.headers, body: init?.body });
@@ -159,7 +168,13 @@ export function createFakePluginHost(): FakePluginHost {
             getTokens: vi.fn(async () => tokens),
         },
         events: { emit: vi.fn() },
-        trackFetcher: { serve: vi.fn(async () => fetchedTrack) },
+        trackFetcher: {
+            serve: vi.fn(async () => fetchedTrack),
+            playlistTracks: vi.fn(async () => {
+                if (fetchedPlaylist instanceof Error) throw fetchedPlaylist;
+                return fetchedPlaylist;
+            }),
+        },
         calls,
         seedRemainingMs(ms) {
             remainingMs = ms;
@@ -193,6 +208,9 @@ export function createFakePluginHost(): FakePluginHost {
         },
         seedFetchedTrack(stream) {
             fetchedTrack = stream;
+        },
+        seedFetchedPlaylist(tracks) {
+            fetchedPlaylist = tracks;
         },
     };
 

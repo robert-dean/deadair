@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import type { PluginOAuth, TrackFetchRequest } from '../src/plugin.host.js';
+import type { PlaylistTracksRequest, PluginOAuth, TrackFetchRequest } from '../src/plugin.host.js';
 import type { PlaybackState, ProviderPlaylist, ProviderStream, ProviderTrack } from '../src/capabilities/music.provider.js';
 import type {
     AlbumEnrichment,
@@ -336,6 +336,12 @@ export const providerPlaylistFixture: ProviderPlaylist = {
     trackCount: 12,
     artworkUrl: 'https://images.example.com/late-night.jpg',
     madeByProvider: true,
+};
+
+export const playlistTracksRequestFixture: PlaylistTracksRequest = {
+    playlistId: 'pl_1',
+    offset: 50,
+    limit: 50,
 };
 
 export const providerStreamFixture: ProviderStream = {

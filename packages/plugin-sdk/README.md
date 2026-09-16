@@ -454,6 +454,37 @@ card on your plugin's page, where the operator authorizes the fetcher itself.
 Declaring `stream` does not: a plugin that mints its own URLs has nothing there to
 authorize.
 
+### When your own API will not hand over a playlist
+
+The fetcher holds a login of its own, and that login is sometimes allowed to read
+what your API refuses you. Spotify is the case again: since February 2026 its Web
+API returns a playlist's items only to the account that owns them, so a playlist
+the account merely follows lists fine and answers 403 for its contents — while the
+fetcher, which speaks the streaming client's protocol, can still read it.
+
+```ts
+async getPlaylistTracks(playlistId: string, options?: GetPlaylistTracksOptions): Promise<ProviderTrack[]> {
+    try {
+        return await this.readFromYourApi(playlistId, options);   // always ask your own API first
+    } catch (error) {
+        if (!isRefusal(error)) throw error;
+        const tracks = await host.trackFetcher.playlistTracks({ playlistId, ...options });
+        if (!tracks) throw error;                                 // no fetcher here: answer as you did before
+        return tracks;
+    }
+}
+```
+
+The two failures mean different things. `undefined` is "this station has no
+fetcher", the same as `serve`, and your plugin should answer whatever it would
+have answered without this method. A throw is the fetcher having tried and failed,
+which is a provider failure like any other.
+
+Nothing is left out of a page, so a short page means the end of the playlist and
+you can walk one exactly as you walk your own API's. **Ask your API first.** This
+is a second protocol on a session the station also airs from, and spending it to
+learn what you could have been told is the way to make a listing cost a broadcast.
+
 ## Enriching artists and albums, not just tracks
 
 `enrichTrack` is the only method an enrichment plugin must write.

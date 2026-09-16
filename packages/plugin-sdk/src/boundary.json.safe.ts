@@ -75,7 +75,7 @@ import type {
 import type { LlmMessage, LlmModelInfo, LlmRequest, LlmResult, LlmToolCall, LlmToolDeclaration, LlmUsage } from './capabilities/llm.js';
 import type { SpeechRequest, SpeechVoice } from './capabilities/speech.js';
 import type { ConfigField, ConfigFieldColumn, ConfigFieldOption } from './plugin.config.fields.js';
-import type { TrackFetchRequest, TrackFetchSession } from './plugin.host.js';
+import type { PlaylistTracksRequest, TrackFetchRequest, TrackFetchSession } from './plugin.host.js';
 import type { PluginConnectionResult } from './plugin.lifecycle.js';
 import type { PluginManifest } from './plugin.manifest.js';
 import type { NetworkPermissionFromConfig, NetworkPermissionHost, PluginGrantRequest, PluginPermissions } from './plugin.permissions.js';
@@ -160,6 +160,7 @@ export type AssertAllBoundaryPayloadsAreJsonSafe = AssertAllTrue<{
     ProviderStream: IsJsonSafe<ProviderStream>;
     TrackFetchSession: IsJsonSafe<TrackFetchSession>;
     TrackFetchRequest: IsJsonSafe<TrackFetchRequest>;
+    PlaylistTracksRequest: IsJsonSafe<PlaylistTracksRequest>;
     SearchTracksOptions: IsJsonSafe<SearchTracksOptions>;
     ListPlaylistsOptions: IsJsonSafe<ListPlaylistsOptions>;
     GetPlaylistTracksOptions: IsJsonSafe<GetPlaylistTracksOptions>;
@@ -234,6 +235,7 @@ export const JSON_SAFE_PAYLOAD_TYPES = [
     'ProviderStream',
     'TrackFetchSession',
     'TrackFetchRequest',
+    'PlaylistTracksRequest',
     'SearchTracksOptions',
     'ListPlaylistsOptions',
     'GetPlaylistTracksOptions',

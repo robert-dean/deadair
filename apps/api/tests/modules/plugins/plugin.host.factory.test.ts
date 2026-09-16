@@ -1826,3 +1826,148 @@ describe('PLUGIN_FETCH_TIMEOUT_MS', () => {
         expect(PLUGIN_FETCH_TIMEOUT_MS).toBe(6_000);
     });
 });
+
+// The two capability calls that leave the app for the station's own binary. Neither had a test of
+// its own: the guard and the delegation were only ever exercised by whatever happened to call them.
+describe('PluginHostFactory.createHost trackFetcher', () => {
+    const fetching = (over: Partial<Record<'serve' | 'playlistTracks', unknown>> = {}) => {
+        const shim = {
+            serve: vi.fn(async () => ({ url: 'http://127.0.0.1:3679/track/t1?t=signed' })),
+            playlistTracks: vi.fn(async () => ({ ok: true, value: { id: 'pl-1', total: 1, offset: 0, tracks: [] } })),
+            ...over,
+        };
+        const stub = stubContainer([
+            [PluginConfigService, unusedConfigService()],
+            [PluginStorageRepository, new FakeStorageRepository() as unknown as PluginStorageRepository],
+        ]);
+        const built = new PluginHostFactory(
+            new PluginHostFactoryOptions('https://host.example', resolving),
+            stub.container,
+            stubPluginLog().log,
+            shim as never,
+            stubGrants(),
+        );
+        return { factory: built, shim };
+    };
+
+    const declaring = () => manifest({ permissions: { network: [], storage: false, oauth: false, trackFetcher: true } });
+
+    it('refuses a plugin that did not declare the permission, on both calls', async () => {
+        const { factory: built, shim } = fetching();
+        const host = built.createHost(manifest());
+
+        await expect(host.trackFetcher.serve({ trackId: 't1', session: { username: 'u', accessToken: 'a' } })).rejects.toMatchObject({
+            code: 'internal',
+        });
+        await expect(host.trackFetcher.playlistTracks({ playlistId: 'pl-1' })).rejects.toMatchObject({ code: 'internal' });
+        expect(shim.serve).not.toHaveBeenCalled();
+        expect(shim.playlistTracks).not.toHaveBeenCalled();
+    });
+
+    it('lends the fetcher the session it was handed, and answers with the URL', async () => {
+        const { factory: built, shim } = fetching();
+        const host = built.createHost(declaring());
+
+        const stream = await host.trackFetcher.serve({ trackId: 't1', session: { username: 'station', accessToken: 'a-token' } });
+
+        expect(stream).toMatchObject({ url: expect.stringContaining('/track/t1') });
+        expect(shim.serve).toHaveBeenCalledWith('t1', { username: 'station', accessToken: 'a-token' });
+    });
+
+    it("passes a playlist page through, as the SDK's own track shape", async () => {
+        const { factory: built, shim } = fetching({
+            playlistTracks: vi.fn(async () => ({
+                ok: true,
+                value: {
+                    id: 'pl-1',
+                    total: 2,
+                    offset: 50,
+                    tracks: [
+                        {
+                            id: 't1',
+                            title: 'A Record',
+                            artists: ['An Artist'],
+                            album: 'A Release',
+                            durationMs: 1000,
+                            isrc: 'GB-XXX',
+                            year: 1994,
+                            popularity: 42,
+                            advisory: 'explicit',
+                            artworkUrl: 'https://i.scdn.co/image/abc',
+                            playable: true,
+                        },
+                    ],
+                },
+            })),
+        });
+        const host = built.createHost(declaring());
+
+        const tracks = await host.trackFetcher.playlistTracks({ playlistId: 'pl-1', offset: 50, limit: 50 });
+
+        expect(shim.playlistTracks).toHaveBeenCalledWith('pl-1', { offset: 50, limit: 50 });
+        expect(tracks).toEqual([
+            {
+                id: 't1',
+                title: 'A Record',
+                artists: ['An Artist'],
+                album: 'A Release',
+                durationMs: 1000,
+                isrc: 'GB-XXX',
+                artworkUrl: 'https://i.scdn.co/image/abc',
+                popularity: 42,
+                year: 1994,
+                advisory: 'explicit',
+            },
+        ]);
+    });
+
+    // A station reads a missing advisory as "nobody vouched for this" and a missing year as "any
+    // era". Filling either one in here would be this layer inventing a fact about a record.
+    it('carries only what the fetcher actually said about a track', async () => {
+        const { factory: built } = fetching({
+            playlistTracks: vi.fn(async () => ({
+                ok: true,
+                value: { id: 'pl-1', total: 1, offset: 0, tracks: [{ id: 't1', title: 'A Record', playable: false }] },
+            })),
+        });
+        const host = built.createHost(declaring());
+
+        const tracks = await host.trackFetcher.playlistTracks({ playlistId: 'pl-1' });
+
+        expect(tracks?.[0]).toEqual({
+            id: 't1',
+            title: 'A Record',
+            artists: [],
+            album: undefined,
+            durationMs: undefined,
+            isrc: undefined,
+            artworkUrl: undefined,
+        });
+        expect(tracks?.[0]).not.toHaveProperty('advisory');
+        expect(tracks?.[0]).not.toHaveProperty('year');
+        expect(tracks?.[0]).not.toHaveProperty('popularity');
+    });
+
+    // The station having no fetcher is a normal state, not a fault: the plugin answers whatever it
+    // answered before this method existed.
+    it('answers undefined when there is no fetcher set up here', async () => {
+        const { factory: built } = fetching({
+            playlistTracks: vi.fn(async () => ({ ok: false, status: 503, message: 'the stream half of this install has not been set up yet' })),
+        });
+        const host = built.createHost(declaring());
+
+        await expect(host.trackFetcher.playlistTracks({ playlistId: 'pl-1' })).resolves.toBeUndefined();
+    });
+
+    it('throws what the fetcher said when it tried and failed', async () => {
+        const { factory: built } = fetching({
+            playlistTracks: vi.fn(async () => ({ ok: false, status: 502, message: 'playlist read failed: the context is loading' })),
+        });
+        const host = built.createHost(declaring());
+
+        await expect(host.trackFetcher.playlistTracks({ playlistId: 'pl-1' })).rejects.toMatchObject({
+            code: 'upstream',
+            message: 'playlist read failed: the context is loading',
+        });
+    });
+});

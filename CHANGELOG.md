@@ -9,6 +9,12 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.13.1] — 2026-09-16
+
+- Cached artwork is served under a filename as well as under its id: `GET /art/{id}/{filename}` answers the same bytes, chosen by the id, and catalog reads now mint `art/<id>/cover.<ext>` from the extension the store recorded. This is what a hardware player needs before it will fetch a cover at all, since it decides whether a URL is a picture by looking at the URL rather than by asking. An asset with no recorded extension keeps its bare `art/<id>`, and every existing URL still works.
+- A setting that says "leave empty to …" now shows what empty actually comes to. Three of them do: the public URL falls back to the address the station was deployed with (`SPA_BASE_URL`, then `APP_BASE_URL`), the advertised hostname to the public URL's, and the station timezone to whatever the server is set to. Until now the console could only repeat the sentence, because the values are worked out server-side and nothing on the wire carried them, so an empty Public URL showed `https://` — a hint, not the address listeners are actually being sent to. `GET /settings` gained a `derived` map beside `values` and `configured`, and the console draws each entry twice: as the empty field's watermark, and as a line under it ("Using https://… while this is empty."), because a placeholder alone reads as an example of what to type and is not reliably announced to a screen reader. Every entry is what the station WOULD use with the box left empty rather than what is in force, so a field somebody has filled in still reports what clearing it would mean, and the line answers to what is typed rather than to what is stored. The advertised hostname's `localhost` floor is carried through rather than hidden: that is genuinely what Icecast calls itself with nothing to go on, and it is the thing the live station's empty public URL was quietly doing.
+- The artwork the mount broadcasts is now only ever the station's own. A provider's cover URL is never put on the wire: a player will not fetch one, since it ends in an id rather than in a picture's name, and the field reaches every listener, so a Subsonic cover link would have handed the operator's own credentials to anybody who connected. A record whose cover the station has cached carries it, and anything else carries the station's logo.
+
 ## [0.13.0] — 2026-09-16
 
 - A break the model nearly got right is now put back to it once, rather than going straight to the station's fallback phrasings. When a script is refused for something the model can act on — it did not sound like the character, it used wording the persona forbids, it reached for a signature just used, it read a sample line back, it named the wrong part of the day, or it answered with nothing — the same writer is asked again, told which rule it broke and shown what was refused. Refusals about the records themselves (a break about neither of them, a record announced on the wrong side, an invented year) are not retried: those mean the model misread what it was given, and asking again invites it to invent something that fits. The second ask waits only as long as the break's own deadline allows, so it can never make the station late, and both attempts are recorded, so the refusal and the rewrite are both in the history.
@@ -196,7 +202,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.13.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.13.1...HEAD
+[0.13.1]: https://github.com/robert-dean/deadair/compare/v0.13.0...v0.13.1
 [0.13.0]: https://github.com/robert-dean/deadair/compare/v0.12.3...v0.13.0
 [0.12.3]: https://github.com/robert-dean/deadair/compare/v0.12.2...v0.12.3
 [0.12.2]: https://github.com/robert-dean/deadair/compare/v0.12.1...v0.12.2

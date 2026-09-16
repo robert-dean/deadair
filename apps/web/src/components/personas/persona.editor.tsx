@@ -20,12 +20,10 @@ import { IconDice5, IconPlayerPauseFilled, IconPlayerPlayFilled } from '@tabler/
 import { useForm } from '@mantine/form';
 import type { Persona, PersonaDraftView, PersonaInput } from '@deadair/sdk';
 
-/** What a character is for. Mirrors the API's own enum; absent there means `host`. */
-type PersonaKind = NonNullable<PersonaInput['kind']>;
-
 import { useGeneratePersona, useRehearsePersona } from '../../api/personas.queries';
 import { usePads } from '../../api/pads.queries';
 import { usePhone } from '../shared/use.phone';
+import type { PersonaKind } from './persona.kind';
 import { fetchVoiceSample, useVoices } from '../../api/voices.queries';
 import { useVoicePreview } from '../voices/voice.preview';
 import { suggestAirName } from './air.names';

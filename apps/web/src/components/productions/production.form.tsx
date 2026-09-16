@@ -3,6 +3,7 @@ import { useForm } from '@mantine/form';
 import type { ProductionRequest } from '@deadair/sdk';
 
 import { usePersonas } from '../../api/personas.queries';
+import { presents } from '../personas/persona.kind';
 import { ErrorAlert } from '../shared/error.alert';
 
 /**
@@ -115,10 +116,12 @@ export function ProductionForm({ pending, error, onSubmit, onCancel }: Productio
                             clearable
                             {...form.getInputProps('mode')}
                         />
+                        {/* Who PRESENTS it, so hosts only: the callers a production casts are chosen per
+                            beat and are not offered here. See `presents`. */}
                         <Select
                             label="Presenter"
                             description="Leave empty and whoever is on air when a pass runs presents it."
-                            data={(personas.data?.personas ?? []).map(persona => ({ value: persona.id, label: persona.label }))}
+                            data={(personas.data?.personas ?? []).filter(presents).map(persona => ({ value: persona.id, label: persona.label }))}
                             clearable
                             searchable
                             {...form.getInputProps('personaId')}

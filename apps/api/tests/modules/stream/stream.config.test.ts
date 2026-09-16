@@ -213,6 +213,23 @@ describe('writeStreamConfig', () => {
         expect(parseEnv(raw).get('STREAM_NAME')).toBe("Rock 'n' Roll Radio");
     });
 
+    it("hands radio.liq the station's logo, off the public URL, for the labels it puts up itself", () => {
+        // The ICY StreamUrl for the bed and for off air. The same string `listenerArtwork`
+        // makes for a break, rendered here so the two cannot drift apart; the trailing slash
+        // an operator may type must not become a double one.
+        const { assetsDir, configDir } = dirs();
+        writeStreamConfig({ settings: settings({ publicUrl: 'https://radio.test/' }), playout: playout(), assetsDir, configDir });
+
+        expect(parseEnv(readFileSync(join(configDir, 'radio.env'), 'utf8')).get('STREAM_ART_URL')).toBe('https://radio.test/logo.png');
+    });
+
+    it('hands radio.liq no artwork without a public URL, since nothing could fetch it', () => {
+        const { assetsDir, configDir } = dirs();
+        writeStreamConfig({ settings: settings({ publicUrl: '' }), playout: playout(), assetsDir, configDir });
+
+        expect(parseEnv(readFileSync(join(configDir, 'radio.env'), 'utf8')).get('STREAM_ART_URL')).toBe('');
+    });
+
     it('escapes XML metacharacters in a rendered token', () => {
         const { assetsDir, configDir } = dirs();
         writeStreamConfig({ settings: settings({ title: 'Rock & Roll <Radio>' }), playout: playout(), assetsDir, configDir });

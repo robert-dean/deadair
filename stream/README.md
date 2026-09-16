@@ -117,7 +117,11 @@ variants of one another.** `icy_metadata : [string]` is the list of metadata FIE
 carries (`["song", "title", "artist", …]`); `send_icy_metadata : bool?` is whether to send one at
 all, guessed from the container when null. Passing the switch to the field list is a type error
 rather than a wrong setting, so it costs a crash loop rather than a mislabelled mount — the better
-failure, but only once you know which of the two you are holding.
+failure, but only once you know which of the two you are holding. **And `icy_metadata` is the
+second gate, not the only one:** everything an output is handed has already been through
+`settings.encoder.metadata.export`, whose default list does not include `url`, so a field named in
+`icy_metadata` alone never leaves Liquidsoap. Measured on 2.4.5, and recorded beside the `.set` in
+`radio.liq` that appends it.
 
 To test whether an encoder exists in the pinned image at all, which decides whether a mount can be
 offered: write it to a file rather than passing an expression, and keep `%mp3` in the list as a
@@ -406,7 +410,7 @@ an `X-Playout-Secret` header:
 | `POST /control/skip`     | ends what is on air; the queue advances to the next item at once                 |
 | `POST /control/onair`    | renews deadair's lease on the mount for `CONTROL_TTL_S`                          |
 | `POST /control/offair`   | hands the lease back now: off air at once, queue dropped                         |
-| `POST /control/metadata` | body is one finished label line; puts it into the stream at the current position |
+| `POST /control/metadata` | line one is the finished label, line two (optional) the artwork URL; puts both into the stream at the current position |
 
 Every one of them answers with the same **reading** of the queue, so a mutation's own response is
 already the state it produced:

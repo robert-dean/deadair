@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { chmodSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { type StreamMount, type StreamSettings, bytesPerSecond, MOUNT_PATHS, streamMounts } from './stream.settings.js';
+import { bytesPerSecond, MOUNT_PATHS, stationArtwork, streamMounts, type StreamMount, type StreamSettings } from './stream.settings.js';
 import { errorText } from '#modules/shared/error.text.js';
 
 /**
@@ -458,6 +458,11 @@ export function writeStreamConfig({
             `STREAM_DESCRIPTION=${shell(settings.description)}`,
             `STREAM_GENRE=${shell(settings.genre)}`,
             `STREAM_URL=${shell(settings.publicUrl)}`,
+            // The station's own face, for the labels radio.liq puts up itself (the bed, off
+            // air): the console's logo on the public origin, or nothing without one. The app
+            // makes the same URL for a break through `listenerArtwork`; rendering it here
+            // keeps the two the same string rather than two guesses at one.
+            `STREAM_ART_URL=${shell(stationArtwork(settings.publicUrl))}`,
             // Icecast learns the stream's language only from the Content-Language header
             // the source sends, so this reaches it through radio.liq rather than through
             // icecast.xml. Empty means the header is not sent at all.

@@ -181,6 +181,30 @@ music = normalize(target=-13., music_bed)
 # and the label the mount carries whenever what is playing is NOT a programme item.
 stream_name = environment.get("STREAM_NAME", default="Static Between Stations")
 
+# The station's own face, for the same slot as its name: what a listener's player is told to
+# SHOW whenever what is playing is the station itself rather than a record. The app renders it
+# from `stream.publicUrl` (`stationArtwork` in stream.settings.ts); empty means the mount carries
+# no artwork, which is the right answer when nothing outside this network could fetch one.
+#
+# It rides the ICY `StreamUrl` field, a second field beside the title that some players fetch
+# and draw (step 6 puts `url` on the list of fields an update carries). Icecast KEEPS that tag
+# across an update that does not mention it, so a label that says nothing about artwork leaves
+# the previous record's cover up under the station's name. Every label this script puts up
+# therefore says what to show, and this is what it says. The app does the same for every item
+# it pushes (`listenerArtwork` in annotate.ts) and for every relabel it sends to /control/metadata.
+stream_art = environment.get("STREAM_ART_URL", default="")
+station_art = if stream_art == "" then [] else [("url", stream_art)] end
+
+# TWO lists have to name `url` before it reaches Icecast, and the second was found the hard way.
+# `icy_metadata` on the output (step 6) says which fields an ICY update CARRIES, but everything an
+# output is handed has already been through `settings.encoder.metadata.export`, whose default list
+# (artist, title, album, genre, date, … coverart) does not include `url`. With only the first list
+# Liquidsoap logged nothing, and Icecast received a title with no url beside it: measured on 2.4.5
+# against a throwaway Icecast 2.5.0 with stream/streamurl.check.py, whose stage 1 (a metadata update
+# made directly) was green while the same update through this output was not. Appended rather than
+# replaced, so nothing exported today stops being.
+settings.encoder.metadata.export.set(list.append(settings.encoder.metadata.export(), ["url"]))
+
 # What the mount is labelled with when a bed track has nothing to say for itself.
 #
 # The mount's title only ever changes when a source emits metadata. A local file with no tags
@@ -189,9 +213,11 @@ stream_name = environment.get("STREAM_NAME", default="Static Between Stations")
 # is what forces a packet at the start of every bed track so there is something to fill in.
 #
 # Existing tags win. A bed track that knows its own title is more useful than the station name,
-# and this is only ever filling a hole.
+# and this is only ever filling a hole. The artwork is the station's own either way: a bed track
+# has no cover of its own to show, and without this the last record's would stay up.
 def bed_label(m) =
-  if m["title"] == "" then [("title", stream_name)] else m end
+  title = if m["title"] == "" then [("title", stream_name)] else [] end
+  list.append(title, station_art)
 end
 
 music = map_metadata(bed_label, insert_missing=true, music)
@@ -1295,7 +1321,7 @@ was_driving = ref(true)
 def label_when_off_air() =
   now = driving()
   if was_driving() and not now then
-    radio.insert_metadata([("title", stream_name), ("artist", "")])
+    radio.insert_metadata(list.append([("title", stream_name), ("artist", "")], station_art))
   end
   was_driving := now
 end
@@ -1324,16 +1350,23 @@ def control_metadata(req) =
   if not control_authorized(req) then
     control_denied()
   else
-    caption = string.trim(req.body())
+    lines = string.split(separator="\n", req.body())
+    caption = string.trim(list.nth(default="", lines, 0))
+    artwork = string.trim(list.nth(default="", lines, 1))
     if caption == "" then
       http.response(status_code=400, content_type="text/plain", data="no label")
     else
-      # ONE finished line, not a title/artist pair. Icecast composes the ICY title from
-      # the pair and reports the result as a single field anyway (see annotate.ts), so a
-      # pair here would buy nothing and cost this endpoint a body format to get wrong.
+      # Line one is ONE finished label, not a title/artist pair. Icecast composes the ICY
+      # title from the pair and reports the result as a single field anyway (see
+      # annotate.ts), so a pair here would buy nothing and cost this endpoint a body
+      # format to get wrong. Line two, when there is one, is the artwork URL for the
+      # `StreamUrl` field beside it, sent by PlayoutControlClient.announce for the reason
+      # `station_art` gives: Icecast keeps a tag a relabel does not mention, so a caption
+      # sent alone would leave the previous record's cover up under it.
       # The artist is cleared for the reason the off-air label clears it: leaving the
       # previous one standing under a new title is its own kind of wrong.
-      radio.insert_metadata([("title", caption), ("artist", "")])
+      art = if artwork == "" then [] else [("url", artwork)] end
+      radio.insert_metadata(list.append([("title", caption), ("artist", "")], art))
       control_json('{' ^ playout_reading() ^ '}')
     end
   end
@@ -1433,6 +1466,11 @@ def publish(~mount, ~icy_on, enc, src) =
     password    = environment.get("ICECAST_SOURCE_PASSWORD"),
     mount       = mount,
     send_icy_metadata = icy_on,
+    # The fields an ICY update carries: Liquidsoap's default list, plus `url`, which Icecast 2.5
+    # forwards as `StreamUrl` beside the title and which is how a record's cover reaches a
+    # player that can only consume a stream. See `station_art` above for what fills it when a
+    # record is not what is playing, and `listenerArtwork` in annotate.ts for when one is.
+    icy_metadata = ["song", "title", "artist", "genre", "date", "album", "tracknum", "comment", "dj", "next", "url"],
     name        = stream_name,
     description = environment.get("STREAM_DESCRIPTION", default=""),
     genre       = environment.get("STREAM_GENRE", default="Talk"),

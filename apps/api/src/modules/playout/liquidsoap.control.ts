@@ -347,10 +347,18 @@ export class PlayoutControlClient {
      * Best-effort like everything else here. A label that did not land is a
      * cosmetic fault on a station that is still playing the right audio, and it
      * must never interrupt the boundary it was triggered by.
+     *
+     * The body is the label on its first line and, when there is one, the
+     * artwork URL on a second: `control_metadata` in `radio.liq` reads exactly
+     * that shape. The artwork is not optional in practice (see `listenerArtwork`
+     * for why a relabel without one leaves the wrong cover up); it is optional
+     * here because a station with no public URL has none to send.
      */
-    async announce(label: string): Promise<boolean> {
+    async announce(label: string, artworkUrl?: string): Promise<boolean> {
         const line = oneLine(label);
-        return line ? !!(await this.call('POST', '/control/metadata', line)) : false;
+        if (!line) return false;
+        const artwork = artworkUrl === undefined ? '' : oneLine(artworkUrl);
+        return !!(await this.call('POST', '/control/metadata', artwork ? `${line}\n${artwork}` : line));
     }
 
     /** Push one `annotate:` uri onto the queue. False when it did not land. */

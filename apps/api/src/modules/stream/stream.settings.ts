@@ -271,6 +271,32 @@ export function resolveStreamSettings(config: AppConfig, encryption: EncryptionP
  * `radio.liq` covers exactly this list. Adding a value means adding it in both, and
  * `stream.config.test.ts` is where they are held to each other.
  */
+/**
+ * `stream.publicUrl` as a base to build on: trimmed, with no trailing slash.
+ *
+ * The setting is "where listeners reach the station", which is the console's origin, and the
+ * API is reached under `/api/` on it (`authentication.options.ts`). Empty when the operator has
+ * set nothing, and every caller treats that as "there is no outside address", not as localhost.
+ */
+export function stationOrigin(publicUrl: string): string {
+    return publicUrl.trim().replace(/\/+$/, '');
+}
+
+/**
+ * The station's own face, as a listener's player can fetch it: the console's `logo.png` on
+ * the origin listeners reach.
+ *
+ * It is what the mount shows when the station ITSELF is what is playing (a break, the bed, off
+ * air), for the same reason the mount carries the station's name then. Empty without a public
+ * URL: a URL nobody outside this network can fetch is worse than none. See `listenerArtwork` in
+ * `playout/annotate.ts` for the record half and `STREAM_ART_URL` in `radio.liq` for the labels
+ * Liquidsoap puts up itself.
+ */
+export function stationArtwork(publicUrl: string): string {
+    const origin = stationOrigin(publicUrl);
+    return origin ? `${origin}/logo.png` : '';
+}
+
 export const OPUS_BITRATES = ['96', '128', '160', '192', '256'] as const;
 export const AAC_BITRATES = ['96', '128', '160', '192', '256', '320'] as const;
 

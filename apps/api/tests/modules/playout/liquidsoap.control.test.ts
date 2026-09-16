@@ -312,6 +312,37 @@ describe('PlayoutControlClient mutations', () => {
         }
     });
 
+    it('relabels the mount with the label on one line and the artwork on a second', async () => {
+        // The shape `control_metadata` in radio.liq reads. A newline inside a title would
+        // otherwise end the label early, so both are flattened first.
+        const bodies: string[] = [];
+        const client = clientWith(async (_url, init) => {
+            bodies.push(String(init?.body));
+            return new Response(JSON.stringify({ queued: 0, ready: true }), { status: 200 });
+        });
+        try {
+            expect(await client.announce('An Artist - A\nRecord', 'https://radio.test/api/art/1')).toBe(true);
+            expect(bodies).toEqual(['An Artist - A Record\nhttps://radio.test/api/art/1']);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('relabels with the label alone when there is no artwork to send', async () => {
+        const bodies: string[] = [];
+        const client = clientWith(async (_url, init) => {
+            bodies.push(String(init?.body));
+            return new Response(JSON.stringify({ queued: 0, ready: true }), { status: 200 });
+        });
+        try {
+            expect(await client.announce('Deadair')).toBe(true);
+            expect(await client.announce('   ')).toBe(false);
+            expect(bodies).toEqual(['Deadair']);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
     it('remembers whether the station is on air, and forgets it when the stream goes', async () => {
         // isOnAir has to be answerable without a round trip, because getStatus is
         // polled — and it must not go stale into a claim that the station is
@@ -396,7 +427,14 @@ const TARGET = -16;
 
 // No successor and no blending: the boundary annotations are inert, which keeps every
 // test below about the thing it is named for. The blend has its own block at the end.
-const CONTEXT = { targetLufs: TARGET, speechTrimDb: DEFAULT_SPEECH_TRIM_DB, levelingEnabled: true, crossfade: false, stationName: 'Deadair' };
+const CONTEXT = {
+    targetLufs: TARGET,
+    speechTrimDb: DEFAULT_SPEECH_TRIM_DB,
+    levelingEnabled: true,
+    crossfade: false,
+    stationName: 'Deadair',
+    publicUrl: '',
+};
 
 /** What a boundary the station does not blend is stamped with, as it reaches the player. */
 const HARD_JOIN = String(HARD_JOIN_MS / 1000);

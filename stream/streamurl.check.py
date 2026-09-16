@@ -360,9 +360,11 @@ class Player:
     address: str
     port: int = BLUOS_PORT
 
-    def get(self, path: str, timeout: float = 10, **query: str) -> ET.Element:
+    def get(self, path: str, query: dict[str, str] | None = None, wait: float = 10) -> ET.Element:
+        # `query` is a dict rather than keyword arguments because one of BluOS's own parameters
+        # is called `timeout`, and a long poll passes it beside this request's own deadline.
         suffix = ("?" + urllib.parse.urlencode(query)) if query else ""
-        with urllib.request.urlopen(f"http://{self.address}:{self.port}/{path}{suffix}", timeout=timeout) as response:
+        with urllib.request.urlopen(f"http://{self.address}:{self.port}/{path}{suffix}", timeout=wait) as response:
             return ET.fromstring(response.read())
 
     def status(self, etag: str | None = None, hold: int | None = None) -> ET.Element:
@@ -371,7 +373,7 @@ class Player:
             query["etag"] = etag
         if hold:
             query["timeout"] = str(hold)
-        return self.get("Status", timeout=(hold or 0) + 15, **query)
+        return self.get("Status", query, wait=(hold or 0) + 15)
 
 
 STATUS_FIELDS = ("state", "secs", "service", "streamUrl", "title1", "title2", "title3", "image", "stationImage", "volume")
@@ -565,7 +567,7 @@ def main() -> int:
         prior = reading(player.status())
         log(f"before: state={prior['state']} service={prior['service']} streamUrl={prior['streamUrl']} volume={prior['volume']}")
         log(f"/Play?url={mount_url}")
-        played = player.get("Play", url=mount_url)
+        played = player.get("Play", {"url": mount_url})
         log(f"player answered state={played.text}")
 
         seen: list[dict[str, str]] = []
@@ -624,7 +626,7 @@ def main() -> int:
         if player is not None and prior is not None:
             try:
                 if prior["state"] in ("stream", "play", "connecting") and prior["streamUrl"]:
-                    answer = player.get("Play", url=prior["streamUrl"])
+                    answer = player.get("Play", {"url": prior["streamUrl"]})
                     log(f"restored the player to its earlier stream: state={answer.text} url={prior['streamUrl']}")
                     if answer.text not in ("stream", "play", "connecting"):
                         log("the player did not take that URL back; put it back from the BluOS app")

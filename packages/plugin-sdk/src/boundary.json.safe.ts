@@ -81,7 +81,7 @@ import type {
     SearchTracksOptions,
 } from './capabilities/music.provider.js';
 import type { LlmMessage, LlmModelInfo, LlmRequest, LlmResult, LlmToolCall, LlmToolDeclaration, LlmUsage } from './capabilities/llm.js';
-import type { SpeechRequest, SpeechVoice } from './capabilities/speech.js';
+import type { SpeechLimits, SpeechRequest, SpeechVoice } from './capabilities/speech.js';
 import type { ConfigField, ConfigFieldColumn, ConfigFieldOption } from './plugin.config.fields.js';
 import type { PlaylistTracksRequest, TrackFetchRequest, TrackFetchSession } from './plugin.host.js';
 import type { PluginConnectionResult } from './plugin.lifecycle.js';
@@ -227,6 +227,7 @@ export type AssertAllBoundaryPayloadsAreJsonSafe = AssertAllTrue<{
     ScrobblePlay: IsJsonSafe<ScrobblePlay>;
     ScrobbleRejection: IsJsonSafe<ScrobbleRejection>;
     ScrobbleResult: IsJsonSafe<ScrobbleResult>;
+    SpeechLimits: IsJsonSafe<SpeechLimits>;
 }>;
 
 /**
@@ -308,6 +309,7 @@ export const JSON_SAFE_PAYLOAD_TYPES = [
     'ScrobblePlay',
     'ScrobbleRejection',
     'ScrobbleResult',
+    'SpeechLimits',
 ] as const;
 
 /**

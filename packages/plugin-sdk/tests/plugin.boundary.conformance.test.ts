@@ -53,6 +53,7 @@ import {
     podcastEpisodesQueryFixture,
     podcastShowFixture,
     scrobbleResultFixture,
+    speechLimitsFixture,
     speechRequestFixture,
     speechVoiceFixture,
     trackEnrichmentBatchFixture,
@@ -124,6 +125,7 @@ describe('plugin boundary conformance: positive fixtures', () => {
         ['ScrobblePlay', scrobblePlayFixture],
         ['ScrobbleRejection', scrobbleRejectionFixture],
         ['ScrobbleResult', scrobbleResultFixture],
+        ['SpeechLimits', speechLimitsFixture],
     ] as const)('%s crosses the boundary', (label, value) => {
         expect(() => assertCrossesBoundary(value, label)).not.toThrow();
     });

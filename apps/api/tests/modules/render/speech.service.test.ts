@@ -8,7 +8,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { SpeechCue, SpeechDelivery, SpeechRequest } from '@deadair/plugin-sdk';
 import type { AppConfig } from '@maroonedsoftware/appconfig';
 
-import { SpeechService } from '../../../src/modules/render/speech.service.js';
+import { DEFAULT_SPEECH_MAX_CHARACTERS, SpeechService } from '../../../src/modules/render/speech.service.js';
 import type { SpeechPlugin } from '../../../src/modules/plugins/plugin.capabilities.js';
 import type { PluginInvoker } from '../../../src/modules/plugins/plugin.invoker.js';
 import type { PluginRegistry } from '../../../src/modules/plugins/plugin.registry.js';
@@ -25,7 +25,12 @@ import type { VoiceSampleStore } from '../../../src/modules/render/voice.sample.
  * all, which is most plugins and is the shape that has to keep working untouched. `deliveries` is the
  * same, one field over.
  */
-function harness(entries: readonly Pronunciation[] = [], cues?: readonly SpeechCue[], deliveries?: readonly SpeechDelivery[] | 'throws') {
+function harness(
+    entries: readonly Pronunciation[] = [],
+    cues?: readonly SpeechCue[],
+    deliveries?: readonly SpeechDelivery[] | 'throws',
+    limits?: { maxCharacters?: number } | 'throws',
+) {
     const asked: SpeechRequest[] = [];
 
     const speak = vi.fn(async (request: SpeechRequest) => {
@@ -37,10 +42,15 @@ function harness(entries: readonly Pronunciation[] = [], cues?: readonly SpeechC
         if (deliveries === 'throws') throw new Error('engine unreachable');
         return deliveries ?? [];
     });
+    const listLimits = vi.fn(async () => {
+        if (limits === 'throws') throw new Error('engine unreachable');
+        return limits ?? {};
+    });
     const instance = {
         speak,
         ...(cues === undefined ? {} : { listCues: vi.fn(async () => cues) }),
         ...(deliveries === undefined ? {} : { listDeliveries }),
+        ...(limits === undefined ? {} : { listLimits }),
     };
     const plugin = {
         record: { id: 'deadair.kokoro' },
@@ -48,6 +58,7 @@ function harness(entries: readonly Pronunciation[] = [], cues?: readonly SpeechC
         listsVoices: false,
         listsCues: cues !== undefined,
         listsDeliveries: deliveries !== undefined,
+        listsLimits: limits !== undefined,
     } as unknown as SpeechPlugin;
 
     const registry = { list: vi.fn(() => []) } as unknown as PluginRegistry;
@@ -60,7 +71,7 @@ function harness(entries: readonly Pronunciation[] = [], cues?: readonly SpeechC
 
     const service = new SpeechService(registry, invoker, config, store, gate, lexicon, logger as never);
 
-    return { service, plugin, asked, lexicon, logger, listDeliveries };
+    return { service, plugin, asked, lexicon, logger, listDeliveries, listLimits };
 }
 
 describe('SpeechService.speakWith', () => {
@@ -222,5 +233,53 @@ describe('SpeechService.speakWith: deliveries', () => {
         await service.speakWith(plugin, { text: 'The news at 9:00.', voice: 'newsreader', delivery: 'frantic' });
 
         expect(asked[0]).toEqual({ text: "The news at nine o'clock.", voice: 'newsreader', delivery: 'frantic' });
+    });
+});
+
+// The number a caller CHUNKS against, so the default matters more than it looks: it is applied to
+// every engine that has never heard of `listLimits`, which is both bundled speech plugins today.
+describe('SpeechService.maxCharactersOf', () => {
+    it('takes the ceiling the engine declares', async () => {
+        const { service, plugin } = harness([], undefined, undefined, { maxCharacters: 4_000 });
+
+        expect(await service.maxCharactersOf(plugin)).toBe(4_000);
+    });
+
+    it('falls back to the default for an engine that does not implement the method', async () => {
+        // Not "no limit": assuming none where there is one is a request the engine REFUSES, which
+        // arrives as an upstream failure and quarantines a healthy plugin after three of them.
+        const { service, plugin } = harness();
+
+        expect(await service.maxCharactersOf(plugin)).toBe(DEFAULT_SPEECH_MAX_CHARACTERS);
+    });
+
+    it('falls back when the engine implements the method and declares no ceiling', async () => {
+        const { service, plugin } = harness([], undefined, undefined, {});
+
+        expect(await service.maxCharactersOf(plugin)).toBe(DEFAULT_SPEECH_MAX_CHARACTERS);
+    });
+
+    it('falls back rather than throwing when the engine cannot be asked', async () => {
+        // A cue that could not be asked about costs a plainer break; a ceiling that could not be
+        // asked about must cost a smaller chunk rather than the render.
+        const { service, plugin, logger } = harness([], undefined, undefined, 'throws');
+
+        expect(await service.maxCharactersOf(plugin)).toBe(DEFAULT_SPEECH_MAX_CHARACTERS);
+        expect(logger.debug).toHaveBeenCalled();
+    });
+
+    it('refuses a nonsense ceiling rather than packing nothing', async () => {
+        for (const maxCharacters of [0, -100, 12.5]) {
+            const { service, plugin } = harness([], undefined, undefined, { maxCharacters });
+            expect(await service.maxCharactersOf(plugin)).toBe(DEFAULT_SPEECH_MAX_CHARACTERS);
+        }
+    });
+
+    it('answers the default for a station with nothing to speak with', async () => {
+        // The caller is chunking for whatever gets installed later, so there is no sensible "no
+        // answer" here — a reading packed into one enormous call would fail on every engine.
+        const { service } = harness();
+
+        expect(await service.maxCharacters()).toBe(DEFAULT_SPEECH_MAX_CHARACTERS);
     });
 });

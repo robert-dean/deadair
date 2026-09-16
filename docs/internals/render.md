@@ -51,6 +51,21 @@ is aimed AT somebody in the room and is business rather than delivery) and the s
 `PRESENTER_CUES` is the original four, `CALLER_CUES` is all of them, and both are intersected with what the
 installed engine reports.
 
+**How much text one call may hold is the engine's to state, and an engine that says nothing is assumed to
+have a limit rather than none.** `SpeechLimits.maxCharacters` is `listCues`' shape one method over
+(`listLimits`, optional, asked per call, swallowed to a default), and it takes the OPPOSITE default for a
+reason worth stating: an unclaimed cue is stripped and costs a plainer break, where an unknown ceiling that
+turns out to be real is a request the engine REFUSES — which reaches `RenderSegmentJob` as an ordinary
+`upstream` failure, indistinguishable from a broken plugin, and three of those in a row quarantine a healthy
+engine. So a plugin that declares nothing gets `DEFAULT_SPEECH_MAX_CHARACTERS` (3000), which is under every
+ceiling any engine this was written against documents, and `packParts` cuts to it at the strongest boundary
+inside it: paragraph, then sentence, then word, then — only for a single token longer than the whole ceiling,
+which is a URL rather than prose — a hard cut. Neither bundled plugin declares one yet, so both are packed at
+the default; the number Kokoro documents is 4000 and putting it in is a one-line change once somebody has
+checked it against a running server. **None of this is reachable from a break**: thirty words is the median and
+the ceiling has never been in sight. It exists for reading somebody else's writing out, where the length is not
+the station's to choose.
+
 **Widening the list without narrowing the offer is how the presenter starts coughing**, which is why the
 allowed set is a required parameter wherever a script is read back rather than a reach for the whole
 vocabulary, and why every matcher built from the list orders the longest form first now that `clear throat` is

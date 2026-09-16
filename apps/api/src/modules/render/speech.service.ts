@@ -33,6 +33,20 @@ import type { VoiceSampleStore } from './voice.sample.store.js';
 export const SPEAK_TIMEOUT_MS = 120_000;
 
 /**
+ * How much text one `speak` is given when the engine declares no ceiling of its own.
+ *
+ * Conservative on purpose, and the opposite default to the one cues take. An unclaimed cue is
+ * stripped and the break is plainer; assuming no limit where there is one is a request the engine
+ * REFUSES, which arrives as an upstream failure indistinguishable from a broken plugin — and three
+ * of those in a row quarantine it. So an engine that says nothing is read as "probably has one",
+ * which costs a long reading an extra seam and costs a break, at thirty words, nothing at all.
+ *
+ * Under every ceiling any engine this was written against documents, which is what makes it safe to
+ * apply to a plugin that has never heard of `listLimits`.
+ */
+export const DEFAULT_SPEECH_MAX_CHARACTERS = 3_000;
+
+/**
  * Let go of audio nobody is going to read, swallowing the failure.
  *
  * Always cleanup on a path that is already returning or already throwing something more
@@ -390,6 +404,38 @@ export class SpeechService {
         } catch (error) {
             this.logger.debug('render: could not ask which deliveries this engine performs', { plugin: plugin.record.id, error });
             return [];
+        }
+    }
+
+    /**
+     * How much text the chosen engine takes in one call, for a caller with something long to read.
+     *
+     * {@link DEFAULT_SPEECH_MAX_CHARACTERS} for an engine that declares nothing, and the same for a
+     * station with no speaker at all — the number is what a caller CHUNKS against, so answering
+     * nothing there would mean a reading packed into one enormous call for whichever engine gets
+     * installed later.
+     *
+     * Never throws, on {@link cuesFor}'s rule, and a plugin that could not be asked is one whose
+     * limit is unknown rather than absent, which is the same answer.
+     */
+    async maxCharacters(): Promise<number> {
+        const plugin = this.speaker();
+        return plugin === undefined ? DEFAULT_SPEECH_MAX_CHARACTERS : await this.maxCharactersOf(plugin);
+    }
+
+    /** The same question against a plugin the caller already has, on {@link deliveriesOf}'s pattern. */
+    async maxCharactersOf(plugin: SpeechPlugin): Promise<number> {
+        if (!plugin.listsLimits) return DEFAULT_SPEECH_MAX_CHARACTERS;
+
+        try {
+            const limits = await this.pluginInvoker.invoke(plugin.record.id, 'speech.listLimits', async () => (await plugin.instance.listLimits?.()) ?? {});
+            const declared = limits.maxCharacters;
+            // A plugin that answers with nonsense is one that answered nothing: a zero or a negative
+            // would pack no text at all and loop, and a fraction would cut mid-character.
+            return typeof declared === 'number' && Number.isInteger(declared) && declared > 0 ? declared : DEFAULT_SPEECH_MAX_CHARACTERS;
+        } catch (error) {
+            this.logger.debug('render: could not ask how much text this engine takes', { plugin: plugin.record.id, error });
+            return DEFAULT_SPEECH_MAX_CHARACTERS;
         }
     }
 

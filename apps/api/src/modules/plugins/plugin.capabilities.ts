@@ -626,6 +626,15 @@ export interface SpeechPlugin {
     listsCues: boolean;
     /** Whether `listDeliveries` is there to call. {@link listsCues}' rule exactly: about the method, not the engine. */
     listsDeliveries: boolean;
+    /**
+     * Whether `listLimits` is there to call.
+     *
+     * {@link listsCues}' rule about the method rather than the engine, with the opposite DEFAULT
+     * behind it: an unclaimed cue is stripped and costs a plainer break, where an undeclared ceiling
+     * that turns out to be real is a request the engine refuses. So a plugin that does not answer
+     * gets the host's own conservative number rather than no limit at all.
+     */
+    listsLimits: boolean;
 }
 
 /** {@link implementsCatalog}'s rule, applied to the `speech` capability. */
@@ -642,6 +651,9 @@ export const implementsCueListing = (instance: unknown): boolean => typeof (inst
 
 /** Whether this plugin can say which deliveries it performs. Absent means none, the same safe default as cues. */
 export const implementsDeliveryListing = (instance: unknown): boolean => typeof (instance as Record<string, unknown>).listDeliveries === 'function';
+
+/** Whether this plugin can say how much text one call takes. Absent means the host's own default, not "no limit". */
+export const implementsLimitListing = (instance: unknown): boolean => typeof (instance as Record<string, unknown>).listLimits === 'function';
 
 /**
  * The speech-capable view of a record, or `undefined` when it is not one.
@@ -663,6 +675,7 @@ export const asSpeechPlugin = (record: PluginRecord): SpeechPlugin | undefined =
         listsVoices: implementsVoiceListing(instance),
         listsCues: implementsCueListing(instance),
         listsDeliveries: implementsDeliveryListing(instance),
+        listsLimits: implementsLimitListing(instance),
     };
 };
 

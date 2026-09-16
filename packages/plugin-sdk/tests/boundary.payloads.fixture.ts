@@ -15,7 +15,7 @@ import type {
 import type { PluginConnectionResult } from '../src/plugin.lifecycle.js';
 import type { PluginManifest } from '../src/plugin.manifest.js';
 import type { ConfigField } from '../src/plugin.config.fields.js';
-import type { SpeechRequest, SpeechVoice } from '../src/capabilities/speech.js';
+import type { SpeechLimits, SpeechRequest, SpeechVoice } from '../src/capabilities/speech.js';
 import type { LlmModelInfo, LlmRequest, LlmResult } from '../src/capabilities/llm.js';
 import type { AnalysisRef, TrackAnalysis, TrackCuePoints, TrackLoudness, TrackTaggedLoudness } from '../src/capabilities/analysis.js';
 import type { ChartDescriptor, ChartEntry, ChartQuery } from '../src/capabilities/charts.js';
@@ -446,6 +446,11 @@ export const newsItemFixture: NewsItem = {
     url: 'https://example.com/bridge',
     publishedAt: '2026-08-15T08:41:00.000Z',
     categories: ['Local', 'Transport'],
+};
+
+/** Kokoro's own per-request ceiling, which is the only one any bundled engine declares. */
+export const speechLimitsFixture: SpeechLimits = {
+    maxCharacters: 4_000,
 };
 
 export const narrationSeriesFixture: NarrationSeries = {

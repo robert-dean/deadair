@@ -254,6 +254,27 @@ export interface SpeechVoice {
     spec?: string;
 }
 
+/**
+ * What one `speak` can be given, where the engine has a limit worth declaring.
+ *
+ * Every field is optional and absent means "no limit this plugin knows of",
+ * which is the ordinary answer: most engines take a sentence and most callers
+ * send one.
+ */
+export interface SpeechLimits {
+    /**
+     * The most characters one {@link SpeechRequest.text} may hold.
+     *
+     * A ceiling on ONE call rather than a budget for the work: a caller with more
+     * text than this splits it and asks several times, which is what the station
+     * does when it reads something long out. Answer the engine's own documented
+     * limit and nothing tighter — a plugin guessing low costs the station an extra
+     * seam in the middle of a sentence, and a seam is audible where a slightly
+     * longer call is not.
+     */
+    maxCharacters?: number;
+}
+
 /** A plugin that can speak. */
 export interface SpeechPluginInstance extends PluginLifecycle {
     /**
@@ -314,4 +335,26 @@ export interface SpeechPluginInstance extends PluginLifecycle {
      * reading rather than fail to write one.
      */
     listDeliveries?(): Promise<readonly SpeechDelivery[]>;
+
+    /**
+     * What one call to this engine can be given. See {@link SpeechLimits}.
+     *
+     * Optional, and absent means the host uses a conservative default rather than
+     * assuming there is no limit — the opposite of {@link listCues}' default, and
+     * deliberately, because the two fail in opposite directions. An unclaimed cue
+     * is stripped and the break is plainer; an unknown ceiling that turns out to
+     * be real is a request the engine REFUSES, which reads as a broken plugin
+     * rather than a long one: the error is an upstream failure like any other and
+     * three of those in a row quarantine the plugin.
+     *
+     * So declare one if the engine documents one. It is worth the method for the
+     * case the station cannot otherwise get right — reading something long out
+     * loud, where the text is somebody else's and its length is not the station's
+     * to choose.
+     *
+     * {@link listCues}' three rules apply: answer from what the engine currently
+     * IS, keep it cheap, and answer empty rather than throwing when the engine
+     * cannot be reached.
+     */
+    listLimits?(): Promise<SpeechLimits>;
 }

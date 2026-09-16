@@ -18,8 +18,9 @@ const container = {} as unknown as Container;
 const job = (pending: string[], cache: (url: string) => Promise<{ cached: boolean }>, held: string[] = []) => {
     const info = vi.fn();
     const listPendingSourceUrls = vi.fn(async (limit: number) => pending.slice(0, limit));
-    const findBySourceUrls = vi.fn(async (urls: readonly string[]) =>
-        new Map(urls.filter(url => held.includes(url)).map(url => [url, { id: 'asset', sourceUrl: url, checksum: 'c'.repeat(64), ext: 'jpg' }])),
+    const findBySourceUrls = vi.fn(
+        async (urls: readonly string[]) =>
+            new Map(urls.filter(url => held.includes(url)).map(url => [url, { id: 'asset', sourceUrl: url, checksum: 'c'.repeat(64), ext: 'jpg' }])),
     );
     const artCache = { cache: vi.fn(async (url: string) => (await cache(url)) as never) } as unknown as ArtCacheService;
 

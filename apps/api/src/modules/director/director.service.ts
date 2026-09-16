@@ -2506,7 +2506,9 @@ export class DirectorService {
         const upstream = [
             ...new Set(
                 items.flatMap(item =>
-                    item.kind === 'track' && item.track.artworkUrl !== undefined && /^https?:\/\//i.test(item.track.artworkUrl) ? [item.track.artworkUrl] : [],
+                    item.kind === 'track' && item.track.artworkUrl !== undefined && /^https?:\/\//i.test(item.track.artworkUrl)
+                        ? [item.track.artworkUrl]
+                        : [],
                 ),
             ),
         ];

@@ -405,17 +405,17 @@ function build(options: Options = {}) {
                               ? candidates
                               : token === ArtRepository
                                 ? art
-                              : token === TrackAudioService
-                                ? trackAudio
-                                : token === TrackCachePlanner
-                                  ? cachePlanner
-                                  : token === AnalysisRepository
-                                    ? analysis
-                                    : token === PodcastScheduler
-                                      ? podcastScheduler
-                                      : token === PodcastEpisodeRepository
-                                        ? podcastEpisodes
-                                        : history,
+                                : token === TrackAudioService
+                                  ? trackAudio
+                                  : token === TrackCachePlanner
+                                    ? cachePlanner
+                                    : token === AnalysisRepository
+                                      ? analysis
+                                      : token === PodcastScheduler
+                                        ? podcastScheduler
+                                        : token === PodcastEpisodeRepository
+                                          ? podcastEpisodes
+                                          : history,
         ),
         disposeAsync: vi.fn(async () => {}),
     };
@@ -481,7 +481,9 @@ function build(options: Options = {}) {
         seed: async () => lineup.append((options.items ?? ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']).map(track)),
         /** The same, with each record carrying the provider's own cover, which is what a pick stores before the art job has reached it. */
         seedWithUpstreamArt: async () =>
-            lineup.append((options.items ?? ['a', 'b', 'c']).map(externalId => ({ ...track(externalId), artworkUrl: `https://cdn.example/${externalId}` }))),
+            lineup.append(
+                (options.items ?? ['a', 'b', 'c']).map(externalId => ({ ...track(externalId), artworkUrl: `https://cdn.example/${externalId}` })),
+            ),
         /** The same, with every record catalogued, so its copies can be judged before its slot. */
         seedCatalogued: async () => lineup.append((options.items ?? ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']).map(catalogued)),
         setAir: (next: StationAir | undefined) => {

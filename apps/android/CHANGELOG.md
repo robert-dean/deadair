@@ -8,6 +8,10 @@ hand, and the station's own changes are in the [root changelog](../../CHANGELOG.
 
 ## [Unreleased]
 
+## [0.2.1] — 2026-09-16
+
+- The persona flag that says who the station's own host is has been renamed from `active` to `defaultHost`, everywhere: the `personas.default_host` column (migration 0031, applied at boot), the `Persona` contract and all four SDKs, and `PUT /personas/{id}/active`, which is now `PUT /personas/{id}/default-host`. Nothing about who presents changes; the old name said "on air", which it never meant during a broadcast that named its own host, and the console badged the wrong character for exactly that reason. The Personas page button now reads **Make station host** rather than "Put on air", and the desk's persona pickers mark whoever is actually presenting. The operator desk on macOS follows the same rename, and its Voice page lamp now marks the character presenting rather than the station's own host.
+
 ## [0.2.0] — 2026-09-13
 
 - Android Auto: the app is listed among the car's media apps, with the station in it. Tap it, or ask the car's assistant to play it, and the station starts, on the format chosen in Settings. The car's controls behave as a headset's do: stop drops the stream, and the next button is only there for the station's operator.
@@ -26,7 +30,8 @@ hand, and the station's own changes are in the [root changelog](../../CHANGELOG.
   screen, a headset or a car stereo. Sign in as the station's operator and the phone becomes its
   remote: skip, stop and start, the running order, what it played and what the presenter said.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/android-v0.2.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/android-v0.2.1...HEAD
+[0.2.1]: https://github.com/robert-dean/deadair/compare/android-v0.2.0...android-v0.2.1
 [0.2.0]: https://github.com/robert-dean/deadair/compare/android-v0.1.1...android-v0.2.0
 [0.1.1]: https://github.com/robert-dean/deadair/compare/android-v0.1.0...android-v0.1.1
 [0.1.0]: https://github.com/robert-dean/deadair/releases/tag/android-v0.1.0

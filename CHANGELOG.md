@@ -9,6 +9,16 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.12.0] — 2026-09-16
+
+- The persona flag that says who the station's own host is has been renamed from `active` to `defaultHost`, everywhere: the `personas.default_host` column (migration 0031, applied at boot), the `Persona` contract and all four SDKs, and `PUT /personas/{id}/active`, which is now `PUT /personas/{id}/default-host`. Nothing about who presents changes; the old name said "on air", which it never meant during a broadcast that named its own host, and the console badged the wrong character for exactly that reason. The Personas page button now reads **Make station host** rather than "Put on air", and the desk's persona pickers mark whoever is actually presenting. The operator desk on macOS follows the same rename, and its Voice page lamp now marks the character presenting rather than the station's own host.
+- The Personas page now says who is **On air now** rather than marking the station's own host and calling that the same thing. They differ whenever the broadcast on air names its own host: the character presenting the show writes every break, while the station's own host is the one who takes over when a broadcast names nobody. That card is now badged **Station's own** instead. `Persona` gains a readonly `presenting`, derived per request from the running order through the same precedence a break uses, so it can never drift from who is actually speaking; the desk's "Presented by" badge reads it instead of working the fallback out for itself. The stored flag is unchanged and still `active`.
+- Spotify playlists you follow but do not own now work. An editorial playlist, a Daily Mix, a playlist a friend made: all of them were listed with **Spotify won't share this playlist's tracks** and can now be viewed, aired, picked for a schedule block and used for a persona audition, because the station's own track fetcher reads them on the login it already holds for fetching audio. It needs that fetcher authorized (Plugins → Spotify → the playback authorization card); without one, those playlists read exactly as they did before.
+
+  Two things follow from it. The hourly library sync now reads those playlists too, so the records in them join your library from the next run: hide a playlist from its card on the Playlists page to keep it out. And Spotify marks almost nothing on this path as clean or explicit, so a station set to **clean only** will play very little from a followed playlist, which is the honest outcome rather than a station vouching for records nobody vouched for.
+
+  For plugin authors, `PluginTrackFetcher` gains `playlistTracks(request)` for the playlist your own API lists and then refuses.
+
 ## [0.11.1] — 2026-09-16
 
 - The deadpan wisecracking host seed keeps the listener's taste as a target, beside the one it gained last release. She is rude about the decision to be sitting there listening to this AND about what somebody decided to call it, with the record itself as her evidence rather than her subject. The fence is two cuts of one kind: their taste is fair game and they are not, and a name somebody chose is fair game and the person who has it is not. A station that already has her keeps its own sheet: seeds are only written to an empty station, and "Restore built-ins" adds missing ones without overwriting.
@@ -165,7 +175,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.11.1...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.12.0...HEAD
+[0.12.0]: https://github.com/robert-dean/deadair/compare/v0.11.1...v0.12.0
 [0.11.1]: https://github.com/robert-dean/deadair/compare/v0.11.0...v0.11.1
 [0.11.0]: https://github.com/robert-dean/deadair/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/robert-dean/deadair/compare/v0.9.0...v0.10.0

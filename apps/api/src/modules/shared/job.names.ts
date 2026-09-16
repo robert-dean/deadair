@@ -23,4 +23,5 @@ export type JobNames =
     | 'activity.prune_events'
     | 'scrobble.flush'
     | 'podcasts.refresh'
-    | 'podcasts.fetch';
+    | 'podcasts.fetch'
+    | 'narrations.refresh';

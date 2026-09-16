@@ -14,6 +14,7 @@ import { PluginsModule } from './plugins/plugins.module.js';
 import { PlaylistsModule } from './playlists/playlists.module.js';
 import { ChartsModule } from './charts/charts.module.js';
 import { NewsModule } from './news/news.module.js';
+import { NarrationsModule } from './narrations/narrations.module.js';
 import { PodcastsModule } from './podcasts/podcasts.module.js';
 import { TopicsModule } from './topics/topics.module.js';
 import { SimilarityModule } from './similarity/similarity.module.js';
@@ -148,6 +149,12 @@ const ordered: ServerKitModule[] = [
     // `syndicated` band names its show through a topic kind this module owns, and the owner of a kind
     // registers ahead of the registry that lists them, which is the edge WeatherModule's comment argues.
     PodcastsModule,
+    // Beside PodcastsModule and for the same two edges: after PluginsModule, whose registry and
+    // invoker it reads, and before TopicsModule, because a `narration` band names its series through
+    // a topic kind this module owns. What it does differs from carrying a podcast in the one way that
+    // matters here — the station SPEAKS a narration rather than fetching it — but nothing about that
+    // changes where the module sits.
+    NarrationsModule,
     // After every module that OWNS a sort of break's subjects — NewsModule and
     // WeatherModule — and before DirectorModule, which reads one back when a break is written.
     // The vocabulary is the operator's ("technology", "Atlanta") and the registry that says

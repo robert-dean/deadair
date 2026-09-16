@@ -315,6 +315,34 @@ export interface DeadairLoginFailureCounters {
   lastSeenAt: Generated<DateTime>;
 }
 
+export interface DeadairNarrationPieces {
+  airedAt: DateTime | null;
+  artworkUrl: string | null;
+  author: string | null;
+  createdAt: Generated<DateTime>;
+  id: Generated<string>;
+  language: string | null;
+  ordinal: number | null;
+  pieceId: string;
+  productionId: string | null;
+  publishedAt: DateTime | null;
+  renderAttempts: Generated<number>;
+  renderError: string | null;
+  renderRequestedAt: DateTime | null;
+  scheduledFor: DateTime | null;
+  seenAt: Generated<DateTime>;
+  segmentId: string | null;
+  seriesId: string;
+  seriesOrder: Generated<string>;
+  seriesTitle: string;
+  stationKey: Generated<string>;
+  summary: string | null;
+  title: string;
+  updatedAt: Generated<DateTime>;
+  url: string | null;
+  wordCount: number | null;
+}
+
 export interface DeadairPads {
   audioChecksum: string;
   audioExt: string;
@@ -896,6 +924,7 @@ export interface DB {
   "deadair.hiddenPlaylists": DeadairHiddenPlaylists;
   "deadair.loginEvents": DeadairLoginEvents;
   "deadair.loginFailureCounters": DeadairLoginFailureCounters;
+  "deadair.narrationPieces": DeadairNarrationPieces;
   "deadair.pads": DeadairPads;
   "deadair.padSetMembers": DeadairPadSetMembers;
   "deadair.padSets": DeadairPadSets;

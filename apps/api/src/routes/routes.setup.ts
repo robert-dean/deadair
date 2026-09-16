@@ -8,6 +8,7 @@ import { ArtRouter } from './art.router.js';
 import { CatalogRouter } from './catalog.router.js';
 import { ChartsRouter } from './charts.router.js';
 import { NewsRouter } from './news.router.js';
+import { NarrationsRouter } from './narrations.router.js';
 import { PodcastsRouter } from './podcasts.router.js';
 import { HealthRouter } from './health.router.js';
 import { ClockRouter } from './clock.router.js';
@@ -43,6 +44,7 @@ export const routers = [
     ChartsRouter,
     NewsRouter,
     PodcastsRouter,
+    NarrationsRouter,
     PlaylistsRouter,
     PlayoutRouter,
     NowplayingRouter,

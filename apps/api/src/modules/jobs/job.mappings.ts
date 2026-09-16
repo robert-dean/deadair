@@ -27,6 +27,7 @@ import { PersonaStoryPassJob } from '#modules/personas/persona.story.pass.job.js
 import { PruneActivityJob } from '#modules/activity/prune.activity.job.js';
 import { SweepTrackCacheJob } from '#modules/playout/audio/sweep.track.cache.job.js';
 import { ScrobbleFlushJob } from '#modules/scrobble/scrobble.flush.job.js';
+import { RefreshNarrationsJob } from '#modules/narrations/refresh.narrations.job.js';
 import { RefreshPodcastsJob } from '#modules/podcasts/refresh.podcasts.job.js';
 import { FetchEpisodeJob } from '#modules/podcasts/fetch.episode.job.js';
 
@@ -474,6 +475,14 @@ export const JobMappings: Record<JobNames, JobMapping> = {
     // wedged download is reclaimed rather than holding a worker.
     'podcasts.fetch': {
         job: FetchEpisodeJob,
+        policy: { retryLimit: 0, expiresIn: Duration.fromObject({ minutes: 20 }) },
+    },
+
+    // `podcasts.refresh`'s terms exactly, on a cron offset from it so the two are not asking every
+    // upstream on the list in the same second.
+    'narrations.refresh': {
+        job: RefreshNarrationsJob,
+        cron: '23,53 * * * *',
         policy: { retryLimit: 0, expiresIn: Duration.fromObject({ minutes: 20 }) },
     },
 };

@@ -1151,6 +1151,41 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/HistoryPage'
+    '/narrations/series':
+        get:
+            operationId: readSeries
+            summary: 'List series'
+            description: 'Every series every installed narration plugin offers'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/StationSeriesList'
+    '/narrations/pieces':
+        get:
+            operationId: readPieces
+            summary: 'List pieces'
+            description: "The pieces the station knows about, in their series' own order, with what it has done with each"
+            parameters:
+                - name: StationPieceQuery
+                  in: query
+                  required: false
+                  schema:
+                      '$ref': '#/components/schemas/StationPieceQuery'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/StationPiecePage'
+    '/narrations/refresh':
+        post:
+            operationId: requestRefresh
+            summary: 'Refresh narrations'
+            description: 'Reads every series again, in the background, rather than waiting for the next scheduled refresh'
     '/news/feeds':
         get:
             operationId: readFeeds
@@ -6481,6 +6516,158 @@ components:
                     maxLength: 200
                     description: 'The cursor for the page after this one, absent once the history has been read to its end'
             required: [entries]
+        StationSeries:
+            type: object
+            properties:
+                id:
+                    type: string
+                    minLength: 1
+                    maxLength: 400
+                    description: "Unique across the station: the plugin's own id for the series, qualified with the plugin that offered it"
+                pluginId:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                title:
+                    type: string
+                    minLength: 1
+                    maxLength: 600
+                    description: 'What the series is called, which is what a presenter says out loud'
+                order:
+                    type: string
+                    enum: [serial, latest]
+                    description: 'How it is worked through: `serial` from the beginning in order, `latest` its newest piece and nothing once that has aired'
+                author:
+                    type: string
+                    maxLength: 600
+                description:
+                    type: string
+                    maxLength: 4000
+                    description: 'What the series says about itself, as plain text'
+                artworkUrl:
+                    type: string
+                    maxLength: 2000
+                homeUrl:
+                    type: string
+                    maxLength: 2000
+                language:
+                    type: string
+                    maxLength: 40
+                    description: "ISO 639-1, or the source's own tag. Also what the station splits sentences by when it cuts a long piece up"
+            required: [id, pluginId, title, order]
+            description: 'Something the station can read out, as one installed plugin describes it'
+        StationSeriesList:
+            type: object
+            properties:
+                series:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/StationSeries'
+            required: [series]
+        StationPiece:
+            type: object
+            properties:
+                id:
+                    type: string
+                    minLength: 1
+                    maxLength: 100
+                    description: "The station's own id for this piece"
+                seriesId:
+                    type: string
+                    minLength: 1
+                    maxLength: 400
+                    description: 'Qualified, matching `StationSeries.id`'
+                pieceId:
+                    type: string
+                    minLength: 1
+                    maxLength: 1000
+                    description: "The plugin's own id for the piece, stable across refreshes"
+                seriesTitle:
+                    type: string
+                    minLength: 1
+                    maxLength: 600
+                title:
+                    type: string
+                    minLength: 1
+                    maxLength: 1000
+                order:
+                    type: string
+                    enum: [serial, latest]
+                    description: 'How its series is worked through, copied onto the piece by every refresh'
+                author:
+                    type: string
+                    maxLength: 600
+                summary:
+                    type: string
+                    maxLength: 4000
+                    description: 'What it is about, as plain text'
+                url:
+                    type: string
+                    maxLength: 2000
+                    description: "The piece's page, for a person"
+                artworkUrl:
+                    type: string
+                    maxLength: 2000
+                ordinal:
+                    type: integer
+                    minimum: 0
+                    description: 'Where it comes in a serial, from 0. Absent for a `latest` series'
+                publishedAt:
+                    type: string
+                    maxLength: 40
+                    description: ISO-8601
+                wordCount:
+                    type: integer
+                    minimum: 0
+                    description: 'Roughly how many words it runs to, as the plugin counted them'
+                seenAt:
+                    type: string
+                    maxLength: 40
+                    description: 'ISO-8601: when a refresh last saw it listed'
+                rendered:
+                    type: boolean
+                    description: 'Whether the station has the spoken audio, ready to air'
+                rendering:
+                    type: boolean
+                    description: 'Whether the words are being spoken right now'
+                renderRequestedAt:
+                    type: string
+                    maxLength: 40
+                    description: 'ISO-8601: when the station last asked for it to be spoken'
+                renderError:
+                    type: string
+                    maxLength: 2000
+                    description: 'Why the last attempt to speak it failed, when it did'
+                scheduledFor:
+                    type: string
+                    maxLength: 40
+                    description: 'ISO-8601: the slot it was made for'
+                airedAt:
+                    type: string
+                    maxLength: 40
+                    description: "ISO-8601: when a listener could first have heard it. A piece airs once, and for a serial this is also the station's place in the book"
+            required: [id, seriesId, pieceId, seriesTitle, title, order, seenAt, rendered, rendering]
+            description: 'One instalment, and what the station has done with it'
+        StationPieceQuery:
+            type: object
+            properties:
+                seriesId:
+                    type: string
+                    maxLength: 400
+                    description: "One series' pieces in its own order, or absent for every series' newest first"
+                limit:
+                    type: integer
+                    minimum: 1
+                    maximum: 500
+        StationPiecePage:
+            type: object
+            properties:
+                pieces:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/StationPiece'
+                    description: 'Empty when the station knows of none, which is not an error'
+            required: [pieces]
         StationFeed:
             type: object
             properties:

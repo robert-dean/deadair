@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.11.1] — 2026-09-16
+
+- The deadpan wisecracking host seed keeps the listener's taste as a target, beside the one it gained last release. She is rude about the decision to be sitting there listening to this AND about what somebody decided to call it, with the record itself as her evidence rather than her subject. The fence is two cuts of one kind: their taste is fair game and they are not, and a name somebody chose is fair game and the person who has it is not. A station that already has her keeps its own sheet: seeds are only written to an empty station, and "Restore built-ins" adds missing ones without overwriting.
+
 ## [0.11.0] — 2026-09-16
 
 - Any playlist can now be hidden from its card on the Playlists page: open the **⋯** menu on the card and choose **Hide**. A hidden playlist moves into **Show N hidden** at the bottom of the page, is no longer offered in the schedule, sustaining and programme pickers or in persona auditions, and the library sync stops reading it, so records that only it held leave the library the way they would if the playlist were deleted. Choose **Show again** on its card to undo it; nothing is deleted. A schedule block or setting that already plays from a playlist you then hide keeps playing from it. The pickers also stop offering playlists their source refuses to share, since those could only fail at air time. Hiding needs an admin. New table `hidden_playlists` (migration 0030); `CatalogPlaylist` gains an optional `hidden`; new `PUT` and `DELETE /playlists/{pluginId}/{playlistId}/hidden`.
@@ -161,7 +165,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.11.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.11.1...HEAD
+[0.11.1]: https://github.com/robert-dean/deadair/compare/v0.11.0...v0.11.1
 [0.11.0]: https://github.com/robert-dean/deadair/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/robert-dean/deadair/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/robert-dean/deadair/compare/v0.8.3...v0.9.0

@@ -192,6 +192,48 @@ That mirrors what `stream/Dockerfile` does: it clones go-librespot at the pinned
 shim as one more `go build` in the same stage. Bump `GO_LIBRESPOT_VERSION` deliberately — the shim
 is compiled against that tag's internals, so a bump is a real compatibility event.
 
+## The playlist spike (`-playlist`)
+
+**A spike, deliberately one-shot, and answering over no route.** Nothing in the station calls it and
+nothing should until the questions below have answers.
+
+Since February 2026 the Web API returns a playlist's items only to the account that OWNS it, so a
+followed playlist — a friend's, an editorial one, Discover Weekly — answers 403, and the console
+draws those cards as "Spotify won't share this playlist's tracks." Those rules are written for a
+developer app in development mode. This process is not one: it holds the streaming client's own
+session, and `/context-resolve/v1/{uri}` is the call a Connect device makes when somebody presses
+play on a playlist. So reading one here is the client's ordinary traffic rather than a way around a
+rule.
+
+```bash
+docker exec -u deadair deadair \
+    deadair-shim -playlist 37i9dQZF1DXcBWIGoYBM5M -limit 20 \
+    -credentials /data/streamstate/spotify-credentials.json
+```
+
+It prints the tracks as JSON on stdout and three numbers on stderr: how long the context resolve
+took, how long the batched metadata took, and how many tracks came back playable. No secret is
+involved, so unlike `-sign` this needs nothing sourced out of `radio.env`.
+
+**What the spike has to answer before any of this becomes an endpoint.**
+
+1. **Does it resolve at all** for a playlist this account merely follows, and for one Spotify
+   generated (Discover Weekly, a Daily Mix)? Spotify's DJ is already known not to: its tracks come
+   from a provider librespot does not implement, and it resolves empty.
+2. **Do the titles arrive**, and in how many round trips. `ContextResolve` answers URIs only; the
+   titles are a batched `ExtendedMetadata` read per hundred, and if that turns out to be one request
+   per track the cost is a different conversation.
+3. **Is it quick enough to be worth a second code path**, measured against the Web API read it would
+   sit beside.
+4. **What it costs when it goes wrong.** This is the SAME session the station fetches audio on, so
+   rate limiting or a protocol change lands on playout rather than on a listing. A playlist read is
+   nice to have; being on air is not.
+
+If it answers well, the shape after it is a `GET /playlist/{id}` here, a host capability the plugin
+can reach, and `getPlaylistTracks` falling back to it for the playlists the Web API refuses. The
+decision that comes with it is what the library sync does once those playlists become readable,
+since `isReadable` is the only thing keeping them out today.
+
 ## Run one track by hand
 
 `-uri` switches to one-shot mode: fetch a single track and exit, which is how you answer "is this

@@ -43,7 +43,7 @@ Its config comes from the process env, which the entrypoint sources from `radio.
 | | |
 | --- | --- |
 | `PLAYOUT_BRIDGE_SECRET` | signs track URLs, which only the app fetches; the same secret gating `/control/*` |
-| `SPOTIFY_SHIM_SECRET` | gates `POST /session` and `POST /authorize`, which both decide whose account this shim fetches as |
+| `SPOTIFY_SHIM_SECRET` | gates `POST /session`, `POST /authorize` and `GET /playlist/{id}`: the first two decide whose account this shim fetches as, and the third reads that account's library |
 | `SHIM_ADDR` | listen address, default `:3679` |
 | `SHIM_CREDENTIALS` | where the shim keeps its own authorization, default `/streamstate/spotify-credentials.json` |
 | `SHIM_CALLBACK_URL` | override the redirect Spotify returns the browser to; defaults to `http://127.0.0.1:<port>/login` |
@@ -57,7 +57,7 @@ docker compose exec -T liquidsoap sh -c 'set -a; . /streamconfig/radio.env; dead
 
 (And in zsh, do not capture that into a variable called `path` — it is bound to `$PATH`.)
 
-Six endpoints:
+Seven endpoints:
 
 ```
 GET  /health              → {"ok":true,"session":false,"storedLogin":true,"loginError":"…"}
@@ -65,6 +65,7 @@ POST /authorize           ← start this shim's own one-time Spotify authorizati
 GET  /login?code=         ← where Spotify returns the operator's browser
 POST /authorize/complete  ← that same callback, relayed by something that is not that browser
 POST /session             ← the app hands over a Spotify login (the fallback)
+GET  /playlist/{id}       → one page of a playlist's tracks, as JSON
 GET  /track/{id}?t=       → the track as audio/ogg
 ```
 
@@ -192,18 +193,61 @@ That mirrors what `stream/Dockerfile` does: it clones go-librespot at the pinned
 shim as one more `go build` in the same stage. Bump `GO_LIBRESPOT_VERSION` deliberately — the shim
 is compiled against that tag's internals, so a bump is a real compatibility event.
 
-## The playlist spike (`-playlist`)
-
-**A spike, deliberately one-shot, and answering over no route.** Nothing in the station calls it and
-nothing should until the questions below have answers.
+## Playlists the Web API will not hand over
 
 Since February 2026 the Web API returns a playlist's items only to the account that OWNS it, so a
-followed playlist — a friend's, an editorial one, Discover Weekly — answers 403, and the console
-draws those cards as "Spotify won't share this playlist's tracks." Those rules are written for a
+followed playlist (a friend's, an editorial one, Discover Weekly) answers 403, and the console used
+to draw those cards as "Spotify won't share this playlist's tracks." Those rules are written for a
 developer app in development mode. This process is not one: it holds the streaming client's own
 session, and `/context-resolve/v1/{uri}` is the call a Connect device makes when somebody presses
 play on a playlist. So reading one here is the client's ordinary traffic rather than a way around a
 rule.
+
+```
+GET /playlist/{id}?offset=0&limit=50
+X-Spotify-Login-Secret: …
+
+{"id":"6Xc2…","name":"Techno/Coding","owner":"g7u0…","total":2142,"offset":0,"tracks":[…]}
+```
+
+Behind `X-Spotify-Login-Secret` rather than a signed token, because the caller is the app and it can
+send headers. The HMAC on `/track` exists only because Liquidsoap cannot, and a playlist read is a
+read of *this account's* library, which is what that secret is for.
+
+**The playlist is resolved whole, and a page is a window onto that resolve**, kept for two minutes
+(`playlistCacheTTL`). The caller that decides this is the library sync, which walks a playlist fifty
+tracks at a time: 2142 tracks is 43 pages, and resolving per page would be 43 context reads plus 43
+× 22 metadata batches where one of each will do. Two minutes is about as long as one walk takes, and
+every other reader in the station reads a playlist live.
+
+**Nothing is filtered out of a page, unplayable tracks included.** A caller pages until it gets a
+short page, so a page that quietly dropped two rows would end somebody's walk two thirds of the way
+down a playlist. What the station does about a track it cannot play belongs to the fetch, which
+answers 410 and lets the caller write that copy off.
+
+Measured on a live account, 2026-09-16:
+
+- **Today's Top Hits** (editorial, owned by `spotify`): 45 tracks, one context page, resolve 62 ms,
+  metadata 24 ms, 299 ms end to end including the login.
+- **A 2142-track playlist somebody else made**: one context page, 22 metadata batches, resolve
+  280 ms, metadata 799 ms, 1.3 s end to end. 0 tracks without metadata, 34 not playable.
+- **The name comes back too**, as `context_description`, with `context_owner` beside it.
+
+Two things to know before building on it:
+
+1. **`TRACK_V4` omits `explicit` on most tracks** — 2124 of those 2142, and 32 of the 45. The plugin
+   reads an absent advisory as "did not say" rather than as clean, which is the safe reading, but a
+   `clean-only` station will draw almost nothing from a playlist read this way.
+2. **This is the session the station airs on.** Rate limiting or a protocol change here lands on
+   playout, not just on a listing. That is what the cache is for, and why nothing retries in a loop.
+
+Spotify's DJ is the one context that does not resolve: its tracks come from a provider librespot
+does not implement, and it answers empty.
+
+### By hand, with no HTTP in the way
+
+`-playlist` resolves one and prints it, which is how the above was measured. `-limit` caps how many
+tracks are described, for probing a long playlist without waiting for all of it:
 
 ```bash
 docker exec -u deadair deadair \
@@ -211,28 +255,9 @@ docker exec -u deadair deadair \
     -credentials /data/streamstate/spotify-credentials.json
 ```
 
-It prints the tracks as JSON on stdout and three numbers on stderr: how long the context resolve
-took, how long the batched metadata took, and how many tracks came back playable. No secret is
-involved, so unlike `-sign` this needs nothing sourced out of `radio.env`.
-
-**What the spike has to answer before any of this becomes an endpoint.**
-
-1. **Does it resolve at all** for a playlist this account merely follows, and for one Spotify
-   generated (Discover Weekly, a Daily Mix)? Spotify's DJ is already known not to: its tracks come
-   from a provider librespot does not implement, and it resolves empty.
-2. **Do the titles arrive**, and in how many round trips. `ContextResolve` answers URIs only; the
-   titles are a batched `ExtendedMetadata` read per hundred, and if that turns out to be one request
-   per track the cost is a different conversation.
-3. **Is it quick enough to be worth a second code path**, measured against the Web API read it would
-   sit beside.
-4. **What it costs when it goes wrong.** This is the SAME session the station fetches audio on, so
-   rate limiting or a protocol change lands on playout rather than on a listing. A playlist read is
-   nice to have; being on air is not.
-
-If it answers well, the shape after it is a `GET /playlist/{id}` here, a host capability the plugin
-can reach, and `getPlaylistTracks` falling back to it for the playlists the Web API refuses. The
-decision that comes with it is what the library sync does once those playlists become readable,
-since `isReadable` is the only thing keeping them out today.
+JSON on stdout, and on stderr the three numbers worth reading: the resolve, the metadata, and how
+many came back playable. No secret is involved, so unlike `-sign` this needs nothing sourced out of
+`radio.env`.
 
 ## Run one track by hand
 

@@ -22,9 +22,9 @@
 //	serve (default)   listen on -addr, answering GET /track/{id}?t=<signed>
 //	one-shot (-uri)   fetch a single track to a file, for debugging a login or a track by hand
 //
-// Plus one spike, -playlist, which reads a playlist's tracks through the client protocol and prints
-// them as JSON. It answers over no route and nothing in the station calls it; see playlist.go for
-// what it is for and what it would cost.
+// `-playlist` is the one-shot's sibling for a PLAYLIST: it resolves one through the client protocol
+// and prints the tracks as JSON, which is how `GET /playlist/{id}` was measured before it existed.
+// See playlist.go for why that read works where the Web API refuses.
 package main
 
 import (
@@ -59,8 +59,8 @@ func main() {
 	bitrate := flag.Int("bitrate", envIntOr("SHIM_BITRATE", 320), "preferred bitrate; the nearest available Ogg file is used")
 	fetchTimeout := flag.Duration("fetch-timeout", 90*time.Second, "how long one track fetch may take")
 	uri := flag.String("uri", "", "one-shot mode: fetch this track and exit")
-	playlist := flag.String("playlist", "", "spike: resolve this playlist's tracks through the client protocol, print them as JSON, and exit")
-	limit := flag.Int("limit", 0, "spike: describe at most this many of the playlist's tracks (0 for all of them)")
+	playlist := flag.String("playlist", "", "one-shot mode: resolve this playlist's tracks, print them as JSON, and exit")
+	limit := flag.Int("limit", 0, "with -playlist: describe at most this many tracks (0 for all of them)")
 	out := flag.String("o", "", "one-shot mode: output file (default stdout)")
 	sign := flag.String("sign", "", "print a signed URL path for this track id and exit")
 	verbose := flag.Bool("v", false, "log go-librespot's own chatter")
@@ -123,6 +123,7 @@ func run(cfg options) error {
 			log:         log,
 			client:      client,
 		},
+		playlists:    newPlaylistCache(),
 		bitrate:      cfg.bitrate,
 		fetchTimeout: cfg.fetchTimeout,
 	}
@@ -212,9 +213,8 @@ func serve(srv *server, addr string, log librespot.Logger) error {
 	return nil
 }
 
-// One-shot: fetch a track and write it out. This is the path the Phase 0 spike proved, kept as an
-// operator tool for answering "is the login working, and is this track fetchable?" without
-// involving Liquidsoap or the app.
+// One-shot: fetch a track and write it out. An operator tool for answering "is the login working,
+// and is this track fetchable?" without involving Liquidsoap or the app.
 func fetchOnce(srv *server, uri, out string) error {
 	started := time.Now()
 	ctx, cancel := context.WithTimeout(context.Background(), srv.fetchTimeout)
@@ -248,26 +248,28 @@ func fetchOnce(srv *server, uri, out string) error {
 	return nil
 }
 
-// The spike: resolve one playlist and print what came back.
+// Resolve one playlist and print what came back.
 //
-// Writes JSON to stdout (or -o), timings to stderr, and reconnects once on a failure the way a
-// fetch does — a stale accesspoint is not an answer about whether context-resolve works.
+// Writes JSON to stdout (or -o) and the timings to stderr. The same read `GET /playlist/{id}`
+// serves, with no secret and no HTTP in the way, which is what makes it the tool for answering
+// "can this account read that playlist at all?" on a container where nothing else is running.
 func resolveOnce(srv *server, uri, out string, limit int) error {
 	started := time.Now()
 	ctx, cancel := context.WithTimeout(context.Background(), srv.fetchTimeout)
 	defer cancel()
 
-	sess, err := srv.sessions.get(ctx)
-	if err != nil {
-		return err
-	}
-	answer, err := sess.resolvePlaylist(ctx, srv.log, uri, limit)
-	if err != nil && ctx.Err() == nil {
-		fmt.Fprintf(os.Stderr, "shim: %v; retrying on a fresh session\n", err)
-		srv.sessions.invalidate(sess)
+	// `limit` is the one thing the one-shot does that the route cannot: probing a 2000-track
+	// playlist without describing all of it. A limited read is never cached, since it is not the
+	// whole playlist and a later page would read past its end.
+	var answer *playlistAnswer
+	var err error
+	if limit > 0 {
+		var sess *session
 		if sess, err = srv.sessions.get(ctx); err == nil {
 			answer, err = sess.resolvePlaylist(ctx, srv.log, uri, limit)
 		}
+	} else {
+		answer, err = srv.resolveWithRetry(ctx, uri)
 	}
 	if err != nil {
 		return err
@@ -299,8 +301,8 @@ func resolveOnce(srv *server, uri, out string, limit int) error {
 			failed++
 		}
 	}
-	// The three numbers the spike is for: did it resolve at all, did the titles come back, and was
-	// it quick enough to be worth a second code path.
+	// The three numbers worth reading: did it resolve at all, did the titles come back, and was it
+	// quick enough that the route serving this can be walked page by page.
 	fmt.Fprintf(os.Stderr, "shim: %d tracks over %d page(s): resolve %dms, metadata %dms, %d playable, %d without metadata (total %s)\n",
 		answer.Total, answer.Pages, answer.ResolveMs, answer.MetadataMs, playable, failed, time.Since(started).Round(time.Millisecond))
 	return nil

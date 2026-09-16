@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"sync"
 	"time"
 
 	librespot "github.com/devgianlu/go-librespot"
@@ -17,9 +18,9 @@ import (
 
 // Reading what a playlist HOLDS, through the same client session that fetches audio.
 //
-// **This is a spike, and it is one-shot only.** Nothing here is reachable over HTTP and nothing in
-// the station calls it. It exists to answer one question before anything is built on it: does
-// context-resolve answer for the playlists the Web API refuses, on this account, with this login?
+// Served by `GET /playlist/{id}` and by the `-playlist` one-shot, which is the tool that measured
+// this first: Today's Top Hits, 45 tracks in 299ms; a 2142-track playlist somebody else made, one
+// context page and 22 metadata batches, 1.3s.
 //
 // ## Why it can work at all
 //
@@ -31,12 +32,13 @@ import (
 // `/context-resolve/v1/{uri}` is the call a Connect device makes when somebody presses play on a
 // playlist. So the traffic here is the client's ordinary traffic rather than a way around a rule.
 //
-// ## What it costs, which is the thing to weigh after reading the output
+// ## What it costs, which is why there is a cache below
 //
 // The response is Spotify's internal shape, not a documented one, and this session is the SAME one
 // the station fetches audio on. Rate limiting or a protocol change lands on playout, not just on a
-// listing, so a playlist read that is merely nice to have is spending the station's voice. Read the
-// timings this prints with that in mind.
+// listing, so a playlist read that is merely nice to have is spending the station's voice. The
+// caller that matters is the library sync, which walks a playlist fifty tracks at a time: 2142
+// tracks is 43 pages, and resolving per page would be 43 of these where one will do.
 //
 // ## The two calls
 //
@@ -45,8 +47,9 @@ import (
 // `ExtendedMetadata` request per chunk — the same `TRACK_V4` read `openTrack` already makes per
 // track, asked for many at once.
 
-// How many track URIs go into one extended-metadata request. Not measured, and one of the things
-// the spike is for: the aim is a few round trips for a long playlist rather than one per track.
+// How many track URIs go into one extended-metadata request. Measured at 22 requests for a
+// 2142-track playlist, 799ms all told, which is the number that makes a whole-playlist resolve
+// affordable in the first place.
 const metadataBatchSize = 100
 
 // Pages of context to walk before giving up on a provider that does not advance. A playlist page is
@@ -74,11 +77,16 @@ type playlistTrack struct {
 	Error string `json:"error,omitempty"`
 }
 
-// What one spike run learned about one playlist.
+// One playlist, resolved whole. The HTTP layer hands out windows onto this; see page().
 type playlistAnswer struct {
 	URI string `json:"uri"`
-	// Whatever the context carries about itself. Undocumented and worth printing verbatim: this is
-	// where a name would have to come from, and the spike is how we find out whether one is there.
+	// What the context calls itself, and whose it is. `context_description` and `context_owner` in
+	// the metadata below, lifted out because they are the two an HTTP caller wants and the rest is
+	// undocumented noise.
+	Name  string `json:"name,omitempty"`
+	Owner string `json:"owner,omitempty"`
+	// Everything else the context says about itself, undocumented and carried only for the
+	// one-shot's output. Deliberately not in what the HTTP layer answers.
 	Metadata map[string]string `json:"metadata,omitempty"`
 	Pages    int               `json:"pages"`
 	Total    int               `json:"total"`
@@ -104,7 +112,13 @@ func (s *session) resolvePlaylist(ctx context.Context, log librespot.Logger, uri
 		return nil, fmt.Errorf("failed resolving the playlist context: %w", err)
 	}
 
-	answer := &playlistAnswer{URI: id.Uri(), Metadata: resolver.Metadata()}
+	metadata := resolver.Metadata()
+	answer := &playlistAnswer{
+		URI:      id.Uri(),
+		Name:     metadata["context_description"],
+		Owner:    metadata["context_owner"],
+		Metadata: metadata,
+	}
 	var uris []string
 	for page := 0; page < maxContextPages; page++ {
 		tracks, err := resolver.Page(ctx, page)
@@ -237,8 +251,8 @@ func (s *session) describe(uri string, track *metadatapb.Track) playlistTrack {
 }
 
 // The base62 id out of a `spotify:track:...` uri, for output that reads like the Web API's ids.
-// Anything unparseable is reported whole rather than dropped: in a spike the odd shape IS the
-// finding.
+// Anything unparseable is reported whole rather than dropped: a row whose uri this does not
+// recognise is worth seeing rather than silently losing.
 func idOf(uri string) string {
 	id, err := librespot.SpotifyIdFromUri(uri)
 	if err != nil {
@@ -259,4 +273,118 @@ func parsePlaylistId(uri string) (*librespot.SpotifyId, error) {
 		return nil, fmt.Errorf("%q is a %s, not a playlist", uri, id.Type())
 	}
 	return id, nil
+}
+
+// ── serving a page of one ────────────────────────────────────────────────────
+
+// One page of a resolved playlist, as `GET /playlist/{id}` answers it.
+//
+// `Total` is the whole playlist rather than the page, because the caller pages until it sees a
+// short one and a listing wants to say how long the playlist is before it has read all of it.
+type playlistPage struct {
+	ID     string          `json:"id"`
+	Name   string          `json:"name,omitempty"`
+	Owner  string          `json:"owner,omitempty"`
+	Total  int             `json:"total"`
+	Offset int             `json:"offset"`
+	Tracks []playlistTrack `json:"tracks"`
+}
+
+// A window onto a resolved playlist.
+//
+// Nothing is filtered out on the way through, unplayable tracks included. A caller pages until it
+// gets a short page, so a page that quietly dropped two rows would end the walk two thirds of the
+// way down a playlist — the same trap the host's own plugin paging documents. What the station
+// does with a track it cannot play is a decision for the fetch, which answers 410 and lets the
+// caller write that copy off.
+func (a *playlistAnswer) page(offset, limit int) *playlistPage {
+	page := &playlistPage{
+		ID:     idOf(a.URI),
+		Name:   a.Name,
+		Owner:  a.Owner,
+		Total:  len(a.Tracks),
+		Offset: offset,
+		// Never nil: an empty page has to encode as `[]` rather than `null`, which a caller would
+		// have to special-case.
+		Tracks: []playlistTrack{},
+	}
+	if offset >= len(a.Tracks) {
+		return page
+	}
+	end := min(offset+limit, len(a.Tracks))
+	page.Tracks = a.Tracks[offset:end]
+	return page
+}
+
+// How long a resolved playlist is worth reusing.
+//
+// Long enough that a sync walking 43 pages resolves once, short enough that an operator who adds a
+// record and presses refresh sees it. The station reads a playlist live everywhere else (the
+// console on every request, a changeover at the moment it happens), so this is the only place a
+// playlist is remembered at all, and it is remembered for about as long as one walk takes.
+const playlistCacheTTL = 2 * time.Minute
+
+// How many playlists to keep. A station has a handful; this is a ceiling on a mistake, not a
+// working set — each entry is a described playlist, and a long one is a megabyte of it.
+const playlistCacheEntries = 32
+
+// Resolved playlists, kept briefly so paging one costs one resolve.
+//
+// Not on the session: a session that is invalidated and rebuilt has not changed what any playlist
+// holds, and throwing the cache away with it would put the reconnect back into the middle of a
+// walk.
+type playlistCache struct {
+	mu      sync.Mutex
+	entries map[string]cachedPlaylist
+	// Injected so a test can age an entry without sleeping.
+	now func() time.Time
+}
+
+type cachedPlaylist struct {
+	answer *playlistAnswer
+	at     time.Time
+}
+
+func newPlaylistCache() *playlistCache {
+	return &playlistCache{entries: map[string]cachedPlaylist{}, now: time.Now}
+}
+
+// The cached resolve for this uri, or nil if there is none worth using.
+func (c *playlistCache) get(uri string) *playlistAnswer {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	entry, ok := c.entries[uri]
+	if !ok {
+		return nil
+	}
+	if c.now().Sub(entry.at) > playlistCacheTTL {
+		delete(c.entries, uri)
+		return nil
+	}
+	return entry.answer
+}
+
+func (c *playlistCache) put(uri string, answer *playlistAnswer) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if len(c.entries) >= playlistCacheEntries {
+		if _, replacing := c.entries[uri]; !replacing {
+			c.evictOldest()
+		}
+	}
+	c.entries[uri] = cachedPlaylist{answer: answer, at: c.now()}
+}
+
+// Drops the entry resolved longest ago. Called with the lock held.
+func (c *playlistCache) evictOldest() {
+	var oldestURI string
+	var oldestAt time.Time
+	for uri, entry := range c.entries {
+		if oldestURI == "" || entry.at.Before(oldestAt) {
+			oldestURI, oldestAt = uri, entry.at
+		}
+	}
+	delete(c.entries, oldestURI)
 }

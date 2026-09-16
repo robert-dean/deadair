@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -23,6 +24,7 @@ import (
 //	GET  /login?code=         ← where Spotify sends the operator's browser back (see authorize.go)
 //	POST /authorize/complete  ← the same callback, relayed by something that is not that browser
 //	POST /session             ← the app hands over a Spotify login (the fallback path)
+//	GET  /playlist/{id}       → one page of a playlist's tracks, as JSON
 //	GET  /track/{id}?t=       → the track as audio/ogg
 //
 // Liquidsoap curl-downloads a queued item with NO headers from us, which is why the authorization
@@ -43,9 +45,11 @@ type server struct {
 	// Where a pushed login lands. The session holder reads through it, after the stored one.
 	pushed *pushedCredentials
 	// This shim's own authorization: the store it writes to, and the flow that fills it.
-	store   *storedLogin
-	auth    *authorizer
-	bitrate int
+	store *storedLogin
+	auth  *authorizer
+	// Resolved playlists, so paging one costs one resolve. See playlist.go.
+	playlists *playlistCache
+	bitrate   int
 	// How long a fetch may take before it is abandoned. Generous: a track arrives in about a
 	// second, but a cold session has a login in front of it.
 	fetchTimeout time.Duration
@@ -64,6 +68,11 @@ func (s *server) routes() *http.ServeMux {
 	// the `state` it carries, and a relay is a caller we can hold to a higher bar for free.
 	mux.HandleFunc("POST /authorize/complete", s.handleAuthorizeComplete)
 	mux.HandleFunc("POST /session", s.handleSession)
+	// Gated on the login secret rather than on a signed token, because the caller is the app and it
+	// can send headers. The HMAC on /track exists only because Liquidsoap cannot, and a playlist
+	// read is a read of whose account this shim fetches as — which is exactly what that secret is
+	// for.
+	mux.HandleFunc("GET /playlist/{id}", s.handlePlaylist)
 	mux.HandleFunc("GET /track/{id}", s.handleTrack)
 	// HEAD needs its OWN pattern. Go's router matches HEAD against a "GET" pattern, so without
 	// this the full handler answers it: Liquidsoap sniffs each item with a HEAD before
@@ -116,6 +125,25 @@ func writeJSON(w http.ResponseWriter, body any) {
 	_ = encoder.Encode(body)
 }
 
+// Whether this caller may decide, or ask about, whose Spotify account this shim fetches as.
+//
+// One copy of a check that was written out three times and is now wanted in four places. The two
+// refusals say different things on purpose: 404 means nothing could match because the app has not
+// seeded a secret yet, so the route cannot serve anybody and this is not about this caller; 401
+// means the caller got it wrong.
+func (s *server) loginSecretOk(w http.ResponseWriter, r *http.Request, what string) bool {
+	if s.shimSecret == "" {
+		http.Error(w, "no login secret configured", http.StatusNotFound)
+		return false
+	}
+	if subtle.ConstantTimeCompare([]byte(r.Header.Get("X-Spotify-Login-Secret")), []byte(s.shimSecret)) != 1 {
+		s.log.Warnf("rejected %s: the login secret did not match", what)
+		http.Error(w, "denied", http.StatusUnauthorized)
+		return false
+	}
+	return true
+}
+
 // Start this shim's own authorization and hand back the URL to open.
 //
 // Gated on the same secret as POST /session, and for the same reason: both decide whose Spotify
@@ -123,13 +151,7 @@ func writeJSON(w http.ResponseWriter, body any) {
 // is an operator with curl or the app relaying to a console, neither of which is a browser
 // following a 302.
 func (s *server) handleAuthorize(w http.ResponseWriter, r *http.Request) {
-	if s.shimSecret == "" {
-		http.Error(w, "no login secret configured", http.StatusNotFound)
-		return
-	}
-	if subtle.ConstantTimeCompare([]byte(r.Header.Get("X-Spotify-Login-Secret")), []byte(s.shimSecret)) != 1 {
-		s.log.Warnf("rejected an authorization request: the login secret did not match")
-		http.Error(w, "denied", http.StatusUnauthorized)
+	if !s.loginSecretOk(w, r, "an authorization request") {
 		return
 	}
 
@@ -201,13 +223,7 @@ type authorizationCompletion struct {
 // the address over anyway. The exchange itself is unchanged, `state` still ties the callback to the
 // authorization this shim started, and the fifteen-minute TTL still applies.
 func (s *server) handleAuthorizeComplete(w http.ResponseWriter, r *http.Request) {
-	if s.shimSecret == "" {
-		http.Error(w, "no login secret configured", http.StatusNotFound)
-		return
-	}
-	if subtle.ConstantTimeCompare([]byte(r.Header.Get("X-Spotify-Login-Secret")), []byte(s.shimSecret)) != 1 {
-		s.log.Warnf("rejected a relayed authorization: the login secret did not match")
-		http.Error(w, "denied", http.StatusUnauthorized)
+	if !s.loginSecretOk(w, r, "a relayed authorization") {
 		return
 	}
 
@@ -298,15 +314,7 @@ type sessionPush struct {
 // the very budget it is trying to protect. The connection is warmed in the background instead, and
 // the fetch path still opens its own session if that has not finished (or failed).
 func (s *server) handleSession(w http.ResponseWriter, r *http.Request) {
-	if s.shimSecret == "" {
-		// Nothing could match, so this is not a refusal of this caller: the route cannot serve
-		// anyone until the app seeds the secret. Mirrors what the app answers in the same state.
-		http.Error(w, "no login secret configured", http.StatusNotFound)
-		return
-	}
-	if subtle.ConstantTimeCompare([]byte(r.Header.Get("X-Spotify-Login-Secret")), []byte(s.shimSecret)) != 1 {
-		s.log.Warnf("rejected a session push: the login secret did not match")
-		http.Error(w, "denied", http.StatusUnauthorized)
+	if !s.loginSecretOk(w, r, "a session push") {
 		return
 	}
 
@@ -344,6 +352,127 @@ func (s *server) handleSession(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusAccepted)
 	go s.sessions.warm(s.fetchTimeout)
+}
+
+// How many tracks one page may carry, and how many it carries when the caller does not say.
+//
+// The default matches the host's own `PLUGIN_PAGE_SIZE`, which is what walks a playlist in the
+// app. The ceiling is a bound on one response body rather than on the work: the playlist is
+// resolved whole either way, and 200 described tracks is already a few hundred kilobytes of JSON.
+const (
+	defaultPlaylistPageSize = 50
+	maxPlaylistPageSize     = 200
+)
+
+// One page of a playlist's tracks.
+//
+// The playlist is resolved whole and cached briefly (see playlist.go), so a caller walking a
+// 2000-track playlist fifty at a time pays for one resolve rather than forty-three. A page is a
+// window onto that, and rows are never filtered out of one: a short page means the end of the
+// playlist to every caller that pages, so dropping even an unplayable row here would truncate
+// somebody's walk.
+func (s *server) handlePlaylist(w http.ResponseWriter, r *http.Request) {
+	if !s.loginSecretOk(w, r, "a playlist read") {
+		return
+	}
+
+	id, err := parsePlaylistId(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	offset, err := queryCount(r, "offset", 0, 0)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	limit, err := queryCount(r, "limit", defaultPlaylistPageSize, maxPlaylistPageSize)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), s.fetchTimeout)
+	defer cancel()
+
+	answer, err := s.resolveCached(ctx, id.Uri())
+	if err != nil {
+		// 502 for the reason a failed fetch is one: what failed is upstream of us. The reason is
+		// passed through rather than flattened, because the app puts it in front of an operator and
+		// "the context is loading" and "failed authenticating with login5" want different answers.
+		s.log.WithError(err).Errorf("failed reading playlist %s", id.Base62())
+		http.Error(w, "playlist read failed: "+err.Error(), http.StatusBadGateway)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	// Nothing here is worth caching at the edge: this shim already holds the resolve for as long as
+	// it is worth holding, and the caller is one process on the same host.
+	w.Header().Set("Cache-Control", "no-store")
+	writeJSON(w, answer.page(offset, limit))
+}
+
+// A non-negative integer from the query string, or `fallback` when it is absent.
+//
+// `max` of 0 means unbounded. A value that is present and unusable is refused rather than rounded:
+// a caller paging with a garbled offset is asking for a window it will misread as the end of the
+// playlist, and silently answering page one would look exactly like a short playlist.
+func queryCount(r *http.Request, key string, fallback, max int) (int, error) {
+	raw := r.URL.Query().Get(key)
+	if raw == "" {
+		return fallback, nil
+	}
+	value, err := strconv.Atoi(raw)
+	if err != nil || value < 0 {
+		return 0, fmt.Errorf("%s must be a non-negative whole number", key)
+	}
+	if max > 0 && value > max {
+		return 0, fmt.Errorf("%s may be at most %d", key, max)
+	}
+	return value, nil
+}
+
+// The resolved playlist, from the cache when it is there and from Spotify when it is not.
+func (s *server) resolveCached(ctx context.Context, uri string) (*playlistAnswer, error) {
+	if cached := s.playlists.get(uri); cached != nil {
+		s.log.Debugf("serving %s from a resolve less than %s old", uri, playlistCacheTTL)
+		return cached, nil
+	}
+	answer, err := s.resolveWithRetry(ctx, uri)
+	if err != nil {
+		return nil, err
+	}
+	s.log.Infof("resolved %s: %d tracks over %d page(s), resolve %dms, metadata %dms", uri, answer.Total, answer.Pages, answer.ResolveMs, answer.MetadataMs)
+	s.playlists.put(uri, answer)
+	return answer, nil
+}
+
+// Resolve a playlist, reconnecting once if the session under it has gone.
+//
+// {@link openWithRetry}'s sibling and for the same reason: an accesspoint that has gone away fails
+// every request on it identically until it is replaced. There is no unplayable case to spare here
+// — a playlist that cannot be read is read again on a fresh session, and if that fails too the
+// error is the answer.
+func (s *server) resolveWithRetry(ctx context.Context, uri string) (*playlistAnswer, error) {
+	sess, err := s.sessions.get(ctx)
+	if err != nil {
+		return nil, err
+	}
+	answer, err := sess.resolvePlaylist(ctx, s.log, uri, 0)
+	if err == nil {
+		return answer, nil
+	}
+	if ctx.Err() != nil {
+		return nil, err
+	}
+
+	s.log.WithError(err).Warnf("playlist read failed, retrying on a fresh session")
+	s.sessions.invalidate(sess)
+	sess, retryErr := s.sessions.get(ctx)
+	if retryErr != nil {
+		return nil, fmt.Errorf("%w (reconnect also failed: %v)", err, retryErr)
+	}
+	return sess.resolvePlaylist(ctx, s.log, uri, 0)
 }
 
 // Answer a HEAD without touching Spotify.

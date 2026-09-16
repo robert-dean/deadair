@@ -291,3 +291,79 @@ describe('the track fetcher authorization', () => {
         expect((init?.headers as Record<string, string>)['x-spotify-login-secret']).toBe('shim-secret');
     });
 });
+
+describe('reading a playlist the Web API refuses', () => {
+    const page = (over: Record<string, unknown> = {}) =>
+        new Response(JSON.stringify({ id: 'pl-1', name: 'Techno/Coding', owner: 'somebody', total: 2142, offset: 0, tracks: [], ...over }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+        });
+
+    it('asks the fetcher for one page, behind the login secret', async () => {
+        const { client, fetchMock } = clientWith({}, page({ tracks: [{ id: 't1', title: 'A Record' }] }));
+
+        const answer = await client.playlistTracks('pl-1', { offset: 100, limit: 50 });
+
+        expect(answer).toEqual({ ok: true, value: expect.objectContaining({ id: 'pl-1', total: 2142 }) });
+        const [url, init] = fetchMock.mock.calls[0]!;
+        expect(url).toBe(`${DEFAULT_SHIM_BASE_URL}/playlist/pl-1?offset=100&limit=50`);
+        expect(init?.method).toBe('GET');
+        expect((init?.headers as Record<string, string>)['x-spotify-login-secret']).toBe('shim-secret');
+        // A read sends nothing, so it declares no content type either.
+        expect(init?.body).toBeUndefined();
+    });
+
+    it('lets the fetcher choose the page when the caller does not', async () => {
+        const { client, fetchMock } = clientWith({}, page());
+
+        await client.playlistTracks('pl-1');
+
+        expect(fetchMock.mock.calls[0]![0]).toBe(`${DEFAULT_SHIM_BASE_URL}/playlist/pl-1`);
+    });
+
+    it('escapes a playlist id rather than pasting it into the path', async () => {
+        const { client, fetchMock } = clientWith({}, page());
+
+        await client.playlistTracks('spotify:playlist:pl-1');
+
+        expect(fetchMock.mock.calls[0]![0]).toBe(`${DEFAULT_SHIM_BASE_URL}/playlist/spotify%3Aplaylist%3Apl-1`);
+    });
+
+    // The fetcher's 401/404 are about this install rather than about Spotify: both mean the two
+    // halves do not agree on a secret, which is the stream side not being set up.
+    it('reports a secret mismatch as the stream half not being set up', async () => {
+        const { client } = clientWith({}, new Response('denied', { status: 401 }));
+
+        await expect(client.playlistTracks('pl-1')).resolves.toMatchObject({ ok: false, status: 503 });
+    });
+
+    it("carries the fetcher's own sentence when the read failed upstream", async () => {
+        const { client } = clientWith({}, new Response('playlist read failed: the context is loading', { status: 502 }));
+
+        await expect(client.playlistTracks('pl-1')).resolves.toEqual({
+            ok: false,
+            status: 502,
+            message: 'playlist read failed: the context is loading',
+        });
+    });
+
+    it('reports a refused page as the 400 it is, so the caller does not retry it', async () => {
+        const { client } = clientWith({}, new Response('offset must be a non-negative whole number', { status: 400 }));
+
+        await expect(client.playlistTracks('pl-1', { offset: -1 })).resolves.toMatchObject({ ok: false, status: 400 });
+    });
+
+    it('answers 503 when the fetcher cannot be reached at all', async () => {
+        const { client } = clientWith({}, new Error('ECONNREFUSED'));
+
+        await expect(client.playlistTracks('pl-1')).resolves.toMatchObject({ ok: false, status: 503 });
+    });
+
+    it('does not call a fetcher it holds no secret for', async () => {
+        const { client, fetchMock } = clientWith({}, page());
+        client.useSecrets(VECTOR.secret, '');
+
+        await expect(client.playlistTracks('pl-1')).resolves.toMatchObject({ ok: false, status: 503 });
+        expect(fetchMock).not.toHaveBeenCalled();
+    });
+});

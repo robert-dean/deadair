@@ -73,6 +73,15 @@ export const AUTHORIZATION_START_TIMEOUT_MS = 5_000;
  * gives up on an authorization that then succeeds, and the operator is told it failed while the
  * station quietly starts working.
  */
+/**
+ * How long a playlist read may take.
+ *
+ * A first read of a 2142-track playlist measured 1.3s, and every page after it is served from the
+ * shim's own two-minute cache. Well short of the shim's own 90s ceiling on the work, because this
+ * one has a plugin invocation waiting on it rather than an operator watching a button.
+ */
+export const PLAYLIST_READ_TIMEOUT_MS = 15_000;
+
 export const AUTHORIZATION_FINISH_TIMEOUT_MS = 100_000;
 
 /**
@@ -121,6 +130,42 @@ export interface FetcherRefusal {
 }
 
 export type FetcherResult<T> = { ok: true; value: T } | FetcherRefusal;
+
+/**
+ * One track of a playlist, as the fetcher describes it.
+ *
+ * Deliberately close to the plugin SDK's `ProviderTrack` without being it: this is the fetcher's
+ * wire shape, and the mapping into the SDK's type belongs to the host that hands it to a plugin
+ * (see `PluginHostFactory.createTrackFetcher`). `playable` has no `ProviderTrack` counterpart and
+ * is carried anyway, because a listing that knows which copies cannot be served is worth more than
+ * one that finds out at air time.
+ */
+export interface FetchedPlaylistTrack {
+    id: string;
+    title: string;
+    artists?: string[];
+    album?: string;
+    durationMs?: number;
+    isrc?: string;
+    year?: number;
+    popularity?: number;
+    advisory?: string;
+    artworkUrl?: string;
+    playable?: boolean;
+    /** Why this row has no description, when the context resolved and the metadata read did not. */
+    error?: string;
+}
+
+/** One page of a playlist, as `GET /playlist/{id}` answers it. */
+export interface FetchedPlaylistPage {
+    id: string;
+    name?: string;
+    owner?: string;
+    /** The whole playlist's length, not this page's: a caller pages until it sees a short one. */
+    total: number;
+    offset: number;
+    tracks: FetchedPlaylistTrack[];
+}
 
 /**
  * The fetcher's own failure, as something the station can answer with.
@@ -291,6 +336,63 @@ export class SpotifyShimClient {
      */
     async completeAuthorization(redirectUrl: string): Promise<FetcherResult<{ username: string }>> {
         return this.control('/authorize/complete', { redirectUrl }, AUTHORIZATION_FINISH_TIMEOUT_MS);
+    }
+
+    /**
+     * One page of a playlist the provider's own API will not hand over.
+     *
+     * The fetcher reads it on the login it holds, which is the whole point: since February 2026 the
+     * Spotify Web API returns a playlist's items only to the account that owns it, and this session
+     * is the streaming client's rather than a developer app's. See `stream/spotify-shim/playlist.go`.
+     *
+     * Paged rather than read whole, because the caller is a plugin answering `getPlaylistTracks`
+     * and the host walks that fifty at a time. The shim holds its own resolve for a couple of
+     * minutes, so a walk costs one read of Spotify rather than one per page.
+     */
+    async playlistTracks(playlistId: string, options: { offset?: number; limit?: number } = {}): Promise<FetcherResult<FetchedPlaylistPage>> {
+        const query = new URLSearchParams();
+        if (options.offset !== undefined) query.set('offset', String(options.offset));
+        if (options.limit !== undefined) query.set('limit', String(options.limit));
+
+        const suffix = query.size > 0 ? `?${query.toString()}` : '';
+        return this.read<FetchedPlaylistPage>(`/playlist/${encodeURIComponent(playlistId)}${suffix}`, PLAYLIST_READ_TIMEOUT_MS);
+    }
+
+    /**
+     * {@link SpotifyShimClient.control}'s read half: same gate, same refusals, no body.
+     *
+     * Its own method rather than a `method` parameter on `control`, because the two differ in more
+     * than the verb — a read sends no `content-type` and nothing to serialize — and a parameter
+     * that changes half a function's meaning reads worse at both call sites than two short ones.
+     */
+    private async read<T>(path: string, timeoutMs: number): Promise<FetcherResult<T>> {
+        if (!this.shimSecret) {
+            return {
+                ok: false,
+                status: 503,
+                message: 'the track fetcher has no login secret, so the stream half of this install has not been set up yet',
+            };
+        }
+
+        let response: Response;
+        try {
+            response = await fetch(`${this.baseUrl()}${path}`, {
+                method: 'GET',
+                headers: { 'x-spotify-login-secret': this.shimSecret },
+                signal: AbortSignal.timeout(timeoutMs),
+            });
+        } catch (error) {
+            this.logger.warn('stream: could not reach the track fetcher', { path, error: errorText(error) });
+            return { ok: false, status: 503, message: 'the track fetcher is not answering' };
+        }
+
+        if (!response.ok) {
+            // Plain text, because that is what the shim answers with on every failure path.
+            const message = (await response.text().catch(() => '')).trim();
+            return refusalFor(response.status, message);
+        }
+
+        return { ok: true, value: (await response.json()) as T };
     }
 
     /**

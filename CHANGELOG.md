@@ -9,6 +9,13 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.11.0] — 2026-09-16
+
+- Any playlist can now be hidden from its card on the Playlists page: open the **⋯** menu on the card and choose **Hide**. A hidden playlist moves into **Show N hidden** at the bottom of the page, is no longer offered in the schedule, sustaining and programme pickers or in persona auditions, and the library sync stops reading it, so records that only it held leave the library the way they would if the playlist were deleted. Choose **Show again** on its card to undo it; nothing is deleted. A schedule block or setting that already plays from a playlist you then hide keeps playing from it. The pickers also stop offering playlists their source refuses to share, since those could only fail at air time. Hiding needs an admin. New table `hidden_playlists` (migration 0030); `CatalogPlaylist` gains an optional `hidden`; new `PUT` and `DELETE /playlists/{pluginId}/{playlistId}/hidden`.
+- The playlists Spotify makes for you (Discover Weekly, the Daily Mixes, Release Radar and its editorial lists) no longer fill the Playlists page with cards Spotify refuses to share. They now sit behind **Show N made by Spotify** under your own playlists, and the count at the top counts only the ones a person made. Nothing is removed: open the button and they are all there. For plugin authors, `ProviderPlaylist` gains an optional `madeByProvider`, and `CatalogPlaylist` carries it through.
+- The running order on the Desk can now skip straight to a record further down it. Each record still to come carries a **Skip to** button beside Play next: pressing it passes over everything in front of that record, including anything the player had already been handed and the breaks between, cuts what is on air, and plays the record next. The records passed over show as skipped, and a break that was being written for one of them is written off. Only a record can be skipped to, not a break, since a break's words are about the records around it. With nothing on air, the order moves and the station starts from that record when it next airs. The new route is `POST /director/air/items/{itemId}/skip-to`, `skipToARunningOrderItem` in the SDK.
+- The deadpan wisecracking host seed now makes fun of what a record is called rather than the record itself: the title, the band name, the album title, and the fact that somebody approved a sleeve. She likes the music and plays it straight, and she no longer goes after the listener's taste. A person's own name is off limits (she goes for the title instead), and because the writer is never shown the cover art, she may wonder who signed it off but never describes it. A station that already has her keeps the old sheet: seeds are only written to an empty station, and "Restore built-ins" adds missing ones without overwriting.
+
 ## [0.10.0] — 2026-09-15
 
 - A playlist can now be aired with similar records mixed in, the way Spotify's smart shuffle does it. Every few records of the playlist, the station adds a record by an artist who sounds like the one just played, found through a similarity plugin such as Last.fm; the playlist itself still plays in full and in its own order around them. Choose **Air with similar records mixed in** from the arrow beside Air this playlist, or turn on **Mix similar records into a playlist** under Settings, Rotation to have every playlist do it, with the spacing beside it (four of the playlist's records between mixed-in ones by default). It is off by default, a setlist or a feature never has anything mixed in, and every mixed-in record passes the same rules and dislikes as anything else the station picks. A mixed-in record never lands beside a break, so nothing the presenter has already said about the next record is made wrong. The activity feed says how many were found, and says so when none could be. `PutOnAirInput` and `PlayoutPlaylistInput` gain an optional `mixInSimilar`.
@@ -154,7 +161,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/robert-dean/deadair/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/robert-dean/deadair/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/robert-dean/deadair/compare/v0.8.3...v0.9.0
 [0.8.3]: https://github.com/robert-dean/deadair/compare/v0.8.2...v0.8.3

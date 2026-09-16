@@ -21,7 +21,11 @@ a `.env` ENABLED the bypass and only the positive `NODE_ENV` allowlist beside it
 `modules/shared/setting.flags.ts` owns the vocabulary now (`true/1/yes/on`, `false/0/no/off`, anything else
 and the empty string take the declared default rather than `false`, because a value nobody can parse is a
 setting nobody set). Numbers have the same problem and the same shape of answer: `resolveAnalysisConcurrency`,
-`resolveRetentionDays`, `maxOutputTokens`.
+`resolveRetentionDays`, `maxOutputTokens`. **The two connection ports are the version of this that hid
+longest**: `DATABASE_PORT` and `REDIS_PORT` were read as `config.get(key, 5432)`, which types as
+`number` and answers the string, and both drivers coerce it, so the only visible symptom was the one
+nobody saw: a typo became `NaN`, which `pg` reads as a port nobody set and answers with its own 5432.
+Both go through `requiredNumber` now, in `database.connection.ts` and `redis.connection.ts`.
 
 **A test that hands over a real boolean proves nothing here** — it passes either way — so a switch's off-case
 is tested with the string, and a config double that coerces on the way out is worse than no double at all:
@@ -109,10 +113,7 @@ set, none of the five discrete variables is consulted, because a merge produces 
 to the right host as the wrong user, and the `full` image fills the loopback defaults in itself (its
 `database-env` now skips them when a URL is set, which is what makes that rule load-bearing rather
 than tidy). A URL that cannot be parsed stops the boot, on `requiredNumber`'s rule, and no error
-message here ever quotes the value, because a Redis URL carries the password. `REDIS_PORT` goes
-through `requiredNumber` for the reason the whole "a setting is a string" section exists: it was
-`config.get('REDIS_PORT', 6379)`, which handed ioredis the string `'6379'` whenever the variable was
-set and worked only because the connector coerces it.
+message here ever quotes the value, because a Redis URL carries the password.
 
 ## Module lifecycle
 

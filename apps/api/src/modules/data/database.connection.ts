@@ -1,4 +1,5 @@
 import type { AppConfig } from '@maroonedsoftware/appconfig';
+import { requiredNumber } from '#modules/shared/setting.numbers.js';
 
 /**
  * Where the database is and who to be when connecting to it.
@@ -28,7 +29,15 @@ export interface DatabaseConnection {
 export function resolveOwnerConnection(config: AppConfig): DatabaseConnection {
     return {
         host: config.get('DATABASE_HOST', ''),
-        port: config.get('DATABASE_PORT', 55432),
+        // `requiredNumber` rather than the bare `config.get('DATABASE_PORT', 55432)` that was here.
+        // Every layer of `AppConfig` holds strings, so that call handed `pg` `'5432'` whenever the
+        // variable was SET and only worked because the driver coerces it. A typo took the same path:
+        // `DATABASE_PORT=54 32` became a `NaN` port rather than an error naming the variable, and
+        // `NaN` is falsy, so `pg` reads it as a port nobody set and falls through to `PGPORT` and
+        // then to its own 5432 (`connection-parameters.js`). The typo therefore arrives as a
+        // connection refused, or worse as authentication against whatever answers on 5432, rather
+        // than as the two characters that caused it.
+        port: requiredNumber(config, 'DATABASE_PORT', 55432),
         user: config.get('DATABASE_USER', ''),
         password: config.get('DATABASE_PASSWORD', ''),
         database: config.get('DATABASE_NAME', ''),

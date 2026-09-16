@@ -604,10 +604,11 @@ describe('latitude', () => {
     });
 
     // It said "never about the person listening" for as long as it existed, and that came out: a
-    // sheet may legitimately point a character at the listener — the shipped `wisecrack` is — and a
-    // prompt carrying both that quirk and a licence forbidding it is two rules that disagree, which
-    // a model resolves by hedging between them. The licence decides the register; the sheet decides
-    // the target. See `LATITUDE_LICENCE`.
+    // sheet may legitimately point a character at the listener (the shipped `wisecrack` was, until it
+    // moved to the label, and an operator's own character still may), and a prompt carrying both
+    // that quirk and a licence forbidding it is two rules that disagree, which a model resolves by
+    // hedging between them. The licence decides the register; the sheet decides the target. See
+    // `LATITUDE_LICENCE`.
     it('licences the register and names a target without forbidding one', () => {
         expect(LATITUDE_LICENCE).toMatch(/swear properly if you would swear/i);
         expect(LATITUDE_LICENCE).toMatch(/about the record, the artist, the industry, this station and yourself/i);

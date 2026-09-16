@@ -76,6 +76,22 @@ about how far the broadcast has got and counting it would freeze the order in fr
 leaving any id still elsewhere in the order alone, since idents come from a shared library and the same row is
 legitimately at three slots in an hour.
 
+**Skipping to a record is the one edit allowed into the player's hands.** Every other edit is refused on
+anything past `planned`, because the operator would be rearranging what a listener is about to hear, and
+here that is the request. `StationLineup.skipTo` marks everything still to come in front of the record
+`skipped`, which is what `markAiring` would have written had the player got there on its own. It does not
+mark it `removed`, which is an operator's cut and would leave that run of the order looking editable to
+`committedThrough`. Breaks and talk-over cues in front of it go too, since their words were written against
+records nobody is now going to hear, and `retireSegments` writes their rows off as a removal's are. Only a
+record can be the target. It is two halves in a fixed order. The director's command (`OrderEdit` `skipTo`)
+moves the order and `Rundown.retract`s the player's queue, but **only when the player was holding something
+it passed over**: when the target is already the next thing held, a retraction throws away a record the
+player has already fetched and puts the mount on the bed while it downloads again. Then
+`DirectorConsoleService.skipToOrderItem` cuts what is on air through `PlayoutPusher.skipCurrent`, outside
+the mailbox, because the cut waits out a boundary and the mailbox must not. It cuts nothing when nothing is
+airing, and a cut the stream refuses is logged rather than answered as a 409: the order has already moved
+and been written down, so the record is next either way.
+
 ## What the order is asked for
 
 **The order also carries the operator's BRIEF, and that is why it is on the row rather than in a job

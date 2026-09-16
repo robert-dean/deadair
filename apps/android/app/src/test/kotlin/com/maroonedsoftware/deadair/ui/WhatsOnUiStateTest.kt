@@ -43,7 +43,7 @@ class WhatsOnUiStateTest {
         )
 
     private fun persona(id: String, label: String, djName: String? = null) =
-        Persona(id = id, key = "key-$id", label = label, style = "warm", djName = djName, active = true)
+        Persona(id = id, key = "key-$id", label = label, style = "warm", djName = djName, active = true, presenting = true)
 
     private val evening = block("slot-1", "Late Night", "2026-09-06 20:00:00", "2026-09-06 22:00:00")
     private val next = block("slot-2", "Small Hours", "2026-09-06 22:00:00", "2026-09-07 00:00:00")

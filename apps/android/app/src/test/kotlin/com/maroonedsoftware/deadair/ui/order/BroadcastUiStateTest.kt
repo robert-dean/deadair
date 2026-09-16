@@ -38,7 +38,7 @@ class BroadcastUiStateTest {
         )
 
     private fun persona(id: String, label: String, active: Boolean = false) =
-        Persona(id = id, key = id, label = label, style = "warm", active = active)
+        Persona(id = id, key = id, label = label, style = "warm", active = active, presenting = active)
 
     @Test
     fun `an empty name is no title, which is what the station answers off air`() {

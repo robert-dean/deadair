@@ -10,7 +10,7 @@ import org.junit.Test
 /** Who a broadcast may be handed to, and what each of them is called. */
 class HostChoicesTest {
     private fun persona(id: String, label: String, kind: PersonaKind? = null, djName: String? = null, active: Boolean = false) =
-        Persona(id = id, key = id, kind = kind, label = label, style = "warm", djName = djName, active = active)
+        Persona(id = id, key = id, kind = kind, label = label, style = "warm", djName = djName, active = active, presenting = active)
 
     @Test
     fun `a caller is never offered, because one can never be put on air`() {

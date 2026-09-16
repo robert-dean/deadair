@@ -18,7 +18,7 @@ private val slots =
         ScheduleSlot(id = "s1", label = "Late Night", startsAtMinutes = 1200, endsAtMinutes = 1320, personaId = "p1", brief = "slow records", mode = ScheduleSlotMode.ROTATION, onEnd = ScheduleSlotOnEnd.EXTEND),
         ScheduleSlot(id = "s2", label = "Small Hours", startsAtMinutes = 1320, endsAtMinutes = 1440, mode = ScheduleSlotMode.ROTATION, onEnd = ScheduleSlotOnEnd.EXTEND),
     )
-private val personas = listOf(Persona(id = "p1", key = "cass", label = "Night persona", style = "warm", djName = "Cass", active = true))
+private val personas = listOf(Persona(id = "p1", key = "cass", label = "Night persona", style = "warm", djName = "Cass", active = true, presenting = true))
 
 private fun reading(now: ScheduleNow) = ScheduleReading(now = now, slots = slots, personas = personas)
 

@@ -230,6 +230,20 @@ export interface SegmentPlacement {
     durationMs?: number;
 }
 
+/**
+ * One member of a block, and how long it runs.
+ *
+ * Ids alone would do for putting the block IN — the whole of it goes at one index — but not for
+ * saying how much of the hour it takes once it is there, which is what {@link SegmentPlacement}
+ * carries `durationMs` for and what a block needs just as much: a joined programme is the longest
+ * single item the station ever plants.
+ */
+export interface GroupMember {
+    segmentId: string;
+    /** How long it runs, when known at planting. See {@link StationLineupSegmentItem.durationMs}. */
+    durationMs?: number;
+}
+
 export type StationLineupItemKind = 'track' | 'segment';
 
 /** Per-broadcast overrides of the station's defaults. Absent fields fall through. */
@@ -1127,9 +1141,13 @@ export class StationLineup implements LiveOrder {
      *
      * The block goes in AT `atIndex` and pushes everything from there back, so the records either
      * side keep their order. Refused whole if that position is already with the player.
+     *
+     * Each member carries its own length where one is known, which for a joined production is the
+     * one that matters: a programme is the longest single thing the station plants, and planted
+     * without a length it projects as nothing and everything behind it is planned on top of it.
      */
-    insertGroup(groupId: string, segmentIds: readonly string[], atIndex: number, segmentKind?: string): EditResult {
-        if (segmentIds.length === 0) return refuse('empty', 'there is nothing to put in');
+    insertGroup(groupId: string, members: readonly GroupMember[], atIndex: number, segmentKind?: string): EditResult {
+        if (members.length === 0) return refuse('empty', 'there is nothing to put in');
         if (atIndex < this.committedThrough()) return refuse('already-aired', 'that position has already been handed to the player');
 
         // Built as one list and spliced once, rather than through `insertSegments`: that one applies
@@ -1139,13 +1157,14 @@ export class StationLineup implements LiveOrder {
         this.itemList.splice(
             index,
             0,
-            ...segmentIds.map(segmentId => ({
+            ...members.map(member => ({
                 id: randomUUID(),
                 kind: 'segment' as const,
                 state: 'planned' as const,
-                segmentId,
+                segmentId: member.segmentId,
                 groupId,
                 ...(segmentKind === undefined ? {} : { segmentKind }),
+                ...(member.durationMs === undefined ? {} : { durationMs: member.durationMs }),
             })),
         );
 

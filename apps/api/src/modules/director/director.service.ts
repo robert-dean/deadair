@@ -1026,12 +1026,16 @@ export class DirectorService {
                     // break — `releaseUnheardProductions` hands back an episode a changeover never
                     // played, and `remove` takes a block out whole — and a joined production placed
                     // as a bare segment would be invisible to all of it.
-                    const result = lineup.insertGroup(
-                        production.id,
-                        joined === undefined ? beats.map(beat => beat.id) : [joined.id],
-                        at,
-                        production.kind,
-                    );
+                    // Each member with whatever length the row knows. The joined row has one the
+                    // mixer measured, which is the whole point: a ten-minute programme planted
+                    // without it projects as zero airtime and every band behind it is planned on
+                    // top of it. A beat has none — `RenderSegmentJob` records no duration — so the
+                    // unjoined fallback projects as it always did.
+                    const members =
+                        joined === undefined
+                            ? beats.map(beat => ({ segmentId: beat.id, ...(beat.durationMs === undefined ? {} : { durationMs: beat.durationMs }) }))
+                            : [{ segmentId: joined.id, ...(joined.durationMs === undefined ? {} : { durationMs: joined.durationMs }) }];
+                    const result = lineup.insertGroup(production.id, members, at, production.kind);
                     if (!result.ok) continue;
 
                     await productions.moveTo(production.id, 'aired', 'ready');

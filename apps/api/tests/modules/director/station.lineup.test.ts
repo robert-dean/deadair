@@ -973,23 +973,45 @@ describe('StationLineup and a block of segments', () => {
     it('lays the beats out in order, contiguously, from one position', () => {
         const lineup = lineupWith(['a', 'b', 'c']);
 
-        expect(lineup.insertGroup('prod-1', ['s1', 's2', 's3'], 1).ok).toBe(true);
+        expect(lineup.insertGroup('prod-1', [{ segmentId: 's1' }, { segmentId: 's2' }, { segmentId: 's3' }], 1).ok).toBe(true);
         expect(idsOf(lineup.all())).toEqual(['a', 'segment:s1', 'segment:s2', 'segment:s3', 'b', 'c']);
     });
 
     it('tags every beat with the block it belongs to', () => {
         const lineup = lineupWith(['a', 'b']);
-        lineup.insertGroup('prod-1', ['s1', 's2'], 1);
+        lineup.insertGroup('prod-1', [{ segmentId: 's1' }, { segmentId: 's2' }], 1);
 
         const beats = lineup.all().filter(item => item.kind === 'segment');
         expect(beats.every(beat => beat.kind === 'segment' && beat.groupId === 'prod-1')).toBe(true);
+    });
+
+    // Without this a joined programme projects as zero airtime, and every band on the format clock
+    // behind it is planted on top of it. The same defect `durationMs` on a placement already fixed
+    // for an episode of somebody else's programme.
+    it('carries the length of a member that has one, so the hour it takes is projected', () => {
+        const lineup = lineupWith(['a']);
+        lineup.insertGroup('prod-1', [{ segmentId: 'joined-1', durationMs: 612_000 }], 1);
+
+        const [placed] = lineup.all().filter(item => item.kind === 'segment');
+        expect(placed).toMatchObject({ segmentId: 'joined-1', durationMs: 612_000 });
+    });
+
+    it('leaves the length off a member that has none, rather than calling it zero', () => {
+        // A beat's length is never recorded, so the unjoined fallback projects exactly as it did
+        // before members could carry one. Absent and zero are different: `lengthOf` reads an absent
+        // one as "nothing known", which is what every break has always been.
+        const lineup = lineupWith(['a']);
+        lineup.insertGroup('prod-1', [{ segmentId: 's1' }], 1);
+
+        const [placed] = lineup.all().filter(item => item.kind === 'segment');
+        expect(placed).not.toHaveProperty('durationMs');
     });
 
     // insertSegments applies highest-index-first so independent placements do not drift, which is
     // exactly wrong for a block: beat 2 must land after beat 1.
     it('keeps the beats in the order they were given, not reversed', () => {
         const lineup = lineupWith(['a']);
-        lineup.insertGroup('prod-1', ['first', 'second', 'third'], 0);
+        lineup.insertGroup('prod-1', [{ segmentId: 'first' }, { segmentId: 'second' }, { segmentId: 'third' }], 0);
 
         expect(idsOf(lineup.all())).toEqual(['segment:first', 'segment:second', 'segment:third', 'a']);
     });
@@ -998,7 +1020,7 @@ describe('StationLineup and a block of segments', () => {
         const lineup = lineupWith(['a', 'b', 'c']);
         hand(lineup, 2);
 
-        const result = lineup.insertGroup('prod-1', ['s1', 's2'], 0);
+        const result = lineup.insertGroup('prod-1', [{ segmentId: 's1' }, { segmentId: 's2' }], 0);
         expect(result.ok).toBe(false);
         expect(lineup.all().some(item => item.kind === 'segment')).toBe(false);
     });
@@ -1010,7 +1032,7 @@ describe('StationLineup and a block of segments', () => {
     describe('removing one beat', () => {
         it('takes the whole production out, because a programme with a hole is not a programme', () => {
             const lineup = lineupWith(['a', 'b']);
-            lineup.insertGroup('prod-1', ['s1', 's2', 's3'], 1);
+            lineup.insertGroup('prod-1', [{ segmentId: 's1' }, { segmentId: 's2' }, { segmentId: 's3' }], 1);
 
             const beat = lineup.all().find(item => item.kind === 'segment' && item.segmentId === 's2')!;
             expect(lineup.remove(beat.id).ok).toBe(true);
@@ -1024,7 +1046,7 @@ describe('StationLineup and a block of segments', () => {
         // one never planted into and it plants a fresh break a boundary later.
         it('marks them rather than splicing them, so the planner does not fill the gap', () => {
             const lineup = lineupWith(['a', 'b']);
-            lineup.insertGroup('prod-1', ['s1', 's2'], 1);
+            lineup.insertGroup('prod-1', [{ segmentId: 's1' }, { segmentId: 's2' }], 1);
             const beat = lineup.all().find(item => item.kind === 'segment')!;
 
             lineup.remove(beat.id);
@@ -1034,7 +1056,7 @@ describe('StationLineup and a block of segments', () => {
 
         it('leaves a block that is already part-aired alone where it aired', () => {
             const lineup = lineupWith(['a', 'b']);
-            lineup.insertGroup('prod-1', ['s1', 's2'], 0);
+            lineup.insertGroup('prod-1', [{ segmentId: 's1' }, { segmentId: 's2' }], 0);
             hand(lineup, 1);
 
             const second = lineup.all().find(item => item.kind === 'segment' && item.segmentId === 's2')!;
@@ -1056,8 +1078,8 @@ describe('StationLineup and a block of segments', () => {
 
         it('does not reach into another production that happens to sit beside it', () => {
             const lineup = lineupWith(['a', 'b']);
-            lineup.insertGroup('prod-1', ['s1', 's2'], 0);
-            lineup.insertGroup('prod-2', ['t1', 't2'], 0);
+            lineup.insertGroup('prod-1', [{ segmentId: 's1' }, { segmentId: 's2' }], 0);
+            lineup.insertGroup('prod-2', [{ segmentId: 't1' }, { segmentId: 't2' }], 0);
 
             const theirs = lineup.all().find(item => item.kind === 'segment' && item.segmentId === 't1')!;
             lineup.remove(theirs.id);

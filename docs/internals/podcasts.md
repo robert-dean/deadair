@@ -132,7 +132,9 @@ it stood before the hour went in, and would have aired at 11:45. The test that c
 item, and `lengthOf` counts it. Without it an hour projected as nothing and every band behind it landed
 an hour early, or past `BAND_LATENESS_MS`, nowhere. It is the second field of a segment safe to copy
 onto the item, on `segmentKind`'s argument: set once, never changed. The stored document keeps it
-across a restart. A stitched production has the same zero-airtime defect and does not use this yet.
+across a restart. A stitched production carries it the same way now, through `insertGroup`'s
+`GroupMember`: it had the identical defect for as long as a block went in as bare ids, and the length
+there comes from the mixer rather than from a publisher, so it is measured rather than claimed.
 
 **A programme is not a break for the rule that keeps two out of one gap**, on either side. A programme
 beside a talk break is a presenter around it, and the news at the top of the hour a programme ends on

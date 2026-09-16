@@ -155,7 +155,7 @@ interface Options {
     /** Their beats, as `SegmentRepository.beatsOf` answers them, keyed by production id. */
     beats?: Record<string, { id: string; state: string }[]>;
     /** Which productions have been joined into one row, keyed by production id. */
-    joined?: Record<string, { id: string }>;
+    joined?: Record<string, { id: string; durationMs?: number }>;
 }
 
 function build(options: Options = {}) {
@@ -1702,7 +1702,7 @@ describe('DirectorService going on air', () => {
         const { director, lineup, productions, seed } = build();
         await seed();
         await director.start();
-        lineup.insertGroup('prod-1', ['beat-1', 'beat-2'], lineup.size(), 'podcast');
+        lineup.insertGroup('prod-1', [{ segmentId: 'beat-1' }, { segmentId: 'beat-2' }], lineup.size(), 'podcast');
 
         await director.post({
             kind: 'putOnAir',
@@ -1719,7 +1719,7 @@ describe('DirectorService going on air', () => {
         const { director, lineup, productions, seed } = build();
         await seed();
         await director.start();
-        lineup.insertGroup('prod-1', ['beat-1', 'beat-2'], lineup.size(), 'podcast');
+        lineup.insertGroup('prod-1', [{ segmentId: 'beat-1' }, { segmentId: 'beat-2' }], lineup.size(), 'podcast');
         // By group rather than by position: the commit pass may have planted an ordinary break into
         // the seeded order, and picking the first segment would mark that one instead.
         const beats = lineup.toSnapshot().items.filter(item => item.kind === 'segment' && item.groupId === 'prod-1');
@@ -2301,7 +2301,7 @@ describe('DirectorService placing a finished production', () => {
         const { director, lineup, productions, seed } = build({
             productions: [{ id: 'prod-1', kind: 'callin', title: 'Late line', state: 'ready' }],
             beats: READY_BEATS,
-            joined: { 'prod-1': { id: 'joined-1' } },
+            joined: { 'prod-1': { id: 'joined-1', durationMs: 612_000 } },
         });
         await seed();
         await director.start();
@@ -2309,7 +2309,10 @@ describe('DirectorService placing a finished production', () => {
 
         const placed = lineup.all().filter(item => item.kind === 'segment' && item.groupId === 'prod-1');
         expect(placed).toHaveLength(1);
-        expect(placed[0]).toMatchObject({ segmentId: 'joined-1' });
+        // With its LENGTH, which is the half of "one item" that nothing carried until now: a
+        // ten-minute programme planted as zero airtime has every band behind it planned on top of
+        // it, which is the defect `durationMs` on a placement already fixed for a podcast episode.
+        expect(placed[0]).toMatchObject({ segmentId: 'joined-1', durationMs: 612_000 });
         expect(productions.moveTo).toHaveBeenCalledWith('prod-1', 'aired', 'ready');
     });
 

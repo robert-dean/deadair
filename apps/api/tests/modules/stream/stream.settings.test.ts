@@ -134,7 +134,7 @@ describe('resolveStreamSettings', () => {
         expect(resolveStreamSettings(config, encryption).logLevel).toBe(4);
     });
 
-    it('defaults the log level to Liquidsoap\'s own 3 when nothing is stored', () => {
+    it("defaults the log level to Liquidsoap's own 3 when nothing is stored", () => {
         expect(resolveStreamSettings(settingsConfig().config, encryption).logLevel).toBe(3);
     });
 

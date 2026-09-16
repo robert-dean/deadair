@@ -210,12 +210,12 @@ licence, and is an instruction rather than an enforcement.
 
 **The licence decides the register and the sheet decides the target**, which is a split rather than a
 phrasing: it used to end "never about the person listening", and that came out because a sheet may
-legitimately aim a character at the listener (the shipped `wisecrack` did until 2026-09-15, and an operator's
-own character still may) and a prompt carrying both the quirk and the prohibition is two rules that disagree,
-which a model resolves by hedging into neither. The seeded `wisecrack` is now aimed at the LABEL instead: the
-title, the band name, the album title and the fact that a sleeve was approved, never the music itself, with a
-fence that splits a chosen name from the person who has it and forbids describing a sleeve the writer is never
-shown. `persona.defaults.ts` has the argument.
+legitimately aim a character at the listener (the shipped `wisecrack` does) and a prompt carrying both the
+quirk and the prohibition is two rules that disagree, which a model resolves by hedging into neither. That
+seed carries a second target beside the taste as of 2026-09-16, the LABEL: the title, the band name, the album
+title and the fact that a sleeve was approved, never the music itself. Its fence is two cuts of one kind, one
+splitting the taste from the listener and one splitting a chosen name from the person who has it, and it
+forbids describing a sleeve the writer is never shown. `persona.defaults.ts` has the argument.
 
 ## Hearing a character before it goes on air
 

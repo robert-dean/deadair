@@ -148,11 +148,9 @@ export const LATITUDE_MAX_WORDS: Record<PersonaLatitude, number> = {
  * worth recording so it is not put back without the argument.
  *
  * What made it untenable is that a SHEET may legitimately point a character at the listener (the
- * shipped `wisecrack` was aimed at their taste in music until 2026-09-15, because an operator aimed
- * it there, and is aimed at the label now), and a prompt carrying both that quirk and a licence
- * forbidding it in as many words is two rules that disagree. The seed moving does not reopen this:
- * an operator's own character may still aim there, and the argument is about the licence, not about
- * which seed happens to need it. A model reading two rules that disagree hedges, which is the failure this whole file is
+ * shipped `wisecrack` is aimed at their taste in music, and at what a record was called, because an
+ * operator aimed it there), and a prompt carrying both that quirk and a licence forbidding it in as
+ * many words is two rules that disagree. A model reading two rules that disagree hedges, which is the failure this whole file is
  * written against: it would have produced neither the character nor the restraint.
  *
  * So the licence now says only what the extra room is FOR, and the sheet says who it is pointed at.

@@ -368,6 +368,29 @@ masters the station has no editorial claim on, and per-track levelling already h
 sources. New outputs are fed from `bus`, never from `radio`, which is the handle the metadata
 inserts are attached to.
 
+`streamurl.check.py` is the fourth, and it is about what a listener's player SHOWS rather than
+what it hears. ICY carries two fields per update, and the second, `StreamUrl`, is a URL some
+players fetch and draw as artwork, and Icecast 2.5 fills it from the `url` tag of a metadata update
+(2.4 dropped the tag). Whether a given player draws it is the player's business, and this measures
+it against a THROWAWAY mount rather
+than the station's: a second Icecast in Docker on this machine, fed by a source client in the
+script, with the artwork served by the script so that the player fetching it is a fact it sees.
+
+```
+python3 stream/streamurl.check.py --no-player            # stage 1: is StreamUrl on the wire at all
+python3 stream/streamurl.check.py --discover             # which BluOS players answer LSDP
+python3 stream/streamurl.check.py --player 192.168.1.234 # stages 2 and 3, on a real player
+```
+
+The full run plays the test mount on the player, at whatever volume it is set to, for `--cycles`
+times `--period` seconds (about eighty by default), and ends by putting back what the player was
+doing. Read the three verdict lines at the end rather than the log: "fetched" and "shown" are
+different facts, and a player that fetches and does not draw is told apart from one that never
+reads the field. A BluOS player is what this was written against, and everything measured about
+its display before this probe is in `docs/internals/playout.md` under "What a listener's player is
+told".
+
+
 ## Playout: the app pushes, Liquidsoap plays
 
 The station owns the running order whichever source the tracks came from, and the app hands it

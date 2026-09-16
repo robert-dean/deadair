@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useRef, useState, type KeyboardEvent, type Ref, type RefObject } from 'react';
 import { ActionIcon, Badge, Box, Button, Group, Stack, Table, Text, Tooltip } from '@mantine/core';
-import { IconArrowBarToUp, IconChevronDown, IconChevronsUp, IconX } from '@tabler/icons-react';
+import { IconArrowBarToUp, IconChevronDown, IconChevronsUp, IconPlayerTrackNext, IconX } from '@tabler/icons-react';
 import { useVirtualizer, type Virtualizer } from '@tanstack/react-virtual';
 import type { Rating, StationItemState, StationOrderItem } from '@deadair/sdk';
 
@@ -27,6 +27,16 @@ export interface StationOrderTableProps {
     onMove?: (item: StationOrderItem, toIndex: number) => void;
     /** Whether a move is in flight, on the same terms as {@link removingItemId}. */
     movingItemId?: string;
+    /**
+     * Jumping the station straight to a record, passing over everything in front of it. Absent draws
+     * no skip controls.
+     *
+     * Offered on a record the player is already holding as well as a planned one, unlike a move or a
+     * drop: reaching past what the player holds is the whole point of it. See {@link canSkipTo}.
+     */
+    onSkipTo?: (item: StationOrderItem) => void;
+    /** Whether a skip is in flight, on the same terms as {@link removingItemId}. */
+    skippingToItemId?: string;
     /**
      * What the station thinks of the record on a row. Absent draws no rating controls at all.
      *
@@ -56,6 +66,16 @@ function formatArtists(artists: string[]): string {
 
 /** Whether an item is beyond editing: the player has it, or it is behind us. */
 const isSpent = (state: StationItemState): boolean => state !== 'planned';
+
+/**
+ * Whether the station can be skipped straight to this item.
+ *
+ * A RECORD still to come, and the API refuses anything else with a 422: a break's words are about
+ * the records around it, so jumping into one would air a back-announce for a record just skipped.
+ * `handed` counts, where it does not for a move or a drop, because the skip takes the player's
+ * queue back itself.
+ */
+const canSkipTo = (item: StationOrderItem): boolean => item.kind === 'track' && (item.state === 'planned' || item.state === 'handed');
 
 /**
  * The lowest position an item may be moved to, and the only one this table ever asks for.
@@ -406,11 +426,13 @@ export function StationOrderTable({
     removingItemId,
     onMove,
     movingItemId,
+    onSkipTo,
+    skippingToItemId,
     onRate,
     ratingTrackId,
     collapseHistory = false,
 }: StationOrderTableProps) {
-    const editable = onRemove !== undefined || onMove !== undefined;
+    const editable = onRemove !== undefined || onMove !== undefined || onSkipTo !== undefined;
     const nextUp = firstPlannedIndex(items);
     const anchor = anchorOf(items);
     const [historyOpen, setHistoryOpen] = useState(false);
@@ -513,6 +535,8 @@ export function StationOrderTable({
                             // survives the memo comparison across the five-second poll.
                             onRemove={onRemove && !isSpent(item.state) ? onRemove : undefined}
                             removing={removingItemId === item.id}
+                            onSkipTo={onSkipTo && canSkipTo(item) ? onSkipTo : undefined}
+                            skippingTo={skippingToItemId === item.id}
                         />
                     ))}
                 </Stack>
@@ -550,7 +574,7 @@ export function StationOrderTable({
                             <Table.Th visibleFrom="xl">Album</Table.Th>
                             <Table.Th w={90}>Duration</Table.Th>
                             {onRate ? <Table.Th w={112}>Rating</Table.Th> : undefined}
-                            {editable ? <Table.Th w={onMove ? 96 : 60} /> : undefined}
+                            {editable ? <Table.Th w={60 + (onMove ? 36 : 0) + (onSkipTo ? 32 : 0)} /> : undefined}
                         </Table.Tr>
                     </Table.Thead>
                     <Table.Tbody>
@@ -579,6 +603,8 @@ export function StationOrderTable({
                                     removing={removingItemId === item.id}
                                     onMove={onMove}
                                     moving={movingItemId === item.id}
+                                    onSkipTo={onSkipTo}
+                                    skippingTo={skippingToItemId === item.id}
                                     onRate={onRate}
                                     writingRating={item.kind === 'track' && ratingTrackId === item.trackId}
                                 />
@@ -631,6 +657,8 @@ interface OrderRowProps {
     removing: boolean;
     onMove?: (item: StationOrderItem, toIndex: number) => void;
     moving: boolean;
+    onSkipTo?: (item: StationOrderItem) => void;
+    skippingTo: boolean;
     onRate?: (trackId: string, rating: Rating) => void;
     writingRating: boolean;
     /** How the virtualizer's measurement finds the item this element belongs to. */
@@ -658,6 +686,7 @@ function useRowStops() {
     const titleStopRef = useRef<HTMLSpanElement>(null);
     const artistStopRef = useRef<HTMLSpanElement>(null);
     const ratingStopRef = useRef<HTMLSpanElement>(null);
+    const skipToRef = useRef<HTMLButtonElement>(null);
     const playNextRef = useRef<HTMLButtonElement>(null);
     const dropRef = useRef<HTMLButtonElement>(null);
 
@@ -669,13 +698,14 @@ function useRowStops() {
                 ? (ratingStopRef.current.querySelector<HTMLElement>('input[type="radio"]:checked') ??
                   ratingStopRef.current.querySelector<HTMLElement>('input[type="radio"]'))
                 : null,
+            skipToRef.current,
             playNextRef.current,
             dropRef.current,
         ];
         return found.filter((element): element is HTMLElement => element !== null);
     }, []);
 
-    return { titleStopRef, artistStopRef, ratingStopRef, playNextRef, dropRef, stops };
+    return { titleStopRef, artistStopRef, ratingStopRef, skipToRef, playNextRef, dropRef, stops };
 }
 
 /**
@@ -703,6 +733,8 @@ const OrderRow = memo(function OrderRow({
     removing,
     onMove,
     moving,
+    onSkipTo,
+    skippingTo,
     onRate,
     writingRating,
     'data-index': dataIndex,
@@ -715,7 +747,7 @@ const OrderRow = memo(function OrderRow({
     const trackId = item.kind === 'track' ? item.trackId : undefined;
 
     const rowRef = useRef<HTMLTableRowElement>(null);
-    const { titleStopRef, artistStopRef, ratingStopRef, playNextRef, dropRef, stops } = useRowStops();
+    const { titleStopRef, artistStopRef, ratingStopRef, skipToRef, playNextRef, dropRef, stops } = useRowStops();
 
     // Two keys only. `ArrowUp`/`ArrowDown` are untouched — see {@link useRowStops} — and every
     // other key on the row falls through to whatever it already does (a native click on a link,
@@ -914,6 +946,28 @@ const OrderRow = memo(function OrderRow({
             {editable ? (
                 <Table.Td>
                     <Group gap={2} wrap="nowrap">
+                        {/* Unlike the move beside it, this reaches past what the player is
+                                                holding and cuts what is on air, so it is the one
+                                                control here a listener hears at once. */}
+                        {onSkipTo && canSkipTo(item) ? (
+                            <Tooltip
+                                label="Skips straight to this record: everything in front of it is passed over and what is on air is cut."
+                                multiline
+                                maw={320}
+                            >
+                                <ActionIcon
+                                    ref={skipToRef}
+                                    variant="subtle"
+                                    color="gray"
+                                    aria-label={`Skip to ${item.title}`}
+                                    tabIndex={-1}
+                                    loading={skippingTo}
+                                    onClick={() => onSkipTo(item)}
+                                >
+                                    <IconPlayerTrackNext size={15} stroke={1.8} />
+                                </ActionIcon>
+                            </Tooltip>
+                        ) : undefined}
                         {/* Not on the row already at the front: a control
                                                 whose only effect is to leave the order exactly as
                                                 it was teaches an operator that this corner of the
@@ -983,10 +1037,14 @@ const PhoneRow = memo(function PhoneRow({
     item,
     onRemove,
     removing,
+    onSkipTo,
+    skippingTo,
 }: {
     item: StationOrderItem;
     onRemove?: (item: StationOrderItem) => void;
     removing: boolean;
+    onSkipTo?: (item: StationOrderItem) => void;
+    skippingTo: boolean;
 }) {
     const state = STATE_LABEL[item.state];
     const airing = item.state === 'airing';
@@ -1029,22 +1087,39 @@ const PhoneRow = memo(function PhoneRow({
                     {formatDuration(item.durationMs)}
                 </Text>
             }
-            // 44px, because this is the one destructive control on a surface being used with a
-            // thumb. Nothing at all on a spent item, rather than a disabled affordance that could
-            // only ever answer 422.
+            // 44px each, because these are used with a thumb and one of them is destructive. Nothing
+            // at all where neither applies, rather than a disabled affordance that could only ever
+            // answer 422.
             action={
-                onRemove ? (
-                    <ActionIcon
-                        variant="subtle"
-                        color="red"
-                        w={44}
-                        h={44}
-                        aria-label={`Drop ${item.title}`}
-                        loading={removing}
-                        onClick={() => onRemove(item)}
-                    >
-                        <IconX size={16} stroke={1.8} />
-                    </ActionIcon>
+                onRemove || onSkipTo ? (
+                    <Group gap={0} wrap="nowrap">
+                        {onSkipTo ? (
+                            <ActionIcon
+                                variant="subtle"
+                                color="gray"
+                                w={44}
+                                h={44}
+                                aria-label={`Skip to ${item.title}`}
+                                loading={skippingTo}
+                                onClick={() => onSkipTo(item)}
+                            >
+                                <IconPlayerTrackNext size={16} stroke={1.8} />
+                            </ActionIcon>
+                        ) : undefined}
+                        {onRemove ? (
+                            <ActionIcon
+                                variant="subtle"
+                                color="red"
+                                w={44}
+                                h={44}
+                                aria-label={`Drop ${item.title}`}
+                                loading={removing}
+                                onClick={() => onRemove(item)}
+                            >
+                                <IconX size={16} stroke={1.8} />
+                            </ActionIcon>
+                        ) : undefined}
+                    </Group>
                 ) : undefined
             }
             accent={airing ? 'var(--mantine-color-red-6)' : undefined}

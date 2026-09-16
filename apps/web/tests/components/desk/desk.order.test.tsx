@@ -27,6 +27,7 @@ const getTheRunningOrder = vi.fn();
 const removeARunningOrderItem = vi.fn();
 const addARecordToTheRunningOrder = vi.fn();
 const moveARunningOrderItem = vi.fn();
+const skipToARunningOrderItem = vi.fn();
 const shuffleTheRunningOrder = vi.fn();
 const extendTheRunningOrder = vi.fn();
 const replanTheRunningOrder = vi.fn();
@@ -43,6 +44,7 @@ vi.mock('../../../src/api/client', () => ({
             removeARunningOrderItem: (...args: unknown[]) => removeARunningOrderItem(...args),
             addARecordToTheRunningOrder: (...args: unknown[]) => addARecordToTheRunningOrder(...args),
             moveARunningOrderItem: (...args: unknown[]) => moveARunningOrderItem(...args),
+            skipToARunningOrderItem: (...args: unknown[]) => skipToARunningOrderItem(...args),
             shuffleTheRunningOrder: () => shuffleTheRunningOrder(),
             extendTheRunningOrder: (...args: unknown[]) => extendTheRunningOrder(...args),
             replanTheRunningOrder: (...args: unknown[]) => replanTheRunningOrder(...args),
@@ -472,6 +474,69 @@ describe('DeskPage: the running order and the broadcast controls', () => {
         await userEvent.click(await screen.findByRole('button', { name: 'Play Pulsewidth next' }));
 
         expect(await screen.findByText(/could not be moved/i)).toBeInTheDocument();
+    });
+
+    // Play next's louder sibling. Unlike a move it reaches past what the player holds, so a handed
+    // record is offered one where it is offered nothing else.
+    it('offers to skip to a record still to come, handed or planned, and to nothing else', async () => {
+        getTheRunningOrder.mockResolvedValue(
+            order({
+                items: [
+                    ...order().items,
+                    orderItem({
+                        id: 'item-5',
+                        state: 'planned',
+                        title: 'Talk break',
+                        kind: 'segment',
+                        artists: [],
+                        pluginId: undefined,
+                        externalId: undefined,
+                    }),
+                ],
+            }),
+        );
+
+        render(<DeskPage />);
+        await screen.findByText('Late shift');
+
+        expect(screen.getByRole('button', { name: 'Skip to Ageispolis' })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Skip to Come to Daddy' })).toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Skip to Windowlicker' })).not.toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Skip to Xtal' })).not.toBeInTheDocument();
+        // A break's words are about the records around it, and the API refuses one.
+        expect(screen.queryByRole('button', { name: 'Skip to Talk break' })).not.toBeInTheDocument();
+    });
+
+    it('skips to a record and draws the order the station answered with', async () => {
+        getTheRunningOrder.mockResolvedValue(order());
+        skipToARunningOrderItem.mockResolvedValue(
+            order({
+                items: [
+                    orderItem({ id: 'item-1', state: 'played', title: 'Xtal' }),
+                    orderItem({ id: 'item-2', state: 'played', title: 'Windowlicker' }),
+                    orderItem({ id: 'item-3', state: 'skipped', title: 'Come to Daddy' }),
+                    orderItem({ id: 'item-4', state: 'airing', title: 'Ageispolis' }),
+                ],
+            }),
+        );
+
+        render(<DeskPage />);
+        await userEvent.click(await screen.findByRole('button', { name: 'Skip to Ageispolis' }));
+
+        await waitFor(() => expect(skipToARunningOrderItem).toHaveBeenCalledWith('item-4'));
+        await waitFor(() => expect(screen.queryByRole('button', { name: 'Skip to Ageispolis' })).not.toBeInTheDocument());
+        // The cut moved the transport too, and nothing in the answer says so.
+        await waitFor(() => expect(getPlayoutStatus.mock.calls.length).toBeGreaterThan(1));
+    });
+
+    it('says so when a skip is refused, rather than looking like nothing happened', async () => {
+        getTheRunningOrder.mockResolvedValue(order());
+        skipToARunningOrderItem.mockRejectedValue(new Error('that record is already on air'));
+
+        render(<DeskPage />);
+        await userEvent.click(await screen.findByRole('button', { name: 'Skip to Ageispolis' }));
+
+        expect(await screen.findByText(/could not be skipped to/i)).toBeInTheDocument();
     });
 
     it('shows a segment the station will pass over rather than hiding it', async () => {

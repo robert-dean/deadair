@@ -13,6 +13,7 @@ import type {
 } from '@deadair/sdk';
 
 import { sdk } from './client';
+import { followPlayout } from './playout.queries';
 import { queryKeys } from './query.keys';
 
 /**
@@ -144,6 +145,27 @@ export function useMoveOrderItem() {
 export function useRemoveOrderItem() {
     const queryClient = useQueryClient();
     return useMutation(orderMutation<string>(queryClient, itemId => sdk.director.removeARunningOrderItem(itemId)));
+}
+
+/**
+ * Makes a record further down the running order the next thing heard, passing over everything in
+ * front of it and cutting what is on air.
+ *
+ * An order mutation, because the order is what it answers with, and a transport one as well: the
+ * cut moves what is playing, and nothing in the answer says so. So the transport is looked at again
+ * the way a Skip has it looked at, rather than waiting out a poll to show the record starting.
+ */
+export function useSkipToOrderItem() {
+    const queryClient = useQueryClient();
+    const edit = orderMutation<string>(queryClient, itemId => sdk.director.skipToARunningOrderItem(itemId));
+    return useMutation({
+        ...edit,
+        onSuccess: (order: StationOrder) => {
+            edit.onSuccess(order);
+            void queryClient.invalidateQueries({ queryKey: queryKeys.playout.status() });
+            followPlayout(queryClient);
+        },
+    });
 }
 
 /**

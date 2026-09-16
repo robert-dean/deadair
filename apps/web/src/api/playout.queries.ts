@@ -79,6 +79,17 @@ export function followTransport(queryClient: QueryClient, status: PlayoutStatus)
     void queryClient.invalidateQueries({ queryKey: queryKeys.director.order() });
     void queryClient.invalidateQueries({ queryKey: queryKeys.director.air() });
 
+    followPlayout(queryClient);
+}
+
+/**
+ * Keep looking at the transport for a moment after moving it.
+ *
+ * {@link followTransport}'s follow-ups on their own, for an action that moved the transport without
+ * answering with its status: a skip to a record further down the running order is an order edit
+ * and answers with the order, but it cuts what is on air on the way.
+ */
+export function followPlayout(queryClient: QueryClient): void {
     for (const timer of followUps.splice(0)) clearTimeout(timer);
     followUps = FOLLOW_UP_MS.map(delay =>
         setTimeout(() => {

@@ -11,6 +11,7 @@ import {
     useMoveOrderItem,
     useRemoveOrderItem,
     useShuffleOrder,
+    useSkipToOrderItem,
     useStationAir,
     useStationOrder,
 } from '../../api/director.queries';
@@ -80,6 +81,7 @@ export function DeskPage() {
     const removeItem = useRemoveOrderItem();
     const addTrack = useAddOrderTrack();
     const moveItem = useMoveOrderItem();
+    const skipTo = useSkipToOrderItem();
     const rateTrack = useRateTrack();
 
     // Stable across renders, so the table's memoised rows survive the five-second poll instead of
@@ -89,6 +91,7 @@ export function DeskPage() {
     const { mutate: removeOrderItem } = removeItem;
     const { mutate: addOrderTrack } = addTrack;
     const { mutate: moveOrderItem } = moveItem;
+    const { mutate: skipToOrderItem } = skipTo;
     const { mutate: rateRecord } = rateTrack;
     // A record is spliced out of the order entirely when it is dropped — unlike a segment, which is
     // only marked `removed`, on the ownership rule's argument (`docs/internals/director.md` § "Who
@@ -116,6 +119,10 @@ export function DeskPage() {
     // decides the index, because what is legal is a fact about the rows it is holding rather than
     // something this page can work out.
     const onMove = useCallback((item: StationOrderItem, toIndex: number) => moveOrderItem({ itemId: item.id, toIndex }), [moveOrderItem]);
+    // Play-next's louder sibling: that one reorders what the player has not been handed, and this
+    // passes over everything in front of the record, the player's own queue included, and cuts
+    // what is on air.
+    const onSkipTo = useCallback((item: StationOrderItem) => skipToOrderItem(item.id), [skipToOrderItem]);
     // The running order is where an operator actually forms an opinion about a record: they are
     // hearing it. The write goes to the catalog rather than to the order, and the order is re-read
     // because it carries each row's rating.
@@ -140,6 +147,9 @@ export function DeskPage() {
         // and the position that was legal when the row was drawn is refused by the time it is
         // clicked. The API's own sentence says which, so it is worth showing.
         moveItem.isError ? apiErrorMessage(moveItem.error, 'That item could not be moved.') : undefined,
+        // The same race as a move's: the record can reach the air, or pass it, between the row
+        // being drawn and the click.
+        skipTo.isError ? apiErrorMessage(skipTo.error, 'The station could not be skipped to that record.') : undefined,
     ].filter((message): message is string => message !== undefined);
 
     return (
@@ -263,6 +273,8 @@ export function DeskPage() {
                         onRemove={onRemove}
                         movingItemId={moveItem.isPending ? moveItem.variables?.itemId : undefined}
                         onMove={onMove}
+                        skippingToItemId={skipTo.isPending ? skipTo.variables : undefined}
+                        onSkipTo={onSkipTo}
                         ratingTrackId={rateTrack.isPending ? rateTrack.variables?.id : undefined}
                         onRate={onRate}
                     />

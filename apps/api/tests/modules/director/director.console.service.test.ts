@@ -68,6 +68,10 @@ interface Options {
     audioReady?: boolean;
     /** Song keys the history says aired inside the smart shuffle's horizon. */
     recentSongs?: string[];
+    /** Whether the transport says something is on air, for the cut behind a skip to a record. */
+    airing?: boolean;
+    /** Whether the stream takes that cut. Defaults to true. */
+    cutTakes?: boolean;
 }
 
 function build(options: Options = {}) {
@@ -116,6 +120,7 @@ function build(options: Options = {}) {
             if (edit.kind === 'move') return order.move(edit.itemId, edit.toIndex);
             if (edit.kind === 'remove') return order.remove(edit.itemId);
             if (edit.kind === 'insertTrack') return order.insertTrack(edit.track, edit.atIndex ?? order.size());
+            if (edit.kind === 'skipTo') return order.skipTo(edit.itemId).result;
             return order.insertSegment(edit.segmentId, edit.atIndex ?? order.size());
         }),
     } as unknown as DirectorService;
@@ -230,6 +235,16 @@ function build(options: Options = {}) {
     const history = {
         songKeysSince: vi.fn(async () => new Set(options.recentSongs ?? [])),
     } as unknown as PlayHistoryRepository;
+    // The transport's half of a skip to a record. The cut remembers what the order said when it
+    // landed, which is how a case can tell the edit happened first.
+    const rundown = { nowPlaying: vi.fn(() => (options.airing ? { item: { id: 'on-air' }, startedAt: 0 } : undefined)) };
+    const cutAgainst: string[][] = [];
+    const pusher = {
+        skipCurrent: vi.fn(async () => {
+            cutAgainst.push(order?.all().map(item => item.state) ?? []);
+            return options.cutTakes ?? true;
+        }),
+    };
 
     return {
         service: new DirectorConsoleService(
@@ -252,7 +267,11 @@ function build(options: Options = {}) {
             trackAudio,
             history,
             new StationIdentity(),
+            rundown as never,
+            pusher as never,
         ),
+        pusher,
+        cutAgainst,
         history,
         activity,
         personas,
@@ -830,6 +849,66 @@ describe('DirectorConsoleService editing the running order', () => {
         const { service } = build({ order: onAirWith(1) });
 
         expect(await statusOf(service.shuffleOrder())).toBe(422);
+    });
+
+    describe('skipping to a record', () => {
+        it('moves the order first and then cuts what is on air, so the cut lands on the record', async () => {
+            const order = onAirWith(4);
+            order.markAiring(order.nextPlanned(1)[0]!.id);
+            const { service, cutAgainst } = build({ order, airing: true });
+
+            const after = await service.skipToOrderItem(order.all()[3]!.id);
+
+            expect(cutAgainst).toEqual([['airing', 'skipped', 'skipped', 'planned']]);
+            expect(after.items.map(item => item.state)).toEqual(['airing', 'skipped', 'skipped', 'planned']);
+        });
+
+        it('cuts nothing when nothing is on air, and the record is simply next', async () => {
+            // A station stood down, or one whose audience gate is shut: it starts from the record
+            // when it next airs, and a skip sent to an idle player could take the queue's head with it.
+            const order = onAirWith(3);
+            const { service, pusher } = build({ order, airing: false });
+
+            await service.skipToOrderItem(order.all()[2]!.id);
+
+            expect(pusher.skipCurrent).not.toHaveBeenCalled();
+            expect(order.all().map(item => item.state)).toEqual(['skipped', 'skipped', 'planned']);
+        });
+
+        it('answers with the order when the stream did not take the cut, because the skip in the order stuck', async () => {
+            const order = onAirWith(3);
+            order.markAiring(order.nextPlanned(1)[0]!.id);
+            const { service } = build({ order, airing: true, cutTakes: false });
+
+            const after = await service.skipToOrderItem(order.all()[2]!.id);
+
+            expect(after.items.map(item => item.state)).toEqual(['airing', 'skipped', 'planned']);
+            expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('did not take the cut'));
+        });
+
+        it('records the skip against the operator who made it', async () => {
+            const order = onAirWith(3);
+            const { service, activity } = build({ order });
+
+            await service.skipToOrderItem(order.all()[2]!.id);
+
+            expect(activity.record.mock.calls[0]![0]).toMatchObject({ module: 'director', kind: 'order.skipTo', actorId: 'actor-1' });
+        });
+
+        it('maps a record that is not still to come onto an unprocessable request, and cuts nothing', async () => {
+            const order = onAirWith(2);
+            order.markAiring(order.nextPlanned(1)[0]!.id);
+            const { service, pusher } = build({ order, airing: true });
+
+            expect(await statusOf(service.skipToOrderItem(order.all()[0]!.id))).toBe(422);
+            expect(pusher.skipCurrent).not.toHaveBeenCalled();
+        });
+
+        it('maps an unknown item onto a not-found', async () => {
+            const { service } = build({ order: onAirWith(2) });
+
+            expect(await statusOf(service.skipToOrderItem('nope'))).toBe(404);
+        });
     });
 
     it('refuses a segment with no audio at the door rather than planting one the station will skip', async () => {

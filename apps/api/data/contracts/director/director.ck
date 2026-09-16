@@ -247,3 +247,21 @@ operation /director/air/items/{itemId}: {
         }
     }
 }
+
+operation /director/air/items/{itemId}/skip-to: {
+    params: {
+        itemId: string(min=1, max=100)
+    }
+    post: { # Makes a record further down the running order the next thing heard. Everything still to come in front of it is marked skipped, anything the player was already holding from in front of it is taken back, and the item on air is cut. Only a record can be skipped to, and only one still to come
+        name: Skip to a running order item
+        service: DirectorConsoleService.skipToOrderItem
+        security: {
+            policy: platform.manage
+        }
+        response: {
+            200: {
+                application/json: StationOrder
+            }
+        }
+    }
+}

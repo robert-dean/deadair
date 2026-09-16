@@ -230,3 +230,23 @@ DirectorRouter.delete('/director/air/items/:itemId', requirePolicy({ policy: 'pl
     ctx.type = 'application/json';
     ctx.body = result;
 });
+
+/**
+ * Makes a record further down the running order the next thing heard. Everything still to come in front of it is marked skipped, anything the player was already holding from in front of it is taken back, and the item on air is cut. Only a record can be skipped to, and only one still to come
+ * from [director.ck](../../data/contracts/director/director.ck#L255)
+ */
+DirectorRouter.post('/director/air/items/:itemId/skip-to', requirePolicy({ policy: 'platform.manage' }), async ctx => {
+    const { itemId } = await parseAndValidate(
+        ctx.params,
+        z.strictObject({
+            itemId: z.string().min(1).max(100),
+        }),
+    );
+
+    const service = ctx.container.get(DirectorConsoleService);
+    const result: StationOrder = await service.skipToOrderItem(itemId);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});

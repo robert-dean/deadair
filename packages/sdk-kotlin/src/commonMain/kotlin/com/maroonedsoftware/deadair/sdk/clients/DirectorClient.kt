@@ -177,4 +177,15 @@ class DirectorClient(private val http: SdkHttp) {
         }
         return http.decodeJson(response)
     }
+
+    /**
+     * Skip to a running order item
+     * Makes a record further down the running order the next thing heard. Everything still to come in front of it is marked skipped, anything the player was already holding from in front of it is taken back, and the item on air is cut. Only a record can be skipped to, and only one still to come
+     */
+    suspend fun skipToARunningOrderItem(itemId: String): StationOrder {
+        val response = http.execute(HttpMethod.Post) {
+            path("director", "air", "items", segment(itemId), "skip-to")
+        }
+        return http.decodeJson(response)
+    }
 }

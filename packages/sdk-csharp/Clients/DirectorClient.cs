@@ -208,4 +208,17 @@ public sealed class DirectorClient(SdkHttp http)
             cancellationToken: cancellationToken).ConfigureAwait(false);
         return http.ReadJson<StationOrder>(response);
     }
+
+    /// <summary>
+    /// Skip to a running order item
+    /// Makes a record further down the running order the next thing heard. Everything still to come in front of it is marked skipped, anything the player was already holding from in front of it is taken back, and the item on air is cut. Only a record can be skipped to, and only one still to come
+    /// </summary>
+    public async Task<StationOrder> SkipToARunningOrderItemAsync(string itemId, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Post,
+            http.Path("director", "air", "items", http.Segment(itemId), "skip-to"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<StationOrder>(response);
+    }
 }

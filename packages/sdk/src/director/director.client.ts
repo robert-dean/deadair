@@ -221,4 +221,13 @@ export class DirectorClient {
         const result = await this.fetch(`/director/air/items/${encodeURIComponent(itemId)}`, { method: 'DELETE' });
         return await parseJson<StationOrder>(result);
     }
+
+    /**
+     * @name Skip to a running order item
+     * @description Makes a record further down the running order the next thing heard. Everything still to come in front of it is marked skipped, anything the player was already holding from in front of it is taken back, and the item on air is cut. Only a record can be skipped to, and only one still to come
+     */
+    async skipToARunningOrderItem(itemId: string): Promise<StationOrder> {
+        const result = await this.fetch(`/director/air/items/${encodeURIComponent(itemId)}/skip-to`, { method: 'POST' });
+        return await parseJson<StationOrder>(result);
+    }
 }

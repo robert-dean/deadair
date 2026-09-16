@@ -1064,6 +1064,26 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/StationOrder'
+    '/director/air/items/{itemId}/skip-to':
+        post:
+            operationId: skipToOrderItem
+            summary: 'Skip to a running order item'
+            description: 'Makes a record further down the running order the next thing heard. Everything still to come in front of it is marked skipped, anything the player was already holding from in front of it is taken back, and the item on air is cut. Only a record can be skipped to, and only one still to come'
+            parameters:
+                - name: itemId
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 100
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/StationOrder'
     '/history':
         get:
             operationId: readHistory

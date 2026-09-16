@@ -12,7 +12,8 @@ import { AuthorizationContext } from '#modules/permissions/authorization.context
 import { PlaylistsService } from '#modules/playlists/playlists.service.js';
 import type { CatalogTrack } from '#modules/playlists/types/playlists.types.js';
 import { AIR_MODE_KEY } from '#modules/playout/air.mode.js';
-import type { RundownTrack } from '#modules/playout/rundown.js';
+import { PlayoutPusher } from '#modules/playout/playout.pusher.js';
+import { Rundown, type RundownTrack } from '#modules/playout/rundown.js';
 import { PersonaRepository } from '#modules/personas/persona.repository.js';
 import { TrackAudioService } from '#modules/playout/audio/track.audio.service.js';
 import { SegmentRepository, type Segment } from '#modules/render/segment.repository.js';
@@ -111,6 +112,10 @@ export class DirectorConsoleService {
         // the command so the director's edit pass stays synchronous and reads nothing.
         private readonly history: PlayHistoryRepository,
         private readonly identity: StationIdentity,
+        // The transport's half of a skip to one record: whether anything is on air, and cutting it.
+        // Nothing here reaches the order through these; that is still a command to the director.
+        private readonly rundown: Rundown,
+        private readonly pusher: PlayoutPusher,
     ) {}
 
     /**
@@ -771,6 +776,31 @@ export class DirectorConsoleService {
     }
 
     /**
+     * Make a record further down the order the next thing heard.
+     *
+     * Two halves, in this order. The director passes over everything in front of the record and
+     * takes back whatever the player was holding from there, and prepares the record to be handed
+     * over; then the item on air is cut, which is the operator's Skip and goes through the same
+     * transport call. The order has to move first, or the cut lands on whatever was queued next.
+     *
+     * The cut is skipped when nothing is on air, because there is nothing to cut: a station stood
+     * down, or one whose audience gate is shut, will start from the record when it next airs. And a
+     * cut the stream did not take is logged rather than thrown, unlike `/playout/skip`, because the
+     * edit has already happened and been written down: the record is next either way, and a 409
+     * would report a skip that stuck as one that failed. The order this answers with says so.
+     *
+     * @throws 404 when the order does not hold the item, and 422 when it is not a record still to come.
+     */
+    async skipToOrderItem(itemId: string): Promise<StationOrder> {
+        await this.applyOrderEdit({ kind: 'skipTo', itemId });
+
+        if (this.rundown.nowPlaying() !== undefined && !(await this.pusher.skipCurrent())) {
+            this.logger.warn('director: skipped the running order ahead, but the stream did not take the cut; the record plays when this one ends');
+        }
+        return await this.getOrder();
+    }
+
+    /**
      * Put a segment into the running order at a position.
      *
      * @throws 404 when the segment does not exist, and 422 when it has no audio.
@@ -870,6 +900,12 @@ export class DirectorConsoleService {
      * rather than rebuilt here, because the director is the only thing that has it.
      */
     private async editOrder(edit: OrderEdit): Promise<StationOrder> {
+        await this.applyOrderEdit(edit);
+        return await this.getOrder();
+    }
+
+    /** {@link editOrder} without the answer, for a caller with more to do before it reads the order. */
+    private async applyOrderEdit(edit: OrderEdit): Promise<void> {
         this.director.invalidate();
         this.require(await this.director.applyEdit(edit));
 
@@ -883,7 +919,6 @@ export class DirectorConsoleService {
             data: eventDataOf(edit),
             ...(this.actor() === undefined ? {} : { actorId: this.actor() as string }),
         });
-        return await this.getOrder();
     }
 
     /** Turn an edit refusal into the status code that says the same thing. */

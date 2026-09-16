@@ -269,9 +269,22 @@ export function PersonasPage() {
                                 <Stack gap="xxs" style={{ minWidth: 0 }}>
                                     <Group gap="xs">
                                         <Text fw={600}>{persona.label}</Text>
-                                        {persona.active ? (
+                                        {/* Two badges rather than one, because the flag underneath
+                                        them answers two different questions and this card used to
+                                        print the wrong answer to the one an operator is asking.
+                                        `presenting` is who is writing breaks right now; `active` is
+                                        who does it when the broadcast on air names nobody. They are
+                                        the same character on an ordinary station and they are not
+                                        during a show with its own host, which is exactly when
+                                        somebody is looking at this page. */}
+                                        {persona.presenting ? (
                                             <Badge color="green" variant="light">
-                                                On air
+                                                On air now
+                                            </Badge>
+                                        ) : undefined}
+                                        {persona.active && !persona.presenting ? (
+                                            <Badge color="gray" variant="light">
+                                                Station’s own
                                             </Badge>
                                         ) : undefined}
                                         {persona.djName ? (
@@ -580,7 +593,12 @@ function ordered(personas: Persona[]): Persona[] {
         // Hosts first, then callers, and the station's own host at the top of the hosts. Two halves
         // rather than one roster because they answer different questions — who the station IS, and
         // who it might put on the phone — and mixing them alphabetically buries both.
-        (left, right) => rank(kindOf(left)) - rank(kindOf(right)) || Number(right.active) - Number(left.active),
+        // Whoever is actually speaking goes above the station's own host, on the same argument:
+        // the card an operator is looking for during a show is the character they can hear.
+        (left, right) =>
+            rank(kindOf(left)) - rank(kindOf(right)) ||
+            Number(right.presenting) - Number(left.presenting) ||
+            Number(right.active) - Number(left.active),
     );
 }
 

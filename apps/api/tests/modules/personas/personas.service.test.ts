@@ -22,20 +22,30 @@ const persona = (over: Partial<Persona> = {}): Persona => ({
     ...over,
 });
 
-function build(options: { setActive?: Persona | undefined; postFails?: boolean } = {}) {
+function build(options: { setActive?: Persona | undefined; postFails?: boolean; roster?: Persona[]; ordersHost?: string } = {}) {
+    const roster = options.roster ?? [persona()];
     const personas = {
         // Answers whatever `setActive` would, because the two are now asked in sequence: the service
         // reads the row first to find out whether it is a caller, so "no such persona" has to be the
         // same answer from both or a 404 case would half-pass.
         find: vi.fn(async () => ('setActive' in options ? options.setActive : persona())),
         setActive: vi.fn(async () => ('setActive' in options ? options.setActive : persona())),
-        list: vi.fn(async () => [persona()]),
+        list: vi.fn(async () => roster),
+        // The repository's own precedence, doubled: the order's host when it names one that exists,
+        // and the station's own behind it. `PersonaRepository.presenting` is where the real one
+        // lives, and `persona.repository.test.ts` is what holds it to that.
+        presenting: vi.fn(
+            async (id?: string) => (id === undefined ? undefined : roster.find(row => row.id === id)) ?? roster.find(row => row.active),
+        ),
     };
     const director = {
         post: vi.fn(async () => {
             if (options.postFails) throw new Error('the director is not taking commands');
             return undefined;
         }),
+        // What the broadcast on air says about its own host, which is the input to the whole
+        // question below. Undefined is a running order that named nobody.
+        order: vi.fn(() => (options.ordersHost === undefined ? undefined : { personaId: options.ordersHost })),
     };
     // Real rather than a double: it is a list of callbacks, and what these tests are about is that
     // the send is registered on it rather than awaited inline.
@@ -132,5 +142,45 @@ describe('PersonasService putting a persona on air', () => {
 
         await expect(afterCommit.run()).resolves.toBeUndefined();
         expect(logger.warn).toHaveBeenCalled();
+    });
+});
+
+// The console read a boolean called `active` and printed "On air" over it, which is true on an
+// ordinary station and false during any show that named its own host — the state this station was
+// in when somebody noticed. The flag is who presents when the broadcast names nobody; this is the
+// other question, answered per request so it cannot drift from what the director is doing.
+describe('PersonasService answering who is presenting', () => {
+    const stationsOwn = persona({ id: 'p1', key: 'videoage', active: true });
+    const guest = persona({ id: 'p2', key: 'wisecrack', active: false });
+
+    it('names the host the broadcast on air chose, and not the station\u2019s own', async () => {
+        const { service } = build({ roster: [stationsOwn, guest], ordersHost: 'p2' });
+
+        const list = await service.list();
+
+        expect(list.personas.find(row => row.id === 'p2')?.presenting).toBe(true);
+        // The half that was wrong on the page: the station's own host carries `active` and is not
+        // the one speaking.
+        expect(list.personas.find(row => row.id === 'p1')?.presenting).toBe(false);
+        expect(list.personas.find(row => row.id === 'p1')?.active).toBe(true);
+    });
+
+    it('falls back to the station\u2019s own host when the broadcast named nobody', async () => {
+        const { service } = build({ roster: [stationsOwn, guest] });
+
+        const list = await service.list();
+
+        expect(list.personas.find(row => row.id === 'p1')?.presenting).toBe(true);
+        expect(list.personas.find(row => row.id === 'p2')?.presenting).toBe(false);
+    });
+
+    it('answers the question on every write, since each one returns the whole roster', async () => {
+        const { service } = build({ roster: [stationsOwn, guest], ordersHost: 'p2', setActive: stationsOwn });
+
+        const list = await service.setActive('p1');
+
+        // Putting the station's own host on does not take the show off its own: the director keeps
+        // the running order's answer, so the page has to keep showing the guest as the one speaking.
+        expect(list.personas.find(row => row.id === 'p2')?.presenting).toBe(true);
     });
 });

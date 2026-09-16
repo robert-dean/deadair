@@ -112,9 +112,13 @@ public sealed record Persona
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Templates { get; init; }
 
-    /// <summary>Whether this is the one on air. At most one per station</summary>
+    /// <summary>The station's own host: who presents when the broadcast on air names nobody. At most one per station. NOT the same as `presenting`, and a show with its own host is exactly when the two differ</summary>
     [JsonPropertyName("active")]
     public required bool Active { get; init; }
+
+    /// <summary>Whether this character is the one writing breaks right now. Derived per request from the running order, falling back to `active`, through the one place that precedence lives (`PersonaRepository.presenting`). Never stored, so it cannot drift from what the director is actually doing</summary>
+    [JsonPropertyName("presenting")]
+    public required bool Presenting { get; init; }
 }
 
 /// <summary>Who the station is when it opens its mouth: the character a model writes in, the phrasings underneath it, the voice that says them, and what it plays</summary>

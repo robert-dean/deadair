@@ -47,8 +47,10 @@ data class Persona(
     val samples: List<String>? = null,
     /** This character's own break phrasings, one per line. Empty means the station's global ones */
     val templates: String? = null,
-    /** Whether this is the one on air. At most one per station */
+    /** The station's own host: who presents when the broadcast on air names nobody. At most one per station. NOT the same as `presenting`, and a show with its own host is exactly when the two differ */
     val active: Boolean,
+    /** Whether this character is the one writing breaks right now. Derived per request from the running order, falling back to `active`, through the one place that precedence lives (`PersonaRepository.presenting`). Never stored, so it cannot drift from what the director is actually doing */
+    val presenting: Boolean,
 )
 
 /** Who the station is when it opens its mouth: the character a model writes in, the phrasings underneath it, the voice that says them, and what it plays */

@@ -29,6 +29,9 @@ function build() {
     const written: unknown[] = [];
     const personas = {
         list: vi.fn(async () => [stored]),
+        // The read answers who is presenting as well as the roster, so every double of this
+        // repository needs it. Nobody here: these cases are about a field surviving a round trip.
+        presenting: vi.fn(async () => undefined),
         create: vi.fn(async (draft: unknown) => {
             written.push(draft);
             return stored;
@@ -39,7 +42,7 @@ function build() {
         personas as never,
         { list: vi.fn(async () => []) } as never,
         {} as never,
-        { post: vi.fn(async () => undefined) } as never,
+        { post: vi.fn(async () => undefined), order: vi.fn(() => undefined) } as never,
         new AfterCommit(),
         { actor: { kind: 'user', sessionToken: '', actorId: 'actor-1' } } as never,
         { record: vi.fn(async () => undefined) } as never,

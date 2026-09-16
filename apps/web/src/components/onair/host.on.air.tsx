@@ -42,11 +42,14 @@ export function HostOnAir({ personaId, personaLabel }: HostOnAirProps) {
     const personas = usePersonas();
     const recast = useRecastStation();
 
-    const active = personas.data?.personas.find(persona => persona.active);
-    // What the show is ACTUALLY presented by, which is the broadcast's own host or the station's
-    // behind it — the same precedence `PersonaRepository.presenting` applies, and the reason this
-    // can name somebody when `personaLabel` is absent.
-    const hosting = personaLabel ?? active?.label;
+    // The two are different characters during a show that named its own host, which is why they are
+    // two bindings. `stationsOwn` is what the menu offers to hand the show back TO; `hosting` is who
+    // is speaking. The precedence behind the second used to be re-implemented here by falling back
+    // to `active`; the API answers it now, resolved through `PersonaRepository.presenting` against
+    // the running order the director holds. The prop still wins, because it was read from that same
+    // order in the same request and so cannot be a stale roster.
+    const stationsOwn = personas.data?.personas.find(persona => persona.active);
+    const hosting = personaLabel ?? personas.data?.personas.find(persona => persona.presenting)?.label;
     const failure = recast.isError ? apiErrorMessage(recast.error, 'The host could not be changed.') : undefined;
 
     return (
@@ -82,9 +85,9 @@ export function HostOnAir({ personaId, personaLabel }: HostOnAirProps) {
                 <Menu.Item disabled={personaId === undefined} onClick={() => recast.mutate({})}>
                     <Group gap="xs" wrap="nowrap">
                         <Text size="sm">The station’s host</Text>
-                        {active ? (
+                        {stationsOwn ? (
                             <Text size="xs" c="dimmed">
-                                {active.label}
+                                {stationsOwn.label}
                             </Text>
                         ) : undefined}
                     </Group>

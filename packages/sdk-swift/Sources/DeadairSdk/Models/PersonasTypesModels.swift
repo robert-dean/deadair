@@ -43,10 +43,12 @@ public struct Persona: Codable, Equatable, Sendable {
     public var samples: [String]?
     /// This character's own break phrasings, one per line. Empty means the station's global ones
     public var templates: String?
-    /// Whether this is the one on air. At most one per station
+    /// The station's own host: who presents when the broadcast on air names nobody. At most one per station. NOT the same as `presenting`, and a show with its own host is exactly when the two differ
     public var active: Bool
+    /// Whether this character is the one writing breaks right now. Derived per request from the running order, falling back to `active`, through the one place that precedence lives (`PersonaRepository.presenting`). Never stored, so it cannot drift from what the director is actually doing
+    public var presenting: Bool
 
-    public init(id: String, key: String, kind: PersonaKind? = nil, label: String, style: String, djName: String? = nil, voice: String? = nil, soundboard: String? = nil, diction: [String]? = nil, dictionMarkers: [String]? = nil, quirks: [String]? = nil, preoccupations: [String]? = nil, catchphrases: [String]? = nil, avoid: [String]? = nil, background: String? = nil, brevity: PersonaBrevity? = nil, latitude: PersonaLatitude? = nil, chattiness: PersonaChattiness? = nil, storytelling: PersonaStorytelling? = nil, samples: [String]? = nil, templates: String? = nil, active: Bool) {
+    public init(id: String, key: String, kind: PersonaKind? = nil, label: String, style: String, djName: String? = nil, voice: String? = nil, soundboard: String? = nil, diction: [String]? = nil, dictionMarkers: [String]? = nil, quirks: [String]? = nil, preoccupations: [String]? = nil, catchphrases: [String]? = nil, avoid: [String]? = nil, background: String? = nil, brevity: PersonaBrevity? = nil, latitude: PersonaLatitude? = nil, chattiness: PersonaChattiness? = nil, storytelling: PersonaStorytelling? = nil, samples: [String]? = nil, templates: String? = nil, active: Bool, presenting: Bool) {
         self.id = id
         self.key = key
         self.kind = kind
@@ -69,6 +71,7 @@ public struct Persona: Codable, Equatable, Sendable {
         self.samples = samples
         self.templates = templates
         self.active = active
+        self.presenting = presenting
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -94,6 +97,7 @@ public struct Persona: Codable, Equatable, Sendable {
         case samples = "samples"
         case templates = "templates"
         case active = "active"
+        case presenting = "presenting"
     }
 
     public init(from decoder: Decoder) throws {
@@ -120,6 +124,7 @@ public struct Persona: Codable, Equatable, Sendable {
         self.samples = try container.decodeIfPresent([String].self, forKey: .samples)
         self.templates = try container.decodeIfPresent(String.self, forKey: .templates)
         self.active = try container.decode(Bool.self, forKey: .active)
+        self.presenting = try container.decode(Bool.self, forKey: .presenting)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -146,6 +151,7 @@ public struct Persona: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.samples, forKey: .samples)
         try container.encodeIfPresent(self.templates, forKey: .templates)
         try container.encode(self.active, forKey: .active)
+        try container.encode(self.presenting, forKey: .presenting)
     }
 }
 

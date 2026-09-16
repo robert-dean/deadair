@@ -91,7 +91,10 @@ export class PersonasService {
         const updated = await this.write(body.key, () => this.personas.update(id, draftOf(body)));
         if (updated === undefined) throw httpError(404).withDetails({ message: `persona "${id}" does not exist` });
 
-        this.logger.info('personas: an operator edited a persona', { key: updated.key, onAir: updated.active });
+        // `stationDefault` rather than `onAir`, which is what this line said while meaning the
+        // other thing. The flag is who presents when the broadcast names nobody; who is actually
+        // speaking is `presenting` on the answer.
+        this.logger.info('personas: an operator edited a persona', { key: updated.key, stationDefault: updated.active });
         return this.answer();
     }
 
@@ -315,8 +318,27 @@ export class PersonasService {
         };
     }
 
+    /**
+     * The roster, and which of them is actually speaking.
+     *
+     * `presenting` is DERIVED on every answer rather than stored, and the reason is the rule the
+     * director is built on: the running order has one writer, so a column saying who is on air
+     * would be a second one, kept in step by every path that moves the order remembering to write
+     * it. The failure that costs is silent and was live in the console, which marked the station's
+     * own host "On air" while a broadcast with its own host was speaking.
+     *
+     * The precedence is not restated here. {@link PersonaRepository.presenting} is the one place it
+     * lives, and this hands it the order's persona exactly as `WriteBreakJob` does, so the console
+     * cannot disagree with the break that is being written while it renders. The order comes from
+     * the director's own in-memory snapshot, which is the authority rather than the row.
+     *
+     * Every mutation here answers the whole list, so this runs on each of them: two reads on a
+     * handful of rows, against a page that would otherwise show something untrue.
+     */
     private async answer(): Promise<PersonaList> {
-        return { personas: (await this.personas.list()).map(toView) };
+        const [roster, presenting] = await Promise.all([this.personas.list(), this.personas.presenting(this.director.order()?.personaId)]);
+
+        return { personas: roster.map(persona => toView(persona, presenting?.id)) };
     }
 
     /**
@@ -397,7 +419,7 @@ export function draftOf(body: PersonaInput): PersonaDraft {
     };
 }
 
-function toView(persona: Persona): PersonaView {
+function toView(persona: Persona, presentingId: string | undefined): PersonaView {
     return {
         id: persona.id,
         key: persona.key,
@@ -405,6 +427,12 @@ function toView(persona: Persona): PersonaView {
         label: persona.label,
         style: persona.style,
         active: persona.active,
+        // Answered for every row rather than only for the one that is true, because a boolean a
+        // client has to infer from a missing field is the shape `omitUndefined` is for and this is
+        // not optional: a roster where nobody presents is a real state (the station has no active
+        // persona and the broadcast named nobody), and it has to be distinguishable from a stale
+        // list that has not learned who does.
+        presenting: persona.id === presentingId,
         ...omitUndefined({
             djName: persona.djName,
             voice: persona.voice,

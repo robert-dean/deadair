@@ -8,7 +8,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Persona } from '@deadair/sdk';
 
 import { PersonasPage } from '../../../src/components/personas/personas.page';
-import { render, screen, setupUser } from '../../utils/render';
+import { render, screen, setupUser, within } from '../../utils/render';
 import { stubPhoneMedia } from '../../utils/phone';
 
 // This page opens four queries on mount (personas, voices, script summary). Everything but the
@@ -38,6 +38,7 @@ const persona = (overrides: Partial<Persona> = {}): Persona => ({
     label: 'Marlowe',
     style: 'A late-night crime writer with a weakness for a good record.',
     active: false,
+    presenting: false,
     ...overrides,
 });
 
@@ -82,6 +83,35 @@ describe('PersonasPage', () => {
 
         await screen.findByText('Marlowe');
         expect(screen.queryByRole('button', { name: 'Put on air' })).not.toBeInTheDocument();
+    });
+
+    // The badge was read off `active` and said "On air" over it, which is a different question:
+    // during a show that named its own host, the station's own host is not the one speaking, and
+    // this page was the place an operator went to find out who was.
+    it('puts "On air now" on the character actually presenting, not on the station\u2019s own host', async () => {
+        listPersonas.mockResolvedValue({
+            personas: [persona({ active: true }), persona({ id: 'p-2', key: 'wisecrack', label: 'Fran', presenting: true })],
+        });
+        render(<PersonasPage />);
+
+        // The badges sit beside the name in one Group, so the name's own parent is the card's
+        // heading row and scopes each assertion to the right character.
+        const speaking = (await screen.findByText('Fran')).parentElement;
+        expect(within(speaking as HTMLElement).getByText('On air now')).toBeInTheDocument();
+
+        const stationsOwn = screen.getByText('Marlowe').parentElement;
+        expect(within(stationsOwn as HTMLElement).getByText('Station\u2019s own')).toBeInTheDocument();
+        expect(within(stationsOwn as HTMLElement).queryByText('On air now')).not.toBeInTheDocument();
+    });
+
+    it('says "On air now" once when the station\u2019s own host is the one presenting', async () => {
+        // The ordinary station, where the two questions have one answer: one badge, not two.
+        listPersonas.mockResolvedValue({ personas: [persona({ active: true, presenting: true })] });
+        render(<PersonasPage />);
+
+        await screen.findByText('Marlowe');
+        expect(screen.getByText('On air now')).toBeInTheDocument();
+        expect(screen.queryByText('Station\u2019s own')).not.toBeInTheDocument();
     });
 
     it('still renders a name, a description and the three actions on a phone', async () => {

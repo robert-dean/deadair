@@ -43,6 +43,10 @@ With no model the station writes its own breaks from its phrasings. With no voic
 
 - **Audio analyzer.** Measures each record's cue points and loudness, and joins several pieces of audio into one, so a [phone-in](./phone-ins.md) airs as a single item.
 
+## One capability nothing bundled fills
+
+A **narration** plugin hands the station text to read out whole: a chapter, an issue, a long read. The station reads it in its presenter's voice, and there is a page in the console for what it has read, but none of the thirteen above offers anything to read. That one waits on a plugin somebody else wrote, or one you write. See [readings](./narrations.md).
+
 ## Plugins are trusted code
 
 A plugin runs inside the station's server process with its privileges. It can read and write files, open network connections, and read the server's environment, including the database and encryption credentials. The first time you enable one, the console says so and asks you to confirm. Enable a plugin as you would add a dependency to a project: because you trust who wrote it. There is no sandbox, and none is planned.

@@ -1,7 +1,7 @@
 ---
 title: What it does
 sidebar_position: 0
-description: The six things a deadair station does, why each is built the way it is, and where each is explained.
+description: The seven things a deadair station does, why each is built the way it is, and where each is explained.
 ---
 
 deadair is a radio station you run yourself. It picks the records, writes what the presenter says between them, speaks it in that presenter's voice, and streams the result. It plays your music, not its own: it programmes what your provider already gives you, a Spotify account or a Subsonic server such as Navidrome. There is one mount and one running order, so everybody hears the same thing at the same moment. There is no per-listener shuffle and no skip button. What is on is what is on, and the station decides.
@@ -21,6 +21,10 @@ When the presenter mentions a fact about a record, that fact is a stored claim, 
 ## Who is presenting is a character, and it accumulates
 
 A presenter carries a voice, a way of speaking, how much rope it is given and how brief it is. It keeps a notebook of what it has said and the traits it is growing into, and a set of anecdotes it can tell on air. It can also take a phone-in: a produced block in which a caller and the host trade turns, each turn written separately and spoken in its own voice, joined into one file before it airs. See [characters](./characters.md) and [phone-ins](./phone-ins.md).
+
+## It can give the hour to something that is not records
+
+Three of the things it airs are not records and not breaks, and they differ in who wrote the words and who spoke them. A **production** is the station's own programme, written and spoken by it. A **podcast** is an episode somebody else recorded, fetched whole and handed over to at a time you chose. A **reading** is somebody else's writing, spoken in the station's own voice a few hours before it airs, which is how a book gets read a chapter at a time. Each is a rule on the format clock, each moves every boundary behind it, and each is passed over rather than replaced when there is nothing to carry. See [podcasts](./podcasts.md) and [readings](./narrations.md).
 
 ## It measures what it plays
 

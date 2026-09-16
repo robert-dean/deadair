@@ -4,7 +4,7 @@ sidebar_position: 6.5
 description: "How the station carries somebody else's programme: subscribe to a podcast, put a syndicated rule on the format clock, and the newest episode airs at that time with your presenter handing over to it."
 ---
 
-The station can carry a programme it did not make. Subscribe to a podcast, put a `syndicated` rule on the format clock about that show, and at that time the station airs the show's newest episode, whole, with your presenter handing over to it. It is the opposite of a [production](./phone-ins.md#other-productions), which the station writes and speaks itself; a `podcast` rule on the clock still means one of those.
+The station can carry a programme it did not make. Subscribe to a podcast, put a `syndicated` rule on the format clock about that show, and at that time the station airs the show's newest episode, whole, with your presenter handing over to it. It is the opposite of a [production](./phone-ins.md#other-productions), which the station writes and speaks itself; a `podcast` rule on the clock still means one of those. Between the two sits a [reading](./narrations.md): somebody else's words, in the station's own voice.
 
 ## Subscribing
 

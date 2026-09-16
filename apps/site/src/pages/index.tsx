@@ -222,6 +222,39 @@ export default function Home() {
                     <p>Nothing is made while you wait. It goes into the running order once every beat has been spoken.</p>
                 </FeatureRow>
 
+                <section className={styles.section}>
+                    <p className="da-eyebrow">Programmes</p>
+                    <h2>It can give the hour to something that is not records.</h2>
+                    <p className={styles.sectionLede}>
+                        Three of them, and what separates them is who wrote the words and who spoke them. Each is a rule on the format clock, each
+                        moves every boundary behind it, and each is passed over rather than replaced when there is nothing to carry that night.
+                    </p>
+                    <div className={styles.cards}>
+                        <div className={styles.tag}>
+                            <p className="da-eyebrow">Carried</p>
+                            <p>
+                                Subscribe to a podcast and put it on the clock. At its time the station airs that show’s newest episode, whole, with
+                                your presenter handing over to it. It never reaches back for an older one.{' '}
+                                <Link to="/docs/features/podcasts">Podcasts.</Link>
+                            </p>
+                        </div>
+                        <div className={styles.tag}>
+                            <p className="da-eyebrow">Read out</p>
+                            <p>
+                                A book, a chapter at a time, or a column as each issue lands. Somebody else’s words in the station’s own voice, spoken
+                                hours before the slot, and it remembers where it got to. <Link to="/docs/features/narrations">Readings.</Link>
+                            </p>
+                        </div>
+                        <div className={styles.tag}>
+                            <p className="da-eyebrow">Produced</p>
+                            <p>
+                                Or a programme the station makes itself, from a title and a brief in your own words: ten minutes in one voice, or a
+                                phone-in with a caller. <Link to="/docs/features/phone-ins#other-productions">Productions.</Link>
+                            </p>
+                        </div>
+                    </div>
+                </section>
+
                 <FeatureRow
                     part="Part six"
                     kicker="The check-up"

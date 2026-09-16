@@ -7,7 +7,7 @@ import { Logger } from '@maroonedsoftware/logger';
 import { httpError } from '@maroonedsoftware/errors';
 import { errorText } from '#modules/shared/error.text.js';
 import { getLogStore } from '#src/logging/log.store.js';
-import { readFileTail, tailFileLines } from '#src/logging/file.tail.js';
+import { measureSegments, readSegmentedTail, tailFileLines } from '#src/logging/file.tail.js';
 import { LOG_SOURCES, logSourceById, logSourcePath, type LogSourceDescriptor } from './logs.sources.js';
 import type { LogLevel, LogLine, LogPage, LogQuery, LogSource, LogSourceList } from './types/logs.types.js';
 
@@ -15,20 +15,29 @@ import type { LogLevel, LogLine, LogPage, LogQuery, LogSource, LogSourceList } f
 const DEFAULT_LIMIT = 200;
 
 /**
- * How much of an unbounded file a tail is allowed to read.
+ * How much of a `kind: 'file'` source a tail is allowed to read, across its rotated segments.
  *
  * Only `kind: 'file'` sources need a budget at all — the store's own files are bounded by rotation.
  * Half a megabyte is several thousand log lines, which is more than the 2000 the query's `limit`
  * caps at, so this bites only on a file whose lines are unusually long.
+ *
+ * Still a budget now the image rotates these, because the app cannot assume the deployment it is
+ * reading: the compose tree rotates nothing, and neither does an install where an operator set
+ * `LOG_ROTATE_INTERVAL_S=0`.
  */
 const TAIL_BUDGET_BYTES = 512 * 1024;
 
 /**
- * How much of an unbounded file a download is allowed to read.
+ * How much of a `kind: 'file'` source a download is allowed to read, across its rotated segments.
  *
  * Deliberately the same figure the app's own log is bounded at by rotation
  * (`LOG_MAX_BYTES × (LOG_MAX_FILES + 1)`, 8 MiB at the defaults), so the two kinds of source hand
  * back files of comparable size and neither can put an operator's whole uptime into one response.
+ *
+ * It is deliberately NOT raised to the stream logs' own retention (four segments, 32 MiB at the
+ * image's defaults). A download is one HTTP response built in memory, and the figure that bounds
+ * it is about that response rather than about what is on disk. An operator who wants the whole
+ * retention has a shell and four files.
  */
 const DOWNLOAD_BUDGET_BYTES = 8 * 1024 * 1024;
 
@@ -146,7 +155,7 @@ export class LogsService {
         }
 
         const path = logSourcePath(source, this.config);
-        const tail = path === undefined ? undefined : await readFileTail(path, DOWNLOAD_BUDGET_BYTES);
+        const tail = path === undefined ? undefined : await readSegmentedTail(path, DOWNLOAD_BUDGET_BYTES);
         return { body: tail?.text ?? '', headers };
     }
 
@@ -213,22 +222,34 @@ export class LogsService {
         return { bytes, ...(newest === undefined ? {} : { lastWriteAt: DateTime.fromMillis(newest) }) };
     }
 
-    /** One foreign file's size and last write, or nothing when it is not there. */
+    /**
+     * One foreign file's size and last write across its rotated segments, or nothing when it is
+     * not there.
+     *
+     * A SUM, for the reason `measureStore` sums its own: the figure beside a source is what that
+     * source costs an operator's disk, and the image keeps four files per stream log rather than
+     * one. `measureSegments` swallows the per-file errors this used to report, which loses the
+     * warning on an unreadable log — so the absence of the whole set is checked here, once, and
+     * that is the case worth a line anyway. A single segment that cannot be read while its
+     * siblings can is the mid-rotation race `measureStore` already declines to treat as a fault.
+     */
     private async measureFile(source: LogSourceDescriptor): Promise<{ bytes: number; lastWriteAt?: DateTime } | undefined> {
         const path = logSourcePath(source, this.config);
         if (path === undefined) return undefined;
 
+        const measured = await measureSegments(path);
+        if (measured !== undefined) return { bytes: measured.bytes, lastWriteAt: DateTime.fromMillis(measured.lastWriteAt) };
+
+        // ENOENT is the ordinary case and says nothing; anything else is worth a line, because a
+        // log an operator cannot read for a reason other than absence is itself a finding.
         try {
-            const stats = await stat(path);
-            return { bytes: stats.size, lastWriteAt: DateTime.fromMillis(stats.mtimeMs) };
+            await stat(path);
         } catch (error) {
-            // ENOENT is the ordinary case and says nothing; anything else is worth a line, because a
-            // log an operator cannot read for a reason other than absence is itself a finding.
             if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
                 this.logger.warn(`station: could not stat the ${source.id} log (${errorText(error)})`, { path });
             }
-            return undefined;
         }
+        return undefined;
     }
 }
 

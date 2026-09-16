@@ -125,6 +125,16 @@ describe('LogsService.listSources', () => {
         expect(source?.bytes).toBeGreaterThan(0);
     });
 
+    it('sums a stream log across its rotated segments, so the size is what the set costs the disk', async () => {
+        await writeStreamLog('liquidsoap.log', '12345\n'); // 6
+        await writeStreamLog('liquidsoap.log.1', '1234567890\n'); // 11
+        await writeStreamLog('liquidsoap.log.2', '1\n'); // 2
+
+        const source = (await service.listSources()).sources.find(entry => entry.id === 'liquidsoap');
+
+        expect(source?.bytes).toBe(19);
+    });
+
     it('prefers STREAM_LOGS_DIR over the derivation when an operator has set one', async () => {
         const elsewhere = join(root, 'somewhere-else');
         await mkdir(elsewhere, { recursive: true });
@@ -239,6 +249,18 @@ describe('LogsService.readLog', () => {
         expect(page.lines).toHaveLength(10);
     });
 
+    it('reads a stream log back across its rotated segments', async () => {
+        // What the minute after a rotation looks like: one line in the active file and the history
+        // somebody is actually looking for in the segment behind it.
+        await writeStreamLog('liquidsoap.log', 'newest\n');
+        await writeStreamLog('liquidsoap.log.1', 'oldest\nolder\n');
+
+        const page = await service.readLog('liquidsoap', {});
+
+        expect(page.lines.map(line => line.text)).toEqual(['newest', 'older', 'oldest']);
+        expect(page.truncated).toBe(false);
+    });
+
     it('does not call a short stream log truncated', async () => {
         await writeStreamLog('liquidsoap.log', 'one\ntwo\n');
 
@@ -278,6 +300,16 @@ describe('LogsService.downloadLog', () => {
             .map(line => line.replace(/^\S+\s+\S+\s+/, ''));
 
         expect(messages).toEqual(['first', 'second']);
+    });
+
+    it('hands back a stream log across its rotated segments, oldest first', async () => {
+        await writeStreamLog('liquidsoap.log', 'five\nsix\n');
+        await writeStreamLog('liquidsoap.log.1', 'three\nfour\n');
+        await writeStreamLog('liquidsoap.log.2', 'one\ntwo\n');
+
+        const { body } = await service.downloadLog('liquidsoap');
+
+        expect(body).toBe('one\ntwo\nthree\nfour\nfive\nsix\n');
     });
 
     it('names the attachment after the source rather than after anything a caller sent', async () => {

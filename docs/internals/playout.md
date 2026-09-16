@@ -142,6 +142,14 @@ at Icecast with the first alone; the comment beside it records the measurement.
 `stream/streamurl.check.py` measures whether a given player draws the field, against a throwaway mount
 rather than this one.
 
+**Measured on the Office NAD M10 V2, BluOS 4.16.22, 2026-09-16: it draws it, per update, with no
+reconnect.** The player fetched every artwork URL within about two seconds of the ICY update that
+carried it (twice each, as `Mozilla/5.0`), and the operator watched the amp's artwork slot change
+colour with each one while the stream played on. That reverses the verdict of the two earlier probes
+below for the one thing they were about: per-record art on a hardware display was never behind the
+`/Play` slots, it was behind a field nobody had filled. What it still does not buy is a split
+artist and album, which BluOS's display model has no fields for.
+
 **What a BluOS player was measured doing before that probe existed**, on an NAD M10 V2 (BluOS 4.16.6
 on 2026-08-19 and 4.16.22 on 2026-09-08; the full record is the closed `now-playing-displays` note
 at commit 71e431d4 and `apps/desktop/CLAUDE.md` under "Plugins: BluOS"): the ICY line updates in

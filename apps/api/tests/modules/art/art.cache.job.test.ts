@@ -15,13 +15,16 @@ vi.mock('#modules/jobs/job.authorization.js', () => ({ overrideJobActor: vi.fn()
 const context = { id: 'job-1' } as unknown as JobContext;
 const container = {} as unknown as Container;
 
-const job = (pending: string[], cache: (url: string) => Promise<{ cached: boolean }>) => {
+const job = (pending: string[], cache: (url: string) => Promise<{ cached: boolean }>, held: string[] = []) => {
     const info = vi.fn();
     const listPendingSourceUrls = vi.fn(async (limit: number) => pending.slice(0, limit));
+    const findBySourceUrls = vi.fn(async (urls: readonly string[]) =>
+        new Map(urls.filter(url => held.includes(url)).map(url => [url, { id: 'asset', sourceUrl: url, checksum: 'c'.repeat(64), ext: 'jpg' }])),
+    );
     const artCache = { cache: vi.fn(async (url: string) => (await cache(url)) as never) } as unknown as ArtCacheService;
 
     return {
-        job: new ArtCacheJob(artCache, { listPendingSourceUrls } as unknown as ArtRepository, context, container, {
+        job: new ArtCacheJob(artCache, { listPendingSourceUrls, findBySourceUrls } as unknown as ArtRepository, context, container, {
             info,
             warn: vi.fn(),
             error: vi.fn(),
@@ -30,6 +33,7 @@ const job = (pending: string[], cache: (url: string) => Promise<{ cached: boolea
         } as unknown as Logger),
         info,
         listPendingSourceUrls,
+        findBySourceUrls,
         artCache,
     };
 };
@@ -81,5 +85,76 @@ describe('ArtCacheJob', () => {
         // The four workers in flight when the abort landed may each finish their current URL, but
         // nothing beyond that is started.
         expect((harness.artCache.cache as ReturnType<typeof vi.fn>).mock.calls.length).toBeLessThanOrEqual(4);
+    });
+});
+
+// The director asks for the covers of records it is about to air, because the sweep walks the
+// catalog in URL order and has no idea what is on tonight.
+describe('ArtCacheJob, asked for particular URLs', () => {
+    it('fetches exactly what it was asked for and never touches the backlog', async () => {
+        const seen: string[] = [];
+        const harness = job(['https://cdn/backlog.jpg'], async url => {
+            seen.push(url);
+            return { cached: true };
+        });
+
+        await harness.job.run({ urls: ['https://cdn/on-air.jpg'] });
+
+        expect(seen).toEqual(['https://cdn/on-air.jpg']);
+        expect(harness.listPendingSourceUrls).not.toHaveBeenCalled();
+    });
+
+    it('drops one it already holds, because caching does not check before downloading', async () => {
+        // Two commit passes a second apart both see a cover as missing while the first fetch is
+        // still in flight. Without this that is two downloads of one image.
+        const seen: string[] = [];
+        const harness = job(
+            [],
+            async url => {
+                seen.push(url);
+                return { cached: true };
+            },
+            ['https://cdn/already.jpg'],
+        );
+
+        await harness.job.run({ urls: ['https://cdn/already.jpg', 'https://cdn/wanted.jpg'] });
+
+        expect(seen).toEqual(['https://cdn/wanted.jpg']);
+    });
+
+    it('asks for each URL once, however many times it was named', async () => {
+        const seen: string[] = [];
+        const harness = job([], async url => {
+            seen.push(url);
+            return { cached: true };
+        });
+
+        await harness.job.run({ urls: ['https://cdn/a.jpg', 'https://cdn/a.jpg', 'https://cdn/b.jpg'] });
+
+        expect(seen).toEqual(['https://cdn/a.jpg', 'https://cdn/b.jpg']);
+    });
+
+    it('is bounded like any other run, so a whole running order costs what a sweep costs', async () => {
+        const seen: string[] = [];
+        const harness = job([], async url => {
+            seen.push(url);
+            return { cached: true };
+        });
+
+        await harness.job.run({ urls: ['https://cdn/a.jpg', 'https://cdn/b.jpg', 'https://cdn/c.jpg'], limit: 2 });
+
+        expect(seen).toHaveLength(2);
+    });
+
+    it('falls back to the backlog when the list it was given is empty', async () => {
+        const seen: string[] = [];
+        const harness = job(['https://cdn/backlog.jpg'], async url => {
+            seen.push(url);
+            return { cached: true };
+        });
+
+        await harness.job.run({ urls: [] });
+
+        expect(seen).toEqual(['https://cdn/backlog.jpg']);
     });
 });

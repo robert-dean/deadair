@@ -76,6 +76,29 @@ export class ArtRepository extends DataRepository {
     }
 
     /**
+     * The assets behind a batch of upstream URLs, keyed by the URL that was asked for.
+     *
+     * One query rather than a call each, because the caller is a running order: the director asks
+     * for every record it is about to hand over, on every commit pass, and a round trip per cover
+     * would put that on the path that keeps the player's queue full.
+     *
+     * A URL with no row, and a URL whose every fetch failed, are both simply absent: the caller
+     * wants a URL it can serve, and neither of those is one. Nothing here reports WHY, because the
+     * answer is the same either way.
+     */
+    async findBySourceUrls(sourceUrls: readonly string[]): Promise<Map<string, ArtAsset>> {
+        if (sourceUrls.length === 0) return new Map();
+
+        const rows = await this.db
+            .selectFrom('deadair.artAssets')
+            .select(ASSET_COLUMNS)
+            .where('sourceUrl', 'in', [...new Set(sourceUrls)])
+            .execute();
+
+        return new Map(rows.map(row => [row.sourceUrl, toAsset(row)]));
+    }
+
+    /**
      * Records bytes against a source URL, creating the row if this is the first attempt.
      *
      * Clears the failure state on the way through: a URL that failed twice and then worked is

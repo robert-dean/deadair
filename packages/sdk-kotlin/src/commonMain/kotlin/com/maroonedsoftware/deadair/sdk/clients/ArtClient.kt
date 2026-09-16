@@ -12,7 +12,7 @@ import kotlin.uuid.Uuid
 class ArtClient(private val http: SdkHttp) {
     /**
      * Get art
-     * The bytes of one cached image
+     * The bytes of one cached image, addressed by its id alone
      */
     suspend fun getArt(id: Uuid): GetArtResponse {
         val response = http.execute(HttpMethod.Get, expectStatuses = setOf(304)) {
@@ -32,6 +32,33 @@ class ArtClient(private val http: SdkHttp) {
                     "image/webp" -> GetArtResponse.Status200ImageWebp(response.bytes, headers)
                     "image/gif" -> GetArtResponse.Status200ImageGif(response.bytes, headers)
                     else -> GetArtResponse.Status200ImageJpeg(response.bytes, headers)
+                }
+            }
+        }
+    }
+
+    /**
+     * Get art file
+     * The bytes of one cached image, under any filename
+     */
+    suspend fun getArtFile(id: Uuid, filename: String): GetArtFileResponse {
+        val response = http.execute(HttpMethod.Get, expectStatuses = setOf(304)) {
+            path("art", segment(id), segment(filename))
+        }
+        return when (response.status.value) {
+            304 -> {
+                GetArtFileResponse.Status304
+            }
+            else -> {
+                val headers = GetArtFile200Headers(
+                    response.headers["cache-control"]?.let { it },
+                    response.headers["etag"]?.let { it },
+                )
+                when (response.contentType) {
+                    "image/png" -> GetArtFileResponse.Status200ImagePng(response.bytes, headers)
+                    "image/webp" -> GetArtFileResponse.Status200ImageWebp(response.bytes, headers)
+                    "image/gif" -> GetArtFileResponse.Status200ImageGif(response.bytes, headers)
+                    else -> GetArtFileResponse.Status200ImageJpeg(response.bytes, headers)
                 }
             }
         }
@@ -67,4 +94,35 @@ sealed interface GetArtResponse {
     val headers: GetArt200Headers,
     ) : GetArtResponse
     data object Status304 : GetArtResponse
+}
+
+/** Response headers declared on GET /art/{id}/{filename}. */
+data class GetArtFile200Headers(
+    val cacheControl: String?,
+    val etag: String?,
+)
+
+/**
+ * What GET /art/{id}/{filename} returned.
+ *
+ * The operation declares several statuses the service produces, so the status is part of the value.
+ */
+sealed interface GetArtFileResponse {
+    data class Status200ImageJpeg(
+        val data: ByteArray,
+    val headers: GetArtFile200Headers,
+    ) : GetArtFileResponse
+    data class Status200ImagePng(
+        val data: ByteArray,
+    val headers: GetArtFile200Headers,
+    ) : GetArtFileResponse
+    data class Status200ImageWebp(
+        val data: ByteArray,
+    val headers: GetArtFile200Headers,
+    ) : GetArtFileResponse
+    data class Status200ImageGif(
+        val data: ByteArray,
+    val headers: GetArtFile200Headers,
+    ) : GetArtFileResponse
+    data object Status304 : GetArtFileResponse
 }

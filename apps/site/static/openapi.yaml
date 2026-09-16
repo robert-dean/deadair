@@ -29,7 +29,7 @@ paths:
         get:
             operationId: getArt
             summary: 'Get art'
-            description: 'The bytes of one cached image'
+            description: 'The bytes of one cached image, addressed by its id alone'
             parameters:
                 - name: id
                   in: path
@@ -37,6 +37,55 @@ paths:
                   schema:
                       type: string
                       format: uuid
+            security: []
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'image/jpeg':
+                            schema:
+                                type: string
+                                format: binary
+                        'image/png':
+                            schema:
+                                type: string
+                                format: binary
+                        'image/webp':
+                            schema:
+                                type: string
+                                format: binary
+                        'image/gif':
+                            schema:
+                                type: string
+                                format: binary
+                    headers:
+                        cache-control:
+                            schema:
+                                type: string
+                        etag:
+                            schema:
+                                type: string
+                '304':
+                    description: 'Response 304'
+    '/art/{id}/{filename}':
+        get:
+            operationId: getArtFile
+            summary: 'Get art file'
+            description: 'The bytes of one cached image, under any filename'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+                - name: filename
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 3
+                      maxLength: 64
             security: []
             responses:
                 '200':

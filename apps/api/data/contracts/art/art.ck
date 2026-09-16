@@ -22,7 +22,7 @@ operation /art/{id}: {
     params: {
         id: uuid
     }
-    get: { # The bytes of one cached image
+    get: { # The bytes of one cached image, addressed by its id alone
         name: Get art
         service: ArtService.getArt
         security: none
@@ -48,6 +48,39 @@ operation /art/{id}: {
             # Documented rather than produced here: the conditional-GET middleware turns a fresh
             # 200 carrying an ETag into one. A bare status says exactly that, so the service is not
             # asked to return it.
+            304:
+        }
+    }
+}
+
+# The same image under a filename, for a client that decides whether a URL is a picture by looking
+# at the URL. A hardware player handed an artwork link in a stream's metadata is the case in hand:
+# it fetches a link ending in `.jpg` and ignores one that ends in an id, without ever asking.
+#
+# The bytes are chosen by `id`; `filename` is decoration and the station does not read it. So the
+# extension somebody writes there is a request for a shape rather than for a format, and the
+# response says what the image really is in its own content type, exactly as the route above does.
+
+operation /art/{id}/{filename}: {
+    params: {
+        id: uuid
+        filename: string(min=3, max=64)
+    }
+    get: { # The bytes of one cached image, under any filename
+        name: Get art file
+        service: ArtService.getArtFile
+        security: none
+        response: {
+            200: {
+                image/jpeg: binary
+                image/png: binary
+                image/webp: binary
+                image/gif: binary
+                headers: {
+                    cache-control?: string
+                    etag?: string
+                }
+            }
             304:
         }
     }

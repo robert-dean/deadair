@@ -6,9 +6,19 @@ import { sql } from 'kysely';
  *
  * One field rather than two, because a consumer wanting art has no use for the distinction: it
  * wants a URL that renders. An absolute `https://...` means nothing has cached it yet, and a
- * relative `art/<id>` is a path under the API root. The API mounts its routers at the root and
- * knows nothing about the `/api` prefix the edge adds, so it cannot mint an absolute local URL and
- * does not try; the console resolves it against the base it already configures.
+ * relative `art/<id>/cover.<ext>` is a path under the API root. The API mounts its routers at the
+ * root and knows nothing about the `/api` prefix the edge adds, so it cannot mint an absolute
+ * local URL and does not try; the console resolves it against the base it already configures.
+ *
+ * **The filename on the end is load-bearing for one kind of consumer and decoration for the
+ * rest.** A browser asks for whatever an `<img>` points at, but a hardware player handed an
+ * artwork URL in the stream's metadata decides whether to ask by looking at the URL: a BluOS
+ * player fetches a link ending in `.jpg` and never requests one ending in an id. Measured on an
+ * NAD M10 V2, same bytes and same content type at both paths, it made zero requests for the
+ * extensionless one. The extension is the store's own record of what the file is, and
+ * `ArtService.getArtFile` ignores it and answers from the id, so a stale name cannot serve the
+ * wrong bytes. An asset with no recorded extension keeps the bare `art/<id>`, which is honest:
+ * there is nothing true to call it.
  *
  * A correlated subquery rather than a join: `art_assets` has at most one row per source URL, and a
  * join would put the burden of a `distinct` on every caller to protect against a table that grows a
@@ -20,7 +30,7 @@ import { sql } from 'kysely';
  * @param column - Fully qualified art column, in database spelling: `deadair.albums.image_url`.
  */
 const cachedOrUpstream = (column: string) => sql<string | null>`coalesce(
-        (select 'art/' || asset.id
+        (select 'art/' || asset.id || case when asset.ext is null then '' else '/cover.' || asset.ext end
            from deadair.art_assets as asset
           where asset.source_url = ${sql.raw(column)}
             and asset.checksum is not null

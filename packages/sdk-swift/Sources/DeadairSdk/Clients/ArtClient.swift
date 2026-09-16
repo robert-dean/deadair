@@ -10,7 +10,7 @@ public final class ArtClient: Sendable {
     }
 
     /// Get art
-    /// The bytes of one cached image
+    /// The bytes of one cached image, addressed by its id alone
     public func getArt(id: UUID) async throws -> GetArtResponse {
         let request = try SdkRequest(method: "GET", path: ["art", http.segment(id)])
         let response = try await http.execute(request, expectStatuses: [304])
@@ -19,6 +19,32 @@ public final class ArtClient: Sendable {
             return .status304
         default:
             let headers = try GetArt200Headers(
+                cacheControl: http.optionalHeader(response, "cache-control", as: String.self),
+                etag: http.optionalHeader(response, "etag", as: String.self)
+            )
+            switch response.contentType {
+            case "image/png":
+                return .status200ImagePng(data: response.body, headers: headers)
+            case "image/webp":
+                return .status200ImageWebp(data: response.body, headers: headers)
+            case "image/gif":
+                return .status200ImageGif(data: response.body, headers: headers)
+            default:
+                return .status200ImageJpeg(data: response.body, headers: headers)
+            }
+        }
+    }
+
+    /// Get art file
+    /// The bytes of one cached image, under any filename
+    public func getArtFile(id: UUID, filename: String) async throws -> GetArtFileResponse {
+        let request = try SdkRequest(method: "GET", path: ["art", http.segment(id), http.segment(filename)])
+        let response = try await http.execute(request, expectStatuses: [304])
+        switch response.status {
+        case 304:
+            return .status304
+        default:
+            let headers = try GetArtFile200Headers(
                 cacheControl: http.optionalHeader(response, "cache-control", as: String.self),
                 etag: http.optionalHeader(response, "etag", as: String.self)
             )
@@ -55,5 +81,27 @@ public enum GetArtResponse: Equatable, Sendable {
     case status200ImagePng(data: Data, headers: GetArt200Headers)
     case status200ImageWebp(data: Data, headers: GetArt200Headers)
     case status200ImageGif(data: Data, headers: GetArt200Headers)
+    case status304
+}
+
+/// Response headers declared on GET /art/{id}/{filename}.
+public struct GetArtFile200Headers: Equatable, Sendable {
+    public let cacheControl: String?
+    public let etag: String?
+
+    public init(cacheControl: String?, etag: String?) {
+        self.cacheControl = cacheControl
+        self.etag = etag
+    }
+}
+
+/// What GET /art/{id}/{filename} returned.
+///
+/// The operation declares several statuses the service produces, so the status is part of the value.
+public enum GetArtFileResponse: Equatable, Sendable {
+    case status200ImageJpeg(data: Data, headers: GetArtFile200Headers)
+    case status200ImagePng(data: Data, headers: GetArtFile200Headers)
+    case status200ImageWebp(data: Data, headers: GetArtFile200Headers)
+    case status200ImageGif(data: Data, headers: GetArtFile200Headers)
     case status304
 }

@@ -27,6 +27,13 @@ describe('artUrl', () => {
         expect(compiled.sql).toContain('asset.source_url = deadair.albums.image_url');
     });
 
+    it('names the file after the extension the store recorded, and omits it when there is none', () => {
+        // A player that decides whether a URL is a picture by looking at it will not fetch a link
+        // ending in an id: measured as zero requests on an NAD M10 V2. The `case` is what keeps
+        // that true without inventing an extension for an asset whose type was never recorded.
+        expect(compiled.sql).toContain("case when asset.ext is null then '' else '/cover.' || asset.ext end");
+    });
+
     it('ignores rows that have no bytes', () => {
         expect(compiled.sql).toContain('asset.checksum is not null');
     });

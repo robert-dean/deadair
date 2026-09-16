@@ -71,3 +71,33 @@ describe('ArtService.getArt', () => {
         expect(await status(art.getArt(ID))).toBe(404);
     });
 });
+
+describe('ArtService.getArtFile', () => {
+    // The filename exists so a URL ends in something a client will recognise as a picture; the id
+    // is what chooses the bytes. A player that will not fetch `/art/<uuid>` fetches
+    // `/art/<uuid>/cover.jpg`, and both have to answer the same thing.
+    it('answers exactly what the id alone answers, whatever the file is called', async () => {
+        const asset = { id: ID, sourceUrl: 'https://cdn/x.jpg', checksum: CHECKSUM, ext: 'jpg' };
+
+        const { service: art, read } = service({ asset, bytes: BYTES });
+        const named = await art.getArtFile(ID, 'cover.jpg');
+
+        expect(named.body).toEqual(BYTES);
+        expect(named.contentType).toBe('image/jpeg');
+        expect(read).toHaveBeenCalledWith(CHECKSUM, 'jpg');
+    });
+
+    // The name is decoration and the store is the authority, so a request that asks for the wrong
+    // shape still gets the truth rather than a 404 or a mislabelled body.
+    it('serves the stored type even when the filename claims another', async () => {
+        const { service: art } = service({ asset: { id: ID, sourceUrl: 'https://cdn/x.jpg', checksum: CHECKSUM, ext: 'jpg' }, bytes: BYTES });
+
+        expect((await art.getArtFile(ID, 'cover.png')).contentType).toBe('image/jpeg');
+    });
+
+    it('404s an id nobody has cached, as the bare route does', async () => {
+        const { service: art } = service({ asset: undefined });
+
+        expect(await status(art.getArtFile(ID, 'cover.jpg'))).toBe(404);
+    });
+});

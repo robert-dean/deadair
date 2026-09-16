@@ -53,4 +53,23 @@ export class ArtService {
 
         return { contentType: ART_SERVED_TYPES[asset.ext], body: bytes, headers: { cacheControl: CACHE_CONTROL, etag: `"${asset.checksum}"` } };
     }
+
+    /**
+     * The same bytes, under a filename the caller chose.
+     *
+     * The filename is never read. It exists because a client can decide whether a URL is worth
+     * fetching by looking at the URL: a BluOS player handed an artwork link in the stream's ICY
+     * metadata fetches one ending in `.jpg` and does not request one ending in an id at all,
+     * which is measurable as zero requests rather than as a failure. So `cachedOrUpstream` in
+     * `catalog.art.ts` mints `art/<id>/cover.<ext>` and this answers it.
+     *
+     * The extension in that name is what the store recorded for the asset, so it is normally
+     * true — but it is not what decides the response, because the asset's own content type
+     * already does and the two cannot be allowed to disagree. A request for `cover.png` against a
+     * JPEG gets the JPEG and an `image/jpeg` header, which is the same answer {@link getArt}
+     * gives.
+     */
+    async getArtFile(id: string, _filename: string): Promise<ArtResponse> {
+        return this.getArt(id);
+    }
 }

@@ -22,7 +22,7 @@ public sealed class ArtClient(SdkHttp http)
 {
     /// <summary>
     /// Get art
-    /// The bytes of one cached image
+    /// The bytes of one cached image, addressed by its id alone
     /// </summary>
     public async Task<GetArtResponse> GetArtAsync(Guid id, CancellationToken cancellationToken = default)
     {
@@ -57,6 +57,44 @@ public sealed class ArtClient(SdkHttp http)
             }
         }
     }
+
+    /// <summary>
+    /// Get art file
+    /// The bytes of one cached image, under any filename
+    /// </summary>
+    public async Task<GetArtFileResponse> GetArtFileAsync(Guid id, string filename, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Get,
+            http.Path("art", http.Segment(id), http.Segment(filename)),
+            expectStatuses: new[] { 304 },
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        switch (response.Status)
+        {
+            case 304:
+            {
+                return new GetArtFileResponse.Status304();
+            }
+
+            default:
+            {
+                var headers = new GetArtFile200Headers(
+                    response.Header("cache-control") is { } cacheControl ? cacheControl : null,
+                    response.Header("etag") is { } etag ? etag : null);
+                switch (response.ContentType)
+                {
+                    case "image/png":
+                        return new GetArtFileResponse.Status200ImagePng(response.Bytes, headers);
+                    case "image/webp":
+                        return new GetArtFileResponse.Status200ImageWebp(response.Bytes, headers);
+                    case "image/gif":
+                        return new GetArtFileResponse.Status200ImageGif(response.Bytes, headers);
+                    default:
+                        return new GetArtFileResponse.Status200ImageJpeg(response.Bytes, headers);
+                }
+            }
+        }
+    }
 }
 
 /// <summary>Response headers declared on GET /art/{id}.</summary>
@@ -80,4 +118,27 @@ public abstract record GetArtResponse
     public sealed record Status200ImageGif(byte[] Data, GetArt200Headers Headers) : GetArtResponse;
 
     public sealed record Status304() : GetArtResponse;
+}
+
+/// <summary>Response headers declared on GET /art/{id}/{filename}.</summary>
+public sealed record GetArtFile200Headers(string? CacheControl, string? Etag);
+
+/// <summary>
+/// What GET /art/{id}/{filename} returned.
+///
+/// The operation declares several statuses the service produces, so the status is part of the value.
+/// </summary>
+public abstract record GetArtFileResponse
+{
+    private GetArtFileResponse() { }
+
+    public sealed record Status200ImageJpeg(byte[] Data, GetArtFile200Headers Headers) : GetArtFileResponse;
+
+    public sealed record Status200ImagePng(byte[] Data, GetArtFile200Headers Headers) : GetArtFileResponse;
+
+    public sealed record Status200ImageWebp(byte[] Data, GetArtFile200Headers Headers) : GetArtFileResponse;
+
+    public sealed record Status200ImageGif(byte[] Data, GetArtFile200Headers Headers) : GetArtFileResponse;
+
+    public sealed record Status304() : GetArtFileResponse;
 }

@@ -1,28 +1,29 @@
 ---
-title: 'Get art'
-sidebar_label: 'Get art'
-sidebar_position: 1
+title: 'Get art file'
+sidebar_label: 'Get art file'
+sidebar_position: 2
 mdx:
     format: 'md'
 ---
 
-The bytes of one cached image, addressed by its id alone
+The bytes of one cached image, under any filename
 
-**`GET`** `/art/{id}`
+**`GET`** `/art/{id}/{filename}`
 
 :::note
-SDK method: `getArt`
+SDK method: `getArtFile`
 Security: public
 :::
 
 ## Attributes
 
 <details>
-<summary>Attributes (1)</summary>
+<summary>Attributes (2)</summary>
 
-| Attribute | Type     | Required | Description     |
-| --------- | -------- | -------- | --------------- |
-| `id`      | `string` | Yes      | Path parameter. |
+| Attribute  | Type     | Required | Description     |
+| ---------- | -------- | -------- | --------------- |
+| `filename` | `string` | Yes      | Path parameter. |
+| `id`       | `string` | Yes      | Path parameter. |
 
 </details>
 

@@ -45,4 +45,14 @@ describe('HostField', () => {
         expect(await screen.findByRole('option', { name: 'Marlowe' })).toBeInTheDocument();
         expect(screen.queryByRole('option', { name: 'Caller who knows better' })).not.toBeInTheDocument();
     });
+
+    // The description carried `\u2019` as six literal characters. A JSX string attribute is HTML-like
+    // and processes no backslash escapes, so the field read "the station\u2019s own host" on screen.
+    it('says what an empty box means, with an apostrophe rather than its escape', async () => {
+        listPersonas.mockResolvedValue({ personas: [] });
+
+        render(<HostField {...input('')} />);
+
+        expect(await screen.findByText('Empty means the station’s own host.')).toBeInTheDocument();
+    });
 });

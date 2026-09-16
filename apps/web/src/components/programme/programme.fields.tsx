@@ -187,7 +187,7 @@ export function HostField({ markOnAir = false, ...input }: GetInputPropsReturnTy
         label: markOnAir && persona.presenting ? `${persona.label} (on air)` : persona.label,
     }));
 
-    return <Select label="Hosted by" description="Empty means the station\u2019s own host." data={options} clearable {...input} />;
+    return <Select label="Hosted by" description="Empty means the station’s own host." data={options} clearable {...input} />;
 }
 
 /** What it is asked to play, in the operator's own words. */

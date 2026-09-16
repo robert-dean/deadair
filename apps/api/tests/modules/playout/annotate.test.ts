@@ -144,52 +144,71 @@ describe('a carried programme, through itemAnnotations', () => {
 });
 
 describe('listenerArtwork, through itemAnnotations', () => {
-    // The ICY `StreamUrl` beside the title: a record's cover, or the station's logo when the
-    // station itself is what is playing. Icecast keeps a tag an update does not mention, so
-    // every item says what to show or the previous record's cover stays up under it.
+    // The ICY `StreamUrl` beside the title. Two rules decide it, and both are absolute: only the
+    // station's own art goes on the wire, and every item says what to show. See `listenerArtwork`
+    // for the credential half of the first and Icecast's tag-keeping for the second.
     const reachable = (): AnnotationContext => ({ ...context(true), publicUrl: 'https://radio.test/' });
     const labelled = (title: string): RundownItem => ({ ...speech(-16), title });
     const programme = (): RundownItem => ({ ...speech(-16), id: 'item-3', title: 'Episode 12', artists: ['The Long Wave'], programme: true });
-
-    it("sends a record's cover as it is when the provider's URL is absolute", () => {
-        const item: RundownItem = { ...record(-9), artworkUrl: 'https://cdn.example/cover.jpg' };
-
-        expect(itemAnnotations(item, reachable()).url).toBe('https://cdn.example/cover.jpg');
-    });
+    const CACHED = 'art/0b1e4a52-1111-4222-8333-444455556666/cover.jpg';
+    const LOGO = 'https://radio.test/logo.png';
 
     it("sends the station's own cached copy, as the catalog read hands it over, absolute under the API", () => {
-        // `art/<id>` with no leading slash is the shape `catalog.art.ts` mints, and it is what
-        // every cached cover on the station arrives as: the amp fetches from the station, not
-        // from whichever provider the record came from.
+        // The shape `catalog.art.ts` mints: a path under the API root, carrying the filename a
+        // player needs before it will fetch anything at all.
+        const item: RundownItem = { ...record(-9), artworkUrl: CACHED };
+
+        expect(itemAnnotations(item, reachable()).url).toBe(`https://radio.test/api/${CACHED}`);
+    });
+
+    it('takes the leading slash off a path that has one, rather than doubling it', () => {
+        // A device at the far end of a stream cannot resolve a relative path, and the trailing
+        // slash an operator may well type into the setting must not become a double one.
+        const item: RundownItem = { ...record(-9), artworkUrl: `/${CACHED}` };
+
+        expect(itemAnnotations(item, reachable()).url).toBe(`https://radio.test/api/${CACHED}`);
+    });
+
+    it('still sends an asset the store recorded no extension for, under its bare id', () => {
+        // `cachedOrUpstream` leaves the filename off when it has nothing true to call the file.
+        // A player that wants an extension ignores it, which is the same as today; a browser and
+        // the console do not care.
         const item: RundownItem = { ...record(-9), artworkUrl: 'art/0b1e4a52-1111-4222-8333-444455556666' };
 
         expect(itemAnnotations(item, reachable()).url).toBe('https://radio.test/api/art/0b1e4a52-1111-4222-8333-444455556666');
     });
 
-    it("makes the station's own cached copy absolute under the API, off the public origin", () => {
-        // A device at the far end of a stream cannot resolve a relative path, and the trailing
-        // slash an operator may well type into the setting must not become a double one.
-        const item: RundownItem = { ...record(-9), artworkUrl: '/art/0b1e4a52-1111-4222-8333-444455556666' };
+    it("sends the station's logo instead of a provider's URL, which is never put on the wire", () => {
+        // Two reasons, either of which is enough. A player will not fetch a URL that does not look
+        // like a picture, and this field is broadcast to every listener, so a Subsonic cover URL
+        // would hand the operator's own credentials to anybody who connected.
+        const item: RundownItem = { ...record(-9), artworkUrl: 'https://cdn.example/ab67616d0000b273' };
 
-        expect(itemAnnotations(item, reachable()).url).toBe('https://radio.test/api/art/0b1e4a52-1111-4222-8333-444455556666');
+        expect(itemAnnotations(item, reachable()).url).toBe(LOGO);
+    });
+
+    it('sends it instead of a provider URL that carries a credential, whatever it ends in', () => {
+        const item: RundownItem = { ...record(-9), artworkUrl: 'http://navidrome.lan/rest/getCoverArt.view?u=robert&t=abc123&s=salt&id=al-42' };
+
+        expect(itemAnnotations(item, reachable()).url).toBe(LOGO);
     });
 
     it("shows the station's logo for a break, as the mount carries the station's name for one", () => {
-        expect(itemAnnotations(labelled('Talk break: A into B'), reachable()).url).toBe('https://radio.test/logo.png');
+        expect(itemAnnotations(labelled('Talk break: A into B'), reachable()).url).toBe(LOGO);
     });
 
     it("shows the station's logo for a record with no cover rather than saying nothing", () => {
-        expect(itemAnnotations(record(-9), reachable()).url).toBe('https://radio.test/logo.png');
+        expect(itemAnnotations(record(-9), reachable()).url).toBe(LOGO);
     });
 
-    it("carries a programme's own artwork, since it has a real title too", () => {
-        const item: RundownItem = { ...programme(), artworkUrl: 'https://feeds.example/show.jpg' };
+    it("carries a programme's own cover once the station holds one, as a record's is carried", () => {
+        const item: RundownItem = { ...programme(), artworkUrl: CACHED };
 
-        expect(itemAnnotations(item, reachable()).url).toBe('https://feeds.example/show.jpg');
+        expect(itemAnnotations(item, reachable()).url).toBe(`https://radio.test/api/${CACHED}`);
     });
 
     it('sends no artwork at all without a public URL, since nothing could fetch it', () => {
-        const item: RundownItem = { ...record(-9), artworkUrl: '/art/0b1e4a52-1111-4222-8333-444455556666' };
+        const item: RundownItem = { ...record(-9), artworkUrl: `/${CACHED}` };
 
         expect(itemAnnotations(item, context(true)).url).toBeUndefined();
         expect(itemAnnotations(labelled('Station ident'), context(true)).url).toBeUndefined();

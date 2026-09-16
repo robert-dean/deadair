@@ -132,7 +132,24 @@ metadata update into it where 2.4 dropped the tag (xiph/icecast-server#2385). `l
 every item with one: a record's cover made absolute against `stream.publicUrl`, or the station's logo
 for a break, and ALSO for a record with no cover, because Icecast KEEPS a tag an update does not
 mention (`mp3_set_tag` returns on a null value rather than clearing) and an item that said nothing
-would leave the previous record's cover under a caption naming a different one. Liquidsoap's own
+would leave the previous record's cover under a caption naming a different one.
+
+**Only the station's own art goes on that field, and a provider's URL never does.** Both reasons are
+absolute, which is why this is a rule rather than a check somewhere downstream. A provider's URL does
+not work: a player decides whether a URL is a picture by LOOKING at it, so a Spotify CDN link ending
+in an id is never requested at all. And the field is broadcast to every listener, so a cover URL that
+carries a credential must never reach it — a Subsonic `getCoverArt` link holds the operator's user
+and token in its query string, which a station running Navidrome would otherwise hand to anybody who
+connected. What is left is the cached copy or the station's logo, and the logo is the honest answer
+for a record whose cover the station does not yet hold.
+
+**That is also why a cached cover's URL ends in a filename.** `cachedOrUpstream` in `catalog.art.ts`
+mints `art/<id>/cover.<ext>` from the extension the store recorded, and `GET /art/{id}/{filename}`
+answers it by id while ignoring the name, so a stale name can never serve the wrong bytes and the
+response's own content type stays the authority. Measured on the Office M10 V2 on 2026-09-16, same
+bytes and same content type at both paths: the extensionless URL drew **zero** requests from the
+player and the `.png` one drew three and appeared on the screen. An asset the store recorded no
+extension for keeps the bare `art/<id>`, because there is nothing true to call it. Liquidsoap's own
 labels, the bed and off air, get the same logo through `STREAM_ART_URL`, and the relabel body grew a
 second line for it, since a caption sent alone has the same problem. Nothing is sent without a
 public URL: there is no base to make a path absolute against and no address the logo is reachable at.
@@ -153,6 +170,14 @@ colour with each one while the stream played on. That reverses the verdict of th
 below for the one thing they were about: per-record art on a hardware display was never behind the
 `/Play` slots, it was behind a field nobody had filled. What it still does not buy is a split
 artist and album, which BluOS's display model has no fields for.
+
+**Three things that reading looked like and was not**, each of which cost a wrong diagnosis before it
+was ruled out. A station added through the controller app is filed under `service=TuneIn` rather than
+played as a raw URL, and reads the field on that path exactly as it does on the other. An existing
+connection is NOT left behind by a change: a held listener received four consecutive updates across
+five minutes, so nothing has to reconnect to start seeing art. And the edge is not refusing the
+player: `/api/art/...` answers 200 to the player's own `Mozilla/5.0`, while Cloudflare answers 403 to
+a bare `Python-urllib` agent, which is worth knowing before reading anything into a probe's 403.
 
 **What a BluOS player was measured doing before that probe existed**, on an NAD M10 V2 (BluOS 4.16.6
 on 2026-08-19 and 4.16.22 on 2026-09-08; the full record is the closed `now-playing-displays` note

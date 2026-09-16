@@ -218,38 +218,51 @@ export function listenerTitle(item: RundownItem, stationName: string): string {
  * to fetch. Icecast 2.5 forwards the `url` tag of a metadata update into it
  * (2.4 dropped the tag on the floor, xiph/icecast-server#2385), so this is the
  * one channel through which a record's cover reaches a display that can only
- * consume a stream. Whether a given player draws it is the player's business:
- * `stream/streamurl.check.py` is how that is measured, against a test mount.
+ * consume a stream. `stream/streamurl.check.py` is how a player's half of that
+ * is measured, against a test mount.
  *
- * A record carries its cover, made absolute: the station's own cached copy is
- * a path under the API root (`art/<id>`, minted by `catalog.art.ts` wherever the
- * cache job has fetched one, which is what a device fetches rather than the
- * provider's CDN), and a device at the far end of a stream cannot resolve a
- * relative one. `/api` is the prefix the edge adds in front of this API in both
- * nginx configs, which the API itself does not know and the console configures;
- * here it is written down, since there is no console to ask. A break carries
- * the station's logo, for the reason
- * the mount carries the station's name during one: the station is the one
- * talking. So does a record with no cover, because of what Icecast does
- * otherwise. **It KEEPS a tag an update did not mention** (`mp3_set_tag`
- * returns on a null value rather than clearing), so an item that said nothing
- * about artwork would leave the previous record's cover under a caption naming
- * a different record, which is the display confidently saying something false.
- * Every item therefore says what to show, and the station's face is the default.
+ * **Only the station's own art goes on the wire, and a provider's URL never
+ * does.** The rule is one sentence because both reasons for it are absolute.
+ * The first is that a provider's URL does not work: a BluOS player decides
+ * whether a URL is a picture by looking at it, and a Spotify CDN link ends in
+ * an id, so it is never even requested (measured: zero fetches against three
+ * for the same bytes under a `.jpg` name). The second is why this is a rule
+ * rather than a preference — **this field is broadcast to every listener**, and
+ * a provider's cover URL is not always safe to say out loud: a Subsonic
+ * `getCoverArt` link carries the operator's user and token in its query string,
+ * so a station with Navidrome on it would hand its own credentials to anybody
+ * who connected. Neither reason depends on which providers happen to be
+ * installed, so neither is left to a check somewhere further down.
+ *
+ * What that leaves is: a record's cover if the station has cached one, and the
+ * station's own logo otherwise. The logo is also what a break, the bed and
+ * off air carry, for the reason the mount carries the station's NAME then. And
+ * it is what an uncached record carries rather than nothing at all, because
+ * Icecast KEEPS a tag an update does not mention (`mp3_set_tag` returns on a
+ * null value rather than clearing), so an item that said nothing about artwork
+ * would leave the previous record's cover standing under a caption naming a
+ * different one. Every item says what to show; the station's face is the
+ * answer whenever the record's own is not available.
  *
  * Nothing at all without a public URL (the setting, else the console address
- * from the environment; `resolvePublicUrl`): there is no base to make a path
- * absolute against and no address the logo is reachable at, and a URL nobody
- * can fetch is worse than none. `radio.liq` follows the same rule for the labels it puts
- * up itself, through `STREAM_ART_URL`, which is {@link stationArtwork} rendered
- * into its environment.
+ * from the environment; `resolvePublicUrl`): there is no base to make a
+ * path absolute against and no address the logo is reachable at, and a URL
+ * nobody can fetch is worse than none. `radio.liq` follows the same rule for
+ * the labels it puts up itself, through `STREAM_ART_URL`, which is
+ * {@link stationArtwork} rendered into its environment.
  */
 export function listenerArtwork(item: RundownItem, publicUrl: string): string | undefined {
     const origin = stationOrigin(publicUrl);
     if (!origin) return undefined;
-    const cover = item.artworkUrl?.trim();
-    if (cover && (!isRenderItem(item) || item.programme === true)) {
-        return /^https?:\/\//i.test(cover) ? cover : `${origin}/api/${cover.replace(/^\/+/, '')}`;
+
+    // A path under the API root is the station's own store and nothing else can be: `artUrl` in
+    // `catalog.art.ts` mints exactly this shape for a cached asset, and leaves a provider's
+    // absolute URL absolute. So the test for "ours" is the shape rather than a list of hosts to
+    // keep in step with the installed plugins.
+    const cover = item.artworkUrl?.trim() ?? '';
+    const ours = /^\/?art\//.test(cover);
+    if (ours && (!isRenderItem(item) || item.programme === true)) {
+        return `${origin}/api/${cover.replace(/^\/+/, '')}`;
     }
     return stationArtwork(origin);
 }

@@ -1,5 +1,5 @@
 // Two jobs in one pass: asking for what the clock will want, and collecting what has been spoken.
-// The second is the one with no other home — a production is finished by the director noticing its
+// The second is the one with no other home: a production is finished by the director noticing its
 // beats are ready, and nothing in that path knows what a narration piece is.
 
 import { describe, expect, it, vi } from 'vitest';

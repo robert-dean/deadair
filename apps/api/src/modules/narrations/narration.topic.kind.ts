@@ -20,8 +20,8 @@ export const NARRATION_TOPIC_KIND: TopicKind = {
     noun: { one: 'series', many: 'series' },
     description:
         'Books, columns and anything else the station reads out in its own voice. Point a narration plugin at something, add it here, then put a ' +
-        'narration band on the format clock about it: at that time the station reads the next piece — the next chapter of a book, or the newest ' +
-        'issue of a column — in the presenter voice, and remembers where it got to.',
+        'narration band on the format clock about it: at that time the station reads the next piece, in the presenter voice, and remembers where ' +
+        "it got to. The next piece is the next chapter of a book, or the newest issue of a column.",
     fields: [
         {
             key: 'series',

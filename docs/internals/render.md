@@ -55,12 +55,12 @@ installed engine reports.
 have a limit rather than none.** `SpeechLimits.maxCharacters` is `listCues`' shape one method over
 (`listLimits`, optional, asked per call, swallowed to a default), and it takes the OPPOSITE default for a
 reason worth stating: an unclaimed cue is stripped and costs a plainer break, where an unknown ceiling that
-turns out to be real is a request the engine REFUSES — which reaches `RenderSegmentJob` as an ordinary
+turns out to be real is a request the engine REFUSES, which reaches `RenderSegmentJob` as an ordinary
 `upstream` failure, indistinguishable from a broken plugin, and three of those in a row quarantine a healthy
 engine. So a plugin that declares nothing gets `DEFAULT_SPEECH_MAX_CHARACTERS` (3000), which is under every
 ceiling any engine this was written against documents, and `packParts` cuts to it at the strongest boundary
-inside it: paragraph, then sentence, then word, then — only for a single token longer than the whole ceiling,
-which is a URL rather than prose — a hard cut. Neither bundled plugin declares one yet, so both are packed at
+inside it: paragraph, then sentence, then word, then a hard cut, that last one only for a single token
+longer than the whole ceiling, which is a URL rather than prose. Neither bundled plugin declares one yet, so both are packed at
 the default; the number Kokoro documents is 4000 and putting it in is a one-line change once somebody has
 checked it against a running server. **None of this is reachable from a break**: thirty words is the median and
 the ceiling has never been in sight. It exists for reading somebody else's writing out, where the length is not

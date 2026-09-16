@@ -41,8 +41,8 @@ export const MIN_TARGET_MS = 30_000;
  * ## What this does that no other job does
  *
  * Every other production is WRITTEN: `ProduceProductionJob` runs its passes, a model decides the
- * words, and the beats are planned as it goes. Here the words exist already — an author wrote them —
- * so this opens the production directly at `rendering` and plants every beat `written`, which
+ * words, and the beats are planned as it goes. Here the words exist already, because an author wrote
+ * them, so this opens the production directly at `rendering` and plants every beat `written`, which
  * `SegmentRepository.plan` does for anything handed a script. No model is called at any point.
  *
  * From there nothing is new. `RenderSegmentJob` speaks each beat with the lexicon, the cue strip and

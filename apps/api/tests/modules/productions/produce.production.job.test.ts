@@ -138,8 +138,8 @@ describe('the outline pass', () => {
 });
 
 // The station has one speech engine and a programme is many consecutive takes on it. `SpeechGate`
-// orders by rank and never preempts, so the beats went in at `air` — the same rank as a break — and
-// a break planted while a programme was being spoken waited behind every remaining beat.
+// orders by rank and never preempts, so the beats went in at `air`, the same rank as a break, and a
+// break planted while a programme was being spoken waited behind every remaining beat.
 describe('sending the beats to be spoken', () => {
     /** The job with only what `render` touches wired up, on this file's own pattern. */
     function buildRender(beats: readonly { id: string }[]) {

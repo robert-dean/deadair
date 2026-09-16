@@ -488,7 +488,7 @@ export const JobMappings: Record<JobNames, JobMapping> = {
     },
 
     // No cron: sent when a piece is wanted, by the scheduler as its slot approaches or by an operator.
-    // No retry either, on `podcasts.fetch`'s terms — every failure is written on the piece, and
+    // No retry either, on `podcasts.fetch`'s terms: every failure is written on the piece, and
     // whatever asks next is the retry, which the piece's own `render_requested_at` keeps from being
     // asked twice at once. `expiresIn` covers reading the words and planting the beats, which is a
     // plugin fetch and a handful of inserts; the SPEAKING happens in `render.segment` jobs afterwards

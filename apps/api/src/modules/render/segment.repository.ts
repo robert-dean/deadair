@@ -310,7 +310,7 @@ export interface JoinedSegment {
      * A phone-in's beats carry none, so this is absent for one and nothing about them changes. It is
      * load-bearing for a production the station made out of somebody else's words: the joined row is
      * what airs, and without the context on it `segmentRundownTrack` has no way to know the row is a
-     * programme rather than the station talking — so the mount would name the station, and the aired
+     * programme rather than the station talking: the mount would name the station, and the aired
      * edge would never mark the piece as read.
      */
     context?: BreakContext;

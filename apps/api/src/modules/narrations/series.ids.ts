@@ -3,7 +3,7 @@
  *
  * `podcasts/show.ids.ts`'s pair, one capability over and for the same reason: a
  * {@link NarrationSeries.id} is scoped to its own plugin, which is the right contract for a plugin
- * author and the wrong one for everything outside — the station keeps pieces and a clock band names
+ * author and the wrong one for everything outside: the station keeps pieces and a clock band names
  * a series by this id, and two plugins may well mint the same short one.
  *
  * Kept as its own copy rather than shared with `show.ids.ts`, `feed.ids.ts` and `chart.ids.ts`, on

@@ -38,7 +38,7 @@ create table deadair.narration_pieces (
     title text not null,
     -- How the series is worked through, copied from the series onto every one of its pieces: `serial`
     -- reads from the beginning in `ordinal` order, `latest` takes the newest by `published_at` and
-    -- nothing once it has aired. Denormalised deliberately — the one question every read of this
+    -- nothing once it has aired. Denormalised deliberately: the one question every read of this
     -- table asks is "what is next for this series", and a series table nothing else needs would exist
     -- only to answer it. Free text with no check, on `segments.kind`'s rule: the vocabulary belongs to
     -- the capability, and a value this schema has never heard of must not need a migration.

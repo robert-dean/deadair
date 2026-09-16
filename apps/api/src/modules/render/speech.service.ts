@@ -37,7 +37,7 @@ export const SPEAK_TIMEOUT_MS = 120_000;
  *
  * Conservative on purpose, and the opposite default to the one cues take. An unclaimed cue is
  * stripped and the break is plainer; assuming no limit where there is one is a request the engine
- * REFUSES, which arrives as an upstream failure indistinguishable from a broken plugin — and three
+ * REFUSES, which arrives as an upstream failure indistinguishable from a broken plugin, and three
  * of those in a row quarantine it. So an engine that says nothing is read as "probably has one",
  * which costs a long reading an extra seam and costs a break, at thirty words, nothing at all.
  *
@@ -411,7 +411,7 @@ export class SpeechService {
      * How much text the chosen engine takes in one call, for a caller with something long to read.
      *
      * {@link DEFAULT_SPEECH_MAX_CHARACTERS} for an engine that declares nothing, and the same for a
-     * station with no speaker at all — the number is what a caller CHUNKS against, so answering
+     * station with no speaker at all. The number is what a caller CHUNKS against, so answering
      * nothing there would mean a reading packed into one enormous call for whichever engine gets
      * installed later.
      *

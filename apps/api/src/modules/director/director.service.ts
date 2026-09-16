@@ -1039,8 +1039,8 @@ export class DirectorService {
                     // Each member with whatever length the row knows. The joined row has one the
                     // mixer measured, which is the whole point: a ten-minute programme planted
                     // without it projects as zero airtime and every band behind it is planned on
-                    // top of it. A beat has none — `RenderSegmentJob` records no duration — so the
-                    // unjoined fallback projects as it always did.
+                    // top of it. A beat has none, since `RenderSegmentJob` records no duration, so
+                    // the unjoined fallback projects as it always did.
                     const members =
                         joined === undefined
                             ? beats.map(beat => ({ segmentId: beat.id, ...(beat.durationMs === undefined ? {} : { durationMs: beat.durationMs }) }))

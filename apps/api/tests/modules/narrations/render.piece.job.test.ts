@@ -1,5 +1,5 @@
 // The one job in the tree that opens a production already written. Everything a model normally
-// decides — the words, the beats, the speaker — is settled before this runs, so what is worth pinning
+// decides (the words, the beats, the speaker) is settled before this runs, so what is worth pinning
 // is that it skips every writing pass, that a second render cannot speak the same chapter twice, and
 // that every way it can fail ends up on the row rather than in a log.
 

@@ -25,7 +25,7 @@ here even if it publishes news.
 **It is a third capability rather than a mode on `podcast`, because the audio comes from somewhere
 else entirely.** A podcast plugin names an ADDRESS and the host fetches what somebody else recorded;
 here the station makes the audio itself, which is what earns a chapter everything the station's own
-voice gets — the pronunciation lexicon, the performance cue strip, the presenter's voice, and a
+voice gets: the pronunciation lexicon, the performance cue strip, the presenter's voice, and a
 loudness measurement rather than the assumed level a fetched episode is given. It can afford to hand
 over the content itself for the same reason: a chapter is kilobytes where an episode is a hundred
 megabytes, so `getText` fits inside `host.fetch`'s body bounds with room to spare.
@@ -37,7 +37,7 @@ arrive having skipped every stage above.
 
 **A text part is an OBJECT and not a string** (`NarrationPart`), which is the one shape here chosen
 for a future rather than a present. Everything today needs only `text`. The next thing anybody will
-want is more than one voice in a piece — a play, a dialogue, a letters page — and that wants a `role`
+want is more than one voice in a piece (a play, a dialogue, a letters page), and that wants a `role`
 beside the words. Adding a field to an object is a change every plugin already written survives;
 replacing a `string` with an object is not.
 
@@ -60,7 +60,7 @@ production was already being written would open a second one.
 **A series' order is denormalised onto every piece** (`series_order`). The one question every read of
 this table asks is "what is next for this series", and a series table nothing else needs would exist
 only to answer it. Free text with no check, on `segments.kind`'s rule, and read leniently: anything
-that is not `latest` is a serial, which is the safer of the two to be wrong about — a serial reads
+that is not `latest` is a serial. That is the safer of the two to be wrong about: a serial reads
 something the station has not read, where a `latest` could decline forever on a series with no dates.
 
 ## Two orders, and they are different questions
@@ -130,8 +130,8 @@ tried again: no mixer, a beat that could not be spoken, and an operator cancelli
 would wedge the piece forever behind a `claimRender` that can never win.
 
 **A station with no mixer cannot air a reading at all.** A block of beats cannot ride a
-single-segment answer — the planner places one segment — so unlike a phone-in there is no "goes in as
-its parts" fallback. The slot is declined with the reason on the row, on `BulletinSource`'s argument:
+single-segment answer, since the planner places one segment, so unlike a phone-in there is no "goes
+in as its parts" fallback. The slot is declined with the reason on the row, on `BulletinSource`'s argument:
 silence is a state an operator can see and the wrong programme is not.
 
 ## On the format clock
@@ -144,14 +144,14 @@ planted in front of it is about. What is NOT that question is which SOURCE fills
 the one place they differ and where `fillBand` dispatches on the kind itself.
 
 **A reading is placed with a length or not at all.** The joined row's own measured duration where the
-mixer reported one, and `word_count / 180 wpm` where it did not — 180 being an observation off Kokoro
+mixer reported one, and `word_count / 180 wpm` where it did not, 180 being an observation off Kokoro
 reading a long piece rather than a specification. Never nothing: podcasts.md's "an hour projected as
 nothing" is the same failure, and here it puts the news twenty minutes into a chapter.
 
 **`JoinedSegment.context` is what makes the joined row recognisable as a programme.** A phone-in's
 beats carry no context and nothing about them changed; a reading's do, and the stitch job copies the
 first beat's onto the joined row. Without it `segmentRundownTrack` has no way to tell the row from
-the station talking — the mount would name the station and the aired edge would never mark the piece
+the station talking: the mount would name the station and the aired edge would never mark the piece
 as read. `segment.source.ts` routes on `source === SYNDICATED_SOURCE || context.programme === true`
 rather than on a kind, because `render` registers before `narrations` and reading this module's
 predicate there would be a backward edge.

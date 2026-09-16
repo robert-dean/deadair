@@ -16,8 +16,8 @@ const MAX_WORD_COUNT = 2_147_483_647;
  *
  * `PodcastEpisodeRepository`'s rule, and the one thing in this file most worth not breaking.
  * {@link record} is an upsert keyed on the series and the plugin's own piece id, and what it may
- * write is only what a PLUGIN says. The columns that say what the STATION did — the production that
- * spoke it, the segment holding the audio, the render bookkeeping, the aired mark — are never in its
+ * write is only what a PLUGIN says. The columns that say what the STATION did (the production that
+ * spoke it, the segment holding the audio, the render bookkeeping, the aired mark) are never in its
  * update set, and {@link NarrationPieceListing} has no field for any of them.
  *
  * It costs more here than it does for a podcast if it is broken. A re-listed episode that lost its
@@ -30,7 +30,7 @@ const MAX_WORD_COUNT = 2_147_483_647;
  * different queries rather than one with a sort flipped. A `serial` works forward through everything
  * unaired, so it asks for the LOWEST unaired ordinal and is free to reach back through a book the
  * station has been part-way through for weeks. A `latest` asks for the newest dated piece and answers
- * nothing if that one has aired — never reaching back, because reaching back is what carrying a
+ * nothing if that one has aired. Never reaching back, because reaching back is what carrying a
  * column means you do not do. `PodcastEpisodeRepository.newest` is the second arm exactly.
  *
  * ## Timestamps cross as epoch milliseconds
@@ -92,7 +92,7 @@ export class NarrationPieceRepository extends DataRepository {
      * The console's read. A serial is listed from its beginning, because that is the order somebody
      * reading the page is thinking in; with no series named there is no single right order, so the
      * newest across everything is the answer, with the id as the last tiebreaker for
-     * `TopicRepository.list`'s reason — a list that reshuffles between reads is a page nobody can use.
+     * `TopicRepository.list`'s reason: a list that reshuffles between reads is a page nobody can use.
      */
     async list(options: { seriesId?: string; limit: number }): Promise<NarrationPieceRecord[]> {
         let query = this.db.selectFrom('deadair.narrationPieces').selectAll().where('stationKey', '=', this.station.stationKey);
@@ -144,10 +144,10 @@ export class NarrationPieceRepository extends DataRepository {
      *
      * Which question that is depends on how the series is carried, and the two do not fold together:
      *
-     * - `serial` — the lowest `ordinal` not yet aired. A book is worked through in order and the
+     * - `serial`: the lowest `ordinal` not yet aired. A book is worked through in order and the
      *   station keeps its place in this column, so this deliberately DOES reach back: a chapter
      *   published years ago is next if the station has not read it.
-     * - `latest` — the newest dated piece, and nothing at all if it has aired. Never back through the
+     * - `latest`: the newest dated piece, and nothing at all if it has aired. Never back through the
      *   archive, which is what carrying a column means: a band at ten is where tonight's issue goes,
      *   and on a night nothing was published the station does not read last week's instead.
      *
@@ -344,7 +344,7 @@ function positiveWhole(value: number | undefined, max: number): number | undefin
  * A stored order, read leniently.
  *
  * The column is free text on `segments.kind`'s rule, so anything could be in it; anything that is not
- * `latest` is read as `serial`, which is the safer of the two to be wrong about — a serial reads
+ * `latest` is read as `serial`, which is the safer of the two to be wrong about: a serial reads
  * something the station has not read, where a `latest` could decline forever on a series with no
  * dates at all.
  */

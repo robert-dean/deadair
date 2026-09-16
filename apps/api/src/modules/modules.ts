@@ -152,7 +152,7 @@ const ordered: ServerKitModule[] = [
     // Beside PodcastsModule and for the same two edges: after PluginsModule, whose registry and
     // invoker it reads, and before TopicsModule, because a `narration` band names its series through
     // a topic kind this module owns. What it does differs from carrying a podcast in the one way that
-    // matters here — the station SPEAKS a narration rather than fetching it — but nothing about that
+    // matters here (the station SPEAKS a narration rather than fetching it), but nothing about that
     // changes where the module sits.
     NarrationsModule,
     // After every module that OWNS a sort of break's subjects — NewsModule and

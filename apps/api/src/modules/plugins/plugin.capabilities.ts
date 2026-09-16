@@ -308,7 +308,7 @@ export const asNewsPlugin = (record: PluginRecord): NewsPlugin | undefined => {
 /**
  * All three methods earn the `narration` capability, on {@link NEWS_METHODS}'s argument with one
  * more step: a series id is scoped to the plugin that minted it, so listing pieces without listing
- * series is unreachable and listing series without pieces is a menu with no kitchen — and a plugin
+ * series is unreachable and listing series without pieces is a menu with no kitchen. And a plugin
  * that lists both but cannot hand over the WORDS is a menu the kitchen cannot cook from, since the
  * station has nothing to speak.
  */

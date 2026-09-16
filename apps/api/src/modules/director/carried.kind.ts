@@ -4,9 +4,9 @@ import { isSyndicatedKind } from '#modules/podcasts/syndicated.kind.js';
 /**
  * Whether a band, or a segment in the running order, is a PROGRAMME rather than the station talking.
  *
- * Two kinds answer yes and they arrive completely differently — `syndicated` is an episode somebody
- * else recorded and the host fetched, `narration` is somebody else's writing the station read out
- * itself — but every rule that asks this question is indifferent to which:
+ * Two kinds answer yes and they arrive completely differently. `syndicated` is an episode somebody
+ * else recorded and the host fetched; `narration` is somebody else's writing the station read out
+ * itself. Every rule that asks this question is indifferent to which:
  *
  * - a programme is planted BEFORE everything else, because its length moves every boundary behind it
  * - a programme is not a break, so the rules that keep two breaks out of one gap do not apply on
@@ -19,7 +19,7 @@ import { isSyndicatedKind } from '#modules/podcasts/syndicated.kind.js';
  * bulletin landing in the middle of a chapter.
  *
  * What is NOT this question is which SOURCE fills the band, which is the one place the two genuinely
- * differ — `BreakPlanner.fillBand` dispatches on the kind itself, and the podcast scheduler and the
+ * differ: `BreakPlanner.fillBand` dispatches on the kind itself, and the podcast scheduler and the
  * narration scheduler each read their own.
  */
 export const isCarriedKind = (kind: string): boolean => isSyndicatedKind(kind) || isNarrationKind(kind);

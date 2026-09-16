@@ -224,7 +224,7 @@ export class RenderSegmentJob extends PlainJob<RenderSegmentPayload> {
         // one, rather than handed an empty options object: `air` is what it defaults to either way,
         // and leaving the ordinary path untouched is what makes this provably inert for a break.
         //
-        // Every take of one segment ranks the same, padded or not — a break that got in front of the
+        // Every take of one segment ranks the same, padded or not: a break that got in front of the
         // first half of a padded break and behind the second would be a break inside a break.
         return priority === undefined ? await this.speech.speak(request) : await this.speech.speak(request, { priority });
     }

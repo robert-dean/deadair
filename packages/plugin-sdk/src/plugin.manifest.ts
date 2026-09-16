@@ -103,7 +103,7 @@ export const PLUGIN_CAPABILITY_NEWS = 'news';
  *
  * And separate from {@link PLUGIN_CAPABILITY_PODCAST}, although both end in a
  * programme at a clock band, because a podcast plugin names audio somebody else
- * made and this one hands over words the STATION speaks — in its own voice, with
+ * made and this one hands over words the STATION speaks: in its own voice, with
  * its own lexicon and cues, measured rather than assumed.
  * `capabilities/narration.ts` says why at length.
  */

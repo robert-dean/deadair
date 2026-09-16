@@ -51,7 +51,7 @@ export const DEFAULT_PIECE_PAGE = 100;
  * Long, and deliberately longer than a podcast's fetch window: a chapter is several takes on the
  * station's only speech engine, each queued behind whatever else is waiting and each yielding to it,
  * so a render that is merely slow must not be mistaken for one that died. What this bounds is how
- * long a render that genuinely vanished — a worker killed mid-job — keeps its piece from being tried
+ * long a render that genuinely vanished (a worker killed mid-job) keeps its piece from being tried
  * again.
  */
 export const RENDER_RETRY_AFTER_MS = 60 * 60_000;
@@ -253,7 +253,7 @@ function toStationSeries(pluginId: string, series: NarrationSeries): StationSeri
  * breaking its contract, and each costs that piece alone.
  *
  * A date that will not parse is dropped rather than the piece, since undated is a state a serial
- * handles perfectly well — it is only fatal to a `latest` series, where it is caught by the check
+ * handles perfectly well. It is only fatal to a `latest` series, where it is caught by the check
  * above on the parsed value.
  */
 function toListing(seriesId: string, series: NarrationSeries, piece: NarrationPiece): NarrationPieceListing | undefined {

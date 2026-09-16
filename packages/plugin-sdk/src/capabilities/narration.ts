@@ -33,7 +33,7 @@
  * own schedule would compete with the presenter for the card and would arrive
  * having skipped every stage above. What crosses the boundary here is words,
  * which is also why this capability can afford to hand over the content itself
- * where `podcast` cannot — a chapter is kilobytes and an episode is a hundred
+ * where `podcast` cannot. A chapter is kilobytes and an episode is a hundred
  * megabytes, so `getText` fits inside `host.fetch`'s body bounds with room to
  * spare and needs no second path for bytes.
  *
@@ -61,9 +61,9 @@
 /**
  * How a series is worked through.
  *
- * - `serial` — from the beginning, in {@link NarrationPiece.ordinal} order, each
+ * - `serial`: from the beginning, in {@link NarrationPiece.ordinal} order, each
  *   piece once. A book, a serialised novel, a lecture course.
- * - `latest` — the newest piece by {@link NarrationPiece.publishedAt}, and
+ * - `latest`: the newest piece by {@link NarrationPiece.publishedAt}, and
  *   nothing once it has aired. A newsletter, a column, a blog.
  */
 export type NarrationOrder = 'serial' | 'latest';
@@ -153,8 +153,8 @@ export interface NarrationPiece {
  * One run of text to be spoken.
  *
  * An object rather than a bare string, deliberately. Everything the station
- * currently does needs only `text`, and a `string[]` would say so more simply —
- * but the next thing anybody will want is a piece with more than one voice in
+ * currently does needs only `text`, and a `string[]` would say so more simply.
+ * But the next thing anybody will want is a piece with more than one voice in
  * it (a play, a dialogue, a letters page read by two presenters), and that wants
  * a `role` beside the words. Adding a field to an object is a change every
  * plugin already written survives; replacing a `string` with an object is not.
@@ -169,8 +169,8 @@ export interface NarrationPart {
      * PLAIN TEXT, and what the station will say out loud, exactly as it stands.
      *
      * Two things to strip before handing it over, because nothing downstream
-     * can tell them from the prose. Editorial furniture — `[Illustration: …]`,
-     * `[Footnote 12]`, page numbers, running heads — is not the author's words
+     * can tell them from the prose. Editorial furniture (`[Illustration: …]`,
+     * `[Footnote 12]`, page numbers, running heads) is not the author's words
      * and a listener has no idea what to do with it. And square brackets in
      * particular are how the station marks a performance cue and a sound effect
      * in a script, so bracketed text reaching the speech path is read as an
@@ -223,15 +223,15 @@ export interface NarrationProvider {
      * from its beginning, a `latest` newest first.
      *
      * The station keeps what it is told here, so a `serial` must be answered
-     * from the START rather than from wherever the station has reached — it is
+     * from the START rather than from wherever the station has reached: it is
      * the table of contents, not a cursor, and the host is the one that knows
      * which pieces have aired. `limit` is the host's page size and a serial
      * longer than it is read across calls.
      *
-     * Return `[]` for a `seriesId` you do not recognise rather than throwing —
-     * the host asks the plugin that named the id, so an unknown one is a stale
-     * request — and the same for a series that could not be read: one failing
-     * series must not cost the others.
+     * Return `[]` for a `seriesId` you do not recognise rather than throwing,
+     * since the host asks the plugin that named the id and an unknown one is a
+     * stale request. The same goes for a series that could not be read: one
+     * failing series must not cost the others.
      */
     listPieces(query: NarrationPiecesQuery): Promise<NarrationPiece[]>;
 
@@ -249,8 +249,8 @@ export interface NarrationProvider {
      * indistinguishable from a chapter of blank pages, and the station reports
      * the two differently.
      *
-     * This one call may take a while — a source that has to be fetched and
-     * parsed is the normal case — and the host gives it a budget to match, far
+     * This one call may take a while, since a source that has to be fetched and
+     * parsed is the normal case, and the host gives it a budget to match: far
      * longer than a listing gets. Watch `host.signal` and give up when it does.
      */
     getText(query: NarrationTextQuery): Promise<NarrationText | undefined>;

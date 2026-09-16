@@ -277,7 +277,7 @@ describe('SpeechService.maxCharactersOf', () => {
 
     it('answers the default for a station with nothing to speak with', async () => {
         // The caller is chunking for whatever gets installed later, so there is no sensible "no
-        // answer" here — a reading packed into one enormous call would fail on every engine.
+        // answer" here: a reading packed into one enormous call would fail on every engine.
         const { service } = harness();
 
         expect(await service.maxCharacters()).toBe(DEFAULT_SPEECH_MAX_CHARACTERS);

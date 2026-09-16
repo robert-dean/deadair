@@ -16,9 +16,9 @@
  *
  * ## The ladder
  *
- * A paragraph, then a sentence, then a word, then — only for a single "word" longer than the whole
- * ceiling, which is a URL or a corrupt file rather than prose — a hard cut, because refusing would
- * cost the listener the chapter over one pathological token.
+ * A paragraph, then a sentence, then a word, then a hard cut. That last one is only for a single
+ * "word" longer than the whole ceiling, which is a URL or a corrupt file rather than prose, and
+ * refusing it would cost the listener the chapter over one pathological token.
  */
 
 /** One run of text as the caller divided it, which is a paragraph in every case this exists for. */
@@ -59,9 +59,9 @@ export function sentencesIn(text: string, locale?: string): string[] {
         // `Intl.Segmenter` with no locale takes the runtime's, which is the right default. What it
         // buys over the fallback is the period that is not a full stop: it keeps `$3.50` and `1.5`
         // inside their sentence where the regex cuts after the first dot and starts the next
-        // "sentence" at `50 for it`. Neither of them knows abbreviations — both read `Dr.` as a
-        // sentence of its own — which costs little here, since a one-word run is packed straight
-        // back onto its neighbour unless the ceiling happens to fall between them.
+        // "sentence" at `50 for it`. Neither of them knows abbreviations, so both read `Dr.` as a
+        // sentence of its own. That costs little here, since a one-word run is packed straight back
+        // onto its neighbour unless the ceiling happens to fall between them.
         const segmenter = new Intl.Segmenter(locale, { granularity: 'sentence' });
         const sentences = [...segmenter.segment(trimmed)].map(part => part.segment.trim()).filter(sentence => sentence.length > 0);
         if (sentences.length > 0) return sentences;
@@ -77,7 +77,7 @@ export function sentencesIn(text: string, locale?: string): string[] {
  *
  * Whole parts while they fit, then the ladder above for one that does not. Empty parts are dropped
  * rather than packed, since a blank paragraph is a gap in a file rather than a silence somebody
- * asked for, and an all-empty input answers `[]` — which a caller must treat as "nothing to say"
+ * asked for, and an all-empty input answers `[]`, which a caller must treat as "nothing to say"
  * rather than as one empty call.
  *
  * `maxCharacters` below 1 is meaningless and is read as 1, so a caller that resolved a nonsense
@@ -136,7 +136,7 @@ export function packParts(parts: readonly TextPart[], maxCharacters: number, loc
  * A sentence longer than the whole ceiling, cut at word boundaries.
  *
  * Rare in prose and ordinary in a transcript or a legal notice, neither of which the station gets to
- * refuse. A single token longer than the ceiling — a URL, a run of a corrupt file — is cut hard,
+ * refuse. A single token longer than the ceiling (a URL, a run of a corrupt file) is cut hard,
  * because the alternative is losing the whole piece over it.
  */
 function splitLongSentence(sentence: string, ceiling: number): string[] {

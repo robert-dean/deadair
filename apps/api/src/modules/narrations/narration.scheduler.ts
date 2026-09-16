@@ -40,7 +40,7 @@ export const MAX_AUTOMATIC_RENDER_ATTEMPTS = 3;
  * `PodcastScheduler`'s job for a band the station reads itself, and it does one thing that one does
  * not. A podcast's audio arrives as a file and the fetch job writes the segment id onto the episode;
  * a narration's arrives as a PRODUCTION, which is finished by the director noticing its beats are all
- * ready and asking the mixer to join them — and nothing in that path knows what a narration piece is.
+ * ready and asking the mixer to join them, and nothing in that path knows what a narration piece is.
  * So this pass is also where a finished production is attached to the piece that asked for it.
  *
  * ## Why the attach lives here and not in the stitch job
@@ -48,8 +48,8 @@ export const MAX_AUTOMATIC_RENDER_ATTEMPTS = 3;
  * One writer of `segment_id`, on `markFetched`'s model. The stitch job is shared with phone-ins and
  * knows nothing about this module; reaching from it into narrations would invert the module order for
  * a case that a pass already running every commit can simply look at. And the sweep has to exist
- * anyway, because the three ways a production can end badly — no mixer, a beat that could not be
- * spoken, an operator cancelling it — are all states somebody has to notice and write down.
+ * anyway, because the three ways a production can end badly (no mixer, a beat that could not be
+ * spoken, an operator cancelling it) are all states somebody has to notice and write down.
  *
  * ## Idempotent by the row, not by memory
  *
@@ -130,17 +130,17 @@ export class NarrationScheduler {
      *
      * Five outcomes, and each is a state somebody has to write down or the piece waits forever:
      *
-     * - **Ready with joined audio** — the ordinary one. The piece gets the segment, and the production
+     * - **Ready with joined audio**: the ordinary one. The piece gets the segment, and the production
      *   is moved to `aired` so it leaves `ProductionRepository.unfinished`. That list is capped at
      *   twenty and ordered oldest first, so readings parked in it would eventually crowd out every
      *   phone-in waiting to be placed. Safe because the planner's own `insert` sets no `groupId`, and
      *   `releaseUnheardProductions` only ever hands back a group.
-     * - **Ready with no joined row** — a station with no mixer, or one whose mixer could not join. A
+     * - **Ready with no joined row**: a station with no mixer, or one whose mixer could not join. A
      *   block of beats cannot ride a single-segment answer, so unlike a phone-in this cannot air as
      *   its parts; it is a failure with a reason an operator can read.
-     * - **Failed or cancelled** — recorded on the piece, which also clears the production so the next
+     * - **Failed or cancelled**: recorded on the piece, which also clears the production so the next
      *   pass may claim a fresh one.
-     * - **Still being spoken** — the ordinary state on most passes. Nothing to do.
+     * - **Still being spoken**: the ordinary state on most passes. Nothing to do.
      */
     private async collect(piece: NarrationPieceRecord, productionId: string): Promise<void> {
         const production = await this.productions.findById(productionId);

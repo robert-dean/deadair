@@ -233,7 +233,7 @@ export interface SegmentPlacement {
 /**
  * One member of a block, and how long it runs.
  *
- * Ids alone would do for putting the block IN — the whole of it goes at one index — but not for
+ * Ids alone would do for putting the block IN, since the whole of it goes at one index, but not for
  * saying how much of the hour it takes once it is there, which is what {@link SegmentPlacement}
  * carries `durationMs` for and what a block needs just as much: a joined programme is the longest
  * single item the station ever plants.

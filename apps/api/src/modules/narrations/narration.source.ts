@@ -13,9 +13,9 @@ export type NarrationAnswer = { segmentId: string; durationMs?: number } | { dec
  * How many words a minute the station reads at, for projecting a piece it has not spoken yet.
  *
  * An observation rather than a specification: measured off Kokoro reading a long piece, ~181 wpm on a
- * pilot chapter and ~183 across a whole book. It is only ever a fallback — once the mixer has joined
- * the takes the station has the real length — and it exists because planting a chapter with no length
- * at all projects it as zero airtime and lands every band behind it on top of it.
+ * pilot chapter and ~183 across a whole book. It is only ever a fallback, since once the mixer has
+ * joined the takes the station has the real length, and it exists because planting a chapter with no
+ * length at all projects it as zero airtime and lands every band behind it on top of it.
  */
 export const WORDS_PER_MINUTE = 180;
 
@@ -74,7 +74,7 @@ export class NarrationSource {
      * The length is the joined audio's OWN, measured by the mixer that made it, and an estimate from
      * the word count only when there is none. Never nothing, which is the whole of what `durationMs`
      * is for here: a twenty-minute chapter that projects as zero puts the news at the top of the hour
-     * twenty minutes into the reading. One extra read per fill, which is worth it against a claim —
+     * twenty minutes into the reading. One extra read per fill, which is worth it against a claim:
      * this is the one carried programme whose length the station measured itself.
      *
      * `onOrder` is every segment the running order already names, so a band that comes round again

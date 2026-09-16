@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.13.3] — 2026-09-16
+
+- A station whose records come from Navidrome is no longer told it is not authorized to fetch audio. The desk's attention list decided which plugin feeds the station's track fetcher by looking for the `stream` capability, which Navidrome declares too — it puts records on air by minting its own URLs and has no use for the fetcher's Spotify login. Because the shim runs in every image and holds no stored login until somebody authorizes it, every Navidrome-only station saw a permanent `failure` row telling it to go and authorize a fetcher it never touches, routed at a plugin page that correctly offers no such card. The list now reads the `trackFetcher` permission, which is the fact the plugin page was already moved onto and the only one that says a plugin's audio goes through the shim.
+
 ## [0.13.2] — 2026-09-16
 
 - A record now reaches air with the station's own cover rather than the provider's, even when it was picked before the art store had one. The running order stores the cover a record was picked with and nothing revisited it, so a cover fetched afterwards never reached the record it belonged to and that record aired under the station's logo. The director now resolves it on every commit pass and asks for any cover the store has never seen, ahead of the scheduled sweep, which walks the catalog alphabetically and has no idea what is on tonight. A cover that is late, failed or unreadable still just shows the logo and never holds up a record.
@@ -206,7 +210,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.13.2...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.13.3...HEAD
+[0.13.3]: https://github.com/robert-dean/deadair/compare/v0.13.2...v0.13.3
 [0.13.2]: https://github.com/robert-dean/deadair/compare/v0.13.1...v0.13.2
 [0.13.1]: https://github.com/robert-dean/deadair/compare/v0.13.0...v0.13.1
 [0.13.0]: https://github.com/robert-dean/deadair/compare/v0.12.3...v0.13.0

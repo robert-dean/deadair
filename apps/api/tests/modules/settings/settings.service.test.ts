@@ -100,6 +100,16 @@ describe('SettingsService.read', () => {
 
         expect(service.read().descriptors.some(descriptor => descriptor.key === AIR_MODE_KEY)).toBe(true);
     });
+
+    it('carries what an empty setting works out to, which the console cannot work out itself', () => {
+        // The map's own rules are `settings.derived.test.ts`; what is asserted here is that the read
+        // model carries it at all. Two of the three come from the environment the station was
+        // deployed with, which a browser cannot see, so a console with nothing here can only repeat
+        // the field's help text.
+        const { service } = build({ SPA_BASE_URL: 'https://radio.test' });
+
+        expect(service.read().derived[STREAM_KEYS.publicUrl]).toBe('https://radio.test');
+    });
 });
 
 describe('SettingsService.write', () => {

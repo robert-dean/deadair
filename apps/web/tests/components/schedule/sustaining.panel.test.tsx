@@ -65,6 +65,7 @@ const settingsOf = (values: Record<string, unknown>): StationSettings => ({
     ],
     values: { 'stream.title': 'Old FM', ...values },
     configured: {},
+    derived: {},
 });
 
 const SET: Record<string, unknown> = {

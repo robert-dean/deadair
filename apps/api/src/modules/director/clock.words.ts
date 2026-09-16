@@ -459,7 +459,18 @@ export interface RoughTime {
  */
 export function stationZone(config: AppConfig): string {
     const set = config.get(CLOCK_KEYS.timezone, '').trim();
-    return set.length > 0 ? set : Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return set.length > 0 ? set : hostZone();
+}
+
+/**
+ * The zone this machine is set to, which is what a station that named none reads its clock in.
+ *
+ * Its own function so the settings read can ask it without going through {@link stationZone}, which
+ * would answer with the operator's own setting where one is stored. The console shows this as what
+ * an empty box works out to, and that has to be the fallback rather than whatever is in force.
+ */
+export function hostZone(): string {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone;
 }
 
 /**

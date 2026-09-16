@@ -6,6 +6,7 @@ import { AfterCommit } from '#modules/data/after.commit.js';
 import { StreamService } from '#modules/stream/stream.service.js';
 import { isStreamSettingKey } from '#modules/stream/stream.settings.js';
 import { SettingsRepository } from './settings.repository.js';
+import { derivedSettings } from './settings.derived.js';
 import { parseSetting, serializeSetting, type SettingRejection, type SettingValue } from './setting.values.js';
 import { findDescriptor, isSecretField, isValueField, SETTING_DESCRIPTORS } from './settings.registry.js';
 import type { StationSettings, StationSettingsInput } from './types/settings.types.js';
@@ -44,6 +45,12 @@ export class SettingsService {
      * Read through the config rather than the table, so what the console shows is
      * what the station is actually running on rather than a second reading of the
      * same rows that could differ from it.
+     *
+     * Plus, for the few settings whose EMPTY value is worked out rather than absent,
+     * what that comes to: see {@link derivedSettings}. Answered here rather than
+     * left to the console because the console cannot work any of them out — two
+     * come from the environment the station was deployed with and one from the
+     * server's own clock, none of which a browser can see.
      */
     read(): StationSettings {
         const values: Record<string, SettingValue> = {};
@@ -63,7 +70,7 @@ export class SettingsService {
             values[descriptor.key] = parseSetting(descriptor, stored);
         }
 
-        return { descriptors: [...SETTING_DESCRIPTORS], values, configured };
+        return { descriptors: [...SETTING_DESCRIPTORS], values, configured, derived: derivedSettings(this.config) };
     }
 
     /**

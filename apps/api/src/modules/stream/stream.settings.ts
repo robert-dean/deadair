@@ -298,16 +298,49 @@ export function stationOrigin(publicUrl: string): string {
  * and the field's help text says so.
  */
 export function resolvePublicUrl(config: AppConfig): string {
-    const candidates = [
-        config.get(STREAM_KEYS.publicUrl, STREAM_DEFAULTS.publicUrl),
-        config.get<string, string>('SPA_BASE_URL', ''),
-        config.get<string, string>('APP_BASE_URL', ''),
-    ];
-    for (const candidate of candidates) {
-        const origin = stationOrigin(String(candidate ?? ''));
+    const stored = stationOrigin(String(config.get(STREAM_KEYS.publicUrl, STREAM_DEFAULTS.publicUrl) ?? ''));
+    return stored || deployedOrigin(config);
+}
+
+/**
+ * The address the station was DEPLOYED with: `SPA_BASE_URL`, else `APP_BASE_URL`, else nothing.
+ * An origin, with no trailing slash.
+ *
+ * Split out of {@link resolvePublicUrl} so it can be asked on its own, which is what the settings
+ * read does. "What is in force" prefers the operator's stored setting and "what an empty box works
+ * out to" has to skip it, so a console asking the resolver would be handed the operator's own value
+ * and would call it a derivation.
+ */
+export function deployedOrigin(config: AppConfig): string {
+    for (const key of ['SPA_BASE_URL', 'APP_BASE_URL'] as const) {
+        const origin = stationOrigin(String(config.get<string, string>(key, '') ?? ''));
         if (origin) return origin;
     }
     return '';
+}
+
+/**
+ * Hostname Icecast advertises: the configured one, else the public URL's, else localhost.
+ *
+ * The explicit setting first, which is what both settings' help text has always promised. It was
+ * the other way round, so an operator who filled in both got the public URL's hostname and a field
+ * that was silently ignored.
+ *
+ * Beside the public URL it reads rather than in `stream.config.ts` where it is rendered, because
+ * the settings read asks it too: a hostname field left empty still has a value in force, and the
+ * console now shows it. `localhost` included — that is genuinely what Icecast calls itself with
+ * nothing to go on, and an operator seeing it there is the whole point.
+ */
+export function advertisedHostname(publicUrl: string, hostname: string): string {
+    if (hostname) return hostname;
+    if (publicUrl) {
+        try {
+            return new URL(publicUrl).hostname;
+        } catch {
+            // A malformed public URL is a setting to fix, not a reason to skip the render.
+        }
+    }
+    return 'localhost';
 }
 
 /**

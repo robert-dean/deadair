@@ -35,6 +35,7 @@ contract StationSettings: {
     descriptors: array(StationSettingDescriptor)
     values: record(string, unknown) # Every NON-secret setting, with defaults filled in for whatever is not stored
     configured: record(string, boolean) # One entry per `secret` setting: whether a value is currently stored. Never the value itself
+    derived: record(string, string) # One entry per setting whose EMPTY value is worked out rather than simply absent: the public URL from the address the station was deployed with, the advertised hostname from the public URL, the station's zone from this machine's. What the station WOULD use with the box left empty, which is not the same as what is in force — the stored value is deliberately skipped, so a filled-in field still reports what clearing it would fall back to. A key is absent where its derivation lands on nothing. Values only: where each one comes from is in the field's own help text, which has said so since before this map existed
 }
 
 # A submitted settings form. Partial: a key that is present is written, a key that is absent is left

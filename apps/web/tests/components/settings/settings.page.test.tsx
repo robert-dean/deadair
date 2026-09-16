@@ -79,6 +79,7 @@ const SETTINGS: StationSettings = {
         'playout.airMode': 'audience',
     },
     configured: { 'mail.password': true },
+    derived: {},
 };
 
 const settingsOf = (overrides: Partial<StationSettings> = {}): StationSettings => ({ ...SETTINGS, ...overrides });

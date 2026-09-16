@@ -166,17 +166,21 @@ public struct StationSettings: Codable, Equatable, Sendable {
     public var values: [String: JSONValue]
     /// One entry per `secret` setting: whether a value is currently stored. Never the value itself
     public var configured: [String: Bool]
+    /// One entry per setting whose EMPTY value is worked out rather than simply absent: the public URL from the address the station was deployed with, the advertised hostname from the public URL, the station's zone from this machine's. What the station WOULD use with the box left empty, which is not the same as what is in force — the stored value is deliberately skipped, so a filled-in field still reports what clearing it would fall back to. A key is absent where its derivation lands on nothing. Values only: where each one comes from is in the field's own help text, which has said so since before this map existed
+    public var derived: [String: String]
 
-    public init(descriptors: [StationSettingDescriptor], values: [String: JSONValue], configured: [String: Bool]) {
+    public init(descriptors: [StationSettingDescriptor], values: [String: JSONValue], configured: [String: Bool], derived: [String: String]) {
         self.descriptors = descriptors
         self.values = values
         self.configured = configured
+        self.derived = derived
     }
 
     private enum CodingKeys: String, CodingKey {
         case descriptors = "descriptors"
         case values = "values"
         case configured = "configured"
+        case derived = "derived"
     }
 
     public init(from decoder: Decoder) throws {
@@ -184,6 +188,7 @@ public struct StationSettings: Codable, Equatable, Sendable {
         self.descriptors = try container.decode([StationSettingDescriptor].self, forKey: .descriptors)
         self.values = try container.decode([String: JSONValue].self, forKey: .values)
         self.configured = try container.decode([String: Bool].self, forKey: .configured)
+        self.derived = try container.decode([String: String].self, forKey: .derived)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -191,5 +196,6 @@ public struct StationSettings: Codable, Equatable, Sendable {
         try container.encode(self.descriptors, forKey: .descriptors)
         try container.encode(self.values, forKey: .values)
         try container.encode(self.configured, forKey: .configured)
+        try container.encode(self.derived, forKey: .derived)
     }
 }

@@ -1,7 +1,15 @@
 import { createHash } from 'node:crypto';
 import { chmodSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { bytesPerSecond, MOUNT_PATHS, stationArtwork, streamMounts, type StreamMount, type StreamSettings } from './stream.settings.js';
+import {
+    advertisedHostname,
+    bytesPerSecond,
+    MOUNT_PATHS,
+    stationArtwork,
+    streamMounts,
+    type StreamMount,
+    type StreamSettings,
+} from './stream.settings.js';
 import { errorText } from '#modules/shared/error.text.js';
 
 /**
@@ -122,25 +130,6 @@ function extraMountBlocks(mounts: StreamMount[], sourcePassword: string, globalB
             ].join('\n');
         })
         .join('\n\n');
-}
-
-/**
- * Hostname Icecast advertises: the configured one, else the public URL's, else localhost.
- *
- * The explicit setting first, which is what both settings' help text has always promised. It was
- * the other way round, so an operator who filled in both got the public URL's hostname and a field
- * that was silently ignored.
- */
-function hostnameFrom(publicUrl: string, hostname: string): string {
-    if (hostname) return hostname;
-    if (publicUrl) {
-        try {
-            return new URL(publicUrl).hostname;
-        } catch {
-            // A malformed public URL is a setting to fix, not a reason to skip the render.
-        }
-    }
-    return 'localhost';
 }
 
 /**
@@ -403,7 +392,7 @@ export function writeStreamConfig({
         RELAY_PASSWORD: xml(sourcePassword),
         ADMIN_PASSWORD: xml(adminPassword),
         ADMIN_EMAIL: xml(adminEmail),
-        HOSTNAME: xml(hostnameFrom(settings.publicUrl, settings.hostname)),
+        HOSTNAME: xml(advertisedHostname(settings.publicUrl, settings.hostname)),
         MOUNT: xml(MOUNT_PATHS.mp3),
         STREAM_NAME: xml(settings.title),
         STREAM_DESCRIPTION: xml(settings.description),

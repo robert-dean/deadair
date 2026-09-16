@@ -44,6 +44,7 @@ const settingsOf = (values: Record<string, unknown>): StationSettings => ({
     ],
     values: { 'stream.title': 'Old FM', ...values },
     configured: {},
+    derived: {},
 });
 
 /** What a save was sent, as the map the API takes. */

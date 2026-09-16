@@ -9,6 +9,12 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.12.2] — 2026-09-16
+
+- Callers stop being offered as hosts, and a broadcast refuses one. `GET /personas` answers with the whole roster, hosts and callers together, because the personas page draws both — so narrowing it is each surface's own job, and three of them had never done it: the on-air "Presented by" menu, "Hosted by" on a slot or a briefing box, and a production's presenter. Picking a caller there was not cosmetic. `DirectorConsoleService.recast` checked only that the persona existed, so the caller presented the show and `SegmentRepository.recast` rewrote every break in the tail in the character of somebody whose whole premise is that they are phoning in. `recast` now refuses a caller with the sentence `PersonasService.setDefaultHost` already used, and every console surface that offers a host narrows through one `presents` predicate rather than four copies of `kind !== 'caller'`. `putOnAir` still takes a persona id on trust, deliberately and for its own reason, so the endpoint half of that path is unchanged.
+- "Hosted by" says the station's own host with an apostrophe. Its description carried `’` as six literal characters, and a JSX string attribute is HTML-like: it processes HTML entities but no backslash escapes, so every surface that draws this field — the slot editor, the briefing box and the sustaining panel — read "Empty means the station’s own host."
+- The deadpan wisecracking host's checkable words are re-measured over 694 of her own scripts, after three auditions of the same playlist. `that was a choice` becomes `was a choice`, which catches the "That indeed was a choice" form that was being refused without being loose enough to insert as a noun; `somebody was paid to`, which fired on none of the 694, and `marvellous`, which fired on four, give their places to `one might` and `perhaps`. Her `avoid` list gains the critic's vocabulary the first pass missed — `merely`, `exercise`, `substance`, `spectacle` — and a persona's `avoid` cap rises from 12 to 16 so a sheet can forbid a whole register rather than a handful of phrases, which is what `slacker` and this character both need it for. Her diction now caps the number of her own phrases per break as well as the number of asides, since one audition break carried three.
+
 ## [0.12.1] — 2026-09-16
 
 - The deadpan wisecracking host seed stops reviewing records. An audition of twenty breaks came back as record reviews with one of her phrases bolted to the end ("the production, shepherded by Mike Clink at Rumbo Recorders, offers a veneer of technical polish"), which passed her own character check every time because the phrase was present. Three changes: her opening quirk now states the move rather than the attitude (take one decision somebody made, literally, and say what it promised); a new quirk forbids reviewing the record at all; the critic's vocabulary is in `avoid`, which is the only half of a sheet that refuses a script rather than asking; and she carries `brevity: short` beside her `unleashed`, so she keeps the room to say anything and is told to say it in one line.
@@ -179,7 +185,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.12.1...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.12.2...HEAD
+[0.12.2]: https://github.com/robert-dean/deadair/compare/v0.12.1...v0.12.2
 [0.12.1]: https://github.com/robert-dean/deadair/compare/v0.12.0...v0.12.1
 [0.12.0]: https://github.com/robert-dean/deadair/compare/v0.11.1...v0.12.0
 [0.11.1]: https://github.com/robert-dean/deadair/compare/v0.11.0...v0.11.1

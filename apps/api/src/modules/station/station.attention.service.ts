@@ -1,6 +1,6 @@
 import { Injectable } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
-import { ANALYSIS_SCHEMA_VERSION, PLUGIN_CAPABILITY_STREAM } from '@deadair/plugin-sdk';
+import { ANALYSIS_SCHEMA_VERSION } from '@deadair/plugin-sdk';
 import { readForwardedHop } from '#modules/shared/forwarded.reading.js';
 import { TracksRepository, type FaultingTrack } from '#modules/catalog/tracks.repository.js';
 import { DirectorConsoleService } from '#modules/director/director.console.service.js';
@@ -207,11 +207,22 @@ export class StationAttentionService {
      * `enabled` is the whole filter for both. A `discovered` plugin nobody turned on is not a
      * problem, and a `disabled` one is a decision — reporting either would be reporting the
      * operator's own choices back to them as faults.
+     *
+     * ## The fetcher question is the PERMISSION, not the `stream` capability
+     *
+     * The two are not the same fact and this read the wrong one until a Navidrome station showed
+     * what that costs. `stream` says only that a plugin can put a record on air; Navidrome does it
+     * by minting its own URLs and has nothing for the station's fetcher to hold a login for. So a
+     * library that was fetching perfectly was told, at `failure` severity, to go and authorize a
+     * Spotify shim it never touches — and routed at a plugin page which correctly shows no such
+     * card, because `plugin.status.tsx` was moved onto the permission and this was not. That is the
+     * wrong entry this list's own rules exist to keep out, twice over: a fault that is not one, and
+     * two surfaces disagreeing about one fact.
      */
     private async pluginFacts(): Promise<{ broken: BrokenPlugin[]; fetches: FetcherPlugin | undefined }> {
         try {
             const installed = (await this.plugins.listPlugins()).filter(plugin => plugin.enabled);
-            const fetches = installed.find(plugin => plugin.capabilities.includes(PLUGIN_CAPABILITY_STREAM));
+            const fetches = installed.find(plugin => plugin.usesTrackFetcher === true);
 
             return {
                 broken: installed
@@ -226,7 +237,12 @@ export class StationAttentionService {
     }
 }
 
-/** A plugin whose records the station's own track fetcher turns into audio. */
+/**
+ * A plugin whose records the station's own track fetcher turns into audio.
+ *
+ * Which is narrower than a plugin that can get the station audio at all: see {@link
+ * StationAttentionService.pluginFacts} for the reading that decides it.
+ */
 interface FetcherPlugin {
     id: string;
     name: string;

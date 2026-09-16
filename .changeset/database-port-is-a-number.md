@@ -1,5 +1,0 @@
----
-'@deadair/api': patch
----
-
-A mistyped `DATABASE_PORT` now stops the station with a message naming it. It was read as `config.get('DATABASE_PORT', 55432)`, which types as `number` and answers the string `'5432'` whenever the variable is actually set, and worked only because `pg` coerces it on the way into the socket. A value the parser could not read took the same path and became `NaN`, which is falsy, so `pg` read it as a port nobody set and fell through to `PGPORT` and then to its own 5432: `DATABASE_PORT=54 32` surfaced as a refused connection, or as authentication against whatever else answers on 5432, rather than as the two characters that caused it. It goes through `requiredNumber` now, like `REDIS_PORT` beside it, which refuses a value that is present and unreadable and falls back only for a key nobody set. Its tests passed the port as a real number for as long as they existed, which proved nothing about a resolver whose whole bug was the string, so they pass strings now and the fixture type refuses anything else.

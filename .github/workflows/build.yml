@@ -139,6 +139,34 @@ jobs:
             - name: Build
               run: pnpm build
 
+            # The other half of the type check. `pnpm build` above compiles what SHIPS, and a
+            # package's build tsconfig deliberately leaves `tests/` and `scripts/` out so that `tsc`
+            # emits only shippable code (apps/api/CLAUDE.md, "Conventions"). A package that wants
+            # those folders checked declares a `typecheck` script for them, and until this step
+            # nothing in any workflow ran one: vitest transpiles without checking types, so a test
+            # file could stop compiling against the code it covers and every check here stayed green.
+            #
+            # It did. A persona fixture in `apps/web` went on setting a field the contract had
+            # renamed out from under it, for as long as it took somebody to run the script by hand.
+            #
+            # FOUR packages declare it — `apps/api` (tests and scripts), `apps/web`, `apps/site` and
+            # `apps/streamdeck` — so four is what this covers. The plugins and `packages/plugin-sdk`
+            # narrow their own `include` to `./src/**/*` and have no second config, so their tests
+            # are still unchecked, and they are not a line in this file away from being covered:
+            # measured over all thirteen, eight compile clean today and five do not, one of them at
+            # 126 errors, almost all of it `noUncheckedIndexedAccess` on a `calls[0]`. Covering them
+            # is that work plus a shared tests tsconfig, not a wider glob here.
+            #
+            # A step rather than a job, on the formatting check's arithmetic: the install and the
+            # task cache are already here, and a job would pay a fresh install to run four `tsc`
+            # invocations. After the build rather than before it, because the task depends on
+            # `^build` and every one of those is a cache hit by now.
+            #
+            # A FAILURE, unlike the formatting warning above. A type error in a test is the same
+            # kind of error the build already gates on, and the alternative is the one it caught.
+            - name: Type-check the test and script folders
+              run: pnpm typecheck
+
             # The plugin SDK is the one package this tree publishes, so what it would publish is checked
             # here rather than found out on npm: the built entry, the testing entry a plugin's tests
             # import, and no source.

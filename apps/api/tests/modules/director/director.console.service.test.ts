@@ -27,6 +27,7 @@ import type { PlayHistoryRepository } from '../../../src/modules/director/play.h
 import { songKey } from '../../../src/modules/director/rotation.keys.js';
 import { SMART_SHUFFLE_KEYS } from '../../../src/modules/director/smart.shuffle.js';
 import { StationIdentity } from '../../../src/modules/shared/station.identity.js';
+import type { PersonaKind } from '../../../src/modules/personas/persona.js';
 import { settingsConfig } from '../../utils/settings.config.js';
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
@@ -44,8 +45,14 @@ interface Options {
     segments?: Partial<Segment>[];
     /** What the station thinks of the records in the order, keyed by canonical track id. */
     ratings?: Record<string, 'liked' | 'neutral' | 'disliked'>;
-    /** The persona a host id resolves to, for the order that names one. */
-    persona?: (id: string) => { id: string; label: string } | undefined;
+    /**
+     * The persona a host id resolves to, for the order that names one.
+     *
+     * `kind` is required rather than defaulted here, because the repository's row mapper always
+     * sets it and a double that quietly filled it in would pass whatever `recast` did with a
+     * caller. The column is `not null`; so is this.
+     */
+    persona?: (id: string) => { id: string; label: string; kind: PersonaKind } | undefined;
     /** The slot of the day in force. Absent is the ordinary state: a station with no schedule. */
     slot?: { id: string };
     /** The veto's own answer, when a case wants it to actually drop something rather than pass everything through. */
@@ -301,7 +308,7 @@ const statusOf = async (call: Promise<unknown>): Promise<number> => {
     }
 };
 
-/** What a refusal actually SAID, for the two cases where the wording is the behaviour under test. */
+/** What a refusal actually SAID, for the cases where the wording is the behaviour under test. */
 const refusalOf = async (call: Promise<unknown>): Promise<string> => {
     try {
         await call;
@@ -1105,11 +1112,23 @@ describe('DirectorConsoleService editing the running order', () => {
     // The one way a show's host changes without a new broadcast. What it costs — the breaks already
     // written for this show being written again — is the director's half and is tested there.
     it('recasts the broadcast, naming the host the operator picked', async () => {
-        const { service, director } = build({ order: onAirWith(3), persona: id => ({ id, label: 'The Pirate' }) });
+        const { service, director } = build({ order: onAirWith(3), persona: id => ({ id, label: 'The Pirate', kind: 'host' }) });
 
         await service.recast({ personaId: 'pirate' });
 
         expect(director.post).toHaveBeenCalledWith({ kind: 'recast', bind: { personaId: 'pirate' } });
+    });
+
+    // The console lists hosts only, and did not until this was written: it offered the whole
+    // roster and this path took any persona that existed, so a caller picked from that menu
+    // presented the show. Refused with the same sentence `PersonasService.setDefaultHost` uses,
+    // because it is the same answer to the same question.
+    it('refuses a caller, who phones in to a production and cannot present the station', async () => {
+        const { service, director } = build({ order: onAirWith(3), persona: id => ({ id, label: 'Caller who wants proof', kind: 'caller' }) });
+
+        expect(await refusalOf(service.recast({ personaId: 'p-caller' }))).toContain('cannot present the station');
+        expect(await statusOf(service.recast({ personaId: 'p-caller' }))).toBe(400);
+        expect(director.post).not.toHaveBeenCalled();
     });
 
     it('hands the show back to the station when no host is named', async () => {
@@ -1133,7 +1152,7 @@ describe('DirectorConsoleService editing the running order', () => {
     });
 
     it('records the recast against the operator who asked for it', async () => {
-        const { service, activity } = build({ order: onAirWith(3), persona: id => ({ id, label: 'The Pirate' }) });
+        const { service, activity } = build({ order: onAirWith(3), persona: id => ({ id, label: 'The Pirate', kind: 'host' }) });
 
         await service.recast({ personaId: 'pirate' });
 

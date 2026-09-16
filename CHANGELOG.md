@@ -9,6 +9,20 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.12.3] — 2026-09-16
+
+- The mount carries artwork as well as a title. Every ICY update now fills the `StreamUrl` field beside `StreamTitle`: a record's cover, made absolute against the station's public URL, or the station's own logo for a break, the bed and off air, so a player that reads the field never shows the previous record's cover under the wrong caption. The public URL is derived from the console address the station was deployed with (`SPA_BASE_URL`) when the setting is empty, which also gives Icecast a real advertised hostname on a station that never filled it in. `stream/streamurl.check.py` measures whether a given player draws the field, against a throwaway mount rather than the station's; an NAD M10 V2 on BluOS 4.16.22 does, per record, with no reconnect.
+
+## [0.12.2] — 2026-09-16
+
+- Callers stop being offered as hosts, and a broadcast refuses one. `GET /personas` answers with the whole roster, hosts and callers together, because the personas page draws both — so narrowing it is each surface's own job, and three of them had never done it: the on-air "Presented by" menu, "Hosted by" on a slot or a briefing box, and a production's presenter. Picking a caller there was not cosmetic. `DirectorConsoleService.recast` checked only that the persona existed, so the caller presented the show and `SegmentRepository.recast` rewrote every break in the tail in the character of somebody whose whole premise is that they are phoning in. `recast` now refuses a caller with the sentence `PersonasService.setDefaultHost` already used, and every console surface that offers a host narrows through one `presents` predicate rather than four copies of `kind !== 'caller'`. `putOnAir` still takes a persona id on trust, deliberately and for its own reason, so the endpoint half of that path is unchanged.
+- "Hosted by" says the station's own host with an apostrophe. Its description carried `’` as six literal characters, and a JSX string attribute is HTML-like: it processes HTML entities but no backslash escapes, so every surface that draws this field — the slot editor, the briefing box and the sustaining panel — read "Empty means the station’s own host."
+- The deadpan wisecracking host's checkable words are re-measured over 694 of her own scripts, after three auditions of the same playlist. `that was a choice` becomes `was a choice`, which catches the "That indeed was a choice" form that was being refused without being loose enough to insert as a noun; `somebody was paid to`, which fired on none of the 694, and `marvellous`, which fired on four, give their places to `one might` and `perhaps`. Her `avoid` list gains the critic's vocabulary the first pass missed — `merely`, `exercise`, `substance`, `spectacle` — and a persona's `avoid` cap rises from 12 to 16 so a sheet can forbid a whole register rather than a handful of phrases, which is what `slacker` and this character both need it for. Her diction now caps the number of her own phrases per break as well as the number of asides, since one audition break carried three.
+
+## [0.12.1] — 2026-09-16
+
+- The deadpan wisecracking host seed stops reviewing records. An audition of twenty breaks came back as record reviews with one of her phrases bolted to the end ("the production, shepherded by Mike Clink at Rumbo Recorders, offers a veneer of technical polish"), which passed her own character check every time because the phrase was present. Three changes: her opening quirk now states the move rather than the attitude (take one decision somebody made, literally, and say what it promised); a new quirk forbids reviewing the record at all; the critic's vocabulary is in `avoid`, which is the only half of a sheet that refuses a script rather than asking; and she carries `brevity: short` beside her `unleashed`, so she keeps the room to say anything and is told to say it in one line.
+
 ## [0.12.0] — 2026-09-16
 
 - The persona flag that says who the station's own host is has been renamed from `active` to `defaultHost`, everywhere: the `personas.default_host` column (migration 0031, applied at boot), the `Persona` contract and all four SDKs, and `PUT /personas/{id}/active`, which is now `PUT /personas/{id}/default-host`. Nothing about who presents changes; the old name said "on air", which it never meant during a broadcast that named its own host, and the console badged the wrong character for exactly that reason. The Personas page button now reads **Make station host** rather than "Put on air", and the desk's persona pickers mark whoever is actually presenting. The operator desk on macOS follows the same rename, and its Voice page lamp now marks the character presenting rather than the station's own host.
@@ -175,7 +189,10 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.12.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.12.3...HEAD
+[0.12.3]: https://github.com/robert-dean/deadair/compare/v0.12.2...v0.12.3
+[0.12.2]: https://github.com/robert-dean/deadair/compare/v0.12.1...v0.12.2
+[0.12.1]: https://github.com/robert-dean/deadair/compare/v0.12.0...v0.12.1
 [0.12.0]: https://github.com/robert-dean/deadair/compare/v0.11.1...v0.12.0
 [0.11.1]: https://github.com/robert-dean/deadair/compare/v0.11.0...v0.11.1
 [0.11.0]: https://github.com/robert-dean/deadair/compare/v0.10.0...v0.11.0

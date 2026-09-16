@@ -16,6 +16,7 @@ const context = (levelingEnabled: boolean): AnnotationContext => ({
     levelingEnabled,
     crossfade: false,
     stationName: STATION_NAME,
+    publicUrl: '',
 });
 
 const STATION_NAME = 'Deadair';
@@ -139,5 +140,58 @@ describe('a carried programme, through itemAnnotations', () => {
 
     it("levels it whether or not record levelling is on, like the station's own voice", () => {
         expect(itemAnnotations(programme(-20), context(false)).liq_amplify).toBe(itemAnnotations(programme(-20), context(true)).liq_amplify);
+    });
+});
+
+describe('listenerArtwork, through itemAnnotations', () => {
+    // The ICY `StreamUrl` beside the title: a record's cover, or the station's logo when the
+    // station itself is what is playing. Icecast keeps a tag an update does not mention, so
+    // every item says what to show or the previous record's cover stays up under it.
+    const reachable = (): AnnotationContext => ({ ...context(true), publicUrl: 'https://radio.test/' });
+    const labelled = (title: string): RundownItem => ({ ...speech(-16), title });
+    const programme = (): RundownItem => ({ ...speech(-16), id: 'item-3', title: 'Episode 12', artists: ['The Long Wave'], programme: true });
+
+    it("sends a record's cover as it is when the provider's URL is absolute", () => {
+        const item: RundownItem = { ...record(-9), artworkUrl: 'https://cdn.example/cover.jpg' };
+
+        expect(itemAnnotations(item, reachable()).url).toBe('https://cdn.example/cover.jpg');
+    });
+
+    it("sends the station's own cached copy, as the catalog read hands it over, absolute under the API", () => {
+        // `art/<id>` with no leading slash is the shape `catalog.art.ts` mints, and it is what
+        // every cached cover on the station arrives as: the amp fetches from the station, not
+        // from whichever provider the record came from.
+        const item: RundownItem = { ...record(-9), artworkUrl: 'art/0b1e4a52-1111-4222-8333-444455556666' };
+
+        expect(itemAnnotations(item, reachable()).url).toBe('https://radio.test/api/art/0b1e4a52-1111-4222-8333-444455556666');
+    });
+
+    it("makes the station's own cached copy absolute under the API, off the public origin", () => {
+        // A device at the far end of a stream cannot resolve a relative path, and the trailing
+        // slash an operator may well type into the setting must not become a double one.
+        const item: RundownItem = { ...record(-9), artworkUrl: '/art/0b1e4a52-1111-4222-8333-444455556666' };
+
+        expect(itemAnnotations(item, reachable()).url).toBe('https://radio.test/api/art/0b1e4a52-1111-4222-8333-444455556666');
+    });
+
+    it("shows the station's logo for a break, as the mount carries the station's name for one", () => {
+        expect(itemAnnotations(labelled('Talk break: A into B'), reachable()).url).toBe('https://radio.test/logo.png');
+    });
+
+    it("shows the station's logo for a record with no cover rather than saying nothing", () => {
+        expect(itemAnnotations(record(-9), reachable()).url).toBe('https://radio.test/logo.png');
+    });
+
+    it("carries a programme's own artwork, since it has a real title too", () => {
+        const item: RundownItem = { ...programme(), artworkUrl: 'https://feeds.example/show.jpg' };
+
+        expect(itemAnnotations(item, reachable()).url).toBe('https://feeds.example/show.jpg');
+    });
+
+    it('sends no artwork at all without a public URL, since nothing could fetch it', () => {
+        const item: RundownItem = { ...record(-9), artworkUrl: '/art/0b1e4a52-1111-4222-8333-444455556666' };
+
+        expect(itemAnnotations(item, context(true)).url).toBeUndefined();
+        expect(itemAnnotations(labelled('Station ident'), context(true)).url).toBeUndefined();
     });
 });

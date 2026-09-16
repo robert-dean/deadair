@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { DEFAULT_SPEECH_TRIM_DB, DEFAULT_TARGET_LUFS, speechGainFor } from '../../../src/modules/playout/gain.js';
 import { HARD_JOIN_MS } from '../../../src/modules/playout/annotate.js';
+import { STREAM_KEYS } from '../../../src/modules/stream/stream.settings.js';
 import { Heartbeat } from '../../../src/modules/shared/heartbeat.js';
 import { PlayoutPusher } from '../../../src/modules/playout/playout.pusher.js';
 import { Rundown, type RundownItem, type RundownTrack } from '../../../src/modules/playout/rundown.js';
@@ -398,7 +399,30 @@ describe('PlayoutPusher.reconcile', () => {
         await new Promise(resolve => setImmediate(resolve));
         pusher.stop();
 
-        expect(spy.announce).toHaveBeenCalledWith('An Artist - Track a');
+        expect(spy.announce).toHaveBeenCalledWith('An Artist - Track a', undefined);
+    });
+
+    it('relabels with the artwork beside the label, so a relabel never leaves the wrong cover up', async () => {
+        // Icecast keeps a tag a metadata update does not mention, so a caption sent alone
+        // would leave the previous record's cover under it. A record with no cover of its
+        // own is shown as the station, which is the logo on the public origin. The origin
+        // comes from the environment here, as it does on a station whose operator never
+        // filled the setting in.
+        vi.mocked(config.get).mockImplementation((key: string) => (key === 'SPA_BASE_URL' ? 'https://radio.test/' : ''));
+        try {
+            const { pusher, rundown, spy } = setup(['a'], { queued: 0, ready: true });
+            pusher.start();
+            await pusher.reconcile();
+
+            const item = rundown.upcoming()[0] ?? rundown.nowPlaying()?.item;
+            rundown.markAired(item!.id);
+            await new Promise(resolve => setImmediate(resolve));
+            pusher.stop();
+
+            expect(spy.announce).toHaveBeenCalledWith('An Artist - Track a', 'https://radio.test/logo.png');
+        } finally {
+            vi.mocked(config.get).mockImplementation(() => '');
+        }
     });
 
     it('takes back what the player holds once nobody is listening', async () => {

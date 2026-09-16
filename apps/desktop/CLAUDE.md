@@ -279,6 +279,11 @@ honest; drawing it as a text box would put a password in a JSON file in somebody
 it is how this is re-measured, and half of what it tells you comes from a firmware that moves under
 everybody. Read [now-playing-displays](https://github.com/robert-dean/deadair/blob/71e431d4/docs/todo/now-playing-displays.md)
 first; it is the earlier probe of the same amp and it closed the DISPLAY half of this permanently.
+**Half of that closure was reopened on 2026-09-16**: the amp draws artwork carried in the ICY
+`StreamUrl` field, per record and with no reconnect, which the mount now fills
+(`docs/internals/playout.md` § "What a listener's player is told"). The `/Play` findings below stand,
+and the plugin's caption and logo settings are still one-shot for the reason given; what changed is
+that the cover follows the record on its own, so this plugin no longer needs to try.
 
 ```bash
 dotnet run --project apps/desktop/plugins/bluos/spikes/BluOsSpike -- https://radio.example.com

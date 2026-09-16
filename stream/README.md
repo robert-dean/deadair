@@ -117,7 +117,11 @@ variants of one another.** `icy_metadata : [string]` is the list of metadata FIE
 carries (`["song", "title", "artist", …]`); `send_icy_metadata : bool?` is whether to send one at
 all, guessed from the container when null. Passing the switch to the field list is a type error
 rather than a wrong setting, so it costs a crash loop rather than a mislabelled mount — the better
-failure, but only once you know which of the two you are holding.
+failure, but only once you know which of the two you are holding. **And `icy_metadata` is the
+second gate, not the only one:** everything an output is handed has already been through
+`settings.encoder.metadata.export`, whose default list does not include `url`, so a field named in
+`icy_metadata` alone never leaves Liquidsoap. Measured on 2.4.5, and recorded beside the `.set` in
+`radio.liq` that appends it.
 
 To test whether an encoder exists in the pinned image at all, which decides whether a mount can be
 offered: write it to a file rather than passing an expression, and keep `%mp3` in the list as a
@@ -368,6 +372,29 @@ masters the station has no editorial claim on, and per-track levelling already h
 sources. New outputs are fed from `bus`, never from `radio`, which is the handle the metadata
 inserts are attached to.
 
+`streamurl.check.py` is the fourth, and it is about what a listener's player SHOWS rather than
+what it hears. ICY carries two fields per update, and the second, `StreamUrl`, is a URL some
+players fetch and draw as artwork, and Icecast 2.5 fills it from the `url` tag of a metadata update
+(2.4 dropped the tag). Whether a given player draws it is the player's business, and this measures
+it against a THROWAWAY mount rather
+than the station's: a second Icecast in Docker on this machine, fed by a source client in the
+script, with the artwork served by the script so that the player fetching it is a fact it sees.
+
+```
+python3 stream/streamurl.check.py --no-player            # stage 1: is StreamUrl on the wire at all
+python3 stream/streamurl.check.py --discover             # which BluOS players answer LSDP
+python3 stream/streamurl.check.py --player 192.168.1.234 # stages 2 and 3, on a real player
+```
+
+The full run plays the test mount on the player, at whatever volume it is set to, for `--cycles`
+times `--period` seconds (about eighty by default), and ends by putting back what the player was
+doing. Read the three verdict lines at the end rather than the log: "fetched" and "shown" are
+different facts, and a player that fetches and does not draw is told apart from one that never
+reads the field. A BluOS player is what this was written against, and everything measured about
+its display before this probe is in `docs/internals/playout.md` under "What a listener's player is
+told".
+
+
 ## Playout: the app pushes, Liquidsoap plays
 
 The station owns the running order whichever source the tracks came from, and the app hands it
@@ -383,7 +410,7 @@ an `X-Playout-Secret` header:
 | `POST /control/skip`     | ends what is on air; the queue advances to the next item at once                 |
 | `POST /control/onair`    | renews deadair's lease on the mount for `CONTROL_TTL_S`                          |
 | `POST /control/offair`   | hands the lease back now: off air at once, queue dropped                         |
-| `POST /control/metadata` | body is one finished label line; puts it into the stream at the current position |
+| `POST /control/metadata` | line one is the finished label, line two (optional) the artwork URL; puts both into the stream at the current position |
 
 Every one of them answers with the same **reading** of the queue, so a mutation's own response is
 already the state it produced:

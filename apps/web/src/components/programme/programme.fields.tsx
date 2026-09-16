@@ -6,6 +6,7 @@ import { chartsListOptions } from '../../api/charts.queries';
 import { playlistsListOptions } from '../../api/playlists.queries';
 import { usePersonas } from '../../api/personas.queries';
 import { offerablePlaylists } from '../playlists/playlist.offerable';
+import { presents } from '../personas/persona.kind';
 
 /**
  * What a broadcast IS, as one field set, wherever it is being described.
@@ -177,7 +178,8 @@ export function ChartOrderField(input: GetInputPropsReturnType) {
  */
 export function HostField({ markOnAir = false, ...input }: GetInputPropsReturnType & { markOnAir?: boolean }) {
     const personas = usePersonas();
-    const options = (personas.data?.personas ?? []).map(persona => ({
+    // Hosts only: a caller phones in to a production and never presents. See `presents`.
+    const options = (personas.data?.personas ?? []).filter(presents).map(persona => ({
         value: persona.id,
         // Only where a broadcast is being started NOW, because "on air" is a fact about this moment
         // rather than about a slot that comes round on Tuesdays. `presenting` rather than the
@@ -185,7 +187,7 @@ export function HostField({ markOnAir = false, ...input }: GetInputPropsReturnTy
         label: markOnAir && persona.presenting ? `${persona.label} (on air)` : persona.label,
     }));
 
-    return <Select label="Hosted by" description="Empty means the station\u2019s own host." data={options} clearable {...input} />;
+    return <Select label="Hosted by" description="Empty means the station’s own host." data={options} clearable {...input} />;
 }
 
 /** What it is asked to play, in the operator's own words. */

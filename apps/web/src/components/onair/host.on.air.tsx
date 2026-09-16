@@ -3,6 +3,7 @@ import { Badge, Group, Menu, Text } from '@mantine/core';
 import { useRecastStation } from '../../api/director.queries';
 import { usePersonas } from '../../api/personas.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
+import { presents } from '../personas/persona.kind';
 
 /**
  * Who is presenting the broadcast that is on air, and the one place it can be changed mid-show.
@@ -92,7 +93,9 @@ export function HostOnAir({ personaId, personaLabel }: HostOnAirProps) {
                         ) : undefined}
                     </Group>
                 </Menu.Item>
-                {(personas.data?.personas ?? []).map(persona => (
+                {/* Hosts only. A caller is cast into a production and phones IN; putting one on air is a
+                    question with no sensible answer, and the API now refuses it. See `presents`. */}
+                {(personas.data?.personas ?? []).filter(presents).map(persona => (
                     <Menu.Item key={persona.id} disabled={persona.id === personaId} onClick={() => recast.mutate({ personaId: persona.id })}>
                         {persona.label}
                     </Menu.Item>

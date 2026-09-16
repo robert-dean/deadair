@@ -16,6 +16,7 @@
  */
 
 import { isRenderItem } from '#modules/render/segment.source.js';
+import { stationArtwork, stationOrigin } from '#modules/stream/stream.settings.js';
 import { blendFor } from './crossfade.js';
 import { gainFor, programmeGainFor, speechGainFor, type MeasuredLoudness } from './gain.js';
 import type { RundownItem } from './rundown.js';
@@ -40,6 +41,14 @@ export const ITEM_KEY = 'deadair_item';
 export const SPEECH_KEY = 'deadair_speech';
 
 /**
+ * The metadata key Liquidsoap forwards as the ICY `StreamUrl`: its own name for it,
+ * which is why it is not prefixed like the two above. It has to be in the
+ * `icy_metadata` list of `publish` in `radio.liq` or it never leaves the player.
+ * See {@link listenerArtwork}.
+ */
+export const ARTWORK_KEY = 'url';
+
+/**
  * What a boundary the station does not blend is stamped with, and it is
  * deliberately not zero. Must match `playout_cross_hard_join` in `radio.liq`.
  *
@@ -61,6 +70,12 @@ export interface AnnotationContext {
     targetLufs: number;
     /** How far under that a break is aimed, in dB. See `speechGainFor`. */
     speechTrimDb: number;
+    /**
+     * Where listeners reach the station (`stream.publicUrl`): what a relative artwork
+     * path is made absolute against, and where the station's own logo is. Empty leaves
+     * artwork off the mount altogether. See {@link listenerArtwork}.
+     */
+    publicUrl: string;
     /**
      * Whether a record gets the static per-item correction {@link gainFor}
      * computes. See `LEVELING_ENABLED_KEY` in `gain.ts`.
@@ -144,11 +159,13 @@ export interface AnnotationContext {
 export function itemAnnotations(item: RundownItem, context: AnnotationContext): Record<string, string> {
     const artist = item.artists.join(', ');
     const title = listenerTitle(item, context.stationName);
+    const artwork = listenerArtwork(item, context.publicUrl);
     return {
         [ITEM_KEY]: item.id,
         ...(title ? { title } : {}),
         ...(artist ? { artist } : {}),
         ...(item.album ? { album: item.album } : {}),
+        ...(artwork ? { [ARTWORK_KEY]: artwork } : {}),
         ...(isRenderItem(item) ? { [SPEECH_KEY]: '1' } : {}),
         ...cueAnnotations(item),
         ...gainAnnotations(item, context),
@@ -189,6 +206,52 @@ export function listenerTitle(item: RundownItem, stationName: string): string {
     // Somebody else's programme has a real title, exactly as a record does, and a listener wants it.
     if (!isRenderItem(item) || item.programme === true) return item.title;
     return stationName.trim() || item.title;
+}
+
+/**
+ * What an item LOOKS like on the mount: the ICY `StreamUrl`, which some players
+ * fetch and draw as artwork.
+ *
+ * ICY carries two fields per update, not one. `StreamTitle` is the line every
+ * player shows and {@link listenerTitle} decides; `StreamUrl` is a URL beside it
+ * that Radio Paradise and others fill with cover art, and that a player is free
+ * to fetch. Icecast 2.5 forwards the `url` tag of a metadata update into it
+ * (2.4 dropped the tag on the floor, xiph/icecast-server#2385), so this is the
+ * one channel through which a record's cover reaches a display that can only
+ * consume a stream. Whether a given player draws it is the player's business:
+ * `stream/streamurl.check.py` is how that is measured, against a test mount.
+ *
+ * A record carries its cover, made absolute: the station's own cached copy is
+ * a path under the API root (`art/<id>`, minted by `catalog.art.ts` wherever the
+ * cache job has fetched one, which is what a device fetches rather than the
+ * provider's CDN), and a device at the far end of a stream cannot resolve a
+ * relative one. `/api` is the prefix the edge adds in front of this API in both
+ * nginx configs, which the API itself does not know and the console configures;
+ * here it is written down, since there is no console to ask. A break carries
+ * the station's logo, for the reason
+ * the mount carries the station's name during one: the station is the one
+ * talking. So does a record with no cover, because of what Icecast does
+ * otherwise. **It KEEPS a tag an update did not mention** (`mp3_set_tag`
+ * returns on a null value rather than clearing), so an item that said nothing
+ * about artwork would leave the previous record's cover under a caption naming
+ * a different record, which is the display confidently saying something false.
+ * Every item therefore says what to show, and the station's face is the default.
+ *
+ * Nothing at all without a public URL (the setting, else the console address
+ * from the environment; `resolvePublicUrl`): there is no base to make a path
+ * absolute against and no address the logo is reachable at, and a URL nobody
+ * can fetch is worse than none. `radio.liq` follows the same rule for the labels it puts
+ * up itself, through `STREAM_ART_URL`, which is {@link stationArtwork} rendered
+ * into its environment.
+ */
+export function listenerArtwork(item: RundownItem, publicUrl: string): string | undefined {
+    const origin = stationOrigin(publicUrl);
+    if (!origin) return undefined;
+    const cover = item.artworkUrl?.trim();
+    if (cover && (!isRenderItem(item) || item.programme === true)) {
+        return /^https?:\/\//i.test(cover) ? cover : `${origin}/api/${cover.replace(/^\/+/, '')}`;
+    }
+    return stationArtwork(origin);
 }
 
 /**

@@ -2,13 +2,13 @@ import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import { Heartbeat, HEARTBEATS } from '#modules/shared/heartbeat.js';
-import { annotateUri, blendOutOf, itemAnnotations, listenerTitle, voiceAnnotations } from './annotate.js';
+import { annotateUri, blendOutOf, itemAnnotations, listenerArtwork, listenerTitle, voiceAnnotations } from './annotate.js';
 import { AudienceWatch } from './audience.watch.js';
 import { DEFAULT_LEVELING_ENABLED, LEVELING_ENABLED_KEY, SPEECH_TRIM_KEY, TARGET_LUFS_KEY, resolveSpeechTrimDb, resolveTargetLufs } from './gain.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
 import { PLAYOUT_LEAD, PlayoutControlClient, type QueueStatus } from './liquidsoap.control.js';
 import { Rundown, type RundownItem } from './rundown.js';
-import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
+import { resolvePublicUrl, STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
 import { errorText } from '#modules/shared/error.text.js';
 
 /**
@@ -178,6 +178,11 @@ export class PlayoutPusher {
     /** What the station calls itself, as the setting currently stands. Read per hand-over, like the target. See `listenerTitle`. */
     private stationName(): string {
         return this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title);
+    }
+
+    /** Where listeners reach the station, as the setting and the environment currently stand. Read per hand-over, like the name. See `listenerArtwork`. */
+    private publicUrl(): string {
+        return resolvePublicUrl(this.config);
     }
 
     /** Begin draining the running order. Idempotent. */
@@ -409,6 +414,7 @@ export class PlayoutPusher {
                     levelingEnabled: this.levelingEnabled(),
                     crossfade: this.rundown.crossfade(),
                     stationName: this.stationName(),
+                    publicUrl: this.publicUrl(),
                     previousBlendMs: this.previousBlendMs,
                     ...(pulled.next === undefined ? {} : { next: pulled.next }),
                 };
@@ -480,10 +486,13 @@ export class PlayoutPusher {
         // Through `listenerTitle` for the same reason: this path and the annotation
         // path are two ways to say one thing, and a break that rode the boundary as
         // the station's name and was re-announced as `Talk break: …` would put the
-        // producer's copy back on the mount at the first mid-track re-label.
+        // producer's copy back on the mount at the first mid-track re-label. The
+        // artwork rides along through `listenerArtwork` on the same argument, and
+        // because Icecast keeps a tag a relabel does not mention: a caption sent
+        // without its cover would leave the previous record's up.
         const artist = item.artists.join(', ');
         const title = listenerTitle(item, this.stationName());
-        void this.control.announce(artist ? `${artist} - ${title}` : title).catch(() => undefined);
+        void this.control.announce(artist ? `${artist} - ${title}` : title, listenerArtwork(item, this.publicUrl())).catch(() => undefined);
     }
 
     /**

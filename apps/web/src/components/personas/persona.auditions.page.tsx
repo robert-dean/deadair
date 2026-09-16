@@ -11,6 +11,7 @@ import { PageSkeleton } from '../shared/page.skeleton';
 import { splitSource, sourceValue } from '../programme/programme.fields';
 import { offerablePlaylists } from '../playlists/playlist.offerable';
 import { PersonaAuditionCard } from './persona.audition.card';
+import { presents } from './persona.kind';
 
 /** What an operator gets if they press Start without thinking about it: an hour of radio, roughly. */
 const DEFAULT_BREAKS = 10;
@@ -39,7 +40,7 @@ export function PersonaAuditionsPage({ persona }: { persona?: string }) {
 
     // Hosts only. A caller is cast into a production and never presents, so auditioning one over a
     // playlist would be measuring something the station will not ask it to do.
-    const hosts = (personas.data?.personas ?? []).filter(one => one.kind !== 'caller');
+    const hosts = (personas.data?.personas ?? []).filter(presents);
 
     const [chosen, setChosen] = useState<string | undefined>(persona);
     const [source, setSource] = useState<string | null>(null);

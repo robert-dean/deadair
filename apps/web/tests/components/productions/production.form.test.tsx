@@ -2,14 +2,33 @@
 // so and not: the form used to refuse a nameless production with a disabled button and a silent
 // `return`, which is a form that will not submit and will not say why.
 
-import { describe, expect, it, vi } from 'vitest';
+import type { Persona } from '@deadair/sdk';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ProductionForm } from '../../../src/components/productions/production.form';
 import { render, screen, setupUser } from '../../utils/render';
 
 vi.mock('../../../src/api/client', () => ({
-    sdk: { personas: { listPersonas: () => Promise.resolve({ personas: [] }) } },
+    sdk: { personas: { listPersonas: () => listPersonas() } },
 }));
+
+const listPersonas = vi.fn();
+
+const persona = (overrides: Partial<Persona> = {}): Persona => ({
+    id: 'p-1',
+    key: 'marlowe',
+    kind: 'host',
+    label: 'Marlowe',
+    style: 'A late-night crime writer with a weakness for a good record.',
+    defaultHost: false,
+    presenting: false,
+    ...overrides,
+});
+
+beforeEach(() => {
+    // A station with no roster, which is what every case but the presenter one is about.
+    listPersonas.mockResolvedValue({ personas: [] });
+});
 
 const build = () => {
     const onSubmit = vi.fn();
@@ -41,6 +60,21 @@ describe('ProductionForm', () => {
             kind: 'podcast',
             brief: 'The TR-808, and who rescued it.',
         });
+    });
+
+    // "Presenter" is who PRESENTS the programme, and the callers it casts are chosen per beat by the
+    // production itself. Offering one here read as though an operator could hand a show to somebody
+    // phoning in to it.
+    it('offers the hosts and not the callers as the presenter', async () => {
+        listPersonas.mockResolvedValue({
+            personas: [persona(), persona({ id: 'p-2', key: 'better', kind: 'caller', label: 'Caller who knows better' })],
+        });
+        const { user } = build();
+
+        await user.click(await screen.findByRole('combobox', { name: 'Presenter' }));
+
+        expect(await screen.findByRole('option', { name: 'Marlowe' })).toBeInTheDocument();
+        expect(screen.queryByRole('option', { name: 'Caller who knows better' })).not.toBeInTheDocument();
     });
 
     it('submits on Enter, which is the shortcut a real form element buys', async () => {

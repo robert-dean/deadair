@@ -20,6 +20,19 @@ writer, and `llm.breakWriter` being off is just the first one declining early.
 station. The registry answers with every ATTEMPT rather than only the winner, because a model that declined
 and a floor that covered for it are two facts and the second alone reads as a station that never had a model.
 
+**A refusal the model can act on gets ONE more ask, and a refusal about the records does not.**
+`readAnswer` still declines rather than re-drafting, and the registry is what asks again: a declined attempt
+whose `WriteDetail.fault` is in `RETRYABLE_FAULTS` (`break.retry.ts`) is put back to the same writer once,
+with the fault and the refused answer on `BreakWriteRequest.retry`, which `breakPrompt` renders as a third
+turn saying which rule was broken and asking for the same break again. The second attempt is recorded like
+any other, so `script_history` keeps both the refusal and the rewrite. What made this worth its generation
+is that the floor stopped being an equal substitute: a quarter of this station's talk breaks were landing on
+six phrasings, so a character whose model keeps being refused repeats inside an hour. What keeps it safe is
+that the substrate faults are excluded — a break about neither record means the model misread what it was
+handed, and asking again invites it to invent something that fits — and that the second ask goes through the
+same `patienceFor(airsAt)` as the first, so a retry with no time left is refused by the gate and the floor
+writes the break exactly as it would have.
+
 **The station's phrasings are the operator's.** `rotation.breakTemplates`, one per line, with the
 station's own five as the DEFAULT — so clearing the box restores them rather than producing a silent
 DJ, and the way to stop it talking stays `rotation.breaks`. `{{next.title}}` resolves through an

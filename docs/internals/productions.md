@@ -23,6 +23,24 @@ listener only inside a PRODUCTION (`productions.casting`, decided by the first p
 commission, since the clock reads three hours ahead and the roster can change in between), and there are three
 ways to ask for one: an anchored clock band, the on-air page's own button, and a broadcast told to take them.
 
+**Being active is not the only way onto the air, and the second way was open.** `defaultHost` is the
+station's own host and is the half those two refusals cover; a BROADCAST names its own host
+separately, and `DirectorConsoleService.recast` checked only that the persona existed. The console
+handed the operator the whole roster in that menu, so a caller picked from it presented the show and
+`SegmentRepository.recast` rewrote every break in the tail in its character. `recast` refuses a
+caller now, with the sentence `setDefaultHost` uses, and every console surface that OFFERS a host
+narrows the list through `presents` in `apps/web/src/components/personas/persona.kind.ts` — the
+on-air menu, "Hosted by" on a slot or a briefing, a production's presenter and the auditions page.
+`GET /personas` answers with hosts and callers together, because the personas page draws both, so
+narrowing it is each SURFACE's own job and three of them had never done it.
+
+**`putOnAir` still takes a persona id on trust**, deliberately and for a reason that has nothing to
+do with callers: refusing to go on air over an id that has since been deleted would be the station
+declining to broadcast. So a caller id posted straight to `PUT /director/air` still binds, and only
+the console's own narrowing keeps that from being reachable by hand. Closing it means deciding what
+a broadcast does with a host it may not use — drop back to the station's own, or refuse the
+broadcast — which is a different question from this one and has not been answered.
+
 ## Commissioning one
 
 **All three commission through one path** and every one of them hands over the SHOW — a production airs as a

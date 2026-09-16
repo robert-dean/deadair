@@ -350,7 +350,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         label: 'Public URL',
         type: 'url',
         default: STREAM_DEFAULTS.publicUrl,
-        help: 'Where listeners reach the station. Also where the hostname is derived from when one is not set below.',
+        help: 'Where listeners reach the station, and what their players are told to fetch artwork from. Leave empty to use the console address the station was deployed with (SPA_BASE_URL). Also where the hostname is derived from when one is not set below.',
     },
     {
         group: 'stream',

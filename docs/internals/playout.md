@@ -114,6 +114,58 @@ because a cue's URL is armed when the record it rides is pushed and fetched when
 new anonymous audio route goes on the middleware's list, and its test reads the contracts to check
 that nothing `security: none` in `render.ck` or `playout.ck` is outside the list or the bridge.
 
+## What a listener's player is told
+
+**The mount carries one line of text and one URL, and that is the whole display ceiling for anything
+that can only consume a stream.** Icecast composes ONE `StreamTitle` out of the title/artist pair and
+reports it flattened, on 2.4.4 and 2.5.0 alike (`annotate.ts`), so there is no artist field and no
+album field on the wire for any player, permanently. `listenerTitle` decides what the line says: a
+record's own credit and title, and the station's name for a break, because a break is the station
+talking and a producer's label (`Talk break: A into B`) on an amp's screen was the station leaking its
+paperwork. Both routes to the mount go through it, the annotation that rides the boundary and the
+mid-track relabel through `POST /control/metadata`, or a break re-announced would put the paperwork
+straight back.
+
+**The URL is the ICY `StreamUrl`, and it carries artwork.** It is the second field of the same
+update, the one Radio Paradise fills with cover art, and Icecast 2.5 forwards the `url` tag of a
+metadata update into it where 2.4 dropped the tag (xiph/icecast-server#2385). `listenerArtwork` stamps
+every item with one: a record's cover made absolute against `stream.publicUrl`, or the station's logo
+for a break, and ALSO for a record with no cover, because Icecast KEEPS a tag an update does not
+mention (`mp3_set_tag` returns on a null value rather than clearing) and an item that said nothing
+would leave the previous record's cover under a caption naming a different one. Liquidsoap's own
+labels, the bed and off air, get the same logo through `STREAM_ART_URL`, and the relabel body grew a
+second line for it, since a caption sent alone has the same problem. Nothing is sent without a
+public URL: there is no base to make a path absolute against and no address the logo is reachable at.
+That URL is `stream.publicUrl` when set and otherwise the console address the station was deployed
+with (`resolvePublicUrl`: `SPA_BASE_URL`, then `APP_BASE_URL`), because the live station had the
+environment set and the setting empty, which would have been a mount with no artwork and an Icecast
+calling itself localhost.
+Two lists in `radio.liq` have to name `url` for any of it to leave Liquidsoap, the output's
+`icy_metadata` and `settings.encoder.metadata.export`, and the second was found by the tag arriving
+at Icecast with the first alone; the comment beside it records the measurement.
+`stream/streamurl.check.py` measures whether a given player draws the field, against a throwaway mount
+rather than this one.
+
+**Measured on the Office NAD M10 V2, BluOS 4.16.22, 2026-09-16: it draws it, per update, with no
+reconnect.** The player fetched every artwork URL within about two seconds of the ICY update that
+carried it (twice each, as `Mozilla/5.0`), and the operator watched the amp's artwork slot change
+colour with each one while the stream played on. That reverses the verdict of the two earlier probes
+below for the one thing they were about: per-record art on a hardware display was never behind the
+`/Play` slots, it was behind a field nobody had filled. What it still does not buy is a split
+artist and album, which BluOS's display model has no fields for.
+
+**What a BluOS player was measured doing before that probe existed**, on an NAD M10 V2 (BluOS 4.16.6
+on 2026-08-19 and 4.16.22 on 2026-09-08; the full record is the closed `now-playing-displays` note
+at commit 71e431d4 and `apps/desktop/CLAUDE.md` under "Plugins: BluOS"): the ICY line updates in
+place on every boundary with no reconnect, and the player pushes the change through an etag
+long-poll. The `title1` and `image` slots can be written only by a `/Play?url=` that opens a NEW
+connection, which the operator hears as a break in the audio, and they then stick until the next
+one, so they are a station caption and a station logo and never per-record art. The Custom
+Integration API v1.7 has no metadata-push endpoint and says its three lines are lines, not fields.
+The `image` slot of a station added by URL is filled by the player's radio DIRECTORY, which moved
+from TuneIn to Airable in BluOS 4.14.9 (2026-02-24): listing the station there is the way to a
+real logo on any device with no code, and it is the operator's call, not a change to this tree.
+
 ## What decides a blend, and why speech is never faded into
 
 **A blend is stamped on the OUTGOING item, off what the running order said was next at the moment

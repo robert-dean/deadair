@@ -512,7 +512,19 @@ export const PERSONA_SHEET_LIMITS = {
     /** Matching {@link PERSONA_SHEET_LIMITS.quirks}: enough for a rotation to be worth having, few enough that a sheet stays a sheet. */
     preoccupations: 6,
     catchphrases: 6,
-    avoid: 12,
+    /**
+     * Raised from twelve on the same argument {@link PERSONA_SHEET_LIMITS.dictionMarkers} is higher
+     * for, and measured the same way. Half of `avoid` is wording nobody says twice — the register
+     * tells, the borrowed signature — and the other half can be a whole VOCABULARY that has to be
+     * shut off rather than discouraged: `slacker` forbids the liner-note words so a flat character
+     * cannot collapse into the dry one, and `wisecrack` forbids the critic's so a comic cannot
+     * collapse into a reviewer. At twelve those two lists had no room to be both, and the cost was
+     * silent, because everything past the cap reaches neither the prompt nor {@link avoidedWording}.
+     *
+     * Measured over 694 of one character's scripts: the four critic's words the cap had room for
+     * caught the register in a third of them, and the model moved to four synonyms it did not.
+     */
+    avoid: 16,
     samples: 3,
 } as const;
 

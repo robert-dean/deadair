@@ -263,7 +263,8 @@ export function resolveStreamSettings(config: AppConfig, encryption: EncryptionP
         title: values.get(STREAM_KEYS.title) ?? STREAM_DEFAULTS.title,
         description: values.get(STREAM_KEYS.description) ?? STREAM_DEFAULTS.description,
         genre: values.get(STREAM_KEYS.genre) ?? STREAM_DEFAULTS.genre,
-        publicUrl: values.get(STREAM_KEYS.publicUrl) ?? STREAM_DEFAULTS.publicUrl,
+        // The one value here that is derived when empty rather than defaulted; see the resolver.
+        publicUrl: resolvePublicUrl(config),
         // The seven keys that decide which mounts exist, through the one resolver that
         // reads them. Spread rather than repeated here because `/nowplaying` needs the
         // same seven and cannot call this function: it holds no scope, and the
@@ -306,6 +307,59 @@ export function resolveStreamSettings(config: AppConfig, encryption: EncryptionP
  * `radio.liq` covers exactly this list. Adding a value means adding it in both, and
  * `stream.config.test.ts` is where they are held to each other.
  */
+/**
+ * `stream.publicUrl` as a base to build on: trimmed, with no trailing slash.
+ *
+ * The setting is "where listeners reach the station", which is the console's origin, and the
+ * API is reached under `/api/` on it (`authentication.options.ts`). Empty when the operator has
+ * set nothing, and every caller treats that as "there is no outside address", not as localhost.
+ */
+export function stationOrigin(publicUrl: string): string {
+    return publicUrl.trim().replace(/\/+$/, '');
+}
+
+/**
+ * Where listeners reach the station: `stream.publicUrl` when the operator set one, else the
+ * console's address from the environment, else nothing. Always as an origin, with no trailing
+ * slash.
+ *
+ * Derived rather than defaulted, the way the advertised hostname derives from this setting. An
+ * operator who reaches the station through a tunnel has already written that address once, as
+ * `SPA_BASE_URL` (and `APP_BASE_URL`, which in the image is the same address; see "The station's
+ * address" in deploy/README.md), and a setting asking for it a second time is the kind that stays
+ * blank: the live station had the environment set and this empty, so the mount carried no artwork
+ * and Icecast advertised itself as localhost. The registry's default stays empty, on the rule that
+ * the registry's default and the resolver's agree; what happens to an EMPTY value is a derivation,
+ * and the field's help text says so.
+ */
+export function resolvePublicUrl(config: AppConfig): string {
+    const candidates = [
+        config.get(STREAM_KEYS.publicUrl, STREAM_DEFAULTS.publicUrl),
+        config.get<string, string>('SPA_BASE_URL', ''),
+        config.get<string, string>('APP_BASE_URL', ''),
+    ];
+    for (const candidate of candidates) {
+        const origin = stationOrigin(String(candidate ?? ''));
+        if (origin) return origin;
+    }
+    return '';
+}
+
+/**
+ * The station's own face, as a listener's player can fetch it: the console's `logo.png` on
+ * the origin listeners reach.
+ *
+ * It is what the mount shows when the station ITSELF is what is playing (a break, the bed, off
+ * air), for the same reason the mount carries the station's name then. Empty without a public
+ * URL: a URL nobody outside this network can fetch is worse than none. See `listenerArtwork` in
+ * `playout/annotate.ts` for the record half and `STREAM_ART_URL` in `radio.liq` for the labels
+ * Liquidsoap puts up itself.
+ */
+export function stationArtwork(publicUrl: string): string {
+    const origin = stationOrigin(publicUrl);
+    return origin ? `${origin}/logo.png` : '';
+}
+
 export const OPUS_BITRATES = ['96', '128', '160', '192', '256'] as const;
 export const AAC_BITRATES = ['96', '128', '160', '192', '256', '320'] as const;
 

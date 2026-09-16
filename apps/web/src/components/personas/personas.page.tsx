@@ -4,10 +4,6 @@ import { IconDots, IconPlayerPauseFilled, IconPlayerPlayFilled } from '@tabler/i
 import { Link } from '@tanstack/react-router';
 import type { Persona, PersonaInput, ScriptHistorySummaryRow, Voice } from '@deadair/sdk';
 
-/** What a character is for. Absent on the wire means `host`, which is what every row was before callers. */
-type PersonaKind = NonNullable<PersonaInput['kind']>;
-const kindOf = (persona: Persona): PersonaKind => persona.kind ?? 'host';
-
 import {
     exportPersonas,
     useCreatePersona,
@@ -32,6 +28,7 @@ import { severityColor, toneColor } from '../shared/status';
 import { usePhone } from '../shared/use.phone';
 import { PersonaDeleteModal } from './persona.delete.modal';
 import { PersonaEditor } from './persona.editor';
+import { kindOf, type PersonaKind } from './persona.kind';
 import { PersonaImportModal } from './persona.import';
 import { PersonaNotesPanel } from './persona.notes';
 import { PersonaStoriesPanel } from './persona.stories';

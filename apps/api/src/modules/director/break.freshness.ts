@@ -47,6 +47,13 @@ export const SUBSTRATE_FRESHNESS: { [TField in keyof Required<BreakWriteRequest>
     // Which writer takes this. Never spoken.
     kind: 'not-spoken',
 
+    // What the model said a moment ago and why the station refused it. Never spoken: it reaches the
+    // model as an instruction to say the break again, and the answer it produces is judged from
+    // scratch by the same guard that refused the first one. It also cannot go stale in the sense
+    // this table is about, because it is built and consumed inside one `write` call — the registry
+    // sets it on the second ask and nothing carries it further.
+    retry: 'not-spoken',
+
     // The record just finished. A record that played stays played: a station cannot un-play one, and
     // `neighboursOf` re-reads the order at write time so the walk skips anything already skipped.
     previous: 'timeless',

@@ -57,6 +57,7 @@ import type { PersonaStoryForPrompt } from '#modules/personas/persona.story.js';
 import type { SpokenWeather } from '#modules/weather/weather.words.js';
 import type { BreakStory, BreakTrack, BreakWriteRequest } from './break.writer.js';
 import { contradictsDayPart, namesWrongSky, namesWrongTimeOfDay, type RoughTime } from './clock.words.js';
+import { retryNudge } from './break.retry.js';
 import { spoken } from './talk.break.writer.js';
 
 /**
@@ -669,10 +670,19 @@ export function maxWordsFor(settings: PromptSettings, shape: BreakPromptShape): 
  * instructions rather than as something about these two records, which is what they are.
  */
 export function breakPrompt(request: BreakWriteRequest, settings: PromptSettings, shape: BreakPromptShape): LlmMessage[] {
-    return [
+    const asked: LlmMessage[] = [
         { role: 'system', content: systemPrompt(settings, shape) },
         { role: 'user', content: userPrompt(request, settings, shape) },
     ];
+
+    // The second ask, when the registry made one. A third user turn rather than a rewritten first
+    // one, so what the model is answering is still the break it was asked for, with one correction
+    // after it — and rather than an `assistant` turn carrying the refused words, which is the same
+    // information in a shape a local model reads as something to continue. `break.retry.ts` owns
+    // which faults get here and what each one says.
+    const nudge = request.retry === undefined ? undefined : retryNudge(request.retry);
+
+    return nudge === undefined ? asked : [...asked, { role: 'user', content: nudge }];
 }
 
 function systemPrompt(settings: PromptSettings, shape: BreakPromptShape): string {

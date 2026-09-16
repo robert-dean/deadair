@@ -312,7 +312,10 @@ export class ModelTalkBreakWriter extends BreakWriter {
             // Onto the detail as well as into the log, so the reason reaches `script_history.reason`
             // and the question "how often is the model being refused, and for what" is a query
             // rather than a search through a rotating log.
-            if (declined !== undefined) this.lastDetail = { ...this.lastDetail, reason: declined.reason };
+            // The fault as well as the sentence: the sentence is for a person reading the row, and the
+            // registry needs the code to decide whether a second ask could fix this. See
+            // `break.retry.ts`, and `WriteDetail.fault`.
+            if (declined !== undefined) this.lastDetail = { ...this.lastDetail, reason: declined.reason, fault: declined.fault };
             // What was refused, beside why. See `WriteDetail.refused`.
             const refused = result.text.trim();
             if (refused.length > 0) this.lastDetail = { ...this.lastDetail, refused };

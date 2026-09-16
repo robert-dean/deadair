@@ -2,6 +2,8 @@ import { Injectable } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
 import { isPluginError } from '@deadair/plugin-sdk';
 import type { BreakWriteRequest, BreakWriter, WriteDetail, WrittenBreak } from './break.writer.js';
+import { worthRetrying, type BreakRetry } from './break.retry.js';
+import type { WriteFault } from './break.prompt.js';
 import { errorText } from '#modules/shared/error.text.js';
 
 /**
@@ -147,9 +149,47 @@ export class BreakWriterRegistry {
             const attempt = await this.attempt(writer, request);
             attempts.push(attempt);
             if (attempt.written !== undefined) return { written: attempt.written, writer: attempt.writer, attempts };
+
+            // One more ask of the SAME writer, where what refused it is something the model can act
+            // on. The floor is the next writer in this list and it is still there; this only asks
+            // whether the answer that was nearly right can be made right, which a quarter of this
+            // station's talk breaks turn out to need. `break.retry.ts` carries the measurement, the
+            // set of faults and the reason the substrate ones are not in it.
+            //
+            // A second attempt in its own right, recorded like any other, because `script_history`
+            // is where "how often, and for what" is answered and a retry hidden inside a writer
+            // would take the first refusal out of that record. It is also why this is here rather
+            // than in the writer: the registry is what keeps the attempts.
+            const retry = this.retryOf(attempt);
+            if (retry === undefined) continue;
+
+            const second = await this.attempt(writer, { ...request, retry });
+            attempts.push(second);
+            if (second.written !== undefined) return { written: second.written, writer: second.writer, attempts };
         }
 
         return { attempts, reason: summarise(request.kind, attempts) };
+    }
+
+    /**
+     * What to put back to the writer, or nothing.
+     *
+     * Nothing for a fault the model cannot act on, for a writer that named none (every
+     * deterministic one, which has no model to ask again), and for an attempt that IS the second
+     * one — which is how "one retry, never two" is enforced: the request carrying `retry` is the
+     * only thing that could produce a third ask, and this is where it stops.
+     */
+    private retryOf(attempt: WriteAttempt): BreakRetry | undefined {
+        if (attempt.outcome !== 'declined') return undefined;
+
+        const fault = attempt.detail?.fault;
+        if (!worthRetrying(fault)) return undefined;
+
+        return {
+            fault: fault as WriteFault,
+            reason: attempt.reason ?? '',
+            ...(attempt.detail?.refused === undefined ? {} : { refused: attempt.detail.refused }),
+        };
     }
 
     /** One writer's turn, with every way of failing flattened into a reason. */

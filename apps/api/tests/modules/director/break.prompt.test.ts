@@ -2156,3 +2156,51 @@ describe('yearsIn', () => {
         expect(yearsIn('back in seventy-two')).toEqual([]);
     });
 });
+
+// The second ask reaches the model as a third turn. Everything about WHICH refusals get one is in
+// `break.retry.test.ts`; this is about the prompt carrying it faithfully once the registry has
+// decided, since a nudge the model never sees is a generation paid for and wasted.
+describe('breakPrompt on a second ask', () => {
+    it('carries nothing extra on an ordinary ask, so the prompt is what it always was', () => {
+        const messages = prompt({ kind: 'talkbreak', previous, next });
+
+        expect(messages).toHaveLength(2);
+        expect(messages.map(message => message.role)).toEqual(['system', 'user']);
+    });
+
+    it('adds one turn naming the rule that was broken', () => {
+        const messages = prompt({
+            kind: 'talkbreak',
+            previous,
+            next,
+            retry: { fault: 'out-of-character', reason: 'the model wrote a line the station could say, but not in its own voice' },
+        });
+
+        expect(messages).toHaveLength(3);
+        expect(messages[2]?.role).toBe('user');
+        expect(messages[2]?.content).toMatch(/did not sound like you/i);
+        // Asks for the SAME break rather than another one, which is what keeps the second answer
+        // comparable: a model told only what it did wrong writes a different break and gets refused
+        // for something new.
+        expect(messages[2]?.content).toMatch(/say the same break again/i);
+    });
+
+    it('quotes back what was refused, so the model edits rather than starting over', () => {
+        const messages = prompt({
+            kind: 'talkbreak',
+            previous,
+            next,
+            retry: { fault: 'avoided-wording', reason: 'the model used wording the persona forbids', refused: 'merely a spectacle' },
+        });
+
+        expect(messages[2]?.content).toContain('merely a spectacle');
+    });
+
+    it('leaves the system prompt and the break alone, since only the correction is new', () => {
+        const ordinary = prompt({ kind: 'talkbreak', previous, next });
+        const second = prompt({ kind: 'talkbreak', previous, next, retry: { fault: 'nothing-said', reason: 'nothing' } });
+
+        expect(system(second)).toBe(system(ordinary));
+        expect(user(second)).toBe(user(ordinary));
+    });
+});

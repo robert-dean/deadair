@@ -9,7 +9,8 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { PluginError } from '@deadair/plugin-sdk';
 
-import { BreakWriter, type BreakWriteRequest, type WrittenBreak } from '../../../src/modules/director/break.writer.js';
+import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBreak } from '../../../src/modules/director/break.writer.js';
+import type { WriteFault } from '../../../src/modules/director/break.prompt.js';
 import { BreakWriterRegistry, isWritten } from '../../../src/modules/director/break.writer.registry.js';
 
 class StubWriter extends BreakWriter {
@@ -282,5 +283,109 @@ describe('BreakWriterRegistry: what kind of failure it was', () => {
         // better sentence rather than silence. Only a caller that is MEASURING wants to know.
         expect(result.written?.script).toBe('That was Green Onions.');
         expect(result.writer).toBe('deterministic');
+    });
+});
+
+// The second ask. `readAnswer` declines rather than re-drafting, on the argument that the floor
+// underneath speaks in the same character — which stopped being true when a quarter of this
+// station's talk breaks started landing on six phrasings. So a refusal the model can act on gets one
+// more ask, and a refusal about the substrate does not. See `break.retry.ts`.
+class RecordingWriter extends BreakWriter {
+    readonly asked: BreakWriteRequest[] = [];
+
+    constructor(
+        readonly kind: string,
+        readonly name: string,
+        private readonly answers: (WrittenBreak | undefined)[],
+        private readonly details: (WriteDetail | undefined)[],
+    ) {
+        super();
+    }
+
+    async write(request: BreakWriteRequest): Promise<WrittenBreak | undefined> {
+        this.asked.push(request);
+        return this.answers[this.asked.length - 1];
+    }
+
+    detailOfLastWrite(): WriteDetail | undefined {
+        return this.details[this.asked.length - 1];
+    }
+}
+
+describe('BreakWriterRegistry asking a second time', () => {
+    const declined = (fault: WriteFault, refused = 'what it said'): WriteDetail => ({
+        reason: `refused for ${fault}`,
+        fault,
+        refused,
+    });
+
+    it('asks the same writer again when the model broke a rule it was given', async () => {
+        const writer = new RecordingWriter(
+            'talkbreak',
+            'model',
+            [undefined, { script: 'in character this time', label: 'a break' }],
+            [declined('out-of-character'), undefined],
+        );
+        const registry = new BreakWriterRegistry([writer, new StubWriter('talkbreak', 'floor', words('the floor'))], logger() as never);
+
+        const result = await registry.write({ kind: 'talkbreak' });
+
+        expect(isWritten(result) && result.written.script).toBe('in character this time');
+        // The floor is never reached, and both asks are on the record: `script_history` is where
+        // "how often, and for what" is answered, so a retry that hid the first refusal would take
+        // the question with it.
+        expect(result.writer).toBe('model');
+        expect(result.attempts.map(attempt => attempt.outcome)).toEqual(['declined', 'written']);
+    });
+
+    it('tells the writer what was refused, so the second ask is a correction rather than a re-roll', async () => {
+        const writer = new RecordingWriter(
+            'talkbreak',
+            'model',
+            [undefined, { script: 'better', label: 'a break' }],
+            [declined('avoided-wording', 'it was merely a spectacle'), undefined],
+        );
+        const registry = new BreakWriterRegistry([writer], logger() as never);
+
+        await registry.write({ kind: 'talkbreak' });
+
+        expect(writer.asked).toHaveLength(2);
+        expect(writer.asked[0]?.retry).toBeUndefined();
+        expect(writer.asked[1]?.retry).toMatchObject({ fault: 'avoided-wording', refused: 'it was merely a spectacle' });
+    });
+
+    it('does not ask again about the records, since a model that misread them will misread them again', async () => {
+        const writer = new RecordingWriter('talkbreak', 'model', [undefined, undefined], [declined('named-nothing'), undefined]);
+        const registry = new BreakWriterRegistry([writer, new StubWriter('talkbreak', 'floor', words('the floor'))], logger() as never);
+
+        const result = await registry.write({ kind: 'talkbreak' });
+
+        expect(writer.asked).toHaveLength(1);
+        expect(isWritten(result) && result.written.script).toBe('the floor');
+    });
+
+    it('asks once and never twice, so a model failing the same way costs one generation and not a loop', async () => {
+        const writer = new RecordingWriter(
+            'talkbreak',
+            'model',
+            [undefined, undefined],
+            [declined('out-of-character'), declined('out-of-character')],
+        );
+        const registry = new BreakWriterRegistry([writer, new StubWriter('talkbreak', 'floor', words('the floor'))], logger() as never);
+
+        const result = await registry.write({ kind: 'talkbreak' });
+
+        expect(writer.asked).toHaveLength(2);
+        expect(isWritten(result) && result.written.script).toBe('the floor');
+        expect(result.attempts.map(attempt => attempt.outcome)).toEqual(['declined', 'declined', 'written']);
+    });
+
+    it('leaves a writer that names no fault alone, which is every deterministic one', async () => {
+        const writer = new RecordingWriter('talkbreak', 'floor', [undefined, undefined], [{ reason: 'nothing to say' }, undefined]);
+        const registry = new BreakWriterRegistry([writer], logger() as never);
+
+        await registry.write({ kind: 'talkbreak' });
+
+        expect(writer.asked).toHaveLength(1);
     });
 });

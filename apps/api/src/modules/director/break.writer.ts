@@ -35,6 +35,8 @@ import type { PersonaNotesForPrompt } from '#modules/personas/persona.note.js';
 import type { PersonaStoryForPrompt } from '#modules/personas/persona.story.js';
 import type { SpokenWeather } from '#modules/weather/weather.words.js';
 import type { BreakContext } from './break.request.js';
+import type { BreakRetry } from './break.retry.js';
+import type { WriteFault } from './break.prompt.js';
 import type { RoughTime } from './clock.words.js';
 
 /** A record, as a writer sees one. */
@@ -230,6 +232,15 @@ export interface PlayedRecord {
 export interface BreakWriteRequest {
     /** Which sort of break this is. The same string as `segments.kind`. */
     kind: string;
+    /**
+     * The refusal this ask is a second attempt at, when it is one.
+     *
+     * Set by the registry alone, on exactly one re-ask, and only for a fault the model can act on —
+     * see `break.retry.ts` for which those are and why the substrate faults are not among them. A
+     * writer that ignores this field behaves as it always did, which is what every deterministic
+     * writer does: the floor has no model to ask again.
+     */
+    retry?: BreakRetry;
     /**
      * The record this break follows, when it follows one.
      *
@@ -614,6 +625,14 @@ export interface WriteDetail {
     reason?: string;
     /** What the line was rendered FROM, for a writer working from something an operator can edit. */
     source?: string;
+    /**
+     * Which fault refused this write, beside the sentence that describes it.
+     *
+     * The sentence is for a person and this is for the registry, which has to decide whether the
+     * refusal is one a second ask could fix and cannot do that by matching prose. It also makes
+     * "how often, and for what" a group-by rather than a `like`.
+     */
+    fault?: WriteFault;
     /** The provider's own token counts, when it reported any. */
     usage?: Record<string, number>;
     /** The messages as sent. Only when the operator asked for them to be kept. */

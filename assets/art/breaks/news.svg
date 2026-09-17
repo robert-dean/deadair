@@ -28,18 +28,21 @@
              leaves the plate's corners showing as ink. -->
         <rect x="124" y="206" width="132" height="116" rx="10" fill="#2ED88B"/>
         <g clip-path="url(#plate)">
-            <!-- Turned ten degrees FURTHER than the page, on top of the four the group already
-                 carries. Matching the page exactly is what this did first and it read as upright:
-                 the mark is very nearly symmetrical, so four degrees of it is invisible next to a
-                 rectangle at the same four. The number is what makes the tilt read rather than what
-                 makes it true.
+            <!-- Turned five degrees FURTHER than the page, on top of the four the group already
+                 carries: nine in all, which is the number this was settled at by eye.
+
+                 The extra is what makes the tilt READ rather than what makes it true. Matching the
+                 page exactly is what this did first and it looked upright, because the mark is very
+                 nearly symmetrical and four degrees of it is invisible beside a rectangle at the
+                 same four. Ten past the page was the other end of it, and looked like a photograph
+                 somebody had stuck on crooked.
 
                  Sized to fit WITHIN the plate rather than to its width: the plate is wider than it
                  is tall and the mark is square, so a head matched to the width is cropped top and
                  bottom and reads as a photograph nobody framed. -->
             <image
                 href="../../../apps/android/app/src/main/res/drawable-xxhdpi/ic_launcher_foreground.png"
-                transform="rotate(-10 190 264)"
+                transform="rotate(-5 190 264)"
                 x="102.9"
                 y="176.9"
                 width="174.7"

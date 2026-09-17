@@ -381,6 +381,15 @@ RUN cd /opt/analysis && PYTHONDONTWRITEBYTECODE=1 venv/bin/python -c "import app
 # exists so the seam does, and so the day somebody sources verified CC0 audio it is a file drop.
 COPY assets/pads /app/assets/pads
 
+# The pictures the station shows for a kind of break -- a weather forecast, a news bulletin -- which
+# a listener's player draws from the stream's artwork field and every listener app draws beside the
+# title. Copied for the same reason and on the same terms as the soundboard above: part of the image
+# rather than something the operator gave the station. Unlike the pads this directory is NOT empty,
+# because `assets/art/breaks/MANIFEST.json`'s answer to the CC0 rule is that both pictures were drawn
+# for this repository. The station takes them into its own art store on first boot and serves them
+# from there; an operator who uploads their own replaces the bytes, and Revert re-reads these.
+COPY assets/art/breaks /app/assets/art/breaks
+
 # What the app renders its stream config FROM. Only the template: `station-id.mp3` and the script
 # are the audio chain's, not the app's, and the app reads nothing else here.
 COPY stream/icecast.xml.tmpl /app/stream/
@@ -441,6 +450,7 @@ ENV NODE_ENV=production \
     # the image rather than something the operator gave the station, and it is copied INTO the pad
     # library rather than served from here.
     PAD_ASSETS_DIR=/app/assets/pads \
+    BREAK_ART_ASSETS_DIR=/app/assets/art/breaks \
     STREAM_CONFIG_DIR=/data/streamconfig \
     # Everything that reads the rendered config here is the station's own user, so the passwords
     # in it are not world-readable. The default is looser because it has to serve a deployment

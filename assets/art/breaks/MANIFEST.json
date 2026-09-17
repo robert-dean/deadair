@@ -1,0 +1,41 @@
+{
+    "$comment": [
+        "Provenance for every picture this repository SHIPS for a kind of break. The rule is the",
+        "one assets/pads/MANIFEST.json states and it is not relaxed for images: CC0 or an equivalent",
+        "public-domain dedication, and attribution-requiring work is refused rather than credited,",
+        "because a radio station has nowhere to put a credit and the obligation would travel to the",
+        "operator in silence.",
+        "",
+        "Both entries below answer that rule the cleanest way there is: they were DRAWN for this",
+        "repository rather than sourced, so there is nobody to credit and nothing to verify. The",
+        "`.svg` each was drawn as sits beside the `.png` so the next person can edit the artwork",
+        "instead of tracing it; the PNG is what ships, because a hardware player fetches a picture",
+        "and will not render SVG.",
+        "",
+        "`sha256` is of the PNG, and it is what makes an entry checkable by somebody who was not",
+        "here. `kind` is `segments.kind`, which is what decides which break wears which file: a new",
+        "kind is a file named after it plus a line here, and nothing in the code learns its name.",
+        "",
+        "These are DEFAULTS. The station writes each one into its own art store on first boot and",
+        "serves it from there; an operator who uploads their own replaces the bytes under the same",
+        "id, and reverting re-reads the file named here. Nothing under `/data` or `/media` is a copy",
+        "of this directory -- it is part of the image, so an upgrade that improves a picture is what",
+        "a revert then restores."
+    ],
+    "breaks": [
+        {
+            "kind": "weather",
+            "file": "weather.png",
+            "sha256": "41ae3ba82917b9f546e9944a440c7390ac72e9d83637da8b0118b040ee209044",
+            "source": "Drawn for this repository (weather.svg beside it)",
+            "licence": "CC0-1.0"
+        },
+        {
+            "kind": "news",
+            "file": "news.png",
+            "sha256": "f7e57f60cb56ab54cb9d21e5bcae519a1dba5b61f9819c4a2f10b51c00b0bbac",
+            "source": "Drawn for this repository (news.svg beside it)",
+            "licence": "CC0-1.0"
+        }
+    ]
+}

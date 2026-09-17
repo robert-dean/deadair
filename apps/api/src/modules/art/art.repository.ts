@@ -99,6 +99,32 @@ export class ArtRepository extends DataRepository {
     }
 
     /**
+     * Every asset whose key begins with a prefix, oldest first.
+     *
+     * For the one family of rows that is enumerable at all: a break picture is keyed
+     * `deadair:break-art/<kind>` (`BREAK_ART_SOURCE` in `break.art.ts`), so the prefix IS the family
+     * and the remainder is the kind. A cached cover has no such shape — its key is whatever URL a provider
+     * minted — which is why nothing else asks this question and why this takes a prefix rather than
+     * growing a column that would be null on every row but a handful.
+     *
+     * `like` with the prefix escaped: a key is a constant in this codebase rather than anything a
+     * caller types, but an unescaped `_` matching any character is the kind of thing that stays
+     * wrong quietly.
+     */
+    async findBySourcePrefix(prefix: string): Promise<ArtAsset[]> {
+        const escaped = prefix.replace(/[\\%_]/g, character => `\\${character}`);
+
+        const rows = await this.db
+            .selectFrom('deadair.artAssets')
+            .select(ASSET_COLUMNS)
+            .where('sourceUrl', 'like', `${escaped}%`)
+            .orderBy('createdAt', 'asc')
+            .execute();
+
+        return rows.map(toAsset);
+    }
+
+    /**
      * Records bytes against a source URL, creating the row if this is the first attempt.
      *
      * Clears the failure state on the way through: a URL that failed twice and then worked is

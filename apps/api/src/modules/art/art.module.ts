@@ -1,13 +1,28 @@
-import { Registry } from 'injectkit';
+import { Container, Registry } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
+import { Logger } from '@maroonedsoftware/logger';
 import { ServerKitModule } from '@maroonedsoftware/koa';
+import { errorText } from '#modules/shared/error.text.js';
+import { inScope } from '#modules/shared/scoped.work.js';
 import { ArtCacheService } from './art.cache.service.js';
 import { ArtRepository } from './art.repository.js';
 import { ArtService } from './art.service.js';
 import { ArtStore } from './art.store.js';
+import { BreakArtworkService } from './break.artwork.service.js';
 
 /** Where cached art is written when `ART_DIR` is unset. Alongside `logs/`, and gitignored with it. */
 const DEFAULT_ART_DIR = './media/art';
+
+/**
+ * Where the pictures this repository ships for a kind of break are read from, when
+ * `BREAK_ART_ASSETS_DIR` is unset.
+ *
+ * Tracked in the repository and part of the BUILD, which is `PAD_ASSETS_DIR`'s case exactly and has
+ * its answer: not under `/data` or `/media`, because it is not something the operator gave the
+ * station. The station copies one into its own art store on first boot and serves it from there, so
+ * this directory is read at boot and when somebody presses Revert, and never otherwise.
+ */
+const DEFAULT_BREAK_ART_ASSETS_DIR = '../../assets/art/breaks';
 
 /**
  * Locally cached artwork: the files, and the rows that say what is in them.
@@ -52,5 +67,38 @@ export const ArtModule: ServerKitModule = {
         registry.register(ArtRepository).useClass(ArtRepository).asScoped();
         registry.register(ArtService).useClass(ArtService).asScoped();
         registry.register(ArtCacheService).useClass(ArtCacheService).asScoped();
+
+        // Scoped like the two services beside it, and for the same reason: it writes through
+        // `ArtRepository`. The shipped directory is a constructor argument rather than a config read
+        // inside the class, on `PadLibrary`'s convention — it keeps the class testable against a
+        // temp directory with no container.
+        const breakArtAssetsDir = config.get('BREAK_ART_ASSETS_DIR', DEFAULT_BREAK_ART_ASSETS_DIR);
+        registry
+            .register(BreakArtworkService)
+            .useFactory(
+                container => new BreakArtworkService(container.get(ArtRepository), container.get(ArtStore), breakArtAssetsDir, container.get(Logger)),
+            )
+            .asScoped();
+    },
+
+    /**
+     * Take in the pictures this repository ships for a kind of break, where the station holds none.
+     *
+     * In `ready` rather than `setup`, on the rule in `apps/api/CLAUDE.md`: nothing the first request
+     * does depends on it, and it is a directory read plus a row and a file per picture. In its own
+     * try for `RenderModule.ready`'s reason — a picture that cannot be read is a break wearing the
+     * station's logo, which is what every break did before this existed, and never a reason to
+     * refuse to boot.
+     */
+    ready: async (container: Container, signal: AbortSignal) => {
+        if (signal.aborted) return;
+        const logger = container.get(Logger);
+
+        try {
+            const taken = await inScope(container, async scope => scope.get(BreakArtworkService).seed());
+            if (taken > 0) logger.info('art: took in the pictures shipped for a kind of break', { pictures: taken });
+        } catch (error) {
+            logger.warn(`art: could not take in the pictures shipped for a kind of break (${errorText(error)})`);
+        }
     },
 };

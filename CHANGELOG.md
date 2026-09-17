@@ -9,6 +9,23 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.17.0] — 2026-09-17
+
+- A weather forecast and a news bulletin now say what they are on the stream itself: `Your Station -
+  Weather in Brooklyn` rather than the station's name alone, on a car screen, a hardware radio and the
+  listener apps alike. Talk breaks, idents and anything you add keep showing the station's name, since
+  nothing can tell from a label alone whether it was written for a listener or for the person running
+  the station — the break's own writer decides, and only the ones that produce a listener-facing line
+  offer one.
+- Disliking something now reaches the show that is already on air. Until now a dislike was applied
+  where a running order is BUILT — when the station draws records, and when a playlist is put on air —
+  so an order that had already been decided went on playing what you had just forbidden, sometimes for
+  hours. Rating an artist, a record or a song `disliked` takes every record it forbids out of the
+  running order straight away, and if one of them is what is playing, it is cut where it stands rather
+  than allowed to finish. A break that had promised one of the departed records is rewritten while
+  there is still time, and the station tops the order back up to make up the gap. Nothing changes about
+  a like, which has always been a weighting on the next draw rather than an instruction.
+
 ## [0.16.0] — 2026-09-17
 
 - The running order shows the picture a break wears. A weather forecast and a news bulletin already
@@ -240,7 +257,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.16.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.17.0...HEAD
+[0.17.0]: https://github.com/robert-dean/deadair/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/robert-dean/deadair/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/robert-dean/deadair/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/robert-dean/deadair/compare/v0.13.3...v0.14.0

@@ -9,6 +9,14 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.16.0] — 2026-09-17
+
+- The running order shows the picture a break wears. A weather forecast and a news bulletin already
+  had one on the stream and in a listener's player; the order at the desk and on the phone drew a
+  microphone against every break, so the same forecast looked like two different things depending on
+  where you were standing. Both now draw the picture, and the microphone is what a kind with no
+  picture falls back to.
+
 ## [0.15.0] — 2026-09-17
 
 - A weather forecast and a news bulletin now have pictures of their own. Both used to wear the
@@ -232,7 +240,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.15.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.16.0...HEAD
+[0.16.0]: https://github.com/robert-dean/deadair/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/robert-dean/deadair/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/robert-dean/deadair/compare/v0.13.3...v0.14.0
 [0.13.3]: https://github.com/robert-dean/deadair/compare/v0.13.2...v0.13.3

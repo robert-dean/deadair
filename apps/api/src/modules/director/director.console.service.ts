@@ -838,6 +838,12 @@ export class DirectorConsoleService {
      * same fork: `trackId` is optional because a station can air a record it has not ingested, and
      * "the catalog has no opinion" is not "the catalog forbids it".
      *
+     * **The record on air is cut where it stands**, rather than being allowed to finish. A dislike
+     * is an instruction, and a station that keeps playing the record an operator has just forbidden
+     * for another three minutes has not followed it. That is the same two halves in the same fixed
+     * order a skip to a record takes — the order moves inside the mailbox, the transport cuts
+     * outside it — and the same treatment of a refusal.
+     *
      * Silent about everything. Nothing is waiting on this — the operator's rating has already been
      * answered — so an order with nothing forbidden in it does no work and writes no feed row.
      */
@@ -865,6 +871,18 @@ export class DirectorConsoleService {
             items: vetoed.length,
             cutAiring,
         });
+
+        // The transport's half, and AFTER the order has moved, on {@link skipToOrderItem}'s
+        // argument: the cut advances the player to whatever is queued next, so a cut that landed
+        // first could advance it onto another record the same instruction has just forbidden.
+        //
+        // Outside the mailbox, because it waits out a boundary. A cut the stream refuses is logged
+        // rather than raised: the record has already been taken out of the order everywhere the
+        // order could take it out, nobody is waiting on this, and the alternative is an operator's
+        // rating reporting failure after it succeeded.
+        if (cutAiring && this.rundown.nowPlaying() !== undefined && !(await this.pusher.skipCurrent())) {
+            this.logger.warn('director: the record on air is one the station has been told not to play, but the stream did not take the cut');
+        }
     }
 
     /**

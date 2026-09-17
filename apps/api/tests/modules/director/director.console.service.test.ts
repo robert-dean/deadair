@@ -1675,6 +1675,53 @@ describe('DirectorConsoleService vetoing what the station has been forbidden', (
         expect(activity.record.mock.calls[0]![0]!.detail).toContain('Grateful Dead');
     });
 
+    it('cuts the record on air, and only after the order has moved', async () => {
+        // The order first, on the skip's argument: the cut advances the player to whatever is
+        // queued next, so a cut that landed first could advance it onto another record the same
+        // instruction has just forbidden.
+        const order = onAirWith(3);
+        order.markAiring(order.nextPlanned(1)[0]!.id);
+        const { service, pusher, cutAgainst } = build({ order, airing: true, effectiveRatings: { trk_0: -1, trk_1: -1 } });
+
+        await service.vetoDisliked('Grateful Dead');
+
+        expect(pusher.skipCurrent).toHaveBeenCalledTimes(1);
+        // The forbidden record still to come was already gone when the cut landed, so the player
+        // cannot advance onto it.
+        expect(cutAgainst[0]).toEqual(['airing', 'planned']);
+    });
+
+    it('leaves the record on air alone when it is not one of the forbidden ones', async () => {
+        const order = onAirWith(3);
+        order.markAiring(order.nextPlanned(1)[0]!.id);
+        const { service, pusher } = build({ order, airing: true, effectiveRatings: { trk_0: 0, trk_2: -1 } });
+
+        await service.vetoDisliked('Grateful Dead');
+
+        expect(pusher.skipCurrent).not.toHaveBeenCalled();
+    });
+
+    it('cuts nothing when the transport says nothing is playing', async () => {
+        const order = onAirWith(2);
+        order.markAiring(order.nextPlanned(1)[0]!.id);
+        const { service, pusher } = build({ order, airing: false, effectiveRatings: { trk_0: -1 } });
+
+        await service.vetoDisliked('Grateful Dead');
+
+        expect(pusher.skipCurrent).not.toHaveBeenCalled();
+    });
+
+    it('logs a cut the stream refused rather than failing the rating behind it', async () => {
+        // The record is already out of the order everywhere the order could take it out, and the
+        // operator's rating has already succeeded. Raising here would report a failure for
+        // something that worked.
+        const order = onAirWith(2);
+        order.markAiring(order.nextPlanned(1)[0]!.id);
+        const { service } = build({ order, airing: true, cutTakes: false, effectiveRatings: { trk_0: -1 } });
+
+        await expect(service.vetoDisliked('Grateful Dead')).resolves.toBeUndefined();
+    });
+
     it('cancels the reactor before it edits, like every other writer of what airs', async () => {
         // A commit pass may already have gathered its material and be suspended in a read. Only the
         // epoch reaches it, and a veto that posted without bumping it would let the pass commit the

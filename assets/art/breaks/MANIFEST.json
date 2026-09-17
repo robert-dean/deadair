@@ -7,10 +7,15 @@
         "operator in silence.",
         "",
         "Both entries below answer that rule the cleanest way there is: they were DRAWN for this",
-        "repository rather than sourced, so there is nobody to credit and nothing to verify. The",
-        "`.svg` each was drawn as sits beside the `.png` so the next person can edit the artwork",
-        "instead of tracing it; the PNG is what ships, because a hardware player fetches a picture",
-        "and will not render SVG.",
+        "repository rather than sourced, so there is nobody to credit and nothing to verify. Each one",
+        "composites the station's OWN mark -- the skull from apps/ios's app icon, which is the largest",
+        "copy in the tree and the only one with no lettering -- into the glyph rather than beside it:",
+        "the skull is what is inside the cloud, and what is in the photograph on the front page.",
+        "",
+        "The `.svg` each was drawn as sits beside the `.png` so the next person can edit the artwork",
+        "instead of tracing it, and it references the mark by path rather than embedding it, so the",
+        "source stays a few kilobytes. The PNG is what ships, because a hardware player fetches a",
+        "picture and will not render SVG; each was rasterised with the command the SVG names.",
         "",
         "`sha256` is of the PNG, and it is what makes an entry checkable by somebody who was not",
         "here. `kind` is `segments.kind`, which is what decides which break wears which file: a new",
@@ -26,15 +31,15 @@
         {
             "kind": "weather",
             "file": "weather.png",
-            "sha256": "41ae3ba82917b9f546e9944a440c7390ac72e9d83637da8b0118b040ee209044",
-            "source": "Drawn for this repository (weather.svg beside it)",
+            "sha256": "7a447a335b897ee0f13f66472f1b5b32b9389a9f9497b3b13cd29d999b55a2d5",
+            "source": "Drawn for this repository (weather.svg beside it), over the station's own mark",
             "licence": "CC0-1.0"
         },
         {
             "kind": "news",
             "file": "news.png",
-            "sha256": "f7e57f60cb56ab54cb9d21e5bcae519a1dba5b61f9819c4a2f10b51c00b0bbac",
-            "source": "Drawn for this repository (news.svg beside it)",
+            "sha256": "1f77577a4c308ee4a4522e03385bfd8f46e56b835e6ba777f9d75db21d60df39",
+            "source": "Drawn for this repository (news.svg beside it), over the station's own mark",
             "licence": "CC0-1.0"
         }
     ]

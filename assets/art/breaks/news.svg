@@ -1,22 +1,34 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
     <!-- The picture a news break wears. Drawn for this repository; see MANIFEST.json.
 
-         A folded sheet rather than a microphone or a mast: both of those read as "the station is
-         talking", which is every other kind of break. The masthead bar and the column rules are
-         cut OUT of the ink in the background colour, so the whole thing survives being drawn at
-         28 pixels in a running-order row. -->
-    <rect width="512" height="512" fill="#2FD98C"/>
-    <g transform="rotate(-4 256 256) translate(256 256) scale(1.14) translate(-256 -256)">
-        <!-- The sheet. -->
-        <rect x="112" y="128" width="288" height="256" rx="18" fill="#121514"/>
-        <!-- The masthead, then the photo block and its columns. -->
-        <g fill="#2FD98C">
-            <rect x="144" y="162" width="224" height="30" rx="8"/>
-            <rect x="144" y="222" width="94" height="76" rx="8"/>
-            <rect x="258" y="222" width="110" height="16" rx="8"/>
-            <rect x="258" y="252" width="110" height="16" rx="8"/>
-            <rect x="258" y="282" width="110" height="16" rx="8"/>
-            <rect x="144" y="322" width="224" height="16" rx="8"/>
-        </g>
+         A front page, with the station's own mark as the photograph on it — the same move the
+         weather picture makes, which is what keeps the two a set. A sheet rather than a microphone
+         or a mast: both of those read as "the station is talking", which is every other kind of
+         break.
+
+         The masthead and the columns are cut OUT of the ink in the background colour, so the whole
+         thing still reads at the 28 pixels a running-order row draws it at. `news.png` beside this
+         is what ships, rasterised the way `weather.svg` says. -->
+    <defs>
+        <clipPath id="plate">
+            <rect transform="rotate(-4 256 256)" x="124" y="206" width="132" height="116" rx="10"/>
+        </clipPath>
+    </defs>
+
+    <rect width="512" height="512" fill="#2ED88B"/>
+
+    <g transform="rotate(-4 256 256)">
+        <rect x="100" y="126" width="312" height="268" rx="18" fill="#121514"/>
+        <rect x="124" y="152" width="264" height="34" rx="9" fill="#2ED88B"/>
+    </g>
+    <!-- Outside the rotated group, because the clip path carries the same rotation itself: applying
+         it twice would turn the photograph eight degrees off the page it sits on. -->
+    <image href="../../../apps/ios/Sources/Assets.xcassets/AppIcon.appiconset/AppIcon.png" x="106.8" y="180.0" width="167.1" height="167.1" clip-path="url(#plate)"/>
+    <g transform="rotate(-4 256 256)" fill="#2ED88B">
+        <rect x="276" y="206" width="112" height="17" rx="8"/>
+        <rect x="276" y="239" width="112" height="17" rx="8"/>
+        <rect x="276" y="272" width="112" height="17" rx="8"/>
+        <rect x="276" y="305" width="112" height="17" rx="8"/>
+        <rect x="124" y="338" width="264" height="17" rx="8"/>
     </g>
 </svg>

@@ -1,30 +1,44 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
     <!-- The picture a weather break wears. Drawn for this repository; see MANIFEST.json.
 
-         Phosphor (#2FD98C) and carbon (#121514) are the console's own accent and ink, so a
-         break sits beside the station's logo rather than beside a stock photograph. Flat and
-         unlettered on purpose: this is drawn at 512 and seen at 28 in a running-order row, at 88
-         on the desk, and at whatever a hardware player's artwork slot happens to be. -->
-    <rect width="512" height="512" fill="#2FD98C"/>
-    <g fill="#121514">
-        <!-- The sun, behind and up-left, so the cloud reads as being in front of it. -->
-        <g>
-            <circle cx="196" cy="186" r="70"/>
-            <g stroke="#121514" stroke-width="22" stroke-linecap="round">
-                <line x1="196" y1="66" x2="196" y2="92"/>
-                <line x1="196" y1="280" x2="196" y2="306"/>
-                <line x1="76" y1="186" x2="102" y2="186"/>
-                <line x1="290" y1="186" x2="316" y2="186"/>
-                <line x1="111" y1="101" x2="129" y2="119"/>
-                <line x1="263" y1="253" x2="281" y2="271"/>
-                <line x1="111" y1="271" x2="129" y2="253"/>
-                <line x1="263" y1="119" x2="281" y2="101"/>
-            </g>
-        </g>
-        <!-- The cloud, stroked in the background colour so its edge separates it from the sun
-             behind it. Both shapes are the same ink, so without that stroke they merge into one
-             blob at row size. -->
-        <path d="M176 396a74 74 0 0 1 8-147 104 104 0 0 1 196-30 66 66 0 0 1 8 177z"
-              stroke="#2FD98C" stroke-width="24" stroke-linejoin="round"/>
+         The station's own mark is IN the weather rather than beside it: the skull is what is inside
+         the cloud, with the sun behind. The cloud is therefore drawn three times — the background
+         colour to fill it, the mark clipped to its outline, and the ink stroke over the top — because
+         the mark carries its own flat green field (#2ED88B, which this tile matches, so the join is
+         invisible) and an unstroked cloud on a green tile would have no edge at all.
+
+         `weather.png` beside this is what SHIPS, and it is this file rasterised:
+
+             qlmanage -t -s 512 -o <somewhere> assets/art/breaks/weather.svg
+
+         The mark is referenced by path rather than embedded so this file stays a few kilobytes; the
+         path is `apps/ios`'s app icon, which is the largest copy of it in the tree at 1024px and the
+         only one with no lettering. -->
+    <defs>
+        <!-- A `<g>` is not a permitted child of `<clipPath>`, so the transform sits on the path
+             itself. It renders as an empty clip otherwise, which is a picture with no skull in it. -->
+        <clipPath id="cloud">
+            <path transform="translate(-146 -97) scale(1.28)" d="M176 396a74 74 0 0 1 8-147 104 104 0 0 1 196-30 66 66 0 0 1 8 177z"/>
+        </clipPath>
+    </defs>
+
+    <rect width="512" height="512" fill="#2ED88B"/>
+
+    <!-- The sun, first, so the cloud passes in front of it. -->
+    <g stroke="#121514" stroke-width="16" stroke-linecap="round">
+        <line x1="463.3" y1="191.7" x2="491.0" y2="203.2"/>
+        <line x1="429.7" y1="225.3" x2="441.2" y2="253.0"/>
+        <line x1="382.3" y1="225.3" x2="370.8" y2="253.0"/>
+        <line x1="348.7" y1="191.7" x2="321.0" y2="203.2"/>
+        <line x1="348.7" y1="144.3" x2="321.0" y2="132.8"/>
+        <line x1="382.3" y1="110.7" x2="370.8" y2="83.0"/>
+        <line x1="429.7" y1="110.7" x2="441.2" y2="83.0"/>
+        <line x1="463.3" y1="144.3" x2="491.0" y2="132.8"/>
     </g>
+    <circle cx="406" cy="168" r="54" fill="#121514"/>
+
+    <!-- The cloud: its field, the mark inside it, then its edge. -->
+    <path transform="translate(-146 -97) scale(1.28)" d="M176 396a74 74 0 0 1 8-147 104 104 0 0 1 196-30 66 66 0 0 1 8 177z" fill="#2ED88B"/>
+    <image href="../../../apps/ios/Sources/Assets.xcassets/AppIcon.appiconset/AppIcon.png" x="133.2" y="184.1" width="234.5" height="234.5" clip-path="url(#cloud)"/>
+    <path transform="translate(-146 -97) scale(1.28)" d="M176 396a74 74 0 0 1 8-147 104 104 0 0 1 196-30 66 66 0 0 1 8 177z" fill="none" stroke="#121514" stroke-width="20" stroke-linejoin="round"/>
 </svg>

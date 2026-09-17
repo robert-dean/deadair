@@ -94,6 +94,14 @@ export const queryKeys = {
         list: () => ['pads', 'list'] as const,
     },
     /**
+     * The picture each kind of break wears. One key and no per-kind slice, for the pads' reason:
+     * both writes answer with the whole listing, because replacing one kind's picture is a change to
+     * the one page that shows all of them.
+     */
+    breakArtwork: {
+        list: () => ['breakArtwork', 'list'] as const,
+    },
+    /**
      * Who the station can be. One key, and no per-persona form: every write answers with the whole
      * list, because putting one on air takes another off, so there is never a slice of this worth
      * invalidating on its own. Same shape as `settings` above and for the same reason.

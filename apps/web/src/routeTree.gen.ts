@@ -29,6 +29,7 @@ import { Route as PluginsIndexRouteImport } from './routes/plugins/index'
 import { Route as SettingsIndexRouteImport } from './routes/settings/index'
 import { Route as SettingsAnalysisRouteImport } from './routes/settings/analysis'
 import { Route as SettingsAppearanceRouteImport } from './routes/settings/appearance'
+import { Route as SettingsArtworkRouteImport } from './routes/settings/artwork'
 import { Route as SettingsGrantsRouteImport } from './routes/settings/grants'
 import { Route as SettingsHousekeepingRouteImport } from './routes/settings/housekeeping'
 import { Route as SettingsLlmRouteImport } from './routes/settings/llm'
@@ -148,6 +149,11 @@ const SettingsAppearanceRoute = SettingsAppearanceRouteImport.update({
   path: '/settings/appearance',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SettingsArtworkRoute = SettingsArtworkRouteImport.update({
+  id: '/settings/artwork',
+  path: '/settings/artwork',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SettingsGrantsRoute = SettingsGrantsRouteImport.update({
   id: '/settings/grants',
   path: '/settings/grants',
@@ -257,6 +263,7 @@ export interface FileRoutesByFullPath {
   '/auth/callback': typeof AuthCallbackRoute
   '/settings/analysis': typeof SettingsAnalysisRoute
   '/settings/appearance': typeof SettingsAppearanceRoute
+  '/settings/artwork': typeof SettingsArtworkRoute
   '/settings/grants': typeof SettingsGrantsRoute
   '/settings/housekeeping': typeof SettingsHousekeepingRoute
   '/settings/llm': typeof SettingsLlmRoute
@@ -297,6 +304,7 @@ export interface FileRoutesByTo {
   '/auth/callback': typeof AuthCallbackRoute
   '/settings/analysis': typeof SettingsAnalysisRoute
   '/settings/appearance': typeof SettingsAppearanceRoute
+  '/settings/artwork': typeof SettingsArtworkRoute
   '/settings/grants': typeof SettingsGrantsRoute
   '/settings/housekeeping': typeof SettingsHousekeepingRoute
   '/settings/llm': typeof SettingsLlmRoute
@@ -338,6 +346,7 @@ export interface FileRoutesById {
   '/auth/callback': typeof AuthCallbackRoute
   '/settings/analysis': typeof SettingsAnalysisRoute
   '/settings/appearance': typeof SettingsAppearanceRoute
+  '/settings/artwork': typeof SettingsArtworkRoute
   '/settings/grants': typeof SettingsGrantsRoute
   '/settings/housekeeping': typeof SettingsHousekeepingRoute
   '/settings/llm': typeof SettingsLlmRoute
@@ -380,6 +389,7 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/settings/analysis'
     | '/settings/appearance'
+    | '/settings/artwork'
     | '/settings/grants'
     | '/settings/housekeeping'
     | '/settings/llm'
@@ -420,6 +430,7 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/settings/analysis'
     | '/settings/appearance'
+    | '/settings/artwork'
     | '/settings/grants'
     | '/settings/housekeeping'
     | '/settings/llm'
@@ -460,6 +471,7 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/settings/analysis'
     | '/settings/appearance'
+    | '/settings/artwork'
     | '/settings/grants'
     | '/settings/housekeeping'
     | '/settings/llm'
@@ -501,6 +513,7 @@ export interface RootRouteChildren {
   AuthCallbackRoute: typeof AuthCallbackRoute
   SettingsAnalysisRoute: typeof SettingsAnalysisRoute
   SettingsAppearanceRoute: typeof SettingsAppearanceRoute
+  SettingsArtworkRoute: typeof SettingsArtworkRoute
   SettingsGrantsRoute: typeof SettingsGrantsRoute
   SettingsHousekeepingRoute: typeof SettingsHousekeepingRoute
   SettingsLlmRoute: typeof SettingsLlmRoute
@@ -667,6 +680,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsAppearanceRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/settings/artwork': {
+      id: '/settings/artwork'
+      path: '/settings/artwork'
+      fullPath: '/settings/artwork'
+      preLoaderRoute: typeof SettingsArtworkRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/settings/grants': {
       id: '/settings/grants'
       path: '/settings/grants'
@@ -813,6 +833,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthCallbackRoute: AuthCallbackRoute,
   SettingsAnalysisRoute: SettingsAnalysisRoute,
   SettingsAppearanceRoute: SettingsAppearanceRoute,
+  SettingsArtworkRoute: SettingsArtworkRoute,
   SettingsGrantsRoute: SettingsGrantsRoute,
   SettingsHousekeepingRoute: SettingsHousekeepingRoute,
   SettingsLlmRoute: SettingsLlmRoute,

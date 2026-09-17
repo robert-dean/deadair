@@ -27,6 +27,7 @@ export type SettingsSectionId =
     | 'render'
     | 'llm'
     | 'analysis'
+    | 'artwork'
     | 'storage'
     | 'grants'
     | 'plugins';
@@ -160,6 +161,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
         group: 'analysis',
         blurb: 'Which plugin measures records, so the station can trim the dead air off each one and know how long it may talk over an intro. With none set up every track still plays, unmeasured.',
     },
+    { id: 'artwork', label: 'Artwork', hint: "The pictures a listener's player shows" },
     { id: 'storage', label: 'Storage', hint: 'What the caches are holding' },
     { id: 'grants', label: 'Waiting on you', hint: 'What plugins have asked for' },
     { id: 'plugins', label: 'Plugins', hint: 'What the station runs, and what they have asked for', route: '/plugins' },
@@ -188,6 +190,7 @@ export const SETTINGS_ROUTES: Record<
     | '/settings/render'
     | '/settings/llm'
     | '/settings/analysis'
+    | '/settings/artwork'
     | '/settings/storage'
     | '/settings/grants'
     | '/plugins'
@@ -203,6 +206,7 @@ export const SETTINGS_ROUTES: Record<
     render: '/settings/render',
     llm: '/settings/llm',
     analysis: '/settings/analysis',
+    artwork: '/settings/artwork',
     storage: '/settings/storage',
     grants: '/settings/grants',
     plugins: '/plugins',

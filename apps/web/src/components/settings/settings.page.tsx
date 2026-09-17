@@ -13,6 +13,7 @@ import { SecurityCard } from './security.card';
 import { ApiKeysCard } from './api.keys.card';
 import { SETTINGS_SECTIONS, type SettingsSection, type SettingsSectionId } from './settings.shell';
 import { UnsavedGuard } from './unsaved.guard';
+import { BreakArtCard } from './break.art.card';
 import { StorageCard } from './storage.card';
 
 /**
@@ -51,12 +52,14 @@ export interface SettingsSectionPageProps {
 /**
  * A section whose contents are a card of its own rather than declared settings.
  *
- * Appearance writes to this browser, Storage is read-only, Grants is somebody else's question, and
- * Security is about the operator rather than the station.
+ * Appearance writes to this browser, Storage is read-only, Grants is somebody else's question,
+ * Security is about the operator rather than the station, and Artwork is pictures rather than
+ * settings — every layer of `AppConfig` holds text, so an image was never going to be one.
  * None of them reads `GET /settings`, so none of them shows a skeleton waiting for it.
  */
 function StandaloneSection({ section }: { section: SettingsSection }) {
     if (section.id === 'appearance') return <AppearanceCard />;
+    if (section.id === 'artwork') return <BreakArtCard />;
     if (section.id === 'storage') return <StorageCard />;
     if (section.id === 'grants') return <PluginGrantsCard />;
     // Keys beside the factors rather than in a section of their own: both are how this account gets

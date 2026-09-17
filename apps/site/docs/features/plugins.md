@@ -56,7 +56,7 @@ What the station does is hold a well-behaved plugin to what it said:
 - **It reaches only the hosts it names**, or the address you gave it in a setting. Anything else is refused, every redirect is checked again, and each service is paced at its published rate limit.
 - **Every call is bounded** in time, and the answer in size.
 - **Secrets are write-only**: encrypted at rest, never shown again, never returned by the API.
-- **A failing plugin is set aside.** Three failures in a row mark it Failed, so calls stop piling up behind it. If the fault can clear, the station probes it and restores it when it answers; if not, as with a rejected key, saving its settings brings it back.
+- **A failing plugin is set aside.** Three failures in a row mark it Failed, so calls stop piling up behind it. If the fault can clear, the station probes it and restores it when it answers; if not, as with a rejected key, saving its settings brings it back. What counts is the station's own calls: Test connection asks the plugin whatever state it is in, and a test that comes back unhappy never sets a working plugin aside.
 
 That protects an honest plugin from a hostile service, and you from a careless plugin. It does not protect you from a hostile one. The permissions a plugin declares describe what it says it needs; they are not a limit on what it can do.
 

@@ -57,7 +57,9 @@ describe('PluginDetailPage', () => {
 
         expect(await screen.findByText('Last error')).toBeInTheDocument();
         expect(screen.getByText('ECONNREFUSED 127.0.0.1:4533')).toBeInTheDocument();
-        expect(screen.getByText('The host could not start it. See the error below.')).toBeInTheDocument();
+        // Both halves of what `failed` means, because the status cannot tell them apart and a
+        // sentence naming only the start sent an operator to look at an install for an address.
+        expect(screen.getByText(/would not start, or it failed too many calls/)).toBeInTheDocument();
     });
 
     it('names the directory a plugin that failed to load was read from', async () => {

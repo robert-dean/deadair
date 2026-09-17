@@ -26,7 +26,11 @@ export const PLUGIN_STATUS: Record<PluginStatus, StatusDescriptor> = {
     active: { label: 'Active', tone: 'ok', description: 'Running and available to the station.' },
     disabled: { label: 'Disabled', tone: 'off', description: 'Switched off. Its configuration is kept.' },
     misconfigured: { label: 'Misconfigured', tone: 'fault', description: 'Installed, but its settings are incomplete or rejected.' },
-    failed: { label: 'Failed', tone: 'live', description: 'The host could not start it. See the error below.' },
+    // Two states wear this one word, and the sentence has to fit both: a plugin the host could not
+    // start, and a plugin that started and was later quarantined for failing its calls. It said only
+    // the first for as long as it existed, so a speech engine the breaker had tripped read as one
+    // that never loaded — sending an operator to look at the install for a fault that was an address.
+    failed: { label: 'Failed', tone: 'live', description: 'It would not start, or it failed too many calls in a row. See the error below.' },
     discovered: { label: 'Discovered', tone: 'standby', description: 'Found on disk and not yet started.' },
 };
 

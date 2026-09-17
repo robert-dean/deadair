@@ -150,13 +150,25 @@ export class YtMusicPlugin extends Plugin implements MusicProviderPluginInstance
         const name = await client.assertSignedIn().catch(() => undefined);
         const who = name ? `Connected to YouTube Music as ${name}.` : 'Connected to YouTube Music.';
 
-        // The catalog half and the audio half fail independently and an operator
+        // The catalog half and the audio half fail independently, and an operator
         // needs to know which one is down: a green card over a station that can
-        // search and cannot play is the report this whole plugin is trying not
-        // to give.
-        if (!this.resolver) return { ok: true, message: `${who} No audio resolver is configured, so nothing will play.` };
+        // search and cannot play is the report this whole plugin is trying not to
+        // give.
+        //
+        // An unreachable resolver answers `ok: false`, which is the rule the
+        // analyzer and both speech plugins were changed to follow in #180 and is
+        // right for the same reason. It is a server the OPERATOR runs, so it is
+        // off sometimes, and the thing they have to fix is an address. `ok: false`
+        // is safe to say: a FAILED test is a report, and only a test that THROWS
+        // can count against the plugin and quarantine it. Nothing here throws.
+        //
+        // The message keeps saying the catalog works, because `ok: false` on its
+        // own would read as a plugin that does nothing when search is fine.
+        if (!this.resolver) return { ok: false, message: `${who} No audio resolver is configured, so search works and nothing will play.` };
+
         const audio = await this.resolver.reachable();
-        return { ok: true, message: `${who} ${audio.ok ? audio.message : `${audio.message}, so nothing will play`}.` };
+        if (!audio.ok) return { ok: false, message: `${who} ${audio.message}, so search works and nothing will play.` };
+        return { ok: true, message: `${who} ${audio.message}.` };
     }
 
     // --- catalog -------------------------------------------------------------

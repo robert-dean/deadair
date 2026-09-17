@@ -126,18 +126,32 @@ describe('testConnection', () => {
         expect(result.message).toContain('Connected to YouTube Music as Robert Dean.');
     });
 
-    it('says which half is down, because they fail independently', async () => {
-        // A green card over a station that can search and cannot play is the
-        // report this plugin exists to avoid giving.
+    it('fails the test when the audio resolver is down, and still says search works', async () => {
+        // #180's rule: an unreachable server the OPERATOR runs is a failed test.
+        // Safe to report, because only a test that THROWS can quarantine a plugin.
         const { host, plugin } = await build();
         host.setFetchImpl(async () => {
             throw new Error('ECONNREFUSED');
         });
 
         const result = await plugin.testConnection();
-        expect(result.ok).toBe(true);
+        expect(result.ok).toBe(false);
         expect(result.message).toContain('Connected to YouTube Music');
-        expect(result.message).toContain('nothing will play');
+        expect(result.message).toContain('search works and nothing will play');
+        // The address, which is the field that has to be fixed.
+        expect(result.message).toContain('localhost:9322');
+    });
+
+    it('never throws out of testConnection, whatever fails', async () => {
+        // A throw is the only thing that can count against the plugin, and three
+        // presses of a button must never be what takes it off the air.
+        const { host, plugin } = await build();
+        client.assertSignedIn.mockRejectedValue(new Error('boom'));
+        host.setFetchImpl(async () => {
+            throw new Error('ECONNREFUSED');
+        });
+
+        await expect(plugin.testConnection()).resolves.toMatchObject({ ok: false });
     });
 });
 

@@ -135,11 +135,13 @@ export class ResolverClient {
         const host = this.host;
         try {
             const response = await host.fetch(this.url('/health'), { timeoutMs: 5_000 });
-            if (!response.ok) return { ok: false, message: `The audio resolver answered ${response.status}` };
+            if (!response.ok) return { ok: false, message: `The audio resolver at ${this.baseUrl} answered ${response.status}` };
             const body = await jsonBody<{ hasSession?: boolean }>(response).catch(() => undefined);
             return { ok: true, message: body?.hasSession ? 'The audio resolver has the session' : 'The audio resolver is up but has no session yet' };
         } catch (error) {
-            return { ok: false, message: `The audio resolver did not answer: ${errorText(error)}` };
+            // The ADDRESS, because that is the field the operator has to fix and the
+            // host's own error names only the hostname when the mistake is a port.
+            return { ok: false, message: `The audio resolver at ${this.baseUrl} did not answer: ${errorText(error)}` };
         }
     }
 }

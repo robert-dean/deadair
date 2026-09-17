@@ -1,19 +1,17 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
     <!-- The picture a news break wears. Drawn for this repository; see MANIFEST.json.
 
-         A front page, with the station's own mark as the photograph on it — the same move the
-         weather picture makes, which is what keeps the two a set. A sheet rather than a microphone
-         or a mast: both of those read as "the station is talking", which is every other kind of
-         break.
+         A front page, with the station's own mark as the photograph on it — the same move
+         `weather.svg` makes with the cloud, which is what keeps the two a set. A sheet rather than a
+         microphone or a mast: both of those read as "the station is talking", which is every other
+         kind of break.
 
-         The masthead and the columns are cut OUT of the ink in the background colour, so the whole
-         thing still reads at the 28 pixels a running-order row draws it at. `news.png` beside this
-         is what ships, rasterised the way `weather.svg` says. -->
+         The masthead and the columns are cut OUT of the ink in the field colour, so the whole thing
+         still reads at the 28 pixels a running-order row draws it at. `news.png` beside this is what
+         ships, rasterised the way `weather.svg` says. -->
     <defs>
-        <!-- No rotation on the clip itself: the image it clips sits INSIDE the rotated group, so the
-             clip is resolved in that group's space and rotating it here would turn it twice. Having
-             it outside the group was the first version's bug — the page tilted and the photograph on
-             it stayed bolt upright. -->
+        <!-- No rotation on the clip itself: what it clips sits INSIDE the rotated group, so the clip
+             resolves in that group's space and turning it here would turn it twice. -->
         <clipPath id="plate">
             <rect x="124" y="206" width="132" height="116" rx="10"/>
         </clipPath>
@@ -24,14 +22,30 @@
     <g transform="rotate(-4 256 256)">
         <rect x="100" y="126" width="312" height="268" rx="18" fill="#121514"/>
         <rect x="124" y="152" width="264" height="34" rx="9" fill="#2ED88B"/>
-        <!-- Inside the group, so the photograph lies on the page rather than on the canvas: a
-             picture printed straight while the paper around it is askew is the one thing that says
-             "these were drawn by two different people".
+        <!-- The plate is its own shape rather than the mark's own field, which is also why this
+             reads the TRANSPARENT copy of the mark where the rest of the tree reaches for the opaque
+             one: the photograph is turned inside the plate, and a square field turned inside it
+             leaves the plate's corners showing as ink. -->
+        <rect x="124" y="206" width="132" height="116" rx="10" fill="#2ED88B"/>
+        <g clip-path="url(#plate)">
+            <!-- Turned ten degrees FURTHER than the page, on top of the four the group already
+                 carries. Matching the page exactly is what this did first and it read as upright:
+                 the mark is very nearly symmetrical, so four degrees of it is invisible next to a
+                 rectangle at the same four. The number is what makes the tilt read rather than what
+                 makes it true.
 
-             Sized so the head fits WITHIN the plate rather than filling it: the plate is wider than
-             it is tall and the mark is square, so a head matched to the width is cropped top and
-             bottom by the clip and reads as a photograph nobody framed. -->
-        <image href="../../../apps/ios/Sources/Assets.xcassets/AppIcon.appiconset/AppIcon.png" x="125.6" y="199.0" width="129.4" height="129.4" clip-path="url(#plate)"/>
+                 Sized to fit WITHIN the plate rather than to its width: the plate is wider than it
+                 is tall and the mark is square, so a head matched to the width is cropped top and
+                 bottom and reads as a photograph nobody framed. -->
+            <image
+                href="../../../apps/android/app/src/main/res/drawable-xxhdpi/ic_launcher_foreground.png"
+                transform="rotate(-10 190 264)"
+                x="102.9"
+                y="176.9"
+                width="174.7"
+                height="174.7"
+            />
+        </g>
         <g fill="#2ED88B">
             <rect x="276" y="206" width="112" height="17" rx="8"/>
             <rect x="276" y="239" width="112" height="17" rx="8"/>

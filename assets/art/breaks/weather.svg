@@ -1,45 +1,54 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
     <!-- The picture a weather break wears. Drawn for this repository; see MANIFEST.json.
 
-         The first drawing of this, unchanged — the sun up and to the left, the cloud crossing in
-         front of it from the lower right — with the station's own mark laid IN the cloud. `news.svg`
-         makes the same move with the photograph on its front page, which is what keeps the two a
-         set.
+         The first drawing of this — the sun up and to the left, the cloud crossing in front of it
+         from the lower right — with the station's own mark in the cloud and the cloud drawn as an
+         outline rather than a silhouette. `news.svg` makes the same move with the photograph on its
+         front page, which is what keeps the two a set.
 
          `weather.png` beside this is what SHIPS, and it is this file rasterised:
 
              qlmanage -t -s 512 -o <somewhere> assets/art/breaks/weather.svg
 
-         **This one uses the TRANSPARENT copy of the mark** (`apps/android`'s adaptive icon
-         foreground), where `news.svg` uses the opaque one. The rule is which way round the mark and
-         the artwork sit: the opaque copy is the bigger source and is right for anything the mark is
-         CLIPPED into, and it carries its own flat field, so laying it over this cloud would cover
-         the cloud with a green square. The field colour is that copy's (#2ED88B rather than the
-         console's #2FD98C) so the two tiles are the same green; the difference is one value per
-         channel and it is the sibling that cannot change. -->
+         **This uses the TRANSPARENT copy of the mark** (`apps/android`'s adaptive icon foreground)
+         rather than the opaque one `news.svg` reads. Two reasons, and either would be enough. The
+         opaque copy carries its own flat field, which would cover the cloud's interior with a square.
+         And its green is not perfectly flat — there is a faint radial variation in it — which is
+         invisible while something is drawn over it and shows as a disc behind the skull the moment
+         nothing is. At this size it is also a downscale rather than an upscale, so it is the sharper
+         of the two here. -->
     <rect width="512" height="512" fill="#2ED88B"/>
+
+    <!-- The sun, first, so the cloud passes in front of it. -->
     <g fill="#121514">
-        <!-- The sun, behind and up-left, so the cloud reads as being in front of it. -->
-        <g>
-            <circle cx="196" cy="186" r="70"/>
-            <g stroke="#121514" stroke-width="22" stroke-linecap="round">
-                <line x1="196" y1="66" x2="196" y2="92"/>
-                <line x1="196" y1="280" x2="196" y2="306"/>
-                <line x1="76" y1="186" x2="102" y2="186"/>
-                <line x1="290" y1="186" x2="316" y2="186"/>
-                <line x1="111" y1="101" x2="129" y2="119"/>
-                <line x1="263" y1="253" x2="281" y2="271"/>
-                <line x1="111" y1="271" x2="129" y2="253"/>
-                <line x1="263" y1="119" x2="281" y2="101"/>
-            </g>
+        <circle cx="196" cy="186" r="70"/>
+        <g stroke="#121514" stroke-width="22" stroke-linecap="round">
+            <line x1="196" y1="66" x2="196" y2="92"/>
+            <line x1="196" y1="280" x2="196" y2="306"/>
+            <line x1="76" y1="186" x2="102" y2="186"/>
+            <line x1="290" y1="186" x2="316" y2="186"/>
+            <line x1="111" y1="101" x2="129" y2="119"/>
+            <line x1="263" y1="253" x2="281" y2="271"/>
+            <line x1="111" y1="271" x2="129" y2="253"/>
+            <line x1="263" y1="119" x2="281" y2="101"/>
         </g>
-        <!-- The cloud, stroked in the background colour so its edge separates it from the sun
-             behind it. Both shapes are the same ink, so without that stroke they merge into one
-             blob at row size. -->
-        <path d="M176 396a74 74 0 0 1 8-147 104 104 0 0 1 196-30 66 66 0 0 1 8 177z"
-              stroke="#2ED88B" stroke-width="24" stroke-linejoin="round"/>
     </g>
-    <!-- The mark, in the cloud. Placed by the HEAD rather than by the image's own box: it is 178px
-         of a 324px square, centred, and everything here is arranged around where the face lands. -->
-    <image href="../../../apps/android/app/src/main/res/drawable-xxhdpi/ic_launcher_foreground.png" x="118.2" y="114.2" width="356.8" height="356.8"/>
+
+    <!-- The cloud, in three passes, and each one is doing something.
+
+         FILLED and STROKED in the field colour: the fill is what hides the sun behind the cloud,
+         which an outline alone would let show straight through, and the stroke widens that into a
+         halo, so the ink outline below does not touch the sun's disc. Both are ink, and where they
+         met they merged into one shape. The first drawing of this solved the same problem the same
+         way, with a field-coloured stroke on a solid cloud.
+
+         Then the mark, then the OUTLINE last, so the cloud's edge is drawn over the mark rather than
+         under it: the mark is inside the cloud with room to spare, but a picture whose outline is
+         interrupted by whatever is inside it reads as a mistake even when nothing overlaps. -->
+    <path d="M176 396a74 74 0 0 1 8-147 104 104 0 0 1 196-30 66 66 0 0 1 8 177z" fill="#2ED88B" stroke="#2ED88B" stroke-width="46" stroke-linejoin="round"/>
+    <!-- Placed by the HEAD rather than by the image's own box: the head is 178px of a 324px square,
+         centred, and this is arranged around where the face lands rather than where the file's edges
+         do. -->
+    <image href="../../../apps/android/app/src/main/res/drawable-xxhdpi/ic_launcher_foreground.png" x="160.9" y="155.9" width="273.0" height="273.0"/>
+    <path d="M176 396a74 74 0 0 1 8-147 104 104 0 0 1 196-30 66 66 0 0 1 8 177z" fill="none" stroke="#121514" stroke-width="22" stroke-linejoin="round"/>
 </svg>

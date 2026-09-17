@@ -31,14 +31,14 @@
         {
             "kind": "weather",
             "file": "weather.png",
-            "sha256": "ab5dd60b687ad740bd5bae4e31c2486c78af631d1a873f1e5538881ee3d875f1",
+            "sha256": "ae7129f6742eeafaca2249dce313ce24eb7bbe98a5d9fc540499a7a9d4462a79",
             "source": "Drawn for this repository (weather.svg beside it), over the station's own mark",
             "licence": "CC0-1.0"
         },
         {
             "kind": "news",
             "file": "news.png",
-            "sha256": "5bc2235f20c49069f723cc5bd6f702f9eb55a8d6bd86dd90f3d79495f6f9ec56",
+            "sha256": "ca7c5897856ddaca788d5227c77685455b8c3f8988bb9eb8271130c6ad2ae823",
             "source": "Drawn for this repository (news.svg beside it), over the station's own mark",
             "licence": "CC0-1.0"
         }

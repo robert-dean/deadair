@@ -37,6 +37,7 @@ const COOKIE = 'SID=abc; __Secure-3PAPISID=def';
 
 async function build(): Promise<{ host: FakePluginHost; plugin: InstanceType<typeof YtMusicPlugin> }> {
     const host = createFakePluginHost();
+    host.seedConfig({ resolverBaseUrl: 'http://localhost:9322' });
     host.seedSecret('cookie', COOKIE);
     const plugin = new YtMusicPlugin();
     await plugin.init(host);
@@ -56,6 +57,7 @@ beforeEach(() => {
 describe('the credential', () => {
     it('refuses to start without a cookie', async () => {
         const host = createFakePluginHost();
+        host.seedConfig({ resolverBaseUrl: 'http://localhost:9322' });
         await expect(new YtMusicPlugin().init(host)).rejects.toMatchObject({ code: 'config' });
     });
 
@@ -82,6 +84,7 @@ describe('the credential', () => {
         client.assertSignedIn.mockRejectedValue(new PluginError('YouTube Music did not accept the cookie: Page contents not found').withCode('auth'));
 
         const host = createFakePluginHost();
+        host.seedConfig({ resolverBaseUrl: 'http://localhost:9322' });
         host.seedSecret('cookie', COOKIE);
         await expect(new YtMusicPlugin().init(host)).rejects.toMatchObject({ code: 'config' });
     });
@@ -97,6 +100,7 @@ describe('the credential', () => {
 
     it('accepts a cookie with no __Secure-3PAPISID, because that is not the tell-tale', async () => {
         const host = createFakePluginHost();
+        host.seedConfig({ resolverBaseUrl: 'http://localhost:9322' });
         host.seedSecret('cookie', 'SID=abc; HSID=xyz');
 
         await expect(new YtMusicPlugin().init(host)).resolves.toBeUndefined();
@@ -114,8 +118,26 @@ describe('testConnection', () => {
     });
 
     it('confirms a working cookie, and names the account it is for', async () => {
-        const { plugin } = await build();
-        await expect(plugin.testConnection()).resolves.toMatchObject({ ok: true, message: 'Connected to YouTube Music as Robert Dean.' });
+        const { host, plugin } = await build();
+        host.queueResponse({ status: 200, body: '{"ok":true,"hasSession":true}' });
+
+        const result = await plugin.testConnection();
+        expect(result.ok).toBe(true);
+        expect(result.message).toContain('Connected to YouTube Music as Robert Dean.');
+    });
+
+    it('says which half is down, because they fail independently', async () => {
+        // A green card over a station that can search and cannot play is the
+        // report this plugin exists to avoid giving.
+        const { host, plugin } = await build();
+        host.setFetchImpl(async () => {
+            throw new Error('ECONNREFUSED');
+        });
+
+        const result = await plugin.testConnection();
+        expect(result.ok).toBe(true);
+        expect(result.message).toContain('Connected to YouTube Music');
+        expect(result.message).toContain('nothing will play');
     });
 });
 

@@ -36,6 +36,17 @@ export const PLAYLIST_MEMO_TTL_MS = 60_000;
  */
 export const ARTWORK_SIZE = 'w544-h544-l90-rj';
 
+/**
+ * Where the audio-url resolver answers, when the operator has not said otherwise.
+ *
+ * 9322, beside the analysis sidecar's 9321, and reached over loopback because in
+ * the production image it is a sibling service in the same container.
+ */
+export const DEFAULT_RESOLVER_URL = 'http://localhost:9322';
+
+/** Bounds a resolve. yt-dlp talks to the upstream several times to answer one. */
+export const RESOLVE_TIMEOUT_MS = 45_000;
+
 /** YouTube Music's own "Liked Music" list. Not in the library listing; addressed directly. */
 export const LIKED_PLAYLIST_ID = 'LM';
 export const LIKED_PLAYLIST_NAME = 'Liked Music';
@@ -57,7 +68,9 @@ export const EXPLICIT_BADGE_ICON = 'MUSIC_EXPLICIT_BADGE';
  * declared in `configFields` below and read through `host.secrets.get('cookie')`. Navidrome's
  * `password` is the same shape for the same reason.
  */
-export const configSchema = z.object({});
+export const configSchema = z.object({
+    resolverBaseUrl: z.string().min(1),
+});
 
 export type YtMusicConfig = z.infer<typeof configSchema>;
 
@@ -71,18 +84,39 @@ export const ytmusicManifest: PluginManifest = {
     // ("the player fetches it with no headers from us"). Serving it takes a header-fixing range
     // proxy beside the station. That is a later phase; see discussion #49. Declaring `stream` here
     // and answering `undefined` would be the dishonest version of the same state.
-    capabilities: ['catalog'],
+    // `stream` the long way round, and the long way is the only way. There is no
+    // YouTube URL this plugin can mint: the audio is resolved by `ytaudio/`, a
+    // sidecar on yt-dlp, because the library that knows how is Python and this is
+    // Node in the host's own process. What comes back IS a plain URL the station
+    // fetches directly, so nothing proxies bytes and the audio path is the
+    // ordinary one. See discussion #49.
+    capabilities: ['catalog', 'stream'],
     apiVersion: '^1.0.0',
-    description: 'Search YouTube Music and pull your playlists into the rotation. Records from here cannot be played yet.',
+    description:
+        'Search YouTube Music, pull your playlists into the rotation, and play them. Needs a Music Premium account and the bundled audio resolver.',
     homepage: 'https://music.youtube.com',
     permissions: {
-        network: [YOUTUBE_HOST],
+        // The known host first and the operator's address second, because the
+        // first match wins. An unset or unparseable resolver URL contributes no
+        // entry at all, which refuses the call exactly as an undeclared host
+        // would rather than reaching somewhere nobody named.
+        network: [YOUTUBE_HOST, { fromConfig: 'resolverBaseUrl' }],
         // No storage: the only cache is the playlist page memo, which lives in memory and dies with
         // the instance. No oauth: Google withdrew it for this service, hence the cookie below.
         storage: false,
         oauth: false,
     },
     configFields: [
+        {
+            key: 'resolverBaseUrl',
+            label: 'Audio resolver URL',
+            type: 'url',
+            required: true,
+            default: DEFAULT_RESOLVER_URL,
+            help:
+                'The bundled ytaudio service, which turns a track into a URL the station can fetch. It answers on ' +
+                'http://localhost:9322 in the station image. Without it the catalog still works and nothing plays.',
+        },
         {
             key: 'cookie',
             label: 'Cookie',

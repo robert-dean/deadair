@@ -7,13 +7,15 @@ import {
     type MusicProviderPluginInstance,
     type PluginConnectionResult,
     type ProviderPlaylist,
+    type ProviderStream,
     type ProviderTrack,
     type SearchTracksOptions,
 } from '@deadair/plugin-sdk';
 
 import { YtMusicClient } from './ytmusic.client.js';
 import { toPluginError } from './ytmusic.errors.js';
-import { LIKED_PLAYLIST_ID, LIKED_PLAYLIST_NAME, PLAYLIST_MEMO_TTL_MS } from './ytmusic.manifest.js';
+import { configSchema, LIKED_PLAYLIST_ID, LIKED_PLAYLIST_NAME, PLAYLIST_MEMO_TTL_MS, type YtMusicConfig } from './ytmusic.manifest.js';
+import { resolverFor, type ResolverClient } from './ytmusic.resolver.js';
 import { mapPlaylists, mapTracks } from './ytmusic.mapping.js';
 import type { UpstreamItem } from './ytmusic.mapping.js';
 
@@ -41,6 +43,8 @@ interface MemoEntry {
  */
 export class YtMusicPlugin extends Plugin implements MusicProviderPluginInstance {
     private client?: YtMusicClient;
+    private resolver?: ResolverClient;
+    private cookie?: string;
 
     /**
      * One playlist's rows, kept briefly.
@@ -56,6 +60,7 @@ export class YtMusicPlugin extends Plugin implements MusicProviderPluginInstance
     protected async onLoad(): Promise<void> {
         const host = this.host;
 
+        const config = configSchema.parse(await host.config.get()) as YtMusicConfig;
         const cookie = (await host.secrets.get('cookie'))?.trim();
         if (!cookie) throw new PluginError('YouTube Music needs the cookie from a signed-in browser session').withCode('config');
 
@@ -68,6 +73,24 @@ export class YtMusicPlugin extends Plugin implements MusicProviderPluginInstance
         if (failure) throw new PluginError(failure).withCode('config');
 
         this.client = client;
+        this.cookie = cookie;
+
+        // The audio half is optional at load. A station that has not set the
+        // resolver up still has a working catalog, and `resolveStreamUrl` simply
+        // answers nothing -- which the host reads as "not available" and skips.
+        // Refusing to start over it would take the search away too.
+        this.resolver = resolverFor(host, config.resolverBaseUrl);
+        if (this.resolver) {
+            const pushed = await this.resolver.pushSession(cookie);
+            host.logger.info(
+                pushed
+                    ? 'youtube music: the audio resolver has the session'
+                    : 'youtube music: the audio resolver is not answering, so nothing will play',
+            );
+        } else {
+            host.logger.info('youtube music: no audio resolver configured, so nothing will play');
+        }
+
         this.register(() => {
             // The client goes with the memo. It closes over the host, which `dispose()` releases,
             // so an instance left holding one answers calls with a session whose egress is gone --
@@ -75,6 +98,8 @@ export class YtMusicPlugin extends Plugin implements MusicProviderPluginInstance
             // guard to find out. Measured by the test below: without this, a disposed plugin
             // answered a search with an empty list instead of refusing.
             this.client = undefined;
+            this.resolver = undefined;
+            this.cookie = undefined;
             this.memo.clear();
         });
         host.logger.info('youtube music ready');
@@ -123,7 +148,15 @@ export class YtMusicPlugin extends Plugin implements MusicProviderPluginInstance
         const failure = await this.probe(client);
         if (failure) return { ok: false, message: failure };
         const name = await client.assertSignedIn().catch(() => undefined);
-        return { ok: true, message: name ? `Connected to YouTube Music as ${name}.` : 'Connected to YouTube Music.' };
+        const who = name ? `Connected to YouTube Music as ${name}.` : 'Connected to YouTube Music.';
+
+        // The catalog half and the audio half fail independently and an operator
+        // needs to know which one is down: a green card over a station that can
+        // search and cannot play is the report this whole plugin is trying not
+        // to give.
+        if (!this.resolver) return { ok: true, message: `${who} No audio resolver is configured, so nothing will play.` };
+        const audio = await this.resolver.reachable();
+        return { ok: true, message: `${who} ${audio.ok ? audio.message : `${audio.message}, so nothing will play`}.` };
     }
 
     // --- catalog -------------------------------------------------------------
@@ -164,6 +197,33 @@ export class YtMusicPlugin extends Plugin implements MusicProviderPluginInstance
             throw toPluginError(error, 'public');
         }
     }
+
+    // --- stream ---------------------------------------------------------------
+
+    /**
+     * Where this record's audio is, or nothing.
+     *
+     * The URL is not this plugin's to mint. `ytaudio/` resolves it with yt-dlp,
+     * because the library that knows how is Python and this is Node inside the
+     * host's own process, and what comes back is an ordinary HTTPS URL carrying
+     * its own authentication in its query string. The station fetches and caches
+     * it exactly as it does a Navidrome URL: nothing proxies bytes.
+     *
+     * `undefined` at every "not yet" and every "not this record": no resolver
+     * configured, resolver not answering, account not Premium, record the
+     * upstream will not serve. The host reads all of them as unavailable, skips
+     * the item and holds nothing against the plugin, which is right -- none of
+     * them is the plugin misbehaving, and a catalog that works must not be
+     * quarantined by an audio path that does not.
+     */
+    async resolveStreamUrl(trackId: string): Promise<ProviderStream | undefined> {
+        const resolver = this.resolver;
+        const cookie = this.cookie;
+        if (!resolver || !cookie) return undefined;
+        return await resolver.resolve(trackId, cookie);
+    }
+
+    // --- catalog, continued -----------------------------------------------------
 
     /**
      * The account's playlists, with "Liked Music" in front.

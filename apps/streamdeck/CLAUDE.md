@@ -1,8 +1,9 @@
 # The station on a Stream Deck
 
 `apps/streamdeck` is an Elgato Stream Deck plugin: a Now Playing key (the cover, the title, a moving
-playhead), Skip, and one key that is Stop while the station is on air and Start once it is stood
-down. It is the operator's desk in hardware, and only the desk: it never plays the station.
+playhead), Skip, one key that is Stop while the station is on air and Start once it is stood down,
+and Like and Dislike, which write the station's opinion of the record on air. It is the operator's
+desk in hardware, and only the desk: it never plays the station.
 
 Every paragraph records a decision or a measured failure and the reason for it. The always-loaded
 index is [`CLAUDE.md`](../../CLAUDE.md); the operator-facing half is [`README.md`](README.md).
@@ -41,8 +42,8 @@ Console, whose documentation describes no API.
 
 **The Marketplace listing is in `marketplace/`**: the text typed into the Maker Console
 (`listing.md`) and the thumbnail and three gallery images it takes, 1920 × 960. The pictures are drawn
-by `tools/marketplace.media.mjs` from the plugin's own `nowPlayingSvg`, so the listing shows what a
-key actually draws, and rasterised by macOS's `sips`; run it by hand when a key changes and commit
+by `tools/marketplace.media.mjs` from the plugin's own `nowPlayingSvg` and `voteSvg`, so the listing
+shows what a key actually draws, and rasterised by macOS's `sips`; run it by hand when a key changes and commit
 what it writes, as the desktop commits its generated icons. The covers in them are abstract shapes
 and the records made up, because a listing is no place for somebody else's album art. Two things it
 cost a render each to learn: that renderer ignores SVG 2's `paint-order`, so an outlined title came
@@ -125,6 +126,109 @@ second press would no longer be the Stop it was arming. Start fires at once; the
 when there is nothing to resume, and the log says so.
 
 **Pressing Now Playing opens the console** at the station's address.
+
+## Like and Dislike
+
+**They write `PUT /catalog/tracks/{id}/rating`, which is the console's own write** from the running
+order (`apps/web/src/components/desk/desk.page.tsx`), for the reason that page gives: the running
+order is where an operator actually forms an opinion about a record, because they are hearing it. A
+deck is that, without the trip to a screen. The rating is the narrowest of the three the catalog
+holds — the song, not the release or the artist — and a dislike is an instruction rather than a
+preference: `candidates.repository.ts` excludes a disliked record from the draw and nothing the
+station programmes turns that off.
+
+**A press on the lit key writes `neutral`, and that is where this differs from the console on
+purpose.** `rating.control.tsx` gives `neutral` a segment of its own and says why: an operator should
+be able to see that the middle is where they started. A deck has no middle to see. Each key shows its
+own state instead, so pressing the lit one back off is both the ordinary Stream Deck toggle and the
+only way to withdraw an opinion without spending a third key on it. A key whose rating is not known
+yet draws unlit and writes its own value, so the first press of a record is never a withdrawal.
+
+**The rating is read once per RECORD, not carried on the status.** `GET /catalog/tracks/{id}` when
+the record changes, remembered by track id in `RatingStore`, and refreshed from the write's own
+answer — the cover's arrangement in `display/artwork.ts`, for the cover's reason. The alternative was
+`rating` on `PlayoutItem`, which would have kept the deck in step with the console at every moment
+and cost a catalog lookup on a route every console and every deck polls every two seconds, plus the
+four generated SDKs. What is given up is real and small: a rating changed in the console is not seen
+on the deck until the record changes.
+
+**A record that could not be asked about is remembered as such**, as a 404 cover is, so a failing
+station is asked once per record rather than on every redraw. A key issued Read only is refused the
+WRITE and not the read, so the ordinary shape of that is a key lit correctly that says in the log why
+it cannot be pressed — a different sentence from Skip's, because "Skip and Stop need Read and manage"
+is not what this key does.
+
+**They are drawn by the renderer, and the skull on them is the mark's OWN artwork.** `voteSvg` in
+`display/key.image.ts` beside `nowPlayingSvg`, rather than flat glyphs in the plugin folder: the keys
+of one plugin should look like each other, and a hand-drawn SVG beside a rendered one drifts from it
+the first time either changes. `tools/default.key.mjs` writes the manifest's pictures from the same
+function, so a key does not change face the moment the plugin first draws.
+
+A skull traced by hand was drawn first and thrown away: the mark is a drawing somebody made, and a
+second version of it in path data is a copy that goes out of date the day the first one changes.
+`tools/make-skull.py` lifts the real one off its green field into `imgs/plugin/skull.png`, which the
+plugin reads off its own folder exactly as it reads `mark.png`, and a plugin that cannot read it
+draws the heart empty and says so. The tool follows `apps/desktop/tools/macos/make-app-icon.py` and
+the Android launcher's — Pillow, by hand, output committed — with one difference that matters: those
+composite the lifted skull straight back onto the same green, so field-coloured pixels left inside
+the crop are invisible, and these keys put it on a RED heart as often as a green one. So the field is
+made TRANSPARENT rather than cropped, and the cream/field edge is feathered by alpha; keying it hard
+leaves a one-pixel green halo that cannot be seen on green and cannot be missed on red.
+
+**The heart stands in for the badge's disc.** `logo-mark.png` is a bone skull on a field of phosphor
+green; these keys are that with the field cut to a heart. Same drawing, same green, a different shape
+under it.
+
+**One drawing, not two.** Like and Dislike are the same heart with the same skull in it, and the
+dislike adds the ban across it. A torn heart was the other way to say it and was two shapes that had
+to be kept fitting each other by hand. The ban also says what the station means, which is not a
+shrug: a dislike is an instruction, and `candidates.repository.ts` drops a disliked record from the
+draw outright. It is the BAR alone and not a ring, because a heart big enough to hold the skull
+leaves the key no room for one — the ring rode the key's edge and read as a stray circle.
+
+**The HEART carries the state, not the ground.** It fills with the vote's colour when the station
+agrees and sits dark with a grey edge when it does not, which keeps the colour inside a shape rather
+than flooding the key: a flooded red dislike beside the transport's red Stop is two red keys meaning
+different things. The edge is ink on a lit heart and GREY on an unlit one, because ink on carbon is
+invisible and the heart then disappears, leaving the skull floating on nothing.
+
+**Where the skull sits was settled by looking, and the two computed answers are both wrong.** The
+heart path's bounding box is centred on (72, 76) and is scaled about that point, so the box stays
+there whatever the scale; its centre of AREA measures (72, 68.3), about eight units higher, because a
+heart tapers to a point and carries its mass in the lobes. Both were tried, at both sizes the skull
+has had. On the box the skull sits low against the taper; on the area centre it leaves too much heart
+below the jaw once the skull is small enough to clear the lobes. `SKULL_Y` is 73, between them, and
+is a CONSTANT rather than a derivation — so unlike the rest of this geometry it does not follow
+`HEART_SCALE`, and changing the scale means looking at the drawing again. Writing it as though it
+came out of the centroid would be dressing up a judgement as a measurement.
+
+**The skull is 56 units wide and was 68.** At 68 the headphones crowd the heart's sides and the jaw
+runs into the taper; 56 clears the lobes and still reads at the 72 pixels a deck shows. The skull's
+own canvas is square and the drawing on it is wider than tall, so the height it takes is less than
+the number says.
+
+**A key with nothing to rate is DIM rather than merely unlit**, and that distinction is what the
+drawn face buys over the two manifest state images this started as. Unlit is the station having no
+such opinion; dim is the key having nothing to have an opinion ABOUT. A dim key never takes its
+colour, whichever way it was lit, by the rule the rest of the plugin follows. The manifest therefore
+gives each vote action ONE state, as Now Playing has, and the plugin sends the picture.
+
+**The four faces are composed once each and remembered.** Each carries the skull's bytes, so
+composing on every reading would base64-encode fifty kilobytes twice a second to hand the painter
+something it has already sent. The painter drops an identical frame either way; the cache saves the
+encoding rather than the traffic.
+
+**The two keys are two actions and cannot see each other**, so they hear the store instead
+(`RatingStore.subscribe`): a press on Like takes the light off Dislike in the same beat rather than at
+the next poll. The store is emptied when the station changes, because a rating is remembered against
+a track id and another station's ids name other records, if they name anything. `StationLink.onChange`
+is what says so, rather than the plugin guessing from the settings.
+
+**A press is refused, and the station asked nothing, when there is nothing to rate**: no station, a
+reading that failed or is stale, nothing on air, or an item with no `trackId` — a break, whose words
+have no row in the catalog, or a record the station is airing without ever having ingested it. Both
+keys draw unlit on a stale reading however well the last opinion is known, by the rule the rest of
+this plugin follows: the opinion may be about the record before this one.
 
 ## What the Now Playing key draws
 
@@ -233,7 +337,10 @@ settings round trip, polling with the bearer and the plugin's User-Agent, the ti
 drawn and the bar stepping, the cover fetched with no `Authorization` header, a press opening the
 console, a skip, an armed and fired Stop, a Start, and the settings panel in a browser saying in turn
 that it needs an address, a key, that a wrong key was refused by a station it found, and that the
-right one connects. Two Now Playing keys with different settings, one drawing the cover alone, and
+right one connects. The rating read once for both vote keys and not again while the record plays,
+a press that writes, a second press that withdraws, a press on Like taking the light off Dislike, a
+break and a stale reading both refusing the press, and a Read-only key reading the rating and being
+refused the write with voting's own sentence in the log. Two Now Playing keys with different settings, one drawing the cover alone, and
 a settings change redrawing only its own key; the panel's checkboxes opened on a key's own settings
 and sending each tick. The embedded cover, the bar and the shade render in macOS's own SVG renderer.
 
@@ -249,3 +356,17 @@ with a key issued Read and manage.
 And the packed `.streamDeckPlugin`, built by the `installer` script and installed by double-click
 over an unlinked dev copy, works the same: the ES module survives packing and the keys kept their
 settings, which the app stores against the plugin's id rather than its folder.
+
+**Like and Dislike have been on the device, wiring and faces both.** Robert ran them on his Stream
+Deck+ on 2026-09-17 and voting worked: the press, the second press that withdraws, and the light
+moving between the pair. The faces took three goes to get there and the device settled each one — the
+first build drew flat thumb glyphs, which he judged too plain beside Now Playing; they became a
+hand-drawn heart, then the mark's own skull on a heart, and the skull was sized down and seated
+lower after looking at it. The last of those (the plugin at `0.1.0.5`, which is this tree) reads on
+the panel.
+
+What that pass did NOT separately report is whether UNLIT and FAINT tell each other apart at 72
+pixels. They are deliberately close — a dark heart either way, the faint one at 0.4 — and they mean
+different things: unlit is the station having no such opinion, faint is the key having nothing to
+have an opinion about. If they turn out to be one face in practice, lifting `FAINT` for these two, or
+giving the faint state an edge of its own, is the change to make.

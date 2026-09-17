@@ -118,6 +118,113 @@ function placeholder(colour: string): string {
     );
 }
 
+/** The colour a vote key's heart takes when the station holds that opinion. */
+const VOTE_COLOURS = { liked: '#2FD98C', disliked: '#FF4B4B' } as const;
+
+/** The mark's own ink, and the edge an unlit heart needs instead of it. */
+const INK = '#101413';
+const UNLIT_HEART = '#1A201E';
+const UNLIT_EDGE = '#4E5955';
+
+/**
+ * The heart, drawn where the badge has its disc.
+ *
+ * `logo-mark.png` is a bone skull on a field of phosphor green. These keys are that with the field
+ * cut to a heart: the same drawing, the same green, a different shape under it. Which is why the
+ * skull here is the mark's OWN artwork rather than a traced one — `tools/make-skull.py` lifts it off
+ * the green and the plugin reads the result off its own folder, as it already reads the mark.
+ */
+const HEART = 'M72 124 C40 100 24 80 24 58 C24 40 37 28 52 28 C62 28 69 34 72 42 C75 34 82 28 92 28 C107 28 120 40 120 58 C120 80 104 100 72 124 Z';
+
+/**
+ * How the heart is placed, and where the skull sits in it.
+ *
+ * The path's own bounding box is centred on (72, 76) and it is scaled ABOUT that point, so the box
+ * stays centred there whatever {@link HEART_SCALE} is. Its centre of AREA is (72, 68.3), about eight
+ * units higher, because a heart tapers to a point at the bottom and carries its mass in the lobes —
+ * measured by rasterising the path and taking the centroid.
+ *
+ * {@link SKULL_Y} is NEITHER of them, and that is worth saying plainly rather than dressing up. Both
+ * were tried at both sizes the skull has had. The area centre leaves too much heart below the jaw
+ * once the skull is small enough to clear the lobes; the box centre sits the skull low against the
+ * taper. The number here was chosen by looking at the drawing rather than by computing anything, so
+ * it does NOT follow {@link HEART_SCALE} the way a derived one would: change the scale and this wants
+ * looking at again.
+ */
+const HEART_SCALE = 1.26;
+const SKULL_Y = 73;
+/**
+ * Wide enough to be the mark and no wider. At 68 the headphones crowd the heart's sides and the jaw
+ * runs into its taper; 56 clears the lobes with air around it and still reads at the 72 pixels a
+ * Stream Deck actually shows. The skull's own canvas is square and the drawing in it is wider than
+ * it is tall, so the height this takes up is less than the number says.
+ */
+const SKULL_WIDTH = 56;
+
+/** The ban a dislike carries: the bar alone, because a heart this large leaves the key no room for a ring. */
+const BAN = `<rect x="61" y="-10" width="22" height="164" rx="6" fill="${INK}" transform="rotate(45 72 72)"/>`;
+
+/** What a Like or Dislike key draws. */
+export interface VoteFace {
+    vote: keyof typeof VOTE_COLOURS;
+    /** The station's opinion of the record on air is this key's own. */
+    lit: boolean;
+    /** Nothing here is about the record on air: no station, a stale reading, or nothing to rate. */
+    dim: boolean;
+    /**
+     * The mark's skull on transparency, as a data URI, drawn inside the heart. Absent draws the heart
+     * alone, which is only for a plugin that could not read `skull.png` off its own folder — the same
+     * forgiveness `mark` has on the Now Playing key.
+     */
+    skull?: string;
+}
+
+/**
+ * A vote key as an SVG: the mark's skull on a heart, and the ban over it that a dislike is.
+ *
+ * Drawn by the renderer rather than as flat glyphs in the plugin folder, for the reason the Now
+ * Playing key is: the keys of one plugin should look like each other, and a hand-drawn SVG beside a
+ * rendered one drifts from it the first time either changes. The manifest's own two pictures are
+ * written from THIS function by `tools/default.key.mjs`, so a key does not change face the moment the
+ * plugin first draws.
+ *
+ * **One drawing, not two.** Like and Dislike are the same heart with the same skull in it, and the
+ * dislike adds the ban across it. A torn heart was the other way to say it and was two shapes that
+ * had to be kept fitting each other by hand; this is one shape with something laid over it. The ban
+ * also says what the station means, which is not a shrug: a dislike is an instruction, and
+ * `candidates.repository.ts` drops a disliked record from the draw outright.
+ *
+ * **The HEART carries the state, not the ground.** It fills with the vote's colour when the station
+ * agrees and sits dark and grey-edged when it does not, which keeps the colour inside a shape instead
+ * of flooding the key — a flooded red dislike beside the transport's red Stop is two red keys meaning
+ * different things. The edge is ink on a lit heart and grey on an unlit one, because ink on carbon is
+ * invisible and the heart disappears, leaving the skull floating.
+ *
+ * `dim` is not the same as unlit, and that is the distinction two flat state images could not draw:
+ * unlit is the station having no such opinion, dim is the key having nothing to have an opinion
+ * ABOUT. A dim key never takes its colour, whichever way it was lit, by the rule the whole plugin
+ * follows — nothing may look live on a reading that is not.
+ */
+export function voteSvg(face: VoteFace): string {
+    const lit = face.lit && !face.dim;
+    const heart =
+        `<g transform="translate(72 76) scale(${HEART_SCALE}) translate(-72 -76)">` +
+        `<path d="${HEART}" fill="${lit ? VOTE_COLOURS[face.vote] : UNLIT_HEART}" stroke="${lit ? INK : UNLIT_EDGE}" stroke-width="9" stroke-linejoin="round"/>` +
+        `</g>`;
+    // `xlink:href` rather than the bare `href`, for the reason the cover uses it: the app's renderer
+    // is Qt's and SVG 1.1 is the spelling it is sure to know.
+    const skull =
+        face.skull === undefined
+            ? ''
+            : `<image x="${72 - SKULL_WIDTH / 2}" y="${SKULL_Y - SKULL_WIDTH / 2}" width="${SKULL_WIDTH}" height="${SKULL_WIDTH}" xlink:href="${face.skull}"/>`;
+    return (
+        `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${SIZE}" height="${SIZE}" viewBox="0 0 ${SIZE} ${SIZE}">` +
+        `<rect width="${SIZE}" height="${SIZE}" fill="${CARBON}"/>` +
+        `<g${face.dim ? ` opacity="${FAINT}"` : ''}>${heart}${skull}${face.vote === 'disliked' ? BAN : ''}</g>` +
+        `</svg>`
+    );
+}
+
 /** An SVG as `setImage` takes one, which is URI-encoded and not base64. */
 export function svgDataUri(svg: string): string {
     return `data:image/svg+xml,${encodeURIComponent(svg)}`;

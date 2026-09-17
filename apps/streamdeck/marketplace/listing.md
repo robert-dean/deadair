@@ -26,13 +26,19 @@ Under the console's 1,500 characters.
 >
 > Skip ends the record or break on air and plays the next one.
 >
+> Like and Dislike set what the station thinks of the record playing, the same opinion you would
+> set from the running order in the console: a like plays it more often, a dislike means never
+> again. The heart fills with colour when the station already agrees; press the lit one to take it
+> back.
+>
 > Stop or start stops the station on the second press within five seconds, so a stray press never
 > takes it off air, and once it is stopped the same key starts it again.
 >
 > You enter your station's address and an API key once, in any deadair key's settings, and every
 > key shares them. The key is issued in the station's console under Settings, Security, API keys:
-> Read only is enough for Now playing, and Skip and Stop need Read and manage. It stays on your
-> computer and never goes into a Stream Deck profile you export.
+> Read only is enough for Now playing, and for seeing what the station thinks of a record; Skip,
+> Stop and voting need Read and manage. It stays on your computer and never goes into a Stream Deck
+> profile you export.
 >
 > The plugin needs a deadair station to talk to. deadair is free and open source:
 > https://deadair.radio
@@ -40,6 +46,10 @@ Under the console's 1,500 characters.
 ## Release notes (0.1.0)
 
 The first release: Now playing, Skip, and Stop or start.
+
+## Release notes (next)
+
+Like and Dislike: rate the record on air from the deck, and press the lit key again to take it back.
 
 ## Links
 

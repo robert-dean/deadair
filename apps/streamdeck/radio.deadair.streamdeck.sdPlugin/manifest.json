@@ -2,9 +2,9 @@
     "$schema": "https://schemas.elgato.com/streamdeck/plugins/manifest.json",
     "UUID": "radio.deadair.streamdeck",
     "Name": "deadair",
-    "Version": "0.1.0.0",
+    "Version": "0.2.0.0",
     "Author": "Marooned Software",
-    "Description": "Your deadair station on a Stream Deck: what is on air with its cover and a moving playhead, Skip, and a Stop that asks twice.",
+    "Description": "Your deadair station on a Stream Deck: what is on air with its cover and a moving playhead, Skip, a Stop that asks twice, and a heart on the record playing.",
     "URL": "https://deadair.radio",
     "SupportURL": "https://github.com/robert-dean/deadair/issues",
     "Icon": "imgs/plugin/icon",
@@ -56,6 +56,34 @@
             "States": [
                 {
                     "Image": "imgs/actions/skip/key",
+                    "TitleAlignment": "bottom"
+                }
+            ]
+        },
+        {
+            "UUID": "radio.deadair.streamdeck.like",
+            "Name": "Like",
+            "Tooltip": "Tells the station to play the record on air more often. Press it again to take it back.",
+            "Icon": "imgs/actions/like/icon",
+            "Controllers": ["Keypad"],
+            "SupportedInMultiActions": false,
+            "States": [
+                {
+                    "Image": "imgs/actions/like/key",
+                    "TitleAlignment": "bottom"
+                }
+            ]
+        },
+        {
+            "UUID": "radio.deadair.streamdeck.dislike",
+            "Name": "Dislike",
+            "Tooltip": "Tells the station never to play the record on air again. Press it again to take it back.",
+            "Icon": "imgs/actions/dislike/icon",
+            "Controllers": ["Keypad"],
+            "SupportedInMultiActions": false,
+            "States": [
+                {
+                    "Image": "imgs/actions/dislike/key",
                     "TitleAlignment": "bottom"
                 }
             ]

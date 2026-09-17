@@ -277,8 +277,8 @@ export default function Home() {
                     <h2>The rest of the desk.</h2>
                     <p className={styles.sectionLede}>
                         A broadcast desk rather than a player. It deliberately does not play the station: the listeners have the mount. It is what you
-                        open to see what is going out, what is coming up, and what needs you. What is on air, Skip and Stop also come as keys, on{' '}
-                        <Link to="/docs/features/console#on-a-stream-deck">an Elgato Stream Deck</Link>.
+                        open to see what is going out, what is coming up, and what needs you. What is on air, Skip, Stop and your opinion of the
+                        record playing also come as keys, on <Link to="/docs/features/console#on-a-stream-deck">an Elgato Stream Deck</Link>.
                     </p>
                     <ConsoleTour stops={tour} />
                 </section>
@@ -423,8 +423,8 @@ export default function Home() {
                         <div className={styles.tag}>
                             <p className="da-eyebrow">Stream Deck</p>
                             <p>
-                                The desk on keys: what is on air with its cover, Skip, and a Stop that asks twice. It does not play the station.{' '}
-                                <Link href={streamDeckReleases}>Download it</Link>, or{' '}
+                                The desk on keys: what is on air with its cover, Skip, a Stop that asks twice, and a heart on the record playing. It
+                                does not play the station. <Link href={streamDeckReleases}>Download it</Link>, or{' '}
                                 <Link to="/docs/features/console#on-a-stream-deck">read what it does</Link>.
                             </p>
                         </div>

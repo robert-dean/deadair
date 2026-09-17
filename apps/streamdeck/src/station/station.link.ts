@@ -13,11 +13,21 @@ import type { StatusPoller } from './status.poller.js';
  */
 export class StationLink {
     private current?: { station: Station; sdk: DeadairSdk };
+    private readonly listeners = new Set<() => void>();
 
     constructor(
         private readonly poller: StatusPoller,
         private readonly userAgent: string,
     ) {}
+
+    /**
+     * Hear about the station changing, for whatever else holds something that belonged to the old
+     * one. The poller is reconfigured here rather than through this, because it is the reason this
+     * class exists; everything else that remembers a station's answers is told.
+     */
+    onChange(listener: () => void): void {
+        this.listeners.add(listener);
+    }
 
     get station(): Station | undefined {
         return this.current?.station;
@@ -34,6 +44,7 @@ export class StationLink {
         if (same) return;
         this.current = station ? { station, sdk: createStationSdk(station, this.userAgent) } : undefined;
         this.poller.reconfigure(this.current?.sdk.playout);
+        for (const listener of this.listeners) listener();
     }
 
     /** Ask again now, as though the station had just been set: after the computer wakes, the last reading is from before it slept. */

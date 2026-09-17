@@ -3,6 +3,7 @@ import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { NOW_PLAYING } from '../src/actions/now.playing.options.js';
+import { DISLIKE, LIKE } from '../src/actions/vote.reading.js';
 
 // `streamdeck validate` checks all of this too, but it fetches the manifest's URLs first and so needs
 // the network, which a test run does not have. These are the parts that break without anybody
@@ -44,8 +45,15 @@ function imageExists(path: string): boolean {
 }
 
 describe('the plugin manifest', () => {
-    it('declares the Now Playing action the code registers', () => {
-        expect(manifest.Actions.map(action => action.UUID)).toContain(NOW_PLAYING);
+    it('declares the actions the code registers by the ids it registers them under', () => {
+        const declared = manifest.Actions.map(action => action.UUID);
+        for (const uuid of [NOW_PLAYING, LIKE, DISLIKE]) expect(declared).toContain(uuid);
+    });
+
+    it('gives each vote key one state, because the plugin draws its face rather than switching between two', () => {
+        for (const uuid of [LIKE, DISLIKE]) {
+            expect(manifest.Actions.find(action => action.UUID === uuid)?.States).toHaveLength(1);
+        }
     });
 
     it('names every action under the plugin’s own id', () => {

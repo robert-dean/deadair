@@ -1,6 +1,6 @@
-// The Now Playing key's picture in the manifest, which the Stream Deck app shows in the action list
-// and on a key before the plugin has drawn anything. Drawn by the plugin's own renderer, so it is the
-// face a quiet key shows (the station's mark, no title, no bar) and cannot drift from it.
+// The manifest's key pictures, which the Stream Deck app shows in the action list and on a key before
+// the plugin has drawn anything. Drawn by the plugin's own renderer, so each is the face a quiet key
+// shows and none of them can drift from what the plugin actually puts on the key.
 //
 //     node apps/streamdeck/tools/default.key.mjs
 //
@@ -10,9 +10,21 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
-import { nowPlayingSvg } from '../src/display/key.image.ts';
+import { nowPlayingSvg, voteSvg } from '../src/display/key.image.ts';
 
 const plugin = resolve(import.meta.dirname, '../radio.deadair.streamdeck.sdPlugin');
-const mark = `data:image/png;base64,${readFileSync(join(plugin, 'imgs/plugin/mark.png')).toString('base64')}`;
-writeFileSync(join(plugin, 'imgs/actions/now-playing/key.svg'), `${nowPlayingSvg({ tone: 'standby', stale: false, shade: false, mark })}\n`);
-console.log('radio.deadair.streamdeck.sdPlugin/imgs/actions/now-playing/key.svg');
+const picture = name => `data:image/png;base64,${readFileSync(join(plugin, `imgs/plugin/${name}`)).toString('base64')}`;
+const mark = picture('mark.png');
+const skull = picture('skull.png');
+const write = (path, svg) => {
+    writeFileSync(join(plugin, path), `${svg}\n`);
+    console.log(`radio.deadair.streamdeck.sdPlugin/${path}`);
+};
+
+write('imgs/actions/now-playing/key.svg', nowPlayingSvg({ tone: 'standby', stale: false, shade: false, mark }));
+
+// A vote key's quiet face: the station has no such opinion of whatever is on, which is what an
+// unplaced key and one on a station with nothing airing both show.
+for (const vote of ['liked', 'disliked']) {
+    write(`imgs/actions/${vote === 'liked' ? 'like' : 'dislike'}/key.svg`, voteSvg({ vote, lit: false, dim: false, skull }));
+}

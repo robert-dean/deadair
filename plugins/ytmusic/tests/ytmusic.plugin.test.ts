@@ -1,3 +1,4 @@
+import { PluginError } from '@deadair/plugin-sdk';
 import { createFakePluginHost, type FakePluginHost } from '@deadair/plugin-sdk/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Utils } from 'youtubei.js';
@@ -10,6 +11,7 @@ import type { UpstreamItem } from '../src/ytmusic.mapping.js';
  * The wire is covered in `ytmusic.fetch.test.ts`.
  */
 const client = {
+    assertSignedIn: vi.fn<() => Promise<string | undefined>>(),
     libraryPlaylists: vi.fn<() => Promise<UpstreamItem[]>>(),
     playlistItems: vi.fn<(id: string) => Promise<UpstreamItem[]>>(),
     likedPlaylist: vi.fn<() => Promise<{ name?: string; items: UpstreamItem[] } | undefined>>(),
@@ -43,6 +45,7 @@ async function build(): Promise<{ host: FakePluginHost; plugin: InstanceType<typ
 
 beforeEach(() => {
     vi.clearAllMocks();
+    client.assertSignedIn.mockResolvedValue('Robert Dean');
     client.libraryPlaylists.mockResolvedValue([]);
     client.likedPlaylist.mockResolvedValue(undefined);
     client.playlistItems.mockResolvedValue([]);
@@ -64,15 +67,32 @@ describe('the credential', () => {
         // reject cookies that work. `session.logged_in` stays true with every session cookie
         // corrupted. And a check that went through SEARCH could not fail at all, because search is
         // served to signed-out callers.
-        expect(client.libraryPlaylists).toHaveBeenCalledTimes(1);
+        expect(client.assertSignedIn).toHaveBeenCalledTimes(1);
+    });
+
+    it('asks the ACCOUNT, not the library, so an empty library is not mistaken for a dead cookie', async () => {
+        // The correction a live account forced: an empty library section throws exactly the
+        // ParsingError a signed-out page throws, so a library-based probe refuses a good cookie
+        // belonging to an operator who simply has no playlists yet.
+        await build();
+        expect(client.libraryPlaylists).not.toHaveBeenCalled();
     });
 
     it('refuses to start when the cookie does not actually work', async () => {
-        client.libraryPlaylists.mockRejectedValue(new Utils.ParsingError('Expected node of any type Grid, MusicShelf, got ItemSection'));
+        client.assertSignedIn.mockRejectedValue(new PluginError('YouTube Music did not accept the cookie: Page contents not found').withCode('auth'));
 
         const host = createFakePluginHost();
         host.seedSecret('cookie', COOKIE);
         await expect(new YtMusicPlugin().init(host)).rejects.toMatchObject({ code: 'config' });
+    });
+
+    it('starts for an account with no playlists at all', async () => {
+        // The false-refusal case. `[]` is the truth about a station with nothing in its library.
+        client.libraryPlaylists.mockResolvedValue([]);
+        client.likedPlaylist.mockResolvedValue(undefined);
+
+        const { plugin } = await build();
+        await expect(plugin.listPlaylists()).resolves.toEqual([]);
     });
 
     it('accepts a cookie with no __Secure-3PAPISID, because that is not the tell-tale', async () => {
@@ -86,16 +106,16 @@ describe('the credential', () => {
 describe('testConnection', () => {
     it('reports a failure rather than throwing, because an operator is mid-paste', async () => {
         const { plugin } = await build();
-        client.libraryPlaylists.mockRejectedValue(new Utils.ParsingError('Expected node of any type Grid, MusicShelf, got ItemSection'));
+        client.assertSignedIn.mockRejectedValue(new PluginError('YouTube Music did not accept the cookie: Page contents not found').withCode('auth'));
 
         const result = await plugin.testConnection();
         expect(result.ok).toBe(false);
         expect(result.message).toMatch(/cookie/i);
     });
 
-    it('confirms a working cookie', async () => {
+    it('confirms a working cookie, and names the account it is for', async () => {
         const { plugin } = await build();
-        await expect(plugin.testConnection()).resolves.toMatchObject({ ok: true });
+        await expect(plugin.testConnection()).resolves.toMatchObject({ ok: true, message: 'Connected to YouTube Music as Robert Dean.' });
     });
 });
 

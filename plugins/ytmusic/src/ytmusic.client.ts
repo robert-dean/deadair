@@ -1,5 +1,6 @@
+import { PluginError } from '@deadair/plugin-sdk';
 import type { PluginHost } from '@deadair/plugin-sdk';
-import { Innertube, Log } from 'youtubei.js';
+import { Innertube, Log, Utils } from 'youtubei.js';
 
 import { createHostFetch } from './ytmusic.fetch.js';
 import { isUnavailable } from './ytmusic.errors.js';
@@ -37,16 +38,56 @@ export class YtMusicClient {
     }
 
     /**
+     * Whether the cookie is actually working, asked of the account rather than of the library.
+     *
+     * This is the plugin's credential check, and it reads the ACCOUNT on purpose. The obvious probe
+     * is a library read, since that is the thing that needs authorising, and it is wrong for a
+     * reason only a live account showed: an EMPTY library section answers the very same
+     * `ParsingError` as a signed-out page (`Expected node of any type Grid, MusicShelf, got
+     * ItemSection`), because the upstream renders both as a message rather than a grid. Measured
+     * with a good cookie: the Songs and Albums sections of an account with none of either threw
+     * exactly what a dead credential throws. So an operator who simply has no playlists yet would
+     * have been told their cookie was invalid, and the plugin would have refused to start on a
+     * perfectly good one.
+     *
+     * The account endpoint depends on the credential and on nothing else, which is the property the
+     * check needs: with a good cookie it answers a name, and with a corrupted one it throws.
+     */
+    async assertSignedIn(): Promise<string | undefined> {
+        try {
+            const info = await this.inner.account.getInfo();
+            const accounts = (info as { contents?: { contents?: { account_name?: { text?: string } }[] } })?.contents?.contents ?? [];
+            return accounts[0]?.account_name?.text;
+        } catch (error) {
+            throw new PluginError(`YouTube Music did not accept the cookie: ${error instanceof Error ? error.message : String(error)}`).withCode(
+                'auth',
+            );
+        }
+    }
+
+    /**
      * The account's own playlists.
      *
      * `getLibrary()` alone answers the library LANDING view, which is not the playlists. On a real
      * account it came back holding a podcast queue and nothing else. The Playlists view is behind
      * the chip, which is what `applyFilter` presses.
+     *
+     * A `ParsingError` here is genuinely ambiguous, for the reason {@link assertSignedIn} sets out:
+     * it is either an empty section or a dead cookie. Rather than guess, ask the account. An empty
+     * library is `[]`, which is the truth about a station with no playlists; a dead cookie keeps
+     * its `auth` code, so the one case this plugin exists to report out loud still gets reported
+     * out loud rather than being flattened into an empty catalog.
      */
     async libraryPlaylists(): Promise<UpstreamItem[]> {
-        const library = await this.inner.music.getLibrary();
-        const playlists = await library.applyFilter('Playlists');
-        return rowsOf((playlists as { contents?: unknown[] })?.contents?.[0] ?? playlists);
+        try {
+            const library = await this.inner.music.getLibrary();
+            const playlists = await library.applyFilter('Playlists');
+            return rowsOf((playlists as { contents?: unknown[] })?.contents?.[0] ?? playlists);
+        } catch (error) {
+            if (!(error instanceof Utils.ParsingError)) throw error;
+            await this.assertSignedIn();
+            return [];
+        }
     }
 
     /** A playlist's rows, all of them: paging is the caller's problem and it wants the whole thing once. */

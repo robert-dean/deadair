@@ -62,8 +62,10 @@ export class YtMusicPlugin extends Plugin implements MusicProviderPluginInstance
         const client = await YtMusicClient.create(host, cookie);
 
         // The credential is checked by USING it, before the plugin is declared ready. See `probe`.
+        // `probe` already phrases the failure for whoever reads the settings card; wrapping it again
+        // here only doubles the sentence.
         const failure = await this.probe(client);
-        if (failure) throw new PluginError(`YouTube Music did not accept the cookie: ${failure}`).withCode('config');
+        if (failure) throw new PluginError(failure).withCode('config');
 
         this.client = client;
         this.register(() => {
@@ -95,11 +97,16 @@ export class YtMusicPlugin extends Plugin implements MusicProviderPluginInstance
      * thins quietly and the plugin's card says nothing is wrong. The whole point of probing is to
      * turn that into a sentence somebody can act on.
      *
+     * And it asks the ACCOUNT rather than reading the library, which is the correction a live
+     * account forced: an empty library section throws the same `ParsingError` as a signed-out page,
+     * so a library-based probe refuses a perfectly good cookie belonging to an operator who simply
+     * has no playlists yet. See `YtMusicClient.assertSignedIn`.
+     *
      * Resolves to the reason it failed, or `undefined` when the credential is good.
      */
     private async probe(client: YtMusicClient): Promise<string | undefined> {
         try {
-            await client.libraryPlaylists();
+            await client.assertSignedIn();
             return undefined;
         } catch (error) {
             return errorText(toPluginError(error, 'authenticated'));
@@ -115,7 +122,8 @@ export class YtMusicPlugin extends Plugin implements MusicProviderPluginInstance
         const client = this.require();
         const failure = await this.probe(client);
         if (failure) return { ok: false, message: failure };
-        return { ok: true, message: 'Connected to YouTube Music.' };
+        const name = await client.assertSignedIn().catch(() => undefined);
+        return { ok: true, message: name ? `Connected to YouTube Music as ${name}.` : 'Connected to YouTube Music.' };
     }
 
     // --- catalog -------------------------------------------------------------

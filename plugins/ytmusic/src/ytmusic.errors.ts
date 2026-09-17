@@ -14,6 +14,8 @@ export type CallKind =
     | 'public';
 
 const SIGNED_OUT = 'you must be signed in';
+/** What the account endpoint answers with when the credential is dead. */
+const NO_PAGE = 'page contents not found';
 const UNAVAILABLE = 'this video is unavailable';
 
 /** Phrases YouTube uses for a refusal that is about the RECORD rather than about us. */
@@ -61,6 +63,7 @@ export function toPluginError(error: unknown, kind: CallKind): PluginError {
 
     // The no-cookie case, and the only one the upstream states plainly.
     if (has(text, SIGNED_OUT)) return new PluginError(`YouTube Music refused an unauthenticated request: ${text}`).withCode('auth');
+    if (has(text, NO_PAGE)) return new PluginError(`YouTube Music did not accept the cookie: ${text}`).withCode('auth');
 
     // Resource-scoped: this record, not this plugin. `getTrack` turns it into `undefined` before it
     // ever reaches here; anything else that raises it is reporting on one item.

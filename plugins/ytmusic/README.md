@@ -39,9 +39,13 @@ The plugin goes out of its way to make that legible, because the failure is othe
 **search keeps working when the cookie is dead.** YouTube serves search to signed-out callers, so a
 station with an expired cookie would go on returning results while the library silently went dark:
 a rotation quietly thinning with nothing on the plugin's card to say why. So the credential is
-checked by making the one call that cannot work without it, at startup and behind **Test
-connection**, and a failure is reported as an authorization problem rather than as a fault at
-YouTube.
+checked at startup and behind **Test connection** by asking the upstream which account it belongs
+to, and a failure is reported as an authorization problem rather than as a fault at YouTube.
+
+It asks about the ACCOUNT rather than reading the library, and that distinction is load-bearing: an
+empty library section answers exactly the same parse failure a signed-out page does, so a
+library-based check refuses a perfectly good cookie belonging to an operator who has no playlists
+yet.
 
 ## What the records look like
 

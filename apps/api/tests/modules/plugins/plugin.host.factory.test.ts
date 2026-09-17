@@ -1669,6 +1669,24 @@ describe('PluginHostFactory fetch failures, as the client sees them', () => {
         expect(failure.details).toMatchObject({ code: ErrorCodes.PLUGIN_UPSTREAM_FAILED, plugin: 'test.plugin' });
     });
 
+    it('says WHY the upstream could not be reached, which `fetch` puts only on the cause', async () => {
+        // The failure this was written for: a speech plugin pointed at a local engine that is not
+        // running. `fetch` rejects with a bare `TypeError: fetch failed` and hides `ECONNREFUSED` on
+        // the cause, so the message an operator was shown -- in the settings page and in the
+        // plugin's stored `lastError` -- read `fetch to "localhost" failed: fetch failed`, which
+        // names neither the port nor the reason and is indistinguishable from a DNS or TLS fault.
+        const refused = Object.assign(new Error('connect ECONNREFUSED 127.0.0.1:8880'), { code: 'ECONNREFUSED' });
+        vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('fetch failed', { cause: refused })));
+        const host = factory().createHost(allowlisted('localhost'));
+
+        const error = await rejection(host.fetch('http://localhost:8880/v1/audio/voices'));
+
+        expect(error).toBeInstanceOf(Error);
+        expect((error as Error).message).toContain('ECONNREFUSED');
+        expect((error as Error).message).toContain('127.0.0.1:8880');
+        expect(asResponse(error).statusCode).toBe(502);
+    });
+
     it('answers 504 PLUGIN_TIMED_OUT when the host abandoned the call on its deadline', async () => {
         vi.useFakeTimers();
         vi.stubGlobal('fetch', neverResolvingFetch());

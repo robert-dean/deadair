@@ -27,7 +27,7 @@ import { isPrivateAddress, NETWORK_OPEN, privateAddressBehind, resolveAddresses 
 import { PluginGrantsService } from './plugin.grants.service.js';
 import { OAUTH_SECRET_FIELD, PLUGIN_OAUTH_SECRET_KEY } from './plugin.oauth.secret.js';
 import { PluginStorageRepository } from './plugin.storage.repository.js';
-import { errorText } from '#modules/shared/error.text.js';
+import { causeText, errorText } from '#modules/shared/error.text.js';
 import { inScope } from '#modules/shared/scoped.work.js';
 
 export { PLUGIN_OAUTH_SECRET_KEY, OAUTH_SECRET_FIELD } from './plugin.oauth.secret.js';
@@ -582,7 +582,7 @@ const guardBody = (
             } catch (error) {
                 const thrown = isPluginError(error)
                     ? error
-                    : new PluginError(`plugin "${manifest.id}" response body from ${url} failed: ${errorText(error)}`, { cause: error }).withCode(
+                    : new PluginError(`plugin "${manifest.id}" response body from ${url} failed: ${causeText(error)}`, { cause: error }).withCode(
                           'upstream',
                       );
                 release(thrown);
@@ -1494,7 +1494,7 @@ export class PluginHostFactory {
         if (isPluginError(error)) return error;
 
         const aborted = controller.signal.aborted;
-        const reason = aborted ? `timed out after ${budgetMs}ms` : errorText(error);
+        const reason = aborted ? `timed out after ${budgetMs}ms` : causeText(error);
         this.pluginLog.for(manifest.id).warn('plugin fetch failed', { hostname, ...meta, error: reason });
 
         return new PluginError(`plugin "${manifest.id}" fetch to "${hostname}" failed: ${reason}`, { cause: error }).withCode(

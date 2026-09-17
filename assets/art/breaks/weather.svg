@@ -1,9 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
     <!-- The picture a weather break wears. Drawn for this repository; see MANIFEST.json.
 
-         The station's own mark is IN the weather rather than beside it: the skull is what is inside
-         the cloud, with the sun behind it. `news.svg` makes the same move with the photograph on its
-         front page, which is what keeps the two a set.
+         The sun up and to the left with the cloud crossing in front of it from the lower right, and
+         the station's own mark IN the cloud. `news.svg` makes the same move with the photograph on
+         its front page, which is what keeps the two a set.
 
          `weather.png` beside this is what SHIPS, and it is this file rasterised:
 
@@ -19,49 +19,59 @@
              because an arc path of this shape is written wrong far more easily than it is written
              right, and did not survive its first reading: what it drew was a lozenge.
 
-             It is OUTLINED by drawing that union twice — once filled and stroked in ink, which puts
-             an edge on the outside of every shape, and once filled flat, which covers the edges that
-             fell inside it. A third pass stroking the shapes again is the obvious-looking way to do
-             it and draws every internal edge straight back in, which is what it did the first time.
-
-             A `<g>` is not a permitted child of `<clipPath>`, so the shapes are repeated here rather
-             than referenced. Wrapped in one, the clip is empty and this renders as a cloud with no
-             skull in it. -->
+             A `<g>` is not a permitted child of `<clipPath>`, so the shapes are repeated below
+             rather than referenced. Wrapped in one, the clip is empty and this renders as a cloud
+             with no skull in it. -->
         <clipPath id="cloud">
-            <circle cx="170" cy="292" r="78"/>
-            <circle cx="256" cy="232" r="106"/>
-            <circle cx="346" cy="292" r="78"/>
-            <rect x="92" y="290" width="328" height="110" rx="55"/>
+            <circle cx="196" cy="310" r="76"/>
+            <circle cx="286" cy="250" r="102"/>
+            <circle cx="376" cy="310" r="76"/>
+            <rect x="118" y="308" width="336" height="108" rx="54"/>
         </clipPath>
     </defs>
 
     <rect width="512" height="512" fill="#2ED88B"/>
 
     <!-- The sun, first, so the cloud passes in front of it. -->
-    <g stroke="#121514" stroke-width="16" stroke-linecap="round">
-        <line x1="462.4" y1="151.0" x2="488.3" y2="161.7"/>
-        <line x1="431.0" y1="182.4" x2="441.7" y2="208.3"/>
-        <line x1="387.0" y1="182.4" x2="376.3" y2="208.3"/>
-        <line x1="355.6" y1="151.0" x2="329.7" y2="161.7"/>
-        <line x1="355.6" y1="107.0" x2="329.7" y2="96.3"/>
-        <line x1="387.0" y1="75.6" x2="376.3" y2="49.7"/>
-        <line x1="431.0" y1="75.6" x2="441.7" y2="49.7"/>
-        <line x1="462.4" y1="107.0" x2="488.3" y2="96.3"/>
+    <g stroke="#121514" stroke-width="20" stroke-linecap="round">
+        <line x1="288.0" y1="178.0" x2="320.0" y2="178.0"/>
+        <line x1="259.9" y1="245.9" x2="282.5" y2="268.5"/>
+        <line x1="192.0" y1="274.0" x2="192.0" y2="306.0"/>
+        <line x1="124.1" y1="245.9" x2="101.5" y2="268.5"/>
+        <line x1="96.0" y1="178.0" x2="64.0" y2="178.0"/>
+        <line x1="124.1" y1="110.1" x2="101.5" y2="87.5"/>
+        <line x1="192.0" y1="82.0" x2="192.0" y2="50.0"/>
+        <line x1="259.9" y1="110.1" x2="282.5" y2="87.5"/>
     </g>
-    <circle cx="409" cy="129" r="46" fill="#121514"/>
+    <circle cx="192" cy="178" r="76" fill="#121514"/>
 
-    <!-- The cloud: ink pass for the edge, flat pass for the field, then the mark inside it. -->
+    <!-- The cloud, in four passes, and each one is doing something.
+
+         The FIELD-coloured halo is what separates the cloud from the sun behind it: both are ink, so
+         without it the cloud's outline would disappear into the sun's disc exactly where the two
+         overlap and the pair would read as one blob.
+
+         Then the union is OUTLINED by drawing it filled and stroked in ink, which puts an edge on
+         the outside of every shape, and filled flat, which covers the edges that fell inside it. A
+         further pass stroking the shapes again is the obvious-looking way to outline a union and
+         draws every internal edge straight back in, which is what it did the first time. -->
+    <g fill="#2ED88B" stroke="#2ED88B" stroke-width="46" stroke-linejoin="round">
+        <circle cx="196" cy="310" r="76"/>
+        <circle cx="286" cy="250" r="102"/>
+        <circle cx="376" cy="310" r="76"/>
+        <rect x="118" y="308" width="336" height="108" rx="54"/>
+    </g>
     <g fill="#121514" stroke="#121514" stroke-width="22" stroke-linejoin="round">
-        <circle cx="170" cy="292" r="78"/>
-        <circle cx="256" cy="232" r="106"/>
-        <circle cx="346" cy="292" r="78"/>
-        <rect x="92" y="290" width="328" height="110" rx="55"/>
+        <circle cx="196" cy="310" r="76"/>
+        <circle cx="286" cy="250" r="102"/>
+        <circle cx="376" cy="310" r="76"/>
+        <rect x="118" y="308" width="336" height="108" rx="54"/>
     </g>
     <g fill="#2ED88B">
-        <circle cx="170" cy="292" r="78"/>
-        <circle cx="256" cy="232" r="106"/>
-        <circle cx="346" cy="292" r="78"/>
-        <rect x="92" y="290" width="328" height="110" rx="55"/>
+        <circle cx="196" cy="310" r="76"/>
+        <circle cx="286" cy="250" r="102"/>
+        <circle cx="376" cy="310" r="76"/>
+        <rect x="118" y="308" width="336" height="108" rx="54"/>
     </g>
-    <image href="../../../apps/ios/Sources/Assets.xcassets/AppIcon.appiconset/AppIcon.png" x="119.8" y="147.5" width="272.2" height="272.2" clip-path="url(#cloud)"/>
+    <image href="../../../apps/ios/Sources/Assets.xcassets/AppIcon.appiconset/AppIcon.png" x="155.8" y="174.5" width="261.4" height="261.4" clip-path="url(#cloud)"/>
 </svg>

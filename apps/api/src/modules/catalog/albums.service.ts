@@ -4,11 +4,15 @@ import { AlbumsRepository } from './albums.repository.js';
 import { Pagination } from '../shared/types/pagination.js';
 import { Album, CatalogQueryInput, RateInput } from './types/catalog.types.js';
 import { ratingToColumn, withRating } from './rating.js';
+import { RatingAnnouncer } from './rating.announce.js';
 import { parseAndValidate, parseAndValidateArray } from '@maroonedsoftware/zod';
 
 @Injectable()
 export class AlbumsService {
-    constructor(private readonly albumsRepository: AlbumsRepository) {}
+    constructor(
+        private readonly albumsRepository: AlbumsRepository,
+        private readonly announcer: RatingAnnouncer,
+    ) {}
 
     async listAlbums(query: CatalogQueryInput): Promise<{ meta: Pagination; data: Album[] }> {
         return this.page(query);
@@ -40,7 +44,11 @@ export class AlbumsService {
     async rateAlbum(id: string, input: RateInput): Promise<Album> {
         const rated = await this.albumsRepository.setRating(id, ratingToColumn(input.rating));
         if (!rated) throw httpError(404).withDetails({ message: `album "${id}" is not in the catalog` });
-        return await this.getAlbum(id);
+
+        // After the re-read and the 404, for the reason `ArtistsService.rateArtist` states.
+        const album = await this.getAlbum(id);
+        this.announcer.announce('album', id, album.name, input.rating);
+        return album;
     }
 
     private async page(query: CatalogQueryInput, artistId?: string): Promise<{ meta: Pagination; data: Album[] }> {

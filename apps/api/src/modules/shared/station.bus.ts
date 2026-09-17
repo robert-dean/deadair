@@ -62,6 +62,27 @@ export interface StationEvents {
      * exists.
      */
     'plugin.configured': { pluginId: string };
+
+    /**
+     * An operator told the station not to play something.
+     *
+     * The DISLIKE rather than the rating, which is the one arm of `catalog/rating.ts`'s three that
+     * anything reacts to: a like changes how often a record is drawn and the draw reads that for
+     * itself, where a dislike is an instruction that has to reach a running order already built. So
+     * the publisher filters rather than the subscriber, unlike `plugin.configured` beside it —
+     * `PluginsService` cannot know which saves matter to enrichment, and `ArtistsService` knows
+     * exactly which of the three ratings this is.
+     *
+     * `level` and `id` say what was rated; `name` rides along so the subscriber can write the feed's
+     * sentence without reading the row back. The subscriber is `DislikeVeto` in `director`, which is
+     * registered after `catalog` and so cannot be reached directly — `StationIdentity`'s reason, and
+     * this file's.
+     *
+     * Deliberately NOT the tracks it forbids. A dislike at any of the three levels vetoes through
+     * `CandidatesRepository.effectiveRating`, guests included, and resolving that to a track list is
+     * the director's question rather than the catalog's.
+     */
+    'catalog.disliked': { level: 'artist' | 'album' | 'track'; id: string; name: string };
 }
 
 export type StationEventKind = keyof StationEvents;

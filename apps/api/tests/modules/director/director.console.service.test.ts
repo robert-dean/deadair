@@ -88,6 +88,15 @@ interface Options {
     airing?: boolean;
     /** Whether the stream takes that cut. Defaults to true. */
     cutTakes?: boolean;
+    /**
+     * What `CandidatesRepository.effectiveRating` answers for a canonical track id, for the veto.
+     *
+     * The EFFECTIVE number rather than a level's own column, because that is what `ratingsFor`
+     * returns and the whole point of it is that it has already collapsed track, record, lead artist
+     * and every credited artist into one. A case says `-1` and means "the station may not play this",
+     * without having to say which of the four said so.
+     */
+    effectiveRatings?: Record<string, number>;
 }
 
 function build(options: Options = {}) {
@@ -137,6 +146,7 @@ function build(options: Options = {}) {
             if (edit.kind === 'remove') return order.remove(edit.itemId);
             if (edit.kind === 'insertTrack') return order.insertTrack(edit.track, edit.atIndex ?? order.size());
             if (edit.kind === 'skipTo') return order.skipTo(edit.itemId).result;
+            if (edit.kind === 'vetoDisliked') return order.veto(edit.itemIds).result;
             return order.insertSegment(edit.segmentId, edit.atIndex ?? order.size());
         }),
     } as unknown as DirectorService;
@@ -257,6 +267,14 @@ function build(options: Options = {}) {
             const binding = options.trackBinding;
             return new Map(binding && ids.includes(options.catalogTrack?.id ?? '') ? [[ids[0]!, binding]] : []);
         }),
+        // Answers for the ids it is ASKED about and no others, the way the real one does: a track
+        // the catalog has never heard of is absent rather than `0`, which is the fork the veto has
+        // to get right — "no opinion" and "never seen" are different facts and only one is a reason
+        // to keep a record.
+        ratingsFor: vi.fn(
+            async (ids: readonly string[]) =>
+                new Map(ids.flatMap(id => (options.effectiveRatings?.[id] === undefined ? [] : [[id, options.effectiveRatings[id]!]]))),
+        ),
     } as unknown as CandidatesRepository;
     const trackAudio = {
         has: vi.fn(async () => options.audioReady ?? true),
@@ -1564,5 +1582,107 @@ describe('DirectorConsoleService building a running order from a chart', () => {
         await service.putOnAir({ chartId: 'deadair.lastfm:top-100' });
 
         expect(posted0(posted())?.binding).toMatchObject({ mode: 'rotation', onEnd: 'extend' });
+    });
+});
+
+describe('DirectorConsoleService vetoing what the station has been forbidden', () => {
+    /** A running order of records the catalog knows, so the veto has ids to judge them by. */
+    const onAirWith = (count: number): StationLineup => {
+        const order = new StationLineup({ name: 'Afternoons', mode: 'rotation', onEnd: 'extend', source: 'import' });
+        order.append(
+            Array.from({ length: count }, (_, index) => ({
+                pluginId: 'p',
+                externalId: `t${index}`,
+                title: `T${index}`,
+                artists: ['X'],
+                artist: 'X',
+                trackId: `trk_${index}`,
+            })),
+        );
+        return order;
+    };
+
+    it('takes out every record the catalog now forbids, whatever level said so', async () => {
+        // The point of going through `ratingsFor` rather than matching on the artist: the caller
+        // says which records may not play and the veto never has to know whether it was the song,
+        // the record, the lead artist or a guest credit that forbade them.
+        const order = onAirWith(4);
+        const { service } = build({ order, effectiveRatings: { trk_0: 0, trk_1: -1, trk_2: 0, trk_3: -1 } });
+
+        await service.vetoDisliked('Grateful Dead');
+
+        expect(order.all().map(item => (item.kind === 'track' ? item.track.externalId : ''))).toEqual(['t0', 't2']);
+    });
+
+    it('keeps a record the catalog has never heard of, because no opinion is not a veto', async () => {
+        // `PickResolver.vet`'s own answer at the same fork. `trackId` is optional because a station
+        // can air a record it has not ingested, and dropping those would empty an order the operator
+        // built out of a provider playlist the catalog has not walked yet.
+        const order = new StationLineup({ name: 'Afternoons', mode: 'rotation', onEnd: 'extend', source: 'import' });
+        order.append([{ pluginId: 'p', externalId: 't0', title: 'T0', artists: ['X'], artist: 'X' }]);
+        const { service, director } = build({ order, effectiveRatings: {} });
+
+        await service.vetoDisliked('Grateful Dead');
+
+        expect(order.all()).toHaveLength(1);
+        expect(director.applyEdit).not.toHaveBeenCalled();
+    });
+
+    it('does nothing at all when the order holds nothing forbidden', async () => {
+        // Nothing is waiting on this, so an order that is fine costs one read and no feed row. A
+        // station where somebody rates a lot of records would otherwise fill the feed with edits
+        // that changed nothing.
+        const { service, director, activity } = build({ order: onAirWith(2), effectiveRatings: { trk_0: 0, trk_1: 1 } });
+
+        await service.vetoDisliked('Grateful Dead');
+
+        expect(director.applyEdit).not.toHaveBeenCalled();
+        expect(activity.record).not.toHaveBeenCalled();
+    });
+
+    it('does nothing when the station is not airing anything', async () => {
+        const { service, director } = build({ effectiveRatings: { trk_0: -1 } });
+
+        await service.vetoDisliked('Grateful Dead');
+
+        expect(director.applyEdit).not.toHaveBeenCalled();
+    });
+
+    it('never judges what has already been heard', async () => {
+        // Asking the catalog about records that already aired spends a query on the one thing
+        // nothing can be done about.
+        const order = onAirWith(3);
+        order.markAiring(order.nextPlanned(1)[0]!.id);
+        const { service, candidates } = build({ order, effectiveRatings: { trk_1: -1 } });
+
+        await service.vetoDisliked('Grateful Dead');
+
+        expect(candidates.ratingsFor).toHaveBeenCalledWith(['trk_0', 'trk_1', 'trk_2']);
+    });
+
+    it('records one feed row naming what the station was told, not one per record', async () => {
+        const order = onAirWith(3);
+        const { service, activity } = build({ order, effectiveRatings: { trk_0: -1, trk_1: -1, trk_2: 0 } });
+
+        await service.vetoDisliked('Grateful Dead');
+
+        expect(activity.record).toHaveBeenCalledTimes(1);
+        expect(activity.record.mock.calls[0]![0]).toMatchObject({
+            module: 'director',
+            kind: 'order.vetoDisliked',
+            data: { forbidden: 'Grateful Dead', items: 2 },
+        });
+        expect(activity.record.mock.calls[0]![0]!.detail).toContain('Grateful Dead');
+    });
+
+    it('cancels the reactor before it edits, like every other writer of what airs', async () => {
+        // A commit pass may already have gathered its material and be suspended in a read. Only the
+        // epoch reaches it, and a veto that posted without bumping it would let the pass commit the
+        // record it just took out.
+        const { service, director } = build({ order: onAirWith(2), effectiveRatings: { trk_0: -1 } });
+
+        await service.vetoDisliked('Grateful Dead');
+
+        expect(director.invalidate).toHaveBeenCalled();
     });
 });

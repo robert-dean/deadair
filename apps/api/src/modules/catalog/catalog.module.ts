@@ -1,6 +1,7 @@
 import { Registry } from 'injectkit';
 import { ServerKitModule } from '@maroonedsoftware/koa';
 import { AppConfig } from '@maroonedsoftware/appconfig';
+import { RatingAnnouncer } from './rating.announce.js';
 import { ArtistsService } from './artists.service.js';
 import { AlbumsService } from './albums.service.js';
 import { TracksService } from './tracks.service.js';
@@ -18,6 +19,10 @@ import { CatalogSyncService } from './ingest/catalog.sync.service.js';
 export const CatalogModule: ServerKitModule = {
     name: 'Catalog',
     setup: async (registry: Registry, _: AppConfig) => {
+        // What the three rate methods tell the station once their write is durable. Scoped like
+        // them, because it is `AfterCommit` — itself scoped, one list of tasks per request — that
+        // it defers onto.
+        registry.register(RatingAnnouncer).useClass(RatingAnnouncer).asScoped();
         registry.register(ArtistsService).useClass(ArtistsService).asScoped();
         registry.register(ArtistsRepository).useClass(ArtistsRepository).asScoped();
         registry.register(AlbumsService).useClass(AlbumsService).asScoped();

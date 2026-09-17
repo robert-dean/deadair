@@ -38,6 +38,9 @@ import { AnalysisRepository } from '../src/modules/analysis/analysis.repository.
 import { EnrichmentRepository } from '../src/modules/enrichment/enrichment.repository.js';
 import { artistKey, songKey } from '../src/modules/director/rotation.keys.js';
 import { weightOf } from '../src/modules/director/rotation.rules.js';
+import { RatingAnnouncer } from '../src/modules/catalog/rating.announce.js';
+import { AfterCommit } from '../src/modules/data/after.commit.js';
+import { StationBus } from '../src/modules/shared/station.bus.js';
 
 const quiet = { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} } as unknown as Logger;
 
@@ -58,8 +61,13 @@ const db = new Kysely<DB>({ dialect: new EmptyUpdateRewriteDialect({ pool }, qui
 const artists = new ArtistsRepository(db);
 const albums = new AlbumsRepository(db);
 const tracks = new TracksRepository(db);
-const artistsService = new ArtistsService(artists);
-const albumsService = new AlbumsService(albums);
+// A real announcer over a real bus with nothing subscribed to it. The station's reaction to a
+// dislike — `DislikeVeto` taking the record out of a running order — is the director's and is not
+// what this script drives; what matters here is that rating something still goes through the same
+// code path the app uses, so a throw on this edge would fail the script rather than hide.
+const announcer = new RatingAnnouncer(new AfterCommit(), new StationBus(quiet), quiet);
+const artistsService = new ArtistsService(artists, announcer);
+const albumsService = new AlbumsService(albums, announcer);
 // The readers behind `getTrack` are real here, because this script drives real SQL and there is no
 // reason to hand it fakes. The last three are not: this file rates records and never clears one, and
 // a real `TrackAudioService` would want a container and a store to build. They are stubbed to
@@ -81,6 +89,7 @@ const tracksService = new TracksService(
     unused as never,
     unused as never,
     unused as never,
+    announcer,
 );
 const candidates = new CandidatesRepository(db);
 

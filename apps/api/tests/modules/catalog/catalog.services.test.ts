@@ -12,6 +12,7 @@
 
 import { describe, expect, it, vi } from 'vitest';
 
+import { RatingAnnouncer } from '../../../src/modules/catalog/rating.announce.js';
 import { ArtistsService } from '../../../src/modules/catalog/artists.service.js';
 import { AlbumsService } from '../../../src/modules/catalog/albums.service.js';
 import { TracksService } from '../../../src/modules/catalog/tracks.service.js';
@@ -75,7 +76,7 @@ const query = (overrides: { page?: number; pageSize?: number; sort?: 'asc' | 'de
 describe('ArtistsService', () => {
     it('turns a zero-based page into an offset and echoes the page back as meta', async () => {
         const listArtists = vi.fn().mockResolvedValue({ total: 97, data: [artistRow()] });
-        const service = new ArtistsService({ listArtists } as unknown as ArtistsRepository);
+        const service = new ArtistsService({ listArtists } as unknown as ArtistsRepository, announcer());
 
         const result = await service.listArtists(query({ page: 3, pageSize: 10, sort: 'asc' }));
 
@@ -86,7 +87,7 @@ describe('ArtistsService', () => {
 
     it('passes the search term through rather than filtering the page it got back', async () => {
         const listArtists = vi.fn().mockResolvedValue({ total: 1, data: [artistRow()] });
-        const service = new ArtistsService({ listArtists } as unknown as ArtistsRepository);
+        const service = new ArtistsService({ listArtists } as unknown as ArtistsRepository, announcer());
 
         await service.listArtists(query({ search: 'sigur' }));
 
@@ -95,14 +96,14 @@ describe('ArtistsService', () => {
 
     it('404s on an id the repository will not return, merged or absent alike', async () => {
         const findArtist = vi.fn().mockResolvedValue(undefined);
-        const service = new ArtistsService({ findArtist } as unknown as ArtistsRepository);
+        const service = new ArtistsService({ findArtist } as unknown as ArtistsRepository, announcer());
 
         await expect(service.getArtist(ARTIST_ID)).rejects.toMatchObject({ statusCode: 404 });
     });
 
     it('returns the artist when there is one', async () => {
         const findArtist = vi.fn().mockResolvedValue(artistRow());
-        const service = new ArtistsService({ findArtist } as unknown as ArtistsRepository);
+        const service = new ArtistsService({ findArtist } as unknown as ArtistsRepository, announcer());
 
         await expect(service.getArtist(ARTIST_ID)).resolves.toEqual(seen(artistRow()));
     });
@@ -112,7 +113,7 @@ describe('ArtistsService', () => {
         // Deliberately the row as it stands AFTER the write: the answer is a re-read, so a service
         // that echoed the request instead would pass this only by accident.
         const findArtist = vi.fn().mockResolvedValue({ ...artistRow(), rating: -1 });
-        const service = new ArtistsService({ setRating, findArtist } as unknown as ArtistsRepository);
+        const service = new ArtistsService({ setRating, findArtist } as unknown as ArtistsRepository, announcer());
 
         const result = await service.rateArtist(ARTIST_ID, { rating: 'disliked' });
 
@@ -123,7 +124,7 @@ describe('ArtistsService', () => {
     it('clears an opinion back to neutral rather than treating it as a middling one', async () => {
         const setRating = vi.fn().mockResolvedValue(true);
         const findArtist = vi.fn().mockResolvedValue(artistRow());
-        const service = new ArtistsService({ setRating, findArtist } as unknown as ArtistsRepository);
+        const service = new ArtistsService({ setRating, findArtist } as unknown as ArtistsRepository, announcer());
 
         await expect(service.rateArtist(ARTIST_ID, { rating: 'neutral' })).resolves.toEqual(seen(artistRow()));
         expect(setRating).toHaveBeenCalledWith(ARTIST_ID, 0);
@@ -132,7 +133,7 @@ describe('ArtistsService', () => {
     it('404s on rating an artist that is absent or merged away, without re-reading it', async () => {
         const setRating = vi.fn().mockResolvedValue(false);
         const findArtist = vi.fn();
-        const service = new ArtistsService({ setRating, findArtist } as unknown as ArtistsRepository);
+        const service = new ArtistsService({ setRating, findArtist } as unknown as ArtistsRepository, announcer());
 
         await expect(service.rateArtist(ARTIST_ID, { rating: 'liked' })).rejects.toMatchObject({ statusCode: 404 });
         expect(findArtist).not.toHaveBeenCalled();
@@ -142,7 +143,7 @@ describe('ArtistsService', () => {
 describe('AlbumsService', () => {
     it('narrows to one artist without changing the shape of the page', async () => {
         const listAlbums = vi.fn().mockResolvedValue({ total: 3, data: [albumRow()] });
-        const service = new AlbumsService({ listAlbums } as unknown as AlbumsRepository);
+        const service = new AlbumsService({ listAlbums } as unknown as AlbumsRepository, announcer());
 
         const result = await service.listAlbumsByArtist(ARTIST_ID, query({ page: 1, pageSize: 5 }));
 
@@ -152,7 +153,7 @@ describe('AlbumsService', () => {
 
     it('leaves the artist filter off the unscoped list', async () => {
         const listAlbums = vi.fn().mockResolvedValue({ total: 0, data: [] });
-        const service = new AlbumsService({ listAlbums } as unknown as AlbumsRepository);
+        const service = new AlbumsService({ listAlbums } as unknown as AlbumsRepository, announcer());
 
         await service.listAlbums(query());
 
@@ -161,7 +162,7 @@ describe('AlbumsService', () => {
 
     it('answers an artist with no albums with an empty page, not a 404', async () => {
         const listAlbums = vi.fn().mockResolvedValue({ total: 0, data: [] });
-        const service = new AlbumsService({ listAlbums } as unknown as AlbumsRepository);
+        const service = new AlbumsService({ listAlbums } as unknown as AlbumsRepository, announcer());
 
         await expect(service.listAlbumsByArtist(ARTIST_ID, query())).resolves.toEqual({
             meta: { total: 0, page: 0, pageSize: 25, sort: 'desc' },
@@ -171,7 +172,7 @@ describe('AlbumsService', () => {
 
     it('404s on an album the repository will not return', async () => {
         const findAlbum = vi.fn().mockResolvedValue(undefined);
-        const service = new AlbumsService({ findAlbum } as unknown as AlbumsRepository);
+        const service = new AlbumsService({ findAlbum } as unknown as AlbumsRepository, announcer());
 
         await expect(service.getAlbum(ALBUM_ID)).rejects.toMatchObject({ statusCode: 404 });
     });
@@ -179,7 +180,7 @@ describe('AlbumsService', () => {
     it('rates a record and answers with it re-read', async () => {
         const setRating = vi.fn().mockResolvedValue(true);
         const findAlbum = vi.fn().mockResolvedValue({ ...albumRow(), rating: 1 });
-        const service = new AlbumsService({ setRating, findAlbum } as unknown as AlbumsRepository);
+        const service = new AlbumsService({ setRating, findAlbum } as unknown as AlbumsRepository, announcer());
 
         await expect(service.rateAlbum(ALBUM_ID, { rating: 'liked' })).resolves.toEqual(seen(albumRow(), 'liked'));
         expect(setRating).toHaveBeenCalledWith(ALBUM_ID, 1);
@@ -187,7 +188,7 @@ describe('AlbumsService', () => {
 
     it('404s on rating an album that is absent or merged away', async () => {
         const setRating = vi.fn().mockResolvedValue(false);
-        const service = new AlbumsService({ setRating } as unknown as AlbumsRepository);
+        const service = new AlbumsService({ setRating } as unknown as AlbumsRepository, announcer());
 
         await expect(service.rateAlbum(ALBUM_ID, { rating: 'liked' })).rejects.toMatchObject({ statusCode: 404 });
     });
@@ -206,6 +207,15 @@ interface TrackServiceParts {
     clearEnrichment?: ReturnType<typeof vi.fn>;
     record?: ReturnType<typeof vi.fn>;
 }
+
+/**
+ * What the three rate methods tell the station once the write is durable.
+ *
+ * A double rather than the real thing, which would want an `AfterCommit` and a `StationBus`: what
+ * these cases are about is the rating, and `rating.test.ts` is where the announcing is pinned. It
+ * is shared by all three services so a fourth rate method cannot be added without one.
+ */
+const announcer = () => ({ announce: vi.fn() }) as unknown as RatingAnnouncer;
 
 /**
  * A tracks service over a partial repository and stubbed readers.
@@ -230,6 +240,7 @@ const tracksService = (repository: Partial<TracksRepository>, parts: TrackServic
         { clearForTrack: parts.clearForTrack ?? vi.fn().mockResolvedValue({ cleared: 0 }) } as unknown as TrackAudioService,
         { actor: { kind: 'user', actorId: OPERATOR_ID } } as unknown as AuthorizationContext,
         { record: parts.record ?? vi.fn().mockResolvedValue(undefined) } as unknown as ActivityRecorder,
+        announcer(),
     );
 
 describe('TracksService', () => {

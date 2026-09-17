@@ -20,6 +20,7 @@ import {
 } from './types/catalog.types.js';
 import { TracksRepository } from './tracks.repository.js';
 import { ratingToColumn, withRating } from './rating.js';
+import { RatingAnnouncer } from './rating.announce.js';
 import { parseAndValidate, parseAndValidateArray } from '@maroonedsoftware/zod';
 
 /**
@@ -47,6 +48,7 @@ export class TracksService {
         // what `station_events.actor_id` is for.
         private readonly context: AuthorizationContext,
         private readonly activity: ActivityRecorder,
+        private readonly announcer: RatingAnnouncer,
     ) {}
 
     async listTracks(query: TrackQueryInput): Promise<TrackPage> {
@@ -307,7 +309,11 @@ export class TracksService {
         // back, on a table nothing else deletes from.
         const row = await this.tracksRepository.findTrack(id);
         if (row === undefined) throw httpError(404).withDetails({ message: `track "${id}" is not in the catalog` });
-        return parseAndValidate(withRating(row), Track);
+
+        const track = await parseAndValidate(withRating(row), Track);
+        // After the re-read and both 404s, for the reason `ArtistsService.rateArtist` states.
+        this.announcer.announce('track', id, track.title, input.rating);
+        return track;
     }
 
     /**

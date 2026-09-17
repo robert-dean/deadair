@@ -1637,6 +1637,7 @@ export class DirectorService {
         const lineup = this.lineup;
         if (!lineup) return { ok: false, reason: 'not-found', message: 'the station has nothing on air to edit' };
         if (edit.kind === 'skipTo') return await this.skipTo(lineup, edit.itemId);
+        if (edit.kind === 'vetoDisliked') return await this.vetoDisliked(lineup, edit.itemIds);
 
         const { result, dropped } = this.applyTo(lineup, edit);
         if (!result.ok) return result;
@@ -1683,6 +1684,49 @@ export class DirectorService {
         await this.retireSegments(lineup, dropped, 'the operator skipped past this break');
         // Prepares the target, which is now the first thing planned, so the transport has it to
         // hand over before the caller cuts what is on air.
+        await this.commit();
+        return result;
+    }
+
+    /**
+     * Take records the operator has forbidden out of the order that is already running.
+     *
+     * The director's half of a dislike reaching a live broadcast. `DislikeVeto` has already asked
+     * the catalog which of these lines the station may no longer play — that read is why the
+     * command carries item ids rather than a rating, per the mailbox's rule that anything slow
+     * happens before the post.
+     *
+     * Its shape is {@link thin}'s, because the two are the same event seen from different sides: a
+     * record leaving the order with time left to replace it. The three things that follow are the
+     * same three, and each is a bug if it is left out. A refill decision made a moment ago is stale
+     * now that the order is shorter, so `extendSentAt` is cleared and the pass below sends for
+     * more. A break may have promised one of these lines by name, so {@link reopenPromises} gets it
+     * rewritten while there is still time — the alternative is `brokenClaim` dropping it at
+     * hand-over, which is correct but costs the break. And the segment rows behind breaks that went
+     * with a removed record have to be retired, or they sit in the console's library looking like
+     * breaks that are still coming.
+     *
+     * What it does NOT do is record activity per item, which is where it parts from `thin`. This
+     * arrives through {@link DirectorConsoleService}'s one edit funnel, which writes the feed row
+     * for every edit; `thin` is the station deciding for itself and has nobody else to say so.
+     *
+     * Retracts on the same condition {@link skipTo} does, and for the same reason: the player's
+     * queue is first in, first out, so a forbidden record it is holding airs unless it is taken
+     * back. Cutting what is ON AIR is the caller's half.
+     */
+    private async vetoDisliked(lineup: StationLineup, itemIds: readonly string[]): Promise<EditResult> {
+        const { result, dropped, held } = lineup.veto(itemIds);
+        if (!result.ok) return result;
+        // Nothing matched: the caller judged a snapshot and every line it named has since aired or
+        // gone. Writing and committing over that would be a pass for no reason.
+        if (dropped.length === 0) return result;
+
+        if (held) this.rundown.retract();
+
+        await this.persist();
+        await this.retireSegments(lineup, dropped, 'the station was told not to play the record this break sat beside');
+        if (lineup.remaining() >= EXTEND_BELOW) this.extendSentAt = undefined;
+        void this.reopenPromises(dropped.map(item => item.id));
         await this.commit();
         return result;
     }
@@ -1822,8 +1866,14 @@ export class DirectorService {
      * `dropped` is empty for every edit but the shuffle: the others leave every item where it was,
      * or — for a removal — leave it in the order carrying a mark. Answering in one shape keeps
      * {@link edit} from having to know which of the four is the odd one.
+     *
+     * The two arms this cannot take are the two that reach past `planned` into what the player is
+     * holding, so each has its own method and its own answer: {@link skipTo} and
+     * {@link vetoDisliked}. Excluding them in the TYPE rather than throwing on them is what keeps
+     * the switch below exhaustive — a seventh edit arm fails to compile here until it is handled
+     * somewhere.
      */
-    private applyTo(lineup: StationLineup, edit: Exclude<OrderEdit, { kind: 'skipTo' }>): ShuffleResult {
+    private applyTo(lineup: StationLineup, edit: Exclude<OrderEdit, { kind: 'skipTo' | 'vetoDisliked' }>): ShuffleResult {
         switch (edit.kind) {
             case 'shuffle':
                 return lineup.shuffleRemaining(edit.smart === undefined ? undefined : { recentSongKeys: new Set(edit.smart.recentSongKeys) });

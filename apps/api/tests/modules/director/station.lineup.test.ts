@@ -1246,3 +1246,88 @@ describe('StationLineup smart shuffle', () => {
         expect(lineupOf([record('a', 'One')]).shuffleRemaining({ recentSongKeys: new Set() }).result).toMatchObject({ ok: false, reason: 'empty' });
     });
 });
+
+describe('StationLineup vetoing records the station has been forbidden', () => {
+    const idOf = (lineup: StationLineup, externalId: string): string =>
+        lineup.all().find(item => item.kind === 'track' && item.track.externalId === externalId)!.id;
+
+    it('splices out the records still to come and leaves the rest of the order alone', () => {
+        const lineup = lineupWith(['a', 'b', 'c', 'd']);
+
+        const outcome = lineup.veto([idOf(lineup, 'b'), idOf(lineup, 'd')]);
+
+        expect(outcome).toMatchObject({ result: { ok: true }, held: false, airing: false });
+        expect(idsOf(outcome.dropped)).toEqual(['b', 'd']);
+        expect(idsOf(lineup.all())).toEqual(['a', 'c']);
+    });
+
+    it('marks a forbidden break removed rather than splicing it, so the planner does not plant another', () => {
+        // `remove`'s asymmetry, reached through the veto: a spliced-out break leaves a gap
+        // `BreakPlanner` cannot tell from one it never planted into, and it plants a fresh break a
+        // boundary later. This is the operator's cut arriving from the catalog instead of the desk.
+        const lineup = lineupWith(['a', 'b']);
+        lineup.insertSegment('link-1', 1);
+        const segment = lineup.all()[1]!;
+
+        const outcome = lineup.veto([segment.id]);
+
+        expect(idsOf(outcome.dropped)).toEqual(['segment:link-1']);
+        expect(statesOf(lineup)).toEqual(['planned', 'removed', 'planned']);
+    });
+
+    it('takes back a forbidden record the player is already holding, and says so', () => {
+        // `held` is what makes the caller retract the queue. Without it the player airs the record
+        // it was handed, which is the whole bug read one state later.
+        const lineup = lineupWith(['a', 'b', 'c']);
+        hand(lineup, 2);
+
+        const outcome = lineup.veto([idOf(lineup, 'b')]);
+
+        expect(outcome.held).toBe(true);
+        expect(idsOf(outcome.dropped)).toEqual(['b']);
+        // `skipped`, not `removed`: that line was committed to the player, and `removed` is excluded
+        // from the committed head, which would leave the order in front of the player editable.
+        expect(statesOf(lineup)).toEqual(['handed', 'skipped', 'planned']);
+    });
+
+    it('leaves the record on air alone and reports it, because cutting it is the transport half', () => {
+        const lineup = lineupWith(['a', 'b']);
+        lineup.markAiring(hand(lineup, 1)[0]!.id);
+
+        const outcome = lineup.veto([idOf(lineup, 'a')]);
+
+        expect(outcome).toMatchObject({ airing: true, held: false, dropped: [] });
+        expect(statesOf(lineup)).toEqual(['airing', 'planned']);
+    });
+
+    it('ignores a record that has already been heard rather than rewriting what happened', () => {
+        const lineup = lineupWith(['a', 'b', 'c']);
+        lineup.markAiring(hand(lineup, 1)[0]!.id);
+        lineup.markAiring(hand(lineup, 1)[0]!.id);
+
+        const outcome = lineup.veto([idOf(lineup, 'a')]);
+
+        expect(outcome).toMatchObject({ dropped: [], held: false, airing: false });
+        expect(statesOf(lineup)).toEqual(['played', 'airing', 'planned']);
+    });
+
+    it('ignores ids the order no longer holds, because the caller judged a snapshot', () => {
+        const lineup = lineupWith(['a']);
+
+        expect(lineup.veto(['gone', 'also-gone'])).toMatchObject({ result: { ok: true }, dropped: [] });
+        expect(statesOf(lineup)).toEqual(['planned']);
+    });
+
+    it('takes a whole production with a forbidden beat, as a console delete does', () => {
+        // Nothing extra here: the veto goes through `remove`, so a beat takes its programme with it
+        // for free. The test exists because routing the veto around `remove` — marking items
+        // directly — would silently lose this and leave a production stopping mid-sentence.
+        const lineup = lineupWith(['a', 'b']);
+        lineup.insertGroup('prod-1', [{ segmentId: 's1' }, { segmentId: 's2' }], 1);
+        const beat = lineup.all().find(item => item.kind === 'segment')!;
+
+        lineup.veto([beat.id]);
+
+        expect(statesOf(lineup)).toEqual(['planned', 'removed', 'removed', 'planned']);
+    });
+});

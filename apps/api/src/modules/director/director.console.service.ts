@@ -818,6 +818,56 @@ export class DirectorConsoleService {
     }
 
     /**
+     * Take everything the station has just been forbidden out of the running order.
+     *
+     * What `DislikeVeto` calls when an operator rates something `disliked` in the catalog. It is
+     * here rather than in that class for `WelcomeAnnouncer`'s reason: the subscriber's job is to
+     * know that something happened, and what the station DOES about it belongs to the surface that
+     * already owns every other edit — the one funnel that cancels the reactor, writes the feed row
+     * and turns a refusal into a status code.
+     *
+     * **It re-judges the whole order rather than the thing that was rated.** `ratingsFor` is the
+     * same expression the draw and `PickResolver` use, and it collapses track, record, lead artist
+     * and every credited artist into one number — so a disliked artist GUESTING on a record is
+     * caught here exactly as it is caught at the draw. Asking instead "which lines are by this
+     * artist" would have to match on `RundownItem.artist`, which is the lead and only the lead, and
+     * would let the guest case straight through. It also means this needs no catalog read keyed on
+     * what was rated, and stays correct for a rating written by anything else.
+     *
+     * A line the catalog has never heard of is KEPT, which is `PickResolver.vet`'s own answer at the
+     * same fork: `trackId` is optional because a station can air a record it has not ingested, and
+     * "the catalog has no opinion" is not "the catalog forbids it".
+     *
+     * Silent about everything. Nothing is waiting on this — the operator's rating has already been
+     * answered — so an order with nothing forbidden in it does no work and writes no feed row.
+     */
+    async vetoDisliked(forbidden: string): Promise<void> {
+        const order = this.director.order();
+        if (order === undefined) return;
+
+        // Only what is still to come, plus what is on air. Judging the past would spend a query on
+        // records that have already been heard, and nothing can be done about those.
+        const live = order.items.filter(item => item.state === 'planned' || item.state === 'handed' || item.state === 'airing');
+        const trackIds = live.flatMap(item => (item.kind === 'track' && item.track.trackId !== undefined ? [item.track.trackId] : []));
+        if (trackIds.length === 0) return;
+
+        const ratings = await this.candidates.ratingsFor(trackIds);
+        const vetoed = live.filter(item => item.kind === 'track' && item.track.trackId !== undefined && ratings.get(item.track.trackId) === -1);
+        if (vetoed.length === 0) return;
+
+        // Read BEFORE the edit, because the edit is what takes these lines out of the order: after
+        // it, there is nothing left to ask whether the record on air was one of them.
+        const cutAiring = vetoed.some(item => item.state === 'airing');
+
+        await this.applyOrderEdit({ kind: 'vetoDisliked', itemIds: vetoed.map(item => item.id), forbidden });
+        this.logger.info('director: took records out of the running order that the station has been told not to play', {
+            forbidden,
+            items: vetoed.length,
+            cutAiring,
+        });
+    }
+
+    /**
      * Put a segment into the running order at a position.
      *
      * @throws 404 when the segment does not exist, and 422 when it has no audio.
@@ -1169,6 +1219,9 @@ const toOrderSegment = (item: StationLineupSegmentItem, segment: Segment | undef
  */
 function eventDataOf(edit: OrderEdit): Record<string, unknown> {
     if (edit.kind === 'shuffle') return edit.smart === undefined ? { kind: edit.kind } : { kind: edit.kind, smart: true };
+    // A veto's ids are as long as the order is, on a smart shuffle's argument: how many records the
+    // instruction reached is the fact, and the lines themselves are in the running order already.
+    if (edit.kind === 'vetoDisliked') return { kind: edit.kind, forbidden: edit.forbidden, items: edit.itemIds.length };
     return { ...edit };
 }
 
@@ -1177,6 +1230,12 @@ function eventDataOf(edit: OrderEdit): Record<string, unknown> {
  *
  * Deliberately says what it did to the STATION rather than to a list, which is the same rule the
  * `/onair` page's copy follows: a shuffle here is heard by every listener within a few records.
+ *
+ * `vetoDisliked` names what was rated rather than the records it took out, and it is the operator's
+ * own text — a catalog row's name, which is the one exception to `ActivityRecorder`'s "the station's
+ * own sentences, never a third party's" rule that this file already relies on everywhere it quotes a
+ * title. It arrived from a provider rather than from an upstream error body, and the feed is where
+ * an operator goes to find out why a record stopped playing.
  */
 function describeEdit(edit: OrderEdit): string {
     switch (edit.kind) {
@@ -1194,6 +1253,8 @@ function describeEdit(edit: OrderEdit): string {
             return 'An operator put a record into the running order.';
         case 'skipTo':
             return 'An operator skipped the station ahead to a record further down the running order, passing over everything in front of it.';
+        case 'vetoDisliked':
+            return `An operator told the station not to play ${edit.forbidden}, so the records that are now forbidden were taken out of the running order.`;
     }
 }
 

@@ -4,11 +4,15 @@ import { Pagination } from '../shared/types/pagination.js';
 import { Artist, CatalogQueryInput, RateInput } from './types/catalog.types.js';
 import { ArtistsRepository } from './artists.repository.js';
 import { ratingToColumn, withRating } from './rating.js';
+import { RatingAnnouncer } from './rating.announce.js';
 import { parseAndValidate, parseAndValidateArray } from '@maroonedsoftware/zod';
 
 @Injectable()
 export class ArtistsService {
-    constructor(private readonly artistsRepository: ArtistsRepository) {}
+    constructor(
+        private readonly artistsRepository: ArtistsRepository,
+        private readonly announcer: RatingAnnouncer,
+    ) {}
 
     async listArtists(query: CatalogQueryInput): Promise<{ meta: Pagination; data: Artist[] }> {
         const { page, pageSize, sort, search, sortBy } = query;
@@ -35,6 +39,12 @@ export class ArtistsService {
     async rateArtist(id: string, input: RateInput): Promise<Artist> {
         const rated = await this.artistsRepository.setRating(id, ratingToColumn(input.rating));
         if (!rated) throw httpError(404).withDetails({ message: `artist "${id}" is not in the catalog` });
-        return await this.getArtist(id);
+
+        const artist = await this.getArtist(id);
+        // After the re-read, so the name on the event is the row's own rather than one this method
+        // would have to look up a second time, and after the 404 above, so nothing is announced
+        // about an artist that was never rated.
+        this.announcer.announce('artist', id, artist.name, input.rating);
+        return artist;
     }
 }

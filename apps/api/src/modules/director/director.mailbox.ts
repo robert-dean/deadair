@@ -38,11 +38,18 @@ import type { BreakRequest, BreakRequestResult } from './break.request.js';
 import type { EditResult, Interleaved, StationLineupBinding } from './station.lineup.js';
 
 /**
- * A change to the running order made by somebody at the desk.
+ * A change to the running order the operator asked for.
  *
  * Its own union rather than five more arms on {@link DirectorCommand}, because
  * these are the operator's vocabulary and they share one answer: the edit happened,
  * or precisely why it did not. See {@link EditResult}.
+ *
+ * "Asked for" rather than "made at the desk", which is what this said while every arm was something
+ * somebody typed into the console. `vetoDisliked` is the arm that widened it: an operator rating an
+ * artist in the CATALOG is giving the running order an instruction just as surely as one dragging a
+ * record out of it, and the two want the same answer and the same feed row. What the sentence still
+ * rules out is the station programming for itself — a refill, a planted break, a record benched for
+ * having no audio — none of which is an edit and all of which go through their own paths.
  */
 export type OrderEdit =
     // `smart` absent is the plain shuffle. Present, it carries what the console read from the history,
@@ -60,7 +67,19 @@ export type OrderEdit =
     | { kind: 'insertTrack'; track: RundownTrack; atIndex?: number }
     // The order half of a skip to one record. Cutting what is on air is the transport's half, done by
     // the caller once this has answered, since the mailbox must not sit waiting out a boundary.
-    | { kind: 'skipTo'; itemId: string };
+    | { kind: 'skipTo'; itemId: string }
+    // Records the operator has forbidden, taken out of an order already running. The one arm here
+    // nobody types at the desk: it arrives from `DislikeVeto` when a rating is saved in the catalog.
+    // It is still the operator's instruction, which is why it is an edit and not a command of its
+    // own — `platform.manage` rated the thing, and the answer it wants is an edit's.
+    //
+    // ITEM ids rather than track ids, because deciding which lines are forbidden means asking the
+    // catalog what it now thinks of a batch of records, and the mailbox's own rule is that anything
+    // slow happens BEFORE the command is posted and the command carries the result.
+    //
+    // `forbidden` is what was rated, carried only so the activity feed can say what the station was
+    // told. Nothing reads it to decide anything.
+    | { kind: 'vetoDisliked'; itemIds: readonly string[]; forbidden: string };
 
 /**
  * Something the director has been asked to do.

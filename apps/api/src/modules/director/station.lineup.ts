@@ -443,6 +443,19 @@ export interface SkipToResult extends ShuffleResult {
 }
 
 /**
+ * The outcome of taking records the station has been forbidden out of the order.
+ *
+ * `dropped` and `held` mean what {@link SkipToResult}'s do. `airing` is the third thing a veto has
+ * to report and a skip never does: the record on air may itself be one of the forbidden ones, and
+ * the order cannot do anything about that — cutting what is going out is the transport's half, and
+ * it happens outside the mailbox because it waits out a boundary. See `DirectorConsoleService`.
+ */
+export interface VetoResult extends SkipToResult {
+    /** Whether the record currently on air is one of the forbidden ones. */
+    readonly airing: boolean;
+}
+
+/**
  * What a SMART shuffle knows that a plain one does not: which songs aired lately.
  *
  * Handed in rather than read, because this document reads nothing. The console service asks the
@@ -1326,6 +1339,65 @@ export class StationLineup implements LiveOrder {
             dropped.push(item);
         }
         return { result: OK, dropped, held };
+    }
+
+    /**
+     * Take records the station has been told not to play out of the order.
+     *
+     * The order half of a dislike reaching a broadcast that is already running. A dislike is an
+     * instruction rather than a preference, and until this existed it was applied only where a
+     * running order is BUILT — the catalog draw's own SQL, and `PickResolver.resolve` / `vet` — so
+     * an order vetted at 07:32 went on playing what an operator forbade at 08:23. See
+     * `DislikeVeto`, which decides WHICH items these are, and `catalog/rating.announce.ts`.
+     *
+     * **It reuses {@link remove} rather than marking**, which is what makes a forbidden break and a
+     * forbidden beat behave: a record is spliced, a lone segment is marked `removed` so
+     * `BreakPlanner` does not plant another one into the gap it left, and a beat takes its whole
+     * production with it. The state is `removed` rather than `skipped` for the same reason a
+     * console delete is: this is an operator cutting an item before its turn, arrived at through
+     * the catalog instead of the running order, and it is not the station reaching an item and
+     * passing over it.
+     *
+     * **A `handed` item is marked `skipped` rather than removed**, which is {@link skipTo}'s
+     * asymmetry and has its reason: that line is with the player, so the caller has to retract the
+     * queue behind this, and `removed` is excluded from {@link committedThrough}'s head — marking a
+     * line the player is holding that way would leave the run of the order in front of the player
+     * looking editable. What happened to it is that the station moved past it, which is what
+     * `skipped` says.
+     *
+     * **The record on air is left alone** and reported instead. It is still going out until the
+     * player is told otherwise, cutting it is the transport's half, and that waits out a boundary
+     * where the mailbox must not. `markAiring` calls it `played` when the next record starts.
+     *
+     * Ids naming an item already played, skipped or gone are ignored rather than refused — the
+     * caller judged a snapshot and the order has moved on, which is ordinary.
+     *
+     * @param itemIds - Every line the caller has judged forbidden, in any state.
+     */
+    veto(itemIds: readonly string[]): VetoResult {
+        const forbidden = new Set(itemIds);
+        const dropped: StationLineupItem[] = [];
+        let held = false;
+        let airing = false;
+
+        // Over a copy, because `remove` splices the list this is walking.
+        for (const item of [...this.itemList]) {
+            if (!forbidden.has(item.id)) continue;
+
+            if (item.state === 'airing') {
+                airing = true;
+            } else if (item.state === 'handed') {
+                held = true;
+                dropped.push(item);
+                this.markSkipped(item.id);
+            } else if (item.state === 'planned') {
+                // Read before the call, since a spliced record is gone from the list afterwards and
+                // the caller needs the row to retire a segment or name a record in the feed.
+                dropped.push(item);
+                this.remove(item.id);
+            }
+        }
+        return { result: OK, dropped, held, airing };
     }
 
     /**

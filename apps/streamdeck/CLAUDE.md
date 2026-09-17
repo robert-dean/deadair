@@ -357,11 +357,16 @@ And the packed `.streamDeckPlugin`, built by the `installer` script and installe
 over an unlinked dev copy, works the same: the ES module survives packing and the keys kept their
 settings, which the app stores against the plugin's id rather than its folder.
 
-**The vote keys' wiring has been on the device; their current faces have not.** Robert ran an earlier
-build of them on his Stream Deck+ on 2026-09-17 and voting worked. That build drew flat thumb glyphs,
-which he judged too plain beside Now Playing; the faces became a hand-drawn heart, then the mark's
-own skull on a heart, afterwards. The
-drawing is checked only through the renderer and the built bundle — both actions registering off the
-manifest, the rating read once, a press writing, a second press withdrawing, and Like going dark when
-Dislike was pressed. What is open is whether the flooded and unlit faces tell each other apart at 72
-pixels across a room, which is the one thing only the hardware answers.
+**Like and Dislike have been on the device, wiring and faces both.** Robert ran them on his Stream
+Deck+ on 2026-09-17 and voting worked: the press, the second press that withdraws, and the light
+moving between the pair. The faces took three goes to get there and the device settled each one — the
+first build drew flat thumb glyphs, which he judged too plain beside Now Playing; they became a
+hand-drawn heart, then the mark's own skull on a heart, and the skull was sized down and seated
+lower after looking at it. The last of those (the plugin at `0.1.0.5`, which is this tree) reads on
+the panel.
+
+What that pass did NOT separately report is whether UNLIT and FAINT tell each other apart at 72
+pixels. They are deliberately close — a dark heart either way, the faint one at 0.4 — and they mean
+different things: unlit is the station having no such opinion, faint is the key having nothing to
+have an opinion about. If they turn out to be one face in practice, lifting `FAINT` for these two, or
+giving the faint state an edge of its own, is the change to make.

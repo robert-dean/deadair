@@ -146,6 +146,17 @@ ships one for `weather` and one for `news`; an operator can replace either, and 
 change when they do, so a picture already on the wire keeps working and the ETag is what tells a
 player it has moved.
 
+**The running order draws that same picture**, on the console and in the phone's copy of the order
+alike, so an operator watching the desk and a listener watching their player see one station rather
+than two. It is resolved as the order is READ — `DirectorConsoleService.breakArtwork`, the sibling of
+the commit pass's lookup, over the kinds the order actually holds — rather than stored on the row,
+which is the rule a segment's label and a record's rating already follow here and has the same
+payoff: replace the weather picture and the forecast already in the order is wearing the new one.
+The two lookups agree because `breakArtKey` is the only place the key is spelled. A kind with no
+picture draws the microphone the row used to draw unconditionally, which is now the FALLBACK rather
+than what a break is; that one line in `RunningOrderScreen.kt` was the whole reason the phone could
+show a forecast's sky while its own running order showed a microphone.
+
 **Only the station's own art goes on that field, and a provider's URL never does.** Both reasons are
 absolute, which is why this is a rule rather than a check somewhere downstream. A provider's URL does
 not work: a player decides whether a URL is a picture by LOOKING at it, so a Spotify CDN link ending

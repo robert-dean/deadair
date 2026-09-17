@@ -17,6 +17,8 @@ import type { ChartsService } from '../../../src/modules/charts/charts.service.j
 import type { PlaylistsService } from '../../../src/modules/playlists/playlists.service.js';
 import type { RundownTrack } from '../../../src/modules/playout/rundown.js';
 import type { Segment, SegmentRepository } from '../../../src/modules/render/segment.repository.js';
+import type { ArtAsset, ArtRepository } from '../../../src/modules/art/art.repository.js';
+import { breakArtKey } from '../../../src/modules/art/break.art.js';
 import type { SettingsService } from '../../../src/modules/settings/settings.service.js';
 import type { PickResolver } from '../../../src/modules/director/pick.resolver.js';
 import type { CandidatesRepository } from '../../../src/modules/director/candidates.repository.js';
@@ -43,6 +45,13 @@ interface Options {
     order?: StationLineup;
     /** What the segment library holds, for the lines a lineup names by id. */
     segments?: Partial<Segment>[];
+    /**
+     * The pictures the station holds for a kind of break, keyed by kind rather than by the
+     * `deadair:break-art/<kind>` row key, so a case reads as "a weather forecast has a picture".
+     */
+    breakArt?: Record<string, { id: string; ext?: ArtAsset['ext']; checksum?: string }>;
+    /** What the art table does when the order is drawn, for the case where it cannot be read. */
+    artError?: Error;
     /** What the station thinks of the records in the order, keyed by canonical track id. */
     ratings?: Record<string, 'liked' | 'neutral' | 'disliked'>;
     /**
@@ -177,6 +186,20 @@ function build(options: Options = {}) {
         findByIds: vi.fn(async (ids: readonly string[]) => new Map([...library].filter(([id]) => ids.includes(id)))),
     } as unknown as SegmentRepository;
 
+    // Read-only too, and asked one question: which kinds of break have a picture. Keyed the way the
+    // service keys it, through `breakArtKey`, so a test that spelled the row key by hand could not
+    // pass against a service that spelled it differently.
+    const art = {
+        findBySourceUrls: vi.fn(async (sourceUrls: readonly string[]) => {
+            if (options.artError !== undefined) throw options.artError;
+            const held = Object.entries(options.breakArt ?? {}).map(([kind, asset]): [string, ArtAsset] => [
+                breakArtKey(kind),
+                { sourceUrl: breakArtKey(kind), checksum: 'sum', ext: 'png', ...asset },
+            ]);
+            return new Map(held.filter(([sourceUrl]) => sourceUrls.includes(sourceUrl)));
+        }),
+    } as unknown as ArtRepository;
+
     const settings = { set: vi.fn(async () => {}) } as unknown as SettingsService;
     const jobs = { send: vi.fn(async () => 'job-1') } as unknown as JobBroker;
 
@@ -276,8 +299,10 @@ function build(options: Options = {}) {
             new StationIdentity(),
             rundown as never,
             pusher as never,
+            art,
         ),
         pusher,
+        art,
         cutAgainst,
         history,
         activity,
@@ -1233,6 +1258,84 @@ describe('DirectorConsoleService editing the running order', () => {
 
         expect(drawn.items.map(item => item.mixedIn)).toEqual([undefined, true]);
         expect(drawn.items[0]).not.toHaveProperty('mixedIn');
+    });
+
+    // The picture a break wears is its KIND's, read as the order is drawn for the same reason the
+    // rating above is: the station holds the picture and the document holds an id, so an operator
+    // who replaces the weather picture sees the forecast already in the order wearing the new one.
+    // The console and the phone draw this same field, and the player is given the same picture on
+    // the commit pass, so all three agree about a row without any of them storing it.
+    it('draws a break wearing the picture its kind was given, and nothing for a kind with none', async () => {
+        const order = onAirWith(1);
+        order.insertSegment('seg-weather', 1);
+        order.insertSegment('seg-ident', 2);
+        const { service } = build({
+            order,
+            segments: [
+                { id: 'seg-weather', kind: 'weather', state: 'ready', label: 'The weather', source: 'library' },
+                { id: 'seg-ident', kind: 'ident', state: 'ready', label: 'Ident', source: 'library' },
+            ],
+            breakArt: { weather: { id: 'art-weather' } },
+        });
+
+        const drawn = await service.getOrder();
+
+        expect(drawn.items[1]).toMatchObject({ kind: 'segment', artworkUrl: 'art/art-weather/cover.png' });
+        expect(drawn.items[2]!.artworkUrl).toBeUndefined();
+    });
+
+    // One read for the order, and one key per KIND rather than per break: a clock that alternates
+    // records and forecasts would otherwise ask the same question of the same row a dozen times.
+    it('asks for a kind\'s picture once, however many breaks of that kind the order holds', async () => {
+        const order = onAirWith(1);
+        order.insertSegment('seg-weather', 1);
+        order.insertSegment('seg-weather-2', 2);
+        const { service, art } = build({
+            order,
+            segments: [
+                { id: 'seg-weather', kind: 'weather', state: 'ready', label: 'The weather', source: 'library' },
+                { id: 'seg-weather-2', kind: 'weather', state: 'ready', label: 'The weather again', source: 'library' },
+            ],
+            breakArt: { weather: { id: 'art-weather' } },
+        });
+
+        const drawn = await service.getOrder();
+
+        expect(art.findBySourceUrls).toHaveBeenCalledTimes(1);
+        expect(art.findBySourceUrls).toHaveBeenCalledWith([breakArtKey('weather')]);
+        expect(drawn.items.map(item => item.artworkUrl)).toEqual([undefined, 'art/art-weather/cover.png', 'art/art-weather/cover.png']);
+    });
+
+    // A picture is decoration and the running order is the thing an operator is standing at. Losing
+    // the art table costs the row its picture and the console nothing else.
+    it('still draws the order when the art table cannot be read', async () => {
+        const order = onAirWith(1);
+        order.insertSegment('seg-weather', 1);
+        const { service } = build({
+            order,
+            segments: [{ id: 'seg-weather', kind: 'weather', state: 'ready', label: 'The weather', source: 'library' }],
+            breakArt: { weather: { id: 'art-weather' } },
+            artError: new Error('no database'),
+        });
+
+        const drawn = await service.getOrder();
+
+        expect(drawn.items).toHaveLength(2);
+        expect(drawn.items[1]).toMatchObject({ kind: 'segment', title: 'The weather' });
+        expect(drawn.items[1]!.artworkUrl).toBeUndefined();
+    });
+
+    // The row still draws — it is in the order and the station will pass over it — and there is no
+    // kind left to look a picture up by.
+    it('draws a segment the library has lost without a picture', async () => {
+        const order = onAirWith(1);
+        order.insertSegment('seg-gone', 1);
+        const { service } = build({ order, breakArt: { weather: { id: 'art-weather' } } });
+
+        const drawn = await service.getOrder();
+
+        expect(drawn.items[1]).toMatchObject({ segmentState: 'gone' });
+        expect(drawn.items[1]!.artworkUrl).toBeUndefined();
     });
 
     it('draws an empty running order rather than a 404 when nothing is on', async () => {

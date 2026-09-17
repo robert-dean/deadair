@@ -264,7 +264,12 @@ private fun Row(item: StationOrderItem, artworkUrl: String?, stale: Boolean, mod
         modifier = modifier.alpha(item.opacity()),
         leadingContent = {
             Box(modifier = Modifier.size(48.dp).clip(RoundedCornerShape(4.dp)), contentAlignment = Alignment.Center) {
-                if (item.kind == StationOrderItemKind.SEGMENT || artworkUrl == null) {
+                // The picture first, whatever the row is. A break wears the picture its KIND was
+                // given — the sky on a forecast, the front page on a bulletin — and the console
+                // draws the same one against the same row, so forcing the microphone here on the
+                // grounds that a segment is not a record would leave the phone and the desk
+                // disagreeing about an order they are both reading from the station.
+                if (artworkUrl == null) {
                     Icon(
                         painterResource(if (item.kind == StationOrderItemKind.SEGMENT) R.drawable.ic_mic else R.drawable.ic_radio),
                         contentDescription = null,

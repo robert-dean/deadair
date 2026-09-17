@@ -5,6 +5,9 @@ import { httpError } from '@maroonedsoftware/errors';
 import { JobBroker } from '@maroonedsoftware/jobbroker';
 import { Logger } from '@maroonedsoftware/logger';
 import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
+import { ArtRepository } from '#modules/art/art.repository.js';
+import { artPath } from '#modules/art/art.path.js';
+import { breakArtKey } from '#modules/art/break.art.js';
 import { TracksRepository } from '#modules/catalog/tracks.repository.js';
 import { ChartsService, MAX_CHART_ENTRIES } from '#modules/charts/charts.service.js';
 import { splitChartId } from '#modules/charts/chart.ids.js';
@@ -117,6 +120,9 @@ export class DirectorConsoleService {
         // Nothing here reaches the order through these; that is still a command to the director.
         private readonly rundown: Rundown,
         private readonly pusher: PlayoutPusher,
+        // Read-only, and for one question: what picture a kind of break wears. See
+        // {@link DirectorConsoleService.breakArtwork}.
+        private readonly art: ArtRepository,
     ) {}
 
     /**
@@ -1008,6 +1014,48 @@ export class DirectorConsoleService {
     }
 
     /**
+     * The picture each kind of break in this order wears, keyed by kind.
+     *
+     * `DirectorService.breakArtwork` asks the same question of the same rows on the commit pass, so
+     * that the mount and the listener's player get the picture. This is the operator's half: without
+     * it the running order draws a weather forecast as a microphone while the phone showing the same
+     * forecast draws the sky, which reads as one of the two being wrong.
+     *
+     * The two are deliberately separate reads rather than one shared resolver. They run at different
+     * moments against different sets — that one over the three items being committed, this one over
+     * every item the console can see — and the console's is a request-scoped repository call while
+     * the director's has to open a scope of its own. What they must agree on is the KEY, and they do,
+     * because `breakArtKey` is the only place it is spelled.
+     *
+     * Empty on any failure, which costs the row its picture and the operator nothing else: a break
+     * with no picture is the ordinary case anyway, and a running order that would not draw because
+     * the art table was unreachable is a desk somebody is standing at with nothing on it. Nothing
+     * here fetches, unlike the cover half: a break picture has no upstream, so a kind with no row is
+     * a kind nobody has given a picture to. See `art/break.art.ts`.
+     */
+    private async breakArtwork(segments: ReadonlyMap<string, Segment>): Promise<Map<string, string>> {
+        const kinds = [...new Set([...segments.values()].map(segment => segment.kind))];
+        if (kinds.length === 0) return new Map();
+
+        const held = await this.art.findBySourceUrls(kinds.map(kind => breakArtKey(kind))).catch((error: unknown) => {
+            this.logger.warn(`director: could not tell which pictures the station holds for a kind of break (${errorText(error)})`);
+            return undefined;
+        });
+        if (held === undefined) return new Map();
+
+        const pictures = new Map<string, string>();
+        for (const kind of kinds) {
+            const asset = held.get(breakArtKey(kind));
+            // A row with no checksum is one the sweeper has not filled, which a break picture never
+            // is — it is written with its bytes — but the narrowing is the repository's contract and
+            // taking it here costs nothing.
+            if (asset?.checksum !== undefined) pictures.set(kind, artPath(asset));
+        }
+
+        return pictures;
+    }
+
+    /**
      * The running order as the console reads it.
      *
      * One query for the whole order, not one per item.
@@ -1026,6 +1074,10 @@ export class DirectorConsoleService {
         const known = await this.tracks.catalogRowsByTrackId(
             order.items.flatMap(item => (item.kind === 'track' && item.track.trackId !== undefined ? [item.track.trackId] : [])),
         );
+        // And read here for the same reason again: the picture a kind of break wears is the
+        // station's to change, so an operator who replaces it sees the forecast already in the
+        // order wearing the new one rather than the one it was built with.
+        const pictures = await this.breakArtwork(segments);
 
         return {
             name: order.name,
@@ -1043,7 +1095,10 @@ export class DirectorConsoleService {
             ...(order.sourcePlaylistId === undefined ? {} : { sourcePlaylistId: order.sourcePlaylistId }),
             ...(order.sourceChartId === undefined ? {} : { sourceChartId: order.sourceChartId }),
             items: order.items.map(item => {
-                if (item.kind === 'segment') return toOrderSegment(item, segments.get(item.segmentId));
+                if (item.kind === 'segment') {
+                    const segment = segments.get(item.segmentId);
+                    return toOrderSegment(item, segment, segment === undefined ? undefined : pictures.get(segment.kind));
+                }
 
                 // One lookup for the opinion and both links: absent means the catalog has never
                 // seen this record, which is a station airing something it never ingested rather
@@ -1080,8 +1135,13 @@ export class DirectorConsoleService {
  * One whose segment is gone still draws, as itself: the order does hold it, the station
  * will pass over it, and hiding it would leave an operator wondering why what they can
  * see does not match what they hear.
+ *
+ * `artworkUrl` is the picture its KIND wears rather than anything the segment itself holds —
+ * every weather forecast wears the same sky — which is why it is resolved once for the order
+ * and handed in. Absent for a kind nobody has given a picture to, and absent for a segment the
+ * library has lost, which has no kind left to look one up by.
  */
-const toOrderSegment = (item: StationLineupSegmentItem, segment: Segment | undefined): StationOrderItem => ({
+const toOrderSegment = (item: StationLineupSegmentItem, segment: Segment | undefined, artworkUrl: string | undefined): StationOrderItem => ({
     id: item.id,
     kind: 'segment' as const,
     state: item.state,
@@ -1090,6 +1150,7 @@ const toOrderSegment = (item: StationLineupSegmentItem, segment: Segment | undef
     // Empty, and not the station's name. A segment has no artist, and inventing one would put it
     // in front of a listener as though it were a record by somebody.
     artists: [],
+    ...(artworkUrl === undefined ? {} : { artworkUrl }),
     segmentState: segment?.state ?? 'gone',
     playable: segment?.state === 'ready',
     // The reason, where the operator is already looking. Without it a break that could not be

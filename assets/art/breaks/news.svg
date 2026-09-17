@@ -10,8 +10,12 @@
          thing still reads at the 28 pixels a running-order row draws it at. `news.png` beside this
          is what ships, rasterised the way `weather.svg` says. -->
     <defs>
+        <!-- No rotation on the clip itself: the image it clips sits INSIDE the rotated group, so the
+             clip is resolved in that group's space and rotating it here would turn it twice. Having
+             it outside the group was the first version's bug — the page tilted and the photograph on
+             it stayed bolt upright. -->
         <clipPath id="plate">
-            <rect transform="rotate(-4 256 256)" x="124" y="206" width="132" height="116" rx="10"/>
+            <rect x="124" y="206" width="132" height="116" rx="10"/>
         </clipPath>
     </defs>
 
@@ -20,15 +24,16 @@
     <g transform="rotate(-4 256 256)">
         <rect x="100" y="126" width="312" height="268" rx="18" fill="#121514"/>
         <rect x="124" y="152" width="264" height="34" rx="9" fill="#2ED88B"/>
-    </g>
-    <!-- Outside the rotated group, because the clip path carries the same rotation itself: applying
-         it twice would turn the photograph eight degrees off the page it sits on. -->
-    <image href="../../../apps/ios/Sources/Assets.xcassets/AppIcon.appiconset/AppIcon.png" x="106.8" y="180.0" width="167.1" height="167.1" clip-path="url(#plate)"/>
-    <g transform="rotate(-4 256 256)" fill="#2ED88B">
-        <rect x="276" y="206" width="112" height="17" rx="8"/>
-        <rect x="276" y="239" width="112" height="17" rx="8"/>
-        <rect x="276" y="272" width="112" height="17" rx="8"/>
-        <rect x="276" y="305" width="112" height="17" rx="8"/>
-        <rect x="124" y="338" width="264" height="17" rx="8"/>
+        <!-- Inside the group, so the photograph lies on the page rather than on the canvas: a
+             picture printed straight while the paper around it is askew is the one thing that says
+             "these were drawn by two different people". -->
+        <image href="../../../apps/ios/Sources/Assets.xcassets/AppIcon.appiconset/AppIcon.png" x="106.8" y="180.0" width="167.1" height="167.1" clip-path="url(#plate)"/>
+        <g fill="#2ED88B">
+            <rect x="276" y="206" width="112" height="17" rx="8"/>
+            <rect x="276" y="239" width="112" height="17" rx="8"/>
+            <rect x="276" y="272" width="112" height="17" rx="8"/>
+            <rect x="276" y="305" width="112" height="17" rx="8"/>
+            <rect x="124" y="338" width="264" height="17" rx="8"/>
+        </g>
     </g>
 </svg>

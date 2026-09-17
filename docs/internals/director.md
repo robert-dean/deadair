@@ -76,6 +76,20 @@ about how far the broadcast has got and counting it would freeze the order in fr
 leaving any id still elsewhere in the order alone, since idents come from a shared library and the same row is
 legitimately at three slots in an hour.
 
+**A dislike is the one edit nobody types at the desk.** Every other arm of `OrderEdit` is something an
+operator did to the running order; `vetoDisliked` arrives from `DislikeVeto` when they rate something in the
+CATALOG, which is the same instruction given somewhere else, and it wants the same answer and the same feed
+row — so it is an edit rather than a command of its own. It carries ITEM ids rather than a rating because
+deciding which lines are forbidden means asking the catalog what it now thinks of a batch of records, and the
+mailbox's rule is that anything slow happens before the post. It is the second arm that reaches past `planned`,
+and it handles the three states it can meet differently and deliberately: a `planned` line goes through
+`remove`, so a break is marked and a beat takes its production with it; a `handed` one is marked `skipped` and
+the queue retracted, for `skipTo`'s reason — `removed` is outside `committedThrough`'s head and would leave the
+run in front of the player looking editable; and the record AIRING is reported back and left alone, because
+cutting it is the transport's half. `DirectorConsoleService.vetoDisliked` then cuts it through
+`PlayoutPusher.skipCurrent`, outside the mailbox, on the same argument the skip below makes. Why it exists at
+all is in `docs/internals/programming.md` § "The station's opinion".
+
 **Skipping to a record is the one edit allowed into the player's hands.** Every other edit is refused on
 anything past `planned`, because the operator would be rearranging what a listener is about to hear, and
 here that is the request. `StationLineup.skipTo` marks everything still to come in front of the record

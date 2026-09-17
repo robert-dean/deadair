@@ -62,6 +62,28 @@ four-failure bench in `TrackAudioService`.
 
 **An opinion is held at three levels and inherits DOWNWARD in both directions.** `artists`, `albums` and `tracks` each carry a `rating` of `-1 / 0 / 1`, written from the console through `PUT /catalog/{artists,albums,tracks}/{id}/rating` (`platform.manage`; the wire spells it `liked / neutral / disliked` and `catalog/rating.ts` is the only place that meets the column, because the ORDERING is what the SQL below needs and nothing outside the database reads it as a number). `CandidatesRepository.effectiveRating` is the one expression that collapses the three into one, and it is **not** a `least()`: a dislike anywhere wins outright, because a dislike is an instruction no lineup may turn off, and otherwise the strongest LIKE carries, because liking an artist means play more of them and liking one song means play that song more. It was a plain `least()` for as long as it existed, which got the veto right and silently swallowed the other half — a liked song on an unrated record by an unrated artist came out `0`, so `weightOf` doubled nothing an operator could produce without rating all three levels identically, and liking a record did nothing whatsoever. Both `sample` and `ratingsFor` go through it so the draw and the resolver cannot disagree. Nothing unit-tests it, since it is SQL: `apps/api/scripts/rating.smoke.ts` is what covers it, against the real database.
 
+**A dislike also reaches a running order that is ALREADY BUILT, which for a long time it did not.** The two
+places above — the draw's own SQL and `PickResolver.resolve` / `vet` — are both places a running order is
+BUILT, and a lineup is then a stored list of items walked by state, with `StationLineup.nextPlanned` reading no
+rating at all. Measured on the live station on 17 September: it went on air at 07:32 from an imported playlist,
+so every record on it was vetted at that instant; the operator disliked an artist at 08:23; two of that
+artist's records aired at 09:10 and 10:44 and two more were still `planned` hours later. Nothing was broken —
+the rating was written and every later DRAW honoured it — the order simply never asked again. `CatalogModule`
+is registered before `DirectorModule`, so the fix is the backwards edge `StationBus` exists for: the catalog
+publishes `catalog.disliked` from an `AfterCommit` hook (published inline, the subscriber's read answers with
+the row as it stood BEFORE the write, which is the original bug with a mechanism in front of it), and
+`DislikeVeto` forwards to `DirectorConsoleService.vetoDisliked`. That **re-judges the whole remaining order
+through `ratingsFor` rather than resolving what was rated to a track list**, which is not a shortcut: it is the
+same expression the draw uses, so a disliked artist GUESTING on a record is caught here exactly as it is at the
+draw, where matching on the lineup's own `RundownItem.artist` would have seen the lead and only the lead. A
+line whose `trackId` the catalog does not hold is KEPT, which is `vet`'s own answer at the same fork. The edit
+goes through `StationLineup.remove`, so a forbidden break is marked rather than spliced and a forbidden beat
+takes its production with it; a record the player is holding is marked `skipped` and the queue retracted; and
+the record ON AIR is cut where it stands, in the two fixed halves a skip to a record already uses — the order
+inside the mailbox, `PlayoutPusher.skipCurrent` outside it, because the cut waits out a boundary. A refill is
+re-armed and `reopenPromises` rewrites a break that promised one of the departed records, both of which
+`DirectorService.thin` was already doing for the record that cannot be fetched.
+
 **An advisory is a LABEL on a COPY, and the policy over it is not a rotation rule.** `track_sources.advisory`
 is `explicit` / `clean` / null, per BINDING rather than per track because a clean edit and the explicit
 original collapse to one `deadair.tracks` row (`resolveTrack` matches on `title_key` + artist and the edit's

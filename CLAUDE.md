@@ -86,8 +86,9 @@ pointing at something that has never existed:
   bytes are here".
 - **Pad licensing** — what this repository may ship as audio, and why the manifest records a checksum
   and an uploader: `docs/internals/render.md` § "Pads".
-- **How work is dispatched** — the four mechanisms, which properties choose between them, and why
-  there is no event bus: `apps/api/CLAUDE.md` § "How work is dispatched".
+- **How work is dispatched** — the four mechanisms, which properties choose between them, why there
+  is no general event bus, and the one narrow exception (`StationBus`, for a producer and its
+  subscriber on opposite sides of the module list): `apps/api/CLAUDE.md` § "How work is dispatched".
 - `apps/api/README.md` for the boot sequence, DI scoping convention and middleware. Its module and
   route tables were checked against `src/modules/modules.ts` and `src/routes/routes.setup.ts` on
   2026-09-09 and listed all 37 modules and all 29 routers in registration order then. On 2026-09-15

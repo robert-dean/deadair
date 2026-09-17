@@ -4,7 +4,7 @@
     "Name": "deadair",
     "Version": "0.1.0.0",
     "Author": "Marooned Software",
-    "Description": "Your deadair station on a Stream Deck: what is on air with its cover and a moving playhead, Skip, and a Stop that asks twice.",
+    "Description": "Your deadair station on a Stream Deck: what is on air with its cover and a moving playhead, Skip, a Stop that asks twice, and a thumb up or down on the record playing.",
     "URL": "https://deadair.radio",
     "SupportURL": "https://github.com/robert-dean/deadair/issues",
     "Icon": "imgs/plugin/icon",

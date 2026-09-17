@@ -1,8 +1,9 @@
 # The station on a Stream Deck
 
 `apps/streamdeck` is an Elgato Stream Deck plugin: a Now Playing key (the cover, the title, a moving
-playhead), Skip, and one key that is Stop while the station is on air and Start once it is stood
-down. It is the operator's desk in hardware, and only the desk: it never plays the station.
+playhead), Skip, one key that is Stop while the station is on air and Start once it is stood down,
+and Like and Dislike, which write the station's opinion of the record on air. It is the operator's
+desk in hardware, and only the desk: it never plays the station.
 
 Every paragraph records a decision or a measured failure and the reason for it. The always-loaded
 index is [`CLAUDE.md`](../../CLAUDE.md); the operator-facing half is [`README.md`](README.md).
@@ -126,6 +127,49 @@ when there is nothing to resume, and the log says so.
 
 **Pressing Now Playing opens the console** at the station's address.
 
+## Like and Dislike
+
+**They write `PUT /catalog/tracks/{id}/rating`, which is the console's own write** from the running
+order (`apps/web/src/components/desk/desk.page.tsx`), for the reason that page gives: the running
+order is where an operator actually forms an opinion about a record, because they are hearing it. A
+deck is that, without the trip to a screen. The rating is the narrowest of the three the catalog
+holds — the song, not the release or the artist — and a dislike is an instruction rather than a
+preference: `candidates.repository.ts` excludes a disliked record from the draw and nothing the
+station programmes turns that off.
+
+**A press on the lit key writes `neutral`, and that is where this differs from the console on
+purpose.** `rating.control.tsx` gives `neutral` a segment of its own and says why: an operator should
+be able to see that the middle is where they started. A deck has no middle to see. Each key shows its
+own state instead, so pressing the lit one back off is both the ordinary Stream Deck toggle and the
+only way to withdraw an opinion without spending a third key on it. A key whose rating is not known
+yet draws unlit and writes its own value, so the first press of a record is never a withdrawal.
+
+**The rating is read once per RECORD, not carried on the status.** `GET /catalog/tracks/{id}` when
+the record changes, remembered by track id in `RatingStore`, and refreshed from the write's own
+answer — the cover's arrangement in `display/artwork.ts`, for the cover's reason. The alternative was
+`rating` on `PlayoutItem`, which would have kept the deck in step with the console at every moment
+and cost a catalog lookup on a route every console and every deck polls every two seconds, plus the
+four generated SDKs. What is given up is real and small: a rating changed in the console is not seen
+on the deck until the record changes.
+
+**A record that could not be asked about is remembered as such**, as a 404 cover is, so a failing
+station is asked once per record rather than on every redraw. A key issued Read only is refused the
+WRITE and not the read, so the ordinary shape of that is a key lit correctly that says in the log why
+it cannot be pressed — a different sentence from Skip's, because "Skip and Stop need Read and manage"
+is not what this key does.
+
+**The two keys are two actions and cannot see each other**, so they hear the store instead
+(`RatingStore.subscribe`): a press on Like takes the light off Dislike in the same beat rather than at
+the next poll. The store is emptied when the station changes, because a rating is remembered against
+a track id and another station's ids name other records, if they name anything. `StationLink.onChange`
+is what says so, rather than the plugin guessing from the settings.
+
+**A press is refused, and the station asked nothing, when there is nothing to rate**: no station, a
+reading that failed or is stale, nothing on air, or an item with no `trackId` — a break, whose words
+have no row in the catalog, or a record the station is airing without ever having ingested it. Both
+keys draw unlit on a stale reading however well the last opinion is known, by the rule the rest of
+this plugin follows: the opinion may be about the record before this one.
+
 ## What the Now Playing key draws
 
 **The cover is embedded in an SVG the app rasterises**, so no image decoder ships: a native one cannot
@@ -233,7 +277,10 @@ settings round trip, polling with the bearer and the plugin's User-Agent, the ti
 drawn and the bar stepping, the cover fetched with no `Authorization` header, a press opening the
 console, a skip, an armed and fired Stop, a Start, and the settings panel in a browser saying in turn
 that it needs an address, a key, that a wrong key was refused by a station it found, and that the
-right one connects. Two Now Playing keys with different settings, one drawing the cover alone, and
+right one connects. The rating read once for both vote keys and not again while the record plays,
+a press that writes, a second press that withdraws, a press on Like taking the light off Dislike, a
+break and a stale reading both refusing the press, and a Read-only key reading the rating and being
+refused the write with voting's own sentence in the log. Two Now Playing keys with different settings, one drawing the cover alone, and
 a settings change redrawing only its own key; the panel's checkboxes opened on a key's own settings
 and sending each tick. The embedded cover, the bar and the shade render in macOS's own SVG renderer.
 
@@ -249,3 +296,9 @@ with a key issued Read and manage.
 And the packed `.streamDeckPlugin`, built by the `installer` script and installed by double-click
 over an unlinked dev copy, works the same: the ES module survives packing and the keys kept their
 settings, which the app stores against the plugin's id rather than its folder.
+
+**Like and Dislike have NOT been on a device.** They were driven through the built bundle against a
+fake app and a fake station — both actions registering off the manifest, the rating read once, a
+press writing, a second press withdrawing, and Like going dark when Dislike was pressed — which
+settles the wiring and not the picture. What is still open is whether the lit and unlit faces tell
+each other apart at 72 pixels across a room, which is the one thing only the hardware answers.

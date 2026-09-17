@@ -110,18 +110,25 @@ const pages = {
             `<text x="664" y="480" font-family="${FONT}" font-size="46" fill="${DIM}">Your station on a Stream Deck</text>` +
             key(664, 560, 220, playing.image, playing.title) +
             key(914, 560, 220, manifestKey('imgs/actions/skip/key.svg')) +
-            key(1164, 560, 220, manifestKey('imgs/actions/transport/stop.svg')),
+            key(1164, 560, 220, manifestKey('imgs/actions/transport/stop.svg')) +
+            key(1414, 560, 220, manifestKey('imgs/actions/like/key-on.svg')) +
+            key(1664, 560, 220, manifestKey('imgs/actions/dislike/key.svg')),
     ),
     'gallery-1-now-playing': page(
         heading('What is on air', 'The cover, the title, and a bar that fills as the record plays. Press it to open the console.') +
             key(760, 320, 400, playing.image, playing.title),
     ),
+    // Six keys in one row rather than a fourth gallery image, because the Maker Console's gallery is
+    // the three this listing has always had and a limit nobody can read from here is not one to test
+    // on a submission.
     'gallery-2-transport': page(
-        heading('Skip, and a Stop that asks twice', 'Stop says Confirm, and forgets after five seconds. Once stopped, the same key is Start.') +
-            key(270, 360, 300, manifestKey('imgs/actions/skip/key.svg'), '', 'Skip') +
-            key(650, 360, 300, manifestKey('imgs/actions/transport/stop.svg'), '', 'Stop') +
-            key(1030, 360, 300, manifestKey('imgs/actions/transport/stop.svg'), 'Confirm', 'Pressed once') +
-            key(1410, 360, 300, manifestKey('imgs/actions/transport/start.svg'), '', 'Start'),
+        heading('The keys that do something', 'Stop asks twice and forgets after five seconds. Like and Dislike rate the record on air.') +
+            key(90, 420, 240, manifestKey('imgs/actions/skip/key.svg'), '', 'Skip') +
+            key(390, 420, 240, manifestKey('imgs/actions/transport/stop.svg'), '', 'Stop') +
+            key(690, 420, 240, manifestKey('imgs/actions/transport/stop.svg'), 'Confirm', 'Pressed once') +
+            key(990, 420, 240, manifestKey('imgs/actions/transport/start.svg'), '', 'Start') +
+            key(1290, 420, 240, manifestKey('imgs/actions/like/key-on.svg'), '', 'Liked') +
+            key(1590, 420, 240, manifestKey('imgs/actions/dislike/key.svg'), '', 'Dislike'),
     ),
     'gallery-3-states': page(
         heading('It says why it is quiet', 'In the console’s own words, and never in the on-air colour when the reading is old.') +

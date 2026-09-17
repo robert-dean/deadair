@@ -140,15 +140,19 @@ const HEART = 'M72 124 C40 100 24 80 24 58 C24 40 37 28 52 28 C62 28 69 34 72 42
  * How the heart is placed, and where the skull sits in it.
  *
  * The path's own bounding box is centred on (72, 76) and it is scaled ABOUT that point, so the box
- * stays centred there whatever {@link HEART_SCALE} is. Its centre of AREA is not the same point: a
- * heart tapers to a point at the bottom and carries its mass in the lobes, so the area centre
- * measures (72, 68.3) — about eight units higher. Centring the skull on the bounding box puts it
- * visibly low, with its jaw at the point and a gap above it, which is what {@link SKULL_Y} exists to
- * avoid. Measured by rasterising the path and taking the centroid, not guessed.
+ * stays centred there whatever {@link HEART_SCALE} is. Its centre of AREA is (72, 68.3), about eight
+ * units higher, because a heart tapers to a point at the bottom and carries its mass in the lobes —
+ * measured by rasterising the path and taking the centroid.
+ *
+ * {@link SKULL_Y} is NEITHER of them, and that is worth saying plainly rather than dressing up. Both
+ * were tried at both sizes the skull has had. The area centre leaves too much heart below the jaw
+ * once the skull is small enough to clear the lobes; the box centre sits the skull low against the
+ * taper. The number here was chosen by looking at the drawing rather than by computing anything, so
+ * it does NOT follow {@link HEART_SCALE} the way a derived one would: change the scale and this wants
+ * looking at again.
  */
 const HEART_SCALE = 1.26;
-const HEART_AREA_OFFSET = 76 - 68.3;
-const SKULL_Y = 76 - HEART_AREA_OFFSET * HEART_SCALE;
+const SKULL_Y = 73;
 /**
  * Wide enough to be the mark and no wider. At 68 the headphones crowd the heart's sides and the jaw
  * runs into its taper; 56 clears the lobes with air around it and still reads at the 72 pixels a

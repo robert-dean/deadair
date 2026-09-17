@@ -192,13 +192,20 @@ than flooding the key: a flooded red dislike beside the transport's red Stop is 
 different things. The edge is ink on a lit heart and GREY on an unlit one, because ink on carbon is
 invisible and the heart then disappears, leaving the skull floating on nothing.
 
-**The skull sits on the heart's centre of AREA, which is not its bounding box.** The path's box is
-centred on (72, 76) and is scaled about that point, so the box stays there whatever the scale; the
-area centre measures (72, 68.3), about eight units higher, because a heart tapers to a point at the
-bottom and carries its mass in the lobes. Centred on the box the skull sits visibly low, jaw at the
-point with a gap above it. The number came from rasterising the path and taking the centroid rather
-than from taste, and it moves with the scale, which is why `SKULL_Y` is derived rather than written
-down.
+**Where the skull sits was settled by looking, and the two computed answers are both wrong.** The
+heart path's bounding box is centred on (72, 76) and is scaled about that point, so the box stays
+there whatever the scale; its centre of AREA measures (72, 68.3), about eight units higher, because a
+heart tapers to a point and carries its mass in the lobes. Both were tried, at both sizes the skull
+has had. On the box the skull sits low against the taper; on the area centre it leaves too much heart
+below the jaw once the skull is small enough to clear the lobes. `SKULL_Y` is 73, between them, and
+is a CONSTANT rather than a derivation — so unlike the rest of this geometry it does not follow
+`HEART_SCALE`, and changing the scale means looking at the drawing again. Writing it as though it
+came out of the centroid would be dressing up a judgement as a measurement.
+
+**The skull is 56 units wide and was 68.** At 68 the headphones crowd the heart's sides and the jaw
+runs into the taper; 56 clears the lobes and still reads at the 72 pixels a deck shows. The skull's
+own canvas is square and the drawing on it is wider than tall, so the height it takes is less than
+the number says.
 
 **A key with nothing to rate is DIM rather than merely unlit**, and that distinction is what the
 drawn face buys over the two manifest state images this started as. Unlit is the station having no

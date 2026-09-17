@@ -1,77 +1,45 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
     <!-- The picture a weather break wears. Drawn for this repository; see MANIFEST.json.
 
-         The sun up and to the left with the cloud crossing in front of it from the lower right, and
-         the station's own mark IN the cloud. `news.svg` makes the same move with the photograph on
-         its front page, which is what keeps the two a set.
+         The first drawing of this, unchanged — the sun up and to the left, the cloud crossing in
+         front of it from the lower right — with the station's own mark laid IN the cloud. `news.svg`
+         makes the same move with the photograph on its front page, which is what keeps the two a
+         set.
 
          `weather.png` beside this is what SHIPS, and it is this file rasterised:
 
              qlmanage -t -s 512 -o <somewhere> assets/art/breaks/weather.svg
 
-         The mark is referenced by path rather than embedded so this file stays a few kilobytes. The
-         path is `apps/ios`'s app icon, which is the largest copy of it in the tree at 1024px and the
-         only one carrying no lettering; it brings its own flat green field (#2ED88B), which is why
-         this tile is that green rather than the console's phosphor and why the clipped edge is
-         invisible. -->
-    <defs>
-        <!-- The cloud is a UNION of three circles over a flat base rather than one path of arcs,
-             because an arc path of this shape is written wrong far more easily than it is written
-             right, and did not survive its first reading: what it drew was a lozenge.
-
-             A `<g>` is not a permitted child of `<clipPath>`, so the shapes are repeated below
-             rather than referenced. Wrapped in one, the clip is empty and this renders as a cloud
-             with no skull in it. -->
-        <clipPath id="cloud">
-            <circle cx="196" cy="310" r="76"/>
-            <circle cx="286" cy="250" r="102"/>
-            <circle cx="376" cy="310" r="76"/>
-            <rect x="118" y="308" width="336" height="108" rx="54"/>
-        </clipPath>
-    </defs>
-
+         **This one uses the TRANSPARENT copy of the mark** (`apps/android`'s adaptive icon
+         foreground), where `news.svg` uses the opaque one. The rule is which way round the mark and
+         the artwork sit: the opaque copy is the bigger source and is right for anything the mark is
+         CLIPPED into, and it carries its own flat field, so laying it over this cloud would cover
+         the cloud with a green square. The field colour is that copy's (#2ED88B rather than the
+         console's #2FD98C) so the two tiles are the same green; the difference is one value per
+         channel and it is the sibling that cannot change. -->
     <rect width="512" height="512" fill="#2ED88B"/>
-
-    <!-- The sun, first, so the cloud passes in front of it. -->
-    <g stroke="#121514" stroke-width="20" stroke-linecap="round">
-        <line x1="288.0" y1="178.0" x2="320.0" y2="178.0"/>
-        <line x1="259.9" y1="245.9" x2="282.5" y2="268.5"/>
-        <line x1="192.0" y1="274.0" x2="192.0" y2="306.0"/>
-        <line x1="124.1" y1="245.9" x2="101.5" y2="268.5"/>
-        <line x1="96.0" y1="178.0" x2="64.0" y2="178.0"/>
-        <line x1="124.1" y1="110.1" x2="101.5" y2="87.5"/>
-        <line x1="192.0" y1="82.0" x2="192.0" y2="50.0"/>
-        <line x1="259.9" y1="110.1" x2="282.5" y2="87.5"/>
+    <g fill="#121514">
+        <!-- The sun, behind and up-left, so the cloud reads as being in front of it. -->
+        <g>
+            <circle cx="196" cy="186" r="70"/>
+            <g stroke="#121514" stroke-width="22" stroke-linecap="round">
+                <line x1="196" y1="66" x2="196" y2="92"/>
+                <line x1="196" y1="280" x2="196" y2="306"/>
+                <line x1="76" y1="186" x2="102" y2="186"/>
+                <line x1="290" y1="186" x2="316" y2="186"/>
+                <line x1="111" y1="101" x2="129" y2="119"/>
+                <line x1="263" y1="253" x2="281" y2="271"/>
+                <line x1="111" y1="271" x2="129" y2="253"/>
+                <line x1="263" y1="119" x2="281" y2="101"/>
+            </g>
+        </g>
+        <!-- The cloud, stroked in the background colour so its edge separates it from the sun
+             behind it. Both shapes are the same ink, so without that stroke they merge into one
+             blob at row size. -->
+        <path d="M176 396a74 74 0 0 1 8-147 104 104 0 0 1 196-30 66 66 0 0 1 8 177z"
+              stroke="#2ED88B" stroke-width="24" stroke-linejoin="round"/>
     </g>
-    <circle cx="192" cy="178" r="76" fill="#121514"/>
-
-    <!-- The cloud, in four passes, and each one is doing something.
-
-         The FIELD-coloured halo is what separates the cloud from the sun behind it: both are ink, so
-         without it the cloud's outline would disappear into the sun's disc exactly where the two
-         overlap and the pair would read as one blob.
-
-         Then the union is OUTLINED by drawing it filled and stroked in ink, which puts an edge on
-         the outside of every shape, and filled flat, which covers the edges that fell inside it. A
-         further pass stroking the shapes again is the obvious-looking way to outline a union and
-         draws every internal edge straight back in, which is what it did the first time. -->
-    <g fill="#2ED88B" stroke="#2ED88B" stroke-width="46" stroke-linejoin="round">
-        <circle cx="196" cy="310" r="76"/>
-        <circle cx="286" cy="250" r="102"/>
-        <circle cx="376" cy="310" r="76"/>
-        <rect x="118" y="308" width="336" height="108" rx="54"/>
-    </g>
-    <g fill="#121514" stroke="#121514" stroke-width="22" stroke-linejoin="round">
-        <circle cx="196" cy="310" r="76"/>
-        <circle cx="286" cy="250" r="102"/>
-        <circle cx="376" cy="310" r="76"/>
-        <rect x="118" y="308" width="336" height="108" rx="54"/>
-    </g>
-    <g fill="#2ED88B">
-        <circle cx="196" cy="310" r="76"/>
-        <circle cx="286" cy="250" r="102"/>
-        <circle cx="376" cy="310" r="76"/>
-        <rect x="118" y="308" width="336" height="108" rx="54"/>
-    </g>
-    <image href="../../../apps/ios/Sources/Assets.xcassets/AppIcon.appiconset/AppIcon.png" x="155.8" y="174.5" width="261.4" height="261.4" clip-path="url(#cloud)"/>
+    <!-- The mark, in the cloud. Placed by the HEAD rather than by the image's own box: it is 178px
+         of a 324px square, centred, and everything here is arranged around where the face lands. -->
+    <image href="../../../apps/android/app/src/main/res/drawable-xxhdpi/ic_launcher_foreground.png" x="118.2" y="114.2" width="356.8" height="356.8"/>
 </svg>

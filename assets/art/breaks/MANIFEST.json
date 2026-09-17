@@ -31,7 +31,7 @@
         {
             "kind": "weather",
             "file": "weather.png",
-            "sha256": "1eef07bafd6311c7a4435d8289a0ddb4fa516e56d73a92a0d06918bbc545bbea",
+            "sha256": "ab5dd60b687ad740bd5bae4e31c2486c78af631d1a873f1e5538881ee3d875f1",
             "source": "Drawn for this repository (weather.svg beside it), over the station's own mark",
             "licence": "CC0-1.0"
         },

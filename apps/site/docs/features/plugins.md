@@ -1,10 +1,10 @@
 ---
 title: Plugins
 sidebar_position: 9
-description: The fourteen bundled plugins that bring the station its music, facts, voice, words and measurements, and how trust and permissions work.
+description: The thirteen bundled plugins that bring the station its music, facts, voice, words and measurements, and how trust and permissions work.
 ---
 
-Almost everything the station reaches outside itself is a plugin: where the music comes from, what it knows about a record, how it speaks, which model writes its words, and the program that measures its audio. Fourteen are bundled in the image, and each is switched on and configured from its own page. A plugin somebody else wrote is installed by importing it from the console, or by copying it into the plugins folder on the station's data volume, and is then held to exactly the same rules.
+Almost everything the station reaches outside itself is a plugin: where the music comes from, what it knows about a record, how it speaks, which model writes its words, and the program that measures its audio. Thirteen are bundled in the image, and each is switched on and configured from its own page. A plugin somebody else wrote is installed by importing it from the console, or by copying it into the plugins folder on the station's data volume, and is then held to exactly the same rules.
 
 ![The plugin catalogue: a card per plugin and its state](/img/console/plugins.webp)
 *Fig. 1. The plugins.*
@@ -13,12 +13,11 @@ Almost everything the station reaches outside itself is a plugin: where the musi
 
 With no model the station writes its own breaks from its phrasings. With no voice it plays records. With no analyzer every record plays, unmeasured. The one it cannot do without is a music provider: there is nothing to programme until there are records.
 
-## The bundled fourteen
+## The bundled thirteen
 
 **Music**
 
 - **Spotify.** Search, your playlists and the audio. It needs two authorizations: see [the library](./library.md).
-- **YouTube Music.** Search and your playlists, signed in with a cookie you paste. It finds the live sets, sessions and uploads that are on no streaming service, but it **cannot play them yet**: a YouTube audio URL only works for the client that asked for it, so serving one needs a piece the station has not got. Records from here are searchable and importable, and the running order skips them.
 - **Navidrome**, or any Subsonic server. Your own library and playlists. It also reads the facts in your files' tags, the only description that exists for a bootleg or a local band.
 
 **Facts about records**
@@ -46,7 +45,7 @@ With no model the station writes its own breaks from its phrasings. With no voic
 
 ## One capability nothing bundled fills
 
-A **narration** plugin hands the station text to read out whole: a chapter, an issue, a long read. The station reads it in its presenter's voice, and there is a page in the console for what it has read, but none of the fourteen above offers anything to read. That one waits on a plugin somebody else wrote, or one you write. See [readings](./narrations.md).
+A **narration** plugin hands the station text to read out whole: a chapter, an issue, a long read. The station reads it in its presenter's voice, and there is a page in the console for what it has read, but none of the thirteen above offers anything to read. That one waits on a plugin somebody else wrote, or one you write. See [readings](./narrations.md).
 
 ## Plugins are trusted code
 

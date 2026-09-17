@@ -2,6 +2,10 @@
 
 YouTube Music as a deadair music provider: search, and the playlists on your account.
 
+**This plugin is not loaded by any station.** It is built, tested and shipped inside the image, and
+deliberately left out of `bundledPluginDirs` in `apps/api/src/modules/plugins/plugins.bundled.ts`.
+The line goes back when the audio half exists.
+
 **It cannot play anything, and that is the whole shape of this version.** The plugin declares
 `catalog` and not `stream`, so records found here are searchable and importable and the running
 order skips them. Nothing is half-wired: the host asks `asStreamPlugin` for a URL, gets nothing,

@@ -1,6 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 144 144" fill="#FFFFFF">
-  <g transform="rotate(180 72 72)">
-    <path d="M50 118V70c0-4 3-7 7-7h11c4 0 6-3 6-7V42c0-10 6-18 14-18 7 0 10 6 8 14l-5 22h23c7 0 12 6 11 13l-7 33c-1 7-7 12-14 12z"/>
-    <rect x="20" y="62" width="24" height="56" rx="4"/>
+  <g transform="translate(72 76) scale(0.74) translate(-72 -76)">
+    <path d="M72 124 C40 100 24 80 24 58 C24 40 37 28 52 28 C62 28 69 34 72 42 C75 34 82 28 92 28 C107 28 120 40 120 58 C120 80 104 100 72 124 Z"/>
   </g>
+  <circle cx="72" cy="76" r="60" fill="none" stroke="#FFFFFF" stroke-width="13"/>
+  <rect x="64" y="8" width="16" height="136" rx="4" transform="rotate(45 72 76)"/>
 </svg>

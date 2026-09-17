@@ -21,14 +21,12 @@ export type Vote = 'liked' | 'disliked';
 export const LIKE = 'radio.deadair.streamdeck.like';
 export const DISLIKE = 'radio.deadair.streamdeck.dislike';
 
-/** The manifest's two states for a vote key, in its order. */
-export const UNLIT = 0;
-export const LIT = 1;
-
 /** What one vote key shows, and what pressing it would do. */
 export interface VoteView {
-    /** The station's opinion of the record on air is this key's own: draw it lit. */
+    /** The station's opinion of the record on air is this key's own: flood the key with its colour. */
     lit: boolean;
+    /** There is nothing for this key to have an opinion about, so nothing on it may look live. */
+    dim: boolean;
     /** The failure's word, or nothing. Two words is all the key has room for; the log has the sentence. */
     title: string;
     /** The record a press would rate and what it would write. Absent on a key that refuses the press. */
@@ -61,14 +59,17 @@ export function rateableTrack(reading: Reading): string | undefined {
  * opinion) or a record the station is airing without ever having ingested it. The console disables
  * its rating control in the same places; a key cannot be disabled, so it refuses instead.
  *
- * A stale reading draws both keys unlit however well the last opinion is known, by the rule the rest
- * of this plugin follows: the record the opinion is about may no longer be the record on air, and a
- * lit key would be saying something about the wrong one.
+ * A key with nothing to rate is DIM rather than merely unlit, which is a distinction the drawn face
+ * can make and a pair of flat state images could not: unlit is the station having no such opinion,
+ * dim is the key having nothing to have an opinion about. A stale reading is dim however well the
+ * last opinion is known, by the rule the rest of this plugin follows — the record the opinion is
+ * about may no longer be the record on air, and a lit key would be saying something about the wrong
+ * one.
  */
 export function voteView(reading: Reading, known: { rating: Rating | undefined } | undefined, vote: Vote): VoteView {
     const title = reading.failure === undefined ? '' : describe(reading.failure).title;
     const trackId = rateableTrack(reading);
-    if (trackId === undefined) return { lit: false, title };
+    if (trackId === undefined) return { lit: false, dim: true, title };
     const lit = known?.rating === vote;
-    return { lit, title, press: { trackId, rating: lit ? 'neutral' : vote } };
+    return { lit, dim: false, title, press: { trackId, rating: lit ? 'neutral' : vote } };
 }

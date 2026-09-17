@@ -118,6 +118,86 @@ function placeholder(colour: string): string {
     );
 }
 
+/** The colour a vote key floods with when the station holds that opinion. */
+const VOTE_COLOURS = { liked: '#2FD98C', disliked: '#FF4B4B' } as const;
+
+/**
+ * The mark's palette: the skull's bone against its ink.
+ *
+ * `logo-mark.png` is a woodcut — bone fill, heavy black outline, carved shading — and these two keys
+ * are drawn in the same hand so the plugin's faces come from one place. The bone is what goes dim on
+ * a key the station does not agree with; the ink never does, because the linework IS the drawing and
+ * a key that loses it is a grey blob rather than the same picture, off.
+ */
+const BONE = '#F2E8CD';
+const BONE_DIM = '#8E897A';
+const INK = '#101413';
+
+/** The heart, at the mark's own outline weight. */
+const HEART = 'M72 124 C40 100 24 80 24 58 C24 40 37 28 52 28 C62 28 69 34 72 42 C75 34 82 28 92 28 C107 28 120 40 120 58 C120 80 104 100 72 124 Z';
+
+/** One carved crescent on the right lobe, the way the mark hatches the cranium. */
+const CARVING = `<path d="M99 50 C108 59 108 71 100 80" fill="none" stroke="${INK}" stroke-width="7" stroke-linecap="round"/>`;
+
+/** The bone highlight on the upper-left lobe, drawn only where the key is lit and there is light to catch. */
+const SHEEN = `<path d="M42 48 C45 40 52 36 59 37" fill="none" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round" opacity="0.45"/>`;
+
+/** The ban: a ring and the bar across it, at the ink's weight. The dislike key alone carries it. */
+const BAN =
+    `<circle cx="72" cy="76" r="56" fill="none" stroke="${INK}" stroke-width="12"/>` +
+    `<rect x="64.5" y="14" width="15" height="124" rx="4" fill="${INK}" transform="rotate(45 72 76)"/>`;
+
+/** What a Like or Dislike key draws. */
+export interface VoteFace {
+    vote: keyof typeof VOTE_COLOURS;
+    /** The station's opinion of the record on air is this key's own. */
+    lit: boolean;
+    /** Nothing here is about the record on air: no station, a stale reading, or nothing to rate. */
+    dim: boolean;
+}
+
+/**
+ * A vote key as an SVG: the station's own heart, and the ban over it that a dislike is.
+ *
+ * Drawn by the renderer rather than as flat glyphs in the plugin folder, for the reason the Now
+ * Playing key is: the keys of one plugin should look like each other, and a hand-drawn SVG beside a
+ * rendered one drifts from it the first time either changes. The manifest's own two pictures are
+ * written from THIS function by `tools/default.key.mjs`, so a key does not change face the moment the
+ * plugin first draws.
+ *
+ * **One drawing, not two.** Like and Dislike are the same heart at the same size, and the dislike
+ * adds the ban around it. A torn heart was the other way to say it and was two shapes that had to be
+ * kept fitting each other by hand; this is one shape with something laid over it. It also says what
+ * the station actually means, which is not a shrug: a dislike is an instruction, and
+ * `candidates.repository.ts` drops a disliked record from the draw outright.
+ *
+ * **The ground carries the state, because the bone cannot.** A key drawn in the mark's palette has no
+ * colour of its own to change, so the key floods with the vote's colour when the station agrees — the
+ * logo's own treatment, the mark against phosphor. Unlit is carbon with the bone gone dim.
+ *
+ * `dim` is not the same as unlit, and that is the distinction two flat state images could not draw:
+ * unlit is the station having no such opinion, dim is the key having nothing to have an opinion
+ * ABOUT. A dim key never floods, whichever way it was lit, by the rule the whole plugin follows —
+ * nothing may look live on a reading that is not.
+ */
+export function voteSvg(face: VoteFace): string {
+    const flooded = face.lit && !face.dim;
+    const ground = flooded ? VOTE_COLOURS[face.vote] : CARBON;
+    const drawing =
+        `<path d="${HEART}" fill="${face.lit ? BONE : BONE_DIM}" stroke="${INK}" stroke-width="9" stroke-linejoin="round"/>` +
+        CARVING +
+        (flooded ? SHEEN : '') +
+        (face.vote === 'disliked' ? BAN : '');
+    return (
+        `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${SIZE}" height="${SIZE}" viewBox="0 0 ${SIZE} ${SIZE}">` +
+        `<rect width="${SIZE}" height="${SIZE}" fill="${ground}"/>` +
+        // Both keys draw the heart at the size the ban leaves room for, so the pair is one drawing
+        // twice rather than a big heart beside a small one.
+        `<g transform="translate(72 72) scale(0.72) translate(-72 -76)"${face.dim ? ` opacity="${FAINT}"` : ''}>${drawing}</g>` +
+        `</svg>`
+    );
+}
+
 /** An SVG as `setImage` takes one, which is URI-encoded and not base64. */
 export function svgDataUri(svg: string): string {
     return `data:image/svg+xml,${encodeURIComponent(svg)}`;

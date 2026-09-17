@@ -50,9 +50,9 @@ describe('the plugin manifest', () => {
         for (const uuid of [NOW_PLAYING, LIKE, DISLIKE]) expect(declared).toContain(uuid);
     });
 
-    it('gives each vote key both of the states the plugin draws it in', () => {
+    it('gives each vote key one state, because the plugin draws its face rather than switching between two', () => {
         for (const uuid of [LIKE, DISLIKE]) {
-            expect(manifest.Actions.find(action => action.UUID === uuid)?.States).toHaveLength(2);
+            expect(manifest.Actions.find(action => action.UUID === uuid)?.States).toHaveLength(1);
         }
     });
 

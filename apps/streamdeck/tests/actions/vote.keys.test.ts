@@ -2,7 +2,7 @@ import { SdkError } from '@deadair/sdk';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { VoteKeys } from '../../src/actions/vote.keys.js';
-import { LIT, UNLIT } from '../../src/actions/vote.reading.js';
+import { svgDataUri, voteSvg } from '../../src/display/key.image.js';
 import { RatingStore, type Catalog } from '../../src/station/track.rating.js';
 import { fakeCatalog } from '../fixtures/fake.catalog.js';
 import { fakeKey } from '../fixtures/fake.key.js';
@@ -33,14 +33,17 @@ async function deck(catalog: Catalog = fakeCatalog('neutral'), station = fakeSta
 
 const last = (calls: string[], what: string): string | undefined => calls.filter(call => call.startsWith(what)).at(-1);
 
+/** The face the renderer draws for a state, as the key would have been told to show it. */
+const face = (vote: 'liked' | 'disliked', lit: boolean, dim = false): string => `image ${svgDataUri(voteSvg({ vote, lit, dim }))}`;
+
 describe('VoteKeys', () => {
     it('asks the station what it thinks of the record on air, once for both keys', async () => {
         const { catalog, likeKey, dislikeKey } = await deck(fakeCatalog('liked'));
 
         expect(catalog.getTrack).toHaveBeenCalledTimes(1);
         expect(catalog.getTrack).toHaveBeenCalledWith(TRACK_ID);
-        expect(last(likeKey.calls, 'state')).toBe(`state ${LIT}`);
-        expect(last(dislikeKey.calls, 'state')).toBe(`state ${UNLIT}`);
+        expect(last(likeKey.calls, 'image')).toBe(face('liked', true));
+        expect(last(dislikeKey.calls, 'image')).toBe(face('disliked', false));
     });
 
     it('does not ask again while the same record plays', async () => {
@@ -55,7 +58,7 @@ describe('VoteKeys', () => {
         await like.press('like');
         expect(catalog.rateTrack).toHaveBeenCalledWith(TRACK_ID, { rating: 'liked' });
         expect(likeKey.calls).toContain('ok');
-        expect(last(likeKey.calls, 'state')).toBe(`state ${LIT}`);
+        expect(last(likeKey.calls, 'image')).toBe(face('liked', true));
     });
 
     it('withdraws the opinion on a second press, which is where neutral lives on a deck', async () => {
@@ -64,16 +67,16 @@ describe('VoteKeys', () => {
         await like.press('like');
         await like.press('like');
         expect(catalog.rateTrack).toHaveBeenLastCalledWith(TRACK_ID, { rating: 'neutral' });
-        expect(last(likeKey.calls, 'state')).toBe(`state ${UNLIT}`);
+        expect(last(likeKey.calls, 'image')).toBe(face('liked', false));
     });
 
     it('takes the light off the other key, which is a different action and cannot see this one', async () => {
         const { like, dislike, likeKey, dislikeKey } = await deck(fakeCatalog('liked'));
-        expect(last(likeKey.calls, 'state')).toBe(`state ${LIT}`);
+        expect(last(likeKey.calls, 'image')).toBe(face('liked', true));
 
         await dislike.press('dislike');
-        expect(last(dislikeKey.calls, 'state')).toBe(`state ${LIT}`);
-        expect(last(likeKey.calls, 'state')).toBe(`state ${UNLIT}`);
+        expect(last(dislikeKey.calls, 'image')).toBe(face('disliked', true));
+        expect(last(likeKey.calls, 'image')).toBe(face('liked', false));
     });
 
     it('refuses a press on something with no row in the catalog, and asks the station nothing', async () => {
@@ -85,6 +88,7 @@ describe('VoteKeys', () => {
         expect(catalog.getTrack).not.toHaveBeenCalled();
         expect(catalog.rateTrack).not.toHaveBeenCalled();
         expect(likeKey.calls).toContain('alert');
+        expect(last(likeKey.calls, 'image')).toBe(face('liked', false, true));
     });
 
     it('refuses a press with nothing on air', async () => {
@@ -94,14 +98,14 @@ describe('VoteKeys', () => {
         expect(likeKey.calls).toContain('alert');
     });
 
-    it('goes dark on a stale reading and refuses the press, because the opinion may be about the record before', async () => {
+    it('goes faint on a stale reading and refuses the press, because the opinion may be about the record before', async () => {
         const { like, likeKey, station, catalog } = await deck(fakeCatalog('liked'));
-        expect(last(likeKey.calls, 'state')).toBe(`state ${LIT}`);
+        expect(last(likeKey.calls, 'image')).toBe(face('liked', true));
 
         station.playout.getPlayoutStatus.mockRejectedValue(new TypeError('fetch failed'));
         await vi.advanceTimersByTimeAsync(2_000);
 
-        expect(last(likeKey.calls, 'state')).toBe(`state ${UNLIT}`);
+        expect(last(likeKey.calls, 'image')).toBe(face('liked', false, true));
         expect(likeKey.calls).toContain('title No station');
         await like.press('like');
         expect(catalog.rateTrack).not.toHaveBeenCalled();
@@ -130,7 +134,7 @@ describe('VoteKeys', () => {
             }),
         };
         const { dislikeKey } = await deck(catalog);
-        expect(last(dislikeKey.calls, 'state')).toBe(`state ${LIT}`);
+        expect(last(dislikeKey.calls, 'image')).toBe(face('disliked', true));
     });
 
     it('ignores a second press while the first is still going', async () => {

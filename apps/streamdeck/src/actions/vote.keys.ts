@@ -1,8 +1,9 @@
+import { svgDataUri, voteSvg } from '../display/key.image.js';
 import type { Reading, StatusPoller } from '../station/status.poller.js';
 import type { RatingStore } from '../station/track.rating.js';
 import { runCommand, type Log } from './command.outcome.js';
 import { StationKeys } from './station.keys.js';
-import { LIT, rateableTrack, UNLIT, voteView, type Vote } from './vote.reading.js';
+import { rateableTrack, voteView, type Vote } from './vote.reading.js';
 
 /** The part of the store a key uses: what is known, going to find out, and saying what it thinks. */
 export type Ratings = Pick<RatingStore, 'peek' | 'load' | 'rate' | 'subscribe'>;
@@ -77,9 +78,14 @@ export class VoteKeys extends StationKeys {
         void this.ratings.load(trackId).then(() => this.render());
     }
 
+    /**
+     * The face is composed on every redraw rather than cached, unlike the Now Playing key's: there is
+     * no cover embedded in it, so it is a few hundred characters to build and there is nothing to
+     * spare by remembering four of them. The painter drops a frame identical to the last one anyway.
+     */
     protected render(): void {
         const view = this.view();
-        this.painter.paintAll({ state: view.lit ? LIT : UNLIT, title: view.title });
+        this.painter.paintAll({ image: svgDataUri(voteSvg({ vote: this.vote, lit: view.lit, dim: view.dim })), title: view.title });
     }
 
     private view() {

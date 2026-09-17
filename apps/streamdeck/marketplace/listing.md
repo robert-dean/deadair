@@ -28,7 +28,8 @@ Under the console's 1,500 characters.
 >
 > Like and Dislike set what the station thinks of the record playing, the same opinion you would
 > set from the running order in the console: a like plays it more often, a dislike means never
-> again. The key lights up when the station already agrees; press the lit one to take it back.
+> again. The key fills with colour when the station already agrees; press the lit one to take it
+> back.
 >
 > Stop or start stops the station on the second press within five seconds, so a stray press never
 > takes it off air, and once it is stopped the same key starts it again.

@@ -1,7 +1,7 @@
 # deadair for Stream Deck
 
-Your station on an Elgato Stream Deck: what is on air, Skip, a Stop that asks twice, and a thumb up
-or down on the record playing.
+Your station on an Elgato Stream Deck: what is on air, Skip, a Stop that asks twice, and a heart on
+the record playing.
 
 ## The keys
 
@@ -18,11 +18,12 @@ that is only the cover. It still says why when nothing is playing.
 shows the warning triangle and does nothing.
 
 **Like** and **Dislike** tell the station what it should think of the record on air, which is the
-same opinion you would set from the running order in the console. The key lights up when the station
-already thinks what it says; press the lit one again to take the opinion back. A like means play this
-more often; a dislike means never play it again, and the station obeys that. Neither key does
-anything to a break, to a record your library has never ingested, or while the station is not
-answering: it shows the warning triangle instead.
+same opinion you would set from the running order in the console. Both draw the same heart: Dislike
+is that heart with a ban over it. The key fills with colour when the station already thinks what it
+says — green for a like, red for a dislike — and pressing the lit one takes the opinion back. A like
+means play this more often; a dislike means never play it again, and the station obeys that. With
+nothing to rate — a break, a record your library has never ingested, or a station that is not
+answering — the key goes faint and refuses the press with the warning triangle.
 
 **Stop or start** is Stop while the station is on air. Press it once and it says _Confirm_; press it
 again within five seconds and the station stops. Leave it and it forgets. Once the station is stopped

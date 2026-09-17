@@ -15,7 +15,7 @@ import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
-import { nowPlayingSvg, PROGRESS_STEPS } from '../src/display/key.image.ts';
+import { nowPlayingSvg, PROGRESS_STEPS, voteSvg } from '../src/display/key.image.ts';
 
 const here = resolve(import.meta.dirname, '..');
 const plugin = join(here, 'radio.deadair.streamdeck.sdPlugin');
@@ -82,6 +82,7 @@ function key(x, y, size, image, title = '', label = '') {
 const mark = fileUri(join(plugin, 'imgs/plugin/mark.png'), 'image/png');
 const nowPlaying = (face, title) => ({ image: svgUri(nowPlayingSvg({ mark, ...face })), title });
 const manifestKey = path => fileUri(join(plugin, path), 'image/svg+xml');
+const vote = (v, lit) => svgUri(voteSvg({ vote: v, lit, dim: false }));
 
 /** A headline and a line under it, top left. */
 function heading(title, line) {
@@ -111,8 +112,8 @@ const pages = {
             key(664, 560, 220, playing.image, playing.title) +
             key(914, 560, 220, manifestKey('imgs/actions/skip/key.svg')) +
             key(1164, 560, 220, manifestKey('imgs/actions/transport/stop.svg')) +
-            key(1414, 560, 220, manifestKey('imgs/actions/like/key-on.svg')) +
-            key(1664, 560, 220, manifestKey('imgs/actions/dislike/key.svg')),
+            key(1414, 560, 220, vote('liked', true)) +
+            key(1664, 560, 220, vote('disliked', false)),
     ),
     'gallery-1-now-playing': page(
         heading('What is on air', 'The cover, the title, and a bar that fills as the record plays. Press it to open the console.') +
@@ -127,8 +128,8 @@ const pages = {
             key(390, 420, 240, manifestKey('imgs/actions/transport/stop.svg'), '', 'Stop') +
             key(690, 420, 240, manifestKey('imgs/actions/transport/stop.svg'), 'Confirm', 'Pressed once') +
             key(990, 420, 240, manifestKey('imgs/actions/transport/start.svg'), '', 'Start') +
-            key(1290, 420, 240, manifestKey('imgs/actions/like/key-on.svg'), '', 'Liked') +
-            key(1590, 420, 240, manifestKey('imgs/actions/dislike/key.svg'), '', 'Dislike'),
+            key(1290, 420, 240, vote('liked', true), '', 'Liked') +
+            key(1590, 420, 240, vote('disliked', false), '', 'Dislike'),
     ),
     'gallery-3-states': page(
         heading('It says why it is quiet', 'In the console’s own words, and never in the on-air colour when the reading is old.') +

@@ -42,8 +42,8 @@ Console, whose documentation describes no API.
 
 **The Marketplace listing is in `marketplace/`**: the text typed into the Maker Console
 (`listing.md`) and the thumbnail and three gallery images it takes, 1920 × 960. The pictures are drawn
-by `tools/marketplace.media.mjs` from the plugin's own `nowPlayingSvg`, so the listing shows what a
-key actually draws, and rasterised by macOS's `sips`; run it by hand when a key changes and commit
+by `tools/marketplace.media.mjs` from the plugin's own `nowPlayingSvg` and `voteSvg`, so the listing
+shows what a key actually draws, and rasterised by macOS's `sips`; run it by hand when a key changes and commit
 what it writes, as the desktop commits its generated icons. The covers in them are abstract shapes
 and the records made up, because a listing is no place for somebody else's album art. Two things it
 cost a render each to learn: that renderer ignores SVG 2's `paint-order`, so an outlined title came
@@ -157,6 +157,30 @@ station is asked once per record rather than on every redraw. A key issued Read 
 WRITE and not the read, so the ordinary shape of that is a key lit correctly that says in the log why
 it cannot be pressed — a different sentence from Skip's, because "Skip and Stop need Read and manage"
 is not what this key does.
+
+**They are drawn by the renderer, in the mark's hand.** `voteSvg` in `display/key.image.ts` beside
+`nowPlayingSvg`, rather than flat glyphs in the plugin folder: the keys of one plugin should look
+like each other, and a hand-drawn SVG beside a rendered one drifts from it the first time either
+changes. `logo-mark.png` is a woodcut, so these are too — bone fill, the mark's outline weight, one
+carved crescent, and a sheen on a lit key. `tools/default.key.mjs` writes the manifest's pictures
+from the same function, so a key does not change face the moment the plugin first draws.
+
+**One drawing, not two.** Like and Dislike are the same heart at the same size, and the dislike adds
+the ban around it. A torn heart was the other way to say it and was two shapes that had to be kept
+fitting each other by hand. The ban also says what the station means, which is not a shrug: a dislike
+is an instruction, and `candidates.repository.ts` drops a disliked record from the draw outright.
+
+**The ground carries the state, because the bone cannot.** A key drawn in the mark's palette has no
+colour of its own to change, so the key FLOODS with the vote's colour when the station agrees — the
+logo's own treatment, the mark against phosphor. Unlit is carbon with the bone gone dim and the ink
+intact; dropping the linework when unlit was tried and gives a grey blob rather than the same
+drawing, off.
+
+**A key with nothing to rate is DIM rather than merely unlit**, and that distinction is what the
+drawn face buys over the two manifest state images this started as. Unlit is the station having no
+such opinion; dim is the key having nothing to have an opinion ABOUT. A dim key never floods,
+whichever way it was lit, by the rule the rest of the plugin follows. The manifest therefore gives
+each vote action ONE state, as Now Playing has, and the plugin sends the picture.
 
 **The two keys are two actions and cannot see each other**, so they hear the store instead
 (`RatingStore.subscribe`): a press on Like takes the light off Dislike in the same beat rather than at
@@ -297,8 +321,10 @@ And the packed `.streamDeckPlugin`, built by the `installer` script and installe
 over an unlinked dev copy, works the same: the ES module survives packing and the keys kept their
 settings, which the app stores against the plugin's id rather than its folder.
 
-**Like and Dislike have NOT been on a device.** They were driven through the built bundle against a
-fake app and a fake station — both actions registering off the manifest, the rating read once, a
-press writing, a second press withdrawing, and Like going dark when Dislike was pressed — which
-settles the wiring and not the picture. What is still open is whether the lit and unlit faces tell
-each other apart at 72 pixels across a room, which is the one thing only the hardware answers.
+**The vote keys' wiring has been on the device; their current faces have not.** Robert ran an earlier
+build of them on his Stream Deck+ on 2026-09-17 and voting worked. That build drew flat thumb glyphs,
+which he judged too plain beside Now Playing, and the faces were redrawn as the heart afterwards. The
+drawing is checked only through the renderer and the built bundle — both actions registering off the
+manifest, the rating read once, a press writing, a second press withdrawing, and Like going dark when
+Dislike was pressed. What is open is whether the flooded and unlit faces tell each other apart at 72
+pixels across a room, which is the one thing only the hardware answers.

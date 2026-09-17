@@ -2,6 +2,7 @@ import { Injectable } from 'injectkit';
 import { httpError } from '@maroonedsoftware/errors';
 import { ArtRepository } from './art.repository.js';
 import { ART_SERVED_TYPES, ArtStore, type ArtContentType } from './art.store.js';
+import { isBreakArtKey } from './break.art.js';
 
 /**
  * How long a browser may reuse a cached image before asking again.
@@ -12,6 +13,23 @@ import { ART_SERVED_TYPES, ArtStore, type ArtContentType } from './art.store.js'
  * answers with a 304.
  */
 const CACHE_CONTROL = 'public, max-age=3600';
+
+/**
+ * The same thing for a picture somebody can REPLACE: store it, but ask first.
+ *
+ * The hour above is right for a cached cover, whose bytes change only when a background sweep
+ * refetches them and where nobody is waiting on the result. A break picture changes because an
+ * operator pressed Upload and is looking at the screen, and it is the same URL before and after —
+ * that stability is the whole point of keying the row rather than the bytes — so an hour would be an
+ * hour of the old picture on every player and in the console, which reads as the upload not having
+ * worked.
+ *
+ * `no-cache` is not `no-store`: the bytes are kept and reused, they are just revalidated first, and
+ * the conditional-GET middleware answers that with a headers-only 304 off the ETag below. The cost,
+ * using this repository's own measurement of a NAD M10 V2 (`docs/internals/playout.md`), is three
+ * conditional requests per break on the operator's own network.
+ */
+const REPLACEABLE_CACHE_CONTROL = 'no-cache';
 
 /**
  * What the art route hands the generated router.
@@ -51,7 +69,14 @@ export class ArtService {
         const bytes = await this.artStore.read(asset.checksum, asset.ext);
         if (bytes === undefined) throw httpError(404).withDetails({ message: `art "${id}" has no file` });
 
-        return { contentType: ART_SERVED_TYPES[asset.ext], body: bytes, headers: { cacheControl: CACHE_CONTROL, etag: `"${asset.checksum}"` } };
+        return {
+            contentType: ART_SERVED_TYPES[asset.ext],
+            body: bytes,
+            headers: {
+                cacheControl: isBreakArtKey(asset.sourceUrl) ? REPLACEABLE_CACHE_CONTROL : CACHE_CONTROL,
+                etag: `"${asset.checksum}"`,
+            },
+        };
     }
 
     /**

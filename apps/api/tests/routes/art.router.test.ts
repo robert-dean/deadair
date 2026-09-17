@@ -111,6 +111,22 @@ describe('GET /art/:id', () => {
         expect(response.body).toHaveLength(0);
     });
 
+    it("revalidates a picture an operator can replace, and answers that with a 304 while it hasn't", async () => {
+        // The whole chain for the case the hour above would get wrong: `no-cache` on the way out,
+        // the checksum as the validator, and the middleware turning the revalidation into a
+        // headers-only 304. A replaced picture changes the checksum, so the next one is a 200.
+        const checksum = await store.write(BYTES, 'png');
+        const base = await serve({ findById: async () => ({ id: ID, sourceUrl: 'deadair:break-art/weather', checksum, ext: 'png' }) });
+
+        const first = await send(`${base}/art/${ID}/cover.png`);
+        const again = await send(`${base}/art/${ID}/cover.png`, { 'If-None-Match': `"${checksum}"` });
+
+        expect(first.headers['cache-control']).toBe('no-cache');
+        expect(first.headers['etag']).toBe(`"${checksum}"`);
+        expect(again.status).toBe(304);
+        expect(again.body).toHaveLength(0);
+    });
+
     it('404s an id nothing has cached', async () => {
         const base = await serve({ findById: async () => undefined });
 

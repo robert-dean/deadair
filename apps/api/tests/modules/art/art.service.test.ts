@@ -49,6 +49,20 @@ describe('ArtService.getArt', () => {
         expect((await art.getArt(ID)).headers.cacheControl).not.toContain('immutable');
     });
 
+    // A cached cover changes when a background sweep refetches it and nobody is waiting; a break
+    // picture changes because an operator pressed Upload half a second ago and is watching. Same
+    // route, same id, so the header is the only place that difference can be expressed.
+    it('lets a picture an operator can replace be revalidated instead of sat on for an hour', async () => {
+        const { service: art } = service({ asset: { id: ID, sourceUrl: 'deadair:break-art/weather', checksum: CHECKSUM, ext: 'png' }, bytes: BYTES });
+
+        const response = await art.getArt(ID);
+
+        expect(response.headers.cacheControl).toBe('no-cache');
+        // Still the checksum, because that is what makes the revalidation a 304 rather than a
+        // re-download of a picture nobody has touched.
+        expect(response.headers.etag).toBe(`"${CHECKSUM}"`);
+    });
+
     it('404s an id nobody has cached', async () => {
         const { service: art, read } = service({ asset: undefined });
 

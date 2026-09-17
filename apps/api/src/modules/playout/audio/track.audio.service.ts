@@ -4,6 +4,7 @@ import { Logger } from '@maroonedsoftware/logger';
 import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
 import { TracksRepository } from '#modules/catalog/tracks.repository.js';
 import { PluginTrackResolver } from '../providers/plugin.resolver.js';
+import { causeText } from '#modules/shared/error.text.js';
 import { inScope } from '#modules/shared/scoped.work.js';
 import { TrackAudioRepository, type CachedFile, type SourceAudio } from './track.audio.repository.js';
 import { DEFAULT_TRACK_CACHE_MAX_BYTES, TRACK_CACHE_MAX_BYTES_KEY, resolveTrackCacheMaxBytes } from './track.cache.limit.js';
@@ -172,14 +173,6 @@ function extensionFor(contentType: string | null): TrackExtension | undefined {
 }
 
 /**
- * One line describing a failure, cause included.
- *
- * The cause is not decoration. `fetch` rejects with a bare `TypeError: fetch failed` and puts the only
- * useful half — `ECONNREFUSED`, a DNS failure, a TLS error — on `cause`, and `track_audio.last_error`
- * is the only evidence anybody gets: an item that fails here is skipped by the player and the station
- * carries on. A `last_error` reading "fetch failed" costs an operator the whole diagnosis.
- */
-/**
  * A copy this provider is never going to serve, however many times it is asked.
  *
  * Its own type because the two failures are opposite instructions and the status code alone is too
@@ -194,18 +187,6 @@ function extensionFor(contentType: string | null): TrackExtension | undefined {
  * next attempt will mint a fresh one.
  */
 class UnplayableCopy extends Error {}
-
-const errorText = (error: unknown): string => {
-    if (!(error instanceof Error)) return String(error);
-
-    const causes: string[] = [];
-    for (let cause = error.cause; cause instanceof Error && causes.length < 3; cause = cause.cause) {
-        const code = (cause as { code?: string }).code;
-        causes.push(code === undefined ? cause.message : `${cause.message} (${code})`);
-    }
-
-    return causes.length === 0 ? error.message : `${error.message}: ${causes.join(': ')}`;
-};
 
 /**
  * The one place the station gets a record's audio from.
@@ -332,7 +313,7 @@ export class TrackAudioService {
      */
     async warm(sourceId: string, signal?: AbortSignal): Promise<boolean> {
         const served = await this.ensure(sourceId, signal).catch(error => {
-            this.logger.debug('playout: could not warm a record', { source: sourceId, error: errorText(error) });
+            this.logger.debug('playout: could not warm a record', { source: sourceId, error: causeText(error) });
             return undefined;
         });
 
@@ -550,7 +531,7 @@ export class TrackAudioService {
 
             return served;
         } catch (error) {
-            const reason = errorText(error);
+            const reason = causeText(error);
             await this.inScope(repository => repository.recordFailure(source.sourceId, reason, BASE_RETRY_MS, MAX_RETRY_MS));
 
             // A copy the provider will never serve does not get the ladder. Written off here rather
@@ -623,7 +604,7 @@ export class TrackAudioService {
             this.logger.warn('playout: could not write off a copy a provider will never serve', {
                 plugin: source.pluginId,
                 track: source.externalId,
-                error: errorText(error),
+                error: causeText(error),
             });
         }
     }
@@ -676,7 +657,7 @@ export class TrackAudioService {
             this.logger.warn('playout: could not write off a binding that will not serve', {
                 plugin: source.pluginId,
                 track: source.externalId,
-                error: errorText(error),
+                error: causeText(error),
             });
         }
     }
@@ -781,7 +762,7 @@ export class TrackAudioService {
         try {
             await this.inScope(repository => repository.markServed(sourceId));
         } catch (error) {
-            this.logger.debug('playout: could not note that a record was served', { source: sourceId, error: errorText(error) });
+            this.logger.debug('playout: could not note that a record was served', { source: sourceId, error: causeText(error) });
         }
     }
 

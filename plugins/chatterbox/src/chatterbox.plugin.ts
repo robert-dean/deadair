@@ -1,6 +1,7 @@
 import {
     configBaseUrl,
     configString,
+    errorText,
     Plugin,
     PluginError,
     SPEECH_CUES,
@@ -226,10 +227,25 @@ export class ChatterboxPlugin extends Plugin implements SpeechPluginInstance {
         });
     }
 
+    /**
+     * Whether the server is there, as an ANSWER rather than as a throw.
+     *
+     * The catch carries the argument `plugins/kokoro` states in full: `probe` reads `ok` and
+     * records a rejection as a failed call, so three presses of Test connection against a server
+     * that is not up quarantined the plugin and took the station's voice with it. This engine is
+     * the one where that hurt most, since it is the one an operator most often has switched off:
+     * the model sits on a graphics card, and `unloadAfterRender` exists because of it.
+     */
     async testConnection(): Promise<PluginConnectionResult> {
         if (this.baseUrl.length === 0) return { ok: false, message: 'No server URL set.' };
 
-        const response = await this.host.fetch(`${this.baseUrl}/audio/voices`, { headers: this.authHeaders(), timeoutMs: PROBE_TIMEOUT_MS });
+        let response: Response;
+        try {
+            response = await this.host.fetch(`${this.baseUrl}/audio/voices`, { headers: this.authHeaders(), timeoutMs: PROBE_TIMEOUT_MS });
+        } catch (error) {
+            return { ok: false, message: `Could not reach ${this.baseUrl}: ${errorText(error)}` };
+        }
+
         if (!response.ok) return { ok: false, message: `Server answered HTTP ${response.status}.` };
 
         const body = await tryJsonBody<{ voices?: unknown[] }>(response);

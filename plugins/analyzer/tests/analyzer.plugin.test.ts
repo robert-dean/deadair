@@ -321,6 +321,23 @@ describe('AnalyzerPlugin.testConnection', () => {
         expect(await plugin.testConnection()).toEqual({ ok: false, message: 'No analyzer URL set.' });
     });
 
+    it('answers rather than throws when the sidecar is not there, so the test button cannot quarantine it', async () => {
+        // The host records a rejection from a probe as a failed call, so letting this one out meant
+        // three presses of Test connection against a sidecar that was not up tripped the breaker --
+        // and a quarantined analyzer is a station that measures nothing, which the console shows as
+        // "engine off" with nothing anywhere saying the operator's own button did it.
+        const { plugin, host } = await started();
+        host.setFetchImpl(async () => {
+            throw new Error('fetch failed: connect ECONNREFUSED 127.0.0.1:9321 (ECONNREFUSED)');
+        });
+
+        const result = await plugin.testConnection();
+
+        expect(result.ok).toBe(false);
+        expect(result.message).toContain(BASE_URL);
+        expect(result.message).toContain('ECONNREFUSED');
+    });
+
     it('reports a non-2xx as unreachable rather than throwing', async () => {
         const { plugin } = await started({ health: { status: 503 } });
         const result = await plugin.testConnection();

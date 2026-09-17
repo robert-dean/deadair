@@ -149,7 +149,13 @@ const HEART = 'M72 124 C40 100 24 80 24 58 C24 40 37 28 52 28 C62 28 69 34 72 42
 const HEART_SCALE = 1.26;
 const HEART_AREA_OFFSET = 76 - 68.3;
 const SKULL_Y = 76 - HEART_AREA_OFFSET * HEART_SCALE;
-const SKULL_WIDTH = 68;
+/**
+ * Wide enough to be the mark and no wider. At 68 the headphones crowd the heart's sides and the jaw
+ * runs into its taper; 56 clears the lobes with air around it and still reads at the 72 pixels a
+ * Stream Deck actually shows. The skull's own canvas is square and the drawing in it is wider than
+ * it is tall, so the height this takes up is less than the number says.
+ */
+const SKULL_WIDTH = 56;
 
 /** The ban a dislike carries: the bar alone, because a heart this large leaves the key no room for a ring. */
 const BAN = `<rect x="61" y="-10" width="22" height="164" rx="6" fill="${INK}" transform="rotate(45 72 72)"/>`;

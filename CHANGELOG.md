@@ -9,6 +9,22 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.17.1] — 2026-09-17
+
+- Pressing Test connection on a server that is not running no longer switches the plugin off. The
+  three plugins that talk to something the operator runs themselves — both speech engines and the
+  analyzer — reported an unreachable server by failing the call rather than by answering it, and the
+  host counts a failed call towards the breaker: three presses quarantined the plugin, which for a
+  speech engine is the station left with no voice and for the analyzer is a station that stops
+  measuring, in both cases because somebody pressed the button that asks whether the server is there.
+  They answer now, the address is in the answer, and none of it counts against the plugin.
+
+  A failure on the wire also says what it was. `fetch` reports every one of them as "fetch failed" and
+  hides the reason a level down, so "connection refused" — nothing is listening on that port — read
+  exactly like a name that does not resolve and like a server answering on the wrong protocol. The
+  reason and its code are now in the message, wherever a plugin's last error or a record's audio
+  failure is shown.
+
 ## [0.17.0] — 2026-09-17
 
 - A weather forecast and a news bulletin now say what they are on the stream itself: `Your Station -
@@ -257,7 +273,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.17.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.17.1...HEAD
+[0.17.1]: https://github.com/robert-dean/deadair/compare/v0.17.0...v0.17.1
 [0.17.0]: https://github.com/robert-dean/deadair/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/robert-dean/deadair/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/robert-dean/deadair/compare/v0.14.0...v0.15.0

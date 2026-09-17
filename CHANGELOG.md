@@ -9,6 +9,15 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.15.0] — 2026-09-17
+
+- A weather forecast and a news bulletin now have pictures of their own. Both used to wear the
+  station's logo on the mount and nothing at all in a listener's app; each kind of break can carry its
+  own artwork instead, which reaches the stream's artwork field, the phones, the desktop app and the
+  console alike. The station ships one picture for `weather` and one for `news`, and an operator can
+  replace either with their own under Settings → Artwork, or put the shipped one back. Every other
+  kind of break still shows the station's logo, as the bed and off air do.
+
 ## [0.14.0] — 2026-09-16
 
 - A phone-in joined into one piece of audio now takes up its real length in the running order. It always went in as one item and the item never said how long it ran, so the clock treated a ten-minute programme as taking no time at all and planted whatever came next on top of it: the news at the top of the hour arriving ten minutes into a call. An episode of somebody else's podcast has been placed with its length for a while; a programme the station made itself now is too, measured by the mixer that joined it rather than claimed by a publisher.
@@ -223,7 +232,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.14.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.15.0...HEAD
+[0.15.0]: https://github.com/robert-dean/deadair/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/robert-dean/deadair/compare/v0.13.3...v0.14.0
 [0.13.3]: https://github.com/robert-dean/deadair/compare/v0.13.2...v0.13.3
 [0.13.2]: https://github.com/robert-dean/deadair/compare/v0.13.1...v0.13.2

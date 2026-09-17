@@ -126,6 +126,28 @@ paperwork. Both routes to the mount go through it, the annotation that rides the
 mid-track relabel through `POST /control/metadata`, or a break re-announced would put the paperwork
 straight back.
 
+**A WRITER may offer a better line than the station's name, and only a writer can.** `segments.label`
+is not one kind of thing: the weather writer's is `Weather: Brooklyn` and the news writer's is
+`Sport news`, which a listener understands, while the talk break's is the paperwork above. Nothing
+downstream can tell those apart from the string, and deriving it from `kind` would be a vocabulary in
+the display layer kept in step by hand as kinds are added. So the writer says so as it writes the
+words — `WrittenBreak.listenerLabel`, stored on `segments.listener_label` by migration 0033, carried
+onto the rundown item by `segmentRundownTrack` and read by `listenerTitle`. Absent is the default and
+is exactly what every break did before it existed. Six writers set one today: weather, news and story
+in both their deterministic and model forms, and the welcome.
+
+**The station's name moves into the ARTIST field when it does.** Icecast composes `artist - title`,
+so a break with a line of its own airs as `Deadair - Weather in Brooklyn` rather than as a bare
+`Weather in Brooklyn` that leaves somebody glancing at a car screen mid-break with no idea what they
+are listening to. `listenerArtist` is that half, and it answers empty for a break with no line, which
+is the same decision `segmentRundownTrack` makes leaving `artists` empty — the title is already the
+station's name there, and filling both would render as `Deadair - Deadair`.
+
+**`/nowplaying` reports the same line**, for the reason the two routes to the mount share one
+function: an iPhone puts that string on its lock screen, so a break that said one thing on a car
+screen and another on a phone would be one break with two names. The console and the running order
+read the row itself and still show the producer's label, which is what it is for.
+
 **The URL is the ICY `StreamUrl`, and it carries artwork.** It is the second field of the same
 update, the one Radio Paradise fills with cover art, and Icecast 2.5 forwards the `url` tag of a
 metadata update into it where 2.4 dropped the tag (xiph/icecast-server#2385). `listenerArtwork` stamps

@@ -143,6 +143,22 @@ describe('NowPlayingService', () => {
             expect(service.getNowPlaying().track).toEqual({ kind: 'break', title: 'Top of the hour', artist: '', durationMs: 12_000, startedAt: 42 });
         });
 
+        it("gives a listener's app the writer's own line for a break, not the producer's label", () => {
+            // An iPhone puts this string on its lock screen, so the two surfaces say the same thing:
+            // `Talk break: Straight Tequila Night into My Boo` is the console's business.
+            const weather = { ...spoken, title: 'Weather: Brooklyn', listenerLabel: 'Weather in Brooklyn' };
+            const { service } = build({ item: weather, startedAt: 42 });
+
+            expect(service.getNowPlaying().track).toMatchObject({ kind: 'break', title: 'Weather in Brooklyn' });
+        });
+
+        it('keeps reporting the label for a break whose writer offered nothing', () => {
+            // Unchanged, deliberately: a kind nobody has thought about reads exactly as it did.
+            const { service } = build({ item: spoken, startedAt: 42 });
+
+            expect(service.getNowPlaying().track).toMatchObject({ title: 'Top of the hour' });
+        });
+
         it("reports the picture a kind of break wears, so a listener's app draws it", () => {
             // The field is the one a record's cover uses and it was simply never populated for a
             // break. Every client resolves a relative path against the API base already, so this is

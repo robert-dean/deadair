@@ -15,6 +15,19 @@ const segment = (overrides: Partial<Segment> = {}): Segment =>
     }) as Segment;
 
 describe('segmentRundownTrack', () => {
+    it("carries the writer's own line for a listener, where the writer offered one", () => {
+        // The row holds both: `label` is what the console calls this break and `listenerLabel` is
+        // what a stream may. Nothing here decides which is which — the writer did.
+        const track = segmentRundownTrack(segment({ kind: 'weather', label: 'Weather: Brooklyn', listenerLabel: 'Weather in Brooklyn' }));
+
+        expect(track.title).toBe('Weather: Brooklyn');
+        expect(track.listenerLabel).toBe('Weather in Brooklyn');
+    });
+
+    it('carries none for a break whose writer offered none, which is most of them', () => {
+        expect(segmentRundownTrack(segment()).listenerLabel).toBeUndefined();
+    });
+
     it('makes an ordinary segment the station talking, with no artist to be identified by', () => {
         expect(segmentRundownTrack(segment({ durationMs: 4_000 }))).toEqual({
             pluginId: RENDER_PLUGIN_ID,

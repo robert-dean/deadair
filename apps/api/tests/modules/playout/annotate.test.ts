@@ -143,6 +143,48 @@ describe('a carried programme, through itemAnnotations', () => {
     });
 });
 
+describe('what a break is CALLED on the mount', () => {
+    // `segments.label` is written for a producer and a stream carries one line, so a break has always
+    // been announced as the station's name. A writer that knows its own label reads for a listener
+    // may offer one instead, and only a writer can know that.
+    const reachable = (): AnnotationContext => ({ ...context(true), publicUrl: 'https://radio.test/' });
+    const labelled = (title: string): RundownItem => ({ ...speech(-16), title });
+
+    it("says the station's name for a break whose writer offered nothing", () => {
+        const item = labelled('Talk break: Straight Tequila Night into My Boo');
+
+        expect(itemAnnotations(item, reachable()).title).toBe('Deadair');
+        // And no artist, or Icecast composes `Deadair - Deadair` out of the pair.
+        expect(itemAnnotations(item, reachable()).artist).toBeUndefined();
+    });
+
+    it('says the station AND the line where the writer offered one', () => {
+        // Icecast renders `artist - title`, so the station's name moves into the artist the moment
+        // the title says something more specific: a listener glancing at a car screen mid-break
+        // should still know what they are listening to.
+        const item: RundownItem = { ...labelled('Weather: Brooklyn'), listenerLabel: 'Weather in Brooklyn' };
+        const annotations = itemAnnotations(item, reachable());
+
+        expect(annotations.title).toBe('Weather in Brooklyn');
+        expect(annotations.artist).toBe('Deadair');
+    });
+
+    it("never puts the producer's label on the wire, even as the fallback", () => {
+        // The fallback is the label only when the station has no name at all, which is the one case
+        // where a blank line would leave the previous record's caption standing.
+        const item = labelled('Back-announce: My Boo');
+
+        expect(itemAnnotations(item, { ...reachable(), stationName: '' }).title).toBe('Back-announce: My Boo');
+    });
+
+    it("leaves a record's own title and credit alone", () => {
+        const annotations = itemAnnotations(record(-9), reachable());
+
+        expect(annotations.title).toBe('A Record');
+        expect(annotations.artist).toBe('An Artist');
+    });
+});
+
 describe('listenerArtwork, through itemAnnotations', () => {
     // The ICY `StreamUrl` beside the title. Two rules decide it, and both are absolute: only the
     // station's own art goes on the wire, and every item says what to show. See `listenerArtwork`

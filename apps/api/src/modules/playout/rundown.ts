@@ -110,6 +110,16 @@ export interface RundownItem {
      */
     programme?: boolean;
     /**
+     * What a LISTENER may be told this break is, where its writer was willing to say.
+     *
+     * A SNAPSHOT of `segments.listener_label`, taken when the item was resolved, like `durationMs`
+     * and `artworkUrl` beside it. Absent on a record, on a programme (which has a real title of its
+     * own) and on every break whose writer offered none, which is the ordinary case and not a fault:
+     * the mount then carries the station's name exactly as it always has. See `listenerLine` in
+     * `annotate.ts`.
+     */
+    listenerLabel?: string;
+    /**
      * Something the station means to SAY over this item, rather than after it.
      *
      * Opaque here, exactly as `trackId` is: the rundown neither reads it nor acts

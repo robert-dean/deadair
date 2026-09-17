@@ -220,6 +220,9 @@ export class ModelWeatherBreakWriter extends BreakWriter {
             script,
             // Named for where it is about, as the floor beneath it is. See `WeatherBreakWriter`.
             label: request.subject === undefined ? 'Weather' : `Weather: ${request.subject.label}`,
+            // As the deterministic weather writer does, and in the same words: a colon files it, a
+            // preposition says it.
+            listenerLabel: request.subject === undefined ? 'Weather' : `Weather in ${request.subject.label}`,
             // Told what plays next means allowed to name it, so assume it did: over-stamping costs a
             // break the order drifted under, which is the safe direction.
             claimsNext: request.next !== undefined,

@@ -51,6 +51,11 @@ export function segmentRundownTrack(segment: Segment): RundownTrack {
         // window rather than needing a rule of its own.
         artist: '',
         ...(segment.durationMs === undefined ? {} : { durationMs: segment.durationMs }),
+        // Carried rather than derived, and only when the writer offered one: `segments.label` is the
+        // producer's name for this break and is what `title` above holds, while this is the same
+        // break said in a register a stream can carry. Nothing here decides which is which — the
+        // writer did, when it wrote the words. See `listenerLine` in `playout/annotate.ts`.
+        ...(segment.listenerLabel === undefined ? {} : { listenerLabel: segment.listenerLabel }),
         // The one measurement a segment carries, and it rides the item for the same reason a
         // record's does: `annotate.ts` decides the gain per hand-over, against a target that is a
         // live setting, so what travels is what was MEASURED rather than what was computed from it.

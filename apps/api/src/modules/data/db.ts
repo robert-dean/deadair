@@ -727,6 +727,7 @@ export interface DeadairSegments {
   id: Generated<string>;
   kind: Generated<string>;
   label: string;
+  listenerLabel: string | null;
   loudnessLufs: number | null;
   pads: Generated<Json>;
   personaId: string | null;

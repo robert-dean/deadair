@@ -179,6 +179,8 @@ export class ModelStoryBreakWriter extends BreakWriter {
             // running order reading "You saw three lights over the desert…" tells an operator what
             // was said and not which story it was.
             label: request.story.title,
+            // The deterministic story writer's reason exactly: the title is the story's own.
+            listenerLabel: request.story.title,
             // Told what plays next means allowed to name it, so assume it did — over-stamping costs
             // a break the order drifted under, which is the safe direction. Unlike the floor, which
             // says nothing about the record at all.

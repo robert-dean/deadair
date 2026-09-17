@@ -156,6 +156,9 @@ export class StoryBreakWriter extends BreakWriter {
             // be read without opening either. `persona_stories.title` exists for this and for the
             // console; it is never spoken.
             label: story.title,
+            // A story's title is the story's own words rather than anything this station wrote about
+            // itself, so it is as true on a car screen as it is in the running order.
+            listenerLabel: story.title,
             // Nothing here says a word about what plays next, so nothing to drift: the model binding
             // in front of this is told to hand back, and stamps its own claim.
             claimsNext: false,

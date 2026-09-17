@@ -131,7 +131,12 @@ export class NowPlayingService {
                 // reported as a `record` because that is the arm that means "this has its own title
                 // and artist"; the enum stays two arms, since every listener app switches on it.
                 kind: isRenderItem(item) && item.programme !== true ? 'break' : 'record',
-                title: item.title,
+                // The writer's own line for a listener where there is one, and the producer's label
+                // otherwise, which is what this always reported. The two surfaces say the same thing
+                // for the same reason the mount does: `segments.label` is `Talk break: Straight
+                // Tequila Night into My Boo`, and an iPhone puts this string on its lock screen.
+                // The console and the running order read the row and are unaffected.
+                title: item.listenerLabel ?? item.title,
                 // A display line, not a list. Everything downstream renders it as text,
                 // and a device that wants one string should not have to join ours.
                 artist: item.artists.join(', '),

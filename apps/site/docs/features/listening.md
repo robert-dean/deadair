@@ -22,7 +22,9 @@ The mount is not authenticated. Anybody who can reach the address can listen, wh
 
 ## What a player shows
 
-A stream carries one line of text and one URL, and that is the whole display ceiling for anything that can only take a stream: a car head unit, a hardware radio, an amp with a screen. The line is the record and its artist, or your station's name while the station is talking, because a producer's label on an amp's screen is your paperwork in a listener's front room.
+A stream carries one line of text and one URL, and that is the whole display ceiling for anything that can only take a stream: a car head unit, a hardware radio, an amp with a screen.
+
+The line is the record and its artist while music is playing. While the station is talking it is your station's name — a producer's label on an amp's screen is your paperwork in a listener's front room — except where the break knows a better way to say what it is: a forecast airs as `Your Station - Weather in Brooklyn` and a bulletin as `Your Station - Sport news`. Talk breaks, idents and anything an operator adds show the station's name, because nothing can tell from a label alone whether it was written for a listener or for you. Your listener apps show the same line.
 
 The URL beside it is the artwork, and players that fetch it draw it in place of a cover. It carries the record's sleeve when your station holds a copy of one, the picture for a kind of break while the station is talking, and your station's logo the rest of the time — an uncached record, the bed, off air. The logo is also what a break of a kind with no picture of its own shows.
 

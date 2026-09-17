@@ -46,6 +46,17 @@ export interface Segment {
     kind: string;
     state: SegmentState;
     label: string;
+    /**
+     * What a LISTENER may be told this break is, where the writer was willing to say.
+     *
+     * {@link label} is written for a producer and stays that way: `Talk break: Straight Tequila
+     * Night into My Boo`, `Back-announce: …`. This is the same fact said in a register a stream can
+     * carry, and only a writer that knows its own label reads that way sets one — weather, news, a
+     * story, the welcome. See migration 0033 for the whole argument and `listenerLine` in
+     * `playout/annotate.ts` for what happens where it is absent, which is what happened to every
+     * break before this existed.
+     */
+    listenerLabel?: string;
     script?: string;
     /**
      * The words as the engine was handed them, once something has spoken this.
@@ -344,6 +355,7 @@ interface SegmentRow {
     kind: string;
     state: SegmentState;
     label: string;
+    listenerLabel: string | null;
     script: string | null;
     spokenScript: string | null;
     source: string;
@@ -375,6 +387,7 @@ const SEGMENT_COLUMNS = [
     'kind',
     'state',
     'label',
+    'listenerLabel',
     'script',
     'spokenScript',
     'source',
@@ -458,6 +471,7 @@ function toSegment(row: SegmentRow): Segment {
         ...(row.sourcePath == null ? {} : { sourcePath: row.sourcePath }),
         ...(row.durationMs == null ? {} : { durationMs: row.durationMs }),
         ...(row.loudnessLufs == null ? {} : { loudnessLufs: row.loudnessLufs }),
+        ...(row.listenerLabel == null ? {} : { listenerLabel: row.listenerLabel }),
         ...(row.error == null ? {} : { error: row.error }),
         ...(row.voice == null ? {} : { voice: row.voice }),
         ...(isSpeechDelivery(row.delivery) ? { delivery: row.delivery } : {}),
@@ -885,6 +899,7 @@ export class SegmentRepository extends DataRepository {
             personaId?: string;
             voice?: string;
             delivery?: SpeechDelivery;
+            listenerLabel?: string;
             pads?: readonly PadHit[];
         },
     ): Promise<boolean> {
@@ -912,6 +927,10 @@ export class SegmentRepository extends DataRepository {
                 // with its delivery intact, a rewrite states its own or none, and a line from the
                 // floor, which never chooses one, leaves none behind from the model it replaced.
                 delivery: written.delivery ?? null,
+                // The same rule as the delivery above, and for the same reason: it describes THESE
+                // words. A line the model offered must not outlive a rewrite by the floor, which
+                // offers none and would otherwise leave the mount announcing the sentence before.
+                listenerLabel: written.listenerLabel ?? null,
                 // Set together with the words, because it describes them: a claim is a statement
                 // the script makes, and one outliving a rewrite would be a promise about a
                 // sentence that is no longer there. Null clears it for the same reason.

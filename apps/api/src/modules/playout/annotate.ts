@@ -157,7 +157,7 @@ export interface AnnotationContext {
  * aired, in order, with ids, and this is a lossy echo of the same thing.
  */
 export function itemAnnotations(item: RundownItem, context: AnnotationContext): Record<string, string> {
-    const artist = item.artists.join(', ');
+    const artist = listenerArtist(item, context.stationName);
     const title = listenerTitle(item, context.stationName);
     const artwork = listenerArtwork(item, context.publicUrl);
     return {
@@ -187,14 +187,20 @@ export function itemAnnotations(item: RundownItem, context: AnnotationContext): 
  * there is.
  *
  * A break is the station talking, so the mount carries the station's own name,
- * which is what broadcast radio does with the same slot. It suits every kind at
- * once — talk break, welcome, bulletin, ident — and needs no vocabulary kept in
- * step as kinds are added.
+ * which is what broadcast radio does with the same slot. That is still the answer
+ * for every break that has not been given a better one, and it needs no vocabulary
+ * kept in step as kinds are added.
+ *
+ * **A writer may offer a better one, and only a writer can.** `segments.label` is
+ * not one thing: the weather writer's is `Weather: Brooklyn` and the news writer's
+ * is `Sport news`, which a listener understands, while the talk break's is the
+ * paperwork above. Nothing downstream can tell those apart, so the writer says so
+ * when it writes the words — `WrittenBreak.listenerLabel`, migration 0033 — and
+ * this reads it. Absent, which is the default and every kind nobody has thought
+ * about, is exactly the behaviour that was here before.
  *
  * **A record is untouched**, and that asymmetry is the point: a record has a real
- * title and a listener wants it. `artists` is already empty for a segment
- * ({@link segmentRundownTrack}), so a break arrives as the bare station name
- * rather than as `Deadair - Deadair`.
+ * title and a listener wants it.
  *
  * Falls back to the label when the station has no name, because a blank title is
  * worse than an over-informative one: it leaves the mount labelled with whatever
@@ -205,7 +211,26 @@ export function itemAnnotations(item: RundownItem, context: AnnotationContext): 
 export function listenerTitle(item: RundownItem, stationName: string): string {
     // Somebody else's programme has a real title, exactly as a record does, and a listener wants it.
     if (!isRenderItem(item) || item.programme === true) return item.title;
-    return stationName.trim() || item.title;
+    return item.listenerLabel ?? (stationName.trim() || item.title);
+}
+
+/**
+ * Who a break is BY, on a mount that composes one line out of two fields.
+ *
+ * Icecast renders `artist - title`, so the station's name moves into this the moment the title says
+ * something more specific than the station's name: `Deadair - Weather in Brooklyn` rather than the
+ * bare `Weather in Brooklyn`, which would leave a listener glancing at a car screen mid-break with
+ * no idea what they are listening to.
+ *
+ * Empty for everything else, and that is not a default — it is the same decision
+ * {@link segmentRundownTrack} makes when it leaves `artists` empty on a segment. A break with no
+ * line of its own is already titled with the station's name, and filling this too would render as
+ * `Deadair - Deadair`.
+ */
+export function listenerArtist(item: RundownItem, stationName: string): string {
+    if (!isRenderItem(item) || item.programme === true) return item.artists.join(', ');
+
+    return item.listenerLabel === undefined ? '' : stationName.trim();
 }
 
 /**

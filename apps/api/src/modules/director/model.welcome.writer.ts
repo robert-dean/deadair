@@ -221,6 +221,8 @@ export class ModelWelcomeWriter extends BreakWriter {
         return {
             script,
             label: 'Welcome',
+            // One word, and it is the same word either way round.
+            listenerLabel: 'Welcome',
             // Told what the next record is means allowed to name it, so assume it did:
             // over-stamping costs a greeting the order drifted under, which is the safe direction.
             claimsNext: request.next !== undefined,

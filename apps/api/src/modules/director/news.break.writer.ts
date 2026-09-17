@@ -170,6 +170,8 @@ export class NewsBreakWriter extends BreakWriter {
             // Named for what it covers, so an operator reading the running order or the script
             // history can tell one bulletin from the next without opening either.
             label: request.subject === undefined ? 'News' : `${request.subject.label} news`,
+            // Already a line a listener understands, so it is offered as one unchanged.
+            listenerLabel: request.subject === undefined ? 'News' : `${request.subject.label} news`,
             claimsNext: chosen.saysNext,
             // Only when the phrasing really says what time it is, which is the answered-rather-than-
             // assumed posture every deterministic writer here takes.

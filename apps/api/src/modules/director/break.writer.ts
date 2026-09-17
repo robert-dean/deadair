@@ -533,8 +533,23 @@ export interface BreakWriteRequest {
 export interface WrittenBreak {
     /** The words to say. */
     script: string;
-    /** What the console and the mount call it. Never the script: a listener's player wants a name. */
+    /** What the console, the logs and `script_history` call it. Never the script. */
     label: string;
+    /**
+     * The same thing said for a LISTENER, where this writer is willing to have it read out loud.
+     *
+     * Absent is the default and the safe answer: the mount then carries the station's name, which is
+     * what every break carried before this existed, and a kind whose writer has never thought about
+     * it is unchanged. Setting one is a promise that these words can be shown to somebody who is not
+     * running the station.
+     *
+     * The distinction is real rather than pedantic. `Weather: Brooklyn` and `Sport news` are lines a
+     * listener understands; `Talk break: Straight Tequila Night into My Boo` is this station's
+     * paperwork, and it was measured on a hardware player's screen reading exactly like that. Only
+     * the writer knows which of the two its own label is, which is why this is declared here and not
+     * derived from `kind` by whatever draws the line.
+     */
+    listenerLabel?: string;
     /**
      * Whether these words NAME the record coming up.
      *

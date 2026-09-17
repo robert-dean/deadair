@@ -169,6 +169,9 @@ export class WeatherBreakWriter extends BreakWriter {
             // Named for where it is about, so an operator reading the running order or the script
             // history can tell one weather break from the next without opening either.
             label: request.subject === undefined ? 'Weather' : `Weather: ${request.subject.label}`,
+            // The same fact for a listener, and the preposition is the whole difference: a colon is
+            // how a producer files something and `Weather in Brooklyn` is how a station says it.
+            listenerLabel: request.subject === undefined ? 'Weather' : `Weather in ${request.subject.label}`,
             claimsNext: chosen.saysNext,
             // Only when the phrasing really says what time it is, which is the answered-rather-than-
             // assumed posture every deterministic writer here takes.

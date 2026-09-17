@@ -130,6 +130,8 @@ export class WelcomeWriter extends BreakWriter {
         return {
             script: chosen.script,
             label: 'Welcome',
+            // One word, and it is the same word either way round.
+            listenerLabel: 'Welcome',
             claimsNext: chosen.saysNext,
             // Only when the words really carry the greeting, which is the same answered-rather-than-
             // assumed posture the talk break takes: a phrasing whose greeting chunk was dropped made

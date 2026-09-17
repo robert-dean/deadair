@@ -269,6 +269,8 @@ export class ModelNewsBreakWriter extends BreakWriter {
             script,
             // Named for what it covers, as the floor beneath it is. See `NewsBreakWriter`.
             label: request.subject === undefined ? 'News' : `${request.subject.label} news`,
+            // As the deterministic news writer does: already a line a listener understands.
+            listenerLabel: request.subject === undefined ? 'News' : `${request.subject.label} news`,
             // Told what plays next means allowed to name it, so assume it did: over-stamping costs a
             // bulletin the order drifted under, which is the safe direction.
             claimsNext: request.next !== undefined,

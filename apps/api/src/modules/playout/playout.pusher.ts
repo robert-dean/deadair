@@ -2,7 +2,7 @@ import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import { Heartbeat, HEARTBEATS } from '#modules/shared/heartbeat.js';
-import { annotateUri, blendOutOf, itemAnnotations, listenerArtwork, listenerTitle, voiceAnnotations } from './annotate.js';
+import { annotateUri, blendOutOf, itemAnnotations, listenerArtist, listenerArtwork, listenerTitle, voiceAnnotations } from './annotate.js';
 import { AudienceWatch } from './audience.watch.js';
 import { DEFAULT_LEVELING_ENABLED, LEVELING_ENABLED_KEY, SPEECH_TRIM_KEY, TARGET_LUFS_KEY, resolveSpeechTrimDb, resolveTargetLufs } from './gain.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
@@ -490,7 +490,7 @@ export class PlayoutPusher {
         // artwork rides along through `listenerArtwork` on the same argument, and
         // because Icecast keeps a tag a relabel does not mention: a caption sent
         // without its cover would leave the previous record's up.
-        const artist = item.artists.join(', ');
+        const artist = listenerArtist(item, this.stationName());
         const title = listenerTitle(item, this.stationName());
         void this.control.announce(artist ? `${artist} - ${title}` : title, listenerArtwork(item, this.publicUrl())).catch(() => undefined);
     }

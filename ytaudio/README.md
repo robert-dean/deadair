@@ -21,7 +21,7 @@ the app is the only thing that ever fetches a provider.
 
 Measured 2026-09-17 against a live account: every client identity `youtubei.js`
 offers answered with YouTube's adaptive segment protocol and no plain URL on any
-format. yt-dlp finds rungs it does not, and — this is the point — **keeps**
+format. yt-dlp finds rungs it does not, and, which is the point, **keeps**
 finding them, on somebody else's schedule rather than ours. The alternative was
 implementing the segment protocol and its attestation here and owning every
 break. See [discussion #49](https://github.com/robert-dean/deadair/discussions/49).
@@ -32,8 +32,8 @@ The same requirement the Spotify path has, for a different reason.
 
 YouTube serves a **free** account the segment protocol and nothing else, so there
 is no URL to hand back. Measured on a real free-tier account: signed out, a track
-offers 39 formats; signed in, none at all. The resolver detects this exactly — no
-formats *and* a session — and answers `402` naming it, rather than letting an
+offers 39 formats; signed in, none at all. The resolver detects this exactly (no
+formats *and* a session) and answers `402` naming it, rather than letting an
 operator read yt-dlp's own words for it ("Requested format is not available") as
 a bug in the station.
 
@@ -42,7 +42,7 @@ a bug in the station.
 | | |
 | --- | --- |
 | `GET /health` | `{ ok, hasSession }` |
-| `POST /session` | `{ cookie }` — the operator's Cookie header. `400` if it carries no session at all |
+| `POST /session` | `{ cookie }`, the operator's Cookie header. `400` if it carries no session at all |
 | `DELETE /session` | forget it |
 | `POST /resolve` | `{ videoId }` → `{ url, expiresAt, mimeType, itag, durationMs, filesize }` |
 
@@ -75,7 +75,7 @@ and `_pick` re-checks it rather than trusting the string.
 
 **Probe before serving.** One `bytes=0-0` range, content type checked, `text`,
 `json` and `xml` refused. An upstream that answers a refusal with a 200 and a
-JSON body is otherwise handed to the player as a record — and Liquidsoap picks
+JSON body is otherwise handed to the player as a record, and Liquidsoap picks
 its decoder from the content type, so a wrong one fails as **silence**, which is
 the worst failure shape available.
 

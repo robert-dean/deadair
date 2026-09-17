@@ -1,0 +1,14 @@
+#!/bin/sh
+# The audio-url resolver: turns a YouTube id into a URL the station fetches itself.
+#
+# No audio passes through this process. It answers an address and an expiry, and
+# `TrackAudioService` does the fetching, exactly as it does for every other
+# provider. It is a separate process only because the library that knows the
+# answer is Python and the plugin that needs it is Node.
+exec 2>&1
+cd /opt/ytaudio || exit 1
+
+# Loopback only: nothing outside this container has any business resolving
+# records, and the resolver holds the operator's session while it runs.
+exec s6-setuidgid deadair /opt/ytaudio/venv/bin/uvicorn app:app \
+    --host 127.0.0.1 --port "${YTAUDIO_PORT:-9322}" --workers 1

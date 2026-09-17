@@ -2,45 +2,29 @@
 
 YouTube Music as a deadair music provider: search, and the playlists on your account.
 
-**This plugin is not loaded by any station.** It is built, tested and shipped inside the image, and
-deliberately left out of `bundledPluginDirs` in `apps/api/src/modules/plugins/plugins.bundled.ts`.
-The line goes back when the audio half exists.
+Audio comes from `ytaudio/`, a bundled Python service on yt-dlp that turns a track
+into a URL the station fetches itself. **Nothing proxies bytes**: the URL is an
+ordinary HTTPS one carrying its own authentication, so the station caches it and
+serves it to the player exactly as it does a Navidrome URL.
 
-**It cannot play anything, and that is the whole shape of this version.** The plugin declares
-`catalog` and not `stream`, so records found here are searchable and importable and the running
-order skips them. Nothing is half-wired: the host asks `asStreamPlugin` for a URL, gets nothing,
-moves on, and holds nothing against the plugin.
+## A Music Premium account is required
 
-## Why there is no audio
+The same requirement the Spotify path has, and not one this project invented.
+YouTube serves a **free** account a streaming protocol the station cannot fetch,
+so a free account plays nothing at all. Measured on a real one: signed out, a
+track offers 39 formats; signed in, none.
 
-`resolveStreamUrl` is specified to return "a complete URL that carries its own authentication,
-because the player fetches it with no headers from us". A YouTube media URL is bound to the client
-identity that minted it: fetching it needs a matching `User-Agent`, and for some identities `Origin`
-and `Referer` too. Liquidsoap sends its own headers and cannot be told otherwise per item, so there
-is no URL this plugin could return that would work. Serving one takes a header-fixing range proxy
-running beside the station. That is a separate piece of work, argued in
+The plugin says exactly that rather than failing vaguely: a free account gets a
+warning naming the subscription, not a record that quietly never plays.
+
+## Why the audio is not resolved here
+
+Measured 2026-09-17: every client identity `youtubei.js` offers answered with
+YouTube's adaptive segment protocol and no plain URL on any format. yt-dlp finds
+rungs it does not, and keeps finding them on somebody else's schedule. The
+alternative was implementing that protocol and its attestation in this plugin and
+owning every break. See
 [discussion #49](https://github.com/robert-dean/deadair/discussions/49).
-
-### What happens if you import a playlist anyway
-
-Search costs nothing: a result you do not act on is never catalogued. Importing a playlist is
-different, and worth knowing before you do it.
-
-An imported record becomes a real catalog row with a binding to this plugin, and nothing in the
-rotation draw asks whether the owning plugin can actually stream — it filters on whether the
-provider still offers the copy, which this one does. So the record is drawn like any other, and then:
-
-1. The station asks this plugin for a URL and gets nothing.
-2. The fetch fails, and the copy earns a failure row and a doubling backoff.
-3. The director drops it from the running order **before its slot** and records
-   `item.unavailable` — "the station cannot get hold of its audio."
-4. After four consecutive failures the copy is benched and stops being drawn at all.
-
-Nothing goes silent: the drop happens over the warm window, which is long enough for the generator
-to be asked for a replacement. But each imported record costs four failed fetches and four
-operator-facing activity events on its way to being written off, so a large playlist imported today
-is a large amount of noise for nothing. Until the audio half exists, this plugin earns its place as
-a SEARCH source.
 
 ## Setting it up
 

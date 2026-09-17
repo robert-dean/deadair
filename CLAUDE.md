@@ -124,16 +124,17 @@ apps/streamdeck   the Elgato Stream Deck plugin (TypeScript, on packages/sdk): N
                   suite, with a CI job and a release unit of its own. Never in the image
 packages/error-codes  shared error code constants
 packages/config-*     shared eslint / tsconfig
-plugins/*             bundled plugins: spotify, navidrome, musicbrainz, lastfm,
+plugins/*             bundled plugins: spotify, navidrome, ytmusic (YouTube Music; needs a
+                      Premium account and the ytaudio sidecar), musicbrainz, lastfm,
                       wikipedia (the prose the station's facts are extracted from), rss, websearch
                       (SearXNG, Brave or Tavily, whichever the operator points it at), weather
                       (Open-Meteo, the US National Weather Service or OpenWeatherMap), podcast (the
                       shows the station carries, read from their feeds), kokoro and chatterbox (the
                       station's voice), llm, analyzer (the adapter over the measurement sidecar)
-plugins/ytmusic       YouTube Music, catalog only and NOT in `bundledPluginDirs`, so it is built
-                      and shipped and never loaded. No audio half yet; see discussion #49
 analysis/             the measurement sidecar: a Python service that decodes a record and answers
                       with its cue points and its loudness. No decoding happens in Node
+ytaudio/              the audio-url resolver: a Python service on yt-dlp that turns a YouTube id
+                      into a URL the station fetches itself. No audio passes through it
 stream/, nginx/, docker-compose*.yml   Icecast, Liquidsoap and friends (DEV)
 Dockerfile, docker/               the production image: the whole station in one container
 deploy/, unraid/                  how somebody else installs it

@@ -155,6 +155,39 @@ services:
             retries: 3
             start_period: 10s
 
+    # The audio-url resolver: turns a YouTube id into a URL the station fetches
+    # itself. Point the YouTube Music plugin's `resolverBaseUrl` at
+    # http://localhost:9322 when the API runs on the host.
+    #
+    # A SEPARATE PROGRAM FOR ONE REASON, and it is not the one the analysis
+    # container has. Nothing decodes here and no audio passes through: the library
+    # that knows how to resolve a YouTube URL is yt-dlp, which is Python, and the
+    # plugin that needs the answer is Node inside the API process. That is the
+    # whole of it. See ytaudio/README.md.
+    ytaudio:
+        build:
+            context: .
+            dockerfile: ytaudio/Dockerfile
+        image: deadair-ytaudio
+        container_name: deadair-ytaudio
+        restart: unless-stopped
+        ports:
+            # localhost only. It holds the operator's session while it runs and it
+            # will resolve anything it is handed, so it is not something to expose.
+            - '127.0.0.1:9322:9322'
+        volumes:
+            # The service's own source over the image's copy, so editing a resolve
+            # is a restart rather than a rebuild. DEV ONLY, exactly as the analysis
+            # mount is, and read-only for the same reason: the module list in
+            # `ytaudio/Dockerfile` still governs what the IMAGE holds.
+            - ./ytaudio:/srv:ro
+        healthcheck:
+            test: ['CMD', 'python', '-c', "import urllib.request; urllib.request.urlopen('http://localhost:9322/health')"]
+            interval: 30s
+            timeout: 5s
+            retries: 3
+            start_period: 10s
+
         # ── Self-hosted stream (Milestone 1: voice-only) ────────────────────────────
     # Icecast is the public MP3 mount; Liquidsoap loops the pre-rendered podcast
     # voice MP3s into it. The app and factory-worker run on the host (pnpm dev /

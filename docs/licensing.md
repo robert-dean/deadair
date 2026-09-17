@@ -64,6 +64,28 @@ activity feed reads it back. If a collecting society asks what you played and wh
 reporting obligation usually amounts to — that is the record, and it exists whether or not anybody
 ever asks.
 
+## A note on where the music comes from
+
+This page is about the rights to PLAY a record. There is a second question about the software that
+fetches one, and it is worth keeping separate because it is answered differently for each provider.
+
+**Spotify and Navidrome** talk to a published API, on terms their operators publish.
+
+**YouTube Music** does not. There is no published playback API for it, the plugin authenticates with
+a cookie copied from a browser, and the audio is resolved by `ytaudio/`, a bundled service built on
+**yt-dlp**. Three things follow, and none of them is the software's to decide for you:
+
+- **It needs a paid Music Premium account.** Not a policy this project invented: YouTube serves free
+  accounts a streaming protocol the station cannot fetch, so a free account plays nothing at all.
+- **Fetching this way is not something YouTube's terms contemplate.** Whether that matters where you
+  are, and to the account you use, is your call rather than this project's.
+- **yt-dlp's licence has two halves.** Its source is public domain under the Unlicense, which is what
+  the image installs. Its release binaries are GPLv3+, because they bundle other things. deadair
+  depends on the source and is a wrapper around it.
+
+The plugin ships disabled and is switched on deliberately, which is the point at which that decision
+gets made.
+
 ## What deadair itself does about all this
 
 Nothing, deliberately. It does not check licences, it does not know which country you are in, and it

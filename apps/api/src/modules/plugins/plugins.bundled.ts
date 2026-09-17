@@ -36,10 +36,7 @@ export function resolveBundledPluginDir(repoRelativePath: string): string {
 export const bundledPluginDirs: string[] = [
     resolveBundledPluginDir('plugins/spotify'),
     resolveBundledPluginDir('plugins/navidrome'),
-    // `plugins/ytmusic` is deliberately absent. It is built, tested and shipped in the image,
-    // and not loaded: a catalog-only music provider hands the station records it can never
-    // play, and each one costs four failed fetches and four `item.unavailable` events before
-    // it is benched. The line goes back when the audio half exists. See discussion #49.
+    resolveBundledPluginDir('plugins/ytmusic'),
     resolveBundledPluginDir('plugins/musicbrainz'),
     resolveBundledPluginDir('plugins/lastfm'),
     resolveBundledPluginDir('plugins/wikipedia'),

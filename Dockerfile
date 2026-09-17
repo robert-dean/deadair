@@ -374,6 +374,27 @@ COPY analysis/measure.py analysis/loudness.py analysis/tags.py analysis/join.py 
 # `PYTHONDONTWRITEBYTECODE` so the import leaves no `__pycache__` behind and the layer stays empty.
 RUN cd /opt/analysis && PYTHONDONTWRITEBYTECODE=1 venv/bin/python -c "import app"
 
+# The audio-url resolver: its own interpreter environment, its own pinned requirements, for the same
+# reason the measurement sidecar has them. Far smaller than that one -- yt-dlp and an HTTP stack --
+# and it decodes nothing and downloads nothing, so there is no native anything to build here.
+#
+# It carries the same trap as the block above, and the trap is the second copy: the module list in
+# the COPY below has to hold every file `app.py` imports, and one missed builds clean and crash-loops
+# at start. The import check underneath is what turns that into a build failure instead.
+#
+# yt-dlp is pinned and the pin is EXPECTED TO MOVE, on the upstream's schedule rather than ours. That
+# is the whole reason this service exists rather than a protocol implementation of our own; see
+# `ytaudio/README.md` and discussion #49.
+COPY ytaudio/requirements.txt /opt/ytaudio/requirements.txt
+RUN python3 -m venv /opt/ytaudio/venv \
+ && /opt/ytaudio/venv/bin/pip install --no-cache-dir -r /opt/ytaudio/requirements.txt
+COPY ytaudio/cookies.py ytaudio/resolve.py ytaudio/app.py /opt/ytaudio/
+
+# Proves this environment can import the service it exists for, here, inside the build. Same
+# argument as the analysis check above, and the same failure it catches: a file missed from the
+# COPY list builds clean and crash-loops at start.
+RUN cd /opt/ytaudio && PYTHONDONTWRITEBYTECODE=1 venv/bin/python -c "import app"
+
 # The station's own soundboard, copied into the pad library once on a station that has never held a
 # pad. Below the fence with everything else the repository produces, and it is genuinely empty today:
 # `docs/internals/render.md` § "Pads" refuses attribution-requiring audio, because a radio station has

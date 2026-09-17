@@ -26,8 +26,12 @@
         <rect x="124" y="152" width="264" height="34" rx="9" fill="#2ED88B"/>
         <!-- Inside the group, so the photograph lies on the page rather than on the canvas: a
              picture printed straight while the paper around it is askew is the one thing that says
-             "these were drawn by two different people". -->
-        <image href="../../../apps/ios/Sources/Assets.xcassets/AppIcon.appiconset/AppIcon.png" x="106.8" y="180.0" width="167.1" height="167.1" clip-path="url(#plate)"/>
+             "these were drawn by two different people".
+
+             Sized so the head fits WITHIN the plate rather than filling it: the plate is wider than
+             it is tall and the mark is square, so a head matched to the width is cropped top and
+             bottom by the clip and reads as a photograph nobody framed. -->
+        <image href="../../../apps/ios/Sources/Assets.xcassets/AppIcon.appiconset/AppIcon.png" x="125.6" y="199.0" width="129.4" height="129.4" clip-path="url(#plate)"/>
         <g fill="#2ED88B">
             <rect x="276" y="206" width="112" height="17" rx="8"/>
             <rect x="276" y="239" width="112" height="17" rx="8"/>

@@ -12,6 +12,15 @@ import type { Reading } from '../station/status.poller.js';
  */
 export type Vote = 'liked' | 'disliked';
 
+/**
+ * The ids the manifest names the two actions by, beside the rules they are drawn from rather than in
+ * the file that imports Elgato's SDK, so the manifest's test can read them without it.
+ *
+ * An action's id is fixed the day the plugin is published and is never edited after.
+ */
+export const LIKE = 'radio.deadair.streamdeck.like';
+export const DISLIKE = 'radio.deadair.streamdeck.dislike';
+
 /** The manifest's two states for a vote key, in its order. */
 export const UNLIT = 0;
 export const LIT = 1;
@@ -24,6 +33,18 @@ export interface VoteView {
     title: string;
     /** The record a press would rate and what it would write. Absent on a key that refuses the press. */
     press?: { trackId: string; rating: Rating };
+}
+
+/**
+ * The record a reading offers to be rated, if it offers one.
+ *
+ * The one place the rules live, so what a key draws and what it asks the station about can never
+ * fall out of step: {@link voteView} reads it, and so does whatever decides when to go and look the
+ * rating up.
+ */
+export function rateableTrack(reading: Reading): string | undefined {
+    if (reading.failure !== undefined || reading.stale) return undefined;
+    return reading.status?.nowPlaying?.item.trackId;
 }
 
 /**
@@ -46,7 +67,7 @@ export interface VoteView {
  */
 export function voteView(reading: Reading, known: { rating: Rating | undefined } | undefined, vote: Vote): VoteView {
     const title = reading.failure === undefined ? '' : describe(reading.failure).title;
-    const trackId = reading.failure === undefined && !reading.stale ? reading.status?.nowPlaying?.item.trackId : undefined;
+    const trackId = rateableTrack(reading);
     if (trackId === undefined) return { lit: false, title };
     const lit = known?.rating === vote;
     return { lit, title, press: { trackId, rating: lit ? 'neutral' : vote } };

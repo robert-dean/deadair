@@ -1,36 +1,18 @@
-import { SdkError, type Rating, type Track, type TrackDetail } from '@deadair/sdk';
+import { SdkError } from '@deadair/sdk';
 import { describe, expect, it, vi } from 'vitest';
 
 import { NotConfigured } from '../../src/station/connection.failure.js';
 import { RatingStore, type Catalog } from '../../src/station/track.rating.js';
+import { catalogDetail, catalogTrack, fakeCatalog } from '../fixtures/fake.catalog.js';
 
-function detail(rating?: Rating): TrackDetail {
-    return { ...record(rating), bindings: [], plays: [], playCount: 0 };
-}
-
-function record(rating?: Rating): Track {
-    return {
-        id: 'track-1',
-        title: 'Pale Blue Eyes',
-        artistId: 'artist-1',
-        artistName: 'The Velvet Underground',
-        artists: 'The Velvet Underground',
-        ...(rating === undefined ? {} : { rating }),
-    };
-}
-
-function fakeCatalog(overrides: Partial<Catalog> = {}) {
-    const catalog = {
-        getTrack: vi.fn(async () => detail('liked')),
-        rateTrack: vi.fn(async (_id: string, body: { rating: Rating }) => record(body.rating)),
-        ...overrides,
-    } satisfies Catalog;
-    return { catalog, store: new RatingStore({ catalog: () => catalog }) };
+function storeOver(catalog: Catalog) {
+    return new RatingStore({ catalog: () => catalog });
 }
 
 describe('RatingStore', () => {
     it('asks the station what it thinks of a record, once, however many ask', async () => {
-        const { catalog, store } = fakeCatalog();
+        const catalog = fakeCatalog('liked');
+        const store = storeOver(catalog);
 
         await Promise.all([store.load('track-1'), store.load('track-1')]);
         expect(await store.load('track-1')).toBe('liked');
@@ -40,7 +22,7 @@ describe('RatingStore', () => {
     });
 
     it('reads a record with no rating on it as no opinion rather than as nothing known', async () => {
-        const { store } = fakeCatalog({ getTrack: vi.fn(async () => detail()) });
+        const store = storeOver({ ...fakeCatalog(), getTrack: vi.fn(async () => catalogDetail()) });
         expect(await store.load('track-1')).toBe('neutral');
         expect(store.peek('track-1')).toEqual({ rating: 'neutral' });
     });
@@ -49,7 +31,7 @@ describe('RatingStore', () => {
         const getTrack = vi.fn(async () => {
             throw new SdkError(403, 'Forbidden', {}, new Headers());
         });
-        const { store } = fakeCatalog({ getTrack });
+        const store = storeOver({ ...fakeCatalog(), getTrack });
 
         expect(await store.load('track-1')).toBeUndefined();
         expect(await store.load('track-1')).toBeUndefined();
@@ -58,12 +40,12 @@ describe('RatingStore', () => {
     });
 
     it('knows nothing about a record nobody has asked about', () => {
-        const { store } = fakeCatalog();
-        expect(store.peek('track-9')).toBeUndefined();
+        expect(storeOver(fakeCatalog()).peek('track-9')).toBeUndefined();
     });
 
     it('writes a rating and lights the key from the answer, asking nothing more', async () => {
-        const { catalog, store } = fakeCatalog();
+        const catalog = fakeCatalog('neutral');
+        const store = storeOver(catalog);
 
         expect(await store.rate('track-1', 'disliked')).toBe('disliked');
         expect(catalog.rateTrack).toHaveBeenCalledWith('track-1', { rating: 'disliked' });
@@ -73,14 +55,15 @@ describe('RatingStore', () => {
     });
 
     it('throws a refused write to whoever pressed, and keeps what it knows', async () => {
-        const { store } = fakeCatalog({
+        const store = storeOver({
+            ...fakeCatalog('liked'),
             rateTrack: vi.fn(async () => {
                 throw new SdkError(403, 'Forbidden', {}, new Headers());
             }),
         });
         await store.load('track-1');
 
-        await expect(store.rate('track-1', 'liked')).rejects.toBeInstanceOf(SdkError);
+        await expect(store.rate('track-1', 'disliked')).rejects.toBeInstanceOf(SdkError);
         expect(store.peek('track-1')).toEqual({ rating: 'liked' });
     });
 
@@ -92,23 +75,48 @@ describe('RatingStore', () => {
     });
 
     it('forgets everything when the station changes, because the ids were that station’s', async () => {
-        const { store } = fakeCatalog();
+        const store = storeOver(fakeCatalog('liked'));
+        const heard = vi.fn();
+        store.subscribe(heard);
         await store.load('track-1');
+
         store.reset();
         expect(store.peek('track-1')).toBeUndefined();
+        expect(heard).toHaveBeenCalled();
+    });
+
+    it('tells whoever is listening when an opinion changes, and not when it is the one they have', async () => {
+        const store = storeOver(fakeCatalog('liked'));
+        const heard = vi.fn();
+        const stop = store.subscribe(heard);
+
+        await store.load('track-1');
+        expect(heard).toHaveBeenCalledTimes(1);
+        await store.rate('track-1', 'liked');
+        expect(heard).toHaveBeenCalledTimes(1);
+        await store.rate('track-1', 'neutral');
+        expect(heard).toHaveBeenCalledTimes(2);
+
+        stop();
+        await store.rate('track-1', 'disliked');
+        expect(heard).toHaveBeenCalledTimes(2);
     });
 
     it('remembers a few records either way of the one on air, and no more', async () => {
-        const catalog = {
-            getTrack: vi.fn(async (id: string) => ({ ...detail('liked'), id })),
-            rateTrack: vi.fn(async () => record('liked')),
-        } satisfies Catalog;
-        const store = new RatingStore({ catalog: () => catalog, capacity: 2 });
+        const store = new RatingStore({
+            catalog: () => ({ ...fakeCatalog(), getTrack: vi.fn(async (id: string) => ({ ...catalogDetail('liked'), id })) }),
+            capacity: 2,
+        });
 
         await store.load('a');
         await store.load('b');
         await store.load('c');
         expect(store.peek('a')).toBeUndefined();
         expect(store.peek('c')).toEqual({ rating: 'liked' });
+    });
+
+    it('answers a write with what the station said, not with what was asked for', async () => {
+        const store = storeOver({ ...fakeCatalog(), rateTrack: vi.fn(async () => catalogTrack('neutral')) });
+        expect(await store.rate('track-1', 'liked')).toBe('neutral');
     });
 });

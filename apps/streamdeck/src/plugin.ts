@@ -8,6 +8,8 @@ import { SkipAction } from './actions/skip.action.js';
 import { SkipKeys } from './actions/skip.keys.js';
 import { TransportAction } from './actions/transport.action.js';
 import { TransportKeys } from './actions/transport.keys.js';
+import { DislikeAction, LikeAction } from './actions/vote.action.js';
+import { VoteKeys } from './actions/vote.keys.js';
 import { ArtworkCache } from './display/artwork.js';
 import { isToPlugin, type ToInspector } from './inspector/inspector.messages.js';
 import { describe, type Failure } from './station/connection.failure.js';
@@ -16,6 +18,7 @@ import { StationLink } from './station/station.link.js';
 import { probeStation } from './station/station.probe.js';
 import { redact, type StationSettings } from './station/station.settings.js';
 import { StatusPoller } from './station/status.poller.js';
+import { RatingStore } from './station/track.rating.js';
 
 streamDeck.logger.setLevel('info');
 const logger = streamDeck.logger.createScope('deadair');
@@ -24,6 +27,11 @@ const userAgent = `deadair-streamdeck/${streamDeck.info.plugin.version}`;
 const poller = new StatusPoller();
 const link = new StationLink(poller, userAgent);
 const artwork = new ArtworkCache({ userAgent });
+// What the station thinks of the records it plays, shared by both vote keys. Emptied when the
+// station changes, because a rating is remembered against a track id and another station's ids name
+// other records, if they name anything.
+const ratings = new RatingStore({ catalog: () => link.sdk?.catalog });
+link.onChange(() => ratings.reset());
 
 /**
  * The station's mark, drawn on a Now Playing key with no cover. Read off the plugin's own folder
@@ -57,6 +65,8 @@ streamDeck.actions.registerAction(
 );
 streamDeck.actions.registerAction(new SkipAction(new SkipKeys(poller, warn)));
 streamDeck.actions.registerAction(new TransportAction(new TransportKeys(poller, warn)));
+streamDeck.actions.registerAction(new LikeAction(new VoteKeys('liked', ratings, poller, warn)));
+streamDeck.actions.registerAction(new DislikeAction(new VoteKeys('disliked', ratings, poller, warn)));
 
 // A failure is logged when it starts and when it ends, not on every poll that repeats it: a station
 // that is down for an hour is two lines in the log, not eighteen hundred. It starts out as "no station"

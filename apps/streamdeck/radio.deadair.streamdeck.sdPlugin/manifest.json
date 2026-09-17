@@ -61,6 +61,48 @@
             ]
         },
         {
+            "UUID": "radio.deadair.streamdeck.like",
+            "Name": "Like",
+            "Tooltip": "Tells the station to play the record on air more often. Press it again to take it back.",
+            "Icon": "imgs/actions/like/icon",
+            "Controllers": ["Keypad"],
+            "SupportedInMultiActions": false,
+            "DisableAutomaticStates": true,
+            "States": [
+                {
+                    "Name": "Not liked",
+                    "Image": "imgs/actions/like/key",
+                    "TitleAlignment": "bottom"
+                },
+                {
+                    "Name": "Liked",
+                    "Image": "imgs/actions/like/key-on",
+                    "TitleAlignment": "bottom"
+                }
+            ]
+        },
+        {
+            "UUID": "radio.deadair.streamdeck.dislike",
+            "Name": "Dislike",
+            "Tooltip": "Tells the station never to play the record on air again. Press it again to take it back.",
+            "Icon": "imgs/actions/dislike/icon",
+            "Controllers": ["Keypad"],
+            "SupportedInMultiActions": false,
+            "DisableAutomaticStates": true,
+            "States": [
+                {
+                    "Name": "Not disliked",
+                    "Image": "imgs/actions/dislike/key",
+                    "TitleAlignment": "bottom"
+                },
+                {
+                    "Name": "Disliked",
+                    "Image": "imgs/actions/dislike/key-on",
+                    "TitleAlignment": "bottom"
+                }
+            ]
+        },
+        {
             "UUID": "radio.deadair.streamdeck.transport",
             "Name": "Stop or start",
             "Tooltip": "Stops the station after a second press, or starts it again when it is stopped.",

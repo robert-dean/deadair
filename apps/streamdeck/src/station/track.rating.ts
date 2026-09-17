@@ -32,12 +32,27 @@ export interface RatingStoreOptions {
 export class RatingStore {
     private readonly known = new Map<string, Rating | undefined>();
     private readonly pending = new Map<string, Promise<Rating | undefined>>();
+    private readonly listeners = new Set<() => void>();
     private readonly catalog: () => Catalog | undefined;
     private readonly capacity: number;
 
     constructor(options: RatingStoreOptions) {
         this.catalog = options.catalog;
         this.capacity = options.capacity ?? 8;
+    }
+
+    /**
+     * Hear about an opinion changing. Returns the way to stop hearing about it.
+     *
+     * A record has two keys on the deck and they are two actions, each drawn by its own instance: a
+     * press on Like has to take the light off Dislike, and neither can see the other. Both hear this
+     * instead, so the pair is never a second apart.
+     */
+    subscribe(listener: () => void): () => void {
+        this.listeners.add(listener);
+        return () => {
+            this.listeners.delete(listener);
+        };
     }
 
     /**
@@ -94,6 +109,7 @@ export class RatingStore {
     reset(): void {
         this.known.clear();
         this.pending.clear();
+        for (const listener of this.listeners) listener();
     }
 
     /**
@@ -110,6 +126,7 @@ export class RatingStore {
     }
 
     private remember(trackId: string, rating: Rating | undefined): void {
+        const changed = !this.known.has(trackId) || this.known.get(trackId) !== rating;
         this.known.delete(trackId);
         this.known.set(trackId, rating);
         while (this.known.size > this.capacity) {
@@ -117,5 +134,6 @@ export class RatingStore {
             if (oldest === undefined) break;
             this.known.delete(oldest);
         }
+        if (changed) for (const listener of this.listeners) listener();
     }
 }

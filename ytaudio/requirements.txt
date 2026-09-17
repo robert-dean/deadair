@@ -1,0 +1,25 @@
+# Deliberately short. Read analysis/README.md, under "The rule, stated once",
+# before adding anything: nothing copyleft and nothing non-commercial enters a
+# requirements file in this repository, and the rule covers MODEL WEIGHTS as well
+# as code.
+#
+# **yt-dlp is the one entry that needs its licence stated rather than assumed,
+# and the distinction is not the one a scanner reports.** Its SOURCE is released
+# into the public domain under the Unlicense, which is what the package metadata
+# says and what pip installs here. Its RELEASE BINARIES are GPLv3+, because they
+# bundle other things. This file installs the source distribution from PyPI, so
+# what ships in the image is the Unlicense half -- but the station is a wrapper
+# around it either way, and `docs/licensing.md` is where that is written down for
+# whoever runs this rather than for whoever builds it.
+#
+# It is pinned exactly, and the pin is expected to MOVE on the upstream's
+# schedule rather than ours. That is the entire reason this service exists: the
+# alternative was implementing YouTube's segment protocol and its attestation
+# ourselves, and then owning the breakage. See discussion #49.
+yt-dlp==2026.8.19
+
+# The same HTTP stack as `analysis/`, same versions, for the same reasons. All
+# permissive: fastapi and pydantic MIT, uvicorn BSD-3.
+fastapi==0.120.4
+uvicorn==0.41.0
+pydantic==2.13.1

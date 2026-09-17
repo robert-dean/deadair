@@ -27,6 +27,7 @@ export type Ratings = Pick<RatingStore, 'peek' | 'load' | 'rate' | 'subscribe'>;
  * the answer and the station is asked nothing more.
  */
 export class VoteKeys extends StationKeys {
+    private readonly faces = new Map<string, string>();
     private busy = false;
     private unwatch?: () => void;
 
@@ -35,6 +36,7 @@ export class VoteKeys extends StationKeys {
         private readonly ratings: Ratings,
         poller: Pick<StatusPoller, 'acquire' | 'subscribe'>,
         private readonly log: Log,
+        private readonly skull?: string,
     ) {
         super(poller);
     }
@@ -78,14 +80,27 @@ export class VoteKeys extends StationKeys {
         void this.ratings.load(trackId).then(() => this.render());
     }
 
-    /**
-     * The face is composed on every redraw rather than cached, unlike the Now Playing key's: there is
-     * no cover embedded in it, so it is a few hundred characters to build and there is nothing to
-     * spare by remembering four of them. The painter drops a frame identical to the last one anyway.
-     */
     protected render(): void {
         const view = this.view();
-        this.painter.paintAll({ image: svgDataUri(voteSvg({ vote: this.vote, lit: view.lit, dim: view.dim })), title: view.title });
+        this.painter.paintAll({ image: this.faceFor(view.lit, view.dim), title: view.title });
+    }
+
+    /**
+     * The composed face, remembered.
+     *
+     * A key has four of them at most and each carries the skull's bytes, so composing one on every
+     * reading would be base64-encoding fifty kilobytes twice a second to hand the painter something
+     * it has already sent. The painter drops an identical frame, so this saves the encoding rather
+     * than the traffic.
+     */
+    private faceFor(lit: boolean, dim: boolean): string {
+        const key = `${lit}|${dim}`;
+        let face = this.faces.get(key);
+        if (face === undefined) {
+            face = svgDataUri(voteSvg({ vote: this.vote, lit, dim, ...(this.skull === undefined ? {} : { skull: this.skull }) }));
+            this.faces.set(key, face);
+        }
+        return face;
     }
 
     private view() {

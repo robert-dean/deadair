@@ -34,6 +34,13 @@ async function deck(catalog: Catalog = fakeCatalog('neutral'), station = fakeSta
 const last = (calls: string[], what: string): string | undefined => calls.filter(call => call.startsWith(what)).at(-1);
 
 /** The face the renderer draws for a state, as the key would have been told to show it. */
+/**
+ * The face the renderer draws for a state, as the key would have been told to show it.
+ *
+ * With no skull, because `deck` builds its keys without one: a plugin that could not read
+ * `skull.png` off its own folder draws the heart alone, and the tests are about what the key decides
+ * rather than about the picture inside it. The skull's own thread is the test below.
+ */
 const face = (vote: 'liked' | 'disliked', lit: boolean, dim = false): string => `image ${svgDataUri(voteSvg({ vote, lit, dim }))}`;
 
 describe('VoteKeys', () => {
@@ -157,6 +164,19 @@ describe('VoteKeys', () => {
 
         expect(catalog.getTrack).toHaveBeenCalledTimes(2);
         expect(catalog.getTrack).toHaveBeenLastCalledWith('track-2');
+    });
+
+    it('draws the mark’s skull inside the heart when the plugin could read it', async () => {
+        const station = fakeStation();
+        const ratings = new RatingStore({ catalog: () => fakeCatalog('liked') });
+        const like = new VoteKeys('liked', ratings, station.poller, vi.fn(), 'data:image/png;base64,AAAA');
+        const key = fakeKey('like');
+        like.appear(key);
+        await vi.advanceTimersByTimeAsync(0);
+
+        const drawn = last(key.calls, 'image');
+        expect(drawn).toBe(`image ${svgDataUri(voteSvg({ vote: 'liked', lit: true, dim: false, skull: 'data:image/png;base64,AAAA' }))}`);
+        expect(drawn).not.toBe(face('liked', true));
     });
 
     it('lets go of the poller and the store when the last key goes', async () => {

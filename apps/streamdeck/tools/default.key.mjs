@@ -13,7 +13,9 @@ import { join, resolve } from 'node:path';
 import { nowPlayingSvg, voteSvg } from '../src/display/key.image.ts';
 
 const plugin = resolve(import.meta.dirname, '../radio.deadair.streamdeck.sdPlugin');
-const mark = `data:image/png;base64,${readFileSync(join(plugin, 'imgs/plugin/mark.png')).toString('base64')}`;
+const picture = name => `data:image/png;base64,${readFileSync(join(plugin, `imgs/plugin/${name}`)).toString('base64')}`;
+const mark = picture('mark.png');
+const skull = picture('skull.png');
 const write = (path, svg) => {
     writeFileSync(join(plugin, path), `${svg}\n`);
     console.log(`radio.deadair.streamdeck.sdPlugin/${path}`);
@@ -24,5 +26,5 @@ write('imgs/actions/now-playing/key.svg', nowPlayingSvg({ tone: 'standby', stale
 // A vote key's quiet face: the station has no such opinion of whatever is on, which is what an
 // unplaced key and one on a station with nothing airing both show.
 for (const vote of ['liked', 'disliked']) {
-    write(`imgs/actions/${vote === 'liked' ? 'like' : 'dislike'}/key.svg`, voteSvg({ vote, lit: false, dim: false }));
+    write(`imgs/actions/${vote === 'liked' ? 'like' : 'dislike'}/key.svg`, voteSvg({ vote, lit: false, dim: false, skull }));
 }

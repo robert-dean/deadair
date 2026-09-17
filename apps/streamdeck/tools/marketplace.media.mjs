@@ -82,7 +82,8 @@ function key(x, y, size, image, title = '', label = '') {
 const mark = fileUri(join(plugin, 'imgs/plugin/mark.png'), 'image/png');
 const nowPlaying = (face, title) => ({ image: svgUri(nowPlayingSvg({ mark, ...face })), title });
 const manifestKey = path => fileUri(join(plugin, path), 'image/svg+xml');
-const vote = (v, lit) => svgUri(voteSvg({ vote: v, lit, dim: false }));
+const skull = fileUri(join(plugin, 'imgs/plugin/skull.png'), 'image/png');
+const vote = (v, lit) => svgUri(voteSvg({ vote: v, lit, dim: false, skull }));
 
 /** A headline and a line under it, top left. */
 function heading(title, line) {

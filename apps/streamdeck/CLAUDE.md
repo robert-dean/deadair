@@ -158,29 +158,58 @@ WRITE and not the read, so the ordinary shape of that is a key lit correctly tha
 it cannot be pressed — a different sentence from Skip's, because "Skip and Stop need Read and manage"
 is not what this key does.
 
-**They are drawn by the renderer, in the mark's hand.** `voteSvg` in `display/key.image.ts` beside
-`nowPlayingSvg`, rather than flat glyphs in the plugin folder: the keys of one plugin should look
-like each other, and a hand-drawn SVG beside a rendered one drifts from it the first time either
-changes. `logo-mark.png` is a woodcut, so these are too — bone fill, the mark's outline weight, one
-carved crescent, and a sheen on a lit key. `tools/default.key.mjs` writes the manifest's pictures
-from the same function, so a key does not change face the moment the plugin first draws.
+**They are drawn by the renderer, and the skull on them is the mark's OWN artwork.** `voteSvg` in
+`display/key.image.ts` beside `nowPlayingSvg`, rather than flat glyphs in the plugin folder: the keys
+of one plugin should look like each other, and a hand-drawn SVG beside a rendered one drifts from it
+the first time either changes. `tools/default.key.mjs` writes the manifest's pictures from the same
+function, so a key does not change face the moment the plugin first draws.
 
-**One drawing, not two.** Like and Dislike are the same heart at the same size, and the dislike adds
-the ban around it. A torn heart was the other way to say it and was two shapes that had to be kept
-fitting each other by hand. The ban also says what the station means, which is not a shrug: a dislike
-is an instruction, and `candidates.repository.ts` drops a disliked record from the draw outright.
+A skull traced by hand was drawn first and thrown away: the mark is a drawing somebody made, and a
+second version of it in path data is a copy that goes out of date the day the first one changes.
+`tools/make-skull.py` lifts the real one off its green field into `imgs/plugin/skull.png`, which the
+plugin reads off its own folder exactly as it reads `mark.png`, and a plugin that cannot read it
+draws the heart empty and says so. The tool follows `apps/desktop/tools/macos/make-app-icon.py` and
+the Android launcher's — Pillow, by hand, output committed — with one difference that matters: those
+composite the lifted skull straight back onto the same green, so field-coloured pixels left inside
+the crop are invisible, and these keys put it on a RED heart as often as a green one. So the field is
+made TRANSPARENT rather than cropped, and the cream/field edge is feathered by alpha; keying it hard
+leaves a one-pixel green halo that cannot be seen on green and cannot be missed on red.
 
-**The ground carries the state, because the bone cannot.** A key drawn in the mark's palette has no
-colour of its own to change, so the key FLOODS with the vote's colour when the station agrees — the
-logo's own treatment, the mark against phosphor. Unlit is carbon with the bone gone dim and the ink
-intact; dropping the linework when unlit was tried and gives a grey blob rather than the same
-drawing, off.
+**The heart stands in for the badge's disc.** `logo-mark.png` is a bone skull on a field of phosphor
+green; these keys are that with the field cut to a heart. Same drawing, same green, a different shape
+under it.
+
+**One drawing, not two.** Like and Dislike are the same heart with the same skull in it, and the
+dislike adds the ban across it. A torn heart was the other way to say it and was two shapes that had
+to be kept fitting each other by hand. The ban also says what the station means, which is not a
+shrug: a dislike is an instruction, and `candidates.repository.ts` drops a disliked record from the
+draw outright. It is the BAR alone and not a ring, because a heart big enough to hold the skull
+leaves the key no room for one — the ring rode the key's edge and read as a stray circle.
+
+**The HEART carries the state, not the ground.** It fills with the vote's colour when the station
+agrees and sits dark with a grey edge when it does not, which keeps the colour inside a shape rather
+than flooding the key: a flooded red dislike beside the transport's red Stop is two red keys meaning
+different things. The edge is ink on a lit heart and GREY on an unlit one, because ink on carbon is
+invisible and the heart then disappears, leaving the skull floating on nothing.
+
+**The skull sits on the heart's centre of AREA, which is not its bounding box.** The path's box is
+centred on (72, 76) and is scaled about that point, so the box stays there whatever the scale; the
+area centre measures (72, 68.3), about eight units higher, because a heart tapers to a point at the
+bottom and carries its mass in the lobes. Centred on the box the skull sits visibly low, jaw at the
+point with a gap above it. The number came from rasterising the path and taking the centroid rather
+than from taste, and it moves with the scale, which is why `SKULL_Y` is derived rather than written
+down.
 
 **A key with nothing to rate is DIM rather than merely unlit**, and that distinction is what the
 drawn face buys over the two manifest state images this started as. Unlit is the station having no
-such opinion; dim is the key having nothing to have an opinion ABOUT. A dim key never floods,
-whichever way it was lit, by the rule the rest of the plugin follows. The manifest therefore gives
-each vote action ONE state, as Now Playing has, and the plugin sends the picture.
+such opinion; dim is the key having nothing to have an opinion ABOUT. A dim key never takes its
+colour, whichever way it was lit, by the rule the rest of the plugin follows. The manifest therefore
+gives each vote action ONE state, as Now Playing has, and the plugin sends the picture.
+
+**The four faces are composed once each and remembered.** Each carries the skull's bytes, so
+composing on every reading would base64-encode fifty kilobytes twice a second to hand the painter
+something it has already sent. The painter drops an identical frame either way; the cache saves the
+encoding rather than the traffic.
 
 **The two keys are two actions and cannot see each other**, so they hear the store instead
 (`RatingStore.subscribe`): a press on Like takes the light off Dislike in the same beat rather than at
@@ -323,7 +352,8 @@ settings, which the app stores against the plugin's id rather than its folder.
 
 **The vote keys' wiring has been on the device; their current faces have not.** Robert ran an earlier
 build of them on his Stream Deck+ on 2026-09-17 and voting worked. That build drew flat thumb glyphs,
-which he judged too plain beside Now Playing, and the faces were redrawn as the heart afterwards. The
+which he judged too plain beside Now Playing; the faces became a hand-drawn heart, then the mark's
+own skull on a heart, afterwards. The
 drawing is checked only through the renderer and the built bundle — both actions registering off the
 manifest, the rating read once, a press writing, a second press withdrawing, and Like going dark when
 Dislike was pressed. What is open is whether the flooded and unlit faces tell each other apart at 72

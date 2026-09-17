@@ -34,19 +34,23 @@ const ratings = new RatingStore({ catalog: () => link.sdk?.catalog });
 link.onChange(() => ratings.reset());
 
 /**
- * The station's mark, drawn on a Now Playing key with no cover. Read off the plugin's own folder
- * rather than bundled, because it is an image the app already ships beside the bundle; a plugin that
- * cannot read it draws a plain record instead and says so, rather than failing to start.
+ * A picture the app ships beside the bundle, as a data URI.
+ *
+ * Read off the plugin's own folder rather than bundled, because these are images the app already
+ * carries; a plugin that cannot read one draws its fallback and says so, rather than failing to
+ * start. `mark.png` is the badge the Now Playing key shows when it has no cover, and `skull.png` is
+ * the drawing lifted off its green field, which the vote keys draw inside their heart.
  */
-function readMark(): string | undefined {
+function readPicture(name: string, without: string): string | undefined {
     try {
-        return `data:image/png;base64,${readFileSync(new URL('../imgs/plugin/mark.png', import.meta.url)).toString('base64')}`;
+        return `data:image/png;base64,${readFileSync(new URL(`../imgs/plugin/${name}`, import.meta.url)).toString('base64')}`;
     } catch (error) {
-        logger.warn(`The station's mark could not be read, so a key with no cover draws a plain record: ${String(error)}`);
+        logger.warn(`${name} could not be read, so ${without}: ${String(error)}`);
         return undefined;
     }
 }
-const mark = readMark();
+const mark = readPicture('mark.png', 'a key with no cover draws a plain record');
+const skull = readPicture('skull.png', 'the vote keys draw their heart empty');
 
 const warn = (sentence: string): void => {
     logger.warn(sentence);
@@ -65,8 +69,8 @@ streamDeck.actions.registerAction(
 );
 streamDeck.actions.registerAction(new SkipAction(new SkipKeys(poller, warn)));
 streamDeck.actions.registerAction(new TransportAction(new TransportKeys(poller, warn)));
-streamDeck.actions.registerAction(new LikeAction(new VoteKeys('liked', ratings, poller, warn)));
-streamDeck.actions.registerAction(new DislikeAction(new VoteKeys('disliked', ratings, poller, warn)));
+streamDeck.actions.registerAction(new LikeAction(new VoteKeys('liked', ratings, poller, warn, skull)));
+streamDeck.actions.registerAction(new DislikeAction(new VoteKeys('disliked', ratings, poller, warn, skull)));
 
 // A failure is logged when it starts and when it ends, not on every poll that repeats it: a station
 // that is down for an hour is two lines in the log, not eighteen hundred. It starts out as "no station"

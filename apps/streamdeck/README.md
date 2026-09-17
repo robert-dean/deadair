@@ -18,9 +18,10 @@ that is only the cover. It still says why when nothing is playing.
 shows the warning triangle and does nothing.
 
 **Like** and **Dislike** tell the station what it should think of the record on air, which is the
-same opinion you would set from the running order in the console. Both draw the same heart: Dislike
-is that heart with a ban over it. The key fills with colour when the station already thinks what it
-says — green for a like, red for a dislike — and pressing the lit one takes the opinion back. A like
+same opinion you would set from the running order in the console. Both draw the station's own skull
+on a heart; Dislike is the same key with a ban across it. The heart fills with colour when the
+station already thinks what it says — green for a like, red for a dislike — and pressing the lit one
+takes the opinion back. A like
 means play this more often; a dislike means never play it again, and the station obeys that. With
 nothing to rate — a break, a record your library has never ingested, or a station that is not
 answering — the key goes faint and refuses the press with the warning triangle.

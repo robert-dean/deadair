@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isPluginError, type PluginError } from '@deadair/plugin-sdk';
+import { isPluginError, PluginError } from '@deadair/plugin-sdk';
 import { createFakePluginHost, type FakePluginHost, type RecordedFetchCall } from '@deadair/plugin-sdk/testing';
 
 import { KokoroPlugin } from '../src/kokoro.plugin.js';
@@ -8,6 +8,12 @@ const BASE_URL = 'http://kokoro.test:8880/v1';
 
 /** Voice rows as the host stores a `list` field: a JSON array of objects, in a string. */
 const voiceRows = (...entries: Record<string, string>[]): string => JSON.stringify(entries);
+
+/** What `host.fetch` throws when nothing is listening: the host's own wrapping of an undici reject. */
+const unreachable = (): PluginError =>
+    new PluginError(
+        `plugin "deadair.kokoro" fetch to "kokoro.test" failed: fetch failed: connect ECONNREFUSED 127.0.0.1:8880 (ECONNREFUSED)`,
+    ).withCode('upstream');
 
 /** Enough bytes to clear the "this is not audio" floor. */
 const audioChunk = (size = 4096): Uint8Array => new Uint8Array(size).fill(7);
@@ -283,6 +289,26 @@ describe('KokoroPlugin.testConnection', () => {
         const { plugin } = await started({ fetchResponse: { body: 'not json at all' } });
 
         await expect(plugin.testConnection()).resolves.toEqual({ ok: true, message: 'Connected.' });
+    });
+
+    it('answers rather than throws when the server is not there, so the test button cannot quarantine it', async () => {
+        // The whole of issue #179. The host records a rejection from a probe as a failed call, so
+        // letting this one out meant three presses of Test connection against an engine that was
+        // not running tripped the breaker -- and a quarantined speech plugin is one the render path
+        // stops considering at all, which is the station losing its voice because somebody pressed
+        // the button that asks whether it has one.
+        const { plugin, host } = await started();
+        host.setFetchImpl(async () => {
+            throw unreachable();
+        });
+
+        const result = await plugin.testConnection();
+
+        expect(result.ok).toBe(false);
+        // The address, because it is the field the operator has to fix and the one the host's own
+        // error never carries: the port is exactly what is wrong in a compose-versus-host mixup.
+        expect(result.message).toContain(BASE_URL);
+        expect(result.message).toContain('ECONNREFUSED');
     });
 });
 

@@ -688,6 +688,24 @@ describe('ChatterboxPlugin.testConnection', () => {
         expect((await (await started({ loaded: [false] })).plugin.testConnection()).message).toContain('No model is loaded');
     });
 
+    it('answers rather than throws when the server is not there, so the test button cannot quarantine it', async () => {
+        // The host records a rejection from a probe as a failed call, so letting this one out meant
+        // three presses of Test connection against a server that is off tripped the breaker -- and
+        // a quarantined speech plugin is one the render path stops considering, which is the station
+        // losing its voice because somebody asked whether it had one. This engine is where it hurt
+        // most: the model sits on a graphics card, so being switched off is its ordinary state.
+        const { plugin, host } = await started();
+        host.setFetchImpl(async () => {
+            throw new Error('fetch failed: connect ECONNREFUSED 10.0.0.4:8004 (ECONNREFUSED)');
+        });
+
+        const result = await plugin.testConnection();
+
+        expect(result.ok).toBe(false);
+        expect(result.message).toContain(BASE_URL);
+        expect(result.message).toContain('ECONNREFUSED');
+    });
+
     it('names the model and the device, because there is nowhere else that can', async () => {
         // The settings form is drawn from a static manifest, so the note where the model field
         // used to be cannot carry this. This message is the whole of the live readout.

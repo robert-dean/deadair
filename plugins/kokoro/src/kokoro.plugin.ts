@@ -1,6 +1,7 @@
 import {
     configBaseUrl,
     configString,
+    errorText,
     Plugin,
     PluginError,
     tryJsonBody,
@@ -111,10 +112,32 @@ export class KokoroPlugin extends Plugin implements SpeechPluginInstance {
         });
     }
 
+    /**
+     * Whether the server is there, as an ANSWER rather than as a throw.
+     *
+     * The catch is the whole of this method's contract with the host: `probe` reads `ok`, and a
+     * rejection is recorded as a failed call instead — so three presses of Test connection against
+     * an engine that is not running quarantined the plugin, the render path stopped considering it
+     * for being quarantined, and the station lost the voice it still had a perfectly good address
+     * for. `PluginInvoker.probe` says as much about `ok: false` ("counting it as a failure would let
+     * three presses of a test button quarantine a plugin the station was still using") and had
+     * simply never been told that this plugin's probe could throw at all.
+     *
+     * The address is in the message because it is the field the operator has to fix, and the one
+     * the host's own error does not carry: it names the HOSTNAME, and the mistake this engine
+     * actually invites is a port or a scope — `http://kokoro:8880/v1` from inside compose against
+     * `http://localhost:8880/v1` from a `pnpm dev` on the host.
+     */
     async testConnection(): Promise<PluginConnectionResult> {
         if (this.baseUrl.length === 0) return { ok: false, message: 'No server URL set.' };
 
-        const response = await this.host.fetch(`${this.baseUrl}/audio/voices`, { headers: this.authHeaders(), timeoutMs: PROBE_TIMEOUT_MS });
+        let response: Response;
+        try {
+            response = await this.host.fetch(`${this.baseUrl}/audio/voices`, { headers: this.authHeaders(), timeoutMs: PROBE_TIMEOUT_MS });
+        } catch (error) {
+            return { ok: false, message: `Could not reach ${this.baseUrl}: ${errorText(error)}` };
+        }
+
         if (!response.ok) return { ok: false, message: `Server answered HTTP ${response.status}.` };
 
         // Reported rather than validated against: the operator's own mappings are

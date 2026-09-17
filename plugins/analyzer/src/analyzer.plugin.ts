@@ -1,6 +1,7 @@
 import {
     ANALYSIS_SCHEMA_VERSION,
     configBaseUrl,
+    errorText,
     Plugin,
     PluginError,
     tryJsonBody,
@@ -95,7 +96,18 @@ export class AnalyzerPlugin extends Plugin implements AnalysisProvider, MixerPro
     async testConnection(): Promise<PluginConnectionResult> {
         if (this.baseUrl.length === 0) return { ok: false, message: 'No analyzer URL set.' };
 
-        const response = await this.host.fetch(`${this.baseUrl}/health`, { timeoutMs: PROBE_TIMEOUT_MS });
+        // Caught rather than allowed out, for the reason `plugins/kokoro` states in full: `probe`
+        // reads `ok` and records a rejection as a failed call, so three presses of Test connection
+        // against a sidecar that is not up quarantined the plugin -- and a quarantined analyzer is
+        // a station that stops measuring, which is the console's "engine off" with nothing saying
+        // the operator's own button did it.
+        let response: Response;
+        try {
+            response = await this.host.fetch(`${this.baseUrl}/health`, { timeoutMs: PROBE_TIMEOUT_MS });
+        } catch (error) {
+            return { ok: false, message: `Could not reach ${this.baseUrl}: ${errorText(error)}` };
+        }
+
         if (!response.ok) return { ok: false, message: `Analyzer answered HTTP ${response.status}.` };
 
         const body = await tryJsonBody<AnalyzeResponse>(response);

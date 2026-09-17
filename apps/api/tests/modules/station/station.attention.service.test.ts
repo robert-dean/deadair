@@ -86,9 +86,7 @@ describe('StationAttentionService.read', () => {
         resetForwardedHop();
 
         const { items } = await service({
-            plugins: [
-                plugin({ id: 'deadair.spotify', name: 'Spotify', capabilities: ['catalog', 'stream', 'steer', 'oauth'], usesTrackFetcher: true }),
-            ],
+            plugins: [plugin({ id: 'deadair.spotify', name: 'Spotify', capabilities: ['catalog', 'stream', 'steer', 'oauth'], usesTrackFetcher: true })],
         }).read();
 
         expect(items).toHaveLength(1);

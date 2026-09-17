@@ -143,6 +143,19 @@ describe('NowPlayingService', () => {
             expect(service.getNowPlaying().track).toEqual({ kind: 'break', title: 'Top of the hour', artist: '', durationMs: 12_000, startedAt: 42 });
         });
 
+        it("reports the picture a kind of break wears, so a listener's app draws it", () => {
+            // The field is the one a record's cover uses and it was simply never populated for a
+            // break. Every client resolves a relative path against the API base already, so this is
+            // the whole of what the phones, the desktop app and the console needed.
+            const withPicture = { ...spoken, artworkUrl: 'art/2f6c1e9a-0000-4000-8000-000000000001/cover.png' };
+            const { service } = build({ item: withPicture, startedAt: 42 });
+
+            expect(service.getNowPlaying().track).toMatchObject({
+                kind: 'break',
+                artworkUrl: 'art/2f6c1e9a-0000-4000-8000-000000000001/cover.png',
+            });
+        });
+
         it("names somebody else's programme as a record is named, not as the station talking", () => {
             const carried = { ...spoken, title: 'Episode 12', artists: ['The Long Wave'], programme: true };
             const { service } = build({ item: carried, startedAt: 42 });

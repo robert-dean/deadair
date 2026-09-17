@@ -34,6 +34,7 @@ import { isRenderedFirst, type BreakRequest, type BreakRequestResult, type Store
 import { BreakRequestRepository } from './break.request.repository.js';
 import { ArtRepository } from '#modules/art/art.repository.js';
 import { artPath } from '#modules/art/art.path.js';
+import { breakArtKey } from '#modules/art/break.art.js';
 import { CandidatesRepository } from './candidates.repository.js';
 import { DirectorMailbox, type DirectorCommand, type DirectorCommandResult, type OrderEdit, type ResumeResult } from './director.mailbox.js';
 import { PlayHistoryRepository } from './play.history.repository.js';
@@ -2559,6 +2560,46 @@ export class DirectorService {
         return resolved;
     }
 
+    /**
+     * The picture each kind of break in this batch wears, as a path the station serves itself.
+     *
+     * {@link stationArtwork}'s sibling, and it is a separate lookup rather than a branch inside that
+     * one because the two ask different questions of the same table: that one asks "have we cached
+     * this provider's URL", this one asks "what does a `weather` break look like here". The key is
+     * `deadair:break-art/<kind>`; `art/break.art.ts` carries the argument for why that is a row in
+     * `art_assets` and not a table of its own.
+     *
+     * **Resolved per commit pass, deliberately, and never stamped when the segment is written.** A
+     * line carries whatever it was given when it was picked and nothing revisits it, which is the
+     * rule the cover half of this learned the hard way; a picture baked in at write time would mean
+     * an operator replacing the weather picture changed nothing about the forecast already sitting
+     * in the running order.
+     *
+     * Empty on any failure, which costs a break the station's logo and nothing else. Nothing here
+     * asks for anything to be fetched, unlike {@link stationArtwork}: a break picture has no
+     * upstream to go and get, so a kind with no row is simply a kind nobody has given a picture.
+     */
+    private async breakArtwork(segments: ReadonlyMap<string, Segment>): Promise<Map<string, string>> {
+        const kinds = [...new Set([...segments.values()].map(segment => segment.kind))];
+        if (kinds.length === 0) return new Map();
+
+        const held = await inScope(this.container, async scope =>
+            scope.get(ArtRepository).findBySourceUrls(kinds.map(kind => breakArtKey(kind))),
+        ).catch(error => {
+            this.logger.warn(`director: could not tell which pictures the station holds for a kind of break (${errorText(error)})`);
+            return undefined;
+        });
+        if (held === undefined) return new Map();
+
+        const resolved = new Map<string, string>();
+        for (const kind of kinds) {
+            const asset = held.get(breakArtKey(kind));
+            if (asset?.checksum !== undefined) resolved.set(kind, artPath(asset));
+        }
+
+        return resolved;
+    }
+
     private async toPlayerItems(items: readonly StationLineupItem[]): Promise<{ items: RundownItem[]; skipped: string[]; unavailable: string[] }> {
         const wanted = items.filter(item => item.kind === 'segment').map(item => item.segmentId);
         const segments =
@@ -2593,6 +2634,10 @@ export class DirectorService {
 
         // The cover each record should be shown with, as the station itself can serve it.
         const artwork = await this.stationArtwork(items);
+        // And the picture each KIND of break wears, resolved on the same pass and for the same
+        // reason: an operator who replaces the weather picture has replaced it for the forecast
+        // that is about to air, not for the one after the next refill.
+        const breakArtwork = await this.breakArtwork(segments);
 
         const playable: RundownItem[] = [];
         const skipped: string[] = [];
@@ -2842,7 +2887,17 @@ export class DirectorService {
                 continue;
             }
 
-            playable.push({ ...segmentRundownTrack(segment), id: item.id });
+            const spoken = segmentRundownTrack(segment);
+            const picture = breakArtwork.get(segment.kind);
+
+            playable.push({
+                ...spoken,
+                id: item.id,
+                // Only where the line has no cover of its own, which is what keeps a syndicated
+                // episode's artwork ({@link programmeRundownTrack}) from being replaced by the
+                // picture for whatever kind its band happens to be called.
+                ...(spoken.artworkUrl === undefined && picture !== undefined ? { artworkUrl: picture } : {}),
+            });
         }
 
         // Held for the next pass rather than dropped. A batch is only three items, so a talk-over

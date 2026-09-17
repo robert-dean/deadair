@@ -3897,6 +3897,64 @@ describe("DirectorService putting the station's own cover on a record", () => {
         expect(jobs.send).not.toHaveBeenCalledWith('catalog.cache_art', expect.anything());
     });
 
+    it('puts the picture a kind of break wears on the break itself', async () => {
+        // The picture is an ordinary art asset keyed by the KIND rather than by an upstream URL, so
+        // it resolves through the same read on the same pass as a record's cover does.
+        const { director, rundown, lineup, seed } = build({
+            items: ['a'],
+            heldArt: ['deadair:break-art/weather'],
+            segments: [{ id: 'seg-1', kind: 'weather', state: 'ready', label: 'Weather: this afternoon', audioChecksum: 'x', audioExt: 'mp3' }],
+        });
+        await seed();
+        lineup.insertSegment('seg-1', 0);
+
+        await director.start();
+
+        const spoken = rundown.upcoming().find(item => item.externalId === 'seg-1');
+        expect(coverOf(spoken!)).toBe('art/asset-weather/cover.jpg');
+    });
+
+    it('leaves a break whose kind has no picture wearing nothing, which is the logo on the mount', async () => {
+        const { director, rundown, lineup, seed } = build({
+            items: ['a'],
+            segments: [{ id: 'seg-1', kind: 'talkbreak', state: 'ready', label: 'Talk break', audioChecksum: 'x', audioExt: 'mp3' }],
+        });
+        await seed();
+        lineup.insertSegment('seg-1', 0);
+
+        await director.start();
+
+        expect(coverOf(rundown.upcoming().find(item => item.externalId === 'seg-1')!)).toBeUndefined();
+    });
+
+    it("never replaces a programme's own cover with its band's picture", async () => {
+        // A syndicated episode carries the show's artwork, and the band it airs in can be called
+        // anything an operator likes — including a kind that has a picture. The episode's own cover
+        // is the one a listener should see.
+        const { director, rundown, lineup, seed } = build({
+            items: ['a'],
+            heldArt: ['deadair:break-art/news'],
+            segments: [
+                {
+                    id: 'seg-1',
+                    kind: 'news',
+                    state: 'ready',
+                    label: 'The Long Wave: Episode 12',
+                    source: 'syndicated',
+                    context: { showTitle: 'The Long Wave', episodeTitle: 'Episode 12', artworkUrl: 'https://cdn.example/show.jpg' },
+                    audioChecksum: 'x',
+                    audioExt: 'mp3',
+                },
+            ],
+        });
+        await seed();
+        lineup.insertSegment('seg-1', 0);
+
+        await director.start();
+
+        expect(coverOf(rundown.upcoming().find(item => item.externalId === 'seg-1')!)).toBe('https://cdn.example/show.jpg');
+    });
+
     it('asks once for a cover two records share', async () => {
         const { director, jobs, lineup, seed } = build({ items: [] });
         await seed();

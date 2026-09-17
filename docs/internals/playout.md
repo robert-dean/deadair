@@ -129,10 +129,22 @@ straight back.
 **The URL is the ICY `StreamUrl`, and it carries artwork.** It is the second field of the same
 update, the one Radio Paradise fills with cover art, and Icecast 2.5 forwards the `url` tag of a
 metadata update into it where 2.4 dropped the tag (xiph/icecast-server#2385). `listenerArtwork` stamps
-every item with one: a record's cover made absolute against `stream.publicUrl`, or the station's logo
-for a break, and ALSO for a record with no cover, because Icecast KEEPS a tag an update does not
-mention (`mp3_set_tag` returns on a null value rather than clearing) and an item that said nothing
-would leave the previous record's cover under a caption naming a different one.
+every item with one: a record's cover made absolute against `stream.publicUrl`, the picture a KIND OF
+BREAK wears where the station holds one, and the station's logo for everything else — a break with no
+picture of its own, the bed, off air, and ALSO a record with no cover, because Icecast KEEPS a tag an
+update does not mention (`mp3_set_tag` returns on a null value rather than clearing) and an item that
+said nothing would leave the previous record's cover under a caption naming a different one.
+
+**A weather forecast and a news bulletin have pictures of their own**, which is the one place the
+mount says something a caption cannot: the line still reads as the station's name, because a break is
+the station talking, while the artwork slot says which KIND of talking. A break picture is an
+ordinary art asset — bytes in the station's own store under a stable id — keyed by the kind rather
+than by an upstream URL (`modules/art/break.art.ts`), so nothing here treats it as a new species: it
+is resolved on the commit pass by `DirectorService.breakArtwork` beside `stationArtwork`, for the
+same reason, and reaches the wire on the same path-shape test every other item passes. The repository
+ships one for `weather` and one for `news`; an operator can replace either, and the id does not
+change when they do, so a picture already on the wire keeps working and the ETag is what tells a
+player it has moved.
 
 **Only the station's own art goes on that field, and a provider's URL never does.** Both reasons are
 absolute, which is why this is a rule rather than a check somewhere downstream. A provider's URL does
@@ -140,8 +152,12 @@ not work: a player decides whether a URL is a picture by LOOKING at it, so a Spo
 in an id is never requested at all. And the field is broadcast to every listener, so a cover URL that
 carries a credential must never reach it — a Subsonic `getCoverArt` link holds the operator's user
 and token in its query string, which a station running Navidrome would otherwise hand to anybody who
-connected. What is left is the cached copy or the station's logo, and the logo is the honest answer
-for a record whose cover the station does not yet hold.
+connected. **Both are answered by the SHAPE of the path**, which is the whole test: a relative path
+under the API root is something this station serves out of its own store, a provider's URL is
+absolute and fails it, and a credential lives in an absolute URL's query string. That is why the rule
+survived breaks growing artwork unchanged — it was never a rule about records, and the clause that
+used to make it one is gone. What is left is the station's own bytes or the station's logo, and the
+logo is the honest answer for a record whose cover the station does not yet hold.
 
 **A line carries the cover it was PICKED with, so the running order is re-read rather than
 trusted.** Nothing revisits a line once it is in the order, so a cover fetched an hour after the

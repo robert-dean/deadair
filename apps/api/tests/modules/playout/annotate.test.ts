@@ -193,8 +193,30 @@ describe('listenerArtwork, through itemAnnotations', () => {
         expect(itemAnnotations(item, reachable()).url).toBe(LOGO);
     });
 
-    it("shows the station's logo for a break, as the mount carries the station's name for one", () => {
+    it("shows the station's logo for a break the station has no picture for", () => {
         expect(itemAnnotations(labelled('Talk break: A into B'), reachable()).url).toBe(LOGO);
+    });
+
+    it('carries the picture a kind of break wears, once the station holds one', () => {
+        // A weather forecast or a news bulletin, resolved on the commit pass by
+        // `DirectorService.breakArtwork`. It reaches the wire on the same test every other item
+        // passes — a relative path under the API root — rather than on anything knowing it is a
+        // break, which is what the rule's rewrite was for.
+        const item: RundownItem = { ...labelled('Weather: this afternoon'), artworkUrl: CACHED };
+
+        expect(itemAnnotations(item, reachable()).url).toBe(`https://radio.test/api/${CACHED}`);
+    });
+
+    it('still refuses an absolute URL on a break, which is the guard rail on that relaxation', () => {
+        // Nothing stamps one today, but the clause that used to make this impossible is gone, so
+        // the shape test is now the only thing standing between a provider's URL — credentials in
+        // the query string and all — and a field broadcast to every listener.
+        const item: RundownItem = {
+            ...labelled('Weather: this afternoon'),
+            artworkUrl: 'http://navidrome.lan/rest/getCoverArt.view?u=robert&t=abc123',
+        };
+
+        expect(itemAnnotations(item, reachable()).url).toBe(LOGO);
     });
 
     it("shows the station's logo for a record with no cover rather than saying nothing", () => {

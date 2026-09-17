@@ -70,7 +70,10 @@ function build(options: Options = {}) {
             return options.text === undefined && 'text' in options ? undefined : (options.text ?? { parts: [{ text: 'It was on a dreary night.' }] });
         },
     };
-    const records = options.installed === false ? [] : [{ id: 'deadair.audiobook', status: 'active', manifest: { id: 'deadair.audiobook', capabilities: ['narration'] }, instance }];
+    const records =
+        options.installed === false
+            ? []
+            : [{ id: 'deadair.audiobook', status: 'active', manifest: { id: 'deadair.audiobook', capabilities: ['narration'] }, instance }];
     const pluginRegistry = { list: vi.fn(() => records) };
     const pluginInvoker = { invoke: vi.fn(async (_id: string, _name: string, run: () => Promise<unknown>) => await run()) };
 

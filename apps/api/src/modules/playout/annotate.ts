@@ -234,15 +234,31 @@ export function listenerTitle(item: RundownItem, stationName: string): string {
  * who connected. Neither reason depends on which providers happen to be
  * installed, so neither is left to a check somewhere further down.
  *
- * What that leaves is: a record's cover if the station has cached one, and the
- * station's own logo otherwise. The logo is also what a break, the bed and
- * off air carry, for the reason the mount carries the station's NAME then. And
- * it is what an uncached record carries rather than nothing at all, because
+ * **The whole rule rests on the SHAPE of the path, and that is what makes it
+ * safe.** A relative path under the API root is something this station serves
+ * out of its own store and nothing else can be: `artUrl` in `catalog.art.ts`
+ * mints exactly that for a cached asset and leaves a provider's absolute URL
+ * absolute. So both reasons above are answered by one test rather than by a list
+ * of hosts kept in step with whichever plugins are installed — a provider's URL
+ * is absolute, so it fails the test, and a credential lives in an absolute URL's
+ * query string, so it never reaches the field either.
+ *
+ * What that leaves is: whatever the station holds for this item, and the
+ * station's own logo otherwise. A record's cover where one is cached. A
+ * syndicated programme's own cover. And, since this stopped being a rule about
+ * records, the picture a KIND OF BREAK wears — a weather forecast, a news
+ * bulletin — which is an ordinary art asset resolved on the commit pass, exactly
+ * as a record's cover is (`DirectorService.breakArtwork`, and
+ * `art/break.art.ts` for why it is a row rather than a table of its own).
+ *
+ * The logo is still what a break with no picture of its own carries, along with
+ * the bed and off air, for the reason the mount carries the station's NAME then.
+ * And it is what an uncached record carries rather than nothing at all, because
  * Icecast KEEPS a tag an update does not mention (`mp3_set_tag` returns on a
  * null value rather than clearing), so an item that said nothing about artwork
  * would leave the previous record's cover standing under a caption naming a
  * different one. Every item says what to show; the station's face is the
- * answer whenever the record's own is not available.
+ * answer whenever nothing more specific is available.
  *
  * Nothing at all without a public URL (the setting, else the console address
  * from the environment; `resolvePublicUrl`): there is no base to make a
@@ -255,15 +271,9 @@ export function listenerArtwork(item: RundownItem, publicUrl: string): string | 
     const origin = stationOrigin(publicUrl);
     if (!origin) return undefined;
 
-    // A path under the API root is the station's own store and nothing else can be: `artUrl` in
-    // `catalog.art.ts` mints exactly this shape for a cached asset, and leaves a provider's
-    // absolute URL absolute. So the test for "ours" is the shape rather than a list of hosts to
-    // keep in step with the installed plugins.
     const cover = item.artworkUrl?.trim() ?? '';
-    const ours = /^\/?art\//.test(cover);
-    if (ours && (!isRenderItem(item) || item.programme === true)) {
-        return `${origin}/api/${cover.replace(/^\/+/, '')}`;
-    }
+    if (/^\/?art\//.test(cover)) return `${origin}/api/${cover.replace(/^\/+/, '')}`;
+
     return stationArtwork(origin);
 }
 

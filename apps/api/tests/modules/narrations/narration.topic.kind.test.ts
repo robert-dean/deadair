@@ -8,7 +8,12 @@ describe('the narration topic kind', () => {
         // A series id is the plugin's qualified id for it, which nobody could type.
         expect(NARRATION_TOPIC_KIND.kind).toBe(NARRATION_KIND);
         expect(NARRATION_TOPIC_KIND.fields).toHaveLength(1);
-        expect(NARRATION_TOPIC_KIND.fields[0]).toMatchObject({ key: 'series', type: 'select', required: true, optionsFrom: 'station.narrationSeries' });
+        expect(NARRATION_TOPIC_KIND.fields[0]).toMatchObject({
+            key: 'series',
+            type: 'select',
+            required: true,
+            optionsFrom: 'station.narrationSeries',
+        });
     });
 
     it('requires the series rather than carrying anything', () => {

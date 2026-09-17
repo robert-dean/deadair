@@ -19,7 +19,7 @@
 
     <rect width="512" height="512" fill="#2ED88B"/>
 
-    <g transform="rotate(-4 256 256)">
+    <g transform="rotate(-6 256 256)">
         <rect x="100" y="126" width="312" height="268" rx="18" fill="#121514"/>
         <rect x="124" y="152" width="264" height="34" rx="9" fill="#2ED88B"/>
         <!-- The plate is its own shape rather than the mark's own field, which is also why this
@@ -28,21 +28,21 @@
              leaves the plate's corners showing as ink. -->
         <rect x="124" y="206" width="132" height="116" rx="10" fill="#2ED88B"/>
         <g clip-path="url(#plate)">
-            <!-- Turned two degrees FURTHER than the page, on top of the four the group already
-                 carries: six in all, which is the number this was settled at by eye.
+            <!-- No turn of its own: the photograph lies square on the page, and the page carries
+                 the six degrees.
 
-                 The extra is what makes the tilt READ rather than what makes it true. Matching the
-                 page exactly is what this did first and it looked upright, because the mark is very
-                 nearly symmetrical and four degrees of it is invisible beside a rectangle at the
-                 same four. Ten past the page was the other end of it, and looked like a photograph
-                 somebody had stuck on crooked; nine in all was still too far.
+                 It used to carry an extra two on top of a page at four, and the reason is worth
+                 keeping because it is the trap: the mark is very nearly symmetrical, so four degrees
+                 of it is invisible beside a rectangle at the same four, and a photograph matching
+                 its page exactly read as upright. Turning the PAGE further is the better answer to
+                 that than turning the photograph on it — ten past the page looked like something
+                 stuck on crooked, and even five past was too far.
 
                  Sized to fit WITHIN the plate rather than to its width: the plate is wider than it
                  is tall and the mark is square, so a head matched to the width is cropped top and
                  bottom and reads as a photograph nobody framed. -->
             <image
                 href="../../../apps/android/app/src/main/res/drawable-xxhdpi/ic_launcher_foreground.png"
-                transform="rotate(-2 190 264)"
                 x="102.9"
                 y="176.9"
                 width="174.7"

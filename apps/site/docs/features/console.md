@@ -55,15 +55,16 @@ On a narrow screen the rail becomes a bar across the bottom with the four destin
 
 ## On a Stream Deck
 
-The desk comes as keys too: a plugin for the Elgato Stream Deck puts what is on air, Skip and Stop under your fingers. Like the console, it never plays the station.
+The desk comes as keys too: a plugin for the Elgato Stream Deck puts what is on air, Skip, Stop and your opinion of the record playing under your fingers. Like the console, it never plays the station.
 
 - **Now playing** shows the record's cover, its title and who it is by, and a bar along the top that fills as it plays, red while the station is on air. When nothing is playing it shows the deadair mark and says why in the console's own words: _ready_, _off air_, _warming up_. Pressing it opens the console. Each Now playing key can leave out the bar, or the title and artist, for a key that is only the cover.
 - **Skip** ends the record or break on air, the same Skip the console has.
 - **Stop or start** is Stop while the station is on air. Press it once and it says _Confirm_; press it again within five seconds and the station stops. Leave it and it forgets. Once the station is stopped, the same key is Start.
+- **Like** and **Dislike** set what the station thinks of the record on air — the same rating the running order and the library carry, and it applies everywhere they do. A like means play this more often; a dislike means never again, and nothing routes around it. Both keys draw the station's own skull on a heart, and the heart fills with colour when the station already agrees: press the lit key to take the opinion back. With nothing to rate — a break, a record your library has never taken in, or a station that is not answering — the key goes faint and does nothing.
 
 A key that cannot reach the station says so (_No station_, _Key refused_) and keeps the last cover it had, faint, so nothing on it looks current when it is not.
 
-It talks to the station with an API key rather than your password. Issue one under **Settings → Security**, **API keys**: **Read only** is enough for Now playing, and Skip and Stop need **Read and manage**. Then drag a deadair key onto the Stream Deck, open its settings, and enter your station's address and the key once; every deadair key shares them, and **Test connection** says whether both work. The key stays on that computer and is never written into a Stream Deck profile you export.
+It talks to the station with an API key rather than your password. Issue one under **Settings → Security**, **API keys**: **Read only** is enough for Now playing, and to see what the station already thinks of a record; Skip, Stop and voting need **Read and manage**. Then drag a deadair key onto the Stream Deck, open its settings, and enter your station's address and the key once; every deadair key shares them, and **Test connection** says whether both work. The key stays on that computer and is never written into a Stream Deck profile you export.
 
 It needs the Stream Deck app 7.1 or later, on macOS or Windows. Download `radio.deadair.streamdeck.streamDeckPlugin` from [the latest Stream Deck release](https://github.com/robert-dean/deadair/releases?q=streamdeck) and open it, and the Stream Deck app installs it. The source is in [the plugin's directory](https://github.com/robert-dean/deadair/tree/main/apps/streamdeck).
 

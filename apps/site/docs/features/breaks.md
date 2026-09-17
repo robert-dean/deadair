@@ -44,6 +44,12 @@ News categories under Voice, Subjects let a band on the format clock ask for a s
 
 Where the station is, and its units, are under Settings, Station. A weather break states only figures a service measured: no comparison with yesterday, no advice about coats. A model naming a temperature it was not given is declined, and a reading that will be older than "How old a reading may be" (two hours by default) when it airs is not used.
 
+## What a break looks like
+
+A break is the station talking, so the stream's one line of text carries your station's name rather than the producer's label for it. What changes is the picture beside it: a weather forecast and a news bulletin each have one of their own, which a listener's app draws beside the title and a hardware player draws in its artwork slot. Every other kind of break shows your station's logo, as the bed and off air do.
+
+Both pictures can be replaced with your own under **Settings**, **Artwork**, and put back again. See [what a player shows](./listening.md#what-a-player-shows).
+
 ## The record of what was written
 
 Every attempt to write a break is kept: the words or why there were none, the writer, the model, the character, the records either side. A model that declined and the floor that covered for it are two rows, because the second alone reads as a station that never had a model. Rows are kept for ninety days by default (Settings, Voice and audio). The prompt and the raw answer are kept only while "Keep the prompt and the raw answer" is on under Settings, Words, which is meant for an evening of tuning.

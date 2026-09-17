@@ -20,6 +20,14 @@ There is also an HLS stream at `/live.m3u8`, carrying AAC. An ordinary mount is 
 
 The mount is not authenticated. Anybody who can reach the address can listen, which for a radio station is usually the point. It is still your music under somebody else's licence, so read [the licensing notes](../licensing.md) before you publish an address.
 
+## What a player shows
+
+A stream carries one line of text and one URL, and that is the whole display ceiling for anything that can only take a stream: a car head unit, a hardware radio, an amp with a screen. The line is the record and its artist, or your station's name while the station is talking, because a producer's label on an amp's screen is your paperwork in a listener's front room.
+
+The URL beside it is the artwork, and players that fetch it draw it in place of a cover. It carries the record's sleeve when your station holds a copy of one, the picture for a kind of break while the station is talking, and your station's logo the rest of the time — an uncached record, the bed, off air. The logo is also what a break of a kind with no picture of its own shows.
+
+**The station ships a picture for a weather forecast and one for a news bulletin.** Replace either with your own, or put the shipped one back, under **Settings**, **Artwork**: jpeg, png, webp or gif, up to 4 MB, and a square one, since that is the shape everything draws it in. The address listeners reach you at has to be set for any of this to leave the station, because there is no base to make the URL absolute against otherwise; that is **Settings**, **Stream**, and it is the same setting the logo needs.
+
 ## The first few seconds
 
 By default a station airs only while somebody is listening, so connecting is what puts it on air. The first seconds after pressing play are warm-up: the station takes the mount, hands over the first record and the encoder starts. A few seconds of nothing is the station starting, not failing. If the first records are still downloading, the station says so on air rather than leaving you in silence. When the last listener leaves, it stays on for five minutes in case they come back. [The check-up](./check-up.md) explains the rule, and how to set a station to air whenever it has something to play.

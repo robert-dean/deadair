@@ -77,4 +77,4 @@ Until a mail server is set, the station sends nothing and says so. It will not o
 
 ## In the console
 
-The rail holds Desk, Programme, Library and Voice, with Check-up and Settings below the rule. The activity feed and the cost of each decision are under Check-up. Themes are Settings → Appearance; sign-in is Settings → Security and Settings → Mail.
+The rail holds Desk, Programme, Library and Voice, with Check-up and Settings below the rule. The activity feed and the cost of each decision are under Check-up. Themes are Settings → Appearance; sign-in is Settings → Security and Settings → Mail. The pictures a listener's player shows while the station is talking are Settings → Artwork.

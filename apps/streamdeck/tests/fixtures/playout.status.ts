@@ -27,6 +27,9 @@ export const record: PlayoutItem = {
     artists: ['The Velvet Underground'],
     durationMs: 341_000,
     artworkUrl: 'art/5f0c1a52-6a37-4d5e-9d0e-2b7a1c0e9f11',
+    // A record the catalog holds, which is what makes it something the station can have an opinion
+    // about. An item without one is a break, or a record aired without ever having been ingested.
+    trackId: 'a41b3c8e-9a7d-4a1f-8d2c-6e5b4f3a2d10',
 };
 
 const base: PlayoutStatus = {

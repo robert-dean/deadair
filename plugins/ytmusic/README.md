@@ -17,6 +17,27 @@ is no URL this plugin could return that would work. Serving one takes a header-f
 running beside the station. That is a separate piece of work, argued in
 [discussion #49](https://github.com/robert-dean/deadair/discussions/49).
 
+### What happens if you import a playlist anyway
+
+Search costs nothing: a result you do not act on is never catalogued. Importing a playlist is
+different, and worth knowing before you do it.
+
+An imported record becomes a real catalog row with a binding to this plugin, and nothing in the
+rotation draw asks whether the owning plugin can actually stream — it filters on whether the
+provider still offers the copy, which this one does. So the record is drawn like any other, and then:
+
+1. The station asks this plugin for a URL and gets nothing.
+2. The fetch fails, and the copy earns a failure row and a doubling backoff.
+3. The director drops it from the running order **before its slot** and records
+   `item.unavailable` — "the station cannot get hold of its audio."
+4. After four consecutive failures the copy is benched and stops being drawn at all.
+
+Nothing goes silent: the drop happens over the warm window, which is long enough for the generator
+to be asked for a replacement. But each imported record costs four failed fetches and four
+operator-facing activity events on its way to being written off, so a large playlist imported today
+is a large amount of noise for nothing. Until the audio half exists, this plugin earns its place as
+a SEARCH source.
+
 ## Setting it up
 
 One setting: **Cookie**. There is no OAuth option to offer instead, because Google withdrew it for

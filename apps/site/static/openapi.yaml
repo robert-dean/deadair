@@ -25,6 +25,71 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/ActivityPage'
+    '/art/breaks':
+        get:
+            operationId: listBreaks
+            summary: 'List break artwork'
+            description: 'Every kind the station holds a picture for'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/BreakArtworkList'
+    '/art/breaks/{kind}':
+        post:
+            operationId: replaceBreak
+            summary: 'Replace break artwork'
+            description: "Puts an operator's own picture behind a kind of break. The id does not change, so a URL already on the wire keeps working and the ETag is what says the picture moved"
+            parameters:
+                - name: kind
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 64
+            requestBody:
+                required: true
+                content:
+                    'multipart/form-data':
+                        schema:
+                            '$ref': '#/components/schemas/BreakArtworkUpload'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/BreakArtworkList'
+                '400':
+                    description: 'Bad request'
+                '413':
+                    description: 'Response 413'
+                '415':
+                    description: 'Response 415'
+        delete:
+            operationId: revertBreak
+            summary: 'Revert break artwork'
+            description: 'Puts the picture this repository ships back. The shipped file is read at this moment rather than copied at install, so an upgrade that improved it is what comes back'
+            parameters:
+                - name: kind
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 64
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/BreakArtworkList'
+                '404':
+                    description: 'Not found'
     '/art/{id}':
         get:
             operationId: getArt
@@ -3966,6 +4031,45 @@ components:
                     maxLength: 200
                     description: 'The cursor for the page after this one, absent once the feed has been read to its end'
             required: [entries]
+        BreakArtwork:
+            type: object
+            properties:
+                kind:
+                    type: string
+                    minLength: 1
+                    maxLength: 64
+                    description: '`segments.kind`, which is what decides which break wears this: `weather`, `news`, or whatever an operator wrote on a format-clock band'
+                url:
+                    type: string
+                    maxLength: 2000
+                    description: "Where the station serves it, as a path under the API root. The same shape and the same route a record's cover uses"
+                source:
+                    type: string
+                    enum: [shipped, operator]
+                    description: 'Whether these are the bytes this repository ships or ones somebody uploaded over them'
+                hasShipped:
+                    type: boolean
+                    description: 'Whether this repository ships a picture for this kind, which is whether reverting has anywhere to go'
+            required: [kind, url, source, hasShipped]
+            description: "The picture one KIND of break wears -- a weather forecast, a news bulletin -- as the console draws\nit.\n\nOnly kinds the station actually holds bytes for are listed. A kind with no picture is a break\nwearing the station's logo on the mount and nothing in a listener's app, which is what every break\ndid before this existed and is not a row worth drawing"
+        BreakArtworkList:
+            type: object
+            properties:
+                breaks:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/BreakArtwork'
+            required: [breaks]
+            description: 'Every kind the station holds a picture for, kind by kind'
+        BreakArtworkUpload:
+            type: object
+            properties:
+                file:
+                    type: string
+                    format: binary
+                    description: 'The image itself. jpeg, png, webp or gif, decided by its BYTES rather than by its name or its declared type, and at most 4 MB'
+            required: [file]
+            description: "A picture arriving from the browser, as multipart form parts.\n\nDocumentation rather than validation: a multipart body reaches the service as the raw parser and\nthe generated client types the body as `FormData`, so nothing checks this shape. It says what to\nsend"
         AuthenticationGrantType:
             type: string
             enum:

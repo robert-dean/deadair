@@ -4,6 +4,7 @@ import { AuthenticationSessionsRouter } from './authentication.sessions.router.j
 import { AuthenticationApikeysRouter } from './authentication.apikeys.router.js';
 import { ActivityRouter } from './activity.router.js';
 import { HistoryRouter } from './history.router.js';
+import { ArtBreaksRouter } from './art.breaks.router.js';
 import { ArtRouter } from './art.router.js';
 import { CatalogRouter } from './catalog.router.js';
 import { ChartsRouter } from './charts.router.js';
@@ -37,6 +38,12 @@ export const routers = [
     AuthenticationFactorRouter,
     AuthenticationSessionsRouter,
     AuthenticationApikeysRouter,
+    // BEFORE `ArtRouter`, and that is load-bearing rather than alphabetical: `/art/breaks` also
+    // matches `/art/{id}` and `/art/breaks/{kind}` matches `/art/{id}/{filename}`. Koa matches in
+    // the order routers are registered, so with these the other way round every one of these
+    // operations answers 400 from the uuid check on the route above it, and never runs. See
+    // `art.breaks.ck` and the test that pins it.
+    ArtBreaksRouter,
     ArtRouter,
     ActivityRouter,
     HistoryRouter,

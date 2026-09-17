@@ -2,13 +2,30 @@ import { createHash } from 'node:crypto';
 import { readdir, readFile } from 'node:fs/promises';
 import { extname, join } from 'node:path';
 import { Injectable } from 'injectkit';
+import { httpError } from '@maroonedsoftware/errors';
 import { Logger } from '@maroonedsoftware/logger';
+import type { MultipartBody } from '@maroonedsoftware/multipart';
 import { errorText } from '#modules/shared/error.text.js';
 import { artPath } from './art.path.js';
 import { ArtRepository, type ArtAsset } from './art.repository.js';
 import { ART_SERVED_TYPES, ArtStore, isArtExtension, type ArtExtension } from './art.store.js';
 import { ART_SNIFF_BYTES, sniffArtExtension } from './art.sniff.js';
 import { BREAK_ART_SOURCE, breakArtKey, breakKindIsSafe, isBreakArtKey } from './break.art.js';
+import type { BreakArtworkList } from './types/art.types.js';
+
+/**
+ * The most an operator may upload for one kind of break.
+ *
+ * A twentieth of what a pad may be, and the reason is who fetches it: a hardware player asks for
+ * this picture three times per break (measured, `docs/internals/playout.md`), over whatever uplink
+ * the station is on, and an operator who drops a 20 MB photograph in would be paying that on every
+ * bulletin forever. Four megabytes is a generous photograph at the size anything here draws it.
+ *
+ * Bounded by BYTES and nothing else. Nothing decodes the image to check its dimensions: knowing the
+ * bytes are a PNG is the whole question ({@link sniffArtExtension}), and decoding operator-supplied
+ * images in-process would be a new attack surface out of all proportion to a cosmetic check.
+ */
+const MAX_BREAK_ART_BYTES = 4 * 1024 * 1024;
 
 /** One kind of break's picture, as the console draws it and as a revert has to know it. */
 export interface BreakArtwork {
@@ -190,6 +207,67 @@ export class BreakArtworkService {
         }
 
         return listed;
+    }
+
+    /**
+     * {@link list}, as the shape the route answers with.
+     *
+     * The wrapper rather than the array, because every listing in this API is an object with a named
+     * member: a bare array cannot grow a field later without breaking every client at once.
+     */
+    async listBreaks(): Promise<BreakArtworkList> {
+        return { breaks: await this.list() };
+    }
+
+    /**
+     * `POST /art/breaks/{kind}`: an operator's own picture, from the browser.
+     *
+     * The bytes are collected rather than streamed, because {@link replace} hands the same buffer to
+     * the sniffer and to the store, and they are bounded at {@link MAX_BREAK_ART_BYTES} by the
+     * parser, which answers 413 on the ceiling itself.
+     *
+     * Answers the whole listing rather than the one row, exactly as `uploadPad` answers the whole
+     * rack: the console's own picture of what each kind wears is what changed, and handing it back
+     * is one fewer round trip than telling it to go and ask again.
+     */
+    async replaceBreak(kind: string, multipart: MultipartBody): Promise<BreakArtworkList> {
+        if (!breakKindIsSafe(kind)) throw httpError(400).withDetails({ message: `"${kind}" is not a name a kind of break can have` });
+
+        let upload: Buffer | undefined;
+        await multipart.parse(
+            async (_field, stream) => {
+                const chunks: Buffer[] = [];
+                for await (const chunk of stream) chunks.push(chunk as Buffer);
+                upload = Buffer.concat(chunks);
+            },
+            { files: 1, fileSize: MAX_BREAK_ART_BYTES, fields: 4 },
+        );
+
+        if (upload === undefined || upload.length === 0) throw httpError(400).withDetails({ message: 'that upload carried no image' });
+
+        const replaced = await this.replace(kind, upload);
+        if (replaced === undefined) {
+            throw httpError(415).withDetails({ message: 'the station serves jpeg, png, webp and gif pictures, and that file is none of them' });
+        }
+
+        return await this.listBreaks();
+    }
+
+    /**
+     * `DELETE /art/breaks/{kind}`: put back the picture this repository ships.
+     *
+     * A 404 where nothing is shipped for that kind, which says what it means — there is no default
+     * here to go back to — and leaves the operator's own picture exactly where it is.
+     */
+    async revertBreak(kind: string): Promise<BreakArtworkList> {
+        if (!breakKindIsSafe(kind)) throw httpError(400).withDetails({ message: `"${kind}" is not a name a kind of break can have` });
+
+        const reverted = await this.revert(kind);
+        if (reverted === undefined) {
+            throw httpError(404).withDetails({ message: `this station ships no picture for a ${kind} break, so there is nothing to go back to` });
+        }
+
+        return await this.listBreaks();
     }
 
     /**

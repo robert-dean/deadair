@@ -7,6 +7,7 @@ import Foundation
 public final class Deadair: Sendable {
     public let http: SdkHttp
     public let activity: ActivityClient
+    public let artBreaks: ArtBreaksClient
     public let art: ArtClient
     public let authenticationApikeys: AuthenticationApikeysClient
     public let authentication: AuthenticationClient
@@ -42,6 +43,7 @@ public final class Deadair: Sendable {
         let http = SdkHttp(config: config)
         self.http = http
         self.activity = ActivityClient(http: http)
+        self.artBreaks = ArtBreaksClient(http: http)
         self.art = ArtClient(http: http)
         self.authenticationApikeys = AuthenticationApikeysClient(http: http)
         self.authentication = AuthenticationClient(http: http)

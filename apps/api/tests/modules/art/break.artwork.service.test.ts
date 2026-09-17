@@ -9,6 +9,9 @@ import { join } from 'node:path';
 import { Logger } from '@maroonedsoftware/logger';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { MultipartBody } from '@maroonedsoftware/multipart';
+import { IsHttpError } from '@maroonedsoftware/errors';
+
 import { ArtRepository, type ArtAsset, type ArtAssetBytes } from '../../../src/modules/art/art.repository.js';
 import { ArtStore } from '../../../src/modules/art/art.store.js';
 import { BREAK_ART_SOURCE } from '../../../src/modules/art/break.art.js';
@@ -49,6 +52,37 @@ const fakeRepository = () => {
 };
 
 const service = (repository: ArtRepository) => new BreakArtworkService(repository, store, shippedRoot, logger);
+
+/** A multipart body carrying one file, which is all any of these routes accepts. */
+const multipartOf = (bytes?: Buffer) =>
+    ({
+        parse: async (
+            onFile: (field: string, stream: AsyncIterable<Uint8Array>, filename: string, encoding: string, mime: string) => Promise<void>,
+        ) => {
+            if (bytes !== undefined) {
+                await onFile(
+                    'file',
+                    (async function* () {
+                        yield bytes;
+                    })(),
+                    'whatever.png',
+                    '7bit',
+                    'image/png',
+                );
+            }
+            return new Map();
+        },
+    }) as unknown as MultipartBody;
+
+/** The status an http error carries, or 200 for a call that did not throw one. */
+const status = async (work: Promise<unknown>): Promise<number> => {
+    try {
+        await work;
+        return 200;
+    } catch (error) {
+        return IsHttpError(error) ? error.statusCode : 500;
+    }
+};
 
 beforeEach(async () => {
     root = await mkdtemp(join(tmpdir(), 'deadair-break-art-test-'));
@@ -224,5 +258,54 @@ describe('list', () => {
         const { repository } = fakeRepository();
 
         expect(await service(repository).list()).toEqual([]);
+    });
+});
+
+describe('the routes', () => {
+    it('answers the whole listing after a replace, which is what the console redraws from', async () => {
+        const { repository } = fakeRepository();
+        const service_ = service(repository);
+        await service_.seed();
+
+        const listing = await service_.replaceBreak('weather', multipartOf(png('an operator of their own')));
+
+        expect(listing.breaks.map(one => [one.kind, one.source])).toEqual([
+            ['news', 'shipped'],
+            ['weather', 'operator'],
+        ]);
+    });
+
+    it('refuses a file that is not an image, whatever the browser called it', async () => {
+        // The declared type on that part is `image/png` and nothing reads it: an HTML file served
+        // back from the station's own origin under a stable URL is the reason this route sniffs.
+        const { repository, rows } = fakeRepository();
+
+        expect(await status(service(repository).replaceBreak('weather', multipartOf(Buffer.from('<!DOCTYPE html>'))))).toBe(415);
+        expect(rows.size).toBe(0);
+    });
+
+    it('refuses an upload carrying nothing at all', async () => {
+        const { repository } = fakeRepository();
+
+        expect(await status(service(repository).replaceBreak('weather', multipartOf()))).toBe(400);
+        expect(await status(service(repository).replaceBreak('weather', multipartOf(Buffer.alloc(0))))).toBe(400);
+    });
+
+    it('refuses a kind that would escape the shipped directory before reading a byte', async () => {
+        const { repository } = fakeRepository();
+
+        expect(await status(service(repository).replaceBreak('../../etc/passwd', multipartOf(png('x'))))).toBe(400);
+    });
+
+    it('404s a revert for a kind this repository ships nothing for', async () => {
+        // Not a fault: an operator asking for a default that does not exist. Their own picture is
+        // left where it is, because a break with no picture would be a silent change to what airs.
+        const { repository, rows } = fakeRepository();
+        const service_ = service(repository);
+        await service_.replaceBreak('talkbreak', multipartOf(png('an operator of their own')));
+        const held = rows.get(`${BREAK_ART_SOURCE}/talkbreak`)!;
+
+        expect(await status(service_.revertBreak('talkbreak'))).toBe(404);
+        expect(rows.get(`${BREAK_ART_SOURCE}/talkbreak`)).toEqual(held);
     });
 });

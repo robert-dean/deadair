@@ -2,6 +2,7 @@
 package com.maroonedsoftware.deadair.sdk
 
 import com.maroonedsoftware.deadair.sdk.clients.ActivityClient
+import com.maroonedsoftware.deadair.sdk.clients.ArtBreaksClient
 import com.maroonedsoftware.deadair.sdk.clients.ArtClient
 import com.maroonedsoftware.deadair.sdk.clients.AuthenticationApikeysClient
 import com.maroonedsoftware.deadair.sdk.clients.AuthenticationClient
@@ -44,6 +45,7 @@ import com.maroonedsoftware.deadair.sdk.runtime.SdkHttp
 class DeadairSdk(config: SdkConfig) : AutoCloseable {
     val http: SdkHttp = SdkHttp(config)
     val activity: ActivityClient = ActivityClient(http)
+    val artBreaks: ArtBreaksClient = ArtBreaksClient(http)
     val art: ArtClient = ArtClient(http)
     val authenticationApikeys: AuthenticationApikeysClient = AuthenticationApikeysClient(http)
     val authentication: AuthenticationClient = AuthenticationClient(http)

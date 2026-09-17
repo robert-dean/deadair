@@ -1,8 +1,39 @@
 import type { SdkFetch } from '../sdk-options.js';
-import { readContentType } from '../sdk-options.js';
+import { parseJson, readContentType } from '../sdk-options.js';
+import type { BreakArtworkList } from './types/art.types.js';
 
 export class ArtClient {
     constructor(private fetch: SdkFetch) {}
+
+    /**
+     * @name List break artwork
+     * @description Every kind the station holds a picture for
+     */
+    async listBreakArtwork(): Promise<BreakArtworkList> {
+        const result = await this.fetch(`/art/breaks`, { method: 'GET' });
+        return await parseJson<BreakArtworkList>(result);
+    }
+
+    /**
+     * @name Replace break artwork
+     * @description Puts an operator's own picture behind a kind of break. The id does not change, so a URL already on the wire keeps working and the ETag is what says the picture moved
+     */
+    async replaceBreakArtwork(kind: string, body: FormData): Promise<BreakArtworkList> {
+        const result = await this.fetch(`/art/breaks/${encodeURIComponent(kind)}`, {
+            method: 'POST',
+            body: body,
+        });
+        return await parseJson<BreakArtworkList>(result);
+    }
+
+    /**
+     * @name Revert break artwork
+     * @description Puts the picture this repository ships back. The shipped file is read at this moment rather than copied at install, so an upgrade that improved it is what comes back
+     */
+    async revertBreakArtwork(kind: string): Promise<BreakArtworkList> {
+        const result = await this.fetch(`/art/breaks/${encodeURIComponent(kind)}`, { method: 'DELETE' });
+        return await parseJson<BreakArtworkList>(result);
+    }
 
     /**
      * @name Get art

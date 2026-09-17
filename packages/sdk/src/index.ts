@@ -2,6 +2,7 @@
 export * from './activity/activity.client.js';
 export * from './activity/types/index.js';
 export * from './art/art.client.js';
+export * from './art/types/index.js';
 export * from './authentication/authentication.apikeys.client.js';
 export * from './authentication/authentication.client.js';
 export * from './authentication/authentication.factor.client.js';

@@ -1,0 +1,99 @@
+import { type PluginManifest } from '@deadair/plugin-sdk';
+import { z } from 'zod';
+
+/**
+ * The one host this plugin reaches, and it is measured rather than assumed.
+ *
+ * `youtubei.js` drives the MUSIC service by setting the `WEB_REMIX` client on the ordinary
+ * InnerTube endpoints, so every request (search, continuations, library, playlists, `getInfo`)
+ * goes to `www.youtube.com/youtubei/v1/*`. `music.youtube.com` is never contacted, and declaring it
+ * would put a hostname in the operator's permission list that nothing here will ever use.
+ */
+export const YOUTUBE_HOST = 'www.youtube.com';
+
+/** Bounds one upstream request. The whole call is bounded separately by the host's own deadline. */
+export const REQUEST_TIMEOUT_MS = 10_000;
+
+/**
+ * How long a fetched playlist stays in the in-memory page memo.
+ *
+ * The host reads a playlist an offset at a time (`catalog.sync.service.ts` walks
+ * `getPlaylistTracks(id, { limit, offset })`), and YouTube pages by CONTINUATION TOKEN rather than
+ * by offset, so serving an arbitrary offset means walking from the start. Short enough that an
+ * operator who edits a playlist and re-syncs sees the change, long enough that one sync's sequential
+ * offsets are one walk rather than one walk each.
+ */
+export const PLAYLIST_MEMO_TTL_MS = 60_000;
+
+/**
+ * The size suffix pinned onto every artwork URL.
+ *
+ * Thumbnails arrive at several sizes with the size written INTO the url
+ * (`…=w120-h120-l90-rj`), so "the biggest one" is a different string per row and sometimes per
+ * call. Rule 7 of the SDK contract: a URL handed back to be stored has to be stable, because the
+ * host keeps it and the art cache is keyed by the string itself, so a varying part means the same
+ * cover is downloaded forever. One fixed suffix makes one record one URL.
+ */
+export const ARTWORK_SIZE = 'w544-h544-l90-rj';
+
+/** YouTube Music's own "Liked Music" list. Not in the library listing; addressed directly. */
+export const LIKED_PLAYLIST_ID = 'LM';
+export const LIKED_PLAYLIST_NAME = 'Liked Music';
+
+/**
+ * The badge that marks a record explicit.
+ *
+ * Keyed off `icon_type` and never off `label`. The label is the LOCALIZED word ("Explicit" in
+ * English and something else on any other account), so matching it would leave the badge quietly
+ * never firing. A station running a clean-only policy would then air an explicit record while the
+ * console showed nothing wrong. The icon name is not translated.
+ */
+export const EXPLICIT_BADGE_ICON = 'MUSIC_EXPLICIT_BADGE';
+
+/**
+ * The cookie is NOT in here on purpose.
+ *
+ * A `secret` config field is encrypted at rest and never read back into the settings form, so it is
+ * declared in `configFields` below and read through `host.secrets.get('cookie')`. Navidrome's
+ * `password` is the same shape for the same reason.
+ */
+export const configSchema = z.object({});
+
+export type YtMusicConfig = z.infer<typeof configSchema>;
+
+export const ytmusicManifest: PluginManifest = {
+    id: 'deadair.ytmusic',
+    name: 'YouTube Music',
+    version: '0.0.1',
+    // `catalog` only, deliberately. Nothing here can hand the station audio: a YouTube media URL is
+    // bound to the client identity that minted it and needs matching `User-Agent`, `Origin` and
+    // `Referer` headers, which is exactly what `resolveStreamUrl` promises a URL will NOT need
+    // ("the player fetches it with no headers from us"). Serving it takes a header-fixing range
+    // proxy beside the station. That is a later phase; see discussion #49. Declaring `stream` here
+    // and answering `undefined` would be the dishonest version of the same state.
+    capabilities: ['catalog'],
+    apiVersion: '^1.0.0',
+    description: 'Search YouTube Music and pull your playlists into the rotation. Records from here cannot be played yet.',
+    homepage: 'https://music.youtube.com',
+    permissions: {
+        network: [YOUTUBE_HOST],
+        // No storage: the only cache is the playlist page memo, which lives in memory and dies with
+        // the instance. No oauth: Google withdrew it for this service, hence the cookie below.
+        storage: false,
+        oauth: false,
+    },
+    configFields: [
+        {
+            key: 'cookie',
+            label: 'Cookie',
+            type: 'secret',
+            required: true,
+            help:
+                'Sign in to music.youtube.com in a browser, open the developer tools Network tab, reload, ' +
+                'select the first request and copy the whole Cookie request header. It expires on the ' +
+                "account's own schedule and there is no refresh: when it does, this plugin reports a failed " +
+                'connection and you paste a fresh one.',
+        },
+    ],
+    configSchema,
+};

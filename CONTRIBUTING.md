@@ -2,7 +2,9 @@
 
 One maintainer, one install, and a project that has just cut its first release. Issues and pull
 requests are welcome; an issue before a large pull request is welcome too, because the answer may be
-that the call has already been made and written down.
+that the call has already been made and written down. Questions go to
+[Q&A](https://github.com/robert-dean/deadair/discussions/categories/q-a), and
+[the code of conduct](CODE_OF_CONDUCT.md) applies everywhere.
 
 ## Getting it running
 

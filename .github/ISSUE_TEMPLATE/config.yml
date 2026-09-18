@@ -4,5 +4,8 @@ contact_links:
       url: https://github.com/robert-dean/deadair/security/advisories/new
       about: Privately, through a security advisory, and never as a public issue. SECURITY.md says what to expect.
     - name: Ask a question
-      url: https://github.com/robert-dean/deadair/discussions
+      url: https://github.com/robert-dean/deadair/discussions/categories/q-a
       about: Running the station, choosing a voice or a model, or anything that is not a bug.
+    - name: Show your station
+      url: https://github.com/robert-dean/deadair/discussions/categories/show-and-tell
+      about: A station, a character, a clock or a plugin you built and want people to see.

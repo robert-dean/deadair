@@ -12,6 +12,12 @@ const directories = [
         to: '/community/stations',
         cta: 'Tune in',
     },
+    {
+        label: 'Personas',
+        body: 'Presenters and callers other operators wrote, each a file the console imports as it stands.',
+        to: '/community/personas',
+        cta: 'Meet them',
+    },
 ];
 
 export default function Community() {

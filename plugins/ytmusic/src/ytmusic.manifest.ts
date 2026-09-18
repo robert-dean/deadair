@@ -93,7 +93,7 @@ export const ytmusicManifest: PluginManifest = {
     capabilities: ['catalog', 'stream'],
     apiVersion: '^1.0.0',
     description:
-        'Search YouTube Music, pull your playlists into the rotation, and play them. Needs a Music Premium account and the bundled audio resolver.',
+        'Search YouTube Music and pull your playlists into the rotation. Audio goes through the bundled resolver and does not currently play: see the plugin README.',
     homepage: 'https://music.youtube.com',
     permissions: {
         // The known host first and the operator's address second, because the

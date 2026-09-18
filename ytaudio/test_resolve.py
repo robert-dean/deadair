@@ -114,10 +114,10 @@ class TestCooldowns:
         assert not cooldowns.resting("251", now=COOLDOWN_S + 1)
 
 
-class TestNotPremium:
-    def test_a_free_account_is_named_rather_than_left_as_upstream(self):
-        # Signed in and no formats is the free tier, and yt-dlp's own words for it
-        # ("Requested format is not available") read as a bug in our selector.
+class TestSignedInNoFormats:
+    def test_signed_in_with_no_formats_is_named_rather_than_left_as_upstream(self):
+        # yt-dlp's own words for it ("Requested format is not available") read as a
+        # bug in our selector.
         import resolve as module
 
         class _Boom(module.yt_dlp.utils.DownloadError):
@@ -140,16 +140,18 @@ class TestNotPremium:
         original = module.yt_dlp.YoutubeDL
         module.yt_dlp.YoutubeDL = _FakeYDL
         try:
-            with pytest.raises(module.NotPremium) as raised:
+            with pytest.raises(module.SignedInNoFormats) as raised:
                 module.resolve("x", cookiefile="/tmp/jar")
-            assert raised.value.code == "premium"
-            assert "Premium" in raised.value.message
+            assert raised.value.code == "sabr"
+            # The message must NOT claim the account is unpaid: the yt-dlp tracker
+            # says Premium sessions land here too, and this check never tested that.
+            assert "not a Music Premium subscriber" not in raised.value.message
+            assert "not evidence about this account's subscription" in raised.value.message
         finally:
             module.yt_dlp.YoutubeDL = original
 
-    def test_the_same_message_signed_OUT_is_not_blamed_on_a_subscription(self):
-        # Without a session the same words mean something else entirely, and
-        # telling an operator to buy a subscription would be wrong.
+    def test_the_same_message_signed_OUT_is_not_blamed_on_the_session(self):
+        # Without a session the same words mean something else entirely.
         import resolve as module
 
         class _Boom(module.yt_dlp.utils.DownloadError):
@@ -174,6 +176,6 @@ class TestNotPremium:
         try:
             with pytest.raises(module.ResolveError) as raised:
                 module.resolve("x", cookiefile=None)
-            assert raised.value.code != "premium"
+            assert raised.value.code != "sabr"
         finally:
             module.yt_dlp.YoutubeDL = original

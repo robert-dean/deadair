@@ -18,7 +18,7 @@ With no model the station writes its own breaks from its phrasings. With no voic
 **Music**
 
 - **Spotify.** Search, your playlists and the audio. It needs two authorizations: see [the library](./library.md).
-- **YouTube Music.** Search, your playlists and the audio, signed in with a cookie you paste. It reaches the live sets, sessions and uploads that are on no streaming service. It needs a **Music Premium** account: YouTube serves free accounts a streaming protocol the station cannot fetch, and the plugin says so plainly rather than playing nothing.
+- **YouTube Music.** Search, your playlists and the audio, signed in with a cookie you paste. It reaches the live sets, sessions and uploads that are on no streaming service. **Its audio does not play yet**: YouTube currently serves signed-in sessions a streaming protocol the station cannot fetch, and the plugin says so plainly rather than failing silently.
 - **Navidrome**, or any Subsonic server. Your own library and playlists. It also reads the facts in your files' tags, the only description that exists for a bootleg or a local band.
 
 **Facts about records**

@@ -222,7 +222,7 @@ export class YtMusicPlugin extends Plugin implements MusicProviderPluginInstance
      * it exactly as it does a Navidrome URL: nothing proxies bytes.
      *
      * `undefined` at every "not yet" and every "not this record": no resolver
-     * configured, resolver not answering, account not Premium, record the
+     * configured, resolver not answering, session served nothing fetchable, record the
      * upstream will not serve. The host reads all of them as unavailable, skips
      * the item and holds nothing against the plugin, which is right -- none of
      * them is the plugin misbehaving, and a catalog that works must not be

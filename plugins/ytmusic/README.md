@@ -7,15 +7,21 @@ into a URL the station fetches itself. **Nothing proxies bytes**: the URL is an
 ordinary HTTPS one carrying its own authentication, so the station caches it and
 serves it to the player exactly as it does a Navidrome URL.
 
-## A Music Premium account is required
+## The audio half does not work yet
 
-The same requirement the Spotify path has, and not one this project invented.
-YouTube serves a **free** account a streaming protocol the station cannot fetch,
-so a free account plays nothing at all. Measured on a real one: signed out, a
-track offers 39 formats; signed in, none.
+YouTube currently forces its segment streaming protocol on signed-in sessions, which yt-dlp cannot fetch, and the yt-dlp tracker reports this for Music Premium accounts too. So a resolve made with the operator's session comes back with nothing
+playable, whether or not the account pays.
 
-The plugin says exactly that rather than failing vaguely: a free account gets a
-warning naming the subscription, not a record that quietly never plays.
+What was measured here, on a free account: signed out, a track offers 39
+formats; signed in, none. That was first read as a free-tier limit, and the
+tracker says otherwise ([#14390](https://github.com/yt-dlp/yt-dlp/issues/14390),
+[#13545](https://github.com/yt-dlp/yt-dlp/issues/13545),
+[#14208](https://github.com/yt-dlp/yt-dlp/issues/14208)). The resolver reports
+the state as exactly what it is, and never as a statement about the subscription.
+
+A signed-out resolve does return playable audio, measured end to end. Whether the
+audio half should resolve signed out is an open decision, tracked on
+[#182](https://github.com/robert-dean/deadair/pull/182).
 
 ## Why the audio is not resolved here
 

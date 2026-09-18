@@ -26,16 +26,15 @@ finding them, on somebody else's schedule rather than ours. The alternative was
 implementing the segment protocol and its attestation here and owning every
 break. See [discussion #49](https://github.com/robert-dean/deadair/discussions/49).
 
-## A paid account is required
+## Signed-in sessions are served nothing fetchable
 
-The same requirement the Spotify path has, for a different reason.
+YouTube currently forces its segment streaming protocol on signed-in sessions, which yt-dlp cannot fetch, and the yt-dlp tracker reports this for Music Premium accounts too ([#14390](https://github.com/yt-dlp/yt-dlp/issues/14390)). Measured here on
+a free account: signed out, a track offers 39 formats; signed in, none.
 
-YouTube serves a **free** account the segment protocol and nothing else, so there
-is no URL to hand back. Measured on a real free-tier account: signed out, a track
-offers 39 formats; signed in, none at all. The resolver detects this exactly (no
-formats *and* a session) and answers `402` naming it, rather than letting an
-operator read yt-dlp's own words for it ("Requested format is not available") as
-a bug in the station.
+yt-dlp's own words for that are "Requested format is not available", which reads
+as a bug in our format selector. The resolver detects the case (no formats **and**
+a session) and answers code `sabr`, saying what happened and explicitly NOT what
+it means for the subscription, because nothing here tested that.
 
 ## Endpoints
 
@@ -56,7 +55,7 @@ dies with the process.
 | code | HTTP | The station should |
 | --- | --- | --- |
 | `unavailable` | 410 | write the copy off, never retry |
-| `premium` | 402 | tell the operator; nothing else will change it |
+| `sabr` | 502 | signed in and served nothing fetchable; nothing the station does changes it |
 | `auth` | 401 | the cookie is dead or missing |
 | `refused` | 502 | the upstream would not serve this format; it is resting now |
 | `cooling` | 503 | that format is resting; try again later |

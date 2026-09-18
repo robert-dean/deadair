@@ -2,27 +2,22 @@
 '@deadair/plugin-ytmusic': minor
 ---
 
-A YouTube Music provider the station can search and play
+A YouTube Music provider the station can search
 
-Search YouTube Music, import the playlists on your account, and air them. It
-reaches the live sets, sessions and uploads that are on no streaming service.
+Search YouTube Music and import the playlists on your account, signed in with a
+cookie you paste. It reaches the live sets, sessions and uploads that are on no
+streaming service.
 
-**It needs a Music Premium account**, the same way the Spotify path does, and not
-by anyone's choice here: YouTube serves free accounts a streaming protocol the
-station cannot fetch, so a free account plays nothing at all. The plugin reports
-that in those words rather than leaving records that quietly never play.
-
-Audio is resolved by `ytaudio/`, a new bundled Python service on yt-dlp, because
-the library that knows how to resolve a YouTube URL is Python and the plugin is
-Node inside the API process. **Nothing proxies bytes.** What it answers is an
-ordinary HTTPS URL carrying its own authentication, which the station fetches and
-caches exactly as it does a Navidrome URL, so the playout chain is untouched and
-no audio passes through the new process.
+**Its audio does not play yet.** Audio is resolved by `ytaudio/`, a new bundled
+Python service on yt-dlp that turns a track into a URL the station fetches
+itself, with nothing proxied. The plumbing is complete and proved end to end. What
+stops it is upstream: YouTube currently forces its segment streaming protocol on
+signed-in sessions, which yt-dlp cannot fetch, and the yt-dlp tracker reports that
+for Music Premium accounts too. The plugin says so in those words rather than
+leaving records that quietly never play.
 
 The cookie has no refresh and expires on the account's own schedule. Because
 YouTube serves search to signed-out callers, an expired cookie would otherwise
 leave the station searching happily while the library went dark. So the plugin
 proves the credential by using it, at startup and behind Test connection, and
 reports a dead one as an authorization failure rather than as trouble at YouTube.
-Test connection reports the catalog half and the audio half separately, because
-they fail independently.

@@ -75,8 +75,8 @@ fetches one, and it is worth keeping separate because it is answered differently
 a cookie copied from a browser, and the audio is resolved by `ytaudio/`, a bundled service built on
 **yt-dlp**. Three things follow, and none of them is the software's to decide for you:
 
-- **It needs a paid Music Premium account.** Not a policy this project invented: YouTube serves free
-  accounts a streaming protocol the station cannot fetch, so a free account plays nothing at all.
+- **Its audio does not currently play.** YouTube currently forces its segment streaming protocol on signed-in sessions, which yt-dlp cannot fetch, and the yt-dlp tracker reports this for Music Premium accounts too. A paid account is not
+  known to change that.
 - **Fetching this way is not something YouTube's terms contemplate.** Whether that matters where you
   are, and to the account you use, is your call rather than this project's.
 - **yt-dlp's licence has two halves.** Its source is public domain under the Unlicense, which is what

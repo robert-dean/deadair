@@ -117,9 +117,9 @@ async def drop_session() -> dict:
 _STATUS = {
     "unavailable": 410,
     "auth": 401,
-    # The account is real and will not serve us. Nothing retries past this, and
-    # nothing the station does changes it -- only the operator's subscription.
-    "premium": 402,
+    # Signed in and served nothing fetchable. Not 402: nothing here established that
+    # payment is the problem, and the yt-dlp tracker says paying accounts get this too.
+    "sabr": 502,
     "refused": 502,
     "cooling": 503,
     "upstream": 502,

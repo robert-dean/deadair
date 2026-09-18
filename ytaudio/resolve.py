@@ -70,27 +70,31 @@ class Unavailable(ResolveError):
         super().__init__("unavailable", message)
 
 
-class NotPremium(ResolveError):
-    """The account is signed in and is not a paying one.
+class SignedInNoFormats(ResolveError):
+    """YouTube served a signed-in session no format yt-dlp can fetch.
 
-    Worth its own class because of how it presents. YouTube Music serves a free
-    account the adaptive segment protocol and nothing else, so yt-dlp finds no
-    format it can take and says "Requested format is not available" -- which
-    reads as a bug in our format selector, names nothing an operator can act on,
-    and is indistinguishable from a genuinely format-less record.
+    Worth its own class because yt-dlp's words for it, "Requested format is not
+    available", read as a bug in our format selector and name nothing an operator
+    can act on.
 
-    Measured 2026-09-17 on a real free-tier account: signed out, the same track
-    offers 39 formats; signed in, none. The signal is precise -- no formats AND a
-    session -- so it is worth saying plainly rather than leaving as `upstream`,
-    which would also have the station retry it forever.
+    **What this does NOT say is anything about the account's subscription.** It
+    first shipped as `NotPremium`, on the reasoning that a free account measured
+    here offered 39 formats signed out and none signed in, and that Music
+    Assistant documents a Premium requirement. The yt-dlp tracker, which is where
+    current state is actually recorded, says Premium sessions land in exactly the
+    same place: SABR forced "even with valid premium cookies and PO Token
+    Provider" (yt-dlp #14390), premium formats gone with cookies since
+    2025.08.11 (#13545, #14208). So the check establishes "signed in, and nothing
+    fetchable", and telling a paying subscriber they are not one would be a claim
+    this code never tested.
     """
 
     def __init__(self) -> None:
         super().__init__(
-            "premium",
-            "this YouTube account is signed in but is not a Music Premium subscriber, and YouTube serves "
-            "free accounts a streaming protocol this station cannot fetch. A paid account is required, the "
-            "same way the Spotify path requires one.",
+            "sabr",
+            "YouTube served this signed-in session no format the station can fetch. It is currently forcing "
+            "its segment streaming protocol on signed-in sessions, which yt-dlp cannot download, and this is "
+            "reported for Music Premium accounts too, so it is not evidence about this account's subscription.",
         )
 
 
@@ -228,10 +232,10 @@ def resolve(video_id: str, *, cookiefile: str | None = None, now: float | None =
         text = str(error)
         lowered = text.lower()
         # Checked BEFORE "unavailable", which this message also contains as a
-        # suggestion ("Use --list-formats"). Ordered the other way, every free
-        # account reads as a missing record.
+        # suggestion ("Use --list-formats"). Ordered the other way, every signed-in
+        # session reads as a missing record.
         if "requested format is not available" in lowered and cookiefile:
-            raise NotPremium() from error
+            raise SignedInNoFormats() from error
         if "private" in lowered or "unavailable" in lowered or "removed" in lowered:
             raise Unavailable(text) from error
         if "sign in" in lowered or "cookies" in lowered or "age" in lowered:

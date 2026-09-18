@@ -122,10 +122,12 @@ export class ResolverClient {
         const body = (await jsonBody<RefusalBody>(response).catch(() => undefined)) ?? {};
         if (response.status === 401) return 'no-session';
 
-        // Said once, at the level the reason deserves. A free account is the
-        // operator's to fix and worth a warning; a record the upstream will not
-        // serve is routine and is not.
-        if (response.status === 402) host.logger.warn(`youtube music: ${body.message ?? 'this account cannot play'}`, { track: trackId });
+        // Said at the level the reason deserves. A signed-in session served nothing
+        // fetchable is the whole audio half failing and worth a warning; a record
+        // the upstream will not serve is routine and is not. Keyed off the CODE
+        // rather than the status, which this shares with other upstream failures.
+        if (body.code === 'sabr')
+            host.logger.warn(`youtube music: ${body.message ?? 'this session was served nothing playable'}`, { track: trackId });
         else host.logger.debug('youtube music: no audio for this record', { track: trackId, code: body.code ?? response.status });
         return undefined;
     }

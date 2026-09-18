@@ -59,7 +59,7 @@ describe('resolve', () => {
 
     it.each([
         ['a record the upstream will not serve', 410, 'unavailable'],
-        ['an account that is not Premium', 402, 'premium'],
+        ['a signed-in session served nothing fetchable', 502, 'sabr'],
         ['a format that is resting', 503, 'cooling'],
         ['anything else upstream', 502, 'upstream'],
     ])('answers undefined for %s', async (_label, status, code) => {

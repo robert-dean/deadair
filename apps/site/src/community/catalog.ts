@@ -176,10 +176,68 @@ export function parseStatus(body: unknown): Record<string, StationStatus> {
     return statuses;
 }
 
+const MOUNT_PATH = /^\/[A-Za-z0-9._-]{1,60}$/;
+const MOUNT_FORMATS = ['mp3', 'aac', 'opus', 'flac', 'hls'];
+
+const text = (value: unknown, max: number) => (isString(value) && value.trim() !== '' ? value.trim().slice(0, max) : undefined);
+
+/**
+ * A station's own `GET /api/nowplaying` answer as a card's status, or undefined when it is not one.
+ *
+ * The same reading the catalogue's probe does before it writes status.json (stations.status.mjs in
+ * that repository): only the fields a card shows, each checked and cut to length, and a mount only as
+ * a path on the station itself, because this is somebody else's server answering.
+ */
+export function readNowPlaying(body: unknown, checkedAt: string): StationStatus | undefined {
+    if (!isObject(body) || typeof body.onAir !== 'boolean') return undefined;
+    const status: StationStatus = { state: body.onAir ? 'on-air' : 'off-air', checkedAt, lastAnsweredAt: checkedAt };
+
+    const name = text(body.station, 80);
+    if (name !== undefined) status.name = name;
+
+    if (Array.isArray(body.mounts)) {
+        const mounts = body.mounts
+            .filter(isObject)
+            .filter(mount => isString(mount.path) && MOUNT_PATH.test(mount.path) && MOUNT_FORMATS.includes(mount.format as string))
+            .slice(0, 8)
+            .map(mount => ({ format: mount.format, path: mount.path }) as NonNullable<StationStatus['mounts']>[number]);
+        if (mounts.length > 0) status.mounts = mounts;
+    }
+
+    if (isObject(body.show)) {
+        const show = text(body.show.name, 120);
+        const host = text(body.show.host, 80);
+        if (show !== undefined) status.show = host === undefined ? { name: show } : { name: show, host };
+    }
+
+    if (isObject(body.track) && (body.track.kind === 'record' || body.track.kind === 'break')) {
+        const artist = text(body.track.artist, 200);
+        const title = text(body.track.title, 200);
+        if (title !== undefined) status.track = artist === undefined ? { kind: body.track.kind, title } : { kind: body.track.kind, artist, title };
+    }
+    return status;
+}
+
+/**
+ * What a station says is on air right now, asked directly, or undefined when it will not say.
+ *
+ * A station answers another origin's browser since it began sending an open CORS header on this one
+ * route. One on an older version answers too, but the browser refuses to hand the answer over, which
+ * lands here as a failed fetch and leaves the card on the catalogue's last check.
+ */
+export async function fetchNowPlaying(
+    stationUrl: string,
+    fetcher: typeof fetch = fetch,
+    now: () => Date = () => new Date(),
+): Promise<StationStatus | undefined> {
+    const body = await fetchJson(`${stationUrl}/api/nowplaying`, fetcher);
+    return body === undefined ? undefined : readNowPlaying(body, now().toISOString());
+}
+
 /** The body at a URL as JSON, or undefined for any failure at all. */
 async function fetchJson(url: string, fetcher: typeof fetch): Promise<unknown> {
     try {
-        const response = await fetcher(url, { headers: { accept: 'application/json' } });
+        const response = await fetcher(url, { headers: { accept: 'application/json' }, signal: AbortSignal.timeout(8_000) });
         return response.ok ? await response.json() : undefined;
     } catch {
         return undefined;

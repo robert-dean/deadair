@@ -3,12 +3,14 @@ import { describe, expect, it } from 'vitest';
 import {
     DEFAULT_ORIGIN,
     EMPTY_CATALOG,
+    fetchNowPlaying,
     formatDate,
     languageName,
     listenUrl,
     loadCommunity,
     parseCatalog,
     parseStatus,
+    readNowPlaying,
     timeAgo,
 } from '../../src/community/catalog';
 
@@ -206,5 +208,64 @@ describe('languageName', () => {
 
     it('leaves a tag it cannot read as it is', () => {
         expect(languageName('not a tag')).toBe('not a tag');
+    });
+});
+
+/** What a station on the air answers today, trimmed. */
+const onAir = {
+    station: 'Deadair',
+    onAir: true,
+    listeners: 1,
+    mounts: [
+        { format: 'mp3', path: '/live.mp3', bitrateKbps: 320 },
+        { format: 'mp3', path: 'https://elsewhere.example/live.mp3' },
+    ],
+    show: { name: 'Overnight', host: 'Chaz' },
+    track: { kind: 'record', title: 'The Paradox', artist: 'Eradicator', album: 'The Paradox', startedAt: 1789737127346 },
+};
+
+describe('readNowPlaying', () => {
+    it('reads what a card shows, keeps only mounts on the station itself, and nothing else', () => {
+        expect(readNowPlaying(onAir, 'T')).toEqual({
+            state: 'on-air',
+            checkedAt: 'T',
+            lastAnsweredAt: 'T',
+            name: 'Deadair',
+            mounts: [{ format: 'mp3', path: '/live.mp3' }],
+            show: { name: 'Overnight', host: 'Chaz' },
+            track: { kind: 'record', artist: 'Eradicator', title: 'The Paradox' },
+        });
+    });
+
+    it('is off air when the station says so', () => {
+        expect(readNowPlaying({ onAir: false }, 'T')?.state).toBe('off-air');
+    });
+
+    it('is nothing for an answer that is not a now-playing document', () => {
+        expect(readNowPlaying({ hello: 'world' }, 'T')).toBeUndefined();
+        expect(readNowPlaying(null, 'T')).toBeUndefined();
+    });
+});
+
+describe('fetchNowPlaying', () => {
+    const at = () => new Date('2026-09-18T12:00:00.000Z');
+
+    it('asks the station itself, at its API', async () => {
+        let asked = '';
+        const station = (async (url: string) => {
+            asked = url;
+            return Response.json(onAir);
+        }) as typeof fetch;
+
+        const status = await fetchNowPlaying('https://radio.example.org', station, at);
+        expect(asked).toBe('https://radio.example.org/api/nowplaying');
+        expect(status?.checkedAt).toBe('2026-09-18T12:00:00.000Z');
+    });
+
+    it('is nothing when the browser will not hand the answer over', async () => {
+        const blocked = (async () => {
+            throw new TypeError('Failed to fetch');
+        }) as typeof fetch;
+        await expect(fetchNowPlaying('https://radio.example.org', blocked, at)).resolves.toBeUndefined();
     });
 });

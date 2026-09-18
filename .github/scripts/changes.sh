@@ -94,8 +94,10 @@ fi
 # scripts, whose tests the root config also runs. And the example plugin, which is outside the
 # workspace on purpose and is built and loaded by a job of its own under this same flag. The Stream
 # Deck plugin is in it too: unlike the three listener apps it is TypeScript, and its tests run in the
-# same root suite, so a commit touching only that app has something for them to say.
-flag node "^(apps/api/|apps/web/|apps/streamdeck/|plugins/|packages/|examples/|scripts/|package\.json$|pnpm-lock\.yaml$|pnpm-workspace\.yaml$|turbo\.json$|vitest\.config\.ts$)|${build_yml}" "${listener_sdks}|\.md$"
+# same root suite, so a commit touching only that app has something for them to say. So is the
+# website, whose community pages parse a catalogue it fetches, for the same reason; its Markdown is
+# still prose here and runs nothing.
+flag node "^(apps/api/|apps/web/|apps/streamdeck/|apps/site/|plugins/|packages/|examples/|scripts/|package\.json$|pnpm-lock\.yaml$|pnpm-workspace\.yaml$|turbo\.json$|vitest\.config\.ts$)|${build_yml}" "${listener_sdks}|\.md$"
 
 # Everything `pnpm codegen` reads or writes: the contracts, permissions and migrations under
 # `apps/api`, the four SDKs, the website's API reference and spec, and the tool versions.

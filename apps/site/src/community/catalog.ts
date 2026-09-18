@@ -1,5 +1,3 @@
-import { useEffect, useState } from 'react';
-
 /**
  * The community catalogue, read in the browser from the deadair-community repository's Pages site.
  *
@@ -13,12 +11,12 @@ import { useEffect, useState } from 'react';
  * validates against. Only the fields the pages use are named.
  */
 
-const origin = 'https://robert-dean.github.io/deadair-community';
-
-export const CATALOG_URL = `${origin}/catalog.json`;
-export const STATUS_URL = `${origin}/status.json`;
-/** Where a relative path inside the catalogue, such as a persona's download, is served from. */
-export const catalogFile = (path: string) => `${origin}/${path}`;
+/**
+ * Where the catalogue is published. A build can point somewhere else with `DEADAIR_COMMUNITY_ORIGIN`
+ * (see `customFields` in docusaurus.config.ts): a fork of the catalogue, or its `dist/` served locally
+ * while working on both at once.
+ */
+export const DEFAULT_ORIGIN = 'https://robert-dean.github.io/deadair-community';
 
 const CATALOG_FORMAT = 'deadair.catalog/1';
 const STATUS_FORMAT = 'deadair.status/1';
@@ -118,6 +116,8 @@ export interface StationStatus {
     checkedAt: string;
     lastAnsweredAt?: string;
     name?: string;
+    /** Paths on the station's own address, as it listed them. */
+    mounts?: { format: 'mp3' | 'aac' | 'opus' | 'flac' | 'hls'; path: string }[];
     show?: { name: string; host?: string };
     track?: { kind: 'record' | 'break'; artist?: string; title: string };
 }
@@ -189,33 +189,14 @@ async function fetchJson(url: string, fetcher: typeof fetch): Promise<unknown> {
 export interface CommunityData {
     catalog: Catalog;
     status: Record<string, StationStatus>;
+    /** Where it came from, which is where a relative path in it, such as a persona's download, is served. */
+    origin: string;
 }
 
 /** Both documents, fetched side by side. Never rejects. */
-export async function loadCommunity(fetcher: typeof fetch = fetch): Promise<CommunityData> {
-    const [catalog, status] = await Promise.all([fetchJson(CATALOG_URL, fetcher), fetchJson(STATUS_URL, fetcher)]);
-    return { catalog: parseCatalog(catalog), status: parseStatus(status) };
-}
-
-let loading: Promise<CommunityData> | undefined;
-
-/**
- * The catalogue for a page, fetched once per visit however many pages ask. `undefined` until it
- * arrives, which is also what the static build renders, since effects do not run there.
- */
-export function useCommunity(): CommunityData | undefined {
-    const [data, setData] = useState<CommunityData>();
-    useEffect(() => {
-        let current = true;
-        loading ??= loadCommunity();
-        void loading.then(result => {
-            if (current) setData(result);
-        });
-        return () => {
-            current = false;
-        };
-    }, []);
-    return data;
+export async function loadCommunity(origin: string = DEFAULT_ORIGIN, fetcher: typeof fetch = fetch): Promise<CommunityData> {
+    const [catalog, status] = await Promise.all([fetchJson(`${origin}/catalog.json`, fetcher), fetchJson(`${origin}/status.json`, fetcher)]);
+    return { catalog: parseCatalog(catalog), status: parseStatus(status), origin };
 }
 
 /** A listing's date as a card prints it: `18 Sep 2026`. */
@@ -225,3 +206,38 @@ export const formatDate = (date: string) => {
         ? date
         : parsed.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
 };
+
+/** How long ago an ISO-8601 moment was, as a card says it: `4 minutes ago`. */
+export function timeAgo(moment: string, now: number = Date.now()): string | undefined {
+    const then = Date.parse(moment);
+    if (Number.isNaN(then)) return undefined;
+    const seconds = Math.round((then - now) / 1000);
+    const format = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
+    const units: [Intl.RelativeTimeFormatUnit, number][] = [
+        ['day', 86_400],
+        ['hour', 3_600],
+        ['minute', 60],
+    ];
+    for (const [unit, size] of units) if (Math.abs(seconds) >= size) return format.format(Math.round(seconds / size), unit);
+    return 'just now';
+}
+
+/**
+ * Where a listener tunes in: the station's MP3 mount when it lists one, since every browser plays
+ * it, then whatever it does list, and `/live.mp3` when it has not answered, which every station
+ * serves unless its operator turned it off.
+ */
+export function listenUrl(station: CatalogStation, status: StationStatus | undefined): string {
+    const mounts = status?.mounts ?? [];
+    const mount = mounts.find(entry => entry.format === 'mp3') ?? mounts.find(entry => entry.format !== 'hls') ?? mounts[0];
+    return `${station.url}${mount?.path ?? '/live.mp3'}`;
+}
+
+/** A BCP 47 tag as a reader says it: `en-GB` is `British English`. The tag itself when the browser cannot name it. */
+export function languageName(tag: string): string {
+    try {
+        return new Intl.DisplayNames(['en'], { type: 'language' }).of(tag) ?? tag;
+    } catch {
+        return tag;
+    }
+}

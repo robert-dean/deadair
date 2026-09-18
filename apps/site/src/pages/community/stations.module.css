@@ -1,0 +1,52 @@
+.badge {
+    flex-shrink: 0;
+    padding: 0.2rem 0.55rem;
+    border-radius: 3px;
+    font-family: var(--ifm-font-family-monospace);
+    font-size: 0.7rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    border: 1px solid var(--da-border-strong);
+    color: var(--da-text-dimmed);
+}
+
+/* The tally light: red, as the console's on-air marker is in every theme. */
+.onAir {
+    color: #fff;
+    background: var(--da-tally);
+    border-color: var(--da-tally);
+}
+
+.offAir {
+    color: var(--da-text-secondary);
+}
+
+.quiet {
+    border-style: dashed;
+}
+
+.now {
+    margin-top: 0.9rem;
+    font-size: 0.92rem;
+}
+
+.now p {
+    margin: 0 0 0.25rem;
+    color: var(--da-text);
+}
+
+.label {
+    display: inline-block;
+    min-width: 3.2rem;
+    font-family: var(--ifm-font-family-monospace);
+    font-size: 0.7rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--da-phosphor);
+}
+
+.now .checked {
+    color: var(--da-text-dimmed);
+    font-size: 0.8rem;
+}

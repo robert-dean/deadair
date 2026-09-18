@@ -53,6 +53,10 @@ const config: Config = {
 
     clientModules: ['./src/fonts.ts'],
 
+    // Where the community pages read the catalogue from, when it is not the published one: a fork,
+    // or the catalogue's own `dist/` served locally. See `src/community/catalog.ts`.
+    customFields: { communityOrigin: process.env.DEADAIR_COMMUNITY_ORIGIN ?? '' },
+
     presets: [
         [
             'classic',

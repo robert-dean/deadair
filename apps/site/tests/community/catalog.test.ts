@@ -1,6 +1,19 @@
 import { describe, expect, it } from 'vitest';
 
-import { CATALOG_URL, EMPTY_CATALOG, formatDate, loadCommunity, parseCatalog, parseStatus, STATUS_URL } from '../../src/community/catalog';
+import {
+    DEFAULT_ORIGIN,
+    EMPTY_CATALOG,
+    formatDate,
+    languageName,
+    listenUrl,
+    loadCommunity,
+    parseCatalog,
+    parseStatus,
+    timeAgo,
+} from '../../src/community/catalog';
+
+const CATALOG_URL = `${DEFAULT_ORIGIN}/catalog.json`;
+const STATUS_URL = `${DEFAULT_ORIGIN}/status.json`;
 
 const listing = { submittedBy: 'someone', dateAdded: '2026-09-18' };
 
@@ -103,7 +116,10 @@ describe('loadCommunity', () => {
         }) as typeof fetch;
 
     it('reads the catalogue and the status together', async () => {
-        const data = await loadCommunity(answering({ [CATALOG_URL]: catalog, [STATUS_URL]: { format: 'deadair.status/1', stations: {} } }));
+        const data = await loadCommunity(
+            DEFAULT_ORIGIN,
+            answering({ [CATALOG_URL]: catalog, [STATUS_URL]: { format: 'deadair.status/1', stations: {} } }),
+        );
         expect(data.catalog.stations).toHaveLength(1);
         expect(data.status).toEqual({});
     });
@@ -112,18 +128,18 @@ describe('loadCommunity', () => {
         const refusing = (async () => {
             throw new TypeError('Failed to fetch');
         }) as typeof fetch;
-        await expect(loadCommunity(refusing)).resolves.toEqual({ catalog: EMPTY_CATALOG, status: {} });
+        await expect(loadCommunity(DEFAULT_ORIGIN, refusing)).resolves.toEqual({ catalog: EMPTY_CATALOG, status: {}, origin: DEFAULT_ORIGIN });
     });
 
     it('still shows the catalogue when only the status is missing', async () => {
-        const data = await loadCommunity(answering({ [CATALOG_URL]: catalog }));
+        const data = await loadCommunity(DEFAULT_ORIGIN, answering({ [CATALOG_URL]: catalog }));
         expect(data.catalog.plugins).toHaveLength(1);
         expect(data.status).toEqual({});
     });
 
     it('is empty for an answer that is not JSON', async () => {
         const html = (async () => new Response('<html>', { status: 200 })) as typeof fetch;
-        await expect(loadCommunity(html)).resolves.toEqual({ catalog: EMPTY_CATALOG, status: {} });
+        await expect(loadCommunity(DEFAULT_ORIGIN, html)).resolves.toEqual({ catalog: EMPTY_CATALOG, status: {}, origin: DEFAULT_ORIGIN });
     });
 });
 
@@ -135,5 +151,60 @@ describe('formatDate', () => {
 
     it('leaves a date it cannot read as it is', () => {
         expect(formatDate('soon')).toBe('soon');
+    });
+});
+
+describe('listenUrl', () => {
+    it('prefers the MP3 mount a station lists', () => {
+        const status = {
+            state: 'on-air' as const,
+            checkedAt: 'T',
+            mounts: [
+                { format: 'hls' as const, path: '/live.m3u8' },
+                { format: 'mp3' as const, path: '/radio.mp3' },
+            ],
+        };
+        expect(listenUrl(station, status)).toBe('https://radio.example.org/radio.mp3');
+    });
+
+    it('takes another format before HLS when there is no MP3', () => {
+        const status = {
+            state: 'on-air' as const,
+            checkedAt: 'T',
+            mounts: [
+                { format: 'hls' as const, path: '/live.m3u8' },
+                { format: 'aac' as const, path: '/live.aac' },
+            ],
+        };
+        expect(listenUrl(station, status)).toBe('https://radio.example.org/live.aac');
+    });
+
+    it('falls back to the default mount when the station has not answered', () => {
+        expect(listenUrl(station, undefined)).toBe('https://radio.example.org/live.mp3');
+    });
+});
+
+describe('timeAgo', () => {
+    const now = Date.parse('2026-09-18T12:00:00.000Z');
+
+    it('says how long ago, in the largest unit that fits', () => {
+        expect(timeAgo('2026-09-18T11:56:00.000Z', now)).toBe('4 minutes ago');
+        expect(timeAgo('2026-09-18T09:00:00.000Z', now)).toBe('3 hours ago');
+        expect(timeAgo('2026-09-18T11:59:50.000Z', now)).toBe('just now');
+    });
+
+    it('is nothing for a moment it cannot read', () => {
+        expect(timeAgo('whenever', now)).toBeUndefined();
+    });
+});
+
+describe('languageName', () => {
+    it('names a language tag the way a reader says it', () => {
+        expect(languageName('en')).toBe('English');
+        expect(languageName('en-GB')).toBe('British English');
+    });
+
+    it('leaves a tag it cannot read as it is', () => {
+        expect(languageName('not a tag')).toBe('not a tag');
     });
 });

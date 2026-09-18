@@ -18,6 +18,7 @@
                 "$TURBO_ROOT$/apps/android/PRIVACY.md",
                 "$TURBO_ROOT$/apps/web/public/**"
             ],
+            "env": ["DEADAIR_COMMUNITY_ORIGIN"],
             "outputs": ["dist/**"]
         },
         "@deadair/streamdeck#build": {

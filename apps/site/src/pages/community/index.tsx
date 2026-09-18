@@ -4,6 +4,16 @@ import Layout from '@theme/Layout';
 import { codeOfConduct, contributing, venues } from '../../community/venues';
 import styles from './community.module.css';
 
+/** The catalogue's directories, each a page under /community. */
+const directories = [
+    {
+        label: 'Stations',
+        body: 'Stations other people run, whether each is on the air right now, and what it is playing.',
+        to: '/community/stations',
+        cta: 'Tune in',
+    },
+];
+
 export default function Community() {
     return (
         <Layout title="Community" description="Where the people running deadair stations talk, and how to share what you built.">
@@ -16,6 +26,22 @@ export default function Community() {
                         on the air, and hand over the parts worth keeping.
                     </p>
                 </header>
+
+                <section className={styles.section}>
+                    <h2>Share.</h2>
+                    <p className={styles.sectionLede}>
+                        What other people run and made, listed by them. Add yours through a form; a maintainer reads each one before it goes up.
+                    </p>
+                    <div className={styles.cards}>
+                        {directories.map(directory => (
+                            <div key={directory.to} className={styles.card}>
+                                <p className="da-eyebrow">{directory.label}</p>
+                                <p>{directory.body}</p>
+                                <Link to={directory.to}>{directory.cta}</Link>
+                            </div>
+                        ))}
+                    </div>
+                </section>
 
                 <section className={styles.section}>
                     <h2>Talk.</h2>

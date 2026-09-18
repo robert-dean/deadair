@@ -66,7 +66,7 @@ A key that cannot reach the station says so (_No station_, _Key refused_) and ke
 
 It talks to the station with an API key rather than your password. Issue one under **Settings → Security**, **API keys**: **Read only** is enough for Now playing, and to see what the station already thinks of a record; Skip, Stop and voting need **Read and manage**. Then drag a deadair key onto the Stream Deck, open its settings, and enter your station's address and the key once; every deadair key shares them, and **Test connection** says whether both work. The key stays on that computer and is never written into a Stream Deck profile you export.
 
-It needs the Stream Deck app 7.1 or later, on macOS or Windows. Download `radio.deadair.streamdeck.streamDeckPlugin` from [the latest Stream Deck release](https://github.com/robert-dean/deadair/releases?q=streamdeck) and open it, and the Stream Deck app installs it. The source is in [the plugin's directory](https://github.com/robert-dean/deadair/tree/main/apps/streamdeck).
+It needs the Stream Deck app 7.1 or later, on macOS or Windows. Install it from [the Elgato Marketplace](https://marketplace.elgato.com/product/deadair-67841f42-616f-45f3-9708-341017359656), which keeps it up to date. The same `radio.deadair.streamdeck.streamDeckPlugin` is on [the latest Stream Deck release](https://github.com/robert-dean/deadair/releases?q=streamdeck) if you would rather open the file yourself. The source is in [the plugin's directory](https://github.com/robert-dean/deadair/tree/main/apps/streamdeck).
 
 ## Signing in
 

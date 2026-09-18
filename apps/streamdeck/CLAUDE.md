@@ -38,7 +38,9 @@ retries. The same workflow runs by hand, from main only, to retry or to draft. S
 is: a changeset naming `@deadair/streamdeck`, then merging the version pull request.
 
 The Marketplace is the one step left by hand: the same `.streamDeckPlugin`, uploaded in Elgato's Maker
-Console, whose documentation describes no API.
+Console, whose documentation describes no API. Elgato approved the listing on 2026-09-18, and it lives at
+<https://marketplace.elgato.com/product/deadair-67841f42-616f-45f3-9708-341017359656>, which the website's front
+page, `docs/features/console.md` and both READMEs link: moving it means changing all four.
 
 **The Marketplace listing is in `marketplace/`**: the text typed into the Maker Console
 (`listing.md`) and the thumbnail and three gallery images it takes, 1920 × 960. The pictures are drawn

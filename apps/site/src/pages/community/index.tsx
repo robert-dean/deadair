@@ -18,6 +18,12 @@ const directories = [
         to: '/community/personas',
         cta: 'Meet them',
     },
+    {
+        label: 'Plugins',
+        body: 'Music sources, facts, voices and models written outside the project. Listed by their authors, and not reviewed by anybody.',
+        to: '/community/plugins',
+        cta: 'Browse them',
+    },
 ];
 
 export default function Community() {

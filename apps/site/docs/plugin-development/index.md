@@ -46,5 +46,6 @@ A plugin that answers a question the station already asks is the usual shape: a 
 4. [Versioning and compatibility](./versioning.md) says which version numbers are enforced and which are advice.
 5. [The example, file by file](./example.md) walks through a complete `charts` plugin.
 6. [The contract](./contract.md) is the reference: every capability, the host, permissions and settings, in detail.
+7. [Listing your plugin](./listing.md) puts it in the [community directory](/community/plugins), where operators will find it.
 
 The SDK is `@deadair/plugin-sdk` on npm. Its source, the example, and the thirteen bundled plugins are all in [the repository](https://github.com/robert-dean/deadair), and the bundled plugins are the best examples of each capability there are.

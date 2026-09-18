@@ -1,0 +1,8 @@
+.hash {
+    font-size: 0.72rem;
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--da-text-secondary);
+    word-break: break-all;
+}

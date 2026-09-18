@@ -70,6 +70,10 @@ through `src/community/catalog.ts`. A build-time fetch would make this site's bu
 there. So an entry is live on the next page load, the static build renders the loading state, and
 every failure (the fetch, the format, one malformed entry) degrades to less on the page rather than
 to an error. The types there mirror that repository's JSON Schemas by hand; change them together.
+`DEADAIR_COMMUNITY_ORIGIN` points a build or `start` at another copy, such as the catalogue's own
+`dist/` served locally. It is baked into `.docusaurus/`, which `start` and `build` share, so a `build`
+run while `start` is up rewrites it and the running pages quietly go back to the published catalogue.
+Restart `start` after building.
 
 **The tests' Vite warning about "ESM syntax in a file loaded as CommonJS" is expected.** It is
 `vitest.config.ts` in a package with no `"type": "module"`, which the paragraph above on module format

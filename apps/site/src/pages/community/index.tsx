@@ -24,6 +24,12 @@ const directories = [
         to: '/community/plugins',
         cta: 'Browse them',
     },
+    {
+        label: 'Apps',
+        body: 'Players, remotes, integrations and libraries, by the project and by other people.',
+        to: '/community/apps',
+        cta: 'Take your pick',
+    },
 ];
 
 export default function Community() {

@@ -1,0 +1,12 @@
+.ours {
+    flex-shrink: 0;
+    padding: 0.2rem 0.55rem;
+    border-radius: 3px;
+    font-family: var(--ifm-font-family-monospace);
+    font-size: 0.7rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    color: var(--da-phosphor);
+    border: 1px solid var(--da-phosphor);
+}

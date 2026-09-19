@@ -431,7 +431,18 @@ COPY docker/rootfs /
 # The supervisor's own tree, made runnable and cut down to the services this variant has. Both
 # halves need `docker/rootfs` to be on disk, which is what keeps this below the copy rather than
 # up with the user it belongs to; it is a handful of small files either way.
+#
+# Before the cut, every service defined under `s6-rc.d` has to be in the `user` bundle, because a
+# service that is defined and not in it builds clean, is never started, and says nothing: `ytaudio`
+# shipped that way and every YouTube Music fetch was refused on 9322 (#195). s6-rc-compile already
+# refuses a bundle entry with no definition, so this is the other direction. Here rather than in the
+# test suite because the suite does not run for a change under `docker/`, and this build does.
 RUN set -eux; \
+    for service in /etc/s6-overlay/s6-rc.d/*/; do \
+        name="$(basename "$service")"; \
+        [ -e "/etc/s6-overlay/user-bundles.d/user/contents.d/${name}" ] \
+            || { echo "s6 service '${name}' is defined but not in the user bundle, so it would never start" >&2; exit 1; }; \
+    done; \
     chmod +x /etc/s6-overlay/scripts/* /etc/s6-overlay/s6-rc.d/*/run; \
     if [ "${WITH_TTS}" != "1" ]; then rm -f /etc/s6-overlay/user-bundles.d/user/contents.d/tts /etc/s6-overlay/user-bundles.d/user/contents.d/init-tts; fi; \
     if [ "${WITH_DB}" != "1" ]; then rm -f /etc/s6-overlay/user-bundles.d/user/contents.d/postgres /etc/s6-overlay/user-bundles.d/user/contents.d/redis /etc/s6-overlay/user-bundles.d/user/contents.d/init-database; fi

@@ -104,6 +104,7 @@ import { AAC_BITRATES, LOG_LEVELS, MP3_BITRATES, OPUS_BITRATES, STREAM_DEFAULTS,
 import { HLS_REFUSE_DEFAULT, HLS_REFUSE_KEY } from '#modules/stream/hls.refusal.js';
 import { ACTIVITY_DEFAULTS, ACTIVITY_KEYS } from '#modules/activity/activity.settings.js';
 import { DEFAULT_SWEEP_MAX_PERCENT, SWEEP_MAX_PERCENT_KEY } from '#modules/catalog/ingest/catalog.sweep.guard.js';
+import { CATALOG_SYNC_DEFAULTS, CATALOG_SYNC_KEYS, MAX_SYNC_EVERY_HOURS } from '#modules/catalog/ingest/catalog.sync.schedule.js';
 
 /**
  * What a station setting is, declared once.
@@ -444,6 +445,25 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
     },
     {
         group: 'housekeeping',
+        key: CATALOG_SYNC_KEYS.auto,
+        label: 'Read the playlists again automatically',
+        type: 'boolean',
+        default: CATALOG_SYNC_DEFAULTS.auto,
+        help: "The station learns what records it can play by reading every playlist on every music source. With this on it does so on the schedule below, and picks up whatever was added or taken away. Turn it off if reading them is expensive for your account. Saving a source's settings still reads its playlists at once either way.",
+    },
+    {
+        group: 'housekeeping',
+        key: CATALOG_SYNC_KEYS.everyHours,
+        label: 'Read the playlists every (hours)',
+        type: 'number',
+        default: CATALOG_SYNC_DEFAULTS.everyHours,
+        // The same bounds `resolveSyncEveryHours` clamps a stored row to.
+        min: 1,
+        max: MAX_SYNC_EVERY_HOURS,
+        help: 'How often the automatic read above happens. A record added to a playlist can take this long to reach the station unless you refresh it by hand.',
+    },
+    {
+        group: 'housekeeping',
         key: SWEEP_MAX_PERCENT_KEY,
         label: 'Most of a library one sync may retire (%)',
         type: 'number',
@@ -453,7 +473,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         min: 1,
         max: 100,
         control: 'slider',
-        help: 'Each hour the station asks a music source what it still has, and stops offering whatever is no longer there. If a source suddenly does not recognise more than this much of what the station holds — which is what a library server renumbering its own ids looks like, not a library being deleted — the station refuses rather than throwing the lot away. Set it to 100 to retire whatever a sync did not see. Copies that really have gone are still dropped one at a time when their audio does not arrive.',
+        help: 'Each time it reads the playlists, the station asks a music source what it still has, and stops offering whatever is no longer there. If a source suddenly does not recognise more than this much of what the station holds — which is what a library server renumbering its own ids looks like, not a library being deleted — the station refuses rather than throwing the lot away. Set it to 100 to retire whatever a sync did not see. Copies that really have gone are still dropped one at a time when their audio does not arrive.',
     },
 
     // ── rotation ───────────────────────────────────────────────────────────────

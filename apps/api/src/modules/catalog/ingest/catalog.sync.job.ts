@@ -1,14 +1,30 @@
 import { Container, Injectable } from 'injectkit';
+import { AppConfig } from '@maroonedsoftware/appconfig';
 import { JobContext } from '@maroonedsoftware/jobbroker';
 import { Logger } from '@maroonedsoftware/logger';
 import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
 import { PlainJob } from '#modules/jobs/plain.job.js';
 import { CatalogSyncService, type PluginSyncSummary } from './catalog.sync.service.js';
 import { SWEEP_MAX_PERCENT_KEY } from './catalog.sweep.guard.js';
+import { scheduledSyncIsDue } from './catalog.sync.schedule.js';
 
-/** Narrows the run to one plugin. Absent — as it always is from cron — means all of them. */
+/**
+ * Narrows the run to one plugin. Absent means all of them.
+ *
+ * **Every `send` carries at least one key.** A payload with none is how the job recognises its own
+ * cron run, which pg-boss delivers as `null`, and only that run is judged by the schedule settings
+ * (see {@link scheduledSyncIsDue}). A send of `{}` would be read as the schedule and could be
+ * skipped, so a sender with nothing to narrow says who asked instead.
+ */
 export interface CatalogSyncPayload {
     pluginId?: string;
+    /** Who asked for a walk of everything, when nothing narrows it. Makes the payload non-empty. */
+    requestedBy?: 'operator';
+}
+
+/** The cron run: no payload at all, or one with nothing in it. */
+function isScheduledRun(payload?: CatalogSyncPayload): boolean {
+    return payload == null || Object.keys(payload).length === 0;
 }
 
 /**
@@ -26,6 +42,7 @@ export class CatalogSyncJob extends PlainJob<CatalogSyncPayload> {
     constructor(
         private readonly sync: CatalogSyncService,
         private readonly activity: ActivityRecorder,
+        private readonly config: AppConfig,
         context: JobContext,
         container: Container,
         logger: Logger,
@@ -35,10 +52,16 @@ export class CatalogSyncJob extends PlainJob<CatalogSyncPayload> {
 
     /**
      * @param payload - Optional in practice as well as in type: a cron-triggered
-     *   pg-boss job carries no data at all, so this arrives `undefined` on every
-     *   scheduled run and only ever has a `pluginId` when something sent one.
+     *   pg-boss job carries no data at all (`null`, see `takeParentTrace`), and
+     *   only something that was sent has keys. The scheduled run is the one
+     *   that may be skipped; a sent one always runs.
      */
     protected async execute(payload?: CatalogSyncPayload, signal?: AbortSignal): Promise<void> {
+        if (isScheduledRun(payload) && !scheduledSyncIsDue(this.config, new Date())) {
+            this.logger.info('catalog sync skipped, the scheduled walk is off or not due this hour', { job: this.context.id });
+            return;
+        }
+
         const summaries = await this.sync.syncAll(payload?.pluginId, signal);
         for (const summary of summaries) {
             this.logger.info('catalog sync', { job: this.context.id, ...summary });

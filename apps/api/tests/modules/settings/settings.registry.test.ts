@@ -26,6 +26,7 @@ import {
     resolveAnalysisPaceMs,
 } from '../../../src/modules/analysis/analysis.settings.js';
 import { DEFAULT_SWEEP_MAX_PERCENT, resolveSweepMaxPercent, SWEEP_MAX_PERCENT_KEY } from '../../../src/modules/catalog/ingest/catalog.sweep.guard.js';
+import { CATALOG_SYNC_DEFAULTS, CATALOG_SYNC_KEYS, resolveSyncEveryHours } from '../../../src/modules/catalog/ingest/catalog.sync.schedule.js';
 import { CHART_GENERATOR_KEYS } from '../../../src/modules/director/chart.set.generator.js';
 import { SIMILAR_GENERATOR_KEYS } from '../../../src/modules/director/similar.set.generator.js';
 import {
@@ -191,6 +192,17 @@ describe('the settings registry', () => {
         expect(resolveSweepMaxPercent(descriptor.max)).toBe(descriptor.max);
         expect(resolveSweepMaxPercent(descriptor.max! + 1)).toBe(descriptor.max);
         expect(resolveSweepMaxPercent(descriptor.min! - 1)).toBe(descriptor.min);
+    });
+
+    it('declares the automatic catalog walk over the same defaults and range its resolver uses', () => {
+        expect(findDescriptor(CATALOG_SYNC_KEYS.auto)!.default).toBe(CATALOG_SYNC_DEFAULTS.auto);
+
+        const every = findDescriptor(CATALOG_SYNC_KEYS.everyHours)!;
+        expect(every.default).toBe(CATALOG_SYNC_DEFAULTS.everyHours);
+        expect(resolveSyncEveryHours(every.min)).toBe(every.min);
+        expect(resolveSyncEveryHours(every.max)).toBe(every.max);
+        expect(resolveSyncEveryHours(every.max! + 1)).toBe(every.max);
+        expect(resolveSyncEveryHours(every.min! - 1)).toBe(every.min);
     });
 
     it('declares the smart shuffle over the same defaults and range its resolver uses', () => {

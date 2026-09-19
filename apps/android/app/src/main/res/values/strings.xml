@@ -178,6 +178,8 @@
     <string name="notice_nothing_to_resume">Nothing to resume: the station has not been put on air yet.</string>
     <string name="notice_playlist_empty">That playlist has nothing the station can play.</string>
     <string name="notice_host_gone">That persona is no longer on the station.</string>
+    <string name="notice_record_gone">The station no longer has that record.</string>
+    <string name="notice_record_refused">The station will not play that record now.</string>
     <string name="notice_could_not_reach">Could not reach the station to do that.</string>
     <string name="notice_failed">The station refused that (%1$d).</string>
 

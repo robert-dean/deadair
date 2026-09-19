@@ -131,4 +131,42 @@ class OrderActionsTest {
         assertEquals(listOf(Notice.HostGone), heard)
     }
 
+    private val trackId = "5b0e8a52-3c1f-4d2a-9e7b-0f6c1d2e3a4b"
+
+    @Test
+    fun `adding a record next names its position`() = runTest {
+        val recorded = Recorded()
+        val actions = OrderActions(OperatorActions(FakeSession(recorded, HttpStatusCode.OK, orderJson("Answered"))), repositoryFor(backgroundScope))
+
+        assertTrue(actions.addTrack(trackId, atIndex = 2))
+
+        assertEquals("/api/director/air/tracks", recorded.path)
+        assertEquals("""{"trackId":"$trackId","atIndex":2}""", recorded.body)
+    }
+
+    @Test
+    fun `adding a record at the end sends no position at all`() = runTest {
+        val recorded = Recorded()
+        val actions = OrderActions(OperatorActions(FakeSession(recorded, HttpStatusCode.OK, orderJson("Answered"))), repositoryFor(backgroundScope))
+
+        assertTrue(actions.addTrack(trackId, atIndex = null))
+
+        assertEquals("""{"trackId":"$trackId"}""", recorded.body)
+    }
+
+    @Test
+    fun `a record the station will not put on is said in words rather than as a number`() = runTest {
+        val heard = mutableListOf<Notice>()
+        for (status in listOf(HttpStatusCode.NotFound, HttpStatusCode.UnprocessableEntity)) {
+            val operator = OperatorActions(FakeSession(Recorded(), status, "{}"))
+            val listening = backgroundScope.launch { operator.notices.collect { heard += it } }
+            runCurrent()
+
+            assertFalse(OrderActions(operator, repositoryFor(backgroundScope)).addTrack(trackId, atIndex = null))
+            runCurrent()
+            listening.cancel()
+        }
+
+        assertEquals(listOf(Notice.RecordGone, Notice.RecordRefused), heard)
+    }
 }

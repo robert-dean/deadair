@@ -39,6 +39,15 @@ sealed interface Notice {
     /** A persona picked from a list the station has since changed. The list is stale, not the choice. */
     data object HostGone : Notice
 
+    /** A record picked from a list the catalog has since lost, or that no provider offers a copy of any more. */
+    data object RecordGone : Notice
+
+    /**
+     * A record the station will not put on now: its audio is not here yet, its own rules veto it, or
+     * the position asked for has already been handed to the player. One 422 for all of them.
+     */
+    data object RecordRefused : Notice
+
     /** The station could not be reached to ask. */
     data object CouldNotReach : Notice
 

@@ -41,6 +41,19 @@ class OrderActions(private val actions: OperatorActions, private val order: Orde
     suspend fun restore(trackId: String, atIndex: Int): Boolean =
         applying { it.director.addARecordToTheRunningOrder(AddStationTrackInput(trackId = Uuid.parse(trackId), atIndex = atIndex.toLong())) }
 
+    /**
+     * Add a record from the library, at a position or, with `null`, at the end.
+     *
+     * The station vets a record picked by hand exactly as it vets one a playlist put on air, so a
+     * record whose audio is here can still be refused: a dislike, the period, the advisory policy,
+     * its length. All of those, and a position the player has already been handed, arrive as one
+     * 422 whose body this app does not read, so they share one sentence.
+     */
+    suspend fun addTrack(trackId: String, atIndex: Int?): Boolean =
+        applying(expected = mapOf(NOT_FOUND to Notice.RecordGone, UNPLAYABLE to Notice.RecordRefused)) {
+            it.director.addARecordToTheRunningOrder(AddStationTrackInput(trackId = Uuid.parse(trackId), atIndex = atIndex?.toLong()))
+        }
+
     /** Move an item to a position. The station refuses anything below what the player holds rather than clamping it. */
     suspend fun move(itemId: String, toIndex: Int): Boolean =
         applying { it.director.moveARunningOrderItem(itemId, MoveStationItemInput(toIndex = toIndex.toLong())) }
@@ -76,7 +89,10 @@ class OrderActions(private val actions: OperatorActions, private val order: Orde
     }
 
     private companion object {
-        /** The station validates the persona at the door, so an id from a list it has since changed comes back as this. */
+        /** The station validates a persona or a record at the door, so an id from a list it has since changed comes back as this. */
         const val NOT_FOUND = 404
+
+        /** A record the station has but will not put on now. */
+        const val UNPLAYABLE = 422
     }
 }

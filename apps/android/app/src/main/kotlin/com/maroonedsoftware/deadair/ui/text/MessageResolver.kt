@@ -143,6 +143,8 @@ fun Message.resolve(): String =
                 Notice.NothingToResume -> stringResource(R.string.notice_nothing_to_resume)
                 Notice.PlaylistEmpty -> stringResource(R.string.notice_playlist_empty)
                 Notice.HostGone -> stringResource(R.string.notice_host_gone)
+                Notice.RecordGone -> stringResource(R.string.notice_record_gone)
+                Notice.RecordRefused -> stringResource(R.string.notice_record_refused)
                 Notice.CouldNotReach -> stringResource(R.string.notice_could_not_reach)
                 is Notice.Failed -> stringResource(R.string.notice_failed, it.status)
             }

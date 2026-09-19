@@ -4,7 +4,7 @@ sidebar_position: 0
 description: The seven things a deadair station does, why each is built the way it is, and where each is explained.
 ---
 
-deadair is a radio station you run yourself. It picks the records, writes what the presenter says between them, speaks it in that presenter's voice, and streams the result. It plays your music, not its own: it programmes what your provider already gives you, a Spotify account or a Subsonic server such as Navidrome. There is one mount and one running order, so everybody hears the same thing at the same moment. There is no per-listener shuffle and no skip button. What is on is what is on, and the station decides.
+deadair is a radio station you run yourself. It picks the records, writes what the presenter says between them, speaks it in that presenter's voice, and streams the result. It plays your music, not its own: it programmes what your provider already gives you, a Spotify account, a YouTube Music account or a Subsonic server such as Navidrome. There is one mount and one running order, so everybody hears the same thing at the same moment. There is no per-listener shuffle and no skip button. What is on is what is on, and the station decides.
 
 ## It keeps a running order, and one thing owns it
 

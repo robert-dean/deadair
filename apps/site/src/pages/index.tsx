@@ -55,7 +55,7 @@ const sources = [
     'US National Weather Service',
     'OpenWeatherMap',
 ];
-const providers = ['Spotify', 'Navidrome', 'Any Subsonic server'];
+const providers = ['Spotify', 'YouTube Music', 'Navidrome', 'Any Subsonic server'];
 
 /** The three images, as the install guide lists them. */
 const tags = [
@@ -338,8 +338,8 @@ export default function Home() {
                     <h2>It plays your music, not its own.</h2>
                     <div className={styles.library}>
                         <p className={styles.sectionLede}>
-                            deadair holds no catalogue. It programmes what your provider already gives you, a Spotify account or a Subsonic server
-                            such as Navidrome, and it grants you no rights to broadcast any of it.
+                            deadair holds no catalogue. It programmes what your provider already gives you, a Spotify account, a YouTube Music account
+                            or a Subsonic server such as Navidrome, and it grants you no rights to broadcast any of it.
                         </p>
                         <ul className={styles.providers}>
                             {providers.map(provider => (

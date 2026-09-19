@@ -89,6 +89,22 @@ describe('the credential', () => {
         await expect(new YtMusicPlugin().init(host)).rejects.toMatchObject({ code: 'config' });
     });
 
+    it('starts from a config saved before the resolver field existed', async () => {
+        // The live case on any station that configured the catalog-only version: its row has a
+        // cookie and no resolverBaseUrl. Parsing it strictly threw a ZodError and took the
+        // catalog down with it.
+        const host = createFakePluginHost();
+        host.seedConfig({});
+        host.seedSecret('cookie', COOKIE);
+        const plugin = new YtMusicPlugin();
+
+        await expect(plugin.init(host)).resolves.toBeUndefined();
+        client.searchSongs.mockResolvedValue([song('a', 'A')]);
+        await expect(plugin.searchTracks('jazz')).resolves.toHaveLength(1);
+        // No resolver, so no audio -- answered as "not available", never thrown.
+        await expect(plugin.resolveStreamUrl('a')).resolves.toBeUndefined();
+    });
+
     it('starts for an account with no playlists at all', async () => {
         // The false-refusal case. `[]` is the truth about a station with nothing in its library.
         client.libraryPlaylists.mockResolvedValue([]);

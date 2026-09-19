@@ -14,7 +14,7 @@ import {
 
 import { YtMusicClient } from './ytmusic.client.js';
 import { toPluginError } from './ytmusic.errors.js';
-import { configSchema, LIKED_PLAYLIST_ID, LIKED_PLAYLIST_NAME, PLAYLIST_MEMO_TTL_MS, type YtMusicConfig } from './ytmusic.manifest.js';
+import { LIKED_PLAYLIST_ID, LIKED_PLAYLIST_NAME, PLAYLIST_MEMO_TTL_MS, type YtMusicConfig } from './ytmusic.manifest.js';
 import { resolverFor, type ResolverClient } from './ytmusic.resolver.js';
 import { mapPlaylists, mapTracks } from './ytmusic.mapping.js';
 import type { UpstreamItem } from './ytmusic.mapping.js';
@@ -60,7 +60,12 @@ export class YtMusicPlugin extends Plugin implements MusicProviderPluginInstance
     protected async onLoad(): Promise<void> {
         const host = this.host;
 
-        const config = configSchema.parse(await host.config.get()) as YtMusicConfig;
+        // Read leniently, NOT through `configSchema.parse`, which is the analyzer's rule and for the
+        // same reason. The schema is what a SAVE is validated against; what is already stored may
+        // predate a field. A config saved before `resolverBaseUrl` existed has none, and parsing it
+        // strictly threw a raw ZodError out of here -- taking the catalog half down over a missing
+        // audio setting, with a message about a schema rather than about what to do.
+        const config = (await host.config.get()) as Partial<YtMusicConfig>;
         const cookie = (await host.secrets.get('cookie'))?.trim();
         if (!cookie) throw new PluginError('YouTube Music needs the cookie from a signed-in browser session').withCode('config');
 
@@ -88,7 +93,9 @@ export class YtMusicPlugin extends Plugin implements MusicProviderPluginInstance
                     : 'youtube music: the audio resolver is not answering, so nothing will play',
             );
         } else {
-            host.logger.info('youtube music: no audio resolver configured, so nothing will play');
+            // Not configured, or saved before the field existed. Saving the plugin's settings once
+            // fills it with the default, which is also what puts its address on the allowlist.
+            host.logger.info('youtube music: no audio resolver configured, so nothing will play; save the plugin settings to set one');
         }
 
         this.register(() => {

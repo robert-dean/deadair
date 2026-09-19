@@ -11,6 +11,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import com.maroonedsoftware.deadair.R
@@ -43,6 +45,8 @@ import com.maroonedsoftware.deadair.ui.order.RunningOrderScreen
 import com.maroonedsoftware.deadair.ui.nowplaying.NowPlayingScreen
 import com.maroonedsoftware.deadair.ui.nowplaying.NowPlayingUiState
 import com.maroonedsoftware.deadair.ui.nowplaying.SkipControl
+import com.maroonedsoftware.deadair.ui.nowplaying.rememberRest
+import com.maroonedsoftware.deadair.ui.nowplaying.sideBySide
 import com.maroonedsoftware.deadair.ui.nowplaying.TransportUiState
 import com.maroonedsoftware.deadair.ui.nowplaying.rememberPlayWithNotificationsAsked
 import com.maroonedsoftware.deadair.ui.nowplaying.rememberPlayhead
@@ -125,6 +129,12 @@ fun HomeRoute(
         )
     val artworkUrl = station?.artUrl(reading?.nowPlaying?.track?.artworkUrl)
 
+    // Now playing gives the screen to the cover when left alone, upright only: sideways the cover
+    // is beside the words and already has its own half. Held here because the tabs go with it.
+    val window = LocalWindowInfo.current.containerSize
+    val upright = with(LocalDensity.current) { !sideBySide(window.width.toDp(), window.height.toDp()) }
+    val rest = rememberRest(allowed = tab == Tab.NOW_PLAYING && upright && nowState.canRest)
+
     // The order's own state is read here as well as in its tab, because the app bar's Extend and
     // Shuffle live above the tab and need to know whether there is anything to shuffle. Collected
     // only while the tab is showing, so the poll still stops when it is left.
@@ -162,6 +172,7 @@ fun HomeRoute(
         // Now playing is the cover to the top of the screen, and a bar over it would be the one
         // thing on the art that is not the art.
         topBar = tab != Tab.NOW_PLAYING,
+        bottomBar = !rest.resting,
         snackbarHost = snackbarHost,
         // Over the tabs that are about the station, and not over Now playing, which has the
         // station's button already, or Settings, which is not about what is on.
@@ -247,6 +258,7 @@ fun HomeRoute(
                     // The cover leads to the record's page, for a signed-in listener: the public
                     // reading names no record, so only the transport reading can say which it is.
                     onArtwork = loaded?.status?.nowPlaying?.item?.trackId?.let { id -> { onTrack(id) } },
+                    rest = rest,
                 )
             }
             Tab.UP_NEXT -> {

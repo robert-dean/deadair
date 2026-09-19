@@ -8,6 +8,8 @@ import com.maroonedsoftware.deadair.ui.nowplaying.NowPlayingUiState
 import com.maroonedsoftware.deadair.ui.text.Message
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Assert.assertFalse
 import org.junit.Test
 
 /**
@@ -19,11 +21,11 @@ import org.junit.Test
  * must not be the fault message.
  */
 class NowPlayingUiStateTest {
-    private fun state(air: AirState, stale: Boolean = false, show: NowPlayingShow? = null) =
+    private fun state(air: AirState, stale: Boolean = false, show: NowPlayingShow? = null, playing: Boolean = false, buffering: Boolean = false) =
         NowPlayingUiState(
             air = air,
-            playing = false,
-            buffering = false,
+            playing = playing,
+            buffering = buffering,
             stale = stale,
             show = show,
         )
@@ -131,5 +133,18 @@ class NowPlayingUiStateTest {
         val ui = state(AirState.OnAir(NowPlayingTrack(title = "Windowlicker", artist = "Aphex Twin", startedAt = 1)))
 
         assertEquals(Message.Text("Windowlicker"), ui.title)
+    }
+
+    @Test
+    fun `rests only while a record is coming out of the phone`() {
+        val record = NowPlayingTrack(title = "Carriageway", artist = "Pale Arcs", startedAt = 1)
+
+        assertTrue(state(AirState.OnAir(record), playing = true).canRest)
+        // Stopped, still warming up, or reading something that is no longer true: the words are the news.
+        assertFalse(state(AirState.OnAir(record)).canRest)
+        assertFalse(state(AirState.OnAir(record), playing = true, buffering = true).canRest)
+        assertFalse(state(AirState.OnAir(record), playing = true, stale = true).canRest)
+        assertFalse(state(AirState.WarmingUp, playing = true).canRest)
+        assertFalse(state(AirState.OffAir, playing = true).canRest)
     }
 }

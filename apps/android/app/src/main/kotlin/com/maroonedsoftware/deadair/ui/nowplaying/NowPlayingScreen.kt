@@ -2,6 +2,7 @@ package com.maroonedsoftware.deadair.ui.nowplaying
 
 import androidx.activity.compose.LocalActivity
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
@@ -51,6 +52,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import coil3.compose.AsyncImage
@@ -93,11 +95,11 @@ fun NowPlayingScreen(
     skip: SkipControl? = null,
     /** Where the cover leads, when the record is known. */
     onArtwork: (() -> Unit)? = null,
+    /** The idle timer, upright only. `null` keeps everything on screen. */
+    rest: RestState? = null,
 ) {
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-        val sideBySide = maxWidth > maxHeight || maxWidth >= WIDE
-
-        if (sideBySide) {
+        if (sideBySide(maxWidth, maxHeight)) {
             val viewportHeight = maxHeight
             Row(
                 modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.statusBars).padding(horizontal = Gutter, vertical = 16.dp),
@@ -121,7 +123,7 @@ fun NowPlayingScreen(
                 }
             }
         } else {
-            FullBleed(state, artworkUrl, playhead, onPlay, onStop, skip, onArtwork)
+            FullBleed(state, artworkUrl, playhead, onPlay, onStop, skip, onArtwork, rest)
         }
     }
 }
@@ -138,35 +140,44 @@ private fun FullBleed(
     onStop: () -> Unit,
     skip: SkipControl?,
     onArtwork: (() -> Unit)?,
+    rest: RestState?,
 ) {
     LightStatusBarIcons()
     val background = MaterialTheme.colorScheme.background
 
-    Box(modifier = Modifier.fillMaxSize().background(background)) {
+    // Resting, the cover grows to the whole screen and everything over its foot fades: the scrim
+    // that carried it into the background, the words, the bar and the controls. They come back on
+    // the first touch, which does nothing else (see `wakesRest`).
+    val resting = rest?.resting == true
+    val shown by animateFloatAsState(if (resting) 0f else 1f, animationSpec = tween(if (resting) 900 else 250), label = "chrome")
+    val coverShare by animateFloatAsState(if (resting) 1f else COVER_SHARE, animationSpec = tween(if (resting) 900 else 250), label = "cover")
+
+    Box(modifier = Modifier.fillMaxSize().background(background).then(if (rest != null) Modifier.wakesRest(rest) else Modifier)) {
         // The cover and nothing over it but the scrim: the only thing on the art is the art.
         Artwork(
             url = artworkUrl,
             stale = state.stale,
             onOpen = onArtwork,
-            modifier = Modifier.fillMaxWidth().fillMaxHeight(COVER_SHARE).align(Alignment.TopCenter),
+            modifier = Modifier.fillMaxWidth().fillMaxHeight(coverShare).align(Alignment.TopCenter),
         )
-        // Dark at the top so the status bar reads over any cover, and into the background by the
-        // time the words start, so they read over any cover too. Drawn as its own layer with no
-        // pointer input, so a tap on the art still reaches the art.
+        // Dark at the top so the status bar reads over any cover, resting or not. Drawn as its own
+        // layer with no pointer input, so a tap on the art still reaches the art.
+        Box(modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color.Black.copy(alpha = 0.45f), 0.20f to Color.Transparent)))
+        // Into the background by the time the words start, so they read over any cover too.
         Box(
             modifier =
                 Modifier.fillMaxSize()
+                    .alpha(shown)
                     .background(
                         Brush.verticalGradient(
-                            0f to Color.Black.copy(alpha = 0.55f),
-                            0.20f to Color.Black.copy(alpha = 0.18f),
+                            0.20f to Color.Black.copy(alpha = 0.10f),
                             0.44f to background.copy(alpha = 0.55f),
                             0.57f to background.copy(alpha = 0.93f),
                             0.65f to background,
                         ),
                     ),
         )
-        Column(modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(start = Gutter, end = Gutter, bottom = 24.dp)) {
+        Column(modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth().alpha(shown).padding(start = Gutter, end = Gutter, bottom = 24.dp)) {
             Words(state)
             Controls(state, playhead, onPlay, onStop, skip)
         }
@@ -310,3 +321,6 @@ private const val COVER_SHARE = 0.74f
 
 /** Where a phone stops and a tablet starts, which is Material's own line for a medium window. */
 private val WIDE = 600.dp
+
+/** Sideways, or a tablet: the cover beside the words rather than behind them. Only upright can rest. */
+fun sideBySide(width: Dp, height: Dp): Boolean = width > height || width >= WIDE

@@ -1,5 +1,9 @@
 package com.maroonedsoftware.deadair.ui.home
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -63,6 +67,8 @@ fun HomeScreen(
     onTab: (Tab) -> Unit,
     /** Whether the tab has a bar over it. Without one the tab draws to the top of the screen and minds the status bar itself. */
     topBar: Boolean = true,
+    /** Whether the tabs are showing. Now playing puts them away while it rests. */
+    bottomBar: Boolean = true,
     snackbarHost: SnackbarHostState,
     /** The tab's own actions. Empty for a tab that has none. */
     actions: @Composable RowScope.() -> Unit = {},
@@ -90,18 +96,20 @@ fun HomeScreen(
         bottomBar = {
             // The player bar sits on the tabs rather than inside a tab, so the Scaffold pads the
             // content by both and a list's last row is never under it; the snackbar lands above both.
-            Column {
-                miniPlayer?.invoke()
-                NavigationBar {
-                    Tab.entries.forEach { entry ->
-                        NavigationBarItem(
-                            selected = entry == tab,
-                            onClick = { onTab(entry) },
-                            // The item merges its icon and label into one node for a screen reader, so
-                            // a description on the icon as well read every tab twice: "Played, Played".
-                            icon = { Icon(painterResource(entry.icon), contentDescription = null) },
-                            label = { Text(stringResource(entry.label)) },
-                        )
+            AnimatedVisibility(visible = bottomBar, enter = slideInVertically { it }, exit = slideOutVertically(tween(900)) { it }) {
+                Column {
+                    miniPlayer?.invoke()
+                    NavigationBar {
+                        Tab.entries.forEach { entry ->
+                            NavigationBarItem(
+                                selected = entry == tab,
+                                onClick = { onTab(entry) },
+                                // The item merges its icon and label into one node for a screen reader, so
+                                // a description on the icon as well read every tab twice: "Played, Played".
+                                icon = { Icon(painterResource(entry.icon), contentDescription = null) },
+                                label = { Text(stringResource(entry.label)) },
+                            )
+                        }
                     }
                 }
             }

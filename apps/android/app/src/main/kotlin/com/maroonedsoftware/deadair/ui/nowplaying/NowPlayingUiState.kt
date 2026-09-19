@@ -85,4 +85,12 @@ data class NowPlayingUiState(
      */
     val subtitleScrolls: Boolean
         get() = subtitle is Message.Text
+
+    /**
+     * Whether the screen may give itself to the cover when left alone: only while a record is
+     * actually coming out of the phone. Warming up, off air, unreachable or stale, the words are
+     * the news, and hiding them would hide the one thing worth reading.
+     */
+    val canRest: Boolean
+        get() = playing && !buffering && !stale && air is AirState.OnAir
 }

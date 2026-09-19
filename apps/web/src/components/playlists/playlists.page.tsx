@@ -3,9 +3,10 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import type { CatalogPlaylist } from '@deadair/sdk';
 
-import { playlistsListOptions } from '../../api/playlists.queries';
+import { playlistsListOptions, useRefreshPlaylists } from '../../api/playlists.queries';
 import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
+import { notifyQueued } from '../shared/notify';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
 import { PlaylistCard } from './playlist.card';
@@ -62,6 +63,7 @@ function makers(playlists: CatalogPlaylist[]): string {
 
 export function PlaylistsPage() {
     const playlists = useQuery(playlistsListOptions);
+    const refresh = useRefreshPlaylists();
     const sourceErrors = playlists.data?.errors ?? [];
 
     // What a person chose is the page; what the service made for the account (Discover Weekly, a
@@ -83,7 +85,26 @@ export function PlaylistsPage() {
                         {playlists.data ? `${chosen.length} available` : 'Everything the enabled catalog plugins can offer.'}
                     </Text>
                 }
+                actions={
+                    <Button
+                        size="xs"
+                        variant="default"
+                        loading={refresh.isPending}
+                        onClick={() =>
+                            refresh.mutate(undefined, {
+                                onSuccess: () =>
+                                    notifyQueued(
+                                        'The station is reading every playlist again. New records reach the library in a few minutes, and the activity feed says when it is done.',
+                                    ),
+                            })
+                        }
+                    >
+                        Refresh now
+                    </Button>
+                }
             />
+
+            {refresh.error ? <ErrorAlert title="The playlists could not be read again" error={refresh.error} /> : undefined}
 
             {playlists.error ? (
                 <ErrorAlert title="Playlists could not be loaded" error={playlists.error} fallback="The playlist catalogue is unavailable." />

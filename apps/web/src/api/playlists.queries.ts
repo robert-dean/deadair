@@ -64,3 +64,20 @@ export function useSetPlaylistHidden() {
         },
     });
 }
+
+/**
+ * Ask for every playlist on every source to be read again now. The station walks them in the
+ * background, so this resolves when the request is taken rather than when the walk is done, and it
+ * touches no cache: the listing is read live and does not change because of the walk. The finished
+ * walk is announced on the activity feed.
+ */
+export function useRefreshPlaylists() {
+    return useMutation({ mutationFn: () => sdk.playlists.refreshPlaylists() });
+}
+
+/** Ask for one playlist to be read again now, on the same terms as {@link useRefreshPlaylists}. */
+export function useRefreshPlaylist() {
+    return useMutation({
+        mutationFn: ({ pluginId, playlistId }: { pluginId: string; playlistId: string }) => sdk.playlists.refreshPlaylist(pluginId, playlistId),
+    });
+}

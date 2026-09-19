@@ -3,8 +3,9 @@ import { IconDots } from '@tabler/icons-react';
 import { Link } from '@tanstack/react-router';
 import type { CatalogPlaylist } from '@deadair/sdk';
 
-import { useSetPlaylistHidden } from '../../api/playlists.queries';
+import { useRefreshPlaylist, useSetPlaylistHidden } from '../../api/playlists.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
+import { notifyQueued } from '../shared/notify';
 import { PlayPlaylistButton } from '../playout/play.playlist.button';
 import { canReadTracks } from './playlist.offerable';
 
@@ -13,17 +14,26 @@ export interface PlaylistCardProps {
 }
 
 /**
- * Hide this playlist from the station, or show it again.
+ * Hide this playlist from the station, or show it again, or read it again now.
  *
  * On every card, refused ones included, which is why it sits in the title row rather than beside Air
  * in the footer: a playlist Spotify will not share has no footer controls, and it is the first kind
  * an operator wants gone. The pending state and any failure live on the trigger, as they do on
  * the personas page, because a menu item has no `loading` and the dropdown closes on the click.
+ *
+ * Refresh is offered only where the station would actually read the playlist: not once it is
+ * hidden, and not when the source has said the account may not read it.
  */
 function PlaylistMenu({ playlist }: { playlist: CatalogPlaylist }) {
     const change = useSetPlaylistHidden();
+    const refresh = useRefreshPlaylist();
     const hidden = playlist.hidden === true;
-    const failure = change.isError ? apiErrorMessage(change.error, hidden ? 'It could not be shown again.' : 'It could not be hidden.') : undefined;
+    const refreshable = !hidden && canReadTracks(playlist);
+    const failure = change.isError
+        ? apiErrorMessage(change.error, hidden ? 'It could not be shown again.' : 'It could not be hidden.')
+        : refresh.isError
+          ? apiErrorMessage(refresh.error, 'It could not be read again.')
+          : undefined;
 
     return (
         <Menu position="bottom-end" withinPortal>
@@ -32,7 +42,7 @@ function PlaylistMenu({ playlist }: { playlist: CatalogPlaylist }) {
                     <ActionIcon
                         variant="subtle"
                         color={failure ? 'red' : 'gray'}
-                        loading={change.isPending}
+                        loading={change.isPending || refresh.isPending}
                         aria-label={`More about ${playlist.name}`}
                     >
                         <IconDots size={16} />
@@ -40,6 +50,18 @@ function PlaylistMenu({ playlist }: { playlist: CatalogPlaylist }) {
                 </Tooltip>
             </Menu.Target>
             <Menu.Dropdown>
+                {refreshable ? (
+                    <Menu.Item
+                        onClick={() =>
+                            refresh.mutate(
+                                { pluginId: playlist.pluginId, playlistId: playlist.id },
+                                { onSuccess: () => notifyQueued(`The station is reading ${playlist.name} again.`) },
+                            )
+                        }
+                    >
+                        Refresh this playlist
+                    </Menu.Item>
+                ) : undefined}
                 <Menu.Item onClick={() => change.mutate({ pluginId: playlist.pluginId, playlistId: playlist.id, hidden: !hidden })}>
                     {hidden ? 'Show again' : 'Hide'}
                 </Menu.Item>

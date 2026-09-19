@@ -9,12 +9,14 @@ import { createTestQueryClient, render, screen, setupUser, waitFor } from '../..
 
 const hidePlaylist = vi.fn();
 const showPlaylist = vi.fn();
+const refreshPlaylist = vi.fn();
 
 vi.mock('../../../src/api/client', () => ({
     sdk: {
         playlists: {
             hidePlaylist: (...args: unknown[]) => hidePlaylist(...args),
             showPlaylist: (...args: unknown[]) => showPlaylist(...args),
+            refreshPlaylist: (...args: unknown[]) => refreshPlaylist(...args),
         },
     },
 }));
@@ -129,6 +131,51 @@ describe('PlaylistCard', () => {
                 const page = queryClient.getQueryData<CatalogPlaylistPage>(queryKeys.playlists.list());
                 expect(page?.playlists[0]?.hidden).toBeUndefined();
             });
+        });
+
+        it('asks for the playlist to be read again', async () => {
+            refreshPlaylist.mockResolvedValue(undefined);
+            const user = setupUser();
+
+            render(<PlaylistCard playlist={catalogPlaylist()} />);
+            await openMenu(user, 'Friday Night');
+            await user.click(await screen.findByRole('menuitem', { name: 'Refresh this playlist' }));
+
+            await waitFor(() => expect(refreshPlaylist).toHaveBeenCalledWith('deadair.spotify', 'playlist-1'));
+        });
+
+        // Only where the station would read it: the walk refuses a hidden playlist, and a source
+        // that will not share its tracks would answer the refresh with nothing.
+        it('does not offer a refresh the station would not carry out', async () => {
+            const user = setupUser();
+
+            render(
+                <>
+                    <PlaylistCard playlist={catalogPlaylist({ name: 'Hidden One', hidden: true })} />
+                    <PlaylistCard playlist={catalogPlaylist({ id: 'refused', name: 'Discover Weekly', permissions: [] })} />
+                </>,
+            );
+            await openMenu(user, 'Hidden One');
+            expect(await screen.findByRole('menuitem', { name: 'Show again' })).toBeInTheDocument();
+            expect(screen.queryByRole('menuitem', { name: 'Refresh this playlist' })).not.toBeInTheDocument();
+            await user.keyboard('{Escape}');
+
+            await openMenu(user, 'Discover Weekly');
+            expect(await screen.findByRole('menuitem', { name: 'Hide' })).toBeInTheDocument();
+            expect(screen.queryByRole('menuitem', { name: 'Refresh this playlist' })).not.toBeInTheDocument();
+        });
+
+        it('says so on the trigger when a refresh is refused', async () => {
+            refreshPlaylist.mockRejectedValue(new SdkError(409, 'Conflict', { statusCode: 409, message: 'This playlist is hidden.' }, new Headers()));
+            const user = setupUser();
+
+            render(<PlaylistCard playlist={catalogPlaylist()} />);
+            await openMenu(user, 'Friday Night');
+            await user.click(await screen.findByRole('menuitem', { name: 'Refresh this playlist' }));
+
+            await waitFor(() => expect(refreshPlaylist).toHaveBeenCalled());
+            await user.hover(screen.getByRole('button', { name: 'More about Friday Night' }));
+            expect(await screen.findByText('This playlist is hidden.')).toBeInTheDocument();
         });
 
         // The refused card has no footer controls at all, and it is the first kind an operator

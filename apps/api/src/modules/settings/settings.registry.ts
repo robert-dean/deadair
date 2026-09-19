@@ -449,7 +449,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         label: 'Read the playlists again automatically',
         type: 'boolean',
         default: CATALOG_SYNC_DEFAULTS.auto,
-        help: "The station learns what records it can play by reading every playlist on every music source. With this on it does so on the schedule below, and picks up whatever was added or taken away. Turn it off if reading them is expensive for your account. Saving a source's settings still reads its playlists at once either way.",
+        help: "The station learns what records it can play by reading every playlist on every music source. With this on it does so on the schedule below, and picks up whatever was added or taken away. Turn it off if reading them is expensive for your account. Refresh on the Playlists page still works either way, and so does saving a source's settings.",
     },
     {
         group: 'housekeeping',

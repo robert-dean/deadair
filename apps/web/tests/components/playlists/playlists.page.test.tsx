@@ -4,12 +4,13 @@ import { SdkError } from '@deadair/sdk';
 
 import { PlaylistsPage } from '../../../src/components/playlists/playlists.page';
 import { catalogPlaylist, catalogPlaylistPage, catalogSourceError } from '../../utils/playlist.fixture';
-import { render, screen, setupUser } from '../../utils/render';
+import { render, screen, setupUser, waitFor } from '../../utils/render';
 
 const listImportablePlaylists = vi.fn();
+const refreshPlaylists = vi.fn();
 
 vi.mock('../../../src/api/client', () => ({
-    sdk: { playlists: { listImportablePlaylists: () => listImportablePlaylists() } },
+    sdk: { playlists: { listImportablePlaylists: () => listImportablePlaylists(), refreshPlaylists: () => refreshPlaylists() } },
 }));
 
 vi.mock('@tanstack/react-router', () => ({
@@ -22,6 +23,7 @@ vi.mock('@tanstack/react-router', () => ({
 
 afterEach(() => {
     listImportablePlaylists.mockReset();
+    refreshPlaylists.mockReset();
 });
 
 describe('PlaylistsPage', () => {
@@ -208,5 +210,27 @@ describe('PlaylistsPage', () => {
 
         expect(await screen.findByText('Playlists could not be loaded')).toBeInTheDocument();
         expect(screen.getByText('The catalog service is down.')).toBeInTheDocument();
+    });
+
+    it('asks for every playlist to be read again from the header', async () => {
+        listImportablePlaylists.mockResolvedValue(catalogPlaylistPage({ playlists: [catalogPlaylist()] }));
+        refreshPlaylists.mockResolvedValue(undefined);
+        const user = setupUser();
+
+        render(<PlaylistsPage />);
+        await user.click(await screen.findByRole('button', { name: 'Refresh now' }));
+
+        await waitFor(() => expect(refreshPlaylists).toHaveBeenCalledTimes(1));
+    });
+
+    it('says so on the page when the refresh is refused', async () => {
+        listImportablePlaylists.mockResolvedValue(catalogPlaylistPage({ playlists: [catalogPlaylist()] }));
+        refreshPlaylists.mockRejectedValue(new SdkError(403, 'Forbidden', { statusCode: 403, message: 'Only an admin can do that.' }, new Headers()));
+        const user = setupUser();
+
+        render(<PlaylistsPage />);
+        await user.click(await screen.findByRole('button', { name: 'Refresh now' }));
+
+        expect(await screen.findByText('The playlists could not be read again')).toBeInTheDocument();
     });
 });

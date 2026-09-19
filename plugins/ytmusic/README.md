@@ -7,21 +7,26 @@ into a URL the station fetches itself. **Nothing proxies bytes**: the URL is an
 ordinary HTTPS one carrying its own authentication, so the station caches it and
 serves it to the player exactly as it does a Navidrome URL.
 
-## The audio half does not work yet
+## The audio is resolved signed out
 
-YouTube currently forces its segment streaming protocol on signed-in sessions, which yt-dlp cannot fetch, and the yt-dlp tracker reports this for Music Premium accounts too. So a resolve made with the operator's session comes back with nothing
-playable, whether or not the account pays.
+The cookie is for the catalog: search, your library, your playlists. **It never reaches the
+resolver.** Every resolve is signed out, because signed in YouTube serves nothing the station can
+fetch. Measured 2026-09-19 on the operator's own account through yt-dlp:
 
-What was measured here, on a free account: signed out, a track offers 39
-formats; signed in, none. That was first read as a free-tier limit, and the
-tracker says otherwise ([#14390](https://github.com/yt-dlp/yt-dlp/issues/14390),
-[#13545](https://github.com/yt-dlp/yt-dlp/issues/13545),
-[#14208](https://github.com/yt-dlp/yt-dlp/issues/14208)). The resolver reports
-the state as exactly what it is, and never as a statement about the subscription.
+| Resolve | Formats offered | Fetchable |
+| --- | --- | --- |
+| signed out | 5 | yes, and it aired |
+| signed in, no JS runtime | 0 | no |
+| signed in, with Deno | 4 | no, every one answered 403 for want of a proof-of-origin token |
 
-A signed-out resolve does return playable audio, measured end to end. Whether the
-audio half should resolve signed out is an open decision, tracked on
-[#182](https://github.com/robert-dean/deadair/pull/182).
+YouTube currently forces its segment streaming protocol on signed-in sessions, and the yt-dlp
+tracker reports the same for Music Premium accounts
+([#14390](https://github.com/yt-dlp/yt-dlp/issues/14390)), so paying does not change it.
+
+**What that costs.** A record that only an account may play (age-gated, members-only,
+Premium-only) does not play from here. The station skips it and holds nothing against the plugin.
+It is also the path YouTube is most motivated to close: if every record stops playing at once, a
+yt-dlp update is the first thing to try.
 
 ## Why the audio is not resolved here
 

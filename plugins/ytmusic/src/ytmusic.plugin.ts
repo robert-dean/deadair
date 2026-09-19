@@ -33,16 +33,13 @@ interface MemoEntry {
 }
 
 /**
- * YouTube Music as a deadair `music-provider`, catalog half only.
+ * YouTube Music as a deadair `music-provider`: search, the library and playlists in-process, and the
+ * audio through `ytaudio/`, a yt-dlp sidecar that answers a plain URL the station fetches itself.
  *
- * It searches and it lists playlists; it hands the station no audio and says so in its manifest by
- * declaring `catalog` and not `stream`. That is a supported state rather than a half-finished one:
- * `asStreamPlugin` answers `undefined` for a plugin that never declared it, the running order skips
- * the item and holds nothing against the plugin. The reason it stops here is that a YouTube media
- * URL is bound to the client identity that minted it and needs matching `User-Agent`, `Origin` and
- * `Referer` headers, which is precisely what `resolveStreamUrl` promises a URL will not need, since
- * the player fetches it with no headers from us. Serving one needs a header-fixing range
- * proxy beside the station. See discussion #49.
+ * The two halves authenticate differently, on purpose. The catalog half is signed in with the
+ * operator's cookie, because a library is an account's. The audio half is signed OUT, and the
+ * cookie never reaches the resolver: signed in, YouTube serves it nothing it can fetch. See
+ * `ResolverClient.resolve` and discussion #49.
  *
  * The credential is a cookie the operator pastes, not OAuth, and not by preference: Google withdrew
  * OAuth for this service in late 2024 and there is nothing else on offer. It follows that there is

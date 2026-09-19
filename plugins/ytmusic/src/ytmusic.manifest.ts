@@ -118,22 +118,17 @@ export const ytmusicManifest: PluginManifest = {
     id: 'deadair.ytmusic',
     name: 'YouTube Music',
     version: '0.0.1',
-    // `catalog` only, deliberately. Nothing here can hand the station audio: a YouTube media URL is
-    // bound to the client identity that minted it and needs matching `User-Agent`, `Origin` and
-    // `Referer` headers, which is exactly what `resolveStreamUrl` promises a URL will NOT need
-    // ("the player fetches it with no headers from us"). Serving it takes a header-fixing range
-    // proxy beside the station. That is a later phase; see discussion #49. Declaring `stream` here
-    // and answering `undefined` would be the dishonest version of the same state.
     // `stream` the long way round, and the long way is the only way. There is no
     // YouTube URL this plugin can mint: the audio is resolved by `ytaudio/`, a
     // sidecar on yt-dlp, because the library that knows how is Python and this is
     // Node in the host's own process. What comes back IS a plain URL the station
     // fetches directly, so nothing proxies bytes and the audio path is the
-    // ordinary one. See discussion #49.
+    // ordinary one. It resolves SIGNED OUT, so the cookie never reaches it: see
+    // `ResolverClient.resolve`. See discussion #49.
     capabilities: ['catalog', 'stream'],
     apiVersion: '^1.0.0',
     description:
-        'Search YouTube Music and pull your playlists into the rotation. Audio goes through the bundled resolver and does not currently play: see the plugin README.',
+        'Search YouTube Music and pull your playlists into the rotation. Audio is resolved signed out by the bundled resolver, so a record only an account may play is skipped.',
     homepage: 'https://music.youtube.com',
     permissions: {
         // The known host first and the operator's address second, because the
@@ -166,7 +161,8 @@ export const ytmusicManifest: PluginManifest = {
                 'Sign in to music.youtube.com in a browser, open the developer tools Network tab, reload, ' +
                 'select the first request and copy the whole Cookie request header. It expires on the ' +
                 "account's own schedule and there is no refresh: when it does, this plugin reports a failed " +
-                'connection and you paste a fresh one.',
+                'connection and you paste a fresh one. It is used for search and your library only; audio is ' +
+                'resolved without it.',
         },
         {
             key: 'accountIndex',

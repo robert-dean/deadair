@@ -125,7 +125,7 @@ apps/streamdeck   the Elgato Stream Deck plugin (TypeScript, on packages/sdk): N
 packages/error-codes  shared error code constants
 packages/config-*     shared eslint / tsconfig
 plugins/*             bundled plugins: spotify, navidrome, ytmusic (YouTube Music; the audio
-                      half does not play yet, see PR #182), musicbrainz, lastfm,
+                      resolves signed out through ytaudio/), musicbrainz, lastfm,
                       wikipedia (the prose the station's facts are extracted from), rss, websearch
                       (SearXNG, Brave or Tavily, whichever the operator points it at), weather
                       (Open-Meteo, the US National Weather Service or OpenWeatherMap), podcast (the

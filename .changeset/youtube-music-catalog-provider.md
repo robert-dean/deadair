@@ -2,19 +2,18 @@
 '@deadair/plugin-ytmusic': minor
 ---
 
-A YouTube Music provider the station can search
+A YouTube Music provider the station can search and play
 
 Search YouTube Music and import the playlists on your account, signed in with a
 cookie you paste. It reaches the live sets, sessions and uploads that are on no
 streaming service.
 
-**Its audio does not play yet.** Audio is resolved by `ytaudio/`, a new bundled
-Python service on yt-dlp that turns a track into a URL the station fetches
-itself, with nothing proxied. The plumbing is complete and proved end to end. What
-stops it is upstream: YouTube currently forces its segment streaming protocol on
-signed-in sessions, which yt-dlp cannot fetch, and the yt-dlp tracker reports that
-for Music Premium accounts too. The plugin says so in those words rather than
-leaving records that quietly never play.
+Audio is resolved by `ytaudio/`, a new bundled Python service on yt-dlp that
+turns a track into a URL the station fetches itself, with nothing proxied. It
+resolves **signed out**: the cookie is used for search and your library only and
+never reaches the resolver, because YouTube serves signed-in sessions nothing the
+station can fetch, Music Premium included. A record that only an account may play
+(age-gated, members-only) is skipped rather than aired.
 
 The cookie has no refresh and expires on the account's own schedule. Because
 YouTube serves search to signed-out callers, an expired cookie would otherwise

@@ -45,6 +45,7 @@ import com.maroonedsoftware.deadair.ui.catalog.ArtistRoute
 import com.maroonedsoftware.deadair.ui.catalog.TrackRoute
 import com.maroonedsoftware.deadair.ui.history.HistoryRoute
 import com.maroonedsoftware.deadair.ui.home.HomeRoute
+import com.maroonedsoftware.deadair.ui.home.Tab
 import com.maroonedsoftware.deadair.ui.nav.Destination
 import com.maroonedsoftware.deadair.ui.nav.NavConfiguration
 import com.maroonedsoftware.deadair.ui.plan.PlanRoute
@@ -150,6 +151,13 @@ private fun Listener(graph: AppGraph, links: MutableStateFlow<String?>) {
     }
 
     val backStack = rememberNavBackStack(NavConfiguration, Destination.Home)
+    // Which tab Home shows. Held here rather than inside Home so a pushed page's Sign in can close
+    // the page and land on Settings; saveable, so a rotation or a restore keeps it.
+    var tab by rememberSaveable { mutableStateOf(Tab.NOW_PLAYING) }
+    val openSettings = {
+        while (backStack.size > 1) backStack.removeLastOrNull()
+        tab = Tab.SETTINGS
+    }
 
     // The stored station is what decides between setup and the app proper: an install that has
     // never been pointed at one has nothing to show, and one that has should not be asked again.
@@ -198,9 +206,48 @@ private fun Listener(graph: AppGraph, links: MutableStateFlow<String?>) {
                             nowPlaying = nowPlaying,
                             playback = playback,
                             connection = connection,
-                            onSettings = {
-                                model.editExisting(station.origin)
-                                backStack.add(Destination.Settings)
+                            tab = tab,
+                            onTab = { tab = it },
+                            settingsTab = {
+                                // Seeds the address field with the kept station the first time the
+                                // tab is drawn, and never over an edit in progress.
+                                LaunchedEffect(station.origin) { model.editExisting(station.origin) }
+                                SettingsScreen(
+                                    entry = entry,
+                                    format = loaded.format,
+                                    // From the station's own `mounts[]`, never by connecting to each mount
+                                    // to see: a connection is an audience, and the gate lingers five
+                                    // minutes past it.
+                                    availability =
+                                        availableFormats(
+                                            when (val current = nowPlaying) {
+                                                is NowPlayingState.Answered -> current.reading.nowPlaying.mounts
+                                                is NowPlayingState.Unreachable -> current.lastGood?.nowPlaying?.mounts
+                                                NowPlayingState.Loading -> null
+                                            },
+                                        ),
+                                    session = session,
+                                    account = account,
+                                    dynamicColour = loaded.dynamicColour,
+                                    playOnOpen = loaded.playOnOpen,
+                                    onAddressChange = model::onAddressChange,
+                                    onCheck = model::check,
+                                    // Keeping a station is the end of the errand, so the app goes back to
+                                    // what is on. The now-playing poll restarts against the new address.
+                                    onConfirm = {
+                                        model.confirm()
+                                        tab = Tab.NOW_PLAYING
+                                    },
+                                    onFormat = model::setFormat,
+                                    onDynamicColour = model::setDynamicColour,
+                                    onPlayOnOpen = model::setPlayOnOpen,
+                                    onEmailChange = model::onEmailChange,
+                                    onPasswordChange = model::onPasswordChange,
+                                    onCodeChange = model::onCodeChange,
+                                    onSignIn = model::signIn,
+                                    onStartAgain = model::startAgain,
+                                    onSignOut = model::signOut,
+                                )
                             },
                             onTrack = { id -> backStack.add(Destination.Track(id)) },
                             onHistory = { backStack.add(Destination.History) },
@@ -226,10 +273,7 @@ private fun Listener(graph: AppGraph, links: MutableStateFlow<String?>) {
                             graph = graph,
                             settings = loaded,
                             onBack = { backStack.removeLastOrNull() },
-                            onSettings = {
-                                model.editExisting(station.origin)
-                                backStack.add(Destination.Settings)
-                            },
+                            onSettings = openSettings,
                             onTrack = { id -> backStack.add(Destination.Track(id)) },
                         )
                     }
@@ -238,10 +282,7 @@ private fun Listener(graph: AppGraph, links: MutableStateFlow<String?>) {
                             graph = graph,
                             segmentId = key.segmentId,
                             onBack = { backStack.removeLastOrNull() },
-                            onSettings = {
-                                model.editExisting(station.origin)
-                                backStack.add(Destination.Settings)
-                            },
+                            onSettings = openSettings,
                         )
                     }
                     entry<Destination.AirSomething> {
@@ -301,45 +342,6 @@ private fun Listener(graph: AppGraph, links: MutableStateFlow<String?>) {
                             artistId = key.id,
                             onBack = { backStack.removeLastOrNull() },
                             onAlbum = { id -> backStack.add(Destination.Album(id)) },
-                        )
-                    }
-                    entry<Destination.Settings> {
-                        SettingsScreen(
-                            entry = entry,
-                            format = loaded.format,
-                            // From the station's own `mounts[]`, never by connecting to each mount
-                            // to see: a connection is an audience, and the gate lingers five
-                            // minutes past it.
-                            availability =
-                                availableFormats(
-                                    when (val current = nowPlaying) {
-                                        is NowPlayingState.Answered -> current.reading.nowPlaying.mounts
-                                        is NowPlayingState.Unreachable -> current.lastGood?.nowPlaying?.mounts
-                                        NowPlayingState.Loading -> null
-                                    },
-                                ),
-                            session = session,
-                            account = account,
-                            dynamicColour = loaded.dynamicColour,
-                            playOnOpen = loaded.playOnOpen,
-                            onBack = { backStack.removeLastOrNull() },
-                            onAddressChange = model::onAddressChange,
-                            onCheck = model::check,
-                            // Keeping a station is the end of the errand, so the screen closes on
-                            // it. The now-playing poll restarts against the new address on its own.
-                            onConfirm = {
-                                model.confirm()
-                                backStack.removeLastOrNull()
-                            },
-                            onFormat = model::setFormat,
-                            onDynamicColour = model::setDynamicColour,
-                            onPlayOnOpen = model::setPlayOnOpen,
-                            onEmailChange = model::onEmailChange,
-                            onPasswordChange = model::onPasswordChange,
-                            onCodeChange = model::onCodeChange,
-                            onSignIn = model::signIn,
-                            onStartAgain = model::startAgain,
-                            onSignOut = model::signOut,
                         )
                     }
                 },

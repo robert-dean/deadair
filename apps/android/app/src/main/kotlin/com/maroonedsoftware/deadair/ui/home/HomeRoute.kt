@@ -15,7 +15,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.maroonedsoftware.deadair.AppGraph
@@ -66,7 +65,11 @@ fun HomeRoute(
     nowPlaying: NowPlayingState,
     playback: PlayerUiState,
     connection: PlayerConnection,
-    onSettings: () -> Unit,
+    /** Which tab is showing. Held above, so a pushed page's Sign in can land on Settings. */
+    tab: Tab,
+    onTab: (Tab) -> Unit,
+    /** The Settings tab's content. Drawn from above, where the settings' own model lives. */
+    settingsTab: @Composable () -> Unit,
     /** Open a record's page. */
     onTrack: (String) -> Unit,
     /** Open the list of what could be put on air. Offered to the operator only. */
@@ -80,14 +83,11 @@ fun HomeRoute(
     /** Change what the station plays. The broadcast rides along, so the form opens on a fixed baseline. */
     onPlan: (currentBrief: String?, somethingOn: Boolean) -> Unit,
 ) {
-    // Survives a rotation, which `remember` alone would not, and a trip to Settings and back,
-    // which the display's saveable-state decorator sees to.
-    var tab by rememberSaveable { mutableStateOf(Tab.NOW_PLAYING) }
-
     // Back returns to the tab this app opens on before it leaves, which is what an Android
     // listener expects of a bottom bar. The display handles back for the stack above this; this
     // only fires when this is the only entry.
-    BackHandler(enabled = tab != Tab.NOW_PLAYING) { tab = Tab.NOW_PLAYING }
+    BackHandler(enabled = tab != Tab.NOW_PLAYING) { onTab(Tab.NOW_PLAYING) }
+    val onSettings = { onTab(Tab.SETTINGS) }
 
     // Collected here so the polls run while their tabs can be seen. They stop on their own when not.
     val schedule by graph.schedule.state.collectAsStateWithLifecycle()
@@ -151,17 +151,22 @@ fun HomeRoute(
     HomeScreen(
         // What the station calls itself now, else what it called itself when it was kept, else
         // the address — which a listener should see only in the moments before either exists.
-        station = reading?.nowPlaying?.station ?: settings.stationName ?: station?.origin.orEmpty(),
+        title =
+            if (tab == Tab.SETTINGS) {
+                stringResource(R.string.settings)
+            } else {
+                reading?.nowPlaying?.station ?: settings.stationName ?: station?.origin.orEmpty()
+            },
         tab = tab,
-        onTab = { tab = it },
-        onSettings = onSettings,
+        onTab = onTab,
         snackbarHost = snackbarHost,
-        // Everywhere but Now playing, which has the station's button already.
+        // Over the tabs that are about the station, and not over Now playing, which has the
+        // station's button already, or Settings, which is not about what is on.
         miniPlayer =
-            if (tab == Tab.NOW_PLAYING) {
+            if (tab == Tab.NOW_PLAYING || tab == Tab.SETTINGS) {
                 null
             } else {
-                { MiniPlayer(nowState, artworkUrl, onOpen = { tab = Tab.NOW_PLAYING }, onPlay = play, onStop = connection::stop) }
+                { MiniPlayer(nowState, artworkUrl, onOpen = { onTab(Tab.NOW_PLAYING) }, onPlay = play, onStop = connection::stop) }
             },
         actions = {
             val loaded = order as? OrderState.Loaded
@@ -297,6 +302,7 @@ fun HomeRoute(
                 )
             }
             Tab.WHATS_ON -> WhatsOnScreen(state = schedule, onRetry = graph.schedule::retry, onSettings = onSettings)
+            Tab.SETTINGS -> settingsTab()
         }
     }
 }

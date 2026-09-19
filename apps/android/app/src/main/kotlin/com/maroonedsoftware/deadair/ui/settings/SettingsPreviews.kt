@@ -1,5 +1,6 @@
 package com.maroonedsoftware.deadair.ui.settings
 
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import com.maroonedsoftware.deadair.auth.SessionState
@@ -15,28 +16,29 @@ private val availability = mapOf(StreamFormat.MP3 to true, StreamFormat.HLS to t
 @Composable
 private fun Settings(entry: StationEntryState, session: SessionState, account: AccountState = AccountState()) {
     DeadairTheme {
-        SettingsScreen(
-            entry = entry,
-            format = StreamFormat.MP3,
-            availability = availability,
-            session = session,
-            account = account,
-            dynamicColour = false,
-            playOnOpen = false,
-            onBack = {},
-            onAddressChange = {},
-            onCheck = {},
-            onConfirm = {},
-            onFormat = {},
-            onDynamicColour = {},
-            onPlayOnOpen = {},
-            onEmailChange = {},
-            onPasswordChange = {},
-            onCodeChange = {},
-            onSignIn = {},
-            onStartAgain = {},
-            onSignOut = {},
-        )
+        Surface {
+            SettingsScreen(
+                entry = entry,
+                format = StreamFormat.MP3,
+                availability = availability,
+                session = session,
+                account = account,
+                dynamicColour = false,
+                playOnOpen = false,
+                onAddressChange = {},
+                onCheck = {},
+                onConfirm = {},
+                onFormat = {},
+                onDynamicColour = {},
+                onPlayOnOpen = {},
+                onEmailChange = {},
+                onPasswordChange = {},
+                onCodeChange = {},
+                onSignIn = {},
+                onStartAgain = {},
+                onSignOut = {},
+            )
+        }
     }
 }
 

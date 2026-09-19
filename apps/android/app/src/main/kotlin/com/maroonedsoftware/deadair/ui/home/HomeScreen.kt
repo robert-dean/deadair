@@ -3,11 +3,11 @@ package com.maroonedsoftware.deadair.ui.home
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
@@ -32,14 +32,15 @@ import com.maroonedsoftware.deadair.R
  * The tabs are an enum and a `when`, and they are deliberately not entries on the back stack:
  * switching between them is not leaving the screen, and back from any of them returns to the first
  * rather than unwinding a history of taps. The stack proper — a record page, an album behind it,
- * settings over the top — is `ui/nav/Destination.kt`'s, and `Home` is one entry on it however many
- * tabs it holds. Settings is reached from the bar above rather than the one below, because it is a
- * thing you go and do rather than a thing you look at.
+ * History behind Up next — is `ui/nav/Destination.kt`'s, and `Home` is one entry on it however many
+ * tabs it holds. Settings is the fourth tab rather than a gear in every app bar: a gear above a list
+ * of records said nothing about the records.
  */
 enum class Tab(@param:StringRes val label: Int, @param:DrawableRes val icon: Int) {
     NOW_PLAYING(R.string.tab_now_playing, R.drawable.ic_radio),
     UP_NEXT(R.string.tab_up_next, R.drawable.ic_queue),
     WHATS_ON(R.string.tab_whats_on, R.drawable.ic_schedule),
+    SETTINGS(R.string.settings, R.drawable.ic_settings),
 }
 
 /**
@@ -52,12 +53,12 @@ enum class Tab(@param:StringRes val label: Int, @param:DrawableRes val icon: Int
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
-    station: String,
+    /** What the bar says: the station's name, or the name of a tab that is not about the station. */
+    title: String,
     tab: Tab,
     onTab: (Tab) -> Unit,
-    onSettings: () -> Unit,
     snackbarHost: SnackbarHostState,
-    /** The tab's own actions, before Settings. Empty for a tab that has none. */
+    /** The tab's own actions. Empty for a tab that has none. */
     actions: @Composable RowScope.() -> Unit = {},
     /** The player bar over the tabs, or `null` on a tab that has the station's button already. */
     miniPlayer: (@Composable () -> Unit)? = null,
@@ -73,14 +74,9 @@ fun HomeScreen(
         snackbarHost = { SnackbarHost(snackbarHost) },
         topBar = {
             TopAppBar(
-                title = { Text(station, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 scrollBehavior = scrollBehavior,
-                actions = {
-                    actions()
-                    IconButton(onClick = onSettings) {
-                        Icon(painterResource(R.drawable.ic_settings), contentDescription = stringResource(R.string.settings))
-                    }
-                },
+                actions = actions,
             )
         },
         bottomBar = {
@@ -103,6 +99,8 @@ fun HomeScreen(
             }
         },
     ) { padding ->
-        Box(modifier = Modifier.fillMaxSize().padding(padding)) { content() }
+        // Consumed as well as applied, so a tab that pads itself by the keyboard (Settings) adds
+        // only what the keyboard takes beyond the bars rather than both.
+        Box(modifier = Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)) { content() }
     }
 }

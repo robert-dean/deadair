@@ -35,10 +35,6 @@ sealed interface Destination : NavKey {
     @Serializable
     data object Home : Destination
 
-    /** Over the top of whichever tab was showing. A thing you go and do, then leave. */
-    @Serializable
-    data object Settings : Destination
-
     /** Everything the station has played, newest first. Reached from Up next, where the folded history sits. */
     @Serializable
     data object History : Destination
@@ -95,7 +91,6 @@ val NavConfiguration: SavedStateConfiguration =
             SerializersModule {
                 polymorphic(NavKey::class) {
                     subclass(Destination.Home::class)
-                    subclass(Destination.Settings::class)
                     subclass(Destination.History::class)
                     subclass(Destination.Track::class)
                     subclass(Destination.Album::class)

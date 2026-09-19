@@ -18,6 +18,11 @@
 
     <!-- Now playing -->
     <string name="now_warming_up">Warming up</string>
+
+    <!-- The Quick Settings tile's second line -->
+    <string name="tile_on">On</string>
+    <string name="tile_off">Off</string>
+    <string name="tile_choose_station">Choose a station first</string>
     <string name="now_off_air">Off air</string>
     <string name="now_cant_reach">Can\'t reach the station</string>
     <string name="now_quiet_until_someone_tunes_in">Quiet until someone tunes in — press play to start it.</string>

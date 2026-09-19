@@ -130,7 +130,12 @@ kept for the day a reviewer asks what the service does:
 
 > Plays the radio station the user chose, and keeps playing when the app is in the background or
 > the screen is off. Started only when the user presses play, in the app, on the notification, on
-> a Bluetooth device or from Android's media controls; stopped when they press stop.
+> the app's Quick Settings tile, on a Bluetooth device or from Android's media controls; stopped
+> when they press stop.
+
+The Quick Settings tile was added to that list after the declaration was made. The console asks for
+no description for media playback, so nothing there has to change; the sentence is kept true here
+for the reviewer who asks.
 
 The video is a screen recording of pressing play, going to the home screen, turning the screen off
 and back on, and stopping from the notification. `adb shell screenrecord` takes it on the emulator;

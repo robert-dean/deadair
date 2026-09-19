@@ -125,6 +125,21 @@ key did nothing at all; after, it starts the process and the stream. What it res
 at position zero, because a live stream has no position and no queue — the easy version of a problem
 most players find hard.
 
+**The Quick Settings tile is a press, not a second player.** `StationTileService` drives the
+session through a `PlayerConnection` like the screen does, so it cannot drift from the Play button.
+Three things about it were measured on the emulator (API 36) rather than assumed. A press starts the
+playback service in the foreground with the app's process gone: System UI grants the app a 15-second
+allowance for exactly this (`ActivityManager` logs `Background started FGS: Allowed` with
+`tempAllowListReason:<tile onclick>`), which is why a tile is not the background-start problem it
+looks like. A press sent while the shade is CLOSED never arrives (`cmd statusbar click-tile` then
+logs "Managed to get click on non-listening state" and drops it), so a test has to
+`cmd statusbar expand-settings` first or it measures nothing. And the press is carried out in a
+process-lifetime scope rather than the tile's, because the tile is bound only while the shade is
+open and closing it can tear the tile down in the second the playback service takes to bind. With
+no station kept the tile is `STATE_UNAVAILABLE`, which the system greys and sends no press to, so
+there is no "open the app" path to get wrong. The tile cannot ask for `POST_NOTIFICATIONS`; it leans
+on the media session's exemption. `play/README.md` names it among the start surfaces.
+
 **A head unit's next button is the OPERATOR's Skip, and getting it drawn took two facts that are
 not obvious.** ExoPlayer offers `COMMAND_SEEK_TO_NEXT` only when there is a next ITEM, and a live
 stream is one item for as long as it plays — so the command was never in the set `LivePlayer`

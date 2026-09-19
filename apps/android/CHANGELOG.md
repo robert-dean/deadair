@@ -8,6 +8,23 @@ hand, and the station's own changes are in the [root changelog](../../CHANGELOG.
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-09-19
+
+- The station's operator can add a record from the phone. **Add a record** on the Up next tab searches
+  the library by title; **Play next** puts a record straight after what the station is already
+  holding, and **Add to the end** puts it last. A record's own page offers the same two. Records the
+  station has no audio for yet are listed but cannot be added, and a record the station declines
+  (something you disliked, say) is refused with a sentence rather than a number.
+
+  A Quick Settings tile turns the station on and off without opening the app. It shows **Warming
+  up** for the seconds between pressing it and the first sound, and is greyed out until a station has
+  been chosen.
+
+  `deadair://` links open the app. A link names a station and fills in the setup screen with it;
+  nothing changes until you check the address and choose to listen, and **Keep the station I have**
+  turns it down. The station's check-up page in the console has one, and a code to scan with the
+  phone.
+
 ## [0.3.0] — 2026-09-17
 
 - The running order shows the picture a break wears. A weather forecast and a news bulletin already
@@ -38,7 +55,8 @@ hand, and the station's own changes are in the [root changelog](../../CHANGELOG.
   screen, a headset or a car stereo. Sign in as the station's operator and the phone becomes its
   remote: skip, stop and start, the running order, what it played and what the presenter said.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/android-v0.3.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/android-v0.4.0...HEAD
+[0.4.0]: https://github.com/robert-dean/deadair/compare/android-v0.3.0...android-v0.4.0
 [0.3.0]: https://github.com/robert-dean/deadair/compare/android-v0.2.1...android-v0.3.0
 [0.2.1]: https://github.com/robert-dean/deadair/compare/android-v0.2.0...android-v0.2.1
 [0.2.0]: https://github.com/robert-dean/deadair/compare/android-v0.1.1...android-v0.2.0

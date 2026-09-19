@@ -9,6 +9,12 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.19.1] — 2026-09-19
+
+- The check-up page's app link now reads **Open in the app**, because the Android app opens it as
+  well as the desktop one, and a code beside it can be scanned with a phone to point the app at this
+  station.
+
 ## [0.19.0] — 2026-09-19
 
 - You can ask the station to read your playlists again now, rather than waiting for the next hour.
@@ -316,7 +322,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.19.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.19.1...HEAD
+[0.19.1]: https://github.com/robert-dean/deadair/compare/v0.19.0...v0.19.1
 [0.19.0]: https://github.com/robert-dean/deadair/compare/v0.18.0...v0.19.0
 [0.18.0]: https://github.com/robert-dean/deadair/compare/v0.17.1...v0.18.0
 [0.17.1]: https://github.com/robert-dean/deadair/compare/v0.17.0...v0.17.1

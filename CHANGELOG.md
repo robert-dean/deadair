@@ -9,6 +9,41 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.19.0] — 2026-09-19
+
+- You can ask the station to read your playlists again now, rather than waiting for the next hour.
+  **Refresh now** on the Playlists page reads every playlist on every music source, and **Refresh this
+  playlist** in a card's menu reads just that one. New records reach the library in a few minutes, and
+  the activity feed says when the walk is done. Refreshing one playlist never retires a record; only a
+  walk of everything does that.
+
+  The automatic walk is now yours to set, under Settings, Housekeeping: turn it off, or make it run
+  every few hours instead of every hour. Refresh keeps working either way.
+- A YouTube Music provider the station can search and play
+
+  Search YouTube Music and import the playlists on your account, signed in with a
+  cookie you paste. It reaches the live sets, sessions and uploads that are on no
+  streaming service.
+
+  Audio is resolved by `ytaudio/`, a new bundled Python service on yt-dlp that
+  turns a track into a URL the station fetches itself, with nothing proxied. It
+  resolves **signed out**: the cookie is used for search and your library only and
+  never reaches the resolver, because YouTube serves signed-in sessions nothing the
+  station can fetch, Music Premium included. A record that only an account may play
+  (age-gated, members-only) is skipped rather than aired.
+
+  The cookie has no refresh and expires on the account's own schedule. Because
+  YouTube serves search to signed-out callers, an expired cookie would otherwise
+  leave the station searching happily while the library went dark. So the plugin
+  proves the credential by using it, at startup and behind Test connection, and
+  reports a dead one as an authorization failure rather than as trouble at YouTube.
+- Airing a playlist none of whose records is in the library now refuses, instead of reporting the
+  station on air and playing only the bed. A record the catalog has never seen has no way to fetch its
+  audio, so an order made of nothing else was consumed without a sound. The console now says the
+  playlist is not in the library yet, and why: it is catalogued when its plugin syncs, and this one is
+  either not listed by the provider or was added since the last sync. A playlist with some records in
+  the library airs as before, and a catalog that cannot be read never causes a refusal.
+
 ## [0.18.0] — 2026-09-18
 
 - A page on any other site can now read what your station is playing. `/api/nowplaying` answers
@@ -281,7 +316,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.18.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.19.0...HEAD
+[0.19.0]: https://github.com/robert-dean/deadair/compare/v0.18.0...v0.19.0
 [0.18.0]: https://github.com/robert-dean/deadair/compare/v0.17.1...v0.18.0
 [0.17.1]: https://github.com/robert-dean/deadair/compare/v0.17.0...v0.17.1
 [0.17.0]: https://github.com/robert-dean/deadair/compare/v0.16.0...v0.17.0

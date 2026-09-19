@@ -18,7 +18,7 @@ import { pageOf, rowsOf, walk } from './ytmusic.paging.js';
 export class YtMusicClient {
     private constructor(private readonly inner: Innertube) {}
 
-    static async create(host: PluginHost, cookie: string): Promise<YtMusicClient> {
+    static async create(host: PluginHost, cookie: string, accountIndex = 0): Promise<YtMusicClient> {
         // The library writes parser errors straight to the console. In-process that is the
         // station's own stdout rather than `host.logger`, so a plugin's upstream trouble would
         // surface as unattributed noise in the station log. Silenced here and reported through the
@@ -27,6 +27,8 @@ export class YtMusicClient {
 
         const inner = await Innertube.create({
             cookie,
+            // Which of the cookie's signed-in accounts to speak for. See `DEFAULT_ACCOUNT_INDEX`.
+            account_index: accountIndex,
             fetch: createHostFetch(host),
             // The player SCRIPT is the signature-deciphering path, which is only needed to turn a
             // format into a playable URL. This phase hands the station no audio, so fetching and

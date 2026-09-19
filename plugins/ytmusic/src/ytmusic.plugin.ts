@@ -14,7 +14,14 @@ import {
 
 import { YtMusicClient } from './ytmusic.client.js';
 import { toPluginError } from './ytmusic.errors.js';
-import { LIKED_PLAYLIST_ID, LIKED_PLAYLIST_NAME, PLAYLIST_MEMO_TTL_MS, type YtMusicConfig } from './ytmusic.manifest.js';
+import {
+    accountIndexOf,
+    DEFAULT_ACCOUNT_INDEX,
+    LIKED_PLAYLIST_ID,
+    LIKED_PLAYLIST_NAME,
+    PLAYLIST_MEMO_TTL_MS,
+    type YtMusicConfig,
+} from './ytmusic.manifest.js';
 import { resolverFor, type ResolverClient } from './ytmusic.resolver.js';
 import { mapPlaylists, mapTracks } from './ytmusic.mapping.js';
 import type { UpstreamItem } from './ytmusic.mapping.js';
@@ -45,6 +52,8 @@ export class YtMusicPlugin extends Plugin implements MusicProviderPluginInstance
     private client?: YtMusicClient;
     private resolver?: ResolverClient;
     private cookie?: string;
+    /** Kept from `onLoad` so `testConnection` never reads `this.host` after an `await` to find it. */
+    private accountIndex = DEFAULT_ACCOUNT_INDEX;
 
     /**
      * One playlist's rows, kept briefly.
@@ -69,7 +78,9 @@ export class YtMusicPlugin extends Plugin implements MusicProviderPluginInstance
         const cookie = (await host.secrets.get('cookie'))?.trim();
         if (!cookie) throw new PluginError('YouTube Music needs the cookie from a signed-in browser session').withCode('config');
 
-        const client = await YtMusicClient.create(host, cookie);
+        const accountIndex = accountIndexOf(config.accountIndex);
+        this.accountIndex = accountIndex;
+        const client = await YtMusicClient.create(host, cookie, accountIndex);
 
         // The credential is checked by USING it, before the plugin is declared ready. See `probe`.
         // `probe` already phrases the failure for whoever reads the settings card; wrapping it again
@@ -155,7 +166,10 @@ export class YtMusicPlugin extends Plugin implements MusicProviderPluginInstance
         const failure = await this.probe(client);
         if (failure) return { ok: false, message: failure };
         const name = await client.assertSignedIn().catch(() => undefined);
-        const who = name ? `Connected to YouTube Music as ${name}.` : 'Connected to YouTube Music.';
+        // The account index beside the name, because a name alone did not tell an operator which of
+        // their accounts this was: a work account and a personal one can carry the same name.
+        const index = this.accountIndex;
+        const who = name ? `Connected to YouTube Music as ${name} (account ${index}).` : `Connected to YouTube Music (account ${index}).`;
 
         // The catalog half and the audio half fail independently, and an operator
         // needs to know which one is down: a green card over a station that can

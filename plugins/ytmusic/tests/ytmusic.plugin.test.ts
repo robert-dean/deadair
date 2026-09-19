@@ -24,6 +24,7 @@ vi.mock('../src/ytmusic.client.js', () => ({
 }));
 
 const { YtMusicPlugin } = await import('../src/ytmusic.plugin.js');
+const { YtMusicClient } = await import('../src/ytmusic.client.js');
 
 const song = (id: string, title: string): UpstreamItem => ({
     id,
@@ -123,6 +124,35 @@ describe('the credential', () => {
     });
 });
 
+describe('the account', () => {
+    it('speaks for the first signed-in account unless told otherwise', async () => {
+        const { host } = await build();
+        expect(YtMusicClient.create).toHaveBeenCalledWith(host, COOKIE, 0);
+    });
+
+    it('speaks for the account the operator chose', async () => {
+        // Measured: a browser holding a work account and a personal one put the operator's playlists on
+        // index 1, and index 0 read an empty library without a word of complaint.
+        const host = createFakePluginHost();
+        host.seedConfig({ resolverBaseUrl: 'http://localhost:9322', accountIndex: '1' });
+        host.seedSecret('cookie', COOKIE);
+        await new YtMusicPlugin().init(host);
+
+        expect(YtMusicClient.create).toHaveBeenCalledWith(host, COOKIE, 1);
+    });
+
+    it('names the account index in the connection test, since a name alone did not say which', async () => {
+        const host = createFakePluginHost();
+        host.seedConfig({ resolverBaseUrl: 'http://localhost:9322', accountIndex: 1 });
+        host.seedSecret('cookie', COOKIE);
+        const plugin = new YtMusicPlugin();
+        await plugin.init(host);
+        host.queueResponse({ status: 200, body: '{"ok":true,"hasSession":true}' });
+
+        await expect(plugin.testConnection()).resolves.toMatchObject({ message: expect.stringContaining('(account 1)') });
+    });
+});
+
 describe('testConnection', () => {
     it('reports a failure rather than throwing, because an operator is mid-paste', async () => {
         const { plugin } = await build();
@@ -139,7 +169,7 @@ describe('testConnection', () => {
 
         const result = await plugin.testConnection();
         expect(result.ok).toBe(true);
-        expect(result.message).toContain('Connected to YouTube Music as Robert Dean.');
+        expect(result.message).toContain('Connected to YouTube Music as Robert Dean (account 0).');
     });
 
     it('fails the test when the audio resolver is down, and still says search works', async () => {

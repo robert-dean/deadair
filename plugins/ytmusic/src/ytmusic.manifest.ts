@@ -44,6 +44,26 @@ export const ARTWORK_SIZE = 'w544-h544-l90-rj';
  */
 export const DEFAULT_RESOLVER_URL = 'http://localhost:9322';
 
+/**
+ * Which signed-in Google account the cookie speaks for, when the browser it was copied from was
+ * signed in to more than one.
+ *
+ * A Cookie header copied from such a browser carries every account's session at once, and YouTube
+ * picks among them by an index the client sends, the first by default. Measured 2026-09-19 on a
+ * browser holding a work account and a personal one: index 0 was the work account, with an empty
+ * library, and the playlists and likes the operator actually meant were all on index 1. Nothing
+ * failed and nothing said so: the plugin read an empty catalog correctly, from the wrong person.
+ * Test connection names the account in use, which is how an operator notices.
+ */
+export const DEFAULT_ACCOUNT_INDEX = 0;
+export const MAX_ACCOUNT_INDEX = 9;
+
+/** The configured account index, or the first account when it is unset or unreadable. */
+export function accountIndexOf(value: unknown): number {
+    const parsed = typeof value === 'number' ? value : typeof value === 'string' && value.trim() !== '' ? Number(value) : Number.NaN;
+    return Number.isInteger(parsed) && parsed >= 0 && parsed <= MAX_ACCOUNT_INDEX ? parsed : DEFAULT_ACCOUNT_INDEX;
+}
+
 /** Bounds a resolve. yt-dlp talks to the upstream several times to answer one. */
 export const RESOLVE_TIMEOUT_MS = 45_000;
 
@@ -76,6 +96,8 @@ export const configSchema = z.object({
     // a lenient `onLoad` alone did not help, because the host said no first. The form still asks
     // for it, with the default filled in, so anything saved from here on carries it.
     resolverBaseUrl: z.string().min(1).optional(),
+    // Optional for the same reason, and coerced because a number arrives from the form as text.
+    accountIndex: z.coerce.number().int().min(0).max(MAX_ACCOUNT_INDEX).optional(),
 });
 
 export type YtMusicConfig = z.infer<typeof configSchema>;
@@ -133,6 +155,19 @@ export const ytmusicManifest: PluginManifest = {
                 'select the first request and copy the whole Cookie request header. It expires on the ' +
                 "account's own schedule and there is no refresh: when it does, this plugin reports a failed " +
                 'connection and you paste a fresh one.',
+        },
+        {
+            key: 'accountIndex',
+            label: 'Google account',
+            type: 'number',
+            default: DEFAULT_ACCOUNT_INDEX,
+            min: 0,
+            max: MAX_ACCOUNT_INDEX,
+            step: 1,
+            help:
+                'Which account the cookie should use, when the browser you copied it from is signed in to more than ' +
+                'one Google account: 0 is the first, 1 the second. Test connection names the account in use, so if it ' +
+                'is not the one holding your playlists, change this.',
         },
     ],
     configSchema,

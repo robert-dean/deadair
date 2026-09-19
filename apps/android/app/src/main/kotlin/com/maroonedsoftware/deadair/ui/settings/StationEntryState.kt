@@ -54,6 +54,12 @@ data class StationEntryState(
         fun typing(address: String, stored: String? = null): StationEntryState =
             StationEntryState(address = address, cleartext = address.trim().startsWith("http://", ignoreCase = true), stored = stored)
 
+        /**
+         * An address a `deadair://` link proposed, in the field and not yet checked. The kept station,
+         * when there is one, stays as `stored`, so the field reads as a change and offers Check.
+         */
+        fun proposed(link: StationUrl, kept: StationUrl?): StationEntryState = typing(link.origin, stored = kept?.origin)
+
         /** What is in the field does not parse as an address at all. */
         fun invalid(address: String, stored: String? = null): StationEntryState = typing(address, stored).copy(error = Message.NotAnAddress)
 

@@ -251,7 +251,19 @@ polymorphic module**, because the stack is saved as a list of the `NavKey` inter
 subclass it cannot name saves fine and fails to restore. And **the tabs are not destinations**: the
 bottom bar is state inside the `Home` entry, so back from a tab returns to Now playing rather than
 unwinding a history of taps, which is what Android guidance asks of a bottom bar. Setup is chosen
-above the stack from `station == null` and is never pushed, so it is not a place back can reach.
+above the stack from `station == null`, or from a `deadair://` link's proposal, and is never pushed,
+so it is not a place back can reach.
+
+**A `deadair://` link proposes a station; it never switches to one.** The desktop's grammar exactly
+(`StationLink`, whose test is the desktop's cases one for one), so the console's one link opens
+whichever app is installed. The link fills the setup field and nothing else: the kept station, its
+session and whatever is playing stay until the new address has answered Check and somebody has
+pressed Listen, and "Keep the station I have" (or back) turns it down having changed nothing. A link
+naming the station already kept just closes the question. It is offered only after the settings
+have been read, because a link that LAUNCHED the app arrives before them, and not again on a
+restore, because the launching intent is still attached after a rotation. A user or password in a
+link is refused, including one smuggled inside the escaped origin: a link names a place, never a
+way in.
 
 **A notice raised by a pushed screen is lost unless that screen collects it.** `OperatorActions`
 publishes into a `SharedFlow` with no replay, and `NavDisplay` composes only the entry on top, so

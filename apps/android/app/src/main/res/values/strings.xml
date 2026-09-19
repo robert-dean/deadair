@@ -67,6 +67,9 @@
     <string name="station_address_example">https://radio.example.com</string>
     <string name="check">Check</string>
     <string name="listen_to">Listen to %1$s</string>
+    <!-- Shown when a deadair:// link proposes a station while another is kept. %1$s is the kept station. -->
+    <string name="setup_link_note">You are listening to %1$s. Check this address and listen to it to switch; nothing changes until you do.</string>
+    <string name="keep_current_station">Keep the station I have</string>
     <string name="use_station">Use %1$s</string>
     <string name="station_answered_as">Answered as %1$s</string>
     <string name="station_not_encrypted">Not encrypted. Ordinary on a home network, where the station has no certificate.</string>

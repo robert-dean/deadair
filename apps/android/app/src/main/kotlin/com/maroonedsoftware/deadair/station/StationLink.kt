@@ -56,6 +56,12 @@ object StationLink {
             true
         }
 
+    /**
+     * What a link proposes, given the station already kept: `null` when it names that same station,
+     * which closes the question rather than asking it again.
+     */
+    fun proposal(link: StationUrl, kept: StationUrl?): StationUrl? = link.takeIf { it.origin != kept?.origin }
+
     private fun query(link: URI, name: String): String? {
         for (pair in link.rawQuery.orEmpty().split('&')) {
             if (pair.isEmpty()) continue

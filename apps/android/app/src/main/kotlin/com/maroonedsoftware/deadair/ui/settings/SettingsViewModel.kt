@@ -5,7 +5,9 @@ import androidx.lifecycle.viewModelScope
 import com.maroonedsoftware.deadair.auth.SessionManager
 import com.maroonedsoftware.deadair.auth.SessionState
 import com.maroonedsoftware.deadair.settings.SettingsStore
+import com.maroonedsoftware.deadair.station.StationLink
 import com.maroonedsoftware.deadair.station.StationProbe
+import com.maroonedsoftware.deadair.station.StationUrl
 import com.maroonedsoftware.deadair.station.StreamFormat
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -29,6 +31,14 @@ class SettingsViewModel(
 ) : ViewModel() {
     private val _entry = MutableStateFlow(StationEntryState())
     val entry: StateFlow<StationEntryState> = _entry.asStateFlow()
+
+    private val _proposal = MutableStateFlow<StationUrl?>(null)
+
+    /**
+     * A station a `deadair://` link proposed and nobody has answered yet. While it is set the setup
+     * screen is shown over the app, whether or not a station is kept: asking is not switching.
+     */
+    val proposal: StateFlow<StationUrl?> = _proposal.asStateFlow()
 
     private val _account = MutableStateFlow(AccountState())
     val account: StateFlow<AccountState> = _account.asStateFlow()
@@ -80,8 +90,28 @@ class SettingsViewModel(
         viewModelScope.launch {
             store.setStation(url, current.confirmedName)
             _entry.value = StationEntryState.typing(url.origin, stored = url.origin)
+            _proposal.value = null
         }
     }
+
+    /**
+     * Put a linked station in the field, and nothing else. It is checked and kept only when somebody
+     * presses the buttons, so a link in an email cannot quietly repoint the app. The same station
+     * as the one kept closes any question already open instead.
+     */
+    fun propose(link: StationUrl, kept: StationUrl?) {
+        val proposed = StationLink.proposal(link, kept)
+        _proposal.value = proposed
+        _entry.value = if (proposed == null) keptEntry(kept) else StationEntryState.proposed(proposed, kept)
+    }
+
+    /** Turn a link's proposal down: the kept station stays, and so does the session with it. */
+    fun keepCurrent(kept: StationUrl?) {
+        _proposal.value = null
+        _entry.value = keptEntry(kept)
+    }
+
+    private fun keptEntry(kept: StationUrl?) = kept?.let { StationEntryState.typing(it.origin, stored = it.origin) } ?: StationEntryState()
 
     fun setFormat(format: StreamFormat) {
         viewModelScope.launch { store.setFormat(format) }

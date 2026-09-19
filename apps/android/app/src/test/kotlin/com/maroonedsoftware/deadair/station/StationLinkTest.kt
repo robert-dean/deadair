@@ -63,4 +63,17 @@ class StationLinkTest {
     fun `a bare host in the connect form is not guessed at`() {
         assertNull(origin("deadair://connect?station=radio.example.com"))
     }
+
+    private fun url(text: String) = StationUrl.parse(text).getOrThrow()
+
+    @Test
+    fun `a link to another station is a question`() {
+        assertEquals("https://elsewhere.example.com", StationLink.proposal(url("https://elsewhere.example.com"), kept = url("https://radio.example.com"))?.origin)
+        assertEquals("https://radio.example.com", StationLink.proposal(url("https://radio.example.com"), kept = null)?.origin)
+    }
+
+    @Test
+    fun `a link to the station already kept is no question at all`() {
+        assertNull(StationLink.proposal(url("https://radio.example.com"), kept = url("https://radio.example.com/")))
+    }
 }

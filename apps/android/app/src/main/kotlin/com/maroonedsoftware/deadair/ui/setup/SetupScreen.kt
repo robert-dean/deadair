@@ -21,6 +21,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -36,10 +37,12 @@ import com.maroonedsoftware.deadair.ui.theme.FormMaxWidth
 import com.maroonedsoftware.deadair.ui.theme.Gutter
 
 /**
- * First run: name a station.
+ * Name a station: on first run, or when a `deadair://` link proposes one.
  *
- * Nothing is prefilled. There is no address that is right for more than one person, and a wrong
- * one that looks deliberate is worse than an empty field.
+ * Nothing is prefilled by the app itself. There is no address that is right for more than one
+ * person, and a wrong one that looks deliberate is worse than an empty field. A link is the one
+ * exception, because somebody chose to follow it; even then the address is only in the field, and
+ * nothing is kept until it has answered and been confirmed.
  */
 @Composable
 fun SetupScreen(
@@ -47,6 +50,10 @@ fun SetupScreen(
     onAddressChange: (String) -> Unit,
     onCheck: () -> Unit,
     onConfirm: () -> Unit,
+    /** The station already kept, when a link has proposed another. `null` on first run. */
+    listeningTo: String? = null,
+    /** Turn the link down and go back to the kept station. Offered only when there is one. */
+    onKeepCurrent: (() -> Unit)? = null,
 ) {
     Scaffold { padding ->
         // Scroll first and insets inside it, so the content slides under the bars rather than
@@ -61,6 +68,7 @@ fun SetupScreen(
             ) {
                 Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineMedium)
                 Text(stringResource(R.string.setup_intro), style = MaterialTheme.typography.bodyMedium)
+                listeningTo?.let { Text(stringResource(R.string.setup_link_note, it), style = MaterialTheme.typography.bodyMedium) }
 
                 OutlinedTextField(
                     value = state.address,
@@ -90,6 +98,10 @@ fun SetupScreen(
                             Text(stringResource(R.string.check))
                         }
                     }
+                }
+
+                onKeepCurrent?.let {
+                    TextButton(onClick = it, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.keep_current_station)) }
                 }
 
                 // Before any station, because this is the one screen a person without one can reach.

@@ -143,4 +143,18 @@ class StationEntryStateTest {
         assertNull(edited.confirmedName)
         assertNull(edited.error)
     }
+
+    @Test
+    fun `a proposed station reads as a change to check, never as already kept`() {
+        val kept = com.maroonedsoftware.deadair.station.StationUrl.parse("https://radio.example.com").getOrThrow()
+        val link = com.maroonedsoftware.deadair.station.StationUrl.parse("http://192.168.1.50:8000").getOrThrow()
+
+        val state = StationEntryState.proposed(link, kept)
+
+        assertEquals("http://192.168.1.50:8000", state.address)
+        assertEquals("https://radio.example.com", state.stored)
+        assertEquals(true, state.showsCheck)
+        assertNull(state.confirmedName)
+        assertEquals(Message.NotEncrypted, state.supportingText)
+    }
 }

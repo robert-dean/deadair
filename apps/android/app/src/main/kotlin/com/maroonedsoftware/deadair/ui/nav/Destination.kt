@@ -27,8 +27,9 @@ import kotlinx.serialization.modules.subclass
  *
  * `Home` is the tabbed part and is one entry rather than several: the tabs share a frame and
  * switching between them is not leaving the screen. Setup is deliberately NOT a destination. It is
- * derived from there being no station yet, so it is chosen above the stack rather than pushed onto
- * it — a place you cannot navigate back to.
+ * derived from there being no station yet, or a `deadair://` link proposing one, so it is chosen
+ * above the stack rather than pushed onto it — a place you cannot navigate back to. Back from a
+ * link's Setup is "keep the station I have", which is the one way out of it that changes nothing.
  */
 sealed interface Destination : NavKey {
     @Serializable

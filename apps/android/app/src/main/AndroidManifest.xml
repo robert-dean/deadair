@@ -47,6 +47,16 @@
                 <action android:name="android.media.action.MEDIA_PLAY_FROM_SEARCH" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
+            <!--
+                deadair://connect?station=<origin>, which the console writes, and deadair://<host>.
+                A link only proposes a station: the setup screen opens with it filled in.
+            -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="deadair" />
+            </intent-filter>
         </activity>
 
         <!--

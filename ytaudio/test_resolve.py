@@ -2,12 +2,14 @@ import urllib.error
 
 import pytest
 
-from resolve import COOLDOWN_S, FORMAT, STORABLE_TYPES, ResolveError, Unavailable, _pick, cooldowns, expiry_of, probe
+from resolve import COOLDOWN_S, FORMAT, STORABLE_TYPES, ResolveError, Unavailable, _pick, _total_of, cooldowns, expiry_of, probe, whole_range
 
 
 class _Response:
-    def __init__(self, content_type, status=206):
+    def __init__(self, content_type, status=206, content_range=None):
         self.headers = {"content-type": content_type}
+        if content_range:
+            self.headers["content-range"] = content_range
         self.status = status
 
     def __enter__(self):
@@ -17,8 +19,8 @@ class _Response:
         return False
 
 
-def _opener(content_type, status=206):
-    return lambda _request, timeout=None: _Response(content_type, status)
+def _opener(content_type, status=206, content_range=None):
+    return lambda _request, timeout=None: _Response(content_type, status, content_range)
 
 
 @pytest.fixture(autouse=True)
@@ -44,7 +46,14 @@ class TestExpiry:
 
 class TestProbe:
     def test_accepts_audio_the_station_stores(self):
-        assert probe("https://x/y", opener=_opener("audio/mp4")) == "audio/mp4"
+        assert probe("https://x/y", opener=_opener("audio/mp4")).content_type == "audio/mp4"
+
+    def test_reads_the_whole_size_off_the_one_byte_it_asked_for(self):
+        probed = probe("https://x/y", opener=_opener("audio/mp4", content_range="bytes 0-0/7552326"))
+        assert probed.total_bytes == 7552326
+
+    def test_reports_no_size_rather_than_guessing_one(self):
+        assert probe("https://x/y", opener=_opener("audio/mp4")).total_bytes is None
 
     def test_refuses_webm_because_the_station_will_not_keep_it(self):
         # The bug this guards: a WebM resolve fetched perfectly and was then refused
@@ -216,3 +225,32 @@ class TestTheStoreContract:
 
     def test_the_format_asks_for_a_storable_container(self):
         assert "ext=m4a" in FORMAT and "vcodec=none" in FORMAT
+
+
+
+class TestWholeRange:
+    """The fix for a 7.5 MB record arriving at 32 KB/s and timing out at the station.
+
+    googlevideo throttles a GET with no range and serves a ranged one at full speed.
+    The station fetches with one plain GET, so the range rides in the URL instead.
+    """
+
+    def test_asks_for_the_whole_file_as_a_range(self):
+        assert whole_range("https://h/videoplayback?itag=140&sig=AB%3D", 7552326) == "https://h/videoplayback?itag=140&sig=AB%3D&range=0-7552325"
+
+    def test_leaves_the_signed_query_byte_for_byte(self):
+        # Re-encoding a signed query is how the signature breaks, so nothing before the range moves.
+        url = "https://h/videoplayback?expire=1&sig=A%2FB%3D%3D&lsig=x%3D"
+        assert whole_range(url, 10).startswith(url)
+
+    def test_replaces_a_range_rather_than_adding_a_second(self):
+        assert whole_range("https://h/v?range=0-9&itag=140", 100) == "https://h/v?range=0-99&itag=140"
+
+    def test_works_on_a_url_with_no_query(self):
+        assert whole_range("https://h/v", 1) == "https://h/v?range=0-0"
+
+    def test_parses_only_a_usable_total(self):
+        assert _total_of("bytes 0-0/7552326") == 7552326
+        assert _total_of("bytes 0-0/*") is None
+        assert _total_of(None) is None
+        assert _total_of("garbage") is None

@@ -20,6 +20,7 @@ protocol implementation of our own. See discussion #49.
 
 from __future__ import annotations
 
+import re
 import time
 import urllib.error
 import urllib.parse
@@ -188,18 +189,60 @@ def expiry_of(url: str, *, now: float | None = None) -> int:
     return int(((now if now is not None else time.time()) + DEFAULT_TTL_S) * 1000)
 
 
-def probe(url: str, *, opener=urllib.request.urlopen) -> str:
+@dataclass(frozen=True)
+class Probe:
+    """What one byte of the URL said about the rest of it."""
+
+    content_type: str
+    #: The whole file's size, read off `Content-Range`, or None when the upstream did not say.
+    total_bytes: int | None
+
+
+def _total_of(content_range: str | None) -> int | None:
+    """The total out of `bytes 0-0/7552326`, or None when there is no usable one."""
+    if not content_range or "/" not in content_range:
+        return None
+    total = content_range.rsplit("/", 1)[1].strip()
+    return int(total) if total.isdigit() and int(total) > 0 else None
+
+
+def whole_range(url: str, total_bytes: int) -> str:
+    """The URL with the whole file requested as a range IN THE QUERY.
+
+    googlevideo serves a GET with no range at about twice real time, and a ranged one
+    at full speed. Measured 2026-09-19 on a 7.5 MB track: 32 KB/s as a plain GET,
+    which is 230 seconds against the station's 90-second fetch timeout, so every
+    record longer than about three minutes timed out and was benched. The same file
+    with `range=0-<last>` in the query arrived whole in 0.09 s, as an ordinary 200.
+
+    The station fetches with one plain GET and nothing else, for every provider, so
+    the range goes into the URL rather than asking the station to change how it
+    fetches. Solving the download challenge does not help: tested with a JS runtime
+    in place, the plain GET was still 32 KB/s.
+
+    Appended as a string rather than rebuilt through a query parser, because the
+    rest of the query is signed and re-encoding it is a way to break the signature.
+    """
+    last = f"0-{total_bytes - 1}"
+    if "range=" in url:
+        return re.sub(r"([?&])range=[^&]*", lambda m: f"{m.group(1)}range={last}", url, count=1)
+    return f"{url}{'&' if '?' in url else '?'}range={last}"
+
+
+def probe(url: str, *, opener=urllib.request.urlopen) -> Probe:
     """One byte, to find out whether this is audio before anything plays it.
 
-    Returns the content type. Raises {@link ResolveError} when the upstream
-    answers something that is not media, which is the case this exists for: an
-    upstream that refuses with a 200 and a JSON body is otherwise indistinguishable
-    from a track, right up until the station airs silence.
+    Answers the content type and, from `Content-Range`, the whole file's size.
+    Raises {@link ResolveError} when the upstream answers something that is not
+    media, which is the case this exists for: an upstream that refuses with a 200
+    and a JSON body is otherwise indistinguishable from a track, right up until the
+    station airs silence.
     """
     request = urllib.request.Request(url, headers={"Range": "bytes=0-0"}, method="GET")
     try:
         with opener(request, timeout=PROBE_TIMEOUT_S) as response:
             content_type = (response.headers.get("content-type") or "").split(";")[0].strip().lower()
+            total_bytes = _total_of(response.headers.get("content-range"))
             status = getattr(response, "status", 200)
     except urllib.error.HTTPError as error:
         if error.code in (403, 410):
@@ -220,7 +263,7 @@ def probe(url: str, *, opener=urllib.request.urlopen) -> str:
         # Audio, and a type the station would refuse at download. Said here, where it
         # reads as a resolve failure, rather than four failed downloads later.
         raise ResolveError("refused", f"the upstream answered {content_type}, which the station does not store")
-    return content_type
+    return Probe(content_type=content_type, total_bytes=total_bytes)
 
 
 def _pick(info: dict) -> dict:
@@ -294,18 +337,23 @@ def resolve(video_id: str, *, cookiefile: str | None = None, now: float | None =
 
     media_url = chosen["url"]
     try:
-        content_type = probe(media_url)
+        probed = probe(media_url)
     except ResolveError as error:
         if error.code == "refused":
             cooldowns.penalise(itag, now=now)
         raise
 
+    # The size the probe read, else yt-dlp's own figure. Without either the URL goes back as it
+    # came: slow, which fails a long record, but a short one still arrives.
+    total = probed.total_bytes or chosen.get("filesize")
+    fetchable = whole_range(media_url, int(total)) if total else media_url
+
     duration = info.get("duration")
     return Resolved(
-        url=media_url,
+        url=fetchable,
         expires_at_ms=expiry_of(media_url, now=now),
-        mime_type=content_type,
+        mime_type=probed.content_type,
         itag=itag,
         duration_ms=int(duration * 1000) if isinstance(duration, (int, float)) else None,
-        filesize=chosen.get("filesize") or chosen.get("filesize_approx"),
+        filesize=total or chosen.get("filesize_approx"),
     )

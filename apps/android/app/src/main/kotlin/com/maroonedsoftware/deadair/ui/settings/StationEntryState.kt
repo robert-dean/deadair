@@ -51,8 +51,16 @@ data class StationEntryState(
 
     companion object {
         /** Typing again clears both verdicts: what was checked is no longer what is in the field. */
-        fun typing(address: String, stored: String? = null): StationEntryState =
-            StationEntryState(address = address, cleartext = address.trim().startsWith("http://", ignoreCase = true), stored = stored)
+        /**
+         * What is in the field as it is typed, with any whitespace taken out: an address never
+         * has any, and Gboard put a space after every `.` of one, which is a keyboard finishing a
+         * word rather than somebody meaning it. Taken out here rather than refused, so the field
+         * simply never shows it, and a pasted address with a stray space at the end just works.
+         */
+        fun typing(address: String, stored: String? = null): StationEntryState {
+            val clean = address.filterNot(Char::isWhitespace)
+            return StationEntryState(address = clean, cleartext = clean.startsWith("http://", ignoreCase = true), stored = stored)
+        }
 
         /**
          * An address a `deadair://` link proposed, in the field and not yet checked. The kept station,

@@ -18,6 +18,14 @@ import org.junit.Test
  */
 class StationEntryStateTest {
     @Test
+    fun `an address never keeps whitespace, wherever the keyboard put it`() {
+        assertEquals("radio.deanhome.app", StationEntryState.typing("radio. deanhome. app").address)
+        assertEquals("https://radio.example.com", StationEntryState.typing(" https://radio.example.com\n").address)
+        // Still read as cleartext with the space it arrived with gone.
+        assertTrue(StationEntryState.typing(" http://10.0.2.2:8080").cleartext)
+    }
+
+    @Test
     fun `shows the station's name once an address has answered`() {
         val state = StationEntryState.from("https://radio.example.com", StationCheck.Reachable("Static Between Stations"))
 

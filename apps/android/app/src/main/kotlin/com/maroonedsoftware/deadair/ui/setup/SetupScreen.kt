@@ -78,7 +78,7 @@ fun SetupScreen(
                     singleLine = true,
                     isError = state.error != null,
                     supportingText = state.supportingText?.let { { Text(it.resolve()) } },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, autoCorrectEnabled = false, imeAction = ImeAction.Go),
                     // The key says Go, so Go does what the button does. A keyboard promising an
                     // action it will not perform is a small lie told on every press.
                     keyboardActions = KeyboardActions(onGo = { if (state.address.isNotBlank() && !state.checking) onCheck() }),

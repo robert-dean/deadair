@@ -110,7 +110,7 @@ fun SettingsScreen(
                 singleLine = true,
                 isError = entry.error != null,
                 supportingText = entry.supportingText?.let { { Text(it.resolve()) } },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, autoCorrectEnabled = false, imeAction = ImeAction.Go),
                 keyboardActions = KeyboardActions(onGo = { if (entry.showsCheck && entry.address.isNotBlank() && !entry.checking) onCheck() }),
                 modifier = Modifier.fillMaxWidth(),
             )

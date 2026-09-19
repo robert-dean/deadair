@@ -1,0 +1,30 @@
+.more {
+    margin-top: 0.9rem;
+    font-size: 0.92rem;
+}
+
+.more summary {
+    cursor: pointer;
+    color: var(--da-phosphor);
+    font-family: var(--da-font-display);
+    font-weight: 600;
+    letter-spacing: 0.03em;
+}
+
+.more > p {
+    margin: 0.75rem 0 0;
+}
+
+.more ul {
+    margin: 0.25rem 0 0;
+    padding-left: 1.1rem;
+}
+
+.heading {
+    margin: 0.9rem 0 0;
+    font-family: var(--ifm-font-family-monospace);
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--da-text-dimmed);
+}

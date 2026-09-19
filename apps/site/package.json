@@ -9,7 +9,8 @@
         "serve": "docusaurus serve --dir dist",
         "clear": "docusaurus clear",
         "lint": "eslint --fix",
-        "typecheck": "tsc --noEmit",
+        "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.tests.json",
+        "test": "vitest run",
         "format": "prettier --write . --ignore-path ../../.prettierignore"
     },
     "devDependencies": {

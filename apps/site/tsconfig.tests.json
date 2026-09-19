@@ -1,0 +1,11 @@
+{
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        // Type-check only: this config exists to cover tests/ as well as src/, which the build
+        // tsconfig deliberately leaves out.
+        "noEmit": true,
+        "types": ["node", "@docusaurus/module-type-aliases", "@docusaurus/theme-classic"]
+    },
+    "include": ["./src/**/*", "./tests/**/*", "./docusaurus.config.ts", "./vitest.config.ts"],
+    "exclude": ["node_modules", "dist", ".docusaurus"]
+}

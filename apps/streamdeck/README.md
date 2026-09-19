@@ -35,9 +35,10 @@ the last record it knew, faint and never in the on-air colour.
 
 ## Setting it up
 
-1. Install the plugin: open the `.streamDeckPlugin` file from a
-   [release](https://github.com/robert-dean/deadair/releases?q=streamdeck), or install it from the
-   Elgato Marketplace. It needs the Stream Deck app 7.1 or later.
+1. Install the plugin from the [Elgato Marketplace](https://marketplace.elgato.com/product/deadair-67841f42-616f-45f3-9708-341017359656),
+   or open the `.streamDeckPlugin` file from a
+   [release](https://github.com/robert-dean/deadair/releases?q=streamdeck). It needs the Stream Deck
+   app 7.1 or later.
 2. In the station's console, go to **Settings, Security, API keys** and issue a key. Choose **Read
    and manage** if you want Skip, Stop and voting to work; **Read only** is enough for Now playing,
    and for Like and Dislike to show you what the station already thinks. Copy the key: the console

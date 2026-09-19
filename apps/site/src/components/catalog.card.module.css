@@ -1,0 +1,76 @@
+.card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+    background: var(--da-panel);
+    border: 1px solid var(--da-border);
+    border-radius: 4px;
+    padding: 1.25rem 1.5rem;
+    min-width: 0;
+}
+
+.head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.head > div {
+    min-width: 0;
+}
+
+.title {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+.subtitle {
+    margin: 0.25rem 0 0;
+    color: var(--da-text-secondary);
+    font-style: italic;
+}
+
+/* Whatever the entry says about itself; it grows so every card's footer lines up. */
+.body {
+    flex: 1;
+    color: var(--da-text-secondary);
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+}
+
+.body > :last-child {
+    margin-bottom: 0;
+}
+
+.foot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding-top: 0.9rem;
+    border-top: 1px solid var(--da-border);
+}
+
+.byline {
+    margin: 0;
+    font-family: var(--ifm-font-family-monospace);
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--da-text-dimmed);
+}
+
+.actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    font-family: var(--da-font-display);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    font-size: 0.85rem;
+}

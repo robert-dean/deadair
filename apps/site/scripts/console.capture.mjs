@@ -6,6 +6,7 @@
 // console changes enough to be worth re-photographing. What it writes to `static/img/console/` is
 // committed; everything else it keeps is under `.capture/`, which is gitignored.
 //
+//     export DEADAIR_CAPTURE_BASE=https://radio.example.com
 //     pnpm --filter @deadair/site capture login
 //     pnpm --filter @deadair/site capture shoot
 //     pnpm --filter @deadair/site capture shoot --only desk,checkup --blur-art
@@ -24,6 +25,11 @@
 //
 // If a run dies between those two points (killed, not failed), the file may hold a spent token.
 // Run `login` again rather than finding out.
+//
+// ## Which station
+//
+// `--base`, or `DEADAIR_CAPTURE_BASE` in the environment, and there is no default. The one this used
+// to fall back on was a real operator's address, and nothing in the tree names that network.
 
 import { execFile } from 'node:child_process';
 import { existsSync } from 'node:fs';
@@ -84,7 +90,9 @@ const targets = [
 const { values, positionals } = parseArgs({
     allowPositionals: true,
     options: {
-        base: { type: 'string', default: 'https://radio.deanhome.app' },
+        // Run by hand and never by turbo, so there is no task for turbo.json to declare this on.
+        // eslint-disable-next-line turbo/no-undeclared-env-vars
+        base: { type: 'string', default: process.env.DEADAIR_CAPTURE_BASE ?? '' },
         browser: { type: 'string' },
         only: { type: 'string' },
         track: { type: 'string' },
@@ -99,6 +107,8 @@ const { values, positionals } = parseArgs({
 
 const base = values.base.replace(/\/+$/, '');
 const command = positionals[0];
+
+if (base === '') fail('Say which station to photograph: --base https://radio.example.com, or DEADAIR_CAPTURE_BASE in the environment.');
 
 if (!themes.includes(values.theme)) fail(`--theme must be one of ${themes.join(', ')}.`);
 

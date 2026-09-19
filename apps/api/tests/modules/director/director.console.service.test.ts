@@ -163,9 +163,12 @@ function build(options: Options = {}) {
     } as unknown as PlaylistsService;
 
     const tracks = {
-        findByBindings: vi.fn(async () => {
+        // Every record the service asks about is catalogued unless a case says otherwise, because that
+        // is the ordinary state of a playlist the sync has walked, and an order made of nothing but
+        // uncatalogued records is now refused. A case about the catalog hands over its own rows.
+        findByBindings: vi.fn(async (_pluginId: string, ids: readonly string[]) => {
             if (options.catalogError) throw options.catalogError;
-            return options.catalogRows ?? [];
+            return options.catalogRows ?? ids.map(id => ({ externalId: id, trackId: `cat-${id}`, year: null, albumName: null, albumImageUrl: null }));
         }),
         findTrack: vi.fn(async (id: string) => (options.catalogTrack?.id === id ? options.catalogTrack : undefined)),
         catalogRowsByTrackId: vi.fn(
@@ -396,9 +399,14 @@ describe('DirectorConsoleService building a running order from a playlist', () =
     });
 
     it('falls back to the provider cover for a track the catalog has never seen', async () => {
+        // A neighbour the catalog DOES know, because an order made of nothing but uncatalogued records
+        // is refused outright; the fallback is for the uncatalogued record inside an airable order.
         const { service, posted } = build({
-            tracks: [{ id: 'trk_9', title: 'B Side', artists: ['Someone'], artworkUrl: 'https://provider.test/cover.jpg' }],
-            catalogRows: [],
+            tracks: [
+                { id: 'trk_9', title: 'B Side', artists: ['Someone'], artworkUrl: 'https://provider.test/cover.jpg' },
+                { id: 'trk_known', title: 'Known', artists: ['Else'] },
+            ],
+            catalogRows: [{ externalId: 'trk_known', trackId: 'cat-known', year: null, albumName: null, albumImageUrl: null }],
         });
 
         await service.putOnAir({ pluginId: 'deadair.spotify', playlistId: 'pl_1' });
@@ -738,6 +746,80 @@ describe('DirectorConsoleService.putOnAir', () => {
 
         expect(await statusOf(service.putOnAir({ pluginId: 'deadair.spotify', playlistId: 'pl_1' }))).toBe(422);
         expect(director.post).not.toHaveBeenCalled();
+    });
+
+    it('refuses a playlist none of whose records the catalog knows, rather than airing the bed', async () => {
+        // The third way to report success and play nothing. A record with no catalog binding has no
+        // audio path at all, since the resolver, the cache planner and the commit gate all need one. So
+        // an order of nothing else is consumed without a byte fetched and the mount falls through to
+        // the bed. Hit with a playlist its provider did not list, which the sync therefore never reached.
+        const { service, director } = build({
+            tracks: [
+                { id: 'trk_1', title: 'One', artists: ['A'] },
+                { id: 'trk_2', title: 'Two', artists: ['B'] },
+            ],
+            catalogRows: [],
+        });
+
+        expect(await statusOf(service.putOnAir({ pluginId: 'deadair.spotify', playlistId: 'pl_1' }))).toBe(422);
+        expect(director.post).not.toHaveBeenCalled();
+    });
+
+    it('says the playlist is not in the library yet, and why that happens', async () => {
+        // The wording is the behaviour: the operator's next move is a sync or a playlist the provider
+        // lists, and "the playlist is empty" or "the station will not play it" would send them looking
+        // at the wrong thing entirely.
+        const { service } = build({ catalogRows: [] });
+
+        const said = await refusalOf(service.putOnAir({ pluginId: 'deadair.spotify', playlistId: 'pl_1' }));
+
+        expect(said).toContain('in the library yet');
+        expect(said).toContain('sync');
+    });
+
+    it('airs a playlist only some of whose records are catalogued', async () => {
+        // The refusal is for an order that can play NOTHING. One the catalog half knows goes on air as
+        // it always did, and its uncatalogued records are the ordinary skip at their slot.
+        const { service, posted } = build({
+            tracks: [
+                { id: 'trk_known', title: 'Known', artists: ['A'] },
+                { id: 'trk_new', title: 'New', artists: ['B'] },
+            ],
+            catalogRows: [{ externalId: 'trk_known', trackId: 'cat-known', year: null, albumName: null, albumImageUrl: null }],
+        });
+
+        await service.putOnAir({ pluginId: 'deadair.spotify', playlistId: 'pl_1' });
+
+        const command = posted()[0];
+        expect(command).toMatchObject({ kind: 'putOnAir' });
+        expect(command?.kind === 'putOnAir' ? command.tracks : []).toHaveLength(2);
+    });
+
+    it('refuses when the veto leaves only records the catalog does not know', async () => {
+        // Judged on what SURVIVES the veto. If every catalogued record is vetoed away, what is left
+        // cannot play either.
+        const { service, director } = build({
+            tracks: [
+                { id: 'trk_known', title: 'Known', artists: ['A'] },
+                { id: 'trk_new', title: 'New', artists: ['B'] },
+            ],
+            catalogRows: [{ externalId: 'trk_known', trackId: 'cat-known', year: null, albumName: null, albumImageUrl: null }],
+            vet: records => records.filter(record => record.trackId === undefined),
+        });
+
+        expect(await statusOf(service.putOnAir({ pluginId: 'deadair.spotify', playlistId: 'pl_1' }))).toBe(422);
+        expect(director.post).not.toHaveBeenCalled();
+    });
+
+    it('does not refuse when the catalog could not be READ, only when it answered', async () => {
+        // A failed read leaves every record without a trackId for a reason that has nothing to do with
+        // the playlist. Refusing on that would take a station's playlists off the air over a transient
+        // database fault, which is the failure the commit gate fails open to avoid.
+        const { service, posted } = build({ catalogError: new Error('the pool is gone') });
+
+        await service.putOnAir({ pluginId: 'deadair.spotify', playlistId: 'pl_1' });
+
+        expect(posted()[0]).toMatchObject({ kind: 'putOnAir' });
     });
 
     it('lets the playlists read own the plugin narrowing', async () => {
@@ -1304,7 +1386,7 @@ describe('DirectorConsoleService editing the running order', () => {
 
     // One read for the order, and one key per KIND rather than per break: a clock that alternates
     // records and forecasts would otherwise ask the same question of the same row a dozen times.
-    it('asks for a kind\'s picture once, however many breaks of that kind the order holds', async () => {
+    it("asks for a kind's picture once, however many breaks of that kind the order holds", async () => {
         const order = onAirWith(1);
         order.insertSegment('seg-weather', 1);
         order.insertSegment('seg-weather-2', 2);

@@ -120,7 +120,9 @@ A broadcast desk rather than a player. It deliberately does not play the mount: 
 is the mount itself, plus the Android app (on
 [Google Play](https://play.google.com/store/apps/details?id=com.maroonedsoftware.deadair), or built
 from `apps/android`), and the iPhone app (`apps/ios`) and the desktop app (`apps/desktop`) if you
-build and run one. The desk also comes as hardware: the Stream Deck plugin (`apps/streamdeck`) puts
+build and run one. The desk also comes as hardware: the Stream Deck plugin (on the
+[Elgato Marketplace](https://marketplace.elgato.com/product/deadair-67841f42-616f-45f3-9708-341017359656), or built
+from `apps/streamdeck`) puts
 what is on air, Skip and Stop on keys, with an API key from Settings, Security.
 
 A rail down the left carries four destinations, with a key each: D, P, L and V. **Desk** is the

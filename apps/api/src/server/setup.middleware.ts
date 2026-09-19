@@ -11,6 +11,7 @@ import { conditionalGetMiddleware } from './middleware/conditional.get.middlewar
 import { bridgeSecretMiddleware } from './middleware/bridge.secret.middleware.js';
 import { hlsCorsMiddleware } from './middleware/hls.cors.middleware.js';
 import { hlsHeartbeatMiddleware } from './middleware/hls.heartbeat.middleware.js';
+import { nowPlayingCorsMiddleware } from './middleware/nowplaying.cors.middleware.js';
 import { rateLimitMiddleware } from './middleware/rate.limit.middleware.js';
 
 export const setupMiddleware = (container: Container) => {
@@ -52,6 +53,8 @@ export const setupMiddleware = (container: Container) => {
     // that one is credentialed, and credentialed CORS forbids the `*` this needs. See the
     // middleware for why native playback hid this until a JavaScript player tried it.
     middlewares.push(hlsCorsMiddleware());
+    // The same override for the one public route, so a page elsewhere can show what is on air.
+    middlewares.push(nowPlayingCorsMiddleware());
     middlewares.push(corsMiddleware({ origin: allowedOrigins, credentials: true, exposeHeaders: ['WWW-Authenticate'] }));
     // The gate on everything under /playout/bridge/. Both sides of this position are
     // load-bearing: AFTER the credential middleware, which is the only thing that puts

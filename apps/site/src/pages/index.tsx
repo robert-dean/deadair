@@ -9,8 +9,8 @@ import styles from './index.module.css';
 
 const repository = 'https://github.com/robert-dean/deadair';
 const playStore = 'https://play.google.com/store/apps/details?id=com.maroonedsoftware.deadair';
-/** The Stream Deck plugin's releases. The Marketplace listing replaces this once Elgato has approved it. */
-const streamDeckReleases = `${repository}/releases?q=streamdeck`;
+/** The Stream Deck plugin's listing on the Elgato Marketplace, which installs it and keeps it updated. */
+const streamDeckMarketplace = 'https://marketplace.elgato.com/product/deadair-67841f42-616f-45f3-9708-341017359656';
 const sdkPackage = 'https://www.npmjs.com/package/@deadair/sdk';
 
 /** The four facts worth reading before anything else, as a strip under the hero's buttons. */
@@ -424,7 +424,7 @@ export default function Home() {
                             <p className="da-eyebrow">Stream Deck</p>
                             <p>
                                 The desk on keys: what is on air with its cover, Skip, a Stop that asks twice, and a heart on the record playing. It
-                                does not play the station. <Link href={streamDeckReleases}>Download it</Link>, or{' '}
+                                does not play the station. <Link href={streamDeckMarketplace}>Get it on the Elgato Marketplace</Link>, or{' '}
                                 <Link to="/docs/features/console#on-a-stream-deck">read what it does</Link>.
                             </p>
                         </div>

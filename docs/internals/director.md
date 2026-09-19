@@ -263,6 +263,17 @@ as one fact marked 125 records of a 519-item order permanently unavailable withi
 install. `withLocalAudio` carries the same guard, because with no binding there is no id to fetch and cutting
 at one was a wall the order could never get past.
 
+**The price of that guard is that an uncatalogued record is never FETCHED either**, so an order made of
+nothing else plays nothing: it goes on air, is consumed without a byte, and the mount falls through to the
+bed. `DirectorConsoleService.sourceTracks` therefore refuses a playlist none of whose vetted records carries
+a `trackId`, with a 422 that says the playlist is not in the library yet. That is the third refusal there,
+beside an empty playlist and one the veto empties, and all three prevent the same thing: a console that
+reports the station on air while it airs nothing. It refuses rather than ingesting, because the sync is the
+one path into the catalog and only its `origin = 'sync'` bindings are ever benched. And it refuses only when
+the catalog was actually READ, since a failed read leaves every record without a `trackId` for a reason
+unrelated to the playlist. Hit on 2026-09-19 with a YouTube Music playlist its provider did not list, which
+the sync, walking `listPlaylists`, never reached.
+
 **A cold station wakes itself, and says what it is doing.** A commit pass runs on a rundown CHANGE and
 nothing else, and off air `WARM_LEAD` is 0 so the change never comes — the pass that would ask for the
 bytes is the pass that only runs once they arrive. `WARM_TICK_MS` is the one loop the director has, and

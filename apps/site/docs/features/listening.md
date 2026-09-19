@@ -34,7 +34,7 @@ The URL beside it is the artwork, and players that fetch it draw it in place of 
 
 By default a station airs only while somebody is listening, so connecting is what puts it on air. The first seconds after pressing play are warm-up: the station takes the mount, hands over the first record and the encoder starts. A few seconds of nothing is the station starting, not failing. If the first records are still downloading, the station says so on air rather than leaving you in silence. When the last listener leaves, it stays on for five minutes in case they come back. [The check-up](./check-up.md) explains the rule, and how to set a station to air whenever it has something to play.
 
-If you write your own player, read the published mounts from `GET /nowplaying` rather than connecting to each to see: a connection, however brief, is an audience for five minutes. And send one user agent from every request, because HLS listeners are counted by address and agent, and two agents count as two listeners.
+`GET /nowplaying` needs no sign-in, and a page on any other site may read it from the browser, so a widget of your own can show what is playing without a server of its own in between. If you write your own player, read the published mounts from it rather than connecting to each to see: a connection, however brief, is an audience for five minutes. And send one user agent from every request, because HLS listeners are counted by address and agent, and two agents count as two listeners.
 
 ## On Android
 

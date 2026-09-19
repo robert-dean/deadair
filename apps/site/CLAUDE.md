@@ -63,10 +63,29 @@ the phosphor accent and the faces from `apps/web/src/tokens.css` and `theme.ts`,
 publishes them through Mantine and this site does not load Mantine. The brand images are served
 straight from `apps/web/public` through `staticDirectories`, so there is one copy of the logo.
 
+**The community pages read their catalogue in the browser, never at build.** `/community/*` fetch
+`catalog.json` and `status.json` from the `robert-dean/deadair-community` repository's Pages site
+through `src/community/catalog.ts`. A build-time fetch would make this site's build (and CI's
+`pnpm build`) fail whenever that site is down, and would need a deploy here for every entry merged
+there. So an entry is live on the next page load, the static build renders the loading state, and
+every failure (the fetch, the format, one malformed entry) degrades to less on the page rather than
+to an error. The types there mirror that repository's JSON Schemas by hand; change them together.
+`DEADAIR_COMMUNITY_ORIGIN` points a build or `start` at another copy, such as the catalogue's own
+`dist/` served locally. It is baked into `.docusaurus/`, which `start` and `build` share, so a `build`
+run while `start` is up rewrites it and the running pages quietly go back to the published catalogue.
+Restart `start` after building.
+
+**The tests' Vite warning about "ESM syntax in a file loaded as CommonJS" is expected.** It is
+`vitest.config.ts` in a package with no `"type": "module"`, which the paragraph above on module format
+forbids. Renaming the config to `.mts` would silence it and also drop the site out of the root
+`vitest.config.ts`, whose project globs match `vitest.config.ts` only, so CI would stop running
+these tests without saying so.
+
 **The screenshots are of a real station, and taking them spends a session.** `scripts/console.capture.mjs`
 (`pnpm --filter @deadair/site capture login`, then `capture shoot`) drives a browser signed in to a
-running console and writes `static/img/console/*.webp`, which is committed. Signing in is done by a
-person in the window `login` opens: nothing here holds a password. The saved state under `.capture/`
+running console and writes `static/img/console/*.webp`, which is committed. The station is named by
+`--base` or `DEADAIR_CAPTURE_BASE` and never by a default, because nothing in the tree names an
+operator's network. Signing in is done by a person in the window `login` opens: nothing here holds a password. The saved state under `.capture/`
 is gitignored and goes stale on every use, because the console's refresh token is single-use and
 presenting a spent one revokes its whole family, so `shoot` writes the new cookie back as soon as the
 first page is up and again on the way out. Never run two at once and never copy the file. Look at

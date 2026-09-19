@@ -1,0 +1,94 @@
+.page {
+    background: radial-gradient(ellipse 120% 40% at 50% 0%, var(--da-bg-glow) 0%, var(--da-bg) 60%);
+    padding-bottom: 6rem;
+    overflow-x: clip;
+}
+
+.page h2 {
+    font-size: clamp(1.5rem, 1.2rem + 1.2vw, 2.1rem);
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+}
+
+.hero {
+    max-width: 56rem;
+    margin: 0 auto;
+    padding: 6rem 1.5rem 1rem;
+    text-align: center;
+}
+
+.headline {
+    font-size: clamp(2.2rem, 1.5rem + 3vw, 3.8rem);
+    font-weight: 700;
+    line-height: 1.05;
+    letter-spacing: -0.01em;
+    margin-bottom: 1.25rem;
+}
+
+.lede {
+    font-size: 1.2rem;
+    line-height: 1.6;
+    color: var(--da-text-secondary);
+    max-width: 42rem;
+    margin: 0 auto;
+}
+
+.section {
+    max-width: 72rem;
+    margin: 0 auto;
+    padding: 4.5rem 1.5rem 0;
+}
+
+.sectionLede {
+    color: var(--da-text-secondary);
+    font-size: 1.05rem;
+    line-height: 1.6;
+    max-width: 44rem;
+    margin-bottom: 2rem;
+}
+
+.cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+    gap: 1rem;
+}
+
+/* A card's link sits at its foot however long the body above it runs. */
+.card {
+    display: flex;
+    flex-direction: column;
+    background: var(--da-panel);
+    border: 1px solid var(--da-border);
+    border-radius: 4px;
+    padding: 1.25rem 1.5rem;
+}
+
+.card p:not(:global(.da-eyebrow)) {
+    flex: 1;
+    color: var(--da-text-secondary);
+    line-height: 1.6;
+}
+
+.card a {
+    font-family: var(--da-font-display);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    font-size: 0.9rem;
+}
+
+.note {
+    color: var(--da-text-secondary);
+    max-width: 44rem;
+    margin: 0;
+}
+
+@media (max-width: 800px) {
+    .hero {
+        padding-top: 3.5rem;
+    }
+
+    .section {
+        padding-top: 3.5rem;
+    }
+}

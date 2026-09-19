@@ -53,6 +53,10 @@ const config: Config = {
 
     clientModules: ['./src/fonts.ts'],
 
+    // Where the community pages read the catalogue from, when it is not the published one: a fork,
+    // or the catalogue's own `dist/` served locally. See `src/community/catalog.ts`.
+    customFields: { communityOrigin: process.env.DEADAIR_COMMUNITY_ORIGIN ?? '' },
+
     presets: [
         [
             'classic',
@@ -76,6 +80,7 @@ const config: Config = {
                 { type: 'doc', docId: 'install', label: 'Install', position: 'left' },
                 { type: 'doc', docId: 'licensing', label: 'Licensing', position: 'left' },
                 { type: 'doc', docId: 'plugin-development/index', label: 'Writing plugins', position: 'left' },
+                { to: '/community', label: 'Community', position: 'left' },
                 { href: repository, label: 'GitHub', position: 'right' },
             ],
         },
@@ -97,6 +102,15 @@ const config: Config = {
                         { label: 'Writing plugins', to: '/docs/plugin-development' },
                         { label: 'Issues', href: `${repository}/issues` },
                         { label: 'Changelog', href: `${repository}/blob/main/CHANGELOG.md` },
+                    ],
+                },
+                {
+                    title: 'Community',
+                    items: [
+                        { label: 'Community', to: '/community' },
+                        { label: 'Discussions', href: `${repository}/discussions` },
+                        { label: 'Contributing', href: `${repository}/blob/main/CONTRIBUTING.md` },
+                        { label: 'Code of conduct', href: `${repository}/blob/main/CODE_OF_CONDUCT.md` },
                     ],
                 },
             ],

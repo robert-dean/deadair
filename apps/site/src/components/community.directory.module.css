@@ -1,0 +1,171 @@
+.page {
+    background: radial-gradient(ellipse 120% 40% at 50% 0%, var(--da-bg-glow) 0%, var(--da-bg) 60%);
+    padding-bottom: 5rem;
+    overflow-x: clip;
+}
+
+.hero {
+    max-width: 72rem;
+    margin: 0 auto;
+    padding: 4.5rem 1.5rem 0;
+}
+
+.headline {
+    font-size: clamp(2rem, 1.4rem + 2.6vw, 3.4rem);
+    font-weight: 700;
+    line-height: 1.05;
+    letter-spacing: -0.01em;
+    margin-bottom: 1rem;
+}
+
+.lede {
+    font-size: 1.1rem;
+    line-height: 1.6;
+    color: var(--da-text-secondary);
+    max-width: 46rem;
+}
+
+.lede p:last-child {
+    margin-bottom: 0;
+}
+
+.actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem 1.5rem;
+    margin-top: 1.75rem;
+}
+
+.primary {
+    display: inline-block;
+    padding: 0.6rem 1.2rem;
+    border-radius: 4px;
+    font-family: var(--da-font-display);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    background: var(--da-phosphor);
+    color: #050706;
+    border: 1px solid var(--da-phosphor);
+}
+
+.primary:hover {
+    background: var(--ifm-color-primary-light);
+    color: #050706;
+    text-decoration: none;
+}
+
+.count {
+    font-family: var(--ifm-font-family-monospace);
+    font-size: 0.78rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--da-text-dimmed);
+}
+
+.section {
+    max-width: 72rem;
+    margin: 0 auto;
+    padding: 3rem 1.5rem 0;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 21rem), 1fr));
+    gap: 1rem;
+}
+
+/* The one thing a visitor has to read before the entries: the plugins' trust notice. */
+.notice {
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1.5rem;
+    border: 1px solid var(--da-border);
+    border-left: 3px solid var(--da-tally);
+    border-radius: 4px;
+    background: var(--da-panel);
+    color: var(--da-text-secondary);
+    line-height: 1.6;
+}
+
+.notice p:last-child {
+    margin-bottom: 0;
+}
+
+.notice strong {
+    color: var(--da-text);
+}
+
+.state {
+    padding: 2.5rem 1.5rem;
+    border: 1px dashed var(--da-border-strong);
+    border-radius: 4px;
+    color: var(--da-text-secondary);
+    text-align: center;
+}
+
+.state p:last-child {
+    margin-bottom: 0;
+}
+
+.foot {
+    margin: 0;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--da-border);
+    color: var(--da-text-dimmed);
+    font-size: 0.9rem;
+    max-width: 52rem;
+}
+
+.tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    list-style: none;
+    margin: 0.75rem 0 0;
+    padding: 0;
+}
+
+.tags li {
+    padding: 0.15rem 0.55rem;
+    font-family: var(--ifm-font-family-monospace);
+    font-size: 0.75rem;
+    letter-spacing: 0.04em;
+    color: var(--da-text);
+    background: var(--da-raised);
+    border: 1px solid var(--da-border-strong);
+    border-radius: 3px;
+}
+
+.facts {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    gap: 0.35rem 1rem;
+    margin: 0.9rem 0 0;
+    font-size: 0.9rem;
+}
+
+.facts > div {
+    display: contents;
+}
+
+.facts dt {
+    font-family: var(--ifm-font-family-monospace);
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--da-text-dimmed);
+    padding-top: 0.15rem;
+}
+
+.facts dd {
+    margin: 0;
+    color: var(--da-text);
+    overflow-wrap: anywhere;
+}
+
+@media (max-width: 800px) {
+    .hero {
+        padding-top: 3rem;
+    }
+}

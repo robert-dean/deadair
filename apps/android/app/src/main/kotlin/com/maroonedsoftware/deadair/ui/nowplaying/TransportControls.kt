@@ -50,33 +50,6 @@ data class TransportHandlers(
 )
 
 /**
- * The operator's transport, under the listener's play button.
- *
- * The pair first, then who is driving and the hold, then what puts the station on air. Drawn only
- * for a session the station last called `admin`; the station still decides every press.
- */
-@Composable
-fun TransportControls(state: TransportUiState, handlers: TransportHandlers, modifier: Modifier = Modifier) {
-    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        TransportPair(state, handlers)
-
-        state.driving?.let {
-            Text(
-                it.resolve(),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-            )
-        }
-
-        state.hold?.let { HoldLine(it, busy = state.busy, onHold = handlers.onHold, onRelease = handlers.onRelease) }
-
-        state.airMode?.let { mode -> AirModeRow(mode, busy = state.busy, onAirMode = handlers.onAirMode) }
-    }
-}
-
-/**
  * Skip and Take off air side by side at equal widths, so the armed label cannot clip and Skip does
  * not move between the press that arms and the press that fires — the one moment on the screen when
  * nothing may move. Start takes the second place while the station is stood down.

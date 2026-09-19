@@ -8,7 +8,6 @@ import com.maroonedsoftware.deadair.nowplaying.Playhead
 import com.maroonedsoftware.deadair.sdk.models.NowPlayingShow
 import com.maroonedsoftware.deadair.sdk.models.NowPlayingTrack
 import com.maroonedsoftware.deadair.sdk.models.NowPlayingTrackKind
-import com.maroonedsoftware.deadair.station.StreamFormat
 import com.maroonedsoftware.deadair.ui.theme.DeadairTheme
 
 // One preview per state the screen can be in, light and dark. These exist because the copy and
@@ -24,9 +23,11 @@ private fun state(
     playing: Boolean = false,
     buffering: Boolean = false,
     stale: Boolean = false,
-    fellBack: Boolean = false,
     show: NowPlayingShow? = null,
-) = NowPlayingUiState(air = air, listeners = 3, format = StreamFormat.HLS, playing = playing, buffering = buffering, fellBackToMp3 = fellBack, stale = stale, show = show)
+) = NowPlayingUiState(air = air, playing = playing, buffering = buffering, stale = stale, show = show)
+
+/** The operator's build: the same screen with Skip beside Stop. */
+private val skip = SkipControl(enabled = true, onSkip = {})
 
 @Composable
 private fun Framed(content: @Composable () -> Unit) {
@@ -36,36 +37,48 @@ private fun Framed(content: @Composable () -> Unit) {
 @PreviewLightDark
 @Composable
 private fun OnAirPreview() = Framed {
-    NowPlayingScreen(state(AirState.OnAir(track), playing = true), artworkUrl = null, playhead = Playhead(102_000, 264_000, 366_000), onPlay = {}, onStop = {}, onOpenFormat = {})
+    NowPlayingScreen(state(AirState.OnAir(track), playing = true), artworkUrl = null, playhead = Playhead(102_000, 264_000, 366_000), onPlay = {}, onStop = {})
 }
 
 @PreviewLightDark
 @Composable
 private fun InAShowPreview() = Framed {
-    NowPlayingScreen(state(AirState.OnAir(track), playing = true, show = show), artworkUrl = null, playhead = Playhead(102_000, 264_000, 366_000), onPlay = {}, onStop = {}, onOpenFormat = {})
+    NowPlayingScreen(state(AirState.OnAir(track), playing = true, show = show), artworkUrl = null, playhead = Playhead(102_000, 264_000, 366_000), onPlay = {}, onStop = {})
 }
 
 @PreviewLightDark
 @Composable
 private fun OnTheMicPreview() = Framed {
     val spoken = NowPlayingTrack(kind = NowPlayingTrackKind.BREAK, title = "Top of the hour", artist = "", durationMs = 12_000, startedAt = 1)
-    NowPlayingScreen(state(AirState.OnAir(spoken), playing = true, show = show), artworkUrl = null, playhead = Playhead(4_000, 8_000, 12_000), onPlay = {}, onStop = {}, onOpenFormat = {})
+    NowPlayingScreen(state(AirState.OnAir(spoken), playing = true, show = show), artworkUrl = null, playhead = Playhead(4_000, 8_000, 12_000), onPlay = {}, onStop = {})
 }
 
 @PreviewLightDark
 @Composable
 private fun OffAirPreview() = Framed {
-    NowPlayingScreen(state(AirState.OffAir), artworkUrl = null, playhead = null, onPlay = {}, onStop = {}, onOpenFormat = {})
+    NowPlayingScreen(state(AirState.OffAir), artworkUrl = null, playhead = null, onPlay = {}, onStop = {})
 }
 
 @PreviewLightDark
 @Composable
 private fun WarmingUpPreview() = Framed {
-    NowPlayingScreen(state(AirState.WarmingUp, playing = true, buffering = true), artworkUrl = null, playhead = null, onPlay = {}, onStop = {}, onOpenFormat = {})
+    NowPlayingScreen(state(AirState.WarmingUp, playing = true, buffering = true), artworkUrl = null, playhead = null, onPlay = {}, onStop = {})
 }
 
 @PreviewLightDark
 @Composable
-private fun StaleWithFallbackPreview() = Framed {
-    NowPlayingScreen(state(AirState.Unreachable, playing = true, stale = true, fellBack = true), artworkUrl = null, playhead = null, onPlay = {}, onStop = {}, onOpenFormat = {})
+private fun StalePreview() = Framed {
+    NowPlayingScreen(state(AirState.Unreachable, playing = true, stale = true), artworkUrl = null, playhead = null, onPlay = {}, onStop = {})
+}
+
+@PreviewLightDark
+@Composable
+private fun OperatorPreview() = Framed {
+    NowPlayingScreen(state(AirState.OnAir(track), playing = true, show = show), artworkUrl = null, playhead = Playhead(102_000, 264_000, 366_000), onPlay = {}, onStop = {}, skip = skip)
+}
+
+@PreviewLightDark
+@Composable
+private fun OperatorWarmingUpPreview() = Framed {
+    NowPlayingScreen(state(AirState.WarmingUp, playing = true, buffering = true), artworkUrl = null, playhead = null, onPlay = {}, onStop = {}, skip = skip.copy(enabled = false))
 }

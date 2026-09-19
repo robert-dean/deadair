@@ -51,7 +51,6 @@ fun Message.resolve(): String =
                 if (count == 0L) stringResource(R.string.nobody_listening) else pluralStringResource(R.plurals.listening, count.toInt(), count)
             stringResource(R.string.now_footer, people, format.label)
         }
-        is Message.FellBackToMp3 -> stringResource(R.string.now_fell_back_to_mp3, wanted.label)
         is Message.OnTheMic -> if (host == null) stringResource(R.string.now_on_the_mic_unnamed) else stringResource(R.string.now_on_the_mic, host)
         is Message.ShowWithHost -> stringResource(R.string.now_show_with_host, show, host)
         is Message.WithHost -> stringResource(R.string.now_with_host, host)

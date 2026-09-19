@@ -24,7 +24,6 @@ import com.maroonedsoftware.deadair.nowplaying.NowPlayingState
 import com.maroonedsoftware.deadair.nowplaying.airState
 import com.maroonedsoftware.deadair.playback.PlayerConnection
 import com.maroonedsoftware.deadair.playback.PlayerUiState
-import com.maroonedsoftware.deadair.playback.chooseMount
 import com.maroonedsoftware.deadair.playout.PlayoutState
 import com.maroonedsoftware.deadair.settings.ListenerSettings
 import com.maroonedsoftware.deadair.ui.ShowOperatorNotices
@@ -38,10 +37,9 @@ import com.maroonedsoftware.deadair.sdk.models.StationOrderItemKind
 import com.maroonedsoftware.deadair.ui.order.RunningOrderScreen
 import com.maroonedsoftware.deadair.ui.nowplaying.NowPlayingScreen
 import com.maroonedsoftware.deadair.ui.nowplaying.NowPlayingUiState
-import com.maroonedsoftware.deadair.ui.nowplaying.TransportHandlers
+import com.maroonedsoftware.deadair.ui.nowplaying.SkipControl
 import com.maroonedsoftware.deadair.ui.nowplaying.TransportUiState
 import com.maroonedsoftware.deadair.ui.nowplaying.rememberPlayWithNotificationsAsked
-import com.maroonedsoftware.deadair.ui.nowplaying.readSilence
 import com.maroonedsoftware.deadair.ui.nowplaying.rememberPlayhead
 import com.maroonedsoftware.deadair.sdk.models.Rating
 import com.maroonedsoftware.deadair.ui.schedule.WhatsOnScreen
@@ -106,20 +104,14 @@ fun HomeRoute(
             NowPlayingState.Loading -> null
         }
     val air = airState(nowPlaying, playback.requested)
-    val choice = chooseMount(reading?.nowPlaying?.mounts.orEmpty(), settings.format)
     val play = rememberPlayWithNotificationsAsked(connection::play)
     // One state for Now playing and the player bar over the other tabs, so the two cannot disagree
     // about what is on.
     val nowState =
         NowPlayingUiState(
             air = air,
-            listeners = reading?.nowPlaying?.listeners ?: 0,
-            format = settings.format,
             playing = playback.requested,
             buffering = playback.buffering,
-            // Only worth saying while something is actually playing; before that it is a guess
-            // about a station that has not answered yet.
-            fellBackToMp3 = choice.fellBack && playback.requested,
             stale = nowPlaying is NowPlayingState.Unreachable,
             show = reading?.nowPlaying?.show,
         )
@@ -159,6 +151,9 @@ fun HomeRoute(
             },
         tab = tab,
         onTab = onTab,
+        // Now playing is the cover to the top of the screen, and a bar over it would be the one
+        // thing on the art that is not the art.
+        topBar = tab != Tab.NOW_PLAYING,
         snackbarHost = snackbarHost,
         // Over the tabs that are about the station, and not over Now playing, which has the
         // station's button already, or Settings, which is not about what is on.
@@ -205,36 +200,29 @@ fun HomeRoute(
         when (tab) {
             Tab.NOW_PLAYING -> {
                 // Collected inside this branch and nowhere else, so the two-second transport poll
-                // runs while this tab is up and stops a few seconds after it is left.
+                // runs while this tab is up and stops a few seconds after it is left. It is what
+                // says whether there is anything to skip, and which record the cover is.
                 val playout by graph.playout.state.collectAsStateWithLifecycle()
                 val loaded = playout as? PlayoutState.Loaded
-                val silence = loaded?.status?.silence?.let(::readSilence)
 
-                // One action at a time, so a second press waits for the first rather than queueing
-                // behind it: two skips in flight would take two records off air.
+                // One skip at a time: two in flight would take two records off air.
                 var busy by remember { mutableStateOf(false) }
-                fun act(action: suspend () -> Unit) {
-                    if (busy) return
-                    busy = true
-                    scope.launch {
-                        try {
-                            action()
-                        } finally {
-                            busy = false
+                val skip =
+                    if (isOperator && loaded != null) {
+                        SkipControl(enabled = TransportUiState(status = loaded.status, air = loaded.air, busy = busy).skipEnabled) {
+                            if (!busy) {
+                                busy = true
+                                scope.launch {
+                                    try {
+                                        graph.transport.skip()
+                                    } finally {
+                                        busy = false
+                                    }
+                                }
+                            }
                         }
-                    }
-                }
-                val transport = if (isOperator && loaded != null) TransportUiState(status = loaded.status, air = loaded.air, busy = busy) else null
-                val handlers =
-                    remember(graph) {
-                        TransportHandlers(
-                            onSkip = { act { graph.transport.skip() } },
-                            onStop = { act { graph.transport.stop() } },
-                            onStart = { act { graph.transport.start() } },
-                            onHold = { minutes -> act { graph.transport.hold(minutes) } },
-                            onRelease = { act { graph.transport.release() } },
-                            onAirMode = { mode -> act { graph.transport.setAirMode(mode) } },
-                        )
+                    } else {
+                        null
                     }
                 NowPlayingScreen(
                     state = nowState,
@@ -244,15 +232,10 @@ fun HomeRoute(
                     playhead = rememberPlayhead(reading.takeIf { nowPlaying is NowPlayingState.Answered }),
                     onPlay = play,
                     onStop = connection::stop,
-                    onOpenFormat = onSettings,
-                    silence = silence,
-                    transport = transport,
-                    handlers = handlers,
+                    skip = skip,
                     // The cover leads to the record's page, for a signed-in listener: the public
                     // reading names no record, so only the transport reading can say which it is.
                     onArtwork = loaded?.status?.nowPlaying?.item?.trackId?.let { id -> { onTrack(id) } },
-                    sleep = playback.sleep,
-                    onSleep = { request -> if (request == null) connection.clearSleep() else connection.armSleep(request) },
                 )
             }
             Tab.UP_NEXT -> {

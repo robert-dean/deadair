@@ -4,7 +4,6 @@ import com.maroonedsoftware.deadair.nowplaying.AirState
 import com.maroonedsoftware.deadair.sdk.models.NowPlayingShow
 import com.maroonedsoftware.deadair.sdk.models.NowPlayingTrack
 import com.maroonedsoftware.deadair.sdk.models.NowPlayingTrackKind
-import com.maroonedsoftware.deadair.station.StreamFormat
 import com.maroonedsoftware.deadair.ui.text.Message
 
 /**
@@ -16,12 +15,8 @@ import com.maroonedsoftware.deadair.ui.text.Message
  */
 data class NowPlayingUiState(
     val air: AirState,
-    val listeners: Long,
-    val format: StreamFormat,
     val playing: Boolean,
     val buffering: Boolean,
-    /** True when the chosen format was not published and MP3 was taken instead. */
-    val fellBackToMp3: Boolean = false,
     /** Whether what is on screen came from a reading that has since gone stale. */
     val stale: Boolean = false,
     /**
@@ -90,12 +85,4 @@ data class NowPlayingUiState(
      */
     val subtitleScrolls: Boolean
         get() = subtitle is Message.Text
-
-    /** The line under the controls: who is listening, and how. The count is spelled by the language, not here. */
-    val footer: Message
-        get() = Message.Listeners(listeners, format)
-
-    /** Said only when the chosen format was not there to be had. */
-    val fallbackNote: Message?
-        get() = if (fellBackToMp3) Message.FellBackToMp3(format) else null
 }

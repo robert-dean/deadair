@@ -38,8 +38,11 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.maroonedsoftware.deadair.R
 import com.maroonedsoftware.deadair.auth.SessionState
+import com.maroonedsoftware.deadair.playback.SleepRequest
+import com.maroonedsoftware.deadair.playback.SleepState
 import com.maroonedsoftware.deadair.station.StreamFormat
 import com.maroonedsoftware.deadair.ui.PrivacyPolicyLink
+import com.maroonedsoftware.deadair.ui.nowplaying.SleepControl
 import com.maroonedsoftware.deadair.ui.text.resolve
 import com.maroonedsoftware.deadair.ui.theme.FormMaxWidth
 import com.maroonedsoftware.deadair.ui.theme.Gutter
@@ -80,6 +83,12 @@ fun SettingsScreen(
     onSignIn: () -> Unit,
     onStartAgain: () -> Unit,
     onSignOut: () -> Unit,
+    /** The sleep timer, as the service last said. */
+    sleep: SleepState = SleepState.Off,
+    /** Whether the station can say how much of the record is left, which "After this record" needs. */
+    canWaitForRecord: Boolean = false,
+    /** Set the sleep timer, or `null` to turn it off. No row is drawn without one. */
+    onSleep: ((SleepRequest?) -> Unit)? = null,
 ) {
     // Scroll first and the keyboard's inset inside it, so Sign in is never behind the keyboard. The
     // frame has already padded this by the bars and consumed their insets, so this adds only what
@@ -155,6 +164,17 @@ fun SettingsScreen(
                 trailingContent = { Switch(checked = playOnOpen, onCheckedChange = null) },
                 modifier = Modifier.fillMaxWidth().selectable(selected = playOnOpen, role = Role.Switch, onClick = { onPlayOnOpen(!playOnOpen) }),
             )
+
+            // Only while the station is playing: there is nothing to put to sleep otherwise, and a
+            // timer set on a stopped player would fire into whatever play came next. Here rather
+            // than under the play button, which now has nothing under it that can come and go.
+            onSleep?.let {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.sleep_timer)) },
+                    supportingContent = { Text(stringResource(R.string.sleep_timer_detail)) },
+                    trailingContent = { SleepControl(sleep = sleep, canWaitForRecord = canWaitForRecord, onSleep = it) },
+                )
+            }
 
             // Only where there are wallpaper colours to choose between. Below Android 12 the
             // station's palette is the only one, and a switch that changed nothing would be a lie.

@@ -49,8 +49,6 @@ sealed interface Message {
     /** "N listening · MP3", with the count spelled the way the language counts. */
     data class Listeners(val count: Long, val format: StreamFormat) : Message
 
-    data class FellBackToMp3(val wanted: StreamFormat) : Message
-
     /**
      * The title while the station talks between records: "Cass is on the mic". `host` is the name
      * the station sent, and absent when it named nobody, which has its own sentence rather than a

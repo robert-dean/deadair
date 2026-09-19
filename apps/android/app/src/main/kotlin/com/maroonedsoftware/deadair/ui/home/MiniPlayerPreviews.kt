@@ -6,7 +6,6 @@ import com.maroonedsoftware.deadair.nowplaying.AirState
 import com.maroonedsoftware.deadair.sdk.models.NowPlayingShow
 import com.maroonedsoftware.deadair.sdk.models.NowPlayingTrack
 import com.maroonedsoftware.deadair.sdk.models.NowPlayingTrackKind
-import com.maroonedsoftware.deadair.station.StreamFormat
 import com.maroonedsoftware.deadair.ui.nowplaying.NowPlayingUiState
 import com.maroonedsoftware.deadair.ui.theme.DeadairTheme
 
@@ -15,7 +14,7 @@ import com.maroonedsoftware.deadair.ui.theme.DeadairTheme
 private val track = NowPlayingTrack(title = "Windowlicker", artist = "Aphex Twin", album = "Windowlicker", startedAt = 1)
 
 private fun state(air: AirState, playing: Boolean = false, buffering: Boolean = false, stale: Boolean = false, show: NowPlayingShow? = null) =
-    NowPlayingUiState(air = air, listeners = 3, format = StreamFormat.MP3, playing = playing, buffering = buffering, stale = stale, show = show)
+    NowPlayingUiState(air = air, playing = playing, buffering = buffering, stale = stale, show = show)
 
 @PreviewLightDark
 @Composable

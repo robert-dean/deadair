@@ -35,7 +35,9 @@ fun PlayStopButton(
     size: Dp = 72.dp,
     iconSize: Dp = 32.dp,
 ) {
-    val label = stringResource(if (playing) R.string.stop else R.string.play)
+    // Named by what it stops: this phone, not the station. The station's own stop is on the desk
+    // and is called Take off air; both were "Stop" to TalkBack.
+    val label = stringResource(if (playing) R.string.stop_listening else R.string.play)
     val bufferingLabel = stringResource(R.string.buffering)
     FilledIconButton(
         onClick = if (playing) onStop else onPlay,

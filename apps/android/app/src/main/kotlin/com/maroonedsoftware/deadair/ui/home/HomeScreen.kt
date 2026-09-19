@@ -2,6 +2,9 @@ package com.maroonedsoftware.deadair.ui.home
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -21,6 +24,7 @@ import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -57,6 +61,8 @@ fun HomeScreen(
     title: String,
     tab: Tab,
     onTab: (Tab) -> Unit,
+    /** Whether the tab has a bar over it. Without one the tab draws to the top of the screen and minds the status bar itself. */
+    topBar: Boolean = true,
     snackbarHost: SnackbarHostState,
     /** The tab's own actions. Empty for a tab that has none. */
     actions: @Composable RowScope.() -> Unit = {},
@@ -73,11 +79,13 @@ fun HomeScreen(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         snackbarHost = { SnackbarHost(snackbarHost) },
         topBar = {
-            TopAppBar(
-                title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                scrollBehavior = scrollBehavior,
-                actions = actions,
-            )
+            if (topBar) {
+                TopAppBar(
+                    title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                    scrollBehavior = scrollBehavior,
+                    actions = actions,
+                )
+            }
         },
         bottomBar = {
             // The player bar sits on the tabs rather than inside a tab, so the Scaffold pads the
@@ -101,6 +109,15 @@ fun HomeScreen(
     ) { padding ->
         // Consumed as well as applied, so a tab that pads itself by the keyboard (Settings) adds
         // only what the keyboard takes beyond the bars rather than both.
-        Box(modifier = Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)) { content() }
+        // Without a bar, only the sides and the foot are padded: the top is the tab's, so a cover can
+        // run under the status bar.
+        val applied =
+            if (topBar) {
+                padding
+            } else {
+                val direction = LocalLayoutDirection.current
+                PaddingValues(start = padding.calculateStartPadding(direction), end = padding.calculateEndPadding(direction), bottom = padding.calculateBottomPadding())
+            }
+        Box(modifier = Modifier.fillMaxSize().padding(applied).consumeWindowInsets(applied)) { content() }
     }
 }

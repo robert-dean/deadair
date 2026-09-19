@@ -35,6 +35,7 @@ import com.maroonedsoftware.deadair.nowplaying.NowPlayingState
 import com.maroonedsoftware.deadair.playback.PlayerConnection
 import com.maroonedsoftware.deadair.playback.playOnOpen
 import com.maroonedsoftware.deadair.station.StationLink
+import com.maroonedsoftware.deadair.ui.nowplaying.rememberPlayhead
 import com.maroonedsoftware.deadair.ui.nowplaying.rememberPlayWithNotificationsAsked
 import com.maroonedsoftware.deadair.ui.add.AddRecordRoute
 import com.maroonedsoftware.deadair.ui.air.AirSomethingRoute
@@ -248,6 +249,14 @@ private fun Listener(graph: AppGraph, links: MutableStateFlow<String?>) {
                                     onSignIn = model::signIn,
                                     onStartAgain = model::startAgain,
                                     onSignOut = model::signOut,
+                                    sleep = playback.sleep,
+                                    canWaitForRecord = rememberPlayhead((nowPlaying as? NowPlayingState.Answered)?.reading) != null,
+                                    onSleep =
+                                        if (playback.requested) {
+                                            { request -> if (request == null) connection.clearSleep() else connection.armSleep(request) }
+                                        } else {
+                                            null
+                                        },
                                 )
                             },
                             onTrack = { id -> backStack.add(Destination.Track(id)) },

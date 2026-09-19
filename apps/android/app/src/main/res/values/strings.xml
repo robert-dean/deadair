@@ -34,7 +34,6 @@
     </plurals>
     <!-- Who is listening, then how: "3 listening · MP3" -->
     <string name="now_footer">%1$s · %2$s</string>
-    <string name="now_fell_back_to_mp3">This station does not publish %1$s. Playing MP3.</string>
     <!-- The title while the station talks between records, naming the host: "Cass is on the mic" -->
     <string name="now_on_the_mic">%1$s is on the mic</string>
     <!-- The same, when the station named nobody -->
@@ -45,6 +44,7 @@
     <string name="now_with_host">with %1$s</string>
     <!-- The sleep timer: its button, its choices, and the line that counts down under the button -->
     <string name="sleep_timer">Sleep timer</string>
+    <string name="sleep_timer_detail">Stops listening on this phone after a while.</string>
     <plurals name="sleep_minutes">
         <item quantity="one">%1$d minute</item>
         <item quantity="other">%1$d minutes</item>
@@ -58,6 +58,7 @@
     <string name="playhead_position">%1$s of %2$s</string>
     <string name="play">Play</string>
     <string name="stop">Stop</string>
+    <string name="stop_listening">Stop listening</string>
     <string name="buffering">Buffering</string>
 
     <!-- First run and the station address -->

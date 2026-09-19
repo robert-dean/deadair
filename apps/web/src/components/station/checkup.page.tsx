@@ -2,6 +2,7 @@ import { Anchor, Card, Code, Group, Progress, Stack, Table, Text } from '@mantin
 import { useQuery } from '@tanstack/react-query';
 import type { PlayoutMount, PluginSummary, StationHeartbeat } from '@deadair/sdk';
 import type { DateTime } from 'luxon';
+import { QRCodeSVG } from 'qrcode.react';
 
 import { usePlayoutStatus } from '../../api/playout.queries';
 import { pluginsListOptions } from '../../api/plugins.queries';
@@ -421,14 +422,35 @@ function Mounts({ mounts }: { mounts: PlayoutMount[] }) {
                     <CopyButton value={`${window.location.origin}${mount.path}`} />
                 </Group>
             ))}
-            {/* The whole origin, escaped, rather than the host: a station on a home network is
-                plain http, and the app's shorthand form would turn it into https and point it at
-                nothing. No new tab, which a custom scheme would leave behind empty. The app only
-                offers the station; it switches when somebody presses Connect. */}
-            <Anchor size="xs" c="dimmed" w="fit-content" href={`deadair://connect?station=${encodeURIComponent(window.location.origin)}`}>
-                Open in the desktop app
-            </Anchor>
+            <AppLink />
         </Stack>
+    );
+}
+
+/**
+ * The station, handed to the listener apps: a link for this machine and a code for a phone.
+ *
+ * The whole origin, escaped, rather than the host: a station on a home network is plain http, and
+ * the apps' shorthand form would turn it into https and point them at nothing. No new tab, which a
+ * custom scheme would leave behind empty. The link names no platform because the desktop and the
+ * Android app both read it; either only OFFERS the station, and switches when somebody presses
+ * Connect. The code is the same link, for the phone that cannot click one on this screen, and is
+ * drawn black on white whatever the theme, because a scanner reads contrast and not intent.
+ */
+function AppLink() {
+    const link = `deadair://connect?station=${encodeURIComponent(window.location.origin)}`;
+    return (
+        <Group gap="sm" wrap="nowrap" mt="xs">
+            <QRCodeSVG value={link} size={88} marginSize={2} bgColor="#ffffff" fgColor="#000000" title="Scan to open this station in the app" />
+            <Stack gap={2}>
+                <Anchor size="xs" c="dimmed" w="fit-content" href={link}>
+                    Open in the app
+                </Anchor>
+                <Text size="xs" c="dimmed">
+                    Or scan the code with a phone that has it.
+                </Text>
+            </Stack>
+        </Group>
     );
 }
 

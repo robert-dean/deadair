@@ -37,6 +37,7 @@
         "@tanstack/react-virtual": "^3.14.10",
         "dayjs": "^1.11.23",
         "luxon": "^3.7.2",
+        "qrcode.react": "^4.2.0",
         "react": "^19.2.8",
         "react-dom": "^19.2.8"
     },

@@ -27,6 +27,12 @@ vi.mock('../../../src/api/client', () => ({
     },
 }));
 
+// The code is drawn as a picture of its value, which a test cannot read back, so the value is what
+// gets rendered instead.
+vi.mock('qrcode.react', () => ({
+    QRCodeSVG: ({ value, title }: { value: string; title?: string }) => <svg data-value={value} aria-label={title} role="img" />,
+}));
+
 vi.mock('@tanstack/react-router', () => ({
     Link: ({ to, children, ...rest }: { to?: string; children?: ReactNode }) => (
         <a href={to} {...rest}>
@@ -97,14 +103,24 @@ describe('CheckupPage', () => {
      * The whole origin, escaped, so a plain-http station on a home network is handed over as http:
      * the app's `deadair://host` shorthand would make it https and point the app at nothing.
      */
-    it('offers the station to the desktop app by its whole origin', async () => {
+    it('offers the station to the apps by its whole origin', async () => {
         allWell();
 
         render(<CheckupPage />);
 
-        const link = await screen.findByRole('link', { name: 'Open in the desktop app' });
+        const link = await screen.findByRole('link', { name: 'Open in the app' });
         expect(link).toHaveAttribute('href', `deadair://connect?station=${encodeURIComponent(window.location.origin)}`);
         expect(link).not.toHaveAttribute('target');
+    });
+
+    /** A phone cannot click a link on this screen, so the same link is offered as a code to scan. */
+    it('draws the same link as a code for a phone', async () => {
+        allWell();
+
+        render(<CheckupPage />);
+
+        const code = await screen.findByRole('img', { name: 'Scan to open this station in the app' });
+        expect(code).toHaveAttribute('data-value', `deadair://connect?station=${encodeURIComponent(window.location.origin)}`);
     });
 
     /**

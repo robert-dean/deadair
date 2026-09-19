@@ -249,8 +249,12 @@
     <string name="host_on_air">%1$s (on air)</string>
 
     <!-- The operator's running-order actions -->
-    <string name="extend">Extend</string>
-    <string name="shuffle">Shuffle</string>
+    <!-- The Up next overflow: the operator's verbs, each saying what it does -->
+    <string name="more_actions">More actions</string>
+    <string name="menu_air_something">Air something…</string>
+    <string name="menu_add_a_record">Add a record…</string>
+    <string name="menu_refill">Ask the station to refill</string>
+    <string name="menu_shuffle">Shuffle what has not aired</string>
     <string name="refill_asked">Refill asked for. The records land in a few seconds.</string>
     <string name="row_actions">Actions for %1$s</string>
     <string name="play_next">Play next</string>

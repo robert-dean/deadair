@@ -2,7 +2,11 @@ package com.maroonedsoftware.deadair.ui.home
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
@@ -31,7 +35,8 @@ import com.maroonedsoftware.deadair.ui.LoadState
 import com.maroonedsoftware.deadair.ui.catalog.rememberDetail
 import com.maroonedsoftware.deadair.ui.order.BroadcastUiState
 import com.maroonedsoftware.deadair.ui.order.OrderHandlers
-import com.maroonedsoftware.deadair.ui.order.RunningOrderUiState
+import com.maroonedsoftware.deadair.ui.order.OrderVerb
+import com.maroonedsoftware.deadair.ui.order.orderMenu
 import com.maroonedsoftware.deadair.director.OrderState
 import com.maroonedsoftware.deadair.sdk.models.StationOrderItemKind
 import com.maroonedsoftware.deadair.ui.order.RunningOrderScreen
@@ -70,6 +75,8 @@ fun HomeRoute(
     settingsTab: @Composable () -> Unit,
     /** Open a record's page. */
     onTrack: (String) -> Unit,
+    /** Open the desk: everything that can take the station off air. Offered to the operator only. */
+    onDesk: () -> Unit,
     /** Open the list of what could be put on air. Offered to the operator only. */
     onAirSomething: () -> Unit,
     /** Open the library search, to add one record. Offered to the operator only, while something is on. */
@@ -171,28 +178,31 @@ fun HomeRoute(
                     Icon(painterResource(R.drawable.ic_record_voice_over), contentDescription = stringResource(R.string.what_it_said))
                 }
             }
-            if (tab == Tab.UP_NEXT && isOperator && loaded != null) {
-                IconButton(onClick = onAirSomething) {
-                    Icon(painterResource(R.drawable.ic_playlist_play), contentDescription = stringResource(R.string.air_something))
-                }
-                // A record needs a broadcast to join. Off air, Air something is the way on.
-                if (!(loaded.order.name.isBlank() && loaded.order.items.isEmpty())) {
-                    IconButton(onClick = onAddRecord) {
-                        Icon(painterResource(R.drawable.ic_search), contentDescription = stringResource(R.string.add_a_record))
+            // The operator's verbs behind one overflow, each in words. See `orderMenu`.
+            if (tab == Tab.UP_NEXT && isOperator) {
+                var open by remember { mutableStateOf(false) }
+                Box {
+                    IconButton(onClick = { open = true }) {
+                        Icon(painterResource(R.drawable.ic_more_vert), contentDescription = stringResource(R.string.more_actions))
                     }
-                }
-                IconButton(
-                    onClick = { orderAction { if (graph.orderActions.extend()) snackbarHost.showSnackbar(refillAsked) } },
-                    enabled = !orderBusy,
-                ) {
-                    Icon(painterResource(R.drawable.ic_playlist_add), contentDescription = stringResource(R.string.extend))
-                }
-                // Nothing to shuffle with fewer than two rows the player has not been handed.
-                IconButton(
-                    onClick = { orderAction { graph.orderActions.shuffle() } },
-                    enabled = !orderBusy && RunningOrderUiState(loaded.order.items).plannedCount >= 2,
-                ) {
-                    Icon(painterResource(R.drawable.ic_shuffle), contentDescription = stringResource(R.string.shuffle))
+                    DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+                        orderMenu(loaded?.order, busy = orderBusy).forEach { item ->
+                            DropdownMenuItem(
+                                text = { Text(stringResource(item.verb.label)) },
+                                enabled = item.enabled,
+                                onClick = {
+                                    open = false
+                                    when (item.verb) {
+                                        OrderVerb.DESK -> onDesk()
+                                        OrderVerb.AIR_SOMETHING -> onAirSomething()
+                                        OrderVerb.ADD_RECORD -> onAddRecord()
+                                        OrderVerb.REFILL -> orderAction { if (graph.orderActions.extend()) snackbarHost.showSnackbar(refillAsked) }
+                                        OrderVerb.SHUFFLE -> orderAction { graph.orderActions.shuffle() }
+                                    }
+                                },
+                            )
+                        }
+                    }
                 }
             }
         },
@@ -289,3 +299,14 @@ fun HomeRoute(
         }
     }
 }
+
+/** What each verb is called in the overflow. */
+private val OrderVerb.label: Int
+    get() =
+        when (this) {
+            OrderVerb.DESK -> R.string.desk
+            OrderVerb.AIR_SOMETHING -> R.string.menu_air_something
+            OrderVerb.ADD_RECORD -> R.string.menu_add_a_record
+            OrderVerb.REFILL -> R.string.menu_refill
+            OrderVerb.SHUFFLE -> R.string.menu_shuffle
+        }

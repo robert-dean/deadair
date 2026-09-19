@@ -261,6 +261,7 @@ private fun Listener(graph: AppGraph, links: MutableStateFlow<String?>) {
                             },
                             onTrack = { id -> backStack.add(Destination.Track(id)) },
                             onHistory = { backStack.add(Destination.History) },
+                            onDesk = { backStack.add(Destination.Desk) },
                             onAirSomething = { backStack.add(Destination.AirSomething) },
                             onAddRecord = { backStack.add(Destination.AddRecord) },
                             onScripts = { segmentId -> backStack.add(Destination.Scripts(segmentId)) },

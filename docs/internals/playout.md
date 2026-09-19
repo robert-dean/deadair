@@ -372,7 +372,16 @@ it is a fault only when nothing above accounts for it. `warmingUp` is the newest
 whose provider had stopped answering — it never escalates, because it cannot last: when the fetches stop the
 count falls to zero and the check below it takes over with its own clock. It is also the one gate that must
 outrank `airing` on a technicality, since `hasProgramme` is true of a queued holding message and the station
-would otherwise report itself as broadcasting its show while looping "give us a moment". Nothing is stored;
+would otherwise report itself as broadcasting its show while looping "give us a moment". **`streamUnreachable` asks two questions, and the second is Icecast's.** The control API answering
+says Liquidsoap is running and nothing about whether Icecast is carrying what it sends, and `radio.liq`
+keeps its source connected (playing silence) whenever nothing is driving, so an empty mount is never the
+idle station. Measured live: Liquidsoap logged both mounts connected while Icecast answered 404 on both,
+and the chain said `noAudience` about a station no listener could reach. The stats poll's
+`sourceConnected` now carries a clock (`IcecastStatsClient.sourceMissingSince`), waiting for thirty
+seconds for the same restart reason as the control API's own clock, then a fault. It stays under the
+`streamUnreachable` code rather than a cause of its own because the installed listener apps decode the
+cause enum strictly, and would fail to read the whole status at exactly the moment this is the answer.
+Nothing is stored;
 the one database read is `station_air`, because whether an operator stood the station down is the only fact
 not in memory. A cause CHANGE is logged on the edge, keyed like `StreamConfigWatch`'s warnings, and it is
 written to `deadair.station_events` on the same edge, which is what makes "why was the station quiet at 3am"

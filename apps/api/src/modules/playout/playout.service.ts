@@ -207,6 +207,9 @@ export class PlayoutService {
             // at. Absent means it is answering, or that nothing has called it yet.
             ...(downSince === undefined ? {} : { streamDownForMs: now - downSince }),
             ...(deniedSince === undefined ? {} : { controlDeniedForMs: now - deniedSince }),
+            // Whether a listener could join the mount at all. The control API answering says
+            // Liquidsoap is up, not that Icecast is carrying what it sends.
+            ...(audience.sourceMissingSince === undefined ? {} : { sourceMissingForMs: now - audience.sourceMissingSince }),
             driving: this.control.isOnAir(),
             staleConfig: this.staleness.warnings(),
             active: air.active,

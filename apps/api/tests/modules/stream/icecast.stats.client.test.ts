@@ -333,6 +333,52 @@ describe('IcecastStatsClient', () => {
         expect(urls(calls)).toEqual(['http://127.0.0.1:8000/admin/publicstats.json']);
     });
 
+    describe('the source clock', () => {
+        // An empty mount and an empty room are the same zero listeners, and only one of them can
+        // ever be joined. This is what lets the station tell them apart for longer than one poll.
+        const empty = { icestats: { server_id: 'Icecast 2.5.0' } };
+
+        afterEach(() => vi.useRealTimers());
+
+        it('starts on the first answered poll that finds the mount empty, and keeps its start', async () => {
+            vi.useFakeTimers({ toFake: ['Date'] });
+            vi.setSystemTime(1_000_000);
+            stubFetch({ 'http://127.0.0.1:8000/admin/publicstats.json': empty });
+            const stats = client();
+
+            await stats.listeners();
+            expect(stats.sourceMissingSince()).toBe(1_000_000);
+
+            vi.setSystemTime(1_060_000);
+            await stats.listeners();
+            // How long, not how recently seen: the second sighting does not restart the clock.
+            expect(stats.sourceMissingSince()).toBe(1_000_000);
+        });
+
+        it('stops the moment a poll finds the source back', async () => {
+            stubFetch({ 'http://127.0.0.1:8000/admin/publicstats.json': empty });
+            const stats = client();
+            await stats.listeners();
+
+            stubFetch({ 'http://127.0.0.1:8000/admin/publicstats.json': document(0) });
+            await stats.listeners();
+
+            // A source with nobody on it is a healthy idle station, not a missing source.
+            expect(stats.sourceMissingSince()).toBeUndefined();
+        });
+
+        it('says nothing while Icecast is not answering, which is no evidence about its sources', async () => {
+            stubFetch({ 'http://127.0.0.1:8000/admin/publicstats.json': empty });
+            const stats = client();
+            await stats.listeners();
+
+            stubFetch({});
+            await stats.listeners();
+
+            expect(stats.sourceMissingSince()).toBeUndefined();
+        });
+    });
+
     it('reads the audience as the sum across every mount it was given', async () => {
         const calls = stubFetch({
             'http://127.0.0.1:8000/admin/publicstats.json': {

@@ -220,12 +220,18 @@ export class AudienceWatch {
      * Icecast has no evidence anybody is there, and airing on the strength of a failed
      * request would be worse than staying quiet. What this buys is the station being
      * able to SAY that is what happened.
+     *
+     * `sourceMissingSince` rides along because it comes off the same poll: whether the
+     * mount a listener would join has anything on it. Without it an empty mount and an
+     * empty room are the same zero, and the second one is waited on forever.
      */
-    reading(): { count: number; hasAudience: boolean; readAt?: number } {
+    reading(): { count: number; hasAudience: boolean; readAt?: number; sourceMissingSince?: number } {
+        const sourceMissingSince = this.stats.sourceMissingSince();
         return {
             count: this.listenerCount(),
             hasAudience: this.hasAudience(),
             ...(this.lastReadAt === undefined ? {} : { readAt: this.lastReadAt }),
+            ...(sourceMissingSince === undefined ? {} : { sourceMissingSince }),
         };
     }
 

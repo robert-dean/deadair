@@ -136,6 +136,14 @@ export interface StationFacts {
      * does not need to — a stream that is not there is `streamUnreachable`'s question.
      */
     controlDeniedForMs?: number;
+    /**
+     * How long Icecast has been answering with nothing connected as a source on the primary mount.
+     *
+     * `undefined` means there is a source, or that Icecast is not answering and so says nothing about
+     * its sources. Read at the stats poll's resolution, which is coarse (a minute) and fine for a
+     * fault that, unattended, lasts until somebody restarts something.
+     */
+    sourceMissingForMs?: number;
     /** Whether the last reading said deadair is holding the mount. */
     driving: boolean;
     staleConfig: readonly StreamConfigWarning[];
@@ -235,6 +243,16 @@ const AUDIO_WAIT_AFTER_MS = 60_000;
  * the same distinction `stoodDown` and `noAudience` are drawn on.
  */
 const STREAM_DOWN_AFTER_MS = 30_000;
+
+/**
+ * How long Icecast may carry no source on the mount before that stops being a reconnect.
+ *
+ * The same thirty seconds and the same reason as {@link STREAM_DOWN_AFTER_MS}: a Liquidsoap the
+ * station has just restarted drops its source and connects it again once it has booted, and a
+ * mount that is empty for those seconds is the restart working. The stats poll is slower than
+ * this, so in practice it is the second poll that turns a sighting into a fault.
+ */
+const SOURCE_MISSING_AFTER_MS = 30_000;
 
 /**
  * Name the gate that is keeping the station quiet.
@@ -352,7 +370,7 @@ function controlDenied(facts: StationFacts): SilenceCheck {
  * clock only says how long to wait before saying so.
  */
 function streamUnreachable(facts: StationFacts): SilenceCheck {
-    if (facts.streamUp) return { code: 'streamUnreachable', state: 'ok', detail: "The audio chain's control API is answering." };
+    if (facts.streamUp) return sourceMissing(facts);
 
     const downFor = facts.streamDownForMs;
     if (downFor !== undefined && downFor <= STREAM_DOWN_AFTER_MS) {
@@ -375,6 +393,54 @@ function streamUnreachable(facts: StationFacts): SilenceCheck {
         // liquidsoap container to go and look at, and an operator sent hunting for one finds nothing
         // and stops believing the next warning. See `docker/rootfs/etc/s6-overlay/s6-rc.d/liquidsoap`.
         remedy: 'Check that Liquidsoap is running and reachable at its control address.',
+    };
+}
+
+/**
+ * Liquidsoap is answering, and Icecast has nothing on the mount a listener would join.
+ *
+ * The other half of "can the stream be reached", and under the same code on purpose. `streamUp` is
+ * the control API, which says Liquidsoap is running; it says nothing about whether Icecast is
+ * carrying what Liquidsoap sends. And `radio.liq` keeps its source connected, playing silence,
+ * whenever nothing is driving, precisely so the mount is there for a first listener to join — so an
+ * empty mount is never the idle station. Measured on the running station: Liquidsoap logged both
+ * mounts connected and listed them as current outputs while Icecast answered 404 on both, and this
+ * chain said "waiting for a listener" about a station no listener could reach. `noAudience` below
+ * can never clear then, because the arrival it waits for cannot happen.
+ *
+ * Folded into `streamUnreachable` rather than given a cause of its own, because a new cause is a
+ * new enum member on the wire, and the listener apps already installed decode that enum strictly:
+ * they would fail to read the whole status at exactly the moment this is the answer. Every client
+ * already calls this code "the stream is not reachable", which is what a listener meets, and shows
+ * the sentence below as it arrives.
+ *
+ * `waiting` first, for {@link SOURCE_MISSING_AFTER_MS}'s reason.
+ */
+function sourceMissing(facts: StationFacts): SilenceCheck {
+    const missingFor = facts.sourceMissingForMs;
+    if (missingFor === undefined) {
+        return { code: 'streamUnreachable', state: 'ok', detail: "The audio chain's control API is answering and Icecast has its source." };
+    }
+
+    if (missingFor <= SOURCE_MISSING_AFTER_MS) {
+        return {
+            code: 'streamUnreachable',
+            state: 'waiting',
+            detail:
+                'Liquidsoap is answering, and Icecast has no source on the mount yet, so nobody can connect to it. ' +
+                'That is what the seconds after a restart look like.',
+        };
+    }
+
+    return {
+        code: 'streamUnreachable',
+        state: 'fault',
+        detail:
+            `Liquidsoap is answering, but Icecast has had no source on the mount for ${seconds(missingFor)}, so nobody can connect to it ` +
+            'and the station cannot come on air for a listener.',
+        remedy:
+            'Restart Liquidsoap so it connects its source to Icecast again; it may not have noticed Icecast drop it. ' +
+            'If the source does not come back, check that its ICECAST_SOURCE_PASSWORD matches the one Icecast holds.',
     };
 }
 

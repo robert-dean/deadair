@@ -224,6 +224,8 @@ export class IcecastStatsClient {
     private adminPassword?: string;
     /** What the last document said about the server itself. Cleared when nothing answers. */
     private server?: IcecastServerReading;
+    /** When an answering Icecast was first seen with no source on the primary mount. See {@link sourceMissingSince}. */
+    private sourceMissingAt?: number;
     /** Whether "nothing answered" has already been said, so a poll loop cannot fill the log. */
     private reportedMissing = false;
     /** The same discipline for "the admin endpoint refused us". See {@link noteRefusal}. */
@@ -268,6 +270,8 @@ export class IcecastStatsClient {
         this.resolved = undefined;
         this.reportedDenied = false;
         this.deniedAt = undefined;
+        // A different primary is a different question, and the old one's clock says nothing about it.
+        this.sourceMissingAt = undefined;
     }
 
     /**
@@ -294,6 +298,19 @@ export class IcecastStatsClient {
      */
     serverReading(): IcecastServerReading | undefined {
         return this.server;
+    }
+
+    /**
+     * Since when Icecast has been answering with nothing connected as a source on the primary mount,
+     * or `undefined` while there is one, or while Icecast is not answering at all.
+     *
+     * The second `undefined` is the {@link serverReading} rule: a server that does not answer says
+     * nothing about its sources, and "unreachable" is the control API's question rather than this
+     * one's. Stamped on the first answered poll that saw the mount empty and kept until one sees it
+     * filled, so it measures how long rather than how often, at the poll's own resolution.
+     */
+    sourceMissingSince(): number | undefined {
+        return this.sourceMissingAt;
     }
 
     /**
@@ -344,6 +361,7 @@ export class IcecastStatsClient {
 
             this.remember(endpoint);
             this.server = serverReadingFrom(body, this.mount);
+            this.sourceMissingAt = this.server.sourceConnected ? undefined : (this.sourceMissingAt ?? Date.now());
             // The whole map, because this reading is authoritative about every mount at
             // once: a mount the document does not mention has nobody on it, and leaving a
             // feed's older entry in place for it would keep a departed listener in the total.
@@ -356,6 +374,7 @@ export class IcecastStatsClient {
         // rather than kept, because a stale "it started at 12:17" outlives the Icecast it
         // described and would go on accusing a container that has since been restarted.
         this.server = undefined;
+        this.sourceMissingAt = undefined;
         if (!this.reportedMissing) {
             this.reportedMissing = true;
             const asked = this.endpoints().map(endpoint => endpoint.base + endpoint.path);

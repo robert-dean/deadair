@@ -35,6 +35,9 @@ function stubStats(initial: number | undefined, mounts: string[] = ['/live.mp3']
         mountPath: () => mounts[0] ?? '/live.mp3',
         mountPaths: () => mounts,
         listenersByMount: () => new Map(mounts.map(mount => [mount, 0])),
+        // Its source present, as on a healthy station: what an empty mount does to the diagnosis
+        // is tested there and in the stats client, and this class only carries the stamp across.
+        sourceMissingSince: () => undefined,
     };
     return {
         stats: stats as unknown as IcecastStatsClient,

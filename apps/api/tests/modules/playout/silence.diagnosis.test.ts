@@ -208,6 +208,47 @@ describe('diagnose', () => {
         });
     });
 
+    describe('a mount Icecast has no source on', () => {
+        // Measured on the running station: Liquidsoap answering and sure it was connected, Icecast
+        // answering 404 on every mount, and this chain saying it was waiting for a listener who
+        // could never arrive. The case below is that afternoon, fact for fact.
+        const thatAfternoon = airing({ audience: false, listeners: 0, driving: false, sourceMissingForMs: 25 * 60_000 });
+
+        it('is the answer ahead of an empty room, because nobody can join an empty mount', () => {
+            const answer = diagnose(thatAfternoon);
+
+            expect(answer.cause).toBe('streamUnreachable');
+            expect(answer.checks.find(check => check.code === 'streamUnreachable')?.state).toBe('fault');
+            expect(answer.detail).toMatch(/no source/);
+        });
+
+        it('says what to restart, and names a process rather than a container', () => {
+            const check = diagnose(thatAfternoon).checks.find(candidate => candidate.code === 'streamUnreachable');
+
+            expect(check?.remedy).toMatch(/Liquidsoap/);
+            expect(check?.remedy).not.toMatch(/container/i);
+        });
+
+        it('is a wait while it is short, because a restarted Liquidsoap reconnects', () => {
+            const answer = diagnose(airing({ sourceMissingForMs: 10_000 }));
+
+            expect(answer.cause).toBe('streamUnreachable');
+            expect(answer.audible).toBe(false);
+            expect(answer.checks.find(check => check.code === 'streamUnreachable')?.state).toBe('waiting');
+        });
+
+        it('is nothing at all without a reading, which is the ordinary state', () => {
+            expect(diagnose(airing()).cause).toBe('airing');
+            expect(diagnose(airing({ audience: false, listeners: 0, driving: false })).cause).toBe('noAudience');
+        });
+
+        it('yields to a control API that is not answering, which is the question upstream of it', () => {
+            const answer = diagnose(airing({ streamUp: false, streamDownForMs: 90_000, sourceMissingForMs: 90_000 }));
+
+            expect(answer.detail).toMatch(/control API is not answering/);
+        });
+    });
+
     describe('replaced container config', () => {
         it('is reported as a fault', () => {
             expect(diagnose(airing({ staleConfig: stale })).checks.find(check => check.code === 'configNotAdopted')?.state).toBe('fault');

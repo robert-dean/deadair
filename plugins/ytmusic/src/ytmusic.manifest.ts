@@ -69,7 +69,13 @@ export const EXPLICIT_BADGE_ICON = 'MUSIC_EXPLICIT_BADGE';
  * `password` is the same shape for the same reason.
  */
 export const configSchema = z.object({
-    resolverBaseUrl: z.string().min(1),
+    // Optional in the SCHEMA and required in the FORM, on purpose. The host validates the stored
+    // config against this schema before `onLoad` runs, so a required field here refuses every row
+    // saved before the field existed -- the whole plugin marked misconfigured, catalog included,
+    // over a missing AUDIO setting. That was measured on a real dev station, not reasoned about:
+    // a lenient `onLoad` alone did not help, because the host said no first. The form still asks
+    // for it, with the default filled in, so anything saved from here on carries it.
+    resolverBaseUrl: z.string().min(1).optional(),
 });
 
 export type YtMusicConfig = z.infer<typeof configSchema>;

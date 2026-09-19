@@ -80,3 +80,33 @@ PlaylistsRouter.delete('/playlists/:pluginId/:playlistId/hidden', requirePolicy(
 
     ctx.status = 204;
 });
+
+/**
+ * Reads every playlist on every music source again, in the background, rather than waiting for the next scheduled read. New records reach the library; records gone from every playlist are retired
+ * from [playlists.ck](../../data/contracts/playlists/playlists.ck#L71)
+ */
+PlaylistsRouter.post('/playlists/refresh', requirePolicy({ policy: 'platform.manage' }), async ctx => {
+    const service = ctx.container.get(PlaylistsService);
+    await service.requestRefresh();
+
+    ctx.status = 204;
+});
+
+/**
+ * Reads one playlist again, in the background. New records reach the library; a record taken out of it stays until the next full read judges it
+ * from [playlists.ck](../../data/contracts/playlists/playlists.ck#L82)
+ */
+PlaylistsRouter.post('/playlists/:pluginId/:playlistId/refresh', requirePolicy({ policy: 'platform.manage' }), async ctx => {
+    const { pluginId, playlistId } = await parseAndValidate(
+        ctx.params,
+        z.strictObject({
+            pluginId: z.string().min(1).max(200),
+            playlistId: z.string().min(1).max(400),
+        }),
+    );
+
+    const service = ctx.container.get(PlaylistsService);
+    await service.requestPlaylistRefresh(pluginId, playlistId);
+
+    ctx.status = 204;
+});

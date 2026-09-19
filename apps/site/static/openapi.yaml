@@ -2166,6 +2166,31 @@ paths:
                       type: string
                       minLength: 1
                       maxLength: 400
+    '/playlists/refresh':
+        post:
+            operationId: requestRefresh
+            summary: 'Refresh playlists'
+            description: 'Reads every playlist on every music source again, in the background, rather than waiting for the next scheduled read. New records reach the library; records gone from every playlist are retired'
+    '/playlists/{pluginId}/{playlistId}/refresh':
+        post:
+            operationId: requestPlaylistRefresh
+            summary: 'Refresh playlist'
+            description: 'Reads one playlist again, in the background. New records reach the library; a record taken out of it stays until the next full read judges it'
+            parameters:
+                - name: pluginId
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 200
+                - name: playlistId
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 400
     '/playout/status':
         get:
             operationId: getStatus

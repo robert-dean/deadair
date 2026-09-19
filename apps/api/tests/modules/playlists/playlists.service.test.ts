@@ -124,6 +124,7 @@ interface Harness {
     listVisibleIdsSpy: ReturnType<typeof vi.fn>;
     findByBindings: ReturnType<typeof vi.fn>;
     hidden: { keys: ReturnType<typeof vi.fn>; hide: ReturnType<typeof vi.fn>; show: ReturnType<typeof vi.fn> };
+    jobs: { send: ReturnType<typeof vi.fn> };
     logger: Logger;
 }
 
@@ -157,6 +158,7 @@ function makeService(actor: Actor, fixture: FakePermissionsFixture = new FakePer
         hide: vi.fn(async () => undefined),
         show: vi.fn(async () => undefined),
     };
+    const jobs = { send: vi.fn(async () => 'job-1') };
 
     const service = new PlaylistsService(
         registry,
@@ -164,10 +166,11 @@ function makeService(actor: Actor, fixture: FakePermissionsFixture = new FakePer
         accessControl,
         { findByBindings } as never,
         hidden as never,
+        jobs as never,
         logger,
     );
 
-    return { service, registry, listVisibleIdsSpy, findByBindings, hidden, logger };
+    return { service, registry, listVisibleIdsSpy, findByBindings, hidden, jobs, logger };
 }
 
 /** The service's own page size. A test that disagreed with it would prove nothing. */
@@ -669,5 +672,50 @@ describe('PlaylistsService.hidePlaylist and showPlaylist', () => {
 
         expect(hidden.hide).not.toHaveBeenCalled();
         expect(hidden.show).not.toHaveBeenCalled();
+    });
+});
+
+describe('PlaylistsService refresh', () => {
+    it('asks for a walk of everything, with a payload the schedule cannot mistake for its own run', async () => {
+        const { service, jobs } = makeService(userActor('u-admin', ['admin']));
+
+        await service.requestRefresh();
+
+        expect(jobs.send).toHaveBeenCalledExactlyOnceWith('catalog.sync', { requestedBy: 'operator' });
+    });
+
+    it('asks for a walk of one playlist on a plugin that can answer', async () => {
+        const { service, registry, jobs } = makeService(userActor('u-admin', ['admin']));
+        registry.upsert(record(SPOTIFY_ID));
+
+        await service.requestPlaylistRefresh(SPOTIFY_ID, 'p1');
+
+        expect(jobs.send).toHaveBeenCalledExactlyOnceWith('catalog.sync', { pluginId: SPOTIFY_ID, playlistId: 'p1', requestedBy: 'operator' });
+    });
+
+    it('says now, rather than queueing nothing, when the plugin cannot answer', async () => {
+        const { service, registry, jobs } = makeService(userActor('u-admin', ['admin']));
+        registry.upsert(record(OTHER_ID, { status: 'disabled', instance: undefined, manifest: manifest({ id: OTHER_ID }) }));
+
+        await expectHttpStatus(service.requestPlaylistRefresh('deadair.nobody', 'p1'), 404);
+        await expectHttpStatus(service.requestPlaylistRefresh(OTHER_ID, 'p1'), 503);
+        expect(jobs.send).not.toHaveBeenCalled();
+    });
+
+    it('refuses a hidden playlist, which the walk would not read', async () => {
+        const { service, registry, hidden, jobs } = makeService(userActor('u-admin', ['admin']));
+        registry.upsert(record(SPOTIFY_ID));
+        hidden.keys.mockResolvedValue(new Set([hiddenPlaylistKey(SPOTIFY_ID, 'p1')]));
+
+        await expectHttpStatus(service.requestPlaylistRefresh(SPOTIFY_ID, 'p1'), 409);
+        expect(jobs.send).not.toHaveBeenCalled();
+    });
+
+    it('refuses an actor who cannot see the plugin', async () => {
+        const { service, registry, jobs } = makeService(userActor('u-nobody', []));
+        registry.upsert(record(SPOTIFY_ID));
+
+        await expectHttpStatus(service.requestPlaylistRefresh(SPOTIFY_ID, 'p1'), 403);
+        expect(jobs.send).not.toHaveBeenCalled();
     });
 });

@@ -20,7 +20,10 @@ export interface CatalogSyncPayload {
     pluginId?: string;
     /** Narrows the run to one playlist of `pluginId`, which that walk never sweeps. Ignored without a `pluginId`. */
     playlistId?: string;
-    /** Who asked for a walk of everything, when nothing narrows it. Makes the payload non-empty. */
+    /**
+     * Set when an operator asked, which puts the finished walk on the activity feed. Also what keeps
+     * a walk of everything from arriving as an empty payload.
+     */
     requestedBy?: 'operator';
 }
 
@@ -72,6 +75,35 @@ export class CatalogSyncJob extends PlainJob<CatalogSyncPayload> {
             this.logger.info('catalog sync', { job: this.context.id, ...summary });
             this.reportRefusedSweep(summary);
         }
+        if (payload?.requestedBy === 'operator') this.reportOperatorRun(summaries, payload.playlistId);
+    }
+
+    /**
+     * Put a refresh an operator asked for on the feed, once, when it finishes.
+     *
+     * The button answers "queued" and the walk takes minutes, so without this the operator has no
+     * way to learn it happened short of reading the log. Scheduled runs stay off the feed as they
+     * always have: nobody is waiting on one. `info`, or `warn` when any source could not be read,
+     * which is how the entry reads rather than how bad it is.
+     */
+    private reportOperatorRun(summaries: readonly PluginSyncSummary[], playlistId?: string): void {
+        const created = summaries.reduce((total, summary) => total + summary.created, 0);
+        const bound = summaries.reduce((total, summary) => total + summary.bound, 0);
+        const failed = summaries.filter(summary => summary.error !== undefined);
+        const what = playlistId === undefined ? 'The playlists were read again' : 'The playlist was read again';
+        const failures = failed.map(summary => `${summary.pluginId} (${summary.error})`).join(', ');
+
+        void this.activity.record({
+            module: 'catalog',
+            kind: 'sync.finished',
+            severity: failed.length > 0 ? 'warn' : 'info',
+            detail:
+                summaries.length === 0
+                    ? `${what}, but no music source could be asked.`
+                    : `${what}: ${bound} records found, ${created} of them new to the station.` +
+                      (failed.length > 0 ? ` Not everything could be read: ${failures}.` : ''),
+            data: { created, bound, failed: failed.map(summary => summary.pluginId), ...(playlistId === undefined ? {} : { playlistId }) },
+        });
     }
 
     /**

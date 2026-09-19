@@ -1,5 +1,6 @@
 import { Injectable } from 'injectkit';
 import { httpError } from '@maroonedsoftware/errors';
+import { JobBroker } from '@maroonedsoftware/jobbroker';
 import { Logger } from '@maroonedsoftware/logger';
 import { PLUGIN_CAPABILITY_CATALOG, type MusicProviderPluginInstance, type PluginManifest } from '@deadair/plugin-sdk';
 import { TracksRepository } from '#modules/catalog/tracks.repository.js';
@@ -64,6 +65,8 @@ export class PlaylistsService {
         // The playlists an operator hid. This service marks them and writes them; it never drops one
         // from the listing, because the console still has to be able to show them again.
         private readonly hidden: HiddenPlaylistsRepository,
+        // Scoped, so a refresh is enqueued in the request's transaction and exists only once it commits.
+        private readonly jobs: JobBroker,
         private readonly logger: Logger,
     ) {}
 
@@ -153,6 +156,38 @@ export class PlaylistsService {
     async showPlaylist(pluginId: string, playlistId: string): Promise<void> {
         await this.accessControl.require({ namespace: 'plugin', id: pluginId }, 'view');
         await this.hidden.show(pluginId, playlistId);
+    }
+
+    /**
+     * Ask for every playlist on every music source to be read again, now rather than at the next
+     * scheduled walk.
+     *
+     * The walk is `catalog.sync`, the same job the hourly schedule runs, and it runs whatever the
+     * schedule settings say: turning the automatic read off must not turn the button off. The
+     * payload names who asked, because a payload with no keys is how that job recognises its own
+     * cron run.
+     */
+    async requestRefresh(): Promise<void> {
+        await this.jobs.send('catalog.sync', { requestedBy: 'operator' });
+    }
+
+    /**
+     * Ask for one playlist to be read again. That walk ingests what it finds and never retires
+     * anything, because one playlist is no evidence about the rest of the library.
+     *
+     * @throws 403, 404, 501 or 503 on the same terms as {@link getPlaylistTracks}, so an operator
+     *   asking for a plugin that cannot answer is told now rather than finding nothing happened.
+     *   409 for a playlist the operator hid, which the walk would refuse to read.
+     */
+    async requestPlaylistRefresh(pluginId: string, playlistId: string): Promise<void> {
+        await this.requireCatalogCapable(pluginId);
+
+        const hidden = await this.hidden.keys();
+        if (hidden.has(hiddenPlaylistKey(pluginId, playlistId))) {
+            throw httpError(409).withDetails({ message: 'this playlist is hidden, so the station does not read it. Show it again first' });
+        }
+
+        await this.jobs.send('catalog.sync', { pluginId, playlistId, requestedBy: 'operator' });
     }
 
     /**

@@ -180,4 +180,38 @@ describe('CatalogSyncJob', () => {
         expect(plugin.sync.syncAll).toHaveBeenCalledWith(SPOTIFY_ID, undefined);
         expect(orphan.sync.syncAll).toHaveBeenCalledWith(undefined, undefined);
     });
+
+    describe('a refresh an operator asked for', () => {
+        it('puts one entry on the feed with the counts', async () => {
+            const { recorded, run } = build([summary({ created: 3, bound: 10 }), summary({ pluginId: 'deadair.navidrome', created: 1, bound: 4 })]);
+
+            await run({ requestedBy: 'operator' });
+
+            expect(recorded).toHaveLength(1);
+            expect(recorded[0]).toMatchObject({
+                module: 'catalog',
+                kind: 'sync.finished',
+                severity: 'info',
+                data: { created: 4, bound: 14, failed: [] },
+            });
+        });
+
+        it('says which source could not be read', async () => {
+            const { recorded, run } = build([summary({ pluginId: SPOTIFY_ID, error: 'hidden' })]);
+
+            await run({ pluginId: SPOTIFY_ID, playlistId: 'p1', requestedBy: 'operator' });
+
+            expect(recorded[0]).toMatchObject({ severity: 'warn', data: { failed: [SPOTIFY_ID], playlistId: 'p1' } });
+            expect(recorded[0]!.detail).toContain(`${SPOTIFY_ID} (hidden)`);
+        });
+
+        it('leaves a walk nobody asked for off the feed', async () => {
+            const { recorded, run } = build([summary({ created: 3 })]);
+
+            await run({ pluginId: SPOTIFY_ID });
+            await run(null);
+
+            expect(recorded).toEqual([]);
+        });
+    });
 });

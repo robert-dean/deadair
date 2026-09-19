@@ -49,4 +49,24 @@ class PlaylistsClient(private val http: SdkHttp) {
             path("playlists", segment(pluginId), segment(playlistId), "hidden")
         }
     }
+
+    /**
+     * Refresh playlists
+     * Reads every playlist on every music source again, in the background, rather than waiting for the next scheduled read. New records reach the library; records gone from every playlist are retired
+     */
+    suspend fun refreshPlaylists() {
+        http.execute(HttpMethod.Post) {
+            path("playlists", "refresh")
+        }
+    }
+
+    /**
+     * Refresh playlist
+     * Reads one playlist again, in the background. New records reach the library; a record taken out of it stays until the next full read judges it
+     */
+    suspend fun refreshPlaylist(pluginId: String, playlistId: String) {
+        http.execute(HttpMethod.Post) {
+            path("playlists", segment(pluginId), segment(playlistId), "refresh")
+        }
+    }
 }

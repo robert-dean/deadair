@@ -69,4 +69,28 @@ public sealed class PlaylistsClient(SdkHttp http)
             http.Path("playlists", http.Segment(pluginId), http.Segment(playlistId), "hidden"),
             cancellationToken: cancellationToken).ConfigureAwait(false);
     }
+
+    /// <summary>
+    /// Refresh playlists
+    /// Reads every playlist on every music source again, in the background, rather than waiting for the next scheduled read. New records reach the library; records gone from every playlist are retired
+    /// </summary>
+    public async Task RefreshPlaylistsAsync(CancellationToken cancellationToken = default)
+    {
+        await http.ExecuteAsync(
+            HttpMethod.Post,
+            http.Path("playlists", "refresh"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Refresh playlist
+    /// Reads one playlist again, in the background. New records reach the library; a record taken out of it stays until the next full read judges it
+    /// </summary>
+    public async Task RefreshPlaylistAsync(string pluginId, string playlistId, CancellationToken cancellationToken = default)
+    {
+        await http.ExecuteAsync(
+            HttpMethod.Post,
+            http.Path("playlists", http.Segment(pluginId), http.Segment(playlistId), "refresh"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+    }
 }

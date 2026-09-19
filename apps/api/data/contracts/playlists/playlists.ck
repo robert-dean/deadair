@@ -66,3 +66,21 @@ operation /playlists/{pluginId}/{playlistId}/hidden: {
         service: PlaylistsService.showPlaylist
     }
 }
+
+operation /playlists/refresh: {
+    post: { # Reads every playlist on every music source again, in the background, rather than waiting for the next scheduled read. New records reach the library; records gone from every playlist are retired
+        name: Refresh playlists
+        service: PlaylistsService.requestRefresh
+    }
+}
+
+operation /playlists/{pluginId}/{playlistId}/refresh: {
+    params: {
+        pluginId: string(min=1, max=200)
+        playlistId: string(min=1, max=400)
+    }
+    post: { # Reads one playlist again, in the background. New records reach the library; a record taken out of it stays until the next full read judges it
+        name: Refresh playlist
+        service: PlaylistsService.requestPlaylistRefresh
+    }
+}

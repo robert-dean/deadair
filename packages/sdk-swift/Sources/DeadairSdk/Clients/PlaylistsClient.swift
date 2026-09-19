@@ -38,4 +38,18 @@ public final class PlaylistsClient: Sendable {
         let request = try SdkRequest(method: "DELETE", path: ["playlists", http.segment(pluginId), http.segment(playlistId), "hidden"])
         _ = try await http.execute(request)
     }
+
+    /// Refresh playlists
+    /// Reads every playlist on every music source again, in the background, rather than waiting for the next scheduled read. New records reach the library; records gone from every playlist are retired
+    public func refreshPlaylists() async throws {
+        let request = SdkRequest(method: "POST", path: ["playlists", "refresh"])
+        _ = try await http.execute(request)
+    }
+
+    /// Refresh playlist
+    /// Reads one playlist again, in the background. New records reach the library; a record taken out of it stays until the next full read judges it
+    public func refreshPlaylist(pluginId: String, playlistId: String) async throws {
+        let request = try SdkRequest(method: "POST", path: ["playlists", http.segment(pluginId), http.segment(playlistId), "refresh"])
+        _ = try await http.execute(request)
+    }
 }

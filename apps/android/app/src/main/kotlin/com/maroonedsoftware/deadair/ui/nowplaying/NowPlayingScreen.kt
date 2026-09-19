@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -36,6 +35,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
@@ -145,38 +145,24 @@ private fun FullBleed(
     LightStatusBarIcons()
     val background = MaterialTheme.colorScheme.background
 
-    // Resting, the cover grows to the whole screen and everything over its foot fades: the scrim
-    // that carried it into the background, the words, the bar and the controls. They come back on
-    // the first touch, which does nothing else (see `wakesRest`).
+    // Resting, everything but the cover fades: the scrim that carried it into the background, the
+    // words, the bar and the controls, and the cover moves to the middle of the screen at the size it
+    // already was. Never larger: a cover is square, and filling a tall screen with one means cutting
+    // most of it off. They come back on the first touch, which does nothing else (see `wakesRest`).
     val resting = rest?.resting == true
     val shown by animateFloatAsState(if (resting) 0f else 1f, animationSpec = tween(if (resting) 900 else 250), label = "chrome")
-    val coverShare by animateFloatAsState(if (resting) 1f else COVER_SHARE, animationSpec = tween(if (resting) 900 else 250), label = "cover")
+    val coverBias by animateFloatAsState(if (resting) 0f else -1f, animationSpec = tween(if (resting) 900 else 250), label = "cover")
 
     Box(modifier = Modifier.fillMaxSize().background(background).then(if (rest != null) Modifier.wakesRest(rest) else Modifier)) {
         // The cover and nothing over it but the scrim: the only thing on the art is the art.
-        Artwork(
-            url = artworkUrl,
-            stale = state.stale,
-            onOpen = onArtwork,
-            modifier = Modifier.fillMaxWidth().fillMaxHeight(coverShare).align(Alignment.TopCenter),
-        )
-        // Dark at the top so the status bar reads over any cover, resting or not. Drawn as its own
-        // layer with no pointer input, so a tap on the art still reaches the art.
-        Box(modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color.Black.copy(alpha = 0.45f), 0.20f to Color.Transparent)))
-        // Into the background by the time the words start, so they read over any cover too.
-        Box(
-            modifier =
-                Modifier.fillMaxSize()
-                    .alpha(shown)
-                    .background(
-                        Brush.verticalGradient(
-                            0.20f to Color.Black.copy(alpha = 0.10f),
-                            0.44f to background.copy(alpha = 0.55f),
-                            0.57f to background.copy(alpha = 0.93f),
-                            0.65f to background,
-                        ),
-                    ),
-        )
+        val cover = Modifier.fillMaxWidth().widthIn(max = ArtworkMaxWidth * 2).aspectRatio(1f).align(BiasAlignment(0f, coverBias))
+        Artwork(url = artworkUrl, stale = state.stale, onOpen = onArtwork, modifier = cover)
+        // Its foot melts into the background, so it ends without an edge and the words under it read
+        // on plain ground. Measured on the cover rather than the screen, so it is the same fade on
+        // every height of phone. Drawn with no pointer input, so a tap on the art still reaches it.
+        Box(modifier = cover.alpha(shown).background(Brush.verticalGradient(0.55f to Color.Transparent, 1f to background)))
+        // Dark at the top so the status bar reads over any cover, resting or not.
+        Box(modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color.Black.copy(alpha = 0.45f), 0.15f to Color.Transparent)))
         Column(modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth().alpha(shown).padding(start = Gutter, end = Gutter, bottom = 24.dp)) {
             Words(state)
             Controls(state, playhead, onPlay, onStop, skip)
@@ -315,9 +301,6 @@ private fun Artwork(url: String?, stale: Boolean, onOpen: (() -> Unit)?, modifie
         }
     }
 }
-
-/** How much of the screen's height the cover takes upright, before the scrim carries it into the background. */
-private const val COVER_SHARE = 0.74f
 
 /** Where a phone stops and a tablet starts, which is Material's own line for a medium window. */
 private val WIDE = 600.dp

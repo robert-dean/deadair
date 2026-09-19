@@ -314,8 +314,8 @@
     <string name="album_no_tracks">No tracks from this album are in the catalog.</string>
     <string name="artist_no_albums">Nothing by this artist has been ingested as an album. Their tracks may still be in the catalog, filed without a release.</string>
     <plurals name="more_not_shown">
-        <item quantity="one">%1$d more, not shown here</item>
-        <item quantity="other">%1$d more, not shown here</item>
+        <item quantity="one">%1$d more not shown</item>
+        <item quantity="other">%1$d more not shown</item>
     </plurals>
     <string name="about_this_album">About this album</string>
     <string name="about_this_artist">About this artist</string>
@@ -348,7 +348,7 @@
     <string name="air_this_playlist">Air this playlist</string>
     <string name="chart_unavailable">This chart is unavailable.</string>
     <string name="chart_empty">Nothing in this edition.</string>
-    <string name="chart_order_heading">Which way round</string>
+    <string name="chart_order_heading">Which way round?</string>
     <string name="chart_order_countdown">Countdown, ending on number one</string>
     <string name="chart_order_ranked">Number one first</string>
     <string name="chart_order_unordered">No fixed order</string>

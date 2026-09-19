@@ -67,9 +67,21 @@ export function accountIndexOf(value: unknown): number {
 /** Bounds a resolve. yt-dlp talks to the upstream several times to answer one. */
 export const RESOLVE_TIMEOUT_MS = 45_000;
 
-/** YouTube Music's own "Liked Music" list. Not in the library listing; addressed directly. */
-export const LIKED_PLAYLIST_ID = 'LM';
+/**
+ * YouTube Music's own "Liked Music" list, in the form the library listing names it.
+ *
+ * The same list answers to `LM` and to `VLLM`: `VL` is the prefix the browse endpoints put on every
+ * playlist id, and the library lists Liked Music as `VLLM`. The plugin used to add its own copy under
+ * `LM` and de-duplicate against `LM`, so once the library listed it too the console showed Liked
+ * Music twice. One id whichever path produced the entry is what keeps a hidden playlist hidden and the
+ * sync's bookkeeping steady, so the synthesised copy uses the library's form and {@link sameList}
+ * compares the two.
+ */
+export const LIKED_PLAYLIST_ID = 'VLLM';
 export const LIKED_PLAYLIST_NAME = 'Liked Music';
+
+/** Whether two ids name one playlist, with and without the browse endpoints' `VL` prefix. */
+export const sameList = (a: string, b: string): boolean => a.replace(/^VL/, '') === b.replace(/^VL/, '');
 
 /**
  * The badge that marks a record explicit.

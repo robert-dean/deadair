@@ -20,6 +20,7 @@ import {
     LIKED_PLAYLIST_ID,
     LIKED_PLAYLIST_NAME,
     PLAYLIST_MEMO_TTL_MS,
+    sameList,
     type YtMusicConfig,
 } from './ytmusic.manifest.js';
 import { resolverFor, type ResolverClient } from './ytmusic.resolver.js';
@@ -259,11 +260,18 @@ export class YtMusicPlugin extends Plugin implements MusicProviderPluginInstance
     // --- catalog, continued -----------------------------------------------------
 
     /**
-     * The account's playlists, with "Liked Music" in front.
+     * The account's playlists, with "Liked Music" in front when it has anything in it.
      *
-     * Liked Music is addressed directly because the library listing does not carry it, and it is
-     * worth the extra request: on most accounts it is the closest thing to the operator's own
-     * rotation pool. `plugins/navidrome` synthesises an everything-playlist for the same reason.
+     * The library lists Liked Music itself once the account has liked something, and then this adds
+     * nothing: adding a second copy is the duplicate this used to show. When the library leaves it out
+     * it is fetched directly and put in front, because on most accounts it is the closest thing to the
+     * operator's own rotation pool. `plugins/navidrome` synthesises an everything-playlist for the same
+     * reason. An empty one is not added, since a list with nothing to air is only noise in a picker.
+     *
+     * Never `madeByProvider`. That marks what the SERVICE pushes at an account, editorial lists and
+     * generated mixes, so the console can fold them out of the way, and Spotify sets it on exactly
+     * those. Liked Music is the operator's own choices. It was marked, which folded one copy away and
+     * left the library's copy showing, and that is how the duplicate looked like two different lists.
      *
      * Rows that are not playlists are dropped in `mapPlaylist`, because the Playlists view also
      * carries a "New playlist" button. Dropping a real playlist would be a different matter entirely, since
@@ -279,12 +287,11 @@ export class YtMusicPlugin extends Plugin implements MusicProviderPluginInstance
             throw toPluginError(error, 'authenticated');
         }
 
-        const liked = await client.likedPlaylist();
-        if (liked) {
-            playlists = [
-                { id: LIKED_PLAYLIST_ID, name: liked.name ?? LIKED_PLAYLIST_NAME, trackCount: liked.items.length, madeByProvider: true },
-                ...playlists.filter(playlist => playlist.id !== LIKED_PLAYLIST_ID),
-            ];
+        if (!playlists.some(playlist => sameList(playlist.id, LIKED_PLAYLIST_ID))) {
+            const liked = await client.likedPlaylist();
+            if (liked && liked.items.length > 0) {
+                playlists = [{ id: LIKED_PLAYLIST_ID, name: liked.name ?? LIKED_PLAYLIST_NAME, trackCount: liked.items.length }, ...playlists];
+            }
         }
 
         const offset = options?.offset ?? 0;

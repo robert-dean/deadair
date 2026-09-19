@@ -253,14 +253,57 @@ describe('getTrack', () => {
 });
 
 describe('listPlaylists', () => {
-    it('puts Liked Music in front, since the library listing does not carry it', async () => {
+    it('puts Liked Music in front when the library leaves it out', async () => {
         const { plugin } = await build();
         client.likedPlaylist.mockResolvedValue({ name: 'Liked Music', items: [song('a', 'A')] });
         client.libraryPlaylists.mockResolvedValue([{ id: 'VLPLabc', item_type: 'playlist', title: 'Late night' }]);
 
         const playlists = await plugin.listPlaylists();
-        expect(playlists.map(p => p.id)).toEqual(['LM', 'VLPLabc']);
-        expect(playlists[0]).toMatchObject({ name: 'Liked Music', trackCount: 1, madeByProvider: true });
+        // The library's own form of the id, so the list has one id whichever path produced it.
+        expect(playlists.map(p => p.id)).toEqual(['VLLM', 'VLPLabc']);
+        expect(playlists[0]).toMatchObject({ name: 'Liked Music', trackCount: 1 });
+    });
+
+    it('does not add Liked Music a second time when the library already lists it', async () => {
+        // The duplicate this fixes: the library lists it as VLLM once the account has likes, and the
+        // plugin added its own copy as LM, de-duplicating against LM, so the two never matched.
+        const { plugin } = await build();
+        client.libraryPlaylists.mockResolvedValue([
+            { id: 'VLLM', item_type: 'playlist', title: 'Liked Music', subtitle: 'Auto playlist' },
+            { id: 'VLPLabc', item_type: 'playlist', title: 'Late night' },
+        ]);
+
+        const playlists = await plugin.listPlaylists();
+        expect(playlists.map(p => p.id)).toEqual(['VLLM', 'VLPLabc']);
+        // And it costs no second request to find out.
+        expect(client.likedPlaylist).not.toHaveBeenCalled();
+    });
+
+    it('recognises the list in either form of its id', async () => {
+        const { plugin } = await build();
+        client.libraryPlaylists.mockResolvedValue([{ id: 'LM', item_type: 'playlist', title: 'Liked Music' }]);
+
+        await expect(plugin.listPlaylists()).resolves.toHaveLength(1);
+        expect(client.likedPlaylist).not.toHaveBeenCalled();
+    });
+
+    it('does not add an empty Liked Music', async () => {
+        // A list with nothing to air is only noise in a picker.
+        const { plugin } = await build();
+        client.likedPlaylist.mockResolvedValue({ name: 'Liked Music', items: [] });
+        client.libraryPlaylists.mockResolvedValue([{ id: 'VLPLabc', item_type: 'playlist', title: 'Late night' }]);
+
+        await expect(plugin.listPlaylists()).resolves.toEqual([expect.objectContaining({ id: 'VLPLabc' })]);
+    });
+
+    it("never marks Liked Music as made by the provider, since it is the operator's own choices", async () => {
+        // madeByProvider is what the console folds away, and it is for lists the SERVICE pushes at
+        // the account. Marking this one folded one copy away and left the other showing.
+        const { plugin } = await build();
+        client.likedPlaylist.mockResolvedValue({ name: 'Liked Music', items: [song('a', 'A')] });
+
+        const [liked] = await plugin.listPlaylists();
+        expect(liked).not.toHaveProperty('madeByProvider');
     });
 
     it('drops the "New playlist" button that the Playlists view carries', async () => {

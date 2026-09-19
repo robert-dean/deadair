@@ -52,6 +52,7 @@ import com.maroonedsoftware.deadair.ui.nav.Destination
 import com.maroonedsoftware.deadair.ui.nav.NavConfiguration
 import com.maroonedsoftware.deadair.ui.plan.PlanRoute
 import com.maroonedsoftware.deadair.ui.scripts.ScriptsRoute
+import com.maroonedsoftware.deadair.ui.settings.SignInScreen
 import com.maroonedsoftware.deadair.ui.settings.SettingsScreen
 import com.maroonedsoftware.deadair.ui.settings.SettingsViewModel
 import com.maroonedsoftware.deadair.ui.settings.availableFormats
@@ -156,6 +157,12 @@ private fun Listener(graph: AppGraph, links: MutableStateFlow<String?>) {
     // Which tab Home shows. Held here rather than inside Home so a pushed page's Sign in can close
     // the page and land on Settings; saveable, so a rotation or a restore keeps it.
     var tab by rememberSaveable { mutableStateOf(Tab.NOW_PLAYING) }
+    // Leaving the sign-in page, by its arrow, by system back or by succeeding, starts the sign-in
+    // again: the password goes, and a code step's challenge has a clock that will have run out by
+    // the time anybody comes back to it. Keyed on the page being on the stack rather than on its
+    // composition, so a rotation mid-code keeps the code step.
+    val signingIn = Destination.SignIn in backStack
+    LaunchedEffect(signingIn) { if (!signingIn) model.startAgain() }
     val openSettings = {
         while (backStack.size > 1) backStack.removeLastOrNull()
         tab = Tab.SETTINGS
@@ -229,7 +236,6 @@ private fun Listener(graph: AppGraph, links: MutableStateFlow<String?>) {
                                             },
                                         ),
                                     session = session,
-                                    account = account,
                                     dynamicColour = loaded.dynamicColour,
                                     playOnOpen = loaded.playOnOpen,
                                     onAddressChange = model::onAddressChange,
@@ -243,11 +249,7 @@ private fun Listener(graph: AppGraph, links: MutableStateFlow<String?>) {
                                     onFormat = model::setFormat,
                                     onDynamicColour = model::setDynamicColour,
                                     onPlayOnOpen = model::setPlayOnOpen,
-                                    onEmailChange = model::onEmailChange,
-                                    onPasswordChange = model::onPasswordChange,
-                                    onCodeChange = model::onCodeChange,
-                                    onSignIn = model::signIn,
-                                    onStartAgain = model::startAgain,
+                                    onOpenSignIn = { backStack.add(Destination.SignIn) },
                                     onSignOut = model::signOut,
                                     sleep = playback.sleep,
                                     canWaitForRecord = rememberPlayhead((nowPlaying as? NowPlayingState.Answered)?.reading) != null,
@@ -286,6 +288,23 @@ private fun Listener(graph: AppGraph, links: MutableStateFlow<String?>) {
                             onBack = { backStack.removeLastOrNull() },
                             onSettings = openSettings,
                             onTrack = { id -> backStack.add(Destination.Track(id)) },
+                        )
+                    }
+                    entry<Destination.SignIn> {
+                        // Closed as soon as there is a session: the page's work is done, and the
+                        // screen under it is the one that wanted it.
+                        LaunchedEffect(session) {
+                            if (session is SessionState.SignedIn && backStack.lastOrNull() == Destination.SignIn) backStack.removeLastOrNull()
+                        }
+                        SignInScreen(
+                            station = loaded.stationName ?: station.origin,
+                            account = account,
+                            onBack = { backStack.removeLastOrNull() },
+                            onEmailChange = model::onEmailChange,
+                            onPasswordChange = model::onPasswordChange,
+                            onCodeChange = model::onCodeChange,
+                            onSignIn = model::signIn,
+                            onStartAgain = model::startAgain,
                         )
                     }
                     entry<Destination.Desk> {

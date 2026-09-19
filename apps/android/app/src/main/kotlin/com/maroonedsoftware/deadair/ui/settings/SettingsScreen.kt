@@ -68,7 +68,6 @@ fun SettingsScreen(
     format: StreamFormat,
     availability: Map<StreamFormat, Boolean>,
     session: SessionState,
-    account: AccountState,
     dynamicColour: Boolean,
     playOnOpen: Boolean,
     onAddressChange: (String) -> Unit,
@@ -77,11 +76,8 @@ fun SettingsScreen(
     onFormat: (StreamFormat) -> Unit,
     onDynamicColour: (Boolean) -> Unit,
     onPlayOnOpen: (Boolean) -> Unit,
-    onEmailChange: (String) -> Unit,
-    onPasswordChange: (String) -> Unit,
-    onCodeChange: (String) -> Unit,
-    onSignIn: () -> Unit,
-    onStartAgain: () -> Unit,
+    /** Open the sign-in page. */
+    onOpenSignIn: () -> Unit,
     onSignOut: () -> Unit,
     /** The sleep timer, as the service last said. */
     sleep: SleepState = SleepState.Off,
@@ -193,16 +189,7 @@ fun SettingsScreen(
             HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
 
             Text(stringResource(R.string.section_account), style = MaterialTheme.typography.titleMedium)
-            AccountSection(
-                session = session,
-                account = account,
-                onEmailChange = onEmailChange,
-                onPasswordChange = onPasswordChange,
-                onCodeChange = onCodeChange,
-                onSignIn = onSignIn,
-                onStartAgain = onStartAgain,
-                onSignOut = onSignOut,
-            )
+            AccountSection(session = session, onOpenSignIn = onOpenSignIn, onSignOut = onSignOut)
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
 

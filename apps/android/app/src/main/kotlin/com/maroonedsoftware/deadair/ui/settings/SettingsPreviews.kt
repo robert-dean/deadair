@@ -14,7 +14,7 @@ import com.maroonedsoftware.deadair.ui.theme.DeadairTheme
 private val availability = mapOf(StreamFormat.MP3 to true, StreamFormat.HLS to true, StreamFormat.AAC to true, StreamFormat.OPUS to false, StreamFormat.FLAC to false)
 
 @Composable
-private fun Settings(entry: StationEntryState, session: SessionState, account: AccountState = AccountState()) {
+private fun Settings(entry: StationEntryState, session: SessionState) {
     DeadairTheme {
         Surface {
             SettingsScreen(
@@ -22,7 +22,6 @@ private fun Settings(entry: StationEntryState, session: SessionState, account: A
                 format = StreamFormat.MP3,
                 availability = availability,
                 session = session,
-                account = account,
                 dynamicColour = false,
                 playOnOpen = false,
                 onAddressChange = {},
@@ -31,11 +30,7 @@ private fun Settings(entry: StationEntryState, session: SessionState, account: A
                 onFormat = {},
                 onDynamicColour = {},
                 onPlayOnOpen = {},
-                onEmailChange = {},
-                onPasswordChange = {},
-                onCodeChange = {},
-                onSignIn = {},
-                onStartAgain = {},
+                onOpenSignIn = {},
                 onSignOut = {},
             )
         }
@@ -46,33 +41,6 @@ private fun Settings(entry: StationEntryState, session: SessionState, account: A
 @Composable
 private fun SignedOutPreview() =
     Settings(StationEntryState.typing("https://radio.example.com", stored = "https://radio.example.com"), SessionState.SignedOut)
-
-@PreviewLightDark
-@Composable
-private fun RefusedPreview() =
-    Settings(
-        StationEntryState.typing("https://radio.example.com", stored = "https://radio.example.com"),
-        SessionState.SignedOut,
-        AccountState(email = "operator@example.com", error = Message.BadCredentials),
-    )
-
-@PreviewLightDark
-@Composable
-private fun SecondFactorPreview() =
-    Settings(
-        StationEntryState.typing("https://radio.example.com", stored = "https://radio.example.com"),
-        SessionState.SignedOut,
-        AccountState(email = "operator@example.com", challenge = SecondFactor("c_1", "totp-1")),
-    )
-
-@PreviewLightDark
-@Composable
-private fun CodeRefusedPreview() =
-    Settings(
-        StationEntryState.typing("https://radio.example.com", stored = "https://radio.example.com"),
-        SessionState.SignedOut,
-        AccountState(email = "operator@example.com", challenge = SecondFactor("c_1", "totp-1"), error = Message.CodeRefused),
-    )
 
 @PreviewLightDark
 @Composable
@@ -100,3 +68,36 @@ private fun SetupRefusedPreview() {
         SetupScreen(StationEntryState.from("https://example.com", StationCheck.NotAStation(404)), onAddressChange = {}, onCheck = {}, onConfirm = {})
     }
 }
+
+@Composable
+private fun SignIn(account: AccountState) {
+    DeadairTheme {
+        SignInScreen(
+            station = "Deadair FM",
+            account = account,
+            onBack = {},
+            onEmailChange = {},
+            onPasswordChange = {},
+            onCodeChange = {},
+            onSignIn = {},
+            onStartAgain = {},
+        )
+    }
+}
+
+@PreviewLightDark
+@Composable
+private fun SignInPreview() = SignIn(AccountState())
+
+@PreviewLightDark
+@Composable
+private fun SignInRefusedPreview() = SignIn(AccountState(email = "operator@example.com", error = Message.BadCredentials))
+
+@PreviewLightDark
+@Composable
+private fun SecondFactorPreview() = SignIn(AccountState(email = "operator@example.com", challenge = SecondFactor("c_1", "totp-1")))
+
+@PreviewLightDark
+@Composable
+private fun CodeRefusedPreview() =
+    SignIn(AccountState(email = "operator@example.com", challenge = SecondFactor("c_1", "totp-1"), error = Message.CodeRefused))

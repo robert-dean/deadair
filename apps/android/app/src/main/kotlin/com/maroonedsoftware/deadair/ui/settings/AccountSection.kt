@@ -1,5 +1,12 @@
 package com.maroonedsoftware.deadair.ui.settings
 
+import androidx.compose.foundation.clickable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -43,11 +50,31 @@ import com.maroonedsoftware.deadair.auth.SessionState
 import com.maroonedsoftware.deadair.ui.text.resolve
 
 /**
- * Signing in, which most listeners never will.
+ * The account, as Settings shows it: one row.
  *
- * It is last on the screen and says so in its own words: listening needs no account, and the two
- * things an account adds — what the station played, what is on next — are worth naming here rather
- * than leaving a listener to guess what they would be signing in FOR.
+ * Signed out, the row is an offer that opens the sign-in page, and says in its own words what an
+ * account adds, because listening needs none. The form was here, at the foot of a long scroll, and
+ * every Sign in elsewhere in the app dropped its reader on the Settings tab to go and find it.
+ * Signed in, it is who and what the account is, and the way out.
+ */
+@Composable
+fun AccountSection(session: SessionState, onOpenSignIn: () -> Unit, onSignOut: () -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+        when (session) {
+            is SessionState.SignedIn -> SignedIn(session, onSignOut)
+            SessionState.SignedOut ->
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.sign_in)) },
+                    supportingContent = { Text(stringResource(R.string.account_optional)) },
+                    trailingContent = { Icon(painterResource(R.drawable.ic_chevron_right), contentDescription = null) },
+                    modifier = Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onOpenSignIn),
+                )
+        }
+    }
+}
+
+/**
+ * Signing in, which most listeners never will: the two steps of the sign-in page.
  *
  * The account is the operator's own, because it is the only kind the station issues: there is no
  * route that creates a listener account, and the role that would hold one is granted by nothing.
@@ -56,28 +83,22 @@ import com.maroonedsoftware.deadair.ui.text.resolve
  * a form that cannot be filled is a form that gets a weaker password typed into it.
  */
 @Composable
-fun AccountSection(
-    session: SessionState,
+fun SignInForm(
     account: AccountState,
     onEmailChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
     onCodeChange: (String) -> Unit,
     onSignIn: () -> Unit,
     onStartAgain: () -> Unit,
-    onSignOut: () -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-        when (session) {
-            is SessionState.SignedIn -> SignedIn(session, onSignOut)
-            // Once the station has asked for a second factor the password step is over, and its
-            // fields go with it: leaving them on screen invites a retype of something that was
-            // accepted a moment ago, and there is nothing left to send them to.
-            SessionState.SignedOut ->
-                if (account.challenge != null) {
-                    SecondFactor(account, onCodeChange, onSignIn, onStartAgain)
-                } else {
-                    PasswordForm(account, onEmailChange, onPasswordChange, onSignIn)
-                }
+        // Once the station has asked for a second factor the password step is over, and its
+        // fields go with it: leaving them on screen invites a retype of something that was
+        // accepted a moment ago, and there is nothing left to send them to.
+        if (account.challenge != null) {
+            SecondFactor(account, onCodeChange, onSignIn, onStartAgain)
+        } else {
+            PasswordForm(account, onEmailChange, onPasswordChange, onSignIn)
         }
     }
 }
@@ -85,8 +106,8 @@ fun AccountSection(
 @Composable
 private fun PasswordForm(account: AccountState, onEmailChange: (String) -> Unit, onPasswordChange: (String) -> Unit, onSignIn: () -> Unit) {
     val focus = LocalFocusManager.current
-
-    Text(stringResource(R.string.account_optional), style = MaterialTheme.typography.bodyMedium)
+    val first = remember { FocusRequester() }
+    LaunchedEffect(Unit) { first.requestFocus() }
 
     OutlinedTextField(
         value = account.email,
@@ -97,7 +118,8 @@ private fun PasswordForm(account: AccountState, onEmailChange: (String) -> Unit,
         isError = account.error != null,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
         keyboardActions = KeyboardActions(onNext = { focus.moveFocus(FocusDirection.Down) }),
-        modifier = Modifier.fillMaxWidth().semantics { contentType = ContentType.EmailAddress },
+        // Focused on arrival: the page exists to be typed into.
+        modifier = Modifier.fillMaxWidth().focusRequester(first).semantics { contentType = ContentType.EmailAddress },
     )
 
     // Shown on request. A mistyped long password on a phone keyboard is a certain
@@ -152,10 +174,12 @@ private fun PasswordForm(account: AccountState, onEmailChange: (String) -> Unit,
  */
 @Composable
 private fun SecondFactor(account: AccountState, onCodeChange: (String) -> Unit, onSubmit: () -> Unit, onStartAgain: () -> Unit) {
-    Text(stringResource(R.string.second_factor_title), style = MaterialTheme.typography.titleSmall)
+    Text(stringResource(R.string.second_factor_title), style = MaterialTheme.typography.titleLarge, modifier = Modifier.semantics { heading() })
     Text(stringResource(R.string.second_factor_detail), style = MaterialTheme.typography.bodyMedium)
 
     val focus = LocalFocusManager.current
+    val box = remember { FocusRequester() }
+    LaunchedEffect(Unit) { box.requestFocus() }
     OutlinedTextField(
         value = account.code,
         onValueChange = onCodeChange,
@@ -170,7 +194,7 @@ private fun SecondFactor(account: AccountState, onCodeChange: (String) -> Unit, 
         keyboardActions = KeyboardActions(onDone = { if (account.canSubmit) onSubmit() else focus.clearFocus() }),
         // The one-time-code content type is what offers the code from a notification, which on a
         // phone is where a good half of them arrive.
-        modifier = Modifier.fillMaxWidth().semantics { contentType = ContentType.SmsOtpCode },
+        modifier = Modifier.fillMaxWidth().focusRequester(box).semantics { contentType = ContentType.SmsOtpCode },
     )
 
     Button(onClick = onSubmit, enabled = account.canSubmit, modifier = Modifier.fillMaxWidth()) {

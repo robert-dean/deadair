@@ -106,6 +106,9 @@
     <string name="show_password">Show password</string>
     <string name="hide_password">Hide password</string>
     <string name="sign_in">Sign in</string>
+    <!-- The sign-in page's heading: "Sign in to Deadair FM" -->
+    <string name="sign_in_to">Sign in to %1$s</string>
+    <string name="sign_in_detail">Listening needs no account. Signing in adds what the station has played and what is on next, and the station\'s controls if you run it.</string>
     <string name="sign_out">Sign out</string>
     <string name="sign_out_question">Sign out?</string>
     <string name="sign_out_detail">What the station has played and what is on next go back behind the sign-in. Listening is not affected.</string>

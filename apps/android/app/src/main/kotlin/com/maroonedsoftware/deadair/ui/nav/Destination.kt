@@ -35,6 +35,13 @@ sealed interface Destination : NavKey {
     @Serializable
     data object Home : Destination
 
+    /**
+     * Signing in, over whichever screen asked. Closed by the root once the station issues a
+     * session, so the screen that asked is where the listener lands.
+     */
+    @Serializable
+    data object SignIn : Destination
+
     /** Everything the station has played, newest first. Reached from Up next, where the folded history sits. */
     @Serializable
     data object History : Destination
@@ -96,6 +103,7 @@ val NavConfiguration: SavedStateConfiguration =
                 polymorphic(NavKey::class) {
                     subclass(Destination.Home::class)
                     subclass(Destination.History::class)
+                    subclass(Destination.SignIn::class)
                     subclass(Destination.Desk::class)
                     subclass(Destination.Track::class)
                     subclass(Destination.Album::class)

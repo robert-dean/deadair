@@ -9,6 +9,15 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.19.3] — 2026-09-19
+
+- The station now says so when Icecast has no source on its mount. Liquidsoap could be running and
+  answering while Icecast answered 404 to every listener, and "Why it is quiet" reported that as
+  waiting for a listener, who could never arrive. It is now "the stream is not reachable", with a
+  sentence saying Icecast has no source and a remedy: restart Liquidsoap so it connects again. For the
+  first thirty seconds it is a wait rather than a fault, since a restarted Liquidsoap reconnects on
+  its own.
+
 ## [0.19.2] — 2026-09-19
 
 - YouTube Music records now play from the station image. The service that finds a record's audio was
@@ -328,7 +337,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.19.2...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.19.3...HEAD
+[0.19.3]: https://github.com/robert-dean/deadair/compare/v0.19.2...v0.19.3
 [0.19.2]: https://github.com/robert-dean/deadair/compare/v0.19.1...v0.19.2
 [0.19.1]: https://github.com/robert-dean/deadair/compare/v0.19.0...v0.19.1
 [0.19.0]: https://github.com/robert-dean/deadair/compare/v0.18.0...v0.19.0

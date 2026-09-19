@@ -9,6 +9,12 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.19.2] — 2026-09-19
+
+- YouTube Music records now play from the station image. The service that finds a record's audio was
+  built into the image but never started, so every fetch, and the provider's **Test connection**,
+  failed with `ECONNREFUSED localhost:9322` however the provider was set up.
+
 ## [0.19.1] — 2026-09-19
 
 - The check-up page's app link now reads **Open in the app**, because the Android app opens it as
@@ -322,7 +328,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.19.1...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.19.2...HEAD
+[0.19.2]: https://github.com/robert-dean/deadair/compare/v0.19.1...v0.19.2
 [0.19.1]: https://github.com/robert-dean/deadair/compare/v0.19.0...v0.19.1
 [0.19.0]: https://github.com/robert-dean/deadair/compare/v0.18.0...v0.19.0
 [0.18.0]: https://github.com/robert-dean/deadair/compare/v0.17.1...v0.18.0

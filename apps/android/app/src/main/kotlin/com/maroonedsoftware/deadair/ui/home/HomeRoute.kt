@@ -73,6 +73,8 @@ fun HomeRoute(
     onTrack: (String) -> Unit,
     /** Open the list of what could be put on air. Offered to the operator only. */
     onAirSomething: () -> Unit,
+    /** Open the library search, to add one record. Offered to the operator only, while something is on. */
+    onAddRecord: () -> Unit,
     /** Open what the station said: everything, or one break's attempts. */
     onScripts: (segmentId: String?) -> Unit,
     /** Change what the station plays. The broadcast rides along, so the form opens on a fixed baseline. */
@@ -174,6 +176,12 @@ fun HomeRoute(
             if (tab == Tab.UP_NEXT && isOperator && loaded != null) {
                 IconButton(onClick = onAirSomething) {
                     Icon(painterResource(R.drawable.ic_playlist_play), contentDescription = stringResource(R.string.air_something))
+                }
+                // A record needs a broadcast to join. Off air, Air something is the way on.
+                if (!(loaded.order.name.isBlank() && loaded.order.items.isEmpty())) {
+                    IconButton(onClick = onAddRecord) {
+                        Icon(painterResource(R.drawable.ic_search), contentDescription = stringResource(R.string.add_a_record))
+                    }
                 }
                 IconButton(
                     onClick = { orderAction { if (graph.orderActions.extend()) snackbarHost.showSnackbar(refillAsked) } },

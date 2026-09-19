@@ -32,6 +32,7 @@ import com.maroonedsoftware.deadair.nowplaying.NowPlayingState
 import com.maroonedsoftware.deadair.playback.PlayerConnection
 import com.maroonedsoftware.deadair.playback.playOnOpen
 import com.maroonedsoftware.deadair.ui.nowplaying.rememberPlayWithNotificationsAsked
+import com.maroonedsoftware.deadair.ui.add.AddRecordRoute
 import com.maroonedsoftware.deadair.ui.air.AirSomethingRoute
 import com.maroonedsoftware.deadair.ui.air.ChartRoute
 import com.maroonedsoftware.deadair.ui.air.PlaylistRoute
@@ -163,6 +164,7 @@ private fun Listener(graph: AppGraph) {
                             },
                             onTrack = { id -> backStack.add(Destination.Track(id)) },
                             onAirSomething = { backStack.add(Destination.AirSomething) },
+                            onAddRecord = { backStack.add(Destination.AddRecord) },
                             onScripts = { segmentId -> backStack.add(Destination.Scripts(segmentId)) },
                             onPlan = { currentBrief, somethingOn -> backStack.add(Destination.Plan(currentBrief, somethingOn)) },
                         )
@@ -196,6 +198,9 @@ private fun Listener(graph: AppGraph) {
                             onPlaylist = { pluginId, playlistId -> backStack.add(Destination.Playlist(pluginId, playlistId)) },
                             onChart = { id -> backStack.add(Destination.Chart(id)) },
                         )
+                    }
+                    entry<Destination.AddRecord> {
+                        AddRecordRoute(graph = graph, onBack = { backStack.removeLastOrNull() })
                     }
                     // Airing something ends the errand: the stack unwinds to Home, where the
                     // transport shows what just happened.

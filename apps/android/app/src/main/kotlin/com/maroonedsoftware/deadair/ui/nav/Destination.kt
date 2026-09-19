@@ -52,6 +52,10 @@ sealed interface Destination : NavKey {
     @Serializable
     data object AirSomething : Destination
 
+    /** Find a record in the library and put it in the running order. Operator only; reached from the Up next tab. */
+    @Serializable
+    data object AddRecord : Destination
+
     @Serializable
     data class Playlist(val pluginId: String, val playlistId: String) : Destination
 
@@ -91,6 +95,7 @@ val NavConfiguration: SavedStateConfiguration =
                     subclass(Destination.Album::class)
                     subclass(Destination.Artist::class)
                     subclass(Destination.AirSomething::class)
+                    subclass(Destination.AddRecord::class)
                     subclass(Destination.Playlist::class)
                     subclass(Destination.Chart::class)
                     subclass(Destination.Scripts::class)

@@ -89,6 +89,8 @@ fun RunningOrderScreen(
     onTrack: (String) -> Unit,
     /** Open a break's attempts: what the station said, or tried to, in that slot. */
     onSegment: (String) -> Unit,
+    /** Open everything the station has played, beyond this broadcast. */
+    onHistory: () -> Unit,
     /** The broadcast the order belongs to, for the header. `null` before the order has arrived. */
     broadcast: BroadcastUiState?,
     /** The station's characters, for the host picker. Read once when the tab opens. */
@@ -118,7 +120,7 @@ fun RunningOrderScreen(
                     if (state.order.items.isEmpty()) {
                         Box(modifier = Modifier.weight(1f)) { EmptyPlaceholder(stringResource(R.string.order_empty)) }
                     } else {
-                        Rows(state, artUrlFor, onTrack, onSegment, handlers, modifier = Modifier.weight(1f))
+                        Rows(state, artUrlFor, onTrack, onSegment, onHistory, handlers, modifier = Modifier.weight(1f))
                     }
                 }
             }
@@ -132,6 +134,7 @@ private fun Rows(
     artUrlFor: (String?) -> String?,
     onTrack: (String) -> Unit,
     onSegment: (String) -> Unit,
+    onHistory: () -> Unit,
     handlers: OrderHandlers?,
     modifier: Modifier = Modifier,
 ) {
@@ -151,10 +154,19 @@ private fun Rows(
     Column(modifier = modifier.fillMaxSize()) {
         if (state.stale) StaleBanner(state.lastGoodAtMs, modifier = Modifier.padding(horizontal = Gutter, vertical = 8.dp))
 
-        ui.historyLabel?.let { label ->
+        // One slot above the list: the fold while there is one, and once it is open (or there was
+        // nothing to fold) the way further back, to everything the station has played. In the same
+        // place either way, so History is always one tap from here and never moves the rows.
+        val label = ui.historyLabel
+        if (label != null) {
             TextButton(onClick = { historyOpen = true }, modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
                 Icon(painterResource(R.drawable.ic_expand_more), contentDescription = null, modifier = Modifier.size(18.dp))
                 Text(label.resolve(), modifier = Modifier.padding(start = 8.dp))
+            }
+        } else {
+            TextButton(onClick = onHistory, modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
+                Icon(painterResource(R.drawable.ic_history), contentDescription = null, modifier = Modifier.size(18.dp))
+                Text(stringResource(R.string.history_link), modifier = Modifier.padding(start = 8.dp))
             }
         }
 

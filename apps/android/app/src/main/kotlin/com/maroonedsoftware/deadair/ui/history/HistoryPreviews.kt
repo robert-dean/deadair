@@ -1,6 +1,5 @@
 package com.maroonedsoftware.deadair.ui.history
 
-import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.tooling.preview.PreviewLightDark
@@ -24,9 +23,7 @@ private val entries =
 @Composable
 private fun Framed(state: HistoryState) {
     DeadairTheme {
-        Surface {
-            HistoryScreen(state, artUrlFor = { null }, nowEpochMs = now, scope = rememberCoroutineScope(), onLoadMore = {}, onRetry = {}, onSettings = {}, onTrack = {})
-        }
+        HistoryScreen(state, artUrlFor = { null }, nowEpochMs = now, scope = rememberCoroutineScope(), onBack = {}, onLoadMore = {}, onRetry = {}, onSettings = {}, onTrack = {})
     }
 }
 

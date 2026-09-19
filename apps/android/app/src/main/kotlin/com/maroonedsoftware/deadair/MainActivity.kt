@@ -43,6 +43,7 @@ import com.maroonedsoftware.deadair.ui.air.PlaylistRoute
 import com.maroonedsoftware.deadair.ui.catalog.AlbumRoute
 import com.maroonedsoftware.deadair.ui.catalog.ArtistRoute
 import com.maroonedsoftware.deadair.ui.catalog.TrackRoute
+import com.maroonedsoftware.deadair.ui.history.HistoryRoute
 import com.maroonedsoftware.deadair.ui.home.HomeRoute
 import com.maroonedsoftware.deadair.ui.nav.Destination
 import com.maroonedsoftware.deadair.ui.nav.NavConfiguration
@@ -202,6 +203,7 @@ private fun Listener(graph: AppGraph, links: MutableStateFlow<String?>) {
                                 backStack.add(Destination.Settings)
                             },
                             onTrack = { id -> backStack.add(Destination.Track(id)) },
+                            onHistory = { backStack.add(Destination.History) },
                             onAirSomething = { backStack.add(Destination.AirSomething) },
                             onAddRecord = { backStack.add(Destination.AddRecord) },
                             onScripts = { segmentId -> backStack.add(Destination.Scripts(segmentId)) },
@@ -217,6 +219,18 @@ private fun Listener(graph: AppGraph, links: MutableStateFlow<String?>) {
                             // Replanning and going on air both end the errand: the stack unwinds to
                             // Home, where the tab shows what the station did with it.
                             onDone = { while (backStack.size > 1) backStack.removeLastOrNull() },
+                        )
+                    }
+                    entry<Destination.History> {
+                        HistoryRoute(
+                            graph = graph,
+                            settings = loaded,
+                            onBack = { backStack.removeLastOrNull() },
+                            onSettings = {
+                                model.editExisting(station.origin)
+                                backStack.add(Destination.Settings)
+                            },
+                            onTrack = { id -> backStack.add(Destination.Track(id)) },
                         )
                     }
                     entry<Destination.Scripts> { key ->

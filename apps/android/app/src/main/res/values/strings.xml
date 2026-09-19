@@ -9,7 +9,6 @@
     <!-- The frame -->
     <string name="tab_now_playing">Now playing</string>
     <string name="tab_up_next">Up next</string>
-    <string name="tab_history">Played</string>
     <string name="tab_whats_on">What\'s on</string>
     <string name="settings">Settings</string>
     <string name="back">Back</string>
@@ -414,6 +413,9 @@
     <string name="rating_caption">This is the station\'s mark, not a favourite: it changes how often the station plays this.</string>
 
     <!-- History -->
+    <string name="history">History</string>
+    <!-- On Up next, where the folded history would be: everything the station has played, not only this broadcast -->
+    <string name="history_link">Everything the station has played</string>
     <string name="history_empty">Nothing has aired yet.</string>
     <string name="earlier">Earlier</string>
     <string name="history_yesterday_at">Yesterday %1$s</string>

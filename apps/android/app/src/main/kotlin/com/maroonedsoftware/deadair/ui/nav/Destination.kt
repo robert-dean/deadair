@@ -39,6 +39,10 @@ sealed interface Destination : NavKey {
     @Serializable
     data object Settings : Destination
 
+    /** Everything the station has played, newest first. Reached from Up next, where the folded history sits. */
+    @Serializable
+    data object History : Destination
+
     /** One record, reached from anywhere it is named. */
     @Serializable
     data class Track(val id: String) : Destination
@@ -92,6 +96,7 @@ val NavConfiguration: SavedStateConfiguration =
                 polymorphic(NavKey::class) {
                     subclass(Destination.Home::class)
                     subclass(Destination.Settings::class)
+                    subclass(Destination.History::class)
                     subclass(Destination.Track::class)
                     subclass(Destination.Album::class)
                     subclass(Destination.Artist::class)

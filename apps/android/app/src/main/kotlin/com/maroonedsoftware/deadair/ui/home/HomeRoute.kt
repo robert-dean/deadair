@@ -29,8 +29,6 @@ import com.maroonedsoftware.deadair.playback.chooseMount
 import com.maroonedsoftware.deadair.playout.PlayoutState
 import com.maroonedsoftware.deadair.settings.ListenerSettings
 import com.maroonedsoftware.deadair.ui.ShowOperatorNotices
-import com.maroonedsoftware.deadair.ui.rememberNowEpochMs
-import com.maroonedsoftware.deadair.ui.history.HistoryScreen
 import com.maroonedsoftware.deadair.ui.LoadState
 import com.maroonedsoftware.deadair.ui.catalog.rememberDetail
 import com.maroonedsoftware.deadair.ui.order.BroadcastUiState
@@ -59,7 +57,7 @@ import kotlinx.coroutines.launch
  * own reading of whichever repository it draws from. The now-playing reading and the player
  * connection arrive from above rather than being made here, because Settings needs the first (the
  * format picker reads the station's `mounts[]` from it) and the second must outlive a trip to
- * Settings and back; the schedule and history polls are this screen's alone and stop when it goes.
+ * Settings and back; the schedule poll is this screen's alone and stops when it goes.
  */
 @Composable
 fun HomeRoute(
@@ -75,6 +73,8 @@ fun HomeRoute(
     onAirSomething: () -> Unit,
     /** Open the library search, to add one record. Offered to the operator only, while something is on. */
     onAddRecord: () -> Unit,
+    /** Open everything the station has played. */
+    onHistory: () -> Unit,
     /** Open what the station said: everything, or one break's attempts. */
     onScripts: (segmentId: String?) -> Unit,
     /** Change what the station plays. The broadcast rides along, so the form opens on a fixed baseline. */
@@ -91,8 +91,6 @@ fun HomeRoute(
 
     // Collected here so the polls run while their tabs can be seen. They stop on their own when not.
     val schedule by graph.schedule.state.collectAsStateWithLifecycle()
-    val history by graph.history.state.collectAsStateWithLifecycle()
-    val nowEpochMs by rememberNowEpochMs()
     val scope = rememberCoroutineScope()
     val session by graph.sessions.state.collectAsStateWithLifecycle()
     val isOperator = (session as? SessionState.SignedIn)?.isOperator == true
@@ -291,23 +289,13 @@ fun HomeRoute(
                     onSettings = onSettings,
                     onTrack = onTrack,
                     onSegment = { segmentId -> onScripts(segmentId) },
+                    onHistory = onHistory,
                     broadcast = broadcast,
                     personas = personas.state,
                     onReloadPersonas = personas::reload,
                     handlers = handlers,
                 )
             }
-            Tab.HISTORY ->
-                HistoryScreen(
-                    state = history,
-                    artUrlFor = { url -> station?.artUrl(url) },
-                    nowEpochMs = nowEpochMs,
-                    scope = scope,
-                    onLoadMore = graph.history::loadMore,
-                    onRetry = graph.history::retry,
-                    onSettings = onSettings,
-                    onTrack = onTrack,
-                )
             Tab.WHATS_ON -> WhatsOnScreen(state = schedule, onRetry = graph.schedule::retry, onSettings = onSettings)
         }
     }

@@ -11,12 +11,16 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -50,31 +54,51 @@ import kotlinx.coroutines.launch
  * the station play something again, and offering a control that does nothing would be the app
  * pretending otherwise. What this is for is the question a radio listener has always had — what was
  * that? — and the answer is a name, a cover and a time.
+ *
+ * A page rather than a tab, reached from Up next where the folded history sits: the fourth tab went
+ * to Settings, and a list you open to answer one question is a thing you go and do.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HistoryScreen(
     state: HistoryState,
     artUrlFor: (String?) -> String?,
     nowEpochMs: Long,
     scope: CoroutineScope,
+    onBack: () -> Unit,
     onLoadMore: suspend () -> Unit,
     onRetry: () -> Unit,
     onSettings: () -> Unit,
     /** Open a record's page. Only rows the station could name a record for lead anywhere. */
     onTrack: (String) -> Unit,
 ) {
-    when (state) {
-        HistoryState.SignedOut -> SignedOutPlaceholder(stringResource(R.string.tab_history), onSettings)
-        HistoryState.Loading -> Loading()
-        HistoryState.Unreachable -> ErrorPlaceholder(stringResource(R.string.error_could_not_reach), onRetry)
-        is HistoryState.Loaded ->
-            Refreshable(state = state, onRefresh = onRetry) {
-                if (state.entries.isEmpty()) {
-                    EmptyPlaceholder(stringResource(R.string.history_empty))
-                } else {
-                    Records(state, artUrlFor, nowEpochMs, scope, onLoadMore, onTrack)
-                }
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(R.string.history)) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(painterResource(R.drawable.ic_arrow_back), contentDescription = stringResource(R.string.back))
+                    }
+                },
+            )
+        },
+    ) { padding ->
+        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+            when (state) {
+                HistoryState.SignedOut -> SignedOutPlaceholder(stringResource(R.string.history), onSettings)
+                HistoryState.Loading -> Loading()
+                HistoryState.Unreachable -> ErrorPlaceholder(stringResource(R.string.error_could_not_reach), onRetry)
+                is HistoryState.Loaded ->
+                    Refreshable(state = state, onRefresh = onRetry) {
+                        if (state.entries.isEmpty()) {
+                            EmptyPlaceholder(stringResource(R.string.history_empty))
+                        } else {
+                            Records(state, artUrlFor, nowEpochMs, scope, onLoadMore, onTrack)
+                        }
+                    }
             }
+        }
     }
 }
 

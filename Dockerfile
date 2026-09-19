@@ -388,7 +388,7 @@ RUN cd /opt/analysis && PYTHONDONTWRITEBYTECODE=1 venv/bin/python -c "import app
 COPY ytaudio/requirements.txt /opt/ytaudio/requirements.txt
 RUN python3 -m venv /opt/ytaudio/venv \
  && /opt/ytaudio/venv/bin/pip install --no-cache-dir -r /opt/ytaudio/requirements.txt
-COPY ytaudio/cookies.py ytaudio/resolve.py ytaudio/app.py /opt/ytaudio/
+COPY ytaudio/resolve.py ytaudio/app.py /opt/ytaudio/
 
 # Proves this environment can import the service it exists for, here, inside the build. Same
 # argument as the analysis check above, and the same failure it catches: a file missed from the

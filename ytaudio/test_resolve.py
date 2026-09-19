@@ -131,49 +131,16 @@ class TestCooldowns:
         assert not cooldowns.resting("251", now=COOLDOWN_S + 1)
 
 
-class TestSignedInNoFormats:
-    def test_signed_in_with_no_formats_is_named_rather_than_left_as_upstream(self):
-        # yt-dlp's own words for it ("Requested format is not available") read as a
-        # bug in our selector.
+class TestHowAFailureReads:
+    """yt-dlp answers every failure as prose; these are the words that decide what the station does."""
+
+    @staticmethod
+    def _failing_with(message):
         import resolve as module
 
         class _Boom(module.yt_dlp.utils.DownloadError):
             def __init__(self):
-                super().__init__("ERROR: [youtube] x: Requested format is not available. Use --list-formats")
-
-        class _FakeYDL:
-            def __init__(self, *_args, **_kwargs):
-                pass
-
-            def __enter__(self):
-                return self
-
-            def __exit__(self, *_):
-                return False
-
-            def extract_info(self, *_args, **_kwargs):
-                raise _Boom()
-
-        original = module.yt_dlp.YoutubeDL
-        module.yt_dlp.YoutubeDL = _FakeYDL
-        try:
-            with pytest.raises(module.SignedInNoFormats) as raised:
-                module.resolve("x", cookiefile="/tmp/jar")
-            assert raised.value.code == "sabr"
-            # The message must NOT claim the account is unpaid: the yt-dlp tracker
-            # says Premium sessions land here too, and this check never tested that.
-            assert "not a Music Premium subscriber" not in raised.value.message
-            assert "not evidence about this account's subscription" in raised.value.message
-        finally:
-            module.yt_dlp.YoutubeDL = original
-
-    def test_the_same_message_signed_OUT_is_not_blamed_on_the_session(self):
-        # Without a session the same words mean something else entirely.
-        import resolve as module
-
-        class _Boom(module.yt_dlp.utils.DownloadError):
-            def __init__(self):
-                super().__init__("ERROR: [youtube] x: Requested format is not available.")
+                super().__init__(message)
 
         class _FakeYDL:
             def __init__(self, *_args, **_kwargs):
@@ -192,11 +159,34 @@ class TestSignedInNoFormats:
         module.yt_dlp.YoutubeDL = _FakeYDL
         try:
             with pytest.raises(module.ResolveError) as raised:
-                module.resolve("x", cookiefile=None)
-            assert raised.value.code != "sabr"
+                module.resolve("x")
+            return raised.value
         finally:
             module.yt_dlp.YoutubeDL = original
 
+    @pytest.mark.parametrize(
+        "message",
+        [
+            "ERROR: [youtube] x: Sign in to confirm your age. This video may be inappropriate for some users.",
+            "ERROR: [youtube] x: Join this channel to get access to members-only content like this video",
+            "ERROR: [youtube] x: This video is only available to Music Premium members",
+        ],
+    )
+    def test_a_record_only_an_account_may_play_is_named(self, message):
+        assert self._failing_with(message).code == "needs-account"
+
+    def test_the_bot_check_is_not_blamed_on_the_record(self):
+        # It says "sign in" too, but it is about this address. Written off as a
+        # per-record refusal, it would quietly strike every record it touched.
+        failure = self._failing_with("ERROR: [youtube] x: Sign in to confirm you're not a bot. Use --cookies-from-browser")
+        assert failure.code == "upstream"
+
+    def test_a_page_error_is_not_mistaken_for_an_age_gate(self):
+        # "page" contains "age", which is what a bare substring match once caught.
+        assert self._failing_with("ERROR: [youtube] x: Unable to download webpage: HTTP Error 500").code == "upstream"
+
+    def test_a_removed_record_is_unavailable(self):
+        assert self._failing_with("ERROR: [youtube] x: Video unavailable. This video has been removed").code == "unavailable"
 
 
 class TestTheStoreContract:

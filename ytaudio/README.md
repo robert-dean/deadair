@@ -4,7 +4,7 @@ Turns a YouTube video id into a URL the station can fetch. It never downloads
 audio and never proxies any.
 
 This file is the contract. `app.py` is one implementation of it, and anything
-answering these three endpoints is a valid resolver.
+answering these two endpoints is a valid resolver.
 
 ## Why this is a separate process
 
@@ -26,42 +26,50 @@ finding them, on somebody else's schedule rather than ours. The alternative was
 implementing the segment protocol and its attestation here and owning every
 break. See [discussion #49](https://github.com/robert-dean/deadair/discussions/49).
 
-## Signed-in sessions are served nothing fetchable
+## Every resolve is signed out
 
-YouTube currently forces its segment streaming protocol on signed-in sessions, which yt-dlp cannot fetch, and the yt-dlp tracker reports this for Music Premium accounts too ([#14390](https://github.com/yt-dlp/yt-dlp/issues/14390)). Measured here on
-a free account: signed out, a track offers 39 formats; signed in, none.
+This process holds **no credential**. The operator's cookie stays in the plugin,
+which needs it for search, the library and playlists, and never crosses to here.
 
-yt-dlp's own words for that are "Requested format is not available", which reads
-as a bug in our format selector. The resolver detects the case (no formats **and**
-a session) and answers code `sabr`, saying what happened and explicitly NOT what
-it means for the subscription, because nothing here tested that.
+That is a measurement rather than a preference. Measured 2026-09-19 on the
+operator's own account, through yt-dlp:
+
+| Resolve | Formats offered | Fetchable |
+| --- | --- | --- |
+| signed out | 5 | yes, and it aired |
+| signed in, no JS runtime | 0 | no |
+| signed in, with Deno | 4 | no, every one answered 403 for want of a proof-of-origin token |
+
+YouTube currently forces its segment streaming protocol on signed-in sessions,
+and the yt-dlp tracker reports the same for Music Premium accounts
+([#14390](https://github.com/yt-dlp/yt-dlp/issues/14390)). A session made
+resolving strictly worse, and it cost a live Google credential sitting in a
+second process to do it. This is also the goal #49 set for the audio half: the
+credential never leaves the plugin.
+
+**The price:** a record that only an account may play (age-gated, members-only,
+Premium-only) answers `needs-account` and does not play from here. It is also
+the path YouTube is most motivated to close, so a signed-out resolve that stops
+working is the first thing to check when every record fails.
 
 ## Endpoints
 
 | | |
 | --- | --- |
-| `GET /health` | `{ ok, hasSession }` |
-| `POST /session` | `{ cookie }`, the operator's Cookie header. `400` if it carries no session at all |
-| `DELETE /session` | forget it |
+| `GET /health` | `{ ok }` |
 | `POST /resolve` | `{ videoId }` → `{ url, expiresAt, mimeType, itag, durationMs, filesize }` |
-
-The session is **pushed**, not read from disk, so there is exactly one place an
-operator pastes a cookie: the plugin's own settings card, where it is stored
-encrypted. What this process keeps is a cache of it, on a file it owns, and it
-dies with the process.
 
 ### What a failure means
 
 | code | HTTP | The station should |
 | --- | --- | --- |
 | `unavailable` | 410 | write the copy off, never retry |
-| `sabr` | 502 | signed in and served nothing fetchable; nothing the station does changes it |
-| `auth` | 401 | the cookie is dead or missing |
+| `needs-account` | 403 | only an account may play this record, and a resolve never has one; skip it |
 | `refused` | 502 | the upstream would not serve this format; it is resting now |
 | `cooling` | 503 | that format is resting; try again later |
 | `upstream` | 502 | retry on the usual backoff |
 
-## Five behaviours that are ours regardless of the library
+## Six behaviours that are ours regardless of the library
 
 Each is a bug the station would otherwise ship and diagnose from a listener's
 ears, and writing them down here is what makes them survive yt-dlp being swapped
@@ -88,6 +96,9 @@ the worst failure shape available.
 **Cool down per FORMAT, not per track.** A 403 on one itag is a statement about
 that rendition. Resting the track instead is how a whole library goes unplayable
 behind a single bad format.
+
+**Hold no credential.** See above. A resolver that stores a cookie is a second
+place a live Google session can leak from, and it bought nothing.
 
 **Honour the URL's own expiry.** The `expire` parameter is authoritative and is
 what `expiresAt` reports. A URL that outlives its upstream is an item that fails

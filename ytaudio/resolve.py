@@ -107,32 +107,27 @@ class Unavailable(ResolveError):
         super().__init__("unavailable", message)
 
 
-class SignedInNoFormats(ResolveError):
-    """YouTube served a signed-in session no format yt-dlp can fetch.
+class NeedsAccount(ResolveError):
+    """This record plays only to a signed-in account: age-gated, members-only, Premium-only.
 
-    Worth its own class because yt-dlp's words for it, "Requested format is not
-    available", read as a bug in our format selector and name nothing an operator
-    can act on.
-
-    **What this does NOT say is anything about the account's subscription.** It
-    first shipped as `NotPremium`, on the reasoning that a free account measured
-    here offered 39 formats signed out and none signed in, and that Music
-    Assistant documents a Premium requirement. The yt-dlp tracker, which is where
-    current state is actually recorded, says Premium sessions land in exactly the
-    same place: SABR forced "even with valid premium cookies and PO Token
-    Provider" (yt-dlp #14390), premium formats gone with cookies since
-    2025.08.11 (#13545, #14208). So the check establishes "signed in, and nothing
-    fetchable", and telling a paying subscriber they are not one would be a claim
-    this code never tested.
+    A resolve is always signed out (see `resolve`), so this is final for this
+    record and not a fault in the station. Its own code rather than `unavailable`
+    because the record EXISTS, and an operator reading the log should learn why a
+    record they can play in their browser does not play here.
     """
 
-    def __init__(self) -> None:
-        super().__init__(
-            "sabr",
-            "YouTube served this signed-in session no format the station can fetch. It is currently forcing "
-            "its segment streaming protocol on signed-in sessions, which yt-dlp cannot download, and this is "
-            "reported for Music Premium accounts too, so it is not evidence about this account's subscription.",
-        )
+    def __init__(self, message: str) -> None:
+        super().__init__("needs-account", message)
+
+
+#: yt-dlp's words for a record only an account may play. Matched as phrases: a
+#: bare "age" also matches "page" and "usage", which is how a transient upstream
+#: page error once read as an age gate.
+_NEEDS_ACCOUNT = ("confirm your age", "age-restricted", "inappropriate for some users", "members-only", "music premium")
+
+#: The bot check, which ALSO says "sign in". It is about this address, not this
+#: record, so it must not read as a per-record refusal the station writes off.
+_BOT_CHECK = "not a bot"
 
 
 @dataclass(frozen=True)
@@ -287,12 +282,15 @@ def _pick(info: dict) -> dict:
     raise Unavailable("no audio-only format was offered for this record")
 
 
-def resolve(video_id: str, *, cookiefile: str | None = None, now: float | None = None) -> Resolved:
+def resolve(video_id: str, *, now: float | None = None) -> Resolved:
     """Where this record's audio is, or why it is not available.
 
-    `cookiefile` is the operator's own session. It is required in practice: a
-    signed-out resolve works for some records and not for the ones an account
-    pays for, which is the same shape of requirement the Spotify path has.
+    **Always signed out, and that is the design.** Measured 2026-09-19 on the
+    operator's own account: signed in, yt-dlp was offered no fetchable format
+    without a JS runtime, and with one every format it listed answered 403 for
+    want of a proof-of-origin token. Signed out, the same records resolved and
+    played. So this process holds no credential at all; the cost is that a record
+    only an account may play answers `NeedsAccount`.
     """
     options = {
         "format": FORMAT,
@@ -304,8 +302,6 @@ def resolve(video_id: str, *, cookiefile: str | None = None, now: float | None =
         "skip_download": True,
         "extract_flat": False,
     }
-    if cookiefile:
-        options["cookiefile"] = cookiefile
 
     url = f"https://music.youtube.com/watch?v={video_id}"
     try:
@@ -314,15 +310,12 @@ def resolve(video_id: str, *, cookiefile: str | None = None, now: float | None =
     except yt_dlp.utils.DownloadError as error:
         text = str(error)
         lowered = text.lower()
-        # Checked BEFORE "unavailable", which this message also contains as a
-        # suggestion ("Use --list-formats"). Ordered the other way, every signed-in
-        # session reads as a missing record.
-        if "requested format is not available" in lowered and cookiefile:
-            raise SignedInNoFormats() from error
+        if _BOT_CHECK in lowered:
+            raise ResolveError("upstream", text) from error
+        if any(phrase in lowered for phrase in _NEEDS_ACCOUNT):
+            raise NeedsAccount(text) from error
         if "private" in lowered or "unavailable" in lowered or "removed" in lowered:
             raise Unavailable(text) from error
-        if "sign in" in lowered or "cookies" in lowered or "age" in lowered:
-            raise ResolveError("auth", text) from error
         raise ResolveError("upstream", text) from error
     except Exception as error:  # noqa: BLE001
         raise ResolveError("upstream", str(error)) from error

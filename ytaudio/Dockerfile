@@ -14,7 +14,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # The module list is the SECOND copy of the one in the root Dockerfile. A file
 # added here and not there builds clean and crash-loops in production while this
 # container is perfectly happy. Adding one means editing both.
-COPY ytaudio/cookies.py ytaudio/resolve.py ytaudio/app.py ./
+COPY ytaudio/resolve.py ytaudio/app.py ./
 
 RUN useradd --system --uid 10002 ytaudio
 USER ytaudio

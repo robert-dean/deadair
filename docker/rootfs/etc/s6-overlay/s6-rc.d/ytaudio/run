@@ -9,6 +9,7 @@ exec 2>&1
 cd /opt/ytaudio || exit 1
 
 # Loopback only: nothing outside this container has any business resolving
-# records, and the resolver holds the operator's session while it runs.
+# records through this station's address. It holds no credential; every resolve
+# is signed out (see ytaudio/README.md).
 exec s6-setuidgid deadair /opt/ytaudio/venv/bin/uvicorn app:app \
     --host 127.0.0.1 --port "${YTAUDIO_PORT:-9322}" --workers 1

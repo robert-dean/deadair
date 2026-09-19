@@ -2,7 +2,7 @@ import urllib.error
 
 import pytest
 
-from resolve import COOLDOWN_S, ResolveError, Unavailable, _pick, cooldowns, expiry_of, probe
+from resolve import COOLDOWN_S, FORMAT, STORABLE_TYPES, ResolveError, Unavailable, _pick, cooldowns, expiry_of, probe
 
 
 class _Response:
@@ -43,8 +43,16 @@ class TestExpiry:
 
 
 class TestProbe:
-    def test_accepts_audio(self):
-        assert probe("https://x/y", opener=_opener("audio/webm")) == "audio/webm"
+    def test_accepts_audio_the_station_stores(self):
+        assert probe("https://x/y", opener=_opener("audio/mp4")) == "audio/mp4"
+
+    def test_refuses_webm_because_the_station_will_not_keep_it(self):
+        # The bug this guards: a WebM resolve fetched perfectly and was then refused
+        # by the track store at download, four times, and benched -- every record.
+        with pytest.raises(ResolveError) as raised:
+            probe("https://x/y", opener=_opener("audio/webm"))
+        assert raised.value.code == "refused"
+        assert "does not store" in raised.value.message
 
     def test_refuses_json_served_as_200(self):
         # The failure this exists for: an upstream refusing with a 200 and a JSON
@@ -179,3 +187,32 @@ class TestSignedInNoFormats:
             assert raised.value.code != "sabr"
         finally:
             module.yt_dlp.YoutubeDL = original
+
+
+
+class TestTheStoreContract:
+    """The resolver may only answer with what the station's track store keeps.
+
+    `STORABLE_TYPES` mirrors `TRACK_SOURCE_TYPES` in
+    apps/api/src/modules/playout/audio/track.store.ts by hand, across a language
+    boundary. This reads that file, so the mirror cannot drift without a red test.
+    """
+
+    def _store_types(self):
+        import pathlib
+        import re
+
+        store = pathlib.Path(__file__).resolve().parent.parent / "apps/api/src/modules/playout/audio/track.store.ts"
+        text = store.read_text()
+        block = text[text.index("TRACK_SOURCE_TYPES"):]
+        block = block[: block.index("};")]
+        return set(re.findall(r"'([a-z]+/[a-z0-9.+-]+)'\s*:", block))
+
+    def test_the_mirror_matches_the_store(self):
+        assert set(STORABLE_TYPES) == self._store_types()
+
+    def test_webm_is_not_storable(self):
+        assert "audio/webm" not in STORABLE_TYPES
+
+    def test_the_format_asks_for_a_storable_container(self):
+        assert "ext=m4a" in FORMAT and "vcodec=none" in FORMAT

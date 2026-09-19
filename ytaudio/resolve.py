@@ -28,11 +28,47 @@ from dataclasses import dataclass
 
 import yt_dlp
 
-#: Audio ONLY, never merely audio-bearing. A rung that answers with one pre-muxed
-#: 360p stream satisfies "has an audio track" while being a video download at the
-#: wrong bitrate for a music station, and it passes every check that asks whether
-#: the content type begins with `audio/`.
-FORMAT = "bestaudio[vcodec=none]"
+#: Audio ONLY, never merely audio-bearing, and only in a container the station
+#: will KEEP.
+#:
+#: Audio-only because a rung that answers with one pre-muxed 360p stream satisfies
+#: "has an audio track" while being a video download at the wrong bitrate for a
+#: music station, and it passes every check that asks whether the content type
+#: begins with `audio/`.
+#:
+#: m4a because of the second half, which was missed the first time. Plain
+#: `bestaudio` is itag 251, Opus in WebM, and `audio/webm` is not a type the
+#: station's track store accepts (`TRACK_SOURCE_TYPES` in
+#: apps/api/src/modules/playout/audio/track.store.ts). So a resolve that
+#: succeeded here was refused at download, failed four times and was benched --
+#: every record, silently, behind a URL that fetched perfectly. itag 140 (AAC,
+#: about 130k against Opus's 122k) is offered alongside it and the store keeps it
+#: as `m4a`.
+#:
+#: No fallback to WebM when there is no m4a. The store would refuse it anyway, so
+#: falling back would only move the failure somewhere quieter.
+FORMAT = "bestaudio[ext=m4a][vcodec=none]"
+
+#: The content types this resolver may answer with: the audio half of what the
+#: station's track store accepts. A MIRROR of `TRACK_SOURCE_TYPES`, kept by hand
+#: because one side is Python and the other TypeScript -- which is exactly why it
+#: is checked at the probe, where a mismatch fails as a resolve error the operator
+#: can read rather than as a download the station quietly refuses.
+STORABLE_TYPES = (
+    "audio/mpeg",
+    "audio/mp3",
+    "audio/wav",
+    "audio/x-wav",
+    "audio/wave",
+    "audio/ogg",
+    "application/ogg",
+    "audio/vorbis",
+    "audio/flac",
+    "audio/x-flac",
+    "audio/mp4",
+    "audio/m4a",
+    "audio/x-m4a",
+)
 
 #: How long a format that refused us is left alone. Per FORMAT rather than per
 #: track: a 403 on one itag is a statement about that rendition, and retrying the
@@ -180,6 +216,10 @@ def probe(url: str, *, opener=urllib.request.urlopen) -> str:
         raise ResolveError("refused", f"the upstream answered {content_type} rather than audio")
     if not content_type.startswith("audio/"):
         raise ResolveError("refused", f"the upstream answered {content_type}, which is not audio")
+    if content_type not in STORABLE_TYPES:
+        # Audio, and a type the station would refuse at download. Said here, where it
+        # reads as a resolve failure, rather than four failed downloads later.
+        raise ResolveError("refused", f"the upstream answered {content_type}, which the station does not store")
     return content_type
 
 

@@ -61,7 +61,7 @@ dies with the process.
 | `cooling` | 503 | that format is resting; try again later |
 | `upstream` | 502 | retry on the usual backoff |
 
-## Four behaviours that are ours regardless of the library
+## Five behaviours that are ours regardless of the library
 
 Each is a bug the station would otherwise ship and diagnose from a listener's
 ears, and writing them down here is what makes them survive yt-dlp being swapped
@@ -71,6 +71,13 @@ out for something else.
 pre-muxed 360p stream satisfies "has an audio track" while being a video download
 at the wrong bitrate for a music station. The format selector says `vcodec=none`
 and `_pick` re-checks it rather than trusting the string.
+
+**Only a container the station keeps.** The format asks for m4a, and the probe
+refuses any type the station's track store does not accept. Plain `bestaudio` is
+Opus in WebM, and the store refuses `audio/webm`: a resolve that fetched perfectly
+was then refused at download, four times, and benched, for every record. The
+accepted list is mirrored here by hand across a language boundary, and a test
+reads `track.store.ts` so the mirror cannot drift.
 
 **Probe before serving.** One `bytes=0-0` range, content type checked, `text`,
 `json` and `xml` refused. An upstream that answers a refusal with a 200 and a

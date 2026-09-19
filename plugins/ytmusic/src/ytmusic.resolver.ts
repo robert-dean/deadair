@@ -39,58 +39,22 @@ export class ResolverClient {
     }
 
     /**
-     * Hand the resolver the operator's session.
+     * Where this record's bytes are, or nothing. Asked SIGNED OUT, with the video id and nothing else.
      *
-     * Pushed rather than read from disk so there is exactly one place a cookie is
-     * pasted: the plugin's settings card, where the station keeps it encrypted.
-     * The resolver holds a cache of it that dies with its process, which is why
-     * this is re-sent on demand rather than only once — see {@link resolve}.
+     * The operator's cookie never crosses to the resolver, and that is the design rather than an
+     * omission. Measured 2026-09-19 through yt-dlp on the operator's own account: signed in, a record
+     * offers no fetchable format without a JS runtime, and with one every format it lists answers 403
+     * to a session that has no proof-of-origin token. Signed out, the same records resolve and play.
+     * So the cookie stays in the plugin for what needs it (search, the library, playlists) and the
+     * audio path never sees it. The price is stated in the README: a record that needs an account to
+     * play, age-gated or subscriber-only, will not play from here.
+     *
+     * `undefined` is the SDK's "this station cannot serve this track": the host reads it as
+     * unavailable, skips the item and holds nothing against the plugin. Every reason a resolve fails is
+     * one of those (a resolver nobody started, a record the upstream will not serve), so none of them
+     * throws. A failure here must not be able to quarantine a plugin whose catalog half is working.
      */
-    async pushSession(cookie: string): Promise<boolean> {
-        const host = this.host;
-        try {
-            const response = await host.fetch(this.url('/session'), {
-                method: 'POST',
-                headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({ cookie }),
-                timeoutMs: 10_000,
-            });
-            if (!response.ok) {
-                const body = (await jsonBody<RefusalBody>(response).catch(() => undefined)) ?? {};
-                host.logger.warn('youtube music: the audio resolver would not take the session', { reason: body.message ?? response.status });
-                return false;
-            }
-            return true;
-        } catch (error) {
-            host.logger.warn('youtube music: could not reach the audio resolver', { reason: errorText(error) });
-            return false;
-        }
-    }
-
-    /**
-     * Where this record's bytes are, or nothing.
-     *
-     * `undefined` is the SDK's "this station cannot serve this track": the host
-     * reads it as unavailable, skips the item and holds nothing against the
-     * plugin. Every reason a resolve fails is one of those — a resolver nobody
-     * started, an account that cannot play, a record the upstream will not serve
-     * — so none of them throws. A failure here must not be able to quarantine a
-     * plugin whose catalog half is working perfectly.
-     *
-     * The one thing it retries is an absent session, because the resolver is a
-     * separate process with its own lifetime: it can restart under a long-lived
-     * plugin and come back empty, and the fix is simply to tell it again.
-     */
-    async resolve(trackId: string, cookie: string): Promise<ProviderStream | undefined> {
-        const first = await this.attempt(trackId);
-        if (first !== 'no-session') return first;
-
-        if (!(await this.pushSession(cookie))) return undefined;
-        const second = await this.attempt(trackId);
-        return second === 'no-session' ? undefined : second;
-    }
-
-    private async attempt(trackId: string): Promise<ProviderStream | undefined | 'no-session'> {
+    async resolve(trackId: string): Promise<ProviderStream | undefined> {
         const host = this.host;
         let response: Response;
         try {
@@ -101,8 +65,8 @@ export class ResolverClient {
                 timeoutMs: RESOLVE_TIMEOUT_MS,
             });
         } catch (error) {
-            // A resolver nobody started is the ordinary state of a station that
-            // has not set the audio half up, not a fault to report.
+            // A resolver nobody started is the ordinary state of a station that has not set the audio
+            // half up, not a fault to report.
             host.logger.debug('youtube music: the audio resolver did not answer', { reason: errorText(error) });
             return undefined;
         }
@@ -112,23 +76,15 @@ export class ResolverClient {
             if (!body?.url) return undefined;
             return {
                 url: body.url,
-                // The URL's OWN expiry, which the resolver reads off it. A URL
-                // that outlives its upstream is an item that fails as it airs.
+                // The URL's OWN expiry, which the resolver reads off it. A URL that outlives its upstream
+                // is an item that fails as it airs.
                 ...(typeof body.expiresAt === 'number' ? { expiresAt: body.expiresAt } : {}),
                 ...(body.mimeType ? { mimeType: body.mimeType } : {}),
             };
         }
 
         const body = (await jsonBody<RefusalBody>(response).catch(() => undefined)) ?? {};
-        if (response.status === 401) return 'no-session';
-
-        // Said at the level the reason deserves. A signed-in session served nothing
-        // fetchable is the whole audio half failing and worth a warning; a record
-        // the upstream will not serve is routine and is not. Keyed off the CODE
-        // rather than the status, which this shares with other upstream failures.
-        if (body.code === 'sabr')
-            host.logger.warn(`youtube music: ${body.message ?? 'this session was served nothing playable'}`, { track: trackId });
-        else host.logger.debug('youtube music: no audio for this record', { track: trackId, code: body.code ?? response.status });
+        host.logger.debug('youtube music: no audio for this record', { track: trackId, code: body.code ?? response.status });
         return undefined;
     }
 
@@ -138,8 +94,7 @@ export class ResolverClient {
         try {
             const response = await host.fetch(this.url('/health'), { timeoutMs: 5_000 });
             if (!response.ok) return { ok: false, message: `The audio resolver at ${this.baseUrl} answered ${response.status}` };
-            const body = await jsonBody<{ hasSession?: boolean }>(response).catch(() => undefined);
-            return { ok: true, message: body?.hasSession ? 'The audio resolver has the session' : 'The audio resolver is up but has no session yet' };
+            return { ok: true, message: 'The audio resolver is up' };
         } catch (error) {
             // The ADDRESS, because that is the field the operator has to fix and the
             // host's own error names only the hostname when the mistake is a port.

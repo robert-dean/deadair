@@ -1,9 +1,8 @@
-import { createFakePluginHost, fakeHostFetchResponse, type FakePluginHost } from '@deadair/plugin-sdk/testing';
+import { createFakePluginHost, type FakePluginHost } from '@deadair/plugin-sdk/testing';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { ResolverClient, resolverFor } from '../src/ytmusic.resolver.js';
 
-const COOKIE = 'SID=abc; __Secure-3PAPISID=def';
 const RESOLVED = {
     url: 'https://rr1---sn-x.googlevideo.com/videoplayback?expire=1789703389&id=abc',
     expiresAt: 1789703389000,
@@ -43,23 +42,27 @@ describe('resolve', () => {
 
         // expiresAt is the URL's OWN expire, not a TTL of ours: a URL that
         // outlives its upstream is an item that fails at the moment it airs.
-        await expect(resolver.resolve('abc', COOKIE)).resolves.toEqual({
+        await expect(resolver.resolve('abc')).resolves.toEqual({
             url: RESOLVED.url,
             expiresAt: 1789703389000,
             mimeType: 'audio/webm',
         });
     });
 
-    it('asks the resolver rather than YouTube', async () => {
+    it('asks the resolver rather than YouTube, with the video id and nothing else', async () => {
         host.queueResponse({ status: 200, body: JSON.stringify(RESOLVED) });
-        await resolver.resolve('abc', COOKIE);
+        await resolver.resolve('abc');
 
+        // Signed out by design: the operator's cookie never crosses to the resolver,
+        // because signed in YouTube serves it nothing fetchable.
+        expect(host.calls).toHaveLength(1);
         expect(host.calls[0]).toMatchObject({ url: 'http://localhost:9322/resolve', method: 'POST', body: '{"videoId":"abc"}' });
+        expect(JSON.stringify(host.calls[0]!.headers ?? {})).not.toMatch(/cookie/i);
     });
 
     it.each([
         ['a record the upstream will not serve', 410, 'unavailable'],
-        ['a signed-in session served nothing fetchable', 502, 'sabr'],
+        ['a record that needs an account to play', 403, 'needs-account'],
         ['a format that is resting', 503, 'cooling'],
         ['anything else upstream', 502, 'upstream'],
     ])('answers undefined for %s', async (_label, status, code) => {
@@ -68,39 +71,14 @@ describe('resolve', () => {
         // misbehaving, and a throw here would count against its health and
         // eventually quarantine a catalog that works perfectly.
         host.queueResponse({ status, body: JSON.stringify({ code, message: code }) });
-        await expect(resolver.resolve('abc', COOKIE)).resolves.toBeUndefined();
+        await expect(resolver.resolve('abc')).resolves.toBeUndefined();
     });
 
     it('answers undefined when the resolver is not running at all', async () => {
         host.setFetchImpl(async () => {
             throw new Error('ECONNREFUSED');
         });
-        await expect(resolver.resolve('abc', COOKIE)).resolves.toBeUndefined();
-    });
-
-    it('re-pushes the session and retries once when the resolver has lost it', async () => {
-        // The resolver is a separate process with its own lifetime: it can restart
-        // under a long-lived plugin and come back empty. The fix is to tell it again.
-        const statuses = [401, 200, 200];
-        const bodies = ['{"code":"auth"}', '{"ok":true}', JSON.stringify(RESOLVED)];
-        let call = 0;
-        host.setFetchImpl(async () => {
-            const index = call++;
-            return fakeHostFetchResponse({ status: statuses[index]!, body: bodies[index]! });
-        });
-
-        await expect(resolver.resolve('abc', COOKIE)).resolves.toMatchObject({ url: RESOLVED.url });
-        expect(host.calls.map(c => c.url)).toEqual([
-            'http://localhost:9322/resolve',
-            'http://localhost:9322/session',
-            'http://localhost:9322/resolve',
-        ]);
-    });
-
-    it('gives up rather than looping when the re-push does not help', async () => {
-        host.setFetchImpl(async () => fakeHostFetchResponse({ status: 401, body: '{"code":"auth"}' }));
-        await expect(resolver.resolve('abc', COOKIE)).resolves.toBeUndefined();
-        expect(host.calls.length).toBeLessThanOrEqual(3);
+        await expect(resolver.resolve('abc')).resolves.toBeUndefined();
     });
 });
 
@@ -112,11 +90,8 @@ describe('reachable', () => {
         await expect(resolver.reachable()).resolves.toMatchObject({ ok: false });
     });
 
-    it('distinguishes up-with-a-session from up-without-one', async () => {
-        host.queueResponse({ status: 200, body: '{"ok":true,"hasSession":true}' });
-        await expect(resolver.reachable()).resolves.toMatchObject({ ok: true, message: expect.stringContaining('has the session') });
-
-        host.queueResponse({ status: 200, body: '{"ok":true,"hasSession":false}' });
-        await expect(resolver.reachable()).resolves.toMatchObject({ ok: true, message: expect.stringContaining('no session') });
+    it('reports a resolver that answers as up', async () => {
+        host.queueResponse({ status: 200, body: '{"ok":true}' });
+        await expect(resolver.reachable()).resolves.toEqual({ ok: true, message: 'The audio resolver is up' });
     });
 });

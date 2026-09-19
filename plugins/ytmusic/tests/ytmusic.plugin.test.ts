@@ -147,7 +147,7 @@ describe('the account', () => {
         host.seedSecret('cookie', COOKIE);
         const plugin = new YtMusicPlugin();
         await plugin.init(host);
-        host.queueResponse({ status: 200, body: '{"ok":true,"hasSession":true}' });
+        host.queueResponse({ status: 200, body: '{"ok":true}' });
 
         await expect(plugin.testConnection()).resolves.toMatchObject({ message: expect.stringContaining('(account 1)') });
     });
@@ -165,7 +165,7 @@ describe('testConnection', () => {
 
     it('confirms a working cookie, and names the account it is for', async () => {
         const { host, plugin } = await build();
-        host.queueResponse({ status: 200, body: '{"ok":true,"hasSession":true}' });
+        host.queueResponse({ status: 200, body: '{"ok":true}' });
 
         const result = await plugin.testConnection();
         expect(result.ok).toBe(true);

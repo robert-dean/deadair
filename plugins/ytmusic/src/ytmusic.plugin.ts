@@ -52,7 +52,6 @@ interface MemoEntry {
 export class YtMusicPlugin extends Plugin implements MusicProviderPluginInstance {
     private client?: YtMusicClient;
     private resolver?: ResolverClient;
-    private cookie?: string;
     /** Kept from `onLoad` so `testConnection` never reads `this.host` after an `await` to find it. */
     private accountIndex = DEFAULT_ACCOUNT_INDEX;
 
@@ -90,20 +89,16 @@ export class YtMusicPlugin extends Plugin implements MusicProviderPluginInstance
         if (failure) throw new PluginError(failure).withCode('config');
 
         this.client = client;
-        this.cookie = cookie;
 
         // The audio half is optional at load. A station that has not set the
         // resolver up still has a working catalog, and `resolveStreamUrl` simply
         // answers nothing -- which the host reads as "not available" and skips.
-        // Refusing to start over it would take the search away too.
+        // Refusing to start over it would take the search away too. Nothing is
+        // handed to it: audio resolves signed out, so the cookie stays here. See
+        // `ResolverClient.resolve` for why.
         this.resolver = resolverFor(host, config.resolverBaseUrl);
         if (this.resolver) {
-            const pushed = await this.resolver.pushSession(cookie);
-            host.logger.info(
-                pushed
-                    ? 'youtube music: the audio resolver has the session'
-                    : 'youtube music: the audio resolver is not answering, so nothing will play',
-            );
+            host.logger.info('youtube music: audio resolves signed out through the configured resolver');
         } else {
             // Not configured, or saved before the field existed. Saving the plugin's settings once
             // fills it with the default, which is also what puts its address on the allowlist.
@@ -118,7 +113,6 @@ export class YtMusicPlugin extends Plugin implements MusicProviderPluginInstance
             // answered a search with an empty list instead of refusing.
             this.client = undefined;
             this.resolver = undefined;
-            this.cookie = undefined;
             this.memo.clear();
         });
         host.logger.info('youtube music ready');
@@ -243,18 +237,19 @@ export class YtMusicPlugin extends Plugin implements MusicProviderPluginInstance
      * its own authentication in its query string. The station fetches and caches
      * it exactly as it does a Navidrome URL: nothing proxies bytes.
      *
+     * Resolved SIGNED OUT. The cookie never leaves this plugin: signed in, YouTube serves the
+     * resolver nothing it can fetch, and signed out it does. See `ResolverClient.resolve`.
+     *
      * `undefined` at every "not yet" and every "not this record": no resolver
-     * configured, resolver not answering, session served nothing fetchable, record the
-     * upstream will not serve. The host reads all of them as unavailable, skips
+     * configured, resolver not answering, record the upstream will not serve. The host reads all of them as unavailable, skips
      * the item and holds nothing against the plugin, which is right -- none of
      * them is the plugin misbehaving, and a catalog that works must not be
      * quarantined by an audio path that does not.
      */
     async resolveStreamUrl(trackId: string): Promise<ProviderStream | undefined> {
         const resolver = this.resolver;
-        const cookie = this.cookie;
-        if (!resolver || !cookie) return undefined;
-        return await resolver.resolve(trackId, cookie);
+        if (!resolver) return undefined;
+        return await resolver.resolve(trackId);
     }
 
     // --- catalog, continued -----------------------------------------------------

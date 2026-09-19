@@ -68,7 +68,7 @@ fun HistoryScreen(
     onBack: () -> Unit,
     onLoadMore: suspend () -> Unit,
     onRetry: () -> Unit,
-    onSettings: () -> Unit,
+    onSignIn: () -> Unit,
     /** Open a record's page. Only rows the station could name a record for lead anywhere. */
     onTrack: (String) -> Unit,
 ) {
@@ -86,7 +86,7 @@ fun HistoryScreen(
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
             when (state) {
-                HistoryState.SignedOut -> SignedOutPlaceholder(stringResource(R.string.history), onSettings)
+                HistoryState.SignedOut -> SignedOutPlaceholder(stringResource(R.string.history), onSignIn)
                 HistoryState.Loading -> Loading()
                 HistoryState.Unreachable -> ErrorPlaceholder(stringResource(R.string.error_could_not_reach), onRetry)
                 is HistoryState.Loaded ->

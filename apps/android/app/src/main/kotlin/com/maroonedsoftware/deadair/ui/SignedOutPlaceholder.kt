@@ -14,12 +14,15 @@ import com.maroonedsoftware.deadair.R
 /**
  * What a tab shows before anybody has signed in.
  *
+ * Its Sign in opens the sign-in page over this screen, which closes itself on success, so the
+ * listener comes back here with it loaded rather than being sent to Settings to find a form.
+ *
  * An offer rather than a wall, and phrased as one. The station keeps this behind an account because
  * it is the console's own data, not because a listener is unwelcome — and the tab is reachable
  * without one precisely so the offer can be seen at all.
  */
 @Composable
-fun SignedOutPlaceholder(what: String, onSettings: () -> Unit) {
+fun SignedOutPlaceholder(what: String, onSignIn: () -> Unit) {
     CentredColumn {
         Text(what, style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center)
         Text(
@@ -29,7 +32,7 @@ fun SignedOutPlaceholder(what: String, onSettings: () -> Unit) {
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(top = 8.dp),
         )
-        Button(onClick = onSettings, modifier = Modifier.padding(top = 24.dp)) { Text(stringResource(R.string.sign_in)) }
+        Button(onClick = onSignIn, modifier = Modifier.padding(top = 24.dp)) { Text(stringResource(R.string.sign_in)) }
     }
 }
 

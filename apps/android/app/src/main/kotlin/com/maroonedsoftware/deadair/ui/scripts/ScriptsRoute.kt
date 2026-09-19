@@ -22,7 +22,7 @@ import kotlinx.coroutines.launch
  * It lives as long as the screen does.
  */
 @Composable
-fun ScriptsRoute(graph: AppGraph, segmentId: String?, onBack: () -> Unit, onSettings: () -> Unit) {
+fun ScriptsRoute(graph: AppGraph, segmentId: String?, onBack: () -> Unit, onSignIn: () -> Unit) {
     val scope = rememberCoroutineScope()
     val repository =
         remember(segmentId) {
@@ -65,7 +65,7 @@ fun ScriptsRoute(graph: AppGraph, segmentId: String?, onBack: () -> Unit, onSett
         onBack = onBack,
         onLoadMore = repository::loadMore,
         onRetry = repository::retry,
-        onSettings = onSettings,
+        onSignIn = onSignIn,
         rating = rating,
         snackbarHost = snackbarHost,
     )

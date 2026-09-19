@@ -154,8 +154,8 @@ private fun Listener(graph: AppGraph, links: MutableStateFlow<String?>) {
     }
 
     val backStack = rememberNavBackStack(NavConfiguration, Destination.Home)
-    // Which tab Home shows. Held here rather than inside Home so a pushed page's Sign in can close
-    // the page and land on Settings; saveable, so a rotation or a restore keeps it.
+    // Which tab Home shows. Held here rather than inside Home so the Settings tab, drawn from here,
+    // can send the app back to Now playing on a new station; saveable, so a rotation keeps it.
     var tab by rememberSaveable { mutableStateOf(Tab.NOW_PLAYING) }
     // Leaving the sign-in page, by its arrow, by system back or by succeeding, starts the sign-in
     // again: the password goes, and a code step's challenge has a clock that will have run out by
@@ -163,10 +163,7 @@ private fun Listener(graph: AppGraph, links: MutableStateFlow<String?>) {
     // composition, so a rotation mid-code keeps the code step.
     val signingIn = Destination.SignIn in backStack
     LaunchedEffect(signingIn) { if (!signingIn) model.startAgain() }
-    val openSettings = {
-        while (backStack.size > 1) backStack.removeLastOrNull()
-        tab = Tab.SETTINGS
-    }
+    val openSignIn = { if (backStack.lastOrNull() != Destination.SignIn) backStack.add(Destination.SignIn) }
 
     // The stored station is what decides between setup and the app proper: an install that has
     // never been pointed at one has nothing to show, and one that has should not be asked again.
@@ -217,6 +214,7 @@ private fun Listener(graph: AppGraph, links: MutableStateFlow<String?>) {
                             connection = connection,
                             tab = tab,
                             onTab = { tab = it },
+                            onSignIn = openSignIn,
                             settingsTab = {
                                 // Seeds the address field with the kept station the first time the
                                 // tab is drawn, and never over an edit in progress.
@@ -249,7 +247,7 @@ private fun Listener(graph: AppGraph, links: MutableStateFlow<String?>) {
                                     onFormat = model::setFormat,
                                     onDynamicColour = model::setDynamicColour,
                                     onPlayOnOpen = model::setPlayOnOpen,
-                                    onOpenSignIn = { backStack.add(Destination.SignIn) },
+                                    onOpenSignIn = openSignIn,
                                     onSignOut = model::signOut,
                                     sleep = playback.sleep,
                                     canWaitForRecord = rememberPlayhead((nowPlaying as? NowPlayingState.Answered)?.reading) != null,
@@ -286,7 +284,7 @@ private fun Listener(graph: AppGraph, links: MutableStateFlow<String?>) {
                             graph = graph,
                             settings = loaded,
                             onBack = { backStack.removeLastOrNull() },
-                            onSettings = openSettings,
+                            onSignIn = openSignIn,
                             onTrack = { id -> backStack.add(Destination.Track(id)) },
                         )
                     }
@@ -308,14 +306,14 @@ private fun Listener(graph: AppGraph, links: MutableStateFlow<String?>) {
                         )
                     }
                     entry<Destination.Desk> {
-                        DeskRoute(graph = graph, settings = loaded, onBack = { backStack.removeLastOrNull() }, onSettings = openSettings)
+                        DeskRoute(graph = graph, settings = loaded, onBack = { backStack.removeLastOrNull() }, onSignIn = openSignIn)
                     }
                     entry<Destination.Scripts> { key ->
                         ScriptsRoute(
                             graph = graph,
                             segmentId = key.segmentId,
                             onBack = { backStack.removeLastOrNull() },
-                            onSettings = openSettings,
+                            onSignIn = openSignIn,
                         )
                     }
                     entry<Destination.AirSomething> {

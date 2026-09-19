@@ -23,7 +23,7 @@ private val entries =
 @Composable
 private fun Framed(state: HistoryState) {
     DeadairTheme {
-        HistoryScreen(state, artUrlFor = { null }, nowEpochMs = now, scope = rememberCoroutineScope(), onBack = {}, onLoadMore = {}, onRetry = {}, onSettings = {}, onTrack = {})
+        HistoryScreen(state, artUrlFor = { null }, nowEpochMs = now, scope = rememberCoroutineScope(), onBack = {}, onLoadMore = {}, onRetry = {}, onSignIn = {}, onTrack = {})
     }
 }
 

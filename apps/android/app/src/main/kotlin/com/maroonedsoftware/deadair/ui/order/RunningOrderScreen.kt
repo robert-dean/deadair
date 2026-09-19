@@ -84,7 +84,7 @@ fun RunningOrderScreen(
     state: OrderState,
     artUrlFor: (String?) -> String?,
     onRetry: () -> Unit,
-    onSettings: () -> Unit,
+    onSignIn: () -> Unit,
     /** Open a record's page. Every record row leads there, which is also where its rating lives. */
     onTrack: (String) -> Unit,
     /** Open a break's attempts: what the station said, or tried to, in that slot. */
@@ -99,7 +99,7 @@ fun RunningOrderScreen(
     handlers: OrderHandlers?,
 ) {
     when (state) {
-        OrderState.SignedOut -> SignedOutPlaceholder(stringResource(R.string.tab_up_next), onSettings)
+        OrderState.SignedOut -> SignedOutPlaceholder(stringResource(R.string.tab_up_next), onSignIn)
         OrderState.Loading -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
         OrderState.Unreachable -> ErrorPlaceholder(stringResource(R.string.error_could_not_reach), onRetry)
         is OrderState.Loaded ->

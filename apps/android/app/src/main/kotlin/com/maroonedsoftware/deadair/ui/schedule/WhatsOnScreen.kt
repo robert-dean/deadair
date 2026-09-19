@@ -39,9 +39,9 @@ import com.maroonedsoftware.deadair.ui.theme.Gutter
  * by this phone, drifting away from the one the station is actually running on.
  */
 @Composable
-fun WhatsOnScreen(state: ScheduleState, onRetry: () -> Unit, onSettings: () -> Unit) {
+fun WhatsOnScreen(state: ScheduleState, onRetry: () -> Unit, onSignIn: () -> Unit) {
     when (state) {
-        ScheduleState.SignedOut -> SignedOutPlaceholder(stringResource(R.string.tab_whats_on), onSettings)
+        ScheduleState.SignedOut -> SignedOutPlaceholder(stringResource(R.string.tab_whats_on), onSignIn)
         ScheduleState.Loading -> Loading()
         is ScheduleState.Answered ->
             Refreshable(state = state, onRefresh = onRetry) {

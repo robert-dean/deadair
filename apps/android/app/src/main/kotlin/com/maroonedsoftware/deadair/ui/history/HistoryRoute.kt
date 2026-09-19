@@ -15,7 +15,7 @@ import com.maroonedsoftware.deadair.ui.rememberNowEpochMs
  * left, as it did while the page was a tab.
  */
 @Composable
-fun HistoryRoute(graph: AppGraph, settings: ListenerSettings, onBack: () -> Unit, onSettings: () -> Unit, onTrack: (String) -> Unit) {
+fun HistoryRoute(graph: AppGraph, settings: ListenerSettings, onBack: () -> Unit, onSignIn: () -> Unit, onTrack: (String) -> Unit) {
     val history by graph.history.state.collectAsStateWithLifecycle()
     val nowEpochMs by rememberNowEpochMs()
     HistoryScreen(
@@ -26,7 +26,7 @@ fun HistoryRoute(graph: AppGraph, settings: ListenerSettings, onBack: () -> Unit
         onBack = onBack,
         onLoadMore = graph.history::loadMore,
         onRetry = graph.history::retry,
-        onSettings = onSettings,
+        onSignIn = onSignIn,
         onTrack = onTrack,
     )
 }

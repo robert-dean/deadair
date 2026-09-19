@@ -78,7 +78,7 @@ fun DeskScreen(
     handlers: TransportHandlers,
     onBack: () -> Unit,
     onRetry: () -> Unit,
-    onSettings: () -> Unit,
+    onSignIn: () -> Unit,
     snackbarHost: SnackbarHostState,
 ) {
     Scaffold(
@@ -96,7 +96,7 @@ fun DeskScreen(
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
             when (playout) {
-                PlayoutState.SignedOut -> SignedOutPlaceholder(stringResource(R.string.desk), onSettings)
+                PlayoutState.SignedOut -> SignedOutPlaceholder(stringResource(R.string.desk), onSignIn)
                 PlayoutState.Loading -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
                 PlayoutState.Unreachable -> ErrorPlaceholder(stringResource(R.string.error_could_not_reach), onRetry)
                 is PlayoutState.Loaded -> {

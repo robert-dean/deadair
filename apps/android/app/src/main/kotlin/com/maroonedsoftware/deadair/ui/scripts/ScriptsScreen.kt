@@ -76,7 +76,7 @@ fun ScriptsScreen(
     onBack: () -> Unit,
     onLoadMore: suspend () -> Unit,
     onRetry: () -> Unit,
-    onSettings: () -> Unit,
+    onSignIn: () -> Unit,
     rating: ScriptRatingHandler?,
     /** This page can rate, so it says what the station answered. */
     snackbarHost: SnackbarHostState,
@@ -96,7 +96,7 @@ fun ScriptsScreen(
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
             when (state) {
-                ScriptsState.SignedOut -> SignedOutPlaceholder(stringResource(R.string.what_it_said), onSettings)
+                ScriptsState.SignedOut -> SignedOutPlaceholder(stringResource(R.string.what_it_said), onSignIn)
                 ScriptsState.Loading -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
                 ScriptsState.Unreachable -> ErrorPlaceholder(stringResource(R.string.error_could_not_reach), onRetry)
                 is ScriptsState.Loaded ->

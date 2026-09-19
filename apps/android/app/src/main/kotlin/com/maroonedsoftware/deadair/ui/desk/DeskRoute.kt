@@ -22,7 +22,7 @@ import kotlinx.coroutines.launch
  * on top would otherwise be posted to a Home that is not composed.
  */
 @Composable
-fun DeskRoute(graph: AppGraph, settings: ListenerSettings, onBack: () -> Unit, onSettings: () -> Unit) {
+fun DeskRoute(graph: AppGraph, settings: ListenerSettings, onBack: () -> Unit, onSignIn: () -> Unit) {
     val playout by graph.playout.state.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
 
@@ -63,7 +63,7 @@ fun DeskRoute(graph: AppGraph, settings: ListenerSettings, onBack: () -> Unit, o
         handlers = handlers,
         onBack = onBack,
         onRetry = graph.playout::retry,
-        onSettings = onSettings,
+        onSignIn = onSignIn,
         snackbarHost = snackbarHost,
     )
 }

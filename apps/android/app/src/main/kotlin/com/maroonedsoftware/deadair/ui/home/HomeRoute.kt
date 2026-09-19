@@ -81,6 +81,8 @@ fun HomeRoute(
     onAirSomething: () -> Unit,
     /** Open the library search, to add one record. Offered to the operator only, while something is on. */
     onAddRecord: () -> Unit,
+    /** Open the sign-in page, over this screen, which is where it comes back to. */
+    onSignIn: () -> Unit,
     /** Open everything the station has played. */
     onHistory: () -> Unit,
     /** Open what the station said: everything, or one break's attempts. */
@@ -92,7 +94,6 @@ fun HomeRoute(
     // listener expects of a bottom bar. The display handles back for the stack above this; this
     // only fires when this is the only entry.
     BackHandler(enabled = tab != Tab.NOW_PLAYING) { onTab(Tab.NOW_PLAYING) }
-    val onSettings = { onTab(Tab.SETTINGS) }
 
     // Collected here so the polls run while their tabs can be seen. They stop on their own when not.
     val schedule by graph.schedule.state.collectAsStateWithLifecycle()
@@ -284,7 +285,7 @@ fun HomeRoute(
                     state = order,
                     artUrlFor = { url -> station?.artUrl(url) },
                     onRetry = graph.order::retry,
-                    onSettings = onSettings,
+                    onSignIn = onSignIn,
                     onTrack = onTrack,
                     onSegment = { segmentId -> onScripts(segmentId) },
                     onHistory = onHistory,
@@ -294,7 +295,7 @@ fun HomeRoute(
                     handlers = handlers,
                 )
             }
-            Tab.WHATS_ON -> WhatsOnScreen(state = schedule, onRetry = graph.schedule::retry, onSettings = onSettings)
+            Tab.WHATS_ON -> WhatsOnScreen(state = schedule, onRetry = graph.schedule::retry, onSignIn = onSignIn)
             Tab.SETTINGS -> settingsTab()
         }
     }

@@ -87,7 +87,7 @@ private fun Framed(playout: PlayoutState) {
             handlers = none,
             onBack = {},
             onRetry = {},
-            onSettings = {},
+            onSignIn = {},
             snackbarHost = remember { SnackbarHostState() },
         )
     }

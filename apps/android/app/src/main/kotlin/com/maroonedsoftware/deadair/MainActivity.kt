@@ -43,6 +43,7 @@ import com.maroonedsoftware.deadair.ui.air.PlaylistRoute
 import com.maroonedsoftware.deadair.ui.catalog.AlbumRoute
 import com.maroonedsoftware.deadair.ui.catalog.ArtistRoute
 import com.maroonedsoftware.deadair.ui.catalog.TrackRoute
+import com.maroonedsoftware.deadair.ui.desk.DeskRoute
 import com.maroonedsoftware.deadair.ui.history.HistoryRoute
 import com.maroonedsoftware.deadair.ui.home.HomeRoute
 import com.maroonedsoftware.deadair.ui.home.Tab
@@ -276,6 +277,9 @@ private fun Listener(graph: AppGraph, links: MutableStateFlow<String?>) {
                             onSettings = openSettings,
                             onTrack = { id -> backStack.add(Destination.Track(id)) },
                         )
+                    }
+                    entry<Destination.Desk> {
+                        DeskRoute(graph = graph, settings = loaded, onBack = { backStack.removeLastOrNull() }, onSettings = openSettings)
                     }
                     entry<Destination.Scripts> { key ->
                         ScriptsRoute(

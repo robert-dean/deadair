@@ -33,6 +33,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.maroonedsoftware.deadair.R
 import com.maroonedsoftware.deadair.sdk.models.SilenceCheck
@@ -94,8 +95,9 @@ fun SilencePanel(reading: SilenceReading, modifier: Modifier = Modifier) {
     }
 }
 
+/** The station's verdict as a colour. Shared with the desk's heading, so the two can never disagree. */
 @Composable
-private fun Lamp(tone: SilenceTone) {
+fun Lamp(tone: SilenceTone, size: Dp = 10.dp) {
     val colour: Color =
         when (tone) {
             SilenceTone.LIVE -> MaterialTheme.colorScheme.primary
@@ -103,7 +105,7 @@ private fun Lamp(tone: SilenceTone) {
             SilenceTone.OFF -> MaterialTheme.colorScheme.outline
             SilenceTone.FAULT -> MaterialTheme.colorScheme.error
         }
-    Box(modifier = Modifier.size(10.dp).background(colour, CircleShape))
+    Box(modifier = Modifier.size(size).background(colour, CircleShape))
 }
 
 /**

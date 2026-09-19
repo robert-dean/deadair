@@ -167,13 +167,16 @@
     <!-- The operator's transport. Drawn only for the account the station calls its operator -->
     <string name="skip">Skip</string>
     <string name="start">Start</string>
-    <string name="confirm_stop">Confirm stop</string>
+    <!-- The station's stop, named by what it stops: the round button on Now playing stops this phone -->
+    <string name="take_off_air">Take off air</string>
+    <string name="confirm_take_off_air">Press again to go off air</string>
     <string name="driving_schedule">The schedule put this on. It runs until the block ends.</string>
     <string name="driving_sustaining">Between blocks: nothing is scheduled, so the station is playing what it fills the gaps with.</string>
     <string name="driving_operator">You put this on. It holds until the next scheduled block begins.</string>
     <string name="hold_offered">The schedule takes this back at the next block.</string>
     <string name="hold_until_released">Held until you release it. The schedule will not take this back.</string>
     <string name="hold_until_about">Held until about %1$s.</string>
+    <string name="hold_heading">Hold</string>
     <string name="keep_on_past_next_block">Keep it on past the next block</string>
     <string name="keep_on_two_hours">Keep it on for two hours</string>
     <string name="release">Release</string>
@@ -189,6 +192,24 @@
     <string name="notice_record_refused">The station will not play that record now.</string>
     <string name="notice_could_not_reach">Could not reach the station to do that.</string>
     <string name="notice_failed">The station refused that (%1$d).</string>
+
+    <!-- The desk: the operator's page for everything that can take the station off air -->
+    <string name="desk">The desk</string>
+    <string name="desk_on_air">On air</string>
+    <string name="desk_off_air">Off air</string>
+    <!-- Under On air: the broadcast's name and how many are listening. "Afternoon Drift, going out to 9" -->
+    <plurals name="desk_going_out">
+        <item quantity="one">%1$s, going out to %2$d</item>
+        <item quantity="other">%1$s, going out to %2$d</item>
+    </plurals>
+    <plurals name="desk_going_out_unnamed">
+        <item quantity="one">Going out to %1$d</item>
+        <item quantity="other">Going out to %1$d</item>
+    </plurals>
+    <string name="desk_going_out_to_nobody">%1$s, and nobody is listening</string>
+    <string name="desk_going_out_unnamed_to_nobody">Going out, and nobody is listening</string>
+    <!-- The record on air: "Pale Arcs · 2:33 left" -->
+    <string name="desk_time_left">%1$s · %2$s left</string>
 
     <!-- The running order -->
     <string name="order_empty">The running order is empty.</string>

@@ -49,6 +49,10 @@ sealed interface Destination : NavKey {
     @Serializable
     data class Artist(val id: String) : Destination
 
+    /** Everything that can take the station off air, and why it is or is not on. Operator only; reached from the Up next tab. */
+    @Serializable
+    data object Desk : Destination
+
     /** Everything that could be put on air. Operator only; reached from the Up next tab. */
     @Serializable
     data object AirSomething : Destination
@@ -92,6 +96,7 @@ val NavConfiguration: SavedStateConfiguration =
                 polymorphic(NavKey::class) {
                     subclass(Destination.Home::class)
                     subclass(Destination.History::class)
+                    subclass(Destination.Desk::class)
                     subclass(Destination.Track::class)
                     subclass(Destination.Album::class)
                     subclass(Destination.Artist::class)

@@ -43,7 +43,7 @@ A record is committed to the player only once its audio is on this machine, so w
 
 The station stops at the first record whose audio has not arrived rather than skipping past it, so a slow download never reorders a sequence you built. A record still downloading is held, where a break that is not ready is skipped: a break is disposable and a record is not. And if the station cannot tell what has downloaded, it lets the record through rather than going off air over a passing database fault.
 
-A record nothing will serve comes out before its slot, marked unavailable, and the order is refilled behind it. After four consecutive failed fetches the station benches that copy, until the hourly library sync sees the provider still listing it.
+A record nothing will serve comes out before its slot, marked unavailable, and the order is refilled behind it. After four consecutive failed fetches the station benches that copy, until the next library walk sees the provider still listing it.
 
 Every record fetched is kept, up to a cap if you set one. Because the audio is local, the player holds only one record ahead, so an edit lands on the next record rather than three later.
 

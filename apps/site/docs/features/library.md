@@ -11,7 +11,7 @@ deadair holds no catalogue of its own. It programmes the music your provider alr
 
 ## Where the records come from
 
-A music provider is a [plugin](./plugins.md). Two are bundled: **Spotify**, and **Navidrome** or any other server that speaks the Subsonic API. The library fills from their playlists, because a playlist is the only list of records a provider will hand over, and the station walks them whenever a provider's settings are saved and again every hour. A Navidrome library with no playlists is still a complete setup: the plugin offers one extra playlist, Everything, which is the whole library.
+A music provider is a [plugin](./plugins.md). Two are bundled: **Spotify**, and **Navidrome** or any other server that speaks the Subsonic API. The library fills from their playlists, because a playlist is the only list of records a provider will hand over, and the station walks them whenever a provider's settings are saved and again every hour. **Refresh now** on the Playlists page walks them at once, and **Refresh this playlist** in a card's menu reads just that one; the activity feed says when either is done. Under Settings, Housekeeping, you can make the automatic walk rarer or turn it off, which is worth doing on an account where reading every playlist is slow. A record taken out of a playlist is only retired by a walk of everything, never by refreshing one playlist. A Navidrome library with no playlists is still a complete setup: the plugin offers one extra playlist, Everything, which is the whole library.
 
 When a model chooses a record no playlist carries, the station looks it up at your providers, and a strict match on title and lead artist becomes a real entry, marked "found". A near match is refused: it would air the wrong record under the right name.
 
@@ -39,7 +39,7 @@ An unmeasured record still plays, untrimmed, left to the stream's live leveller.
 
 ## Nothing airs until its audio is here
 
-A record is committed to the running order only once its audio is on this machine. Fetching from a provider at the moment the player needed the record once put two seconds of silence on air, so the station fetches several records ahead. A record whose audio has not arrived is held rather than skipped, so your sequence is never reordered by whichever download finished first. A copy that fails four times in a row is benched, a record with no copy left comes out of the order before its slot, and the hourly walk gives a benched copy another chance if the provider still lists it. See [the running order](./running-order.md).
+A record is committed to the running order only once its audio is on this machine. Fetching from a provider at the moment the player needed the record once put two seconds of silence on air, so the station fetches several records ahead. A record whose audio has not arrived is held rather than skipped, so your sequence is never reordered by whichever download finished first. A copy that fails four times in a row is benched, a record with no copy left comes out of the order before its slot, and the next walk of the library gives a benched copy another chance if the provider still lists it. See [the running order](./running-order.md).
 
 Every record fetched is kept, so a second airing costs no download. "Keep at most" under Settings → Playout caps the space; the least recently played go first, and never one about to air.
 

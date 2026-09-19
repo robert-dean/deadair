@@ -58,6 +58,24 @@ benched everything the station found for itself. A walk that later sees a discov
 sweep; a lookup never moves a synced one out. What judges a discovered copy instead is fetching it, via the
 four-failure bench in `TrackAudioService`.
 
+**The walk starts three ways, and only one of them is judged by the schedule.** `catalog.sync` fires on an
+hourly cron that never changes; `CatalogSyncJob` recognises that run by its payload having no keys (pg-boss
+delivers a cron run's payload as `null`) and returns early when `catalog.autoSync` is off or the hour is not
+a multiple of `catalog.syncEveryHours`, counted from the epoch in UTC, so "due" needs no record of the last
+run and a retry inside the hour is still due. The other two are SENT and always run: a provider's settings
+saved (`{ pluginId }`) and an operator's refresh (`POST /playlists/refresh`, `{ requestedBy: 'operator' }`).
+That is why every sender carries a key: a send of `{}` would be read as the schedule and could be skipped.
+Only an operator's walk goes on the activity feed, as one `sync.finished` entry, because the button can only
+answer "queued" and somebody is waiting to learn it finished.
+
+**A walk of one playlist ingests and never sweeps.** `POST /playlists/{pluginId}/{playlistId}/refresh` sends
+`{ pluginId, playlistId, requestedBy }` and `CatalogSyncService.syncPlaylist` reads that playlist's tracks
+alone. The sweep above is an argument about what a walk of EVERYTHING a plugin offers saw, so swept against
+one playlist every other record from that provider would read as gone, or the proportional guard would
+refuse every time and warn the operator about a walk that did nothing wrong. A record taken out of that
+playlist stays until the next whole walk judges it. A hidden playlist is refused, 409 at the route and
+`hidden` in the walk, on the rule that hiding one takes it out of the library.
+
 ## The station's opinion, and the policy over it
 
 **An opinion is held at three levels and inherits DOWNWARD in both directions.** `artists`, `albums` and `tracks` each carry a `rating` of `-1 / 0 / 1`, written from the console through `PUT /catalog/{artists,albums,tracks}/{id}/rating` (`platform.manage`; the wire spells it `liked / neutral / disliked` and `catalog/rating.ts` is the only place that meets the column, because the ORDERING is what the SQL below needs and nothing outside the database reads it as a number). `CandidatesRepository.effectiveRating` is the one expression that collapses the three into one, and it is **not** a `least()`: a dislike anywhere wins outright, because a dislike is an instruction no lineup may turn off, and otherwise the strongest LIKE carries, because liking an artist means play more of them and liking one song means play that song more. It was a plain `least()` for as long as it existed, which got the veto right and silently swallowed the other half — a liked song on an unrated record by an unrated artist came out `0`, so `weightOf` doubled nothing an operator could produce without rating all three levels identically, and liking a record did nothing whatsoever. Both `sample` and `ratingsFor` go through it so the draw and the resolver cannot disagree. Nothing unit-tests it, since it is SQL: `apps/api/scripts/rating.smoke.ts` is what covers it, against the real database.

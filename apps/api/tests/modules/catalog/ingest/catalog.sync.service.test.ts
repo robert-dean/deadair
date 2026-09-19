@@ -639,3 +639,85 @@ describe('CatalogSyncService.syncAll', () => {
         expect(Object.keys(resolver)).toEqual(['ingestTrack', 'markMissing']);
     });
 });
+
+describe('CatalogSyncService.syncPlaylist', () => {
+    const twoPlaylists = () =>
+        fakeProvider({
+            playlists: [playlist('p1'), playlist('p2')],
+            tracks: { p1: [track('t1'), track('t2'), track('t1')], p2: [track('t3')] },
+        });
+
+    it('reads only the playlist it was asked for', async () => {
+        const provider = twoPlaylists();
+        const { resolver, ingested } = fakeResolver();
+        const { service } = build([record(SPOTIFY_ID, { instance: provider.instance as never })], resolver);
+
+        const summaries = await service.syncPlaylist(SPOTIFY_ID, 'p1');
+
+        expect(provider.calls).toEqual(['getPlaylistTracks:p1:0']);
+        expect(ingested).toEqual(['t1', 't2']);
+        expect(summaries).toEqual([{ pluginId: SPOTIFY_ID, playlists: 1, items: 3, created: 2, bound: 2, skipped: 0 }]);
+    });
+
+    it('never sweeps, because one playlist is not evidence about the rest of the library', async () => {
+        // Swept against `p1` alone, `t3` would read as gone from this provider.
+        const provider = twoPlaylists();
+        const { resolver, swept } = fakeResolver();
+        const { service } = build([record(SPOTIFY_ID, { instance: provider.instance as never })], resolver);
+
+        const [summary] = await service.syncPlaylist(SPOTIFY_ID, 'p1');
+
+        expect(swept).toEqual([]);
+        expect(summary?.sweep).toBeUndefined();
+    });
+
+    it('refuses a playlist the operator hid, without reading it', async () => {
+        const provider = twoPlaylists();
+        const { resolver, ingested } = fakeResolver();
+        const hidden = hiddenPlaylists([hiddenPlaylistKey(SPOTIFY_ID, 'p1')]);
+        const { service } = build([record(SPOTIFY_ID, { instance: provider.instance as never })], resolver, undefined, undefined, hidden);
+
+        const [summary] = await service.syncPlaylist(SPOTIFY_ID, 'p1');
+
+        expect(summary?.error).toBe('hidden');
+        expect(provider.calls).toEqual([]);
+        expect(ingested).toEqual([]);
+    });
+
+    it('answers nothing for a plugin that is not a running catalog', async () => {
+        const { resolver } = fakeResolver();
+        const { service } = build([record(SPOTIFY_ID, { status: 'disabled', instance: undefined })], resolver);
+
+        await expect(service.syncPlaylist(SPOTIFY_ID, 'p1')).resolves.toEqual([]);
+        await expect(service.syncPlaylist('deadair.nobody', 'p1')).resolves.toEqual([]);
+    });
+
+    it('reports a provider failure in the summary rather than throwing', async () => {
+        const provider = fakeProvider({ failOn: 'tracks' });
+        const { resolver } = fakeResolver();
+        const { service } = build([record(SPOTIFY_ID, { instance: provider.instance as never })], resolver);
+
+        const [summary] = await service.syncPlaylist(SPOTIFY_ID, 'p1');
+
+        expect(summary?.error).toContain('upstream is down');
+    });
+
+    it('hands on to the follow-up passes only when it created something', async () => {
+        const created = fakeJobBroker();
+        const nothingNew = fakeJobBroker();
+        const provider = twoPlaylists();
+
+        await build([record(SPOTIFY_ID, { instance: provider.instance as never })], fakeResolver().resolver, created.broker).service.syncPlaylist(
+            SPOTIFY_ID,
+            'p1',
+        );
+        await build(
+            [record(SPOTIFY_ID, { instance: provider.instance as never })],
+            fakeResolver(() => ({ status: 'ingested', trackId: 'track-1', created: false })).resolver,
+            nothingNew.broker,
+        ).service.syncPlaylist(SPOTIFY_ID, 'p1');
+
+        expect(created.sent.map(job => job.name)).toEqual(['catalog.resolve_placeholders', 'catalog.enrich', 'catalog.cache_art']);
+        expect(nothingNew.sent).toEqual([]);
+    });
+});

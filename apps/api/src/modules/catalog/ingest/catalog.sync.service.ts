@@ -110,10 +110,81 @@ export class CatalogSyncService {
             summaries.push(await this.syncPlugin(candidate, maxPercent, signal));
         }
 
+        await this.followUp(summaries);
+        return summaries;
+    }
+
+    /**
+     * Walks one playlist, for an operator who has just changed it upstream and does not want to
+     * wait for the whole library to be read again.
+     *
+     * **It never sweeps, and that is the whole difference from {@link syncPlugin}.** The sweep is an
+     * argument about what a walk of EVERYTHING a plugin offers saw, and one playlist's tracks are a
+     * small fraction of that: swept against them, every record the station holds from anywhere else
+     * on that provider would read as gone, or the proportional guard would refuse every time and put
+     * a warning on the feed for a walk that did nothing wrong. So a record taken out of this playlist
+     * stays until the next whole walk judges it, which is the same wait it had before this existed.
+     *
+     * A hidden playlist is refused rather than read, for the reason {@link syncPlugin} skips one:
+     * hiding it says it is not part of this station's library. A truncated walk still ingested what
+     * it read, and says so in `error` as the whole walk does.
+     *
+     * @returns One summary, or none when the plugin is not a catalog that can be called right now.
+     */
+    async syncPlaylist(pluginId: string, playlistId: string, signal?: AbortSignal): Promise<PluginSyncSummary[]> {
+        const [candidate] = this.catalogPlugins(pluginId);
+        if (!candidate) {
+            this.logger.info('catalog sync of one playlist found no such catalog plugin', { plugin: pluginId, playlist: playlistId });
+            return [];
+        }
+
+        const summary: PluginSyncSummary = { pluginId, playlists: 1, items: 0, created: 0, bound: 0, skipped: 0 };
+        const seen = new Set<string>();
+        let truncated = false;
+        const onTruncated = () => {
+            truncated = true;
+        };
+
+        try {
+            const hidden = await this.hidden.keys();
+            if (hidden.has(hiddenPlaylistKey(pluginId, playlistId))) {
+                summary.error = 'hidden';
+                this.logger.info('not reading a playlist the operator hid', { plugin: pluginId, playlist: playlistId });
+                return [summary];
+            }
+
+            for await (const track of this.playlistTracks(candidate, playlistId, onTruncated, signal)) {
+                summary.items++;
+                if (seen.has(track.id)) continue;
+                seen.add(track.id);
+                await this.ingest(pluginId, track, summary);
+            }
+        } catch (error) {
+            summary.error = serverkitErrorText(error);
+            this.logger.warn('catalog sync could not finish a playlist', {
+                plugin: pluginId,
+                playlist: playlistId,
+                error: summary.error,
+                ...this.counts(summary),
+            });
+        }
+
+        if (summary.error === undefined && signal?.aborted) summary.error = 'cancelled';
+        if (summary.error === undefined && truncated) summary.error = 'truncated';
+        if (summary.error === undefined) {
+            this.logger.info('catalog sync finished a playlist', { plugin: pluginId, playlist: playlistId, ...this.counts(summary) });
+        }
+
+        // Whatever did get ingested is real, so the follow-ups run on a partial walk too.
+        await this.followUp([summary]);
+        return [summary];
+    }
+
+    /** The three passes a walk that created tracks hands on to. Each decides for itself whether to run. */
+    private async followUp(summaries: readonly PluginSyncSummary[]): Promise<void> {
         await this.retryPlaceholders(summaries);
         await this.enrichNewTracks(summaries);
         await this.cacheNewArt(summaries);
-        return summaries;
     }
 
     /**

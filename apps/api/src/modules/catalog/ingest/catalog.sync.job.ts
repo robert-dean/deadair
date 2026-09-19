@@ -18,6 +18,8 @@ import { scheduledSyncIsDue } from './catalog.sync.schedule.js';
  */
 export interface CatalogSyncPayload {
     pluginId?: string;
+    /** Narrows the run to one playlist of `pluginId`, which that walk never sweeps. Ignored without a `pluginId`. */
+    playlistId?: string;
     /** Who asked for a walk of everything, when nothing narrows it. Makes the payload non-empty. */
     requestedBy?: 'operator';
 }
@@ -62,7 +64,10 @@ export class CatalogSyncJob extends PlainJob<CatalogSyncPayload> {
             return;
         }
 
-        const summaries = await this.sync.syncAll(payload?.pluginId, signal);
+        const summaries =
+            payload?.pluginId !== undefined && payload.playlistId !== undefined
+                ? await this.sync.syncPlaylist(payload.pluginId, payload.playlistId, signal)
+                : await this.sync.syncAll(payload?.pluginId, signal);
         for (const summary of summaries) {
             this.logger.info('catalog sync', { job: this.context.id, ...summary });
             this.reportRefusedSweep(summary);

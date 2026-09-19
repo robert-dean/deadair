@@ -51,7 +51,7 @@ function build(summaries: PluginSyncSummary[], settings: Record<string, string> 
             recorded.push(event);
         }),
     } as unknown as ActivityRecorder;
-    const sync = { syncAll: vi.fn(async () => summaries) } as unknown as CatalogSyncService;
+    const sync = { syncAll: vi.fn(async () => summaries), syncPlaylist: vi.fn(async () => summaries) } as unknown as CatalogSyncService;
     const context = { id: 'job-1', name: 'catalog.sync' } as never;
     const job = new CatalogSyncJob(sync, activity, config(settings), context, {} as never, stubLogger());
     const execute = (job as unknown as { execute: (payload?: CatalogSyncPayload | null) => Promise<void> }).execute.bind(job);
@@ -163,5 +163,21 @@ describe('CatalogSyncJob', () => {
             expect(narrowed.sync.syncAll).toHaveBeenCalledWith(SPOTIFY_ID, undefined);
             expect(everything.sync.syncAll).toHaveBeenCalledWith(undefined, undefined);
         });
+    });
+
+    it('walks one playlist when it was sent one, and the whole plugin otherwise', async () => {
+        const one = build([summary()]);
+        const plugin = build([summary()]);
+        const orphan = build([summary()]);
+
+        await one.run({ pluginId: SPOTIFY_ID, playlistId: 'p1' });
+        await plugin.run({ pluginId: SPOTIFY_ID });
+        // A playlist id means nothing without the plugin it belongs to.
+        await orphan.run({ playlistId: 'p1' });
+
+        expect(one.sync.syncPlaylist).toHaveBeenCalledWith(SPOTIFY_ID, 'p1', undefined);
+        expect(one.sync.syncAll).not.toHaveBeenCalled();
+        expect(plugin.sync.syncAll).toHaveBeenCalledWith(SPOTIFY_ID, undefined);
+        expect(orphan.sync.syncAll).toHaveBeenCalledWith(undefined, undefined);
     });
 });

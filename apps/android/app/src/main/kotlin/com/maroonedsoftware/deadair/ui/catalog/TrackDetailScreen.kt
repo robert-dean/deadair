@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -55,6 +56,8 @@ fun TrackDetailScreen(
     enrichment: LoadState<EnrichmentUiState>,
     artUrlFor: (String?) -> String?,
     rating: RatingHandler?,
+    /** The operator's way to put this record in the running order. `null` for anyone else. */
+    addToOrder: AddToOrderHandler? = null,
     onBack: () -> Unit,
     onRetry: () -> Unit,
     onArtist: ((String) -> Unit)? = null,
@@ -81,6 +84,8 @@ fun TrackDetailScreen(
                 modifier = Modifier.padding(top = 8.dp),
             )
         }
+
+        addToOrder?.let { AddToOrder(it) }
 
         Airings(detail)
 
@@ -152,5 +157,24 @@ private fun Airings(detail: TrackDetail) {
             }
             if (index < detail.plays.lastIndex) HorizontalDivider()
         }
+    }
+}
+
+@Composable
+private fun AddToOrder(handler: AddToOrderHandler) {
+    val enabled = handler.hasAudio && !handler.busy
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth().padding(top = 16.dp)) {
+        if (handler.canPlayNext) {
+            OutlinedButton(onClick = handler.onPlayNext, enabled = enabled, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.play_next)) }
+        }
+        OutlinedButton(onClick = handler.onAddToEnd, enabled = enabled, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.add_to_end)) }
+    }
+    if (!handler.hasAudio) {
+        Text(
+            stringResource(R.string.record_not_here_yet),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 8.dp),
+        )
     }
 }

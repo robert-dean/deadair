@@ -33,12 +33,14 @@ fun TrackRoute(
 
     val snackbarHost = remember { SnackbarHostState() }
     ShowOperatorNotices(graph.operator.notices, snackbarHost)
+    val addToOrder = rememberAddToOrder(graph, detail, snackbarHost)
 
     TrackDetailScreen(
         state = detail.state,
         enrichment = enrichment.state,
         artUrlFor = { url -> settings.station?.artUrl(url) },
         rating = rating,
+        addToOrder = addToOrder,
         onBack = onBack,
         onRetry = {
             detail.reload()

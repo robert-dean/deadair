@@ -448,7 +448,8 @@ export class DirectorConsoleService {
             throw httpError(422).withDetails({ message: 'that playlist has no tracks to play' });
         }
 
-        const vetted = await this.resolver.vet(await this.toRundownTracks(input.pluginId, tracks), {
+        const { tracks: rundown, catalogRead } = await this.toRundownTracks(input.pluginId, tracks);
+        const vetted = await this.resolver.vet(rundown, {
             era: this.era(input),
             preference: [input.pluginId],
         });
@@ -462,6 +463,36 @@ export class DirectorConsoleService {
             // is fine and the station's own rules are what emptied it.
             throw httpError(422).withDetails({
                 message: 'every record on that playlist is one this station will not play: a dislike, the period, the advisory policy, or its length',
+            });
+        }
+        if (catalogRead && !vetted.some(track => track.trackId !== undefined)) {
+            // The third way a running order can report success and then play nothing, and the one the
+            // two refusals above could not see, because the playlist has records and the veto keeps
+            // them. A record the catalog has never seen has no `track_sources` binding, and a binding
+            // is the only thing the audio path serves: `TrackAudioResolver` looks one up, the cache
+            // planner and the commit gate both guard on `trackId`, and there is deliberately no link
+            // that asks a provider directly (see `playout.module.ts`). So an order made of nothing but
+            // such records goes on air, is consumed without a byte fetched, and the mount falls
+            // through to the bed. Measured on 2026-09-19 with a YouTube Music playlist its provider
+            // did not list, which is the case the sync never reaches: it catalogues by walking
+            // `listPlaylists`, and this can open a playlist that walk does not return.
+            //
+            // Refused rather than ingested here, because the sync is the one path into the catalog
+            // and a binding written from this side would not be `origin = 'sync'`. `markMissingTrackSources`
+            // would then never bench it when the provider dropped the record.
+            //
+            // Only when the catalog was actually READ. `catalogMetadata` treats a failed read as
+            // decoration it can go without, and every record then comes back without a `trackId`
+            // for a reason that has nothing to do with the playlist. Refusing on that would take a
+            // station's playlists off the air over a transient database fault, which is the failure
+            // the commit gate fails OPEN to avoid.
+            //
+            // The one case this costs: on a fresh install, a playlist aired before its plugin's first
+            // sync finishes would once have started playing as the sync caught up. It is asked to try
+            // again instead, which the message says, rather than airing the bed first.
+            throw httpError(422).withDetails({
+                message:
+                    'none of the records on that playlist are in the library yet, so there is nothing the station can fetch: a playlist is catalogued when its plugin syncs, and this one is either not among the playlists the provider lists or has been added since the last sync',
             });
         }
         return vetted;
@@ -1032,7 +1063,11 @@ export class DirectorConsoleService {
      * itself matches by. A playlist an operator built by hand is exactly where a compilation and the
      * album it draws from both turn up, and the second copy is a repeat rather than a second record.
      */
-    private async toRundownTracks(pluginId: string, tracks: readonly CatalogTrack[]): Promise<RundownTrack[]> {
+    /**
+     * `catalogRead` is false when the catalog could not be read at all, which is what lets
+     * {@link sourceTracks} tell "no record here is catalogued" from "the catalog did not answer".
+     */
+    private async toRundownTracks(pluginId: string, tracks: readonly CatalogTrack[]): Promise<{ tracks: RundownTrack[]; catalogRead: boolean }> {
         const seen = new Set<string>();
         const deduped = tracks.filter(track => {
             const key = songKey(track.title, [track.artists[0] ?? '']);
@@ -1041,9 +1076,10 @@ export class DirectorConsoleService {
             return true;
         });
 
-        const known = await this.catalogMetadata(pluginId, deduped);
+        const read = await this.catalogMetadata(pluginId, deduped);
+        const known = read ?? new Map();
 
-        return deduped.map(track => {
+        const rundown = deduped.map((track): RundownTrack => {
             const row = known.get(track.id);
             const album = track.album ?? row?.albumName ?? undefined;
             const artworkUrl = row?.albumImageUrl ?? track.artworkUrl;
@@ -1062,6 +1098,7 @@ export class DirectorConsoleService {
                 ...(row?.trackId === undefined ? {} : { trackId: row.trackId }),
             };
         });
+        return { tracks: rundown, catalogRead: read !== undefined };
     }
 
     /** The catalog's rows for these bindings, by provider id. Empty when it cannot answer. */
@@ -1077,7 +1114,9 @@ export class DirectorConsoleService {
                 plugin: pluginId,
                 error: errorText(error),
             });
-            return new Map();
+            // `undefined` rather than an empty map, which would read as "the catalog knows none of
+            // these". That is a claim the refusal in `sourceTracks` acts on.
+            return undefined;
         }
     }
 

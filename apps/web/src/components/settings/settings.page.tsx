@@ -9,6 +9,7 @@ import { PageSkeleton } from '../shared/page.skeleton';
 import { AppearanceCard } from './appearance.card';
 import { ConfigFieldsForm } from './config.fields.form';
 import { PluginGrantsCard } from './plugin.grants.card';
+import { ProvidersCard } from './providers.card';
 import { SecurityCard } from './security.card';
 import { ApiKeysCard } from './api.keys.card';
 import { SETTINGS_SECTIONS, type SettingsSection, type SettingsSectionId } from './settings.shell';
@@ -62,6 +63,10 @@ function StandaloneSection({ section }: { section: SettingsSection }) {
     if (section.id === 'artwork') return <BreakArtCard />;
     if (section.id === 'storage') return <StorageCard />;
     if (section.id === 'grants') return <PluginGrantsCard />;
+    // Its settings ARE declared, unlike the others here, and it still draws its own card: the
+    // question is which plugin does a job, and a form of text fields holding plugin ids is the
+    // shape that made the question hard to answer in the first place.
+    if (section.id === 'providers') return <ProvidersCard />;
     // Keys beside the factors rather than in a section of their own: both are how this account gets
     // in, and a sibling card rather than a child keeps each card's data and tests to itself.
     if (section.id === 'security')

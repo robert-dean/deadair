@@ -1656,10 +1656,11 @@ function RowCell({ column, labelled, choices, disabled, cell, secret }: RowCellP
  * clock panel's are. Each is labelled with the row's own number, which is the only thing telling a
  * screen reader which of a dozen identical buttons this one is.
  */
-function RowControls({
+export function RowControls({
     index,
     last,
     disabled,
+    name,
     onRemove,
     onMove,
 }: {
@@ -1667,15 +1668,26 @@ function RowControls({
     /** The last row's index, so the bottom row's down arrow can be turned off. */
     last: number;
     disabled: boolean;
-    onRemove: (index: number) => void;
+    /**
+     * What this row IS, for the labels, when it is something an operator can name.
+     *
+     * A row of a `list` field is "row 3" because that is genuinely all it is. The Providers
+     * section reuses these controls over rows that are plugins, where "Move row 3 up" is a worse
+     * label than "Move Deezer up" for the one reader who needs it most.
+     */
+    name?: string;
+    /** Absent leaves the row un-removable, which is how a pre-filled list keeps its own entries. */
+    onRemove?: (index: number) => void;
     onMove: (index: number, by: -1 | 1) => void;
 }) {
+    const what = name ?? `row ${index + 1}`;
+
     return (
         <Group gap={2} wrap="nowrap" justify="flex-end">
             <ActionIcon
                 variant="subtle"
                 color="gray"
-                aria-label={`Move row ${index + 1} up`}
+                aria-label={`Move ${what} up`}
                 disabled={disabled || index === 0}
                 onClick={() => {
                     onMove(index, -1);
@@ -1686,7 +1698,7 @@ function RowControls({
             <ActionIcon
                 variant="subtle"
                 color="gray"
-                aria-label={`Move row ${index + 1} down`}
+                aria-label={`Move ${what} down`}
                 disabled={disabled || index === last}
                 onClick={() => {
                     onMove(index, 1);
@@ -1694,17 +1706,17 @@ function RowControls({
             >
                 <IconArrowDown size={16} />
             </ActionIcon>
-            <RemoveRow index={index} disabled={disabled} onRemove={onRemove} />
+            {onRemove !== undefined && <RemoveRow index={index} disabled={disabled} name={what} onRemove={onRemove} />}
         </Group>
     );
 }
 
-function RemoveRow({ index, disabled, onRemove }: { index: number; disabled: boolean; onRemove: (index: number) => void }) {
+function RemoveRow({ index, disabled, name, onRemove }: { index: number; disabled: boolean; name?: string; onRemove: (index: number) => void }) {
     return (
         <ActionIcon
             variant="subtle"
             color="red"
-            aria-label={`Remove row ${index + 1}`}
+            aria-label={`Remove ${name ?? `row ${index + 1}`}`}
             disabled={disabled}
             onClick={() => {
                 onRemove(index);

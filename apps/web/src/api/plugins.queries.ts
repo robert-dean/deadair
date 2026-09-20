@@ -45,6 +45,11 @@ export const pluginProvidersOptions = queryOptions({
     staleTime: PLUGIN_STALE_TIME,
 });
 
+/** Who provides each contested capability. Read by the Providers section and by every plugin card. */
+export function usePluginProviders() {
+    return useQuery(pluginProvidersOptions);
+}
+
 /**
  * Drops the provider catalogue, after anything that could change who can answer a capability.
  *

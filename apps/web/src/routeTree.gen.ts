@@ -35,6 +35,7 @@ import { Route as SettingsHousekeepingRouteImport } from './routes/settings/hous
 import { Route as SettingsLlmRouteImport } from './routes/settings/llm'
 import { Route as SettingsMailRouteImport } from './routes/settings/mail'
 import { Route as SettingsPlayoutRouteImport } from './routes/settings/playout'
+import { Route as SettingsProvidersRouteImport } from './routes/settings/providers'
 import { Route as SettingsRenderRouteImport } from './routes/settings/render'
 import { Route as SettingsRotationRouteImport } from './routes/settings/rotation'
 import { Route as SettingsSecurityRouteImport } from './routes/settings/security'
@@ -179,6 +180,11 @@ const SettingsPlayoutRoute = SettingsPlayoutRouteImport.update({
   path: '/settings/playout',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SettingsProvidersRoute = SettingsProvidersRouteImport.update({
+  id: '/settings/providers',
+  path: '/settings/providers',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SettingsRenderRoute = SettingsRenderRouteImport.update({
   id: '/settings/render',
   path: '/settings/render',
@@ -269,6 +275,7 @@ export interface FileRoutesByFullPath {
   '/settings/llm': typeof SettingsLlmRoute
   '/settings/mail': typeof SettingsMailRoute
   '/settings/playout': typeof SettingsPlayoutRoute
+  '/settings/providers': typeof SettingsProvidersRoute
   '/settings/render': typeof SettingsRenderRoute
   '/settings/rotation': typeof SettingsRotationRoute
   '/settings/security': typeof SettingsSecurityRoute
@@ -310,6 +317,7 @@ export interface FileRoutesByTo {
   '/settings/llm': typeof SettingsLlmRoute
   '/settings/mail': typeof SettingsMailRoute
   '/settings/playout': typeof SettingsPlayoutRoute
+  '/settings/providers': typeof SettingsProvidersRoute
   '/settings/render': typeof SettingsRenderRoute
   '/settings/rotation': typeof SettingsRotationRoute
   '/settings/security': typeof SettingsSecurityRoute
@@ -352,6 +360,7 @@ export interface FileRoutesById {
   '/settings/llm': typeof SettingsLlmRoute
   '/settings/mail': typeof SettingsMailRoute
   '/settings/playout': typeof SettingsPlayoutRoute
+  '/settings/providers': typeof SettingsProvidersRoute
   '/settings/render': typeof SettingsRenderRoute
   '/settings/rotation': typeof SettingsRotationRoute
   '/settings/security': typeof SettingsSecurityRoute
@@ -395,6 +404,7 @@ export interface FileRouteTypes {
     | '/settings/llm'
     | '/settings/mail'
     | '/settings/playout'
+    | '/settings/providers'
     | '/settings/render'
     | '/settings/rotation'
     | '/settings/security'
@@ -436,6 +446,7 @@ export interface FileRouteTypes {
     | '/settings/llm'
     | '/settings/mail'
     | '/settings/playout'
+    | '/settings/providers'
     | '/settings/render'
     | '/settings/rotation'
     | '/settings/security'
@@ -477,6 +488,7 @@ export interface FileRouteTypes {
     | '/settings/llm'
     | '/settings/mail'
     | '/settings/playout'
+    | '/settings/providers'
     | '/settings/render'
     | '/settings/rotation'
     | '/settings/security'
@@ -519,6 +531,7 @@ export interface RootRouteChildren {
   SettingsLlmRoute: typeof SettingsLlmRoute
   SettingsMailRoute: typeof SettingsMailRoute
   SettingsPlayoutRoute: typeof SettingsPlayoutRoute
+  SettingsProvidersRoute: typeof SettingsProvidersRoute
   SettingsRenderRoute: typeof SettingsRenderRoute
   SettingsRotationRoute: typeof SettingsRotationRoute
   SettingsSecurityRoute: typeof SettingsSecurityRoute
@@ -722,6 +735,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsPlayoutRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/settings/providers': {
+      id: '/settings/providers'
+      path: '/settings/providers'
+      fullPath: '/settings/providers'
+      preLoaderRoute: typeof SettingsProvidersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/settings/render': {
       id: '/settings/render'
       path: '/settings/render'
@@ -839,6 +859,7 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsLlmRoute: SettingsLlmRoute,
   SettingsMailRoute: SettingsMailRoute,
   SettingsPlayoutRoute: SettingsPlayoutRoute,
+  SettingsProvidersRoute: SettingsProvidersRoute,
   SettingsRenderRoute: SettingsRenderRoute,
   SettingsRotationRoute: SettingsRotationRoute,
   SettingsSecurityRoute: SettingsSecurityRoute,

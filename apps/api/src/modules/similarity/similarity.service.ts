@@ -4,11 +4,12 @@ import { AppConfig } from '@maroonedsoftware/appconfig';
 import type { ArtistRef, ArtistTrack, SimilarArtist, TrackRef } from '@deadair/plugin-sdk';
 import { asSimilarityPlugin, type SimilarityPlugin } from '#modules/plugins/plugin.capabilities.js';
 import { pluginsWith } from '#modules/plugins/plugin.selection.js';
+import { byOrderThen } from '#modules/plugins/plugin.order.js';
 import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
 import { normalizeKey } from '#modules/catalog/catalog.keys.js';
 import { errorText } from '#modules/shared/error.text.js';
-import { byOrderThen, similarityOrder } from './similarity.settings.js';
+import { similarityOrder } from './similarity.settings.js';
 
 /**
  * Who else sounds like this, out of whatever similarity plugins are installed.

@@ -175,6 +175,24 @@ export const PLUGIN_CAPABILITY_WEATHER = 'weather';
  * the SDK gives it a way to be declined per installation rather than assuming
  * that installing a plugin is consent to broadcast from it.
  */
+/**
+ * The plugin can say what happened on a date: a month and a day in, entries out.
+ *
+ * The fourth capability that answers about the world, and separate from the
+ * other three because what it is asked is fixed. News serves a menu somebody
+ * assembled and answers "what happened" about a perishable present; search takes
+ * words a caller made up; weather is asked about one place and answers with
+ * measurements. This is asked about one DATE, and its answer was the same a year
+ * ago and will be the same next year — so there is no de-duplication contract
+ * here, and the only freshness question is whether this station has already said
+ * it today.
+ *
+ * `almanac` rather than `history`, because a day's entries are not all history:
+ * an observance recurs, and the word for a book of both is this one.
+ * `capabilities/almanac.ts` says why at length.
+ */
+export const PLUGIN_CAPABILITY_ALMANAC = 'almanac';
+
 export const PLUGIN_CAPABILITY_SCROBBLE = 'scrobble';
 
 export const KNOWN_PLUGIN_CAPABILITIES = [
@@ -194,6 +212,7 @@ export const KNOWN_PLUGIN_CAPABILITIES = [
     PLUGIN_CAPABILITY_SIMILARITY,
     PLUGIN_CAPABILITY_SEARCH,
     PLUGIN_CAPABILITY_WEATHER,
+    PLUGIN_CAPABILITY_ALMANAC,
     PLUGIN_CAPABILITY_SCROBBLE,
 ] as const;
 

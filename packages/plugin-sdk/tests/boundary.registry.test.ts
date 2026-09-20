@@ -29,6 +29,7 @@ const BOUNDARY_SOURCE_FILES = [
     'capabilities/enrichment.ts',
     'capabilities/speech.ts',
     'capabilities/llm.ts',
+    'capabilities/almanac.ts',
     'capabilities/analysis.ts',
     'capabilities/mixer.ts',
     'capabilities/charts.ts',

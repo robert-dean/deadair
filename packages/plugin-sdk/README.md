@@ -23,6 +23,7 @@ A plugin extends deadair by declaring capabilities:
 | `podcast`    | carry somebody else's programme: a show in, episodes out       |
 | `search`     | ask the open web a question: words in, pages out               |
 | `weather`    | say what it is like outside: a place in, measurements out       |
+| `almanac`    | say what happened on a date: a month and a day in, entries out |
 | `scrobble`   | report what the station played to somebody else's service      |
 | `oauth`      | hold operator tokens, obtained through the host's redirect     |
 
@@ -754,6 +755,49 @@ as `description`, which nothing deterministic reads and a model may use.
 `undefined` is an answer, on the same terms as a search plugin's empty array: an
 unconfigured plugin, a place nothing could resolve and a service that is down are
 one outcome to every caller. Throw only for something the operator must fix.
+
+## Saying what happened on a date
+
+An `almanac` plugin has one method, and the caller supplies the day:
+
+```ts
+async getDay(query: AlmanacQuery): Promise<AlmanacDay | undefined> {
+    const day = await this.fetchDay(query.month, query.day);   // your service
+    if (day === undefined) return undefined;                   // nothing for that date
+
+    return { date: `${pad(query.month)}-${pad(query.day)}`, entries: day.entries.map(toEntry) };
+}
+```
+
+Three things about it are easy to get wrong.
+
+**The caller decides which day it is, and you never ask.** The query carries a
+month and a day because "today" is the wrong question: the station's day is the
+day the break AIRS, in the station's own timezone, and a break written at ten to
+midnight is about tomorrow. A plugin reading its own clock would be a server in
+one timezone deciding what day a station in another is having. Echo the date back
+on `AlmanacDay.date` so a caller can tell your answer from that mistake.
+
+**An entry is read verbatim, so compose nothing.** `AlmanacEntry.text` is the
+source's own sentence, and the station's floor writer takes it whole — that is
+what makes the claim and its evidence the same span, the rule the fact store
+keeps. Rewriting an entry into something more broadcastable hands the station a
+sentence with no source, in the voice it uses for things that are true. Send the
+address it came from on `url`, which is what an operator opens when something
+sounds wrong on air.
+
+**Pass the descriptions on.** A caller leaning toward its own subject matter — a
+music station reaching for the guitarist before the general — decides that from
+`AlmanacSubject.description`, the source's one-line "Portuguese guitarist". There
+is deliberately no way to ask you for the musicians: what a station says is the
+station's business, and a plugin that filtered would make its character depend on
+which plugin was installed. Dropping the descriptions makes every entry you send
+look like it is about nothing in particular.
+
+`undefined` is an answer, on a weather plugin's terms: an unconfigured plugin, a
+service that is down and a date with nothing on it are one outcome to the caller.
+A day that has events and no births is NOT one of those and is answered — whether
+that is enough to say anything is the station's decision.
 
 ## Music providers
 

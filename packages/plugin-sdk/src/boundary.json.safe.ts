@@ -36,6 +36,7 @@
  * plus three name arrays, so the runtime cost is the arrays alone.
  */
 
+import type { AlmanacDay, AlmanacEntry, AlmanacQuery, AlmanacSubject } from './capabilities/almanac.js';
 import type { AnalysisRef, TrackAnalysis, TrackCuePoints, TrackLoudness, TrackTaggedLoudness } from './capabilities/analysis.js';
 import type { AudioJoin, AudioOverlay } from './capabilities/mixer.js';
 import type { ChartDescriptor, ChartEntry, ChartQuery } from './capabilities/charts.js';
@@ -224,6 +225,10 @@ export type AssertAllBoundaryPayloadsAreJsonSafe = AssertAllTrue<{
     WeatherConditions: IsJsonSafe<WeatherConditions>;
     WeatherDay: IsJsonSafe<WeatherDay>;
     WeatherReading: IsJsonSafe<WeatherReading>;
+    AlmanacQuery: IsJsonSafe<AlmanacQuery>;
+    AlmanacSubject: IsJsonSafe<AlmanacSubject>;
+    AlmanacEntry: IsJsonSafe<AlmanacEntry>;
+    AlmanacDay: IsJsonSafe<AlmanacDay>;
     ScrobblePlay: IsJsonSafe<ScrobblePlay>;
     ScrobbleRejection: IsJsonSafe<ScrobbleRejection>;
     ScrobbleResult: IsJsonSafe<ScrobbleResult>;
@@ -306,6 +311,10 @@ export const JSON_SAFE_PAYLOAD_TYPES = [
     'WeatherConditions',
     'WeatherDay',
     'WeatherReading',
+    'AlmanacQuery',
+    'AlmanacSubject',
+    'AlmanacEntry',
+    'AlmanacDay',
     'ScrobblePlay',
     'ScrobbleRejection',
     'ScrobbleResult',
@@ -348,6 +357,7 @@ export const BOUNDARY_METHOD_TYPES = [
     'SimilarityProvider',
     'SearchProvider',
     'WeatherProvider',
+    'AlmanacProvider',
     'ScrobbleProvider',
 ] as const;
 

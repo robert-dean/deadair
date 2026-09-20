@@ -1,3 +1,4 @@
+import type { AlmanacProvider } from './capabilities/almanac.js';
 import type { ChartsProvider } from './capabilities/charts.js';
 import type { EnrichmentProvider } from './capabilities/enrichment.js';
 import type { MusicProviderCatalog, MusicProviderOAuth, MusicProviderSteer, MusicProviderStream } from './capabilities/music.provider.js';
@@ -63,6 +64,9 @@ export type SearchPluginInstance = PluginLifecycle & SearchProvider;
 
 /** Instance shape for a `weather` plugin. */
 export type WeatherPluginInstance = PluginLifecycle & WeatherProvider;
+
+/** Instance shape for an `almanac` plugin. */
+export type AlmanacPluginInstance = PluginLifecycle & AlmanacProvider;
 
 /** Instance shape for a `scrobble` plugin. */
 export type ScrobblePluginInstance = PluginLifecycle & ScrobbleProvider;

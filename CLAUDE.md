@@ -126,6 +126,8 @@ packages/error-codes  shared error code constants
 packages/config-*     shared eslint / tsconfig
 plugins/*             bundled plugins: spotify, navidrome, ytmusic (YouTube Music; the audio
                       resolves signed out through ytaudio/), musicbrainz, lastfm,
+                      deezer (who sounds like whom, with no API key, so a fresh install has a
+                      similarity source at all),
                       wikipedia (the prose the station's facts are extracted from), rss, websearch
                       (SearXNG, Brave or Tavily, whichever the operator points it at), weather
                       (Open-Meteo, the US National Weather Service or OpenWeatherMap), podcast (the

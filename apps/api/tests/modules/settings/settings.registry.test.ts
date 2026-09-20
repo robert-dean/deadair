@@ -36,6 +36,7 @@ import {
     SMART_SHUFFLE_KEYS,
 } from '../../../src/modules/director/smart.shuffle.js';
 import { ConfigFieldOptionSource } from '../../../src/modules/plugins/types/plugins.types.js';
+import { providerCapabilities } from '../../../src/modules/plugins/plugin.providers.js';
 import { DEFAULT_RULES, ROTATION_KEYS, stationRules } from '../../../src/modules/director/rotation.rules.js';
 import { settingsConfig } from '../../utils/settings.config.js';
 
@@ -61,6 +62,27 @@ describe('the settings registry', () => {
         // explains it.
         for (const key of Object.values(SUSTAINING_KEYS)) {
             expect(findDescriptor(key)?.group, key).toBe('schedule');
+        }
+    });
+
+    it('leaves every provider key in the group the Providers section draws', () => {
+        // Same rule as the two above, and the same failure it prevents: back in `render` or
+        // `rotation` these would be drawn twice, by two forms writing one key, and only one of
+        // them beside the plugins that give the choice its meaning. `plugin.providers.ts` is
+        // where the pairing of a key with its capability lives, so every key it names is checked
+        // rather than a list copied here.
+        for (const entry of providerCapabilities()) {
+            expect(findDescriptor(entry.settingKey)?.group, entry.capability).toBe('providers');
+        }
+    });
+
+    it('leaves the sections the provider keys came from pointing at where they went', () => {
+        // A setting that moves and leaves nothing behind is one an operator cannot find again.
+        for (const key of ['render.providersNote', 'llm.providersNote', 'analysis.providersNote', 'rotation.providersNote']) {
+            const descriptor = findDescriptor(key);
+
+            expect(descriptor?.type, key).toBe('note');
+            expect(descriptor?.help, key).toContain('Providers');
         }
     });
 

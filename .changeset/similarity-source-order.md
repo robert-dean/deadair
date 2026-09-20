@@ -11,7 +11,7 @@ decided by alphabetical order of the plugin id, which is not a decision anybody
 made, and an operator who trusted one source over another had no way to say so
 short of switching the others off.
 
-**Which similarity source to ask first**, under Settings, Rotation, is that
+**Which similarity source to ask first**, under Settings, Providers, is that
 list. Leave it empty and nothing changes. Listing a source does not enable it
 and leaving one out does not disable it: anything unlisted is simply asked
 after the ones that are.

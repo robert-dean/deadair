@@ -95,8 +95,8 @@ describe('NavFooter', () => {
         pathname = '/settings/station';
         render(<NavFooter />);
 
-        expect(screen.getByRole('link', { name: 'Words. Which plugin it asks for words' })).toBeInTheDocument();
-        expect(screen.getByRole('link', { name: 'Measurement. Which plugin measures records' })).toBeInTheDocument();
+        expect(screen.getByRole('link', { name: 'Words. What it writes, and which model writes it' })).toBeInTheDocument();
+        expect(screen.getByRole('link', { name: 'Measurement. How much of the library it measures at once' })).toBeInTheDocument();
     });
 
     it('matches both destinations exactly, so neither lights up beside whichever section is open', () => {

@@ -62,8 +62,10 @@ describe('/settings', () => {
         phone = true;
         render(<IndexComponent />);
 
-        expect(screen.getByText('Which plugin it asks for words')).toBeInTheDocument();
-        expect(screen.getByText('Which plugin measures records')).toBeInTheDocument();
+        expect(screen.getByText('What it writes, and which model writes it')).toBeInTheDocument();
+        expect(screen.getByText('How much of the library it measures at once')).toBeInTheDocument();
+        // And the section that now owns "which plugin does this at all", for both of them.
+        expect(screen.getByText('Who does what, and who is asked first')).toBeInTheDocument();
     });
 
     it('sends each row to that section, Plugins included', () => {

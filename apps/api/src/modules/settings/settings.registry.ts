@@ -646,15 +646,10 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
     },
     {
         group: 'rotation',
-        key: SIMILARITY_ORDER_KEY,
-        label: 'Which similarity source to ask first',
-        type: 'list',
-        placeholder: 'No order set, so sources are asked alphabetically.',
-        // One column, because a row here IS a source. The choices are the enabled plugins that
-        // can answer, resolved by the console, so the cell stores the plugin id and shows the
-        // name the operator knows it by.
-        columns: [{ key: 'source', label: 'Source', type: 'select', required: true, optionsFrom: 'plugins.similarity' }],
-        help: 'Only matters with more than one similarity plugin enabled, and only for two of the three questions the station asks them. Who resembles an artist is asked of every source and the answers are pooled, because two sources disagreeing about that are not in conflict. What to PLAY by an artist, and what sounds like a particular record, take the first usable answer — so this decides whose judgement airs. Leave it empty and sources are asked in alphabetical order of their plugin id, which is what the station did before this setting existed. Listing a source does not enable it, and leaving one out does not disable it: anything not listed is asked after the ones that are.',
+        key: 'rotation.providersNote',
+        label: 'Which similarity source is asked first',
+        type: 'note',
+        help: 'Under Providers now, beside every other job more than one plugin can do. It only matters with more than one similarity plugin enabled, and it changes whose judgement airs rather than which sources are asked.',
     },
     {
         group: 'rotation',
@@ -947,21 +942,10 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
     // ── render ─────────────────────────────────────────────────────────────────
     {
         group: 'render',
-        key: SPEECH_PLUGIN_KEY,
-        label: 'Speak with',
-        type: 'string',
-        default: '',
-        optionsFrom: 'plugins.speech',
-        help: 'Leave it empty and the station uses the first by id, and the log says which.',
-    },
-    {
-        group: 'render',
-        key: MIXER_PLUGIN_KEY,
-        label: 'Join audio with',
-        type: 'string',
-        default: '',
-        optionsFrom: 'plugins.mixer',
-        help: 'The plugin id that makes one piece of audio out of several, which is what lets a programme written turn by turn air as a single item with a pause you chose between the turns. Its own key rather than the measurement one, so a station can measure with one engine and join with another. Leave empty when only one plugin can. With none available a programme simply airs as its separate parts.',
+        key: 'render.providersNote',
+        label: 'Which plugin speaks, and which joins audio',
+        type: 'note',
+        help: 'Both are under Providers now, beside every other job more than one plugin can do — including which one the station is actually using, and what happens when the one you named is not running.',
     },
     {
         group: 'render',
@@ -1109,16 +1093,12 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
     },
 
     // ── llm ────────────────────────────────────────────────────────────────────
-    // Which plugin, and nothing else. The base URL, the model and the credentials
-    // are that plugin's own config, the same call the speech engine's knobs got.
     {
         group: 'llm',
-        key: LLM_PLUGIN_KEY,
-        label: 'Think with',
-        type: 'string',
-        default: '',
-        optionsFrom: 'plugins.llm',
-        help: 'The plugin id the station asks for words. Leave empty when only one plugin can, and set it when several can. With none available the station still writes its own breaks, deterministically.',
+        key: 'llm.providersNote',
+        label: 'Which plugin the station asks for words',
+        type: 'note',
+        help: 'Under Providers now, beside every other job more than one plugin can do. The models below are the ones that plugin offers, so setting it there changes what this page can choose from.',
     },
     {
         group: 'llm',
@@ -1257,16 +1237,14 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
     },
 
     // ── analysis ───────────────────────────────────────────────────────────────
-    // Which plugin, and how wide the walk runs. The analyzer's own address is
-    // that plugin's config, the same call the speech engine's knobs got.
+    // How wide the walk runs. Which plugin does the measuring moved to Providers; the analyzer's
+    // own address is that plugin's config, the same call the speech engine's knobs got.
     {
         group: 'analysis',
-        key: ANALYSIS_PLUGIN_KEY,
-        label: 'Measure with',
-        type: 'string',
-        default: '',
-        optionsFrom: 'plugins.analysis',
-        help: 'The plugin id that measures records, so the station can trim dead air and time what it says over an intro. Leave empty when only one plugin can. With none available every track still plays, unmeasured.',
+        key: 'analysis.providersNote',
+        label: 'Which plugin measures records',
+        type: 'note',
+        help: 'Under Providers now, beside every other job more than one plugin can do. With none measuring, every track still plays, unmeasured.',
     },
     {
         group: 'analysis',
@@ -1479,6 +1457,57 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
     // always about the plugins in front of the operator: who can do this, who is doing it, who is
     // asked second. `plugins/plugin.providers.ts` pairs each of these keys with its capability, and
     // both the station and that page read the pairing from there.
+    //
+    // The five below moved here from `render`, `llm`, `analysis` and `rotation`, where each sat in
+    // the section that owned the FEATURE rather than the one that owned the question — so an
+    // operator who had just installed a second plugin had to already know which page decided
+    // between them. The KEYS did not change, so nothing stored moves. Each old section keeps a
+    // `note` pointing here.
+    //
+    // None of them declares `optionsFrom` any more: the generic form no longer draws them, and
+    // `/plugins/providers` answers with the candidates AND what the station currently does with
+    // them, which is what those option sources could never say.
+    {
+        group: 'providers',
+        key: SPEECH_PLUGIN_KEY,
+        label: 'Speak with',
+        type: 'string',
+        default: '',
+        help: 'The plugin that gives the station its voice. Leave it empty and it uses the first by id, and the log says which.',
+    },
+    {
+        group: 'providers',
+        key: LLM_PLUGIN_KEY,
+        label: 'Think with',
+        type: 'string',
+        default: '',
+        help: 'The plugin the station asks for words. With none available it still writes its own breaks, deterministically.',
+    },
+    {
+        group: 'providers',
+        key: MIXER_PLUGIN_KEY,
+        label: 'Join audio with',
+        type: 'string',
+        default: '',
+        help: 'The plugin that makes one piece of audio out of several, which is what lets a programme written turn by turn air as a single item. Its own key rather than the measurement one, so a station can measure with one engine and join with another. With none available a programme airs as its separate parts.',
+    },
+    {
+        group: 'providers',
+        key: ANALYSIS_PLUGIN_KEY,
+        label: 'Measure with',
+        type: 'string',
+        default: '',
+        help: 'The plugin that measures records, so the station can trim dead air and time what it says over an intro. With none available every track still plays, unmeasured.',
+    },
+    {
+        group: 'providers',
+        key: SIMILARITY_ORDER_KEY,
+        label: 'Which similarity source to ask first',
+        type: 'list',
+        placeholder: 'No order set, so sources are asked alphabetically.',
+        columns: [{ key: 'source', label: 'Source', type: 'select', required: true }],
+        help: 'Only matters with more than one similarity plugin enabled, and only for two of the three questions the station asks them. Who resembles an artist is asked of every source and the answers are pooled, because two sources disagreeing about that are not in conflict. What to PLAY by an artist, and what sounds like a particular record, take the first usable answer — so this decides whose judgement airs. Listing a source does not enable it, and leaving one out does not disable it: anything not listed is asked after the ones that are.',
+    },
     {
         group: 'providers',
         key: WEATHER_KEYS.providerOrder,

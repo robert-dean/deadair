@@ -8,7 +8,9 @@ import type { Logger } from '@maroonedsoftware/logger';
 import { PluginError, type ChartDescriptor, type ChartEntry, type PluginManifest } from '@deadair/plugin-sdk';
 
 import { ChartsService, MAX_CHART_ENTRIES } from '../../../src/modules/charts/charts.service.js';
+import { CHARTS_KEYS } from '../../../src/modules/charts/charts.keys.js';
 import { qualifyChartId, splitChartId } from '../../../src/modules/charts/chart.ids.js';
+import { settingsConfig } from '../../utils/settings.config.js';
 import { PluginInvoker } from '../../../src/modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '../../../src/modules/plugins/plugin.registry.js';
 import type { PluginRecord } from '../../../src/modules/plugins/types/plugin.record.js';
@@ -66,10 +68,10 @@ function record(id: string, overrides: Partial<PluginRecord> = {}, options: Inst
     };
 }
 
-const build = (records: PluginRecord[]): ChartsService => {
+const build = (records: PluginRecord[], rows: Record<string, string> = {}): ChartsService => {
     const registry = new PluginRegistry();
     registry.setAll(records);
-    return new ChartsService(registry, new PluginInvoker(registry, stubPluginLog().log), stubLogger());
+    return new ChartsService(registry, new PluginInvoker(registry, stubPluginLog().log), settingsConfig(rows).config, stubLogger());
 };
 
 beforeEach(() => {
@@ -196,6 +198,48 @@ describe('naming a style chart', () => {
         const service = build([record(LASTFM, {}, { styleChartId: broken }), record(APPLE, {}, { styleChartId: working })]);
 
         expect(await service.styleChart('jazz')).toBe(`${APPLE}:tag:jazz`);
+    });
+});
+
+describe('the order services are asked in', () => {
+    /** The value the console writes: a JSON array of one-column rows. */
+    const order = (...ids: string[]): string => JSON.stringify(ids.map(source => ({ source })));
+
+    it('names a style chart from the service the operator put first', async () => {
+        // Which is the half of the order that decides something outright: `styleChart` stops at
+        // the first service publishing a chart for the genre.
+        const appleNames = vi.fn((style: string) => `tag:${style}`);
+        const lastfmNames = vi.fn((style: string) => `tag:${style}`);
+        const service = build([record(LASTFM, {}, { styleChartId: lastfmNames }), record(APPLE, {}, { styleChartId: appleNames })], {
+            [CHARTS_KEYS.providerOrder]: order(LASTFM),
+        });
+
+        expect(await service.styleChart('jazz')).toBe(`${LASTFM}:tag:jazz`);
+        expect(appleNames).not.toHaveBeenCalled();
+    });
+
+    it('falls through to an unlisted service when the listed one publishes none', async () => {
+        const lastfmNames = vi.fn(() => undefined);
+        const appleNames = vi.fn((style: string) => `tag:${style}`);
+        const service = build([record(LASTFM, {}, { styleChartId: lastfmNames }), record(APPLE, {}, { styleChartId: appleNames })], {
+            [CHARTS_KEYS.providerOrder]: order(LASTFM),
+        });
+
+        expect(await service.styleChart('jazz')).toBe(`${APPLE}:tag:jazz`);
+    });
+
+    it('puts the operator’s service first on the menu, and still lists the rest', async () => {
+        // Unlike the style lookup, the menu keeps everything: two top forties are two published
+        // documents rather than two opinions about one.
+        const service = build([record(APPLE), record(LASTFM)], { [CHARTS_KEYS.providerOrder]: order(LASTFM) });
+
+        expect((await service.listCharts()).map(chart => chart.id)).toEqual([`${LASTFM}:top-100`, `${APPLE}:top-100`]);
+    });
+
+    it('lists them alphabetically when no order is set', async () => {
+        const service = build([record(LASTFM), record(APPLE)]);
+
+        expect((await service.listCharts()).map(chart => chart.id)).toEqual([`${APPLE}:top-100`, `${LASTFM}:top-100`]);
     });
 });
 

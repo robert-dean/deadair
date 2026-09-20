@@ -70,6 +70,7 @@ import {
     MAX_ANALYSIS_CONCURRENCY,
     MAX_ANALYSIS_PACE_MS,
 } from '#modules/analysis/analysis.settings.js';
+import { CHARTS_KEYS } from '#modules/charts/charts.keys.js';
 import { MIXER_PLUGIN_KEY } from '#modules/render/mixer.settings.js';
 import { MAIL_DEFAULTS, MAIL_KEYS, MAX_MAIL_PORT, MIN_MAIL_PORT } from '#modules/mail/mail.settings.js';
 import {
@@ -1487,6 +1488,15 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         // `ORDER_SOURCE_COLUMN` is the name the reader looks for.
         columns: [{ key: 'source', label: 'Service', type: 'select', required: true }],
         help: 'Only matters with more than one weather plugin enabled. The station asks them in this order and takes the first reading it gets, because two services asked about one sky are two readings of the same thing rather than two facts. Leave it empty and they are asked in alphabetical order of their plugin id. Listing a service does not enable it, and leaving one out does not disable it: anything not listed is asked after the ones that are.',
+    },
+    {
+        group: 'providers',
+        key: CHARTS_KEYS.providerOrder,
+        label: 'Which chart service to ask first',
+        type: 'list',
+        placeholder: 'No order set, so services are asked alphabetically.',
+        columns: [{ key: 'source', label: 'Service', type: 'select', required: true }],
+        help: 'Only matters with more than one chart plugin enabled. Every service’s charts stay on the menu whatever this says, because two top forties are two published documents rather than two opinions about one — this sets the order they appear in. Where it decides something outright is a chart asked for by STYLE, which takes the first service publishing one for that genre. Leave it empty and services are asked in alphabetical order of their plugin id.',
     },
 ];
 

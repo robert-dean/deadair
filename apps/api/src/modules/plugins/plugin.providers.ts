@@ -1,5 +1,6 @@
 import {
     PLUGIN_CAPABILITY_ANALYSIS,
+    PLUGIN_CAPABILITY_CHARTS,
     PLUGIN_CAPABILITY_LLM,
     PLUGIN_CAPABILITY_MIXER,
     PLUGIN_CAPABILITY_SIMILARITY,
@@ -9,6 +10,7 @@ import {
 import type { AppConfig } from '@maroonedsoftware/appconfig';
 
 import { ANALYSIS_PLUGIN_KEY } from '#modules/analysis/analysis.settings.js';
+import { CHARTS_KEYS } from '#modules/charts/charts.keys.js';
 import { LLM_PLUGIN_KEY } from '#modules/llm/llm.settings.js';
 import { MIXER_PLUGIN_KEY } from '#modules/render/mixer.settings.js';
 import { SPEECH_PLUGIN_KEY } from '#modules/render/speech.settings.js';
@@ -18,10 +20,12 @@ import {
     asAnalysisPlugin,
     asLlmPlugin,
     asMixerPlugin,
+    asChartsPlugin,
     asSimilarityPlugin,
     asSpeechPlugin,
     asWeatherPlugin,
     type AnalysisPlugin,
+    type ChartsPlugin,
     type LlmPlugin,
     type MixerPlugin,
     type SimilarityPlugin,
@@ -133,6 +137,12 @@ export const PROVIDER_CAPABILITIES = {
         settingKey: WEATHER_KEYS.providerOrder,
         as: asWeatherPlugin,
     } satisfies ProviderCapability<WeatherPlugin>,
+    [PLUGIN_CAPABILITY_CHARTS]: {
+        capability: PLUGIN_CAPABILITY_CHARTS,
+        mode: 'ordered',
+        settingKey: CHARTS_KEYS.providerOrder,
+        as: asChartsPlugin,
+    } satisfies ProviderCapability<ChartsPlugin>,
 } as const;
 
 /** Every entry, in the order the console draws them. */

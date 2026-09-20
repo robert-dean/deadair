@@ -1,8 +1,9 @@
 import { Injectable } from 'injectkit';
+import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import type { ChartEntry } from '@deadair/plugin-sdk';
-import { asChartsPlugin, type ChartsPlugin } from '#modules/plugins/plugin.capabilities.js';
-import { byPluginId, pluginsWith } from '#modules/plugins/plugin.selection.js';
+import { type ChartsPlugin } from '#modules/plugins/plugin.capabilities.js';
+import { PROVIDER_CAPABILITIES, pluginsInOrder } from '#modules/plugins/plugin.providers.js';
 import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
 import { errorText } from '#modules/shared/error.text.js';
@@ -42,6 +43,7 @@ export class ChartsService {
     constructor(
         private readonly pluginRegistry: PluginRegistry,
         private readonly pluginInvoker: PluginInvoker,
+        private readonly config: AppConfig,
         private readonly logger: Logger,
     ) {}
 
@@ -138,10 +140,12 @@ export class ChartsService {
      * unreachable to anything that could only ask for ids it had been shown.
      *
      * FIRST match rather than all of them, unlike `listCharts`, because the caller wants one chart
-     * for a style rather than a menu to choose from — and the plugin order is already the operator's
-     * preference. It is also why nothing here asks whether the chart HAS entries: that costs a
-     * request the caller is about to make anyway, and an empty chart and a missing one are the same
-     * outcome to a DJ.
+     * for a style rather than a menu to choose from. Which plugin that is comes from
+     * `charts.providerOrder`, so it is the operator's preference — this comment claimed as much
+     * for a while before the setting existed, when "first" was alphabetical by plugin id and the
+     * station's taste in chart services was an accident of spelling. It is also why nothing here
+     * asks whether the chart HAS entries: that costs a request the caller is about to make anyway,
+     * and an empty chart and a missing one are the same outcome to a DJ.
      *
      * `undefined` when nothing publishes style charts, which is ordinary: `ChartsProvider.styleChartId`
      * is optional and a service with only national charts legitimately has none.
@@ -213,9 +217,16 @@ export class ChartsService {
         }
     }
 
-    /** Every plugin that can serve a chart right now, in a stable order. */
+    /**
+     * Every plugin that can serve a chart right now, in the order they are asked.
+     *
+     * The operator's order first, then everything unlisted alphabetically,
+     * which is what this sorted by before the setting existed. It decides the
+     * order of the menu {@link listCharts} builds, and it decides outright which
+     * plugin answers {@link styleChart}.
+     */
     private plugins(): ChartsPlugin[] {
-        return pluginsWith(this.pluginRegistry.list(), asChartsPlugin).sort(byPluginId);
+        return pluginsInOrder(this.pluginRegistry.list(), this.config, PROVIDER_CAPABILITIES.charts);
     }
 }
 

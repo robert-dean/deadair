@@ -8,15 +8,15 @@ that the call has already been made and written down. Questions go to
 
 ## Getting it running
 
-```bash
-pnpm install
-docker compose up -d              # Postgres, Redis, Icecast, Liquidsoap, a voice, the sidecar
-pnpm --filter @deadair/api migrate:up
-pnpm dev
-```
+Node 26+, pnpm 11 and Docker, then
+**[Setting up a checkout](https://deadair.radio/docs/develop/setup)**, which is the walkthrough:
+`apps/api/.env` and the two keys the station will not start without, the compose stack and its
+ports, the build that has to happen before the first `pnpm dev`, and the onboarding wizard that
+first load lands on. It is kept as one page, proved against a fresh clone, rather than as four
+commands here that leave half of it out.
 
-Node 26+, pnpm and Turborepo. The Android app has its own Gradle build, the desktop app its own
-.NET solution and the iOS app its own Xcode project. Each has a `package.json` holding a name and a
+The Android app has its own Gradle build, the desktop app its own .NET solution and the iOS app its
+own Xcode project. Each has a `package.json` holding a name and a
 version and nothing else, which is how changesets numbers their releases; pnpm and turbo find
 nothing in them to install or run.
 

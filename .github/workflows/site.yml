@@ -17,6 +17,7 @@ on:
             - 'apps/site/**'
             - 'apps/web/public/**'
             - 'deploy/README.md'
+            - 'CONTRIBUTING.md'
             - 'docs/licensing.md'
             - 'packages/plugin-sdk/README.md'
             - 'apps/android/PRIVACY.md'

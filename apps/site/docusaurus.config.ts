@@ -113,7 +113,7 @@ const config: Config = {
                     items: [
                         { label: 'Community', to: '/community' },
                         { label: 'Discussions', href: `${repository}/discussions` },
-                        { label: 'Contributing', href: `${repository}/blob/main/CONTRIBUTING.md` },
+                        { label: 'Contributing', to: '/docs/develop/contributing' },
                         { label: 'Code of conduct', href: `${repository}/blob/main/CODE_OF_CONDUCT.md` },
                     ],
                 },

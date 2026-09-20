@@ -116,7 +116,7 @@ pnpm build
 ```
 
 Those three are what a pull request is measured against, alongside the rules in
-[CONTRIBUTING.md](https://github.com/robert-dean/deadair/blob/main/CONTRIBUTING.md). Per package while you work:
+[Contributing](./contributing.md). Per package while you work:
 
 ```bash
 pnpm --filter @deadair/api test

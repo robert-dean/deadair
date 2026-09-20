@@ -38,8 +38,8 @@ Icecast, PostgreSQL, Redis and the measurement sidecar running beside it in cont
   create an administrator.
 - [How it fits together](./architecture.md) is what owns what, and where to read more before
   changing any of it.
-- [CONTRIBUTING.md](https://github.com/robert-dean/deadair/blob/main/CONTRIBUTING.md) is the rules a
-  pull request is measured against, and how a release is cut.
+- [Contributing](./contributing.md) is the rules a pull request is measured against, and how a
+  release is cut.
 
 ## Where the arguments are
 

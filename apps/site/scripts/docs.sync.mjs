@@ -26,6 +26,10 @@ const blob = 'https://github.com/robert-dean/deadair/blob/main';
 const pages = [
     { source: 'deploy/README.md', doc: 'install.md', label: 'Install', position: 1 },
     { source: 'docs/licensing.md', doc: 'licensing.md', label: 'Music licensing', position: 2 },
+    // The rules a pull request is measured against, which belong beside the code they govern. The
+    // setup walkthrough it points at is `docs/develop/setup.md`, written for the site rather than
+    // for a clone, so this file stays the rules and the release process.
+    { source: 'CONTRIBUTING.md', doc: 'develop/contributing.md', label: 'Contributing', position: 4 },
     // The plugin contract, which is required reading beside the code and so lives beside the code.
     { source: 'packages/plugin-sdk/README.md', doc: 'plugin-development/contract.md', label: 'The contract', position: 6 },
     // Linked from the Play listing and from the app's settings screen, so its path is a promise.

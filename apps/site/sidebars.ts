@@ -48,7 +48,7 @@ const sidebars: SidebarsConfig = {
             label: 'Develop',
             link: { type: 'doc', id: 'develop/index' },
             collapsed: false,
-            items: ['develop/setup', 'develop/architecture', 'develop/api'],
+            items: ['develop/setup', 'develop/architecture', 'develop/contributing', 'develop/api'],
         },
         {
             type: 'category',

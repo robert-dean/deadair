@@ -37,6 +37,7 @@ A plugin declares one or more capabilities, and implements the methods each one 
 - **`narration`**: offer text the station reads out as a programme (a book by the chapter, a newsletter by the issue) as series, their instalments, and the words of one on request.
 - **`search`**: search the open web.
 - **`weather`**: say what it is like outside, as measurements.
+- **`almanac`**: say what happened on a date, as entries somebody else published.
 - **`scrobble`**: report what the station played to somebody else's service.
 - **`oauth`**: hold an operator's tokens, obtained through the host's redirect.
 

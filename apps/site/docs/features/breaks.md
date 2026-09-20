@@ -44,6 +44,12 @@ News categories under Voice, Subjects let a band on the format clock ask for a s
 
 Where the station is, and its units, are under Settings, Station. A weather break states only figures a service measured: no comparison with yesterday, no advice about coats. A model naming a temperature it was not given is declined, and a reading that will be older than "How old a reading may be" (two hours by default) when it airs is not used.
 
+## This day in history
+
+A band on the format clock set to **This day** reads out something that happened on today's date. The entries come from whichever plugin can answer — the bundled Wikipedia one does, once it has a contact address — and the station reads them as they were published: the break frames a line with the year and whether it is a birth, a death, an event or a day that comes round every year, and adds nothing else.
+
+A day is mostly general history, so **"What the station picks out of the day"** under Settings, Rotation decides what a music station does with it. The default puts the musicians first and keeps the rest behind them; "Music only" is stricter and will skip the slot on a thin day. Nothing is read out twice in the same day, and the date is the one the break AIRS on, in your station's own timezone, so a break written at ten to midnight is about tomorrow. A model naming a year it was not given is declined, exactly as one naming a temperature it was not given is.
+
 ## What a break looks like
 
 A break is the station talking, so the stream's one line of text carries your station's name rather than the producer's label for it. What changes is the picture beside it: a weather forecast and a news bulletin each have one of their own, which a listener's app draws beside the title and a hardware player draws in its artwork slot. Every other kind of break shows your station's logo, as the bed and off air do.

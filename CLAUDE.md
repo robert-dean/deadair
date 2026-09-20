@@ -93,7 +93,8 @@ pointing at something that has never existed:
   route tables were checked against `src/modules/modules.ts` and `src/routes/routes.setup.ts` on
   2026-09-09 and listed all 37 modules and all 29 routers in registration order then. On 2026-09-15
   the API keys router was added to the one and Podcasts to both; `MailModule`, registered since the
-  check, is in neither yet. Those two files stay the source of truth: verify against them before
+  check, is in neither yet, and `AlmanacModule` (2026-09-20) is in the module table but owns no
+  router. Those two files stay the source of truth: verify against them before
   relying on an entry.
 - `README.md` and `docs/licensing.md` are written for whoever RUNS this rather than for whoever
   works on it. Keep them true.
@@ -128,7 +129,8 @@ plugins/*             bundled plugins: spotify, navidrome, ytmusic (YouTube Musi
                       resolves signed out through ytaudio/), musicbrainz, lastfm,
                       deezer (who sounds like whom, with no API key, so a fresh install has a
                       similarity source at all),
-                      wikipedia (the prose the station's facts are extracted from), rss, websearch
+                      wikipedia (the prose the station's facts are extracted from, and what happened
+                      on today's date), rss, websearch
                       (SearXNG, Brave or Tavily, whichever the operator points it at), weather
                       (Open-Meteo, the US National Weather Service or OpenWeatherMap), podcast (the
                       shows the station carries, read from their feeds), kokoro and chatterbox (the
@@ -143,11 +145,11 @@ deploy/, unraid/                  how somebody else installs it
 ```
 
 `apps/api` modules, in registration order: `logging`, `dataConnections`, `health`, `data`, `crypto`,
-`authentication`, `permissions`, `policy`, `art`, `catalog`, `onboarding`, `settings`, `stream`,
-`plugins`, `jobs`, `playlists`, `charts`, `similarity`, `news`, `search`, `weather`, `podcasts`, `narrations`, `topics`,
-`scrobble`, `llm`,
-`narrations`, `personas`, `schedule`, `render`, `playout`, `nowplaying`, `analysis`, `director`, `storage`,
-`activity`, `history`, `enrichment`, `productions`, `station`. **`src/modules/modules.ts` is the source of
+`authentication`, `permissions`, `policy`, `art`, `catalog`, `onboarding`, `settings`, `stream`, `mail`,
+`plugins`, `jobs`, `playlists`, `charts`, `similarity`, `news`, `search`, `weather`, `almanac`,
+`podcasts`, `narrations`, `topics`, `scrobble`, `llm`, `personas`, `schedule`, `render`, `playout`,
+`nowplaying`, `analysis`, `director`, `storage`, `activity`, `history`, `enrichment`, `productions`,
+`station`. **`src/modules/modules.ts` is the source of
 truth and the order is load-bearing** — see [`apps/api/CLAUDE.md`](apps/api/CLAUDE.md). Check it
 before assuming a subsystem exists.
 

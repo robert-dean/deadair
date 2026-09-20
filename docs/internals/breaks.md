@@ -405,6 +405,85 @@ a `weather` topic is for somewhere ELSE, which is what a band on the format cloc
 `station.units` decides what a listener hears, and a location may override it — the capability is
 metric on the wire always, and `weather.words.ts` is the one place that changes.
 
+## The date
+
+**A break about the date is the bulletin's shape with the evidence rule turned all the way up.** A
+bulletin may reword a headline into what an anchor would say. This may not touch its source's
+sentence at all: `AlmanacBreakWriter` frames it with the year and the kind — both of which arrived
+as DATA, on `AlmanacEntry` — and everything after the frame is verbatim, so the claim and the quote
+are one span. That is `fact.lead.ts`'s rule, and it is the only reason a deterministic writer is
+allowed anywhere near a historical claim. `AlmanacSource` is `WeatherSource`'s third sibling: it
+fetches once so the floor does no network I/O, resolves the day the way the other resolves a place,
+and hands both writers one substrate.
+
+**The freshness question is answered by the DAY, and needed no new column.** A weather reading
+expires because the sky moves, which is what `claims_reading_until` was built for. An entry cannot
+expire: 1966 will be 1966 at the slot. What expires is the word "today" in front of it — exactly
+what `segments.claims_time_from`/`until` already hold — so an almanac break stamps the station's own
+calendar day and `break.claims.ts` drops it if it reaches a slot on the other side of midnight, with
+no new machinery at all. The model binding stamps the CLOCK's window instead where the script really
+named the time, because that window is minutes wide, is absolute, and is therefore inside the day
+anyway: the narrower claim implies the wider one.
+
+**Which day it is, is asked of `airs_at` and of the operator's zone, and both halves are
+load-bearing.** `stationDay` takes the instant the words will be HEARD, so a break written at ten to
+midnight is about tomorrow's date; and it reads that instant in `station.timezone`, so a station in
+Auckland is not handed the server's yesterday. This is the one thing in the feature that cannot be
+recovered from, because an entry fetched for the wrong day reads exactly as right as one fetched for
+the right one. The day's bounds are walked an hour at a time in both directions rather than computed
+from the wall clock — the first version subtracted the hours on the clock and measured a
+spring-forward Sunday as 24 hours with both ends an hour out, which is `nextOccurrence`'s lesson
+arriving a second time.
+
+**A music station leans, and the lean is an ORDER rather than a cut.** Wikipedia's day is general
+history: the 20th of September has thirty-odd musicians in it and the 3rd of January has four.
+`almanac.lean.ts` puts the musicians first and keeps the rest behind them, and only `musicOnly`
+throws them away — a filter by default would silence the station on exactly the thin days this
+feature exists for. It matches ROLES (`guitarist`, `bandleader`) and nouns only music has, never
+`rock`, `record`, `single`, `chart` or `concert`, each of which is a rock formation, a world record,
+a single mother, a chart of the sea and the Concert of Europe. Missing a musician costs an ordering;
+claiming a battle as one is the station announcing a treaty as though it were a birthday. The words
+are matched whole, `news.classify.ts`'s rule, because `band` is inside `abandoned` and `opera` is
+inside `operation`.
+
+**The lean is applied in `AlmanacService` and the day is fetched UNCAPPED**, in that order and for
+one reason: the four musicians in a day live among two hundred birthdays, so a limit applied
+upstream cuts them away before anything can prefer them. The same read answers the tool and both
+writers, so `get_this_day` and a break cannot lean differently.
+
+**`SaidLog` is `ReadLog` one kind over, with its two hardest-won lines copied deliberately.** It is a
+SINGLETON, because `AlmanacSource` is scoped and a log on it would be built empty once per job — the
+inert version of this cost ten consecutive bulletins in August. And it is spent by the WRITER rather
+than at selection, which is where the bulletin's version is still wrong: `ReadLog.keep` spends
+headlines when a bulletin picks them, so three rewrites emptied the window and lost seven bulletins
+in two hours. Here the source hands over six entries and only the one that reached a script is
+marked, so a break that is declined, rewritten or dropped spends nothing. The model binding reads
+back WHICH entry by the years its script named, and a script that named no year spends nothing at
+all rather than guessing.
+
+**The model's own check is `inventedFigure`'s argument one number over.** A historical claim's
+checkable part is its YEAR, and the set of true ones is known exactly, so `inventedYear` refuses a
+script naming one the station was never given — a model asked about a record released in 1977 will
+say 1976 in a sentence no listener can fault and no shape guard can catch. The permitted set is
+every entry's `year` AND every three- or four-digit run inside the entries' own text, because
+`Kathryn Crosby, American actress (born 1933)` carries a second year the station really was given.
+Two gaps are the weather guard's and are deliberate: a spelled-out year gets through, and a
+two-digit number is an age rather than a year — "turns sixty today" is arithmetic on a year the
+station holds, and it is most of what the model is here for.
+
+**What the prompt withholds is the part the station actually knows.** `describeDay` sends the entry
+and its year and NOT the subjects' descriptions, although `AlmanacEntry.subjects` carries them and
+the lean reads them: a model shown "Portuguese guitarist" beside a name treats the pair as a licence
+to say which band he was in, and that sentence is indistinguishable on air from the one the station
+was given. The rule beside it says so in as many words, because this is the third version of the
+same failure — a bulletin must not add a detail, a forecast must not add a number, and this must not
+add what it remembers, which is the hardest of the three to resist.
+
+**There is no topic kind, and that is the asymmetry with the weather.** A location is a choice with
+something in it (which town, in whose units) and a date is not a choice at all, so a band on the
+format clock names `almanac` and no subject. What an operator does choose is the lean and the
+phrasings, which are two settings rather than a row they have to create.
+
 ## The format clock, and what a break is about
 
 **The format clock is ROWS, and what a break is ABOUT is the operator's own word.** `rotation.clockBands` was

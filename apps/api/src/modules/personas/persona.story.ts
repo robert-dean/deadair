@@ -43,6 +43,28 @@
  * told without it. See `story.break.writer.ts`.
  */
 
+import type { PersonaStoryBeat } from './persona.story.beat.js';
+
+/**
+ * What sort of thing a character is carrying, because "a story" turned out to be three.
+ *
+ * An `anecdote` is the shape this table was built for and most of what a character holds: a few
+ * self-contained sentences about a night that happened, told whole or not at all.
+ *
+ * An `arc` is told a part at a time and gets somewhere. `PersonaStoryBeat` rows hang under it, one
+ * reaches a break, and the next is owed once that one has aired.
+ *
+ * A `bit` is a running joke with no end and no order — the thing a presenter returns to and
+ * escalates. It has no beats; what it has is its own history, which the ledger holds.
+ *
+ * One column rather than three tables, because everything they share is everything this store
+ * already does — the states, the handle index, the rotation, the details, the cascade — and what
+ * differs is only how one is read INTO a break.
+ */
+export const PERSONA_STORY_KINDS = ['anecdote', 'arc', 'bit'] as const;
+
+export type PersonaStoryKind = (typeof PERSONA_STORY_KINDS)[number];
+
 /** Whether a story or a detail can be told, is waiting to be looked at, or was turned down. */
 export const PERSONA_STORY_STATES = ['active', 'suggested', 'rejected'] as const;
 
@@ -66,6 +88,13 @@ export interface PersonaStoryDraft {
     /** The telling itself, in the character's voice. A few sentences: see the note on the floor above. */
     story: string;
     /**
+     * Which of the three this is. Absent means `anecdote`.
+     *
+     * Absent rather than required, because every story written before arcs existed is an anecdote
+     * and somebody writing one about a night that happened means that without saying so.
+     */
+    kind?: PersonaStoryKind;
+    /**
      * Where a proposal came from, in the station's own words. Absent for anything an operator wrote.
      *
      * Not evidence. See the note at the top of this file for why that distinction is the load-bearing
@@ -78,10 +107,19 @@ export interface PersonaStoryDraft {
 export interface PersonaStory extends PersonaStoryDraft {
     id: string;
     personaKey: string;
+    /** Never absent on a stored row: the column is `not null` with a default. */
+    kind: PersonaStoryKind;
     state: PersonaStoryState;
     origin: PersonaStoryOrigin;
     /** What it has accumulated, in every state, for the console. See {@link PersonaStoryForPrompt}. */
     details: PersonaStoryDetail[];
+    /**
+     * The parts it is told in, in order and in every state, for the console.
+     *
+     * Empty for an anecdote and for a bit, which have no parts. See `persona.story.beat.ts` for why
+     * a beat is not a detail.
+     */
+    beats: PersonaStoryBeat[];
     /** When it was last carried into a break, for the rotation. Absent means never told. */
     lastToldAt?: string;
     /** How often it has actually gone out, which the prompt reads. See {@link PersonaStoryForPrompt}. */

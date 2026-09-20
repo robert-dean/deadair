@@ -378,6 +378,61 @@ public sealed class PersonasClient(SdkHttp http)
     }
 
     /// <summary>
+    /// Add persona story beat
+    /// Adds one part to an arc. A script rather than a summary: the floor speaks it as it stands
+    /// </summary>
+    public async Task<PersonaStoryList> AddPersonaStoryBeatAsync(string id, string storyId, PersonaStoryBeatWrite body, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Post,
+            http.Path("personas", http.Segment(id), "stories", http.Segment(storyId), "beats"),
+            content: http.JsonContent(body, "application/json"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<PersonaStoryList>(response);
+    }
+
+    /// <summary>
+    /// Update persona story beat
+    /// Rewrites one part's words, or moves it in the order
+    /// </summary>
+    public async Task<PersonaStoryList> UpdatePersonaStoryBeatAsync(string id, string storyId, string beatId, PersonaStoryBeatWrite body, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Put,
+            http.Path("personas", http.Segment(id), "stories", http.Segment(storyId), "beats", http.Segment(beatId)),
+            content: http.JsonContent(body, "application/json"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<PersonaStoryList>(response);
+    }
+
+    /// <summary>
+    /// Delete persona story beat
+    /// Removes one part outright, leaving the arc standing. Turning down a PROPOSAL is a state instead
+    /// </summary>
+    public async Task<PersonaStoryList> DeletePersonaStoryBeatAsync(string id, string storyId, string beatId, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Delete,
+            http.Path("personas", http.Segment(id), "stories", http.Segment(storyId), "beats", http.Segment(beatId)),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<PersonaStoryList>(response);
+    }
+
+    /// <summary>
+    /// Set persona story beat state
+    /// Accepts a proposed part, or turns it down without losing that it was turned down
+    /// </summary>
+    public async Task<PersonaStoryList> SetPersonaStoryBeatStateAsync(string id, string storyId, string beatId, PersonaStoryState body, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Put,
+            http.Path("personas", http.Segment(id), "stories", http.Segment(storyId), "beats", http.Segment(beatId), "state"),
+            content: http.JsonContent(body, "application/json"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<PersonaStoryList>(response);
+    }
+
+    /// <summary>
     /// Read persona memory
     /// What this character has told, newest first. The timeline a moment is picked from
     /// </summary>

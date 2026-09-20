@@ -476,6 +476,7 @@ export interface DeadairPersonas {
 export interface DeadairPersonaStories {
   createdAt: Generated<DateTime>;
   id: Generated<string>;
+  kind: Generated<"anecdote" | "arc" | "bit">;
   lastToldAt: DateTime | null;
   origin: "operator" | "model";
   personaKey: string;
@@ -485,6 +486,18 @@ export interface DeadairPersonaStories {
   story: string;
   timesTold: Generated<number>;
   title: string;
+  updatedAt: Generated<DateTime>;
+}
+
+export interface DeadairPersonaStoryBeats {
+  beat: string;
+  createdAt: Generated<DateTime>;
+  id: Generated<string>;
+  ordinal: number;
+  origin: "operator" | "model";
+  source: string | null;
+  state: "active" | "suggested" | "rejected";
+  storyId: string;
   updatedAt: Generated<DateTime>;
 }
 
@@ -500,6 +513,7 @@ export interface DeadairPersonaStoryDetails {
 
 export interface DeadairPersonaTellings {
   airedAt: DateTime | null;
+  beatId: string | null;
   createdAt: Generated<DateTime>;
   id: Generated<string>;
   mode: "offered" | "told";
@@ -798,7 +812,7 @@ export interface DeadairStationLineup {
   name: Generated<string>;
   onEnd: Generated<"extend" | "repeat" | "stop">;
   personaId: string | null;
-  placedBy: Generated<string>;
+  placedBy: Generated<"operator" | "schedule">;
   rules: Json | null;
   slotId: string | null;
   source: Generated<string>;
@@ -950,6 +964,7 @@ export interface DB {
   "deadair.personaNotes": DeadairPersonaNotes;
   "deadair.personas": DeadairPersonas;
   "deadair.personaStories": DeadairPersonaStories;
+  "deadair.personaStoryBeats": DeadairPersonaStoryBeats;
   "deadair.personaStoryDetails": DeadairPersonaStoryDetails;
   "deadair.personaTellings": DeadairPersonaTellings;
   "deadair.playHistory": DeadairPlayHistory;

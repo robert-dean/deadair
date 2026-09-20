@@ -23,6 +23,7 @@ import {
     PersonaNoteWrite,
     PersonaRehearsal,
     PersonaRequest,
+    PersonaStoryBeatWrite,
     PersonaStoryDetailWrite,
     PersonaStoryList,
     PersonaStoryState,
@@ -570,8 +571,116 @@ PersonasRouter.post('/personas/:id/rehearse', requirePolicy({ policy: 'platform.
 });
 
 /**
+ * Adds one part to an arc. A script rather than a summary: the floor speaks it as it stands
+ * from [personas.ck](../../data/contracts/personas/personas.ck#L507)
+ */
+PersonasRouter.post(
+    '/personas/:id/stories/:storyId/beats',
+    requirePolicy({ policy: 'platform.manage' }),
+    bodyParserMiddleware(['json']),
+    async ctx => {
+        const { id, storyId } = await parseAndValidate(
+            ctx.params,
+            z.strictObject({
+                id: z.string().min(1).max(100),
+                storyId: z.string().min(1).max(100),
+            }),
+        );
+
+        const body = await parseAndValidate(ctx.parsedBody, PersonaStoryBeatWrite);
+
+        const service = ctx.container.get(PersonaStoriesService);
+        const result: PersonaStoryList = await service.addBeat(id, storyId, body);
+
+        ctx.status = 201;
+        ctx.type = 'application/json';
+        ctx.body = result;
+    },
+);
+
+/**
+ * Rewrites one part's words, or moves it in the order
+ * from [personas.ck](../../data/contracts/personas/personas.ck#L527)
+ */
+PersonasRouter.put(
+    '/personas/:id/stories/:storyId/beats/:beatId',
+    requirePolicy({ policy: 'platform.manage' }),
+    bodyParserMiddleware(['json']),
+    async ctx => {
+        const { id, storyId, beatId } = await parseAndValidate(
+            ctx.params,
+            z.strictObject({
+                id: z.string().min(1).max(100),
+                storyId: z.string().min(1).max(100),
+                beatId: z.string().min(1).max(100),
+            }),
+        );
+
+        const body = await parseAndValidate(ctx.parsedBody, PersonaStoryBeatWrite);
+
+        const service = ctx.container.get(PersonaStoriesService);
+        const result: PersonaStoryList = await service.updateBeat(id, storyId, beatId, body);
+
+        ctx.status = 200;
+        ctx.type = 'application/json';
+        ctx.body = result;
+    },
+);
+
+/**
+ * Removes one part outright, leaving the arc standing. Turning down a PROPOSAL is a state instead
+ * from [personas.ck](../../data/contracts/personas/personas.ck#L539)
+ */
+PersonasRouter.delete('/personas/:id/stories/:storyId/beats/:beatId', requirePolicy({ policy: 'platform.manage' }), async ctx => {
+    const { id, storyId, beatId } = await parseAndValidate(
+        ctx.params,
+        z.strictObject({
+            id: z.string().min(1).max(100),
+            storyId: z.string().min(1).max(100),
+            beatId: z.string().min(1).max(100),
+        }),
+    );
+
+    const service = ctx.container.get(PersonaStoriesService);
+    const result: PersonaStoryList = await service.removeBeat(id, storyId, beatId);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
+ * Accepts a proposed part, or turns it down without losing that it was turned down
+ * from [personas.ck](../../data/contracts/personas/personas.ck#L556)
+ */
+PersonasRouter.put(
+    '/personas/:id/stories/:storyId/beats/:beatId/state',
+    requirePolicy({ policy: 'platform.manage' }),
+    bodyParserMiddleware(['json']),
+    async ctx => {
+        const { id, storyId, beatId } = await parseAndValidate(
+            ctx.params,
+            z.strictObject({
+                id: z.string().min(1).max(100),
+                storyId: z.string().min(1).max(100),
+                beatId: z.string().min(1).max(100),
+            }),
+        );
+
+        const body = await parseAndValidate(ctx.parsedBody, PersonaStoryState);
+
+        const service = ctx.container.get(PersonaStoriesService);
+        const result: PersonaStoryList = await service.setBeatState(id, storyId, beatId, body);
+
+        ctx.status = 200;
+        ctx.type = 'application/json';
+        ctx.body = result;
+    },
+);
+
+/**
  * What this character has told, newest first. The timeline a moment is picked from
- * from [personas.ck](../../data/contracts/personas/personas.ck#L511)
+ * from [personas.ck](../../data/contracts/personas/personas.ck#L583)
  */
 PersonasRouter.get('/personas/:id/memory', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const { id } = await parseAndValidate(
@@ -591,7 +700,7 @@ PersonasRouter.get('/personas/:id/memory', requirePolicy({ policy: 'platform.vie
 
 /**
  * What rolling back to a moment would undo, without undoing it
- * from [personas.ck](../../data/contracts/personas/personas.ck#L529)
+ * from [personas.ck](../../data/contracts/personas/personas.ck#L601)
  */
 PersonasRouter.get('/personas/:id/memory/preview', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const { id } = await parseAndValidate(
@@ -622,7 +731,7 @@ PersonasRouter.get('/personas/:id/memory/preview', requirePolicy({ policy: 'plat
 
 /**
  * Undo it. Everything the station accrued after that moment goes; everything an operator wrote stays
- * from [personas.ck](../../data/contracts/personas/personas.ck#L550)
+ * from [personas.ck](../../data/contracts/personas/personas.ck#L622)
  */
 PersonasRouter.post('/personas/:id/memory/rollback', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const { id } = await parseAndValidate(

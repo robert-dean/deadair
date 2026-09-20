@@ -2,9 +2,11 @@ import { Injectable } from 'injectkit';
 import { Kysely, sql } from 'kysely';
 import { DataRepository, type DB } from '#modules/data/data.repository.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
+import type { PersonaStoryBeat, PersonaStoryBeatDraft } from './persona.story.beat.js';
 import {
     PERSONA_STORY_DETAIL_LIMIT,
     type PersonaStory,
+    type PersonaStoryKind,
     type PersonaStoryDetail,
     type PersonaStoryDraft,
     type PersonaStoryForPrompt,
@@ -26,6 +28,13 @@ export interface PersonaStoryDetailWrite {
     state: PersonaStoryState;
     origin: PersonaStoryOrigin;
     source?: string;
+}
+
+/** A beat on its way in, hung on an arc that already exists. */
+export interface PersonaStoryBeatWrite extends PersonaStoryBeatDraft {
+    storyId: string;
+    state: PersonaStoryState;
+    origin: PersonaStoryOrigin;
 }
 
 /**
@@ -99,16 +108,18 @@ export class PersonaStoriesRepository extends DataRepository {
 
         if (rows.length === 0) return [];
 
-        const details = await this.detailsFor(rows.map(row => row.id));
+        const [details, beats] = await Promise.all([this.detailsFor(rows.map(row => row.id)), this.beatsFor(rows.map(row => row.id))]);
 
         return rows.map(row => ({
             id: row.id,
             personaKey: row.personaKey,
             title: row.title,
             story: row.story,
+            kind: row.kind as PersonaStoryKind,
             state: row.state as PersonaStoryState,
             origin: row.origin as PersonaStoryOrigin,
             details: details.get(row.id) ?? [],
+            beats: beats.get(row.id) ?? [],
             timesTold: Number(row.toldCount),
             ...(row.source == null ? {} : { source: row.source }),
             ...(row.toldAt == null ? {} : { lastToldAt: row.toldAt }),
@@ -236,10 +247,15 @@ export class PersonaStoriesRepository extends DataRepository {
     }
 
     /** Rewrites one story's handle and telling. An operator editing what the pass proposed is the point. */
-    async update(id: string, draft: { title: string; story: string }): Promise<boolean> {
+    async update(id: string, draft: { title: string; story: string; kind?: PersonaStoryKind }): Promise<boolean> {
         const result = await this.db
             .updateTable('deadair.personaStories')
-            .set({ title: draft.title.trim(), story: draft.story.trim(), updatedAt: sql`now()` })
+            .set({
+                title: draft.title.trim(),
+                story: draft.story.trim(),
+                ...(draft.kind === undefined ? {} : { kind: draft.kind }),
+                updatedAt: sql`now()`,
+            })
             .where('id', '=', id)
             .where('stationKey', '=', this.station.stationKey)
             .executeTakeFirst();
@@ -330,6 +346,70 @@ export class PersonaStoriesRepository extends DataRepository {
         const result = await this.db.deleteFrom('deadair.personaStoryDetails').where('id', '=', id).executeTakeFirst();
 
         return Number(result.numDeletedRows) > 0;
+    }
+
+    /** Adds one part to an arc. */
+    async addBeat(write: PersonaStoryBeatWrite): Promise<void> {
+        await this.db.insertInto('deadair.personaStoryBeats').values(this.beatValuesFor(write)).execute();
+    }
+
+    /** Adds several, skipping any this arc already carries in the same words or at the same place. */
+    async addBeats(writes: readonly PersonaStoryBeatWrite[]): Promise<number> {
+        if (writes.length === 0) return 0;
+
+        const written = await this.db
+            .insertInto('deadair.personaStoryBeats')
+            .values(writes.map(write => this.beatValuesFor(write)))
+            .onConflict(conflict => conflict.doNothing())
+            .returning('id')
+            .execute();
+
+        return written.length;
+    }
+
+    /** Rewrites one part's words, or moves it in the order. */
+    async updateBeat(id: string, draft: { beat?: string; ordinal?: number }): Promise<boolean> {
+        const result = await this.db
+            .updateTable('deadair.personaStoryBeats')
+            .set({
+                ...(draft.beat === undefined ? {} : { beat: draft.beat.trim() }),
+                ...(draft.ordinal === undefined ? {} : { ordinal: draft.ordinal }),
+                updatedAt: sql`now()`,
+            })
+            .where('id', '=', id)
+            .executeTakeFirst();
+
+        return Number(result.numUpdatedRows) > 0;
+    }
+
+    /** Accepts a proposed part, or turns it down without losing that it was turned down. */
+    async setBeatState(id: string, state: PersonaStoryState): Promise<boolean> {
+        const result = await this.db
+            .updateTable('deadair.personaStoryBeats')
+            .set({ state, updatedAt: sql`now()` })
+            .where('id', '=', id)
+            .executeTakeFirst();
+
+        return Number(result.numUpdatedRows) > 0;
+    }
+
+    /** Removes one part outright, leaving the arc it belonged to standing. */
+    async removeBeat(id: string): Promise<boolean> {
+        const result = await this.db.deleteFrom('deadair.personaStoryBeats').where('id', '=', id).executeTakeFirst();
+
+        return Number(result.numDeletedRows) > 0;
+    }
+
+    /** Whether this arc already carries a part in these words, in any state including `rejected`. */
+    async holdsBeat(storyId: string, beat: string): Promise<boolean> {
+        const found = await this.db
+            .selectFrom('deadair.personaStoryBeats')
+            .select('id')
+            .where('storyId', '=', storyId)
+            .where(sql<boolean>`lower(btrim(beat)) = lower(btrim(${beat}))`)
+            .executeTakeFirst();
+
+        return found !== undefined;
     }
 
     /** Whether this story already carries a detail in these words, in any state including `rejected`. */
@@ -461,12 +541,67 @@ export class PersonaStoriesRepository extends DataRepository {
         return out;
     }
 
+    /**
+     * The beats of several arcs at once, in telling order.
+     *
+     * One query for the whole page rather than one per arc, exactly as {@link detailsFor} is and for
+     * the same reason.
+     */
+    private async beatsFor(storyIds: readonly string[], state?: PersonaStoryState): Promise<Map<string, PersonaStoryBeat[]>> {
+        const out = new Map<string, PersonaStoryBeat[]>();
+        if (storyIds.length === 0) return out;
+
+        let query = this.db
+            .selectFrom('deadair.personaStoryBeats')
+            .selectAll()
+            .where('storyId', 'in', [...storyIds])
+            // The order the arc is told in. `id` behind it because gaps are legal and a pass writing
+            // a batch in one statement can give two parts the same number before anybody tidies up.
+            .orderBy('ordinal', 'asc')
+            .orderBy('id', 'asc');
+
+        if (state !== undefined) query = query.where('state', '=', state);
+
+        for (const row of await query.execute()) {
+            const beat: PersonaStoryBeat = {
+                id: row.id,
+                storyId: row.storyId,
+                ordinal: Number(row.ordinal),
+                beat: row.beat,
+                state: row.state as PersonaStoryState,
+                origin: row.origin as PersonaStoryOrigin,
+                ...(row.source == null ? {} : { source: row.source }),
+                createdAt: row.createdAt.toISO() ?? '',
+            };
+
+            const held = out.get(row.storyId);
+            if (held === undefined) out.set(row.storyId, [beat]);
+            else held.push(beat);
+        }
+
+        return out;
+    }
+
     private valuesFor(write: PersonaStoryWrite) {
         return {
             stationKey: this.station.stationKey,
             personaKey: write.personaKey,
             title: write.title.trim(),
             story: write.story.trim(),
+            // Absent means `anecdote`, which is what every story written before arcs existed is and
+            // what somebody writing one about a night that happened means without saying so.
+            ...(write.kind === undefined ? {} : { kind: write.kind }),
+            state: write.state,
+            origin: write.origin,
+            source: write.source ?? null,
+        };
+    }
+
+    private beatValuesFor(write: PersonaStoryBeatWrite) {
+        return {
+            storyId: write.storyId,
+            ordinal: write.ordinal,
+            beat: write.beat.trim(),
             state: write.state,
             origin: write.origin,
             source: write.source ?? null,

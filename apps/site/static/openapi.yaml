@@ -2088,6 +2088,152 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/PersonaRehearsal'
+    '/personas/{id}/stories/{storyId}/beats':
+        post:
+            operationId: addBeat
+            summary: 'Add persona story beat'
+            description: 'Adds one part to an arc. A script rather than a summary: the floor speaks it as it stands'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 100
+                - name: storyId
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 100
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/PersonaStoryBeatWrite'
+            responses:
+                '201':
+                    description: Created
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/PersonaStoryList'
+    '/personas/{id}/stories/{storyId}/beats/{beatId}':
+        put:
+            operationId: updateBeat
+            summary: 'Update persona story beat'
+            description: "Rewrites one part's words, or moves it in the order"
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 100
+                - name: storyId
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 100
+                - name: beatId
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 100
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/PersonaStoryBeatWrite'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/PersonaStoryList'
+        delete:
+            operationId: removeBeat
+            summary: 'Delete persona story beat'
+            description: 'Removes one part outright, leaving the arc standing. Turning down a PROPOSAL is a state instead'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 100
+                - name: storyId
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 100
+                - name: beatId
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 100
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/PersonaStoryList'
+    '/personas/{id}/stories/{storyId}/beats/{beatId}/state':
+        put:
+            operationId: setBeatState
+            summary: 'Set persona story beat state'
+            description: 'Accepts a proposed part, or turns it down without losing that it was turned down'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 100
+                - name: storyId
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 100
+                - name: beatId
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 100
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/PersonaStoryState'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/PersonaStoryList'
     '/personas/{id}/memory':
         get:
             operationId: timeline
@@ -7515,12 +7661,23 @@ components:
                     maxLength: 1000
                     readOnly: true
                     description: "Where a proposal came from, in the station's own words. Absent for anything an operator wrote"
+                kind:
+                    type: string
+                    enum: [anecdote, arc, bit]
+                    readOnly: true
+                    description: 'An `anecdote` is told whole, an `arc` a part at a time, a `bit` is a running joke with no end'
                 details:
                     type: array
                     items:
                         '$ref': '#/components/schemas/PersonaStoryDetail'
                     readOnly: true
                     description: 'What it has picked up since, in every state'
+                beats:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/PersonaStoryBeat'
+                    readOnly: true
+                    description: 'The parts an arc is told in, in order and in every state. Empty for the other two kinds'
                 lastToldAt:
                     type: string
                     maxLength: 40
@@ -7536,7 +7693,7 @@ components:
                     minLength: 1
                     maxLength: 40
                     readOnly: true
-            required: [id, title, story, state, origin, details, timesTold, createdAt]
+            required: [id, title, story, state, origin, kind, details, beats, timesTold, createdAt]
             description: "Something that happened to this character, in its own telling. Not a claim about the world and never\nchecked as one: `source` says where a proposal came from, for the operator reading it, and nothing\ndownstream reads it as evidence — see `persona.story.ts` for why that is the load-bearing difference\nfrom a fact"
         PersonaStoryDetail:
             type: object
@@ -7593,8 +7750,65 @@ components:
                     type: string
                     minLength: 1
                     maxLength: 4000
+                kind:
+                    type: string
+                    enum: [anecdote, arc, bit]
+                    description: 'What sort of thing this is. Absent means `anecdote`, which is what every story written before arcs existed is'
             required: [title, story]
             description: 'A story an operator is writing by hand. Always active and always theirs; a proposal is something only the enrichment pass creates'
+        PersonaStoryBeat:
+            type: object
+            properties:
+                id:
+                    type: string
+                    minLength: 1
+                    maxLength: 100
+                    readOnly: true
+                storyId:
+                    type: string
+                    minLength: 1
+                    maxLength: 100
+                    readOnly: true
+                ordinal:
+                    type: integer
+                    minimum: 0
+                    description: 'Where it comes in the telling. Gaps are legal: inserting a part between two others must not mean renumbering the rest'
+                beat:
+                    type: string
+                    minLength: 1
+                    maxLength: 4000
+                state:
+                    type: string
+                    enum: [active, suggested, rejected]
+                    readOnly: true
+                origin:
+                    type: string
+                    enum: [operator, model]
+                    readOnly: true
+                source:
+                    type: string
+                    maxLength: 1000
+                    readOnly: true
+                    description: "Where a proposal came from. Not evidence; see the note on a story's own source"
+                createdAt:
+                    type: string
+                    minLength: 1
+                    maxLength: 40
+                    readOnly: true
+            required: [id, storyId, ordinal, beat, state, origin, createdAt]
+            description: 'One part of an arc, in the order it is told. A SCRIPT rather than a summary, because the floor speaks it as it stands'
+        PersonaStoryBeatWrite:
+            type: object
+            properties:
+                ordinal:
+                    type: integer
+                    minimum: 0
+                beat:
+                    type: string
+                    minLength: 1
+                    maxLength: 4000
+            required: [ordinal, beat]
+            description: 'A part to add to an arc, or an edit to one'
         PersonaStoryDetailWrite:
             type: object
             properties:

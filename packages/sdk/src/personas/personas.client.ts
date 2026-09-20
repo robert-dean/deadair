@@ -20,6 +20,7 @@ import type {
     PersonaNoteWrite,
     PersonaRehearsal,
     PersonaRequest,
+    PersonaStoryBeatWrite,
     PersonaStoryDetailWrite,
     PersonaStoryList,
     PersonaStoryState,
@@ -368,6 +369,63 @@ export class PersonasClient {
     async rehearsePersona(id: string): Promise<PersonaRehearsal> {
         const result = await this.fetch(`/personas/${encodeURIComponent(id)}/rehearse`, { method: 'POST' });
         return await parseJson<PersonaRehearsal>(result);
+    }
+
+    /**
+     * @name Add persona story beat
+     * @description Adds one part to an arc. A script rather than a summary: the floor speaks it as it stands
+     */
+    async addPersonaStoryBeat(id: string, storyId: string, body: PersonaStoryBeatWrite): Promise<PersonaStoryList> {
+        const result = await this.fetch(`/personas/${encodeURIComponent(id)}/stories/${encodeURIComponent(storyId)}/beats`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<PersonaStoryList>(result);
+    }
+
+    /**
+     * @name Update persona story beat
+     * @description Rewrites one part's words, or moves it in the order
+     */
+    async updatePersonaStoryBeat(id: string, storyId: string, beatId: string, body: PersonaStoryBeatWrite): Promise<PersonaStoryList> {
+        const result = await this.fetch(
+            `/personas/${encodeURIComponent(id)}/stories/${encodeURIComponent(storyId)}/beats/${encodeURIComponent(beatId)}`,
+            {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body, bigIntReplacer),
+            },
+        );
+        return await parseJson<PersonaStoryList>(result);
+    }
+
+    /**
+     * @name Delete persona story beat
+     * @description Removes one part outright, leaving the arc standing. Turning down a PROPOSAL is a state instead
+     */
+    async deletePersonaStoryBeat(id: string, storyId: string, beatId: string): Promise<PersonaStoryList> {
+        const result = await this.fetch(
+            `/personas/${encodeURIComponent(id)}/stories/${encodeURIComponent(storyId)}/beats/${encodeURIComponent(beatId)}`,
+            { method: 'DELETE' },
+        );
+        return await parseJson<PersonaStoryList>(result);
+    }
+
+    /**
+     * @name Set persona story beat state
+     * @description Accepts a proposed part, or turns it down without losing that it was turned down
+     */
+    async setPersonaStoryBeatState(id: string, storyId: string, beatId: string, body: PersonaStoryState): Promise<PersonaStoryList> {
+        const result = await this.fetch(
+            `/personas/${encodeURIComponent(id)}/stories/${encodeURIComponent(storyId)}/beats/${encodeURIComponent(beatId)}/state`,
+            {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body, bigIntReplacer),
+            },
+        );
+        return await parseJson<PersonaStoryList>(result);
     }
 
     /**

@@ -427,6 +427,63 @@ public sealed record PersonaStoryWrite
 
     [JsonPropertyName("story")]
     public required string Story { get; init; }
+
+    /// <summary>What sort of thing this is. Absent means `anecdote`, which is what every story written before arcs existed is</summary>
+    [JsonPropertyName("kind")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PersonaStoryWriteKind? Kind { get; init; }
+}
+
+/// <summary>One part of an arc, in the order it is told. A SCRIPT rather than a summary, because the floor speaks it as it stands</summary>
+public sealed record PersonaStoryBeat
+{
+    [JsonPropertyName("id")]
+    public required string Id { get; init; }
+
+    [JsonPropertyName("storyId")]
+    public required string StoryId { get; init; }
+
+    /// <summary>Where it comes in the telling. Gaps are legal: inserting a part between two others must not mean renumbering the rest</summary>
+    [JsonPropertyName("ordinal")]
+    public required long Ordinal { get; init; }
+
+    [JsonPropertyName("beat")]
+    public required string Beat { get; init; }
+
+    [JsonPropertyName("state")]
+    public required PersonaStoryBeatState State { get; init; }
+
+    [JsonPropertyName("origin")]
+    public required PersonaStoryBeatOrigin Origin { get; init; }
+
+    /// <summary>Where a proposal came from. Not evidence; see the note on a story's own source</summary>
+    [JsonPropertyName("source")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Source { get; init; }
+
+    [JsonPropertyName("createdAt")]
+    public required string CreatedAt { get; init; }
+}
+
+/// <summary>One part of an arc, in the order it is told. A SCRIPT rather than a summary, because the floor speaks it as it stands</summary>
+public sealed record PersonaStoryBeatInput
+{
+    /// <summary>Where it comes in the telling. Gaps are legal: inserting a part between two others must not mean renumbering the rest</summary>
+    [JsonPropertyName("ordinal")]
+    public required long Ordinal { get; init; }
+
+    [JsonPropertyName("beat")]
+    public required string Beat { get; init; }
+}
+
+/// <summary>A part to add to an arc, or an edit to one</summary>
+public sealed record PersonaStoryBeatWrite
+{
+    [JsonPropertyName("ordinal")]
+    public required long Ordinal { get; init; }
+
+    [JsonPropertyName("beat")]
+    public required string Beat { get; init; }
 }
 
 /// <summary>One thing to add to a story that already exists</summary>
@@ -709,6 +766,25 @@ public sealed record PersonaNoteListInput
     public required List<PersonaNoteInput> Notes { get; init; }
 }
 
+/// <summary>What a model wrote, and what had to be dropped to make it usable</summary>
+public sealed record GeneratedPersona
+{
+    [JsonPropertyName("persona")]
+    public required PersonaDraftView Persona { get; init; }
+
+    /// <summary>A couple of things that have happened to this character. Beside the form rather than in it, because they are their own table: the console saves the persona and then writes these through the stories route, so they go through the same validation an operator's own typing does</summary>
+    [JsonPropertyName("stories")]
+    public required List<PersonaStoryWrite> Stories { get; init; }
+
+    /// <summary>Words the model called markers that its own sample lines never used. Dropped, because the samples are the evidence and the marker list is the claim — a marker nothing says declines every break and looks exactly like a model that is switched off</summary>
+    [JsonPropertyName("droppedMarkers")]
+    public required List<string> DroppedMarkers { get; init; }
+
+    /// <summary>Phrasings naming a value the vocabulary does not have. Dropped by the LINE, since five good phrasings and one broken one is five phrasings</summary>
+    [JsonPropertyName("droppedTemplates")]
+    public required List<string> DroppedTemplates { get; init; }
+}
+
 /// <summary>
 /// Something that happened to this character, in its own telling. Not a claim about the world and never
 /// checked as one: `source` says where a proposal came from, for the operator reading it, and nothing
@@ -741,9 +817,17 @@ public sealed record PersonaStory
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Source { get; init; }
 
+    /// <summary>An `anecdote` is told whole, an `arc` a part at a time, a `bit` is a running joke with no end</summary>
+    [JsonPropertyName("kind")]
+    public required PersonaStoryKind Kind { get; init; }
+
     /// <summary>What it has picked up since, in every state</summary>
     [JsonPropertyName("details")]
     public required List<PersonaStoryDetail> Details { get; init; }
+
+    /// <summary>The parts an arc is told in, in order and in every state. Empty for the other two kinds</summary>
+    [JsonPropertyName("beats")]
+    public required List<PersonaStoryBeat> Beats { get; init; }
 
     /// <summary>Absent means never told, which is what puts it at the front of the rotation</summary>
     [JsonPropertyName("lastToldAt")]
@@ -773,25 +857,6 @@ public sealed record PersonaStoryInput
     /// <summary>The telling itself, in the character's voice. Already speakable, because the floor reads it as it stands</summary>
     [JsonPropertyName("story")]
     public required string Story { get; init; }
-}
-
-/// <summary>What a model wrote, and what had to be dropped to make it usable</summary>
-public sealed record GeneratedPersona
-{
-    [JsonPropertyName("persona")]
-    public required PersonaDraftView Persona { get; init; }
-
-    /// <summary>A couple of things that have happened to this character. Beside the form rather than in it, because they are their own table: the console saves the persona and then writes these through the stories route, so they go through the same validation an operator's own typing does</summary>
-    [JsonPropertyName("stories")]
-    public required List<PersonaStoryWrite> Stories { get; init; }
-
-    /// <summary>Words the model called markers that its own sample lines never used. Dropped, because the samples are the evidence and the marker list is the claim — a marker nothing says declines every break and looks exactly like a model that is switched off</summary>
-    [JsonPropertyName("droppedMarkers")]
-    public required List<string> DroppedMarkers { get; init; }
-
-    /// <summary>Phrasings naming a value the vocabulary does not have. Dropped by the LINE, since five good phrasings and one broken one is five phrasings</summary>
-    [JsonPropertyName("droppedTemplates")]
-    public required List<string> DroppedTemplates { get; init; }
 }
 
 /// <summary>
@@ -1493,6 +1558,20 @@ public enum PersonaStoryOrigin
     Model,
 }
 
+/// <summary>An `anecdote` is told whole, an `arc` a part at a time, a `bit` is a running joke with no end</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<PersonaStoryKind>))]
+public enum PersonaStoryKind
+{
+    [JsonStringEnumMemberName("anecdote")]
+    Anecdote,
+
+    [JsonStringEnumMemberName("arc")]
+    Arc,
+
+    [JsonStringEnumMemberName("bit")]
+    Bit,
+}
+
 [JsonConverter(typeof(JsonStringEnumConverter<PersonaStoryDetailState>))]
 public enum PersonaStoryDetailState
 {
@@ -1508,6 +1587,43 @@ public enum PersonaStoryDetailState
 
 [JsonConverter(typeof(JsonStringEnumConverter<PersonaStoryDetailOrigin>))]
 public enum PersonaStoryDetailOrigin
+{
+    [JsonStringEnumMemberName("operator")]
+    Operator,
+
+    [JsonStringEnumMemberName("model")]
+    Model,
+}
+
+/// <summary>What sort of thing this is. Absent means `anecdote`, which is what every story written before arcs existed is</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<PersonaStoryWriteKind>))]
+public enum PersonaStoryWriteKind
+{
+    [JsonStringEnumMemberName("anecdote")]
+    Anecdote,
+
+    [JsonStringEnumMemberName("arc")]
+    Arc,
+
+    [JsonStringEnumMemberName("bit")]
+    Bit,
+}
+
+[JsonConverter(typeof(JsonStringEnumConverter<PersonaStoryBeatState>))]
+public enum PersonaStoryBeatState
+{
+    [JsonStringEnumMemberName("active")]
+    Active,
+
+    [JsonStringEnumMemberName("suggested")]
+    Suggested,
+
+    [JsonStringEnumMemberName("rejected")]
+    Rejected,
+}
+
+[JsonConverter(typeof(JsonStringEnumConverter<PersonaStoryBeatOrigin>))]
+public enum PersonaStoryBeatOrigin
 {
     [JsonStringEnumMemberName("operator")]
     Operator,

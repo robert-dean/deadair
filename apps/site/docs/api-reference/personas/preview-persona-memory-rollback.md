@@ -1,7 +1,7 @@
 ---
 title: 'Preview persona memory rollback'
 sidebar_label: 'Preview persona memory rollback'
-sidebar_position: 32
+sidebar_position: 36
 mdx:
     format: 'md'
 ---

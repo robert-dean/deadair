@@ -27,9 +27,13 @@ const story = (over: Partial<PersonaStory> = {}): PersonaStory => ({
     personaKey: 'overnight',
     title: 'The Barstow lights',
     story: 'Three of them, over the desert, and nobody else on the road.',
+    // Never absent on a stored row, whatever the draft allows: the column is `not null` with a
+    // default, so what a repository answers with is always one of the three.
+    kind: 'anecdote',
     state: 'active',
     origin: 'operator',
     details: [],
+    beats: [],
     timesTold: 0,
     createdAt: '2026-08-01T00:00:00.000Z',
     ...over,

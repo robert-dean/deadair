@@ -1,6 +1,7 @@
 import { Injectable } from 'injectkit';
 import { httpError } from '@maroonedsoftware/errors';
 import type {
+    PersonaStoryBeatWrite as PersonaStoryBeatWriteInput,
     PersonaStoryDetailWrite as PersonaStoryDetailWriteInput,
     PersonaStoryList,
     PersonaStoryState as PersonaStoryStateInput,
@@ -52,7 +53,16 @@ export class PersonaStoriesService {
         if (await this.stories.holds(personaKey, write.title))
             throw httpError(409).withDetails({ message: `this character already has a story called "${write.title}"` });
 
-        await this.stories.add({ personaKey, title: write.title, story: write.story, state: 'active', origin: 'operator' });
+        await this.stories.add({
+            personaKey,
+            title: write.title,
+            story: write.story,
+            // Absent means `anecdote`, which is what the column defaults to and what somebody
+            // writing about a night that happened means without being asked.
+            ...(write.kind === undefined ? {} : { kind: write.kind }),
+            state: 'active',
+            origin: 'operator',
+        });
         return await this.answer(personaKey, id);
     }
 
@@ -61,7 +71,10 @@ export class PersonaStoriesService {
         const personaKey = await this.keyFor(id);
         await this.holding(personaKey, storyId);
 
-        await this.stories.update(storyId, { title: write.title, story: write.story });
+        // The kind can change, which is how an anecdote somebody has thought better of becomes an
+        // arc. Going the other way leaves any beats where they are rather than deleting them: they
+        // stop being read, and an operator who changes their mind back has not lost the writing.
+        await this.stories.update(storyId, { title: write.title, story: write.story, ...(write.kind === undefined ? {} : { kind: write.kind }) });
         return await this.answer(personaKey, id);
     }
 
@@ -123,6 +136,53 @@ export class PersonaStoriesService {
     }
 
     /**
+     * Adds one part to an arc. Active, for an operator's own reason above.
+     *
+     * Only an ARC may have parts, and that is checked rather than assumed: a beat on an anecdote
+     * would be a row nothing ever reads, which is the kind of state that is discovered months later
+     * by somebody wondering why their story never advances.
+     */
+    async addBeat(id: string, storyId: string, write: PersonaStoryBeatWriteInput): Promise<PersonaStoryList> {
+        const personaKey = await this.keyFor(id);
+        const story = await this.holding(personaKey, storyId);
+
+        if (story.kind !== 'arc') throw httpError(409).withDetails({ message: 'only an arc is told in parts' });
+
+        if (await this.stories.holdsBeat(storyId, write.beat))
+            throw httpError(409).withDetails({ message: 'this arc already has a part in those words' });
+
+        await this.stories.addBeat({ storyId, ordinal: write.ordinal, beat: write.beat, state: 'active', origin: 'operator' });
+        return await this.answer(personaKey, id);
+    }
+
+    /** Rewrites one part's words, or moves it in the order. */
+    async updateBeat(id: string, storyId: string, beatId: string, write: PersonaStoryBeatWriteInput): Promise<PersonaStoryList> {
+        const personaKey = await this.keyFor(id);
+        await this.holdingBeat(personaKey, storyId, beatId);
+
+        await this.stories.updateBeat(beatId, { beat: write.beat, ordinal: write.ordinal });
+        return await this.answer(personaKey, id);
+    }
+
+    /** Accepts a proposed part or turns it down, which has to outlive the pass that proposed it. */
+    async setBeatState(id: string, storyId: string, beatId: string, input: PersonaStoryStateInput): Promise<PersonaStoryList> {
+        const personaKey = await this.keyFor(id);
+        await this.holdingBeat(personaKey, storyId, beatId);
+
+        await this.stories.setBeatState(beatId, input.state);
+        return await this.answer(personaKey, id);
+    }
+
+    /** Removes one part, leaving the arc it belonged to standing. */
+    async removeBeat(id: string, storyId: string, beatId: string): Promise<PersonaStoryList> {
+        const personaKey = await this.keyFor(id);
+        await this.holdingBeat(personaKey, storyId, beatId);
+
+        await this.stories.removeBeat(beatId);
+        return await this.answer(personaKey, id);
+    }
+
+    /**
      * The persona's KEY from the id in the path.
      *
      * The route names a persona by id because that is what every other route in the file does and
@@ -146,6 +206,14 @@ export class PersonaStoriesService {
     }
 
     /** The same for a detail, which has to belong to the story that was named as well. */
+    private async holdingBeat(personaKey: string, storyId: string, beatId: string) {
+        const story = await this.holding(personaKey, storyId);
+        const beat = story.beats.find(held => held.id === beatId);
+        if (beat === undefined) throw httpError(404).withDetails({ message: `beat "${beatId}" does not exist` });
+
+        return beat;
+    }
+
     private async holdingDetail(personaKey: string, storyId: string, detailId: string) {
         const story = await this.holding(personaKey, storyId);
         const detail = story.details.find(held => held.id === detailId);

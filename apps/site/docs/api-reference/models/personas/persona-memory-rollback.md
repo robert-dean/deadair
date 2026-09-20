@@ -1,6 +1,6 @@
 ---
 title: 'PersonaMemoryRollback'
-sidebar_position: 36
+sidebar_position: 38
 mdx:
     format: 'md'
 ---

@@ -238,6 +238,41 @@ public final class PersonasClient: Sendable {
         return try http.decodeJSON(PersonaRehearsal.self, from: response)
     }
 
+    /// Add persona story beat
+    /// Adds one part to an arc. A script rather than a summary: the floor speaks it as it stands
+    public func addPersonaStoryBeat(id: String, storyId: String, body: PersonaStoryBeatWrite) async throws -> PersonaStoryList {
+        var request = try SdkRequest(method: "POST", path: ["personas", http.segment(id), "stories", http.segment(storyId), "beats"])
+        try http.setJSONBody(&request, body, contentType: "application/json")
+        let response = try await http.execute(request)
+        return try http.decodeJSON(PersonaStoryList.self, from: response)
+    }
+
+    /// Update persona story beat
+    /// Rewrites one part's words, or moves it in the order
+    public func updatePersonaStoryBeat(id: String, storyId: String, beatId: String, body: PersonaStoryBeatWrite) async throws -> PersonaStoryList {
+        var request = try SdkRequest(method: "PUT", path: ["personas", http.segment(id), "stories", http.segment(storyId), "beats", http.segment(beatId)])
+        try http.setJSONBody(&request, body, contentType: "application/json")
+        let response = try await http.execute(request)
+        return try http.decodeJSON(PersonaStoryList.self, from: response)
+    }
+
+    /// Delete persona story beat
+    /// Removes one part outright, leaving the arc standing. Turning down a PROPOSAL is a state instead
+    public func deletePersonaStoryBeat(id: String, storyId: String, beatId: String) async throws -> PersonaStoryList {
+        let request = try SdkRequest(method: "DELETE", path: ["personas", http.segment(id), "stories", http.segment(storyId), "beats", http.segment(beatId)])
+        let response = try await http.execute(request)
+        return try http.decodeJSON(PersonaStoryList.self, from: response)
+    }
+
+    /// Set persona story beat state
+    /// Accepts a proposed part, or turns it down without losing that it was turned down
+    public func setPersonaStoryBeatState(id: String, storyId: String, beatId: String, body: PersonaStoryState) async throws -> PersonaStoryList {
+        var request = try SdkRequest(method: "PUT", path: ["personas", http.segment(id), "stories", http.segment(storyId), "beats", http.segment(beatId), "state"])
+        try http.setJSONBody(&request, body, contentType: "application/json")
+        let response = try await http.execute(request)
+        return try http.decodeJSON(PersonaStoryList.self, from: response)
+    }
+
     /// Read persona memory
     /// What this character has told, newest first. The timeline a moment is picked from
     public func readPersonaMemory(id: String) async throws -> PersonaMemoryTimeline {

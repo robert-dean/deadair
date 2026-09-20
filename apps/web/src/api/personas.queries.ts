@@ -13,6 +13,7 @@ import type {
     PersonaNoteState,
     PersonaNoteWrite,
     PersonaRehearsal,
+    PersonaStoryBeatWrite,
     PersonaStoryDetailWrite,
     PersonaStoryList,
     PersonaStoryState,
@@ -200,6 +201,26 @@ export const useDeletePersonaStoryDetail = () =>
 export const useSetPersonaStoryDetailState = () =>
     useStoryWrite(({ id, storyId, detailId, state }: { id: string; storyId: string; detailId: string; state: PersonaStoryState['state'] }) =>
         sdk.personas.setPersonaStoryDetailState(id, storyId, detailId, { state }),
+    );
+
+/**
+ * The parts an arc is told in. Written on the details' terms, and they are not the same thing: a
+ * detail is something the story picked up and every active one is shown at once, while exactly one
+ * beat is ever told. See `persona.story.beat.ts`.
+ */
+export const useAddPersonaStoryBeat = () =>
+    useStoryWrite(({ id, storyId, body }: { id: string; storyId: string; body: PersonaStoryBeatWrite }) =>
+        sdk.personas.addPersonaStoryBeat(id, storyId, body),
+    );
+
+export const useDeletePersonaStoryBeat = () =>
+    useStoryWrite(({ id, storyId, beatId }: { id: string; storyId: string; beatId: string }) =>
+        sdk.personas.deletePersonaStoryBeat(id, storyId, beatId),
+    );
+
+export const useSetPersonaStoryBeatState = () =>
+    useStoryWrite(({ id, storyId, beatId, state }: { id: string; storyId: string; beatId: string; state: PersonaStoryState['state'] }) =>
+        sdk.personas.setPersonaStoryBeatState(id, storyId, beatId, { state }),
     );
 
 /**

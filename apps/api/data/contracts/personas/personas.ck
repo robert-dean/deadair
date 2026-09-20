@@ -495,6 +495,78 @@ operation /personas/{id}/rehearse: {
     }
 }
 
+# The parts an ARC is told in. Its own routes rather than a mode of the details above, because the
+# two are different things: a detail is something the story picked up and every active one is shown
+# at once, while a beat is one telling's worth and exactly one is ever shown. See
+# `persona.story.beat.ts`.
+operation /personas/{id}/stories/{storyId}/beats: {
+    params: {
+        id: string(min=1, max=100)
+        storyId: string(min=1, max=100)
+    }
+    post: { # Adds one part to an arc. A script rather than a summary: the floor speaks it as it stands
+        name: Add persona story beat
+        service: PersonaStoriesService.addBeat
+        request: {
+            application/json: PersonaStoryBeatWrite
+        }
+        response: {
+            201: {
+                application/json: PersonaStoryList
+            }
+        }
+    }
+}
+
+operation /personas/{id}/stories/{storyId}/beats/{beatId}: {
+    params: {
+        id: string(min=1, max=100)
+        storyId: string(min=1, max=100)
+        beatId: string(min=1, max=100)
+    }
+    put: { # Rewrites one part's words, or moves it in the order
+        name: Update persona story beat
+        service: PersonaStoriesService.updateBeat
+        request: {
+            application/json: PersonaStoryBeatWrite
+        }
+        response: {
+            200: {
+                application/json: PersonaStoryList
+            }
+        }
+    }
+    delete: { # Removes one part outright, leaving the arc standing. Turning down a PROPOSAL is a state instead
+        name: Delete persona story beat
+        service: PersonaStoriesService.removeBeat
+        response: {
+            200: {
+                application/json: PersonaStoryList
+            }
+        }
+    }
+}
+
+operation /personas/{id}/stories/{storyId}/beats/{beatId}/state: {
+    params: {
+        id: string(min=1, max=100)
+        storyId: string(min=1, max=100)
+        beatId: string(min=1, max=100)
+    }
+    put: { # Accepts a proposed part, or turns it down without losing that it was turned down
+        name: Set persona story beat state
+        service: PersonaStoriesService.setBeatState
+        request: {
+            application/json: PersonaStoryState
+        }
+        response: {
+            200: {
+                application/json: PersonaStoryList
+            }
+        }
+    }
+}
+
 # Undoing what a character accumulated on its own.
 #
 # A station whose characters grow unattended needs a way back, or every experiment is permanent and

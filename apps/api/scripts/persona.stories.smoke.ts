@@ -211,6 +211,53 @@ await db
         check('a long story is capped at the limit', (await stories.forPrompt(KEY))?.story.details.length, PERSONA_STORY_DETAIL_LIMIT);
 
         say('');
+        say('an arc, told a part at a time');
+        const arc = await stories.add({
+            personaKey: KEY,
+            title: 'The letter from the station manager',
+            story: 'It started with a letter.',
+            kind: 'arc',
+            state: 'active',
+            origin: 'operator',
+        });
+        check('a story can say what sort of thing it is', (await stories.find(KEY, arc.id))?.kind, 'arc');
+        check('and one that says nothing is an anecdote', (await stories.find(KEY, barstow.id))?.kind, 'anecdote');
+
+        // Gaps are legal and deliberate: inserting a part between two others must not mean
+        // renumbering the rest, and a pass proposing one for the end must not have to know the end.
+        await stories.addBeat({ storyId: arc.id, ordinal: 10, beat: 'You opened it in the car park.', state: 'active', origin: 'operator' });
+        await stories.addBeat({ storyId: arc.id, ordinal: 30, beat: 'You never did reply.', state: 'active', origin: 'operator' });
+        await stories.addBeat({ storyId: arc.id, ordinal: 20, beat: 'You read it twice.', state: 'suggested', origin: 'model' });
+
+        const parts = (await stories.find(KEY, arc.id))?.beats ?? [];
+        check(
+            'the parts come back in telling order, gaps and all',
+            parts.map(beat => beat.ordinal),
+            [10, 20, 30],
+        );
+        check('and a proposed one is waiting rather than tellable', parts[1]?.state, 'suggested');
+
+        check(
+            'the same part cannot be written twice under two numbers',
+            await stories.addBeats([{ storyId: arc.id, ordinal: 40, beat: '  you READ it twice. ', state: 'active', origin: 'model' }]),
+            0,
+        );
+        check(
+            'nor can two parts claim one place in the order',
+            await stories.addBeats([{ storyId: arc.id, ordinal: 10, beat: 'Something else entirely.', state: 'active', origin: 'model' }]),
+            0,
+        );
+
+        // The partial half, as everywhere else here: turning a proposal down must not stand between
+        // an operator and their own version of the same part.
+        await stories.setBeatState(parts[1]!.id, 'rejected');
+        check(
+            'a rejected part does not block the operator writing that part themselves',
+            await stories.addBeats([{ storyId: arc.id, ordinal: 20, beat: 'You read it twice.', state: 'active', origin: 'operator' }]),
+            1,
+        );
+
+        say('');
         say('the cascade');
         // Against the habit of every other reference here, and deliberately: a detail whose story is
         // gone is not a smaller story, it is a fragment nothing can render and nobody can place.

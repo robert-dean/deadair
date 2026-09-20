@@ -11,7 +11,7 @@ mdx:
 > from a fact
 
 <details>
-<summary>Attributes (10)</summary>
+<summary>Attributes (12)</summary>
 
 | Attribute    | Type                                    | Required | Description                                                                                                                 |
 | ------------ | --------------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------- |
@@ -21,7 +21,9 @@ mdx:
 | `state`      | `'active' \| 'suggested' \| 'rejected'` | Yes      | `active` can be told. `rejected` outlives the pass that proposed it, or the same catalogue proposes it forever. _read-only_ |
 | `origin`     | `'operator' \| 'model'`                 | Yes      | Who says so. `model` is the enrichment pass writing from what the station already holds. _read-only_                        |
 | `source`     | `string`                                | No       | Where a proposal came from, in the station's own words. Absent for anything an operator wrote. _read-only_                  |
+| `kind`       | `'anecdote' \| 'arc' \| 'bit'`          | Yes      | An `anecdote` is told whole, an `arc` a part at a time, a `bit` is a running joke with no end. _read-only_                  |
 | `details`    | `PersonaStoryDetail[]`                  | Yes      | What it has picked up since, in every state. _read-only_                                                                    |
+| `beats`      | `PersonaStoryBeat[]`                    | Yes      | The parts an arc is told in, in order and in every state. Empty for the other two kinds. _read-only_                        |
 | `lastToldAt` | `string`                                | No       | Absent means never told, which is what puts it at the front of the rotation. _read-only_                                    |
 | `timesTold`  | `number`                                | Yes      | How often it has gone out, which changes how the model is asked to tell it. _read-only_                                     |
 | `createdAt`  | `string`                                | Yes      | _read-only_                                                                                                                 |

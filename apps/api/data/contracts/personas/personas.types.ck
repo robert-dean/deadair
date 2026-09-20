@@ -114,7 +114,9 @@ contract PersonaStory: {
     state: readonly enum(active, suggested, rejected) # `active` can be told. `rejected` outlives the pass that proposed it, or the same catalogue proposes it forever
     origin: readonly enum(operator, model) # Who says so. `model` is the enrichment pass writing from what the station already holds
     source?: readonly string(max=1000) # Where a proposal came from, in the station's own words. Absent for anything an operator wrote
+    kind: readonly enum(anecdote, arc, bit) # An `anecdote` is told whole, an `arc` a part at a time, a `bit` is a running joke with no end
     details: readonly array(PersonaStoryDetail) # What it has picked up since, in every state
+    beats: readonly array(PersonaStoryBeat) # The parts an arc is told in, in order and in every state. Empty for the other two kinds
     lastToldAt?: readonly string(max=40) # Absent means never told, which is what puts it at the front of the rotation
     timesTold: readonly int(min=0) # How often it has gone out, which changes how the model is asked to tell it
     createdAt: readonly string(min=1, max=40)
@@ -137,6 +139,23 @@ contract PersonaStoryList: { # Every story one character holds, oldest first, in
 contract PersonaStoryWrite: { # A story an operator is writing by hand. Always active and always theirs; a proposal is something only the enrichment pass creates
     title: string(min=1, max=200)
     story: string(min=1, max=4000)
+    kind?: enum(anecdote, arc, bit) # What sort of thing this is. Absent means `anecdote`, which is what every story written before arcs existed is
+}
+
+contract PersonaStoryBeat: { # One part of an arc, in the order it is told. A SCRIPT rather than a summary, because the floor speaks it as it stands
+    id: readonly string(min=1, max=100)
+    storyId: readonly string(min=1, max=100)
+    ordinal: int(min=0) # Where it comes in the telling. Gaps are legal: inserting a part between two others must not mean renumbering the rest
+    beat: string(min=1, max=4000)
+    state: readonly enum(active, suggested, rejected)
+    origin: readonly enum(operator, model)
+    source?: readonly string(max=1000) # Where a proposal came from. Not evidence; see the note on a story's own source
+    createdAt: readonly string(min=1, max=40)
+}
+
+contract PersonaStoryBeatWrite: { # A part to add to an arc, or an edit to one
+    ordinal: int(min=0)
+    beat: string(min=1, max=4000)
 }
 
 contract PersonaStoryDetailWrite: { # One thing to add to a story that already exists

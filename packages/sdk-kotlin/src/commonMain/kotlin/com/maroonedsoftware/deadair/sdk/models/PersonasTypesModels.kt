@@ -206,6 +206,38 @@ data class PersonaStoryDetailInput(
 data class PersonaStoryWrite(
     val title: String,
     val story: String,
+    /** What sort of thing this is. Absent means `anecdote`, which is what every story written before arcs existed is */
+    val kind: PersonaStoryWriteKind? = null,
+)
+
+/** One part of an arc, in the order it is told. A SCRIPT rather than a summary, because the floor speaks it as it stands */
+@Serializable
+data class PersonaStoryBeat(
+    val id: String,
+    val storyId: String,
+    /** Where it comes in the telling. Gaps are legal: inserting a part between two others must not mean renumbering the rest */
+    val ordinal: Long,
+    val beat: String,
+    val state: PersonaStoryBeatState,
+    val origin: PersonaStoryBeatOrigin,
+    /** Where a proposal came from. Not evidence; see the note on a story's own source */
+    val source: String? = null,
+    val createdAt: String,
+)
+
+/** One part of an arc, in the order it is told. A SCRIPT rather than a summary, because the floor speaks it as it stands */
+@Serializable
+data class PersonaStoryBeatInput(
+    /** Where it comes in the telling. Gaps are legal: inserting a part between two others must not mean renumbering the rest */
+    val ordinal: Long,
+    val beat: String,
+)
+
+/** A part to add to an arc, or an edit to one */
+@Serializable
+data class PersonaStoryBeatWrite(
+    val ordinal: Long,
+    val beat: String,
 )
 
 /** One thing to add to a story that already exists */
@@ -395,6 +427,18 @@ data class PersonaNoteListInput(
     val notes: List<PersonaNoteInput>,
 )
 
+/** What a model wrote, and what had to be dropped to make it usable */
+@Serializable
+data class GeneratedPersona(
+    val persona: PersonaDraftView,
+    /** A couple of things that have happened to this character. Beside the form rather than in it, because they are their own table: the console saves the persona and then writes these through the stories route, so they go through the same validation an operator's own typing does */
+    val stories: List<PersonaStoryWrite>,
+    /** Words the model called markers that its own sample lines never used. Dropped, because the samples are the evidence and the marker list is the claim — a marker nothing says declines every break and looks exactly like a model that is switched off */
+    val droppedMarkers: List<String>,
+    /** Phrasings naming a value the vocabulary does not have. Dropped by the LINE, since five good phrasings and one broken one is five phrasings */
+    val droppedTemplates: List<String>,
+)
+
 /**
  * Something that happened to this character, in its own telling. Not a claim about the world and never
  * checked as one: `source` says where a proposal came from, for the operator reading it, and nothing
@@ -414,8 +458,12 @@ data class PersonaStory(
     val origin: PersonaStoryOrigin,
     /** Where a proposal came from, in the station's own words. Absent for anything an operator wrote */
     val source: String? = null,
+    /** An `anecdote` is told whole, an `arc` a part at a time, a `bit` is a running joke with no end */
+    val kind: PersonaStoryKind,
     /** What it has picked up since, in every state */
     val details: List<PersonaStoryDetail>,
+    /** The parts an arc is told in, in order and in every state. Empty for the other two kinds */
+    val beats: List<PersonaStoryBeat>,
     /** Absent means never told, which is what puts it at the front of the rotation */
     val lastToldAt: String? = null,
     /** How often it has gone out, which changes how the model is asked to tell it */
@@ -435,18 +483,6 @@ data class PersonaStoryInput(
     val title: String,
     /** The telling itself, in the character's voice. Already speakable, because the floor reads it as it stands */
     val story: String,
-)
-
-/** What a model wrote, and what had to be dropped to make it usable */
-@Serializable
-data class GeneratedPersona(
-    val persona: PersonaDraftView,
-    /** A couple of things that have happened to this character. Beside the form rather than in it, because they are their own table: the console saves the persona and then writes these through the stories route, so they go through the same validation an operator's own typing does */
-    val stories: List<PersonaStoryWrite>,
-    /** Words the model called markers that its own sample lines never used. Dropped, because the samples are the evidence and the marker list is the claim — a marker nothing says declines every break and looks exactly like a model that is switched off */
-    val droppedMarkers: List<String>,
-    /** Phrasings naming a value the vocabulary does not have. Dropped by the LINE, since five good phrasings and one broken one is five phrasings */
-    val droppedTemplates: List<String>,
 )
 
 /**
@@ -889,6 +925,17 @@ enum class PersonaStoryOrigin {
     MODEL,
 }
 
+/** An `anecdote` is told whole, an `arc` a part at a time, a `bit` is a running joke with no end */
+@Serializable
+enum class PersonaStoryKind {
+    @SerialName("anecdote")
+    ANECDOTE,
+    @SerialName("arc")
+    ARC,
+    @SerialName("bit")
+    BIT,
+}
+
 @Serializable
 enum class PersonaStoryDetailState {
     @SerialName("active")
@@ -901,6 +948,35 @@ enum class PersonaStoryDetailState {
 
 @Serializable
 enum class PersonaStoryDetailOrigin {
+    @SerialName("operator")
+    OPERATOR,
+    @SerialName("model")
+    MODEL,
+}
+
+/** What sort of thing this is. Absent means `anecdote`, which is what every story written before arcs existed is */
+@Serializable
+enum class PersonaStoryWriteKind {
+    @SerialName("anecdote")
+    ANECDOTE,
+    @SerialName("arc")
+    ARC,
+    @SerialName("bit")
+    BIT,
+}
+
+@Serializable
+enum class PersonaStoryBeatState {
+    @SerialName("active")
+    ACTIVE,
+    @SerialName("suggested")
+    SUGGESTED,
+    @SerialName("rejected")
+    REJECTED,
+}
+
+@Serializable
+enum class PersonaStoryBeatOrigin {
     @SerialName("operator")
     OPERATOR,
     @SerialName("model")

@@ -662,27 +662,150 @@ public struct PersonaStoryDetailInput: Codable, Equatable, Sendable {
 public struct PersonaStoryWrite: Codable, Equatable, Sendable {
     public var title: String
     public var story: String
+    /// What sort of thing this is. Absent means `anecdote`, which is what every story written before arcs existed is
+    public var kind: PersonaStoryWriteKind?
 
-    public init(title: String, story: String) {
+    public init(title: String, story: String, kind: PersonaStoryWriteKind? = nil) {
         self.title = title
         self.story = story
+        self.kind = kind
     }
 
     private enum CodingKeys: String, CodingKey {
         case title = "title"
         case story = "story"
+        case kind = "kind"
     }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.title = try container.decode(String.self, forKey: .title)
         self.story = try container.decode(String.self, forKey: .story)
+        self.kind = try container.decodeIfPresent(PersonaStoryWriteKind.self, forKey: .kind)
     }
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(self.title, forKey: .title)
         try container.encode(self.story, forKey: .story)
+        try container.encodeIfPresent(self.kind, forKey: .kind)
+    }
+}
+
+/// One part of an arc, in the order it is told. A SCRIPT rather than a summary, because the floor speaks it as it stands
+public struct PersonaStoryBeat: Codable, Equatable, Sendable {
+    public var id: String
+    public var storyId: String
+    /// Where it comes in the telling. Gaps are legal: inserting a part between two others must not mean renumbering the rest
+    public var ordinal: Int
+    public var beat: String
+    public var state: PersonaStoryBeatState
+    public var origin: PersonaStoryBeatOrigin
+    /// Where a proposal came from. Not evidence; see the note on a story's own source
+    public var source: String?
+    public var createdAt: String
+
+    public init(id: String, storyId: String, ordinal: Int, beat: String, state: PersonaStoryBeatState, origin: PersonaStoryBeatOrigin, source: String? = nil, createdAt: String) {
+        self.id = id
+        self.storyId = storyId
+        self.ordinal = ordinal
+        self.beat = beat
+        self.state = state
+        self.origin = origin
+        self.source = source
+        self.createdAt = createdAt
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case storyId = "storyId"
+        case ordinal = "ordinal"
+        case beat = "beat"
+        case state = "state"
+        case origin = "origin"
+        case source = "source"
+        case createdAt = "createdAt"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decode(String.self, forKey: .id)
+        self.storyId = try container.decode(String.self, forKey: .storyId)
+        self.ordinal = try container.decode(Int.self, forKey: .ordinal)
+        self.beat = try container.decode(String.self, forKey: .beat)
+        self.state = try container.decode(PersonaStoryBeatState.self, forKey: .state)
+        self.origin = try container.decode(PersonaStoryBeatOrigin.self, forKey: .origin)
+        self.source = try container.decodeIfPresent(String.self, forKey: .source)
+        self.createdAt = try container.decode(String.self, forKey: .createdAt)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.id, forKey: .id)
+        try container.encode(self.storyId, forKey: .storyId)
+        try container.encode(self.ordinal, forKey: .ordinal)
+        try container.encode(self.beat, forKey: .beat)
+        try container.encode(self.state, forKey: .state)
+        try container.encode(self.origin, forKey: .origin)
+        try container.encodeIfPresent(self.source, forKey: .source)
+        try container.encode(self.createdAt, forKey: .createdAt)
+    }
+}
+
+/// One part of an arc, in the order it is told. A SCRIPT rather than a summary, because the floor speaks it as it stands
+public struct PersonaStoryBeatInput: Codable, Equatable, Sendable {
+    /// Where it comes in the telling. Gaps are legal: inserting a part between two others must not mean renumbering the rest
+    public var ordinal: Int
+    public var beat: String
+
+    public init(ordinal: Int, beat: String) {
+        self.ordinal = ordinal
+        self.beat = beat
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case ordinal = "ordinal"
+        case beat = "beat"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.ordinal = try container.decode(Int.self, forKey: .ordinal)
+        self.beat = try container.decode(String.self, forKey: .beat)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.ordinal, forKey: .ordinal)
+        try container.encode(self.beat, forKey: .beat)
+    }
+}
+
+/// A part to add to an arc, or an edit to one
+public struct PersonaStoryBeatWrite: Codable, Equatable, Sendable {
+    public var ordinal: Int
+    public var beat: String
+
+    public init(ordinal: Int, beat: String) {
+        self.ordinal = ordinal
+        self.beat = beat
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case ordinal = "ordinal"
+        case beat = "beat"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.ordinal = try container.decode(Int.self, forKey: .ordinal)
+        self.beat = try container.decode(String.self, forKey: .beat)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.ordinal, forKey: .ordinal)
+        try container.encode(self.beat, forKey: .beat)
     }
 }
 
@@ -1262,118 +1385,6 @@ public struct PersonaNoteListInput: Codable, Equatable, Sendable {
     }
 }
 
-/// Something that happened to this character, in its own telling. Not a claim about the world and never
-/// checked as one: `source` says where a proposal came from, for the operator reading it, and nothing
-/// downstream reads it as evidence — see `persona.story.ts` for why that is the load-bearing difference
-/// from a fact
-public struct PersonaStory: Codable, Equatable, Sendable {
-    public var id: String
-    /// A short handle. Never spoken; what this list is read by and what a proposal names
-    public var title: String
-    /// The telling itself, in the character's voice. Already speakable, because the floor reads it as it stands
-    public var story: String
-    /// `active` can be told. `rejected` outlives the pass that proposed it, or the same catalogue proposes it forever
-    public var state: PersonaStoryState2
-    /// Who says so. `model` is the enrichment pass writing from what the station already holds
-    public var origin: PersonaStoryOrigin
-    /// Where a proposal came from, in the station's own words. Absent for anything an operator wrote
-    public var source: String?
-    /// What it has picked up since, in every state
-    public var details: [PersonaStoryDetail]
-    /// Absent means never told, which is what puts it at the front of the rotation
-    public var lastToldAt: String?
-    /// How often it has gone out, which changes how the model is asked to tell it
-    public var timesTold: Int
-    public var createdAt: String
-
-    public init(id: String, title: String, story: String, state: PersonaStoryState2, origin: PersonaStoryOrigin, source: String? = nil, details: [PersonaStoryDetail], lastToldAt: String? = nil, timesTold: Int, createdAt: String) {
-        self.id = id
-        self.title = title
-        self.story = story
-        self.state = state
-        self.origin = origin
-        self.source = source
-        self.details = details
-        self.lastToldAt = lastToldAt
-        self.timesTold = timesTold
-        self.createdAt = createdAt
-    }
-
-    private enum CodingKeys: String, CodingKey {
-        case id = "id"
-        case title = "title"
-        case story = "story"
-        case state = "state"
-        case origin = "origin"
-        case source = "source"
-        case details = "details"
-        case lastToldAt = "lastToldAt"
-        case timesTold = "timesTold"
-        case createdAt = "createdAt"
-    }
-
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.id = try container.decode(String.self, forKey: .id)
-        self.title = try container.decode(String.self, forKey: .title)
-        self.story = try container.decode(String.self, forKey: .story)
-        self.state = try container.decode(PersonaStoryState2.self, forKey: .state)
-        self.origin = try container.decode(PersonaStoryOrigin.self, forKey: .origin)
-        self.source = try container.decodeIfPresent(String.self, forKey: .source)
-        self.details = try container.decode([PersonaStoryDetail].self, forKey: .details)
-        self.lastToldAt = try container.decodeIfPresent(String.self, forKey: .lastToldAt)
-        self.timesTold = try container.decode(Int.self, forKey: .timesTold)
-        self.createdAt = try container.decode(String.self, forKey: .createdAt)
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(self.id, forKey: .id)
-        try container.encode(self.title, forKey: .title)
-        try container.encode(self.story, forKey: .story)
-        try container.encode(self.state, forKey: .state)
-        try container.encode(self.origin, forKey: .origin)
-        try container.encodeIfPresent(self.source, forKey: .source)
-        try container.encode(self.details, forKey: .details)
-        try container.encodeIfPresent(self.lastToldAt, forKey: .lastToldAt)
-        try container.encode(self.timesTold, forKey: .timesTold)
-        try container.encode(self.createdAt, forKey: .createdAt)
-    }
-}
-
-/// Something that happened to this character, in its own telling. Not a claim about the world and never
-/// checked as one: `source` says where a proposal came from, for the operator reading it, and nothing
-/// downstream reads it as evidence — see `persona.story.ts` for why that is the load-bearing difference
-/// from a fact
-public struct PersonaStoryInput: Codable, Equatable, Sendable {
-    /// A short handle. Never spoken; what this list is read by and what a proposal names
-    public var title: String
-    /// The telling itself, in the character's voice. Already speakable, because the floor reads it as it stands
-    public var story: String
-
-    public init(title: String, story: String) {
-        self.title = title
-        self.story = story
-    }
-
-    private enum CodingKeys: String, CodingKey {
-        case title = "title"
-        case story = "story"
-    }
-
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.title = try container.decode(String.self, forKey: .title)
-        self.story = try container.decode(String.self, forKey: .story)
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(self.title, forKey: .title)
-        try container.encode(self.story, forKey: .story)
-    }
-}
-
 /// What a model wrote, and what had to be dropped to make it usable
 public struct GeneratedPersona: Codable, Equatable, Sendable {
     public var persona: PersonaDraftView
@@ -1412,6 +1423,130 @@ public struct GeneratedPersona: Codable, Equatable, Sendable {
         try container.encode(self.stories, forKey: .stories)
         try container.encode(self.droppedMarkers, forKey: .droppedMarkers)
         try container.encode(self.droppedTemplates, forKey: .droppedTemplates)
+    }
+}
+
+/// Something that happened to this character, in its own telling. Not a claim about the world and never
+/// checked as one: `source` says where a proposal came from, for the operator reading it, and nothing
+/// downstream reads it as evidence — see `persona.story.ts` for why that is the load-bearing difference
+/// from a fact
+public struct PersonaStory: Codable, Equatable, Sendable {
+    public var id: String
+    /// A short handle. Never spoken; what this list is read by and what a proposal names
+    public var title: String
+    /// The telling itself, in the character's voice. Already speakable, because the floor reads it as it stands
+    public var story: String
+    /// `active` can be told. `rejected` outlives the pass that proposed it, or the same catalogue proposes it forever
+    public var state: PersonaStoryState2
+    /// Who says so. `model` is the enrichment pass writing from what the station already holds
+    public var origin: PersonaStoryOrigin
+    /// Where a proposal came from, in the station's own words. Absent for anything an operator wrote
+    public var source: String?
+    /// An `anecdote` is told whole, an `arc` a part at a time, a `bit` is a running joke with no end
+    public var kind: PersonaStoryKind
+    /// What it has picked up since, in every state
+    public var details: [PersonaStoryDetail]
+    /// The parts an arc is told in, in order and in every state. Empty for the other two kinds
+    public var beats: [PersonaStoryBeat]
+    /// Absent means never told, which is what puts it at the front of the rotation
+    public var lastToldAt: String?
+    /// How often it has gone out, which changes how the model is asked to tell it
+    public var timesTold: Int
+    public var createdAt: String
+
+    public init(id: String, title: String, story: String, state: PersonaStoryState2, origin: PersonaStoryOrigin, source: String? = nil, kind: PersonaStoryKind, details: [PersonaStoryDetail], beats: [PersonaStoryBeat], lastToldAt: String? = nil, timesTold: Int, createdAt: String) {
+        self.id = id
+        self.title = title
+        self.story = story
+        self.state = state
+        self.origin = origin
+        self.source = source
+        self.kind = kind
+        self.details = details
+        self.beats = beats
+        self.lastToldAt = lastToldAt
+        self.timesTold = timesTold
+        self.createdAt = createdAt
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case title = "title"
+        case story = "story"
+        case state = "state"
+        case origin = "origin"
+        case source = "source"
+        case kind = "kind"
+        case details = "details"
+        case beats = "beats"
+        case lastToldAt = "lastToldAt"
+        case timesTold = "timesTold"
+        case createdAt = "createdAt"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decode(String.self, forKey: .id)
+        self.title = try container.decode(String.self, forKey: .title)
+        self.story = try container.decode(String.self, forKey: .story)
+        self.state = try container.decode(PersonaStoryState2.self, forKey: .state)
+        self.origin = try container.decode(PersonaStoryOrigin.self, forKey: .origin)
+        self.source = try container.decodeIfPresent(String.self, forKey: .source)
+        self.kind = try container.decode(PersonaStoryKind.self, forKey: .kind)
+        self.details = try container.decode([PersonaStoryDetail].self, forKey: .details)
+        self.beats = try container.decode([PersonaStoryBeat].self, forKey: .beats)
+        self.lastToldAt = try container.decodeIfPresent(String.self, forKey: .lastToldAt)
+        self.timesTold = try container.decode(Int.self, forKey: .timesTold)
+        self.createdAt = try container.decode(String.self, forKey: .createdAt)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.id, forKey: .id)
+        try container.encode(self.title, forKey: .title)
+        try container.encode(self.story, forKey: .story)
+        try container.encode(self.state, forKey: .state)
+        try container.encode(self.origin, forKey: .origin)
+        try container.encodeIfPresent(self.source, forKey: .source)
+        try container.encode(self.kind, forKey: .kind)
+        try container.encode(self.details, forKey: .details)
+        try container.encode(self.beats, forKey: .beats)
+        try container.encodeIfPresent(self.lastToldAt, forKey: .lastToldAt)
+        try container.encode(self.timesTold, forKey: .timesTold)
+        try container.encode(self.createdAt, forKey: .createdAt)
+    }
+}
+
+/// Something that happened to this character, in its own telling. Not a claim about the world and never
+/// checked as one: `source` says where a proposal came from, for the operator reading it, and nothing
+/// downstream reads it as evidence — see `persona.story.ts` for why that is the load-bearing difference
+/// from a fact
+public struct PersonaStoryInput: Codable, Equatable, Sendable {
+    /// A short handle. Never spoken; what this list is read by and what a proposal names
+    public var title: String
+    /// The telling itself, in the character's voice. Already speakable, because the floor reads it as it stands
+    public var story: String
+
+    public init(title: String, story: String) {
+        self.title = title
+        self.story = story
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case title = "title"
+        case story = "story"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.title = try container.decode(String.self, forKey: .title)
+        self.story = try container.decode(String.self, forKey: .story)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.title, forKey: .title)
+        try container.encode(self.story, forKey: .story)
     }
 }
 
@@ -2432,6 +2567,13 @@ public enum PersonaStoryOrigin: String, Codable, CaseIterable, Sendable {
     case model = "model"
 }
 
+/// An `anecdote` is told whole, an `arc` a part at a time, a `bit` is a running joke with no end
+public enum PersonaStoryKind: String, Codable, CaseIterable, Sendable {
+    case anecdote = "anecdote"
+    case arc = "arc"
+    case bit = "bit"
+}
+
 public enum PersonaStoryDetailState: String, Codable, CaseIterable, Sendable {
     case active = "active"
     case suggested = "suggested"
@@ -2439,6 +2581,24 @@ public enum PersonaStoryDetailState: String, Codable, CaseIterable, Sendable {
 }
 
 public enum PersonaStoryDetailOrigin: String, Codable, CaseIterable, Sendable {
+    case `operator` = "operator"
+    case model = "model"
+}
+
+/// What sort of thing this is. Absent means `anecdote`, which is what every story written before arcs existed is
+public enum PersonaStoryWriteKind: String, Codable, CaseIterable, Sendable {
+    case anecdote = "anecdote"
+    case arc = "arc"
+    case bit = "bit"
+}
+
+public enum PersonaStoryBeatState: String, Codable, CaseIterable, Sendable {
+    case active = "active"
+    case suggested = "suggested"
+    case rejected = "rejected"
+}
+
+public enum PersonaStoryBeatOrigin: String, Codable, CaseIterable, Sendable {
     case `operator` = "operator"
     case model = "model"
 }

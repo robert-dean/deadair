@@ -18,11 +18,13 @@ import { StorageService } from './storage.service.js';
  * owns no loop, starts nothing, and is resolved only by a request. So its position is a dependency
  * order and not a lifecycle one, and shutting down in the same place costs nothing.
  *
- * ## It reports and never repairs
+ * ## Reading never repairs, and the repair is off
  *
- * A file no row claims stays exactly where it is, and so does a row whose file has gone. The numbers
- * have to exist before anything acts on them, and the two disagreements mean different things — see
- * {@link StorageService}.
+ * `GET /storage` deletes nothing and never will. `SweepOrphansJob` does, nightly, for files no row
+ * claims and nothing is still writing — and only once an operator turns it on, which no upgrade
+ * does for them. The numbers had to exist before anything acted on them and they did, for a month
+ * before this could. A row whose file has gone is still left alone: the station heals that one by
+ * re-fetching. See {@link StorageService}.
  */
 export const StorageModule: ServerKitModule = {
     name: 'Storage',

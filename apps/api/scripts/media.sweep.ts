@@ -16,6 +16,13 @@
  * here — it is what will happen regardless, because nothing can tell that these bytes are the ones
  * being asked for.
  *
+ * **The station does this on a schedule now.** `SweepOrphansJob` runs nightly against all three
+ * stores, and `storage.sweepOrphans` turns it on. It differs from this script in the one way that
+ * matters: it will not take a file that has sat unclaimed for less than the grace period, which is
+ * what makes both orderings below stop being a person's problem. Reach for this script for a
+ * one-off, for a single store, to see what would go without turning anything on, or for a volume
+ * this process is not the one mounting.
+ *
  * Two orderings matter and neither is enforced here:
  *
  *  - For `segments`, scan the inbox FIRST (`POST /segments/scan`, or a boot). The store is content

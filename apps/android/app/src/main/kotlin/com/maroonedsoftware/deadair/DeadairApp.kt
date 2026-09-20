@@ -24,6 +24,7 @@ import com.maroonedsoftware.deadair.settings.SettingsStore
 import com.maroonedsoftware.deadair.station.StationProbe
 import com.maroonedsoftware.deadair.widget.StationWidget
 import com.maroonedsoftware.deadair.widget.WidgetFeed
+import com.maroonedsoftware.deadair.widget.WidgetRefreshWorker
 import com.maroonedsoftware.deadair.widget.WidgetSnapshotStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -155,6 +156,8 @@ class AppGraph(private val application: Application) {
     val widget: WidgetFeed =
         WidgetFeed(
             store = WidgetSnapshotStore(application),
+            schedule = { WidgetRefreshWorker.enqueue(application) },
+            unschedule = { WidgetRefreshWorker.cancel(application) },
             settings = settings.settings,
             heard = nowPlaying.heard,
             // The cached role, off disk. A hint for what to DRAW; every press is still the API's

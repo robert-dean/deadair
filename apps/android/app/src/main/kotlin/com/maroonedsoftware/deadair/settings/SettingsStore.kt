@@ -15,6 +15,7 @@ import com.maroonedsoftware.deadair.wallpaper.ColorSource
 import com.maroonedsoftware.deadair.wallpaper.CoverPlacement
 import com.maroonedsoftware.deadair.wallpaper.WallpaperFollows
 import com.maroonedsoftware.deadair.wallpaper.WallpaperIdle
+import com.maroonedsoftware.deadair.widget.WidgetFollows
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -46,6 +47,7 @@ class SettingsStore(private val context: Context) {
                 wallpaperPlacement = stored[WALLPAPER_PLACEMENT]?.let { name -> CoverPlacement.entries.firstOrNull { it.name == name } } ?: CoverPlacement.MIDDLE,
                 wallpaperColorSource = stored[WALLPAPER_COLORS]?.let { name -> ColorSource.entries.firstOrNull { it.name == name } } ?: ColorSource.STATION,
                 wallpaperColor = stored[WALLPAPER_COLOR] ?: STATION_PALETTE.accent,
+                widgetFollows = stored[WIDGET_FOLLOWS]?.let { name -> WidgetFollows.entries.firstOrNull { it.name == name } } ?: WidgetFollows.THIS_PHONE,
             )
         }
 
@@ -67,6 +69,10 @@ class SettingsStore(private val context: Context) {
 
     suspend fun setPlayOnOpen(on: Boolean) {
         context.preferences.edit { it[PLAY_ON_OPEN] = on }
+    }
+
+    suspend fun setWidgetFollows(follows: WidgetFollows) {
+        context.preferences.edit { it[WIDGET_FOLLOWS] = follows.name }
     }
 
     suspend fun setWallpaperFollows(follows: WallpaperFollows) {
@@ -108,5 +114,6 @@ class SettingsStore(private val context: Context) {
         val WALLPAPER_PLACEMENT = stringPreferencesKey("wallpaper_placement")
         val WALLPAPER_COLORS = stringPreferencesKey("wallpaper_colours")
         val WALLPAPER_COLOR = intPreferencesKey("wallpaper_colour")
+        val WIDGET_FOLLOWS = stringPreferencesKey("widget_follows")
     }
 }

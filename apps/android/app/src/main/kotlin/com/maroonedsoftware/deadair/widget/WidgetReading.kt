@@ -63,6 +63,15 @@ sealed interface WidgetReading {
 
     data object WarmingUp : WidgetReading
 
+    /**
+     * The station is not airing anything, and this phone is not asking it to.
+     *
+     * Only reachable under [WidgetFollows.STATION]: resting, the widget does not know whether the
+     * station is off air or simply not asked, and those are the same answer from a station that
+     * airs only while somebody is listening.
+     */
+    data object OffAir : WidgetReading
+
     /** Listening, and the station is not answering what it is playing. The audio may well be fine. */
     data object Unreachable : WidgetReading
 
@@ -79,13 +88,24 @@ sealed interface WidgetReading {
  * asking for audio is WARMING UP, never off air, because those are the same answer from the station
  * and what separates them is whether anybody is currently asking it for anything.
  */
-fun widgetReading(hasStation: Boolean, playback: WidgetPlayback, snapshot: WidgetSnapshot): WidgetReading {
+fun widgetReading(
+    hasStation: Boolean,
+    follows: WidgetFollows,
+    playback: WidgetPlayback,
+    snapshot: WidgetSnapshot,
+): WidgetReading {
     if (!hasStation) return WidgetReading.NoStation
-    if (playback == WidgetPlayback.STOPPED) return WidgetReading.Resting
+    // Following this phone and not playing, the widget has asked nothing and says so. Following the
+    // station, it draws what it was last told, however that reading was come by.
+    if (playback == WidgetPlayback.STOPPED && follows == WidgetFollows.THIS_PHONE) return WidgetReading.Resting
     if (!snapshot.reachable) return WidgetReading.Unreachable
 
     val title = snapshot.title?.ifBlank { null }
-    if (!snapshot.onAir || title == null) return WidgetReading.WarmingUp
+    // Nothing on while this phone is asking for audio is warming up, never off air; nothing on
+    // while it is NOT asking is simply off air, which is an ordinary state for this station.
+    if (!snapshot.onAir || title == null) {
+        return if (playback == WidgetPlayback.STOPPED) WidgetReading.OffAir else WidgetReading.WarmingUp
+    }
 
     return if (snapshot.kind == NowPlayingTrackKind.BREAK) {
         WidgetReading.Break(host = snapshot.host, label = title)
@@ -104,3 +124,17 @@ fun widgetReading(hasStation: Boolean, playback: WidgetPlayback, snapshot: Widge
  */
 fun offersSkip(operator: Boolean, reading: WidgetReading): Boolean =
     operator && (reading is WidgetReading.Record || reading is WidgetReading.Break)
+
+/**
+ * When the reading on the widget was taken, if that is worth saying.
+ *
+ * Only while following the station with nothing playing here: the rest of the time what is drawn is
+ * either seconds old (something in this app is polling) or is not a reading at all. Two minutes
+ * because a record is three, so an older reading is no longer safely "what is playing" — and a
+ * widget that names the wrong record with no hedge is worse than one that admits its age.
+ */
+fun asOf(follows: WidgetFollows, playback: WidgetPlayback, snapshot: WidgetSnapshot, now: Long): Long? {
+    if (follows != WidgetFollows.STATION || playback != WidgetPlayback.STOPPED) return null
+    if (snapshot.readAtMs <= 0L) return null
+    return snapshot.readAtMs.takeIf { now - it >= WIDGET_STALE_MS }
+}

@@ -6,6 +6,7 @@ import com.maroonedsoftware.deadair.wallpaper.ColorSource
 import com.maroonedsoftware.deadair.wallpaper.CoverPlacement
 import com.maroonedsoftware.deadair.wallpaper.WallpaperFollows
 import com.maroonedsoftware.deadair.wallpaper.WallpaperIdle
+import com.maroonedsoftware.deadair.widget.WidgetFollows
 import com.maroonedsoftware.deadair.auth.SessionManager
 import com.maroonedsoftware.deadair.auth.SessionState
 import com.maroonedsoftware.deadair.settings.SettingsStore
@@ -123,6 +124,10 @@ class SettingsViewModel(
 
     fun setDynamicColor(on: Boolean) {
         viewModelScope.launch { store.setDynamicColor(on) }
+    }
+
+    fun setWidgetFollows(follows: WidgetFollows) {
+        viewModelScope.launch { store.setWidgetFollows(follows) }
     }
 
     fun setWallpaperFollows(follows: WallpaperFollows) {

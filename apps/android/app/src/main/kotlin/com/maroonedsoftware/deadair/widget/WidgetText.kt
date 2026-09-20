@@ -19,7 +19,7 @@ fun WidgetReading.heading(context: Context, stationName: String?): String {
     val station = stationName ?: context.getString(R.string.app_name)
     return when (this) {
         WidgetReading.NoStation -> context.getString(R.string.app_name)
-        WidgetReading.Resting, WidgetReading.WarmingUp, WidgetReading.Unreachable -> station
+        WidgetReading.Resting, WidgetReading.WarmingUp, WidgetReading.Unreachable, WidgetReading.OffAir -> station
         is WidgetReading.Record -> title
         is WidgetReading.Break ->
             if (host == null) {
@@ -37,6 +37,7 @@ fun WidgetReading.under(context: Context): String? =
         WidgetReading.Resting -> context.getString(R.string.widget_resting)
         WidgetReading.WarmingUp -> context.getString(R.string.now_warming_up)
         WidgetReading.Unreachable -> context.getString(R.string.now_cant_reach)
+        WidgetReading.OffAir -> context.getString(R.string.now_off_air)
         is WidgetReading.Record -> artist
         is WidgetReading.Break -> label
     }

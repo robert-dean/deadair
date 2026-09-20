@@ -45,6 +45,7 @@ import com.maroonedsoftware.deadair.wallpaper.ColorSource
 import com.maroonedsoftware.deadair.wallpaper.CoverPlacement
 import com.maroonedsoftware.deadair.wallpaper.WallpaperFollows
 import com.maroonedsoftware.deadair.wallpaper.WallpaperIdle
+import com.maroonedsoftware.deadair.widget.WidgetFollows
 import com.maroonedsoftware.deadair.ui.PrivacyPolicyLink
 import com.maroonedsoftware.deadair.ui.nowplaying.SleepControl
 import com.maroonedsoftware.deadair.ui.text.resolve
@@ -74,6 +75,7 @@ fun SettingsScreen(
     session: SessionState,
     dynamicColor: Boolean,
     wallpaperFollows: WallpaperFollows,
+    widgetFollows: WidgetFollows,
     wallpaperIdle: WallpaperIdle,
     wallpaperPlacement: CoverPlacement,
     wallpaperColorSource: ColorSource,
@@ -85,6 +87,7 @@ fun SettingsScreen(
     onFormat: (StreamFormat) -> Unit,
     onDynamicColor: (Boolean) -> Unit,
     onWallpaperFollows: (WallpaperFollows) -> Unit,
+    onWidgetFollows: (WidgetFollows) -> Unit,
     onWallpaperIdle: (WallpaperIdle) -> Unit,
     onWallpaperPlacement: (CoverPlacement) -> Unit,
     onColorSource: (ColorSource) -> Unit,
@@ -217,6 +220,13 @@ fun SettingsScreen(
                 onColors = onColorSource,
                 onColor = onWallpaperColor,
             )
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+
+            // Beside the wallpaper, and for its reason: both are pictures of the station that draw
+            // whether or not this phone is the thing playing.
+            Text(stringResource(R.string.widget_section), style = MaterialTheme.typography.titleMedium)
+            WidgetSection(follows = widgetFollows, onFollows = onWidgetFollows)
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
 

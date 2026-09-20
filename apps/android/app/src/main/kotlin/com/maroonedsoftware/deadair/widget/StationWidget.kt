@@ -1,6 +1,8 @@
 package com.maroonedsoftware.deadair.widget
 
 import android.content.Context
+import android.text.format.DateFormat
+import java.util.Date
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -76,18 +78,27 @@ class StationWidget : GlanceAppWidget() {
 
             // `hasStation` is whether one has been NAMED, which is not the same as knowing what it
             // calls itself: a station kept but never reached has an address and no name.
-            Station(state ?: first, hasStation = kept.station != null, dynamicColor = kept.dynamicColor)
+            Station(state ?: first, kept)
         }
     }
 
     @Composable
-    private fun Station(state: WidgetState, hasStation: Boolean, dynamicColor: Boolean) {
+    private fun Station(state: WidgetState, kept: ListenerSettings) {
         val context = LocalContext.current
-        val reading = widgetReading(hasStation = hasStation, playback = state.playback, snapshot = state.snapshot)
+        val reading =
+            widgetReading(
+                // Whether a station has been NAMED, which is not the same as knowing what it calls
+                // itself: one kept but never reached has an address and no name.
+                hasStation = kept.station != null,
+                follows = kept.widgetFollows,
+                playback = state.playback,
+                snapshot = state.snapshot,
+            )
         val heading = reading.heading(context, state.snapshot.stationName)
         val under = reading.under(context)
+        val asOf = asOf(kept.widgetFollows, state.playback, state.snapshot, System.currentTimeMillis())
 
-        GlanceTheme(colors = if (dynamicColor && supportsDynamicColor) GlanceTheme.colors else STATION_COLORS) {
+        GlanceTheme(colors = if (kept.dynamicColor && supportsDynamicColor) GlanceTheme.colors else STATION_COLORS) {
             Row(
                 modifier =
                     GlanceModifier
@@ -117,6 +128,7 @@ class StationWidget : GlanceAppWidget() {
                             style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant, fontSize = 13.sp),
                         )
                     }
+                    if (asOf != null) AsOf(asOf, context)
                 }
                 // Drawn before Play, because Play is where a thumb goes by habit and Skip is the
                 // one that cuts everybody's record.
@@ -126,6 +138,24 @@ class StationWidget : GlanceAppWidget() {
                 if (reading != WidgetReading.NoStation) PlayStop(state.playback, context)
             }
         }
+    }
+
+    /**
+     * When this reading was taken, and a way to ask again.
+     *
+     * Drawn only when the widget is following the station with nothing playing here and the answer
+     * has gone stale, which is the one case where what is on screen might not be what is on air.
+     * The time is formatted by the platform, so it follows the phone's own twelve- or twenty-four
+     * hour setting exactly as `ClockLabel` does inside the app.
+     */
+    @Composable
+    private fun AsOf(readAtMs: Long, context: Context) {
+        Text(
+            text = context.getString(R.string.widget_as_of, DateFormat.getTimeFormat(context).format(Date(readAtMs))),
+            maxLines = 1,
+            style = TextStyle(color = GlanceTheme.colors.outline, fontSize = 11.sp),
+            modifier = GlanceModifier.clickable(actionRunCallback<RefreshAction>()),
+        )
     }
 
     /**

@@ -44,6 +44,9 @@ fun takesHeard(playback: WidgetPlayback): Boolean = playback == WidgetPlayback.S
  */
 class WidgetFeed(
     private val store: WidgetSnapshotStore,
+    /** Start and stop the slow refresh. Lambdas so nothing here has to import WorkManager. */
+    private val schedule: () -> Unit,
+    private val unschedule: () -> Unit,
     private val settings: Flow<ListenerSettings>,
     private val heard: Flow<NowPlayingState>,
     /** Whether the signed-in account is the station's. Read off disk, so collecting it asks the station nothing. */
@@ -91,6 +94,11 @@ class WidgetFeed(
 
         /** The armed window ran out with no second press. */
         data object SkipForgotten : Update
+
+        /** A reading this widget asked for itself, under [WidgetFollows.STATION]. */
+        data class Fetched(val now: NowPlaying) : Update
+
+        data class Follows(val follows: WidgetFollows) : Update
     }
 
     /**
@@ -125,6 +133,7 @@ class WidgetFeed(
                 .distinctUntilChanged()
                 .collect { (origin, name) -> updates.trySend(Update.Station(origin, name)) }
         }
+        scope.launch { settings.map { it.widgetFollows }.distinctUntilChanged().collect { updates.trySend(Update.Follows(it)) } }
     }
 
     /** What this phone is doing about the station. Reported by the playback service, which is the only thing that knows. */
@@ -135,6 +144,11 @@ class WidgetFeed(
     /** A reading whose audio is now playing, straight from `NowPlayingGate`. */
     fun onAired(now: NowPlaying?) {
         if (now != null) updates.trySend(Update.Aired(now))
+    }
+
+    /** A reading the widget's own refresh fetched, periodic or on a press. */
+    fun onFetched(now: NowPlaying) {
+        updates.trySend(Update.Fetched(now))
     }
 
     /** The operator pressed Skip. The first press arms it; the second, within the window, cuts the record. */
@@ -185,6 +199,14 @@ class WidgetFeed(
                 draw(was.copy(skipArmed = false))
             }
             is Update.Aired -> keep(was, snapshotOf(update.now, stationName, now()))
+            // Whatever this phone is doing about the station, a reading it went and asked for is
+            // the newest thing it knows, so it is kept: this is the only reading there is while
+            // nothing here is playing.
+            is Update.Fetched -> keep(was, snapshotOf(update.now, stationName, now()))
+            is Update.Follows -> {
+                follows(update.follows)
+                draw(was)
+            }
             is Update.Heard ->
                 when (val state = update.state) {
                     // Before the first answer nothing is known, and claiming otherwise would
@@ -235,6 +257,18 @@ class WidgetFeed(
         if (next == _state.value) return
         _state.value = next
         ask()
+    }
+
+    /**
+     * Schedule, or unschedule, the slow refresh.
+     *
+     * Here rather than in the settings screen, because the promise is about the INSTALL rather than
+     * about a screen somebody happens to have open: turning it off has to cancel the work even if
+     * the setting was changed on another surface, and a fresh process has to arrive at the same
+     * answer without being told.
+     */
+    private fun follows(follows: WidgetFollows) {
+        if (follows == WidgetFollows.STATION) schedule() else unschedule()
     }
 
     private fun forget() {

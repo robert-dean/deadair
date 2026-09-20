@@ -50,6 +50,17 @@
     <string name="widget_choose_station">Choose a station</string>
     <!-- The second line while this phone is not listening. The widget asks the station nothing then -->
     <string name="widget_resting">Not listening</string>
+    <!-- When the reading on the widget was taken, shown once it is more than two minutes old: "as of 14:32" -->
+    <string name="widget_as_of">as of %1$s</string>
+    <!-- What tapping that line does, spoken by TalkBack -->
+    <string name="widget_refresh">Ask the station again</string>
+    <!-- The setting, in the app -->
+    <string name="widget_section">Home-screen widget</string>
+    <string name="widget_follows_this_phone">While this phone is playing</string>
+    <string name="widget_follows_this_phone_detail">The widget shows what you are listening to, and asks the station nothing when you are not.</string>
+    <string name="widget_follows_station">Whenever the station is on</string>
+    <string name="widget_follows_station_detail">The widget checks the station every half hour, and when you tap the time it shows.</string>
+    <string name="widget_add">Add to the home screen</string>
     <!-- The operator's Skip, spoken by TalkBack. Drawn only for the station's own account -->
     <string name="widget_skip">Skip this record</string>
     <!-- The same button after one press, which has armed it rather than cut anything -->

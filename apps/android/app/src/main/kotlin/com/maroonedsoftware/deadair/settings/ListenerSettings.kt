@@ -7,6 +7,7 @@ import com.maroonedsoftware.deadair.wallpaper.CoverPlacement
 import com.maroonedsoftware.deadair.wallpaper.WallpaperFollows
 import com.maroonedsoftware.deadair.wallpaper.WallpaperIdle
 import com.maroonedsoftware.deadair.station.StreamFormat
+import com.maroonedsoftware.deadair.widget.WidgetFollows
 
 /**
  * Everything this app remembers about how to listen.
@@ -34,4 +35,6 @@ data class ListenerSettings(
     val wallpaperColorSource: ColorSource = ColorSource.STATION,
     /** The color behind [ColorSource.CUSTOM], as ARGB. The station's green until somebody picks another. */
     val wallpaperColor: Int = STATION_PALETTE.accent,
+    /** When the home-screen widget shows what is on. This phone by default, which asks the station nothing while nobody here is listening. */
+    val widgetFollows: WidgetFollows = WidgetFollows.THIS_PHONE,
 )

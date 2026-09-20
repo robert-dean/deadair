@@ -13,6 +13,7 @@ import com.maroonedsoftware.deadair.wallpaper.ColorSource
 import com.maroonedsoftware.deadair.wallpaper.CoverPlacement
 import com.maroonedsoftware.deadair.wallpaper.WallpaperFollows
 import com.maroonedsoftware.deadair.wallpaper.WallpaperIdle
+import com.maroonedsoftware.deadair.widget.WidgetFollows
 import com.maroonedsoftware.deadair.ui.text.Message
 import com.maroonedsoftware.deadair.ui.theme.DeadairTheme
 
@@ -29,6 +30,7 @@ private fun Settings(entry: StationEntryState, session: SessionState) {
                 session = session,
                 dynamicColor = false,
                 wallpaperFollows = WallpaperFollows.THIS_PHONE,
+                widgetFollows = WidgetFollows.THIS_PHONE,
                 wallpaperIdle = WallpaperIdle.LAST_COVER,
                 wallpaperPlacement = CoverPlacement.MIDDLE,
                 wallpaperColorSource = ColorSource.CUSTOM,
@@ -40,6 +42,7 @@ private fun Settings(entry: StationEntryState, session: SessionState) {
                 onFormat = {},
                 onDynamicColor = {},
                 onWallpaperFollows = {},
+                onWidgetFollows = {},
                 onWallpaperIdle = {},
                 onWallpaperPlacement = {},
                 onColorSource = {},

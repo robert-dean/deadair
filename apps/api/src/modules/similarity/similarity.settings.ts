@@ -1,7 +1,3 @@
-import type { AppConfig } from '@maroonedsoftware/appconfig';
-
-import { pluginOrder } from '#modules/plugins/plugin.order.js';
-
 /**
  * Which similarity source the station asks first.
  *
@@ -29,15 +25,11 @@ import { pluginOrder } from '#modules/plugins/plugin.order.js';
  * similarity plugin is a setting that turns a typo into a station with no
  * discovery.
  *
- * The parsing and the comparator live in `plugins/plugin.order.ts`, because
- * similarity was the first capability to want an order and is no longer the
- * only one. What stays here is the key and the paragraphs above, which are
- * about what the order MEANS for these three questions and are not shared by
- * anything.
+ * The parsing and the comparator live in `plugins/plugin.order.ts` and the
+ * pairing of this key with the capability is one row of
+ * `plugins/plugin.providers.ts`, because similarity was the first capability to
+ * want an order and is no longer the only one. What stays here is the key and
+ * the paragraphs above, which are about what the order MEANS for these three
+ * questions and are not shared by anything.
  */
 export const SIMILARITY_ORDER_KEY = 'rotation.similarityOrder';
-
-/** The operator's order as plugin ids, or empty for the alphabetical fallback. */
-export function similarityOrder(config: AppConfig): string[] {
-    return pluginOrder(config, SIMILARITY_ORDER_KEY);
-}

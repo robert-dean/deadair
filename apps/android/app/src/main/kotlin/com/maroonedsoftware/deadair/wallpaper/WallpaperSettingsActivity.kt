@@ -72,6 +72,8 @@ class WallpaperSettingsActivity : ComponentActivity() {
                             idle = settings.wallpaperIdle,
                             onFollows = { follows -> lifecycleScope.launch { store.setWallpaperFollows(follows) } },
                             onIdle = { idle -> lifecycleScope.launch { store.setWallpaperIdle(idle) } },
+                            placement = settings.wallpaperPlacement,
+                            onPlacement = { placement -> lifecycleScope.launch { store.setWallpaperPlacement(placement) } },
                             colors = settings.wallpaperColorSource,
                             color = settings.wallpaperColor,
                             onColors = { colors -> lifecycleScope.launch { store.setColorSource(colors) } },

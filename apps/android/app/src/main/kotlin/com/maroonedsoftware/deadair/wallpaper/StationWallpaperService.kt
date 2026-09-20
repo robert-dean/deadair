@@ -151,7 +151,7 @@ class StationWallpaperService : WallpaperService() {
                                 flowOf(Triple(kept, playing, NowPlayingState.Loading as NowPlayingState))
                             }
                         }
-                        .map { (kept, playing, now) -> Showing(scene(kept, playing, now), kept.wallpaperColorSource, kept.wallpaperColor) }
+                        .map { (kept, playing, now) -> Showing(scene(kept, playing, now), kept.wallpaperPlacement, kept.wallpaperColorSource, kept.wallpaperColor) }
                         .distinctUntilChanged()
                         .collect { showing -> show(showing) }
                 }
@@ -165,10 +165,10 @@ class StationWallpaperService : WallpaperService() {
         }
 
         /** The scene from whatever is currently known, for a repaint nothing else asked for. */
-        private fun sceneNow(): Showing = Showing(drawn ?: WallpaperScene.Plain, shown.colors, shown.custom)
+        private fun sceneNow(): Showing = shown.copy(scene = drawn ?: WallpaperScene.Plain)
 
         /** The last thing collected, for a repaint the surface asked for rather than the station. */
-        private var shown = Showing(WallpaperScene.Plain, ColorSource.STATION, STATION_PALETTE.accent)
+        private var shown = Showing(WallpaperScene.Plain, CoverPlacement.MIDDLE, ColorSource.STATION, STATION_PALETTE.accent)
 
         private fun scene(kept: ListenerSettings, playing: Boolean, now: NowPlayingState): WallpaperScene {
             val air = airState(now, playing)
@@ -239,7 +239,7 @@ class StationWallpaperService : WallpaperService() {
         }
 
         private suspend fun load(url: String): Bitmap? {
-            val side = coverBox(width, height).side
+            val side = coverBox(width, height, shown.placement).side
             val request =
                 ImageRequest.Builder(this@StationWallpaperService)
                     .data(url)
@@ -275,7 +275,7 @@ class StationWallpaperService : WallpaperService() {
 
         private fun drawCover(canvas: Canvas, dimmed: Boolean) {
             val art = cover ?: return drawMark(canvas)
-            val box = coverBox(width, height)
+            val box = coverBox(width, height, shown.placement)
             val into = RectF(box.left.toFloat(), box.top.toFloat(), (box.left + box.side).toFloat(), (box.top + box.side).toFloat())
             canvas.drawBitmap(art, Rect(0, 0, art.width, art.height), into, PAINT)
             // Darkened where it is no longer what is playing, so the screen says which of the two
@@ -302,4 +302,4 @@ class StationWallpaperService : WallpaperService() {
 }
 
 /** What is on screen and what the phone is theming from: one value, so neither changing is missed. */
-private data class Showing(val scene: WallpaperScene, val colors: ColorSource, val custom: Int)
+private data class Showing(val scene: WallpaperScene, val placement: CoverPlacement, val colors: ColorSource, val custom: Int)

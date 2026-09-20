@@ -39,6 +39,7 @@ import com.maroonedsoftware.deadair.R
 import com.maroonedsoftware.deadair.wallpaper.StationWallpaperService
 import com.maroonedsoftware.deadair.wallpaper.WALLPAPER_SWATCHES
 import com.maroonedsoftware.deadair.wallpaper.ColorSource
+import com.maroonedsoftware.deadair.wallpaper.CoverPlacement
 import com.maroonedsoftware.deadair.wallpaper.WallpaperFollows
 import com.maroonedsoftware.deadair.wallpaper.WallpaperIdle
 
@@ -59,6 +60,8 @@ fun WallpaperSection(
     idle: WallpaperIdle,
     onFollows: (WallpaperFollows) -> Unit,
     onIdle: (WallpaperIdle) -> Unit,
+    placement: CoverPlacement,
+    onPlacement: (CoverPlacement) -> Unit,
     colors: ColorSource,
     color: Int,
     onColors: (ColorSource) -> Unit,
@@ -96,6 +99,18 @@ fun WallpaperSection(
         Column(Modifier.selectableGroup()) {
             IDLES.forEach { (option, label) ->
                 Choice(label = label, detail = null, selected = option == idle, onSelect = { onIdle(option) })
+            }
+        }
+
+        Text(
+            stringResource(R.string.wallpaper_placement),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Column(Modifier.selectableGroup()) {
+            PLACEMENTS.forEach { (option, label) ->
+                Choice(label = label, detail = null, selected = option == placement, onSelect = { onPlacement(option) })
             }
         }
 
@@ -201,6 +216,13 @@ private val FOLLOWS =
     listOf(
         WallpaperFollows.THIS_PHONE to R.string.wallpaper_this_phone,
         WallpaperFollows.STATION to R.string.wallpaper_station,
+    )
+
+private val PLACEMENTS =
+    listOf(
+        CoverPlacement.TOP to R.string.wallpaper_placement_top,
+        CoverPlacement.MIDDLE to R.string.wallpaper_placement_middle,
+        CoverPlacement.BOTTOM to R.string.wallpaper_placement_bottom,
     )
 
 private val COLORS =

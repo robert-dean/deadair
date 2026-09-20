@@ -42,6 +42,7 @@ import com.maroonedsoftware.deadair.playback.SleepRequest
 import com.maroonedsoftware.deadair.playback.SleepState
 import com.maroonedsoftware.deadair.station.StreamFormat
 import com.maroonedsoftware.deadair.wallpaper.ColorSource
+import com.maroonedsoftware.deadair.wallpaper.CoverPlacement
 import com.maroonedsoftware.deadair.wallpaper.WallpaperFollows
 import com.maroonedsoftware.deadair.wallpaper.WallpaperIdle
 import com.maroonedsoftware.deadair.ui.PrivacyPolicyLink
@@ -74,6 +75,7 @@ fun SettingsScreen(
     dynamicColor: Boolean,
     wallpaperFollows: WallpaperFollows,
     wallpaperIdle: WallpaperIdle,
+    wallpaperPlacement: CoverPlacement,
     wallpaperColorSource: ColorSource,
     wallpaperColor: Int,
     playOnOpen: Boolean,
@@ -84,6 +86,7 @@ fun SettingsScreen(
     onDynamicColor: (Boolean) -> Unit,
     onWallpaperFollows: (WallpaperFollows) -> Unit,
     onWallpaperIdle: (WallpaperIdle) -> Unit,
+    onWallpaperPlacement: (CoverPlacement) -> Unit,
     onColorSource: (ColorSource) -> Unit,
     onWallpaperColor: (Int) -> Unit,
     onPlayOnOpen: (Boolean) -> Unit,
@@ -207,6 +210,8 @@ fun SettingsScreen(
                 idle = wallpaperIdle,
                 onFollows = onWallpaperFollows,
                 onIdle = onWallpaperIdle,
+                placement = wallpaperPlacement,
+                onPlacement = onWallpaperPlacement,
                 colors = wallpaperColorSource,
                 color = wallpaperColor,
                 onColors = onColorSource,

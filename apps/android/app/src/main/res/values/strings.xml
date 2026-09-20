@@ -55,6 +55,10 @@
     <string name="wallpaper_station">Whenever the station is on air</string>
     <string name="wallpaper_station_detail">The home screen asks the station what is on while it is showing.</string>
     <string name="wallpaper_otherwise">With nothing to show</string>
+    <string name="wallpaper_placement">Put the cover</string>
+    <string name="wallpaper_placement_top">At the top</string>
+    <string name="wallpaper_placement_middle">In the middle</string>
+    <string name="wallpaper_placement_bottom">At the bottom</string>
     <string name="wallpaper_colors">Color the phone from</string>
     <string name="wallpaper_colors_station">The station\'s own colors</string>
     <string name="wallpaper_colors_artwork">The cover on screen</string>

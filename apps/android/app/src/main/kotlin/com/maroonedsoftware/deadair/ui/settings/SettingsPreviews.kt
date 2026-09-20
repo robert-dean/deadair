@@ -10,6 +10,7 @@ import com.maroonedsoftware.deadair.station.StreamFormat
 import com.maroonedsoftware.deadair.ui.setup.SetupScreen
 import com.maroonedsoftware.deadair.wallpaper.STATION_PALETTE
 import com.maroonedsoftware.deadair.wallpaper.ColorSource
+import com.maroonedsoftware.deadair.wallpaper.CoverPlacement
 import com.maroonedsoftware.deadair.wallpaper.WallpaperFollows
 import com.maroonedsoftware.deadair.wallpaper.WallpaperIdle
 import com.maroonedsoftware.deadair.ui.text.Message
@@ -29,6 +30,7 @@ private fun Settings(entry: StationEntryState, session: SessionState) {
                 dynamicColor = false,
                 wallpaperFollows = WallpaperFollows.THIS_PHONE,
                 wallpaperIdle = WallpaperIdle.LAST_COVER,
+                wallpaperPlacement = CoverPlacement.MIDDLE,
                 wallpaperColorSource = ColorSource.CUSTOM,
                 wallpaperColor = STATION_PALETTE.accent,
                 playOnOpen = false,
@@ -39,6 +41,7 @@ private fun Settings(entry: StationEntryState, session: SessionState) {
                 onDynamicColor = {},
                 onWallpaperFollows = {},
                 onWallpaperIdle = {},
+                onWallpaperPlacement = {},
                 onColorSource = {},
                 onWallpaperColor = {},
                 onPlayOnOpen = {},

@@ -3,6 +3,7 @@ package com.maroonedsoftware.deadair.ui.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.maroonedsoftware.deadair.wallpaper.ColorSource
+import com.maroonedsoftware.deadair.wallpaper.CoverPlacement
 import com.maroonedsoftware.deadair.wallpaper.WallpaperFollows
 import com.maroonedsoftware.deadair.wallpaper.WallpaperIdle
 import com.maroonedsoftware.deadair.auth.SessionManager
@@ -130,6 +131,10 @@ class SettingsViewModel(
 
     fun setWallpaperIdle(idle: WallpaperIdle) {
         viewModelScope.launch { store.setWallpaperIdle(idle) }
+    }
+
+    fun setWallpaperPlacement(placement: CoverPlacement) {
+        viewModelScope.launch { store.setWallpaperPlacement(placement) }
     }
 
     fun setColorSource(colors: ColorSource) {

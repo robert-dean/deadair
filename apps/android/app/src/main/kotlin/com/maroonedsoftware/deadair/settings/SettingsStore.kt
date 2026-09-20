@@ -12,6 +12,7 @@ import com.maroonedsoftware.deadair.station.StationUrl
 import com.maroonedsoftware.deadair.station.StreamFormat
 import com.maroonedsoftware.deadair.wallpaper.STATION_PALETTE
 import com.maroonedsoftware.deadair.wallpaper.ColorSource
+import com.maroonedsoftware.deadair.wallpaper.CoverPlacement
 import com.maroonedsoftware.deadair.wallpaper.WallpaperFollows
 import com.maroonedsoftware.deadair.wallpaper.WallpaperIdle
 import kotlinx.coroutines.flow.Flow
@@ -42,6 +43,7 @@ class SettingsStore(private val context: Context) {
                 // And a wallpaper setting this build does not know, on the format's argument.
                 wallpaperFollows = stored[WALLPAPER_FOLLOWS]?.let { name -> WallpaperFollows.entries.firstOrNull { it.name == name } } ?: WallpaperFollows.THIS_PHONE,
                 wallpaperIdle = stored[WALLPAPER_IDLE]?.let { name -> WallpaperIdle.entries.firstOrNull { it.name == name } } ?: WallpaperIdle.LAST_COVER,
+                wallpaperPlacement = stored[WALLPAPER_PLACEMENT]?.let { name -> CoverPlacement.entries.firstOrNull { it.name == name } } ?: CoverPlacement.MIDDLE,
                 wallpaperColorSource = stored[WALLPAPER_COLORS]?.let { name -> ColorSource.entries.firstOrNull { it.name == name } } ?: ColorSource.STATION,
                 wallpaperColor = stored[WALLPAPER_COLOR] ?: STATION_PALETTE.accent,
             )
@@ -80,6 +82,10 @@ class SettingsStore(private val context: Context) {
     }
 
     /** Pick the color, and follow it: choosing a swatch is what asking for it means. */
+    suspend fun setWallpaperPlacement(placement: CoverPlacement) {
+        context.preferences.edit { it[WALLPAPER_PLACEMENT] = placement.name }
+    }
+
     suspend fun setWallpaperColor(color: Int) {
         context.preferences.edit {
             it[WALLPAPER_COLOR] = color
@@ -99,6 +105,7 @@ class SettingsStore(private val context: Context) {
         val PLAY_ON_OPEN = booleanPreferencesKey("play_on_open")
         val WALLPAPER_FOLLOWS = stringPreferencesKey("wallpaper_follows")
         val WALLPAPER_IDLE = stringPreferencesKey("wallpaper_idle")
+        val WALLPAPER_PLACEMENT = stringPreferencesKey("wallpaper_placement")
         val WALLPAPER_COLORS = stringPreferencesKey("wallpaper_colours")
         val WALLPAPER_COLOR = intPreferencesKey("wallpaper_colour")
     }

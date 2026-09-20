@@ -148,6 +148,14 @@ function harness(
         forPrompt: vi.fn(async () => (options.story === undefined ? undefined : { id: 's1', story: options.story })),
         markTold: vi.fn(async (_id: string) => {}),
     };
+    // The ledger behind that stamp (migration 0034), written on the same line while the two columns
+    // are still the authority. Real enough to assert against, because "a carry is a row" is the
+    // property this store exists for.
+    const tellings = {
+        replaceForSegment: vi.fn(async (_segmentId: string, _write: unknown) => {}),
+        record: vi.fn(async (_write: unknown) => {}),
+        markAired: vi.fn(async (_segmentId: string, _at: number) => {}),
+    };
     const jobs = { send: vi.fn(async () => {}) };
     const config = { get: vi.fn((key: string, fallback: string) => options.settings?.[key] ?? fallback) };
     const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() };
@@ -202,6 +210,7 @@ function harness(
         pads as never,
         notes as never,
         personaStories as never,
+        tellings as never,
         plays as never,
         identity as never,
         speech as never,
@@ -225,6 +234,7 @@ function harness(
         personas,
         notes,
         personaStories,
+        tellings,
         jobs,
         logger,
         activity,
@@ -503,6 +513,29 @@ describe('WriteBreakJob', () => {
             expect(personaStories.forPrompt).toHaveBeenCalledWith('conspiracy');
             expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ story }));
             expect(personaStories.markTold).toHaveBeenCalledWith('s1');
+        });
+
+        // The ledger that replaces `last_told_at` and `times_told`, written beside them so it can be
+        // compared against them before anything reads it. What is pinned here is only that a carry
+        // IS a row and that it is keyed on the segment; where that row is written from, and the
+        // `told` read-back it cannot supply at this point, are the next commit's business.
+        it('records the carry in the ledger, keyed on the segment that carried it', async () => {
+            const { job, tellings } = harness({ lineup: await lineupWithBreak(), persona: persona('often'), story });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(tellings.replaceForSegment).toHaveBeenCalledWith(
+                'seg-1',
+                expect.objectContaining({ personaKey: 'conspiracy', storyId: 's1', source: 'break', mode: 'offered', told: false }),
+            );
+        });
+
+        it('writes no ledger row for a break that carried no story', async () => {
+            const { job, tellings } = harness({ lineup: await lineupWithBreak(), persona: persona('never'), story });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(tellings.replaceForSegment).not.toHaveBeenCalled();
         });
 
         it('reads none at all at "never", so nothing is spent', async () => {

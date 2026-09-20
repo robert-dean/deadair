@@ -56,7 +56,9 @@
             "deadair.persona_story_details.state": "'active' | 'suggested' | 'rejected'",
             "deadair.persona_story_details.origin": "'operator' | 'model'",
             "deadair.pads.state": "Generated<'active' | 'rejected'>",
-            "deadair.persona_auditions.state": "Generated<'queued' | 'running' | 'done' | 'failed' | 'cancelled'>"
+            "deadair.persona_auditions.state": "Generated<'queued' | 'running' | 'done' | 'failed' | 'cancelled'>",
+            "deadair.persona_tellings.source": "'break' | 'production' | 'backfill'",
+            "deadair.persona_tellings.mode": "'offered' | 'told'"
         }
     },
     "partitions": false,

@@ -498,6 +498,20 @@ export interface DeadairPersonaStoryDetails {
   storyId: string;
 }
 
+export interface DeadairPersonaTellings {
+  airedAt: DateTime | null;
+  createdAt: Generated<DateTime>;
+  id: Generated<string>;
+  mode: "offered" | "told";
+  personaKey: string;
+  said: string | null;
+  segmentId: string | null;
+  source: "break" | "production" | "backfill";
+  stationKey: Generated<string>;
+  storyId: string;
+  told: Generated<boolean>;
+}
+
 export interface DeadairPlayHistory {
   airedAt: Generated<DateTime>;
   artist: Generated<string>;
@@ -937,6 +951,7 @@ export interface DB {
   "deadair.personas": DeadairPersonas;
   "deadair.personaStories": DeadairPersonaStories;
   "deadair.personaStoryDetails": DeadairPersonaStoryDetails;
+  "deadair.personaTellings": DeadairPersonaTellings;
   "deadair.playHistory": DeadairPlayHistory;
   "deadair.playlists": DeadairPlaylists;
   "deadair.playlistTracks": DeadairPlaylistTracks;

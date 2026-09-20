@@ -14,6 +14,7 @@ import { PersonaRepository } from '#modules/personas/persona.repository.js';
 import { PersonaNotesRepository } from '#modules/personas/persona.notes.repository.js';
 import type { PersonaNotesForPrompt } from '#modules/personas/persona.note.js';
 import { PersonaStoriesRepository } from '#modules/personas/persona.stories.repository.js';
+import { PersonaTellingRepository } from '#modules/personas/persona.telling.repository.js';
 import type { PersonaStoryForPrompt } from '#modules/personas/persona.story.js';
 import { preoccupationOf, storytellingOf } from '#modules/personas/persona.sheet.js';
 import type { Persona } from '#modules/personas/persona.js';
@@ -163,6 +164,8 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         private readonly padRepository: PadRepository,
         private readonly notes: PersonaNotesRepository,
         private readonly stories: PersonaStoriesRepository,
+        /** The ledger behind the two stamps on a story. See {@link story}. */
+        private readonly tellings: PersonaTellingRepository,
         private readonly plays: PlayHistoryRepository,
         private readonly identity: StationIdentity,
         private readonly speech: SpeechService,
@@ -353,7 +356,7 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
             // Read here and RESTED here, for the notebook's reason and one of its own: the rung that
             // decides whether this break gets a story at all is applied in the same step as the
             // stamp, or the store fills up with tellings nobody heard. See `story`.
-            ...(await this.story(persona, segment.kind, neighbours)),
+            ...(await this.story(persona, segment.kind, neighbours, segment.id)),
             // What the engine that will speak this can do beyond reading. Read here for the notebook's
             // reason and answered once, so every binding asked for this break agrees about what was on
             // offer — and so a station that changed engine between two breaks writes for the one that
@@ -816,10 +819,22 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
      * it was measured was invented pressing plants. Judged on the facts already attached to the
      * neighbours, so it is the same fact the prompt would state.
      *
+     * ## The ledger is written here too, for now
+     *
+     * `deadair.persona_tellings` (migration 0034) is what replaces the two columns `markTold` writes,
+     * and it is written on this line beside them so the two can be compared before anything reads
+     * the new one. That is a bridge and not the destination: the row belongs after the script is
+     * WON, which is where it moves along with the `told` read-back that this timing cannot supply.
+     *
      * Best-effort, like the notebook and the facts: a story that could not be read costs the story
      * and never the break.
      */
-    private async story(persona: Persona | undefined, kind: string, neighbours: Neighbours): Promise<{ story?: PersonaStoryForPrompt }> {
+    private async story(
+        persona: Persona | undefined,
+        kind: string,
+        neighbours: Neighbours,
+        segmentId: string,
+    ): Promise<{ story?: PersonaStoryForPrompt }> {
         if (persona === undefined) return {};
 
         const mode = STORY_MODES.get(kind);
@@ -838,6 +853,17 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
             if (found === undefined) return {};
 
             await this.stories.markTold(found.id);
+            // The same fact in the store that will replace those two columns, written at the same
+            // moment so the ledger can be compared against them before anything depends on it.
+            // `told` is left false because at SELECTION nobody knows yet — the writer's read-back is
+            // what answers that, and it does not exist until the stamp moves off this line.
+            await this.tellings.replaceForSegment(segmentId, {
+                personaKey: persona.key,
+                storyId: found.id,
+                source: 'break',
+                mode,
+                told: false,
+            });
             return { story: found.story };
         } catch (error) {
             this.logger.warn(`director: could not read this character's own stories (${errorText(error)})`);

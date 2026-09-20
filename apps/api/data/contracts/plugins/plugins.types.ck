@@ -88,6 +88,40 @@ contract PluginSummary: {
     nextProbeAt?: readonly datetime # When the breaker will probe this plugin again on its own. Absent means no probe is pending
 }
 
+# Whether a capability has ONE answer or is asked of everything in turn. `one` stores a plugin id
+# and `ordered` stores a list of them; see `plugins/plugin.providers.ts`, which both this and the
+# station read the pairing from
+contract ProviderMode: enum(one, ordered)
+
+# One plugin's standing for one capability, as the Providers section draws it
+contract ProviderCandidate: {
+    pluginId: string(min=1, max=200)
+    name: string(min=1, max=200) # The plugin's own name, which is what an operator knows it by. The id is what is stored
+    enabled: boolean
+    status: PluginStatus
+    position?: int(min=1) # Where in the asking order this plugin sits, counting from 1. Absent when it cannot currently answer, which is every status but `active`
+    listed: boolean # Whether the operator named this plugin, as opposed to it being here because it is installed. False everywhere when nothing is set
+    inUse: boolean # Whether the station reaches this plugin for this capability. Every active candidate for an `ordered` capability, and only the chosen one for a `one`
+    declaredPriority?: int # `enrichment` only: the number the plugin's AUTHOR gave it, which orders whatever the operator did not. Lower wins a conflicting fact
+}
+
+# One capability, who can answer it, and what the operator has said about the order
+contract ProviderCapabilityState: {
+    capability: string(min=1, max=100) # The manifest capability, which is also the console's anchor for this block
+    mode: ProviderMode
+    settingKey: string(min=1, max=200) # The `deadair.settings` key the console writes. Its descriptor carries the wording
+    configured: string(max=8000) # The raw stored value, so the console can tell a default order from one somebody set. Empty when nothing is stored
+    candidates: array(ProviderCandidate) # Active plugins first, in the order the station asks them, then the ones that cannot answer
+    stale: array(string(min=1, max=200)) # Ids named in the setting that no active plugin answers to. Ordering never gates, so these cost nothing but say nothing either until they are shown
+    unanswered: boolean # `one` only: a plugin is named and is not an active candidate, so the station has NO provider for this. The dangerous state, because naming one is an instruction and never falls back
+}
+
+# Every capability an operator chooses between. Capabilities that fan out and merge without
+# ranking are deliberately absent: order changes nothing about a union
+contract ProviderCatalogue: {
+    capabilities: array(ProviderCapabilityState)
+}
+
 # A plugin handed over from the browser. The generated client types the body as `FormData`, so
 # nothing checks this shape. It says what to send
 contract PluginImport: {

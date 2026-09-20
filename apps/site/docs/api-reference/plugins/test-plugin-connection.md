@@ -1,7 +1,7 @@
 ---
 title: 'Test plugin connection'
 sidebar_label: 'Test plugin connection'
-sidebar_position: 12
+sidebar_position: 13
 mdx:
     format: 'md'
 ---

@@ -2301,6 +2301,18 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/PluginGrantList'
+    '/plugins/providers':
+        get:
+            operationId: listProviders
+            summary: 'List capability providers'
+            description: 'Every capability more than one plugin could answer, who can answer it, and in what order the station asks them'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/ProviderCatalogue'
     '/plugins/rescan':
         post:
             operationId: rescanPlugins
@@ -8566,6 +8578,86 @@ components:
                 - configFields
                 - secretsConfigured
             description: 'A plugin as the settings list sees it. Carries no configured VALUES, only which secrets are set'
+        ProviderMode:
+            type: string
+            enum: [one, ordered]
+            description: "Whether a capability has ONE answer or is asked of everything in turn. `one` stores a plugin id\nand `ordered` stores a list of them; see `plugins/plugin.providers.ts`, which both this and the\nstation read the pairing from"
+        ProviderCandidate:
+            type: object
+            properties:
+                pluginId:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                name:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                    description: "The plugin's own name, which is what an operator knows it by. The id is what is stored"
+                enabled:
+                    type: boolean
+                status:
+                    '$ref': '#/components/schemas/PluginStatus'
+                position:
+                    type: integer
+                    minimum: 1
+                    description: 'Where in the asking order this plugin sits, counting from 1. Absent when it cannot currently answer, which is every status but `active`'
+                listed:
+                    type: boolean
+                    description: 'Whether the operator named this plugin, as opposed to it being here because it is installed. False everywhere when nothing is set'
+                inUse:
+                    type: boolean
+                    description: 'Whether the station reaches this plugin for this capability. Every active candidate for an `ordered` capability, and only the chosen one for a `one`'
+                declaredPriority:
+                    type: integer
+                    description: "`enrichment` only: the number the plugin's AUTHOR gave it, which orders whatever the operator did not. Lower wins a conflicting fact"
+            required: [pluginId, name, enabled, status, listed, inUse]
+            description: "One plugin's standing for one capability, as the Providers section draws it"
+        ProviderCapabilityState:
+            type: object
+            properties:
+                capability:
+                    type: string
+                    minLength: 1
+                    maxLength: 100
+                    description: "The manifest capability, which is also the console's anchor for this block"
+                mode:
+                    '$ref': '#/components/schemas/ProviderMode'
+                settingKey:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                    description: 'The `deadair.settings` key the console writes. Its descriptor carries the wording'
+                configured:
+                    type: string
+                    maxLength: 8000
+                    description: 'The raw stored value, so the console can tell a default order from one somebody set. Empty when nothing is stored'
+                candidates:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/ProviderCandidate'
+                    description: 'Active plugins first, in the order the station asks them, then the ones that cannot answer'
+                stale:
+                    type: array
+                    items:
+                        type: string
+                        minLength: 1
+                        maxLength: 200
+                    description: 'Ids named in the setting that no active plugin answers to. Ordering never gates, so these cost nothing but say nothing either until they are shown'
+                unanswered:
+                    type: boolean
+                    description: '`one` only: a plugin is named and is not an active candidate, so the station has NO provider for this. The dangerous state, because naming one is an instruction and never falls back'
+            required: [capability, mode, settingKey, configured, candidates, stale, unanswered]
+            description: 'One capability, who can answer it, and what the operator has said about the order'
+        ProviderCatalogue:
+            type: object
+            properties:
+                capabilities:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/ProviderCapabilityState'
+            required: [capabilities]
+            description: "Every capability an operator chooses between. Capabilities that fan out and merge without\nranking are deliberately absent: order changes nothing about a union"
         PluginImport:
             type: object
             properties:

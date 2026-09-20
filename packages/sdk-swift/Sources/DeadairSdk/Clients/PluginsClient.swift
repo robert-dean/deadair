@@ -25,6 +25,14 @@ public final class PluginsClient: Sendable {
         return try http.decodeJSON(PluginGrantList.self, from: response)
     }
 
+    /// List capability providers
+    /// Every capability more than one plugin could answer, who can answer it, and in what order the station asks them
+    public func listCapabilityProviders() async throws -> ProviderCatalogue {
+        let request = SdkRequest(method: "GET", path: ["plugins", "providers"])
+        let response = try await http.execute(request)
+        return try http.decodeJSON(ProviderCatalogue.self, from: response)
+    }
+
     /// Rescan plugins
     /// Rescans the mounted plugin directory: registers new plugins, unloads removed ones
     public func rescanPlugins() async throws -> [PluginSummary] {

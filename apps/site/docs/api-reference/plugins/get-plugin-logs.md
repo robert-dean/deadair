@@ -1,7 +1,7 @@
 ---
 title: 'Get plugin logs'
 sidebar_label: 'Get plugin logs'
-sidebar_position: 14
+sidebar_position: 15
 mdx:
     format: 'md'
 ---

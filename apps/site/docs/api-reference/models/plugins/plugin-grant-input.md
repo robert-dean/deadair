@@ -1,6 +1,6 @@
 ---
 title: 'PluginGrantInput'
-sidebar_position: 23
+sidebar_position: 27
 mdx:
     format: 'md'
 ---

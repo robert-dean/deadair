@@ -1,7 +1,7 @@
 ---
 title: 'Rescan plugins'
 sidebar_label: 'Rescan plugins'
-sidebar_position: 3
+sidebar_position: 4
 mdx:
     format: 'md'
 ---

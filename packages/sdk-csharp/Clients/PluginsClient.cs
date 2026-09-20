@@ -47,6 +47,19 @@ public sealed class PluginsClient(SdkHttp http)
     }
 
     /// <summary>
+    /// List capability providers
+    /// Every capability more than one plugin could answer, who can answer it, and in what order the station asks them
+    /// </summary>
+    public async Task<ProviderCatalogue> ListCapabilityProvidersAsync(CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Get,
+            http.Path("plugins", "providers"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<ProviderCatalogue>(response);
+    }
+
+    /// <summary>
     /// Rescan plugins
     /// Rescans the mounted plugin directory: registers new plugins, unloads removed ones
     /// </summary>

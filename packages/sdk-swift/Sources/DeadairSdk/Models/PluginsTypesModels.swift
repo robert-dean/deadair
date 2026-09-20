@@ -92,6 +92,14 @@ public enum ConfigFieldOptionSource: String, Codable, CaseIterable, Sendable {
     case llmModels = "llm.models"
 }
 
+/// Whether a capability has ONE answer or is asked of everything in turn. `one` stores a plugin id
+/// and `ordered` stores a list of them; see `plugins/plugin.providers.ts`, which both this and the
+/// station read the pairing from
+public enum ProviderMode: String, Codable, CaseIterable, Sendable {
+    case one = "one"
+    case ordered = "ordered"
+}
+
 /// A plugin handed over from the browser. The generated client types the body as `FormData`, so
 /// nothing checks this shape. It says what to send
 public struct PluginImport: Codable, Equatable, Sendable {
@@ -282,6 +290,69 @@ public struct PluginOAuthCallbackQuery: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.error, forKey: .error)
         try container.encodeIfPresent(self.ubi, forKey: .ubi)
         try container.encodeIfPresent(self.token, forKey: .token)
+    }
+}
+
+/// One plugin's standing for one capability, as the Providers section draws it
+public struct ProviderCandidate: Codable, Equatable, Sendable {
+    public var pluginId: String
+    /// The plugin's own name, which is what an operator knows it by. The id is what is stored
+    public var name: String
+    public var enabled: Bool
+    public var status: PluginStatus
+    /// Where in the asking order this plugin sits, counting from 1. Absent when it cannot currently answer, which is every status but `active`
+    public var position: Int?
+    /// Whether the operator named this plugin, as opposed to it being here because it is installed. False everywhere when nothing is set
+    public var listed: Bool
+    /// Whether the station reaches this plugin for this capability. Every active candidate for an `ordered` capability, and only the chosen one for a `one`
+    public var inUse: Bool
+    /// `enrichment` only: the number the plugin's AUTHOR gave it, which orders whatever the operator did not. Lower wins a conflicting fact
+    public var declaredPriority: Int?
+
+    public init(pluginId: String, name: String, enabled: Bool, status: PluginStatus, position: Int? = nil, listed: Bool, inUse: Bool, declaredPriority: Int? = nil) {
+        self.pluginId = pluginId
+        self.name = name
+        self.enabled = enabled
+        self.status = status
+        self.position = position
+        self.listed = listed
+        self.inUse = inUse
+        self.declaredPriority = declaredPriority
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case pluginId = "pluginId"
+        case name = "name"
+        case enabled = "enabled"
+        case status = "status"
+        case position = "position"
+        case listed = "listed"
+        case inUse = "inUse"
+        case declaredPriority = "declaredPriority"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.pluginId = try container.decode(String.self, forKey: .pluginId)
+        self.name = try container.decode(String.self, forKey: .name)
+        self.enabled = try container.decode(Bool.self, forKey: .enabled)
+        self.status = try container.decode(PluginStatus.self, forKey: .status)
+        self.position = try container.decodeIfPresent(Int.self, forKey: .position)
+        self.listed = try container.decode(Bool.self, forKey: .listed)
+        self.inUse = try container.decode(Bool.self, forKey: .inUse)
+        self.declaredPriority = try container.decodeIfPresent(Int.self, forKey: .declaredPriority)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.pluginId, forKey: .pluginId)
+        try container.encode(self.name, forKey: .name)
+        try container.encode(self.enabled, forKey: .enabled)
+        try container.encode(self.status, forKey: .status)
+        try container.encodeIfPresent(self.position, forKey: .position)
+        try container.encode(self.listed, forKey: .listed)
+        try container.encode(self.inUse, forKey: .inUse)
+        try container.encodeIfPresent(self.declaredPriority, forKey: .declaredPriority)
     }
 }
 
@@ -551,6 +622,65 @@ public struct PluginGrantInput: Codable, Equatable, Sendable {
     }
 }
 
+/// One capability, who can answer it, and what the operator has said about the order
+public struct ProviderCapabilityState: Codable, Equatable, Sendable {
+    /// The manifest capability, which is also the console's anchor for this block
+    public var capability: String
+    public var mode: ProviderMode
+    /// The `deadair.settings` key the console writes. Its descriptor carries the wording
+    public var settingKey: String
+    /// The raw stored value, so the console can tell a default order from one somebody set. Empty when nothing is stored
+    public var configured: String
+    /// Active plugins first, in the order the station asks them, then the ones that cannot answer
+    public var candidates: [ProviderCandidate]
+    /// Ids named in the setting that no active plugin answers to. Ordering never gates, so these cost nothing but say nothing either until they are shown
+    public var stale: [String]
+    /// `one` only: a plugin is named and is not an active candidate, so the station has NO provider for this. The dangerous state, because naming one is an instruction and never falls back
+    public var unanswered: Bool
+
+    public init(capability: String, mode: ProviderMode, settingKey: String, configured: String, candidates: [ProviderCandidate], stale: [String], unanswered: Bool) {
+        self.capability = capability
+        self.mode = mode
+        self.settingKey = settingKey
+        self.configured = configured
+        self.candidates = candidates
+        self.stale = stale
+        self.unanswered = unanswered
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case capability = "capability"
+        case mode = "mode"
+        case settingKey = "settingKey"
+        case configured = "configured"
+        case candidates = "candidates"
+        case stale = "stale"
+        case unanswered = "unanswered"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.capability = try container.decode(String.self, forKey: .capability)
+        self.mode = try container.decode(ProviderMode.self, forKey: .mode)
+        self.settingKey = try container.decode(String.self, forKey: .settingKey)
+        self.configured = try container.decode(String.self, forKey: .configured)
+        self.candidates = try container.decode([ProviderCandidate].self, forKey: .candidates)
+        self.stale = try container.decode([String].self, forKey: .stale)
+        self.unanswered = try container.decode(Bool.self, forKey: .unanswered)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.capability, forKey: .capability)
+        try container.encode(self.mode, forKey: .mode)
+        try container.encode(self.settingKey, forKey: .settingKey)
+        try container.encode(self.configured, forKey: .configured)
+        try container.encode(self.candidates, forKey: .candidates)
+        try container.encode(self.stale, forKey: .stale)
+        try container.encode(self.unanswered, forKey: .unanswered)
+    }
+}
+
 /// Mirrors the plugin SDK's `ConfigField`: enough for a console to render the settings form with no per-plugin code
 public struct ConfigFieldDescriptor: Codable, Equatable, Sendable {
     public var key: String
@@ -716,6 +846,30 @@ public struct PluginGrantList: Codable, Equatable, Sendable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(self.grants, forKey: .grants)
+    }
+}
+
+/// Every capability an operator chooses between. Capabilities that fan out and merge without
+/// ranking are deliberately absent: order changes nothing about a union
+public struct ProviderCatalogue: Codable, Equatable, Sendable {
+    public var capabilities: [ProviderCapabilityState]
+
+    public init(capabilities: [ProviderCapabilityState]) {
+        self.capabilities = capabilities
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case capabilities = "capabilities"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.capabilities = try container.decode([ProviderCapabilityState].self, forKey: .capabilities)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.capabilities, forKey: .capabilities)
     }
 }
 

@@ -14,6 +14,7 @@ import { PluginLifecycleManager } from './plugin.lifecycle.manager.js';
 import { PluginLoader, PluginLoaderOptions } from './plugin.loader.js';
 import { PluginLog, PluginLogOptions } from './plugin.log.js';
 import { PluginPeerLinker } from './plugin.peers.js';
+import { PluginProvidersService } from './plugin.providers.service.js';
 import { PluginGrantsRepository } from './plugin.grants.repository.js';
 import { PluginGrantsService } from './plugin.grants.service.js';
 import { PluginOAuthStateStore } from './plugin.oauth.state.store.js';
@@ -107,6 +108,10 @@ export const PluginsModule: ServerKitModule = {
         registry.register(PluginConfigService).useClass(PluginConfigService).asScoped();
         registry.register(PluginsService).useClass(PluginsService).asScoped();
         registry.register(PluginInstallService).useClass(PluginInstallService).asScoped();
+        // Its own service rather than another method on `PluginsService`, whose constructor is
+        // already fifteen dependencies deep. This one reads the registry, the config and one
+        // table, and writes nothing.
+        registry.register(PluginProvidersService).useClass(PluginProvidersService).asScoped();
 
         registry
             .register(PluginHostFactoryOptions)

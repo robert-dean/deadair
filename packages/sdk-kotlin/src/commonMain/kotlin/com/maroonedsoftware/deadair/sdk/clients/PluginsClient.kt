@@ -15,6 +15,7 @@ import com.maroonedsoftware.deadair.sdk.models.PluginOAuthResult
 import com.maroonedsoftware.deadair.sdk.models.PluginOAuthStart
 import com.maroonedsoftware.deadair.sdk.models.PluginSummary
 import com.maroonedsoftware.deadair.sdk.models.PluginTestResult
+import com.maroonedsoftware.deadair.sdk.models.ProviderCatalogue
 import com.maroonedsoftware.deadair.sdk.runtime.SdkHttp
 import io.ktor.http.HttpMethod
 import io.ktor.http.content.PartData
@@ -39,6 +40,17 @@ class PluginsClient(private val http: SdkHttp) {
     suspend fun listPluginGrants(): PluginGrantList {
         val response = http.execute(HttpMethod.Get) {
             path("plugins", "grants")
+        }
+        return http.decodeJson(response)
+    }
+
+    /**
+     * List capability providers
+     * Every capability more than one plugin could answer, who can answer it, and in what order the station asks them
+     */
+    suspend fun listCapabilityProviders(): ProviderCatalogue {
+        val response = http.execute(HttpMethod.Get) {
+            path("plugins", "providers")
         }
         return http.decodeJson(response)
     }

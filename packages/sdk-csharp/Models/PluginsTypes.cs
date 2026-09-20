@@ -162,6 +162,21 @@ public enum ConfigFieldOptionSource
 }
 
 /// <summary>
+/// Whether a capability has ONE answer or is asked of everything in turn. `one` stores a plugin id
+/// and `ordered` stores a list of them; see `plugins/plugin.providers.ts`, which both this and the
+/// station read the pairing from
+/// </summary>
+[JsonConverter(typeof(JsonStringEnumConverter<ProviderMode>))]
+public enum ProviderMode
+{
+    [JsonStringEnumMemberName("one")]
+    One,
+
+    [JsonStringEnumMemberName("ordered")]
+    Ordered,
+}
+
+/// <summary>
 /// A plugin handed over from the browser. The generated client types the body as `FormData`, so
 /// nothing checks this shape. It says what to send
 /// </summary>
@@ -271,6 +286,41 @@ public sealed record PluginOAuthCallbackQuery
     [JsonPropertyName("token")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Token { get; init; }
+}
+
+/// <summary>One plugin's standing for one capability, as the Providers section draws it</summary>
+public sealed record ProviderCandidate
+{
+    [JsonPropertyName("pluginId")]
+    public required string PluginId { get; init; }
+
+    /// <summary>The plugin's own name, which is what an operator knows it by. The id is what is stored</summary>
+    [JsonPropertyName("name")]
+    public required string Name { get; init; }
+
+    [JsonPropertyName("enabled")]
+    public required bool Enabled { get; init; }
+
+    [JsonPropertyName("status")]
+    public required PluginStatus Status { get; init; }
+
+    /// <summary>Where in the asking order this plugin sits, counting from 1. Absent when it cannot currently answer, which is every status but `active`</summary>
+    [JsonPropertyName("position")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? Position { get; init; }
+
+    /// <summary>Whether the operator named this plugin, as opposed to it being here because it is installed. False everywhere when nothing is set</summary>
+    [JsonPropertyName("listed")]
+    public required bool Listed { get; init; }
+
+    /// <summary>Whether the station reaches this plugin for this capability. Every active candidate for an `ordered` capability, and only the chosen one for a `one`</summary>
+    [JsonPropertyName("inUse")]
+    public required bool InUse { get; init; }
+
+    /// <summary>`enrichment` only: the number the plugin's AUTHOR gave it, which orders whatever the operator did not. Lower wins a conflicting fact</summary>
+    [JsonPropertyName("declaredPriority")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? DeclaredPriority { get; init; }
 }
 
 /// <summary>
@@ -405,6 +455,37 @@ public sealed record PluginGrantInput
     public required GrantDecision Decision { get; init; }
 }
 
+/// <summary>One capability, who can answer it, and what the operator has said about the order</summary>
+public sealed record ProviderCapabilityState
+{
+    /// <summary>The manifest capability, which is also the console's anchor for this block</summary>
+    [JsonPropertyName("capability")]
+    public required string Capability { get; init; }
+
+    [JsonPropertyName("mode")]
+    public required ProviderMode Mode { get; init; }
+
+    /// <summary>The `deadair.settings` key the console writes. Its descriptor carries the wording</summary>
+    [JsonPropertyName("settingKey")]
+    public required string SettingKey { get; init; }
+
+    /// <summary>The raw stored value, so the console can tell a default order from one somebody set. Empty when nothing is stored</summary>
+    [JsonPropertyName("configured")]
+    public required string Configured { get; init; }
+
+    /// <summary>Active plugins first, in the order the station asks them, then the ones that cannot answer</summary>
+    [JsonPropertyName("candidates")]
+    public required List<ProviderCandidate> Candidates { get; init; }
+
+    /// <summary>Ids named in the setting that no active plugin answers to. Ordering never gates, so these cost nothing but say nothing either until they are shown</summary>
+    [JsonPropertyName("stale")]
+    public required List<string> Stale { get; init; }
+
+    /// <summary>`one` only: a plugin is named and is not an active candidate, so the station has NO provider for this. The dangerous state, because naming one is an instruction and never falls back</summary>
+    [JsonPropertyName("unanswered")]
+    public required bool Unanswered { get; init; }
+}
+
 /// <summary>Mirrors the plugin SDK's `ConfigField`: enough for a console to render the settings form with no per-plugin code</summary>
 public sealed record ConfigFieldDescriptor
 {
@@ -501,6 +582,16 @@ public sealed record PluginGrantList
     /// <summary>Every capability every installed plugin is asking for, refused ones included</summary>
     [JsonPropertyName("grants")]
     public required List<PluginGrant> Grants { get; init; }
+}
+
+/// <summary>
+/// Every capability an operator chooses between. Capabilities that fan out and merge without
+/// ranking are deliberately absent: order changes nothing about a union
+/// </summary>
+public sealed record ProviderCatalogue
+{
+    [JsonPropertyName("capabilities")]
+    public required List<ProviderCapabilityState> Capabilities { get; init; }
 }
 
 /// <summary>A plugin as the settings list sees it. Carries no configured VALUES, only which secrets are set</summary>

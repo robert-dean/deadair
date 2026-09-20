@@ -1,7 +1,7 @@
 ---
 title: 'Decide plugin grant'
 sidebar_label: 'Decide plugin grant'
-sidebar_position: 10
+sidebar_position: 11
 mdx:
     format: 'md'
 ---

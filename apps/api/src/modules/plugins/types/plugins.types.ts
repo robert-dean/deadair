@@ -79,9 +79,18 @@ export const ConfigFieldOptionSource = z.enum([
 export type ConfigFieldOptionSource = z.infer<typeof ConfigFieldOptionSource>;
 
 /**
+ * Whether a capability has ONE answer or is asked of everything in turn. `one` stores a plugin id
+ * and `ordered` stores a list of them; see `plugins/plugin.providers.ts`, which both this and the
+ * station read the pairing from
+ * generated from [ProviderMode](../../../../data/contracts/plugins/plugins.types.ck#L94)
+ */
+export const ProviderMode = z.enum(['one', 'ordered']);
+export type ProviderMode = z.infer<typeof ProviderMode>;
+
+/**
  * A plugin handed over from the browser. The generated client types the body as `FormData`, so
  * nothing checks this shape. It says what to send
- * generated from [PluginImport](../../../../data/contracts/plugins/plugins.types.ck#L93)
+ * generated from [PluginImport](../../../../data/contracts/plugins/plugins.types.ck#L127)
  */
 export const PluginImport = z.strictObject({
     file: _ZodBinary.describe('The gzip tarball npm pack writes: every entry under package/, holding package.json and the built code, at most 64 MB'),
@@ -89,14 +98,14 @@ export const PluginImport = z.strictObject({
 export type PluginImport = z.infer<typeof PluginImport>;
 
 /**
- * generated from [PluginLogLevel](../../../../data/contracts/plugins/plugins.types.ck#L104)
+ * generated from [PluginLogLevel](../../../../data/contracts/plugins/plugins.types.ck#L138)
  */
 export const PluginLogLevel = z.enum(['debug', 'info', 'warn', 'error']);
 export type PluginLogLevel = z.infer<typeof PluginLogLevel>;
 
 /**
  * A submitted settings form. Secret values arrive in here and are never echoed back
- * generated from [PluginConfigInput](../../../../data/contracts/plugins/plugins.types.ck#L136)
+ * generated from [PluginConfigInput](../../../../data/contracts/plugins/plugins.types.ck#L170)
  */
 export const PluginConfigInput = z.strictObject({
     config: z.record(z.string(), z.unknown()),
@@ -106,14 +115,14 @@ export type PluginConfigInput = z.infer<typeof PluginConfigInput>;
 /**
  * What a plugin may do with a capability it asked for. Denied is the default and needs no row: a
  * capability is refused until somebody allows it, so "never answered" and "refused" are one state
- * generated from [GrantDecision](../../../../data/contracts/plugins/plugins.types.ck#L142)
+ * generated from [GrantDecision](../../../../data/contracts/plugins/plugins.types.ck#L176)
  */
 export const GrantDecision = z.enum(['allowed', 'denied']);
 export type GrantDecision = z.infer<typeof GrantDecision>;
 
 /**
  * Outcome of the plugin's own `testConnection()`
- * generated from [PluginTestResult](../../../../data/contracts/plugins/plugins.types.ck#L166)
+ * generated from [PluginTestResult](../../../../data/contracts/plugins/plugins.types.ck#L200)
  */
 export const PluginTestResult = z.strictObject({
     ok: z.preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean()),
@@ -124,7 +133,7 @@ export type PluginTestResult = z.infer<typeof PluginTestResult>;
 /**
  * Where the console should send the browser to obtain the operator's consent. Reported rather than
  * redirected to: the route is behind the Bearer floor, so a browser cannot follow a redirect from it
- * generated from [PluginOAuthStart](../../../../data/contracts/plugins/plugins.types.ck#L184)
+ * generated from [PluginOAuthStart](../../../../data/contracts/plugins/plugins.types.ck#L218)
  */
 export const PluginOAuthStart = z.strictObject({
     url: z.url(),
@@ -133,7 +142,7 @@ export type PluginOAuthStart = z.infer<typeof PluginOAuthStart>;
 
 /**
  * Outcome of an OAuth callback
- * generated from [PluginOAuthResult](../../../../data/contracts/plugins/plugins.types.ck#L189)
+ * generated from [PluginOAuthResult](../../../../data/contracts/plugins/plugins.types.ck#L223)
  */
 export const PluginOAuthResult = z.strictObject({
     pluginId: z.string().min(1).max(200),
@@ -143,7 +152,7 @@ export const PluginOAuthResult = z.strictObject({
 export type PluginOAuthResult = z.infer<typeof PluginOAuthResult>;
 
 /**
- * generated from [PluginOAuthCallbackQuery](../../../../data/contracts/plugins/plugins.types.ck#L195)
+ * generated from [PluginOAuthCallbackQuery](../../../../data/contracts/plugins/plugins.types.ck#L229)
  */
 export const PluginOAuthCallbackQuery = z.object({
     code: z.string().max(2048).optional(),
@@ -161,10 +170,44 @@ export const PluginOAuthCallbackQuery = z.object({
 export type PluginOAuthCallbackQuery = z.infer<typeof PluginOAuthCallbackQuery>;
 
 /**
+ * One plugin's standing for one capability, as the Providers section draws it
+ * generated from [ProviderCandidate](../../../../data/contracts/plugins/plugins.types.ck#L97)
+ */
+export const ProviderCandidate = z.strictObject({
+    pluginId: z.string().min(1).max(200),
+    name: z.string().min(1).max(200).describe("The plugin's own name, which is what an operator knows it by. The id is what is stored"),
+    enabled: z.preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean()),
+    status: PluginStatus,
+    position: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(1))
+        .optional()
+        .describe(
+            'Where in the asking order this plugin sits, counting from 1. Absent when it cannot currently answer, which is every status but `active`',
+        ),
+    listed: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .describe(
+            'Whether the operator named this plugin, as opposed to it being here because it is installed. False everywhere when nothing is set',
+        ),
+    inUse: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .describe(
+            'Whether the station reaches this plugin for this capability. Every active candidate for an `ordered` capability, and only the chosen one for a `one`',
+        ),
+    declaredPriority: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int())
+        .optional()
+        .describe(
+            "`enrichment` only: the number the plugin's AUTHOR gave it, which orders whatever the operator did not. Lower wins a conflicting fact",
+        ),
+});
+export type ProviderCandidate = z.infer<typeof ProviderCandidate>;
+
+/**
  * Live choices for a plugin's config fields, keyed by field key, out of the plugin's own
  * `suggestConfigOptions()`. What `ConfigFieldDescriptor.options` cannot be: fixed when the manifest
  * was written, where these are whatever the operator's own server currently says
- * generated from [PluginFieldSuggestions](../../../../data/contracts/plugins/plugins.types.ck#L174)
+ * generated from [PluginFieldSuggestions](../../../../data/contracts/plugins/plugins.types.ck#L208)
  */
 export const PluginFieldSuggestions = z.strictObject({
     fields: z
@@ -207,7 +250,7 @@ export const ConfigFieldColumn = z.strictObject({
 export type ConfigFieldColumn = z.infer<typeof ConfigFieldColumn>;
 
 /**
- * generated from [PluginLogEntry](../../../../data/contracts/plugins/plugins.types.ck#L106)
+ * generated from [PluginLogEntry](../../../../data/contracts/plugins/plugins.types.ck#L140)
  */
 export const PluginLogEntry = z.strictObject({
     ts: z.string().max(40),
@@ -217,7 +260,7 @@ export const PluginLogEntry = z.strictObject({
 export type PluginLogEntry = z.infer<typeof PluginLogEntry>;
 
 /**
- * generated from [PluginLogQuery](../../../../data/contracts/plugins/plugins.types.ck#L118)
+ * generated from [PluginLogQuery](../../../../data/contracts/plugins/plugins.types.ck#L152)
  */
 export const PluginLogQuery = z.strictObject({
     limit: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(1).max(2000)).optional(),
@@ -226,7 +269,7 @@ export const PluginLogQuery = z.strictObject({
 export type PluginLogQuery = z.infer<typeof PluginLogQuery>;
 
 /**
- * generated from [PluginLogLevelInput](../../../../data/contracts/plugins/plugins.types.ck#L123)
+ * generated from [PluginLogLevelInput](../../../../data/contracts/plugins/plugins.types.ck#L157)
  */
 export const PluginLogLevelInput = z.strictObject({
     level: PluginLogLevel,
@@ -236,7 +279,7 @@ export type PluginLogLevelInput = z.infer<typeof PluginLogLevelInput>;
 /**
  * One capability a plugin asked for, with the station's answer. The ask is the plugin's manifest and
  * the answer is a row, so a plugin that stops asking stops appearing here whatever was stored
- * generated from [PluginGrant](../../../../data/contracts/plugins/plugins.types.ck#L146)
+ * generated from [PluginGrant](../../../../data/contracts/plugins/plugins.types.ck#L180)
  */
 export const PluginGrant = z.strictObject({
     pluginId: z.string().min(1).max(200),
@@ -250,13 +293,39 @@ export const PluginGrant = z.strictObject({
 export type PluginGrant = z.infer<typeof PluginGrant>;
 
 /**
- * generated from [PluginGrantInput](../../../../data/contracts/plugins/plugins.types.ck#L160)
+ * generated from [PluginGrantInput](../../../../data/contracts/plugins/plugins.types.ck#L194)
  */
 export const PluginGrantInput = z.strictObject({
     capability: z.string().min(1).max(100),
     decision: GrantDecision,
 });
 export type PluginGrantInput = z.infer<typeof PluginGrantInput>;
+
+/**
+ * One capability, who can answer it, and what the operator has said about the order
+ * generated from [ProviderCapabilityState](../../../../data/contracts/plugins/plugins.types.ck#L109)
+ */
+export const ProviderCapabilityState = z.strictObject({
+    capability: z.string().min(1).max(100).describe("The manifest capability, which is also the console's anchor for this block"),
+    mode: ProviderMode,
+    settingKey: z.string().min(1).max(200).describe('The `deadair.settings` key the console writes. Its descriptor carries the wording'),
+    configured: z
+        .string()
+        .max(8000)
+        .describe('The raw stored value, so the console can tell a default order from one somebody set. Empty when nothing is stored'),
+    candidates: z.array(ProviderCandidate).describe('Active plugins first, in the order the station asks them, then the ones that cannot answer'),
+    stale: z
+        .array(z.string().min(1).max(200))
+        .describe(
+            'Ids named in the setting that no active plugin answers to. Ordering never gates, so these cost nothing but say nothing either until they are shown',
+        ),
+    unanswered: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .describe(
+            '`one` only: a plugin is named and is not an active candidate, so the station has NO provider for this. The dangerous state, because naming one is an instruction and never falls back',
+        ),
+});
+export type ProviderCapabilityState = z.infer<typeof ProviderCapabilityState>;
 
 /**
  * Mirrors the plugin SDK's `ConfigField`: enough for a console to render the settings form with no per-plugin code
@@ -310,7 +379,7 @@ export const ConfigFieldDescriptor = z.strictObject({
 export type ConfigFieldDescriptor = z.infer<typeof ConfigFieldDescriptor>;
 
 /**
- * generated from [PluginLogPage](../../../../data/contracts/plugins/plugins.types.ck#L112)
+ * generated from [PluginLogPage](../../../../data/contracts/plugins/plugins.types.ck#L146)
  */
 export const PluginLogPage = z.strictObject({
     pluginId: z.string().min(1).max(200),
@@ -322,12 +391,22 @@ export const PluginLogPage = z.strictObject({
 export type PluginLogPage = z.infer<typeof PluginLogPage>;
 
 /**
- * generated from [PluginGrantList](../../../../data/contracts/plugins/plugins.types.ck#L156)
+ * generated from [PluginGrantList](../../../../data/contracts/plugins/plugins.types.ck#L190)
  */
 export const PluginGrantList = z.strictObject({
     grants: z.array(PluginGrant).describe('Every capability every installed plugin is asking for, refused ones included'),
 });
 export type PluginGrantList = z.infer<typeof PluginGrantList>;
+
+/**
+ * Every capability an operator chooses between. Capabilities that fan out and merge without
+ * ranking are deliberately absent: order changes nothing about a union
+ * generated from [ProviderCatalogue](../../../../data/contracts/plugins/plugins.types.ck#L121)
+ */
+export const ProviderCatalogue = z.strictObject({
+    capabilities: z.array(ProviderCapabilityState),
+});
+export type ProviderCatalogue = z.infer<typeof ProviderCatalogue>;
 
 /**
  * A plugin as the settings list sees it. Carries no configured VALUES, only which secrets are set
@@ -397,7 +476,7 @@ export type PluginSummaryInput = z.infer<typeof PluginSummaryInput>;
 
 /**
  * What an import did
- * generated from [PluginImportResult](../../../../data/contracts/plugins/plugins.types.ck#L98)
+ * generated from [PluginImportResult](../../../../data/contracts/plugins/plugins.types.ck#L132)
  */
 export const PluginImportResult = z.strictObject({
     pluginId: z.string().min(1).max(200).describe('The id the imported plugin claimed'),
@@ -427,7 +506,7 @@ export type PluginImportResultInput = z.infer<typeof PluginImportResultInput>;
 
 /**
  * A summary plus the stored NON-SECRET configuration
- * generated from [PluginDetail](../../../../data/contracts/plugins/plugins.types.ck#L128)
+ * generated from [PluginDetail](../../../../data/contracts/plugins/plugins.types.ck#L162)
  */
 export const PluginDetail = PluginSummary.extend({
     dir: z.string().min(1).max(4096).describe("Absolute path of the plugin's directory on the station"),

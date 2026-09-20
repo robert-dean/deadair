@@ -5,6 +5,7 @@ options {
     services: {
         PluginsService: "#src/modules/plugins/plugins.service.js"
         PluginInstallService: "#src/modules/plugins/plugin.install.service.js"
+        PluginProvidersService: "#src/modules/plugins/plugin.providers.service.js"
     }
     security: {
         # The floor for every operation in this file, cascading file -> route -> operation.
@@ -54,6 +55,24 @@ operation /plugins/grants: {
         response: {
             200: {
                 application/json: PluginGrantList
+            }
+        }
+    }
+}
+
+# Declared before /plugins/{id} so the literal segment is matched first.
+operation /plugins/providers: {
+    get: { # Every capability more than one plugin could answer, who can answer it, and in what order the station asks them
+        name: List capability providers
+        service: PluginProvidersService.listProviders
+        # A read, so it drops to the view floor, and it carries less than `/plugins` already does:
+        # plugin names, statuses and the order setting's raw value. Never a configured value.
+        security: {
+            policy: platform.view
+        }
+        response: {
+            200: {
+                application/json: ProviderCatalogue
             }
         }
     }

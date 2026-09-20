@@ -134,6 +134,19 @@ enum class ConfigFieldOptionSource {
 }
 
 /**
+ * Whether a capability has ONE answer or is asked of everything in turn. `one` stores a plugin id
+ * and `ordered` stores a list of them; see `plugins/plugin.providers.ts`, which both this and the
+ * station read the pairing from
+ */
+@Serializable
+enum class ProviderMode {
+    @SerialName("one")
+    ONE,
+    @SerialName("ordered")
+    ORDERED,
+}
+
+/**
  * A plugin handed over from the browser. The generated client types the body as `FormData`, so
  * nothing checks this shape. It says what to send
  */
@@ -210,6 +223,24 @@ data class PluginOAuthCallbackQuery(
      * undeclared parameter is a 400 before any plugin code runs
      */
     val token: String? = null,
+)
+
+/** One plugin's standing for one capability, as the Providers section draws it */
+@Serializable
+data class ProviderCandidate(
+    val pluginId: String,
+    /** The plugin's own name, which is what an operator knows it by. The id is what is stored */
+    val name: String,
+    val enabled: Boolean,
+    val status: PluginStatus,
+    /** Where in the asking order this plugin sits, counting from 1. Absent when it cannot currently answer, which is every status but `active` */
+    val position: Long? = null,
+    /** Whether the operator named this plugin, as opposed to it being here because it is installed. False everywhere when nothing is set */
+    val listed: Boolean,
+    /** Whether the station reaches this plugin for this capability. Every active candidate for an `ordered` capability, and only the chosen one for a `one` */
+    val inUse: Boolean,
+    /** `enrichment` only: the number the plugin's AUTHOR gave it, which orders whatever the operator did not. Lower wins a conflicting fact */
+    val declaredPriority: Long? = null,
 )
 
 /**
@@ -291,6 +322,24 @@ data class PluginGrantInput(
     val decision: GrantDecision,
 )
 
+/** One capability, who can answer it, and what the operator has said about the order */
+@Serializable
+data class ProviderCapabilityState(
+    /** The manifest capability, which is also the console's anchor for this block */
+    val capability: String,
+    val mode: ProviderMode,
+    /** The `deadair.settings` key the console writes. Its descriptor carries the wording */
+    val settingKey: String,
+    /** The raw stored value, so the console can tell a default order from one somebody set. Empty when nothing is stored */
+    val configured: String,
+    /** Active plugins first, in the order the station asks them, then the ones that cannot answer */
+    val candidates: List<ProviderCandidate>,
+    /** Ids named in the setting that no active plugin answers to. Ordering never gates, so these cost nothing but say nothing either until they are shown */
+    val stale: List<String>,
+    /** `one` only: a plugin is named and is not an active candidate, so the station has NO provider for this. The dangerous state, because naming one is an instruction and never falls back */
+    val unanswered: Boolean,
+)
+
 /** Mirrors the plugin SDK's `ConfigField`: enough for a console to render the settings form with no per-plugin code */
 @Serializable
 data class ConfigFieldDescriptor(
@@ -334,6 +383,15 @@ data class PluginLogPage(
 data class PluginGrantList(
     /** Every capability every installed plugin is asking for, refused ones included */
     val grants: List<PluginGrant>,
+)
+
+/**
+ * Every capability an operator chooses between. Capabilities that fan out and merge without
+ * ranking are deliberately absent: order changes nothing about a union
+ */
+@Serializable
+data class ProviderCatalogue(
+    val capabilities: List<ProviderCapabilityState>,
 )
 
 /** A plugin as the settings list sees it. Carries no configured VALUES, only which secrets are set */

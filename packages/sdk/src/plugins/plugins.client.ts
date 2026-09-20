@@ -15,6 +15,7 @@ import type {
     PluginOAuthStart,
     PluginSummary,
     PluginTestResult,
+    ProviderCatalogue,
 } from './types/plugins.types.js';
 import { revivePluginDetail, revivePluginImportResult, revivePluginSummary } from './types/plugins.types.js';
 
@@ -37,6 +38,15 @@ export class PluginsClient {
     async listPluginGrants(): Promise<PluginGrantList> {
         const result = await this.fetch(`/plugins/grants`, { method: 'GET' });
         return await parseJson<PluginGrantList>(result);
+    }
+
+    /**
+     * @name List capability providers
+     * @description Every capability more than one plugin could answer, who can answer it, and in what order the station asks them
+     */
+    async listCapabilityProviders(): Promise<ProviderCatalogue> {
+        const result = await this.fetch(`/plugins/providers`, { method: 'GET' });
+        return await parseJson<ProviderCatalogue>(result);
     }
 
     /**

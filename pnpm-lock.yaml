@@ -708,6 +708,27 @@ importers:
         specifier: ^4.5.4
         version: 4.5.4
 
+  plugins/rhapsode:
+    devDependencies:
+      '@deadair/plugin-sdk':
+        specifier: workspace:*
+        version: link:../../packages/plugin-sdk
+      '@maroonedsoftware/rhapsode-sdk':
+        specifier: ^0.1.6
+        version: 0.1.6
+      '@repo/config-eslint':
+        specifier: workspace:*
+        version: link:../../packages/config-eslint
+      '@repo/config-typescript':
+        specifier: workspace:*
+        version: link:../../packages/config-typescript
+      vitest:
+        specifier: ^4.1.11
+        version: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@26.1.2)(jsdom@30.0.1(@noble/hashes@2.4.0))(vite@8.2.0(@types/node@26.1.2)(esbuild@0.28.2)(jiti@2.7.0)(sugarss@5.0.1(postcss@8.5.25))(terser@5.51.2)(yaml@2.9.0))
+      zod:
+        specifier: ^4.5.4
+        version: 4.5.4
+
   plugins/rss:
     devDependencies:
       '@deadair/plugin-sdk':
@@ -3088,6 +3109,9 @@ packages:
   '@maroonedsoftware/policies@0.6.9':
     resolution: {integrity: sha512-mfIj55Fdntdw6PrUIKBTeIT2bLIGtOsEnBpvK/BH6kCnhpduWHDWMqKRrQoO1HwqpArVPLsSaFHkfl1UoELdEA==}
     engines: {node: '>=22'}
+
+  '@maroonedsoftware/rhapsode-sdk@0.1.6':
+    resolution: {integrity: sha512-HHLQUzCYjbiVvtMe3F7p6EWmu64remdhdje6JBS51LCczyPQIDYPvDsuKSx51VVECen27C3V1Woax9sgWt+5bA==}
 
   '@maroonedsoftware/servercore@0.3.0':
     resolution: {integrity: sha512-wz4BWzw65BbdAds7KCD06HbawmCPgqxHAfXxdQ5BlrScjCGN+3PG4/cZcN35DJ297uP5V8WTkBWCbPOSZ5hCDA==}
@@ -13568,6 +13592,8 @@ snapshots:
       '@maroonedsoftware/errors': 1.9.1
       injectkit: 1.7.1
       luxon: 3.7.2
+
+  '@maroonedsoftware/rhapsode-sdk@0.1.6': {}
 
   '@maroonedsoftware/servercore@0.3.0(@maroonedsoftware/serverfeed@0.1.6(@maroonedsoftware/logger@1.1.9))(pg@8.22.0)(yaml@2.9.0)':
     dependencies:

@@ -43,9 +43,11 @@ export interface PersonaStoryDetailWrite {
  * character to let an operator HEAR it, and a preview that spent the rotation would hand the next
  * real break the second-best story.
  *
- * The stamp is at SELECTION rather than at air, which is the same inaccuracy `chooseFacts` buys and
- * against the same alternative — a break dropped before its slot has still spent its story, and the
- * only way to do better is a second writer of these columns that can disagree with the first.
+ * The stamp used to be at SELECTION, on `chooseFacts`' argument that a break dropped before its slot
+ * having spent its story was the cheaper of two inaccuracies. It is now taken after the script has
+ * actually WON its segment (`WriteBreakJob.spend`), because the ledger behind these two columns made
+ * the better answer cheap: the row is keyed on the segment, so a rewrite replaces rather than
+ * doubles, and a break that failed or was claimed by something else spends nothing at all.
  *
  * ## One story, never a list
  *

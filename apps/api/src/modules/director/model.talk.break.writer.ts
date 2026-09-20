@@ -24,6 +24,7 @@ import { resolveBreakWords } from './break.words.js';
 import { TEMPLATE_KEYS } from './break.templates.js';
 import { timeClaimIn } from './clock.words.js';
 import { mentionsWeather } from './weather.figures.js';
+import { mentionsStory } from './persona.story.mentions.js';
 import { SaidLog } from './almanac.source.js';
 import { entriesUsed } from './model.almanac.break.writer.js';
 import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBreak, patienceFor } from './break.writer.js';
@@ -372,6 +373,22 @@ export class ModelTalkBreakWriter extends BreakWriter {
         // day in 1966" names one of the entries and a link that ignored the offer names none. See
         // `entriesUsed`.
         const used = request.almanac === undefined ? [] : entriesUsed(script, request.almanac.entries);
+        // Whether the story it was handed actually went out. Judged against the same `guard` the
+        // record checks used, so a title the break named cannot be read as the character reaching
+        // for its own material. The character's diction is excluded for `overusedWords`' reason:
+        // those words are asked for by name in every prompt, so they are in both texts whatever the
+        // break did.
+        const told =
+            request.story !== undefined &&
+            mentionsStory(
+                script,
+                {
+                    text: request.story.story,
+                    details: request.story.details,
+                    ...(request.persona?.dictionMarkers === undefined ? {} : { diction: request.persona.dictionMarkers }),
+                },
+                guard,
+            );
         // Spent where it reached a script, as both writers for the date do. A link that mentioned an
         // anniversary takes it out of the day, so the band at twenty past says something else.
         for (const entry of used) this.said.keep(entry, request.almanac!.day.date);
@@ -424,6 +441,12 @@ export class ModelTalkBreakWriter extends BreakWriter {
             // The expiry is `WeatherSource`'s rather than one derived here, so every kind that can
             // report a reading agrees about how long one observation lasts.
             ...(reported && request.weatherFreshUntil !== undefined ? { claimsReadingUntil: request.weatherFreshUntil } : {}),
+            // The same question about the third offer, and `reported`'s posture again: a story here
+            // was offered, the prompt says most breaks are better without one, and a break that left
+            // it alone must not be recorded as having told it. What rides on the answer is not a
+            // claim's expiry this time but a story's own progress — see `mentionsStory` for why the
+            // bar leans towards NO, and why it is a read-back rather than something the model says.
+            ...(told ? { toldStory: true } : {}),
             // Only when the model chose one, and only one it was offered: see `liftDelivery`.
             ...(delivery === undefined ? {} : { delivery }),
         };

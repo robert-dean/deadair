@@ -123,8 +123,8 @@ out: a model reporting the news and handed a list of the character's own past sa
 it is worse than a discography note because nothing about it is even trying to be true today.
 
 **The read and the rest are two calls** (`forPrompt` then `markUsed`), so a rehearsal hears the character as
-it stands without spending the next real break's lines; the stamp is at SELECTION, inheriting `chooseFacts`'
-documented inaccuracy.
+it stands without spending the next real break's lines; the notebook's stamp is still at SELECTION, inheriting
+`chooseFacts`' documented inaccuracy. A STORY's is not, any more — see "The stories" below.
 
 And **only the model reads any of it** — a template has nowhere to put a sentence like this, so a station with
 no model keeps its notebook and never says anything out of it. The distil pass (`llm.personaNotes`, off) runs
@@ -158,9 +158,28 @@ used and a list of anecdotes in a forty-word break is a presenter reading their 
 
 **`personas.storytelling` (`never`/`occasionally`/`often`, absent meaning `occasionally`) is the first sheet
 field that never reaches a model** — it decides whether a story is IN the prompt — and it is applied where the
-story is READ, in `WriteBreakJob`, because reading one is what spends it: a rung consulted at render time
-would leave the store reporting tellings nobody heard. It governs the ordinary talk break ALONE, since a
-`story` band on the clock is an operator asking in as many words.
+story is CHOSEN, in `WriteBreakJob`, because the rung and the prompt have to agree about what the break was
+given: a rung consulted at render time would leave the store reporting tellings nobody heard. It governs the
+ordinary talk break ALONE, since a `story` band on the clock is an operator asking in as many words.
+
+**Choosing a story and SPENDING one are two steps, and they used to be one.** A story is now spent by
+`WriteBreakJob.spend`, after `writeScript` has won the segment, so a break that failed, was rewritten into
+something else, or was claimed by another job between the writing and the commit spends nothing — the story it
+chose is still owed to whatever actually airs there. That is `breaks.md`'s `ReadLog` lesson applied one
+subsystem over: spending at selection cost the bulletin seven headlines in two hours when three rewrites
+emptied its window. It is also the only point at which the writer's ANSWER exists, which the next paragraph
+needs.
+
+**Whether a story actually went out is read back from the words, never asked of the model.** A story on a talk
+break is `offered` and most breaks leave it alone, so being in the prompt says nothing about whether a listener
+heard it — and two things need the difference: the rotation moves on any CARRY, so a story the model keeps
+passing over cannot block the shelf, while a story's own progress moves only on a TELLING. `WrittenBreak.toldStory`
+carries it, the two `story`-kind writers set it unconditionally (the script IS the story there), the
+deterministic floor never sets it, and `ModelTalkBreakWriter` asks `mentionsStory`. That check leans towards NO
+on a deliberate asymmetry: a false no tells the story again in different words, which is the feature working,
+while a false yes marks a part as told that nobody heard and the next break moves past it for good. The
+alternative — a field the model fills in — is refused on `weather.figures.ts`' rule, which is that a model
+asked to report what it just did is the check that approves its own work.
 
 **The `story` KIND inverts the usual floor**: `StoryBreakWriter` speaks `persona_stories.story` as it stands,
 because that column is already a script, so it needs no phrasing pool and chains none — and the model binding
@@ -174,6 +193,29 @@ because a past is worth having only where it is grounded in records this station
 to verify a story against — so `suggested` and the operator IS the check. Both word ceilings involved are
 settings now with a declared MINIMUM (`rotation.breakWords`, `rotation.storyWords`, `break.words.ts`), because
 a ceiling set too low does not make a terse station, it hands every model break to the phrasings in silence.
+
+## The ledger
+
+**`deadair.persona_tellings` (migration 0034) records every time one of a character's stories was carried into
+something it said**, and it exists because `persona_stories.last_told_at` and `times_told` are stamps that
+overwrite themselves. That is enough for "whose turn is it" and is not enough for the three things asked of
+them since: a story that ADVANCES needs a place in it rather than a count, a callback needs the WORDS a break
+actually used, and an operator undoing what the station accrued needs something to undo — a stamp that has
+been overwritten has no earlier value, and rows have. Those two columns become derived from this and then go.
+
+**One row per SEGMENT**, so a break rewritten five times is one thing a listener hears rather than five
+tellings. That is a partial unique index rather than a convention, and `replaceForSegment` is the only way a
+break writes here — including writing NOTHING, because a break rewritten into one that carries no story has to
+take the previous attempt's row with it or the aired edge stamps a telling that never went out.
+
+**`said` is denormalised off `script_history`** for `persona_notes.source_quote`'s reason exactly: that table
+is swept at 04:23 and this is what a later break is shown so it can refer back. It is kept only where
+something was actually told, and a `check` constraint says so for a break — a telling with no words is not
+one a callback can be built on.
+
+**`aired_at` is stamped on the aired edge and the gap to `created_at` is load-bearing**, not bookkeeping: a
+break is written up to eight items ahead of its slot, and a part of a story stays OWED until a listener could
+actually have heard it. Without that, a break retracted before it aired silently costs a listener episode two.
 
 ## How much rope
 

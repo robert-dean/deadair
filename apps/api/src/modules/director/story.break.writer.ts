@@ -159,6 +159,10 @@ export class StoryBreakWriter extends BreakWriter {
             // A story's title is the story's own words rather than anything this station wrote about
             // itself, so it is as true on a car screen as it is in the running order.
             listenerLabel: story.title,
+            // Unconditionally, and this is the one writer where that needs no read-back: the script
+            // IS the story, spoken as it stands. A `story` break that reached this line told it by
+            // definition, which is the posture `ModelWeatherBreakWriter` takes for the same reason.
+            toldStory: true,
             // Nothing here says a word about what plays next, so nothing to drift: the model binding
             // in front of this is told to hand back, and stamps its own claim.
             claimsNext: false,

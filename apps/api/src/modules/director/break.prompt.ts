@@ -1597,7 +1597,7 @@ const MIN_WORN_LENGTH = 4;
  * to catch nothing. What is here is grammar rather than vocabulary — words a sentence needs and a
  * character cannot be blamed for.
  */
-const NOT_A_HABIT = new Set([
+export const NOT_A_HABIT = new Set([
     'that',
     'this',
     'with',
@@ -2225,7 +2225,7 @@ const wrongDayPartIn = (script: string, guard: AnswerGuard): string | undefined 
  * result exactly as they read the bare copy: `saysTime` lower-cases before its `includes`, `wholeWord`
  * bounds on letters, and the no-records path above always handed them the punctuated script anyway.
  */
-const withoutRecordNames = (script: string, guard: AnswerGuard): string => {
+export const withoutRecordNames = (script: string, guard: AnswerGuard): string => {
     const records = (guard.names ?? []).filter((record): record is BreakTrack => record !== undefined);
     if (records.length === 0) return script;
 

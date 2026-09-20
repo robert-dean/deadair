@@ -13,7 +13,7 @@ import androidx.compose.ui.platform.LocalContext
 
 // The station's own palette: carbon and a phosphor green, which is what the console uses for the
 // same reason — it is a broadcast desk. Both schemes are filled in completely rather than seeded
-// with one colour, because a scheme that names only `primary` leaves every container role at
+// with one color, because a scheme that names only `primary` leaves every container role at
 // Material's baseline purple, and the first version of the light theme was a green button in a
 // purple app.
 
@@ -89,27 +89,27 @@ private val LightScheme =
         inversePrimary = Color(0xFF3DDC91),
     )
 
-/** Whether this device can offer colours from its wallpaper at all. Below this the station's palette is the only one. */
-val supportsDynamicColour: Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+/** Whether this device can offer colors from its wallpaper at all. Below this the station's palette is the only one. */
+val supportsDynamicColor: Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
 
 /**
  * The app's theme.
  *
- * Wallpaper colours where the platform offers them and the listener has not said otherwise,
+ * Wallpaper colors where the platform offers them and the listener has not said otherwise,
  * because a listener's own palette is a better default than anything chosen here — and the
  * station's own palette behind a switch, because before there was a switch that palette was
  * unreachable on every phone made since 2021, which is every phone.
  */
 @Composable
 fun DeadairTheme(
-    dynamicColour: Boolean = true,
+    dynamicColor: Boolean = true,
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit,
 ) {
     val context = LocalContext.current
     val scheme =
         when {
-            dynamicColour && supportsDynamicColour -> if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+            dynamicColor && supportsDynamicColor -> if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
             darkTheme -> DarkScheme
             else -> LightScheme
         }

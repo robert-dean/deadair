@@ -38,7 +38,7 @@ import androidx.compose.ui.unit.dp
 import com.maroonedsoftware.deadair.R
 import com.maroonedsoftware.deadair.wallpaper.StationWallpaperService
 import com.maroonedsoftware.deadair.wallpaper.WALLPAPER_SWATCHES
-import com.maroonedsoftware.deadair.wallpaper.WallpaperColours
+import com.maroonedsoftware.deadair.wallpaper.ColorSource
 import com.maroonedsoftware.deadair.wallpaper.WallpaperFollows
 import com.maroonedsoftware.deadair.wallpaper.WallpaperIdle
 
@@ -59,10 +59,10 @@ fun WallpaperSection(
     idle: WallpaperIdle,
     onFollows: (WallpaperFollows) -> Unit,
     onIdle: (WallpaperIdle) -> Unit,
-    colours: WallpaperColours,
-    colour: Int,
-    onColours: (WallpaperColours) -> Unit,
-    onColour: (Int) -> Unit,
+    colors: ColorSource,
+    color: Int,
+    onColors: (ColorSource) -> Unit,
+    onColor: (Int) -> Unit,
     /** The button, for the app's settings. Left out inside the picker, which is already here. */
     showsSetButton: Boolean = true,
     modifier: Modifier = Modifier,
@@ -100,58 +100,58 @@ fun WallpaperSection(
         }
 
         Text(
-            stringResource(R.string.wallpaper_colours),
+            stringResource(R.string.wallpaper_colors),
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.fillMaxWidth(),
         )
         Column(Modifier.selectableGroup()) {
-            COLOURS.forEach { (option, label) ->
+            COLORS.forEach { (option, label) ->
                 Choice(
                     label = label,
-                    detail = if (option == WallpaperColours.ARTWORK) R.string.wallpaper_colours_artwork_detail else null,
-                    selected = option == colours,
-                    onSelect = { onColours(option) },
+                    detail = if (option == ColorSource.ARTWORK) R.string.wallpaper_colors_artwork_detail else null,
+                    selected = option == colors,
+                    onSelect = { onColors(option) },
                 )
             }
         }
-        // Under the choice it belongs to, and only while it is the one chosen: a row of colours
+        // Under the choice it belongs to, and only while it is the one chosen: a row of colors
         // beside an unchosen option reads as a second setting rather than as its argument.
-        if (colours == WallpaperColours.CUSTOM) Swatches(colour = colour, onColour = onColour)
+        if (colors == ColorSource.CUSTOM) Swatches(color = color, onColor = onColor)
     }
 }
 
 /**
- * The colours on offer, as a wrapping row.
+ * The colors on offer, as a wrapping row.
  *
  * A row of swatches rather than a wheel: a wheel is a dependency and a fiddle on a phone, and what
- * this decides is the accent a whole system is derived from, which a dozen good colours serve as
+ * this decides is the accent a whole system is derived from, which a dozen good colors serve as
  * well as sixteen million — most of which make a phone nobody can read.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun Swatches(colour: Int, onColour: (Int) -> Unit) {
-    val chosen = stringResource(R.string.wallpaper_colour_chosen)
+private fun Swatches(color: Int, onColor: (Int) -> Unit) {
+    val chosen = stringResource(R.string.wallpaper_color_chosen)
     FlowRow(
         modifier = Modifier.fillMaxWidth().padding(start = 16.dp, top = 4.dp, bottom = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         WALLPAPER_SWATCHES.forEach { swatch ->
-            val selected = swatch == colour
+            val selected = swatch == color
             Box(
                 modifier =
                     Modifier.size(44.dp)
                         .clip(CircleShape)
                         .background(Color(swatch))
                         // The ring is the only thing that says which one is on, so it is drawn in
-                        // the surface's own colour rather than in the swatch's, which would vanish.
+                        // the surface's own color rather than in the swatch's, which would vanish.
                         .border(width = if (selected) 3.dp else 1.dp, color = MaterialTheme.colorScheme.onSurface, shape = CircleShape)
                         .selectable(
                             selected = selected,
                             role = Role.RadioButton,
-                            // The colour has no name to read out, so the state is the whole label.
-                            onClick = { onColour(swatch) },
+                            // The color has no name to read out, so the state is the whole label.
+                            onClick = { onColor(swatch) },
                         )
                         .semantics { if (selected) stateDescription = chosen },
             )
@@ -203,11 +203,11 @@ private val FOLLOWS =
         WallpaperFollows.STATION to R.string.wallpaper_station,
     )
 
-private val COLOURS =
+private val COLORS =
     listOf(
-        WallpaperColours.STATION to R.string.wallpaper_colours_station,
-        WallpaperColours.ARTWORK to R.string.wallpaper_colours_artwork,
-        WallpaperColours.CUSTOM to R.string.wallpaper_colours_custom,
+        ColorSource.STATION to R.string.wallpaper_colors_station,
+        ColorSource.ARTWORK to R.string.wallpaper_colors_artwork,
+        ColorSource.CUSTOM to R.string.wallpaper_colors_custom,
     )
 
 private val IDLES =

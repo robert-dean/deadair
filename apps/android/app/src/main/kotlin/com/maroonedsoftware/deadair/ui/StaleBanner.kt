@@ -22,7 +22,7 @@ import java.time.ZoneId
  * What a screen says when its reading is no longer current.
  *
  * At full opacity, above the content, rather than the content dimmed to forty percent. Dimming a
- * whole screen took every line of body text — already in the quieter colour — below any contrast a
+ * whole screen took every line of body text — already in the quieter color — below any contrast a
  * person with ordinary eyesight can read, and the sentence explaining the dimming was dimmed with
  * it. What is shown was true a moment ago; the banner says when, and the pictures fade a little to
  * mark them as not current. The words stay readable, because the words are the point.

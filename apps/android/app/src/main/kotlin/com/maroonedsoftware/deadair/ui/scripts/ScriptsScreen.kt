@@ -195,11 +195,11 @@ private fun AttemptRow(attempt: ScriptAttempt, nowEpochMs: Long, zone: ZoneId, r
 
 @Composable
 private fun Lamp(tone: ScriptTone) {
-    val colour =
+    val color =
         when (tone) {
             ScriptTone.OK -> MaterialTheme.colorScheme.primary
             ScriptTone.STANDBY -> MaterialTheme.colorScheme.outline
             ScriptTone.FAULT -> MaterialTheme.colorScheme.error
         }
-    Box(modifier = Modifier.size(8.dp).background(colour, CircleShape))
+    Box(modifier = Modifier.size(8.dp).background(color, CircleShape))
 }

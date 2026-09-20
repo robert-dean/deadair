@@ -5,7 +5,7 @@
     a new phone.
 
     The app stores a few settings (the station's address and name, the chosen format, whether to
-    take colours from the wallpaper) and, only when signed in, that station's session. Restoring the
+    take colors from the wallpaper) and, only when signed in, that station's session. Restoring the
     address onto a different device would point it at a station that device may not reach — a LAN
     address is meaningless on someone else's network — and the failure would look like the app
     being broken rather than like a setting being wrong. Typing an address once is cheaper.

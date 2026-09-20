@@ -2,7 +2,7 @@ package com.maroonedsoftware.deadair.settings
 
 import com.maroonedsoftware.deadair.station.StationUrl
 import com.maroonedsoftware.deadair.wallpaper.STATION_PALETTE
-import com.maroonedsoftware.deadair.wallpaper.WallpaperColours
+import com.maroonedsoftware.deadair.wallpaper.ColorSource
 import com.maroonedsoftware.deadair.wallpaper.WallpaperFollows
 import com.maroonedsoftware.deadair.wallpaper.WallpaperIdle
 import com.maroonedsoftware.deadair.station.StreamFormat
@@ -19,16 +19,16 @@ data class ListenerSettings(
     val station: StationUrl? = null,
     val stationName: String? = null,
     val format: StreamFormat = StreamFormat.MP3,
-    /** Colours from the wallpaper where the phone offers them, or the station's own. On by default, because a listener's palette is a better default than ours. */
-    val dynamicColour: Boolean = true,
+    /** Colors from the wallpaper where the phone offers them, or the station's own. On by default, because a listener's palette is a better default than ours. */
+    val dynamicColor: Boolean = true,
     /** Start the station when the app opens. Off by default: opening an app is not always wanting to hear it. */
     val playOnOpen: Boolean = false,
     /** When the station wallpaper shows a cover. This phone by default, which is the version that asks the station nothing while nobody is listening. */
     val wallpaperFollows: WallpaperFollows = WallpaperFollows.THIS_PHONE,
     /** What the station wallpaper shows with no cover to show. */
     val wallpaperIdle: WallpaperIdle = WallpaperIdle.LAST_COVER,
-    /** What the phone takes its own colours from while the station wallpaper is up. */
-    val wallpaperColours: WallpaperColours = WallpaperColours.STATION,
-    /** The colour behind [WallpaperColours.CUSTOM], as ARGB. The station's green until somebody picks another. */
-    val wallpaperColour: Int = STATION_PALETTE.accent,
+    /** What the phone takes its own colors from while the station wallpaper is up. */
+    val wallpaperColorSource: ColorSource = ColorSource.STATION,
+    /** The color behind [ColorSource.CUSTOM], as ARGB. The station's green until somebody picks another. */
+    val wallpaperColor: Int = STATION_PALETTE.accent,
 )

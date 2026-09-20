@@ -95,17 +95,17 @@ fun SilencePanel(reading: SilenceReading, modifier: Modifier = Modifier) {
     }
 }
 
-/** The station's verdict as a colour. Shared with the desk's heading, so the two can never disagree. */
+/** The station's verdict as a color. Shared with the desk's heading, so the two can never disagree. */
 @Composable
 fun Lamp(tone: SilenceTone, size: Dp = 10.dp) {
-    val colour: Color =
+    val color: Color =
         when (tone) {
             SilenceTone.LIVE -> MaterialTheme.colorScheme.primary
             SilenceTone.STANDBY -> MaterialTheme.colorScheme.tertiary
             SilenceTone.OFF -> MaterialTheme.colorScheme.outline
             SilenceTone.FAULT -> MaterialTheme.colorScheme.error
         }
-    Box(modifier = Modifier.size(size).background(colour, CircleShape))
+    Box(modifier = Modifier.size(size).background(color, CircleShape))
 }
 
 /**

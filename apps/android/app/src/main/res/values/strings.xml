@@ -55,12 +55,12 @@
     <string name="wallpaper_station">Whenever the station is on air</string>
     <string name="wallpaper_station_detail">The home screen asks the station what is on while it is showing.</string>
     <string name="wallpaper_otherwise">With nothing to show</string>
-    <string name="wallpaper_colours">Color the phone from</string>
-    <string name="wallpaper_colours_station">The station\'s own colors</string>
-    <string name="wallpaper_colours_artwork">The cover on screen</string>
-    <string name="wallpaper_colours_artwork_detail">Your phone re-colors itself every time the station changes record.</string>
-    <string name="wallpaper_colours_custom">A color you pick</string>
-    <string name="wallpaper_colour_chosen">Chosen</string>
+    <string name="wallpaper_colors">Color the phone from</string>
+    <string name="wallpaper_colors_station">The station\'s own colors</string>
+    <string name="wallpaper_colors_artwork">The cover on screen</string>
+    <string name="wallpaper_colors_artwork_detail">Your phone re-colors itself every time the station changes record.</string>
+    <string name="wallpaper_colors_custom">A color you pick</string>
+    <string name="wallpaper_color_chosen">Chosen</string>
     <string name="wallpaper_last_cover">Keep the last cover, dimmed</string>
     <string name="wallpaper_mark">The station\'s mark</string>
     <string name="wallpaper_plain">Nothing at all</string>
@@ -118,8 +118,8 @@
     <string name="section_listening">Listening</string>
     <string name="play_on_open">Play when the app opens</string>
     <string name="play_on_open_detail">Starts the station as the app opens, unless it is already playing. The first seconds are quiet while the station comes on air.</string>
-    <string name="use_wallpaper_colours">Use wallpaper colors</string>
-    <string name="use_wallpaper_colours_detail">Off, and the app wears the station\'s own green on carbon</string>
+    <string name="use_wallpaper_colors">Use wallpaper colors</string>
+    <string name="use_wallpaper_colors_detail">Off, and the app wears the station\'s own green on carbon</string>
     <string name="privacy_policy">Privacy policy</string>
 
     <!-- The account -->

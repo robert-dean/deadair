@@ -51,8 +51,8 @@ fun PlayStopButton(
             },
     ) {
         if (buffering) {
-            // In the button's content colour, as the icon is: the indicator's own default is the
-            // primary colour, which is this button's fill, so the spinner was drawn and never seen.
+            // In the button's content color, as the icon is: the indicator's own default is the
+            // primary color, which is this button's fill, so the spinner was drawn and never seen.
             CircularProgressIndicator(
                 modifier = Modifier.size(iconSize * 7 / 8),
                 strokeWidth = if (size > 48.dp) 3.dp else 2.dp,

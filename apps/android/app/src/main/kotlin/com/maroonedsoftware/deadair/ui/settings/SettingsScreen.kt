@@ -41,7 +41,7 @@ import com.maroonedsoftware.deadair.auth.SessionState
 import com.maroonedsoftware.deadair.playback.SleepRequest
 import com.maroonedsoftware.deadair.playback.SleepState
 import com.maroonedsoftware.deadair.station.StreamFormat
-import com.maroonedsoftware.deadair.wallpaper.WallpaperColours
+import com.maroonedsoftware.deadair.wallpaper.ColorSource
 import com.maroonedsoftware.deadair.wallpaper.WallpaperFollows
 import com.maroonedsoftware.deadair.wallpaper.WallpaperIdle
 import com.maroonedsoftware.deadair.ui.PrivacyPolicyLink
@@ -49,7 +49,7 @@ import com.maroonedsoftware.deadair.ui.nowplaying.SleepControl
 import com.maroonedsoftware.deadair.ui.text.resolve
 import com.maroonedsoftware.deadair.ui.theme.FormMaxWidth
 import com.maroonedsoftware.deadair.ui.theme.Gutter
-import com.maroonedsoftware.deadair.ui.theme.supportsDynamicColour
+import com.maroonedsoftware.deadair.ui.theme.supportsDynamicColor
 
 /**
  * The address, the format and the account, after first run.
@@ -71,21 +71,21 @@ fun SettingsScreen(
     format: StreamFormat,
     availability: Map<StreamFormat, Boolean>,
     session: SessionState,
-    dynamicColour: Boolean,
+    dynamicColor: Boolean,
     wallpaperFollows: WallpaperFollows,
     wallpaperIdle: WallpaperIdle,
-    wallpaperColours: WallpaperColours,
-    wallpaperColour: Int,
+    wallpaperColorSource: ColorSource,
+    wallpaperColor: Int,
     playOnOpen: Boolean,
     onAddressChange: (String) -> Unit,
     onCheck: () -> Unit,
     onConfirm: () -> Unit,
     onFormat: (StreamFormat) -> Unit,
-    onDynamicColour: (Boolean) -> Unit,
+    onDynamicColor: (Boolean) -> Unit,
     onWallpaperFollows: (WallpaperFollows) -> Unit,
     onWallpaperIdle: (WallpaperIdle) -> Unit,
-    onWallpaperColours: (WallpaperColours) -> Unit,
-    onWallpaperColour: (Int) -> Unit,
+    onColorSource: (ColorSource) -> Unit,
+    onWallpaperColor: (Int) -> Unit,
     onPlayOnOpen: (Boolean) -> Unit,
     /** Open the sign-in page. */
     onOpenSignIn: () -> Unit,
@@ -183,17 +183,17 @@ fun SettingsScreen(
                 )
             }
 
-            // Only where there are wallpaper colours to choose between. Below Android 12 the
+            // Only where there are wallpaper colors to choose between. Below Android 12 the
             // station's palette is the only one, and a switch that changed nothing would be a lie.
-            if (supportsDynamicColour) {
+            if (supportsDynamicColor) {
                 HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
 
                 Text(stringResource(R.string.section_appearance), style = MaterialTheme.typography.titleMedium)
                 ListItem(
-                    headlineContent = { Text(stringResource(R.string.use_wallpaper_colours)) },
-                    supportingContent = { Text(stringResource(R.string.use_wallpaper_colours_detail)) },
-                    trailingContent = { Switch(checked = dynamicColour, onCheckedChange = null) },
-                    modifier = Modifier.fillMaxWidth().selectable(selected = dynamicColour, role = Role.Switch, onClick = { onDynamicColour(!dynamicColour) }),
+                    headlineContent = { Text(stringResource(R.string.use_wallpaper_colors)) },
+                    supportingContent = { Text(stringResource(R.string.use_wallpaper_colors_detail)) },
+                    trailingContent = { Switch(checked = dynamicColor, onCheckedChange = null) },
+                    modifier = Modifier.fillMaxWidth().selectable(selected = dynamicColor, role = Role.Switch, onClick = { onDynamicColor(!dynamicColor) }),
                 )
             }
 
@@ -207,10 +207,10 @@ fun SettingsScreen(
                 idle = wallpaperIdle,
                 onFollows = onWallpaperFollows,
                 onIdle = onWallpaperIdle,
-                colours = wallpaperColours,
-                colour = wallpaperColour,
-                onColours = onWallpaperColours,
-                onColour = onWallpaperColour,
+                colors = wallpaperColorSource,
+                color = wallpaperColor,
+                onColors = onColorSource,
+                onColor = onWallpaperColor,
             )
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))

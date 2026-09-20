@@ -75,7 +75,7 @@ import com.maroonedsoftware.deadair.ui.theme.Gutter
  *
  * It carries no `Scaffold` and no app bar. Upright, the cover runs full-bleed to the top of the
  * screen under the status bar, and the words sit over its foot where a scrim has taken it to the
- * background colour.
+ * background color.
  *
  * ## Two layouts, one screen
  *

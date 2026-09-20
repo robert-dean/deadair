@@ -10,23 +10,23 @@ class WallpaperPaletteTest {
 
     @Test
     fun `the station's palette does not move, whatever is on screen`() {
-        assertEquals(STATION_PALETTE, wallpaperPalette(WallpaperColours.STATION, custom = 0xFFFF0000.toInt(), cover = cover))
+        assertEquals(STATION_PALETTE, wallpaperPalette(ColorSource.STATION, custom = 0xFFFF0000.toInt(), cover = cover))
     }
 
     @Test
     fun `following the cover reports the cover`() {
-        assertEquals(cover, wallpaperPalette(WallpaperColours.ARTWORK, custom = 0xFFFF0000.toInt(), cover = cover))
+        assertEquals(cover, wallpaperPalette(ColorSource.ARTWORK, custom = 0xFFFF0000.toInt(), cover = cover))
     }
 
     @Test
     fun `following the cover with nothing drawn yet falls back to the station rather than to nothing`() {
         // A fresh install, or a station that has not aired anything since the wallpaper went up.
-        assertEquals(STATION_PALETTE, wallpaperPalette(WallpaperColours.ARTWORK, custom = 0xFFFF0000.toInt(), cover = null))
+        assertEquals(STATION_PALETTE, wallpaperPalette(ColorSource.ARTWORK, custom = 0xFFFF0000.toInt(), cover = null))
     }
 
     @Test
-    fun `a chosen colour accents the station's own background`() {
-        val picked = wallpaperPalette(WallpaperColours.CUSTOM, custom = 0xFF6E9BFF.toInt(), cover = cover)
+    fun `a chosen color accents the station's own background`() {
+        val picked = wallpaperPalette(ColorSource.CUSTOM, custom = 0xFF6E9BFF.toInt(), cover = cover)
 
         assertEquals(0xFF6E9BFF.toInt(), picked.accent)
         // The wallpaper is still drawn on carbon; this setting is about the phone's palette.
@@ -41,9 +41,9 @@ class WallpaperPaletteTest {
     }
 
     @Test
-    fun `a phone can be themed from something almost colourless`() {
-        // Black is a colour somebody picks on purpose, and it is not the same as picking nothing.
+    fun `a phone can be themed from something almost colorless`() {
+        // Black is a color somebody picks on purpose, and it is not the same as picking nothing.
         assertTrue(0xFF000000.toInt() in WALLPAPER_SWATCHES)
-        assertEquals(0xFF000000.toInt(), wallpaperPalette(WallpaperColours.CUSTOM, custom = 0xFF000000.toInt(), cover = cover).accent)
+        assertEquals(0xFF000000.toInt(), wallpaperPalette(ColorSource.CUSTOM, custom = 0xFF000000.toInt(), cover = cover).accent)
     }
 }

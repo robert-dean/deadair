@@ -6,7 +6,7 @@ import com.maroonedsoftware.deadair.sdk.models.SilenceState
 import com.maroonedsoftware.deadair.sdk.models.StationSilence
 import com.maroonedsoftware.deadair.ui.text.Message
 
-/** What colour the reading is drawn in. Only `LIVE` means audio is leaving the building. */
+/** What color the reading is drawn in. Only `LIVE` means audio is leaving the building. */
 enum class SilenceTone { LIVE, STANDBY, OFF, FAULT }
 
 /** What would clear a gate. A shell command is shown as one and offered to copy; anything else is a sentence. */

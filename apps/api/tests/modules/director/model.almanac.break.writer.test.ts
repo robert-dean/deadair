@@ -13,7 +13,7 @@ import type { AlmanacEntry, LlmMessage } from '@deadair/plugin-sdk';
 import type { Logger } from '@maroonedsoftware/logger';
 
 import type { BreakWriteRequest } from '../../../src/modules/director/break.writer.js';
-import { ALMANAC_MAX_WORDS, entriesUsed, inventedYear, ModelAlmanacBreakWriter } from '../../../src/modules/director/model.almanac.break.writer.js';
+import { ALMANAC_MAX_WORDS, entriesUsed, ModelAlmanacBreakWriter } from '../../../src/modules/director/model.almanac.break.writer.js';
 import { SaidLog } from '../../../src/modules/director/almanac.source.js';
 import { MODEL_WRITER_KEYS } from '../../../src/modules/director/model.talk.break.writer.js';
 import { ALMANAC_KIND } from '../../../src/modules/almanac/almanac.kind.js';
@@ -152,31 +152,38 @@ describe('a year nobody looked up', () => {
         expect(await writer.write(request())).toBeUndefined();
     });
 
-    it('says which year it was, on the row as well as in the log', async () => {
+    it('is refused as invented-year, the fault the guard already counts', async () => {
+        // The check is `AnswerGuard.years` rather than anything this writer owns: the entries are in
+        // the prompt, `permittedYears` reads every year it was shown, and a bespoke copy beside it
+        // would be two answers to one question.
         const { writer } = build('On this day in 1977, Nuno Bettencourt was born.');
 
         await writer.write(request());
 
-        expect(writer.detailOfLastWrite()?.reason).toContain('1977');
+        expect(writer.detailOfLastWrite()?.reason).toContain('stated a year the station never gave it');
     });
 
-    it('permits a year the entry text carries, which the station was also given', () => {
+    it('permits a year the entry text carries, which the station was also given', async () => {
         const withDeath: AlmanacEntry[] = [{ kind: 'death', year: 2024, text: 'Kathryn Crosby, American actress (born 1933)' }];
+        const { writer } = build('Kathryn Crosby died on this day in 2024. She was born in 1933.');
 
-        expect(inventedYear('Kathryn Crosby died on this day in 2024. She was born in 1933.', withDeath)).toBeUndefined();
+        const written = await writer.write(request({ almanac: { day: DAY, entries: withDeath } }));
+
+        expect(written?.script).toContain('1933');
     });
 
-    it('permits arithmetic on the year, which is the whole reason a model is here', () => {
-        // "Turns sixty today" is two digits, and two digits are an age rather than a year.
-        expect(inventedYear('Nuno Bettencourt turns 60 today, born on this day in 1966.', ENTRIES)).toBeUndefined();
+    it('permits arithmetic on the year, which is the whole reason a model is here', async () => {
+        const { writer } = build('Nuno Bettencourt turns 60 today, born on this day in 1966.');
+
+        expect((await writer.write(request()))?.script).toContain('turns 60');
     });
 
-    it('lets a spelled-out year through, which is the gap this shares with the weather guard', () => {
-        expect(inventedYear('On this day in nineteen seventy-seven, something else happened.', ENTRIES)).toBeUndefined();
-    });
+    it('catches a spelled-out year too, which the bespoke check it replaced could not', async () => {
+        // `yearsIn` reads "nineteen seventy-seven" as 1977, so the guard refuses what a digits-only
+        // test would have aired.
+        const { writer } = build('On this day in nineteen seventy-seven, something else happened.');
 
-    it('names the first year that was not given', () => {
-        expect(inventedYear('In 1966 he was born, and in 1989 the band broke through.', ENTRIES)).toBe('1989');
+        expect(await writer.write(request())).toBeUndefined();
     });
 });
 

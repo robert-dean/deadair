@@ -4,6 +4,9 @@ import type { AlmanacEntry } from '@deadair/plugin-sdk';
 import { ALMANAC_KIND } from '#modules/almanac/almanac.kind.js';
 import { AlmanacService, type StationAlmanac } from '#modules/almanac/almanac.service.js';
 import { errorText } from '#modules/shared/error.text.js';
+import { settingIsOn } from '#modules/shared/setting.flags.js';
+import { AppConfig } from '@maroonedsoftware/appconfig';
+import { TALK_BREAK_KIND } from './talk.break.writer.js';
 
 /**
  * The day a break about the date is written from, fetched once and handed to whichever writer takes
@@ -15,11 +18,21 @@ import { errorText } from '#modules/shared/error.text.js';
  * writer that fetched its own would make the floor do network I/O, which is the one thing a floor
  * must not do.
  *
- * ## Only for the kind that reads the date
+ * ## Two kinds ask, on opposite terms, and one of them has to be switched on
  *
- * `entriesFor` answers `undefined` for every other kind, which keeps `WriteBreakJob` free of a
- * branch about history. It is a real answer rather than politeness: asking a source costs a request,
- * and a talk break that wants to mention the date reaches `get_this_day` itself.
+ * `entriesFor` answers `undefined` for every kind but those two, which keeps `WriteBreakJob` free of
+ * a branch about history. `WeatherSource`'s arrangement exactly, and for its reasons.
+ *
+ * The break ABOUT the date always asks: the entry is the break, and a slot with no entry is a slot
+ * the station passes over. The TALK break asks only when `rotation.dateInTalk` is on, and the
+ * entries are then offered as colour on a break about a record — `BreakPromptShape.almanac` is where
+ * those terms are set out, and most breaks should decline them.
+ *
+ * It is a SETTING rather than always-on for the weather's reason and one of its own. The talk break
+ * is the kind this station makes most of, so this decides whether a source is asked on every link —
+ * cheap, since the plugin holds a day for half a day, and not free. And the offer SPENDS: an entry a
+ * link mentions is one the band at twenty past can no longer use, so a station that wants both is
+ * choosing how to divide one day's material.
  *
  * ## What it is about is the DAY, and there is nothing to resolve
  *
@@ -35,6 +48,9 @@ import { errorText } from '#modules/shared/error.text.js';
  * silence to the writer, three different things for an operator to do. A station whose clock asks
  * for the date every afternoon and is silent every time needs to be told which, so this names the
  * fix in the log and the writer only declines.
+ *
+ * Those three drop to `debug` on the talk break, `WeatherSource.say`'s rule: nobody asked for the
+ * date there, nothing was passed over, and the station makes hundreds of those breaks a day.
  *
  * ## The freshness question is answered by the DAY, not by an age
  *
@@ -151,11 +167,29 @@ const key = (entry: AlmanacEntry): string =>
  */
 const SHOWN = 6;
 
+/** The `deadair.settings` key for the offer. In `rotation`, beside the weather's own. */
+export const ALMANAC_SOURCE_KEYS = {
+    inTalk: 'rotation.dateInTalk',
+} as const;
+
+/**
+ * OFF, so nothing changes for a station that upgrades into this.
+ *
+ * `DEFAULT_WEATHER_IN_TALK`'s argument, and one more that is this feature's own: the offer spends
+ * the day's entries, so switching it on by default would quietly take the material away from a band
+ * an operator had already put on the clock.
+ *
+ * Exported so `settings.registry.ts` declares the same value this reads, which is the arrangement
+ * every other setting has.
+ */
+export const DEFAULT_DATE_IN_TALK = false;
+
 @Injectable()
 export class AlmanacSource {
     constructor(
         private readonly almanac: AlmanacService,
         private readonly said: SaidLog,
+        private readonly config: AppConfig,
         private readonly logger: Logger,
     ) {}
 
@@ -170,13 +204,19 @@ export class AlmanacSource {
      *   the right one.
      */
     async entriesFor(kind: string, airsAt: number = Date.now()): Promise<AlmanacReport | undefined> {
-        if (kind !== ALMANAC_KIND) return undefined;
+        // The talk break is behind a setting and the break about the date is not, which is the whole
+        // of the difference between a break the entry IS and a break it decorates. Read per break
+        // rather than held, as every other switch here is, so an operator turning it on hears it on
+        // the next link rather than on the next restart.
+        const offered = kind === TALK_BREAK_KIND && settingIsOn(this.config, ALMANAC_SOURCE_KEYS.inTalk, DEFAULT_DATE_IN_TALK);
+        if (kind !== ALMANAC_KIND && !offered) return undefined;
 
         // Asked before anything else, so a station with no almanac plugin costs nothing and says
         // nothing: `BreakPlanner` would not have planted this break if nothing could write the kind,
         // but a plugin can be uninstalled between planting and writing.
         if (!this.almanac.hasAlmanac()) {
-            this.logger.info(
+            this.say(
+                offered,
                 'director: a break about the date had no source to ask, so the station passed over the slot. Enable a plugin that can say what ' +
                     'happened on a date — the bundled Wikipedia one does, once it has a contact address.',
             );
@@ -192,7 +232,7 @@ export class AlmanacSource {
                 // At info rather than debug, and it is worth an operator's attention: a station
                 // whose clock asks for the date every afternoon and whose source is refusing is
                 // silent every afternoon, and this is what says so.
-                this.logger.info('director: a break about the date got nothing back, so the station passed over the slot', { date: day.date });
+                this.say(offered, 'director: a break about the date got nothing back, so the station passed over the slot', { date: day.date });
                 return {};
             }
 
@@ -202,7 +242,8 @@ export class AlmanacSource {
                 // this day had has already been on air. It names the two settings that widen it,
                 // because an operator hearing silence at the same hour every day cannot tell this
                 // from a source that has stopped answering.
-                this.logger.info(
+                this.say(
+                    offered,
                     'director: everything the date had has already been read out today, so the station passed over the slot. Fewer bands on the ' +
                         'clock, or "What the station picks out of the day" set wider, would give it more to say.',
                     { date: day.date },
@@ -219,5 +260,16 @@ export class AlmanacSource {
             this.logger.warn(`director: a break about the date could not be prepared (${errorText(error)})`);
             return {};
         }
+    }
+
+    /**
+     * A decline said at the volume the KIND deserves. `WeatherSource.say`'s rule, restated because
+     * the same asymmetry holds: a band on the format clock asking for the date and hearing silence
+     * every afternoon is a thing an operator has to be told about, and a link that was simply not
+     * offered anything is not.
+     */
+    private say(offered: boolean, message: string, detail?: Record<string, unknown>): void {
+        if (offered) this.logger.debug(message, detail);
+        else this.logger.info(message, detail);
     }
 }

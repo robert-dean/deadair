@@ -7,6 +7,8 @@ import { WeatherService } from '#modules/weather/weather.service.js';
 import { weatherLocations, type WeatherLocation } from '#modules/weather/weather.topic.js';
 import type { SpokenWeather } from '#modules/weather/weather.words.js';
 import { errorText } from '#modules/shared/error.text.js';
+import { settingIsOn } from '#modules/shared/setting.flags.js';
+import { TALK_BREAK_KIND } from './talk.break.writer.js';
 import type { BreakContext } from './break.request.js';
 import type { BreakSubject } from './break.writer.js';
 
@@ -18,12 +20,24 @@ import type { BreakSubject } from './break.writer.js';
  * underneath it see exactly the same substrate. A writer that fetched its own would make the floor
  * do network I/O, which is the one thing a floor must not do.
  *
- * ## Only for the kind that reports it
+ * ## Two kinds ask, on opposite terms, and one of them has to be switched on
  *
- * `readingFor` answers `undefined` for every other kind, which is what keeps `WriteBreakJob` free of
- * a branch about the weather. It is a real answer rather than politeness: asking a service costs a
- * request, and a talk break has no use for one — a model writing one reaches `get_weather` itself if
- * it wants to mention it.
+ * `readingFor` answers `undefined` for every kind but those two, which is what keeps `WriteBreakJob`
+ * free of a branch about the weather.
+ *
+ * The WEATHER break always asks: the reading is the break, and a slot with no reading is a slot the
+ * station passes over. The TALK break asks only when `rotation.weatherInTalk` is on, and the reading
+ * is then offered as colour on a break about a record — `BreakPromptShape.weather` is where those
+ * terms are set out, and most breaks decline it.
+ *
+ * It is a SETTING rather than always-on because the talk break is the kind this station makes most
+ * of, so this decides whether a weather service is asked on every link. The window in which a reading
+ * is reused belongs to the plugin, which caches by place, so the cost is far below one request per
+ * break — but it is not nothing, and it is not this module's call to make on an operator's behalf.
+ *
+ * This used to say that a talk break wanting the weather "reaches `get_weather` itself". It could
+ * not: every break writer passes `tools: false`, so no tool answer has ever reached air, and the
+ * sentence described an escape hatch that was never open. It is why this gap went unnoticed.
  *
  * ## What it is ABOUT is decided here too
  *
@@ -62,7 +76,20 @@ import type { BreakSubject } from './break.writer.js';
 export const WEATHER_SOURCE_KEYS = {
     days: 'rotation.weatherDays',
     maxAgeMinutes: 'rotation.weatherMaxAgeMinutes',
+    inTalk: 'rotation.weatherInTalk',
 } as const;
+
+/**
+ * OFF, so nothing changes for a station that upgrades into this.
+ *
+ * The talk break is the kind this station makes most of, so switching it on by default would change
+ * the sound of every existing install on an image pull and would start asking a weather service on
+ * every link. Both are the operator's to choose.
+ *
+ * Exported so `settings.registry.ts` declares the same value this reads, which is the arrangement
+ * every other setting has.
+ */
+export const DEFAULT_WEATHER_IN_TALK = false;
 
 /**
  * How far ahead a weather break looks, when the operator has not said.
@@ -144,24 +171,37 @@ export class WeatherSource {
      *   not know when it airs.
      */
     async readingFor(kind: string, context: BreakContext | undefined, airsAt: number = Date.now()): Promise<WeatherReport | undefined> {
-        if (kind !== WEATHER_KIND) return undefined;
+        // The talk break is behind a setting and the weather break is not, which is the whole of the
+        // difference between a break the reading IS and a break it decorates. Read per break rather
+        // than held, as every other switch here is, so an operator turning it on hears it on the next
+        // link rather than on the next restart.
+        const offered = kind === TALK_BREAK_KIND && settingIsOn(this.config, WEATHER_SOURCE_KEYS.inTalk, DEFAULT_WEATHER_IN_TALK);
+        if (kind !== WEATHER_KIND && !offered) return undefined;
 
         // Asked before anything else, so a station with no weather plugin costs nothing and says
         // nothing: `BreakPlanner` would not have planted this break if nothing could write the kind,
         // but a plugin can be uninstalled between planting and writing.
         if (!this.weather.hasWeather()) {
-            this.logger.info(
+            this.say(
+                offered,
                 'director: a weather break had no service to ask, so the station passed over the slot. Install and enable a weather plugin.',
             );
             return {};
         }
 
-        const asked = await this.locationFor(context);
+        // A LOCATION is a thing a weather band was pointed at, so only a weather break resolves one.
+        // A talk break gets the station's own place and no subject, and both halves of that matter:
+        // a talk break's `context.topic` is not a weather location, so reading it here would report
+        // the wrong town, and `BreakWriteRequest.subject` is what the break is ABOUT — which for a
+        // link between two records is the records, never the weather. It is also what `labelFor`
+        // would otherwise put on the row and in front of a listener.
+        const asked = offered ? undefined : await this.locationFor(context);
         const place = asked?.place ?? this.weather.home();
         if (place === undefined) {
             // The one decline an operator can fix in ten seconds, and the one they will never guess:
             // a clock band asking for the weather on a station that has not said where it is.
-            this.logger.info(
+            this.say(
+                offered,
                 'director: a weather break had nowhere to report on, so the station passed over the slot. Set "Where the station is" in Settings.',
             );
             return {};
@@ -176,7 +216,7 @@ export class WeatherSource {
                 // Said at info rather than debug, and it is the one line here worth an operator's
                 // attention: a station whose clock asks for the weather every hour and whose service
                 // is refusing is silent every hour, and this is what says so.
-                this.logger.info('director: a weather break got no reading, so the station passed over the slot', { place });
+                this.say(offered, 'director: a weather break got no reading, so the station passed over the slot', { place });
                 return subject === undefined ? {} : { subject };
             }
 
@@ -193,7 +233,8 @@ export class WeatherSource {
                 // At info beside the other three, and it names both fixes because only the operator
                 // can tell them apart: a service that has stopped updating and a window set too
                 // tight for it produce the same silence.
-                this.logger.info(
+                this.say(
+                    offered,
                     'director: a weather break had only a reading that will be too old to be true when it airs, so the station passed over the ' +
                         'slot. The service is behind, or "How old a reading may be" is set tighter than it updates.',
                     { place, observedAt: reading.observedAt, airsAt: new Date(airsAt).toISOString(), maxAgeMinutes },
@@ -209,6 +250,26 @@ export class WeatherSource {
             this.logger.warn(`director: a weather break could not be prepared (${errorText(error)})`);
             return subject === undefined ? {} : { subject };
         }
+    }
+
+    /**
+     * A decline, at the volume the kind of break deserves.
+     *
+     * The four `info` lines here exist for one reader: an operator whose format clock asks for the
+     * weather every hour and who hears silence every hour, and who cannot tell "install a plugin"
+     * from "say where you are" from "the service is down" without being told. That is worth a line
+     * every time, because every one of those is a slot the station passed over.
+     *
+     * A talk break is the opposite case in all three respects. Nobody asked for the weather, nothing
+     * was passed over — the break is written without it, exactly as it was before the operator
+     * switched this on — and the station makes hundreds of them a day, so the same line at `info`
+     * would bury every other thing in the log under a report that nothing is wrong. So it drops to
+     * `debug`, where an operator who has switched this on and is wondering why they never hear it can
+     * still find all four sentences, unchanged.
+     */
+    private say(offered: boolean, message: string, detail?: Record<string, unknown>): void {
+        if (offered) this.logger.debug(message, detail);
+        else this.logger.info(message, detail);
     }
 
     /**

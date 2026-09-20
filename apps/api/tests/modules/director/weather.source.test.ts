@@ -23,6 +23,7 @@ import type { SpokenWeather } from '../../../src/modules/weather/weather.words.j
 import type { TopicRepository } from '../../../src/modules/topics/topic.repository.js';
 import type { Topic } from '../../../src/modules/topics/topic.js';
 import { WEATHER_KIND } from '../../../src/modules/weather/weather.kind.js';
+import { TALK_BREAK_KIND } from '../../../src/modules/director/talk.break.writer.js';
 
 /** A fixed "now", so every assertion about a reading's age is about arithmetic rather than luck. */
 const NOW = Date.parse('2026-08-30T14:00:00Z');
@@ -86,13 +87,77 @@ function harness(options: Options = {}) {
 }
 
 describe('which kinds it answers for', () => {
-    it('answers nothing at all for a kind that is not about the weather', async () => {
+    it('answers nothing at all for a kind that is never about the weather', async () => {
         // What keeps the branch about the weather inside a file about the weather: this job serves
         // every kind, and asking a service costs a request.
         const { source, read } = harness();
 
-        expect(await source.readingFor('talkbreak', undefined, NOW)).toBeUndefined();
+        expect(await source.readingFor('news', undefined, NOW)).toBeUndefined();
         expect(read).not.toHaveBeenCalled();
+    });
+
+    it('answers nothing for a talk break until the operator switches it on, which is the default', async () => {
+        // The talk break is the kind this station makes most of, so the default decides whether a
+        // weather service is asked on every link. Off means nothing changes on an upgrade.
+        const { source, read } = harness();
+
+        expect(await source.readingFor(TALK_BREAK_KIND, undefined, NOW)).toBeUndefined();
+        expect(read).not.toHaveBeenCalled();
+    });
+});
+
+describe('the reading a talk break is offered', () => {
+    /** The setting as the STRING a settings row actually holds, which is the only form production reads. */
+    const on = { settings: { [WEATHER_SOURCE_KEYS.inTalk]: 'true' } };
+
+    it('reads the station\u2019s own weather once the operator asks', async () => {
+        const { source, read } = harness(on);
+
+        const report = await source.readingFor(TALK_BREAK_KIND, undefined, NOW);
+
+        expect(report?.reading).toEqual(READING);
+        expect(report?.freshUntil).toBe(Date.parse(READING.observedAt) + DEFAULT_WEATHER_MAX_AGE_MINUTES * MINUTE);
+        expect(read).toHaveBeenCalledWith('Atlanta', DEFAULT_WEATHER_DAYS, undefined);
+    });
+
+    it('is not fooled by the string a settings row holds for off', async () => {
+        // `config.get(key, false)` answers the STRING 'false', which is truthy. A test handing over a
+        // real boolean proves nothing here.
+        const { source, read } = harness({ settings: { [WEATHER_SOURCE_KEYS.inTalk]: 'false' } });
+
+        expect(await source.readingFor(TALK_BREAK_KIND, undefined, NOW)).toBeUndefined();
+        expect(read).not.toHaveBeenCalled();
+    });
+
+    it('never resolves a location for it, however the segment was tagged', async () => {
+        // A location is a thing a weather BAND was pointed at. A talk break's context is not that,
+        // so reading it here would report the wrong town under the right name — and `subject` is
+        // what the break is about, which for a link between two records is the records.
+        const { source, read } = harness({ ...on, topics: [location('town', 'town', { place: 'Chipping Norton' })] });
+
+        const report = await source.readingFor(TALK_BREAK_KIND, { topic: 'town' }, NOW);
+
+        expect(report?.subject).toBeUndefined();
+        expect(read).toHaveBeenCalledWith('Atlanta', DEFAULT_WEATHER_DAYS, undefined);
+    });
+
+    it('declines quietly, because nobody asked for the weather and no slot was passed over', async () => {
+        // The four `info` lines exist for an operator whose format clock asks every hour and hears
+        // silence every hour. A talk break is the opposite case in all three respects, and the same
+        // line at `info` would bury the log under a report that nothing is wrong.
+        const { source, logger } = harness({ ...on, hasWeather: false });
+
+        expect(await source.readingFor(TALK_BREAK_KIND, undefined, NOW)).toEqual({});
+        expect(logger.info).not.toHaveBeenCalled();
+        expect(vi.mocked(logger.debug).mock.calls[0]?.[0]).toMatch(/weather plugin/);
+    });
+
+    it('still declines a reading that will be too old to be true when it airs', async () => {
+        // The guard is the kind's, not the break's: a talk break saying this morning's weather at
+        // teatime is the same false sentence in a friendlier voice.
+        const { source } = harness({ ...on, reading: observed(DEFAULT_WEATHER_MAX_AGE_MINUTES + 10) });
+
+        expect(await source.readingFor(TALK_BREAK_KIND, undefined, NOW)).toEqual({});
     });
 });
 

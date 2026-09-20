@@ -405,6 +405,42 @@ a `weather` topic is for somewhere ELSE, which is what a band on the format cloc
 `station.units` decides what a listener hears, and a location may override it — the capability is
 metric on the wire always, and `weather.words.ts` is the one place that changes.
 
+**A presenter may also mention the weather on an ordinary link, and the rules it is handed under are
+the OPPOSITE ones.** `BreakPromptShape.weather` is what says which: `reported` for the weather break,
+where the reading is the break, and `offered` for the talk break, where it is colour on a break about
+a record. The difference is the LICENCE and not the figures. Under `reported` the model may not
+compare, advise or say how it feels, because a newsreader who does any of those has editorialised;
+under `offered` all three are the point, since "it's sunny, get out there while it lasts" is a
+presenter doing their job and is the sentence the feature was asked for. Both are held to the figures
+they were shown. One block rendering both was live: the weather break's rules read `No advice about
+coats or umbrellas, and nothing about how the weather makes anyone feel`, and they applied to any kind
+handed a reading — so the talk break could not have said the one thing it was wanted for.
+
+**The offer is `rotation.weatherInTalk` and it is OFF**, because the talk break is the kind this
+station makes most of and the setting decides whether a weather service is asked on every link.
+`WeatherSource` resolves no location for it and returns no `subject` — a location is a thing a weather
+BAND was pointed at — and its four declines drop to `debug` there: they exist for an operator whose
+clock asks every hour and hears silence every hour, and on a talk break nothing was passed over.
+
+**The stamp is conditional on the talk break and unconditional on the weather break, which is one
+argument read from both ends.** `ModelWeatherBreakWriter` stamps `claims_reading_until` always,
+because `WEATHER_SHAPE` exists to make the model state the reading and a break that reached the stamp
+reported it by definition. `ModelTalkBreakWriter` asks `mentionsWeather` first, which is `claimsTime`'s
+posture rather than `claimsNext`'s: the reading was offered, the prompt tells most breaks to leave it
+alone, and a break that did would otherwise be reopened — and eventually dropped at hand-over — over a
+claim it never made. `mentionsWeather` leans toward YES for that asymmetry, and it matches a
+vocabulary per CONDITION rather than the reading's own adjective, because the reading says `clear`
+and the presenter says "sunny": a test for the word the prompt showed would answer no for exactly the
+break that reported the sky. What it cannot catch is a sky described in words no list anticipated,
+which airs unstamped, and that floor is deliberate — the alternative is asking a model to tell us what
+it just did.
+
+**`inventedFigure` is asked through `AnswerGuard.weather` now, in `writeDecline` and `readAnswer` in
+the same position**, beside the `invented-year` check it shares a doctrine with. It used to sit inside
+the weather writer, after the answer had already been judged, which was fine while one kind could be
+handed a reading and became two copies of one question when two could. It is not retryable, matching
+`invented-year`: a fabricated measurement is not the class of mistake a nudge fixes.
+
 ## The date
 
 **A break about the date is the bulletin's shape with the evidence rule turned all the way up.** A
@@ -478,6 +514,35 @@ to say which band he was in, and that sentence is indistinguishable on air from 
 was given. The rule beside it says so in as many words, because this is the third version of the
 same failure — a bulletin must not add a detail, a forecast must not add a number, and this must not
 add what it remembers, which is the hardest of the three to resist.
+
+**A presenter may also mention the date on an ordinary link, on the terms the weather already
+set.** `BreakPromptShape.almanac` says which: `read` for the break about the date, where the entry is
+the break and the model picks one of the lines it was shown, and `offered` for the talk break, where
+the day is colour on a break about a record. The licence is the difference and the evidence is not —
+both terms forbid adding what the model remembers, and both are held to `AnswerGuard.years`. What
+`offered` drops is the instruction to pick one at all, because a link that happens to notice an
+anniversary is worth more than one that reads an almanac out.
+
+**The offer is `rotation.dateInTalk` and it is OFF**, for `rotation.weatherInTalk`'s reason and one
+of its own: the offer SPENDS. An entry a link mentions is one the band at twenty past can no longer
+use, so a station that wants both is dividing one day's material, and switching that on by default
+would quietly take it away from a band an operator had already placed. The source's three declines
+drop to `debug` there, `WeatherSource.say`'s rule.
+
+**Which entry a link used is answered exactly rather than by a vocabulary, which is where this
+differs from `mentionsWeather`.** An entry is identified by the YEAR a script named, and
+`AnswerGuard.years` has already refused every year the station did not show — so `entriesUsed` can
+say with certainty which of the six a link mentioned, where the weather has to match a condition
+vocabulary and lean toward yes. A link that named one claims the DAY (`claimsTime`, intersected with
+any clock phrasing, which is always the narrower); a link that ignored the offer claims nothing, and
+spends nothing.
+
+**The year guard is the station's own and not this feature's.** `inventedYear` was written here as
+`inventedFigure`'s counterpart and then deleted before it shipped: `AnswerGuard.years` already asks
+the question, `permittedYears` already reads every year the PROMPT showed — which includes the
+entries — and `yearsIn` reads "nineteen sixty-six" as well as 1966, which the bespoke check could
+not. It also gives the refusal the `invented-year` fault, so it reaches `script_history.reason` and
+can be counted, where a check inside the writer only ever produced a log line.
 
 **There is no topic kind, and that is the asymmetry with the weather.** A location is a choice with
 something in it (which town, in whose units) and a date is not a choice at all, so a band on the

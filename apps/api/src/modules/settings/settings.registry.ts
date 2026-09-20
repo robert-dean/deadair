@@ -18,6 +18,7 @@ import { NEWS_KEYS, NEWS_TEMPLATES } from '#modules/director/news.break.writer.j
 import { WEATHER_BREAK_KEYS, WEATHER_TEMPLATES } from '#modules/director/weather.break.writer.js';
 import {
     DEFAULT_WEATHER_DAYS,
+    DEFAULT_WEATHER_IN_TALK,
     DEFAULT_WEATHER_MAX_AGE_MINUTES,
     MAX_WEATHER_DAYS,
     MAX_WEATHER_MAX_AGE_MINUTES,
@@ -36,6 +37,7 @@ import { CLOCK_KEYS, NAMES_THE_TIME_DEFAULT } from '#modules/director/clock.word
 import { DEFAULT_UNITS, WEATHER_KEYS } from '#modules/weather/weather.keys.js';
 import { ALMANAC_KEYS, DEFAULT_LEAN } from '#modules/almanac/almanac.keys.js';
 import { ALMANAC_BREAK_KEYS, ALMANAC_TEMPLATES } from '#modules/director/almanac.break.writer.js';
+import { ALMANAC_SOURCE_KEYS, DEFAULT_DATE_IN_TALK } from '#modules/director/almanac.source.js';
 import {
     BREAK_WORD_KEYS,
     DEFAULT_STORY_WORDS,
@@ -857,6 +859,19 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
     },
     {
         group: 'rotation',
+        key: WEATHER_SOURCE_KEYS.inTalk,
+        label: 'Let the presenter mention the weather between records',
+        type: 'boolean',
+        default: DEFAULT_WEATHER_IN_TALK,
+        help:
+            'The weather is offered to the presenter on an ordinary link, to use or ignore — most breaks ignore it, and the ones that do not ' +
+            'say things like "it’s sunny, get out there while it lasts" rather than reading a forecast. It needs a weather plugin, a model ' +
+            'writing the breaks, and "Where the station is" set; the station’s own phrasings underneath the model never mention it. ' +
+            'Figures stay held to what the service measured either way. This is separate from the weather BREAK, which a band on the format ' +
+            'clock asks for and which reports the reading properly.',
+    },
+    {
+        group: 'rotation',
         key: WEATHER_BREAK_KEYS.templates,
         label: 'How the station gives the weather',
         type: 'text',
@@ -865,6 +880,19 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
             'One phrasing per line, in the same syntax as the news above, with {{weather.report}} for the reading itself and ' +
             '{{weather.place}} for where it is about. The reading is a whole sentence built from what the service measured, so every line has ' +
             "to carry {{weather.report}} outside its [[optional]] parts and after a full stop. Empty restores the station's own.",
+    },
+    {
+        group: 'rotation',
+        key: ALMANAC_SOURCE_KEYS.inTalk,
+        label: 'Let the presenter mention the date between records',
+        type: 'boolean',
+        default: DEFAULT_DATE_IN_TALK,
+        help:
+            "What happened on today's date is offered to the presenter on an ordinary link, to use or ignore — most breaks ignore it, and the " +
+            'ones that do not mention an anniversary in passing rather than reading a list out. It needs a plugin that can say what happened ' +
+            'on a date, and a model writing the breaks; the station\u2019s own phrasings underneath the model never mention it. Anything said ' +
+            'this way is spent, so a band on the format clock set to This day has one fewer entry to use. This is separate from the break ' +
+            'ABOUT the date, which a band asks for and which reads an entry out properly.',
     },
     {
         group: 'rotation',
@@ -1357,7 +1385,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         type: 'string',
         help:
             'A published chart to play between blocks instead, as `plugin:chart`. An alternative to the playlist above rather than a companion, ' +
-            'and it wins if both are set. A chart is a few dozen records, so a longer gap plays it and then carries on with the station\u2019s own ' +
+            'and it wins if both are set. A chart is a few dozen records, so a longer gap plays it and then carries on with the station’s own ' +
             'rotation.',
     },
     {

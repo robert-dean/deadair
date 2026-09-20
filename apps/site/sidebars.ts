@@ -17,6 +17,7 @@ const sidebars: SidebarsConfig = {
     run: [
         'quick-start',
         'install',
+        'unraid',
         {
             type: 'category',
             label: 'What it does',

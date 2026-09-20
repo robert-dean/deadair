@@ -9,7 +9,17 @@ import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js
 import { settingIsOn } from '#modules/shared/setting.flags.js';
 import { ALMANAC_KIND } from '#modules/almanac/almanac.kind.js';
 import { SaidLog } from './almanac.source.js';
-import { breakPrompt, readAnswer, writeDecline, writeTrim, type AnswerGuard, type BreakPromptShape } from './break.prompt.js';
+import {
+    breakPrompt,
+    permittedYears,
+    readAnswer,
+    shownWithoutRecent,
+    writeDecline,
+    writeTrim,
+    yearsIn,
+    type AnswerGuard,
+    type BreakPromptShape,
+} from './break.prompt.js';
 import { TEMPLATE_KEYS } from './break.templates.js';
 import { timeClaimIn } from './clock.words.js';
 import { BreakWriter, patienceFor, type BreakWriteRequest, type WriteDetail, type WrittenBreak } from './break.writer.js';
@@ -41,10 +51,12 @@ import { BUDGET_MS, MAX_OUTPUT_TOKENS, MODEL_WRITER, MODEL_WRITER_DEFAULT, MODEL
  * ## The risk here is `ModelWeatherBreakWriter`'s, with the edge on a different number
  *
  * A plausible temperature is easy to write, and so is a plausible year: a model asked about a record
- * released in 1977 will happily say 1976, and nothing about the sentence gives it away. So the same
- * shape of guard applies — {@link inventedYear} refuses a script naming a year the station was never
- * given — and the same limits: it checks digits and not words, and it is a guard against invention
- * rather than a proof of truth.
+ * released in 1977 will happily say 1976, and nothing about the sentence gives it away. The guard for
+ * it already exists and is not written here — `AnswerGuard.years`, filled by `permittedYears` from
+ * the prompt this writer just built, so a script naming a year the station was never shown is refused
+ * as `invented-year` in both `readAnswer` and `writeDecline`, reaches `script_history.reason` and can
+ * be counted. That is where `inventedFigure` ended up for the same reason: a second copy of one
+ * question is two answers to it.
  *
  * It declines outright when there is nothing to read out, exactly as the floor does. Asking a model
  * to fill this slot with no entries in it is asking for invented history, and it would get it.
@@ -77,6 +89,9 @@ export const ALMANAC_SHAPE: BreakPromptShape = {
     showsPrevious: false,
     showsFacts: false,
     showsNotebook: false,
+    // The entry IS this break, which is the stricter of the two terms and the one the rules below
+    // are written for. See `BreakPromptShape.almanac`.
+    almanac: 'read',
     opening: () =>
         'Pick ONE of the entries below — the one a music station would want — and say it in a sentence or two, then hand back to the music in a ' +
         'line. Say the year it happened. You are passing on something somebody looked up, not telling a story about it.',
@@ -171,6 +186,13 @@ export class ModelAlmanacBreakWriter extends BreakWriter {
             ...(request.recent === undefined ? {} : { recent: request.recent }),
             ...(request.dayPart === undefined ? {} : { dayPart: request.dayPart }),
             ...(request.moment === undefined ? {} : { moment: request.moment }),
+            // The check this kind lives or dies by, and it is the guard's own `invented-year` rather
+            // than anything written here: a historical claim's checkable part IS its year, the
+            // entries are in the prompt, and `permittedYears` reads every year it was SHOWN. A
+            // bespoke check beside it would be two answers to one question — the mistake
+            // `inventedFigure` made until it moved onto this guard — and it would miss what this one
+            // catches, since `yearsIn` reads "nineteen sixty-six" as well as 1966.
+            years: permittedYears([request.next], request.moment, shownWithoutRecent(messages, request.recent)),
         };
         const script = readAnswer(result.text, guard);
 
@@ -194,18 +216,6 @@ export class ModelAlmanacBreakWriter extends BreakWriter {
                 persona: request.persona?.key,
                 fault: declined?.fault,
             });
-            return undefined;
-        }
-
-        // The check this kind has, and it is `inventedFigure`'s argument one number over: everything
-        // above judges the SHAPE of an answer, and this judges whether a year in it is one the
-        // station was given. Refused rather than trimmed, because there is no cut that removes a
-        // wrong year and leaves a break worth airing.
-        const invented = inventedYear(script, almanac.entries);
-        if (invented !== undefined) {
-            const reason = `the model read out a year the station was never given (${invented})`;
-            this.lastDetail = { ...this.lastDetail, reason };
-            this.logger.info(`director: ${reason}`, { date: almanac.day.date, persona: request.persona?.key });
             return undefined;
         }
 
@@ -246,45 +256,6 @@ export class ModelAlmanacBreakWriter extends BreakWriter {
 }
 
 /**
- * The first year in the script that the station was not given, or `undefined` when every one of them
- * was.
- *
- * `inventedFigure`'s counterpart, and this writer's own safety property for the same reason: a
- * historical claim's checkable part IS its year, and the set of true ones is known exactly. A model
- * that says 1976 about a record released in 1977 has written a sentence no listener can fault and no
- * guard but this one can.
- *
- * Three things about how it judges are deliberate, and the first two are `inventedFigure`'s.
- *
- * **Only digits are checked, not words.** "Nineteen sixty-six" gets through, which is a real gap and
- * a much smaller one than a number vocabulary that refuses a spelled-out year for not being in a
- * list. Every captured break that named a year named it in digits.
- *
- * **The permitted set is every year in the substrate**, which means the entries' own `year` fields
- * AND every four-digit number inside their text. An entry reading `Kathryn Crosby, American actress
- * and singer (born 1933)` carries a second year the station WAS given, and a model that repeats it
- * has said something true.
- *
- * **Only four-digit years are read as years.** A two-digit one is an age, a track number or a
- * chart position — "turns sixty today" is the sentence this writer exists to allow — and the entry
- * text is not a measurement, so there is no equivalent of the weather's every-figure rule here.
- */
-export function inventedYear(script: string, entries: readonly AlmanacEntry[]): string | undefined {
-    const given = new Set<string>();
-
-    for (const entry of entries) {
-        if (entry.year !== undefined) given.add(String(Math.abs(Math.trunc(entry.year))));
-        for (const match of entry.text.matchAll(/\b\d{3,4}\b/g)) given.add(match[0]);
-    }
-
-    for (const match of script.matchAll(/\b\d{4}\b/g)) {
-        if (!given.has(match[0])) return match[0];
-    }
-
-    return undefined;
-}
-
-/**
  * The entries a script actually used, judged by the years it named.
  *
  * The floor knows which entry it framed; this does not, and guessing would be the expensive kind of
@@ -292,8 +263,9 @@ export function inventedYear(script: string, entries: readonly AlmanacEntry[]): 
  * first spends an entry the model may not have mentioned, which is the same anniversary read twice
  * this afternoon.
  *
- * So it reads the script back. `inventedYear` has already refused anything naming a year that was
- * not given, so every four-digit run left in the script belongs to one of the entries below.
+ * So it reads the script back, through the same `yearsIn` the guard uses — which reads "nineteen
+ * sixty-six" as well as 1966. The `invented-year` check has already refused anything naming a year
+ * the station was not shown, so every year left in the script was given to it.
  *
  * A script that named NO year spends nothing, and that is the honest answer rather than a gap: an
  * observance carries no year to name, and a model that mentioned one without saying when is a model
@@ -301,8 +273,8 @@ export function inventedYear(script: string, entries: readonly AlmanacEntry[]): 
  * the same inaccuracy `ReadLog` buys from the other side.
  */
 export function entriesUsed(script: string, entries: readonly AlmanacEntry[]): AlmanacEntry[] {
-    const named = new Set([...script.matchAll(/\b\d{4}\b/g)].map(match => match[0]));
+    const named = new Set(yearsIn(script));
     if (named.size === 0) return [];
 
-    return entries.filter(entry => entry.year !== undefined && named.has(String(Math.abs(Math.trunc(entry.year)))));
+    return entries.filter(entry => entry.year !== undefined && named.has(Math.abs(Math.trunc(entry.year))));
 }

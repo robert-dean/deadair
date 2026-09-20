@@ -99,6 +99,12 @@ export const SUBSTRATE_FRESHNESS: { [TField in keyof Required<BreakWriteRequest>
     // `fetched-for-air` half, AND stamps `claims_reading_until` so drift past the projection is
     // caught as well. The stronger of the two is named here: the claim is what survives to the
     // hand-over. This row is the one this whole file exists because of.
+    //
+    // The verdict still holds now that the talk break can be given one, but the guard is CONDITIONAL
+    // there: a break that was offered the reading and ignored it makes no claim, so none is stamped,
+    // and a talk break that carries this field is not necessarily one that says anything about it.
+    // `ModelTalkBreakWriter` asks `mentionsWeather`; the weather break stamps unconditionally. What
+    // would change this row is a kind that reports a reading without that check.
     weather: 'claims-reading',
     // The expiry itself, which is the guard rather than anything a break says.
     weatherFreshUntil: 'not-spoken',
@@ -109,6 +115,11 @@ export const SUBSTRATE_FRESHNESS: { [TField in keyof Required<BreakWriteRequest>
     // `airs_at` by `AlmanacSource` and stamped as `claims_time_*` unconditionally by the writer, so
     // a break that survives to a day it was not written for is dropped at hand-over. The `stories`
     // row's fetched-for-air half is here too, and the claim is the stronger of the two.
+    //
+    // Conditional on the path, exactly as the weather row now is: the break about the date stamps
+    // the day unconditionally, because every phrasing for that kind says "on this day"; a talk break
+    // offered the entries stamps it only when `entriesUsed` says the script named one, since a link
+    // that ignored the offer has claimed nothing about the date.
     almanac: 'claims-time',
 
     // What the break is about, resolved by the caller out of the context below. A category or a

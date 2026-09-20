@@ -4,17 +4,26 @@
 // container actually produces — a scoped source holding a singleton log. See `ReadLog`.
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { AppConfig } from '@maroonedsoftware/appconfig';
 import type { Logger } from '@maroonedsoftware/logger';
 import type { AlmanacEntry } from '@deadair/plugin-sdk';
 
 import type { AlmanacService, StationAlmanac } from '../../../src/modules/almanac/almanac.service.js';
 import type { StationDay } from '../../../src/modules/almanac/almanac.day.js';
 import { ALMANAC_KIND } from '../../../src/modules/almanac/almanac.kind.js';
-import { AlmanacSource, SaidLog } from '../../../src/modules/director/almanac.source.js';
+import { ALMANAC_SOURCE_KEYS, AlmanacSource, SaidLog } from '../../../src/modules/director/almanac.source.js';
 
 const AFTERNOON = new Date('2026-09-20T14:00:00Z').getTime();
 
 const logger = (): Logger => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), trace: vi.fn() }) as unknown as Logger;
+
+/** A config that answers with STRINGS, which is what every layer of `AppConfig` actually holds. */
+const config = (rows: Record<string, string> = {}): AppConfig =>
+    ({ get: (key: string, fallback?: unknown) => rows[key] ?? fallback }) as unknown as AppConfig;
+
+/** The source as the container builds it: scoped, around a log that is not. */
+const source = (almanac: AlmanacService, log: Logger = logger(), rows: Record<string, string> = {}): AlmanacSource =>
+    new AlmanacSource(almanac, said, config(rows), log);
 
 const DAY: StationDay = {
     month: 9,
@@ -59,19 +68,48 @@ beforeEach(() => {
 describe('which breaks it answers for', () => {
     it('answers for the kind that reads the date and no other', async () => {
         const { almanac } = service();
-        const source = new AlmanacSource(almanac, said, logger());
+        const asked = source(almanac);
 
-        expect(await source.entriesFor(ALMANAC_KIND, AFTERNOON)).toBeDefined();
-        expect(await source.entriesFor('talkbreak', AFTERNOON)).toBeUndefined();
-        expect(await source.entriesFor('news', AFTERNOON)).toBeUndefined();
+        expect(await asked.entriesFor(ALMANAC_KIND, AFTERNOON)).toBeDefined();
+        expect(await asked.entriesFor('talkbreak', AFTERNOON)).toBeUndefined();
+        expect(await asked.entriesFor('news', AFTERNOON)).toBeUndefined();
     });
 
     it('asks nobody when a talk break comes past, because a request costs something', async () => {
         const { almanac, read } = service();
 
-        await new AlmanacSource(almanac, said, logger()).entriesFor('talkbreak', AFTERNOON);
+        await source(almanac).entriesFor('talkbreak', AFTERNOON);
 
         expect(read).not.toHaveBeenCalled();
+    });
+
+    it('answers for a talk break once the operator has switched the offer on', async () => {
+        const { almanac, read } = service();
+
+        const offered = await source(almanac, logger(), { [ALMANAC_SOURCE_KEYS.inTalk]: 'true' }).entriesFor('talkbreak', AFTERNOON);
+
+        expect(offered?.almanac?.entries).toHaveLength(1);
+        expect(read).toHaveBeenCalledWith(AFTERNOON);
+    });
+
+    it('reads that switch as the STRING a settings row stores', async () => {
+        const { almanac, read } = service();
+
+        await source(almanac, logger(), { [ALMANAC_SOURCE_KEYS.inTalk]: 'false' }).entriesFor('talkbreak', AFTERNOON);
+
+        expect(read).not.toHaveBeenCalled();
+    });
+
+    it("says a talk break decline at debug, where a band decline is worth an operator's attention", async () => {
+        // Nobody asked for the date on a link and nothing was passed over, and the station makes
+        // hundreds of them a day. `WeatherSource.say`'s rule.
+        const { almanac } = service({ hasAlmanac: false });
+        const log = logger();
+
+        await source(almanac, log, { [ALMANAC_SOURCE_KEYS.inTalk]: 'true' }).entriesFor('talkbreak', AFTERNOON);
+
+        expect(vi.mocked(log.info)).not.toHaveBeenCalled();
+        expect(vi.mocked(log.debug)).toHaveBeenCalled();
     });
 });
 
@@ -79,7 +117,7 @@ describe('which day it asks about', () => {
     it('is the moment the words will be spoken, not now', async () => {
         const { almanac, read } = service();
 
-        await new AlmanacSource(almanac, said, logger()).entriesFor(ALMANAC_KIND, AFTERNOON);
+        await source(almanac).entriesFor(ALMANAC_KIND, AFTERNOON);
 
         expect(read).toHaveBeenCalledWith(AFTERNOON);
     });
@@ -87,7 +125,7 @@ describe('which day it asks about', () => {
     it('comes back with the window those words may call today', async () => {
         const { almanac } = service();
 
-        const report = await new AlmanacSource(almanac, said, logger()).entriesFor(ALMANAC_KIND, AFTERNOON);
+        const report = await source(almanac).entriesFor(ALMANAC_KIND, AFTERNOON);
 
         expect(report?.almanac?.day).toEqual(DAY);
     });
@@ -98,7 +136,7 @@ describe('the ways of having nothing', () => {
         const { almanac, read } = service({ hasAlmanac: false });
         const log = logger();
 
-        expect(await new AlmanacSource(almanac, said, log).entriesFor(ALMANAC_KIND, AFTERNOON)).toEqual({});
+        expect(await source(almanac, log).entriesFor(ALMANAC_KIND, AFTERNOON)).toEqual({});
         expect(read).not.toHaveBeenCalled();
         expect(vi.mocked(log.info).mock.calls[0]?.[0]).toContain('Enable a plugin');
     });
@@ -107,7 +145,7 @@ describe('the ways of having nothing', () => {
         const { almanac } = service({ entries: [] });
         const log = logger();
 
-        expect(await new AlmanacSource(almanac, said, log).entriesFor(ALMANAC_KIND, AFTERNOON)).toEqual({});
+        expect(await source(almanac, log).entriesFor(ALMANAC_KIND, AFTERNOON)).toEqual({});
         expect(vi.mocked(log.info)).toHaveBeenCalled();
     });
 
@@ -117,7 +155,7 @@ describe('the ways of having nothing', () => {
         said.keep(only, DAY.date);
         const log = logger();
 
-        expect(await new AlmanacSource(almanac, said, log).entriesFor(ALMANAC_KIND, AFTERNOON)).toEqual({});
+        expect(await source(almanac, log).entriesFor(ALMANAC_KIND, AFTERNOON)).toEqual({});
         expect(vi.mocked(log.info).mock.calls[0]?.[0]).toContain('already been read out today');
     });
 
@@ -125,7 +163,7 @@ describe('the ways of having nothing', () => {
         const { almanac } = service({ readThrows: true });
         const log = logger();
 
-        await expect(new AlmanacSource(almanac, said, log).entriesFor(ALMANAC_KIND, AFTERNOON)).resolves.toEqual({});
+        await expect(source(almanac, log).entriesFor(ALMANAC_KIND, AFTERNOON)).resolves.toEqual({});
         expect(vi.mocked(log.warn)).toHaveBeenCalled();
     });
 });
@@ -138,10 +176,10 @@ describe('what the station has already said', () => {
         // container produces, and the whole point of the log is that it survives it.
         const { almanac } = service({ entries: day });
 
-        const first = await new AlmanacSource(almanac, said, logger()).entriesFor(ALMANAC_KIND, AFTERNOON);
+        const first = await source(almanac).entriesFor(ALMANAC_KIND, AFTERNOON);
         said.keep(first!.almanac!.entries[0]!, DAY.date);
 
-        const second = await new AlmanacSource(almanac, said, logger()).entriesFor(ALMANAC_KIND, AFTERNOON);
+        const second = await source(almanac).entriesFor(ALMANAC_KIND, AFTERNOON);
 
         expect(second?.almanac?.entries.map(item => item.year)).toEqual([1927]);
     });
@@ -149,8 +187,8 @@ describe('what the station has already said', () => {
     it('is spent by the writer rather than by the fetch, so a declined break costs nothing', async () => {
         const { almanac } = service({ entries: day });
 
-        await new AlmanacSource(almanac, said, logger()).entriesFor(ALMANAC_KIND, AFTERNOON);
-        const again = await new AlmanacSource(almanac, said, logger()).entriesFor(ALMANAC_KIND, AFTERNOON);
+        await source(almanac).entriesFor(ALMANAC_KIND, AFTERNOON);
+        const again = await source(almanac).entriesFor(ALMANAC_KIND, AFTERNOON);
 
         expect(again?.almanac?.entries.map(item => item.year)).toEqual([1966, 1927]);
     });
@@ -160,10 +198,7 @@ describe('what the station has already said', () => {
         const { almanac } = service({ entries: day });
         said.keep(day[0]!, DAY.date);
 
-        const next = await new AlmanacSource(service({ entries: day, day: tomorrow }).almanac, said, logger()).entriesFor(
-            ALMANAC_KIND,
-            AFTERNOON + 86_400_000,
-        );
+        const next = await source(service({ entries: day, day: tomorrow }).almanac).entriesFor(ALMANAC_KIND, AFTERNOON + 86_400_000);
 
         expect(next?.almanac?.entries.map(item => item.year)).toEqual([1966, 1927]);
     });

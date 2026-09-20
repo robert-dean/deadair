@@ -31,6 +31,12 @@ temperature is on the weather. Nothing is read out twice in one day, and the
 date is the one the break AIRS on, in your own timezone, so a break written at
 ten to midnight is about tomorrow.
 
+**A presenter can also mention the date on an ordinary link**, on the terms the weather already set:
+"Let the presenter mention the date between records", off by default, offers the day to the
+presenter to use or ignore. Most links ignore it, and the ones that do not mention an anniversary in
+passing rather than reading a list out. Anything said that way is spent, so a band on the clock set
+to This day has one fewer entry to use — a station that wants both is dividing one day between them.
+
 For plugin authors: `almanac` is a new capability, a month and a day in and
 entries out. The host decides which day it is, and your entries are read
 verbatim, so pass the source's own sentence and its descriptions along rather

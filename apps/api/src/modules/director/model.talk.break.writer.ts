@@ -23,7 +23,11 @@ import {
 import { resolveBreakWords } from './break.words.js';
 import { TEMPLATE_KEYS } from './break.templates.js';
 import { timeClaimIn } from './clock.words.js';
+import { mentionsWeather } from './weather.figures.js';
+import { SaidLog } from './almanac.source.js';
+import { entriesUsed } from './model.almanac.break.writer.js';
 import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBreak, patienceFor } from './break.writer.js';
+import type { StationDay } from '#modules/almanac/almanac.day.js';
 import { labelFor, TALK_BREAK_KIND } from './talk.break.writer.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
 
@@ -129,6 +133,10 @@ export class ModelTalkBreakWriter extends BreakWriter {
 
     constructor(
         private readonly llm: LlmService,
+        // What the station has already said about today's date. Held by every writer that can spend
+        // an entry, and a singleton, so a link and a band an hour apart cannot read the same
+        // anniversary out. See `SaidLog`.
+        private readonly said: SaidLog,
         private readonly config: AppConfig,
         private readonly logger: Logger,
     ) {
@@ -276,6 +284,12 @@ export class ModelTalkBreakWriter extends BreakWriter {
             // invented year sitting in one of those quoted scripts would otherwise be permitted here
             // on no more authority than having been echoed back.
             years: permittedYears([request.previous, request.next], request.moment, shownWithoutRecent(messages, request.recent)),
+            // The reading, when the operator has switched it on and the station had one to give. The
+            // same doctrine as `years` immediately above and the same field on the guard, so a talk
+            // break that mentions the weather is held to the figures it was shown exactly as the
+            // weather break is. Absent on every station that has this off, which is the default, and
+            // absent asks nothing. See `AnswerGuard.weather`.
+            ...(request.weather === undefined ? {} : { weather: request.weather }),
         };
         // A reading the model chose, lifted off the front before anything judges the answer, and
         // against the list the prompt OFFERED rather than the request: `offeredPads`' rule. From here
@@ -347,6 +361,20 @@ export class ModelTalkBreakWriter extends BreakWriter {
         }
 
         const claimsTime = timeClaimIn(script, request.clock, request.dayPart);
+        // Whether this break actually reported the sky, which is a question the weather break never
+        // has to ask. There the reading IS the break; here it was OFFERED, the prompt says outright
+        // that most breaks are better without it, and most of them will take that. See
+        // `mentionsWeather`.
+        const reported = request.weather !== undefined && mentionsWeather(script, request.weather);
+        // The same question about the other offer, and it is answerable exactly rather than by a
+        // vocabulary: an entry is identified by the YEAR the script named, and `AnswerGuard.years`
+        // has already refused every year the station did not show. So a link that said "born on this
+        // day in 1966" names one of the entries and a link that ignored the offer names none. See
+        // `entriesUsed`.
+        const used = request.almanac === undefined ? [] : entriesUsed(script, request.almanac.entries);
+        // Spent where it reached a script, as both writers for the date do. A link that mentioned an
+        // anniversary takes it out of the day, so the band at twenty past says something else.
+        for (const entry of used) this.said.keep(entry, request.almanac!.day.date);
 
         return {
             script,
@@ -371,9 +399,52 @@ export class ModelTalkBreakWriter extends BreakWriter {
             // Both offers rather than the clock alone, since a break may name the half of the day
             // without ever naming the hour — and "this morning" spoken at ten past twelve is the
             // same broken promise the clock check exists for, arriving through the other field.
-            ...(claimsTime === undefined ? {} : { claimsTime }),
+            // The day's window where this link used an entry, intersected with whatever the clock
+            // claim already said. `reported`'s posture applied to the date: the entries were
+            // OFFERED, most breaks will leave them alone, and a break that did must not be stamped
+            // with a day it never claimed. A break that DID say "on this day" has made a claim with
+            // exactly one way of going wrong — the date turning over before it airs — and that is
+            // what `claims_time_*` already holds.
+            //
+            // Intersected rather than replacing, because a link may say both "just after nine" and
+            // "on this day in 1966" and both have to survive: the clock's window is inside the day
+            // anyway, so the intersection is the clock's whenever there is one.
+            ...(claimsFor(claimsTime, used.length > 0 ? request.almanac?.day : undefined) === undefined
+                ? {}
+                : { claimsTime: claimsFor(claimsTime, used.length > 0 ? request.almanac?.day : undefined) }),
+            // `claimsTime`'s posture exactly, applied to the fourth dimension, and the reasoning
+            // transfers whole: the words either report the weather or they do not, so there is
+            // nothing to assume. It is the OPPOSITE of what `ModelWeatherBreakWriter` does, and the
+            // difference is which way the error costs something. A weather break that reached its
+            // stamp reported the weather by definition, so stamping always is free. Here a break
+            // that ignored the offer — which the prompt asks most of them to — would be stamped with
+            // an expiry for a claim it never made, and `brokenClaim` would then reopen it, and
+            // eventually drop it at hand-over, over a sentence about a record.
+            //
+            // The expiry is `WeatherSource`'s rather than one derived here, so every kind that can
+            // report a reading agrees about how long one observation lasts.
+            ...(reported && request.weatherFreshUntil !== undefined ? { claimsReadingUntil: request.weatherFreshUntil } : {}),
             // Only when the model chose one, and only one it was offered: see `liftDelivery`.
             ...(delivery === undefined ? {} : { delivery }),
         };
     }
+}
+
+/**
+ * The window a break's words are held to, out of the two it may have earned.
+ *
+ * A clock phrasing and a date are claims with different lifetimes, and a link may make both: "just
+ * after nine, and born on this day in 1966" is true inside the narrower of them. The intersection is
+ * always the clock's where there is one, since a rough time is minutes wide and is stamped as
+ * absolute instants inside the day it was read in — so this is arithmetic that states the rule
+ * rather than arithmetic that decides anything, and it is written out because the day is the half a
+ * reader would not expect.
+ *
+ * `undefined` when the break claimed neither, which is most links.
+ */
+function claimsFor(clock: { from: number; until: number } | undefined, day: StationDay | undefined): { from: number; until: number } | undefined {
+    if (day === undefined) return clock;
+    if (clock === undefined) return { from: day.from, until: day.until };
+
+    return { from: Math.max(clock.from, day.from), until: Math.min(clock.until, day.until) };
 }

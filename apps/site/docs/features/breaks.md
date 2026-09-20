@@ -50,6 +50,8 @@ A band on the format clock set to **This day** reads out something that happened
 
 A day is mostly general history, so **"What the station picks out of the day"** under Settings, Rotation decides what a music station does with it. The default puts the musicians first and keeps the rest behind them; "Music only" is stricter and will skip the slot on a thin day. Nothing is read out twice in the same day, and the date is the one the break AIRS on, in your station's own timezone, so a break written at ten to midnight is about tomorrow. A model naming a year it was not given is declined, exactly as one naming a temperature it was not given is.
 
+A presenter can also mention the date on an ordinary link, which is a separate switch: **"Let the presenter mention the date between records"** under Settings, Rotation, off by default. The day is offered rather than asked for, so most links ignore it and the ones that do not mention an anniversary in passing. Anything said that way is spent, so a band set to This day has one fewer entry to use.
+
 ## What a break looks like
 
 A break is the station talking, so the stream's one line of text carries your station's name rather than the producer's label for it. What changes is the picture beside it: a weather forecast and a news bulletin each have one of their own, which a listener's app draws beside the title and a hardware player draws in its artwork slot. Every other kind of break shows your station's logo, as the bed and off air do.

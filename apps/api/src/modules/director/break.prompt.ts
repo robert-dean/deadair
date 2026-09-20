@@ -56,6 +56,7 @@ import type { PersonaNotesForPrompt } from '#modules/personas/persona.note.js';
 import type { PersonaStoryForPrompt } from '#modules/personas/persona.story.js';
 import type { SpokenWeather } from '#modules/weather/weather.words.js';
 import type { AlmanacEntry } from '@deadair/plugin-sdk';
+import { inventedFigure } from './weather.figures.js';
 import type { BreakStory, BreakTrack, BreakWriteRequest } from './break.writer.js';
 import { contradictsDayPart, namesWrongSky, namesWrongTimeOfDay, type RoughTime } from './clock.words.js';
 import { retryNudge } from './break.retry.js';
@@ -189,6 +190,50 @@ export interface BreakPromptShape {
      * in the prompt is what the job put there.
      */
     stories?: 'offered' | 'told';
+    /**
+     * Whether this kind of break may say what it is like outside, and on what terms.
+     *
+     * {@link BreakPromptShape.stories}' exact shape and for its exact reason — two kinds want the
+     * same substrate on opposite terms, and the difference is the whole of what this field carries:
+     *
+     * - `reported` — the reading IS the break. The figures are the point, so the rules around them
+     *   are the strictest in this file: no comparison, no advice, nothing about how it feels. The
+     *   weather break.
+     * - `offered` — the reading is colour on a break about something else, and the presenter may
+     *   ignore it, react to it, or tie it to the record. The ordinary talk break.
+     *
+     * **The licence is the difference; the figures are not.** Both terms forbid inventing a number,
+     * because that guard is about what the station KNOWS rather than about what this kind of break is
+     * for, and `inventedFigure` is asked by both writers. What `offered` drops is the ban on advice
+     * and on feeling — "it's sunny, get out there while it lasts" is the presenter doing their job,
+     * and the same sentence in a bulletin is a newsreader editorialising. That is `allowsCues`' line
+     * drawn around a different thing.
+     *
+     * **Whether there is a reading here at all is the CALLER's decision**, exactly as it is for a
+     * story: `WeatherSource` decides which kinds get one and what it costs to ask, and a shape that
+     * permits the weather on a station with no weather plugin simply never sees one.
+     */
+    weather?: 'reported' | 'offered';
+    /**
+     * Whether the day's entries are rendered on this kind of break, and on which terms.
+     *
+     * {@link BreakPromptShape.weather}'s exact shape and its exact reason, one substrate over:
+     *
+     * - `read` — the entry IS the break. The model picks one of the lines it was shown and says it,
+     *   and the rules around it are the strictest here. The break about the date.
+     * - `offered` — the day is colour on a break about something else, and the presenter may ignore
+     *   it, which most breaks should. The ordinary talk break.
+     *
+     * **The licence is the difference; the evidence is not.** Both terms forbid adding what the
+     * model remembers about an entry, because that guard is about what the station KNOWS rather than
+     * about what this kind of break is for, and both are held to the years they were shown through
+     * {@link AnswerGuard.years}. What `offered` drops is the instruction to pick one at all: a link
+     * that happens to notice the date is worth more than one that reads an almanac out.
+     *
+     * **Whether there are entries here at all is the CALLER's decision**, exactly as for a reading:
+     * `AlmanacSource` decides which kinds get them and what it costs to ask.
+     */
+    almanac?: 'read' | 'offered';
     /**
      * Whether a persona's {@link PersonaSheet.latitude} is offered on this kind of break.
      *
@@ -344,6 +389,18 @@ export const TALK_BREAK_SHAPE: BreakPromptShape = {
     // Optional material rather than the point of the break, so the character's own rung decides
     // whether it appears. See `BreakPromptShape.stories`.
     stories: 'offered',
+    // The same terms for the sky, and the same word for them. What a presenter may DO with it is the
+    // whole difference from the weather break: react to it, say what to do with an afternoon like
+    // this, tie it to the record. The figures stay unfabricable either way. Whether a reading is here
+    // at all is `WeatherSource`'s, behind `rotation.weatherInTalk`, which is off by default — so this
+    // line changes nothing on a station that has not asked for it. See `BreakPromptShape.weather`.
+    weather: 'offered',
+    // And the same terms for the date, on the same word again. What a presenter may do with it is
+    // smaller than what they may do with the sky — the freedom is whether to mention an anniversary
+    // at all and how to tie it to the record, since everything else about an entry is somebody
+    // else's sentence. Whether there are entries here at all is `AlmanacSource`'s, behind
+    // `rotation.dateInTalk`, which is off by default. See `BreakPromptShape.almanac`.
+    almanac: 'offered',
     // The link between two records is the one kind with room to give. See `allowsLatitude`.
     allowsLatitude: true,
     // The same three rules with the first one turned around, which is the only one of them that was
@@ -985,15 +1042,36 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape:
     // not add a detail to a story, and this must not add a NUMBER — and a plausible temperature is
     // much easier to write than a plausible news story, because the model knows roughly what August
     // in Atlanta is like and will say so if the line below does not stop it.
-    if (request.weather !== undefined) {
+    //
+    // Which of the two terms applies is the shape's, on `BreakPromptShape.weather`: a kind whose job
+    // is the reading and a kind that may mention it in passing want the same figures under opposite
+    // licences, and rendering one block for both is what made "nothing about how the weather makes
+    // anyone feel" a rule for a presenter linking two records.
+    if (request.weather !== undefined && shape.weather !== undefined) {
         parts.push(describeWeather(request.weather));
         parts.push(
-            'Give the weather from those figures and nothing else. Every number and every word about the sky has to be one written above: ' +
-                'do not round, do not convert, do not add a figure that is not there, and do not say what it was like yesterday or what it ' +
-                'will be like after the days listed. ' +
-                'You may say it as a person would rather than reading a table, and you may leave a figure out — but a figure you say has to ' +
-                'be one you were given. ' +
-                'No advice about coats or umbrellas, and nothing about how the weather makes anyone feel.',
+            shape.weather === 'reported'
+                ? 'Give the weather from those figures and nothing else. Every number and every word about the sky has to be one written ' +
+                      'above: do not round, do not convert, do not add a figure that is not there, and do not say what it was like yesterday ' +
+                      'or what it will be like after the days listed. ' +
+                      'You may say it as a person would rather than reading a table, and you may leave a figure out — but a figure you say ' +
+                      'has to be one you were given. ' +
+                      'No advice about coats or umbrellas, and nothing about how the weather makes anyone feel.'
+                : // The offered wording, and every clause of it is doing one job. The optionality is
+                  // stated outright and FIRST, in the words the notes and the story block already use
+                  // — "work at most one of them in" read as an instruction to work one in, and a
+                  // labelled table of figures is that hazard at its largest, since a table is the one
+                  // shape a model will simply read out. Then the licence, which is the whole feature:
+                  // a presenter may react to the sky and say what to do about it, where the weather
+                  // break may not. Then the figures rule, unchanged and unsoftened, because what a
+                  // model may INVENT is not a question about what kind of break this is.
+                  'You do not have to mention the weather, and most breaks are better without it. It is here in case the day gives you ' +
+                      'something to say — a link that notices it is outside is worth more than one that reports it. ' +
+                      'If you do use it: it is yours to react to. Say what you make of it, tell a listener what to do with an afternoon ' +
+                      'like this, tie it to the record if it goes there. ' +
+                      'What you may not do is make a figure up. Every number you say has to be one written above — do not round, do not ' +
+                      'convert, do not add one that is not there, and do not say what it was like yesterday or what it will be like after ' +
+                      'the days listed. Leaving every figure out and just saying what it is like is usually the better break.',
         );
     }
 
@@ -1002,16 +1080,30 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape:
     // a NUMBER, and this must not add what it REMEMBERS — which is the hardest of the three to
     // resist, because a model handed "Nuno Bettencourt, Portuguese guitarist" knows what band he was
     // in, and that sentence is indistinguishable on air from the one the station was actually given.
-    if (request.almanac !== undefined && request.almanac.entries.length > 0) {
+    if (request.almanac !== undefined && request.almanac.entries.length > 0 && shape.almanac !== undefined) {
         parts.push(describeDay(request.almanac.day.date, request.almanac.entries));
         parts.push(
-            'Pick one of those and say it. Everything you say about it has to be in the line you picked: do not add what somebody is known ' +
-                'for, which band they were in, what else happened that year, or how any of it was received — the station was not told any of ' +
-                'that, and what you remember about it sounds exactly like what you were given. ' +
-                'Say the year as it is written above. ' +
-                'You may say it as a person would rather than reading it out flat, and you may work out how long ago it was, since that is ' +
-                'arithmetic on the year you were given. ' +
-                'Nothing about what it means, what it led to, or how things were back then.',
+            shape.almanac === 'read'
+                ? 'Pick one of those and say it. Everything you say about it has to be in the line you picked: do not add what somebody is ' +
+                      'known for, which band they were in, what else happened that year, or how any of it was received — the station was not ' +
+                      'told any of that, and what you remember about it sounds exactly like what you were given. ' +
+                      'Say the year as it is written above. ' +
+                      'You may say it as a person would rather than reading it out flat, and you may work out how long ago it was, since that ' +
+                      'is arithmetic on the year you were given. ' +
+                      'Nothing about what it means, what it led to, or how things were back then.'
+                : // The offered wording, built like the weather's and for its reasons. The
+                  // optionality first and outright, because a LIST is the shape a model will simply
+                  // read out; then what the licence actually is, which is smaller than the weather's
+                  // — there the presenter may react to the sky, and here the only freedom is whether
+                  // to mention the date at all and how to tie it to the record. The evidence rule is
+                  // unchanged and unsoftened, because what a model may add to somebody else's
+                  // sentence is not a question about what kind of break this is.
+                  'You do not have to mention any of that, and most breaks are better without it. It is here in case the date gives you ' +
+                      'something the record wants — a link that notices an anniversary is worth more than one that reads a list out. ' +
+                      'If you do use one: say the year as it is written above, and say it in passing rather than announcing it. ' +
+                      'What you may not do is add to it. Nothing about what somebody is known for, which band they were in, what else ' +
+                      'happened that year or how any of it was received: the station was not told any of that, and what you remember about ' +
+                      'it sounds exactly like what you were given.',
         );
     }
 
@@ -1860,6 +1952,26 @@ export interface AnswerGuard {
      * beyond what is listed above" — read back off the answer instead of only asked for.
      */
     years?: readonly number[];
+    /**
+     * The reading this break was written from, and so the only figures it may say.
+     *
+     * {@link AnswerGuard.years}' twin, pointed at the substrate that taught it the doctrine: a
+     * plausible temperature is easier for a model to write than a plausible anything else, because
+     * it knows roughly what August in Atlanta is like and will say so if nothing stops it.
+     *
+     * It lives on the guard rather than in a writer, which it did not used to. `inventedFigure` ran
+     * inside `ModelWeatherBreakWriter` after the answer had already been judged, and that was fine
+     * for as long as one kind could be given a reading. The talk break being offered one made it two
+     * callers, and two copies of "which numbers may this script say" is the shape `brokenClaim`'s own
+     * note warns about — two readings of one question that could disagree. So the question is asked
+     * here, once, in the order every other factual check is asked in, and both writers get the same
+     * fault, the same sentence and the same row.
+     *
+     * Absent asks nothing, on every other field's bargain here — which is also what keeps this free
+     * for the kinds that are never given a reading, since a break with no weather in front of it
+     * cannot invent one from it.
+     */
+    weather?: SpokenWeather;
 }
 
 /**
@@ -1941,6 +2053,11 @@ export function readAnswer(text: string, guard: AnswerGuard = {}): string | unde
     // are one story, and a script the one of them airs is a script the other has to be able to
     // refuse. See `inventedYearIn`.
     if (inventedYearIn(words, guard) !== undefined) return undefined;
+
+    // And a break that stated a TEMPERATURE the station never held, which is the same doctrine on
+    // the same rule: one story, one order, and a script this airs is one `writeDecline` has to be
+    // able to refuse. See `inventedFigureIn`.
+    if (inventedFigureIn(words, guard) !== undefined) return undefined;
 
     // A correct sentence that is not this character speaking, which is the failure a persona is
     // asked for and the one a model handed a page of content rules actually makes — in flat plain
@@ -2358,6 +2475,22 @@ export function permittedYears(
  *
  * There were 23 before `shown` existed, and the two it gave back are the whole argument for it.
  */
+/**
+ * The figure a script stated that the reading never carried, or `undefined` when every one of them
+ * was measured.
+ *
+ * The thinnest of wrappers over {@link inventedFigure}, and it earns its place by being the half
+ * that knows about the GUARD: the function in `weather.figures.ts` is pure and takes a reading,
+ * which is what lets both writers and the tests reach it without one, and this is where "was this
+ * break given a reading at all" is answered. Same division as {@link inventedYearIn} one line up.
+ *
+ * The record names are already out of `script` by the time this is asked, which matters more here
+ * than it does for a year: `Summer 68`, `1999` and `Nineteen85` are a title, a title and a producer,
+ * and a break that back-announced one has said nothing about a temperature.
+ */
+const inventedFigureIn = (script: string, guard: AnswerGuard): string | undefined =>
+    guard.weather === undefined ? undefined : inventedFigure(withoutRecordNames(script, guard), guard.weather);
+
 const inventedYearIn = (script: string, guard: AnswerGuard): string | undefined => {
     if (guard.years === undefined) return undefined;
 
@@ -2411,6 +2544,11 @@ const FAULT_REASONS: Record<WriteFault, string> = {
     // fault was in the persona.
     'invented-year':
         'the model stated a year the station never gave it, which a listener cannot check and the station cannot tell from one it made up',
+    // The weather's own version of the row above, and worth its own sentence for the reason that one
+    // is: an operator reading "stated a year" goes to the listing, and an operator reading this goes
+    // to the service. A figure nobody measured is also the one fault here a LISTENER can be harmed
+    // by — a temperature said confidently is acted on.
+    'invented-figure': 'the model gave a figure the station was never given, which sounds exactly like one the service measured',
     'quoted-sample': 'the model read one of the persona’s own sample lines back rather than writing in its voice',
     'spent-catchphrase': 'the model reached for a signature the station had just used',
     'avoided-wording': 'the model used wording the persona forbids',
@@ -2434,7 +2572,15 @@ const FAULT_REASONS: Record<WriteFault, string> = {
  * writing four times the length it was given.
  */
 export type WriteFault =
-    CharacterFault | 'nothing-said' | 'ran-long' | 'named-nothing' | 'cued-wrong' | 'wrong-daypart' | 'invented-year' | 'character-trimmed';
+    | CharacterFault
+    | 'nothing-said'
+    | 'ran-long'
+    | 'named-nothing'
+    | 'cued-wrong'
+    | 'wrong-daypart'
+    | 'invented-year'
+    | 'invented-figure'
+    | 'character-trimmed';
 
 /**
  * Why a raw answer was refused, for a writer that wants to say so, or `undefined` when it was not.
@@ -2490,6 +2636,12 @@ export function writeDecline(text: string, guard: AnswerGuard): { fault: WriteFa
     // same treatment for the same reason — a title full of digits is not a claim about a date.
     const year = inventedYearIn(speakable, guard);
     if (year !== undefined) return reasoned('invented-year', year);
+    // Beside the year and immediately after it, because they are one doctrine asked of two
+    // substrates: a number the station never gave the model, said in the voice it uses for the ones
+    // it did. The reading is read against `speakable` for the year check's own reason — the record
+    // names are already out of it, so a title full of digits is not a claim about the sky.
+    const figure = inventedFigureIn(speakable, guard);
+    if (figure !== undefined) return reasoned('invented-figure', figure);
 
     const fault = faultIn(speakable, guard);
     if (fault === undefined) return undefined;

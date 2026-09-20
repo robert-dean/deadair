@@ -95,6 +95,16 @@ measured, between two programmes. `BroadcastUiState.nothingOn` reads both.
 the five-minute linger, so probing five formats puts a silent station on air and holds it there.
 `GET /nowplaying` carries `mounts[]` for exactly this reason; read that.
 
+**Giving up on the stream means stopping, not standing down.** `ReconnectPolicy` has always had a
+five-minute budget so a listener who walked away from a dead station does not come back to a dead
+battery, and for as long as it merely stopped RETRYING it did not buy that: ExoPlayer leaves
+`playWhenReady` standing through a failure, which is what everything else in this app reads as
+"somebody is listening". A player still wanting to play is a notification still offering Stop and,
+expensively, `PlaybackConductor`'s poll still asking the station what is on. The poll backs off only
+when the POLL fails, so the bad case is a mount that has lost its source while the API answers
+normally: retries end after five minutes and the requests do not end at all. The budget running out
+now calls the same `stop` the audio-focus cases use.
+
 **HLS listeners are counted per IP and User-Agent**, from playlist re-fetches inside a 15-second
 window. So there is one agent string (`UserAgent.VALUE`), and it reaches every request from one of
 two places: an interceptor on the shared OkHttp client, which the SDK and the image loader both go

@@ -456,7 +456,7 @@ export type PersonaAuditionRecord = z.infer<typeof PersonaAuditionRecord>;
  * One time a character actually told one of its own stories. What the timeline lists, and what a
  * rollback is chosen from: the moment on each row is the exact string the station compares against,
  * not a rounding of it
- * generated from [PersonaTelling](../../../../data/contracts/personas/personas.types.ck#L351)
+ * generated from [PersonaTelling](../../../../data/contracts/personas/personas.types.ck#L352)
  */
 export const PersonaTelling = z.strictObject({
     id: z.string().min(1).max(100),
@@ -488,7 +488,7 @@ export type PersonaTellingInput = z.infer<typeof PersonaTellingInput>;
 /**
  * What a rollback would undo, or did. Counted with the same predicates the delete uses, so a preview
  * cannot promise one thing and do another
- * generated from [PersonaMemoryChange](../../../../data/contracts/personas/personas.types.ck#L371)
+ * generated from [PersonaMemoryChange](../../../../data/contracts/personas/personas.types.ck#L372)
  */
 export const PersonaMemoryChange = z.strictObject({
     tellings: z
@@ -516,7 +516,7 @@ export type PersonaMemoryChange = z.infer<typeof PersonaMemoryChange>;
 
 /**
  * Undo what this character accumulated on its own
- * generated from [PersonaMemoryRollback](../../../../data/contracts/personas/personas.types.ck#L380)
+ * generated from [PersonaMemoryRollback](../../../../data/contracts/personas/personas.types.ck#L381)
  */
 export const PersonaMemoryRollback = z.strictObject({
     to: z.string().max(40).optional().describe('The moment to go back to, as a timeline row reports it. Absent means all of it, which is a reset'),
@@ -692,7 +692,7 @@ export type PersonaRehearsal = z.infer<typeof PersonaRehearsal>;
 
 /**
  * A run of one character over one playlist, without its breaks: what a list draws
- * generated from [PersonaAuditionSummary](../../../../data/contracts/personas/personas.types.ck#L325)
+ * generated from [PersonaAuditionSummary](../../../../data/contracts/personas/personas.types.ck#L326)
  */
 export const PersonaAuditionSummary = z.strictObject({
     id: z.string().min(1).max(100),
@@ -729,12 +729,18 @@ export const PersonaAuditionBreak = z.strictObject({
     script: z.string().max(5000).optional().describe('The words a listener would have heard, from whichever writer answered first'),
     writer: z.string().min(1).max(100).optional().describe('Which one that was. Present exactly when `script` is'),
     reason: z.string().max(1000).optional().describe('Why there are none, when every writer had nothing. On air this break is skipped'),
+    told: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .optional()
+        .describe(
+            "Whether the writer's read-back found the story this break was handed. Absent means it carried none, which is most of them. On air this is what decides whether a story in parts owes the next one, so a run is how you check the reading is right before trusting an arc to it",
+        ),
 });
 export type PersonaAuditionBreak = z.infer<typeof PersonaAuditionBreak>;
 
 /**
  * What one character has told, newest first
- * generated from [PersonaMemoryTimeline](../../../../data/contracts/personas/personas.types.ck#L364)
+ * generated from [PersonaMemoryTimeline](../../../../data/contracts/personas/personas.types.ck#L365)
  */
 export const PersonaMemoryTimeline = z.strictObject({
     personaId: z.string().min(1).max(100),
@@ -750,7 +756,7 @@ export type PersonaMemoryTimelineInput = z.infer<typeof PersonaMemoryTimelineInp
 
 /**
  * What was undone, and where the timeline stands now
- * generated from [PersonaMemory](../../../../data/contracts/personas/personas.types.ck#L385)
+ * generated from [PersonaMemory](../../../../data/contracts/personas/personas.types.ck#L386)
  */
 export const PersonaMemory = z.strictObject({
     personaId: z.string().min(1).max(100),
@@ -828,7 +834,7 @@ export const PersonaImportPlanInput = z.strictObject({});
 export type PersonaImportPlanInput = z.infer<typeof PersonaImportPlanInput>;
 
 /**
- * generated from [PersonaAuditionList](../../../../data/contracts/personas/personas.types.ck#L344)
+ * generated from [PersonaAuditionList](../../../../data/contracts/personas/personas.types.ck#L345)
  */
 export const PersonaAuditionList = z.strictObject({
     auditions: z.array(PersonaAuditionSummary),
@@ -837,7 +843,7 @@ export type PersonaAuditionList = z.infer<typeof PersonaAuditionList>;
 
 /**
  * The same run with every break it has written so far, in order
- * generated from [PersonaAudition](../../../../data/contracts/personas/personas.types.ck#L340)
+ * generated from [PersonaAudition](../../../../data/contracts/personas/personas.types.ck#L341)
  */
 export const PersonaAudition = PersonaAuditionSummary.extend({
     breaks: z.array(PersonaAuditionBreak),

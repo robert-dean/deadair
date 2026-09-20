@@ -8197,6 +8197,9 @@ components:
                     type: string
                     maxLength: 1000
                     description: 'Why there are none, when every writer had nothing. On air this break is skipped'
+                told:
+                    type: boolean
+                    description: "Whether the writer's read-back found the story this break was handed. Absent means it carried none, which is most of them. On air this is what decides whether a story in parts owes the next one, so a run is how you check the reading is right before trusting an arc to it"
             required: [ordinal, previous, next, attempts]
             description: "One transition, and everything the writers said about it. Every writer asked is reported and not\nonly the one that won, on the rehearsal's own argument: a model that declined and a floor that\ncovered for it are two facts"
         PersonaAuditionSummary:

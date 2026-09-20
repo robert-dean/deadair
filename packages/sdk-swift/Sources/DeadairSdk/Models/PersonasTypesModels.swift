@@ -1839,8 +1839,10 @@ public struct PersonaAuditionBreak: Codable, Equatable, Sendable {
     public var writer: String?
     /// Why there are none, when every writer had nothing. On air this break is skipped
     public var reason: String?
+    /// Whether the writer's read-back found the story this break was handed. Absent means it carried none, which is most of them. On air this is what decides whether a story in parts owes the next one, so a run is how you check the reading is right before trusting an arc to it
+    public var told: Bool?
 
-    public init(ordinal: Int, previous: PersonaAuditionRecord, next: PersonaAuditionRecord, attempts: [PersonaRehearsalAttempt], script: String? = nil, writer: String? = nil, reason: String? = nil) {
+    public init(ordinal: Int, previous: PersonaAuditionRecord, next: PersonaAuditionRecord, attempts: [PersonaRehearsalAttempt], script: String? = nil, writer: String? = nil, reason: String? = nil, told: Bool? = nil) {
         self.ordinal = ordinal
         self.previous = previous
         self.next = next
@@ -1848,6 +1850,7 @@ public struct PersonaAuditionBreak: Codable, Equatable, Sendable {
         self.script = script
         self.writer = writer
         self.reason = reason
+        self.told = told
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -1858,6 +1861,7 @@ public struct PersonaAuditionBreak: Codable, Equatable, Sendable {
         case script = "script"
         case writer = "writer"
         case reason = "reason"
+        case told = "told"
     }
 
     public init(from decoder: Decoder) throws {
@@ -1869,6 +1873,7 @@ public struct PersonaAuditionBreak: Codable, Equatable, Sendable {
         self.script = try container.decodeIfPresent(String.self, forKey: .script)
         self.writer = try container.decodeIfPresent(String.self, forKey: .writer)
         self.reason = try container.decodeIfPresent(String.self, forKey: .reason)
+        self.told = try container.decodeIfPresent(Bool.self, forKey: .told)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -1880,6 +1885,7 @@ public struct PersonaAuditionBreak: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.script, forKey: .script)
         try container.encodeIfPresent(self.writer, forKey: .writer)
         try container.encodeIfPresent(self.reason, forKey: .reason)
+        try container.encodeIfPresent(self.told, forKey: .told)
     }
 }
 

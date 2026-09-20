@@ -1047,6 +1047,11 @@ public sealed record PersonaAuditionBreak
     [JsonPropertyName("reason")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Reason { get; init; }
+
+    /// <summary>Whether the writer's read-back found the story this break was handed. Absent means it carried none, which is most of them. On air this is what decides whether a story in parts owes the next one, so a run is how you check the reading is right before trusting an arc to it</summary>
+    [JsonPropertyName("told")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Told { get; init; }
 }
 
 /// <summary>What one character has told, newest first</summary>

@@ -346,7 +346,7 @@ export interface PersonaAuditionRecord {
  * One time a character actually told one of its own stories. What the timeline lists, and what a
  * rollback is chosen from: the moment on each row is the exact string the station compares against,
  * not a rounding of it
- * generated from [PersonaTelling](../../../../../apps/api/data/contracts/personas/personas.types.ck#L351)
+ * generated from [PersonaTelling](../../../../../apps/api/data/contracts/personas/personas.types.ck#L352)
  */
 export interface PersonaTelling {
     id: string;
@@ -374,7 +374,7 @@ export interface PersonaTellingInput {}
 /**
  * What a rollback would undo, or did. Counted with the same predicates the delete uses, so a preview
  * cannot promise one thing and do another
- * generated from [PersonaMemoryChange](../../../../../apps/api/data/contracts/personas/personas.types.ck#L371)
+ * generated from [PersonaMemoryChange](../../../../../apps/api/data/contracts/personas/personas.types.ck#L372)
  */
 export interface PersonaMemoryChange {
     /** Tellings forgotten. Every one, whatever wrote it: a telling is a record of something the station did rather than a claim somebody made */
@@ -393,7 +393,7 @@ export interface PersonaMemoryChange {
 
 /**
  * Undo what this character accumulated on its own
- * generated from [PersonaMemoryRollback](../../../../../apps/api/data/contracts/personas/personas.types.ck#L380)
+ * generated from [PersonaMemoryRollback](../../../../../apps/api/data/contracts/personas/personas.types.ck#L381)
  */
 export interface PersonaMemoryRollback {
     /** The moment to go back to, as a timeline row reports it. Absent means all of it, which is a reset */
@@ -537,7 +537,7 @@ export interface PersonaRehearsal {
 
 /**
  * A run of one character over one playlist, without its breaks: what a list draws
- * generated from [PersonaAuditionSummary](../../../../../apps/api/data/contracts/personas/personas.types.ck#L325)
+ * generated from [PersonaAuditionSummary](../../../../../apps/api/data/contracts/personas/personas.types.ck#L326)
  */
 export interface PersonaAuditionSummary {
     id: string;
@@ -581,11 +581,13 @@ export interface PersonaAuditionBreak {
     writer?: string;
     /** Why there are none, when every writer had nothing. On air this break is skipped */
     reason?: string;
+    /** Whether the writer's read-back found the story this break was handed. Absent means it carried none, which is most of them. On air this is what decides whether a story in parts owes the next one, so a run is how you check the reading is right before trusting an arc to it */
+    told?: boolean;
 }
 
 /**
  * What one character has told, newest first
- * generated from [PersonaMemoryTimeline](../../../../../apps/api/data/contracts/personas/personas.types.ck#L364)
+ * generated from [PersonaMemoryTimeline](../../../../../apps/api/data/contracts/personas/personas.types.ck#L365)
  */
 export interface PersonaMemoryTimeline {
     personaId: string;
@@ -599,7 +601,7 @@ export interface PersonaMemoryTimelineInput {
 
 /**
  * What was undone, and where the timeline stands now
- * generated from [PersonaMemory](../../../../../apps/api/data/contracts/personas/personas.types.ck#L385)
+ * generated from [PersonaMemory](../../../../../apps/api/data/contracts/personas/personas.types.ck#L386)
  */
 export interface PersonaMemory {
     personaId: string;
@@ -664,7 +666,7 @@ export interface PersonaImportPlan {
 export interface PersonaImportPlanInput {}
 
 /**
- * generated from [PersonaAuditionList](../../../../../apps/api/data/contracts/personas/personas.types.ck#L344)
+ * generated from [PersonaAuditionList](../../../../../apps/api/data/contracts/personas/personas.types.ck#L345)
  */
 export interface PersonaAuditionList {
     auditions: PersonaAuditionSummary[];
@@ -672,7 +674,7 @@ export interface PersonaAuditionList {
 
 /**
  * The same run with every break it has written so far, in order
- * generated from [PersonaAudition](../../../../../apps/api/data/contracts/personas/personas.types.ck#L340)
+ * generated from [PersonaAudition](../../../../../apps/api/data/contracts/personas/personas.types.ck#L341)
  */
 export interface PersonaAudition extends PersonaAuditionSummary {
     breaks: PersonaAuditionBreak[];

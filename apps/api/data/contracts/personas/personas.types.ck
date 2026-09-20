@@ -319,6 +319,7 @@ contract PersonaAuditionBreak: {
     script?: string(max=5000) # The words a listener would have heard, from whichever writer answered first
     writer?: string(min=1, max=100) # Which one that was. Present exactly when `script` is
     reason?: string(max=1000) # Why there are none, when every writer had nothing. On air this break is skipped
+    told?: boolean # Whether the writer's read-back found the story this break was handed. Absent means it carried none, which is most of them. On air this is what decides whether a story in parts owes the next one, so a run is how you check the reading is right before trusting an arc to it
 }
 
 # A run of one character over one playlist, without its breaks: what a list draws

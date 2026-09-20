@@ -400,6 +400,7 @@ export interface DeadairPersonaAuditionBreaks {
   previous: Json;
   reason: string | null;
   script: string | null;
+  told: boolean | null;
   writer: string | null;
 }
 

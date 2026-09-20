@@ -586,6 +586,8 @@ data class PersonaAuditionBreak(
     val writer: String? = null,
     /** Why there are none, when every writer had nothing. On air this break is skipped */
     val reason: String? = null,
+    /** Whether the writer's read-back found the story this break was handed. Absent means it carried none, which is most of them. On air this is what decides whether a story in parts owes the next one, so a run is how you check the reading is right before trusting an arc to it */
+    val told: Boolean? = null,
 )
 
 /** What one character has told, newest first */

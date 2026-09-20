@@ -17,7 +17,7 @@
  *   2. does a second delivery of a transition already written do nothing?
  *   3. does `recent` carry this run's own scripts into the next transition?
  *   4. does a cancelled run refuse the job that was already in flight for it?
- *   5. did `segments` or `script_history` gain a single row? (they must not)
+ *   5. did `segments`, `script_history` or `persona_tellings` gain a single row? (they must not)
  *   6. did the notebook's or the stories' rotation move? (it must not)
  *
  * The MODEL binding is deliberately not wired. It would spend a slot, answer differently every time
@@ -134,7 +134,7 @@ const RECORDS: AuditionRecord[] = [
 
 /** What the tables that must not move hold right now. */
 async function watermarks() {
-    const [segments, history, notesUsed, storiesTold] = await Promise.all([
+    const [segments, history, notesUsed, tellings] = await Promise.all([
         db
             .selectFrom('deadair.segments')
             .select(({ fn }) => fn.countAll().as('n'))
@@ -147,9 +147,13 @@ async function watermarks() {
             .selectFrom('deadair.personaNotes')
             .select(({ fn }) => fn.count('lastUsedAt').as('n'))
             .executeTakeFirst(),
+        // The LEDGER, which is what spending a story means now. `persona_stories.last_told_at` used
+        // to be this check and is no longer written by anything, so counting it would be a check
+        // that cannot fail — the worst kind to leave in a file whose whole job is proving a
+        // negative.
         db
-            .selectFrom('deadair.personaStories')
-            .select(({ fn }) => fn.count('lastToldAt').as('n'))
+            .selectFrom('deadair.personaTellings')
+            .select(({ fn }) => fn.countAll().as('n'))
             .executeTakeFirst(),
     ]);
 
@@ -157,7 +161,7 @@ async function watermarks() {
         segments: Number(segments?.n ?? 0),
         history: Number(history?.n ?? 0),
         notesUsed: Number(notesUsed?.n ?? 0),
-        storiesTold: Number(storiesTold?.n ?? 0),
+        tellings: Number(tellings?.n ?? 0),
     };
 }
 
@@ -238,7 +242,7 @@ const after = await watermarks();
 check(after.segments === before.segments, `segments: ${before.segments} → ${after.segments} (must not move)`);
 check(after.history === before.history, `script_history: ${before.history} → ${after.history} (must not move)`);
 check(after.notesUsed === before.notesUsed, `notes rested: ${before.notesUsed} → ${after.notesUsed} (must not move)`);
-check(after.storiesTold === before.storiesTold, `stories told: ${before.storiesTold} → ${after.storiesTold} (must not move)`);
+check(after.tellings === before.tellings, `tellings: ${before.tellings} → ${after.tellings} (must not move)`);
 
 // The breaks go with the runs, which is the cascade doing what migration 0024 says it does.
 await db.deleteFrom('deadair.personaAuditions').where('id', 'in', [run.id, stopped.id]).execute();

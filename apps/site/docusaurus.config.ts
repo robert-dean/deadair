@@ -96,6 +96,7 @@ const config: Config = {
                         { label: 'Features', to: '/docs/features' },
                         { label: 'Install', to: '/docs/install' },
                         { label: 'Music licensing', to: '/docs/licensing' },
+                        { label: 'Help', to: '/docs/help' },
                     ],
                 },
                 {

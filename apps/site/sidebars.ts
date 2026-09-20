@@ -40,6 +40,7 @@ const sidebars: SidebarsConfig = {
             ],
         },
         'licensing',
+        'help',
     ],
 
     build: [

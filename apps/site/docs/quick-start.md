@@ -114,7 +114,7 @@ Any player opens that address, and so do the [listener apps](./features/listenin
 **If it is silent, that is probably on purpose.** By default the station airs only while somebody is
 connected: a loaded station with a full running order and no listeners is quiet, and the Desk says so
 rather than reporting a fault. Open the stream and it starts. If it stays quiet, **Check-up** answers
-why in one sentence.
+why in one sentence, and [Help](./help.md) covers the usual causes.
 
 ## Where to go next
 

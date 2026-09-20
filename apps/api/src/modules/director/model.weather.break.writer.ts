@@ -10,7 +10,6 @@ import { WEATHER_KIND } from '#modules/weather/weather.kind.js';
 import { breakPrompt, readAnswer, writeDecline, writeTrim, type AnswerGuard, type BreakPromptShape } from './break.prompt.js';
 import { TEMPLATE_KEYS } from './break.templates.js';
 import { timeClaimIn } from './clock.words.js';
-import { inventedFigure } from './weather.figures.js';
 import { BreakWriter, patienceFor, type BreakWriteRequest, type WriteDetail, type WrittenBreak } from './break.writer.js';
 import { BUDGET_MS, MAX_OUTPUT_TOKENS, MODEL_WRITER, MODEL_WRITER_DEFAULT, MODEL_WRITER_KEYS } from './model.talk.break.writer.js';
 
@@ -33,8 +32,9 @@ import { BUDGET_MS, MAX_OUTPUT_TOKENS, MODEL_WRITER, MODEL_WRITER_DEFAULT, MODEL
  * A model knows roughly what August in Atlanta is like and will fill in a figure it was not given
  * without any sense of having invented anything, where the same model inventing a headline at least
  * has to make something up. The guard against that lives in the prompt (see the weather rules in
- * `break.prompt.ts`) and in {@link inventedFigure}, which refuses a script naming a number nobody
- * measured. It sits in `weather.figures.ts` rather than here because the talk break asks it too.
+ * `break.prompt.ts`) and in `inventedFigure`, which refuses a script naming a number nobody measured.
+ * It sits in `weather.figures.ts` and is asked through `AnswerGuard.weather` rather than here, because
+ * the talk break asks it too and two copies of it would be two answers to one question.
  *
  * The model earns its place by saying the figures as a person would — "seventeen and wet out there,
  * getting up to twenty-four later" — rather than reading a table. Everything else is the floor's job
@@ -169,6 +169,11 @@ export class ModelWeatherBreakWriter extends BreakWriter {
             ...(request.recent === undefined ? {} : { recent: request.recent }),
             ...(request.dayPart === undefined ? {} : { dayPart: request.dayPart }),
             ...(request.moment === undefined ? {} : { moment: request.moment }),
+            // The figures this break may say. It used to be checked below, after the answer had
+            // already been judged, which was fine while this was the only kind that could be handed
+            // a reading; the talk break being offered one made that two copies of the same question.
+            // See `AnswerGuard.weather`.
+            weather,
         };
         const script = readAnswer(result.text, guard);
 
@@ -197,19 +202,6 @@ export class ModelWeatherBreakWriter extends BreakWriter {
             return undefined;
         }
 
-        // The check this kind has and no other does. Everything above judges the SHAPE of an answer;
-        // this judges whether it is true, which for a forecast is answerable — a temperature is a
-        // number, the station knows which numbers it was given, and any other number in the script is
-        // one the model made up. Refused rather than trimmed, because there is no cut that removes an
-        // invented figure and leaves a break worth airing.
-        const invented = inventedFigure(script, weather);
-        if (invented !== undefined) {
-            const reason = `the model gave a forecast with a figure the station was never given (${invented})`;
-            this.lastDetail = { ...this.lastDetail, reason };
-            this.logger.info(`director: ${reason}`, { place: weather.place, persona: request.persona?.key });
-            return undefined;
-        }
-
         // A forecast cut back to its last whole sentence. See `writeTrim`.
         const trimmed = writeTrim(result.text, guard);
         if (trimmed !== undefined) {
@@ -233,11 +225,12 @@ export class ModelWeatherBreakWriter extends BreakWriter {
             // takes and for the same reason. See `timeClaimIn`.
             ...(claimsTime === undefined ? {} : { claimsTime }),
             // And stamped ALWAYS, which is the opposite posture and is right for the opposite
-            // reason: `WEATHER_SHAPE` exists to make the model state this reading, and
-            // `inventedFigure` above has just refused every number that was not in it. A weather
-            // break that reached here reported the weather. The expiry is `WeatherSource`'s, not
-            // recomputed, so this and the floor beneath it cannot disagree about how long one
-            // observation lasts.
+            // reason: `WEATHER_SHAPE` exists to make the model state this reading, and the guard has
+            // already refused every number that was not in it. A weather break that reached here
+            // reported the weather, so there is nothing to ask. The TALK break takes the other
+            // branch and asks `mentionsWeather`, because there the reading is offered and most
+            // breaks decline it. The expiry is `WeatherSource`'s, not recomputed, so this and the
+            // floor beneath it cannot disagree about how long one observation lasts.
             ...(request.weatherFreshUntil === undefined ? {} : { claimsReadingUntil: request.weatherFreshUntil }),
         };
     }

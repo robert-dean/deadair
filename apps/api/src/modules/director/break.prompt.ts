@@ -55,6 +55,7 @@ import {
 import type { PersonaNotesForPrompt } from '#modules/personas/persona.note.js';
 import type { PersonaStoryForPrompt } from '#modules/personas/persona.story.js';
 import type { SpokenWeather } from '#modules/weather/weather.words.js';
+import { inventedFigure } from './weather.figures.js';
 import type { BreakStory, BreakTrack, BreakWriteRequest } from './break.writer.js';
 import { contradictsDayPart, namesWrongSky, namesWrongTimeOfDay, type RoughTime } from './clock.words.js';
 import { retryNudge } from './break.retry.js';
@@ -1867,6 +1868,26 @@ export interface AnswerGuard {
      * beyond what is listed above" — read back off the answer instead of only asked for.
      */
     years?: readonly number[];
+    /**
+     * The reading this break was written from, and so the only figures it may say.
+     *
+     * {@link AnswerGuard.years}' twin, pointed at the substrate that taught it the doctrine: a
+     * plausible temperature is easier for a model to write than a plausible anything else, because
+     * it knows roughly what August in Atlanta is like and will say so if nothing stops it.
+     *
+     * It lives on the guard rather than in a writer, which it did not used to. `inventedFigure` ran
+     * inside `ModelWeatherBreakWriter` after the answer had already been judged, and that was fine
+     * for as long as one kind could be given a reading. The talk break being offered one made it two
+     * callers, and two copies of "which numbers may this script say" is the shape `brokenClaim`'s own
+     * note warns about — two readings of one question that could disagree. So the question is asked
+     * here, once, in the order every other factual check is asked in, and both writers get the same
+     * fault, the same sentence and the same row.
+     *
+     * Absent asks nothing, on every other field's bargain here — which is also what keeps this free
+     * for the kinds that are never given a reading, since a break with no weather in front of it
+     * cannot invent one from it.
+     */
+    weather?: SpokenWeather;
 }
 
 /**
@@ -1948,6 +1969,11 @@ export function readAnswer(text: string, guard: AnswerGuard = {}): string | unde
     // are one story, and a script the one of them airs is a script the other has to be able to
     // refuse. See `inventedYearIn`.
     if (inventedYearIn(words, guard) !== undefined) return undefined;
+
+    // And a break that stated a TEMPERATURE the station never held, which is the same doctrine on
+    // the same rule: one story, one order, and a script this airs is one `writeDecline` has to be
+    // able to refuse. See `inventedFigureIn`.
+    if (inventedFigureIn(words, guard) !== undefined) return undefined;
 
     // A correct sentence that is not this character speaking, which is the failure a persona is
     // asked for and the one a model handed a page of content rules actually makes — in flat plain
@@ -2365,6 +2391,22 @@ export function permittedYears(
  *
  * There were 23 before `shown` existed, and the two it gave back are the whole argument for it.
  */
+/**
+ * The figure a script stated that the reading never carried, or `undefined` when every one of them
+ * was measured.
+ *
+ * The thinnest of wrappers over {@link inventedFigure}, and it earns its place by being the half
+ * that knows about the GUARD: the function in `weather.figures.ts` is pure and takes a reading,
+ * which is what lets both writers and the tests reach it without one, and this is where "was this
+ * break given a reading at all" is answered. Same division as {@link inventedYearIn} one line up.
+ *
+ * The record names are already out of `script` by the time this is asked, which matters more here
+ * than it does for a year: `Summer 68`, `1999` and `Nineteen85` are a title, a title and a producer,
+ * and a break that back-announced one has said nothing about a temperature.
+ */
+const inventedFigureIn = (script: string, guard: AnswerGuard): string | undefined =>
+    guard.weather === undefined ? undefined : inventedFigure(withoutRecordNames(script, guard), guard.weather);
+
 const inventedYearIn = (script: string, guard: AnswerGuard): string | undefined => {
     if (guard.years === undefined) return undefined;
 
@@ -2418,6 +2460,11 @@ const FAULT_REASONS: Record<WriteFault, string> = {
     // fault was in the persona.
     'invented-year':
         'the model stated a year the station never gave it, which a listener cannot check and the station cannot tell from one it made up',
+    // The weather's own version of the row above, and worth its own sentence for the reason that one
+    // is: an operator reading "stated a year" goes to the listing, and an operator reading this goes
+    // to the service. A figure nobody measured is also the one fault here a LISTENER can be harmed
+    // by — a temperature said confidently is acted on.
+    'invented-figure': 'the model gave a figure the station was never given, which sounds exactly like one the service measured',
     'quoted-sample': 'the model read one of the persona’s own sample lines back rather than writing in its voice',
     'spent-catchphrase': 'the model reached for a signature the station had just used',
     'avoided-wording': 'the model used wording the persona forbids',
@@ -2441,7 +2488,15 @@ const FAULT_REASONS: Record<WriteFault, string> = {
  * writing four times the length it was given.
  */
 export type WriteFault =
-    CharacterFault | 'nothing-said' | 'ran-long' | 'named-nothing' | 'cued-wrong' | 'wrong-daypart' | 'invented-year' | 'character-trimmed';
+    | CharacterFault
+    | 'nothing-said'
+    | 'ran-long'
+    | 'named-nothing'
+    | 'cued-wrong'
+    | 'wrong-daypart'
+    | 'invented-year'
+    | 'invented-figure'
+    | 'character-trimmed';
 
 /**
  * Why a raw answer was refused, for a writer that wants to say so, or `undefined` when it was not.
@@ -2497,6 +2552,12 @@ export function writeDecline(text: string, guard: AnswerGuard): { fault: WriteFa
     // same treatment for the same reason — a title full of digits is not a claim about a date.
     const year = inventedYearIn(speakable, guard);
     if (year !== undefined) return reasoned('invented-year', year);
+    // Beside the year and immediately after it, because they are one doctrine asked of two
+    // substrates: a number the station never gave the model, said in the voice it uses for the ones
+    // it did. The reading is read against `speakable` for the year check's own reason — the record
+    // names are already out of it, so a title full of digits is not a claim about the sky.
+    const figure = inventedFigureIn(speakable, guard);
+    if (figure !== undefined) return reasoned('invented-figure', figure);
 
     const fault = faultIn(speakable, guard);
     if (fault === undefined) return undefined;

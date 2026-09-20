@@ -456,6 +456,7 @@ export interface DeadairPersonas {
   diction: Generated<Json>;
   dictionMarkers: Generated<Json>;
   djName: string | null;
+  growth: "proposes" | "self-directed" | null;
   id: Generated<string>;
   key: string;
   kind: Generated<"host" | "caller">;

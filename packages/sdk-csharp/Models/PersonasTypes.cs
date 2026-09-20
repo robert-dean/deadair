@@ -102,6 +102,11 @@ public sealed record Persona
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public PersonaStorytelling? Storytelling { get; init; }
 
+    /// <summary>Whether the nightly passes may write this character new material outright, or only ever propose it for you to accept. Absent is `proposes`, which is what every character does until somebody says otherwise. It reaches no prompt: the character is never told which it is</summary>
+    [JsonPropertyName("growth")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PersonaGrowth? Growth { get; init; }
+
     /// <summary>Lines in their own voice, used as examples and as a console preview</summary>
     [JsonPropertyName("samples")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -209,6 +214,11 @@ public sealed record PersonaInput
     [JsonPropertyName("storytelling")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public PersonaStorytelling? Storytelling { get; init; }
+
+    /// <summary>Whether the nightly passes may write this character new material outright, or only ever propose it for you to accept. Absent is `proposes`, which is what every character does until somebody says otherwise. It reaches no prompt: the character is never told which it is</summary>
+    [JsonPropertyName("growth")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PersonaGrowth? Growth { get; init; }
 
     /// <summary>Lines in their own voice, used as examples and as a console preview</summary>
     [JsonPropertyName("samples")]
@@ -1420,6 +1430,17 @@ public enum PersonaStorytelling
 
     [JsonStringEnumMemberName("often")]
     Often,
+}
+
+/// <summary>Whether the nightly passes may write this character new material outright, or only ever propose it for you to accept. Absent is `proposes`, which is what every character does until somebody says otherwise. It reaches no prompt: the character is never told which it is</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<PersonaGrowth>))]
+public enum PersonaGrowth
+{
+    [JsonStringEnumMemberName("proposes")]
+    Proposes,
+
+    [JsonStringEnumMemberName("self-directed")]
+    SelfDirected,
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter<PersonaDraftViewBrevity>))]

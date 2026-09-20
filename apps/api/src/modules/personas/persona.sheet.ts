@@ -302,6 +302,58 @@ export const storytellingOf = (sheet: PersonaSheet | undefined): PersonaStorytel
     sheet !== undefined && isPersonaStorytelling(sheet.storytelling) ? sheet.storytelling : DEFAULT_STORYTELLING;
 
 /**
+ * Whether a character may change itself, or only ever propose.
+ *
+ * The second sheet field that never reaches a model, after `storytelling` — and the reason is
+ * sharper here: this decides what STATE the nightly passes write in, which is a decision about the
+ * station's relationship with its own machinery and none of the character's business.
+ */
+export const PERSONA_GROWTHS = ['proposes', 'self-directed'] as const;
+
+export type PersonaGrowth = (typeof PERSONA_GROWTHS)[number];
+
+/** Whether a stored value is a rung, so a hand-edited row cannot switch a character loose. */
+export const isPersonaGrowth = (value: unknown): value is PersonaGrowth => PERSONA_GROWTHS.includes(value as PersonaGrowth);
+
+/**
+ * What a sheet with nothing set means, and it is the cautious one.
+ *
+ * `rotation.breaks`' rule: a character changing on its own is a feature an operator opts into, not
+ * the behaviour of a station nobody has configured. Every character that existed before this field
+ * did is therefore unchanged, which is the only honest reading of a column they were never offered.
+ */
+export const DEFAULT_GROWTH: PersonaGrowth = 'proposes';
+
+/**
+ * The rung in force, with {@link DEFAULT_GROWTH} behind an unset or nonsense one.
+ *
+ * ## What it actually changes
+ *
+ * `proposes` is the posture every store here already has: anything a model writes arrives
+ * `suggested` and an operator is the check, because no amount of catalogue entails that this
+ * character was ever in that room.
+ *
+ * `self-directed` lets the nightly passes write `active` instead, so a character genuinely develops
+ * between one week and the next without anybody approving each step.
+ *
+ * ## Why that is offerable at all, having been refused everywhere else
+ *
+ * Because there is now a way back. A character's accumulated memory can be rolled back to a moment,
+ * so "let it run and see" is something an operator can undo in one click rather than a decision they
+ * are stuck with. Without `PersonaMemoryService` this rung would be a one-way door, which is exactly
+ * what `pronunciations` refused to build and what `persona_stories` inherited the refusal from.
+ *
+ * ## The one thing it does NOT relax
+ *
+ * A model-written beat under `self-directed` is spoken by the deterministic floor verbatim, and that
+ * floor runs no checks at all — it speaks approved prose, which under this rung it no longer is. So
+ * the pass puts its own output through `characterFault` and the station's clean-language rule before
+ * storing it active. Autonomy is about who APPROVES, never about what may go out unchecked.
+ */
+export const growthOf = (sheet: PersonaSheet | undefined): PersonaGrowth =>
+    sheet !== undefined && isPersonaGrowth(sheet.growth) ? sheet.growth : DEFAULT_GROWTH;
+
+/**
  * The one of this character's {@link PersonaSheet.preoccupations} that `rotationId` gets.
  *
  * Here rather than in each caller so the sheet's own normalizer and its own cap are what decide what
@@ -474,6 +526,18 @@ export interface PersonaSheet {
      * rather than what the model is told.
      */
     storytelling?: PersonaStorytelling;
+    /**
+     * Whether this character may change itself, or only ever propose.
+     *
+     * Read through {@link growthOf}, where the two rungs are argued, and like `storytelling` above it
+     * this reaches no prompt at all — it decides what STATE the nightly passes write in, which is a
+     * question about the station's relationship with its own machinery rather than about the
+     * character.
+     *
+     * Absent means {@link DEFAULT_GROWTH}, which is the cautious one: a character that changes on
+     * its own is something an operator opts into.
+     */
+    growth?: PersonaGrowth;
     /**
      * Which soundboard this character has to hand, as a `deadair.pad_sets.key`, or absent for a
      * presenter who works without one.

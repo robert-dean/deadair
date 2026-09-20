@@ -7396,6 +7396,10 @@ components:
                     type: string
                     enum: [never, occasionally, often]
                     description: 'How readily this character works one of its own stories into an ordinary talk break. Absent is `occasionally`, which offers one only where the station knows nothing about the records either side. The stories themselves are their own list, and a `story` band on the clock outranks this whatever it says'
+                growth:
+                    type: string
+                    enum: [proposes, self-directed]
+                    description: 'Whether the nightly passes may write this character new material outright, or only ever propose it for you to accept. Absent is `proposes`, which is what every character does until somebody says otherwise. It reaches no prompt: the character is never told which it is'
                 samples:
                     type: array
                     items:

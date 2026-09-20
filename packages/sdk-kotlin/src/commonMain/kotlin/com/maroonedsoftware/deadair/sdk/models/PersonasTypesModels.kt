@@ -43,6 +43,8 @@ data class Persona(
     val chattiness: PersonaChattiness? = null,
     /** How readily this character works one of its own stories into an ordinary talk break. Absent is `occasionally`, which offers one only where the station knows nothing about the records either side. The stories themselves are their own list, and a `story` band on the clock outranks this whatever it says */
     val storytelling: PersonaStorytelling? = null,
+    /** Whether the nightly passes may write this character new material outright, or only ever propose it for you to accept. Absent is `proposes`, which is what every character does until somebody says otherwise. It reaches no prompt: the character is never told which it is */
+    val growth: PersonaGrowth? = null,
     /** Lines in their own voice, used as examples and as a console preview */
     val samples: List<String>? = null,
     /** This character's own break phrasings, one per line. Empty means the station's global ones */
@@ -91,6 +93,8 @@ data class PersonaInput(
     val chattiness: PersonaChattiness? = null,
     /** How readily this character works one of its own stories into an ordinary talk break. Absent is `occasionally`, which offers one only where the station knows nothing about the records either side. The stories themselves are their own list, and a `story` band on the clock outranks this whatever it says */
     val storytelling: PersonaStorytelling? = null,
+    /** Whether the nightly passes may write this character new material outright, or only ever propose it for you to accept. Absent is `proposes`, which is what every character does until somebody says otherwise. It reaches no prompt: the character is never told which it is */
+    val growth: PersonaGrowth? = null,
     /** Lines in their own voice, used as examples and as a console preview */
     val samples: List<String>? = null,
     /** This character's own break phrasings, one per line. Empty means the station's global ones */
@@ -816,6 +820,15 @@ enum class PersonaStorytelling {
     OCCASIONALLY,
     @SerialName("often")
     OFTEN,
+}
+
+/** Whether the nightly passes may write this character new material outright, or only ever propose it for you to accept. Absent is `proposes`, which is what every character does until somebody says otherwise. It reaches no prompt: the character is never told which it is */
+@Serializable
+enum class PersonaGrowth {
+    @SerialName("proposes")
+    PROPOSES,
+    @SerialName("self-directed")
+    SELF_DIRECTED,
 }
 
 @Serializable

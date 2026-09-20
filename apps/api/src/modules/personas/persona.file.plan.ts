@@ -88,6 +88,7 @@ export const SHEET_FIELDS: ReadonlyArray<readonly [keyof PersonaFilePersona, str
     ['latitude', 'how much room it is given'],
     ['chattiness', 'how often it talks'],
     ['storytelling', 'how readily it tells a story'],
+    // `growth` is not here because it does not travel — see `persona.file.ts`.
     ['templates', 'its own phrasings'],
     ['diction', 'its diction'],
     ['dictionMarkers', 'its diction markers'],

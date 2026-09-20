@@ -2,7 +2,7 @@ import { Injectable } from 'injectkit';
 import { Kysely, sql } from 'kysely';
 import { DataRepository, type DB } from '#modules/data/data.repository.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
-import { isPersonaBrevity, isPersonaChattiness, isPersonaLatitude, isPersonaStorytelling } from './persona.sheet.js';
+import { isPersonaBrevity, isPersonaChattiness, isPersonaGrowth, isPersonaLatitude, isPersonaStorytelling } from './persona.sheet.js';
 import { DEFAULT_PERSONA_KIND, isPersonaKind, type Persona, type PersonaDraft } from './persona.js';
 
 /**
@@ -281,6 +281,7 @@ function columnsOf(draft: PersonaDraft) {
         latitude: draft.latitude ?? null,
         chattiness: draft.chattiness ?? null,
         storytelling: draft.storytelling ?? null,
+        growth: draft.growth ?? null,
         diction: jsonOf(draft.diction),
         dictionMarkers: jsonOf(draft.dictionMarkers),
         quirks: jsonOf(draft.quirks),
@@ -323,6 +324,7 @@ function toPersona(row: {
     latitude: string | null;
     chattiness: string | null;
     storytelling: string | null;
+    growth: string | null;
     diction: unknown;
     dictionMarkers: unknown;
     quirks: unknown;
@@ -358,6 +360,7 @@ function toPersona(row: {
         ...(isPersonaLatitude(row.latitude) ? { latitude: row.latitude } : {}),
         ...(isPersonaChattiness(row.chattiness) ? { chattiness: row.chattiness } : {}),
         ...(isPersonaStorytelling(row.storytelling) ? { storytelling: row.storytelling } : {}),
+        ...(isPersonaGrowth(row.growth) ? { growth: row.growth } : {}),
         ...list(row.diction, 'diction'),
         ...list(row.dictionMarkers, 'dictionMarkers'),
         ...list(row.quirks, 'quirks'),

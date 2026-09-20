@@ -32,6 +32,7 @@ import { kindOf, type PersonaKind } from './persona.kind';
 import { PersonaImportModal } from './persona.import';
 import { PersonaNotesPanel } from './persona.notes';
 import { PersonaStoriesPanel } from './persona.stories';
+import { PersonaMemoryPanel } from './persona.memory';
 import { PersonaRehearsalPanel } from './persona.rehearsal';
 import { PresenterNamePanel } from './presenter.name.panel';
 import { PresentingBanner } from './presenting.banner';
@@ -78,6 +79,10 @@ export function PersonasPage() {
     // questions about a character: what it has picked up from its own broadcasts, and what happened
     // to it before any of them. One open panel each, for the reason the notebook has one.
     const [shelf, setShelf] = useState<string | undefined>(undefined);
+    // And a third, for the same reason again: what this character has actually TOLD, which is the
+    // only one of the three that is a record rather than a store, and the one an operator opens to
+    // undo something.
+    const [memory, setMemory] = useState<string | undefined>(undefined);
     // Which character a delete is being asked about. Holding the persona rather than its id, so the
     // dialog can name what it is about to take without looking it back up.
     const [deleting, setDeleting] = useState<Persona | undefined>(undefined);
@@ -422,6 +427,9 @@ export function PersonasPage() {
                                             <Menu.Item onClick={() => setShelf(current => (current === persona.id ? undefined : persona.id))}>
                                                 {shelf === persona.id ? 'Hide stories' : 'Stories'}
                                             </Menu.Item>
+                                            <Menu.Item onClick={() => setMemory(current => (current === persona.id ? undefined : persona.id))}>
+                                                {memory === persona.id ? 'Hide memory' : 'Memory'}
+                                            </Menu.Item>
                                             <Menu.Item
                                                 disabled={exporting === persona.id}
                                                 onClick={() => {
@@ -466,6 +474,8 @@ export function PersonasPage() {
                             {notebook === persona.id ? <PersonaNotesPanel personaId={persona.id} /> : undefined}
 
                             {shelf === persona.id ? <PersonaStoriesPanel personaId={persona.id} /> : undefined}
+
+                            {memory === persona.id ? <PersonaMemoryPanel personaId={persona.id} label={persona.label} /> : undefined}
                         </Card>
                     </Fragment>
                 ))}

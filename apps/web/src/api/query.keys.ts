@@ -121,6 +121,8 @@ export const queryKeys = {
         /** One character's notebook. Keyed per persona, since a panel only ever draws the one it is open under. */
         notes: (id: string) => ['personas', 'notes', id] as const,
         stories: (id: string) => ['personas', 'stories', id] as const,
+        /** What one character has actually told, newest first. Keyed per persona for the notebook's reason. */
+        memory: (id: string) => ['personas', 'memory', id] as const,
         /** One character's audition runs, newest first. Keyed per persona for the notebook's reason. */
         auditions: (id: string) => ['personas', 'auditions', id] as const,
         /**

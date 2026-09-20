@@ -6,6 +6,9 @@ import type {
     PersonaImportResult,
     PersonaInput,
     PersonaList,
+    PersonaMemory,
+    PersonaMemoryChange,
+    PersonaMemoryRollback,
     PersonaNoteList,
     PersonaNoteState,
     PersonaNoteWrite,
@@ -249,6 +252,58 @@ export function useImportPersonas() {
         mutationFn: (file: PersonaFile) => sdk.personas.importPersonas(file),
         onSuccess: (result: PersonaImportResult) => {
             queryClient.setQueryData(queryKeys.personas.list(), result.personas);
+        },
+    });
+}
+
+/**
+ * What one character has actually told, newest first.
+ *
+ * Read on the notebook's terms — only when a panel is open, and stale on the same timer — with one
+ * difference that matters: this list moves when a BREAK airs rather than only when an operator or a
+ * nightly pass writes something. It is still not worth polling. An operator opens this to decide
+ * where to roll back to, and a timeline that gained a row underneath them while they were reading it
+ * would move the thing they were about to click.
+ */
+export function usePersonaMemory(id: string | undefined) {
+    return useQuery({
+        queryKey: queryKeys.personas.memory(id ?? ''),
+        queryFn: () => sdk.personas.readPersonaMemory(id!),
+        staleTime: PERSONAS_STALE_TIME,
+        enabled: id !== undefined,
+    });
+}
+
+/**
+ * What rolling back to a moment would undo, asked before anything is undone.
+ *
+ * A mutation rather than a query, exactly as {@link usePreviewPersonaImport} is and for its reason:
+ * it is something the console asks the moment an operator picks a row, not something it holds. It
+ * writes nothing and caches nothing.
+ */
+export const usePreviewPersonaRollback = () =>
+    useMutation<PersonaMemoryChange, Error, { id: string; to?: string }>({
+        mutationFn: ({ id, to }: { id: string; to?: string }) => sdk.personas.previewPersonaMemoryRollback(id, to === undefined ? {} : { to }),
+    });
+
+/**
+ * Undo it.
+ *
+ * Every store this touched is invalidated rather than written from the answer, which is the one
+ * place in this file that rule is broken on purpose: a rollback deletes notes and stories as well as
+ * tellings, and the answer carries only the timeline. Writing that back and leaving the other two
+ * panels alone would show an operator a notebook that no longer exists.
+ */
+export function useRollbackPersonaMemory() {
+    const queryClient = useQueryClient();
+    return useMutation<PersonaMemory, Error, { id: string; body: PersonaMemoryRollback }>({
+        mutationFn: ({ id, body }: { id: string; body: PersonaMemoryRollback }) => sdk.personas.rollBackPersonaMemory(id, body),
+        onSuccess: async (memory: PersonaMemory) => {
+            queryClient.setQueryData(queryKeys.personas.memory(memory.personaId), { personaId: memory.personaId, tellings: memory.tellings });
+            await Promise.all([
+                queryClient.invalidateQueries({ queryKey: queryKeys.personas.notes(memory.personaId) }),
+                queryClient.invalidateQueries({ queryKey: queryKeys.personas.stories(memory.personaId) }),
+            ]);
         },
     });
 }

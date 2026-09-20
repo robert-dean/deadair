@@ -2,6 +2,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- Offered where the phone has a wallpaper picker, and simply absent where it has not. -->
+    <uses-feature
+        android:name="android.software.live_wallpaper"
+        android:required="false" />
+
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- Held by the player while it is playing, so a dozing phone does not tear the stream down. -->
@@ -95,6 +100,19 @@
             The station as a Quick Settings tile. Bound only by System UI, which is what the
             permission guarantees; toggleable, so accessibility services read it as on or off.
         -->
+        <service
+            android:name=".wallpaper.StationWallpaperService"
+            android:exported="true"
+            android:label="@string/wallpaper_label"
+            android:permission="android.permission.BIND_WALLPAPER">
+            <intent-filter>
+                <action android:name="android.service.wallpaper.WallpaperService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.service.wallpaper"
+                android:resource="@xml/station_wallpaper" />
+        </service>
+
         <service
             android:name=".playback.StationTileService"
             android:exported="true"

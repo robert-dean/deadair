@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  What the system's wallpaper picker shows about this one. The thumbnail is the app's own mark,
+  because what the wallpaper actually draws is whatever the station is playing, which is not a
+  picture that can be shipped.
+-->
+<wallpaper xmlns:android="http://schemas.android.com/apk/res/android"
+    android:author="@string/app_name"
+    android:description="@string/wallpaper_description"
+    android:thumbnail="@mipmap/ic_launcher"
+    tools:ignore="UnusedAttribute"
+    xmlns:tools="http://schemas.android.com/tools" />

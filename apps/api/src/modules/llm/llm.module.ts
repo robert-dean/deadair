@@ -16,6 +16,7 @@ import { ShowSoFarTool } from './show.so.far.tool.js';
 import { StationTasteTool } from './station.taste.tool.js';
 import { WebSearchTool } from './websearch.tool.js';
 import { WeatherTool } from './weather.tool.js';
+import { AlmanacTool } from './almanac.tool.js';
 
 /**
  * Asking a model for words.
@@ -98,8 +99,12 @@ export const LlmModule: ServerKitModule = {
         // to turn into one. So the model writes the line, which is the same division the capability
         // keeps — a plugin fetches and the host thinks.
         registry.register(WeatherTool).useClass(WeatherTool).asScoped();
-        // The fifth, and the only source here that answers a question nobody wrote down in
-        // advance: every other one reads a list somebody assembled, and this one takes words the
+        // Beside the weather and the other half of the same division: that one answers with
+        // measurements the model turns into a sentence, and this one with sentences somebody else
+        // already wrote, which the model chooses between. Scoped with the service it adapts.
+        registry.register(AlmanacTool).useClass(AlmanacTool).asScoped();
+        // The last of the plugin-backed sources, and the only one here that answers a question
+        // nobody wrote down in advance: every other one reads a list somebody assembled, and this one takes words the
         // model made up and goes and asks. Scoped with the `SearchService` it adapts.
         registry.register(WebSearchTool).useClass(WebSearchTool).asScoped();
 
@@ -136,6 +141,11 @@ export const LlmModule: ServerKitModule = {
                             // mentions on the way past. Both are cheap and both are certain, which
                             // is what keeps them ahead of the search below.
                             container.get(WeatherTool),
+                            // After the weather, on the same argument read once more: cheap,
+                            // certain, and about the world rather than about the records. Last of
+                            // the certain ones because it is the only one a presenter can do
+                            // nothing with when the day is thin.
+                            container.get(AlmanacTool),
                             // Last of all, which is the order the declarations reach the model and
                             // therefore a hint about what to reach for first. Everything above
                             // answers out of something somebody chose — the library, the providers,

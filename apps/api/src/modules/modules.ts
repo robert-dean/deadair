@@ -20,6 +20,7 @@ import { TopicsModule } from './topics/topics.module.js';
 import { SimilarityModule } from './similarity/similarity.module.js';
 import { SearchModule } from './search/search.module.js';
 import { WeatherModule } from './weather/weather.module.js';
+import { AlmanacModule } from './almanac/almanac.module.js';
 import { ScrobbleModule } from './scrobble/scrobble.module.js';
 import { LlmModule } from './llm/llm.module.js';
 import { PersonasModule } from './personas/personas.module.js';
@@ -144,6 +145,11 @@ const ordered: ServerKitModule[] = [
     // of break's subjects, which is what fixes it above TopicsModule rather than beside
     // NewsModule by taste.
     WeatherModule,
+    // The fourth, and the one that answers about a DATE. The same two edges as WeatherModule
+    // above, minus the third: it owns no subjects, because a date is not a choice an operator
+    // makes, so nothing fixes it relative to TopicsModule and it sits beside the capability it
+    // most resembles.
+    AlmanacModule,
     // Beside the three above and for their reasons: after PluginsModule, whose registry and invoker it
     // reads, and no loop of its own (a cron job re-reads the feeds). Before TopicsModule, because a
     // `syndicated` band names its show through a topic kind this module owns, and the owner of a kind

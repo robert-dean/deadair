@@ -1,4 +1,5 @@
 import {
+    PLUGIN_CAPABILITY_ALMANAC,
     PLUGIN_CAPABILITY_ANALYSIS,
     PLUGIN_CAPABILITY_CATALOG,
     PLUGIN_CAPABILITY_CHARTS,
@@ -14,6 +15,7 @@ import {
     PLUGIN_CAPABILITY_SPEECH,
     PLUGIN_CAPABILITY_STREAM,
     PLUGIN_CAPABILITY_WEATHER,
+    type AlmanacPluginInstance,
     type AnalysisProvider,
     type ChartsPluginInstance,
     type ScrobblePluginInstance,
@@ -451,6 +453,39 @@ export const asWeatherPlugin = (record: PluginRecord): WeatherPlugin | undefined
     if (!implementsWeather(record.manifest, record.instance)) return undefined;
 
     return { record, manifest: record.manifest, instance: record.instance as WeatherPluginInstance };
+};
+
+/** The one method that earns the `almanac` capability. */
+export const ALMANAC_METHODS = ['getDay'] as const satisfies ReadonlyArray<keyof AlmanacPluginInstance>;
+
+/** A plugin narrowed to "can say what happened on a date". */
+export interface AlmanacPlugin {
+    record: PluginRecord;
+    manifest: PluginManifest;
+    instance: AlmanacPluginInstance;
+}
+
+/** {@link implementsCatalog}'s rule, applied to the `almanac` capability. */
+export const implementsAlmanac = (manifest: PluginManifest | undefined, instance: unknown): boolean => {
+    if (!manifest?.capabilities.includes(PLUGIN_CAPABILITY_ALMANAC)) return false;
+    return ALMANAC_METHODS.every(method => typeof (instance as Record<string, unknown>)[method] === 'function');
+};
+
+/**
+ * The almanac-capable view of a record, or `undefined` when it is not one.
+ *
+ * No `priority`, and the answers do not combine, for {@link asWeatherPlugin}'s
+ * reason read a little differently: two almanacs asked about one date do not
+ * disagree, they overlap — the same handful of famous anniversaries written
+ * twice — and a station that merged them would read out one day's history with
+ * the best lines duplicated. So `AlmanacService` asks the first that answers
+ * and stops.
+ */
+export const asAlmanacPlugin = (record: PluginRecord): AlmanacPlugin | undefined => {
+    if (record.status !== 'active' || !record.manifest || !record.instance) return undefined;
+    if (!implementsAlmanac(record.manifest, record.instance)) return undefined;
+
+    return { record, manifest: record.manifest, instance: record.instance as AlmanacPluginInstance };
 };
 
 /** The one method that earns the `scrobble` capability. */

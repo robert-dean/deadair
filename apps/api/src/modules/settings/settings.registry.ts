@@ -34,6 +34,7 @@ import {
 import { NEWS_FEEDS_KEY } from '#modules/news/news.settings.js';
 import { CLOCK_KEYS, NAMES_THE_TIME_DEFAULT } from '#modules/director/clock.words.js';
 import { DEFAULT_UNITS, WEATHER_KEYS } from '#modules/weather/weather.keys.js';
+import { ALMANAC_KEYS, DEFAULT_LEAN } from '#modules/almanac/almanac.keys.js';
 import {
     BREAK_WORD_KEYS,
     DEFAULT_STORY_WORDS,
@@ -863,6 +864,22 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
             'One phrasing per line, in the same syntax as the news above, with {{weather.report}} for the reading itself and ' +
             '{{weather.place}} for where it is about. The reading is a whole sentence built from what the service measured, so every line has ' +
             "to carry {{weather.report}} outside its [[optional]] parts and after a full stop. Empty restores the station's own.",
+    },
+    {
+        group: 'rotation',
+        key: ALMANAC_KEYS.lean,
+        label: 'What the station picks out of the day',
+        type: 'select',
+        default: DEFAULT_LEAN,
+        options: [
+            { value: 'music', label: 'Music first, then anything' },
+            { value: 'musicOnly', label: 'Music only' },
+            { value: 'any', label: 'Whatever the day has' },
+        ],
+        help:
+            'What happened on this date, for the breaks that read it out. A day usually has a few musicians in it and a great deal else, so the ' +
+            'default puts the musicians first and keeps the rest behind them. Music only is the stricter reading and can leave the station with ' +
+            'nothing to say on a thin day, which is a slot passed over rather than a general anniversary read out.',
     },
     {
         group: 'rotation',

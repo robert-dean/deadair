@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { MusicBrainzClient, MusicBrainzRequestError } from '../src/musicbrainz.client.js';
+import { PLUGIN_VERSION } from '../src/musicbrainz.manifest.js';
 import { createFakePluginHost, type FakePluginHost } from '@deadair/plugin-sdk/testing';
 
 let host: FakePluginHost;
@@ -19,7 +20,7 @@ describe('MusicBrainzClient', () => {
 
         const call = host.calls[0]!;
         expect(call.url).toBe('https://musicbrainz.org/ws/2/artist/art-1?inc=url-rels&fmt=json');
-        expect(call.headers?.['user-agent']).toBe('deadair-musicbrainz/0.0.1 ( mailto:station@example.test )');
+        expect(call.headers?.['user-agent']).toBe(`deadair-musicbrainz/${PLUGIN_VERSION} ( mailto:station@example.test )`);
         expect(call.headers?.accept).toBe('application/json');
     });
 

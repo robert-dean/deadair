@@ -2,7 +2,16 @@ import { type PluginManifest } from '@deadair/plugin-sdk';
 import { z } from 'zod';
 
 export const PLUGIN_ID = 'deadair.musicbrainz';
-export const PLUGIN_VERSION = '0.0.1';
+/**
+ * What an operator sees on the plugin's card, in the `plugin active` log line and
+ * in the outgoing user-agent. Hand-kept, and separate from `package.json`'s
+ * version, which is the station's own and moves with every release.
+ *
+ * `0.1.0` because this gained a whole capability: it answers `similarity` as
+ * well as `enrichment`, it is called MusicBrainz and ListenBrainz now, and it
+ * reaches a host it did not before.
+ */
+export const PLUGIN_VERSION = '0.1.0';
 
 /** The public web service. Also the default `baseUrl`, which an operator can point at a mirror. */
 export const DEFAULT_BASE_URL = 'https://musicbrainz.org/ws/2';

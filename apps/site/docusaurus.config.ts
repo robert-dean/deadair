@@ -61,7 +61,7 @@ const config: Config = {
         [
             'classic',
             {
-                docs: { editUrl },
+                docs: { editUrl, sidebarPath: './sidebars.ts' },
                 blog: false,
                 theme: { customCss: './src/css/custom.css' },
             } satisfies Preset.Options,
@@ -75,11 +75,14 @@ const config: Config = {
         navbar: {
             title: 'deadair',
             logo: { alt: 'deadair', src: 'logo-mark.png' },
+            // One item per sidebar in `sidebars.ts`, plus the community pages, which are React pages
+            // rather than docs. Licensing left this list when the sidebars were split: it is a page
+            // somebody reads once, before they publish an address, and it is linked from the
+            // install guide, the front page and the footer.
             items: [
-                { type: 'doc', docId: 'features/index', label: 'Features', position: 'left' },
-                { type: 'doc', docId: 'install', label: 'Install', position: 'left' },
-                { type: 'doc', docId: 'licensing', label: 'Licensing', position: 'left' },
-                { type: 'doc', docId: 'plugin-development/index', label: 'Writing plugins', position: 'left' },
+                { type: 'docSidebar', sidebarId: 'run', label: 'Run it', position: 'left' },
+                { type: 'docSidebar', sidebarId: 'build', label: 'Develop', position: 'left' },
+                { type: 'docSidebar', sidebarId: 'api', label: 'API', position: 'left' },
                 { to: '/community', label: 'Community', position: 'left' },
                 { href: repository, label: 'GitHub', position: 'right' },
             ],
@@ -96,10 +99,11 @@ const config: Config = {
                     ],
                 },
                 {
-                    title: 'Project',
+                    title: 'Build on it',
                     items: [
-                        { label: 'Source', href: repository },
                         { label: 'Writing plugins', to: '/docs/plugin-development' },
+                        { label: 'API reference', to: '/docs/api-reference' },
+                        { label: 'Source', href: repository },
                         { label: 'Issues', href: `${repository}/issues` },
                         { label: 'Changelog', href: `${repository}/blob/main/CHANGELOG.md` },
                     ],

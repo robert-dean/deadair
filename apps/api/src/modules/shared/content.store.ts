@@ -4,6 +4,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { pipeline } from 'node:stream/promises';
 import { Readable } from 'node:stream';
 import { join } from 'node:path';
+import { DateTime } from 'luxon';
 
 /** sha256 hex, exactly. Both halves of a path are checked against this before any filesystem call. */
 const CHECKSUM_PATTERN = /^[0-9a-f]{64}$/;
@@ -19,6 +20,15 @@ export interface StoredFile {
     checksum?: string;
     ext?: string;
     bytes: number;
+    /**
+     * When the file was last written, off the same `stat` the size comes from.
+     *
+     * Required rather than optional, and that is the point of it: a caller deciding whether an
+     * unclaimed file is rubbish or a write that has not finished yet MUST have an age to decide on,
+     * and an optional field is one a sweep can forget to check. `list` already skips anything whose
+     * `stat` did not answer, so there is no case where a listed file has no age.
+     */
+    modifiedAt: DateTime;
 }
 
 /**
@@ -230,19 +240,20 @@ export class ContentStore<Ext extends string> {
         for (const entry of entries) {
             if (!entry.isFile()) continue;
 
-            const bytes = await stat(join(entry.parentPath, entry.name))
-                .then(stats => stats.size)
-                .catch(() => undefined);
+            const stats = await stat(join(entry.parentPath, entry.name)).catch(() => undefined);
             // Gone between the listing and the stat, which on a live station is an eviction or a
-            // rewrite. Not there is not a size.
-            if (bytes === undefined) continue;
+            // rewrite. Not there is not a size, and not there has no age either.
+            if (stats === undefined) continue;
+
+            const bytes = stats.size;
+            const modifiedAt = DateTime.fromJSDate(stats.mtime);
 
             const dot = entry.name.lastIndexOf('.');
             const checksum = dot <= 0 ? '' : entry.name.slice(0, dot);
             const ext = dot <= 0 ? '' : entry.name.slice(dot + 1);
             const named = CHECKSUM_PATTERN.test(checksum) && this.isExtension(ext);
 
-            files.push(named ? { checksum, ext, bytes } : { bytes });
+            files.push(named ? { checksum, ext, bytes, modifiedAt } : { bytes, modifiedAt });
         }
 
         return files;

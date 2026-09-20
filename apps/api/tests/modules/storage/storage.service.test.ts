@@ -5,6 +5,7 @@
 
 import type { AppConfig } from '@maroonedsoftware/appconfig';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { DateTime } from 'luxon';
 
 import { StorageService } from '../../../src/modules/storage/storage.service.js';
 import { fileName, type StorageRepository, type StoredClaims } from '../../../src/modules/storage/storage.repository.js';
@@ -20,7 +21,17 @@ const claims = (names: string[], bytes?: number): StoredClaims => ({
     names: new Set(names),
 });
 
-const store = (root: string, files: StoredFile[]) => ({ root, list: vi.fn(async () => files) });
+/**
+ * A file as a case here writes one: everything {@link StoredFile} has, except the age, which almost
+ * no case cares about and every case would otherwise have to repeat. A case that DOES care about it
+ * — the sweep's grace period is the only one — sets it and the fixture leaves it alone.
+ */
+type FileInput = Omit<StoredFile, 'modifiedAt'> & { modifiedAt?: DateTime };
+
+const store = (root: string, files: FileInput[]) => ({
+    root,
+    list: vi.fn(async (): Promise<StoredFile[]> => files.map(file => ({ modifiedAt: DateTime.now(), ...file }))),
+});
 
 let capBytes: number;
 
@@ -30,10 +41,10 @@ beforeEach(() => {
 
 /** A service over four fake stores and a fake repository, with everything else real. */
 const build = (options: {
-    tracks?: StoredFile[];
-    art?: StoredFile[];
-    segments?: StoredFile[];
-    voices?: StoredFile[];
+    tracks?: FileInput[];
+    art?: FileInput[];
+    segments?: FileInput[];
+    voices?: FileInput[];
     trackClaims?: StoredClaims;
     artClaims?: StoredClaims;
     segmentClaims?: StoredClaims;

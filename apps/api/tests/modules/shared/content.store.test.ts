@@ -11,6 +11,7 @@ import { mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { DateTime } from 'luxon';
 
 import { ContentStore } from '../../../src/modules/shared/content.store.js';
 
@@ -119,8 +120,22 @@ describe('ContentStore.list and remove', () => {
         const listed = await store.list();
 
         expect(listed).toHaveLength(2);
-        expect(listed).toContainEqual({ checksum: first, ext: 'one', bytes: 5 });
-        expect(listed).toContainEqual({ checksum: second, ext: 'two', bytes: 13 });
+        expect(listed).toContainEqual(expect.objectContaining({ checksum: first, ext: 'one', bytes: 5 }));
+        expect(listed).toContainEqual(expect.objectContaining({ checksum: second, ext: 'two', bytes: 13 }));
+    });
+
+    // The sweep's whole safety guard is this field, so it is asserted rather than assumed: a file
+    // written a moment ago has to read as written a moment ago, or a grace period means nothing.
+    it('says how old each file is, from the same stat as the size', async () => {
+        const before = DateTime.now().minus({ seconds: 5 });
+        await store.write(Buffer.from('hello'), 'one');
+
+        const [listed] = await store.list();
+        if (listed === undefined) throw new Error('the store listed nothing it had just written');
+
+        expect(listed.modifiedAt.isValid).toBe(true);
+        expect(listed.modifiedAt >= before).toBe(true);
+        expect(listed.modifiedAt <= DateTime.now().plus({ seconds: 5 })).toBe(true);
     });
 
     // The `.tmp-` an interrupted streaming write leaves, or something a person dropped in. Reported
@@ -128,7 +143,7 @@ describe('ContentStore.list and remove', () => {
     it('reports a file it did not name, without pretending to know what it is', async () => {
         await writeFile(join(root, 'notes.txt'), 'left behind');
 
-        expect(await store.list()).toEqual([{ bytes: 11 }]);
+        expect(await store.list()).toEqual([expect.objectContaining({ bytes: 11 })]);
     });
 
     it('is empty for a store nothing has written to yet', async () => {

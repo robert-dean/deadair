@@ -56,7 +56,7 @@ const build = (records: PluginRecord[], order: string[] = []): SimilarityService
     const registry = new PluginRegistry();
     registry.setAll(records);
     // A `list` setting is stored as a JSON array of rows, which is what the console writes.
-    const settings = order.length === 0 ? {} : { [SIMILARITY_ORDER_KEY]: JSON.stringify(order.map(source => ({ source }))) };
+    const settings: Record<string, string> = order.length === 0 ? {} : { [SIMILARITY_ORDER_KEY]: JSON.stringify(order.map(source => ({ source }))) };
     return new SimilarityService(registry, new PluginInvoker(registry, stubPluginLog().log), settingsConfig(settings).config, stubLogger());
 };
 

@@ -41,7 +41,7 @@ const tour: TourStop[] = [
 
 /** What the station can use for words, a voice, facts and music, as the plugins that ship with it reach them. */
 const models = ['Ollama', 'vLLM', 'OpenAI', 'Groq', 'Mistral', 'OpenRouter', 'Anthropic', 'Gemini', 'Any OpenAI-compatible server'];
-const voices = ['Kokoro', 'Chatterbox', 'Any OpenAI-compatible speech server'];
+const voices = ['Kokoro', 'Chatterbox', 'Rhapsode', 'Any OpenAI-compatible speech server'];
 const sources = [
     'MusicBrainz',
     'Last.fm',
@@ -273,7 +273,7 @@ export default function Home() {
                         <div className={styles.tag}>
                             <p className="da-eyebrow">A plugin</p>
                             <p>
-                                Music sources, facts, charts, voices, models and news are all plugins, and yours loads beside the bundled fourteen
+                                Music sources, facts, charts, voices, models and news are all plugins, and yours loads beside the bundled sixteen
                                 without rebuilding anything. Plain npm, against the published SDK.{' '}
                                 <Link to="/docs/plugin-development/getting-started">Your first plugin.</Link>
                             </p>

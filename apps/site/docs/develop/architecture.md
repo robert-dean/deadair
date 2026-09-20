@@ -13,7 +13,7 @@ arguments live in the repository rather than here, because they change with the 
 
 ```
                   your provider                    a model             a voice
-              (Spotify / Navidrome)             (local or hosted)   (Kokoro / Chatterbox)
+              (Spotify / Navidrome)             (local or hosted)   (Kokoro / Rhapsode)
                        │                               │                    │
                        └───────────── plugins ─────────┴────────────────────┘
                                          │

@@ -134,8 +134,10 @@ plugins/*             bundled plugins: spotify, navidrome, ytmusic (YouTube Musi
                       on today's date), rss, websearch
                       (SearXNG, Brave or Tavily, whichever the operator points it at), weather
                       (Open-Meteo, the US National Weather Service or OpenWeatherMap), podcast (the
-                      shows the station carries, read from their feeds), kokoro and chatterbox (the
-                      station's voice), llm, analyzer (the adapter over the measurement sidecar)
+                      shows the station carries, read from their feeds), kokoro, chatterbox and
+                      rhapsode (the station's voice; the last of those speaks through a server that
+                      holds several engines at once and publishes what each one can do), llm,
+                      analyzer (the adapter over the measurement sidecar)
 analysis/             the measurement sidecar: a Python service that decodes a record and answers
                       with its cue points and its loudness. No decoding happens in Node
 ytaudio/              the audio-url resolver: a Python service on yt-dlp that turns a YouTube id

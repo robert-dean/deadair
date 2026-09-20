@@ -9,8 +9,8 @@ Read the ones covering whatever you are about to change. The always-loaded index
 
 ## Speech, voices and cues
 
-**The station's voice is a plugin, and there are two of them now.** `speech` capability, `plugins/kokoro` and
-`plugins/chatterbox`. A voice is an opaque station-level id (`host`, `newsreader`, or a persona's own key)
+**The station's voice is a plugin, and there are three of them now.** `speech` capability, `plugins/kokoro`,
+`plugins/chatterbox` and `plugins/rhapsode`. A voice is an opaque station-level id (`host`, `newsreader`, or a persona's own key)
 that the PLUGIN maps in its own config; the host never interprets it, and engine-specific knobs stay with the
 engine. That map is a `list` config field with a station name, an ENGINE voice and an optional speed — it was
 a single-line box of `host = af_heart` entries, which is why this station had 68 voicepacks installed and a
@@ -19,7 +19,7 @@ map holding the empty string, and why the engine cell is an autocomplete over wh
 a Kokoro blend expression names no single voicepack and a Chatterbox clip may have been dropped in since the
 last refresh.
 
-**Both plugins SHIP a map** (`DEFAULT_VOICE_ROWS`), covering the same twenty slots against their own engines,
+**The two single-engine plugins SHIP a map** (`DEFAULT_VOICE_ROWS`), covering the same twenty slots against their own engines,
 applied whenever the config maps NOTHING — an absent key, `"[]"`, blank and unparseable are one state, and
 `shippedUnlessMapped` in each manifest is the single place that decides it. It read `config[VOICES_FIELD] ??
 DEFAULT_VOICES_JSON` for as long as it existed, on the argument that this was the opposite call to
@@ -36,6 +36,45 @@ the table; the way to ask for it now is to map the voices onto one engine voice,
 can see rather than an empty box that means something. `render.speechPluginId` picks the speaker when several
 can talk and takes the first in id order when nobody has, saying which — see plugin selection in
 `apps/api/CLAUDE.md`.
+
+**`plugins/rhapsode` ships NO map, because it could not write one.** Its server holds several engines at once
+and addresses a voice as the pair `(engine, voice)` — the server's own protocol says cross-engine namespacing
+is the client's job and that the client keeps the table of pairs, which is what that plugin's `voices` field
+is. A shipped row would have to name an engine, and which engines an operator installed is not knowable from
+here; `af_heart` against an engine that is not there is `unknown_engine` on every break rather than a wrong
+voice. So the engine column falls back to a `defaultEngine` setting, blank rows take it, and a station running
+one engine fills that column in once. The consequence the other two plugins' argument warns about is real and
+accepted: a fresh install with no rows reads everything in one voice until the operator maps them.
+
+**It ASKS what the engine can do rather than claiming.** `GET /engines/{engine}/capabilities` is a document
+per engine describing every build it can load, and `listCues`, `listDeliveries` and `listLimits` are that
+document's answers — the first speech plugin to implement any of the three. Four rules make it safe.
+Cues and deliveries are the UNION over every build the voices table can reach, which would be the wrong
+default anywhere else and is right here because the SERVER strips what the build it is about to use does not
+claim, per request: over-claiming costs a flourish rather than getting the word "laugh" read out. The
+character ceiling is the MINIMUM, because the host asks once for the whole plugin and chunks everything it
+says against one number. The effective build is the one the request names, then whatever is loaded, then the
+engine's first — never `current`, which is absent entirely on a cold worker. And a document that will not
+fetch leaves the last one standing rather than answering nothing, on this file's own rule that an engine which
+could not be asked costs a plainer break and not the break.
+
+**The same document decides the FORMAT, and that was measured rather than designed.** `mp3`, `opus` and
+`flac` each need an ffmpeg with the matching encoder compiled in, and a rhapsode without one refuses the
+request — `this worker cannot produce "mp3": ffmpeg is not on PATH`, 422, which is every break lost over a
+setting nobody would think to change. The document's top-level `formats` says what it can actually encode
+here and now, so the plugin falls back through `wav`, `flac`, `opus`, `mp3` to something on that list and logs
+the substitution. `pcm` is never asked for at any point: it answers `audio/L16` with the rate in the
+content-type parameters and `SEGMENT_CONTENT_TYPES` has nowhere to put it. The mime is read off the RESPONSE
+rather than assumed from the request, since the server copies its worker's content type through verbatim, with
+one rewrite — `audio/opus` is Ogg-encapsulated and the store files it as `ogg`.
+
+**There is no model lifecycle in it, deliberately.** The server owns residency: it queues, evicts and reloads,
+and `GET /residency` says what it is holding. The plugin's whole say is an optional `keepAliveSeconds` on each
+request (`-1` never expires, `0` frees on release, blank leaves the server's own setting alone), which is the
+same knob `unloadAfterRender` and `unloadAfterIdleMinutes` buy at the cost of a lifecycle, a poll loop and an
+idle timer. A `speed` in the voices table is sent only where the effective build declares a `speed` dial and is
+clamped to the range it declares, because an unknown dial key on that server is a 400 naming it rather than a
+field quietly ignored.
 
 **An engine that does not lazily reload is a plugin that must load it back, and the unload rides the stream's own end.** `plugins/chatterbox` is the case: after `/api/unload`, synthesis 503s until `/restart_server` is called (which hot-swaps the engine rather than killing the process, despite the name), so `ensureLoaded` runs before EVERY synthesis rather than once at startup — the previous render's unload may have emptied the server and nothing else will notice. Three things about it are load-bearing. A load that fails **unloads before retrying once**, because a CUDA OOM strands its own partial allocations (3.5 GiB measured on a 16 GiB card) and an immediate retry throws itself at a GPU it just filled. It fails as **`unavailable` rather than `upstream`**, which is what makes a cold start that ran out of budget keep the segment's words on the row instead of writing the break off. And the unload fires from the **audio stream's end** rather than from `speak`, which returns long before the audio does — all three endings count once (drained, cancelled, refused as implausible), and `SpeechGate` serializing the engine is why this needs no in-flight counter the way the previous station's renderer did. `unloadAfterRender` is **off** by default: an unload reclaims roughly 70% of what the model held, because the graphics runtime keeps the rest until the server exits, so it buys a few gigabytes at the price of a load before the next break and is worth it only on a genuinely contended card. The same argument applies to the OTHER model on that card and `plugins/llm` has no equivalent; see [station-intelligence](https://github.com/robert-dean/deadair/discussions/37).
 

@@ -4,7 +4,7 @@ sidebar_position: 0
 description: What a deadair plugin is, what it can do for a station, what the station promises it, and how this section is laid out.
 ---
 
-A plugin is how a station reaches anything outside itself: where the music comes from, what it knows about a record, the news, the weather, the voice, the model that writes its words, the program that measures its audio. Fourteen come with the station, and a station loads one you wrote beside them without being rebuilt.
+A plugin is how a station reaches anything outside itself: where the music comes from, what it knows about a record, the news, the weather, the voice, the model that writes its words, the program that measures its audio. Sixteen come with the station, and a station loads one you wrote beside them without being rebuilt.
 
 It is a Node.js package and nothing more. You need Node and a running station; you do not need a checkout of the station's repository.
 
@@ -59,4 +59,4 @@ What the station does is hold a well-behaved plugin to what it said. It reaches 
 6. [The contract](./contract.md) is the reference: every capability, the host, permissions and settings, in detail.
 7. [Listing your plugin](./listing.md) puts it in the [community directory](/community/plugins), where operators will find it.
 
-The SDK is `@deadair/plugin-sdk` on npm. Its source, the example, and the fourteen bundled plugins are all in [the repository](https://github.com/robert-dean/deadair), and the bundled plugins are the best examples of each capability there are. Working against a checkout of the station instead of a released image is [setting up a checkout](../develop/setup.md), which ends with how to link a plugin you are writing into one.
+The SDK is `@deadair/plugin-sdk` on npm. Its source, the example, and the sixteen bundled plugins are all in [the repository](https://github.com/robert-dean/deadair), and the bundled plugins are the best examples of each capability there are. Working against a checkout of the station instead of a released image is [setting up a checkout](../develop/setup.md), which ends with how to link a plugin you are writing into one.

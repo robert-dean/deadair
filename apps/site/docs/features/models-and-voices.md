@@ -29,10 +29,11 @@ The station asks its model one thing at a time, because a local model is one set
 
 ## Voices
 
-Two speech plugins are bundled:
+Three speech plugins are bundled:
 
 - **Kokoro** speaks through any OpenAI-compatible speech server, and ships pointed at the Kokoro server in the `latest` and `full` images. A voice can be a blend, such as `af_bella(2)+af_sky(1)`.
 - **Chatterbox** reads from reference clips rather than named presets. It manages its model on the graphics card, and can let it go after a quiet spell (15 minutes by default), which matters when a local language model wants the same card.
+- **Rhapsode** speaks through a server that holds several engines at once. A voice there belongs to one engine, so its table names both, and one station can read its news in one engine's voice and its breaks in another's. The server says what each engine can do — which cues it performs, how much text it takes, which audio formats it can encode — so the station asks instead of assuming, and the server decides what is on the card: the plugin only says how long to keep it there.
 
 The `slim` image brings no voice: point a speech plugin at a machine with a graphics card.
 

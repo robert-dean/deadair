@@ -57,7 +57,7 @@ station's own event log, so "why was it silent at three in the morning" is a que
 
 ```
                   your provider                    a model             a voice
-              (Spotify / Navidrome)             (local or hosted)   (Kokoro / Chatterbox)
+              (Spotify / Navidrome)             (local or hosted)   (Kokoro / Rhapsode)
                        │                               │                    │
                        └───────────── plugins ─────────┴────────────────────┘
                                          │
@@ -229,7 +229,7 @@ packages/plugin-sdk    the plugin contract and the host capabilities
 packages/sdk           a typed client, generated from the contracts
 plugins/*              spotify, navidrome, ytmusic, musicbrainz, lastfm, deezer,
                        wikipedia, rss, websearch, weather, podcast, kokoro,
-                       chatterbox, llm, analyzer
+                       chatterbox, rhapsode, llm, analyzer
 examples/plugins/*     a plugin built from outside the workspace, as anybody else's is
 analysis/              the measurement sidecar (Python): cue points and loudness
 stream/, nginx/        the audio chain (radio.liq), the stream server and the edge

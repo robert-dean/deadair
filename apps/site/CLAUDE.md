@@ -99,5 +99,9 @@ is gitignored and goes stale on every use, because the console's refresh token i
 presenting a spent one revokes its whole family, so `shoot` writes the new cookie back as soon as the
 first page is up and again on the way out. Never run two at once and never copy the file. Look at
 every image before committing it: cover art and news headlines are other people's, and `--blur-art`
-is there for the first. `unraid/deadair.xml` links five of them by raw GitHub URL as its
+is there for the first. `--mask <selector>` blurs anything that is a picture OF the station rather
+than of the console, and the check-up's QR code is why it exists: it encodes that station's own
+address, so an unmasked shot of that page publishes a scannable link to somebody's install
+(`--mask '#main svg[role="img"]'`). `--hide <text>` drops a row whose text you would rather not
+publish, which the productions page needs whenever a caller's subject is somebody's idea of a joke. `unraid/deadair.xml` links five of them by raw GitHub URL as its
 `<Screenshot>`s, so renaming or deleting one breaks the Unraid listing with nothing here failing.

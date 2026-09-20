@@ -12,6 +12,7 @@
 //     pnpm --filter @deadair/site capture shoot --only desk,checkup --blur-art
 //     pnpm --filter @deadair/site capture shoot --only desk --theme white
 //     pnpm --filter @deadair/site capture shoot --only voice.said --hide 'news flash'
+//     pnpm --filter @deadair/site capture shoot --only checkup --mask '#main svg[role="img"]'
 //
 // ## The signed-in state goes stale every time it is used
 //
@@ -100,6 +101,7 @@ const { values, positionals } = parseArgs({
         scrub: { type: 'string', multiple: true, default: [] },
         hide: { type: 'string', multiple: true, default: [] },
         'blur-art': { type: 'boolean', default: false },
+        mask: { type: 'string', multiple: true, default: [] },
         'keep-png': { type: 'boolean', default: false },
         settle: { type: 'string', default: '1500' },
     },
@@ -114,7 +116,10 @@ if (!themes.includes(values.theme)) fail(`--theme must be one of ${themes.join('
 
 if (command === 'login') await login();
 else if (command === 'shoot') await shoot();
-else fail('Usage: capture login | capture shoot [--only id,id] [--theme carbon|white|neon] [--scrub TEXT] [--hide TEXT] [--blur-art]');
+else
+    fail(
+        'Usage: capture login | capture shoot [--only id,id] [--theme carbon|white|neon] [--scrub TEXT] [--hide TEXT] [--mask SELECTOR] [--blur-art]',
+    );
 
 function fail(message) {
     console.error(message);
@@ -158,6 +163,7 @@ async function shoot() {
 
     const scrub = values.scrub.map(text => text.trim()).filter(Boolean);
     const hide = values.hide.map(text => text.trim()).filter(Boolean);
+    const mask = values.mask.map(selector => selector.trim()).filter(Boolean);
     const settle = Number.parseInt(values.settle, 10);
 
     await mkdir(rawDir, { recursive: true });
@@ -187,6 +193,13 @@ async function shoot() {
             if (scrub.length > 0) await page.evaluate(scrubText, { needles: scrub, replacement: scrubbedAs });
             if (hide.length > 0) await page.evaluate(hideRows, hide);
             if (values['blur-art']) await page.addStyleTag({ content: 'img[src*="/api/"] { filter: blur(10px); }' });
+            // Anything that is a picture OF this station rather than of the console. The check-up's
+            // QR code is the one that matters: it encodes the station's own address, so a published
+            // screenshot of it is a scannable link to somebody's install.
+            if (mask.length > 0)
+                await page.evaluate(selectors => {
+                    for (const selector of selectors) document.querySelectorAll(selector).forEach(element => (element.style.filter = 'blur(6px)'));
+                }, mask);
 
             // Carbon is the site's own scheme, so it is the plain name and every other theme is a suffix.
             const name = values.theme === 'carbon' ? target.id : `${target.id}.${values.theme}`;

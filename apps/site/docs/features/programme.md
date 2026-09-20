@@ -46,11 +46,11 @@ Records, albums and artists can each be liked, neutral or disliked. A dislike an
 
 **Explicit content** can play the original, prefer a clean version where one exists, or play only records marked clean. The last is strict: most providers mark nothing, so on their libraries it plays nothing, and says so.
 
-Every pick from every source passes through one final step that applies your dislikes, the period and the explicit-content policy. That includes a playlist you put on air: its order and titles stay as you made them, and a record you disliked still does not play.
+Every pick from every source passes through one final step that applies your dislikes, the period and the explicit-content policy. That includes a playlist you put on air: its order and titles stay as you made them, and a record you disliked still does not play. A dislike also reaches a running order that was built before you set it: dislike an artist while the station is on, and their records come out of what is planned there and then, including a record they only guest on, rather than waiting for the order to be rebuilt.
 
 ## The format clock
 
-The format clock is a list of rules about what the station says inside the hour, each written as a sentence: say a news bulletin every hour at half past, say the weather once a day at 07:00, say an ident every so many minutes. When two rules want the same boundary, the higher one in the list wins.
+The format clock is a list of rules about what the station says inside the hour, each written as a sentence: say a news bulletin every hour at half past, say the weather once a day at 07:00, say what happened on today's date mid-morning, say an ident every so many minutes. When two rules want the same boundary, the higher one in the list wins.
 
 A rule can be about a subject, such as a news category or a weather location. A bulletin asked for a category it cannot fill declines the slot rather than air the wrong story under the right name. A category marked off air is kept out of every bulletin, which is how a publisher's deals desk stays off your news. Edits apply from the next boundary.
 

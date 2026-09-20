@@ -4,7 +4,7 @@ sidebar_position: 3
 description: How the station decides what to say between records, why a model can never make it go silent, and where every word it wrote is kept.
 ---
 
-A break is anything the station says between records: a link, a welcome for somebody just tuned in, a news bulletin, the weather, a presenter's story. Every kind has more than one writer, and the last in line cannot fail. A slow or missing model costs the station a better sentence. It never costs it the break.
+A break is anything the station says between records: a link, a welcome for somebody just tuned in, a news bulletin, the weather, something that happened on today's date, a presenter's story. Every kind has more than one writer, and the last in line cannot fail. A slow or missing model costs the station a better sentence. It never costs it the break.
 
 ![What it said: every break written, and every one declined](/img/console/voice.said.webp)
 *Fig. 1. What it said.*
@@ -43,6 +43,8 @@ News categories under Voice, Subjects let a band on the format clock ask for a s
 ## The weather
 
 Where the station is, and its units, are under Settings, Station. A weather break states only figures a service measured: no comparison with yesterday, no advice about coats. A model naming a temperature it was not given is declined, and a reading that will be older than "How old a reading may be" (two hours by default) when it airs is not used.
+
+A presenter can also mention the weather on an ordinary link, which is a separate switch: **"Let the presenter mention the weather between records"** under Settings, Rotation, off by default. The reading is offered rather than asked for, so most links ignore it and the ones that do not say something like "it's sunny, get out there while it lasts" instead of reading a forecast out. It needs a weather plugin, a model writing the breaks and Where the station is set; the station's own phrasings underneath the model never mention it, and what the presenter is handed is the station's own place, never a location a band on the format clock was pointed at. Figures are held to what the service measured either way: a temperature the station never gave the model is declined here too.
 
 ## This day in history
 

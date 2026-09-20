@@ -4,7 +4,7 @@ sidebar_position: 11
 description: The broadcast desk you run the station from, how it is laid out, what it records about itself, how you sign in to it, and the same desk on a Stream Deck.
 ---
 
-The console is a broadcast desk rather than a player. It shows what is going out, what needs you and what is coming, and it deliberately does not play the station: listeners use the stream itself, or the Android and desktop apps (see [listening](./listening.md)). Everything you do in it acts on the one broadcast every listener hears, which is why its button says Air this playlist rather than Play.
+The console is a broadcast desk rather than a player. It shows what is going out, what needs you and what is coming, and it deliberately does not play the station: listeners use the stream itself, or the phone and desktop apps (see [listening](./listening.md)). Everything you do in it acts on the one broadcast every listener hears, which is why its button says Air this playlist rather than Play.
 
 ![The activity feed: what the station has done, newest first](/img/console/activity.webp)
 *Fig. 1. What it has been doing.*

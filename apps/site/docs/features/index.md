@@ -40,6 +40,6 @@ Eleven gates, checked in the order the signal flows, answer "why is nothing play
 - [Plugins](./plugins.md): the music providers, fact sources, speech engines, model and measurement adapter the station is built from.
 - [Models and voices](./models-and-voices.md): which model writes which words, and which voice speaks them.
 - [The console](./console.md): the broadcast desk you run it from, which deliberately does not play the station, and the same desk on a Stream Deck.
-- [Listening](./listening.md): the stream, its formats, and the Android and macOS apps.
+- [Listening](./listening.md): the stream, its formats, and the Android, iPhone and macOS apps.
 
 To run one, start with [the install guide](../install.md), and read [the music licensing notes](../licensing.md) before you publish an address.

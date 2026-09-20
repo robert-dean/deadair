@@ -156,3 +156,54 @@ describe('readProposals', () => {
         expect(readProposals(answer(many), existing)).toHaveLength(MAX_PROPOSALS);
     });
 });
+
+// The third proposal shape, for a story the character is already telling in parts. What keeps it
+// honest is that it can only land on an ARC and can only be something that is not already there:
+// a beat on an anecdote is a row nothing reads, and a beat restating a part it was shown is the
+// model summarising rather than carrying the story on.
+describe('proposing the next part of an arc', () => {
+    const arc = {
+        title: 'The letter',
+        story: 'It started with a letter.',
+        details: [],
+        arc: true,
+        beats: ['You opened it in the car park.'],
+    };
+
+    const answer = (proposals: unknown[]) => JSON.stringify({ proposals });
+
+    it('reads a beat against the arc it names', () => {
+        const read = readProposals(answer([{ kind: 'beat', title: 'The letter', beat: 'You read it twice.' }]), [arc]);
+
+        expect(read).toEqual([{ kind: 'beat', title: 'The letter', beat: 'You read it twice.' }]);
+    });
+
+    it('drops one aimed at a story that is not told in parts', () => {
+        const anecdote = { title: 'The Barstow lights', story: 'Three of them.', details: [] };
+
+        expect(readProposals(answer([{ kind: 'beat', title: 'The Barstow lights', beat: 'And then nothing.' }]), [anecdote])).toEqual([]);
+    });
+
+    it('drops one aimed at a story that does not exist', () => {
+        expect(readProposals(answer([{ kind: 'beat', title: 'Some other thing', beat: 'And then nothing.' }]), [arc])).toEqual([]);
+    });
+
+    it('drops one that repeats a part the arc already has', () => {
+        expect(readProposals(answer([{ kind: 'beat', title: 'The letter', beat: '  you OPENED it in the car park. ' }]), [arc])).toEqual([]);
+    });
+
+    it('shows an arc as one, with its parts numbered so the next is the ask', () => {
+        const [, user] = storyPrompt({ label: 'The overnight host', style: 'a voice for the small hours' }, [arc]);
+
+        expect(user?.content).toContain('(told in parts)');
+        expect(user?.content).toContain('1. You opened it in the car park.');
+    });
+
+    it('does not mark an ordinary story as told in parts', () => {
+        const [, user] = storyPrompt({ label: 'The overnight host', style: 'a voice for the small hours' }, [
+            { title: 'The Barstow lights', story: 'Three of them.', details: [] },
+        ]);
+
+        expect(user?.content).not.toContain('(told in parts)');
+    });
+});

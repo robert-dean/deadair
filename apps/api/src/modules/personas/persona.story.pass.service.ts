@@ -7,6 +7,8 @@ import { errorText } from '#modules/shared/error.text.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
 import { MODEL_PRIORITY, MODEL_WAIT_MS } from './persona.distil.service.js';
 import { PersonaRepository } from './persona.repository.js';
+import { characterFault, growthOf } from './persona.sheet.js';
+import type { Persona } from './persona.js';
 import { PersonaStoriesRepository } from './persona.stories.repository.js';
 import { readProposals, storyPrompt, type ExistingStory } from './persona.story.model.js';
 
@@ -159,10 +161,7 @@ export class PersonaStoryPassService {
      * unique index over the handle, and the `rejected` state that outlives the pass — plus the
      * existing shelf being in the prompt.
      */
-    private async remember(
-        personaKey: string,
-        persona: { label: string; style: string; diction?: readonly string[]; quirks?: readonly string[]; avoid?: readonly string[] },
-    ): Promise<{ stories: number; details: number } | undefined> {
+    private async remember(personaKey: string, persona: Persona): Promise<{ stories: number; details: number } | undefined> {
         const held = await this.stories.list(personaKey);
         // Turned-down proposals are shown as well as live ones, and deliberately: the unique index
         // would refuse a duplicate handle anyway, so leaving them out would spend a generation
@@ -173,6 +172,10 @@ export class PersonaStoryPassService {
                 title: story.title,
                 story: story.story,
                 details: story.details.filter(detail => detail.state === 'active').map(detail => detail.detail),
+                // An arc is shown as one, with its parts in order, so a proposed beat carries the
+                // story on rather than restating a part it was shown. Only an arc may take one.
+                ...(story.kind === 'arc' ? { arc: true } : {}),
+                ...(story.kind === 'arc' ? { beats: story.beats.filter(beat => beat.state !== 'rejected').map(beat => beat.beat) } : {}),
             }));
 
         const model = this.config.get(PERSONA_STORIES_KEYS.model, '').trim();
@@ -208,18 +211,32 @@ export class PersonaStoryPassService {
         const full = existing.length >= MAX_STORIES_PER_CHARACTER;
         const stories = full ? [] : proposals.filter(proposal => proposal.kind === 'story');
         const details = proposals.filter(proposal => proposal.kind === 'detail');
+        const beats = proposals.filter(proposal => proposal.kind === 'beat');
 
-        // `suggested`, all of it, and that is the whole safety property of this pass. See the class
-        // note for why there is nothing here to verify instead.
+        // What state this character's new material arrives in, which is the operator's call and not
+        // the pass's. `proposes` is every station until somebody says otherwise. See `growthOf`.
+        const state = growthOf(persona) === 'self-directed' ? ('active' as const) : ('suggested' as const);
+
+        // `suggested` unless the operator has opted this character out of being asked, which is the
+        // whole safety property of this pass and the one thing the rung above relaxes. See the class
+        // note for why there is nothing here to verify instead, and `guarded` for what still applies
+        // when nobody is going to read it first.
         const wroteStories = await this.stories.addAll(
-            stories.map(proposal => ({
-                personaKey,
-                title: proposal.title,
-                story: proposal.kind === 'story' ? proposal.story : '',
-                state: 'suggested' as const,
-                origin: 'model' as const,
-                ...(proposal.source === undefined ? {} : { source: proposal.source }),
-            })),
+            stories.flatMap(proposal => {
+                const words = proposal.kind === 'story' ? proposal.story : '';
+                if (!this.guarded(personaKey, persona, words, state)) return [];
+
+                return [
+                    {
+                        personaKey,
+                        title: proposal.title,
+                        story: words,
+                        state,
+                        origin: 'model' as const,
+                        ...(proposal.source === undefined ? {} : { source: proposal.source }),
+                    },
+                ];
+            }),
         );
 
         const byTitle = new Map(held.map(story => [story.title.trim().toLowerCase(), story.id]));
@@ -232,7 +249,29 @@ export class PersonaStoryPassService {
                     {
                         storyId,
                         detail: proposal.detail,
-                        state: 'suggested' as const,
+                        state,
+                        origin: 'model' as const,
+                        ...(proposal.source === undefined ? {} : { source: proposal.source }),
+                    },
+                ];
+            }),
+        );
+
+        const wroteBeats = await this.stories.addBeats(
+            beats.flatMap(proposal => {
+                const storyId = byTitle.get(proposal.title.trim().toLowerCase());
+                if (storyId === undefined || proposal.kind !== 'beat') return [];
+                if (!this.guarded(personaKey, persona, proposal.beat, state)) return [];
+
+                const arc = held.find(story => story.id === storyId);
+                return [
+                    {
+                        storyId,
+                        // Ten past the last, so an operator can always put something between two
+                        // parts without renumbering either. The console numbers by the same rule.
+                        ordinal: (arc?.beats.at(-1)?.ordinal ?? 0) + 10,
+                        beat: proposal.beat,
+                        state,
                         origin: 'model' as const,
                         ...(proposal.source === undefined ? {} : { source: proposal.source }),
                     },
@@ -257,6 +296,41 @@ export class PersonaStoryPassService {
             ...(answer.usage === undefined ? {} : { tokens: answer.usage.totalTokens ?? answer.usage.outputTokens }),
         });
 
-        return { stories: wroteStories, details: wroteDetails };
+        return { stories: wroteStories + wroteBeats, details: wroteDetails };
+    }
+
+    /**
+     * Whether these words may be stored without anybody reading them first.
+     *
+     * ## It only ever refuses something nobody is going to look at
+     *
+     * A `suggested` row is safe by construction: an operator reads it before it can reach a listener,
+     * and refusing one here would be the station quietly narrowing what it is willing to OFFER them.
+     * So this passes everything under `proposes` and is a real gate only under `self-directed`.
+     *
+     * ## What it can check, and what it cannot
+     *
+     * `characterFault` gives the three prohibitions the sheet already states and nothing was reading
+     * back against a proposal: no sample line echoed, no wording the operator forbade, no signature
+     * this station has just spent. `dialect: 'optional'` because a proposal is not a break — requiring
+     * diction markers would refuse most good stories for not being written as scripts twice over.
+     *
+     * **There is no broadcast-clean CHECKER anywhere in this tree**, and it would be dishonest to
+     * imply one: `speaksClean` shapes a prompt and nothing reads an answer back against it. So a
+     * self-directed character inherits exactly the exposure a seeded story already has, which is a
+     * thing an operator opts into and can roll back. Said here rather than left for somebody to
+     * discover, because the obvious assumption is that autonomy is fenced further than this.
+     */
+    private guarded(personaKey: string, persona: Persona, words: string, state: 'active' | 'suggested'): boolean {
+        if (state !== 'active') return true;
+
+        const fault = characterFault(persona, words, { dialect: 'optional' });
+        if (fault === undefined) return true;
+
+        this.logger.info('personas: a self-directed character proposed something that was not it speaking', {
+            persona: personaKey,
+            fault,
+        });
+        return false;
     }
 }

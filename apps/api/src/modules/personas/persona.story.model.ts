@@ -55,7 +55,15 @@ export const MAX_TITLE_CHARS = 200;
 export type StoryProposal =
     | { kind: 'story'; title: string; story: string; source?: string }
     /** `title` names which of the character's existing stories this belongs to. */
-    | { kind: 'detail'; title: string; detail: string; source?: string };
+    | { kind: 'detail'; title: string; detail: string; source?: string }
+    /**
+     * The next part of an ARC the character is already telling. `title` names which one.
+     *
+     * A third shape rather than a detail with a number on it, because the two are not the same
+     * claim: a detail is something the story picked up and changes nothing about where it has got
+     * to, while a beat is what the character says NEXT. See `persona.story.beat.ts`.
+     */
+    | { kind: 'beat'; title: string; beat: string; source?: string };
 
 /** Who the model is being asked to remember for, in the words the prompt uses. */
 export interface StorySubject {
@@ -75,6 +83,15 @@ export interface ExistingStory {
     title: string;
     story: string;
     details: readonly string[];
+    /**
+     * Whether this one is told in parts, so the pass knows it may propose the next.
+     *
+     * Only an arc takes a beat, and that is checked here rather than left to the service: a beat
+     * proposed onto an anecdote is a row nothing will ever read.
+     */
+    arc?: boolean;
+    /** The parts it already has, in order, so the model writes the NEXT one rather than a variant. */
+    beats?: readonly string[];
 }
 
 /**
@@ -102,9 +119,10 @@ export function storyPrompt(subject: StorySubject, existing: readonly ExistingSt
             content: [
                 'You write down things that have happened to a radio presenter, so the station can tell them on air later.',
                 '',
-                'There are two kinds of answer:',
+                'There are three kinds of answer:',
                 '- "story": something new that happened to this presenter. Give it a short handle and the telling itself.',
                 '- "detail": one more thing they remember about a story they already have. Name that story by its exact handle.',
+                '- "beat": the NEXT part of a story they are already telling in parts. Name that story by its exact handle. Only the ones marked "told in parts" below can take one.',
                 '',
                 'Rules:',
                 // The one that is a correctness rule rather than a taste one, and the only one whose
@@ -122,11 +140,12 @@ export function storyPrompt(subject: StorySubject, existing: readonly ExistingSt
                 '- Two or three sentences. A story nobody can get to the end of is not one.',
                 '- Prefer adding a detail to a story they already have over inventing a new one. A presenter with a past has a few stories they keep filling in, not a dozen they mention once.',
                 '- Never repeat a story or a detail they already have below, in any wording.',
+                '- A beat carries the story ON. It is not a summary and not a variation on a part they already have: it is what they say next, picking up where the last part left off, and it must make sense to somebody who heard that part and nothing else.',
                 '- The handle is never said out loud. It is how the station lists them.',
                 '- If nothing worth remembering comes to you, answer with an empty list. That is a normal answer.',
                 '',
                 'Answer with JSON only, in this shape:',
-                '{"proposals":[{"kind":"story","title":"...","story":"...","source":"..."},{"kind":"detail","title":"...","detail":"...","source":"..."}]}',
+                '{"proposals":[{"kind":"story","title":"...","story":"...","source":"..."},{"kind":"detail","title":"...","detail":"...","source":"..."},{"kind":"beat","title":"...","beat":"...","source":"..."}]}',
                 '',
                 '"source" is one short phrase saying what gave you the idea — a record this station plays, something in its library. It is for the operator reading your proposal and is never said on air.',
             ].join('\n'),
@@ -149,7 +168,13 @@ export function storyPrompt(subject: StorySubject, existing: readonly ExistingSt
 
 /** One existing story, as the prompt shows it: the handle it must be named by, and what it holds. */
 function describe(story: ExistingStory): string {
-    return [`- "${story.title}": ${story.story}`, ...story.details.map(detail => `  · ${detail}`)].join('\n');
+    return [
+        `- "${story.title}"${story.arc === true ? ' (told in parts)' : ''}: ${story.story}`,
+        // The parts in order, so a proposed beat carries the story on rather than restating one of
+        // them. Numbered because "the next one" is the whole ask.
+        ...(story.beats ?? []).map((beat, at) => `  ${at + 1}. ${beat}`),
+        ...story.details.map(detail => `  · ${detail}`),
+    ].join('\n');
 }
 
 /**
@@ -182,6 +207,7 @@ export function readProposals(answer: string, existing: readonly ExistingStory[]
         const kind = typeof entry.kind === 'string' ? entry.kind.trim().toLowerCase() : '';
         const story = text(entry.story);
         const detail = text(entry.detail);
+        const beat = text(entry.beat);
 
         if (kind === 'story' && story !== undefined && story.length <= MAX_STORY_CHARS) {
             // A new story under a handle this character already uses is the model editing one it was
@@ -190,6 +216,15 @@ export function readProposals(answer: string, existing: readonly ExistingStory[]
             if (!take(seen, `story:${title.toLowerCase()}`)) continue;
 
             out.push({ kind: 'story', title, story, ...(source === undefined ? {} : { source }) });
+        } else if (kind === 'beat' && beat !== undefined && beat.length <= MAX_STORY_CHARS) {
+            const found = byTitle.get(title.toLowerCase());
+            // Only onto an arc, and never a part it already has in those words. A beat on anything
+            // else is a row nothing reads; a repeat is the model restating what it was shown.
+            if (found === undefined || found.arc !== true) continue;
+            if ((found.beats ?? []).some(held => held.trim().toLowerCase() === beat.toLowerCase())) continue;
+            if (!take(seen, `beat:${beat.toLowerCase()}`)) continue;
+
+            out.push({ kind: 'beat', title: found.title, beat, ...(source === undefined ? {} : { source }) });
         } else if (kind === 'detail' && detail !== undefined && detail.length <= MAX_DETAIL_CHARS) {
             const found = byTitle.get(title.toLowerCase());
             if (found === undefined || held.has(detail.toLowerCase())) continue;
@@ -211,7 +246,9 @@ const take = (seen: Set<string>, key: string): boolean => {
 };
 
 /** A model's JSON, however it wrapped it. `parseAnswer`'s twin one file over. */
-function parseAnswer(answer: string): { kind?: unknown; title?: unknown; story?: unknown; detail?: unknown; source?: unknown }[] | undefined {
+function parseAnswer(
+    answer: string,
+): { kind?: unknown; title?: unknown; story?: unknown; detail?: unknown; beat?: unknown; source?: unknown }[] | undefined {
     const start = answer.indexOf('{');
     const end = answer.lastIndexOf('}');
     if (start < 0 || end <= start) return undefined;

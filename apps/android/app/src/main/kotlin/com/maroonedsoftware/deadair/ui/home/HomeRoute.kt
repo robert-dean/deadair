@@ -251,7 +251,7 @@ fun HomeRoute(
                     artworkUrl = artworkUrl,
                     // Frozen while the station is unreachable: a bar still sweeping from a reading
                     // minutes old is a moving, confident lie about where the record is.
-                    playhead = rememberPlayhead(reading.takeIf { nowPlaying is NowPlayingState.Answered }),
+                    playhead = rememberPlayhead(reading.takeIf { nowPlaying is NowPlayingState.Answered }, ticking = !rest.resting),
                     onPlay = play,
                     onStop = connection::stop,
                     skip = skip,

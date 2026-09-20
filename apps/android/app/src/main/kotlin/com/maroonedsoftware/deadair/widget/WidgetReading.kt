@@ -25,8 +25,20 @@ fun widgetPlayback(requested: Boolean, playing: Boolean): WidgetPlayback =
         else -> WidgetPlayback.WARMING_UP
     }
 
-/** Everything the widget draws from: what the station was doing, and what this phone is doing about it. */
-data class WidgetState(val snapshot: WidgetSnapshot = WidgetSnapshot(), val playback: WidgetPlayback = WidgetPlayback.STOPPED)
+/**
+ * Everything the widget draws from: what the station was doing, what this phone is doing about it,
+ * and the two things only this process knows.
+ *
+ * [operator] is a cached role and a HINT, never a gate — the API decides every press, and a control
+ * drawn on a stale answer can still be refused. [skipArmed] is deliberately not persisted: a process
+ * that died forgets it, which is the safe way round for a control that cuts everybody's record.
+ */
+data class WidgetState(
+    val snapshot: WidgetSnapshot = WidgetSnapshot(),
+    val playback: WidgetPlayback = WidgetPlayback.STOPPED,
+    val operator: Boolean = false,
+    val skipArmed: Boolean = false,
+)
 
 /**
  * What the widget says.
@@ -81,3 +93,14 @@ fun widgetReading(hasStation: Boolean, playback: WidgetPlayback, snapshot: Widge
         WidgetReading.Record(title = title, artist = snapshot.artist?.ifBlank { null })
     }
 }
+
+/**
+ * Whether the operator's Skip is drawn.
+ *
+ * Two conditions and both matter. The account has to be the station's, or a listener would be given
+ * a button that 403s — the same argument every withdrawn control in this app rests on. And the
+ * widget has to be showing what is ON, because otherwise it does not know whether there is anything
+ * to cut: resting, it has not asked the station anything.
+ */
+fun offersSkip(operator: Boolean, reading: WidgetReading): Boolean =
+    operator && (reading is WidgetReading.Record || reading is WidgetReading.Break)

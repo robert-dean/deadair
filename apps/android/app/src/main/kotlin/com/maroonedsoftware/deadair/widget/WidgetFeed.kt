@@ -3,8 +3,11 @@ package com.maroonedsoftware.deadair.widget
 import com.maroonedsoftware.deadair.nowplaying.NowPlayingState
 import com.maroonedsoftware.deadair.sdk.models.NowPlaying
 import com.maroonedsoftware.deadair.settings.ListenerSettings
+import com.maroonedsoftware.deadair.ui.nowplaying.STOP_ARMED_MS
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -43,6 +46,10 @@ class WidgetFeed(
     private val store: WidgetSnapshotStore,
     private val settings: Flow<ListenerSettings>,
     private val heard: Flow<NowPlayingState>,
+    /** Whether the signed-in account is the station's. Read off disk, so collecting it asks the station nothing. */
+    private val operator: Flow<Boolean>,
+    /** The operator's Skip, which the API decides and this only offers. */
+    private val skip: suspend () -> Unit,
     private val now: () -> Long,
     /** Tell the launcher to ask for the widget again. A lambda so nothing here has to import Glance. */
     private val redraw: suspend () -> Unit,
@@ -76,6 +83,14 @@ class WidgetFeed(
         data class Heard(val state: NowPlayingState) : Update
 
         data class Station(val origin: String?, val name: String?) : Update
+
+        data class Operator(val operator: Boolean) : Update
+
+        /** A press of Skip, which arms before it fires. */
+        data object SkipPressed : Update
+
+        /** The armed window ran out with no second press. */
+        data object SkipForgotten : Update
     }
 
     /**
@@ -103,6 +118,7 @@ class WidgetFeed(
             for (ignored in redraws) runCatching { redraw() }
         }
         scope.launch { heard.collect { updates.trySend(Update.Heard(it)) } }
+        scope.launch { operator.distinctUntilChanged().collect { updates.trySend(Update.Operator(it)) } }
         scope.launch {
             settings
                 .map { it.station?.origin to it.stationName }
@@ -121,14 +137,53 @@ class WidgetFeed(
         if (now != null) updates.trySend(Update.Aired(now))
     }
 
+    /** The operator pressed Skip. The first press arms it; the second, within the window, cuts the record. */
+    fun onSkipPressed() {
+        updates.trySend(Update.SkipPressed)
+    }
+
     /** The origin the snapshot describes, so pointing the app at another station is noticed. */
     private var origin: String? = null
     private var stationName: String? = null
+
+    /** Lives here rather than in the snapshot on disk: a process that died forgets it, which is the safe way round. */
+    private val armed = ArmedSkip(now)
+    private var forgetting: Job? = null
 
     private suspend fun apply(update: Update) {
         val was = _state.value ?: return
         when (update) {
             is Update.Playing -> draw(was.copy(playback = update.playback))
+            is Update.Operator -> {
+                // Signing out disarms: a Skip left armed by an account the station no longer knows
+                // is a press that would only be refused, and the button is about to disappear.
+                if (!update.operator) forget()
+                draw(was.copy(operator = update.operator, skipArmed = armed.armed()))
+            }
+            Update.SkipPressed ->
+                when (armed.press()) {
+                    SkipPress.ARMED -> {
+                        forgetting?.cancel()
+                        forgetting = scope.launch {
+                            delay(STOP_ARMED_MS)
+                            updates.trySend(Update.SkipForgotten)
+                        }
+                        draw(was.copy(skipArmed = true))
+                    }
+                    // The call, not the player: this is the station's running order rather than
+                    // this phone's audio, so it works whether or not anybody here is listening.
+                    // A 403 re-reads the roles, the operator flow falls, and the button goes.
+                    SkipPress.FIRE -> {
+                        forgetting?.cancel()
+                        forgetting = null
+                        draw(was.copy(skipArmed = false))
+                        scope.launch { runCatching { skip() } }
+                    }
+                }
+            Update.SkipForgotten -> {
+                forget()
+                draw(was.copy(skipArmed = false))
+            }
             is Update.Aired -> keep(was, snapshotOf(update.now, stationName, now()))
             is Update.Heard ->
                 when (val state = update.state) {
@@ -180,6 +235,12 @@ class WidgetFeed(
         if (next == _state.value) return
         _state.value = next
         ask()
+    }
+
+    private fun forget() {
+        forgetting?.cancel()
+        forgetting = null
+        armed.disarm()
     }
 
     /** Ask for a drawing. Never waits for one: see [redraws]. */

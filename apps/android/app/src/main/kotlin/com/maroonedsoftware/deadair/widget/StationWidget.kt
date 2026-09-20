@@ -118,11 +118,30 @@ class StationWidget : GlanceAppWidget() {
                         )
                     }
                 }
+                // Drawn before Play, because Play is where a thumb goes by habit and Skip is the
+                // one that cuts everybody's record.
+                if (offersSkip(state.operator, reading)) Skip(state.skipArmed, context)
                 // Nothing to press with no station kept: the app is where one is named, and the
                 // tap that opens it is already the whole widget.
                 if (reading != WidgetReading.NoStation) PlayStop(state.playback, context)
             }
         }
+    }
+
+    /**
+     * The operator's Skip, which arms before it fires.
+     *
+     * Armed it is drawn in the error colour and says so to a screen reader, because a button that
+     * has quietly changed what it will do is the one thing this control must not be.
+     */
+    @Composable
+    private fun Skip(armed: Boolean, context: Context) {
+        Image(
+            provider = ImageProvider(R.drawable.ic_skip_next),
+            contentDescription = context.getString(if (armed) R.string.widget_skip_armed else R.string.widget_skip),
+            colorFilter = ColorFilter.tint(if (armed) GlanceTheme.colors.error else GlanceTheme.colors.onSurfaceVariant),
+            modifier = GlanceModifier.size(48.dp).padding(12.dp).clickable(actionRunCallback<SkipAction>()),
+        )
     }
 
     /**

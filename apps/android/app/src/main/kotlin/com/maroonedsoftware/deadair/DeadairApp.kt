@@ -6,6 +6,7 @@ import androidx.glance.appwidget.updateAll
 import coil3.SingletonImageLoader
 import com.maroonedsoftware.deadair.auth.OperatorActions
 import com.maroonedsoftware.deadair.auth.SessionManager
+import com.maroonedsoftware.deadair.auth.SessionState
 import com.maroonedsoftware.deadair.auth.SessionStore
 import com.maroonedsoftware.deadair.catalog.CatalogActions
 import com.maroonedsoftware.deadair.director.OrderActions
@@ -27,6 +28,7 @@ import com.maroonedsoftware.deadair.widget.WidgetSnapshotStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.map
 
 /**
  * The application object, and the few long-lived objects that hang off it.
@@ -155,6 +157,10 @@ class AppGraph(private val application: Application) {
             store = WidgetSnapshotStore(application),
             settings = settings.settings,
             heard = nowPlaying.heard,
+            // The cached role, off disk. A hint for what to DRAW; every press is still the API's
+            // to refuse, and a 403 re-reads the roles, which takes the button away again.
+            operator = sessions.state.map { it is SessionState.SignedIn && it.isOperator },
+            skip = transport::skip,
             // Wall-clock, unlike the playhead's `elapsedRealtime`: this one is shown to a person as
             // a time of day and has to survive the phone being turned off and on again.
             now = System::currentTimeMillis,

@@ -50,6 +50,10 @@
     <string name="widget_choose_station">Choose a station</string>
     <!-- The second line while this phone is not listening. The widget asks the station nothing then -->
     <string name="widget_resting">Not listening</string>
+    <!-- The operator's Skip, spoken by TalkBack. Drawn only for the station's own account -->
+    <string name="widget_skip">Skip this record</string>
+    <!-- The same button after one press, which has armed it rather than cut anything -->
+    <string name="widget_skip_armed">Press again to skip</string>
 
     <!-- The station as a live wallpaper, chosen from the system's wallpaper picker -->
     <!-- What the phone's wallpaper picker lists this under, among everybody else's live wallpapers -->

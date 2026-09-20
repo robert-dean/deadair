@@ -19,7 +19,9 @@ import {
     EnrichmentService,
     toTrackRef,
 } from '../../../src/modules/enrichment/enrichment.service.js';
+import { ENRICHMENT_KEYS } from '../../../src/modules/enrichment/enrichment.keys.js';
 import type { EnrichableTrack, PendingTrack, TrackPromotion } from '../../../src/modules/enrichment/enrichment.repository.js';
+import { settingsConfig } from '../../utils/settings.config.js';
 import { PluginInvoker } from '../../../src/modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '../../../src/modules/plugins/plugin.registry.js';
 import type { PluginRecord } from '../../../src/modules/plugins/types/plugin.record.js';
@@ -135,12 +137,12 @@ let repository: ReturnType<typeof fakeRepository>;
 let invoker: PluginInvoker;
 let service: EnrichmentService;
 
-const build = (records: PluginRecord[]): EnrichmentService => {
+const build = (records: PluginRecord[], rows: Record<string, string> = {}): EnrichmentService => {
     registry = new PluginRegistry();
     registry.setAll(records);
     repository = fakeRepository();
     invoker = new PluginInvoker(registry, stubPluginLog().log);
-    return new EnrichmentService(registry, invoker, repository as never, stubLogger());
+    return new EnrichmentService(registry, invoker, repository as never, settingsConfig(rows).config, stubLogger());
 };
 
 beforeEach(() => {
@@ -173,6 +175,56 @@ describe('providers', () => {
     it('ignores a music provider, which answers a different question', () => {
         service = build([record(OTHER, { manifest: manifest(OTHER, { capabilities: ['catalog'] }) })]);
         expect(service.providerIds()).toEqual([]);
+    });
+});
+
+describe('the operator’s own order over the declared priority', () => {
+    /** The value the console writes: a JSON array of one-column rows. */
+    const order = (...ids: string[]): string => JSON.stringify(ids.map(source => ({ source })));
+
+    it('keeps the declared priority order when nothing is listed', () => {
+        // The promise that makes the override safe to add: an install that never opens the page
+        // believes exactly what it believed before.
+        service = build([record(OTHER, {}, { priority: 500 }), record(MUSICBRAINZ, {}, { priority: 100 })]);
+
+        expect(service.providerIds()).toEqual([MUSICBRAINZ, OTHER]);
+    });
+
+    it('asks a listed source before one the author rated more highly', () => {
+        service = build([record(OTHER, {}, { priority: 500 }), record(MUSICBRAINZ, {}, { priority: 100 })], {
+            [ENRICHMENT_KEYS.providerOrder]: order(OTHER),
+        });
+
+        expect(service.providerIds()).toEqual([OTHER, MUSICBRAINZ]);
+    });
+
+    it('leaves the unlisted sources in declared priority order behind the listed ones', () => {
+        service = build(
+            [record('c.plugin', {}, { priority: 900 }), record('a.plugin', {}, { priority: 500 }), record('b.plugin', {}, { priority: 100 })],
+            { [ENRICHMENT_KEYS.providerOrder]: order('c.plugin') },
+        );
+
+        expect(service.providerIds()).toEqual(['c.plugin', 'b.plugin', 'a.plugin']);
+    });
+
+    it('lets a listed source win a field the more highly rated one also answered', () => {
+        // The whole point of the override: the merge takes the first non-empty answer per field,
+        // so promoting a source is what changes which year the record ends up with.
+        service = build(
+            [
+                record(OTHER, {}, { priority: 500, enrichTrack: vi.fn(async () => ({ year: 1995 })) }),
+                record(MUSICBRAINZ, {}, { priority: 100, enrichTrack: vi.fn(async () => ({ year: 1994 })) }),
+            ],
+            { [ENRICHMENT_KEYS.providerOrder]: order(OTHER) },
+        );
+
+        return expect(service.enrich(ref).then(result => result.enrichment.year)).resolves.toBe(1995);
+    });
+
+    it('ignores a listed source that is not installed, rather than losing the rest', () => {
+        service = build([record(MUSICBRAINZ, {}, { priority: 100 })], { [ENRICHMENT_KEYS.providerOrder]: order('deadair.gone') });
+
+        expect(service.providerIds()).toEqual([MUSICBRAINZ]);
     });
 });
 

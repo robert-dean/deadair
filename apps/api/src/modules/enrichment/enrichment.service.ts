@@ -1,4 +1,5 @@
 import { Injectable } from 'injectkit';
+import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import {
     ENRICHMENT_MATCH_KEY_ARTIST_TITLE,
@@ -10,8 +11,8 @@ import {
     type TrackEnrichment,
     type TrackRef,
 } from '@deadair/plugin-sdk';
-import { asEnrichmentPlugin, type EnrichmentPlugin } from '#modules/plugins/plugin.capabilities.js';
-import { byPluginId, pluginsWith } from '#modules/plugins/plugin.selection.js';
+import { type EnrichmentPlugin } from '#modules/plugins/plugin.capabilities.js';
+import { PROVIDER_CAPABILITIES, pluginsInOrder } from '#modules/plugins/plugin.providers.js';
 import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
 import {
@@ -348,20 +349,26 @@ export class EnrichmentService {
         private readonly pluginRegistry: PluginRegistry,
         private readonly pluginInvoker: PluginInvoker,
         private readonly enrichmentRepository: EnrichmentRepository,
+        private readonly config: AppConfig,
         private readonly logger: Logger,
     ) {}
 
     /**
-     * Every plugin that could answer right now, lowest `priority` first.
+     * Every plugin that could answer right now, first asked first.
+     *
+     * The operator's order, then lowest declared `priority` first for whatever
+     * they did not name. An empty setting is exactly the old behaviour, which
+     * is what makes the override safe to add: `priority` is the plugin AUTHOR
+     * saying how much to trust their source in the abstract, and only the
+     * operator knows that on this station one of them is consistently right
+     * about the year.
      *
      * Order is fixed here rather than at the call sites so the merge and the
      * "which providers has this track heard from" question cannot disagree
      * about who is running.
      */
     providers(): EnrichmentPlugin[] {
-        return pluginsWith(this.pluginRegistry.list(), asEnrichmentPlugin).sort(
-            (left, right) => left.priority - right.priority || byPluginId(left, right),
-        );
+        return pluginsInOrder(this.pluginRegistry.list(), this.config, PROVIDER_CAPABILITIES.enrichment);
     }
 
     /** The ids of {@link providers}, which is what the catalog stores as `provider`. */

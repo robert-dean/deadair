@@ -71,6 +71,7 @@ import {
     MAX_ANALYSIS_PACE_MS,
 } from '#modules/analysis/analysis.settings.js';
 import { CHARTS_KEYS } from '#modules/charts/charts.keys.js';
+import { ENRICHMENT_KEYS } from '#modules/enrichment/enrichment.keys.js';
 import { MIXER_PLUGIN_KEY } from '#modules/render/mixer.settings.js';
 import { MAIL_DEFAULTS, MAIL_KEYS, MAX_MAIL_PORT, MIN_MAIL_PORT } from '#modules/mail/mail.settings.js';
 import {
@@ -1497,6 +1498,15 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         placeholder: 'No order set, so services are asked alphabetically.',
         columns: [{ key: 'source', label: 'Service', type: 'select', required: true }],
         help: 'Only matters with more than one chart plugin enabled. Every service’s charts stay on the menu whatever this says, because two top forties are two published documents rather than two opinions about one — this sets the order they appear in. Where it decides something outright is a chart asked for by STYLE, which takes the first service publishing one for that genre. Leave it empty and services are asked in alphabetical order of their plugin id.',
+    },
+    {
+        group: 'providers',
+        key: ENRICHMENT_KEYS.providerOrder,
+        label: 'Which source to believe about a record',
+        type: 'list',
+        placeholder: 'No order set, so each plugin’s own declared priority decides.',
+        columns: [{ key: 'source', label: 'Source', type: 'select', required: true }],
+        help: 'Every source is asked about a record and the answers are merged field by field, so this only decides who wins where two of them disagree — about a release year, a label, a running time. Each plugin already declares how much to trust it, which is the author’s view of their own source and the order used when this is empty. Set it when you can see that on your library one source is right and another is not. It changes what is looked up next rather than what is already stored: a record keeps the details it was filled in with until something enriches it again.',
     },
 ];
 

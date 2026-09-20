@@ -1,6 +1,7 @@
 import {
     PLUGIN_CAPABILITY_ANALYSIS,
     PLUGIN_CAPABILITY_CHARTS,
+    PLUGIN_CAPABILITY_ENRICHMENT,
     PLUGIN_CAPABILITY_LLM,
     PLUGIN_CAPABILITY_MIXER,
     PLUGIN_CAPABILITY_SIMILARITY,
@@ -11,6 +12,7 @@ import type { AppConfig } from '@maroonedsoftware/appconfig';
 
 import { ANALYSIS_PLUGIN_KEY } from '#modules/analysis/analysis.settings.js';
 import { CHARTS_KEYS } from '#modules/charts/charts.keys.js';
+import { ENRICHMENT_KEYS } from '#modules/enrichment/enrichment.keys.js';
 import { LLM_PLUGIN_KEY } from '#modules/llm/llm.settings.js';
 import { MIXER_PLUGIN_KEY } from '#modules/render/mixer.settings.js';
 import { SPEECH_PLUGIN_KEY } from '#modules/render/speech.settings.js';
@@ -21,11 +23,13 @@ import {
     asLlmPlugin,
     asMixerPlugin,
     asChartsPlugin,
+    asEnrichmentPlugin,
     asSimilarityPlugin,
     asSpeechPlugin,
     asWeatherPlugin,
     type AnalysisPlugin,
     type ChartsPlugin,
+    type EnrichmentPlugin,
     type LlmPlugin,
     type MixerPlugin,
     type SimilarityPlugin,
@@ -90,8 +94,18 @@ export interface ProviderCapability<TPlugin extends ProvidedPlugin = ProvidedPlu
      * What orders the plugins the operator did not list, for `ordered`
      * capabilities. Absent means `byPluginId`, which is alphabetical and is what
      * every capability but enrichment sorted by before any of this existed.
+     *
+     * Declared as a METHOD rather than as a property holding a function, which
+     * is what makes the table enumerable as one list. A property would be
+     * checked contravariantly under `strictFunctionTypes`, so enrichment's
+     * comparator over `EnrichmentPlugin` would not be assignable to the erased
+     * `ProviderCapability` the list is typed as, and `providerCapabilities()`
+     * would not compile. The bivariance a method signature allows is sound
+     * here for a reason narrower than TypeScript can express: a fallback is
+     * only ever called with plugins its OWN entry's `as` produced, which
+     * {@link pluginsInOrder} is the single place that arranges.
      */
-    fallback?: (left: TPlugin, right: TPlugin) => number;
+    fallback?(left: TPlugin, right: TPlugin): number;
 }
 
 /**
@@ -143,6 +157,18 @@ export const PROVIDER_CAPABILITIES = {
         settingKey: CHARTS_KEYS.providerOrder,
         as: asChartsPlugin,
     } satisfies ProviderCapability<ChartsPlugin>,
+    [PLUGIN_CAPABILITY_ENRICHMENT]: {
+        capability: PLUGIN_CAPABILITY_ENRICHMENT,
+        mode: 'ordered',
+        settingKey: ENRICHMENT_KEYS.providerOrder,
+        as: asEnrichmentPlugin,
+        // The one capability whose fallback is not alphabetical, because it had a precedence of
+        // its own before any of this: the plugin author's declared `priority`, read once in
+        // `asEnrichmentPlugin` so one plugin cannot sort differently for two callers. An empty
+        // setting therefore reproduces that order exactly, and what the operator names overrides
+        // it for those plugins only.
+        fallback: (left, right) => left.priority - right.priority,
+    } satisfies ProviderCapability<EnrichmentPlugin>,
 } as const;
 
 /** Every entry, in the order the console draws them. */

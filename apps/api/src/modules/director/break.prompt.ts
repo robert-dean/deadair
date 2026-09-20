@@ -1494,9 +1494,55 @@ function traitLines(notes: PersonaNotesForPrompt | undefined): string[] {
  * optionality goes, because there the story IS the break and a presenter who declined to tell it
  * would be a break about nothing.
  */
+/**
+ * The next part of a story the character has already started telling on air.
+ *
+ * ## It asks for ONE part, and that is the whole of what makes an arc an arc
+ *
+ * The instruction that matters most here is the one telling the model to stop: handed the shape of a
+ * story a model will finish it, which is the measured failure this file records about every other
+ * kind of material. A break that told parts two, three and four is not an arc, it is a story that
+ * took one break and a listener who will never be asked back.
+ *
+ * ## Where it was left is the PREVIOUS part's own words
+ *
+ * Not what the break actually said about it, though the ledger holds that too. The previous beat is
+ * prose an operator approved, it does not age out of `script_history`, and it says what the listener
+ * was told rather than how — so a model reading it continues the story instead of being handed
+ * somebody else's phrasing to echo.
+ *
+ * ## It still names the record
+ *
+ * `mustNameRecord` is unchanged, and this block does not excuse it. A break that told a beautiful
+ * beat and never said what was playing is the failure `breaks.md` measured over thirty-nine
+ * consecutive breaks, and an arc is not a reason to reopen it.
+ */
+function beatLines(story: PersonaStoryForPrompt, beat: NonNullable<PersonaStoryForPrompt['beat']>): string[] {
+    return [
+        'You have been telling this on air, a piece at a time:',
+        story.story,
+        ...(beat.leftAt === undefined ? [] : ['Last time you got as far as this:', beat.leftAt]),
+        'This break carries the next piece, and only this piece:',
+        beat.text,
+        ...(beat.last ? ['That is the end of it, so land it rather than leaving it open.'] : []),
+        // The stop instruction, stated as its own sentence because it is the one the model is most
+        // likely to sail past. See the note at the top of this function.
+        'Tell this much and no more, even if you can see where it goes — the rest is for another ' +
+            'break. Work it in naturally and still say what is playing.',
+        'It happened to you and it is yours to tell. It is not a fact about any record: do not attach it to what is playing, do not ' +
+            'present it as something the station knows, and do not turn it into a claim about anybody real.',
+    ];
+}
+
 function storyLines(settings: PromptSettings, shape: BreakPromptShape): string[] {
     const story = settings.story;
     if (shape.stories === undefined || story === undefined) return [];
+
+    // A part of an ARC, which is the one case where the offer is not optional. The story has been
+    // started on air and a listener is owed the next of it, so the wording that invites a break to
+    // leave it alone would be inviting the station to drop a thread it began. The other half of that
+    // bargain is the cadence gap, which is what stops this arriving on every break.
+    if (story.beat !== undefined) return [beatLines(story, story.beat).join('\n')];
 
     const lines = [
         shape.stories === 'told'

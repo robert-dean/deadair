@@ -510,7 +510,9 @@ describe('WriteBreakJob', () => {
 
             await job.run({ segmentId: 'seg-1' });
 
-            expect(personaStories.forPrompt).toHaveBeenCalledWith('conspiracy');
+            // The gap rides along because which story is ELIGIBLE now depends on when this one was
+            // last carried, which the store cannot know on its own. See `nextThread`.
+            expect(personaStories.forPrompt).toHaveBeenCalledWith('conspiracy', { now: expect.any(Number), gapMs: expect.any(Number) });
             expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ story }));
             expect(personaStories.markTold).toHaveBeenCalledWith('s1');
         });

@@ -8,6 +8,7 @@ import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js
 import type { BreakTrack } from '#modules/director/break.writer.js';
 import type { PersonaRehearsal, PersonaRehearsalAttempt } from './types/personas.types.js';
 import { preoccupationOf } from './persona.sheet.js';
+import { resolveThreadGapMs } from './persona.thread.settings.js';
 import { PersonaRepository } from './persona.repository.js';
 import { PersonaNotesRepository } from './persona.notes.repository.js';
 import { PersonaStoriesRepository } from './persona.stories.repository.js';
@@ -92,7 +93,7 @@ export class PersonaRehearsalService {
         // READING it, so a rehearsal that stamped would hand the next real break the second story
         // and report a telling nobody heard. The rung is not consulted either — an operator who
         // clicked the button is asking to hear the character, not to be shown its habits.
-        const story = await this.stories.forPrompt(persona.key);
+        const story = await this.stories.forPrompt(persona.key, { now: Date.now(), gapMs: resolveThreadGapMs(this.config) });
 
         // Nothing is spent by reading one, so this needs neither half of the split above: it is the
         // sheet's own list, and the caller picks. Spread over the PERSONA's id rather than over

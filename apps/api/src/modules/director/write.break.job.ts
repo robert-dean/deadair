@@ -15,6 +15,7 @@ import { PersonaNotesRepository } from '#modules/personas/persona.notes.reposito
 import type { PersonaNotesForPrompt } from '#modules/personas/persona.note.js';
 import { PersonaStoriesRepository } from '#modules/personas/persona.stories.repository.js';
 import { PersonaTellingRepository } from '#modules/personas/persona.telling.repository.js';
+import { resolveThreadGapMs } from '#modules/personas/persona.thread.settings.js';
 import type { PersonaStoryForPrompt } from '#modules/personas/persona.story.js';
 import { preoccupationOf, storytellingOf } from '#modules/personas/persona.sheet.js';
 import type { Persona } from '#modules/personas/persona.js';
@@ -854,10 +855,16 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         }
 
         try {
-            const found = await this.stories.forPrompt(persona.key);
+            const found = await this.stories.forPrompt(persona.key, { now: Date.now(), gapMs: resolveThreadGapMs(this.config) });
             if (found === undefined) return undefined;
 
-            return { id: found.id, story: found.story, mode, personaKey: persona.key };
+            return {
+                id: found.id,
+                story: found.story,
+                mode,
+                personaKey: persona.key,
+                ...(found.beatId === undefined ? {} : { beatId: found.beatId }),
+            };
         } catch (error) {
             this.logger.warn(`director: could not read this character's own stories (${errorText(error)})`);
             return undefined;
@@ -889,6 +896,9 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
             await this.tellings.replaceForSegment(segmentId, {
                 personaKey: chosen.personaKey,
                 storyId: chosen.id,
+                // WHICH part it told, so the next one is owed rather than guessed at. Absent for
+                // anything that is not an arc.
+                ...(chosen.beatId === undefined ? {} : { beatId: chosen.beatId }),
                 source: 'break',
                 mode: chosen.mode,
                 // The WRITER's own read-back, never the model's word for it. A story offered on a
@@ -1137,4 +1147,6 @@ interface ChosenStory {
     /** What the kind's shape said this story was FOR, recorded so a timeline can say which. */
     mode: 'offered' | 'told';
     personaKey: string;
+    /** The part of an arc this break was handed, when it was handed one. */
+    beatId?: string;
 }

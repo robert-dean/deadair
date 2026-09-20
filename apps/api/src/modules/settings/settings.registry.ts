@@ -13,6 +13,12 @@ import { DEFAULT_RESTART_STUCK_CHAIN, RESTART_STUCK_CHAIN_KEY } from '#modules/p
 import { DEFAULT_AUTO_EXTEND, DEFAULT_RULES, MIX_IN_EVERY_RANGE, ROTATION_KEYS } from '#modules/director/rotation.rules.js';
 import { DEFAULT_MAX_TRACK_SECONDS, DEFAULT_MIN_TRACK_SECONDS, TRACK_LENGTH_KEYS } from '#modules/director/track.length.js';
 import { DEFAULT_TEMPLATES, TEMPLATE_KEYS, TEMPLATE_VOCABULARY } from '#modules/director/break.templates.js';
+import {
+    DEFAULT_THREAD_GAP_MINUTES,
+    MAX_THREAD_GAP_MINUTES,
+    MIN_THREAD_GAP_MINUTES,
+    THREAD_GAP_KEY,
+} from '#modules/personas/persona.thread.settings.js';
 import { WELCOME_KEYS, WELCOME_TEMPLATES } from '#modules/director/welcome.writer.js';
 import { NEWS_KEYS, NEWS_TEMPLATES } from '#modules/director/news.break.writer.js';
 import { WEATHER_BREAK_KEYS, WEATHER_TEMPLATES } from '#modules/director/weather.break.writer.js';
@@ -1410,6 +1416,21 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
     // sat beside the station's name for as long as it existed, where it read as
     // THE presenter's name, and any host with a name of its own overrides it,
     // which nothing on that page could say.
+    {
+        group: 'personas',
+        key: THREAD_GAP_KEY,
+        label: 'Wait before returning to a story',
+        type: 'number',
+        default: DEFAULT_THREAD_GAP_MINUTES,
+        min: MIN_THREAD_GAP_MINUTES,
+        max: MAX_THREAD_GAP_MINUTES,
+        step: 5,
+        control: 'slider',
+        help:
+            'How long a presenter leaves a story in parts, or a running joke, before coming back to it. Long enough that a listener hears ' +
+            'the character return to something rather than dwell on it. The lowest setting is a floor rather than a suggestion: breaks are ' +
+            'written several records ahead, and below it two of them can be handed the same part.',
+    },
     {
         group: 'personas',
         key: TEMPLATE_KEYS.djName,

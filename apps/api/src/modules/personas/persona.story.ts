@@ -43,7 +43,7 @@
  * told without it. See `story.break.writer.ts`.
  */
 
-import type { PersonaStoryBeat } from './persona.story.beat.js';
+import type { PersonaStoryBeat, PersonaStoryBeatForPrompt } from './persona.story.beat.js';
 
 /**
  * What sort of thing a character is carrying, because "a story" turned out to be three.
@@ -163,4 +163,18 @@ export interface PersonaStoryForPrompt {
     story: string;
     details: readonly string[];
     timesTold: number;
+    /**
+     * Which of the three this is, so the prompt can say what it is FOR.
+     *
+     * Absent is read as `anecdote`, which keeps every caller that has not thought about threads
+     * producing exactly the prompt it produced before they existed.
+     */
+    kind?: PersonaStoryKind;
+    /**
+     * The one part of an arc this break is being handed, and where the last part left it.
+     *
+     * Present only for an arc. An anecdote is told whole and a bit has no parts, so for both of
+     * those the story itself is the material and this is absent.
+     */
+    beat?: PersonaStoryBeatForPrompt;
 }

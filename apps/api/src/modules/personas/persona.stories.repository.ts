@@ -3,6 +3,7 @@ import { Kysely, sql } from 'kysely';
 import { DataRepository, type DB } from '#modules/data/data.repository.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
 import type { PersonaStoryBeat, PersonaStoryBeatDraft } from './persona.story.beat.js';
+import { nextThread } from './persona.thread.js';
 import {
     PERSONA_STORY_DETAIL_LIMIT,
     type PersonaStory,
@@ -134,33 +135,104 @@ export class PersonaStoriesRepository extends DataRepository {
      * until somebody writes one: a talk break simply carries no story, and a `story` break declines
      * its slot. Only ACTIVE rows, so a proposal nobody has looked at cannot reach a listener.
      */
-    async forPrompt(personaKey: string): Promise<{ story: PersonaStoryForPrompt; id: string } | undefined> {
-        const row = await this.db
+    async forPrompt(
+        personaKey: string,
+        options: { now: number; gapMs: number },
+    ): Promise<{ story: PersonaStoryForPrompt; id: string; beatId?: string } | undefined> {
+        const rows = await this.db
             .selectFrom('deadair.personaStories')
-            .select(['id', 'title', 'story', TIMES_TOLD, LAST_CARRIED])
+            .select(['id', 'title', 'story', 'kind', TIMES_TOLD, CARRIED_AT])
             .where('stationKey', '=', this.station.stationKey)
             .where('personaKey', '=', personaKey)
             .where('state', '=', 'active')
             // Least recently CARRIED first, and `nulls first` so a story that has never been handed
             // over is ahead of every story that has. Then oldest, so two reads a second apart agree
             // rather than answering whatever the planner felt like.
-            .orderBy(sql`last_carried asc nulls first`)
+            //
+            // The whole shelf rather than one row, because which of them is ELIGIBLE is no longer a
+            // question the order can answer: an arc that has been told out and a thread inside its
+            // cadence gap are both skipped, and the next one down takes the break. See `nextThread`.
+            .orderBy(sql`carried_at asc nulls first`)
             .orderBy('createdAt', 'asc')
-            .executeTakeFirst();
+            .execute();
 
-        if (row === undefined) return undefined;
+        if (rows.length === 0) return undefined;
 
+        const beats = await this.tellableBeats(rows.filter(row => row.kind === 'arc').map(row => row.id));
+
+        const chosen = nextThread(
+            rows.map(row => ({
+                id: row.id,
+                kind: row.kind as PersonaStoryKind,
+                beats: beats.get(row.id) ?? [],
+                ...(row.carriedAt == null ? {} : { lastCarriedAt: Number(row.carriedAt) }),
+            })),
+            options.now,
+            options.gapMs,
+        );
+
+        if (chosen === undefined) return undefined;
+
+        const row = rows.find(candidate => candidate.id === chosen.id)!;
         const details = (await this.detailsFor([row.id], 'active')).get(row.id) ?? [];
 
         return {
             id: row.id,
+            ...(chosen.beat === undefined ? {} : { beatId: chosen.beat.id }),
             story: {
                 title: row.title,
                 story: row.story,
+                kind: row.kind as PersonaStoryKind,
                 details: details.slice(0, PERSONA_STORY_DETAIL_LIMIT).map(detail => detail.detail),
                 timesTold: Number(row.timesTold),
+                ...(chosen.beat === undefined
+                    ? {}
+                    : {
+                          beat: {
+                              text: chosen.beat.text,
+                              last: chosen.beat.last,
+                              ...(chosen.beat.leftAt === undefined ? {} : { leftAt: chosen.beat.leftAt }),
+                          },
+                      }),
             },
         };
+    }
+
+    /**
+     * The tellable parts of several arcs, in order, each saying whether it has been heard.
+     *
+     * AIRED rather than written, which is the whole reason this is a join and not a column: a break
+     * is planned up to eight items ahead of its slot and can be retracted in between, so a part
+     * skipped on the strength of a break nobody heard is one nothing will ever offer again.
+     */
+    private async tellableBeats(storyIds: readonly string[]): Promise<Map<string, { id: string; beat: string; aired: boolean }[]>> {
+        const out = new Map<string, { id: string; beat: string; aired: boolean }[]>();
+        if (storyIds.length === 0) return out;
+
+        const rows = await this.db
+            .selectFrom('deadair.personaStoryBeats')
+            .select([
+                'id',
+                'storyId',
+                'beat',
+                sql<boolean>`exists (select 1 from deadair.persona_tellings t where t.beat_id = deadair.persona_story_beats.id and t.told and t.aired_at is not null)`.as(
+                    'aired',
+                ),
+            ])
+            .where('storyId', 'in', [...storyIds])
+            .where('state', '=', 'active')
+            .orderBy('ordinal', 'asc')
+            .orderBy('id', 'asc')
+            .execute();
+
+        for (const row of rows) {
+            const beat = { id: row.id, beat: row.beat, aired: row.aired };
+            const held = out.get(row.storyId);
+            if (held === undefined) out.set(row.storyId, [beat]);
+            else held.push(beat);
+        }
+
+        return out;
     }
 
     /**
@@ -640,6 +712,18 @@ const TIMES_TOLD = sql<string>`(select count(*) from deadair.persona_tellings t 
  */
 const LAST_CARRIED = sql<string | null>`(select max(t.created_at) from deadair.persona_tellings t where t.story_id = deadair.persona_stories.id)`.as(
     'lastCarried',
+);
+
+/**
+ * {@link LAST_CARRIED} as epoch milliseconds, which is what the eligibility rules compare.
+ *
+ * A number rather than a timestamp because `nextThread` is a pure function over plain values and
+ * takes `now` as one too — the cadence gap is arithmetic, not a moment anybody hands back.
+ */
+const CARRIED_AT = sql<
+    string | null
+>`(select extract(epoch from max(t.created_at)) * 1000 from deadair.persona_tellings t where t.story_id = deadair.persona_stories.id)`.as(
+    'carriedAt',
 );
 
 /** {@link TIMES_TOLD} under a name `selectAll` has not already taken. See {@link PersonaStoriesRepository.list}. */

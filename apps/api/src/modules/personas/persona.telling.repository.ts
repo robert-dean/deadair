@@ -223,6 +223,7 @@ export class PersonaTellingRepository extends DataRepository {
             stationKey: this.station.stationKey,
             personaKey: write.personaKey,
             storyId: write.storyId,
+            beatId: write.beatId ?? null,
             segmentId: write.segmentId ?? null,
             source: write.source,
             mode: write.mode,

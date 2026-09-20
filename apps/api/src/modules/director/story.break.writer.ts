@@ -151,7 +151,13 @@ export class StoryBreakWriter extends BreakWriter {
         return {
             // The operator's own sentences, and its details behind them. Joined rather than composed:
             // there is no phrasing to fit them into, which is this writer's whole difference.
-            script: [story.story.trim(), ...story.details.map(detail => detail.trim())].filter(part => part.length > 0).join(' '),
+            // An ARC speaks the one part it was handed; anything else speaks the whole telling with
+            // its details behind it. Both are already scripts somebody wrote, which is what keeps
+            // this floor unable to fail — see `persona.story.beat.ts`.
+            script:
+                story.beat === undefined
+                    ? [story.story.trim(), ...story.details.map(detail => detail.trim())].filter(part => part.length > 0).join(' ')
+                    : story.beat.text.trim(),
             // Named for the story rather than the kind, so a running order and a script history can
             // be read without opening either. `persona_stories.title` exists for this and for the
             // console; it is never spoken.

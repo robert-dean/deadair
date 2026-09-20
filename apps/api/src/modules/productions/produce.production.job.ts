@@ -12,6 +12,7 @@ import { LlmService, type LlmConversation } from '#modules/llm/llm.service.js';
 import { PersonaNotesRepository } from '#modules/personas/persona.notes.repository.js';
 import { PersonaStoriesRepository } from '#modules/personas/persona.stories.repository.js';
 import { PersonaTellingRepository } from '#modules/personas/persona.telling.repository.js';
+import { resolveThreadGapMs } from '#modules/personas/persona.thread.settings.js';
 import { PersonaRepository } from '#modules/personas/persona.repository.js';
 import type { PersonaNotesForPrompt } from '#modules/personas/persona.note.js';
 import type { PersonaStoryForPrompt } from '#modules/personas/persona.story.js';
@@ -858,7 +859,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
     /** One of this character's stories, rested as it is read. */
     private async storyOf(personaKey: string): Promise<{ story?: PersonaStoryForPrompt }> {
         try {
-            const found = await this.stories.forPrompt(personaKey);
+            const found = await this.stories.forPrompt(personaKey, { now: Date.now(), gapMs: resolveThreadGapMs(this.config) });
             if (found === undefined) return {};
 
             await this.stories.markTold(found.id);

@@ -63,6 +63,14 @@ export const PERSONA_TELLING_SAID_LIMIT = 2_000;
 export interface PersonaTellingWrite {
     personaKey: string;
     storyId: string;
+    /**
+     * WHICH part of an arc this told, so the next is owed rather than guessed at.
+     *
+     * Absent for an anecdote and for a bit, neither of which has parts. What makes this worth a
+     * column rather than a count is the retraction case: a break is planned up to eight items ahead
+     * of its slot, so "the third telling" and "the third part" come apart the moment one is dropped.
+     */
+    beatId?: string;
     /** The break that carried it. Absent for a backfilled row, whose segment is long gone. */
     segmentId?: string;
     source: PersonaTellingSource;

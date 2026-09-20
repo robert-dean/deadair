@@ -59,7 +59,7 @@ export type ConfigFieldOption = z.infer<typeof ConfigFieldOption>;
 
 /**
  * Where a field's or a column's choices come from when only the console can enumerate them: the
- * station's own tables, the platform's zone list, the enabled plugins that can do one of four jobs,
+ * station's own tables, the platform's zone list, the enabled plugins that can do one of five jobs,
  * or the models the selected model plugin currently offers. Resolved by the console either way
  * generated from [ConfigFieldOptionSource](../../../../data/contracts/plugins/plugins.types.ck#L35)
  */
@@ -73,6 +73,7 @@ export const ConfigFieldOptionSource = z.enum([
     'plugins.llm',
     'plugins.mixer',
     'plugins.analysis',
+    'plugins.similarity',
     'llm.models',
 ]);
 export type ConfigFieldOptionSource = z.infer<typeof ConfigFieldOptionSource>;

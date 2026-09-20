@@ -30,9 +30,9 @@ contract ConfigFieldOption: {
 }
 
 # Where a field's or a column's choices come from when only the console can enumerate them: the
-# station's own tables, the platform's zone list, the enabled plugins that can do one of four jobs,
+# station's own tables, the platform's zone list, the enabled plugins that can do one of five jobs,
 # or the models the selected model plugin currently offers. Resolved by the console either way
-contract ConfigFieldOptionSource: enum(station.newsCategories, station.newsFeeds, station.podcastShows, station.narrationSeries, intl.timeZones, plugins.speech, plugins.llm, plugins.mixer, plugins.analysis, llm.models)
+contract ConfigFieldOptionSource: enum(station.newsCategories, station.newsFeeds, station.podcastShows, station.narrationSeries, intl.timeZones, plugins.speech, plugins.llm, plugins.mixer, plugins.analysis, plugins.similarity, llm.models)
 
 # One column of a `list` field. Every ordinary cell is stored as a string in the row, so this describes the
 # control rather than the value; a `secret` cell is encrypted on its own and is never in the row at all

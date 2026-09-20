@@ -22,14 +22,15 @@ const MODEL_FIELD = 'model';
  * has no dependency on `@deadair/plugin-sdk` to import them from, and a capability name is part of
  * the plugin contract, not something that moves without a contract change of its own.
  */
-const PLUGIN_SOURCE_CAPABILITY: Record<'plugins.speech' | 'plugins.llm' | 'plugins.mixer' | 'plugins.analysis', string> = {
+const PLUGIN_SOURCE_CAPABILITY: Record<'plugins.speech' | 'plugins.llm' | 'plugins.mixer' | 'plugins.analysis' | 'plugins.similarity', string> = {
     'plugins.speech': 'speech',
     'plugins.llm': 'llm',
     'plugins.mixer': 'mixer',
     'plugins.analysis': 'analysis',
+    'plugins.similarity': 'similarity',
 };
 
-/** Whether a source is one of the four that resolve against the installed plugins rather than a station table. */
+/** Whether a source is one of the ones that resolve against the installed plugins rather than a station table. */
 function isPluginSource(source: ConfigFieldOptionSource): source is keyof typeof PLUGIN_SOURCE_CAPABILITY {
     return source in PLUGIN_SOURCE_CAPABILITY;
 }
@@ -137,6 +138,9 @@ export function useDeclaredOptions(
         'plugins.llm': pluginOptions(PLUGIN_SOURCE_CAPABILITY['plugins.llm']),
         'plugins.mixer': pluginOptions(PLUGIN_SOURCE_CAPABILITY['plugins.mixer']),
         'plugins.analysis': pluginOptions(PLUGIN_SOURCE_CAPABILITY['plugins.analysis']),
+        // Unlike the four above, this one does not CHOOSE a plugin: every enabled similarity
+        // source is asked either way, and the setting behind it only says which is asked first.
+        'plugins.similarity': pluginOptions(PLUGIN_SOURCE_CAPABILITY['plugins.similarity']),
         // The one source whose answer comes from a plugin. A model setting left empty means "the
         // plugin's own default", so this is a suggestion list on a free-text field rather than a
         // closed one: a model behind a proxy that does not list it stays typeable, exactly as on

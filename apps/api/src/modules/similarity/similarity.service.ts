@@ -1,12 +1,14 @@
 import { Injectable } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
+import { AppConfig } from '@maroonedsoftware/appconfig';
 import type { ArtistRef, ArtistTrack, SimilarArtist, TrackRef } from '@deadair/plugin-sdk';
 import { asSimilarityPlugin, type SimilarityPlugin } from '#modules/plugins/plugin.capabilities.js';
-import { byPluginId, pluginsWith } from '#modules/plugins/plugin.selection.js';
+import { pluginsWith } from '#modules/plugins/plugin.selection.js';
 import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
 import { normalizeKey } from '#modules/catalog/catalog.keys.js';
 import { errorText } from '#modules/shared/error.text.js';
+import { byOrderThen, similarityOrder } from './similarity.settings.js';
 
 /**
  * Who else sounds like this, out of whatever similarity plugins are installed.
@@ -86,6 +88,7 @@ export class SimilarityService {
     constructor(
         private readonly pluginRegistry: PluginRegistry,
         private readonly pluginInvoker: PluginInvoker,
+        private readonly config: AppConfig,
         private readonly logger: Logger,
     ) {}
 
@@ -240,9 +243,21 @@ export class SimilarityService {
         SimilarityService.cache.set(key, { at: Date.now(), artists });
     }
 
-    /** Every plugin that can answer right now, in a stable order. */
+    /**
+     * Every plugin that can answer right now, in the order they are asked.
+     *
+     * The operator's order first, then everything unlisted alphabetically,
+     * which is what this sorted by before the setting existed — so an empty
+     * setting is exactly the old behaviour. See `similarity.settings.ts` for
+     * why the order matters to two of the three questions and barely at all to
+     * the third.
+     *
+     * Read per call rather than cached on the instance: the service is scoped,
+     * so this is once per refill, and a change then applies to the next one
+     * without a reload hook.
+     */
     private plugins(): SimilarityPlugin[] {
-        return pluginsWith(this.pluginRegistry.list(), asSimilarityPlugin).sort(byPluginId);
+        return pluginsWith(this.pluginRegistry.list(), asSimilarityPlugin).sort(byOrderThen(similarityOrder(this.config)));
     }
 
     /**

@@ -116,12 +116,17 @@ export interface ConfigFieldOption {
  * `narration` band means. Third instance of one argument, which is what makes it a pattern rather
  * than three special cases: an id a plugin minted and only the station can collect.
  *
- * The four `plugins.*` members answer the enabled plugins that declare a given capability — speech,
- * llm, mixer, analysis — by id and name, for the settings that pick which plugin a capability with
- * several installed candidates uses. Those settings stay free text (`selectPlugin` in
- * `plugin.selection.ts` accepts an id that is not currently a candidate without falling back), so
- * this is a suggestion list rather than a closed `select` — the console resolves it the same way as
- * the other sources here, against the plugin list rather than a static enum.
+ * The `plugins.*` members answer the enabled plugins that declare a given capability — speech, llm,
+ * mixer, analysis, similarity — by id and name, for the settings that pick which plugin a
+ * capability with several installed candidates uses. Those settings stay free text (`selectPlugin`
+ * in `plugin.selection.ts` accepts an id that is not currently a candidate without falling back),
+ * so this is a suggestion list rather than a closed `select` — the console resolves it the same way
+ * as the other sources here, against the plugin list rather than a static enum.
+ *
+ * `plugins.similarity` is the one that does not pick a plugin: every enabled similarity source is
+ * asked whatever the setting says, and `rotation.similarityOrder` only says which is asked FIRST.
+ * It is here rather than being a different kind of thing because the console resolves it
+ * identically — the enabled plugins declaring a capability, by id and name.
  *
  * `llm.models` is the odd one and the only member whose answer comes from a PLUGIN rather than from
  * a station table: the models the selected model plugin currently offers, for the settings that say
@@ -144,6 +149,7 @@ export type ConfigFieldOptionSource =
     | 'plugins.llm'
     | 'plugins.mixer'
     | 'plugins.analysis'
+    | 'plugins.similarity'
     | 'llm.models';
 
 /**

@@ -47,6 +47,7 @@ import { SUSTAINING_KEYS } from '#modules/schedule/schedule.service.js';
 import { DEFAULT_MAX_OUTPUT_TOKENS, MODEL_GENERATOR_DEFAULT, MODEL_GENERATOR_KEYS } from '#modules/director/model.set.generator.js';
 import { CHART_GENERATOR_KEYS, DEFAULT_CHART_MIX } from '#modules/director/chart.set.generator.js';
 import { DEFAULT_SIMILAR_MIX, SIMILAR_GENERATOR_KEYS } from '#modules/director/similar.set.generator.js';
+import { SIMILARITY_ORDER_KEY } from '#modules/similarity/similarity.settings.js';
 import { BRIEF_ONLY_DEFAULT, BRIEF_ONLY_KEY } from '#modules/director/set.generator.chain.js';
 import { DISCOVER_DEFAULT, DISCOVER_KEY } from '#modules/director/pick.resolver.js';
 import { DEFAULT_SMART_SHUFFLE, DEFAULT_SMART_SHUFFLE_DAYS, SMART_SHUFFLE_DAYS_RANGE, SMART_SHUFFLE_KEYS } from '#modules/director/smart.shuffle.js';
@@ -639,6 +640,18 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         step: 0.05,
         control: 'slider',
         help: 'A share between 0 and 1 of each hour taken from acts that resemble the ones just played, rather than drawn from your library. This is how a station stops sounding like it owns two hundred songs, so it is on by default — unlike the chart mix above, which is a format rather than a habit. 0 turns it off. Needs a similarity plugin installed, and needs "Play records the station does not own yet" on, because the point of it is acts your library does not hold.',
+    },
+    {
+        group: 'rotation',
+        key: SIMILARITY_ORDER_KEY,
+        label: 'Which similarity source to ask first',
+        type: 'list',
+        placeholder: 'No order set, so sources are asked alphabetically.',
+        // One column, because a row here IS a source. The choices are the enabled plugins that
+        // can answer, resolved by the console, so the cell stores the plugin id and shows the
+        // name the operator knows it by.
+        columns: [{ key: 'source', label: 'Source', type: 'select', required: true, optionsFrom: 'plugins.similarity' }],
+        help: 'Only matters with more than one similarity plugin enabled, and only for two of the three questions the station asks them. Who resembles an artist is asked of every source and the answers are pooled, because two sources disagreeing about that are not in conflict. What to PLAY by an artist, and what sounds like a particular record, take the first usable answer — so this decides whose judgement airs. Leave it empty and sources are asked in alphabetical order of their plugin id, which is what the station did before this setting existed. Listing a source does not enable it, and leaving one out does not disable it: anything not listed is asked after the ones that are.',
     },
     {
         group: 'rotation',

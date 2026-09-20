@@ -104,7 +104,7 @@ data class ConfigFieldOption(
 
 /**
  * Where a field's or a column's choices come from when only the console can enumerate them: the
- * station's own tables, the platform's zone list, the enabled plugins that can do one of four jobs,
+ * station's own tables, the platform's zone list, the enabled plugins that can do one of five jobs,
  * or the models the selected model plugin currently offers. Resolved by the console either way
  */
 @Serializable
@@ -127,6 +127,8 @@ enum class ConfigFieldOptionSource {
     PLUGINS_MIXER,
     @SerialName("plugins.analysis")
     PLUGINS_ANALYSIS,
+    @SerialName("plugins.similarity")
+    PLUGINS_SIMILARITY,
     @SerialName("llm.models")
     LLM_MODELS,
 }

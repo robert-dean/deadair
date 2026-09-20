@@ -76,7 +76,7 @@ public struct ConfigFieldOption: Codable, Equatable, Sendable {
 }
 
 /// Where a field's or a column's choices come from when only the console can enumerate them: the
-/// station's own tables, the platform's zone list, the enabled plugins that can do one of four jobs,
+/// station's own tables, the platform's zone list, the enabled plugins that can do one of five jobs,
 /// or the models the selected model plugin currently offers. Resolved by the console either way
 public enum ConfigFieldOptionSource: String, Codable, CaseIterable, Sendable {
     case stationNewsCategories = "station.newsCategories"
@@ -88,6 +88,7 @@ public enum ConfigFieldOptionSource: String, Codable, CaseIterable, Sendable {
     case pluginsLlm = "plugins.llm"
     case pluginsMixer = "plugins.mixer"
     case pluginsAnalysis = "plugins.analysis"
+    case pluginsSimilarity = "plugins.similarity"
     case llmModels = "llm.models"
 }
 

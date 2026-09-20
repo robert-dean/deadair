@@ -12,6 +12,8 @@ import { PluginInvoker } from '../../../src/modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '../../../src/modules/plugins/plugin.registry.js';
 import type { PluginRecord } from '../../../src/modules/plugins/types/plugin.record.js';
 import { stubPluginLog } from '../../utils/plugin.log.fixture.js';
+import { settingsConfig } from '../../utils/settings.config.js';
+import { SIMILARITY_ORDER_KEY } from '../../../src/modules/similarity/similarity.settings.js';
 
 const LASTFM = 'deadair.lastfm';
 const OTHER = 'deadair.other';
@@ -50,10 +52,12 @@ function record(id: string, options: InstanceOptions = {}, overrides: Partial<Pl
     return { id, dir: `/plugins/${id}`, origin: 'bundled', status: 'active', manifest: manifest(id), instance: instance as never, ...overrides };
 }
 
-const build = (records: PluginRecord[]): SimilarityService => {
+const build = (records: PluginRecord[], order: string[] = []): SimilarityService => {
     const registry = new PluginRegistry();
     registry.setAll(records);
-    return new SimilarityService(registry, new PluginInvoker(registry, stubPluginLog().log), stubLogger());
+    // A `list` setting is stored as a JSON array of rows, which is what the console writes.
+    const settings = order.length === 0 ? {} : { [SIMILARITY_ORDER_KEY]: JSON.stringify(order.map(source => ({ source }))) };
+    return new SimilarityService(registry, new PluginInvoker(registry, stubPluginLog().log), settingsConfig(settings).config, stubLogger());
 };
 
 const named = (...names: string[]): SimilarArtist[] => names.map((name, index) => ({ name, match: 1 - index / 10 }));
@@ -164,8 +168,10 @@ describe('remembering', () => {
         registry.setAll([record(LASTFM, { similarArtists })]);
         const invoker = new PluginInvoker(registry, stubPluginLog().log);
 
-        await new SimilarityService(registry, invoker, stubLogger()).similarTo({ name: 'Portishead' }, 10);
-        await new SimilarityService(registry, invoker, stubLogger()).similarTo({ name: 'Portishead' }, 10);
+        const config = settingsConfig().config;
+
+        await new SimilarityService(registry, invoker, config, stubLogger()).similarTo({ name: 'Portishead' }, 10);
+        await new SimilarityService(registry, invoker, config, stubLogger()).similarTo({ name: 'Portishead' }, 10);
 
         expect(similarArtists).toHaveBeenCalledOnce();
     });
@@ -264,5 +270,61 @@ describe('naming records like one record', () => {
         });
 
         expect(await build([record(LASTFM, { similarTracks })]).similarTracks(teardrop, 5)).toEqual([]);
+    });
+});
+
+// Which source is asked first. It decides almost nothing for `similarTo`, which pools every
+// answer, and it decides whose judgement airs for the two questions that take the first usable
+// answer and stop. Before the setting existed that was alphabetical, so the case that matters most
+// here is that an empty setting still is.
+describe('the order sources are asked in', () => {
+    const DEEZER = 'deadair.deezer';
+    const MUSICBRAINZ = 'deadair.musicbrainz';
+
+    const namesTracks = (title: string) => ({ artistTopTracks: vi.fn(async (): Promise<ArtistTrack[]> => [{ title, artist: 'Someone' }]) });
+
+    it('falls back to alphabetical with no order set, which is what it did before the setting', async () => {
+        const service = build([record(MUSICBRAINZ, namesTracks('from musicbrainz')), record(DEEZER, namesTracks('from deezer'))]);
+
+        expect((await service.topTracks({ name: 'Portishead' }, 3))[0]?.title).toBe('from deezer');
+    });
+
+    it('asks the listed source first, whatever it is called', async () => {
+        const service = build([record(MUSICBRAINZ, namesTracks('from musicbrainz')), record(DEEZER, namesTracks('from deezer'))], [MUSICBRAINZ]);
+
+        expect((await service.topTracks({ name: 'Portishead' }, 3))[0]?.title).toBe('from musicbrainz');
+    });
+
+    it('still falls through to an unlisted source when the listed one has nothing', async () => {
+        const empty = { artistTopTracks: vi.fn(async (): Promise<ArtistTrack[]> => []) };
+        const service = build([record(MUSICBRAINZ, empty), record(DEEZER, namesTracks('from deezer'))], [MUSICBRAINZ]);
+
+        expect((await service.topTracks({ name: 'Portishead' }, 3))[0]?.title).toBe('from deezer');
+    });
+
+    it('ignores an id that is listed but not installed, rather than answering nothing', async () => {
+        const service = build([record(DEEZER, namesTracks('from deezer'))], ['deadair.nothing-here', DEEZER]);
+
+        expect((await service.topTracks({ name: 'Portishead' }, 3))[0]?.title).toBe('from deezer');
+    });
+
+    it('orders the record-level question too', async () => {
+        const like = (title: string) => ({ similarTracks: vi.fn(async (): Promise<ArtistTrack[]> => [{ title, artist: 'Someone' }]) });
+        const service = build([record(MUSICBRAINZ, like('from musicbrainz')), record(DEEZER, like('from deezer'))], [MUSICBRAINZ]);
+
+        expect((await service.similarTracks({ artist: 'Massive Attack', title: 'Teardrop' }, 3))[0]?.title).toBe('from musicbrainz');
+    });
+
+    it('still pools every source for who resembles whom, whatever the order says', async () => {
+        // The order only picks whose ids survive a duplicate; it never drops a name.
+        const service = build(
+            [
+                record(MUSICBRAINZ, { similarArtists: vi.fn(async () => named('Morcheeba')) }),
+                record(DEEZER, { similarArtists: vi.fn(async () => named('Tricky')) }),
+            ],
+            [MUSICBRAINZ],
+        );
+
+        expect((await service.similarTo({ name: 'Portishead' }, 10)).map(artist => artist.name)).toEqual(['Morcheeba', 'Tricky']);
     });
 });

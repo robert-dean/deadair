@@ -8389,8 +8389,9 @@ components:
                 - plugins.llm
                 - plugins.mixer
                 - plugins.analysis
+                - plugins.similarity
                 - llm.models
-            description: "Where a field's or a column's choices come from when only the console can enumerate them: the\nstation's own tables, the platform's zone list, the enabled plugins that can do one of four jobs,\nor the models the selected model plugin currently offers. Resolved by the console either way"
+            description: "Where a field's or a column's choices come from when only the console can enumerate them: the\nstation's own tables, the platform's zone list, the enabled plugins that can do one of five jobs,\nor the models the selected model plugin currently offers. Resolved by the console either way"
         ConfigFieldColumn:
             type: object
             properties:

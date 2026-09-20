@@ -28,6 +28,7 @@ import { PlayHistoryRepository } from './play.history.repository.js';
 import { isRenderedFirst, priorityForUrgency, type StoredBreakRequest } from './break.request.js';
 import { BulletinSource } from './bulletin.source.js';
 import { WeatherSource } from './weather.source.js';
+import { AlmanacSource } from './almanac.source.js';
 import type { BreakTrack, PlayedRecord, WrittenBreak } from './break.writer.js';
 import { CLOCK_KEYS, dayGreeting, dayPart, NAMES_THE_TIME_DEFAULT, roughTime, stationZone } from './clock.words.js';
 import { BreakWriterRegistry, declineText, isWritten, type BreakWriteResult } from './break.writer.registry.js';
@@ -156,6 +157,7 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         private readonly bulletin: BulletinSource,
         /** The bulletin's opposite number, for the kind of break that says what it is like outside. */
         private readonly weather: WeatherSource,
+        private readonly almanac: AlmanacSource,
         private readonly personas: PersonaRepository,
         // The rack, read once per break beside the persona that names it. See {@link pads}.
         private readonly padRepository: PadRepository,
@@ -290,7 +292,14 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         // question of their substrate and must not answer it differently.
         const forecast = await this.weather.readingFor(segment.kind, context, segment.airsAt ?? Date.now());
 
-        // The two sources cannot both answer, because each refuses every kind but its own, so this
+        // The third of them, for the kind that reports a DATE, and the only one of the three that
+        // needs no context: a band about the day names no subject, because a date is not a choice an
+        // operator makes. Against the same instant as the two above, and the reason is sharpest here
+        // — a break written at ten to midnight airs on a date whose history is not the one the
+        // writer would otherwise have been shown.
+        const history = await this.almanac.entriesFor(segment.kind, segment.airsAt ?? Date.now());
+
+        // The three sources cannot all answer, because each refuses every kind but its own, so this
         // reads as a chain rather than a merge.
         const subject = bulletin?.subject ?? forecast?.subject;
 
@@ -310,6 +319,9 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
             // The reading's own shelf life, travelling beside it so whichever writer takes it stamps
             // the same expiry. See `BreakWriteRequest.weatherFreshUntil`.
             ...(forecast?.freshUntil === undefined ? {} : { weatherFreshUntil: forecast.freshUntil }),
+            // The day and its entries together, which is one answer rather than a substrate and a
+            // policy — see `BreakWriteRequest.almanac`.
+            ...(history?.almanac === undefined ? {} : { almanac: history.almanac }),
             // What the format clock asked this break to be ABOUT, resolved out of the context above
             // by the thing that owns the kind's substrate. A writer reads it here rather than
             // digging the key out of `context` itself, so the model binding and the floor cannot

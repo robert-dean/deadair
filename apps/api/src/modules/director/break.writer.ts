@@ -34,6 +34,7 @@ import type { Persona } from '#modules/personas/persona.js';
 import type { PersonaNotesForPrompt } from '#modules/personas/persona.note.js';
 import type { PersonaStoryForPrompt } from '#modules/personas/persona.story.js';
 import type { SpokenWeather } from '#modules/weather/weather.words.js';
+import type { StationAlmanac } from '#modules/almanac/almanac.service.js';
 import type { BreakContext } from './break.request.js';
 import type { BreakRetry } from './break.retry.js';
 import type { WriteFault } from './break.prompt.js';
@@ -448,6 +449,24 @@ export interface BreakWriteRequest {
      * A writer that uses the reading passes it through to {@link WrittenBreak.claimsReadingUntil}.
      */
     weatherFreshUntil?: number;
+    /**
+     * What happened on the date this break airs on, and how long it is still that date.
+     *
+     * The day, its entries in the order this station reaches for them, and the window they may be
+     * called "today" inside. Absent means there is nothing to read out — no almanac plugin, a source
+     * that is down, or a day whose entries have all been on air already — and a writer for the kind
+     * must then DECLINE rather than fill the slot.
+     *
+     * One field where the weather is two, and the difference is real: a reading and its expiry are a
+     * measurement and a policy computed from it, while a day and its entries are one answer from one
+     * source. The window comes from `almanac.day.ts` and a writer that uses an entry passes it
+     * through to {@link WrittenBreak.claimsTime}.
+     *
+     * Which of the three empty states it was is NOT here, deliberately. `AlmanacSource` says it in
+     * the log, on `weather`'s rule: it is the only thing that can tell them apart, and a writer given
+     * the reason could only repeat it.
+     */
+    almanac?: StationAlmanac;
     /**
      * What this break is ABOUT, when something asked it to be about one thing.
      *

@@ -13,6 +13,7 @@ import type { RundownTrack } from '../../../src/modules/playout/rundown.js';
 import type { Persona } from '../../../src/modules/personas/persona.js';
 import type { PersonaStoryForPrompt } from '../../../src/modules/personas/persona.story.js';
 import type { Segment } from '../../../src/modules/render/segment.repository.js';
+import type { StationAlmanac } from '../../../src/modules/almanac/almanac.service.js';
 import type { SpokenWeather } from '../../../src/modules/weather/weather.words.js';
 import type { ScriptWrite } from '../../../src/modules/render/script.history.repository.js';
 
@@ -62,6 +63,8 @@ function harness(
         subject?: { key: string; label: string };
         /** What it is like outside, for the one test about handing a reading over. */
         weather?: SpokenWeather;
+        /** What happened on the date, for the one test about handing the day over. */
+        almanac?: StationAlmanac;
         /** What this broadcast has played, for the tests about the writer's memory of the show. */
         played?: readonly { title: string; artist: string }[];
         /** What the installed engine can perform, for the tests about handing that to the writers. */
@@ -168,6 +171,11 @@ function harness(
                 : { reading: options.weather, ...(options.subject === undefined ? {} : { subject: options.subject }) },
         ),
     };
+    // The third source, for the kind that reads the date out. `undefined` for every kind these
+    // assertions are about, exactly as the two above are.
+    const almanac = {
+        entriesFor: vi.fn(async (_kind: string, _airsAt?: number) => (options.almanac === undefined ? undefined : { almanac: options.almanac })),
+    };
     // What this broadcast has played, for the writer's memory of the show it is presenting. Empty
     // unless a test asks otherwise, which is the state every other assertion here was written
     // against.
@@ -189,6 +197,7 @@ function harness(
         enrichment as never,
         bulletin as never,
         weather as never,
+        almanac as never,
         personas as never,
         pads as never,
         notes as never,

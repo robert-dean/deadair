@@ -103,6 +103,14 @@ export const SUBSTRATE_FRESHNESS: { [TField in keyof Required<BreakWriteRequest>
     // The expiry itself, which is the guard rather than anything a break says.
     weatherFreshUntil: 'not-spoken',
 
+    // The day and its entries. What the entries SAY cannot stop being true — 1966 will be 1966 at
+    // the slot — so the only perishable part is the word "today" in front of them, and every
+    // phrasing for the kind says it. The window is the station's own calendar day, resolved against
+    // `airs_at` by `AlmanacSource` and stamped as `claims_time_*` unconditionally by the writer, so
+    // a break that survives to a day it was not written for is dropped at hand-over. The `stories`
+    // row's fetched-for-air half is here too, and the claim is the stronger of the two.
+    almanac: 'claims-time',
+
     // What the break is about, resolved by the caller out of the context below. A category or a
     // location: an operator's own word for a thing, and it does not stop being that word.
     subject: 'timeless',

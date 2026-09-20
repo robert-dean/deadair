@@ -35,6 +35,7 @@ import { NEWS_FEEDS_KEY } from '#modules/news/news.settings.js';
 import { CLOCK_KEYS, NAMES_THE_TIME_DEFAULT } from '#modules/director/clock.words.js';
 import { DEFAULT_UNITS, WEATHER_KEYS } from '#modules/weather/weather.keys.js';
 import { ALMANAC_KEYS, DEFAULT_LEAN } from '#modules/almanac/almanac.keys.js';
+import { ALMANAC_BREAK_KEYS, ALMANAC_TEMPLATES } from '#modules/director/almanac.break.writer.js';
 import {
     BREAK_WORD_KEYS,
     DEFAULT_STORY_WORDS,
@@ -864,6 +865,17 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
             'One phrasing per line, in the same syntax as the news above, with {{weather.report}} for the reading itself and ' +
             '{{weather.place}} for where it is about. The reading is a whole sentence built from what the service measured, so every line has ' +
             "to carry {{weather.report}} outside its [[optional]] parts and after a full stop. Empty restores the station's own.",
+    },
+    {
+        group: 'rotation',
+        key: ALMANAC_BREAK_KEYS.templates,
+        label: 'How the station reads the date out',
+        type: 'text',
+        default: ALMANAC_TEMPLATES.join('\n'),
+        help:
+            'One phrasing per line, in the same syntax as the weather above, with {{almanac.report}} for the entry itself and {{almanac.date}} ' +
+            'for the day it is about. The entry is read as it was published and this decides only what is said around it, which is why every ' +
+            "line has to carry {{almanac.report}} outside its [[optional]] parts and after a full stop. Empty restores the station's own.",
     },
     {
         group: 'rotation',

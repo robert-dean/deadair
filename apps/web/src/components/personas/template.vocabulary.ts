@@ -47,6 +47,8 @@ export const TEMPLATE_VOCABULARY: readonly string[] = [
     'news.topic',
     'weather.report',
     'weather.place',
+    'almanac.report',
+    'almanac.date',
     'greeting',
 ];
 

@@ -91,6 +91,26 @@ export interface TemplateInputs {
      */
     weatherPlace?: string;
     /**
+     * The entry a break about the date reads out, already one capitalised sentence.
+     *
+     * {@link news} and {@link weather}'s third sibling, and the same shape for the same reason: a
+     * template is a sentence with holes in it and has no loops, so what goes in the hole is the
+     * whole report, framed by the writer for the kind. An operator's phrasing decides what is said
+     * AROUND the history and never which entry it is or what it says.
+     *
+     * Absent for every break that is not about the date, so a phrasing naming it is simply not used
+     * elsewhere — the same no-branch behaviour {@link clock} has.
+     */
+    almanac?: string;
+    /**
+     * The day that break is about, as the station would say it: `20 September`.
+     *
+     * Separate from {@link almanac} because a phrasing may want to name the day before reading the
+     * entry, and separate from {@link clock} because that one is the time of day and this is the
+     * date. Filled on every break about the date.
+     */
+    almanacDate?: string;
+    /**
      * What this break is ABOUT, in the operator's own word for it: `Technology`, `Atlanta`.
      *
      * The subject a band on the format clock asked for, when it asked for one. Absent for a break
@@ -213,6 +233,10 @@ const VALUES: Record<string, Resolver> = {
     // speakable from the writer for the kind, and a place name is a place name.
     'weather.report': inputs => inputs.weather,
     'weather.place': inputs => inputs.weatherPlace,
+    // The date's pair, out of `SPOKEN_VALUES` for the same reasons: the report arrives already
+    // speakable from the writer for the kind, and a date is not a title.
+    'almanac.report': inputs => inputs.almanac,
+    'almanac.date': inputs => inputs.almanacDate,
     // Out of `SPOKEN_VALUES` for `clock.rough`'s reason, which the filter below already gets right by
     // naming the two prefixes that ARE read as titles: "good morning" has no catalogue furniture.
     greeting: inputs => inputs.greeting,

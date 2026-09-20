@@ -83,3 +83,21 @@ export function resolveOrphanGraceHours(value: unknown): number {
 
     return Math.max(MINIMUM_ORPHAN_GRACE_HOURS, Math.floor(parsed));
 }
+
+/**
+ * What one sweep did.
+ *
+ * `ran` is false for the switch being off, which is not the same fact as a run that found nothing:
+ * a caller reporting on this has to be able to say nothing for the first and something for the
+ * second, or every station with the sweep turned off grows a log line every quarter of an hour.
+ *
+ * `heldBack` is the files that WERE unclaimed and were too young to take. It is the number that says
+ * whether the grace period is doing anything, and a run that holds back the same count forever is an
+ * operator's clue that something is writing files nothing ever claims.
+ */
+export interface StorageSweep {
+    ran: boolean;
+    removed: number;
+    freedBytes: number;
+    heldBack: number;
+}

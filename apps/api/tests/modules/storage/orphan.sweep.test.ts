@@ -6,11 +6,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import {
-    DEFAULT_ORPHAN_GRACE_HOURS,
-    MINIMUM_ORPHAN_GRACE_HOURS,
-    resolveOrphanGraceHours,
-} from '../../../src/modules/storage/orphan.sweep.js';
+import { DEFAULT_ORPHAN_GRACE_HOURS, MINIMUM_ORPHAN_GRACE_HOURS, resolveOrphanGraceHours } from '../../../src/modules/storage/orphan.sweep.js';
 
 describe('resolveOrphanGraceHours', () => {
     it('reads a number as itself', () => {

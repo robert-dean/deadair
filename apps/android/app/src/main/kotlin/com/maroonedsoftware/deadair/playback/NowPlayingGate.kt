@@ -49,8 +49,16 @@ class NowPlayingGate(
      * of the poll: however much audio is already sitting in the buffer is exactly how far behind
      * the poll the listener's ears are, so it is also how long the held reading may wait before
      * being pushed anyway, ICY title or not.
+     *
+     * `ageMs` is how long ago that reading was actually TAKEN. It was assumed to be nothing for as
+     * long as the poll ran every three seconds no matter what, and then it stopped being nothing:
+     * a poll that slows down while nobody can see it (`NowPlayingRepository`'s unwatched cadence)
+     * hands this a reading that already describes the past. The hold is the part of the buffer
+     * that has not played yet, so the arithmetic is the buffer MINUS that age; holding the whole
+     * of it again would publish the record about as long after the listener heard it start as the
+     * poll is slow.
      */
-    fun onPoll(reading: NowPlaying?, bufferedMs: Long) {
+    fun onPoll(reading: NowPlaying?, bufferedMs: Long, ageMs: Long = 0) {
         latest = reading
         val startedAt = reading?.track?.startedAt
         val trackMoved = seenFirst && startedAt != pushedFor
@@ -78,7 +86,7 @@ class NowPlayingGate(
 
         held = reading
         cancelPending()
-        pending = schedule(bufferedMs) { releaseHeld() }
+        pending = schedule((bufferedMs - ageMs).coerceAtLeast(0)) { releaseHeld() }
     }
 
     /**

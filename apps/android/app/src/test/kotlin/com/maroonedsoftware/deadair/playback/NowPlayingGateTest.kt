@@ -104,6 +104,38 @@ class NowPlayingGateTest {
     }
 
     @Test
+    fun `a reading taken a while ago is held only for the buffer it has not outlived`() = runTest {
+        var pushes = 0
+        val gate = gate { pushes += 1 }
+
+        gate.onPoll(reading(startedAt = 1_000), bufferedMs = 5_000, ageMs = 0)
+        assertEquals(1, pushes)
+
+        // Twenty seconds of buffer, but the reading that says the record moved was taken fifteen
+        // seconds ago - the unwatched cadence - so five seconds of that buffer are left to play.
+        gate.onPoll(reading(startedAt = 2_000), bufferedMs = 20_000, ageMs = 15_000)
+        advanceTimeBy(4_999)
+        assertEquals(1, pushes)
+        advanceTimeBy(2)
+        assertEquals(2, pushes)
+    }
+
+    @Test
+    fun `a reading older than the buffer is not held at all`() = runTest {
+        var pushes = 0
+        val gate = gate { pushes += 1 }
+
+        gate.onPoll(reading(startedAt = 1_000), bufferedMs = 5_000, ageMs = 0)
+        assertEquals(1, pushes)
+
+        // The listener heard this record start before the reading even reached us: there is
+        // nothing left to wait for, and a negative wait must not become a long one.
+        gate.onPoll(reading(startedAt = 2_000), bufferedMs = 5_000, ageMs = 30_000)
+        advanceTimeBy(1)
+        assertEquals(2, pushes)
+    }
+
+    @Test
     fun `re-polling the same moved track while held does not restart the wait`() = runTest {
         var pushed: NowPlaying? = null
         var pushes = 0

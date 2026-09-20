@@ -141,12 +141,17 @@ class PlaybackConductor(
             .onEach { (settings, state) ->
                 station = settings.station
                 format = settings.format
-                val now = state.nowPlaying()
+                val reading = state.reading()
+                val now = reading?.nowPlaying
                 if (now != null) mounts = now.mounts
 
                 retarget()
-                gate.onPoll(now, player.totalBufferedDuration)
-                sleep.onPoll(state.reading(), player.totalBufferedDuration)
+                // How old the reading is, not how old the emission is: the poll slows down while
+                // nobody can see it, so what arrives here can describe a moment already gone, and
+                // the gate's hold is the part of the buffer that is left rather than all of it.
+                val age = reading?.let { SystemClock.elapsedRealtime() - it.readAtMs } ?: 0
+                gate.onPoll(now, player.totalBufferedDuration, ageMs = age)
+                sleep.onPoll(reading, player.totalBufferedDuration)
             }
             .launchIn(scope)
     }
@@ -185,8 +190,6 @@ class PlaybackConductor(
         current = choice
         return MediaItems.forMount(where, choice, MediaItems.metadataFor(where, null, words))
     }
-
-    private fun NowPlayingState.nowPlaying(): NowPlaying? = reading()?.nowPlaying
 
     /** The reading, with when it was taken, which the sleep timer needs to project the record's end. */
     private fun NowPlayingState.reading(): Reading? =

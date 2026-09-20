@@ -5,7 +5,7 @@ options {
 }
 
 # Which part of the station an entry came from, and the console's one filter axis
-contract ActivityModule: enum(playout, director, render, catalog, plugins)
+contract ActivityModule: enum(playout, director, render, catalog, plugins, storage)
 
 # How an entry reads, not how bad it is. There is deliberately no `waiting`: a station idling for
 # want of a listener says so in its own words and stays `info`, for the same reason the transport

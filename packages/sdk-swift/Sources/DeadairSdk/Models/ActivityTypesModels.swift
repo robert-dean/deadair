@@ -8,6 +8,7 @@ public enum ActivityModule: String, Codable, CaseIterable, Sendable {
     case render = "render"
     case catalog = "catalog"
     case plugins = "plugins"
+    case storage = "storage"
 }
 
 /// How an entry reads, not how bad it is. There is deliberately no `waiting`: a station idling for

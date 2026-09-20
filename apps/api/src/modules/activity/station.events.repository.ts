@@ -22,8 +22,17 @@ import { toJsonb } from '#modules/data/jsonb.js';
  * reason.
  */
 
-/** Which part of the station is talking. The console's only filter axis. */
-export type ActivityModule = 'playout' | 'director' | 'render' | 'catalog' | 'plugins';
+/**
+ * Which part of the station is talking. The console's only filter axis.
+ *
+ * Re-exported from the generated contract type rather than spelled out again, which is what this
+ * was. Two hand-kept copies of one closed vocabulary drift on the first value added to either, and
+ * this one had a third copy behind it — the check constraint in `0010_activity.sql` — so a value
+ * added to the contract type-checked everywhere and was rejected by the database at run time.
+ */
+import type { ActivityModule } from './types/activity.types.js';
+
+export type { ActivityModule };
 
 /**
  * How an event reads, not how bad it is.

@@ -10,7 +10,7 @@ const _ZodDatetime = z.preprocess(
  * Which part of the station an entry came from, and the console's one filter axis
  * generated from [ActivityModule](../../../../data/contracts/activity/activity.types.ck#L8)
  */
-export const ActivityModule = z.enum(['playout', 'director', 'render', 'catalog', 'plugins']);
+export const ActivityModule = z.enum(['playout', 'director', 'render', 'catalog', 'plugins', 'storage']);
 export type ActivityModule = z.infer<typeof ActivityModule>;
 
 /**

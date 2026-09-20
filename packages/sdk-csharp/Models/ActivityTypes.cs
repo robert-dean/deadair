@@ -28,6 +28,9 @@ public enum ActivityModule
 
     [JsonStringEnumMemberName("plugins")]
     Plugins,
+
+    [JsonStringEnumMemberName("storage")]
+    Storage,
 }
 
 /// <summary>

@@ -19,6 +19,8 @@ enum class ActivityModule {
     CATALOG,
     @SerialName("plugins")
     PLUGINS,
+    @SerialName("storage")
+    STORAGE,
 }
 
 /**

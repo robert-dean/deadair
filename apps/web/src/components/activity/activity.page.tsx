@@ -18,6 +18,7 @@ const MODULES: { value: ActivityModule | 'all'; label: string }[] = [
     { value: 'render', label: 'Breaks' },
     { value: 'catalog', label: 'Catalog' },
     { value: 'plugins', label: 'Plugins' },
+    { value: 'storage', label: 'Storage' },
 ];
 
 const SEVERITIES: { value: ActivitySeverity | 'all'; label: string }[] = [
@@ -47,6 +48,7 @@ const MODULE_COLOR: Record<ActivityModule, string> = {
     render: 'teal',
     catalog: 'gray',
     plugins: 'gray',
+    storage: 'gray',
 };
 
 /**

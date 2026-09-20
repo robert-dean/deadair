@@ -26,6 +26,7 @@ import { PersonaDistilJob } from '#modules/personas/persona.distil.job.js';
 import { PersonaStoryPassJob } from '#modules/personas/persona.story.pass.job.js';
 import { PruneActivityJob } from '#modules/activity/prune.activity.job.js';
 import { SweepTrackCacheJob } from '#modules/playout/audio/sweep.track.cache.job.js';
+import { SweepOrphansJob } from '#modules/storage/sweep.orphans.job.js';
 import { ScrobbleFlushJob } from '#modules/scrobble/scrobble.flush.job.js';
 import { RefreshNarrationsJob } from '#modules/narrations/refresh.narrations.job.js';
 import { RenderPieceJob } from '#modules/narrations/render.piece.job.js';
@@ -431,6 +432,26 @@ export const JobMappings: Record<JobNames, JobMapping> = {
     // unchanged. Half an hour later rather than at the same minute: the two are independent, and
     // two deletes racing each other at 04:23 for no reason is the kind of thing that is only ever
     // noticed as a mysterious spike.
+    // Nightly and LAST, at 05:17: after both persona passes, after
+    // `render.prune_script_history` at 04:23 and after `activity.prune_events` below, so whatever
+    // those free is swept the same night rather than sitting for a day. Tidiness rather than a
+    // correctness rule — nothing here races anything there.
+    //
+    // Nightly rather than the quarter-hour the cache sweep runs at, because the two bound different
+    // things. That one holds a cache under a CAP and overshoot between passes is its cost. Nothing
+    // is bounded here: orphans accrue at a handful a day and each one is already unreachable, so the
+    // hour this runs changes nothing anyone can observe but when the disk figure moves.
+    //
+    // NO retry, like both prune jobs and the cache sweep: a sweep that did not run leaves files that
+    // will be swept tomorrow, nothing waits on it, and a retry only ever buys a second chance to
+    // delete something. `expiresIn` sits above a full run — three directory walks and the unlinks —
+    // and far below the interval.
+    'storage.sweep_orphans': {
+        job: SweepOrphansJob,
+        cron: '17 5 * * *',
+        policy: { retryLimit: 0, expiresIn: Duration.fromObject({ minutes: 20 }) },
+    },
+
     'activity.prune_events': {
         job: PruneActivityJob,
         cron: '53 4 * * *',

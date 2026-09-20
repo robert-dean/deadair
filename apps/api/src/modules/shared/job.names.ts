@@ -20,6 +20,7 @@ export type JobNames =
     | 'render.segment'
     | 'render.stitch_production'
     | 'render.prune_script_history'
+    | 'storage.sweep_orphans'
     | 'activity.prune_events'
     | 'scrobble.flush'
     | 'podcasts.refresh'

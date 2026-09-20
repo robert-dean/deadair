@@ -8,5 +8,5 @@ mdx:
 > Which part of the station an entry came from, and the console's one filter axis
 
 ```typescript
-type ActivityModule = 'playout' | 'director' | 'render' | 'catalog' | 'plugins';
+type ActivityModule = 'playout' | 'director' | 'render' | 'catalog' | 'plugins' | 'storage';
 ```

@@ -3991,7 +3991,7 @@ components:
     schemas:
         ActivityModule:
             type: string
-            enum: [playout, director, render, catalog, plugins]
+            enum: [playout, director, render, catalog, plugins, storage]
             description: "Which part of the station an entry came from, and the console's one filter axis"
         ActivitySeverity:
             type: string

@@ -71,6 +71,14 @@ fetches one, and it is worth keeping separate because it is answered differently
 
 **Spotify and Navidrome** talk to a published API, on terms their operators publish.
 
+**Deezer** is read for suggestions and never for audio: the plugin asks which artists resemble one
+another and what to play by them, and every record it names is then fetched from whichever provider
+actually holds it. Its catalogue endpoints take no key and no account, and Deezer publishes no terms
+governing a caller like this one — which cuts both ways. Nothing here is licensed to you, and
+nothing stops Deezer changing or closing the endpoints, as Spotify closed the equivalent ones to new
+applications in November 2024. The station degrades quietly if that happens: with no similarity
+source it programmes from your own library.
+
 **YouTube Music** does not. There is no published playback API for it, the plugin authenticates with
 a cookie copied from a browser, and the audio is resolved by `ytaudio/`, a bundled service built on
 **yt-dlp**. Three things follow, and none of them is the software's to decide for you:

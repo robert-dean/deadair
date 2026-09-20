@@ -13,6 +13,7 @@ import { PluginLogsCard } from './plugin.logs.card';
 import { PluginOAuthCard } from './plugin.oauth.card';
 import { PluginPermissionsCard } from './plugin.permissions.card';
 import { PluginRemoveCard } from './plugin.remove.card';
+import { PluginStanding } from './plugin.standing';
 import { feedsTrackFetcher, hasConfigForm, hasOAuth, PluginOriginBadge, PluginStatusLamp, statusOf } from './plugin.status';
 import { StreamAuthorizationCard } from './stream.authorization.card';
 
@@ -98,6 +99,11 @@ export function PluginDetailPage({ id }: PluginDetailPageProps) {
                             ))}
                         </Group>
                     ) : undefined}
+
+                    {/* Where this plugin stands for each contested job, linking to the page that
+                        decides. Most load-bearing on this page rather than the card: disabling a
+                        plugin the station was told to use happens here. */}
+                    <PluginStanding pluginId={detail.id} />
                 </PageHeader>
 
                 {setEnabled.error ? (

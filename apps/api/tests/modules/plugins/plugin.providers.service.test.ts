@@ -187,8 +187,10 @@ describe('a plugin that cannot currently answer', () => {
         // A plugin switched on and failing is enabled and not active, and the page has to be able
         // to say so: "you turned this on and it is not answering" is a different sentence from
         // "you have not turned this on".
+        // `misconfigured` rather than `failed` because a quarantined plugin has no manifest at
+        // all, so nothing knows which capability it claimed and it appears under none of them.
         const state = await stateOf(
-            build([record('acme.speech', 'speech', { status: 'failed' }), record('zeta.speech', 'speech', { instance: SPEAKS })], {}, [
+            build([record('acme.speech', 'speech', { status: 'misconfigured' }), record('zeta.speech', 'speech', { instance: SPEAKS })], {}, [
                 'zeta.speech',
             ]),
             'speech',

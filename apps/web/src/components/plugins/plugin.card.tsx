@@ -6,6 +6,7 @@ import type { PluginSummary } from '@deadair/sdk';
 import { useSetPluginEnabled } from '../../api/plugins.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
 import { severityColor, toneColor } from '../shared/status';
+import { PluginStanding } from './plugin.standing';
 import { PluginOriginBadge, PluginStatusLamp, statusOf } from './plugin.status';
 import { PluginTrustDialog } from './plugin.trust.dialog';
 
@@ -49,6 +50,11 @@ export function PluginCard({ plugin }: PluginCardProps) {
                         </Badge>
                     ))}
                 </Group>
+
+                {/* What those badges leave out: whether anything else claims the same job, and
+                    which of them the station actually reaches. Nothing is drawn for a capability
+                    only this plugin can do. */}
+                <PluginStanding pluginId={plugin.id} />
 
                 {setEnabled.error && setEnabled.variables?.id === plugin.id ? (
                     <Text size="xs" c={severityColor.failure}>

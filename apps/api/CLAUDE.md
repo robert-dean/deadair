@@ -224,6 +224,30 @@ wrong with nothing in the log.
 did not, which "first" made load-bearing rather than tidy. And `explainNoPlugin` now has two branches rather
 than three, since several-and-none-chosen is no longer a refusal.
 
+**Which capability pairs with which setting is a TABLE, not a paragraph repeated at each call site.**
+`modules/plugins/plugin.providers.ts` holds one row per capability an operator chooses between —
+`{ capability, mode, settingKey, as, fallback? }` — and the services reach their candidates through
+`pluginsInOrder`/`pluginInUse` over that row rather than composing `pluginsWith`, a sort and a key read
+themselves. The rules were already shared; the PAIRING was not, and that is what a second reader needed.
+The second reader is the console: `GET /plugins/providers` reports who can answer a capability, who is
+answering it and in what position, computed from the same table and the same helpers, because a settings
+page that works the choice out for itself is a settings page that can confidently name a plugin the station
+does not reach. `declared.options.ts` had already started down that road with its own copy of
+`selectPlugin`'s "an empty setting means the first by id".
+
+**Ordering a fan-out is `plugin.order.ts`, and it orders without ever gating.** `byOrderThen(order,
+fallback)` puts what the operator listed first and leaves everything else to the capability's own
+fallback — `byPluginId` for all but enrichment, whose fallback is the plugin author's declared
+`priority`. So an unset setting reproduces exactly what the capability did before it had one, which is
+what makes the order safe to add to a capability; and a listed id that nothing answers to is absent
+rather than fatal, because a setting that could silently switch off the only plugin answering a
+capability turns a typo into a station with no similarity, no weather and no facts. Six keys use it:
+`rotation.similarityOrder`, `weather.providerOrder`, `charts.providerOrder`,
+`enrichment.providerOrder`, and the four pick-one keys read through the same table. Capabilities that
+fan out and MERGE without ranking — search, scrobble, podcast, narration, catalog — are deliberately
+not in the table: order changes nothing about a union, and a knob whose every position is the same is
+worse than no knob.
+
 **Nothing watches `plugin_configs`.** A plugin's configuration changes only through
 `PluginsService`, and every route there that writes one reinitializes the plugin itself. There is no
 `LISTEN`/`NOTIFY` path and no trigger on the table (an earlier one was removed): a row edited out of

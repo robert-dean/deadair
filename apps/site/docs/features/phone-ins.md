@@ -49,4 +49,4 @@ The same machinery makes longer programmes in one voice. A clock band naming `po
 
 ## In the console
 
-Voice, Productions lists what the station is making and has made: its state (queued, planning it, writing it, checking it, speaking it, joining it up, ready, in the running order), its length, how many turns are written, who is on it, and a Stop button while one can still be stopped. The words are on Voice, What it said. Call spacing is under Settings, Rotation; length, passes, pause and joiner under Settings, Voice and audio.
+Voice, Productions lists what the station is making and has made: its state (queued, planning it, writing it, checking it, speaking it, joining it up, ready, in the running order), its length, how many turns are written, who is on it, and a Stop button while one can still be stopped. The words are on Voice, What it said. Call spacing is under Settings, Rotation; length, passes and pause under Settings, Voice and audio; which plugin joins the turns up under Settings, Providers.

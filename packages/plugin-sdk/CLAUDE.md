@@ -74,14 +74,20 @@ third way a form learns what to offer, and the one a plugin usually cannot answe
 news plugin has no way to learn which categories this station holds. The property is about who can
 ANSWER rather than about where the answer is kept, which is why the platform's zone list sits there
 beside the station's own tables: a zone name has to be one the operator's browser knows, and a server
-enumerating its own would be answering for a different machine. Eight members today: the station's
-own tables (`station.newsCategories`, `station.newsFeeds`), the platform's zones (`intl.timeZones`),
-the enabled plugins declaring a capability (`plugins.speech`, `plugins.llm`, `plugins.mixer`,
-`plugins.analysis`), and `llm.models`.
+enumerating its own would be answering for a different machine. Eleven members today: the station's
+own tables (`station.newsCategories`, `station.newsFeeds`, `station.podcastShows`,
+`station.narrationSeries`), the platform's zones (`intl.timeZones`), the enabled plugins declaring a
+capability (`plugins.speech`, `plugins.llm`, `plugins.mixer`, `plugins.analysis`,
+`plugins.similarity`), and `llm.models`. The five `plugins.*` are the only ones with no user left:
+the settings that named a plugin moved to the Providers section, which is fed by
+`GET /plugins/providers` rather than by a list of candidates, because the candidates were never the
+hard part — what the station DOES with them was. They stay declared because removing a member is an
+SDK type change and a plugin may yet want one.
 
 **`llm.models` is the one that breaks the sentence above, and it is worth knowing why it is still
-here.** Its answer comes FROM a plugin: the console asks whichever plugin `llm.pluginId` names for
-its `model` suggestions, through the same route that plugin's own settings form uses. It qualifies as
+here.** Its answer comes FROM a plugin: the console asks whichever plugin the station reaches for
+words — `GET /plugins/providers`, not a rule the console works out itself — for its `model`
+suggestions, through the same route that plugin's own settings form uses. It qualifies as
 a host vocabulary anyway on the property that actually matters — a plugin cannot answer it *for
 itself*, because the question is "what can this STATION'S model plugin offer" and no plugin knows
 which one that is or whether it is the one selected. The station settings that use it are the

@@ -260,8 +260,14 @@ export const implementsCharts = (manifest: PluginManifest | undefined, instance:
  * has one answer because two voices reading one break is two breaks; charts can
  * have many answers at once and they are still not a merge — two services'
  * top forties are two documents, and averaging them would produce a chart
- * nobody published. So several chart plugins are several MENUS, ordered by
- * nothing, and choosing between them is the operator picking an id.
+ * nobody published. So several chart plugins are several MENUS, and choosing
+ * between them is the operator picking an id.
+ *
+ * What they ARE ordered by is `charts.providerOrder`, which decides the order
+ * of the menu and decides outright which service answers a chart asked for by
+ * STYLE, since that takes the first plugin publishing one. Not a `priority`,
+ * because this is the operator's preference between publications rather than a
+ * plugin's claim about its own authority.
  */
 export const asChartsPlugin = (record: PluginRecord): ChartsPlugin | undefined => {
     if (record.status !== 'active' || !record.manifest || !record.instance) return undefined;
@@ -445,6 +451,9 @@ export const implementsWeather = (manifest: PluginManifest | undefined, instance
  * and stops, which is the arrangement {@link asSpeechPlugin} has for a different
  * reason — there because only one engine can speak a line, here because only one
  * of two disagreeing readings can be true.
+ *
+ * Which one is asked first is `weather.providerOrder`. Still not a `priority`:
+ * the plugins have no basis for ranking each other, and the operator does.
  */
 export const asWeatherPlugin = (record: PluginRecord): WeatherPlugin | undefined => {
     if (record.status !== 'active' || !record.manifest || !record.instance) return undefined;
@@ -580,6 +589,12 @@ export const implementsSimilarTracks = (instance: unknown): boolean => typeof (i
  * the useful thing to do with both is to take both. So the host merges by name
  * without ranking the sources, and `match` orders within one source's answer
  * rather than across them.
+ *
+ * `rotation.similarityOrder` is not that ranking either. It changes which
+ * source is ASKED first, which barely matters for the merge above and decides
+ * everything for the two questions that stop at the first usable answer. Still
+ * the operator's preference rather than a plugin's claim: the sources score on
+ * incompatible bases, so no plugin is in a position to declare itself better.
  */
 export const asSimilarityPlugin = (record: PluginRecord): SimilarityPlugin | undefined => {
     if (record.status !== 'active' || !record.manifest || !record.instance) return undefined;

@@ -231,6 +231,15 @@ export interface EnrichmentProvider {
     /**
      * Lower runs first and wins conflicts on merge. Use 100 for a canonical
      * source (MusicBrainz), 500 for a supplementary one, 900 for a guess.
+     *
+     * A DEFAULT rather than the last word: it is this plugin's own view of its
+     * own source in the abstract, which is the right thing for an author to
+     * supply and cannot know that on one station this source is consistently
+     * right about the year and another consistently wrong. An operator who can
+     * see that says so with `enrichment.providerOrder`, which puts whatever
+     * they listed ahead of everything else and leaves the rest in this order.
+     * So keep declaring it honestly; nothing about an operator overriding it
+     * makes a truthful number less useful.
      */
     priority: number;
 

@@ -6,8 +6,8 @@ description: Which model writes which words, which voice speaks them, how a scri
 
 The station's words can come from a language model and its voice from a speech engine, both [plugins](./plugins.md). With no model it writes its own breaks from its phrasings; with no voice it plays records. A model makes the presenter better. It never stands between the station and silence.
 
-![Settings, Words: which plugin the station asks for words, and a model for each job](/img/console/settings.llm.webp)
-*Fig. 1. Settings → Words.*
+![Settings, Words: a switch and a model for each job the station asks a model to do](/img/console/settings.llm.webp)
+*Fig. 1. Settings → Words. Which plugin it asks is under Settings → Providers.*
 
 ## Talking without a model
 
@@ -23,7 +23,7 @@ The name is how a model is addressed: a model on the row you called `ollama` is 
 
 ## A model for each job
 
-Settings → Words names the plugin the station asks, then gives each job its own switch and its own model: the talk breaks listeners hear; choosing records, which is research rather than a sentence; reading articles for trivia, with a second call checking each fact against the words that state it; reading each character back to itself, nightly; thinking up things your characters have lived through, nightly, none of which airs until you keep it; and writing a character when you press Write. So a station can write its breaks on a hosted model and do its reading on a local one, picking names from what your providers actually offer.
+Settings → Providers names the plugin the station asks. Settings → Words then gives each job its own switch and its own model: the talk breaks listeners hear; choosing records, which is research rather than a sentence; reading articles for trivia, with a second call checking each fact against the words that state it; reading each character back to itself, nightly; thinking up things your characters have lived through, nightly, none of which airs until you keep it; and writing a character when you press Write. So a station can write its breaks on a hosted model and do its reading on a local one, picking names from what your providers actually offer.
 
 The station asks its model one thing at a time, because a local model is one set of weights on one graphics card. A talk break waits its turn only so long before the phrasings write it, and background jobs run at the lowest priority, so a break always gets the model first. The station puts no cap on what a hosted provider bills; Check-up → What it cost lists every call.
 
@@ -50,4 +50,4 @@ Pronunciations are a table. The station fills it from the pronunciation keys pri
 
 ## In the console
 
-**Settings → Words** for the model per job; the language model plugin's page, under Settings → Plugins, for the providers; **Settings → Voice and audio** for which speech plugin speaks. **Voice** in the rail, or the V key, holds Voices (with a preview of each), Pronunciations, Soundboard, and What it said: every break written, and every one declined.
+**Settings → Providers** for which plugin writes and which one speaks, beside every other job more than one of your plugins can do; **Settings → Words** for the model per job; the language model plugin's page, under Settings → Plugins, for the providers themselves. **Voice** in the rail, or the V key, holds Voices (with a preview of each), Pronunciations, Soundboard, and What it said: every break written, and every one declined.

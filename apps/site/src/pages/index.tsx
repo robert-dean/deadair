@@ -11,13 +11,17 @@ const repository = 'https://github.com/robert-dean/deadair';
 const playStore = 'https://play.google.com/store/apps/details?id=com.maroonedsoftware.deadair';
 /** The Stream Deck plugin's listing on the Elgato Marketplace, which installs it and keeps it updated. */
 const streamDeckMarketplace = 'https://marketplace.elgato.com/product/deadair-67841f42-616f-45f3-9708-341017359656';
-const sdkPackage = 'https://www.npmjs.com/package/@deadair/sdk';
 
 /** The four facts worth reading before anything else, as a strip under the hero's buttons. */
 const facts = ['Self-hosted', 'Your music', 'Any model, or none', 'MIT licensed'];
 
-/** The rest of the console, after the six parts have shown the pages they are about. */
+/** The rest of the console, after the feature rows have shown the pages they are about. */
 const tour: TourStop[] = [
+    {
+        shot: 'scheduleToday',
+        title: 'The programme',
+        body: 'The format clock is what the station says inside an hour, whatever it is playing: the weather at five past, the news at half past. Above it, a weekly timetable of blocks, each with its own brief and its own presenter.',
+    },
     {
         shot: 'catalogTracks',
         title: 'The library',
@@ -29,18 +33,13 @@ const tour: TourStop[] = [
         body: 'Where the music, the facts, the weather, the voices and the model come from. Each says what it will talk to, and anything more it asks for waits for you.',
     },
     {
-        shot: 'activity',
-        title: 'What happened',
-        body: 'What aired, what was written and spoken, and every break that fell through to the floor and why, newest first.',
-    },
-    {
-        shot: 'settingsLlm',
-        title: 'Which model does which job',
-        body: 'Writing a break and programming an hour are different sizes of task, so each has its own model. Leave them empty and the station still talks.',
+        shot: 'checkup',
+        title: 'Why it is quiet',
+        body: 'Eleven ordered checks over one snapshot answer “why is nothing playing” with a single verdict, written to the station’s own log. So “why was it silent at three in the morning” is a question with an answer.',
     },
 ];
 
-/** What the station can use for words and a voice, as the plugins that ship with it reach them. */
+/** What the station can use for words, a voice, facts and music, as the plugins that ship with it reach them. */
 const models = ['Ollama', 'vLLM', 'OpenAI', 'Groq', 'Mistral', 'OpenRouter', 'Anthropic', 'Gemini', 'Any OpenAI-compatible server'];
 const voices = ['Kokoro', 'Chatterbox', 'Any OpenAI-compatible speech server'];
 const sources = [
@@ -64,24 +63,6 @@ const tags = [
     { tag: 'slim', brings: 'The station alone', bring: 'PostgreSQL, Redis and a speech server, ideally on a GPU.' },
 ];
 
-const diagram = `                  your provider                    a model             a voice
-              (Spotify / Navidrome)             (local or hosted)   (Kokoro / Chatterbox)
-                       │                               │                    │
-                       └───────────── plugins ─────────┴────────────────────┘
-                                         │
-    ┌────────────────────────────────────┴─────────────────────────────────┐
-    │  the station (Node)                                                  │
-    │    director ── one running order, and the only thing that writes it  │
-    │    render   ── words, then audio, one state per stage                │
-    │    playout  ── hands records over, one at a time, and holds a lease  │
-    └────────────────────────────────────┬─────────────────────────────────┘
-                                         │  HTTP
-                  ┌──────────────────────┼──────────────────────┐
-             Liquidsoap              PostgreSQL              analysis
-          (mixing, on air)        (everything kept)      (cue points, loudness)
-                  │
-               Icecast ──────────────►  /live.mp3  (plus Opus/AAC/FLAC and HLS, opt-in)`;
-
 export default function Home() {
     return (
         <Layout description="deadair picks the records, writes what the presenter says between them, speaks it, and streams the result. Self-hosted and MIT licensed.">
@@ -94,11 +75,11 @@ export default function Home() {
                         result. One mount, one running order, and everybody hears the same thing at the same moment.
                     </p>
                     <div className={styles.actions}>
-                        <Link className={styles.primary} to="/docs/install">
-                            Install it
+                        <Link className={styles.primary} to="/docs/quick-start">
+                            Quick start
                         </Link>
-                        <Link className={styles.secondary} to="/docs/features">
-                            What it does
+                        <Link className={styles.secondary} to="/community/stations">
+                            Hear a station
                         </Link>
                         <Link className={styles.secondary} href={repository}>
                             Read the source
@@ -137,33 +118,16 @@ export default function Home() {
                     <p>
                         Tell it what you want in a sentence, “rap like snoop dog”, and it programmes the next hours to that brief. Ask it why the
                         record on air is on air and it will say. Nothing is committed to air until its audio is on the machine, so the stream never
-                        waits on a download.
+                        waits on a download. <Link to="/docs/features/running-order">The running order.</Link>
                     </p>
                 </FeatureRow>
 
                 <FeatureRow
                     part="Part two"
-                    kicker="The programme"
-                    title="Which hour is which."
-                    side="right"
-                    figure={<Figure shot="scheduleToday" number={3} caption="The format clock" aspect={16 / 9} focus="left 60%" />}
-                >
-                    <p>
-                        The format clock is what the station says inside an hour, whatever it is playing: the weather at five past, the news at half
-                        past. A band takes the first boundary at or after its time, so nothing is ever cut off mid-record.
-                    </p>
-                    <p>
-                        Above it, a weekly timetable of blocks, each with its own brief and its own presenter, and a sustaining setting for whatever
-                        nobody scheduled. A station with no schedule at all is an ordinary station: it keeps playing what you put on until you put
-                        something else on.
-                    </p>
-                </FeatureRow>
-
-                <FeatureRow
-                    part="Part three"
                     kicker="The presenter"
                     title="A model cannot make it go quiet."
-                    figure={<Figure shot="voiceSaid" number={4} caption="Every break written, and every one declined" />}
+                    side="right"
+                    figure={<Figure shot="voiceSaid" number={3} caption="Every break written, and every one declined" />}
                 >
                     <p>
                         The presenter talks between records using a local or hosted model when one is configured. When there is none, when it is slow,
@@ -173,16 +137,15 @@ export default function Home() {
                     <p>
                         Every attempt is kept, the declined ones too, with the reason. One here was turned down because{' '}
                         <strong>the model said “tonight” at seven in the morning</strong>, which a listener hears immediately and the station cannot
-                        take back.
+                        take back. <Link to="/docs/features/breaks">Breaks.</Link>
                     </p>
                 </FeatureRow>
 
                 <FeatureRow
-                    part="Part four"
+                    part="Part three"
                     kicker="The facts"
                     title="True, or nothing."
-                    side="right"
-                    figure={<Figure shot="catalogTrack" number={5} caption="One record, and what the station knows about it" />}
+                    figure={<Figure shot="catalogTrack" number={4} caption="One record, and what the station knows about it" />}
                 >
                     <p>
                         Every fact the presenter mentions about a record is a stored claim with the sentence of source prose behind it. A claim with
@@ -191,84 +154,29 @@ export default function Home() {
                     </p>
                     <p>
                         It also knows what the record sounds like. A measurement sidecar decodes each one for its cue points and its loudness, so the
-                        silence at its head and tail is trimmed before the player ever sees it.
+                        silence at its head and tail is trimmed before the player ever sees it.{' '}
+                        <Link to="/docs/features/claims">Facts and claims.</Link>
                     </p>
                 </FeatureRow>
 
                 <FeatureRow
-                    part="Part five"
+                    part="Part four"
                     kicker="The characters"
                     title="Presenters that accumulate."
-                    figure={<Figure shot="voiceCharacters" number={6} caption="The roster" />}
+                    side="right"
+                    figure={<Figure shot="voiceCharacters" number={5} caption="The roster" />}
                 >
                     <p>
                         Who is presenting is a character with a voice, a diction, how much rope it is given and how brief it is. It keeps a notebook
-                        of what it has said and the traits it is growing into, and a set of stories it can tell on air.
-                    </p>
-                    <p>A show can hand the hour to a different character, and you can rehearse one over an hour of records before it goes on air.</p>
-                </FeatureRow>
-
-                <FeatureRow
-                    part="Part five, continued"
-                    kicker="Phone-ins"
-                    title="It can take a call."
-                    side="right"
-                    figure={<Figure shot="voiceProductions" number={7} caption="Phone-ins the station wrote for itself" />}
-                >
-                    <p>
-                        A phone-in is a produced block in the middle of a broadcast. A caller and the host trade turns, each turn its own model call
-                        in its own voice, and the whole thing is joined into one piece of audio before it airs.
-                    </p>
-                    <p>Nothing is made while you wait. It goes into the running order once every beat has been spoken.</p>
-                </FeatureRow>
-
-                <section className={styles.section}>
-                    <p className="da-eyebrow">Programmes</p>
-                    <h2>It can give the hour to something that is not records.</h2>
-                    <p className={styles.sectionLede}>
-                        Three of them, and what separates them is who wrote the words and who spoke them. Each is a rule on the format clock, each
-                        moves every boundary behind it, and each is passed over rather than replaced when there is nothing to carry that night.
-                    </p>
-                    <div className={styles.cards}>
-                        <div className={styles.tag}>
-                            <p className="da-eyebrow">Carried</p>
-                            <p>
-                                Subscribe to a podcast and put it on the clock. At its time the station airs that show’s newest episode, whole, with
-                                your presenter handing over to it. It never reaches back for an older one.{' '}
-                                <Link to="/docs/features/podcasts">Podcasts.</Link>
-                            </p>
-                        </div>
-                        <div className={styles.tag}>
-                            <p className="da-eyebrow">Read out</p>
-                            <p>
-                                A book, a chapter at a time, or a column as each issue lands. Somebody else’s words in the station’s own voice, spoken
-                                hours before the slot, and it remembers where it got to. <Link to="/docs/features/narrations">Readings.</Link>
-                            </p>
-                        </div>
-                        <div className={styles.tag}>
-                            <p className="da-eyebrow">Produced</p>
-                            <p>
-                                Or a programme the station makes itself, from a title and a brief in your own words: ten minutes in one voice, or a
-                                phone-in with a caller. <Link to="/docs/features/phone-ins#other-productions">Productions.</Link>
-                            </p>
-                        </div>
-                    </div>
-                </section>
-
-                <FeatureRow
-                    part="Part six"
-                    kicker="The check-up"
-                    title="It says why it is quiet."
-                    figure={<Figure shot="checkup" number={8} caption="The machinery, in one place" />}
-                >
-                    <p>
-                        Eleven ordered checks over one snapshot answer “why is nothing playing” with a single verdict, and the answer is written to
-                        the station’s own log. So “why was it silent at three in the morning” is a question with an answer.
+                        of what it has said and the traits it is growing into, and a set of stories it can tell on air. A show can hand the hour to a
+                        different character, and you can rehearse one over an hour of records before it goes on air.{' '}
+                        <Link to="/docs/features/characters">Characters.</Link>
                     </p>
                     <p>
-                        Some of that quiet is on purpose. The station stays on the air only by renewing its claim every few seconds, so a crash or a
-                        redeploy takes it off within seconds instead of leaving a fallback loop playing that nobody chose. And by default it
-                        broadcasts only while somebody is listening: with nobody tuned in, the console reads <strong>ready</strong>, not faulty.
+                        It can also give the hour to something that is not records: a <Link to="/docs/features/podcasts">podcast</Link> it carries, a{' '}
+                        <Link to="/docs/features/narrations">book or column</Link> it reads out, or a{' '}
+                        <Link to="/docs/features/phone-ins">phone-in</Link> it produces for itself, where a caller and the host trade turns and each
+                        turn is its own model call in its own voice.
                     </p>
                 </FeatureRow>
 
@@ -281,16 +189,6 @@ export default function Home() {
                         record playing also come as keys, on <Link to="/docs/features/console#on-a-stream-deck">an Elgato Stream Deck</Link>.
                     </p>
                     <ConsoleTour stops={tour} />
-                </section>
-
-                <section className={styles.section}>
-                    <h3 className={styles.subhead}>Three ways to read it.</h3>
-                    <p className={styles.sectionLede}>The same desk in each of the console’s themes. The tally stays red in every one.</p>
-                    <div className={styles.themes}>
-                        <Figure shot="desk" caption="Carbon" />
-                        <Figure shot="deskWhite" caption="Studio White" />
-                        <Figure shot="deskNeon" caption="Neon Transmitter" />
-                    </div>
                 </section>
 
                 <section className={styles.section}>
@@ -319,33 +217,12 @@ export default function Home() {
                             note="Where the claims come from, what the bulletins are written from, and what it is like outside."
                             items={sources}
                         />
-                    </div>
-                </section>
-
-                <section className={styles.section}>
-                    <h2>How it fits together</h2>
-                    <p className={styles.sectionLede}>
-                        Nothing in the station decodes, mixes or encodes audio. The mixing chain and the stream server run beside it, and the station
-                        drives them over HTTP.
-                    </p>
-                    <div className={styles.diagram}>
-                        <pre>{diagram}</pre>
-                    </div>
-                </section>
-
-                <section className={styles.section}>
-                    <p className="da-eyebrow">Your library</p>
-                    <h2>It plays your music, not its own.</h2>
-                    <div className={styles.library}>
-                        <p className={styles.sectionLede}>
-                            deadair holds no catalogue. It programmes what your provider already gives you, a Spotify account, a YouTube Music account
-                            or a Subsonic server such as Navidrome, and it grants you no rights to broadcast any of it.
-                        </p>
-                        <ul className={styles.providers}>
-                            {providers.map(provider => (
-                                <li key={provider}>{provider}</li>
-                            ))}
-                        </ul>
+                        <ChipList
+                            label="Your library"
+                            title="It plays your music, not its own."
+                            note="deadair holds no catalogue. It programmes what your provider already gives you, and it grants you no rights to broadcast any of it."
+                            items={providers}
+                        />
                     </div>
                     <aside className={styles.callout}>
                         <p>
@@ -377,66 +254,51 @@ export default function Home() {
                     </div>
                     <p className={styles.note}>
                         Images are <code>linux/amd64</code>. The tags above follow <code>main</code>; pin <code>deadair/deadair:0.1</code> to track
-                        releases only. <Link to="/docs/install">The install guide</Link> covers the two secrets to generate first and the first-boot
-                        order.
+                        releases only. <Link to="/docs/quick-start">The quick start</Link> takes the first one from nothing to on air, and{' '}
+                        <Link to="/docs/install">the install guide</Link> covers every choice it makes for you.
+                    </p>
+                    <p className={styles.note}>
+                        Listeners get <code>/live.mp3</code>, with Opus, AAC, FLAC and HLS when you turn them on, so anything that plays an internet
+                        radio stream plays the station. There are also apps: Android on <Link href={playStore}>Google Play</Link>, and{' '}
+                        <Link href={`${repository}/tree/main/apps/ios`}>iPhone</Link> and{' '}
+                        <Link href={`${repository}/tree/main/apps/desktop`}>macOS</Link> built from source.{' '}
+                        <Link to="/docs/features/listening">Listening.</Link>
                     </p>
                 </section>
 
                 <section className={styles.section}>
-                    <h2>Listen.</h2>
+                    <p className="da-eyebrow">Develop</p>
+                    <h2>Build on it.</h2>
                     <div className={styles.cards}>
                         <div className={styles.tag}>
-                            <p className="da-eyebrow">The mount</p>
+                            <p className="da-eyebrow">A plugin</p>
                             <p>
-                                <code>/live.mp3</code>, with Opus, AAC, FLAC and HLS when you turn them on. Anything that plays an internet radio
-                                stream plays the station.
+                                Music sources, facts, charts, voices, models and news are all plugins, and yours loads beside the bundled fourteen
+                                without rebuilding anything. Plain npm, against the published SDK.{' '}
+                                <Link to="/docs/plugin-development/getting-started">Your first plugin.</Link>
                             </p>
                         </div>
                         <div className={styles.tag}>
-                            <p className="da-eyebrow">Android</p>
+                            <p className="da-eyebrow">The API</p>
                             <p>
-                                Background playback and lock-screen controls. Signed in as the operator, it is the station’s remote as well.{' '}
-                                <Link href={playStore}>Get it on Google Play</Link>, or{' '}
-                                <Link href={`${repository}/tree/main/apps/android`}>build it from source</Link>.
+                                Every station serves the same HTTP API, and the console and all three listener apps are built on it. A key from
+                                Settings, Security drives the desk from your own code, a keypad or a home-automation hub.{' '}
+                                <Link to="/docs/develop/api">Build on the API.</Link>
                             </p>
                         </div>
                         <div className={styles.tag}>
-                            <p className="da-eyebrow">iPhone</p>
+                            <p className="da-eyebrow">The station itself</p>
                             <p>
-                                Background playback, the lock screen and Control Center, and the format your station publishes.{' '}
-                                <Link href={`${repository}/tree/main/apps/ios`}>Build it from source.</Link>
+                                A pnpm monorepo, a Koa API and a React console, with the audio chain in containers beside it. From clone to a station
+                                running on your machine is one page. <Link to="/docs/develop/setup">Setting up a checkout.</Link>
                             </p>
                         </div>
                         <div className={styles.tag}>
-                            <p className="da-eyebrow">macOS</p>
+                            <p className="da-eyebrow">Hardware</p>
                             <p>
-                                A listener with a real player and the operator’s desk in one window, on Apple Silicon.{' '}
-                                <Link href={`${repository}/tree/main/apps/desktop`}>Build it from source.</Link>
-                            </p>
-                        </div>
-                    </div>
-                </section>
-
-                <section className={styles.section}>
-                    <h2>Drive it from anything.</h2>
-                    <div className={styles.cards}>
-                        <div className={styles.tag}>
-                            <p className="da-eyebrow">Stream Deck</p>
-                            <p>
-                                The desk on keys: what is on air with its cover, Skip, a Stop that asks twice, and a heart on the record playing. It
-                                does not play the station. <Link href={streamDeckMarketplace}>Get it on the Elgato Marketplace</Link>, or{' '}
+                                The desk on keys: what is on air with its cover, Skip, a Stop that asks twice, and a heart on the record playing.{' '}
+                                <Link href={streamDeckMarketplace}>Get it on the Elgato Marketplace</Link>, or{' '}
                                 <Link to="/docs/features/console#on-a-stream-deck">read what it does</Link>.
-                            </p>
-                        </div>
-                        <div className={styles.tag}>
-                            <p className="da-eyebrow">Your own code</p>
-                            <p>
-                                The console is built on the same HTTP API, and its typed client is on npm as{' '}
-                                <Link href={sdkPackage}>
-                                    <code>@deadair/sdk</code>
-                                </Link>
-                                . An API key from Settings, Security lets a script, a home-automation hub or your own app read the station or drive
-                                it. <Link to="/docs/api-reference">The API reference.</Link>
                             </p>
                         </div>
                     </div>
@@ -446,8 +308,8 @@ export default function Home() {
                     <h2>Put a station on the air.</h2>
                     <p>One container, your music, and a presenter who never goes quiet.</p>
                     <div className={styles.actions}>
-                        <Link className={styles.primary} to="/docs/install">
-                            Install it
+                        <Link className={styles.primary} to="/docs/quick-start">
+                            Quick start
                         </Link>
                         <Link className={styles.secondary} to="/docs/features">
                             What it does

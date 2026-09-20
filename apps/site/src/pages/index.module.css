@@ -138,68 +138,11 @@
     margin-bottom: 2rem;
 }
 
-.subhead {
-    font-size: 1.3rem;
-    font-weight: 600;
-    margin-bottom: 0.5rem;
-}
-
-.themes {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 1.5rem;
-}
-
 .stack {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
     gap: 1rem;
-}
-
-.diagram {
-    overflow-x: auto;
-    background: var(--da-panel);
-    border: 1px solid var(--da-border);
-    border-radius: 4px;
-}
-
-.diagram pre {
-    margin: 0;
-    padding: 1.5rem;
-    background: none;
-    color: var(--da-text-secondary);
-    font-size: 0.8rem;
-    line-height: 1.45;
-}
-
-.library {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 1rem 3rem;
     margin-bottom: 1.5rem;
-}
-
-.providers {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    list-style: none;
-    margin: 0;
-    padding: 0;
-}
-
-.providers li {
-    padding: 0.45rem 0.9rem;
-    font-family: var(--da-font-display);
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: var(--da-text);
-    background: var(--da-raised);
-    border: 1px solid var(--da-border-strong);
-    border-radius: 4px;
 }
 
 /* The licensing warning, which is the one thing on the page that is a warning. */
@@ -298,8 +241,7 @@
 }
 
 @media (max-width: 900px) {
-    .stack,
-    .themes {
+    .stack {
         grid-template-columns: 1fr;
     }
 }

@@ -12,12 +12,14 @@ const listPlugins = vi.fn();
 const listFeeds = vi.fn();
 const listShows = vi.fn();
 const suggestPluginConfigOptions = vi.fn();
+const listCapabilityProviders = vi.fn();
 
 vi.mock('../../../src/api/client', () => ({
     sdk: {
         plugins: {
             listPlugins: (...args: unknown[]) => listPlugins(...args),
             suggestPluginConfigOptions: (...args: unknown[]) => suggestPluginConfigOptions(...args),
+            listCapabilityProviders: (...args: unknown[]) => listCapabilityProviders(...args),
         },
         news: {
             listFeeds: (...args: unknown[]) => listFeeds(...args),
@@ -33,6 +35,7 @@ afterEach(() => {
     listFeeds.mockReset();
     listShows.mockReset();
     suggestPluginConfigOptions.mockReset();
+    listCapabilityProviders.mockReset();
 });
 
 function wrapWithQueryClient(queryClient: QueryClient) {
@@ -174,51 +177,80 @@ describe('the models a writer can be set to', () => {
         { value: 'anthropic:claude-x', label: 'claude-x · Anthropic' },
     ];
 
-    function drawWith(valueOf: (key: string) => string | undefined) {
+    /**
+     * What `/plugins/providers` says about who the station asks for words.
+     *
+     * `inUse` is the station's own answer, which is the whole reason this is read rather than
+     * worked out here: the console no longer has to know that an empty setting means the first
+     * candidate by id, or where the setting even lives.
+     */
+    const llmProviders = (inUseId: string | undefined, ...others: string[]) => ({
+        capabilities: [
+            {
+                capability: 'llm',
+                mode: 'one' as const,
+                settingKey: 'llm.pluginId',
+                configured: '',
+                candidates: [
+                    ...(inUseId === undefined ? [] : [{ pluginId: inUseId, name: inUseId, enabled: true, status: 'active', listed: false, inUse: true }]),
+                    ...others.map(pluginId => ({ pluginId, name: pluginId, enabled: true, status: 'active', listed: false, inUse: false })),
+                ],
+                stale: [],
+                unanswered: false,
+            },
+        ],
+    });
+
+    function draw(fields: ConfigFieldDescriptor[] = [pluginField(), modelField()]) {
         const queryClient = createTestQueryClient();
-        return renderHook(() => useDeclaredOptions([pluginField(), modelField()], valueOf), { wrapper: wrapWithQueryClient(queryClient) });
+        return renderHook(() => useDeclaredOptions(fields), { wrapper: wrapWithQueryClient(queryClient) });
     }
 
-    it('offers what the named plugin says it has, qualified as the plugin qualified it', async () => {
+    it('offers what the plugin the station reaches says it has, qualified as the plugin qualified it', async () => {
         listPlugins.mockResolvedValue([pluginSummary({ id: 'deadair.llm', capabilities: ['llm'], enabled: true })]);
+        listCapabilityProviders.mockResolvedValue(llmProviders('deadair.llm'));
         suggestPluginConfigOptions.mockResolvedValue({ fields: { model: MODELS }, supported: true });
 
-        const { result } = drawWith(key => (key === 'llm.pluginId' ? 'deadair.llm' : undefined));
+        const { result } = draw();
 
         await waitFor(() => expect(result.current['llm.breakModel']).toEqual(MODELS));
         expect(suggestPluginConfigOptions).toHaveBeenCalledWith('deadair.llm');
     });
 
-    it('asks the plugin the station would actually reach when the setting is empty', async () => {
-        // `selectPlugin`'s own rule, host-side: an unset key takes the first candidate by id. Asking
-        // a different plugin than the station will use would offer models it cannot reach.
+    it('asks the plugin the station named, not the first one installed', async () => {
+        // The station reports which plugin it reaches, so a named plugin that is not first
+        // alphabetically is still the one whose models are offered. Worked out here, this was the
+        // rule that would have broken silently the moment the setting moved off the form.
         listPlugins.mockResolvedValue([
             pluginSummary({ id: 'aaa.llm', capabilities: ['llm'], enabled: true }),
             pluginSummary({ id: 'zzz.llm', capabilities: ['llm'], enabled: true }),
         ]);
+        listCapabilityProviders.mockResolvedValue(llmProviders('zzz.llm', 'aaa.llm'));
         suggestPluginConfigOptions.mockResolvedValue({ fields: { model: MODELS }, supported: true });
 
-        const { result } = drawWith(() => '');
+        const { result } = draw();
 
         await waitFor(() => expect(result.current['llm.breakModel']).toEqual(MODELS));
-        expect(suggestPluginConfigOptions).toHaveBeenCalledWith('aaa.llm');
+        expect(suggestPluginConfigOptions).toHaveBeenCalledWith('zzz.llm');
     });
 
     it('answers nothing rather than failing when the plugin has nothing to say', async () => {
         // An unreachable model server is a form with no suggestions on that field, not a settings
         // page that will not draw.
         listPlugins.mockResolvedValue([pluginSummary({ id: 'deadair.llm', capabilities: ['llm'], enabled: true })]);
+        listCapabilityProviders.mockResolvedValue(llmProviders('deadair.llm'));
         suggestPluginConfigOptions.mockResolvedValue({ fields: {}, supported: true });
 
-        const { result } = drawWith(() => 'deadair.llm');
+        const { result } = draw();
 
         await waitFor(() => expect(result.current['llm.breakModel']).toEqual([]));
     });
 
-    it('asks nothing at all when no llm plugin is installed', async () => {
+    it('asks nothing at all when nothing is answering for words', async () => {
         listPlugins.mockResolvedValue([]);
+        listCapabilityProviders.mockResolvedValue({ capabilities: [] });
 
-        const { result } = drawWith(() => '');
+        const { result } = draw();
 
         await waitFor(() => expect(result.current['llm.breakModel']).toEqual([]));
         expect(suggestPluginConfigOptions).not.toHaveBeenCalled();
@@ -226,11 +258,11 @@ describe('the models a writer can be set to', () => {
 
     it('asks nothing for a form with no model field in it', async () => {
         listPlugins.mockResolvedValue([pluginSummary({ id: 'deadair.llm', capabilities: ['llm'], enabled: true })]);
-        const queryClient = createTestQueryClient();
 
-        renderHook(() => useDeclaredOptions([pluginField()], () => 'deadair.llm'), { wrapper: wrapWithQueryClient(queryClient) });
+        draw([pluginField()]);
 
         await waitFor(() => expect(listPlugins).toHaveBeenCalled());
+        expect(listCapabilityProviders).not.toHaveBeenCalled();
         expect(suggestPluginConfigOptions).not.toHaveBeenCalled();
     });
 });

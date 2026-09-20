@@ -4,14 +4,14 @@ import type { ConfigFieldDescriptor, ConfigFieldOption, ConfigFieldOptionSource 
 import { newsFeedsOptions } from '../../api/news.queries';
 import { narrationSeriesOptions } from '../../api/narration.queries';
 import { podcastShowsOptions } from '../../api/podcast.queries';
-import { pluginConfigSuggestionsOptions, pluginsListOptions } from '../../api/plugins.queries';
+import { pluginConfigSuggestionsOptions, pluginProvidersOptions, pluginsListOptions } from '../../api/plugins.queries';
 import { topicsOptions } from '../../api/topics.queries';
 
 /** The `news` kind, as `segments.kind` spells it. The one kind whose subjects are offered as choices today. */
 const NEWS_KIND = 'news';
 
-/** The setting naming which plugin the station asks for words, mirrored from `llm.settings.ts`. */
-const LLM_PLUGIN_KEY = 'llm.pluginId';
+/** The capability the station asks for words. One of the `PLUGIN_CAPABILITY_*` constants; see below. */
+const LLM_CAPABILITY = 'llm';
 
 /** The plugin config field whose suggestions are a model list. See {@link modelOptions}. */
 const MODEL_FIELD = 'model';
@@ -70,33 +70,33 @@ export const columnSuggestionKey = (fieldKey: string, columnKey: string): string
  *
  * Nothing is fetched for a form that declares no source, and the zone list costs no request at all.
  */
-export function useDeclaredOptions(
-    fields: readonly ConfigFieldDescriptor[],
-    valueOf: (key: string) => string | undefined = () => undefined,
-): Record<string, readonly ConfigFieldOption[]> {
+export function useDeclaredOptions(fields: readonly ConfigFieldDescriptor[]): Record<string, readonly ConfigFieldOption[]> {
     const wanted = declaredSources(fields);
     const topics = useQuery({ ...topicsOptions, enabled: wanted.has('station.newsCategories') });
     const feeds = useQuery({ ...newsFeedsOptions, enabled: wanted.has('station.newsFeeds') });
     const shows = useQuery({ ...podcastShowsOptions, enabled: wanted.has('station.podcastShows') });
     const narrationSeries = useQuery({ ...narrationSeriesOptions, enabled: wanted.has('station.narrationSeries') });
     const wantsModels = wanted.has('llm.models');
-    // The plugin list is needed by the four `plugins.*` sources AND by `llm.models`, which has to
-    // work out which plugin to ask when the setting naming one is empty.
-    const wantsAPlugin = wantsModels || [...wanted].some(isPluginSource);
-    const plugins = useQuery({ ...pluginsListOptions, enabled: wantsAPlugin });
+    const plugins = useQuery({ ...pluginsListOptions, enabled: [...wanted].some(isPluginSource) });
+    // Which plugin the station actually asks for words is the STATION's answer, not a rule
+    // restated here. It used to be restated: `selectPlugin`'s "an empty setting means the first by
+    // id" was mirrored below, reading the setting out of the form being rendered. That worked only
+    // while the key was a field of the same form, so moving it to its own page would have made the
+    // model pickers silently offer a different plugin's models. See `plugin.providers.service.ts`.
+    const providers = useQuery({ ...pluginProvidersOptions, enabled: wantsModels });
 
     const pluginOptions = (capability: string): ConfigFieldOption[] =>
         (plugins.data ?? [])
             .filter(plugin => plugin.enabled && plugin.capabilities.includes(capability))
             .map(plugin => ({ value: plugin.id, label: plugin.name }));
 
-    // Whichever plugin the station actually asks for words: the one named, or — when the setting is
-    // empty, which is the ordinary case with one installed — the first candidate by id. That is
-    // `selectPlugin`'s own rule in `plugin.selection.ts`, mirrored here so the models offered are
-    // the models the station will really reach rather than a different plugin's.
-    const named = valueOf(LLM_PLUGIN_KEY)?.trim() ?? '';
-    const candidates = pluginOptions(PLUGIN_SOURCE_CAPABILITY['plugins.llm']);
-    const modelPluginId = named.length > 0 ? named : (candidates[0]?.value ?? '');
+    // The plugin the station reaches for words, as the station reports it: the one the operator
+    // named, or the default it fell to. So the models offered here are the models that will really
+    // be reached rather than a different plugin's.
+    const modelPluginId =
+        providers.data?.capabilities
+            .find(capability => capability.capability === LLM_CAPABILITY)
+            ?.candidates.find(candidate => candidate.inUse)?.pluginId ?? '';
 
     // Asked of the plugin rather than assembled here, because only it knows what its providers
     // currently offer — and it answers the qualified names, which is what carries the provider.

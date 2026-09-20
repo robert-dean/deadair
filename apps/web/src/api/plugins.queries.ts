@@ -33,6 +33,30 @@ export const pluginsListOptions = queryOptions({
     staleTime: PLUGIN_STALE_TIME,
 });
 
+/**
+ * Who provides each contested capability, and in what order the station asks.
+ *
+ * The one read the Providers section is built on, and the read that tells a plugin card where it
+ * stands. Same stale time as the catalogue it is derived from, since it moves when that moves.
+ */
+export const pluginProvidersOptions = queryOptions({
+    queryKey: queryKeys.plugins.providers(),
+    queryFn: () => sdk.plugins.listCapabilityProviders(),
+    staleTime: PLUGIN_STALE_TIME,
+});
+
+/**
+ * Drops the provider catalogue, after anything that could change who can answer a capability.
+ *
+ * Its own helper because the list of things that change it is longer than it looks: enabling a
+ * plugin, configuring one into or out of working order, installing, importing and removing. Every
+ * one of those already writes the plugin list, so this sits with those writes rather than being
+ * remembered at each call site.
+ */
+function invalidateProviders(queryClient: QueryClient): void {
+    void queryClient.invalidateQueries({ queryKey: queryKeys.plugins.providers() });
+}
+
 export function pluginDetailOptions(id: string) {
     return queryOptions({
         queryKey: queryKeys.plugins.detail(id),
@@ -114,6 +138,9 @@ export function writePluginDetail(queryClient: QueryClient, detail: PluginDetail
     queryClient.setQueryData(queryKeys.plugins.list(), (current: PluginSummary[] | undefined) =>
         current?.map(plugin => (plugin.id === detail.id ? toSummary(detail) : plugin)),
     );
+    // Not patchable the way the list is: whether this plugin can answer a capability changes
+    // everyone else's POSITION in the asking order, and only the station works that out.
+    invalidateProviders(queryClient);
 }
 
 /**
@@ -242,6 +269,7 @@ export function useRescanPlugins() {
         mutationFn: () => sdk.plugins.rescanPlugins(),
         onSuccess: plugins => {
             queryClient.setQueryData(queryKeys.plugins.list(), plugins);
+            invalidateProviders(queryClient);
         },
     });
 }
@@ -262,6 +290,7 @@ export function useImportPlugin() {
             queryClient.setQueryData(queryKeys.plugins.list(), result.plugins);
             void queryClient.invalidateQueries({ queryKey: queryKeys.plugins.detail(result.pluginId) });
             void queryClient.invalidateQueries({ queryKey: queryKeys.plugins.grants() });
+            invalidateProviders(queryClient);
         },
     });
 }
@@ -280,6 +309,7 @@ export function useRemovePlugin() {
             queryClient.setQueryData(queryKeys.plugins.list(), plugins);
             queryClient.removeQueries({ queryKey: queryKeys.plugins.detail(id) });
             void queryClient.invalidateQueries({ queryKey: queryKeys.plugins.grants() });
+            invalidateProviders(queryClient);
         },
     });
 }

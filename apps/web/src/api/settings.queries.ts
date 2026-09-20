@@ -38,6 +38,11 @@ export function useUpdateSettings() {
         mutationFn: (values: Record<string, unknown>) => sdk.settings.updateSettings({ values }),
         onSuccess: (settings: StationSettings) => {
             queryClient.setQueryData(queryKeys.settings.all(), settings);
+            // Several of these settings decide which plugin does a job and in what order, and the
+            // station is what works the resulting order out. Invalidated unconditionally rather
+            // than only for the provider keys: the check would be a list of keys kept in step by
+            // hand, and this is one request after a save the operator is watching anyway.
+            void queryClient.invalidateQueries({ queryKey: queryKeys.plugins.providers() });
         },
     });
 }

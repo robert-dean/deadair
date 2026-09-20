@@ -49,6 +49,16 @@ export const queryKeys = {
          * on its own. Read by the settings page, which is nowhere near the plugin pages above.
          */
         grants: () => ['plugins', 'grants'] as const,
+        /**
+         * Who can do each contested job, and in what order the station asks them.
+         *
+         * Derived from the catalogue above and from the station's settings, and read as its own
+         * key rather than computed from them because the deriving is the STATION's — the asking
+         * order, the chosen plugin, enrichment's declared priority. So it goes stale for two
+         * reasons and both invalidate it: a plugin being enabled, installed or removed, and a
+         * provider setting being saved.
+         */
+        providers: () => ['plugins', 'providers'] as const,
     },
     /**
      * The station's own settings. One key, and no per-group or per-key form: the API answers with

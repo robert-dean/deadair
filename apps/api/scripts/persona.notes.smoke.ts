@@ -206,6 +206,37 @@ await db
             false,
         );
 
+        say('');
+        say('the operator’s opinion');
+        // The one clause this pass was written around a comment about for months: a note distilled
+        // from a break the operator thumbed down is the character being taught to repeat the thing
+        // that did not land.
+        const disliked = whole.find(row => row.script === 'a newer break')!;
+        await sql`insert into deadair.script_ratings (station_key, script_id, rating) values ('main', ${disliked.id}::uuid, -1)`.execute(trx);
+        check(
+            'a break the operator disliked is not read',
+            (await scripts.writtenBy(KEY, undefined, 20)).map(row => row.script),
+            ['an older break', 'the floor covered for it'],
+        );
+
+        // Only DISLIKE excludes. A station where the pass learned only from thumbed-UP breaks would
+        // distil from the handful somebody happened to be listening to, which is a worse bias than
+        // the one this removes — and `is distinct from` rather than `<>` is what keeps the unrated
+        // majority in at all, since a plain comparison against null answers null.
+        const liked = whole.find(row => row.script === 'an older break')!;
+        await sql`insert into deadair.script_ratings (station_key, script_id, rating) values ('main', ${liked.id}::uuid, 1)`.execute(trx);
+        const neutral = whole.find(row => row.script === 'the floor covered for it')!;
+        await sql`insert into deadair.script_ratings (station_key, script_id, rating) values ('main', ${neutral.id}::uuid, 0)`.execute(trx);
+        check(
+            'liked, neutral and unrated all still read',
+            (await scripts.writtenBy(KEY, undefined, 20)).map(row => row.script),
+            ['an older break', 'the floor covered for it'],
+        );
+
+        await sql`delete from deadair.script_ratings where station_key = 'main' and script_id = ${disliked.id}::uuid`.execute(trx);
+
+        say('');
+        say('the watermark');
         const since = whole[1]!.at;
         check(
             'the watermark is exclusive, so a script read once is not read again',

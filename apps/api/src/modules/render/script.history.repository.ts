@@ -360,13 +360,24 @@ export class ScriptHistoryRepository extends DataRepository {
      * the column's own text through and casting it back is exact. Measured: without this, the
      * exclusive watermark returned the row it was taken from.
      *
-     * **This is where the operator's opinion joins**, once there is one. [break-ratings](https://github.com/robert-dean/deadair/discussions/7)
-     * scopes `deadair.script_ratings`, and the clause to add here is exactly one: a note distilled
-     * from a break the operator thumbed down is the character being taught to repeat the thing that
-     * did not land.
+     * **The operator's opinion is in, and it is one clause.** A note distilled from a break the
+     * operator thumbed down is the character being taught to repeat the thing that did not land, so
+     * a disliked attempt is not read. `is distinct from -1` rather than `<> -1` because the join is
+     * a LEFT one and most breaks are unrated: a plain comparison against null answers null, which
+     * would drop every break nobody has an opinion about, which is nearly all of them.
      *
-     *     left join deadair.script_ratings r on r.script_id = said.id
-     *     ...and r.rating is distinct from -1
+     * Only DISLIKE excludes. `liked` and `neutral` read identically, because the pass's question is
+     * "is there any reason not to learn from this" rather than "was this good" — a station where
+     * only thumbed-up breaks counted would distil from the handful of breaks somebody happened to
+     * be listening to, which is a worse bias than the one this removes.
+     *
+     * The join is on the ATTEMPT that was chosen, outside the `distinct on`. An operator who
+     * disliked an earlier attempt for the same segment and left the rewrite alone has said nothing
+     * about the rewrite, and the rewrite is what aired.
+     *
+     * Ratings cascade with `script_history` and that table is swept nightly, so a dislike protects
+     * for `render.scriptHistoryDays` and no longer. That is the same horizon everything else in this
+     * pass works to.
      */
     async writtenBy(personaKey: string, since: string | undefined, limit: number): Promise<{ id: string; script: string; at: string }[]> {
         if (limit <= 0) return [];
@@ -382,6 +393,8 @@ export class ScriptHistoryRepository extends DataRepository {
                   ${since === undefined ? sql`` : sql`and created_at > ${since}::timestamptz`}
                 order by coalesce(segment_id::text, id::text), created_at desc
             ) said
+            left join deadair.script_ratings rated on rated.script_id = said.id and rated.station_key = ${this.identity.stationKey}
+            where rated.rating is distinct from -1
             order by said.created_at asc
             limit ${Math.floor(limit)}
         `.execute(this.db);

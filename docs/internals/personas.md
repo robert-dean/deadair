@@ -131,9 +131,19 @@ no model keeps its notebook and never says anything out of it. The distil pass (
 at 03:41 and that time is not a preference: the script-history sweep at 04:23 deletes the material it reads.
 Its watermark is carried as the column's own TEXT rather than as a `DateTime`, because Luxon is
 millisecond-resolution and Postgres is microsecond, so a watermark taken from a row compares as earlier than
-that row and re-reads it forever. Nothing here judges whether a break was any GOOD, because nothing in the
-station records that; the one clause that will is named in a comment on `ScriptHistoryRepository.writtenBy`
-and [break-ratings](https://github.com/robert-dean/deadair/discussions/7) holds the other end, including why a rating cannot be a column on
+that row and re-reads it forever.
+
+**The operator's opinion is now one clause in that read, and it excludes in one direction only.** A note
+distilled from a break somebody thumbed down is the character being taught to repeat what did not land, so a
+disliked attempt is not read — `is distinct from -1` rather than `<> -1`, because the join is a LEFT one and
+most breaks are unrated, and a plain comparison against null would drop every break nobody has an opinion
+about, which is nearly all of them. `liked` and `neutral` read identically: the pass's question is "is there
+any reason not to learn from this" rather than "was this good", and a station that distilled only from
+thumbed-up breaks would learn from the handful somebody happened to be listening to, which is a worse bias
+than the one this removes. The join is on the ATTEMPT that was chosen, so an operator who disliked an earlier
+attempt and left the rewrite alone has said nothing about the rewrite, and the rewrite is what aired. Ratings
+cascade with `script_history`, so a dislike protects for `render.scriptHistoryDays` and no longer.
+[break-ratings](https://github.com/robert-dean/deadair/discussions/7) holds the other end, including why a rating cannot be a column on
 `script_history` and why optimising against `characterFault` would be steering at the failure `overusedWords`
 already documents.
 

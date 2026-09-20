@@ -9,13 +9,15 @@ import {
     type EnrichmentMatchKey,
     type EnrichmentPluginInstance,
     type PluginConnectionResult,
+    type SimilarArtist,
+    type SimilarityPluginInstance,
     type TrackEnrichment,
     type TrackRef,
 } from '@deadair/plugin-sdk';
 
 import { MusicBrainzClient, MusicBrainzRequestError } from './musicbrainz.client.js';
 import { ListenBrainzClient, ListenBrainzRequestError, LOOKUP_BATCH_SIZE, METADATA_BATCH_SIZE } from './listenbrainz.client.js';
-import { lookupKey, mapListenBrainz, resultKey, toLookupQuery } from './listenbrainz.mapping.js';
+import { lookupKey, mapListenBrainz, resultKey, toLookupQuery, toSimilarArtists } from './listenbrainz.mapping.js';
 import { DEFAULT_BASE_URL, DEFAULT_MATCH_SCORE, REQUEST_TIMEOUT_MS, TEST_ARTIST_MBID } from './musicbrainz.manifest.js';
 import { mapArtist } from './musicbrainz.artist.js';
 import { mapAlbum, mapRecording, selectRelease, selectReleaseFromGroup, selectReleaseGroup } from './musicbrainz.mapping.js';
@@ -148,6 +150,24 @@ const MAX_BATCH_SIZE = 25;
  */
 const OPTIONAL_STEP_MIN_MS = 2_000;
 
+/**
+ * How far from the seed the radio endpoint is allowed to wander.
+ *
+ * `easy` stays close; `medium` and `hard` reach into less popular and more
+ * distant records. Fixed at `easy` because this answers a question about
+ * RESEMBLANCE — the host is already the thing that decides how adventurous an
+ * hour should be, through `rotation.similarMix` and the rules — and a source
+ * that quietly returned distant matches would look like a source with poor
+ * judgement.
+ */
+const SIMILAR_MODE = 'easy' as const;
+
+/** Neighbours asked for when the host names no limit. */
+const DEFAULT_SIMILAR_LIMIT = 20;
+
+/** Ceiling on neighbours asked for, whatever the host requests. */
+const MAX_SIMILAR_ARTISTS = 100;
+
 function errorText(error: unknown): string {
     if (error instanceof Error) return error.message;
     return String(error);
@@ -176,7 +196,7 @@ function errorText(error: unknown): string {
  * `enrichTrack`. The host asks about an artist once per artist, so the answer
  * covers every track they appear on instead of being bought again for each.
  */
-export class MusicBrainzPlugin extends Plugin implements EnrichmentPluginInstance {
+export class MusicBrainzPlugin extends Plugin implements EnrichmentPluginInstance, SimilarityPluginInstance {
     /** Canonical source, per the SDK's own scale. Lower runs first and wins conflicts on merge. */
     readonly priority = 100;
 
@@ -205,17 +225,20 @@ export class MusicBrainzPlugin extends Plugin implements EnrichmentPluginInstanc
         // traffic, and one clear config error beats a 403 per track.
         this.client = contactEmail.length > 0 ? new MusicBrainzClient(this.host, baseUrl, contactEmail) : undefined;
 
-        // The fast path, when the operator supplied a token. Absent is the
-        // ordinary case and costs nothing: every path below falls back to the
-        // web service, so a station with no token is exactly as correct and
-        // only slower.
+        // ALWAYS built, token or not, because the two capabilities need
+        // different halves of ListenBrainz. Enrichment's fast path is the
+        // batching endpoints, which refuse an anonymous caller; similarity is
+        // the radio endpoint, which does not. So the client is constructed
+        // unconditionally and `authenticated` is what the enrichment path
+        // checks — a station with no token keeps exactly the enrichment it had
+        // (the web service, one request a second) and gains similarity.
         const token = (await this.host.secrets.get('listenBrainzToken'))?.trim() ?? '';
-        this.listenBrainz = token.length > 0 ? new ListenBrainzClient(this.host, token) : undefined;
+        this.listenBrainz = new ListenBrainzClient(this.host, token.length > 0 ? token : undefined);
 
         this.host.logger.info('musicbrainz enrichment ready', {
             configured: this.client !== undefined,
             baseUrl,
-            listenBrainz: this.listenBrainz !== undefined,
+            listenBrainz: this.listenBrainz.authenticated,
         });
     }
 
@@ -237,8 +260,12 @@ export class MusicBrainzPlugin extends Plugin implements EnrichmentPluginInstanc
             // Both transports are reported, because "connected" is not the
             // question an operator is really asking here: they want to know
             // whether the token they just pasted in is doing anything.
-            if (!this.listenBrainz) {
-                return { ok: true, message: 'Connected to MusicBrainz. No ListenBrainz token, so enrichment runs one request per second.' };
+            if (!this.listenBrainz?.authenticated) {
+                return {
+                    ok: true,
+                    message:
+                        'Connected to MusicBrainz. No ListenBrainz token, so enrichment runs one request per second. Similar artists work anyway.',
+                };
             }
 
             try {
@@ -353,7 +380,11 @@ export class MusicBrainzPlugin extends Plugin implements EnrichmentPluginInstanc
      * response, so the array is not parallel to the one that was sent.
      */
     private async resolveByListenBrainz(refs: TrackRef[], outstanding: number[], answers: Partial<TrackEnrichment>[]): Promise<number[]> {
-        if (!this.listenBrainz || outstanding.length === 0) return outstanding;
+        // `authenticated` rather than merely existing: the client is now built
+        // whether or not there is a token, because similarity uses an endpoint
+        // that needs none, and the batching this path is for answers 401
+        // without one.
+        if (!this.listenBrainz?.authenticated || outstanding.length === 0) return outstanding;
 
         const answered = new Set<number>();
 
@@ -634,6 +665,69 @@ export class MusicBrainzPlugin extends Plugin implements EnrichmentPluginInstanc
         // no request of its own: the album title, the release ids, and a date
         // to fall back on.
         return mapRecording(recording, selectRelease(recording, ref), ref);
+    }
+
+    // ---------------------------------------------------------------- similarity
+
+    /**
+     * Who resembles this artist, from ListenBrainz.
+     *
+     * ## Why this lives in the MusicBrainz plugin
+     *
+     * ListenBrainz is the same organisation's data under the same ids, and this
+     * plugin already holds every piece the question needs: a client for the
+     * service, its allowlist entry and rate bucket, the optional token, and
+     * `searchArtist` to turn a name into an MBID. A separate plugin would have
+     * duplicated all four and then had to keep them in step.
+     *
+     * ## It costs one request, or two from a name
+     *
+     * The radio endpoint is keyed on an artist MBID. The host hands over an
+     * `mbid` when it has one — `SimilarSetGenerator` passes through whatever
+     * the previous source knew — and a name otherwise, which costs one
+     * MusicBrainz search first at a second apiece.
+     *
+     * ## Every failure here is an empty answer
+     *
+     * A 401 included, which is not hypothetical: ListenBrainz has been closing
+     * endpoints to anonymous callers, and this one is open today. Three THROWN
+     * failures in a row quarantine a plugin, which would take this station's
+     * enrichment down over a similarity endpoint that changed its mind. So this
+     * answers `[]` and says so in the log instead.
+     */
+    async similarArtists(ref: ArtistRef, limit: number): Promise<SimilarArtist[]> {
+        const host = this.host;
+        const listenBrainz = this.listenBrainz;
+        if (!listenBrainz) return [];
+
+        try {
+            const seedMbid = ref.mbid ?? (this.client ? await this.searchArtist(ref.name) : undefined);
+            if (!seedMbid) return [];
+
+            const radio = await listenBrainz.radioForArtist(seedMbid, {
+                mode: SIMILAR_MODE,
+                // One more than asked for, because the seed artist is among the
+                // keys and is about to be dropped.
+                maxSimilarArtists: Math.max(1, Math.min(limit || DEFAULT_SIMILAR_LIMIT, MAX_SIMILAR_ARTISTS)) + 1,
+                // Names are all this answers with, so one row per artist is
+                // enough to read a name off.
+                maxRecordingsPerArtist: 1,
+                // The WHOLE popularity range, because the window decides which
+                // recordings come back and therefore which artists appear at
+                // all. Narrowing it drops neighbours whose catalogue is
+                // obscure, which is the opposite of what a station reaching
+                // outside its own library wants. Nothing here reads a
+                // recording anyway.
+                popBegin: 0,
+                popEnd: 100,
+            });
+
+            return toSimilarArtists(radio, seedMbid).slice(0, limit || DEFAULT_SIMILAR_LIMIT);
+        } catch (error) {
+            const reason = error instanceof ListenBrainzRequestError ? `HTTP ${error.status}` : errorText(error);
+            host.logger.debug('listenbrainz named no similar artists', { artist: ref.name, reason });
+            return [];
+        }
     }
 
     /**

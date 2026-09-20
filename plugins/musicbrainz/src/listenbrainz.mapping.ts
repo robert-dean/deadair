@@ -16,7 +16,7 @@
  * the DJ under the name of the canonical source.
  */
 
-import { baseForm, type ExternalId, type ExternalLink, type TrackEnrichment, type TrackRef } from '@deadair/plugin-sdk';
+import { baseForm, type ExternalId, type ExternalLink, type SimilarArtist, type TrackEnrichment, type TrackRef } from '@deadair/plugin-sdk';
 
 import { COVER_ART_ORIGIN } from './musicbrainz.manifest.js';
 import {
@@ -26,7 +26,13 @@ import {
     SOURCE_MUSICBRAINZ_RELEASE_GROUP,
     webUrl,
 } from './musicbrainz.mapping.js';
-import type { ListenBrainzLookupQuery, ListenBrainzLookupResult, ListenBrainzRecordingMetadata, ListenBrainzTag } from './listenbrainz.types.js';
+import type {
+    ListenBrainzLookupQuery,
+    ListenBrainzLookupResult,
+    ListenBrainzRadioResponse,
+    ListenBrainzRecordingMetadata,
+    ListenBrainzTag,
+} from './listenbrainz.types.js';
 
 /** Enough genres to characterise a track, few enough to say out loud. Matches the WS/2 mapping. */
 const MAX_GENRES = 5;
@@ -150,4 +156,41 @@ export function mapListenBrainz(
     if (ref.isrc) enrichment.isrc = ref.isrc;
 
     return enrichment;
+}
+
+/**
+ * The radio endpoint's answer as the host's shape: who else sounds like the
+ * seed.
+ *
+ * Three things happen here and each is load-bearing.
+ *
+ * **The seed is dropped.** The endpoint includes the artist that was asked
+ * about among its keys, because it is built to fill a station and a station
+ * about an artist plays that artist. The host asked who ELSE resembles them,
+ * and `SimilarityService` would otherwise dedupe the seed away after paying for
+ * it — or, worse, keep it when the seed was reached by mbid and the name came
+ * back spelled differently.
+ *
+ * **No `match`.** ListenBrainz orders its answer and publishes no similarity
+ * score on this endpoint. `total_listen_count` is a popularity figure and not a
+ * resemblance one, and passing it off as {@link SimilarArtist.match} would hand
+ * the host a number it is entitled to compare against Last.fm's.
+ *
+ * **The mbid is kept**, because it crosses providers: it is the one identifier
+ * in this shape that another plugin, or a later call to this one, can use
+ * without guessing.
+ */
+export function toSimilarArtists(radio: ListenBrainzRadioResponse, seedMbid: string): SimilarArtist[] {
+    const found: SimilarArtist[] = [];
+
+    for (const [artistMbid, recordings] of Object.entries(radio)) {
+        if (artistMbid === seedMbid) continue;
+
+        const name = recordings.find(recording => recording.similar_artist_name?.trim())?.similar_artist_name?.trim();
+        if (!name) continue;
+
+        found.push({ name, mbid: artistMbid });
+    }
+
+    return found;
 }

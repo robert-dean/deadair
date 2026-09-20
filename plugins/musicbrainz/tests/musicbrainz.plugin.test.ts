@@ -112,7 +112,7 @@ describe('testConnection', () => {
         // station is actually on rather than a bare "connected".
         await expect(plugin.testConnection()).resolves.toEqual({
             ok: true,
-            message: 'Connected to MusicBrainz. No ListenBrainz token, so enrichment runs one request per second.',
+            message: 'Connected to MusicBrainz. No ListenBrainz token, so enrichment runs one request per second. Similar artists work anyway.',
         });
     });
 });

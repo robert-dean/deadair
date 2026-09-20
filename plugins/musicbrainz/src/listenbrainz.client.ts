@@ -1,7 +1,12 @@
 import { PluginError, jsonBody, pluginCodeForStatus as sharedCodeForStatus, type PluginErrorCode, type PluginHost } from '@deadair/plugin-sdk';
 
 import { LISTENBRAINZ_ORIGIN, PLUGIN_VERSION, REQUEST_TIMEOUT_MS } from './musicbrainz.manifest.js';
-import type { ListenBrainzLookupQuery, ListenBrainzLookupResult, ListenBrainzRecordingMetadataResponse } from './listenbrainz.types.js';
+import type {
+    ListenBrainzLookupQuery,
+    ListenBrainzLookupResult,
+    ListenBrainzRadioResponse,
+    ListenBrainzRecordingMetadataResponse,
+} from './listenbrainz.types.js';
 
 /**
  * The most recordings the lookup endpoint takes in one POST. The service's own
@@ -60,11 +65,28 @@ export class ListenBrainzRequestError extends PluginError {
 export class ListenBrainzClient {
     private readonly userAgent: string;
 
+    /**
+     * The token is OPTIONAL, and which endpoints that rules out is the thing to
+     * know before using this.
+     *
+     * The batching endpoints (`lookup`, and therefore the whole enrichment fast
+     * path) refuse an anonymous caller with a 401. The radio endpoint below does
+     * not, today. ListenBrainz has been closing endpoints to anonymous callers —
+     * `/1/metadata/lookup/` and `/1/popularity/top-recordings-for-artist/` both
+     * answer 401 with a sentence about scrapers — so this is a line that moves,
+     * and every caller here treats a 401 as an ordinary empty answer rather than
+     * a fault.
+     */
     constructor(
         private readonly host: PluginHost,
-        private readonly token: string,
+        private readonly token?: string,
     ) {
         this.userAgent = `deadair-musicbrainz/${PLUGIN_VERSION}`;
+    }
+
+    /** Whether this client can reach the endpoints that require a token. */
+    get authenticated(): boolean {
+        return (this.token ?? '').length > 0;
     }
 
     /**
@@ -94,16 +116,73 @@ export class ListenBrainzClient {
         return answer && typeof answer === 'object' ? answer : {};
     }
 
+    /**
+     * `GET /1/lb-radio/artist/{mbid}`: an artist in, the artists ListenBrainz
+     * says resemble them out, with a recording or two by each.
+     *
+     * Open to anonymous callers today, which is the whole reason the similarity
+     * capability can be offered to an operator who has pasted in no token.
+     *
+     * The answer is keyed by similar-artist mbid and **includes the seed artist
+     * among the keys**, which is a property of the endpoint rather than a
+     * mistake: it is built to fill a radio station, and a station about an
+     * artist plays that artist. Callers drop them.
+     *
+     * `mode` widens the net: `easy` stays close to the seed, `medium` and `hard`
+     * reach further out and into less popular records.
+     *
+     * **All five parameters are MANDATORY**, which the documentation does not
+     * say and the service enforces one at a time: leaving off `pop_begin` is a
+     * 400 reading `pop_begin param is missing`, and leaving off
+     * `max_recordings_per_artist` is a different 400 naming that one. So they
+     * are defaulted here rather than being optional on the wire, and the
+     * defaults are this client's, not the service's — it has none.
+     */
+    async radioForArtist(
+        artistMbid: string,
+        options: {
+            mode?: 'easy' | 'medium' | 'hard';
+            maxSimilarArtists?: number;
+            maxRecordingsPerArtist?: number;
+            popBegin?: number;
+            popEnd?: number;
+        } = {},
+    ): Promise<ListenBrainzRadioResponse> {
+        const answer = await this.get<ListenBrainzRadioResponse | undefined>(`1/lb-radio/artist/${encodeURIComponent(artistMbid)}`, {
+            mode: options.mode ?? 'easy',
+            max_similar_artists: String(options.maxSimilarArtists ?? 10),
+            max_recordings_per_artist: String(options.maxRecordingsPerArtist ?? 1),
+            pop_begin: String(options.popBegin ?? 0),
+            pop_end: String(options.popEnd ?? 100),
+        });
+        return answer && typeof answer === 'object' ? answer : {};
+    }
+
+    private async get<T>(path: string, params: Record<string, string> = {}): Promise<T> {
+        const query = new URLSearchParams(params).toString();
+        return await this.send<T>(`${path}${query.length > 0 ? `?${query}` : ''}`, { method: 'GET' });
+    }
+
     private async post<T>(path: string, payload: unknown): Promise<T> {
-        const response = await this.host.fetch(`${LISTENBRAINZ_ORIGIN}/${path}`, {
+        return await this.send<T>(path, {
             method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+    }
+
+    private async send<T>(path: string, init: { method: 'GET' | 'POST'; headers?: Record<string, string>; body?: string }): Promise<T> {
+        const response = await this.host.fetch(`${LISTENBRAINZ_ORIGIN}/${path}`, {
+            method: init.method,
             headers: {
                 accept: 'application/json',
-                'content-type': 'application/json',
-                authorization: `Token ${this.token}`,
+                ...init.headers,
+                // Sent only when there is one. An anonymous caller gets the open
+                // endpoints; `Token ` with nothing after it is a 401 on all of them.
+                ...(this.authenticated ? { authorization: `Token ${this.token}` } : {}),
                 'user-agent': this.userAgent,
             },
-            body: JSON.stringify(payload),
+            ...(init.body === undefined ? {} : { body: init.body }),
             timeoutMs: REQUEST_TIMEOUT_MS,
         });
 

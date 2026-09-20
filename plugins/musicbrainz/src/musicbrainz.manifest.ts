@@ -93,11 +93,12 @@ export type MusicBrainzConfig = z.infer<typeof configSchema>;
 
 export const musicbrainzManifest: PluginManifest = {
     id: PLUGIN_ID,
-    name: 'MusicBrainz',
+    name: 'MusicBrainz and ListenBrainz',
     version: PLUGIN_VERSION,
-    capabilities: ['enrichment'],
+    capabilities: ['enrichment', 'similarity'],
     apiVersion: '^1.0.0',
-    description: 'Canonical artist, release and recording identity from MusicBrainz, plus genres, label and artwork.',
+    description:
+        'Canonical artist, release and recording identity from MusicBrainz, plus genres, label and artwork; and from ListenBrainz, who sounds like whom.',
     homepage: 'https://musicbrainz.org/doc/MusicBrainz_API',
     permissions: {
         // The two public entries share a bucket and are listed first, so a
@@ -143,7 +144,7 @@ export const musicbrainzManifest: PluginManifest = {
             // reads it back. It is read through `host.secrets.get`, not
             // `host.config.get`, which is why it is absent from `configSchema`.
             type: 'secret',
-            help: 'Free, from your ListenBrainz profile settings. ListenBrainz publishes the same data as MusicBrainz over endpoints that answer about fifty tracks at once, so a token turns a catalog that would take days into one that takes minutes. Leave it blank to stay on the public MusicBrainz service.',
+            help: 'Free, from your ListenBrainz profile settings. ListenBrainz publishes the same data as MusicBrainz over endpoints that answer about fifty tracks at once, so a token turns a catalog that would take days into one that takes minutes. Leave it blank and the facts still arrive, one request a second — and who-sounds-like-whom works either way, because the endpoint behind it is open to anyone.',
         },
         {
             key: 'matchScore',

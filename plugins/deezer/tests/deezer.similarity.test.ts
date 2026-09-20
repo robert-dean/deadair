@@ -55,7 +55,14 @@ describe('similarArtists', () => {
 
     it('matches the artist name exactly, and never settles for what the search ranked first', async () => {
         const { plugin, host } = await initedPlugin();
-        host.queueResponse({ body: JSON.stringify({ data: [{ id: 99, name: 'Beck Goldsmith' }, { id: 98, name: 'Jeff Beck' }] }) });
+        host.queueResponse({
+            body: JSON.stringify({
+                data: [
+                    { id: 99, name: 'Beck Goldsmith' },
+                    { id: 98, name: 'Jeff Beck' },
+                ],
+            }),
+        });
 
         expect(await plugin.similarArtists({ name: 'Beck' }, 8)).toEqual([]);
         // One call and no second: nothing was worth asking about.
@@ -144,7 +151,7 @@ describe('testConnection', () => {
 
         expect(host.calls[0]?.url).toContain('artist/27');
         expect(result.ok).toBe(true);
-        expect(result.message).toContain('no account or API key is needed'.slice(3));
+        expect(result.message).toBe('Connected to Deezer. No account or API key is needed.');
     });
 
     it('reports a failure rather than throwing, so the host can keep retrying it', async () => {

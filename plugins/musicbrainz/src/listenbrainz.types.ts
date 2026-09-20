@@ -80,3 +80,28 @@ export interface ListenBrainzRecordingMetadata {
 
 /** The metadata endpoint answers a map keyed by recording MBID, not an array. */
 export type ListenBrainzRecordingMetadataResponse = Record<string, ListenBrainzRecordingMetadata>;
+
+/**
+ * One row of the radio endpoint's answer: a recording by an artist who
+ * resembles the seed.
+ *
+ * The row carries the ARTIST's name and the recording's id, and never the
+ * recording's title — turning these into records therefore costs a second
+ * request to the metadata endpoint, which is why `similarArtists` (names only)
+ * is one request and naming records is two.
+ */
+export interface ListenBrainzRadioRecording {
+    recording_mbid?: string;
+    similar_artist_mbid?: string;
+    similar_artist_name?: string;
+    total_listen_count?: number;
+}
+
+/**
+ * `GET /1/lb-radio/artist/{mbid}`, keyed by similar-artist MBID.
+ *
+ * The seed artist is one of the keys: the endpoint builds a radio station about
+ * an artist, and such a station plays that artist. Every caller here drops
+ * them, because the host asked who ELSE sounds like this.
+ */
+export type ListenBrainzRadioResponse = Record<string, ListenBrainzRadioRecording[]>;

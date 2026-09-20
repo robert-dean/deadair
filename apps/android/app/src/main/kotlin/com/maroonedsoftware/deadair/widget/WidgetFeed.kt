@@ -2,7 +2,9 @@ package com.maroonedsoftware.deadair.widget
 
 import com.maroonedsoftware.deadair.nowplaying.NowPlayingState
 import com.maroonedsoftware.deadair.sdk.models.NowPlaying
+import android.graphics.Bitmap
 import com.maroonedsoftware.deadair.settings.ListenerSettings
+import com.maroonedsoftware.deadair.station.StationUrl
 import com.maroonedsoftware.deadair.ui.nowplaying.STOP_ARMED_MS
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -56,12 +58,29 @@ class WidgetFeed(
     private val now: () -> Long,
     /** Tell the launcher to ask for the widget again. A lambda so nothing here has to import Glance. */
     private val redraw: suspend () -> Unit,
+    /** Fetch a cover, sized for a widget. A lambda for the same reason, and so a test needs no decoder. */
+    private val loadCover: suspend (String) -> Bitmap?,
     private val scope: CoroutineScope,
 ) {
     private val _state = MutableStateFlow<WidgetState?>(null)
 
     /** Null until the snapshot has been read off disk, which is what [current] waits for. */
     val state: StateFlow<WidgetState?> = _state.asStateFlow()
+
+    private val _cover = MutableStateFlow<Bitmap?>(null)
+
+    /**
+     * The cover on screen, kept beside the state rather than inside it.
+     *
+     * Beside, because everything in [WidgetState] is a value a plain JVM test can hold, and a
+     * `Bitmap` is not. It is also a different lifetime: the same picture outlives several readings
+     * of the same record, and survives one that failed to load.
+     */
+    val cover: StateFlow<Bitmap?> = _cover.asStateFlow()
+
+    /** What [_cover] holds, so a reading naming the same picture does not fetch it again. */
+    private var coverUrl: String? = null
+    private var loading: Job? = null
 
     private val updates = Channel<Update>(Channel.UNLIMITED)
 
@@ -85,7 +104,7 @@ class WidgetFeed(
 
         data class Heard(val state: NowPlayingState) : Update
 
-        data class Station(val origin: String?, val name: String?) : Update
+        data class Station(val station: StationUrl?, val name: String?) : Update
 
         data class Operator(val operator: Boolean) : Update
 
@@ -129,9 +148,9 @@ class WidgetFeed(
         scope.launch { operator.distinctUntilChanged().collect { updates.trySend(Update.Operator(it)) } }
         scope.launch {
             settings
-                .map { it.station?.origin to it.stationName }
+                .map { it.station to it.stationName }
                 .distinctUntilChanged()
-                .collect { (origin, name) -> updates.trySend(Update.Station(origin, name)) }
+                .collect { (station, name) -> updates.trySend(Update.Station(station, name)) }
         }
         scope.launch { settings.map { it.widgetFollows }.distinctUntilChanged().collect { updates.trySend(Update.Follows(it)) } }
     }
@@ -159,6 +178,9 @@ class WidgetFeed(
     /** The origin the snapshot describes, so pointing the app at another station is noticed. */
     private var origin: String? = null
     private var stationName: String? = null
+
+    /** What a relative artwork path is resolved against. The station's own answer is a path, not a URL. */
+    private var station: StationUrl? = null
 
     /** Lives here rather than in the snapshot on disk: a process that died forgets it, which is the safe way round. */
     private val armed = ArmedSkip(now)
@@ -230,13 +252,15 @@ class WidgetFeed(
                 }
             is Update.Station -> {
                 stationName = update.name
-                if (update.origin != origin) {
+                station = update.station
+                if (update.station?.origin != origin) {
                     val first = origin == null
-                    origin = update.origin
+                    origin = update.station?.origin
                     // The old station's record is not this one's. Cleared rather than left to be
                     // overwritten, because under the resting default nothing may ever overwrite it.
                     if (!first) {
                         store.clear()
+                        cover(WidgetSnapshot())
                         draw(WidgetState(WidgetSnapshot(stationName = update.name), was.playback))
                     } else if (was.snapshot.stationName == null && update.name != null) {
                         keep(was, was.snapshot.copy(stationName = update.name))
@@ -250,7 +274,33 @@ class WidgetFeed(
     private suspend fun keep(was: WidgetState, next: WidgetSnapshot) {
         if (!worthDrawing(was.snapshot, next)) return
         store.save(next)
+        cover(next)
         draw(was.copy(snapshot = next))
+    }
+
+    /**
+     * Fetch the cover for a reading, if it names one this does not already hold.
+     *
+     * A cover that will not load leaves what is there, which is the wallpaper's rule and for its
+     * reason: a picture one record old is better than a blank, and the next record is minutes away.
+     * Off air clears it, because then there is nothing it could be the cover OF.
+     */
+    private fun cover(next: WidgetSnapshot) {
+        val url = station?.artUrl(next.artworkUrl)?.takeIf { next.onAir }
+        if (url == coverUrl) return
+
+        loading?.cancel()
+        if (url == null) {
+            coverUrl = null
+            _cover.value = null
+            return
+        }
+        loading = scope.launch {
+            val loaded = loadCover(url) ?: return@launch
+            coverUrl = url
+            _cover.value = loaded
+            ask()
+        }
     }
 
     private fun draw(next: WidgetState) {

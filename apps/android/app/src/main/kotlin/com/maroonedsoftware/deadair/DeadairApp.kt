@@ -23,6 +23,7 @@ import com.maroonedsoftware.deadair.scripts.ScriptActions
 import com.maroonedsoftware.deadair.settings.SettingsStore
 import com.maroonedsoftware.deadair.station.StationProbe
 import com.maroonedsoftware.deadair.widget.StationWidget
+import com.maroonedsoftware.deadair.widget.coverBitmap
 import com.maroonedsoftware.deadair.widget.WidgetFeed
 import com.maroonedsoftware.deadair.widget.WidgetRefreshWorker
 import com.maroonedsoftware.deadair.widget.WidgetSnapshotStore
@@ -168,6 +169,7 @@ class AppGraph(private val application: Application) {
             // a time of day and has to survive the phone being turned off and on again.
             now = System::currentTimeMillis,
             redraw = { StationWidget().updateAll(application) },
+            loadCover = { url -> coverBitmap(application, url) },
             scope = scope,
         )
 }

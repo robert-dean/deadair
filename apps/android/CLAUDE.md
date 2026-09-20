@@ -203,6 +203,56 @@ arms for that reason and a steering wheel cannot. It is also not gated on there 
 skip — the screen's Skip is, because it has the transport reading in front of it, and the playback
 service deliberately collects none of that.
 
+**The home-screen widget is four rules, and three of them were measured the hard way.** A widget is
+not a process: what the launcher shows was drawn by one that may be long gone, and it redraws when
+Android says so. So `WidgetFeed` keeps a snapshot in its own DataStore file and the widget draws
+that. **It takes `NowPlayingRepository.heard`, never `state`** — `state` is `WhileSubscribed`, so a
+process-lifetime collector there would hold the station's poll open for the life of the app, which
+is the one thing that class exists not to do. `heard` is a passive tap: it carries whatever the
+screen or the playback service is already asking for and is silent otherwise, so under the default
+setting a phone with nothing playing and the app closed asks the station nothing at all. That is the
+live wallpaper's rule for the live wallpaper's reason, and `updatePeriodMillis="0"` is the same
+sentence in the provider XML. **While playing it takes the gate's copy rather than the poll's**,
+because `NowPlayingGate` holds a moved record until the audio carrying it has reached the listener
+and a widget drawing the raw poll would contradict the notification beside it. Whether the station is
+ANSWERING is still the poll's to say even then, or one failed request left "Can't reach the station"
+over a record that was playing perfectly well. And **playing or stopped is REPORTED by
+`PlaybackConductor`, never observed**: a widget holding a `MediaController` would keep
+`PlaybackService` alive on behalf of a picture, and a process that died reports nothing, which is
+correct, because a foreground service that was playing would still be alive.
+
+**Three things about Glance that a Compose UI habit gets wrong, each measured on the emulator.** A
+composition runs inside a WorkManager job, so a suspend in `provideGlance` that never returns is an
+ANR (`No response to onStartJob`) rather than a blank widget: it waits for this app's own state with
+a deadline and draws what it has. A redraw likewise suspends until that job has run, so the feed asks
+for drawings through a conflated channel rather than awaiting them. And **hydration asks for no
+drawing at all** — what is on disk is exactly what the launcher is already showing, and asking there
+started a composition from inside `Application.onCreate` every time anything started the process,
+which was killed with `failed to complete startup` before it ever drew anything.
+
+**A Glance session recomposes; it does not call `provideGlance` again.** There is one session per
+widget, so updating a widget whose session is open re-runs only the composition — a composition built
+from values captured before `provideContent` therefore produces identical output for ever. The
+station was stopped and the widget went on showing the record and a Stop button. The state is
+COLLECTED inside `provideContent`, which is what makes a recomposition mean anything.
+
+**A press from a widget is the only controller there is, and that broke `pressStation`.** It released
+its controller the instant after `play()`, which only SENDS the command; a `MediaSessionService`
+whose last controller unbinds while the player is still IDLE stops itself, so the command landed on a
+service that was already dying — the session went BUFFERING and was destroyed 30ms later. The Quick
+Settings tile never showed this because it keeps a connection of its own for as long as the shade is
+open. The press now holds the controller until the player has left IDLE. A widget click is on the
+background-start exemption list, as a tile press is: `Background started FGS: Allowed`, measured with
+the app in the background.
+
+**The widget's Skip arms, and the car's cannot.** `apps/android` gives the operator three Skips now
+and they are not the same control: the screen's has a transport reading in front of it, the head
+unit's has neither a reading nor a second press to think in and was accepted that way, and the
+widget's has a target the size of a thumb on a surface that collects stray presses in a pocket. So it
+arms on the first press and says so, and forgets after the screen's own `STOP_ARMED_MS` — an armed
+Skip left sitting there is the bug it exists to avoid, from the other end. The armed flag is the one
+piece of widget state deliberately not persisted.
+
 **Android Auto's library holds exactly one item, the station, and must never hold a second.**
 `PlaybackService` is a `MediaLibraryService` for Auto's sake: a root folder of radio stations with
 the station in it, answered from the kept settings. Two things about it look like room to grow and

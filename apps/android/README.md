@@ -1,7 +1,8 @@
 # deadair for Android
 
 Listening to the station on a phone: background playback, lock-screen controls, what is on air, and
-a choice of how to receive it.
+a choice of how to receive it. Outside the app there is a Quick Settings tile, a live wallpaper and
+a home-screen widget, and in a car, Android Auto.
 
 Signed in, it also shows what the station has played, what is coming up, what is on next and what
 the station said between the records, and every record, album and artist has a page. Signed in as

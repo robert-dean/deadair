@@ -1,6 +1,6 @@
 # Privacy policy for deadair for Android
 
-Last updated: 11 September 2026
+Last updated: 20 September 2026
 
 deadair for Android is published by Marooned Software. It is a listening app for a deadair radio
 station, which is server software that its users run themselves.
@@ -21,6 +21,10 @@ A handful of settings, and only on the device:
 - the address of the station you chose to listen to, and the name it gave when the app checked it
 - which audio format you picked
 - whether the app takes its colours from your wallpaper
+- if you add the home-screen widget: what the station last told the app it was playing — its name,
+  the record's title and artist or the name of whoever was talking, a link to the cover art, and
+  when that answer was given. It is what the widget draws when the app is not running, it is
+  replaced by the next answer, and it is cleared when you point the app at a different station
 
 And, only if you sign in, the session that station issued:
 

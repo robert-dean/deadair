@@ -1,6 +1,7 @@
 package com.maroonedsoftware.deadair.widget
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.text.format.DateFormat
 import java.util.Date
 import androidx.compose.runtime.Composable
@@ -12,7 +13,9 @@ import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.GlanceTheme
 import androidx.glance.LocalContext
+import androidx.glance.LocalSize
 import androidx.glance.appwidget.GlanceAppWidget
+import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.appWidgetBackground
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
@@ -26,6 +29,8 @@ import androidx.glance.background
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Column
 import androidx.glance.layout.Row
+import androidx.glance.layout.ContentScale
+import androidx.glance.layout.Spacer
 import androidx.glance.layout.size
 import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.padding
@@ -33,6 +38,7 @@ import androidx.glance.material3.ColorProviders
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.maroonedsoftware.deadair.DeadairApp
@@ -56,6 +62,16 @@ import com.maroonedsoftware.deadair.ui.theme.supportsDynamicColor
  * the words are resolved with a `Context` rather than `stringResource`.
  */
 class StationWidget : GlanceAppWidget() {
+    /**
+     * Two shapes rather than one that squeezes.
+     *
+     * A home screen's rows are the listener's to divide, and what has to survive the narrow one is
+     * the record's name and a way to stop it. The cover and the operator's Skip are what a wider
+     * one buys: a cover in a 2-cell row leaves about two words for the title, and a Skip crowded
+     * against Stop is the press this app has spent two surfaces keeping apart.
+     */
+    override val sizeMode = SizeMode.Responsive(setOf(NARROW, WIDE))
+
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val graph = (context.applicationContext as DeadairApp).graph
         // Waits for the snapshot to be read off disk, which on a cold start is why this process
@@ -75,16 +91,18 @@ class StationWidget : GlanceAppWidget() {
             // was stopped and the widget went on showing the record and a Stop button.
             val state by graph.widget.state.collectAsState(initial = first)
             val kept by graph.settings.settings.collectAsState(initial = keptFirst)
+            val cover by graph.widget.cover.collectAsState()
 
             // `hasStation` is whether one has been NAMED, which is not the same as knowing what it
             // calls itself: a station kept but never reached has an address and no name.
-            Station(state ?: first, kept)
+            Station(state ?: first, kept, cover)
         }
     }
 
     @Composable
-    private fun Station(state: WidgetState, kept: ListenerSettings) {
+    private fun Station(state: WidgetState, kept: ListenerSettings, cover: Bitmap?) {
         val context = LocalContext.current
+        val wide = LocalSize.current.width >= WIDE.width
         val reading =
             widgetReading(
                 // Whether a station has been NAMED, which is not the same as knowing what it calls
@@ -115,6 +133,9 @@ class StationWidget : GlanceAppWidget() {
                         .clickable(actionStartActivity<MainActivity>()),
                 verticalAlignment = Alignment.Vertical.CenterVertically,
             ) {
+                // Only over something that is on: off air the square would be the last record's
+                // cover under the words "Off air", which is a picture telling a lie.
+                if (wide && cover != null && reading is WidgetReading.Record) Cover(cover)
                 Column(modifier = GlanceModifier.defaultWeight()) {
                     Text(
                         text = heading,
@@ -132,12 +153,30 @@ class StationWidget : GlanceAppWidget() {
                 }
                 // Drawn before Play, because Play is where a thumb goes by habit and Skip is the
                 // one that cuts everybody's record.
-                if (offersSkip(state.operator, reading)) Skip(state.skipArmed, context)
+                if (wide && offersSkip(state.operator, reading)) Skip(state.skipArmed, context)
                 // Nothing to press with no station kept: the app is where one is named, and the
                 // tap that opens it is already the whole widget.
                 if (reading != WidgetReading.NoStation) PlayStop(state.playback, context)
             }
         }
+    }
+
+    /**
+     * The cover of what is playing.
+     *
+     * A bitmap rather than a URL, because the launcher inflates this in its own process and cannot
+     * fetch anything: what crosses is pixels. `Cover.kt` is where they are sized, and why.
+     */
+    @Composable
+    private fun Cover(cover: Bitmap) {
+        Image(
+            provider = ImageProvider(cover),
+            // Decoration: the record's title is beside it, in words a screen reader can read.
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = GlanceModifier.size(48.dp).cornerRadius(6.dp).padding(end = 0.dp),
+        )
+        Spacer(GlanceModifier.size(12.dp))
     }
 
     /**
@@ -192,6 +231,12 @@ class StationWidget : GlanceAppWidget() {
         )
     }
 }
+
+/** One cell wide and one tall, near enough: the record and a way to stop it, and nothing else. */
+private val NARROW = DpSize(140.dp, 48.dp)
+
+/** Three cells: room for the cover and, for the station's own account, Skip. */
+private val WIDE = DpSize(250.dp, 48.dp)
 
 /** The station's own green on carbon, which is the app's theme said in the one type Glance takes. */
 private val STATION_COLORS = ColorProviders(light = LightScheme, dark = DarkScheme)

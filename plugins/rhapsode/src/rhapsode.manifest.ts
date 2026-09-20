@@ -3,6 +3,7 @@ import { z } from 'zod';
 import {
     VOICE_ENGINE_COLUMN,
     VOICE_NAME_COLUMN,
+    VOICE_SPEED_COLUMN,
     VOICE_VARIANT_COLUMN,
     VOICE_VOICE_COLUMN,
     VOICES_FIELD,
@@ -192,7 +193,15 @@ export const rhapsodeManifest: PluginManifest = {
                 { key: VOICE_ENGINE_COLUMN, label: 'Engine', type: 'string', placeholder: DEFAULT_ENGINE },
                 { key: VOICE_VOICE_COLUMN, label: 'Engine voice', type: 'string', required: true, placeholder: 'af_heart' },
                 { key: VOICE_VARIANT_COLUMN, label: 'Variant', type: 'string', placeholder: 'whatever is loaded' },
+                { key: VOICE_SPEED_COLUMN, label: 'Speed', type: 'string', placeholder: "the engine's own pace" },
             ],
+        },
+        {
+            key: 'speedNote',
+            type: 'note',
+            label:
+                "Speed is optional, and only some engines have it: it is one of the engine's own dials, with its own range, and a voice on a build that does not declare one is read at its ordinary pace whatever you put here. " +
+                'Leave it empty unless a character calls for it.',
         },
     ],
     configSchema,

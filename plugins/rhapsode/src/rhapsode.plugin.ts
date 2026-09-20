@@ -3,11 +3,27 @@ import {
     configString,
     Plugin,
     PluginError,
+    SPEECH_CUES,
+    SPEECH_DELIVERIES,
+    type PluginLogger,
+    type SpeechCue,
+    type SpeechDelivery,
     type SpeechHandle,
+    type SpeechLimits,
     type SpeechPluginInstance,
     type SpeechRequest,
 } from '@deadair/plugin-sdk';
-import type { EngineSpeakRequest } from '@maroonedsoftware/rhapsode-sdk';
+import type { Capabilities, EngineSpeakRequest } from '@maroonedsoftware/rhapsode-sdk';
+import {
+    cuesOf,
+    deliveriesOf,
+    effectiveVariant,
+    EngineCapabilities,
+    maxCharactersOf,
+    speedDialOf,
+    speedWithin,
+    type EffectiveVariant,
+} from './rhapsode.capabilities.js';
 import {
     DEFAULT_ENGINE,
     DEFAULT_FORMAT,
@@ -19,7 +35,7 @@ import {
     type ResponseFormat,
 } from './rhapsode.manifest.js';
 import { speakFailure } from './rhapsode.errors.js';
-import { VOICES_FIELD, voiceMapOf, type VoiceMap } from './rhapsode.voices.js';
+import { VOICES_FIELD, voiceMapOf, type VoiceMap, type VoiceMapping } from './rhapsode.voices.js';
 
 export { rhapsodeManifest };
 
@@ -92,6 +108,9 @@ export class RhapsodePlugin extends Plugin implements SpeechPluginInstance {
     private format: ResponseFormat = DEFAULT_FORMAT;
     private keepAliveSeconds?: number;
     private voices: VoiceMap = {};
+    // Absent until there is an address to ask, and rebuilt on every load, so a document read under
+    // one server URL is never answered under another.
+    private capabilities?: EngineCapabilities;
 
     protected async onLoad(): Promise<void> {
         const config = await this.host.config.get();
@@ -110,6 +129,15 @@ export class RhapsodePlugin extends Plugin implements SpeechPluginInstance {
         // everything — is answered differently here: a shipped row would have to name an engine and
         // a voice id, and this plugin cannot know which engines an operator has installed.
         this.voices = voiceMapOf(config[VOICES_FIELD]);
+
+        this.capabilities =
+            this.baseUrl.length === 0
+                ? undefined
+                : new EngineCapabilities({
+                      baseUrl: this.baseUrl,
+                      fetch: (url, init) => this.host.fetch(url, init),
+                      logger: this.host.logger,
+                  });
 
         this.host.logger.info('rhapsode ready', {
             baseUrl: this.baseUrl,
@@ -131,9 +159,11 @@ export class RhapsodePlugin extends Plugin implements SpeechPluginInstance {
         // Held before the first await: a config save mid-synthesis reinitialises this instance, and
         // `this.host` read after that throws rather than logging. See the SDK's CLAUDE.md.
         const host = this.host;
+        const capabilities = this.capabilities;
 
         const asked = this.resolveVoice(request.voice);
         const format = isResponseFormat(request.format) ? request.format : this.format;
+        const params = await speedParams(capabilities, host.logger, asked);
 
         // Typed as the server's own request shape, so a field this plugin spells wrong is a build
         // failure here rather than a 400 on air. The text goes through untouched: a cue rides inside
@@ -148,6 +178,7 @@ export class RhapsodePlugin extends Plugin implements SpeechPluginInstance {
             ...(asked.voice === undefined ? {} : { voice: asked.voice }),
             ...(asked.variant === undefined ? {} : { variant: asked.variant }),
             ...(request.delivery === undefined ? {} : { delivery: request.delivery }),
+            ...(params === undefined ? {} : { params }),
             ...(this.keepAliveSeconds === undefined ? {} : { keepAliveSeconds: this.keepAliveSeconds }),
         };
 
@@ -167,6 +198,7 @@ export class RhapsodePlugin extends Plugin implements SpeechPluginInstance {
             format,
             chars: text.length,
             ...(request.delivery === undefined ? {} : { delivery: request.delivery }),
+            ...(params === undefined ? {} : params),
         });
 
         return {
@@ -200,6 +232,92 @@ export class RhapsodePlugin extends Plugin implements SpeechPluginInstance {
             engine: mapped?.engine ?? this.defaultEngine,
             ...(voice === undefined ? {} : { voice }),
             ...(variant === undefined ? {} : { variant }),
+            // Not inherited from the defaults, because there is no default speed to inherit: a speed
+            // belongs to the character whose row carries it.
+            ...(mapped?.speed === undefined ? {} : { speed: mapped.speed }),
+        };
+    }
+
+    /**
+     * Which cues a writer may put in a script for this station.
+     *
+     * The UNION over every build the voices table can reach, rather than the intersection, and this
+     * is only safe because of where the stripping happens. The host strips a cue this plugin does not
+     * claim; the SERVER strips a cue the build it is about to use does not claim, per request. So a
+     * cue claimed here and not performed by the engine that ends up reading a given line is removed
+     * on the way past rather than read out as the word "laugh" — which is the failure the SDK warns
+     * about, and the only one that would argue for the intersection.
+     *
+     * The intersection would cost real latitude for nothing: one row pointing at a build with a
+     * short list would take cues away from every other voice on the station.
+     */
+    async listCues(): Promise<readonly SpeechCue[]> {
+        const claimed = new Set((await this.buildsInUse()).flatMap(cuesOf));
+
+        // In the vocabulary's own order rather than discovery order, so the answer does not change
+        // shape because an operator reordered the voices table.
+        return SPEECH_CUES.filter(cue => claimed.has(cue));
+    }
+
+    /** {@link listCues}' twin, on the same argument: the server drops a delivery the build cannot do. */
+    async listDeliveries(): Promise<readonly SpeechDelivery[]> {
+        const claimed = new Set((await this.buildsInUse()).flatMap(deliveriesOf));
+
+        return SPEECH_DELIVERIES.filter(delivery => claimed.has(delivery));
+    }
+
+    /**
+     * How much text one call takes, as the SMALLEST any build in use will accept.
+     *
+     * The opposite of {@link listCues}' union, because this is the opposite kind of answer. The host
+     * asks once, for the plugin rather than for a voice, and chunks everything it has to say against
+     * what it is told — so a ceiling that is too high for one of these builds is a request that build
+     * refuses, and the SDK's own note says three of those in a row quarantine the plugin. The
+     * smallest is the only number that is true of all of them.
+     *
+     * Nothing at all when no build declares one, which leaves the host's conservative default
+     * standing rather than replacing it with a guess of this plugin's.
+     */
+    async listLimits(): Promise<SpeechLimits> {
+        const declared = (await this.buildsInUse()).map(maxCharactersOf).filter((max): max is number => max !== undefined);
+
+        return declared.length === 0 ? {} : { maxCharacters: Math.min(...declared) };
+    }
+
+    /**
+     * Every build this station could end up speaking through.
+     *
+     * The default address plus one per mapped voice, deduplicated: what a build can do depends on
+     * the engine and the variant and nothing else, so twelve rows on one engine are one question.
+     *
+     * The documents are fetched once per ENGINE and in parallel. Sequentially, three engines on a
+     * cold cache would be three probes end to end against an eight-second budget for the whole call,
+     * which is how a question about cues turns into a break with none.
+     */
+    private async buildsInUse(): Promise<(EffectiveVariant | undefined)[]> {
+        const capabilities = this.capabilities;
+        if (capabilities === undefined) return [];
+
+        const addresses = [this.resolveVoice(undefined), ...Object.values(this.voices).map(mapping => this.addressOf(mapping))];
+        const builds = new Map(addresses.map(address => [`${address.engine} ${address.variant ?? ''}`, address]));
+
+        const engines = [...new Set([...builds.values()].map(address => address.engine))];
+        const documents = new Map<string, Capabilities | undefined>(
+            await Promise.all(engines.map(async engine => [engine, await capabilities.of(engine)] as const)),
+        );
+
+        return [...builds.values()].map(address => effectiveVariant(documents.get(address.engine), address.variant));
+    }
+
+    /** One stored row as the address it names, with the defaults filling whatever it left blank. */
+    private addressOf(mapping: VoiceMapping): SpeakAddress {
+        const variant = mapping.variant ?? this.defaultVariant;
+
+        return {
+            engine: mapping.engine ?? this.defaultEngine,
+            voice: mapping.voice,
+            ...(variant === undefined ? {} : { variant }),
+            ...(mapping.speed === undefined ? {} : { speed: mapping.speed }),
         };
     }
 }
@@ -209,6 +327,41 @@ interface SpeakAddress {
     engine: string;
     voice?: string;
     variant?: string;
+    speed?: number;
+}
+
+/**
+ * The dials to send with this line, which is at most a speed and usually nothing.
+ *
+ * Gated on the build's own declaration rather than sent hopefully, because on this server an unknown
+ * dial key is a 400 naming it: a speed typed against an engine that has no speed dial would cost the
+ * break rather than being ignored. That gate is also why this asks nothing of the server for the
+ * ordinary line — a row with no speed in it never reaches the capability document at all, so the
+ * common case is still one request.
+ *
+ * A document that could not be read means no speed, for the same reason. An unconfirmed dial and an
+ * absent one are the same risk.
+ */
+async function speedParams(
+    capabilities: EngineCapabilities | undefined,
+    logger: PluginLogger,
+    asked: SpeakAddress,
+): Promise<Record<string, number> | undefined> {
+    if (asked.speed === undefined || capabilities === undefined) return undefined;
+
+    const dial = speedDialOf(effectiveVariant(await capabilities.of(asked.engine), asked.variant));
+    if (dial === undefined) {
+        logger.debug('rhapsode withheld the speed, because this build declares no speed dial', {
+            engine: asked.engine,
+            ...(asked.variant === undefined ? {} : { variant: asked.variant }),
+            speed: asked.speed,
+        });
+        return undefined;
+    }
+
+    // Clamped rather than refused: the nearest thing the engine can do is a better answer than
+    // ignoring an operator who asked for something outside its range.
+    return { speed: speedWithin(dial, asked.speed) };
 }
 
 /** The address as one phrase, for a log line and for the message on a body that was not audio. */

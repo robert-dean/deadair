@@ -34,6 +34,7 @@ export const VOICE_NAME_COLUMN = 'name';
 export const VOICE_ENGINE_COLUMN = 'engine';
 export const VOICE_VOICE_COLUMN = 'voice';
 export const VOICE_VARIANT_COLUMN = 'variant';
+export const VOICE_SPEED_COLUMN = 'speed';
 
 /** What one station voice IS on this server. */
 export interface VoiceMapping {
@@ -64,6 +65,17 @@ export interface VoiceMapping {
      * leaving it blank takes whatever is resident, which is the cheaper answer and the right default.
      */
     variant?: string;
+
+    /**
+     * How fast to read, when this voice is not read at the engine's own pace.
+     *
+     * Kept as the operator typed it rather than clamped here, because there is no single range to
+     * clamp to: `speed` is one of the engine's own dials and each build declares its own `min` and
+     * `max`. The plugin asks the build for them before sending one, which is also what stops a speed
+     * from reaching an engine that has no such dial — on this server an unknown dial is a refusal
+     * naming the key, not a field quietly ignored.
+     */
+    speed?: number;
 }
 
 /** Station voice name to what it is here. */
@@ -91,15 +103,32 @@ export function voiceMapOf(raw: unknown): VoiceMap {
 
         const engine = row[VOICE_ENGINE_COLUMN]?.trim();
         const variant = row[VOICE_VARIANT_COLUMN]?.trim();
+        const speed = speedOf(row[VOICE_SPEED_COLUMN]);
 
         voices[name] = {
             voice,
             ...(engine ? { engine } : {}),
             ...(variant ? { variant } : {}),
+            ...(speed === undefined ? {} : { speed }),
         };
     }
 
     return voices;
+}
+
+/**
+ * A speed cell as a number, or nothing.
+ *
+ * Every cell of a `list` is stored as a string, so this is where a typed field would otherwise be.
+ * Anything that is not a positive number at all is absent, which means the engine's own pace — and
+ * absent is genuinely different from 1, which is a dial this plugin would then send and a build with
+ * no speed dial would refuse.
+ */
+export function speedOf(raw: string | undefined): number | undefined {
+    if (raw === undefined || raw.trim().length === 0) return undefined;
+
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
 }
 
 /**

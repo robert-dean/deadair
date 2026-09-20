@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { isPluginError, type PluginError, type SpeechRequest } from '@deadair/plugin-sdk';
 import { createFakePluginHost, type FakePluginHost } from '@deadair/plugin-sdk/testing';
+import type { Capabilities, Variant } from '@maroonedsoftware/rhapsode-sdk';
 
 import { mimeOf, RhapsodePlugin } from '../src/rhapsode.plugin.js';
 
@@ -31,7 +32,23 @@ interface FakeHostOptions {
     speakBody?: string;
     /** The content type the audio is announced as. */
     contentType?: string;
+    /** What each engine says it can do. An engine not named here is one the server will not describe. */
+    capabilities?: Record<string, Capabilities>;
 }
+
+/** One engine's document, with only the parts these tests look at filled in. */
+const capabilities = (over: Partial<Capabilities> = {}): Capabilities => ({
+    contract: 1,
+    engine: { id: 'kokoro', displayName: 'Kokoro', adapterVersion: '0.1.0' },
+    license: { code: 'MIT', weights: 'MIT', weightsCommercialUse: true },
+    device: { type: 'cpu', name: 'a laptop' },
+    variants: { only: { cues: [], deliveries: [], dials: {} } },
+    formats: ['wav'],
+    ...over,
+});
+
+/** A build, for a document's `variants` table. */
+const variant = (over: Partial<Variant> = {}): Variant => ({ cues: [], deliveries: [], dials: {}, ...over });
 
 function fakeHost(options: FakeHostOptions = {}) {
     // Every body this fake hands out that was let go rather than read, so a test can assert the
@@ -41,6 +58,15 @@ function fakeHost(options: FakeHostOptions = {}) {
     const host: FakePluginHost = createFakePluginHost();
 
     host.setFetchImpl(async (url: string): Promise<Response> => {
+        const asked = /\/engines\/([^/]+)\/capabilities$/.exec(url);
+        if (asked !== null) {
+            const document = options.capabilities?.[decodeURIComponent(asked[1]!)];
+
+            return document === undefined
+                ? new Response(JSON.stringify({ error: { code: 'unknown_engine', message: 'no such engine' } }), { status: 404 })
+                : new Response(JSON.stringify(document), { status: 200, headers: { 'content-type': 'application/json' } });
+        }
+
         if (!url.endsWith('/speak')) throw new Error(`nothing in this test should call ${url}`);
 
         const status = options.speakStatus ?? 200;
@@ -321,5 +347,179 @@ describe('when it will not speak', () => {
         const handle = await plugin.speak(say());
 
         expect(await drain(handle.audio)).toBe(256);
+    });
+});
+
+describe('speed', () => {
+    const withSpeedDial = capabilities({ variants: { only: variant({ dials: { speed: { min: 0.5, max: 2, default: 1 } } }) } });
+
+    it('sends a speed the build declares a dial for', async () => {
+        const { plugin, calls } = await started({
+            capabilities: { kokoro: withSpeedDial },
+            config: { voices: voiceRows({ name: 'host', voice: 'af_heart', speed: '1.2' }) },
+        });
+
+        await plugin.speak(say({ voice: 'host' }));
+
+        expect(sentBody(calls).params).toEqual({ speed: 1.2 });
+    });
+
+    it('clamps a speed the dial will not take, rather than losing the break to a 400', async () => {
+        const { plugin, calls } = await started({
+            capabilities: { kokoro: withSpeedDial },
+            config: { voices: voiceRows({ name: 'host', voice: 'af_heart', speed: '9' }) },
+        });
+
+        await plugin.speak(say({ voice: 'host' }));
+
+        expect(sentBody(calls).params).toEqual({ speed: 2 });
+    });
+
+    it('withholds a speed from a build that declares no such dial, and says why', async () => {
+        // On this server an unknown dial key is a refusal naming it, not a field quietly ignored.
+        const { plugin, calls, host } = await started({
+            capabilities: { kokoro: capabilities() },
+            config: { voices: voiceRows({ name: 'host', voice: 'af_heart', speed: '1.2' }) },
+        });
+
+        await plugin.speak(say({ voice: 'host' }));
+
+        expect(sentBody(calls)).not.toHaveProperty('params');
+        expect(host.logger.debug).toHaveBeenCalledWith(
+            'rhapsode withheld the speed, because this build declares no speed dial',
+            expect.objectContaining({ engine: 'kokoro' }),
+        );
+    });
+
+    it('withholds a speed it could not confirm a dial for', async () => {
+        const { plugin, calls } = await started({ config: { voices: voiceRows({ name: 'host', voice: 'af_heart', speed: '1.2' }) } });
+
+        await plugin.speak(say({ voice: 'host' }));
+
+        expect(sentBody(calls)).not.toHaveProperty('params');
+    });
+
+    it('asks the server nothing extra for a line with no speed on it', async () => {
+        // The common case stays one request: a row with no speed never reaches the capability
+        // document at all.
+        const { plugin, calls } = await started({
+            capabilities: { kokoro: withSpeedDial },
+            config: { voices: voiceRows({ name: 'host', voice: 'af_heart' }) },
+        });
+
+        await plugin.speak(say({ voice: 'host' }));
+
+        expect(calls.map(call => call.url)).toEqual([`${BASE_URL}/speak`]);
+    });
+
+    it('reads the dial off the variant the row names', async () => {
+        const perVariant = capabilities({
+            variants: {
+                turbo: variant(),
+                original: variant({ dials: { speed: { min: 0.5, max: 2, default: 1 } } }),
+            },
+        });
+
+        const { plugin, calls } = await started({
+            capabilities: { chatterbox: perVariant },
+            config: { voices: voiceRows({ name: 'host', engine: 'chatterbox', voice: 'gravel', variant: 'original', speed: '1.5' }) },
+        });
+
+        await plugin.speak(say({ voice: 'host' }));
+
+        expect(sentBody(calls).params).toEqual({ speed: 1.5 });
+    });
+});
+
+describe('what this station can be asked for', () => {
+    const kokoro = capabilities({
+        variants: { only: variant({ cues: ['laugh', 'sigh'], deliveries: ['hushed'], maxCharacters: 4096 }) },
+    });
+    const chatterbox = capabilities({
+        engine: { id: 'chatterbox', displayName: 'Chatterbox', adapterVersion: '0.3.1' },
+        variants: { turbo: variant({ cues: ['gasp'], deliveries: ['frantic'], maxCharacters: 1000 }) },
+    });
+
+    const bothEngines = {
+        capabilities: { kokoro, chatterbox },
+        config: {
+            voices: voiceRows({ name: 'host', voice: 'af_heart' }, { name: 'caller', engine: 'chatterbox', voice: 'gravel' }),
+        },
+    };
+
+    it('claims every cue any build in use performs', async () => {
+        // The union rather than the intersection: the server strips a cue the build it is about to
+        // use does not claim, so over-claiming costs a flourish and never gets a word read out.
+        const { plugin } = await started(bothEngines);
+
+        expect(await plugin.listCues()).toEqual(['laugh', 'sigh', 'gasp']);
+    });
+
+    it('answers in the vocabulary the station owns order, not the order the table is in', async () => {
+        const { plugin } = await started({
+            capabilities: { kokoro: capabilities({ variants: { only: variant({ cues: ['groan', 'laugh'] }) } }) },
+        });
+
+        expect(await plugin.listCues()).toEqual(['laugh', 'groan']);
+    });
+
+    it('claims every delivery any build in use performs', async () => {
+        const { plugin } = await started(bothEngines);
+
+        expect(await plugin.listDeliveries()).toEqual(['hushed', 'frantic']);
+    });
+
+    it('takes the smallest ceiling, because the host chunks everything against one number', async () => {
+        const { plugin } = await started(bothEngines);
+
+        expect(await plugin.listLimits()).toEqual({ maxCharacters: 1000 });
+    });
+
+    it('leaves the host its own default when no build declares a ceiling', async () => {
+        const { plugin } = await started({ capabilities: { kokoro: capabilities() } });
+
+        expect(await plugin.listLimits()).toEqual({});
+    });
+
+    it('claims nothing at all when the server cannot be reached', async () => {
+        const { plugin } = await started();
+
+        expect(await plugin.listCues()).toEqual([]);
+        expect(await plugin.listDeliveries()).toEqual([]);
+        expect(await plugin.listLimits()).toEqual({});
+    });
+
+    it('asks each engine once however many voices point at it', async () => {
+        const { plugin, calls } = await started({
+            capabilities: { kokoro },
+            config: {
+                voices: voiceRows(
+                    { name: 'host', voice: 'af_heart' },
+                    { name: 'newsreader', voice: 'bf_emma' },
+                    { name: 'caller', voice: 'am_adam' },
+                ),
+            },
+        });
+
+        await plugin.listCues();
+
+        expect(calls.map(call => call.url)).toEqual([`${BASE_URL}/engines/kokoro/capabilities`]);
+    });
+
+    it('reads every build the table can reach, not just the loaded one', async () => {
+        const perVariant = capabilities({
+            engine: { id: 'chatterbox', displayName: 'Chatterbox', adapterVersion: '0.3.1' },
+            variants: { turbo: variant({ cues: ['laugh'] }), multilingual: variant({ cues: ['sigh'] }) },
+        });
+
+        const { plugin } = await started({
+            capabilities: { chatterbox: perVariant },
+            config: {
+                defaultEngine: 'chatterbox',
+                voices: voiceRows({ name: 'host', voice: 'gravel', variant: 'turbo' }, { name: 'caller', voice: 'reedy', variant: 'multilingual' }),
+            },
+        });
+
+        expect(await plugin.listCues()).toEqual(['laugh', 'sigh']);
     });
 });

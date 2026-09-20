@@ -29,7 +29,6 @@ function build(options: { persona?: { key: string } } = {}) {
     const stories = {
         countAfter: vi.fn(async () => ({ stories: 1, details: 4, rejected: 0, touched: 2 })),
         rollbackAfter: vi.fn(async () => ({ stories: 1, details: 4 })),
-        recomputeTold: vi.fn(async () => {}),
     };
     const activity = { record: vi.fn(async () => undefined) };
 
@@ -91,7 +90,7 @@ describe('previewing a rollback', () => {
 });
 
 describe('rolling back', () => {
-    it('cuts all three stores and puts the rotation columns back in step', async () => {
+    it('cuts all three stores', async () => {
         const { service, tellings, notes, stories } = build();
 
         await service.rollback('p1', { to: MOMENT });
@@ -99,8 +98,9 @@ describe('rolling back', () => {
         expect(tellings.removeAfter).toHaveBeenCalledWith('latenight', MOMENT);
         expect(notes.rollbackAfter).toHaveBeenCalledWith('latenight', MOMENT);
         expect(stories.rollbackAfter).toHaveBeenCalledWith('latenight', MOMENT);
-        // Or a story claims it went out at a moment the station no longer has any record of.
-        expect(stories.recomputeTold).toHaveBeenCalledWith('latenight');
+        // And nothing else needs putting back in step, which is most of why the ledger is worth
+        // having: the rotation and the telling count are READ off it rather than stored beside it,
+        // so cutting it down is the whole of undoing them.
     });
 
     it('reports what it undid, counted before it undid it', async () => {

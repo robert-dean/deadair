@@ -2,11 +2,17 @@
  * A character's own history, against the real database.
  *
  * The unit tests mock this repository, so nothing else runs the SQL under it — and every interesting
- * decision in `deadair.persona_stories` is SQL: the least-recently-told rotation that decides which
- * of a shelf a break actually hears, the counter that changes how a model is asked to tell one, the
- * partial unique index that stops the enrichment pass proposing the same story every night while
- * leaving an operator free to write their own, and the cascade that makes a detail belong to its
- * story rather than outlive it.
+ * decision in `deadair.persona_stories` is SQL: the least-recently-carried rotation that decides
+ * which of a shelf a break actually hears, the counter that changes how a model is asked to tell
+ * one, the partial unique index that stops the enrichment pass proposing the same story every night
+ * while leaving an operator free to write their own, and the cascade that makes a detail belong to
+ * its story rather than outlive it.
+ *
+ * The first two are now READ off `deadair.persona_tellings` rather than stored beside the story, so
+ * what this checks is a pair of correlated subqueries rather than two columns — and with them the
+ * distinction those columns could not express: a carry the writer IGNORED spends the story's turn
+ * without counting as a telling, so a story the model keeps passing over stops blocking the shelf
+ * and the station never claims a listener heard it.
  *
  * It also covers the one thing this store must NOT have borrowed from `deadair.facts`: there is no
  * evidence constraint here, because a story is fiction about a character rather than a claim about
@@ -34,6 +40,7 @@ import type { Logger } from '@maroonedsoftware/logger';
 
 import type { DB } from '../src/modules/data/db.js';
 import { PersonaStoriesRepository } from '../src/modules/personas/persona.stories.repository.js';
+import { PersonaTellingRepository } from '../src/modules/personas/persona.telling.repository.js';
 import { PERSONA_STORY_DETAIL_LIMIT } from '../src/modules/personas/persona.story.js';
 import { StationIdentity } from '../src/modules/shared/station.identity.js';
 
@@ -68,6 +75,7 @@ await db
     .transaction()
     .execute(async trx => {
         const stories = new PersonaStoriesRepository(trx, new StationIdentity());
+        const tellings = new PersonaTellingRepository(trx, new StationIdentity());
 
         say('what the store will accept');
         // Deliberately NOT `facts`' posture, and this is the check that says so. A claim about the
@@ -131,21 +139,35 @@ await db
 
         say('');
         say('the rotation');
-        // Least recently told first, `nulls first`, so a story that has never gone out is ahead of
-        // every story that has. Rest what was chosen and the other one has to come round, or a
-        // character tells the same anecdote until somebody deletes it.
-        await stories.markTold(first!.id);
+        // Least recently CARRIED first, `nulls first`, so a story that has never been handed over is
+        // ahead of every story that has. What spends a story's turn is a row in the ledger — the two
+        // columns that used to hold this are no longer read, and `markTold` no longer writes them.
+        await tellings.record({
+            personaKey: KEY,
+            storyId: first!.id,
+            source: 'break',
+            mode: 'offered',
+            told: true,
+            said: 'And that is what I saw.',
+        });
         const second = await stories.forPrompt(KEY);
-        check('resting the one that was told brings the other round', second?.id === first!.id, false);
+        check('recording a telling brings the other story round', second?.id === first!.id, false);
 
-        // And a reader that does NOT rest gets the same answer twice, which is what makes a
+        // And a reader that records nothing gets the same answer twice, which is what makes a
         // rehearsal repeatable and what stops a preview spending the next real break's story.
-        check('reading without resting changes nothing', (await stories.forPrompt(KEY))?.id, second?.id);
+        check('reading without recording changes nothing', (await stories.forPrompt(KEY))?.id, second?.id);
 
-        // The counter is what the prompt reads to ask for a story to be told differently the second
-        // time round. It has to move with the stamp rather than beside it.
-        check('telling one counts it', (await stories.find(KEY, first!.id))?.timesTold, 1);
-        check('and leaves the one nobody has told alone', (await stories.find(KEY, second!.id))?.timesTold, 0);
+        // The counter the prompt reads to ask for a re-telling, derived from the ledger rather than
+        // stored: only rows a writer actually read back as TOLD count.
+        check('a telling counts', (await stories.find(KEY, first!.id))?.timesTold, 1);
+        check('and the story nobody told is still at nought', (await stories.find(KEY, second!.id))?.timesTold, 0);
+
+        // A carry the writer IGNORED moves the rotation and does not count as a telling, which is
+        // the whole reason the ledger records the two separately: a story the model keeps passing
+        // over must stop blocking the shelf, without the station claiming a listener heard it.
+        await tellings.record({ personaKey: KEY, storyId: second!.id, source: 'break', mode: 'offered', told: false });
+        check('an ignored carry still spends the turn', (await stories.forPrompt(KEY))?.id, first!.id);
+        check('but counts as no telling', (await stories.find(KEY, second!.id))?.timesTold, 0);
 
         // **`now()` is the TRANSACTION's clock**, so every stamp taken inside this script is the same
         // instant and the rotation stops moving once both stories carry one — the order then falls

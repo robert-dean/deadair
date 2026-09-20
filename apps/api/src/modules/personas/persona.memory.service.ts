@@ -97,10 +97,9 @@ export class PersonaMemoryService {
         await this.tellings.removeAfter(personaKey, to);
         await this.notes.rollbackAfter(personaKey, to);
         await this.stories.rollbackAfter(personaKey, to);
-        // While `last_told_at` and `times_told` are still the authority, they have to be put back in
-        // step with the ledger that was just cut down, or a story claims it went out at a moment the
-        // station no longer holds any record of. Goes when those columns do.
-        await this.stories.recomputeTold(personaKey);
+        // Nothing to put back in step: the rotation and the telling count are READ off the ledger
+        // rather than stored beside it, so cutting the ledger down is the whole of undoing them.
+        // That is most of why the ledger is worth having.
 
         // Asked for rather than assumed, and off by default. Re-reading the window is right when an
         // operator is testing and wrong when they are undoing a character that drifted: the second

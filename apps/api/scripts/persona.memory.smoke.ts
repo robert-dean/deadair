@@ -159,13 +159,14 @@ await db
         check('the invented clause is off it', heldStories[0]?.details.length, 0);
 
         say('');
-        say('the rotation columns, put back in step');
-        await stories.recomputeTold(KEY);
+        say('the rotation, which needs no putting back');
+        // Nothing was called between the delete and this read. The count and the stamp are READ off
+        // the ledger rather than stored beside the story, so cutting the ledger down is the whole of
+        // undoing them — which is most of why the ledger is worth having, and the property that
+        // would break silently if either of them ever became a column again.
         const after = await stories.find(KEY, mine.id);
-        // One telling left, so one telling counted. Before this the column said two, about a row the
-        // station no longer holds any record of.
-        check('the counter matches what is left of the ledger', after?.timesTold, 1);
-        check('and the stamp is the surviving telling', after?.lastToldAt !== undefined, true);
+        check('the counter follows what is left of the ledger', after?.timesTold, 1);
+        check('and so does the stamp', after?.lastToldAt !== undefined, true);
 
         say('');
         say('the watermark');

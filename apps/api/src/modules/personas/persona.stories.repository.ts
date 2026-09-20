@@ -35,26 +35,37 @@ export interface PersonaStoryDetailWrite {
  * operator and a machine both append to, where a proposal that was turned down has to outlive the
  * pass that proposed it.
  *
- * ## The read and the stamp are two calls, deliberately
+ * ## Reading a story spends nothing, and that is still the arrangement
  *
- * {@link forPrompt} touches neither `last_told_at` nor `times_told`. The caller that is actually
- * putting words on air calls {@link markTold} afterwards, which is the arrangement `FactRepository`
- * and `PersonaNotesRepository` both have and exists for the same reason: a rehearsal reads a
- * character to let an operator HEAR it, and a preview that spent the rotation would hand the next
- * real break the second-best story.
+ * {@link forPrompt} writes nothing at all. What spends a story's turn is a row in
+ * `deadair.persona_tellings`, written by whatever actually put words somewhere — the arrangement
+ * `FactRepository` and `PersonaNotesRepository` both have, and for the same reason: a rehearsal
+ * reads a character to let an operator HEAR it, and a preview that spent the rotation would hand the
+ * next real break the second-best story.
  *
- * The stamp used to be at SELECTION, on `chooseFacts`' argument that a break dropped before its slot
+ * The spend used to be at SELECTION, on `chooseFacts`' argument that a break dropped before its slot
  * having spent its story was the cheaper of two inaccuracies. It is now taken after the script has
- * actually WON its segment (`WriteBreakJob.spend`), because the ledger behind these two columns made
- * the better answer cheap: the row is keyed on the segment, so a rewrite replaces rather than
- * doubles, and a break that failed or was claimed by something else spends nothing at all.
+ * won its segment (`WriteBreakJob.spend`), because the ledger made the better answer cheap: the row
+ * is keyed on the segment, so a rewrite replaces rather than doubles, and a break that failed or was
+ * claimed by something else spends nothing.
+ *
+ * ## The rotation and the count are READ, not stored
+ *
+ * `last_told_at` and `times_told` are still columns and are no longer looked at; {@link TIMES_TOLD}
+ * and {@link LAST_CARRIED} derive both from the ledger and migration 0038 drops them. What that buys
+ * is a distinction two stamps could not hold: the rotation moves on a CARRY, so a story the model
+ * keeps being offered and keeps passing over stops blocking the shelf, while the count moves only on
+ * a TELLING, so the prompt never asks for a re-telling of something no listener has heard.
+ *
+ * It also makes a rollback one delete rather than a delete and a repair, which is what stops a story
+ * claiming it went out at a moment the station no longer holds any record of.
  *
  * ## One story, never a list
  *
  * {@link forPrompt} answers at most ONE. The measured failure of handing a model material is that the
- * model gets through the material, and a break is 40 words. Which one comes round is the index's
- * business — least recently told first — so a character with six stories tells all six rather than
- * the first one forever.
+ * model gets through the material, and a break is 40 words. Which one comes round is the rotation's
+ * business — least recently carried first — so a character with six stories tells all six rather
+ * than the first one forever.
  */
 @Injectable()
 export class PersonaStoriesRepository extends DataRepository {
@@ -76,6 +87,10 @@ export class PersonaStoriesRepository extends DataRepository {
         const rows = await this.db
             .selectFrom('deadair.personaStories')
             .selectAll()
+            // Aliased apart from the columns `selectAll` already brought, which still exist and are
+            // no longer read. Two columns of one name in one result set is the driver's choice
+            // rather than ours.
+            .select([TOLD_COUNT, TOLD_AT])
             .where('stationKey', '=', this.station.stationKey)
             .where('personaKey', '=', personaKey)
             .orderBy('createdAt', 'asc')
@@ -94,9 +109,9 @@ export class PersonaStoriesRepository extends DataRepository {
             state: row.state as PersonaStoryState,
             origin: row.origin as PersonaStoryOrigin,
             details: details.get(row.id) ?? [],
-            timesTold: Number(row.timesTold),
+            timesTold: Number(row.toldCount),
             ...(row.source == null ? {} : { source: row.source }),
-            ...(row.lastToldAt == null ? {} : { lastToldAt: row.lastToldAt.toISO() ?? '' }),
+            ...(row.toldAt == null ? {} : { lastToldAt: row.toldAt }),
             createdAt: row.createdAt.toISO() ?? '',
         }));
     }
@@ -111,14 +126,14 @@ export class PersonaStoriesRepository extends DataRepository {
     async forPrompt(personaKey: string): Promise<{ story: PersonaStoryForPrompt; id: string } | undefined> {
         const row = await this.db
             .selectFrom('deadair.personaStories')
-            .select(['id', 'title', 'story', 'timesTold'])
+            .select(['id', 'title', 'story', TIMES_TOLD, LAST_CARRIED])
             .where('stationKey', '=', this.station.stationKey)
             .where('personaKey', '=', personaKey)
             .where('state', '=', 'active')
-            // Least recently told first, and `nulls first` so a story that has never gone out is
-            // ahead of every story that has. Then oldest, so two reads a second apart agree rather
-            // than answering whatever the planner felt like.
-            .orderBy(sql`last_told_at asc nulls first`)
+            // Least recently CARRIED first, and `nulls first` so a story that has never been handed
+            // over is ahead of every story that has. Then oldest, so two reads a second apart agree
+            // rather than answering whatever the planner felt like.
+            .orderBy(sql`last_carried asc nulls first`)
             .orderBy('createdAt', 'asc')
             .executeTakeFirst();
 
@@ -153,11 +168,11 @@ export class PersonaStoriesRepository extends DataRepository {
     async tellable(personaKey: string, limit = 20): Promise<PersonaStoryForPrompt[]> {
         const rows = await this.db
             .selectFrom('deadair.personaStories')
-            .select(['id', 'title', 'story', 'timesTold'])
+            .select(['id', 'title', 'story', TIMES_TOLD, LAST_CARRIED])
             .where('stationKey', '=', this.station.stationKey)
             .where('personaKey', '=', personaKey)
             .where('state', '=', 'active')
-            .orderBy(sql`last_told_at asc nulls first`)
+            .orderBy(sql`last_carried asc nulls first`)
             .orderBy('createdAt', 'asc')
             .limit(limit)
             .execute();
@@ -180,15 +195,14 @@ export class PersonaStoriesRepository extends DataRepository {
     /**
      * Rest the story that was just carried into a break, and count the telling.
      *
-     * Separate from the read so a caller that is not on air spends nothing. See the class note.
+     * **Now a no-op, and kept only until its last caller goes.** The rotation and the count are read
+     * off `deadair.persona_tellings`, which the caller writes a row to in the same step — so doing
+     * anything here would be a second writer of the same fact, able to disagree with the first.
+     *
+     * The two columns it used to set still exist and are read by nothing; migration 0038 drops them.
      */
-    async markTold(id: string): Promise<void> {
-        await this.db
-            .updateTable('deadair.personaStories')
-            .set({ lastToldAt: sql`now()`, timesTold: sql`times_told + 1` })
-            .where('stationKey', '=', this.station.stationKey)
-            .where('id', '=', id)
-            .execute();
+    async markTold(_id: string): Promise<void> {
+        return;
     }
 
     /** Writes one story and answers with it. */
@@ -410,25 +424,6 @@ export class PersonaStoriesRepository extends DataRepository {
     }
 
     /**
-     * Put the two rotation columns back in step with the ledger.
-     *
-     * A bridge, and it goes when they do. While `last_told_at` and `times_told` are still the
-     * authority, a rollback that deleted tellings without recomputing them would leave a story
-     * claiming it went out at a moment the station no longer has any record of.
-     */
-    async recomputeTold(personaKey: string): Promise<void> {
-        await this.db
-            .updateTable('deadair.personaStories')
-            .set({
-                lastToldAt: sql`(select max(t.created_at) from deadair.persona_tellings t where t.story_id = deadair.persona_stories.id)` as never,
-                timesTold: sql`(select count(*) from deadair.persona_tellings t where t.story_id = deadair.persona_stories.id and t.told)` as never,
-            })
-            .where('stationKey', '=', this.station.stationKey)
-            .where('personaKey', '=', personaKey)
-            .execute();
-    }
-
-    /**
      * The details of several stories at once, oldest first.
      *
      * One query for the whole page rather than one per story, which is the only reason {@link list}
@@ -488,3 +483,42 @@ export class PersonaStoriesRepository extends DataRepository {
         };
     }
 }
+
+/**
+ * How often this story has actually gone out, off the ledger.
+ *
+ * Only rows the writer read back as TOLD. A story handed to a break that ignored it has not been
+ * heard, and the prompt reads this number to decide whether to ask for a re-telling — "tell it the
+ * way somebody tells a story twice" in front of a listener who has never heard it once is the
+ * character misremembering its own life.
+ */
+const TIMES_TOLD = sql<string>`(select count(*) from deadair.persona_tellings t where t.story_id = deadair.persona_stories.id and t.told)`.as(
+    'timesTold',
+);
+
+/**
+ * When this story was last HANDED to anything, told or not.
+ *
+ * The rotation, and it counts carries rather than tellings deliberately: a story the model keeps
+ * being offered and keeps passing over would otherwise stay at the front of the queue forever and
+ * the rest of the shelf would never come round.
+ */
+const LAST_CARRIED = sql<string | null>`(select max(t.created_at) from deadair.persona_tellings t where t.story_id = deadair.persona_stories.id)`.as(
+    'lastCarried',
+);
+
+/** {@link TIMES_TOLD} under a name `selectAll` has not already taken. See {@link PersonaStoriesRepository.list}. */
+const TOLD_COUNT = sql<string>`(select count(*) from deadair.persona_tellings t where t.story_id = deadair.persona_stories.id and t.told)`.as(
+    'toldCount',
+);
+
+/**
+ * When this story was last told, as TEXT, for the console.
+ *
+ * Text rather than a timestamp for `PersonaTelling.at`'s reason: these are the same moments the
+ * timeline reports and a rollback is chosen against, and a value that went through a `DateTime`
+ * would no longer compare against the row it came from.
+ */
+const TOLD_AT = sql<
+    string | null
+>`(select max(t.created_at)::text from deadair.persona_tellings t where t.story_id = deadair.persona_stories.id and t.told)`.as('toldAt');

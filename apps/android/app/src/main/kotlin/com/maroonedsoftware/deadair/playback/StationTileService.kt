@@ -1,22 +1,18 @@
 package com.maroonedsoftware.deadair.playback
 
-import android.content.Context
 import android.graphics.drawable.Icon
 import android.os.Build
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import com.maroonedsoftware.deadair.DeadairApp
 import com.maroonedsoftware.deadair.R
-import com.maroonedsoftware.deadair.settings.SettingsStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * The station as a Quick Settings tile: one press on, one press off, without opening the app.
@@ -62,7 +58,7 @@ class StationTileService : TileService() {
 
     override fun onClick() {
         super.onClick()
-        press(applicationContext, (application as DeadairApp).graph.settings)
+        pressStation(applicationContext, (application as DeadairApp).graph.settings)
     }
 
     override fun onDestroy() {
@@ -94,40 +90,5 @@ class StationTileService : TileService() {
                 )
         }
         tile.updateTile()
-    }
-}
-
-/**
- * Where a press is carried out, which is NOT the tile's own scope.
- *
- * The tile is bound only while the shade is open, and a press is often the last thing before it
- * closes: `onStopListening` and then `onDestroy` can follow within the second the playback service
- * takes to bind. A press made in the tile's scope would be cancelled by that, and a press that does
- * nothing is the one failure a tile must not have. This scope lives as long as the process does.
- */
-private val presses = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-
-/** How long a press waits for the playback service to bind before giving up on it. */
-private const val BIND_WAIT_MS = 5_000L
-
-/**
- * Turn the station over, decided afresh from the kept station and the bound player rather than from
- * whatever the tile last drew: `play()` before the controller has bound is silently nothing.
- */
-private fun press(context: Context, settings: SettingsStore) {
-    presses.launch {
-        val kept = settings.settings.first()
-        val connection = PlayerConnection(context)
-        try {
-            connection.connect()
-            val player = withTimeoutOrNull(BIND_WAIT_MS) { connection.state.first { it.connected } } ?: return@launch
-            when (tileReading(kept.station != null, player)) {
-                TileReading.NO_STATION -> Unit
-                TileReading.PLAYING, TileReading.WARMING_UP -> connection.stop()
-                TileReading.STOPPED -> connection.play()
-            }
-        } finally {
-            connection.release()
-        }
     }
 }

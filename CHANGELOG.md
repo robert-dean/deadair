@@ -9,6 +9,88 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.22.0] — 2026-09-20
+
+- This day in history, as a kind of break the station can be given
+
+  The station already reads the news and gives the weather. This is the third
+  thing a presenter does between records: something that happened on today's date
+  in another year. Put a **This day** band on the format clock and it airs; the
+  presenter can also reach for the date mid-conversation, the way it reaches for
+  the weather.
+
+  There is nothing new to sign up for. The bundled Wikipedia plugin answers it,
+  out of the same encyclopaedia the station already draws its facts from, so an
+  install that has given it a contact address has this already.
+
+  **A day is mostly general history, and this is a music station**, so
+  "What the station picks out of the day" under Settings, Rotation decides what to
+  do about that. The default puts the musicians first and keeps everything else
+  behind them, which means a thin day still has something to say; "Music only" is
+  the stricter reading and will skip the slot rather than reach for a treaty.
+
+  What the station says is what its source published. The break frames one entry
+  with the year and whether it is a birth, a death, an event or a day that comes
+  round every year, and adds nothing at all — and where a model writes it instead,
+  a year the station was never given is refused outright, exactly as an invented
+  temperature is on the weather. Nothing is read out twice in one day, and the
+  date is the one the break AIRS on, in your own timezone, so a break written at
+  ten to midnight is about tomorrow.
+
+  **A presenter can also mention the date on an ordinary link**, on the terms the weather already set:
+  "Let the presenter mention the date between records", off by default, offers the day to the
+  presenter to use or ignore. Most links ignore it, and the ones that do not mention an anniversary in
+  passing rather than reading a list out. Anything said that way is spent, so a band on the clock set
+  to This day has one fewer entry to use — a station that wants both is dividing one day between them.
+
+  For plugin authors: `almanac` is a new capability, a month and a day in and
+  entries out. The host decides which day it is, and your entries are read
+  verbatim, so pass the source's own sentence and its descriptions along rather
+  than composing anything.
+- One page for every job more than one plugin can do
+
+  Installing a second plugin that speaks, writes, or says who sounds like whom
+  raises a question the console never asked out loud: which one does the station
+  actually use. The answer was spread across four settings sections, in the
+  section that owned the FEATURE rather than the one that owned the question, as
+  a text box holding a raw plugin id. Most capabilities had no answer at all.
+
+  **Settings → Providers** is now that page. Each job the station can do more
+  than one way is a block: who can do it, which one is doing it, and for the jobs
+  where order matters, the order they are asked in — drawn as the plugins
+  themselves, by name, in the order the station is really using, so moving one is
+  one click rather than rebuilding the default from an empty table first. A job
+  only one plugin can do says so instead of offering a choice that is not one.
+
+  Three capabilities gained an order they did not have:
+
+  - **The weather.** Services are asked in turn and the first reading wins, so
+    this decides whose forecast is read out. It was alphabetical by plugin id.
+  - **Charts.** Sets the order of the menu, and decides outright which service
+    answers a chart asked for by style.
+  - **What the station believes about a record.** Sources are merged field by
+    field and the first non-empty answer wins, so this decides who is believed
+    about a year or a label. Each plugin still declares how much to trust it,
+    which is what orders anything you have not listed; the setting is how you
+    overrule that with what you can see on your own library. It changes what is
+    looked up next rather than what is already stored.
+
+  In every case an empty setting is exactly what the station did before, and
+  listing a plugin never enables it: anything unlisted is asked after the ones
+  that are, and an id nothing answers to is ignored rather than fatal.
+
+  Two things that were invisible are now said out loud. A plugin **named** for a
+  job and not running means the station is doing that job with nothing at all,
+  because naming one is an instruction and never falls back; the page says so in
+  red, and so does the plugin's own page. And every plugin card now says where it
+  stands — "asked 2nd of 3 for who sounds like whom", "in use for speaking" —
+  linking to the block that decides it, so the choice is visible from where you
+  are standing when you make it.
+
+  Nothing stored moves: the existing keys keep their names, and Rotation, Voice
+  and audio, Words and Measurement each keep a line pointing at where their
+  setting went.
+
 ## [0.21.0] — 2026-09-20
 
 - Let the presenter mention the weather between records
@@ -463,7 +545,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.21.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.22.0...HEAD
+[0.22.0]: https://github.com/robert-dean/deadair/compare/v0.21.0...v0.22.0
 [0.21.0]: https://github.com/robert-dean/deadair/compare/v0.20.0...v0.21.0
 [0.20.0]: https://github.com/robert-dean/deadair/compare/v0.19.3...v0.20.0
 [0.19.3]: https://github.com/robert-dean/deadair/compare/v0.19.2...v0.19.3

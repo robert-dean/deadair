@@ -8,6 +8,26 @@ hand, and the station's own changes are in the [root changelog](../../CHANGELOG.
 
 ## [Unreleased]
 
+## [0.6.0] — 2026-09-20
+
+- The station can be the phone's wallpaper. **Settings > Station wallpaper > Set as wallpaper** opens
+  the system's own picker on it, where you choose the lock screen, the home screen or both, and
+  choosing another wallpaper is how it comes off again. Nothing is ever written over the wallpaper you
+  already had.
+
+  Its settings are in the app and behind the picker's own Settings button. **Show the cover** while
+  this phone is playing (the default, and the one that asks the station nothing while you are not
+  listening) or whenever the station is on air. **With nothing to show** keep the last cover dimmed,
+  draw the station's mark, or draw nothing. **Put the cover** at the top, in the middle (the default)
+  or at the bottom, so it sits where your widgets and icons are not.
+
+  **Color the phone from** the station's own colors (the default, and the one that never moves), the
+  cover on screen, or a color you pick from a row of swatches, black and dark grey among them.
+  Following the cover means your phone re-colors itself every time the station changes record, which
+  is the point of choosing it.
+
+  It runs only while it can be seen.
+
 ## [0.5.0] — 2026-09-19
 
 - Now playing is the cover and nothing over it. The art runs to the top of the screen, the words sit at
@@ -80,7 +100,8 @@ hand, and the station's own changes are in the [root changelog](../../CHANGELOG.
   screen, a headset or a car stereo. Sign in as the station's operator and the phone becomes its
   remote: skip, stop and start, the running order, what it played and what the presenter said.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/android-v0.5.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/android-v0.6.0...HEAD
+[0.6.0]: https://github.com/robert-dean/deadair/compare/android-v0.5.0...android-v0.6.0
 [0.5.0]: https://github.com/robert-dean/deadair/compare/android-v0.4.0...android-v0.5.0
 [0.4.0]: https://github.com/robert-dean/deadair/compare/android-v0.3.0...android-v0.4.0
 [0.3.0]: https://github.com/robert-dean/deadair/compare/android-v0.2.1...android-v0.3.0

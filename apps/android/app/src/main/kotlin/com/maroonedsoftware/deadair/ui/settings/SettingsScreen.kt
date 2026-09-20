@@ -196,7 +196,7 @@ fun SettingsScreen(
 
             // Under Appearance rather than Listening: it is a picture on the phone, and it draws
             // whether or not this phone is the thing playing.
-            Text(stringResource(R.string.wallpaper_label), style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.wallpaper_section), style = MaterialTheme.typography.titleMedium)
             WallpaperSection(
                 follows = wallpaperFollows,
                 idle = wallpaperIdle,

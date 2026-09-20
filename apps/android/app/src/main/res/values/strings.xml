@@ -43,7 +43,10 @@
     <!-- The same line for a show with no name: "with Cass" -->
     <string name="now_with_host">with %1$s</string>
     <!-- The station as a live wallpaper, chosen from the system's wallpaper picker -->
-    <string name="wallpaper_label">Station wallpaper</string>
+    <!-- What the phone's wallpaper picker lists this under, among everybody else's live wallpapers -->
+    <string name="wallpaper_label">deadair station wallpaper</string>
+    <!-- The same thing as a heading inside the app, where the station's name is already above it -->
+    <string name="wallpaper_section">Station wallpaper</string>
     <string name="wallpaper_description">The cover of whatever the station is playing.</string>
     <string name="wallpaper_set">Set as wallpaper</string>
     <string name="wallpaper_shows">Show the cover</string>

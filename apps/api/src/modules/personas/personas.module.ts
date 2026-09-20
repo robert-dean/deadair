@@ -12,6 +12,7 @@ import { PersonaNotesService } from './persona.notes.service.js';
 import { PersonaRehearsalService } from './persona.rehearsal.service.js';
 import { PersonaStoriesRepository } from './persona.stories.repository.js';
 import { PersonaTellingRepository } from './persona.telling.repository.js';
+import { PersonaMemoryService } from './persona.memory.service.js';
 import { PersonaStoriesService } from './persona.stories.service.js';
 import { PersonaStoryPassService } from './persona.story.pass.service.js';
 import { PersonasService } from './personas.service.js';
@@ -49,6 +50,9 @@ export const PersonasModule: ServerKitModule = {
         registry.register(PersonasService).useClass(PersonasService).asScoped();
         registry.register(PersonaNotesService).useClass(PersonaNotesService).asScoped();
         registry.register(PersonaStoriesService).useClass(PersonaStoriesService).asScoped();
+        // Scoped like the rest. It reads and deletes across all three of the stores above, which is
+        // why it is a service of its own rather than a mode of any one of them.
+        registry.register(PersonaMemoryService).useClass(PersonaMemoryService).asScoped();
         // Scoped like the rest, and resolved only by a request. It reads the two repositories above
         // and nothing else: handing a character over is a read, and the half that takes one back is
         // its own service beside this one rather than a second mode of it.

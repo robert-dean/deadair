@@ -2088,6 +2088,78 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/PersonaRehearsal'
+    '/personas/{id}/memory':
+        get:
+            operationId: timeline
+            summary: 'Read persona memory'
+            description: 'What this character has told, newest first. The timeline a moment is picked from'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 100
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/PersonaMemoryTimeline'
+    '/personas/{id}/memory/preview':
+        get:
+            operationId: preview
+            summary: 'Preview persona memory rollback'
+            description: 'What rolling back to a moment would undo, without undoing it'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 100
+                - name: to
+                  in: query
+                  required: false
+                  schema:
+                      type: string
+                      maxLength: 40
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/PersonaMemoryChange'
+    '/personas/{id}/memory/rollback':
+        post:
+            operationId: rollback
+            summary: 'Roll back persona memory'
+            description: 'Undo it. Everything the station accrued after that moment goes; everything an operator wrote stays'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 100
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/PersonaMemoryRollback'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/PersonaMemory'
     '/playlists':
         get:
             operationId: listPlaylists
@@ -7976,6 +8048,130 @@ components:
                     items:
                         '$ref': '#/components/schemas/PersonaAuditionSummary'
             required: [auditions]
+        PersonaTelling:
+            type: object
+            properties:
+                id:
+                    type: string
+                    minLength: 1
+                    maxLength: 100
+                    readOnly: true
+                storyId:
+                    type: string
+                    minLength: 1
+                    maxLength: 100
+                    readOnly: true
+                title:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                    readOnly: true
+                    description: 'The handle of the story this told, so a timeline reads as something rather than as ids'
+                source:
+                    type: string
+                    enum: [break, production, backfill]
+                    readOnly: true
+                    description: 'What wrote it. `backfill` is the rows migration 0034 reconstructed from the two columns it replaced'
+                mode:
+                    type: string
+                    enum: [offered, told]
+                    readOnly: true
+                    description: 'Whether the story was handed over as something the writer MAY use, or as the thing the break was for'
+                told:
+                    type: boolean
+                    readOnly: true
+                    description: 'Whether it actually went out, as the WRITER read its own answer back. An offered story may simply be ignored'
+                said:
+                    type: string
+                    maxLength: 2000
+                    readOnly: true
+                    description: 'The words that carried it, kept here because the script history they came from is swept nightly'
+                segmentId:
+                    type: string
+                    maxLength: 100
+                    readOnly: true
+                    description: 'The break that carried it, while that row still exists'
+                airedAt:
+                    type: string
+                    maxLength: 40
+                    readOnly: true
+                    description: 'When a listener could first have heard it. Absent means written but not yet aired, or never aired at all'
+                at:
+                    type: string
+                    minLength: 1
+                    maxLength: 40
+                    readOnly: true
+                    description: 'When it was written. Hand this back as `to` to roll back to just before it'
+            required: [id, storyId, title, source, mode, told, at]
+            description: "One time a character actually told one of its own stories. What the timeline lists, and what a\nrollback is chosen from: the moment on each row is the exact string the station compares against,\nnot a rounding of it"
+        PersonaMemoryTimeline:
+            type: object
+            properties:
+                personaId:
+                    type: string
+                    minLength: 1
+                    maxLength: 100
+                tellings:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/PersonaTelling'
+            required: [personaId, tellings]
+            description: 'What one character has told, newest first'
+        PersonaMemoryChange:
+            type: object
+            properties:
+                tellings:
+                    type: integer
+                    minimum: 0
+                    description: 'Tellings forgotten. Every one, whatever wrote it: a telling is a record of something the station did rather than a claim somebody made'
+                notes:
+                    type: integer
+                    minimum: 0
+                    description: 'Notes the distil pass wrote. Nothing an operator typed is ever counted here or deleted'
+                stories:
+                    type: integer
+                    minimum: 0
+                    description: 'Stories the enrichment pass proposed'
+                details:
+                    type: integer
+                    minimum: 0
+                    description: 'Details it proposed. A floor rather than a total: a story that is itself going takes every detail hung on it'
+                rejected:
+                    type: integer
+                    minimum: 0
+                    description: 'How many of the above were proposals somebody turned down. Deleting one lets the nightly pass offer it again'
+                touched:
+                    type: integer
+                    minimum: 0
+                    description: 'How many the operator had since accepted or edited. They still go, and this is the one loss they did not cause'
+            required: [tellings, notes, stories, details, rejected, touched]
+            description: "What a rollback would undo, or did. Counted with the same predicates the delete uses, so a preview\ncannot promise one thing and do another"
+        PersonaMemoryRollback:
+            type: object
+            properties:
+                to:
+                    type: string
+                    maxLength: 40
+                    description: 'The moment to go back to, as a timeline row reports it. Absent means all of it, which is a reset'
+                relearn:
+                    type: boolean
+                    description: "Also drag the distil pass's watermark back, so it reads that window again. Right for testing and wrong for undoing a character that drifted, so it is asked for rather than assumed"
+            description: 'Undo what this character accumulated on its own'
+        PersonaMemory:
+            type: object
+            properties:
+                personaId:
+                    type: string
+                    minLength: 1
+                    maxLength: 100
+                undone:
+                    '$ref': '#/components/schemas/PersonaMemoryChange'
+                tellings:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/PersonaTelling'
+            required: [personaId, undone, tellings]
+            description: 'What was undone, and where the timeline stands now'
         PlaylistPermission:
             type: string
             enum: [read, edit]

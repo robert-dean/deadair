@@ -324,3 +324,46 @@ contract PersonaAudition: PersonaAuditionSummary & {
 contract PersonaAuditionList: {
     auditions: array(PersonaAuditionSummary)
 }
+
+# One time a character actually told one of its own stories. What the timeline lists, and what a
+# rollback is chosen from: the moment on each row is the exact string the station compares against,
+# not a rounding of it
+contract PersonaTelling: {
+    id: readonly string(min=1, max=100)
+    storyId: readonly string(min=1, max=100)
+    title: readonly string(min=1, max=200) # The handle of the story this told, so a timeline reads as something rather than as ids
+    source: readonly enum(break, production, backfill) # What wrote it. `backfill` is the rows migration 0034 reconstructed from the two columns it replaced
+    mode: readonly enum(offered, told) # Whether the story was handed over as something the writer MAY use, or as the thing the break was for
+    told: readonly boolean # Whether it actually went out, as the WRITER read its own answer back. An offered story may simply be ignored
+    said?: readonly string(max=2000) # The words that carried it, kept here because the script history they came from is swept nightly
+    segmentId?: readonly string(max=100) # The break that carried it, while that row still exists
+    airedAt?: readonly string(max=40) # When a listener could first have heard it. Absent means written but not yet aired, or never aired at all
+    at: readonly string(min=1, max=40) # When it was written. Hand this back as `to` to roll back to just before it
+}
+
+contract PersonaMemoryTimeline: { # What one character has told, newest first
+    personaId: string(min=1, max=100)
+    tellings: array(PersonaTelling)
+}
+
+# What a rollback would undo, or did. Counted with the same predicates the delete uses, so a preview
+# cannot promise one thing and do another
+contract PersonaMemoryChange: {
+    tellings: int(min=0) # Tellings forgotten. Every one, whatever wrote it: a telling is a record of something the station did rather than a claim somebody made
+    notes: int(min=0) # Notes the distil pass wrote. Nothing an operator typed is ever counted here or deleted
+    stories: int(min=0) # Stories the enrichment pass proposed
+    details: int(min=0) # Details it proposed. A floor rather than a total: a story that is itself going takes every detail hung on it
+    rejected: int(min=0) # How many of the above were proposals somebody turned down. Deleting one lets the nightly pass offer it again
+    touched: int(min=0) # How many the operator had since accepted or edited. They still go, and this is the one loss they did not cause
+}
+
+contract PersonaMemoryRollback: { # Undo what this character accumulated on its own
+    to?: string(max=40) # The moment to go back to, as a timeline row reports it. Absent means all of it, which is a reset
+    relearn?: boolean # Also drag the distil pass's watermark back, so it reads that window again. Right for testing and wrong for undoing a character that drifted, so it is asked for rather than assumed
+}
+
+contract PersonaMemory: { # What was undone, and where the timeline stands now
+    personaId: string(min=1, max=100)
+    undone: PersonaMemoryChange
+    tellings: array(PersonaTelling)
+}

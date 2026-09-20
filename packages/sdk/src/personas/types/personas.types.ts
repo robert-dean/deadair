@@ -305,6 +305,66 @@ export interface PersonaAuditionRecord {
 }
 
 /**
+ * One time a character actually told one of its own stories. What the timeline lists, and what a
+ * rollback is chosen from: the moment on each row is the exact string the station compares against,
+ * not a rounding of it
+ * generated from [PersonaTelling](../../../../../apps/api/data/contracts/personas/personas.types.ck#L331)
+ */
+export interface PersonaTelling {
+    id: string;
+    storyId: string;
+    /** The handle of the story this told, so a timeline reads as something rather than as ids */
+    title: string;
+    /** What wrote it. `backfill` is the rows migration 0034 reconstructed from the two columns it replaced */
+    source: 'break' | 'production' | 'backfill';
+    /** Whether the story was handed over as something the writer MAY use, or as the thing the break was for */
+    mode: 'offered' | 'told';
+    /** Whether it actually went out, as the WRITER read its own answer back. An offered story may simply be ignored */
+    told: boolean;
+    /** The words that carried it, kept here because the script history they came from is swept nightly */
+    said?: string;
+    /** The break that carried it, while that row still exists */
+    segmentId?: string;
+    /** When a listener could first have heard it. Absent means written but not yet aired, or never aired at all */
+    airedAt?: string;
+    /** When it was written. Hand this back as `to` to roll back to just before it */
+    at: string;
+}
+
+export interface PersonaTellingInput {}
+
+/**
+ * What a rollback would undo, or did. Counted with the same predicates the delete uses, so a preview
+ * cannot promise one thing and do another
+ * generated from [PersonaMemoryChange](../../../../../apps/api/data/contracts/personas/personas.types.ck#L351)
+ */
+export interface PersonaMemoryChange {
+    /** Tellings forgotten. Every one, whatever wrote it: a telling is a record of something the station did rather than a claim somebody made */
+    tellings: number;
+    /** Notes the distil pass wrote. Nothing an operator typed is ever counted here or deleted */
+    notes: number;
+    /** Stories the enrichment pass proposed */
+    stories: number;
+    /** Details it proposed. A floor rather than a total: a story that is itself going takes every detail hung on it */
+    details: number;
+    /** How many of the above were proposals somebody turned down. Deleting one lets the nightly pass offer it again */
+    rejected: number;
+    /** How many the operator had since accepted or edited. They still go, and this is the one loss they did not cause */
+    touched: number;
+}
+
+/**
+ * Undo what this character accumulated on its own
+ * generated from [PersonaMemoryRollback](../../../../../apps/api/data/contracts/personas/personas.types.ck#L360)
+ */
+export interface PersonaMemoryRollback {
+    /** The moment to go back to, as a timeline row reports it. Absent means all of it, which is a reset */
+    to?: string;
+    /** Also drag the distil pass's watermark back, so it reads that window again. Right for testing and wrong for undoing a character that drifted, so it is asked for rather than assumed */
+    relearn?: boolean;
+}
+
+/**
  * generated from [PersonaList](../../../../../apps/api/data/contracts/personas/personas.types.ck#L34)
  */
 export interface PersonaList {
@@ -479,6 +539,36 @@ export interface PersonaAuditionBreak {
     writer?: string;
     /** Why there are none, when every writer had nothing. On air this break is skipped */
     reason?: string;
+}
+
+/**
+ * What one character has told, newest first
+ * generated from [PersonaMemoryTimeline](../../../../../apps/api/data/contracts/personas/personas.types.ck#L344)
+ */
+export interface PersonaMemoryTimeline {
+    personaId: string;
+    tellings: PersonaTelling[];
+}
+
+export interface PersonaMemoryTimelineInput {
+    personaId: string;
+    tellings: PersonaTellingInput[];
+}
+
+/**
+ * What was undone, and where the timeline stands now
+ * generated from [PersonaMemory](../../../../../apps/api/data/contracts/personas/personas.types.ck#L365)
+ */
+export interface PersonaMemory {
+    personaId: string;
+    undone: PersonaMemoryChange;
+    tellings: PersonaTelling[];
+}
+
+export interface PersonaMemoryInput {
+    personaId: string;
+    undone: PersonaMemoryChange;
+    tellings: PersonaTellingInput[];
 }
 
 /**

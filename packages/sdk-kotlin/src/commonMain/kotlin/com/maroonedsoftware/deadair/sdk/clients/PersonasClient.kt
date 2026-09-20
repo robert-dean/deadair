@@ -7,6 +7,10 @@ import com.maroonedsoftware.deadair.sdk.models.PersonaImportPlan
 import com.maroonedsoftware.deadair.sdk.models.PersonaImportResult
 import com.maroonedsoftware.deadair.sdk.models.PersonaInput
 import com.maroonedsoftware.deadair.sdk.models.PersonaList
+import com.maroonedsoftware.deadair.sdk.models.PersonaMemory
+import com.maroonedsoftware.deadair.sdk.models.PersonaMemoryChange
+import com.maroonedsoftware.deadair.sdk.models.PersonaMemoryRollback
+import com.maroonedsoftware.deadair.sdk.models.PersonaMemoryTimeline
 import com.maroonedsoftware.deadair.sdk.models.PersonaNoteList
 import com.maroonedsoftware.deadair.sdk.models.PersonaNoteState
 import com.maroonedsoftware.deadair.sdk.models.PersonaNoteWrite
@@ -18,6 +22,7 @@ import com.maroonedsoftware.deadair.sdk.models.PersonaStoryState
 import com.maroonedsoftware.deadair.sdk.models.PersonaStoryWrite
 import com.maroonedsoftware.deadair.sdk.runtime.SdkHttp
 import io.ktor.http.HttpMethod
+import kotlinx.serialization.Serializable
 
 /** Operations declared in `personas.ck`. */
 class PersonasClient(private val http: SdkHttp) {
@@ -327,6 +332,41 @@ class PersonasClient(private val http: SdkHttp) {
         }
         return http.decodeJson(response)
     }
+
+    /**
+     * Read persona memory
+     * What this character has told, newest first. The timeline a moment is picked from
+     */
+    suspend fun readPersonaMemory(id: String): PersonaMemoryTimeline {
+        val response = http.execute(HttpMethod.Get) {
+            path("personas", segment(id), "memory")
+        }
+        return http.decodeJson(response)
+    }
+
+    /**
+     * Preview persona memory rollback
+     * What rolling back to a moment would undo, without undoing it
+     */
+    suspend fun previewPersonaMemoryRollback(id: String, query: PreviewPersonaMemoryRollbackQuery? = null): PersonaMemoryChange {
+        val response = http.execute(HttpMethod.Get) {
+            path("personas", segment(id), "memory", "preview")
+            params(query)
+        }
+        return http.decodeJson(response)
+    }
+
+    /**
+     * Roll back persona memory
+     * Undo it. Everything the station accrued after that moment goes; everything an operator wrote stays
+     */
+    suspend fun rollBackPersonaMemory(id: String, body: PersonaMemoryRollback): PersonaMemory {
+        val response = http.execute(HttpMethod.Post) {
+            path("personas", segment(id), "memory", "rollback")
+            jsonBody(body, "application/json")
+        }
+        return http.decodeJson(response)
+    }
 }
 
 /** Response headers declared on GET /personas/export. */
@@ -349,4 +389,9 @@ data class ExportPersonaHeaders(
 data class ExportPersonaResult(
     val data: PersonaFile,
     val headers: ExportPersonaHeaders,
+)
+
+@Serializable
+data class PreviewPersonaMemoryRollbackQuery(
+    val to: String? = null,
 )

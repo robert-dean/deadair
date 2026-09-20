@@ -984,6 +984,184 @@ public struct PersonaAuditionRecord: Codable, Equatable, Sendable {
     }
 }
 
+/// One time a character actually told one of its own stories. What the timeline lists, and what a
+/// rollback is chosen from: the moment on each row is the exact string the station compares against,
+/// not a rounding of it
+public struct PersonaTelling: Codable, Equatable, Sendable {
+    public var id: String
+    public var storyId: String
+    /// The handle of the story this told, so a timeline reads as something rather than as ids
+    public var title: String
+    /// What wrote it. `backfill` is the rows migration 0034 reconstructed from the two columns it replaced
+    public var source: PersonaTellingSource
+    /// Whether the story was handed over as something the writer MAY use, or as the thing the break was for
+    public var mode: PersonaTellingMode
+    /// Whether it actually went out, as the WRITER read its own answer back. An offered story may simply be ignored
+    public var told: Bool
+    /// The words that carried it, kept here because the script history they came from is swept nightly
+    public var said: String?
+    /// The break that carried it, while that row still exists
+    public var segmentId: String?
+    /// When a listener could first have heard it. Absent means written but not yet aired, or never aired at all
+    public var airedAt: String?
+    /// When it was written. Hand this back as `to` to roll back to just before it
+    public var at: String
+
+    public init(id: String, storyId: String, title: String, source: PersonaTellingSource, mode: PersonaTellingMode, told: Bool, said: String? = nil, segmentId: String? = nil, airedAt: String? = nil, at: String) {
+        self.id = id
+        self.storyId = storyId
+        self.title = title
+        self.source = source
+        self.mode = mode
+        self.told = told
+        self.said = said
+        self.segmentId = segmentId
+        self.airedAt = airedAt
+        self.at = at
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case storyId = "storyId"
+        case title = "title"
+        case source = "source"
+        case mode = "mode"
+        case told = "told"
+        case said = "said"
+        case segmentId = "segmentId"
+        case airedAt = "airedAt"
+        case at = "at"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decode(String.self, forKey: .id)
+        self.storyId = try container.decode(String.self, forKey: .storyId)
+        self.title = try container.decode(String.self, forKey: .title)
+        self.source = try container.decode(PersonaTellingSource.self, forKey: .source)
+        self.mode = try container.decode(PersonaTellingMode.self, forKey: .mode)
+        self.told = try container.decode(Bool.self, forKey: .told)
+        self.said = try container.decodeIfPresent(String.self, forKey: .said)
+        self.segmentId = try container.decodeIfPresent(String.self, forKey: .segmentId)
+        self.airedAt = try container.decodeIfPresent(String.self, forKey: .airedAt)
+        self.at = try container.decode(String.self, forKey: .at)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.id, forKey: .id)
+        try container.encode(self.storyId, forKey: .storyId)
+        try container.encode(self.title, forKey: .title)
+        try container.encode(self.source, forKey: .source)
+        try container.encode(self.mode, forKey: .mode)
+        try container.encode(self.told, forKey: .told)
+        try container.encodeIfPresent(self.said, forKey: .said)
+        try container.encodeIfPresent(self.segmentId, forKey: .segmentId)
+        try container.encodeIfPresent(self.airedAt, forKey: .airedAt)
+        try container.encode(self.at, forKey: .at)
+    }
+}
+
+/// One time a character actually told one of its own stories. What the timeline lists, and what a
+/// rollback is chosen from: the moment on each row is the exact string the station compares against,
+/// not a rounding of it
+public struct PersonaTellingInput: Codable, Equatable, Sendable {
+    public init() {}
+
+    public init(from decoder: Decoder) throws {
+        _ = try decoder.container(keyedBy: DynamicCodingKey.self)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        _ = encoder.container(keyedBy: DynamicCodingKey.self)
+    }
+}
+
+/// What a rollback would undo, or did. Counted with the same predicates the delete uses, so a preview
+/// cannot promise one thing and do another
+public struct PersonaMemoryChange: Codable, Equatable, Sendable {
+    /// Tellings forgotten. Every one, whatever wrote it: a telling is a record of something the station did rather than a claim somebody made
+    public var tellings: Int
+    /// Notes the distil pass wrote. Nothing an operator typed is ever counted here or deleted
+    public var notes: Int
+    /// Stories the enrichment pass proposed
+    public var stories: Int
+    /// Details it proposed. A floor rather than a total: a story that is itself going takes every detail hung on it
+    public var details: Int
+    /// How many of the above were proposals somebody turned down. Deleting one lets the nightly pass offer it again
+    public var rejected: Int
+    /// How many the operator had since accepted or edited. They still go, and this is the one loss they did not cause
+    public var touched: Int
+
+    public init(tellings: Int, notes: Int, stories: Int, details: Int, rejected: Int, touched: Int) {
+        self.tellings = tellings
+        self.notes = notes
+        self.stories = stories
+        self.details = details
+        self.rejected = rejected
+        self.touched = touched
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case tellings = "tellings"
+        case notes = "notes"
+        case stories = "stories"
+        case details = "details"
+        case rejected = "rejected"
+        case touched = "touched"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.tellings = try container.decode(Int.self, forKey: .tellings)
+        self.notes = try container.decode(Int.self, forKey: .notes)
+        self.stories = try container.decode(Int.self, forKey: .stories)
+        self.details = try container.decode(Int.self, forKey: .details)
+        self.rejected = try container.decode(Int.self, forKey: .rejected)
+        self.touched = try container.decode(Int.self, forKey: .touched)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.tellings, forKey: .tellings)
+        try container.encode(self.notes, forKey: .notes)
+        try container.encode(self.stories, forKey: .stories)
+        try container.encode(self.details, forKey: .details)
+        try container.encode(self.rejected, forKey: .rejected)
+        try container.encode(self.touched, forKey: .touched)
+    }
+}
+
+/// Undo what this character accumulated on its own
+public struct PersonaMemoryRollback: Codable, Equatable, Sendable {
+    /// The moment to go back to, as a timeline row reports it. Absent means all of it, which is a reset
+    public var to: String?
+    /// Also drag the distil pass's watermark back, so it reads that window again. Right for testing and wrong for undoing a character that drifted, so it is asked for rather than assumed
+    public var relearn: Bool?
+
+    public init(to: String? = nil, relearn: Bool? = nil) {
+        self.to = to
+        self.relearn = relearn
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case to = "to"
+        case relearn = "relearn"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.to = try container.decodeIfPresent(String.self, forKey: .to)
+        self.relearn = try container.decodeIfPresent(Bool.self, forKey: .relearn)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(self.to, forKey: .to)
+        try container.encodeIfPresent(self.relearn, forKey: .relearn)
+    }
+}
+
 public struct PersonaList: Codable, Equatable, Sendable {
     public var personas: [Persona]
 
@@ -1555,6 +1733,128 @@ public struct PersonaAuditionBreak: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.script, forKey: .script)
         try container.encodeIfPresent(self.writer, forKey: .writer)
         try container.encodeIfPresent(self.reason, forKey: .reason)
+    }
+}
+
+/// What one character has told, newest first
+public struct PersonaMemoryTimeline: Codable, Equatable, Sendable {
+    public var personaId: String
+    public var tellings: [PersonaTelling]
+
+    public init(personaId: String, tellings: [PersonaTelling]) {
+        self.personaId = personaId
+        self.tellings = tellings
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case personaId = "personaId"
+        case tellings = "tellings"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.personaId = try container.decode(String.self, forKey: .personaId)
+        self.tellings = try container.decode([PersonaTelling].self, forKey: .tellings)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.personaId, forKey: .personaId)
+        try container.encode(self.tellings, forKey: .tellings)
+    }
+}
+
+/// What one character has told, newest first
+public struct PersonaMemoryTimelineInput: Codable, Equatable, Sendable {
+    public var personaId: String
+    public var tellings: [PersonaTellingInput]
+
+    public init(personaId: String, tellings: [PersonaTellingInput]) {
+        self.personaId = personaId
+        self.tellings = tellings
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case personaId = "personaId"
+        case tellings = "tellings"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.personaId = try container.decode(String.self, forKey: .personaId)
+        self.tellings = try container.decode([PersonaTellingInput].self, forKey: .tellings)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.personaId, forKey: .personaId)
+        try container.encode(self.tellings, forKey: .tellings)
+    }
+}
+
+/// What was undone, and where the timeline stands now
+public struct PersonaMemory: Codable, Equatable, Sendable {
+    public var personaId: String
+    public var undone: PersonaMemoryChange
+    public var tellings: [PersonaTelling]
+
+    public init(personaId: String, undone: PersonaMemoryChange, tellings: [PersonaTelling]) {
+        self.personaId = personaId
+        self.undone = undone
+        self.tellings = tellings
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case personaId = "personaId"
+        case undone = "undone"
+        case tellings = "tellings"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.personaId = try container.decode(String.self, forKey: .personaId)
+        self.undone = try container.decode(PersonaMemoryChange.self, forKey: .undone)
+        self.tellings = try container.decode([PersonaTelling].self, forKey: .tellings)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.personaId, forKey: .personaId)
+        try container.encode(self.undone, forKey: .undone)
+        try container.encode(self.tellings, forKey: .tellings)
+    }
+}
+
+/// What was undone, and where the timeline stands now
+public struct PersonaMemoryInput: Codable, Equatable, Sendable {
+    public var personaId: String
+    public var undone: PersonaMemoryChange
+    public var tellings: [PersonaTellingInput]
+
+    public init(personaId: String, undone: PersonaMemoryChange, tellings: [PersonaTellingInput]) {
+        self.personaId = personaId
+        self.undone = undone
+        self.tellings = tellings
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case personaId = "personaId"
+        case undone = "undone"
+        case tellings = "tellings"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.personaId = try container.decode(String.self, forKey: .personaId)
+        self.undone = try container.decode(PersonaMemoryChange.self, forKey: .undone)
+        self.tellings = try container.decode([PersonaTellingInput].self, forKey: .tellings)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.personaId, forKey: .personaId)
+        try container.encode(self.undone, forKey: .undone)
+        try container.encode(self.tellings, forKey: .tellings)
     }
 }
 
@@ -2196,4 +2496,17 @@ public enum PersonaAuditionSummaryState: String, Codable, CaseIterable, Sendable
     case done = "done"
     case failed = "failed"
     case cancelled = "cancelled"
+}
+
+/// What wrote it. `backfill` is the rows migration 0034 reconstructed from the two columns it replaced
+public enum PersonaTellingSource: String, Codable, CaseIterable, Sendable {
+    case `break` = "break"
+    case production = "production"
+    case backfill = "backfill"
+}
+
+/// Whether the story was handed over as something the writer MAY use, or as the thing the break was for
+public enum PersonaTellingMode: String, Codable, CaseIterable, Sendable {
+    case offered = "offered"
+    case told = "told"
 }

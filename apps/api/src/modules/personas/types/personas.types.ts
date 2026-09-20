@@ -401,6 +401,83 @@ export const PersonaAuditionRecord = z.strictObject({
 export type PersonaAuditionRecord = z.infer<typeof PersonaAuditionRecord>;
 
 /**
+ * One time a character actually told one of its own stories. What the timeline lists, and what a
+ * rollback is chosen from: the moment on each row is the exact string the station compares against,
+ * not a rounding of it
+ * generated from [PersonaTelling](../../../../data/contracts/personas/personas.types.ck#L331)
+ */
+export const PersonaTelling = z.strictObject({
+    id: z.string().min(1).max(100),
+    storyId: z.string().min(1).max(100),
+    title: z.string().min(1).max(200).describe('The handle of the story this told, so a timeline reads as something rather than as ids'),
+    source: z
+        .enum(['break', 'production', 'backfill'])
+        .describe('What wrote it. `backfill` is the rows migration 0034 reconstructed from the two columns it replaced'),
+    mode: z
+        .enum(['offered', 'told'])
+        .describe('Whether the story was handed over as something the writer MAY use, or as the thing the break was for'),
+    told: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .describe('Whether it actually went out, as the WRITER read its own answer back. An offered story may simply be ignored'),
+    said: z.string().max(2000).optional().describe('The words that carried it, kept here because the script history they came from is swept nightly'),
+    segmentId: z.string().max(100).optional().describe('The break that carried it, while that row still exists'),
+    airedAt: z
+        .string()
+        .max(40)
+        .optional()
+        .describe('When a listener could first have heard it. Absent means written but not yet aired, or never aired at all'),
+    at: z.string().min(1).max(40).describe('When it was written. Hand this back as `to` to roll back to just before it'),
+});
+export type PersonaTelling = z.infer<typeof PersonaTelling>;
+
+export const PersonaTellingInput = z.strictObject({});
+export type PersonaTellingInput = z.infer<typeof PersonaTellingInput>;
+
+/**
+ * What a rollback would undo, or did. Counted with the same predicates the delete uses, so a preview
+ * cannot promise one thing and do another
+ * generated from [PersonaMemoryChange](../../../../data/contracts/personas/personas.types.ck#L351)
+ */
+export const PersonaMemoryChange = z.strictObject({
+    tellings: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
+        .describe(
+            'Tellings forgotten. Every one, whatever wrote it: a telling is a record of something the station did rather than a claim somebody made',
+        ),
+    notes: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
+        .describe('Notes the distil pass wrote. Nothing an operator typed is ever counted here or deleted'),
+    stories: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
+        .describe('Stories the enrichment pass proposed'),
+    details: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
+        .describe('Details it proposed. A floor rather than a total: a story that is itself going takes every detail hung on it'),
+    rejected: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
+        .describe('How many of the above were proposals somebody turned down. Deleting one lets the nightly pass offer it again'),
+    touched: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
+        .describe('How many the operator had since accepted or edited. They still go, and this is the one loss they did not cause'),
+});
+export type PersonaMemoryChange = z.infer<typeof PersonaMemoryChange>;
+
+/**
+ * Undo what this character accumulated on its own
+ * generated from [PersonaMemoryRollback](../../../../data/contracts/personas/personas.types.ck#L360)
+ */
+export const PersonaMemoryRollback = z.strictObject({
+    to: z.string().max(40).optional().describe('The moment to go back to, as a timeline row reports it. Absent means all of it, which is a reset'),
+    relearn: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .optional()
+        .describe(
+            "Also drag the distil pass's watermark back, so it reads that window again. Right for testing and wrong for undoing a character that drifted, so it is asked for rather than assumed",
+        ),
+});
+export type PersonaMemoryRollback = z.infer<typeof PersonaMemoryRollback>;
+
+/**
  * generated from [PersonaList](../../../../data/contracts/personas/personas.types.ck#L34)
  */
 export const PersonaList = z.strictObject({
@@ -598,6 +675,40 @@ export const PersonaAuditionBreak = z.strictObject({
     reason: z.string().max(1000).optional().describe('Why there are none, when every writer had nothing. On air this break is skipped'),
 });
 export type PersonaAuditionBreak = z.infer<typeof PersonaAuditionBreak>;
+
+/**
+ * What one character has told, newest first
+ * generated from [PersonaMemoryTimeline](../../../../data/contracts/personas/personas.types.ck#L344)
+ */
+export const PersonaMemoryTimeline = z.strictObject({
+    personaId: z.string().min(1).max(100),
+    tellings: z.array(PersonaTelling),
+});
+export type PersonaMemoryTimeline = z.infer<typeof PersonaMemoryTimeline>;
+
+export const PersonaMemoryTimelineInput = z.strictObject({
+    personaId: z.string().min(1).max(100),
+    tellings: z.array(PersonaTellingInput),
+});
+export type PersonaMemoryTimelineInput = z.infer<typeof PersonaMemoryTimelineInput>;
+
+/**
+ * What was undone, and where the timeline stands now
+ * generated from [PersonaMemory](../../../../data/contracts/personas/personas.types.ck#L365)
+ */
+export const PersonaMemory = z.strictObject({
+    personaId: z.string().min(1).max(100),
+    undone: PersonaMemoryChange,
+    tellings: z.array(PersonaTelling),
+});
+export type PersonaMemory = z.infer<typeof PersonaMemory>;
+
+export const PersonaMemoryInput = z.strictObject({
+    personaId: z.string().min(1).max(100),
+    undone: PersonaMemoryChange,
+    tellings: z.array(PersonaTellingInput),
+});
+export type PersonaMemoryInput = z.infer<typeof PersonaMemoryInput>;
 
 /**
  * Every story one character holds, oldest first, in every state

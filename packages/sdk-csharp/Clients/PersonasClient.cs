@@ -376,6 +376,47 @@ public sealed class PersonasClient(SdkHttp http)
             cancellationToken: cancellationToken).ConfigureAwait(false);
         return http.ReadJson<PersonaRehearsal>(response);
     }
+
+    /// <summary>
+    /// Read persona memory
+    /// What this character has told, newest first. The timeline a moment is picked from
+    /// </summary>
+    public async Task<PersonaMemoryTimeline> ReadPersonaMemoryAsync(string id, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Get,
+            http.Path("personas", http.Segment(id), "memory"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<PersonaMemoryTimeline>(response);
+    }
+
+    /// <summary>
+    /// Preview persona memory rollback
+    /// What rolling back to a moment would undo, without undoing it
+    /// </summary>
+    public async Task<PersonaMemoryChange> PreviewPersonaMemoryRollbackAsync(string id, PreviewPersonaMemoryRollbackQuery? query = null, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Get,
+            http.Path("personas", http.Segment(id), "memory", "preview"),
+            query: http.Params(query),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<PersonaMemoryChange>(response);
+    }
+
+    /// <summary>
+    /// Roll back persona memory
+    /// Undo it. Everything the station accrued after that moment goes; everything an operator wrote stays
+    /// </summary>
+    public async Task<PersonaMemory> RollBackPersonaMemoryAsync(string id, PersonaMemoryRollback body, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Post,
+            http.Path("personas", http.Segment(id), "memory", "rollback"),
+            content: http.JsonContent(body, "application/json"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<PersonaMemory>(response);
+    }
 }
 
 /// <summary>Response headers declared on GET /personas/export.</summary>
@@ -389,3 +430,11 @@ public sealed record ExportPersonaHeaders(string? ContentDisposition);
 
 /// <summary>The body of GET /personas/{id}/export, with the response headers the contract declares.</summary>
 public sealed record ExportPersonaResult(PersonaFile Data, ExportPersonaHeaders Headers);
+
+/// <summary>The query parameters declared on GET /personas/{id}/memory/preview.</summary>
+public sealed record PreviewPersonaMemoryRollbackQuery
+{
+    [JsonPropertyName("to")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? To { get; init; }
+}

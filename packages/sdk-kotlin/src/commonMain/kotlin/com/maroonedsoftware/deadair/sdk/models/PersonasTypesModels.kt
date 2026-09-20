@@ -307,6 +307,70 @@ data class PersonaAuditionRecord(
     val durationMs: Long? = null,
 )
 
+/**
+ * One time a character actually told one of its own stories. What the timeline lists, and what a
+ * rollback is chosen from: the moment on each row is the exact string the station compares against,
+ * not a rounding of it
+ */
+@Serializable
+data class PersonaTelling(
+    val id: String,
+    val storyId: String,
+    /** The handle of the story this told, so a timeline reads as something rather than as ids */
+    val title: String,
+    /** What wrote it. `backfill` is the rows migration 0034 reconstructed from the two columns it replaced */
+    val source: PersonaTellingSource,
+    /** Whether the story was handed over as something the writer MAY use, or as the thing the break was for */
+    val mode: PersonaTellingMode,
+    /** Whether it actually went out, as the WRITER read its own answer back. An offered story may simply be ignored */
+    val told: Boolean,
+    /** The words that carried it, kept here because the script history they came from is swept nightly */
+    val said: String? = null,
+    /** The break that carried it, while that row still exists */
+    val segmentId: String? = null,
+    /** When a listener could first have heard it. Absent means written but not yet aired, or never aired at all */
+    val airedAt: String? = null,
+    /** When it was written. Hand this back as `to` to roll back to just before it */
+    val at: String,
+)
+
+/**
+ * One time a character actually told one of its own stories. What the timeline lists, and what a
+ * rollback is chosen from: the moment on each row is the exact string the station compares against,
+ * not a rounding of it
+ */
+@Serializable
+class PersonaTellingInput
+
+/**
+ * What a rollback would undo, or did. Counted with the same predicates the delete uses, so a preview
+ * cannot promise one thing and do another
+ */
+@Serializable
+data class PersonaMemoryChange(
+    /** Tellings forgotten. Every one, whatever wrote it: a telling is a record of something the station did rather than a claim somebody made */
+    val tellings: Long,
+    /** Notes the distil pass wrote. Nothing an operator typed is ever counted here or deleted */
+    val notes: Long,
+    /** Stories the enrichment pass proposed */
+    val stories: Long,
+    /** Details it proposed. A floor rather than a total: a story that is itself going takes every detail hung on it */
+    val details: Long,
+    /** How many of the above were proposals somebody turned down. Deleting one lets the nightly pass offer it again */
+    val rejected: Long,
+    /** How many the operator had since accepted or edited. They still go, and this is the one loss they did not cause */
+    val touched: Long,
+)
+
+/** Undo what this character accumulated on its own */
+@Serializable
+data class PersonaMemoryRollback(
+    /** The moment to go back to, as a timeline row reports it. Absent means all of it, which is a reset */
+    val to: String? = null,
+    /** Also drag the distil pass's watermark back, so it reads that window again. Right for testing and wrong for undoing a character that drifted, so it is asked for rather than assumed */
+    val relearn: Boolean? = null,
+)
+
 @Serializable
 data class PersonaList(
     val personas: List<Persona>,
@@ -482,6 +546,36 @@ data class PersonaAuditionBreak(
     val writer: String? = null,
     /** Why there are none, when every writer had nothing. On air this break is skipped */
     val reason: String? = null,
+)
+
+/** What one character has told, newest first */
+@Serializable
+data class PersonaMemoryTimeline(
+    val personaId: String,
+    val tellings: List<PersonaTelling>,
+)
+
+/** What one character has told, newest first */
+@Serializable
+data class PersonaMemoryTimelineInput(
+    val personaId: String,
+    val tellings: List<PersonaTellingInput>,
+)
+
+/** What was undone, and where the timeline stands now */
+@Serializable
+data class PersonaMemory(
+    val personaId: String,
+    val undone: PersonaMemoryChange,
+    val tellings: List<PersonaTelling>,
+)
+
+/** What was undone, and where the timeline stands now */
+@Serializable
+data class PersonaMemoryInput(
+    val personaId: String,
+    val undone: PersonaMemoryChange,
+    val tellings: List<PersonaTellingInput>,
 )
 
 /** Every story one character holds, oldest first, in every state */
@@ -900,4 +994,24 @@ enum class PersonaAuditionSummaryState {
     FAILED,
     @SerialName("cancelled")
     CANCELLED,
+}
+
+/** What wrote it. `backfill` is the rows migration 0034 reconstructed from the two columns it replaced */
+@Serializable
+enum class PersonaTellingSource {
+    @SerialName("break")
+    BREAK,
+    @SerialName("production")
+    PRODUCTION,
+    @SerialName("backfill")
+    BACKFILL,
+}
+
+/** Whether the story was handed over as something the writer MAY use, or as the thing the break was for */
+@Serializable
+enum class PersonaTellingMode {
+    @SerialName("offered")
+    OFFERED,
+    @SerialName("told")
+    TOLD,
 }

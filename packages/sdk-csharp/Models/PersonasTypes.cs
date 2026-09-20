@@ -576,6 +576,107 @@ public sealed record PersonaAuditionRecord
     public long? DurationMs { get; init; }
 }
 
+/// <summary>
+/// One time a character actually told one of its own stories. What the timeline lists, and what a
+/// rollback is chosen from: the moment on each row is the exact string the station compares against,
+/// not a rounding of it
+/// </summary>
+public sealed record PersonaTelling
+{
+    [JsonPropertyName("id")]
+    public required string Id { get; init; }
+
+    [JsonPropertyName("storyId")]
+    public required string StoryId { get; init; }
+
+    /// <summary>The handle of the story this told, so a timeline reads as something rather than as ids</summary>
+    [JsonPropertyName("title")]
+    public required string Title { get; init; }
+
+    /// <summary>What wrote it. `backfill` is the rows migration 0034 reconstructed from the two columns it replaced</summary>
+    [JsonPropertyName("source")]
+    public required PersonaTellingSource Source { get; init; }
+
+    /// <summary>Whether the story was handed over as something the writer MAY use, or as the thing the break was for</summary>
+    [JsonPropertyName("mode")]
+    public required PersonaTellingMode Mode { get; init; }
+
+    /// <summary>Whether it actually went out, as the WRITER read its own answer back. An offered story may simply be ignored</summary>
+    [JsonPropertyName("told")]
+    public required bool Told { get; init; }
+
+    /// <summary>The words that carried it, kept here because the script history they came from is swept nightly</summary>
+    [JsonPropertyName("said")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Said { get; init; }
+
+    /// <summary>The break that carried it, while that row still exists</summary>
+    [JsonPropertyName("segmentId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? SegmentId { get; init; }
+
+    /// <summary>When a listener could first have heard it. Absent means written but not yet aired, or never aired at all</summary>
+    [JsonPropertyName("airedAt")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? AiredAt { get; init; }
+
+    /// <summary>When it was written. Hand this back as `to` to roll back to just before it</summary>
+    [JsonPropertyName("at")]
+    public required string At { get; init; }
+}
+
+/// <summary>
+/// One time a character actually told one of its own stories. What the timeline lists, and what a
+/// rollback is chosen from: the moment on each row is the exact string the station compares against,
+/// not a rounding of it
+/// </summary>
+public sealed record PersonaTellingInput;
+
+/// <summary>
+/// What a rollback would undo, or did. Counted with the same predicates the delete uses, so a preview
+/// cannot promise one thing and do another
+/// </summary>
+public sealed record PersonaMemoryChange
+{
+    /// <summary>Tellings forgotten. Every one, whatever wrote it: a telling is a record of something the station did rather than a claim somebody made</summary>
+    [JsonPropertyName("tellings")]
+    public required long Tellings { get; init; }
+
+    /// <summary>Notes the distil pass wrote. Nothing an operator typed is ever counted here or deleted</summary>
+    [JsonPropertyName("notes")]
+    public required long Notes { get; init; }
+
+    /// <summary>Stories the enrichment pass proposed</summary>
+    [JsonPropertyName("stories")]
+    public required long Stories { get; init; }
+
+    /// <summary>Details it proposed. A floor rather than a total: a story that is itself going takes every detail hung on it</summary>
+    [JsonPropertyName("details")]
+    public required long Details { get; init; }
+
+    /// <summary>How many of the above were proposals somebody turned down. Deleting one lets the nightly pass offer it again</summary>
+    [JsonPropertyName("rejected")]
+    public required long Rejected { get; init; }
+
+    /// <summary>How many the operator had since accepted or edited. They still go, and this is the one loss they did not cause</summary>
+    [JsonPropertyName("touched")]
+    public required long Touched { get; init; }
+}
+
+/// <summary>Undo what this character accumulated on its own</summary>
+public sealed record PersonaMemoryRollback
+{
+    /// <summary>The moment to go back to, as a timeline row reports it. Absent means all of it, which is a reset</summary>
+    [JsonPropertyName("to")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? To { get; init; }
+
+    /// <summary>Also drag the distil pass's watermark back, so it reads that window again. Right for testing and wrong for undoing a character that drifted, so it is asked for rather than assumed</summary>
+    [JsonPropertyName("relearn")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Relearn { get; init; }
+}
+
 public sealed record PersonaList
 {
     [JsonPropertyName("personas")]
@@ -871,6 +972,52 @@ public sealed record PersonaAuditionBreak
     [JsonPropertyName("reason")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Reason { get; init; }
+}
+
+/// <summary>What one character has told, newest first</summary>
+public sealed record PersonaMemoryTimeline
+{
+    [JsonPropertyName("personaId")]
+    public required string PersonaId { get; init; }
+
+    [JsonPropertyName("tellings")]
+    public required List<PersonaTelling> Tellings { get; init; }
+}
+
+/// <summary>What one character has told, newest first</summary>
+public sealed record PersonaMemoryTimelineInput
+{
+    [JsonPropertyName("personaId")]
+    public required string PersonaId { get; init; }
+
+    [JsonPropertyName("tellings")]
+    public required List<PersonaTellingInput> Tellings { get; init; }
+}
+
+/// <summary>What was undone, and where the timeline stands now</summary>
+public sealed record PersonaMemory
+{
+    [JsonPropertyName("personaId")]
+    public required string PersonaId { get; init; }
+
+    [JsonPropertyName("undone")]
+    public required PersonaMemoryChange Undone { get; init; }
+
+    [JsonPropertyName("tellings")]
+    public required List<PersonaTelling> Tellings { get; init; }
+}
+
+/// <summary>What was undone, and where the timeline stands now</summary>
+public sealed record PersonaMemoryInput
+{
+    [JsonPropertyName("personaId")]
+    public required string PersonaId { get; init; }
+
+    [JsonPropertyName("undone")]
+    public required PersonaMemoryChange Undone { get; init; }
+
+    [JsonPropertyName("tellings")]
+    public required List<PersonaTellingInput> Tellings { get; init; }
 }
 
 /// <summary>Every story one character holds, oldest first, in every state</summary>
@@ -1482,4 +1629,29 @@ public enum PersonaAuditionSummaryState
 
     [JsonStringEnumMemberName("cancelled")]
     Cancelled,
+}
+
+/// <summary>What wrote it. `backfill` is the rows migration 0034 reconstructed from the two columns it replaced</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<PersonaTellingSource>))]
+public enum PersonaTellingSource
+{
+    [JsonStringEnumMemberName("break")]
+    Break,
+
+    [JsonStringEnumMemberName("production")]
+    Production,
+
+    [JsonStringEnumMemberName("backfill")]
+    Backfill,
+}
+
+/// <summary>Whether the story was handed over as something the writer MAY use, or as the thing the break was for</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<PersonaTellingMode>))]
+public enum PersonaTellingMode
+{
+    [JsonStringEnumMemberName("offered")]
+    Offered,
+
+    [JsonStringEnumMemberName("told")]
+    Told,
 }

@@ -329,6 +329,104 @@ export class PersonaStoriesRepository extends DataRepository {
     }
 
     /**
+     * What a rollback to this moment would take off the shelf.
+     *
+     * Same predicates as {@link rollbackAfter}, so a preview cannot promise one thing and do
+     * another. See `PersonaNotesRepository.countAfter` for what `rejected` and `touched` are for.
+     *
+     * The detail count is what would be deleted DIRECTLY. A model story that is itself going takes
+     * every detail hung on it, in any state and of any age, through the cascade — so the number an
+     * operator sees is a floor rather than a total, and the service says so.
+     */
+    async countAfter(personaKey: string, to: string): Promise<{ stories: number; details: number; rejected: number; touched: number }> {
+        const story = await this.db
+            .selectFrom('deadair.personaStories')
+            .select([
+                sql<string>`count(*)`.as('stories'),
+                sql<string>`count(*) filter (where state = 'rejected')`.as('rejected'),
+                sql<string>`count(*) filter (where updated_at > created_at)`.as('touched'),
+            ])
+            .where('stationKey', '=', this.station.stationKey)
+            .where('personaKey', '=', personaKey)
+            .where('origin', '=', 'model')
+            .where(sql<boolean>`created_at > ${to}::timestamptz`)
+            .executeTakeFirstOrThrow();
+
+        // Through the story, because a detail carries neither a station nor a character of its own.
+        const detail = await this.db
+            .selectFrom('deadair.personaStoryDetails as detail')
+            .innerJoin('deadair.personaStories as story', 'story.id', 'detail.storyId')
+            .select(sql<string>`count(*)`.as('details'))
+            .where('story.stationKey', '=', this.station.stationKey)
+            .where('story.personaKey', '=', personaKey)
+            .where('detail.origin', '=', 'model')
+            .where(sql<boolean>`detail.created_at > ${to}::timestamptz`)
+            .executeTakeFirstOrThrow();
+
+        return {
+            stories: Number(story.stories),
+            details: Number(detail.details),
+            rejected: Number(story.rejected),
+            touched: Number(story.touched),
+        };
+    }
+
+    /**
+     * Undo what the STATION proposed onto this shelf after a moment, and nothing an operator wrote.
+     *
+     * Details first and stories second, which is not tidiness: a model detail hung on an OPERATOR's
+     * story has no cascade to take it, so deleting the stories first would leave exactly the rows
+     * this is for. Going the other way is safe in both directions, because a detail deleted here
+     * and a detail deleted by the cascade are the same row gone.
+     */
+    async rollbackAfter(personaKey: string, to: string): Promise<{ stories: number; details: number }> {
+        const details = await this.db
+            .deleteFrom('deadair.personaStoryDetails')
+            .where('origin', '=', 'model')
+            .where(sql<boolean>`created_at > ${to}::timestamptz`)
+            .where(({ eb, selectFrom }) =>
+                eb(
+                    'storyId',
+                    'in',
+                    selectFrom('deadair.personaStories')
+                        .select('id')
+                        .where('stationKey', '=', this.station.stationKey)
+                        .where('personaKey', '=', personaKey),
+                ),
+            )
+            .executeTakeFirst();
+
+        const stories = await this.db
+            .deleteFrom('deadair.personaStories')
+            .where('stationKey', '=', this.station.stationKey)
+            .where('personaKey', '=', personaKey)
+            .where('origin', '=', 'model')
+            .where(sql<boolean>`created_at > ${to}::timestamptz`)
+            .executeTakeFirst();
+
+        return { stories: Number(stories.numDeletedRows), details: Number(details.numDeletedRows) };
+    }
+
+    /**
+     * Put the two rotation columns back in step with the ledger.
+     *
+     * A bridge, and it goes when they do. While `last_told_at` and `times_told` are still the
+     * authority, a rollback that deleted tellings without recomputing them would leave a story
+     * claiming it went out at a moment the station no longer has any record of.
+     */
+    async recomputeTold(personaKey: string): Promise<void> {
+        await this.db
+            .updateTable('deadair.personaStories')
+            .set({
+                lastToldAt: sql`(select max(t.created_at) from deadair.persona_tellings t where t.story_id = deadair.persona_stories.id)` as never,
+                timesTold: sql`(select count(*) from deadair.persona_tellings t where t.story_id = deadair.persona_stories.id and t.told)` as never,
+            })
+            .where('stationKey', '=', this.station.stationKey)
+            .where('personaKey', '=', personaKey)
+            .execute();
+    }
+
+    /**
      * The details of several stories at once, oldest first.
      *
      * One query for the whole page rather than one per story, which is the only reason {@link list}

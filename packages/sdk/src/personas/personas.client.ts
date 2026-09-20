@@ -1,5 +1,5 @@
 import type { SdkFetch } from '../sdk-options.js';
-import { bigIntReplacer, parseJson } from '../sdk-options.js';
+import { bigIntReplacer, parseJson, buildQueryString } from '../sdk-options.js';
 import type {
     GeneratedPersona,
     PersonaAudition,
@@ -11,6 +11,10 @@ import type {
     PersonaImportResult,
     PersonaInput,
     PersonaList,
+    PersonaMemory,
+    PersonaMemoryChange,
+    PersonaMemoryRollback,
+    PersonaMemoryTimeline,
     PersonaNoteList,
     PersonaNoteState,
     PersonaNoteWrite,
@@ -364,5 +368,39 @@ export class PersonasClient {
     async rehearsePersona(id: string): Promise<PersonaRehearsal> {
         const result = await this.fetch(`/personas/${encodeURIComponent(id)}/rehearse`, { method: 'POST' });
         return await parseJson<PersonaRehearsal>(result);
+    }
+
+    /**
+     * @name Read persona memory
+     * @description What this character has told, newest first. The timeline a moment is picked from
+     */
+    async readPersonaMemory(id: string): Promise<PersonaMemoryTimeline> {
+        const result = await this.fetch(`/personas/${encodeURIComponent(id)}/memory`, { method: 'GET' });
+        return await parseJson<PersonaMemoryTimeline>(result);
+    }
+
+    /**
+     * @name Preview persona memory rollback
+     * @description What rolling back to a moment would undo, without undoing it
+     */
+    async previewPersonaMemoryRollback(id: string, query?: { to?: string }): Promise<PersonaMemoryChange> {
+        const qs = buildQueryString(query);
+        const result = await this.fetch(`/personas/${encodeURIComponent(id)}/memory/preview${qs}`, {
+            method: 'GET',
+        });
+        return await parseJson<PersonaMemoryChange>(result);
+    }
+
+    /**
+     * @name Roll back persona memory
+     * @description Undo it. Everything the station accrued after that moment goes; everything an operator wrote stays
+     */
+    async rollBackPersonaMemory(id: string, body: PersonaMemoryRollback): Promise<PersonaMemory> {
+        const result = await this.fetch(`/personas/${encodeURIComponent(id)}/memory/rollback`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<PersonaMemory>(result);
     }
 }

@@ -184,6 +184,38 @@ export class PersonaTellingRepository extends DataRepository {
         }));
     }
 
+    /** How many tellings a rollback to this moment would undo. Same predicate as {@link removeAfter}. */
+    async countAfter(personaKey: string, to: string): Promise<number> {
+        const row = await this.db
+            .selectFrom('deadair.personaTellings')
+            .select(sql<string>`count(*)`.as('count'))
+            .where('stationKey', '=', this.station.stationKey)
+            .where('personaKey', '=', personaKey)
+            .where(sql<boolean>`created_at > ${to}::timestamptz`)
+            .executeTakeFirstOrThrow();
+
+        return Number(row.count);
+    }
+
+    /**
+     * Forget everything this character told after a moment.
+     *
+     * Every row, whatever wrote it, which is the one place this feature does NOT sort by origin: a
+     * telling is not a claim somebody made, it is a record of something the station did, and an
+     * operator rolling back to Tuesday means the station had not yet done it. The rows an operator
+     * authored by hand are stories and notes, and those are sorted by origin where they live.
+     */
+    async removeAfter(personaKey: string, to: string): Promise<number> {
+        const removed = await this.db
+            .deleteFrom('deadair.personaTellings')
+            .where('stationKey', '=', this.station.stationKey)
+            .where('personaKey', '=', personaKey)
+            .where(sql<boolean>`created_at > ${to}::timestamptz`)
+            .executeTakeFirst();
+
+        return Number(removed.numDeletedRows);
+    }
+
     private valuesFor(write: PersonaTellingWrite) {
         const said = write.said?.trim();
 

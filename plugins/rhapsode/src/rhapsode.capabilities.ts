@@ -37,16 +37,9 @@
  * document at all is silence rather than a throw.
  */
 
-import {
-    isSpeechDelivery,
-    SPEECH_CUES,
-    tryJsonBody,
-    type HostFetchInit,
-    type PluginLogger,
-    type SpeechCue,
-    type SpeechDelivery,
-} from '@deadair/plugin-sdk';
+import { isSpeechDelivery, SPEECH_CUES, tryJsonBody, type SpeechCue, type SpeechDelivery } from '@deadair/plugin-sdk';
 import type { Capabilities, CurrentVariant, Dial, Variant } from '@maroonedsoftware/rhapsode-sdk';
+import type { RhapsodeAccess } from './rhapsode.directory.js';
 import { PROBE_TIMEOUT_MS } from './rhapsode.manifest.js';
 
 /**
@@ -70,10 +63,7 @@ interface Cached {
 /** What a build says about itself, whether it is the loaded one or merely one that could be. */
 export type EffectiveVariant = Variant | CurrentVariant;
 
-export interface EngineCapabilitiesOptions {
-    baseUrl: string;
-    fetch: (url: string, init: HostFetchInit) => Promise<Response>;
-    logger: PluginLogger;
+export interface EngineCapabilitiesOptions extends RhapsodeAccess {
     /** For tests, which would otherwise have to wait five minutes to watch a document go stale. */
     ttlMs?: number;
 }
@@ -162,6 +152,14 @@ export function effectiveVariant(document: Capabilities | undefined, variant: st
 
     return Object.values(document.variants)[0];
 }
+
+/**
+ * Every build this engine could load, by name.
+ *
+ * For the settings form, where the variant cell is free text with these as suggestions: the list is
+ * what this operator's server actually has, and typing one it does not have is a refusal naming it.
+ */
+export const variantNamesOf = (document: Capabilities | undefined): string[] => Object.keys(document?.variants ?? {});
 
 /**
  * The cues this build performs, in the station's vocabulary.

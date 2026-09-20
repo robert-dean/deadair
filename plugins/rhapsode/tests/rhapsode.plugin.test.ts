@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { isPluginError, type PluginError, type SpeechRequest } from '@deadair/plugin-sdk';
 import { createFakePluginHost, type FakePluginHost } from '@deadair/plugin-sdk/testing';
-import type { Capabilities, Variant } from '@maroonedsoftware/rhapsode-sdk';
+import type { Capabilities, CoreHealth, EngineSummary, Variant, Voice } from '@maroonedsoftware/rhapsode-sdk';
 
 import { mimeOf, RhapsodePlugin } from '../src/rhapsode.plugin.js';
 
@@ -34,7 +34,24 @@ interface FakeHostOptions {
     contentType?: string;
     /** What each engine says it can do. An engine not named here is one the server will not describe. */
     capabilities?: Record<string, Capabilities>;
+    /** What `/health` answers, for the console's Test connection. */
+    health?: CoreHealth;
+    /** Status `/health` answers with instead, or a transport failure. */
+    healthStatus?: number;
+    healthThrows?: boolean;
+    /** What `/engines` lists, and the status it answers with. */
+    engines?: EngineSummary[];
+    enginesStatus?: number;
+    /** What each engine lists as its voices. */
+    voices?: Record<string, Voice[]>;
 }
+
+/** A licence pair, since every engine summary carries one and none of these tests is about it. */
+const MIT = { code: 'MIT', weights: 'MIT', weightsCommercialUse: true };
+
+/** A JSON reply, the way this server sends one. */
+const answering = (body: unknown, status = 200): Response =>
+    new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 
 /** One engine's document, with only the parts these tests look at filled in. */
 const capabilities = (over: Partial<Capabilities> = {}): Capabilities => ({
@@ -58,13 +75,32 @@ function fakeHost(options: FakeHostOptions = {}) {
     const host: FakePluginHost = createFakePluginHost();
 
     host.setFetchImpl(async (url: string): Promise<Response> => {
+        if (url.endsWith('/health')) {
+            if (options.healthThrows === true) throw new Error('connect ECONNREFUSED');
+
+            return options.healthStatus !== undefined && options.healthStatus !== 200
+                ? answering({ error: { code: 'internal', message: 'no' } }, options.healthStatus)
+                : answering(options.health ?? { contract: 1, status: 'ok', engines: [], residency: { resident: 0, max: 1, waiting: 0 } });
+        }
+
+        if (url.endsWith('/engines')) {
+            return options.enginesStatus !== undefined && options.enginesStatus !== 200
+                ? answering({ error: { code: 'internal', message: 'no' } }, options.enginesStatus)
+                : answering(options.engines ?? []);
+        }
+
+        const listing = /\/engines\/([^/]+)\/voices$/.exec(url);
+        if (listing !== null) {
+            const held = options.voices?.[decodeURIComponent(listing[1]!)];
+
+            return held === undefined ? answering({ error: { code: 'unknown_engine', message: 'no' } }, 404) : answering(held);
+        }
+
         const asked = /\/engines\/([^/]+)\/capabilities$/.exec(url);
         if (asked !== null) {
             const document = options.capabilities?.[decodeURIComponent(asked[1]!)];
 
-            return document === undefined
-                ? new Response(JSON.stringify({ error: { code: 'unknown_engine', message: 'no such engine' } }), { status: 404 })
-                : new Response(JSON.stringify(document), { status: 200, headers: { 'content-type': 'application/json' } });
+            return document === undefined ? answering({ error: { code: 'unknown_engine', message: 'no such engine' } }, 404) : answering(document);
         }
 
         if (!url.endsWith('/speak')) throw new Error(`nothing in this test should call ${url}`);
@@ -521,5 +557,171 @@ describe('what this station can be asked for', () => {
         });
 
         expect(await plugin.listCues()).toEqual(['laugh', 'sigh']);
+    });
+});
+
+describe('testConnection', () => {
+    const health = (over: Partial<CoreHealth> = {}): CoreHealth => ({
+        contract: 1,
+        status: 'ok',
+        engines: [{ id: 'kokoro', displayName: 'Kokoro', license: MIT, process: 'up', model: 'loaded', restarts: 0 }],
+        residency: { resident: 1, max: 1, waiting: 0 },
+        ...over,
+    });
+
+    it('says what the server has, and what the default engine is doing on it', async () => {
+        const { plugin } = await started({ health: health() });
+
+        const result = await plugin.testConnection();
+
+        expect(result.ok).toBe(true);
+        expect(result.message).toContain('1 engine installed');
+        expect(result.message).toContain('"kokoro" is up, model loaded');
+        expect(result.message).toContain('1 of 1 model slots in use');
+    });
+
+    it('says when the default engine is a name this server does not have', async () => {
+        // The one thing an operator cannot see from the form, and the difference between a station
+        // that speaks and one that fails every break with `unknown_engine`.
+        const { plugin } = await started({ config: { defaultEngine: 'orpheus' }, health: health() });
+
+        const result = await plugin.testConnection();
+
+        expect(result.ok).toBe(true);
+        expect(result.message).toContain('no engine called "orpheus"');
+    });
+
+    it('answers rather than throwing when nothing is listening', async () => {
+        // Three presses against a stopped server would otherwise quarantine the plugin and take the
+        // station's voice off air.
+        const { plugin } = await started({ healthThrows: true });
+
+        await expect(plugin.testConnection()).resolves.toMatchObject({ ok: false });
+    });
+
+    it('answers rather than throwing when something else is listening', async () => {
+        const { plugin } = await started({ healthStatus: 404 });
+
+        const result = await plugin.testConnection();
+
+        expect(result.ok).toBe(false);
+        expect(result.message).toContain('answered as a Rhapsode server');
+    });
+
+    it('refuses before the network with no address at all', async () => {
+        const { plugin, calls } = await started({ config: { baseUrl: '' } });
+
+        await expect(plugin.testConnection()).resolves.toEqual({ ok: false, message: 'No server URL set.' });
+        expect(calls).toHaveLength(0);
+    });
+});
+
+describe('listVoices', () => {
+    it('reports the station names, with the address as the description', async () => {
+        const { plugin } = await started({
+            config: { voices: voiceRows({ name: 'host', engine: 'chatterbox', voice: 'gravel', variant: 'turbo', speed: '1.2' }) },
+        });
+
+        const [, host] = await plugin.listVoices();
+
+        expect(host).toMatchObject({ id: 'host', label: 'host', description: 'gravel on chatterbox (turbo) at 1.2x' });
+    });
+
+    it('always offers the fallback, so a station with no mappings has something to preview', async () => {
+        const { plugin } = await started({ config: { defaultEngine: 'orpheus' } });
+
+        const voices = await plugin.listVoices();
+
+        expect(voices).toHaveLength(1);
+        expect(voices[0]).toMatchObject({ id: '', label: 'Default', description: "orpheus's own default voice" });
+    });
+
+    it('keys the preview on every part of the address', async () => {
+        const { plugin } = await started({
+            config: {
+                voices: voiceRows(
+                    { name: 'plain', voice: 'af_heart' },
+                    { name: 'quick', voice: 'af_heart', speed: '1.1' },
+                    { name: 'pinned', voice: 'af_heart', variant: 'fp16' },
+                ),
+            },
+        });
+
+        const specs = (await plugin.listVoices()).map(voice => voice.spec);
+
+        expect(new Set(specs).size).toBe(specs.length);
+    });
+});
+
+describe('suggestConfigOptions', () => {
+    const engines = [
+        { id: 'kokoro', displayName: 'Kokoro', license: MIT, process: 'up' as const, model: 'loaded' as const, restarts: 0 },
+        { id: 'chatterbox', displayName: 'Chatterbox', license: MIT, process: 'down' as const, model: 'unloaded' as const, restarts: 0 },
+    ];
+
+    const both = {
+        engines,
+        capabilities: {
+            kokoro: capabilities({ variants: { fp16: variant(), fp32: variant() } }),
+            chatterbox: capabilities({ variants: { turbo: variant() } }),
+        },
+        voices: {
+            kokoro: [{ id: 'af_heart', label: 'Heart', spec: 'x' }],
+            chatterbox: [{ id: 'gravel', label: 'Gravel', spec: 'y' }],
+        },
+    };
+
+    it('offers the engines this server has installed, for both places one is named', async () => {
+        const { plugin } = await started(both);
+
+        const suggested = await plugin.suggestConfigOptions();
+
+        expect(suggested.defaultEngine).toEqual([
+            { value: 'kokoro', label: 'Kokoro' },
+            { value: 'chatterbox', label: 'Chatterbox' },
+        ]);
+        expect(suggested['voices.engine']).toEqual(suggested.defaultEngine);
+    });
+
+    it('labels each voice with the engine that holds it, since the ids are only unique within one', async () => {
+        const { plugin } = await started(both);
+
+        const suggested = await plugin.suggestConfigOptions();
+
+        expect(suggested['voices.voice']).toEqual([
+            { value: 'af_heart', label: 'Heart (kokoro)' },
+            { value: 'gravel', label: 'Gravel (chatterbox)' },
+        ]);
+    });
+
+    it('offers every build each engine could load', async () => {
+        const { plugin } = await started(both);
+
+        const suggested = await plugin.suggestConfigOptions();
+
+        expect(suggested['voices.variant']).toEqual([
+            { value: 'fp16', label: 'fp16 (kokoro)' },
+            { value: 'fp32', label: 'fp32 (kokoro)' },
+            { value: 'turbo', label: 'turbo (chatterbox)' },
+        ]);
+    });
+
+    it('gives up before the fan-out when the server did not list its engines', async () => {
+        // Nothing to ask the rest of, and an operator fixing a bad address needs the form rather
+        // than an error where the choices should be.
+        const { plugin, calls } = await started({ enginesStatus: 503 });
+
+        expect(await plugin.suggestConfigOptions()).toEqual({});
+        expect(calls.map(call => call.url)).toEqual([`${BASE_URL}/engines`]);
+    });
+
+    it('still offers the engines when none of them would list a voice', async () => {
+        const { plugin } = await started({ engines });
+
+        const suggested = await plugin.suggestConfigOptions();
+
+        expect(suggested.defaultEngine).toHaveLength(2);
+        expect(suggested).not.toHaveProperty('voices.voice');
+        expect(suggested).not.toHaveProperty('defaultVoice');
     });
 });

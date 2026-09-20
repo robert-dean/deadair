@@ -1,10 +1,13 @@
 import {
     configBaseUrl,
     configString,
+    errorText,
     Plugin,
     PluginError,
     SPEECH_CUES,
     SPEECH_DELIVERIES,
+    type ConfigFieldOption,
+    type PluginConnectionResult,
     type PluginLogger,
     type SpeechCue,
     type SpeechDelivery,
@@ -12,8 +15,9 @@ import {
     type SpeechLimits,
     type SpeechPluginInstance,
     type SpeechRequest,
+    type SpeechVoice,
 } from '@deadair/plugin-sdk';
-import type { Capabilities, EngineSpeakRequest } from '@maroonedsoftware/rhapsode-sdk';
+import type { Capabilities, CoreHealth, EngineSpeakRequest } from '@maroonedsoftware/rhapsode-sdk';
 import {
     cuesOf,
     deliveriesOf,
@@ -22,8 +26,10 @@ import {
     maxCharactersOf,
     speedDialOf,
     speedWithin,
+    variantNamesOf,
     type EffectiveVariant,
 } from './rhapsode.capabilities.js';
+import { fetchEngines, fetchHealth, fetchVoices, type RhapsodeAccess } from './rhapsode.directory.js';
 import {
     DEFAULT_ENGINE,
     DEFAULT_FORMAT,
@@ -35,7 +41,15 @@ import {
     type ResponseFormat,
 } from './rhapsode.manifest.js';
 import { speakFailure } from './rhapsode.errors.js';
-import { VOICES_FIELD, voiceMapOf, type VoiceMap, type VoiceMapping } from './rhapsode.voices.js';
+import {
+    VOICE_ENGINE_COLUMN,
+    VOICE_VARIANT_COLUMN,
+    VOICE_VOICE_COLUMN,
+    VOICES_FIELD,
+    voiceMapOf,
+    type VoiceMap,
+    type VoiceMapping,
+} from './rhapsode.voices.js';
 
 export { rhapsodeManifest };
 
@@ -130,14 +144,8 @@ export class RhapsodePlugin extends Plugin implements SpeechPluginInstance {
         // a voice id, and this plugin cannot know which engines an operator has installed.
         this.voices = voiceMapOf(config[VOICES_FIELD]);
 
-        this.capabilities =
-            this.baseUrl.length === 0
-                ? undefined
-                : new EngineCapabilities({
-                      baseUrl: this.baseUrl,
-                      fetch: (url, init) => this.host.fetch(url, init),
-                      logger: this.host.logger,
-                  });
+        const access = this.access();
+        this.capabilities = access === undefined ? undefined : new EngineCapabilities(access);
 
         this.host.logger.info('rhapsode ready', {
             baseUrl: this.baseUrl,
@@ -146,6 +154,129 @@ export class RhapsodePlugin extends Plugin implements SpeechPluginInstance {
             voices: Object.keys(this.voices).length,
             ...(this.keepAliveSeconds === undefined ? {} : { keepAliveSeconds: this.keepAliveSeconds }),
         });
+    }
+
+    /**
+     * Whether the server is there, as an ANSWER rather than as a throw.
+     *
+     * The catch carries the argument `plugins/kokoro` states in full: `probe` reads `ok`, and a
+     * rejection is recorded as a failed call instead — so three presses of Test connection against a
+     * server that is not running would quarantine the plugin, the render path would stop considering
+     * it for being quarantined, and the station would lose the voice it still had a perfectly good
+     * address for.
+     *
+     * What it reports beyond "connected" is the one thing an operator cannot see from the form: this
+     * plugin's default engine is a name typed into a text box, and whether this server has it is the
+     * difference between a station that speaks and one that fails every break with `unknown_engine`.
+     */
+    async testConnection(): Promise<PluginConnectionResult> {
+        const access = this.access();
+        if (access === undefined) return { ok: false, message: 'No server URL set.' };
+
+        let health: CoreHealth | undefined;
+        try {
+            health = await fetchHealth(access);
+        } catch (error) {
+            return { ok: false, message: `Could not reach ${this.baseUrl}: ${errorText(error)}` };
+        }
+
+        if (health === undefined) return { ok: false, message: `Nothing at ${this.baseUrl} answered as a Rhapsode server.` };
+
+        const engines = Array.isArray(health.engines) ? health.engines : [];
+        const named = engines.find(engine => engine.id === this.defaultEngine);
+        const resident = health.residency?.resident;
+
+        return {
+            ok: true,
+            message: [
+                `Connected. ${engines.length} ${engines.length === 1 ? 'engine' : 'engines'} installed.`,
+                named === undefined
+                    ? `This server has no engine called "${this.defaultEngine}".`
+                    : `"${this.defaultEngine}" is ${named.process}, model ${named.model}.`,
+                ...(typeof resident === 'number' ? [`${resident} of ${health.residency.max} model slots in use.`] : []),
+            ].join(' '),
+        };
+    }
+
+    /**
+     * The station's own voice names, as the console lists them.
+     *
+     * These are the ids the host may pass back, so this reports the MAPPINGS rather than everything
+     * the server can say: a voice on an engine the operator never named is not something the station
+     * can ask for. The address is the description, because when choosing between two rows that is the
+     * part that differs.
+     *
+     * The `spec` is composed here rather than taken from the server's own opaque one, which is a
+     * deliberate trade. Reading the server's would mean listing every engine's voices on a console
+     * page load, and on this server listing voices starts the engine's worker process — a page view
+     * would cost several of them. What that buys is noticing a voice re-cloned under the SAME id,
+     * whose preview would otherwise stay stale until something else about the row changed, and that
+     * is worth less than the workers.
+     */
+    async listVoices(): Promise<SpeechVoice[]> {
+        const mapped = Object.entries(this.voices).map(([id, mapping]) => {
+            const address = this.addressOf(mapping);
+
+            return { id, label: id, description: describeFully(address), spec: specOf(address) };
+        });
+
+        // Always offer the fallback, under its own name, so a station with no mappings at all still
+        // has something to preview and choose.
+        const fallback = this.resolveVoice(undefined);
+        return [{ id: '', label: 'Default', description: describeFully(fallback), spec: specOf(fallback) }, ...mapped];
+    }
+
+    /**
+     * What the settings form should offer, out of what this server actually has.
+     *
+     * This is what makes the form fillable, and on this server there is more of it to fill than on
+     * either of the others: an engine id, a voice id within that engine, and a build of it. None of
+     * the three is guessable, and two of them are per-install — the engines are whatever the operator
+     * has chosen to install, and the voices include any they have cloned in themselves.
+     *
+     * Every cell stays free text with these as suggestions rather than becoming a `select`. A voice
+     * uploaded a moment ago, or an engine installed while this form was open, is still typeable, and
+     * the console draws a cell with choices as an autocomplete for exactly that reason.
+     *
+     * Answers nothing rather than throwing when the server is unreachable: an operator fixing a bad
+     * address needs the form, and the refresh control is right there. It gives up before the fan-out
+     * for the same reason — if `/engines` did not answer, there is nothing to ask the rest of.
+     */
+    async suggestConfigOptions(): Promise<Record<string, ConfigFieldOption[]>> {
+        const access = this.access();
+        const capabilities = this.capabilities;
+        if (access === undefined || capabilities === undefined) return {};
+
+        const engines = await fetchEngines(access);
+        if (engines.length === 0) return {};
+
+        // Every engine at once. Sequentially this is two round trips per engine against a budget for
+        // the whole call, and an operator with four engines would watch it time out.
+        const held = await Promise.all(
+            engines.map(async engine => ({
+                engine,
+                voices: await fetchVoices(access, engine.id),
+                variants: variantNamesOf(await capabilities.of(engine.id)),
+            })),
+        );
+
+        const engineOptions = engines.map(engine => ({ value: engine.id, label: engine.displayName || engine.id }));
+        // Labelled with the engine they belong to, because a voice id is only unique within one and
+        // these are one flat list: two engines may both hold a `default`, and they are not the same
+        // voice.
+        const voiceOptions = held.flatMap(({ engine, voices }) =>
+            voices.map(voice => ({ value: voice.id, label: `${voice.label || voice.id} (${engine.id})` })),
+        );
+        const variantOptions = held.flatMap(({ engine, variants }) =>
+            variants.map(variant => ({ value: variant, label: `${variant} (${engine.id})` })),
+        );
+
+        return {
+            defaultEngine: engineOptions,
+            [`${VOICES_FIELD}.${VOICE_ENGINE_COLUMN}`]: engineOptions,
+            ...(voiceOptions.length === 0 ? {} : { defaultVoice: voiceOptions, [`${VOICES_FIELD}.${VOICE_VOICE_COLUMN}`]: voiceOptions }),
+            ...(variantOptions.length === 0 ? {} : { defaultVariant: variantOptions, [`${VOICES_FIELD}.${VOICE_VARIANT_COLUMN}`]: variantOptions }),
+        };
     }
 
     async speak(request: SpeechRequest): Promise<SpeechHandle> {
@@ -309,6 +440,19 @@ export class RhapsodePlugin extends Plugin implements SpeechPluginInstance {
         return [...builds.values()].map(address => effectiveVariant(documents.get(address.engine), address.variant));
     }
 
+    /**
+     * What this plugin needs to ask the server anything, or nothing when it has no address.
+     *
+     * `host` is read once here rather than inside the closure, so a call that outlives a config save
+     * fails on a dead socket rather than on a `this.host` that now throws.
+     */
+    private access(): RhapsodeAccess | undefined {
+        if (this.baseUrl.length === 0) return undefined;
+
+        const host = this.host;
+        return { baseUrl: this.baseUrl, fetch: (url, init) => host.fetch(url, init), logger: host.logger };
+    }
+
     /** One stored row as the address it names, with the defaults filling whatever it left blank. */
     private addressOf(mapping: VoiceMapping): SpeakAddress {
         const variant = mapping.variant ?? this.defaultVariant;
@@ -367,6 +511,26 @@ async function speedParams(
 /** The address as one phrase, for a log line and for the message on a body that was not audio. */
 const describe = (asked: SpeakAddress): string =>
     asked.voice === undefined ? `engine "${asked.engine}"` : `voice "${asked.voice}" on engine "${asked.engine}"`;
+
+/** The same address for the console's list, where the build and the pace are worth saying too. */
+const describeFully = (asked: SpeakAddress): string =>
+    [
+        asked.voice === undefined ? `${asked.engine}'s own default voice` : `${asked.voice} on ${asked.engine}`,
+        ...(asked.variant === undefined ? [] : [`(${asked.variant})`]),
+        ...(asked.speed === undefined ? [] : [`at ${asked.speed}x`]),
+    ].join(' ');
+
+/**
+ * The token the host keys a cached voice preview on. See `SpeechVoice.spec`.
+ *
+ * Opaque to the host, so the only rule is that it change whenever the rendering would. Every part of
+ * the address is in it, and a voice with no speed reads as a different token from the same voice at
+ * 1x deliberately, because those are two different requests.
+ */
+const specOf = (asked: SpeakAddress): string =>
+    [asked.engine, asked.voice ?? ''].join('/') +
+    (asked.variant === undefined ? '' : `@${asked.variant}`) +
+    (asked.speed === undefined ? '' : `@${asked.speed}`);
 
 /**
  * What the bytes ARE, going by what the server said they are.

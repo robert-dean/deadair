@@ -130,3 +130,24 @@ export interface ListenBrainzTopRecording {
     release_name?: string;
     total_listen_count?: number;
 }
+
+/**
+ * One row of `GET labs.api.listenbrainz.org/similar-recordings/json`.
+ *
+ * `reference_mbid` echoes the recording that was asked about, which is how a
+ * row about the seed itself is told from a row about something else.
+ *
+ * `artist_credit_name` is a CREDIT and `artist_credit_mbids` came back null on
+ * every row measured, so neither can give the lead artist. It comes from the
+ * metadata endpoint instead.
+ */
+export interface ListenBrainzSimilarRecording {
+    recording_mbid?: string;
+    recording_name?: string;
+    artist_credit_name?: string;
+    artist_credit_mbids?: string[] | null;
+    release_name?: string;
+    reference_mbid?: string;
+    /** How alike, on this algorithm's own scale. Rows arrive highest first. */
+    score?: number;
+}

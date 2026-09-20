@@ -1,11 +1,12 @@
 import { PluginError, jsonBody, pluginCodeForStatus as sharedCodeForStatus, type PluginErrorCode, type PluginHost } from '@deadair/plugin-sdk';
 
-import { LISTENBRAINZ_ORIGIN, PLUGIN_VERSION, REQUEST_TIMEOUT_MS } from './musicbrainz.manifest.js';
+import { LISTENBRAINZ_LABS_ORIGIN, LISTENBRAINZ_ORIGIN, PLUGIN_VERSION, REQUEST_TIMEOUT_MS } from './musicbrainz.manifest.js';
 import type {
     ListenBrainzLookupQuery,
     ListenBrainzLookupResult,
     ListenBrainzRadioResponse,
     ListenBrainzRecordingMetadataResponse,
+    ListenBrainzSimilarRecording,
     ListenBrainzTopRecording,
 } from './listenbrainz.types.js';
 
@@ -23,6 +24,17 @@ export const LOOKUP_BATCH_SIZE = 50;
  * request's question.
  */
 export const METADATA_BATCH_SIZE = 50;
+
+/**
+ * Which similarity dataset `similar-recordings` is asked for.
+ *
+ * An exact enum the service owns, not a set of parameters: a plausible guess
+ * during this work was refused with a 400 naming the values that exist. If this
+ * one is retired, the endpoint 400s, {@link MusicBrainzPlugin.similarTracks}
+ * answers empty and the host falls back to walking the anchor's artist — so the
+ * failure costs the closer answer and nothing else.
+ */
+export const SIMILAR_RECORDINGS_ALGORITHM = 'session_based_days_7500_session_300_contribution_5_threshold_15_limit_50_skip_30';
 
 /**
  * How ListenBrainz's statuses read in the host's vocabulary.
@@ -180,21 +192,53 @@ export class ListenBrainzClient {
         return Array.isArray(answer) ? answer : [];
     }
 
+    /**
+     * `GET labs.api.listenbrainz.org/similar-recordings/json`: records that
+     * people listen to alongside this one.
+     *
+     * Open to anonymous callers, and the only keyless record-level answer there
+     * is — Deezer has no such endpoint at all.
+     *
+     * **`algorithm` is an exact enum the service owns and changes.** It is not
+     * a set of knobs: a plausible-looking value is a 400 listing the ones that
+     * exist. So {@link SIMILAR_RECORDINGS_ALGORITHM} is one constant, and a 400
+     * is reported by the caller as "no answer" rather than allowed to count
+     * against the plugin — a retired enum should cost the record-level answer
+     * and nothing else.
+     *
+     * Rows arrive highest score first, so callers keep the order.
+     */
+    async similarRecordings(recordingMbid: string): Promise<ListenBrainzSimilarRecording[]> {
+        const answer = await this.getFrom<ListenBrainzSimilarRecording[] | undefined>(LISTENBRAINZ_LABS_ORIGIN, 'similar-recordings/json', {
+            recording_mbids: recordingMbid,
+            algorithm: SIMILAR_RECORDINGS_ALGORITHM,
+        });
+        return Array.isArray(answer) ? answer : [];
+    }
+
     private async get<T>(path: string, params: Record<string, string> = {}): Promise<T> {
+        return await this.getFrom<T>(LISTENBRAINZ_ORIGIN, path, params);
+    }
+
+    private async getFrom<T>(origin: string, path: string, params: Record<string, string> = {}): Promise<T> {
         const query = new URLSearchParams(params).toString();
-        return await this.send<T>(`${path}${query.length > 0 ? `?${query}` : ''}`, { method: 'GET' });
+        return await this.send<T>(origin, `${path}${query.length > 0 ? `?${query}` : ''}`, { method: 'GET' });
     }
 
     private async post<T>(path: string, payload: unknown): Promise<T> {
-        return await this.send<T>(path, {
+        return await this.send<T>(LISTENBRAINZ_ORIGIN, path, {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
             body: JSON.stringify(payload),
         });
     }
 
-    private async send<T>(path: string, init: { method: 'GET' | 'POST'; headers?: Record<string, string>; body?: string }): Promise<T> {
-        const response = await this.host.fetch(`${LISTENBRAINZ_ORIGIN}/${path}`, {
+    private async send<T>(
+        origin: string,
+        path: string,
+        init: { method: 'GET' | 'POST'; headers?: Record<string, string>; body?: string },
+    ): Promise<T> {
+        const response = await this.host.fetch(`${origin}/${path}`, {
             method: init.method,
             headers: {
                 accept: 'application/json',

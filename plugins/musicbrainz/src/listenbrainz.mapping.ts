@@ -40,6 +40,7 @@ import type {
     ListenBrainzRadioResponse,
     ListenBrainzRecordingMetadata,
     ListenBrainzRecordingMetadataResponse,
+    ListenBrainzSimilarRecording,
     ListenBrainzTopRecording,
     ListenBrainzTag,
 } from './listenbrainz.types.js';
@@ -239,4 +240,49 @@ export function toTopTracks(top: ListenBrainzTopRecording[], metadata: ListenBra
 /** The recording ids in a top-recordings answer, in the order given. */
 export function topRecordingMbids(top: ListenBrainzTopRecording[]): string[] {
     return top.map(row => row.recording_mbid).filter((mbid): mbid is string => typeof mbid === 'string' && mbid.length > 0);
+}
+
+/**
+ * Records that sound like one record, as the host's shape.
+ *
+ * Rows arrive highest score first and keep that order: `ArtistTrack` has
+ * nowhere to put a score, and the host reads the order as the ranking.
+ *
+ * **The seed's own recording is dropped.** The endpoint answers about what is
+ * listened to alongside the reference, and the reference is in its own
+ * neighbourhood; `reference_mbid` echoes it, so it is recognised rather than
+ * guessed at.
+ *
+ * The lead artist comes from `metadata`, never from `artist_credit_name`,
+ * which is a credit line — and never from `artist_credit_mbids`, which came
+ * back null on every row measured. A row with no lead is dropped rather than
+ * given the anchor's artist: that would name a record by the wrong act, which
+ * is the rule the Last.fm plugin applies at the same fork.
+ */
+export function toSimilarTracks(
+    rows: ListenBrainzSimilarRecording[],
+    seedMbid: string,
+    metadata: ListenBrainzRecordingMetadataResponse,
+): ArtistTrack[] {
+    const tracks: ArtistTrack[] = [];
+
+    for (const row of rows) {
+        const recordingMbid = row.recording_mbid;
+        if (!recordingMbid || recordingMbid === seedMbid) continue;
+
+        const found = metadata[recordingMbid];
+        const title = row.recording_name?.trim() ?? found?.recording?.name?.trim();
+        const artist = found?.artist?.artists?.[0]?.name?.trim();
+        if (!title || !artist) continue;
+
+        const album = row.release_name?.trim() ?? found?.release?.name?.trim();
+        tracks.push({ title, artist, ...(album ? { album } : {}) });
+    }
+
+    return tracks;
+}
+
+/** The recording ids in a similar-recordings answer, the seed excluded, in the order given. */
+export function similarRecordingMbids(rows: ListenBrainzSimilarRecording[], seedMbid: string): string[] {
+    return rows.map(row => row.recording_mbid).filter((mbid): mbid is string => typeof mbid === 'string' && mbid.length > 0 && mbid !== seedMbid);
 }

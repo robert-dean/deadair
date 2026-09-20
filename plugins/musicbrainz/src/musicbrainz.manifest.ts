@@ -39,6 +39,18 @@ export const PUBLIC_RATE_PER_SECOND = 1;
 export const LISTENBRAINZ_ORIGIN = 'https://api.listenbrainz.org';
 
 /**
+ * The datasets ListenBrainz hosts beside its main API, which is where
+ * record-to-record similarity lives.
+ *
+ * A separate hostname and the same service, so it shares
+ * {@link LISTENBRAINZ_BUCKET}: a published limit covers a service rather than a
+ * name, and pacing the two independently would quietly buy twice the allowance.
+ */
+export const LISTENBRAINZ_LABS_ORIGIN = 'https://labs.api.listenbrainz.org';
+
+export const LISTENBRAINZ_LABS_HOST = 'labs.api.listenbrainz.org';
+
+/**
  * Its own bucket, deliberately. A published limit covers a service, and pacing
  * ListenBrainz at the rate MusicBrainz asks for would throw away the entire
  * reason for calling it.
@@ -113,6 +125,7 @@ export const musicbrainzManifest: PluginManifest = {
             // public service is still matched by them first, and on its own
             // bucket, because its budget is nothing to do with theirs.
             { host: 'api.listenbrainz.org', ratePerSecond: LISTENBRAINZ_RATE_PER_SECOND, bucket: LISTENBRAINZ_BUCKET },
+            { host: LISTENBRAINZ_LABS_HOST, ratePerSecond: LISTENBRAINZ_RATE_PER_SECOND, bucket: LISTENBRAINZ_BUCKET },
             { fromConfig: 'baseUrl' },
         ],
         // No storage. Everything this plugin learns is stored by the host,

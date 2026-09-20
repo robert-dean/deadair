@@ -264,3 +264,123 @@ describe('artistTopTracks', () => {
         expect(await plugin.artistTopTracks({ name: 'Mitch Murder', mbid: SEED_MBID }, 5)).toEqual([]);
     });
 });
+
+describe('similarTracks', () => {
+    const CANONICAL = 'f3bba4cd-8018-468b-902e-bc8f029593e5';
+
+    /** ListenBrainz's own lookup, which is the only thing that yields an id the dataset knows. */
+    const lookupHit = JSON.stringify([{ artist_name_arg: 'Massive Attack', recording_name_arg: 'Teardrop', recording_mbid: CANONICAL }]);
+
+    /** The labs answer, highest score first, with the reference itself among the rows. */
+    const similar = JSON.stringify([
+        { recording_mbid: CANONICAL, recording_name: 'Teardrop', reference_mbid: CANONICAL, score: 9999 },
+        { recording_mbid: 'rec-a', recording_name: 'Glory Box', artist_credit_name: 'Portishead', artist_credit_mbids: null, score: 1131 },
+        { recording_mbid: 'rec-b', recording_name: 'Porcelain', artist_credit_name: 'Moby feat. Nobody', artist_credit_mbids: null, score: 741 },
+    ]);
+
+    const metadata = JSON.stringify({
+        'rec-a': { recording: { name: 'Glory Box' }, artist: { name: 'Portishead', artists: [{ name: 'Portishead' }] } },
+        'rec-b': { recording: { name: 'Porcelain' }, artist: { name: 'Moby feat. Nobody', artists: [{ name: 'Moby' }, { name: 'Nobody' }] } },
+    });
+
+    it('resolves the canonical recording through ListenBrainz, then asks the labs endpoint', async () => {
+        await initialize('lb-token');
+        host.queueResponse({ body: lookupHit });
+        host.queueResponse({ body: similar });
+        host.queueResponse({ body: metadata });
+
+        const found = await plugin.similarTracks({ artist: 'Massive Attack', title: 'Teardrop' }, 5);
+
+        expect(host.calls[0]?.url).toContain('1/metadata/lookup/');
+        expect(host.calls[1]?.url).toContain('labs.api.listenbrainz.org/similar-recordings/json');
+        expect(host.calls[1]?.url).toContain(`recording_mbids=${CANONICAL}`);
+        expect(host.calls[1]?.url).toContain('algorithm=session_based_');
+        expect(found).toEqual([
+            { title: 'Glory Box', artist: 'Portishead' },
+            { title: 'Porcelain', artist: 'Moby' },
+        ]);
+    });
+
+    it('never resolves through the MusicBrainz search, which yields an id the dataset has never heard of', async () => {
+        // Measured: "Massive Attack — Teardrop" identifies at score 100 on the MusicBrainz
+        // search, and the labs endpoint answers [] for the id it gives. MusicBrainz holds a
+        // recording id per release; the similarity data exists only against ListenBrainz's
+        // canonical one.
+        await initialize('lb-token');
+        host.queueResponse({ body: lookupHit });
+        host.queueResponse({ body: similar });
+        host.queueResponse({ body: metadata });
+
+        await plugin.similarTracks({ artist: 'Massive Attack', title: 'Teardrop' }, 5);
+
+        expect(host.calls.some(call => call.url.includes('/recording?query='))).toBe(false);
+    });
+
+    it('drops the record that was asked about, which is in its own neighbourhood', async () => {
+        await initialize('lb-token');
+        host.queueResponse({ body: lookupHit });
+        host.queueResponse({ body: similar });
+        host.queueResponse({ body: metadata });
+
+        const found = await plugin.similarTracks({ artist: 'Massive Attack', title: 'Teardrop' }, 5);
+
+        expect(found.map(track => track.title)).not.toContain('Teardrop');
+        expect(JSON.parse(String(host.calls[2]?.body)).recording_mbids).toEqual(['rec-a', 'rec-b']);
+    });
+
+    it('names a featured record by its lead artist, never the credit line', async () => {
+        await initialize('lb-token');
+        host.queueResponse({ body: lookupHit });
+        host.queueResponse({ body: similar });
+        host.queueResponse({ body: metadata });
+
+        const found = await plugin.similarTracks({ artist: 'Massive Attack', title: 'Teardrop' }, 5);
+
+        expect(found[1]).toEqual({ title: 'Porcelain', artist: 'Moby' });
+    });
+
+    it('answers nothing without a token, and asks for nothing', async () => {
+        await initialize('');
+
+        expect(await plugin.similarTracks({ artist: 'Massive Attack', title: 'Teardrop' }, 5)).toEqual([]);
+        expect(host.calls).toHaveLength(0);
+    });
+
+    it('answers nothing for a record ListenBrainz cannot place', async () => {
+        await initialize('lb-token');
+        host.queueResponse({ body: JSON.stringify([]) });
+
+        expect(await plugin.similarTracks({ artist: 'Nobody', title: 'Nothing' }, 5)).toEqual([]);
+        expect(host.calls).toHaveLength(1);
+    });
+
+    it('answers nothing rather than throwing when the algorithm enum has been retired', async () => {
+        await initialize('lb-token');
+        host.queueResponse({ body: lookupHit });
+        host.queueResponse({ body: 'value is not a valid enumeration member', status: 400 });
+
+        expect(await plugin.similarTracks({ artist: 'Massive Attack', title: 'Teardrop' }, 5)).toEqual([]);
+    });
+
+    it('stops before the labs call when the budget has run out', async () => {
+        await initialize('lb-token');
+        host.seedRemainingMs(500);
+        host.queueResponse({ body: lookupHit });
+
+        expect(await plugin.similarTracks({ artist: 'Massive Attack', title: 'Teardrop' }, 5)).toEqual([]);
+        expect(host.calls).toHaveLength(1);
+    });
+});
+
+describe('manifest network', () => {
+    it('allowlists the labs host on the same bucket as the main service', () => {
+        // One published limit covers a service rather than a hostname, so pacing the two
+        // independently would quietly buy twice the allowance.
+        const entries = musicbrainzManifest.permissions.network ?? [];
+        const labs = entries.find(entry => 'host' in entry && entry.host === 'labs.api.listenbrainz.org');
+        const main = entries.find(entry => 'host' in entry && entry.host === 'api.listenbrainz.org');
+
+        expect(labs).toBeDefined();
+        expect(labs && 'bucket' in labs ? labs.bucket : undefined).toBe(main && 'bucket' in main ? main.bucket : 'different');
+    });
+});

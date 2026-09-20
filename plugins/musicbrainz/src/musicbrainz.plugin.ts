@@ -18,7 +18,17 @@ import {
 
 import { MusicBrainzClient, MusicBrainzRequestError } from './musicbrainz.client.js';
 import { ListenBrainzClient, ListenBrainzRequestError, LOOKUP_BATCH_SIZE, METADATA_BATCH_SIZE } from './listenbrainz.client.js';
-import { lookupKey, mapListenBrainz, resultKey, toLookupQuery, toSimilarArtists, topRecordingMbids, toTopTracks } from './listenbrainz.mapping.js';
+import {
+    lookupKey,
+    mapListenBrainz,
+    resultKey,
+    similarRecordingMbids,
+    toLookupQuery,
+    toSimilarArtists,
+    toSimilarTracks,
+    topRecordingMbids,
+    toTopTracks,
+} from './listenbrainz.mapping.js';
 import { DEFAULT_BASE_URL, DEFAULT_MATCH_SCORE, REQUEST_TIMEOUT_MS, TEST_ARTIST_MBID } from './musicbrainz.manifest.js';
 import { mapArtist } from './musicbrainz.artist.js';
 import { mapAlbum, mapRecording, selectRelease, selectReleaseFromGroup, selectReleaseGroup } from './musicbrainz.mapping.js';
@@ -171,6 +181,14 @@ const MAX_SIMILAR_ARTISTS = 100;
 
 /** Records named for one artist when the host names no limit. */
 const DEFAULT_TOP_TRACKS = 10;
+
+/**
+ * Budget below which the rest of a similar-records chain is not started.
+ *
+ * Being cut off between the lookup and the answer spends the first request for
+ * nothing, and the chain is three of them.
+ */
+const STEP_BUDGET_MS = 3_000;
 
 function errorText(error: unknown): string {
     if (error instanceof Error) return error.message;
@@ -789,6 +807,81 @@ export class MusicBrainzPlugin extends Plugin implements EnrichmentPluginInstanc
             host.logger.debug('listenbrainz named no records for that artist', { artist: ref.name, reason });
             return [];
         }
+    }
+
+    /**
+     * What sounds like one RECORD, rather than like its artist.
+     *
+     * The closer of the two answers, and the one `SimilarPicker.pickLike`
+     * prefers when mixing neighbours into a playlist: "another record people
+     * play alongside this one" beats "another record by somebody who resembles
+     * this artist". Without it the host walks the anchor's artist instead,
+     * which works and is one step further out.
+     *
+     * ## Why the recording id has to come from ListenBrainz
+     *
+     * The host asks in names, and the dataset is keyed on recording MBIDs —
+     * but not just any of them. MusicBrainz holds a separate recording id for
+     * every release a song appeared on, dozens for anything well known, and
+     * the similarity data exists only against the one ListenBrainz treats as
+     * canonical. Resolving through the MusicBrainz search was built first and
+     * measured: `Massive Attack — Teardrop` identified confidently, at score
+     * 100, and the labs endpoint answered `[]` for the id it gave. Through
+     * ListenBrainz's own lookup the same record answers seventy rows, led by
+     * Glory Box, Roads and Sour Times.
+     *
+     * That lookup needs the token, which is why this whole method does. A
+     * MusicBrainz search that reliably resolves to an id the dataset has never
+     * heard of is not a fallback; it is a rate-limited request spent to return
+     * nothing.
+     *
+     * ## Three requests, all of them cheap
+     *
+     * Lookup, labs, and one batched metadata call for the lead artists — all on
+     * the ListenBrainz bucket rather than MusicBrainz's one-a-second.
+     */
+    async similarTracks(ref: TrackRef, limit: number): Promise<ArtistTrack[]> {
+        const host = this.host;
+        const listenBrainz = this.listenBrainz;
+        if (!listenBrainz?.authenticated) return [];
+
+        try {
+            const seedMbid = ref.mbid ?? (await this.canonicalRecording(ref));
+            if (!seedMbid) return [];
+
+            if (host.remainingMs() < STEP_BUDGET_MS) {
+                host.logger.debug('listenbrainz ran out of budget before asking what sounds like that record', { title: ref.title });
+                return [];
+            }
+
+            const wanted = Math.max(1, Math.min(limit || DEFAULT_SIMILAR_LIMIT, METADATA_BATCH_SIZE));
+            const rows = await listenBrainz.similarRecordings(seedMbid);
+            const mbids = similarRecordingMbids(rows, seedMbid).slice(0, wanted);
+            if (mbids.length === 0) return [];
+
+            const metadata = await listenBrainz.recordingMetadata(mbids);
+            return toSimilarTracks(rows, seedMbid, metadata).slice(0, wanted);
+        } catch (error) {
+            const reason = error instanceof ListenBrainzRequestError ? `HTTP ${error.status}` : errorText(error);
+            // A 400 here is most likely the algorithm enum having been retired,
+            // which is the service's to change and not an operator's to fix.
+            host.logger.debug('listenbrainz named nothing like that record', { title: ref.title, artist: ref.artist, reason });
+            return [];
+        }
+    }
+
+    /**
+     * The recording id ListenBrainz treats as canonical for a name, which is
+     * the only one its similarity data is keyed on.
+     *
+     * The same `/1/metadata/lookup/` the enrichment fast path uses, asked about
+     * one record instead of fifty.
+     */
+    private async canonicalRecording(ref: TrackRef): Promise<string | undefined> {
+        const [found] = await this.listenBrainz!.lookup([toLookupQuery(ref)]);
+        const mbid = found?.recording_mbid;
+        if (!mbid) this.host.logger.debug('listenbrainz does not know that record by that name', { artist: ref.artist, title: ref.title });
+        return mbid;
     }
 
     /**

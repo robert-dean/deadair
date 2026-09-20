@@ -67,6 +67,16 @@ writes once and never touches again, so it is ours. That is also why `editUrl` i
 `docusaurus.config.ts` sends a generated page's "Edit this page" to the contracts for its area rather
 than to a file the next regeneration would overwrite.
 
+**The Unraid screenshots are photographed the same way, and scrubbed on the way.**
+`scripts/unraid.capture.mjs` (`login`, then `shoot`, both with `--base http://your-server`) loads the
+deadair template on a real Unraid server and writes `static/img/unraid/*.webp`. It never submits the
+form, so nothing on that server changes. Before it photographs anything it replaces every value with
+a generic example, rewrites each field's description to the one in `unraid/deadair.xml` today (a
+server's saved template is whatever it was when it was installed, so its wording goes stale), and
+refuses to write an image if anything identifying is still on the page. The advanced view is not
+photographed: its toggle does not open from a script, so those fields are described in prose. Keep
+the descriptions in that script and in `unraid/deadair.xml` saying the same thing.
+
 **The colours are the console's carbon theme, copied.** `src/css/custom.css` restates the surfaces,
 the phosphor accent and the faces from `apps/web/src/tokens.css` and `theme.ts`, because the console
 publishes them through Mantine and this site does not load Mantine. The brand images are served

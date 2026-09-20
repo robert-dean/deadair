@@ -50,6 +50,10 @@ Images are `linux/amd64`, so an arm64 server cannot run this yet.
 **Apps**, search for `deadair`, and install it. That fills in everything the template ships with and
 leaves you on the container's settings form, which is where every field below lives.
 
+![The top of the Add Container form: the template, the container's name, its overview, and the repository field holding the tag](/img/unraid/form.webp)
+*Fig. 1. The top of the form. **Repository** is where the tag is chosen: change `:full` there to
+`:latest` or `:slim` if one of those suits your server better.*
+
 The form has a **Basic view** and an **Advanced view**, switched at the top right. Everything
 required is in Basic. Advanced holds the second database role, the Redis authentication fields,
 Google sign-in, the proxy settings and the migration switch, and on a normal install you never open
@@ -67,6 +71,10 @@ it.
 | **Console address** | The same address again. One port serves the console and the API, so these two always match. |
 | **Secret key** | The `openssl rand -hex 32` output from above. |
 | **Session key** | The base64 RSA key from above, on one line. |
+
+![The six required fields: WebUI, Data, Public address, Console address, Secret key and Session key, each with its description](/img/unraid/required.webp)
+*Fig. 2. The six required fields, filled in for a station reached at `http://192.168.1.10:8080`. The
+two keys are empty here; yours go in before you start it.*
 
 **The two addresses are the field most worth getting right**, and the one whose mistake is hardest to
 spot. They do not decide whether the console loads: it talks to `/api` on whatever address it was
@@ -89,6 +97,10 @@ If you reach the server more than one way, use the one you will open a sign-in l
 Database host, port, name, user and password, and cache host and port, are all for the `latest` and
 `slim` tags. On `full` the container runs its own PostgreSQL and Redis, and **anything you type in
 these is ignored**.
+
+![The database and cache fields, all empty, with the note that they are left blank on the full tag](/img/unraid/database.webp)
+*Fig. 3. On the `full` tag these stay exactly as they are. **Media** at the bottom is the optional
+second path.*
 
 On `latest`, fill in the database fields and the two cache fields. Three things about the database
 are worth knowing before you do:

@@ -6,11 +6,12 @@ import { LlmService } from '#modules/llm/llm.service.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
 import { MODEL_PRIORITY, MODEL_WAIT_MS } from './persona.distil.service.js';
+import { ScriptHistoryRepository } from '#modules/render/script.history.repository.js';
 import { PersonaRepository } from './persona.repository.js';
 import { characterFault, growthOf } from './persona.sheet.js';
 import type { Persona } from './persona.js';
 import { PersonaStoriesRepository } from './persona.stories.repository.js';
-import { MIN_RECAP_TELLINGS, readProposals, readRecaps, recapPrompt, storyPrompt, type ExistingStory } from './persona.story.model.js';
+import { MAX_PROPOSALS, MIN_RECAP_TELLINGS, readProposals, readRecaps, recapPrompt, storyPrompt, type ExistingStory } from './persona.story.model.js';
 
 /**
  * The story pass's settings, keyed like every other model-driven feature.
@@ -39,6 +40,14 @@ export const MODEL_BUDGET_MS = 120_000;
  * past deepen rather than simply lengthen — and which is what the prompt already prefers.
  */
 export const MAX_STORIES_PER_CHARACTER = 12;
+
+/**
+ * How many of a character's recent scripts the pass reads looking for a running thing.
+ *
+ * Enough for a habit to be visible as one — a thing said once is not a bit — and bounded because it
+ * shares a prompt with the shelf and the sheet. The distil pass's `MAX_SCRIPTS` for the same reason.
+ */
+const CORPUS_WINDOW = 40;
 
 /** One pass, for the job's log line and the activity row. */
 export interface StoryPassSummary {
@@ -88,6 +97,9 @@ export class PersonaStoryPassService {
     constructor(
         private readonly personas: PersonaRepository,
         private readonly stories: PersonaStoriesRepository,
+        // What this character has actually said lately, so the pass can notice a running thing
+        // rather than only invent one. See `remember`.
+        private readonly scripts: ScriptHistoryRepository,
         private readonly llm: LlmService,
         private readonly activity: ActivityRecorder,
         private readonly config: AppConfig,
@@ -181,6 +193,13 @@ export class PersonaStoryPassService {
         const model = this.config.get(PERSONA_STORIES_KEYS.model, '').trim();
         const started = Date.now();
 
+        // What this character has actually said lately, so the pass can NOTICE a running thing
+        // rather than only invent one. A fixed recent window with no watermark, deliberately: the
+        // question is what recurs, and a watermarked read would show each break exactly once and
+        // make recurrence invisible. It is the distil pass's read and inherits its clause — a break
+        // the operator disliked is not evidence of a habit worth keeping.
+        const corpus = (await this.scripts.writtenBy(personaKey, undefined, CORPUS_WINDOW)).map(row => row.script);
+
         const answer = await this.llm.converse(
             {
                 messages: storyPrompt(
@@ -192,6 +211,8 @@ export class PersonaStoryPassService {
                         ...(persona.avoid === undefined ? {} : { avoid: persona.avoid }),
                     },
                     existing,
+                    MAX_PROPOSALS,
+                    corpus,
                 ),
                 ...(model.length === 0 ? {} : { model }),
                 reasoningEffort: 'low',
@@ -202,14 +223,16 @@ export class PersonaStoryPassService {
             { budgetMs: MODEL_BUDGET_MS, maxWaitMs: MODEL_WAIT_MS, priority: MODEL_PRIORITY },
         );
 
-        const proposals = readProposals(answer.text, existing);
+        const proposals = readProposals(answer.text, existing, MAX_PROPOSALS, corpus);
         if (proposals.length === 0) {
             this.logger.debug('personas: a model had nothing to remember for this character', { persona: personaKey });
             return undefined;
         }
 
         const full = existing.length >= MAX_STORIES_PER_CHARACTER;
-        const stories = full ? [] : proposals.filter(proposal => proposal.kind === 'story');
+        // A noticed bit and an invented story are written the same way and counted against the same
+        // cap — what differs is the `kind` column and that one of them carried a quote.
+        const stories = full ? [] : proposals.filter(proposal => proposal.kind === 'story' || proposal.kind === 'bit');
         const details = proposals.filter(proposal => proposal.kind === 'detail');
         const beats = proposals.filter(proposal => proposal.kind === 'beat');
 
@@ -223,7 +246,7 @@ export class PersonaStoryPassService {
         // when nobody is going to read it first.
         const wroteStories = await this.stories.addAll(
             stories.flatMap(proposal => {
-                const words = proposal.kind === 'story' ? proposal.story : '';
+                const words = proposal.kind === 'story' || proposal.kind === 'bit' ? proposal.story : '';
                 if (!this.guarded(personaKey, persona, words, state)) return [];
 
                 return [
@@ -231,9 +254,17 @@ export class PersonaStoryPassService {
                         personaKey,
                         title: proposal.title,
                         story: words,
+                        ...(proposal.kind === 'bit' ? { kind: 'bit' as const } : {}),
                         state,
                         origin: 'model' as const,
-                        ...(proposal.source === undefined ? {} : { source: proposal.source }),
+                        // The line the pass spotted it in, kept as the source so an operator can see
+                        // what it is being asked about. Still not evidence in `facts`' sense — it
+                        // evidences the HABIT rather than anything the story claims.
+                        ...(proposal.kind === 'bit'
+                            ? { source: `noticed in: "${proposal.quote}"` }
+                            : proposal.source === undefined
+                              ? {}
+                              : { source: proposal.source }),
                     },
                 ];
             }),

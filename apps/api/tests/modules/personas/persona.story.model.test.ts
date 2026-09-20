@@ -273,3 +273,73 @@ describe('summarising a running bit', () => {
         expect(readRecaps('the model said something else entirely', [bit])).toEqual([]);
     });
 });
+
+// The one proposal shape here that is NOTICED rather than invented, and therefore the one that can
+// be checked. Its quote has to appear literally in something the station broadcast, which is what
+// makes "you keep coming back to this" a claim about the corpus rather than a new idea.
+describe('noticing a running thing the character already does', () => {
+    const corpus = [
+        'Anyway, the vending machine on the third floor is still broken.',
+        'That was Iron Maiden. The vending machine remains broken, before you ask.',
+    ];
+
+    const answer = (proposals: unknown[]) => JSON.stringify({ proposals });
+
+    it('keeps one whose quote is really in what was said', () => {
+        const read = readProposals(
+            answer([
+                {
+                    kind: 'bit',
+                    title: 'The vending machine',
+                    story: 'The machine on the third floor has been broken since you started.',
+                    quote: 'the vending machine on the third floor is still broken',
+                },
+            ]),
+            [],
+            3,
+            corpus,
+        );
+
+        expect(read).toHaveLength(1);
+        expect(read[0]).toMatchObject({ kind: 'bit', title: 'The vending machine' });
+    });
+
+    it('drops one whose quote the station never said', () => {
+        // A model noticing something that never happened is the one failure this shape exists to
+        // make impossible.
+        const read = readProposals(
+            answer([{ kind: 'bit', title: 'The kettle', story: 'The kettle never works.', quote: 'the kettle has never once worked' }]),
+            [],
+            3,
+            corpus,
+        );
+
+        expect(read).toEqual([]);
+    });
+
+    it('drops one carrying no quote at all', () => {
+        const read = readProposals(answer([{ kind: 'bit', title: 'The kettle', story: 'The kettle never works.' }]), [], 3, corpus);
+
+        expect(read).toEqual([]);
+    });
+
+    it('drops one when the pass was shown no corpus', () => {
+        // Nothing to check against is not the same as nothing to check: a pass with no scripts must
+        // not be able to propose a habit it cannot have seen.
+        const read = readProposals(
+            answer([
+                { kind: 'bit', title: 'The vending machine', story: 'Broken.', quote: 'the vending machine on the third floor is still broken' },
+            ]),
+            [],
+        );
+
+        expect(read).toEqual([]);
+    });
+
+    it('shows the scripts to the model, or it has nothing to notice', () => {
+        const [, user] = storyPrompt({ label: 'The host', style: 'a voice' }, [], 3, corpus);
+
+        expect(user?.content).toContain('What they have actually said on air lately:');
+        expect(user?.content).toContain('the vending machine on the third floor is still broken');
+    });
+});

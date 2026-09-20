@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The home-screen widget.
+
+    `updatePeriodMillis` is 0, and that is the whole of the resting rule in one attribute: the
+    system never wakes this app to redraw. What the widget shows is written by `WidgetFeed` when
+    something in this app has heard from the station anyway — the screen, or the player — so a
+    phone with nothing playing and the app closed asks the station nothing at all. The floor for
+    this attribute is half an hour in any case, which would be a stale reading pretending to be a
+    fresh one.
+
+    `initialLayout` is Glance's own: what the launcher draws in the moment between placing the
+    widget and this app's process producing the first real drawing.
+-->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/widget_description"
+    android:initialLayout="@layout/glance_default_loading_layout"
+    android:minWidth="180dp"
+    android:minHeight="40dp"
+    android:resizeMode="horizontal|vertical"
+    android:targetCellWidth="3"
+    android:targetCellHeight="1"
+    android:updatePeriodMillis="0"
+    android:widgetCategory="home_screen" />

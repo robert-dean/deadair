@@ -42,6 +42,15 @@
     <string name="now_show_with_host">%1$s · with %2$s</string>
     <!-- The same line for a show with no name: "with Cass" -->
     <string name="now_with_host">with %1$s</string>
+    <!-- The home-screen widget -->
+    <!-- What the phone's widget picker lists this under, among everybody else's widgets -->
+    <string name="widget_label">deadair</string>
+    <string name="widget_description">What the station is playing, and a way to start it.</string>
+    <!-- The second line with no station kept yet. Tapping the widget opens the app, which is where one is named -->
+    <string name="widget_choose_station">Choose a station</string>
+    <!-- The second line while this phone is not listening. The widget asks the station nothing then -->
+    <string name="widget_resting">Not listening</string>
+
     <!-- The station as a live wallpaper, chosen from the system's wallpaper picker -->
     <!-- What the phone's wallpaper picker lists this under, among everybody else's live wallpapers -->
     <string name="wallpaper_label">deadair station wallpaper</string>

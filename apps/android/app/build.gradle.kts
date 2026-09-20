@@ -145,6 +145,11 @@ dependencies {
     // predictive back for free; see `ui/nav/Destination.kt` for why it arrived when it did.
     implementation(libs.androidx.navigation3.runtime)
     implementation(libs.androidx.navigation3.ui)
+    // The home-screen widget. Compose-shaped, but its own composition: what a `GlanceAppWidget`
+    // emits is `RemoteViews` for the launcher's process to inflate, not a Compose UI tree, so
+    // nothing from `androidx.compose.ui` can be used inside one.
+    implementation(libs.androidx.glance.appwidget)
+    implementation(libs.androidx.glance.material3)
     implementation(libs.bundles.media3)
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)

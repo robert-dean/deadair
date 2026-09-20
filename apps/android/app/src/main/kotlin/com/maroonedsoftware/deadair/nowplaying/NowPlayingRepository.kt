@@ -6,15 +6,20 @@ import com.maroonedsoftware.deadair.settings.ListenerSettings
 import com.maroonedsoftware.deadair.station.StationUrl
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onCompletion
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -62,6 +67,27 @@ class NowPlayingRepository(
     private val elapsedMs: () -> Long,
     scope: CoroutineScope,
 ) {
+    private val _heard = MutableSharedFlow<NowPlayingState>(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
+
+    /**
+     * Every reading the poll produces, for something that wants them but must never cause them.
+     *
+     * A tap on the poll rather than a second one. [state] is `WhileSubscribed`, so anything
+     * collecting it keeps the loop running; the widget's feed lives as long as the process does and
+     * would therefore hold the poll open for ever, which is the one thing this class is careful not
+     * to do. Collecting this starts nothing and stops nothing: readings arrive while the screen or
+     * the playback service is already asking, and it is silent the rest of the time.
+     *
+     * It drops rather than suspends, because a slow collector must not be able to hold up a poll.
+     *
+     * It carries readings at whatever cadence the poll is running at, which is the unwatched one
+     * whenever nobody is looking at a screen — so the widget follows the record within half a
+     * minute rather than within three seconds while the phone is in a pocket. That is the right way
+     * round: nobody is looking at the home screen then either, and the widget draws from a snapshot
+     * whose age it is prepared to admit.
+     */
+    val heard: SharedFlow<NowPlayingState> = _heard.asSharedFlow()
+
     val state: StateFlow<NowPlayingState> =
         settings
             .map { it.station }
@@ -69,6 +95,7 @@ class NowPlayingRepository(
             // must not restart this, which would throw away a good reading for nothing.
             .distinctUntilChanged()
             .flatMapLatest { station -> if (station == null) flow { emit(NowPlayingState.Loading) } else poll(station) }
+            .onEach { _heard.tryEmit(it) }
             .stateIn(scope, SharingStarted.WhileSubscribed(SUBSCRIBER_GRACE_MS), NowPlayingState.Loading)
 
     private val kick = Kick()

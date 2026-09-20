@@ -15,6 +15,8 @@ import com.maroonedsoftware.deadair.sdk.models.NowPlaying
 import com.maroonedsoftware.deadair.sdk.models.NowPlayingMount
 import com.maroonedsoftware.deadair.station.StationUrl
 import com.maroonedsoftware.deadair.station.StreamFormat
+import com.maroonedsoftware.deadair.widget.WidgetPlayback
+import com.maroonedsoftware.deadair.widget.widgetPlayback
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -102,8 +104,25 @@ class PlaybackConductor(
                 // Whatever stopped it (a hand on Stop, a headset unplugged, the timer itself), the
                 // timer was for that session and must not fire into the next one.
                 if (!playWhenReady) sleep.onStopped()
+                reportPlayback()
             }
+
+            // The home-screen widget draws a warming-up state between the two, so it needs both
+            // halves; nothing else here cares which of them moved.
+            override fun onIsPlayingChanged(isPlaying: Boolean) = reportPlayback()
         }
+
+    /**
+     * Tell the widget what this phone is doing, which is something only the service knows.
+     *
+     * Reported rather than observed: a widget cannot hold a `MediaController` open — that would
+     * keep `PlaybackService` alive on behalf of a picture — so the service says so instead, and a
+     * process that has died says nothing, which is correct, because a foreground service that was
+     * playing would still be alive.
+     */
+    private fun reportPlayback() {
+        graph.widget.onPlayback(widgetPlayback(requested = player.playWhenReady, playing = player.isPlaying))
+    }
 
     /**
      * When the notification actually changes: the ICY title is the encoder telling the client it
@@ -134,6 +153,7 @@ class PlaybackConductor(
     }
 
     fun start() {
+        reportPlayback()
         player.addListener(policy)
         player.addListener(playWhenReadyListener)
         player.addListener(metadataListener)
@@ -182,6 +202,7 @@ class PlaybackConductor(
     }
 
     fun stop() {
+        graph.widget.onPlayback(WidgetPlayback.STOPPED)
         player.removeListener(policy)
         player.removeListener(playWhenReadyListener)
         player.removeListener(metadataListener)
@@ -256,6 +277,9 @@ class PlaybackConductor(
      * gate is what keeps three-second poll churn off a lock screen the listener is looking at.
      */
     private fun pushMetadata(now: NowPlaying?) {
+        // The widget takes the gate's copy rather than the poll's for the same reason the lock
+        // screen does: this is the reading whose audio the listener is actually hearing.
+        graph.widget.onAired(now)
         val where = station ?: return
         val item = player.currentMediaItem ?: return
         player.replaceMediaItem(0, item.buildUpon().setMediaMetadata(MediaItems.metadataFor(where, now, words)).build())

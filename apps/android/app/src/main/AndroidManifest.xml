@@ -129,6 +129,22 @@
                 android:resource="@xml/station_wallpaper" />
         </service>
 
+        <!--
+            The station on the home screen. Not exported: the only thing that talks to a widget
+            provider is the system, which reaches it whether or not anybody else could.
+        -->
+        <receiver
+            android:name=".widget.StationWidgetReceiver"
+            android:exported="false"
+            android:label="@string/widget_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/station_widget" />
+        </receiver>
+
         <service
             android:name=".playback.StationTileService"
             android:exported="true"

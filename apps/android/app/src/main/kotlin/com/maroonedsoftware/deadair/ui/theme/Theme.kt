@@ -17,7 +17,12 @@ import androidx.compose.ui.platform.LocalContext
 // Material's baseline purple, and the first version of the light theme was a green button in a
 // purple app.
 
-private val DarkScheme =
+/**
+ * Internal rather than private: the home-screen widget cannot use a `MaterialTheme`, because a
+ * Glance composition emits `RemoteViews`, so it builds Glance's own `ColorProviders` out of these
+ * two schemes. One definition of the station's colors, two kinds of composition.
+ */
+internal val DarkScheme =
     darkColorScheme(
         primary = Color(0xFF3DDC91),
         onPrimary = Color(0xFF003824),
@@ -53,7 +58,7 @@ private val DarkScheme =
         inversePrimary = Color(0xFF006C4C),
     )
 
-private val LightScheme =
+internal val LightScheme =
     lightColorScheme(
         primary = Color(0xFF006C4C),
         onPrimary = Color(0xFFFFFFFF),

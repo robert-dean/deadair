@@ -8,13 +8,17 @@ The quickest way to a working plugin is to start from one. The example is a comp
 
 ## Copy the example and build it
 
-The example lives in [`examples/plugins/apple-music-charts`](https://github.com/robert-dean/deadair/tree/main/examples/plugins/apple-music-charts). Copy that directory anywhere; it depends on nothing else in the repository.
-
 ```bash
+git clone --depth 1 https://github.com/robert-dean/deadair
+cp -r deadair/examples/plugins/apple-music-charts my-charts
+cd my-charts
+
 npm install
 npm test
 npm run build
 ```
+
+The example is [`examples/plugins/apple-music-charts`](https://github.com/robert-dean/deadair/tree/main/examples/plugins/apple-music-charts), and the copy depends on nothing else in the repository: it is not part of the workspace, and it builds against the published SDK exactly as your own plugin will. Delete the clone afterwards if the example is all you came for.
 
 The build writes one file, `dist/index.js`, which is the whole plugin. It does not contain the SDK or zod: the station supplies its own copy of each.
 
@@ -58,3 +62,4 @@ The same goes for a new version of somebody else's plugin: import it, or replace
 - [Packaging and installing](./packaging.md), before you add a library of your own to the plugin.
 - [Testing](./testing.md), for the fake host and the loader check.
 - [The contract](./contract.md), for everything a capability can do, and the permissions and settings a manifest can declare.
+- [Setting up a checkout](../develop/setup.md), if you would rather develop against the station's own source than a released image. It ends with linking a plugin you are writing into a running checkout, which is the shortest edit-and-see loop there is.

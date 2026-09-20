@@ -45,6 +45,13 @@ const sidebars: SidebarsConfig = {
     build: [
         {
             type: 'category',
+            label: 'Develop',
+            link: { type: 'doc', id: 'develop/index' },
+            collapsed: false,
+            items: ['develop/setup', 'develop/architecture', 'develop/api'],
+        },
+        {
+            type: 'category',
             label: 'Writing plugins',
             link: { type: 'doc', id: 'plugin-development/index' },
             collapsed: false,

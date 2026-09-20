@@ -25,6 +25,14 @@ internal val presses = CoroutineScope(SupervisorJob() + Dispatchers.Main.immedia
 private const val BIND_WAIT_MS = 5_000L
 
 /**
+ * How long it then waits for the player to take the press up.
+ *
+ * Not the warm-up: this is only the gap between sending `play()` and the player leaving IDLE, which
+ * is a moment. The timeout is for the press that is never taken up at all.
+ */
+private const val START_WAIT_MS = 5_000L
+
+/**
  * Turn the station over: what every surface outside the app means by its play/stop button.
  *
  * Decided afresh from the kept station and the bound player rather than from whatever the surface
@@ -42,7 +50,19 @@ fun pressStation(context: Context, settings: SettingsStore) {
             when (tileReading(kept.station != null, player)) {
                 TileReading.NO_STATION -> Unit
                 TileReading.PLAYING, TileReading.WARMING_UP -> connection.stop()
-                TileReading.STOPPED -> connection.play()
+                TileReading.STOPPED -> {
+                    connection.play()
+                    // Hold the controller until the player has actually taken it up, which is what
+                    // `buffering` says. `play()` only sends the command: a `MediaSessionService`
+                    // whose last controller unbinds while the player is still IDLE stops itself,
+                    // and the command then lands on a service that is already dying.
+                    //
+                    // The Quick Settings tile never showed this because it keeps a connection of
+                    // its own for as long as the shade is open, so the press was never the only
+                    // one bound. From the home-screen widget it is, and the press did nothing at
+                    // all: measured, the session went BUFFERING and was destroyed 30ms later.
+                    withTimeoutOrNull(START_WAIT_MS) { connection.state.first { it.playing || it.buffering } }
+                }
             }
         } finally {
             connection.release()

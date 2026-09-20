@@ -2,6 +2,8 @@ package com.maroonedsoftware.deadair.widget
 
 import android.content.Context
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
 import androidx.glance.GlanceId
@@ -14,9 +16,15 @@ import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
 import androidx.glance.action.clickable
 import androidx.glance.action.actionStartActivity
+import androidx.glance.ColorFilter
+import androidx.glance.Image
+import androidx.glance.ImageProvider
+import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.background
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Column
+import androidx.glance.layout.Row
+import androidx.glance.layout.size
 import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.padding
 import androidx.glance.material3.ColorProviders
@@ -27,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.maroonedsoftware.deadair.DeadairApp
 import com.maroonedsoftware.deadair.MainActivity
+import com.maroonedsoftware.deadair.R
 import com.maroonedsoftware.deadair.settings.ListenerSettings
 import com.maroonedsoftware.deadair.ui.theme.DarkScheme
 import com.maroonedsoftware.deadair.ui.theme.LightScheme
@@ -52,13 +61,22 @@ class StationWidget : GlanceAppWidget() {
         // has been kept for months. It waits with a deadline, because a Glance composition runs
         // inside a WorkManager job and a suspend that never returns there is an ANR rather than a
         // blank widget — measured, as `No response to onStartJob`.
-        val state = withTimeoutOrNull(HYDRATION_WAIT_MS) { graph.widget.current() } ?: WidgetState()
-        val kept = withTimeoutOrNull(HYDRATION_WAIT_MS) { graph.settings.settings.first() } ?: ListenerSettings()
+        val first = withTimeoutOrNull(HYDRATION_WAIT_MS) { graph.widget.current() } ?: WidgetState()
+        val keptFirst = withTimeoutOrNull(HYDRATION_WAIT_MS) { graph.settings.settings.first() } ?: ListenerSettings()
 
         provideContent {
+            // COLLECTED here rather than read above, and that is the difference between a widget
+            // that follows the station and one that draws the record it was born with. Glance keeps
+            // one session per widget: an update to a widget whose session is already open
+            // RECOMPOSES it rather than calling `provideGlance` again, so a composition built from
+            // values captured up there produces identical output for ever. Measured — the station
+            // was stopped and the widget went on showing the record and a Stop button.
+            val state by graph.widget.state.collectAsState(initial = first)
+            val kept by graph.settings.settings.collectAsState(initial = keptFirst)
+
             // `hasStation` is whether one has been NAMED, which is not the same as knowing what it
             // calls itself: a station kept but never reached has an address and no name.
-            Station(state, hasStation = kept.station != null, dynamicColor = kept.dynamicColor)
+            Station(state ?: first, hasStation = kept.station != null, dynamicColor = kept.dynamicColor)
         }
     }
 
@@ -70,7 +88,7 @@ class StationWidget : GlanceAppWidget() {
         val under = reading.under(context)
 
         GlanceTheme(colors = if (dynamicColor && supportsDynamicColor) GlanceTheme.colors else STATION_COLORS) {
-            Column(
+            Row(
                 modifier =
                     GlanceModifier
                         .fillMaxSize()
@@ -80,26 +98,49 @@ class StationWidget : GlanceAppWidget() {
                         .appWidgetBackground()
                         .cornerRadius(16.dp)
                         .background(GlanceTheme.colors.widgetBackground)
-                        .padding(horizontal = 14.dp, vertical = 12.dp)
-                        // The whole widget, rather than a target inside it: a home screen is
-                        // pressed with a thumb, and everything here says "the station" anyway.
+                        .padding(start = 14.dp, end = 8.dp, top = 12.dp, bottom = 12.dp)
+                        // Everything but the button, rather than a target of its own: a home screen
+                        // is pressed with a thumb, and all of this says "the station" anyway.
                         .clickable(actionStartActivity<MainActivity>()),
                 verticalAlignment = Alignment.Vertical.CenterVertically,
             ) {
-                Text(
-                    text = heading,
-                    maxLines = 2,
-                    style = TextStyle(color = GlanceTheme.colors.onSurface, fontSize = 16.sp, fontWeight = FontWeight.Medium),
-                )
-                if (under != null) {
+                Column(modifier = GlanceModifier.defaultWeight()) {
                     Text(
-                        text = under,
-                        maxLines = 1,
-                        style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant, fontSize = 13.sp),
+                        text = heading,
+                        maxLines = 2,
+                        style = TextStyle(color = GlanceTheme.colors.onSurface, fontSize = 16.sp, fontWeight = FontWeight.Medium),
                     )
+                    if (under != null) {
+                        Text(
+                            text = under,
+                            maxLines = 1,
+                            style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant, fontSize = 13.sp),
+                        )
+                    }
                 }
+                // Nothing to press with no station kept: the app is where one is named, and the
+                // tap that opens it is already the whole widget.
+                if (reading != WidgetReading.NoStation) PlayStop(state.playback, context)
             }
         }
+    }
+
+    /**
+     * Play, or Stop while anything has been asked for.
+     *
+     * Read from the playback state rather than from what is on air, exactly as the tile and the
+     * app's own button are: the listener asked for the station, and every surface says so at once
+     * rather than when the first audio arrives.
+     */
+    @Composable
+    private fun PlayStop(playback: WidgetPlayback, context: Context) {
+        val stopping = playback != WidgetPlayback.STOPPED
+        Image(
+            provider = ImageProvider(if (stopping) R.drawable.ic_stop else R.drawable.ic_play),
+            contentDescription = context.getString(if (stopping) R.string.stop_listening else R.string.play),
+            colorFilter = ColorFilter.tint(GlanceTheme.colors.primary),
+            modifier = GlanceModifier.size(48.dp).padding(10.dp).clickable(actionRunCallback<StationPressAction>()),
+        )
     }
 }
 

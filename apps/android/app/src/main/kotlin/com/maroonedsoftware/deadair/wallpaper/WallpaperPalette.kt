@@ -59,4 +59,8 @@ val WALLPAPER_SWATCHES =
         0xFFC8E06B.toInt(),
         0xFFB0BEC5.toInt(),
         0xFFFFFFFF.toInt(),
+        // The two dark ones last, and they are real answers rather than an absence: a phone themed
+        // from near-black is a phone that stops colouring itself, which is a thing to want.
+        0xFF4A5054.toInt(),
+        0xFF000000.toInt(),
     )

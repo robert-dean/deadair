@@ -39,4 +39,11 @@ class WallpaperPaletteTest {
         assertTrue(WALLPAPER_SWATCHES.all { (it ushr 24) == 0xFF })
         assertEquals(WALLPAPER_SWATCHES.distinct(), WALLPAPER_SWATCHES)
     }
+
+    @Test
+    fun `a phone can be themed from something almost colourless`() {
+        // Black is a colour somebody picks on purpose, and it is not the same as picking nothing.
+        assertTrue(0xFF000000.toInt() in WALLPAPER_SWATCHES)
+        assertEquals(0xFF000000.toInt(), wallpaperPalette(WallpaperColours.CUSTOM, custom = 0xFF000000.toInt(), cover = cover).accent)
+    }
 }

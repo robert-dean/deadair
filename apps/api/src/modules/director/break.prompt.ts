@@ -368,6 +368,12 @@ export const TALK_BREAK_SHAPE: BreakPromptShape = {
     // Optional material rather than the point of the break, so the character's own rung decides
     // whether it appears. See `BreakPromptShape.stories`.
     stories: 'offered',
+    // The same terms for the sky, and the same word for them. What a presenter may DO with it is the
+    // whole difference from the weather break: react to it, say what to do with an afternoon like
+    // this, tie it to the record. The figures stay unfabricable either way. Whether a reading is here
+    // at all is `WeatherSource`'s, behind `rotation.weatherInTalk`, which is off by default — so this
+    // line changes nothing on a station that has not asked for it. See `BreakPromptShape.weather`.
+    weather: 'offered',
     // The link between two records is the one kind with room to give. See `allowsLatitude`.
     allowsLatitude: true,
     // The same three rules with the first one turned around, which is the only one of them that was

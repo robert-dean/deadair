@@ -18,6 +18,7 @@ import { NEWS_KEYS, NEWS_TEMPLATES } from '#modules/director/news.break.writer.j
 import { WEATHER_BREAK_KEYS, WEATHER_TEMPLATES } from '#modules/director/weather.break.writer.js';
 import {
     DEFAULT_WEATHER_DAYS,
+    DEFAULT_WEATHER_IN_TALK,
     DEFAULT_WEATHER_MAX_AGE_MINUTES,
     MAX_WEATHER_DAYS,
     MAX_WEATHER_MAX_AGE_MINUTES,
@@ -855,6 +856,19 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
     },
     {
         group: 'rotation',
+        key: WEATHER_SOURCE_KEYS.inTalk,
+        label: 'Let the presenter mention the weather between records',
+        type: 'boolean',
+        default: DEFAULT_WEATHER_IN_TALK,
+        help:
+            'The weather is offered to the presenter on an ordinary link, to use or ignore — most breaks ignore it, and the ones that do not ' +
+            'say things like "it’s sunny, get out there while it lasts" rather than reading a forecast. It needs a weather plugin, a model ' +
+            'writing the breaks, and "Where the station is" set; the station’s own phrasings underneath the model never mention it. ' +
+            'Figures stay held to what the service measured either way. This is separate from the weather BREAK, which a band on the format ' +
+            'clock asks for and which reports the reading properly.',
+    },
+    {
+        group: 'rotation',
         key: WEATHER_BREAK_KEYS.templates,
         label: 'How the station gives the weather',
         type: 'text',
@@ -1328,7 +1342,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         type: 'string',
         help:
             'A published chart to play between blocks instead, as `plugin:chart`. An alternative to the playlist above rather than a companion, ' +
-            'and it wins if both are set. A chart is a few dozen records, so a longer gap plays it and then carries on with the station\u2019s own ' +
+            'and it wins if both are set. A chart is a few dozen records, so a longer gap plays it and then carries on with the station’s own ' +
             'rotation.',
     },
     {

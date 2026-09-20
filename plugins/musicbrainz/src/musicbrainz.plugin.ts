@@ -6,6 +6,7 @@ import {
     type AlbumRef,
     type ArtistEnrichment,
     type ArtistRef,
+    type ArtistTrack,
     type EnrichmentMatchKey,
     type EnrichmentPluginInstance,
     type PluginConnectionResult,
@@ -17,7 +18,7 @@ import {
 
 import { MusicBrainzClient, MusicBrainzRequestError } from './musicbrainz.client.js';
 import { ListenBrainzClient, ListenBrainzRequestError, LOOKUP_BATCH_SIZE, METADATA_BATCH_SIZE } from './listenbrainz.client.js';
-import { lookupKey, mapListenBrainz, resultKey, toLookupQuery, toSimilarArtists } from './listenbrainz.mapping.js';
+import { lookupKey, mapListenBrainz, resultKey, toLookupQuery, toSimilarArtists, topRecordingMbids, toTopTracks } from './listenbrainz.mapping.js';
 import { DEFAULT_BASE_URL, DEFAULT_MATCH_SCORE, REQUEST_TIMEOUT_MS, TEST_ARTIST_MBID } from './musicbrainz.manifest.js';
 import { mapArtist } from './musicbrainz.artist.js';
 import { mapAlbum, mapRecording, selectRelease, selectReleaseFromGroup, selectReleaseGroup } from './musicbrainz.mapping.js';
@@ -167,6 +168,9 @@ const DEFAULT_SIMILAR_LIMIT = 20;
 
 /** Ceiling on neighbours asked for, whatever the host requests. */
 const MAX_SIMILAR_ARTISTS = 100;
+
+/** Records named for one artist when the host names no limit. */
+const DEFAULT_TOP_TRACKS = 10;
 
 function errorText(error: unknown): string {
     if (error instanceof Error) return error.message;
@@ -726,6 +730,63 @@ export class MusicBrainzPlugin extends Plugin implements EnrichmentPluginInstanc
         } catch (error) {
             const reason = error instanceof ListenBrainzRequestError ? `HTTP ${error.status}` : errorText(error);
             host.logger.debug('listenbrainz named no similar artists', { artist: ref.name, reason });
+            return [];
+        }
+    }
+
+    /**
+     * What to play by an artist.
+     *
+     * The half that turns a name into something the station can schedule.
+     * Without it a similarity source can inform a presenter and cannot
+     * programme an hour.
+     *
+     * ## It needs the token, and answers nothing without one
+     *
+     * `/1/popularity/top-recordings-for-artist/` is an "expensive endpoint" in
+     * the service's own words and refuses an anonymous caller. The obvious
+     * substitute is the radio endpoint that {@link similarArtists} already
+     * uses, which is open — and it was tried and rejected. It SAMPLES a
+     * catalogue for variety, so asked for Daft Punk's best it answered a
+     * four-track medley, a mashup and a radio edit, and asked for Mitch
+     * Murder's it answered three tracks nobody would recognise. Over-sampling
+     * and ranking by its listen count did not fix it. Records by the right
+     * artist that nobody would have chosen are worse than no answer, because
+     * the host has other sources and this one would have spoken over them.
+     *
+     * So a station with no token contributes NEIGHBOURS here and lets Deezer
+     * or Last.fm name the records. `SimilarityService` asks each source in
+     * turn and takes the first usable answer, so an empty one costs a call and
+     * changes nothing else.
+     *
+     * ## The lead artist comes from the metadata endpoint, not from this one
+     *
+     * The row's `artist_name` is the recording's artist CREDIT, so a featured
+     * spot arrives as a joined line and would be a record named correctly and
+     * then dropped as one nothing can find. One batched metadata call over the
+     * ids answers `artist.artists[0]`, exactly as the radio path does.
+     */
+    async artistTopTracks(ref: ArtistRef, limit: number): Promise<ArtistTrack[]> {
+        const host = this.host;
+        const listenBrainz = this.listenBrainz;
+        if (!listenBrainz?.authenticated) return [];
+
+        try {
+            const seedMbid = ref.mbid ?? (this.client ? await this.searchArtist(ref.name) : undefined);
+            if (!seedMbid) return [];
+
+            const wanted = Math.max(1, Math.min(limit || DEFAULT_TOP_TRACKS, METADATA_BATCH_SIZE));
+            // Already ordered by listen count, so the front of the list is the
+            // answer and nothing here sorts it.
+            const top = (await listenBrainz.topRecordingsForArtist(seedMbid)).slice(0, wanted);
+            const mbids = topRecordingMbids(top);
+            if (mbids.length === 0) return [];
+
+            const metadata = await listenBrainz.recordingMetadata(mbids);
+            return toTopTracks(top, metadata);
+        } catch (error) {
+            const reason = error instanceof ListenBrainzRequestError ? `HTTP ${error.status}` : errorText(error);
+            host.logger.debug('listenbrainz named no records for that artist', { artist: ref.name, reason });
             return [];
         }
     }

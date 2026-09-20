@@ -16,7 +16,15 @@
  * the DJ under the name of the canonical source.
  */
 
-import { baseForm, type ExternalId, type ExternalLink, type SimilarArtist, type TrackEnrichment, type TrackRef } from '@deadair/plugin-sdk';
+import {
+    baseForm,
+    type ArtistTrack,
+    type ExternalId,
+    type ExternalLink,
+    type SimilarArtist,
+    type TrackEnrichment,
+    type TrackRef,
+} from '@deadair/plugin-sdk';
 
 import { COVER_ART_ORIGIN } from './musicbrainz.manifest.js';
 import {
@@ -31,6 +39,8 @@ import type {
     ListenBrainzLookupResult,
     ListenBrainzRadioResponse,
     ListenBrainzRecordingMetadata,
+    ListenBrainzRecordingMetadataResponse,
+    ListenBrainzTopRecording,
     ListenBrainzTag,
 } from './listenbrainz.types.js';
 
@@ -193,4 +203,40 @@ export function toSimilarArtists(radio: ListenBrainzRadioResponse, seedMbid: str
     }
 
     return found;
+}
+
+/**
+ * An artist's top recordings as the host's shape.
+ *
+ * The rows arrive already ordered by listen count, so nothing here sorts them.
+ *
+ * The lead artist is `artist.artists[0]` from the metadata call, never the
+ * row's own `artist_name`: that is the recording's artist CREDIT, so "Kalax
+ * feat. Pyxis" would be a record named correctly and then dropped as one
+ * nothing can find. A row whose metadata is missing is dropped rather than
+ * guessed at, which is the same rule the Last.fm plugin applies to a record
+ * with no artist of its own.
+ */
+export function toTopTracks(top: ListenBrainzTopRecording[], metadata: ListenBrainzRecordingMetadataResponse): ArtistTrack[] {
+    const tracks: ArtistTrack[] = [];
+
+    for (const row of top) {
+        const recordingMbid = row.recording_mbid;
+        if (!recordingMbid) continue;
+
+        const found = metadata[recordingMbid];
+        const title = row.recording_name?.trim() ?? found?.recording?.name?.trim();
+        const artist = found?.artist?.artists?.[0]?.name?.trim();
+        if (!title || !artist) continue;
+
+        const album = row.release_name?.trim() ?? found?.release?.name?.trim();
+        tracks.push({ title, artist, ...(album ? { album } : {}) });
+    }
+
+    return tracks;
+}
+
+/** The recording ids in a top-recordings answer, in the order given. */
+export function topRecordingMbids(top: ListenBrainzTopRecording[]): string[] {
+    return top.map(row => row.recording_mbid).filter((mbid): mbid is string => typeof mbid === 'string' && mbid.length > 0);
 }

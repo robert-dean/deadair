@@ -53,6 +53,12 @@ export interface ListenBrainzTag {
  */
 export interface ListenBrainzRecordingMetadata {
     recording?: {
+        /**
+         * The recording's title. Present whenever `inc` asked for nothing that
+         * suppresses it, and the reason the similarity capability can turn a
+         * radio answer's bare mbids into records a station can schedule.
+         */
+        name?: string;
         rels?: { artist_name?: string; artist_mbid?: string; type?: string; instrument?: string }[];
     };
     release?: {
@@ -105,3 +111,22 @@ export interface ListenBrainzRadioRecording {
  * them, because the host asked who ELSE sounds like this.
  */
 export type ListenBrainzRadioResponse = Record<string, ListenBrainzRadioRecording[]>;
+
+/**
+ * One row of `GET /1/popularity/top-recordings-for-artist/{mbid}`, already
+ * ordered by listen count.
+ *
+ * Field names checked against `listenbrainz/webserver/views/popularity_api.py`
+ * rather than guessed. `artist_name` is deliberately NOT read: it is the
+ * artist CREDIT for the recording, so a featured spot would arrive as a joined
+ * line, and everything downstream matches a record on its lead artist alone.
+ * The lead comes from the metadata endpoint, as it does on the radio path.
+ */
+export interface ListenBrainzTopRecording {
+    recording_mbid?: string;
+    recording_name?: string;
+    artist_name?: string;
+    artist_mbids?: string[];
+    release_name?: string;
+    total_listen_count?: number;
+}

@@ -175,3 +175,92 @@ describe('toSimilarArtists', () => {
         expect(toSimilarArtists(answer, SEED_MBID)).toEqual([{ name: 'Kalax', mbid: KALAX_MBID }]);
     });
 });
+
+describe('artistTopTracks', () => {
+    /** The popularity endpoint's shape, already ordered by listen count. */
+    const topRecordings = JSON.stringify([
+        { recording_mbid: 'rec-1', recording_name: 'Breeze', release_name: 'Interceptor', artist_name: 'Mitch Murder', total_listen_count: 4000 },
+        { recording_mbid: 'rec-2', recording_name: 'Out of Time', artist_name: 'Mitch Murder feat. Pyxis', total_listen_count: 900 },
+    ]);
+
+    const metadata = JSON.stringify({
+        'rec-1': { recording: { name: 'Breeze' }, artist: { name: 'Mitch Murder', artists: [{ name: 'Mitch Murder' }] } },
+        'rec-2': {
+            recording: { name: 'Out of Time' },
+            artist: { name: 'Mitch Murder feat. Pyxis', artists: [{ name: 'Mitch Murder' }, { name: 'Pyxis' }] },
+        },
+    });
+
+    it('asks the popularity endpoint and keeps its order', async () => {
+        await initialize('lb-token');
+        host.queueResponse({ body: topRecordings });
+        host.queueResponse({ body: metadata });
+
+        const found = await plugin.artistTopTracks({ name: 'Mitch Murder', mbid: SEED_MBID }, 5);
+
+        expect(host.calls[0]?.url).toContain(`1/popularity/top-recordings-for-artist/${SEED_MBID}`);
+        expect(host.calls[1]?.url).toContain('1/metadata/recording/');
+        expect(found).toEqual([
+            { title: 'Breeze', artist: 'Mitch Murder', album: 'Interceptor' },
+            { title: 'Out of Time', artist: 'Mitch Murder' },
+        ]);
+    });
+
+    it('names a featured record by its lead artist, never the credit line', async () => {
+        // "Mitch Murder feat. Pyxis" is what the row says; everything downstream matches on
+        // the lead alone, so that would be a record named correctly and then never found.
+        await initialize('lb-token');
+        host.queueResponse({ body: topRecordings });
+        host.queueResponse({ body: metadata });
+
+        const found = await plugin.artistTopTracks({ name: 'Mitch Murder', mbid: SEED_MBID }, 5);
+
+        expect(found[1]?.artist).toBe('Mitch Murder');
+    });
+
+    it('answers nothing without a token, and asks for nothing', async () => {
+        // The endpoint refuses an anonymous caller, and the open substitute — the radio
+        // endpoint — samples a catalogue for variety, so it answered B-sides and mashups
+        // where a station meant to play the record. Neighbours only, and another source
+        // names the records.
+        await initialize('');
+
+        expect(await plugin.artistTopTracks({ name: 'Mitch Murder', mbid: SEED_MBID }, 5)).toEqual([]);
+        expect(host.calls).toHaveLength(0);
+    });
+
+    it('trims to the limit before spending a metadata request on the rest', async () => {
+        await initialize('lb-token');
+        host.queueResponse({ body: topRecordings });
+        host.queueResponse({ body: metadata });
+
+        await plugin.artistTopTracks({ name: 'Mitch Murder', mbid: SEED_MBID }, 1);
+
+        expect(JSON.parse(String(host.calls[1]?.body)).recording_mbids).toEqual(['rec-1']);
+    });
+
+    it('searches MusicBrainz for an mbid when the host only has a name', async () => {
+        await initialize('lb-token');
+        host.queueResponse({ body: JSON.stringify({ artists: [{ id: SEED_MBID, name: 'Mitch Murder' }] }) });
+        host.queueResponse({ body: topRecordings });
+        host.queueResponse({ body: metadata });
+
+        expect(await plugin.artistTopTracks({ name: 'Mitch Murder' }, 5)).toHaveLength(2);
+        expect(host.calls[0]?.url).toContain('/artist?query=');
+    });
+
+    it('drops a record whose lead artist never arrived rather than guessing one', async () => {
+        await initialize('lb-token');
+        host.queueResponse({ body: topRecordings });
+        host.queueResponse({ body: JSON.stringify({ 'rec-1': { recording: { name: 'Breeze' }, artist: { name: 'Mitch Murder' } } }) });
+
+        expect(await plugin.artistTopTracks({ name: 'Mitch Murder', mbid: SEED_MBID }, 5)).toEqual([]);
+    });
+
+    it('answers nothing rather than throwing when the token is refused', async () => {
+        await initialize('lb-token');
+        host.queueResponse({ body: 'nope', status: 401 });
+
+        expect(await plugin.artistTopTracks({ name: 'Mitch Murder', mbid: SEED_MBID }, 5)).toEqual([]);
+    });
+});

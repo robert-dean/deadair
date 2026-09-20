@@ -6,6 +6,7 @@ import type {
     ListenBrainzLookupResult,
     ListenBrainzRadioResponse,
     ListenBrainzRecordingMetadataResponse,
+    ListenBrainzTopRecording,
 } from './listenbrainz.types.js';
 
 /**
@@ -156,6 +157,27 @@ export class ListenBrainzClient {
             pop_end: String(options.popEnd ?? 100),
         });
         return answer && typeof answer === 'object' ? answer : {};
+    }
+
+    /**
+     * `GET /1/popularity/top-recordings-for-artist/{mbid}`: an artist's records,
+     * most listened first.
+     *
+     * **Needs a token.** The service calls this an expensive endpoint and
+     * answers an anonymous caller 401 with a sentence about scrapers. There is
+     * no open substitute: the radio endpoint samples a catalogue for variety
+     * and returns B-sides, live cuts and mashups as readily as the record
+     * somebody would recognise, which is right for the station it is named
+     * after and wrong for this question.
+     *
+     * Already ordered, so callers take the front of the list rather than
+     * sorting it.
+     */
+    async topRecordingsForArtist(artistMbid: string): Promise<ListenBrainzTopRecording[]> {
+        const answer = await this.get<ListenBrainzTopRecording[] | undefined>(
+            `1/popularity/top-recordings-for-artist/${encodeURIComponent(artistMbid)}`,
+        );
+        return Array.isArray(answer) ? answer : [];
     }
 
     private async get<T>(path: string, params: Record<string, string> = {}): Promise<T> {

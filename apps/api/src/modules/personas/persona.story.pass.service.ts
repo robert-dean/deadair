@@ -10,7 +10,7 @@ import { PersonaRepository } from './persona.repository.js';
 import { characterFault, growthOf } from './persona.sheet.js';
 import type { Persona } from './persona.js';
 import { PersonaStoriesRepository } from './persona.stories.repository.js';
-import { readProposals, storyPrompt, type ExistingStory } from './persona.story.model.js';
+import { MIN_RECAP_TELLINGS, readProposals, readRecaps, recapPrompt, storyPrompt, type ExistingStory } from './persona.story.model.js';
 
 /**
  * The story pass's settings, keyed like every other model-driven feature.
@@ -296,7 +296,49 @@ export class PersonaStoryPassService {
             ...(answer.usage === undefined ? {} : { tokens: answer.usage.totalTokens ?? answer.usage.outputTokens }),
         });
 
+        await this.recap(personaKey, model);
+
         return { stories: wroteStories + wroteBeats, details: wroteDetails };
+    }
+
+    /**
+     * Say where each of this character's running bits has got to.
+     *
+     * A second turn rather than a fourth shape in the proposal answer, because the two ask for
+     * different things: that one invents and this one summarises, and a summariser behind rules
+     * written for an inventor is a summariser invited to embellish. See `recapPrompt`.
+     *
+     * Stored unattended, which nothing else this pass writes is. The argument is that a recap is
+     * DERIVED from tellings the station itself recorded rather than inferred about the character —
+     * the `said` versus `trait` line one table over — and that what it replaces in a prompt is those
+     * same tellings shown raw, so it is strictly less exposure than the thing it displaces.
+     *
+     * Best-effort and last: a pass that proposed good material and could not summarise anything has
+     * still done its job.
+     */
+    private async recap(personaKey: string, model: string): Promise<void> {
+        try {
+            const bits = await this.stories.recappable(personaKey, MIN_RECAP_TELLINGS);
+            if (bits.length === 0) return;
+
+            const answer = await this.llm.converse(
+                {
+                    messages: recapPrompt(bits),
+                    ...(model.length === 0 ? {} : { model }),
+                    reasoningEffort: 'low',
+                },
+                // Tools OFF, unlike the proposal turn above. There is nothing to look up: every word
+                // this may use is already in front of it, and a search here could only add something
+                // the station never said.
+                { budgetMs: MODEL_BUDGET_MS, maxWaitMs: MODEL_WAIT_MS, priority: MODEL_PRIORITY, tools: false },
+            );
+
+            for (const written of readRecaps(answer.text, bits)) {
+                await this.stories.addRecap(written.id, written.recap, written.tellings);
+            }
+        } catch (error) {
+            this.logger.warn(`personas: could not summarise this character's running bits (${errorText(error)})`);
+        }
     }
 
     /**

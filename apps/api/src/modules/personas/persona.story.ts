@@ -186,4 +186,13 @@ export interface PersonaStoryForPrompt {
      * repeat — see `CharacterContext.told`.
      */
     said?: readonly string[];
+    /**
+     * Where a running bit has GOT to, in one line, written by the nightly pass over its tellings.
+     *
+     * Shown INSTEAD of {@link said} when there is one. That is the whole value of it: the model is
+     * told what the thing has become without being handed the exact sentences, so it cannot
+     * reproduce words it was never shown. `said` still travels beside it, because it is what the
+     * verbatim guard is built from — see `CharacterContext.told`.
+     */
+    recap?: string;
 }

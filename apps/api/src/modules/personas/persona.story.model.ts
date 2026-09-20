@@ -39,6 +39,90 @@
 
 import type { LlmMessage } from '@deadair/plugin-sdk';
 
+/** A bit with enough history to summarise, as the recap prompt shows it. */
+export interface RunningBit {
+    id: string;
+    title: string;
+    story: string;
+    /** What the character actually said, oldest first, so the arc of it is visible. */
+    said: readonly string[];
+}
+
+/**
+ * Ask a model where each of these running bits has got to.
+ *
+ * Its own turn rather than a fourth shape in {@link storyPrompt}, and the split is the point: that
+ * one INVENTS and this one SUMMARISES. Everything the story prompt is fenced by — no claim about a
+ * real person, nothing famous, write it as a script — is about material being made up, and none of
+ * it applies to a sentence saying what the station already broadcast. Mixing them would put a
+ * summariser behind rules for an inventor and invite it to embellish to satisfy them.
+ *
+ * That difference is also why a recap can be stored without anybody approving it: it is derived
+ * from the station's own record rather than inferred about the character, which is the same line
+ * `said` and `trait` notes are split on one table over.
+ */
+export function recapPrompt(bits: readonly RunningBit[]): LlmMessage[] {
+    return [
+        {
+            role: 'system',
+            content: [
+                'A radio presenter keeps coming back to the same running jokes on air. For each one below, say in ONE sentence where it has got to.',
+                '',
+                'Rules:',
+                '- Summarise only what is there. Do not add a new development, a punchline or a detail nobody said.',
+                '- Say what the thing has BECOME over the whole run, not what was said last. "It has gone from a complaint to a running feud with the machine" is useful; repeating the last line is not.',
+                '- Write it for the presenter to read as a reminder, not for a listener. It is never said on air.',
+                '- One sentence each. If a bit has not actually gone anywhere, say that.',
+                '',
+                'Answer with JSON only, in this shape:',
+                '{"recaps":[{"title":"...","recap":"..."}]}',
+            ].join('\n'),
+        },
+        {
+            role: 'user',
+            content: bits.map(bit => [`"${bit.title}": ${bit.story}`, ...bit.said.map(said => `  - ${said}`)].join('\n')).join('\n\n'),
+        },
+    ];
+}
+
+/** The recaps out of a model's answer, matched to the bits they were asked about. */
+export function readRecaps(answer: string, bits: readonly RunningBit[]): { id: string; recap: string; tellings: number }[] {
+    const parsed = parseRecapAnswer(answer);
+    if (parsed === undefined) return [];
+
+    const byTitle = new Map(bits.map(bit => [bit.title.trim().toLowerCase(), bit]));
+    const out: { id: string; recap: string; tellings: number }[] = [];
+    const seen = new Set<string>();
+
+    for (const entry of parsed) {
+        const title = text(entry.title);
+        const recap = text(entry.recap)?.slice(0, MAX_RECAP_CHARS);
+        if (title === undefined || recap === undefined) continue;
+
+        const bit = byTitle.get(title.toLowerCase());
+        // A recap for a bit nobody asked about is a model answering a question it was not put, and
+        // there is no story to attach it to anyway.
+        if (bit === undefined || !take(seen, bit.id)) continue;
+
+        out.push({ id: bit.id, recap, tellings: bit.said.length });
+    }
+
+    return out;
+}
+
+function parseRecapAnswer(answer: string): { title?: unknown; recap?: unknown }[] | undefined {
+    const start = answer.indexOf('{');
+    if (start < 0) return undefined;
+
+    try {
+        const parsed: unknown = JSON.parse(answer.slice(start, answer.lastIndexOf('}') + 1));
+        const list = (parsed as { recaps?: unknown }).recaps;
+        return Array.isArray(list) ? (list as { title?: unknown; recap?: unknown }[]) : undefined;
+    } catch {
+        return undefined;
+    }
+}
+
 /** How many proposals one pass over one character is asked for. */
 export const MAX_PROPOSALS = 3;
 
@@ -50,6 +134,17 @@ export const MAX_DETAIL_CHARS = 1000;
 
 /** How long a handle may be. */
 export const MAX_TITLE_CHARS = 200;
+
+/**
+ * How long a recap may be.
+ *
+ * One line, and short on purpose: it is read into a break prompt in place of the tellings it
+ * summarises, and a recap longer than those would make the thing it replaces cheaper.
+ */
+export const MAX_RECAP_CHARS = 500;
+
+/** How many aired tellings a running bit needs before it is worth summarising. */
+export const MIN_RECAP_TELLINGS = 3;
 
 /** One proposal, in whichever of the two shapes it took. */
 export type StoryProposal =

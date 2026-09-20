@@ -178,6 +178,10 @@ export class PersonaStoriesRepository extends DataRepository {
         // Only a BIT is shown its own history: an anecdote is told whole, and an arc has approved
         // parts to move through rather than past wording to move on from.
         const said = row.kind === 'bit' ? await this.saidFor(row.id) : [];
+        // Where the thing has GOT to, in one line. Shown INSTEAD of the words when there is one, so
+        // the model is told what the bit has become without being handed sentences to reproduce.
+        // `said` still travels, because it is what the verbatim guard is built from.
+        const recap = row.kind === 'bit' ? await this.recapFor(row.id) : undefined;
 
         return {
             id: row.id,
@@ -189,6 +193,7 @@ export class PersonaStoriesRepository extends DataRepository {
                 details: details.slice(0, PERSONA_STORY_DETAIL_LIMIT).map(detail => detail.detail),
                 timesTold: Number(row.timesTold),
                 ...(said.length === 0 ? {} : { said }),
+                ...(recap === undefined ? {} : { recap }),
                 ...(chosen.beat === undefined
                     ? {}
                     : {
@@ -232,6 +237,71 @@ export class PersonaStoriesRepository extends DataRepository {
             .execute();
 
         return rows.flatMap(row => (row.said == null ? [] : [row.said]));
+    }
+
+    /** The newest recap for one story, or `undefined` for a bit nobody has summarised yet. */
+    private async recapFor(storyId: string): Promise<string | undefined> {
+        const row = await this.db
+            .selectFrom('deadair.personaStoryRecaps')
+            .select('recap')
+            .where('stationKey', '=', this.station.stationKey)
+            .where('storyId', '=', storyId)
+            .orderBy('createdAt', 'desc')
+            .executeTakeFirst();
+
+        return row?.recap ?? undefined;
+    }
+
+    /**
+     * Every bit this character has told enough times to be worth summarising, with its tellings.
+     *
+     * What the nightly pass reads to write a recap. `since` is how many aired tellings the newest
+     * recap already covered, so a bit nothing has done with since is not summarised again — the
+     * question is whether the character has MOVED it, not how long ago it last did.
+     */
+    async recappable(personaKey: string, minimum: number): Promise<{ id: string; title: string; story: string; said: string[] }[]> {
+        const rows = await this.db
+            .selectFrom('deadair.personaStories')
+            .select([
+                'id',
+                'title',
+                'story',
+                sql<string>`(select count(*) from deadair.persona_tellings t where t.story_id = deadair.persona_stories.id and t.told and t.aired_at is not null)`.as(
+                    'heard',
+                ),
+                sql<
+                    string | null
+                >`(select r.tellings from deadair.persona_story_recaps r where r.story_id = deadair.persona_stories.id order by r.created_at desc limit 1)`.as(
+                    'covered',
+                ),
+            ])
+            .where('stationKey', '=', this.station.stationKey)
+            .where('personaKey', '=', personaKey)
+            .where('kind', '=', 'bit')
+            .where('state', '=', 'active')
+            .execute();
+
+        const worth = rows.filter(row => Number(row.heard) >= minimum && Number(row.heard) > Number(row.covered ?? 0));
+        if (worth.length === 0) return [];
+
+        return await Promise.all(
+            worth.map(async row => ({
+                id: row.id,
+                title: row.title,
+                story: row.story,
+                // The whole run rather than the last two: a recap exists to hold what a pair of
+                // tellings cannot, which is where a joke has escalated to over its whole life.
+                said: await this.saidFor(row.id, RECAP_TELLINGS),
+            })),
+        );
+    }
+
+    /** Writes a recap, which is append-only: the newest is the one that is read. */
+    async addRecap(storyId: string, recap: string, tellings: number): Promise<void> {
+        await this.db
+            .insertInto('deadair.personaStoryRecaps')
+            .values({ stationKey: this.station.stationKey, storyId, recap: recap.trim(), tellings })
+            .execute();
     }
 
     /**
@@ -584,6 +654,26 @@ export class PersonaStoriesRepository extends DataRepository {
      * and a detail deleted by the cascade are the same row gone.
      */
     async rollbackAfter(personaKey: string, to: string): Promise<{ stories: number; details: number }> {
+        // Recaps first, and every one of them regardless of origin — a recap is not a claim somebody
+        // made, it is the station's summary of tellings that are about to stop existing. Leaving one
+        // behind would have a character carrying a description of a run nothing has any record of,
+        // which is the one way this store can lie.
+        await this.db
+            .deleteFrom('deadair.personaStoryRecaps')
+            .where('stationKey', '=', this.station.stationKey)
+            .where(sql<boolean>`created_at > ${to}::timestamptz`)
+            .where(({ eb, selectFrom }) =>
+                eb(
+                    'storyId',
+                    'in',
+                    selectFrom('deadair.personaStories')
+                        .select('id')
+                        .where('stationKey', '=', this.station.stationKey)
+                        .where('personaKey', '=', personaKey),
+                ),
+            )
+            .execute();
+
         const details = await this.db
             .deleteFrom('deadair.personaStoryDetails')
             .where('origin', '=', 'model')
@@ -726,6 +816,16 @@ export class PersonaStoriesRepository extends DataRepository {
         };
     }
 }
+
+/**
+ * How many tellings of a bit the nightly pass reads to summarise it.
+ *
+ * More than the two a prompt is ever shown, because that is the point of a recap: a pair of
+ * tellings says where a joke is now and a recap says what it has become, and the second needs the
+ * run. Bounded all the same — the pass has one model slot and a bit told fifty times would spend
+ * it on the first forty.
+ */
+const RECAP_TELLINGS = 12;
 
 /**
  * How often this story has actually gone out, off the ledger.

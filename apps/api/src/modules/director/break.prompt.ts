@@ -1555,12 +1555,20 @@ function bitLines(story: PersonaStoryForPrompt, shape: BreakPromptShape): string
     return [
         'A running thing of yours, which listeners know you for:',
         story.story,
-        ...(story.said === undefined || story.said.length === 0
-            ? []
-            : ['The last times you came back to it you said:', ...story.said.map(said => `- ${said}`)]),
-        ...(story.said === undefined || story.said.length === 0
-            ? []
-            : ['Do not say any of that again. Coming back to it only works if it has moved: take it somewhere it has not been.']),
+        // A recap where there is one, and the words themselves only until there is. The summary is
+        // strictly better: it says what the thing has become over its whole life, where a pair of
+        // tellings can only say where it is now — and a model cannot reproduce sentences it was
+        // never shown, which is the hazard the raw form creates and `retold-verbatim` exists to
+        // catch. The guard stays either way, because a coincidence is still possible.
+        ...(story.recap !== undefined
+            ? ['Where it has got to:', story.recap, 'Take it further than that. Coming back to it only works if it has moved.']
+            : story.said === undefined || story.said.length === 0
+              ? []
+              : [
+                    'The last times you came back to it you said:',
+                    ...story.said.map(said => `- ${said}`),
+                    'Do not say any of that again. Coming back to it only works if it has moved: take it somewhere it has not been.',
+                ]),
         shape.stories === 'told'
             ? 'Pick it up now.'
             : 'You do not have to reach for it, and most breaks are better without it. If this moment gives you a reason to, pick it up.',

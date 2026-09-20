@@ -10,7 +10,15 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { readProposals, storyPrompt, MAX_DETAIL_CHARS, MAX_PROPOSALS, MAX_STORY_CHARS } from '../../../src/modules/personas/persona.story.model.js';
+import {
+    readProposals,
+    storyPrompt,
+    MAX_DETAIL_CHARS,
+    MAX_PROPOSALS,
+    MAX_STORY_CHARS,
+    recapPrompt,
+    readRecaps,
+} from '../../../src/modules/personas/persona.story.model.js';
 
 const subject = { label: 'Overnight conspiracy host', style: 'an overnight host who believes the records are trying to tell you something' };
 
@@ -205,5 +213,63 @@ describe('proposing the next part of an arc', () => {
         ]);
 
         expect(user?.content).not.toContain('(told in parts)');
+    });
+});
+
+// Recaps are the one thing this pass writes that nobody approves, so what is pinned is that they can
+// only ever be about a bit that was actually asked about, and that the summariser is asked for a
+// summary rather than for more material.
+describe('summarising a running bit', () => {
+    const bit = {
+        id: 's1',
+        title: 'The vending machine',
+        story: 'The machine on the third floor has been broken since you started.',
+        said: ['Still nobody has fixed it.', 'Week three.', 'I have started bringing my own crisps.'],
+    };
+
+    it('shows the whole run, so the arc of it is visible', () => {
+        const [, user] = recapPrompt([bit]);
+
+        // A pair of tellings says where a joke is now; a recap says what it has become, and that
+        // needs the run.
+        expect(user?.content).toContain('Still nobody has fixed it.');
+        expect(user?.content).toContain('I have started bringing my own crisps.');
+    });
+
+    it('asks for a summary and forbids adding to it', () => {
+        const [system] = recapPrompt([bit]);
+
+        expect(system?.content).toMatch(/Summarise only what is there/);
+        expect(system?.content).toMatch(/not what was said last/);
+    });
+
+    it('reads a recap back against the bit it names', () => {
+        const read = readRecaps(JSON.stringify({ recaps: [{ title: 'The vending machine', recap: 'It has become a feud.' }] }), [bit]);
+
+        // `tellings` is how much of the run it covered, so a later pass can tell whether the
+        // character has actually moved it since.
+        expect(read).toEqual([{ id: 's1', recap: 'It has become a feud.', tellings: 3 }]);
+    });
+
+    it('drops one for a bit nobody asked about', () => {
+        expect(readRecaps(JSON.stringify({ recaps: [{ title: 'Some other thing', recap: 'It has become a feud.' }] }), [bit])).toEqual([]);
+    });
+
+    it('takes one recap per bit, not whichever came last', () => {
+        const read = readRecaps(
+            JSON.stringify({
+                recaps: [
+                    { title: 'The vending machine', recap: 'The first answer.' },
+                    { title: 'The vending machine', recap: 'A second bite at it.' },
+                ],
+            }),
+            [bit],
+        );
+
+        expect(read).toEqual([{ id: 's1', recap: 'The first answer.', tellings: 3 }]);
+    });
+
+    it('answers nothing for an answer it cannot read', () => {
+        expect(readRecaps('the model said something else entirely', [bit])).toEqual([]);
     });
 });

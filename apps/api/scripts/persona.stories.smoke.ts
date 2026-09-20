@@ -33,6 +33,7 @@ function env(key: string, fallback: string): string {
     return line?.[1]?.trim() ?? fallback;
 }
 
+import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { Kysely, sql } from 'kysely';
 import { EmptyUpdateRewriteDialect, KyselyDefaultPlugins, KyselyPgTypeOverrides, KyselyPool } from '@maroonedsoftware/kysely';
@@ -305,6 +306,45 @@ await db
         const second = await stories.forPrompt(KEY, { now: now + gapMs + 1, gapMs });
         check('once it has aired the next part is owed', second?.story.beat?.text, 'You read it twice.');
         check('and it carries what the last part said', second?.story.beat?.leftAt, 'You opened it in the car park.');
+
+        say('');
+        say('a running bit, and where it has got to');
+        const bit = await stories.add({
+            personaKey: KEY,
+            title: 'The vending machine',
+            story: 'The machine on the third floor has been broken since you started.',
+            kind: 'bit',
+            state: 'active',
+            origin: 'operator',
+        });
+
+        // Three aired tellings, which is what makes one worth summarising at all.
+        for (const said of ['Still nobody has fixed it.', 'Week three.', 'I have started bringing my own crisps.']) {
+            const segment = randomUUID();
+            await sql`insert into deadair.segments (id, label, kind) values (${segment}::uuid, ${'A smoke break'}, ${'talkbreak'})`.execute(trx);
+            await tellings.replaceForSegment(segment, { personaKey: KEY, storyId: bit.id, source: 'break', mode: 'offered', told: true, said });
+            await tellings.markAired(segment, Date.now());
+        }
+
+        const worth = await stories.recappable(KEY, 3);
+        check('a bit with enough history is offered for summarising', worth.length, 1);
+        check('with the whole run rather than the last couple', worth[0]?.said.length, 3);
+        check('a bit one telling short is not', (await stories.recappable(KEY, 4)).length, 0);
+
+        await stories.addRecap(bit.id, 'It has become a running feud with the machine.', 3);
+        // The question is whether the character has MOVED it, not how long ago: nothing new has been
+        // told, so there is nothing to summarise again.
+        check('a bit nothing has been done with since is not summarised again', (await stories.recappable(KEY, 3)).length, 0);
+
+        // And the prompt takes the summary INSTEAD of the words, which is the whole value of it: a
+        // model cannot reproduce sentences it was never shown.
+        for (const held of await stories.list(KEY)) {
+            if (held.id !== bit.id && held.state === 'active') await stories.setState(held.id, 'rejected');
+        }
+        const offered = await stories.forPrompt(KEY, { now: Date.now() + 60 * 60_000, gapMs: 0 });
+        check('a break is handed the recap', offered?.story.recap, 'It has become a running feud with the machine.');
+        // `said` still travels, because it is what the verbatim guard is built from.
+        check('and the words still travel for the guard', (offered?.story.said ?? []).length > 0, true);
 
         say('');
         say('the cascade');

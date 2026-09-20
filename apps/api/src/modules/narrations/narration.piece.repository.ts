@@ -348,7 +348,12 @@ function positiveWhole(value: number | undefined, max: number): number | undefin
  * something the station has not read, where a `latest` could decline forever on a series with no
  * dates at all.
  */
-const readOrder = (value: unknown): NarrationOrder => (String(value ?? '').trim().toLowerCase() === 'latest' ? 'latest' : 'serial');
+const readOrder = (value: unknown): NarrationOrder =>
+    String(value ?? '')
+        .trim()
+        .toLowerCase() === 'latest'
+        ? 'latest'
+        : 'serial';
 
 /** Epoch millis as something a `timestamptz` column will take, converted by Postgres. */
 const instant = (millis: number) => sql<never>`to_timestamp(${millis} / 1000.0)`;

@@ -177,4 +177,13 @@ export interface PersonaStoryForPrompt {
      * those the story itself is the material and this is absent.
      */
     beat?: PersonaStoryBeatForPrompt;
+    /**
+     * What this character actually said the last few times it came back to a running bit.
+     *
+     * Present only for a `bit`, because it is the only kind whose material is its own history: an
+     * anecdote is told whole and an arc has approved parts to move through. These are unapproved
+     * words the station once put on air, which is exactly why they are also refused as a verbatim
+     * repeat — see `CharacterContext.told`.
+     */
+    said?: readonly string[];
 }

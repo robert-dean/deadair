@@ -936,10 +936,27 @@ export function avoidedWording(sheet: PersonaSheet, script: string): string[] {
  * the same rule and not a special case: there is no longer run in it to find.
  */
 export function echoedSample(sheet: PersonaSheet, script: string): string | undefined {
+    return echoOf(cleanList(sheet.samples, PERSONA_SHEET_LIMITS.samples), script);
+}
+
+/**
+ * The line a script lifted a clause from, or `undefined`.
+ *
+ * {@link echoedSample}'s matcher with the sample list made a parameter, because the same question is
+ * asked of a second thing: what this character has ALREADY SAID when it last picked up a running
+ * thread. Both are a model handed prose and repeating it rather than writing from it, and the
+ * measured shape of that failure is a partial copy — "Okay that was rough and I picked it, so that's
+ * on me" came back once entire and once truncated, so it is a RUN of words rather than a whole line.
+ *
+ * Compared as words rather than as text so punctuation, capitals and a curly apostrophe cannot hide
+ * a copy. A line shorter than {@link MAX_SAMPLE_ECHO_WORDS} has to appear whole to count, which is
+ * the same rule and not a special case: there is no longer run in it to find.
+ */
+export function echoOf(lines: readonly string[], script: string): string | undefined {
     const spoken = ` ${wordsOf(script).join(' ')} `;
 
-    return cleanList(sheet.samples, PERSONA_SHEET_LIMITS.samples).find(sample => {
-        const words = wordsOf(sample);
+    return lines.find(line => {
+        const words = wordsOf(line);
         const run = Math.min(words.length, MAX_SAMPLE_ECHO_WORDS + 1);
         if (run === 0) return false;
 
@@ -980,6 +997,8 @@ export function spentCatchphrases(sheet: PersonaSheet, recent: readonly string[]
 export type CharacterFault =
     /** A clause lifted from one of the sheet's own sample lines. */
     | 'quoted-sample'
+    /** A clause lifted from what this character said last time it picked up the same thread. */
+    | 'retold-verbatim'
     /** A signature phrase the station has just used. */
     | 'spent-catchphrase'
     /** Wording the sheet forbids. */
@@ -991,6 +1010,14 @@ export type CharacterFault =
 export interface CharacterContext {
     /** The last few things the station said, as `BreakWriteRequest.recent` holds them. */
     recent?: readonly string[];
+    /**
+     * What this character said the last few times it picked up the thread this break was handed.
+     *
+     * Shown to the model so a running joke can be BUILT on, and refused here so it cannot be
+     * repeated. Those two are not in tension: the prompt asks for the thread to move, and this is
+     * what makes the ask enforceable rather than a suggestion.
+     */
+    told?: readonly string[];
     /**
      * Whether the dialect is REQUIRED of this script, or whether only the prohibitions apply.
      *
@@ -1039,6 +1066,11 @@ export interface CharacterContext {
  */
 export function characterFault(sheet: PersonaSheet, script: string, context: CharacterContext = {}): CharacterFault | undefined {
     if (echoedSample(sheet, script) !== undefined) return 'quoted-sample';
+    // The same failure through the other door, and it had no guard at all: a character shown what it
+    // said last time it returned to a running thread will say it again. The sample check above reads
+    // the sheet only, so nothing stopped a prior telling being lifted whole — which is the worst
+    // possible outcome for a callback, since the whole point is a listener hearing the thing move on.
+    if (context.told !== undefined && echoOf(context.told, script) !== undefined) return 'retold-verbatim';
     if (avoidedWording(sheet, script).length > 0) return 'avoided-wording';
 
     const spent = spentCatchphrases(sheet, context.recent);

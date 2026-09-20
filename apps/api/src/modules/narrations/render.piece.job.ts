@@ -247,7 +247,16 @@ function labelFor(title: string, ordinal: number, total: number): string {
  * `WriteBreakJob.programmeTrack`. `programme: true` is what tells both that this is a programme
  * rather than the station talking, without either of them learning what a narration is.
  */
-function contextFor(piece: { id: string; seriesId: string; pieceId: string; seriesTitle: string; title: string; summary?: string; artworkUrl?: string; author?: string }) {
+function contextFor(piece: {
+    id: string;
+    seriesId: string;
+    pieceId: string;
+    seriesTitle: string;
+    title: string;
+    summary?: string;
+    artworkUrl?: string;
+    author?: string;
+}) {
     return {
         programme: true,
         narrationPieceId: piece.id,

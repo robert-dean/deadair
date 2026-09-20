@@ -428,7 +428,11 @@ export class SpeechService {
         if (!plugin.listsLimits) return DEFAULT_SPEECH_MAX_CHARACTERS;
 
         try {
-            const limits = await this.pluginInvoker.invoke(plugin.record.id, 'speech.listLimits', async () => (await plugin.instance.listLimits?.()) ?? {});
+            const limits = await this.pluginInvoker.invoke(
+                plugin.record.id,
+                'speech.listLimits',
+                async () => (await plugin.instance.listLimits?.()) ?? {},
+            );
             const declared = limits.maxCharacters;
             // A plugin that answers with nonsense is one that answered nothing: a zero or a negative
             // would pack no text at all and loop, and a fraction would cut mid-character.

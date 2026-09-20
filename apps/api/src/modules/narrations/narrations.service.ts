@@ -315,4 +315,9 @@ function toStationPiece(row: NarrationPieceRecord): StationPiece {
 }
 
 /** A plugin's order, read leniently: anything that is not `latest` is a serial. See the repository's own reader. */
-const readOrder = (value: unknown): NarrationOrder => (String(value ?? '').trim().toLowerCase() === 'latest' ? 'latest' : 'serial');
+const readOrder = (value: unknown): NarrationOrder =>
+    String(value ?? '')
+        .trim()
+        .toLowerCase() === 'latest'
+        ? 'latest'
+        : 'serial';

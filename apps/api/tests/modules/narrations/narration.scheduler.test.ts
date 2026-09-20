@@ -36,7 +36,9 @@ interface Options {
 
 function build(options: Options = {}) {
     const bands = {
-        active: vi.fn(async () => [{ at: 'clock', minute: 0, hour: 22, kind: options.bandKind ?? 'narration', topic: { id: 't1', key: 'f', label: 'Frankenstein' } }]),
+        active: vi.fn(async () => [
+            { at: 'clock', minute: 0, hour: 22, kind: options.bandKind ?? 'narration', topic: { id: 't1', key: 'f', label: 'Frankenstein' } },
+        ]),
     };
 
     const found = options.found ?? piece();

@@ -2264,3 +2264,84 @@ describe('the weather, under two licences', () => {
         expect(user(breakPrompt({ kind: 'talkbreak', previous, next }, {}, TALK_BREAK_SHAPE))).not.toMatch(/weather/i);
     });
 });
+
+// The two wordings threads added, and both exist because the ordinary story block would say the
+// wrong thing. An arc is not optional — the station started it on air and a listener is owed the
+// rest — and a bit's material is its own history rather than a telling.
+describe('a story told in parts', () => {
+    const arc = {
+        title: 'The letter',
+        story: 'It started with a letter.',
+        details: [],
+        timesTold: 1,
+        kind: 'arc' as const,
+        beat: { text: 'You read it twice.', leftAt: 'You opened it in the car park.', last: false },
+    };
+
+    it('asks for this part and tells the model to stop there', () => {
+        const said = user(prompt({ kind: 'talkbreak', previous, next }, { story: arc }));
+
+        // The load-bearing sentence: handed the shape of a story a model finishes it, and a break
+        // that told parts two, three and four is not an arc.
+        expect(said).toContain('You read it twice.');
+        expect(said).toMatch(/only this piece|no more/);
+    });
+
+    it('says where the last part got to, in that part’s own words', () => {
+        const said = user(prompt({ kind: 'talkbreak', previous, next }, { story: arc }));
+
+        expect(said).toContain('You opened it in the car park.');
+    });
+
+    it('drops the optionality the offered story carries', () => {
+        const said = user(prompt({ kind: 'talkbreak', previous, next }, { story: arc }));
+
+        expect(said).not.toContain('most breaks are better without it');
+    });
+
+    it('still requires the record to be named', () => {
+        const said = user(prompt({ kind: 'talkbreak', previous, next }, { story: arc }));
+
+        // An arc is not a reason to reopen the failure measured over thirty-nine consecutive breaks.
+        expect(said).toMatch(/what is playing/);
+    });
+
+    it('says so when it is the last part', () => {
+        const said = user(prompt({ kind: 'talkbreak', previous, next }, { story: { ...arc, beat: { ...arc.beat, last: true } } }));
+
+        expect(said).toMatch(/end of it/);
+    });
+});
+
+describe('a running bit', () => {
+    const bit = {
+        title: 'The vending machine',
+        story: 'The vending machine on the third floor has been broken since you started.',
+        details: [],
+        timesTold: 3,
+        kind: 'bit' as const,
+        said: ['Still nobody has fixed the vending machine.'],
+    };
+
+    it('shows where it has already been', () => {
+        const said = user(prompt({ kind: 'talkbreak', previous, next }, { story: bit }));
+
+        expect(said).toContain('Still nobody has fixed the vending machine.');
+    });
+
+    it('asks for it to have moved, which is what the guard then enforces', () => {
+        const said = user(prompt({ kind: 'talkbreak', previous, next }, { story: bit }));
+
+        // The prompt asks first and `retold-verbatim` refuses after, which is the bargain every
+        // other refusal in this file is on: a script is only declined for an instruction it was given.
+        expect(said).toMatch(/Do not say any of that again/);
+    });
+
+    it('says nothing about history for a bit nobody has heard yet', () => {
+        const said = user(prompt({ kind: 'talkbreak', previous, next }, { story: { ...bit, said: [] } }));
+
+        // A rule about a thing that has not happened is a rule about nothing, which is why the notes
+        // rule is withheld from a prompt carrying no notes.
+        expect(said).not.toMatch(/Do not say any of that again/);
+    });
+});

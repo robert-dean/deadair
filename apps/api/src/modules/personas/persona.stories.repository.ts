@@ -175,6 +175,9 @@ export class PersonaStoriesRepository extends DataRepository {
 
         const row = rows.find(candidate => candidate.id === chosen.id)!;
         const details = (await this.detailsFor([row.id], 'active')).get(row.id) ?? [];
+        // Only a BIT is shown its own history: an anecdote is told whole, and an arc has approved
+        // parts to move through rather than past wording to move on from.
+        const said = row.kind === 'bit' ? await this.saidFor(row.id) : [];
 
         return {
             id: row.id,
@@ -185,6 +188,7 @@ export class PersonaStoriesRepository extends DataRepository {
                 kind: row.kind as PersonaStoryKind,
                 details: details.slice(0, PERSONA_STORY_DETAIL_LIMIT).map(detail => detail.detail),
                 timesTold: Number(row.timesTold),
+                ...(said.length === 0 ? {} : { said }),
                 ...(chosen.beat === undefined
                     ? {}
                     : {
@@ -196,6 +200,38 @@ export class PersonaStoriesRepository extends DataRepository {
                       }),
             },
         };
+    }
+
+    /**
+     * What this character actually said the last few times it came back to a running bit.
+     *
+     * Told AND aired, because this is offered as somewhere the character has already been: a bit
+     * written into a break that was dropped is one no listener has heard, and showing it back would
+     * have the presenter refer to a joke nobody got.
+     *
+     * Two, which is a ceiling on the prompt rather than on the joke. Every line of history is a line
+     * of "never name a record you were not given" further from the end of the turn, and two is
+     * already enough to see where a thing has got to.
+     *
+     * Nothing here judges whether a telling was any GOOD, which is the same gap
+     * `ScriptHistoryRepository.writtenBy` carries a comment about: a bit built on the one telling the
+     * operator winced at is the character being taught to repeat what did not land. The clause is
+     * one left join through `segment_id` to `deadair.script_ratings` once that table is read here.
+     */
+    private async saidFor(storyId: string, limit = 2): Promise<string[]> {
+        const rows = await this.db
+            .selectFrom('deadair.personaTellings')
+            .select('said')
+            .where('stationKey', '=', this.station.stationKey)
+            .where('storyId', '=', storyId)
+            .where('told', '=', true)
+            .where('airedAt', 'is not', null)
+            .where('said', 'is not', null)
+            .orderBy('createdAt', 'desc')
+            .limit(limit)
+            .execute();
+
+        return rows.flatMap(row => (row.said == null ? [] : [row.said]));
     }
 
     /**

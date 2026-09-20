@@ -180,6 +180,10 @@ export class ModelTalkBreakWriter extends BreakWriter {
             // come from one call.
             maxWords: resolveBreakWords(this.config),
             ...(request.persona === undefined ? {} : { persona: request.persona }),
+            // What this character said the last times it came back to this running bit, so a script
+            // that simply says it again is refused as `retold-verbatim`. The prompt asks for the
+            // thing to have MOVED, and this is what makes the ask enforceable.
+            ...(request.story?.said === undefined ? {} : { told: request.story.said }),
             // Carried across rather than read here, for the reason the persona is: the caller read
             // the notebook and rested what it took, so a writer that fetched its own would spend the
             // rotation a second time and show a different character to the guard than to the prompt.
@@ -284,7 +288,18 @@ export class ModelTalkBreakWriter extends BreakWriter {
             // filled from every writer's scripts (including a kind with no year guard at all), so an
             // invented year sitting in one of those quoted scripts would otherwise be permitted here
             // on no more authority than having been echoed back.
-            years: permittedYears([request.previous, request.next], request.moment, shownWithoutRecent(messages, request.recent)),
+            //
+            // A bit's prior SAYINGS are stripped for exactly that reason, and they are the same hole
+            // one source further out: they are past scripts, quoted verbatim into this prompt, and a
+            // year the character once invented about a record last week must not become permitted
+            // evidence about a different record today. The arc's beats and the story itself are NOT
+            // stripped — those are prose an operator approved and the station asked to hear, which
+            // is the bargain this whole argument rests on.
+            years: permittedYears(
+                [request.previous, request.next],
+                request.moment,
+                shownWithoutRecent(messages, [...(request.recent ?? []), ...(request.story?.said ?? [])]),
+            ),
             // The reading, when the operator has switched it on and the station had one to give. The
             // same doctrine as `years` immediately above and the same field on the guard, so a talk
             // break that mentions the weather is held to the figures it was shown exactly as the

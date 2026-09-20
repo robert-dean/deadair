@@ -1534,6 +1534,41 @@ function beatLines(story: PersonaStoryForPrompt, beat: NonNullable<PersonaStoryF
     ];
 }
 
+/**
+ * A running joke the character keeps coming back to.
+ *
+ * ## It is shown where it has been, which nothing else here does
+ *
+ * An anecdote is told and a beat moves a story on; a bit only works if the listener recognises it
+ * returning, and the character can only do that knowing where it got to. So the last couple of
+ * tellings go in, as the character's own past words.
+ *
+ * ## Which is why the verbatim guard exists
+ *
+ * Handing a model its own prior wording is the strongest possible invitation to reproduce it — the
+ * measured failure this file records about sample lines, arriving through a door the sheet's own
+ * check does not cover. `characterFault` refuses that as `retold-verbatim`, and the prompt ASKS
+ * first, which is the bargain `spentCatchphrases` already makes: a script is only ever refused for
+ * an instruction it was actually given.
+ */
+function bitLines(story: PersonaStoryForPrompt, shape: BreakPromptShape): string[] {
+    return [
+        'A running thing of yours, which listeners know you for:',
+        story.story,
+        ...(story.said === undefined || story.said.length === 0
+            ? []
+            : ['The last times you came back to it you said:', ...story.said.map(said => `- ${said}`)]),
+        ...(story.said === undefined || story.said.length === 0
+            ? []
+            : ['Do not say any of that again. Coming back to it only works if it has moved: take it somewhere it has not been.']),
+        shape.stories === 'told'
+            ? 'Pick it up now.'
+            : 'You do not have to reach for it, and most breaks are better without it. If this moment gives you a reason to, pick it up.',
+        'It is yours and it is a joke rather than a fact: do not attach it to what is playing, do not present it as something the station ' +
+            'knows, and never let it become a claim about anybody real.',
+    ];
+}
+
 function storyLines(settings: PromptSettings, shape: BreakPromptShape): string[] {
     const story = settings.story;
     if (shape.stories === undefined || story === undefined) return [];
@@ -1543,6 +1578,11 @@ function storyLines(settings: PromptSettings, shape: BreakPromptShape): string[]
     // leave it alone would be inviting the station to drop a thread it began. The other half of that
     // bargain is the cadence gap, which is what stops this arriving on every break.
     if (story.beat !== undefined) return [beatLines(story, story.beat).join('\n')];
+
+    // A running BIT, which is neither a one-off nor a story in parts: it has no end and no order, and
+    // what makes it work is the character coming back to it having moved it on. So it is shown where
+    // it has already been, and `retold-verbatim` refuses a script that simply says that again.
+    if (story.kind === 'bit') return [bitLines(story, shape).join('\n')];
 
     const lines = [
         shape.stories === 'told'
@@ -1913,6 +1953,14 @@ export interface AnswerGuard {
      * checkable claim and so passes everything. See {@link characterFault}.
      */
     persona?: PersonaSheet;
+    /**
+     * What this character said the last few times it picked up the thread this break was handed.
+     *
+     * Shown in the prompt so a running joke can be built on, and refused here so it cannot simply be
+     * said again — the two halves of one bargain, and the same one `spentCatchphrases` already
+     * strikes. See `CharacterContext.told`.
+     */
+    told?: readonly string[];
     /**
      * Whether that character's DIALECT is required of the answer, or only its prohibitions.
      *
@@ -2564,6 +2612,7 @@ export function faultIn(script: string, guard: AnswerGuard): CharacterFault | un
 
     return characterFault(guard.persona, script, {
         ...(guard.recent === undefined ? {} : { recent: guard.recent }),
+        ...(guard.told === undefined ? {} : { told: guard.told }),
         ...(guard.dialect === undefined ? {} : { dialect: guard.dialect }),
     });
 }
@@ -2596,6 +2645,7 @@ const FAULT_REASONS: Record<WriteFault, string> = {
     // by — a temperature said confidently is acted on.
     'invented-figure': 'the model gave a figure the station was never given, which sounds exactly like one the service measured',
     'quoted-sample': 'the model read one of the persona’s own sample lines back rather than writing in its voice',
+    'retold-verbatim': 'the model repeated what this character said the last time it picked up the same thread, rather than moving it on',
     'spent-catchphrase': 'the model reached for a signature the station had just used',
     'avoided-wording': 'the model used wording the persona forbids',
     'out-of-character': 'the model wrote a line the station could say, but not in its own voice',

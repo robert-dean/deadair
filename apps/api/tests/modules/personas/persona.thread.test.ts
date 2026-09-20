@@ -10,6 +10,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { nextThread, type ThreadCandidate } from '../../../src/modules/personas/persona.thread.js';
+import { characterFault } from '../../../src/modules/personas/persona.sheet.js';
 
 const NOW = Date.UTC(2026, 4, 12, 20, 0);
 const GAP = 40 * 60_000;
@@ -128,5 +129,40 @@ describe('a shelf with nothing to offer', () => {
         // break simply carries none.
         expect(nextThread([], NOW, GAP)).toBeUndefined();
         expect(nextThread([arc('s1', [part('b1', 'Told.', true)])], NOW, GAP)).toBeUndefined();
+    });
+});
+
+// The verbatim guard that makes a running bit work. A bit is the one kind of material shown its own
+// PAST WORDS — which is the strongest possible invitation to reproduce them, and the measured
+// failure this codebase already records about sample lines arriving through a door the sheet's own
+// check does not cover.
+describe('what a character may not do with a running bit', () => {
+    const sheet = { diction: ['plain'], dictionMarkers: ['anyway'] };
+    const told = ['Still nobody has fixed the vending machine on the third floor.'];
+
+    it('refuses a script that says the last telling again', () => {
+        expect(characterFault(sheet, 'Anyway. Still nobody has fixed the vending machine on the third floor.', { told, dialect: 'optional' })).toBe(
+            'retold-verbatim',
+        );
+    });
+
+    it('catches a partial copy, which is what the failure actually looks like', () => {
+        // The sample-echo rule's own measurement: the line came back once entire and once truncated,
+        // and a check that only caught the first would pass the second as original work.
+        expect(characterFault(sheet, 'Anyway, nobody has fixed the vending machine yet.', { told, dialect: 'optional' })).toBe('retold-verbatim');
+    });
+
+    it('allows the thing to move on in the character’s own words', () => {
+        // The whole point. Same subject, different sentence: that is a bit working.
+        expect(
+            characterFault(sheet, 'Anyway. Week three of the vending machine saga, and I have started bringing my own crisps.', {
+                told,
+                dialect: 'optional',
+            }),
+        ).toBeUndefined();
+    });
+
+    it('asks nothing of a break that was shown no history', () => {
+        expect(characterFault(sheet, 'Anyway, that was Iron Maiden.', { dialect: 'optional' })).toBeUndefined();
     });
 });

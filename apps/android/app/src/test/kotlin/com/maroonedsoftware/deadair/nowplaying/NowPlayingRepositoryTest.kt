@@ -59,7 +59,7 @@ class NowPlayingRepositoryTest {
         var fail = true
         val repository = repository { calls += 1; if (fail) throw IOException("down") else answer(calls.toLong()) }
 
-        val job = backgroundScope.launch { repository.state.collect {} }
+        val job = backgroundScope.launch { repository.watched.collect {} }
         advanceTimeBy(1)
         advanceTimeBy(NowPlayingRepository.POLL_MS * 2 + 1)
         val before = calls
@@ -81,7 +81,7 @@ class NowPlayingRepositoryTest {
         var calls = 0
         val repository = repository { calls += 1; answer(calls.toLong()) }
 
-        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { repository.state.collect {} }
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { repository.watched.collect {} }
         advanceTimeBy(NowPlayingRepository.POLL_MS * 3 + 100)
 
         // One at subscribe, then one per interval.
@@ -97,7 +97,7 @@ class NowPlayingRepositoryTest {
                 if (calls == 1) answer(7) else throw IOException("network gone")
             }
 
-        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { repository.state.collect {} }
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { repository.watched.collect {} }
         advanceTimeBy(NowPlayingRepository.POLL_MS + 100)
 
         val state = repository.state.value
@@ -111,7 +111,7 @@ class NowPlayingRepositoryTest {
         var calls = 0
         val repository = repository { calls += 1; throw IOException("down") }
 
-        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { repository.state.collect {} }
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { repository.watched.collect {} }
         // A steady 3s poll would make eleven calls in thirty seconds. Doubling makes far fewer.
         advanceTimeBy(30_000)
 
@@ -128,7 +128,7 @@ class NowPlayingRepositoryTest {
                 if (failing) throw IOException("down") else answer(1)
             }
 
-        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { repository.state.collect {} }
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { repository.watched.collect {} }
         advanceTimeBy(30_000)
         val whileDown = calls
 
@@ -150,6 +150,52 @@ class NowPlayingRepositoryTest {
         advanceTimeBy(100)
 
         assertEquals(4_242L, (repository.state.value as NowPlayingState.Answered).reading.readAtMs)
+    }
+
+    @Test
+    fun `polls slowly while nothing is showing the readings to anybody`() = runTest {
+        var calls = 0
+        val repository = repository { calls += 1; answer(calls.toLong()) }
+
+        // `state` rather than `watched`: this is the playback service, which needs the readings to
+        // drive the lock screen and the sleep timer but is not itself anybody looking at them.
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { repository.state.collect {} }
+        advanceTimeBy(NowPlayingRepository.POLL_MS * 3 + 100)
+
+        // Where a watched poll would have asked four times.
+        assertEquals(1, calls)
+
+        advanceTimeBy(NowPlayingRepository.UNWATCHED_POLL_MS)
+        assertEquals(2, calls)
+    }
+
+    @Test
+    fun `a watcher arriving asks at once, and leaving lets it slow down again`() = runTest {
+        var calls = 0
+        val repository = repository { calls += 1; answer(calls.toLong()) }
+
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { repository.state.collect {} }
+        advanceTimeBy(5_000)
+        assertEquals(1, calls)
+
+        // A screen coming to the front mid-wait. Without the kick it would show a reading five
+        // seconds old for another twenty-five.
+        val screen = backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { repository.watched.collect {} }
+        advanceTimeBy(1)
+        assertEquals(2, calls)
+
+        advanceTimeBy(NowPlayingRepository.POLL_MS * 2 + 100)
+        assertEquals(4, calls)
+
+        screen.cancel()
+        // The fast cadence outlives the screen by the sharing grace, deliberately: a rotation is a
+        // collector leaving and coming straight back, and flapping the cadence across one would
+        // spend a request to say so.
+        advanceTimeBy(NowPlayingRepository.SUBSCRIBER_GRACE_MS + NowPlayingRepository.POLL_MS * 2)
+        val settled = calls
+
+        advanceTimeBy(NowPlayingRepository.POLL_MS * 3 + 100)
+        assertEquals("expected the slow cadence back once the screen had gone", settled, calls)
     }
 
     @Test

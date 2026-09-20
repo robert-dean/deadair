@@ -28,6 +28,18 @@ class Kick {
     }
 
     /**
+     * Forget any kick that arrived before now.
+     *
+     * For the top of a loop that is about to ask anyway. A kick is "ask now", and a loop whose
+     * first act is to ask has already answered every one of them; without this, a subscriber that
+     * kicks as it arrives (`NowPlayingRepository.watched`) makes a cold loop fetch twice in a row,
+     * once for starting and once for the kick it has just satisfied.
+     */
+    fun drain() {
+        consumed = kicks.value
+    }
+
+    /**
      * Wait for the interval, or until kicked, whichever comes first. Answers whether it was kicked,
      * which is the caller's cue to reset its backoff.
      */

@@ -99,7 +99,7 @@ class PlaybackConductor(
      * from `onMetadata`, kept separate from `policy` because the two listeners answer unrelated
      * questions.
      */
-    private val gate = NowPlayingGate(schedule = ::schedule, push = ::pushMetadata)
+    private val gate = NowPlayingGate(schedule = ::schedule, push = ::pushMetadata, refresh = graph.nowPlaying::retry)
     private val metadataListener =
         object : Player.Listener {
             override fun onMetadata(metadata: Metadata) {

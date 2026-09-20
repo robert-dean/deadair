@@ -55,6 +55,12 @@
     <string name="wallpaper_station">Whenever the station is on air</string>
     <string name="wallpaper_station_detail">The home screen asks the station what is on while it is showing.</string>
     <string name="wallpaper_otherwise">With nothing to show</string>
+    <string name="wallpaper_colours">Colour the phone from</string>
+    <string name="wallpaper_colours_station">The station\'s own colours</string>
+    <string name="wallpaper_colours_artwork">The cover on screen</string>
+    <string name="wallpaper_colours_artwork_detail">Your phone re-colours itself every time the station changes record.</string>
+    <string name="wallpaper_colours_custom">A colour you pick</string>
+    <string name="wallpaper_colour_chosen">Chosen</string>
     <string name="wallpaper_last_cover">Keep the last cover, dimmed</string>
     <string name="wallpaper_mark">The station\'s mark</string>
     <string name="wallpaper_plain">Nothing at all</string>

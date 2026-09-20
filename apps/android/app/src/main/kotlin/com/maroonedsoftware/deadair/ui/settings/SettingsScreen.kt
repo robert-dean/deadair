@@ -41,6 +41,7 @@ import com.maroonedsoftware.deadair.auth.SessionState
 import com.maroonedsoftware.deadair.playback.SleepRequest
 import com.maroonedsoftware.deadair.playback.SleepState
 import com.maroonedsoftware.deadair.station.StreamFormat
+import com.maroonedsoftware.deadair.wallpaper.WallpaperColours
 import com.maroonedsoftware.deadair.wallpaper.WallpaperFollows
 import com.maroonedsoftware.deadair.wallpaper.WallpaperIdle
 import com.maroonedsoftware.deadair.ui.PrivacyPolicyLink
@@ -73,6 +74,8 @@ fun SettingsScreen(
     dynamicColour: Boolean,
     wallpaperFollows: WallpaperFollows,
     wallpaperIdle: WallpaperIdle,
+    wallpaperColours: WallpaperColours,
+    wallpaperColour: Int,
     playOnOpen: Boolean,
     onAddressChange: (String) -> Unit,
     onCheck: () -> Unit,
@@ -81,6 +84,8 @@ fun SettingsScreen(
     onDynamicColour: (Boolean) -> Unit,
     onWallpaperFollows: (WallpaperFollows) -> Unit,
     onWallpaperIdle: (WallpaperIdle) -> Unit,
+    onWallpaperColours: (WallpaperColours) -> Unit,
+    onWallpaperColour: (Int) -> Unit,
     onPlayOnOpen: (Boolean) -> Unit,
     /** Open the sign-in page. */
     onOpenSignIn: () -> Unit,
@@ -202,6 +207,10 @@ fun SettingsScreen(
                 idle = wallpaperIdle,
                 onFollows = onWallpaperFollows,
                 onIdle = onWallpaperIdle,
+                colours = wallpaperColours,
+                colour = wallpaperColour,
+                onColours = onWallpaperColours,
+                onColour = onWallpaperColour,
             )
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))

@@ -1,6 +1,8 @@
 package com.maroonedsoftware.deadair.settings
 
 import com.maroonedsoftware.deadair.station.StationUrl
+import com.maroonedsoftware.deadair.wallpaper.STATION_PALETTE
+import com.maroonedsoftware.deadair.wallpaper.WallpaperColours
 import com.maroonedsoftware.deadair.wallpaper.WallpaperFollows
 import com.maroonedsoftware.deadair.wallpaper.WallpaperIdle
 import com.maroonedsoftware.deadair.station.StreamFormat
@@ -25,4 +27,8 @@ data class ListenerSettings(
     val wallpaperFollows: WallpaperFollows = WallpaperFollows.THIS_PHONE,
     /** What the station wallpaper shows with no cover to show. */
     val wallpaperIdle: WallpaperIdle = WallpaperIdle.LAST_COVER,
+    /** What the phone takes its own colours from while the station wallpaper is up. */
+    val wallpaperColours: WallpaperColours = WallpaperColours.STATION,
+    /** The colour behind [WallpaperColours.CUSTOM], as ARGB. The station's green until somebody picks another. */
+    val wallpaperColour: Int = STATION_PALETTE.accent,
 )

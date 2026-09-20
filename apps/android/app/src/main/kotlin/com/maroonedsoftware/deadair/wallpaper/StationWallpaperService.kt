@@ -71,6 +71,12 @@ class StationWallpaperService : WallpaperService() {
         /** What is on screen, so a reading that changes nothing does not repaint. */
         private var drawn: WallpaperScene? = null
 
+        /** What the phone is currently theming itself from, so it is only told when that moves. */
+        private var palette = STATION_PALETTE
+
+        /** The cover's own colours, or `null` when nothing has been drawn or the phone is too old to read them. */
+        private var coverPalette: Palette? = null
+
         /** The last cover this wallpaper drew, which is what `LAST_COVER` keeps. */
         private var lastCover: String? = null
         private var cover: Bitmap? = null
@@ -115,7 +121,7 @@ class StationWallpaperService : WallpaperService() {
          * repaint every app on the phone that often, and restart the ones that follow the theme.
          */
         @RequiresApi(Build.VERSION_CODES.O_MR1)
-        override fun onComputeColors(): WallpaperColors = WallpaperColors(Color.valueOf(CARBON), Color.valueOf(PHOSPHOR), null)
+        override fun onComputeColors(): WallpaperColors = WallpaperColors(Color.valueOf(palette.background), Color.valueOf(palette.accent), null)
 
         /**
          * Watch what decides the scene, while the wallpaper is showing.
@@ -145,9 +151,9 @@ class StationWallpaperService : WallpaperService() {
                                 flowOf(Triple(kept, playing, NowPlayingState.Loading as NowPlayingState))
                             }
                         }
-                        .map { (kept, playing, now) -> scene(kept, playing, now) }
+                        .map { (kept, playing, now) -> Showing(scene(kept, playing, now), kept.wallpaperColours, kept.wallpaperColour) }
                         .distinctUntilChanged()
-                        .collect { scene -> show(scene) }
+                        .collect { showing -> show(showing) }
                 }
         }
 
@@ -159,7 +165,10 @@ class StationWallpaperService : WallpaperService() {
         }
 
         /** The scene from whatever is currently known, for a repaint nothing else asked for. */
-        private fun sceneNow(): WallpaperScene = drawn ?: WallpaperScene.Plain
+        private fun sceneNow(): Showing = Showing(drawn ?: WallpaperScene.Plain, shown.colours, shown.custom)
+
+        /** The last thing collected, for a repaint the surface asked for rather than the station. */
+        private var shown = Showing(WallpaperScene.Plain, WallpaperColours.STATION, STATION_PALETTE.accent)
 
         private fun scene(kept: ListenerSettings, playing: Boolean, now: NowPlayingState): WallpaperScene {
             val air = airState(now, playing)
@@ -174,10 +183,12 @@ class StationWallpaperService : WallpaperService() {
             )
         }
 
-        /** Load whatever the scene needs, then paint it. */
-        private suspend fun show(scene: WallpaperScene) {
+        /** Load whatever the scene needs, paint it, and tell the phone if its colours have moved. */
+        private suspend fun show(showing: Showing) {
+            shown = showing
             if (width == 0 || height == 0) return
 
+            val scene = showing.scene
             if (scene is WallpaperScene.Cover) {
                 if (scene.url != coverUrl) {
                     val loaded = load(scene.url)
@@ -186,12 +197,45 @@ class StationWallpaperService : WallpaperService() {
                     if (loaded == null) return
                     cover = loaded
                     coverUrl = scene.url
+                    coverPalette = coloursOf(loaded)
                 }
                 if (!scene.dimmed) lastCover = scene.url
             }
 
             drawn = scene
             paint(scene)
+            recolour(showing)
+        }
+
+        /**
+         * Tell the phone what to theme itself from, and only when it has moved.
+         *
+         * `notifyColorsChanged` is what makes Material You re-derive, and on the cover setting that
+         * is once per record, which is the point of choosing it. On the other two the answer never
+         * moves, so the phone is never asked to do the work.
+         */
+        private fun recolour(showing: Showing) {
+            val wanted = wallpaperPalette(showing.colours, showing.custom, coverPalette)
+            if (wanted == palette) return
+
+            palette = wanted
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) notifyColorsChanged()
+        }
+
+        /**
+         * The cover's own colours, as the platform reads them.
+         *
+         * `WallpaperColors.fromBitmap` rather than a palette library, because it is the very thing
+         * the system would have used had this wallpaper reported nothing, and it is already on the
+         * phone. The background stays the station's carbon: the wallpaper really is mostly carbon
+         * with a square in the middle of it, and handing the system a cover's own background would
+         * describe a screen nobody is looking at.
+         */
+        private fun coloursOf(bitmap: Bitmap): Palette? {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O_MR1) return null
+
+            val read = runCatching { WallpaperColors.fromBitmap(bitmap) }.getOrNull() ?: return null
+            return Palette(background = STATION_PALETTE.background, accent = read.primaryColor.toArgb())
         }
 
         private suspend fun load(url: String): Bitmap? {
@@ -248,12 +292,14 @@ class StationWallpaperService : WallpaperService() {
     }
 
     private companion object {
-        /** The station's own background and green, from `ui/theme/Theme.kt`. */
-        const val CARBON = 0xFF101214.toInt()
-        const val PHOSPHOR = 0xFF3DDC91.toInt()
+        /** The station's own background, which every scene is drawn on. */
+        val CARBON = STATION_PALETTE.background
 
         val PAINT = Paint(Paint.FILTER_BITMAP_FLAG)
         val MARK_PAINT = Paint(Paint.FILTER_BITMAP_FLAG).apply { colorFilter = null; alpha = 120 }
         val DIM = Paint().apply { color = 0x8C000000.toInt() }
     }
 }
+
+/** What is on screen and what the phone is theming from: one value, so neither changing is missed. */
+private data class Showing(val scene: WallpaperScene, val colours: WallpaperColours, val custom: Int)

@@ -72,6 +72,10 @@ class WallpaperSettingsActivity : ComponentActivity() {
                             idle = settings.wallpaperIdle,
                             onFollows = { follows -> lifecycleScope.launch { store.setWallpaperFollows(follows) } },
                             onIdle = { idle -> lifecycleScope.launch { store.setWallpaperIdle(idle) } },
+                            colours = settings.wallpaperColours,
+                            colour = settings.wallpaperColour,
+                            onColours = { colours -> lifecycleScope.launch { store.setWallpaperColours(colours) } },
+                            onColour = { colour -> lifecycleScope.launch { store.setWallpaperColour(colour) } },
                             // The picker is where this was opened from; offering to open it again is a loop.
                             showsSetButton = false,
                             modifier = Modifier.widthIn(max = FormMaxWidth).padding(horizontal = Gutter),

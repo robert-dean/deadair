@@ -6,7 +6,15 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import androidx.annotation.StringRes
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
@@ -17,12 +25,20 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.unit.dp
 import com.maroonedsoftware.deadair.R
 import com.maroonedsoftware.deadair.wallpaper.StationWallpaperService
+import com.maroonedsoftware.deadair.wallpaper.WALLPAPER_SWATCHES
+import com.maroonedsoftware.deadair.wallpaper.WallpaperColours
 import com.maroonedsoftware.deadair.wallpaper.WallpaperFollows
 import com.maroonedsoftware.deadair.wallpaper.WallpaperIdle
 
@@ -43,6 +59,10 @@ fun WallpaperSection(
     idle: WallpaperIdle,
     onFollows: (WallpaperFollows) -> Unit,
     onIdle: (WallpaperIdle) -> Unit,
+    colours: WallpaperColours,
+    colour: Int,
+    onColours: (WallpaperColours) -> Unit,
+    onColour: (Int) -> Unit,
     /** The button, for the app's settings. Left out inside the picker, which is already here. */
     showsSetButton: Boolean = true,
     modifier: Modifier = Modifier,
@@ -77,6 +97,64 @@ fun WallpaperSection(
             IDLES.forEach { (option, label) ->
                 Choice(label = label, detail = null, selected = option == idle, onSelect = { onIdle(option) })
             }
+        }
+
+        Text(
+            stringResource(R.string.wallpaper_colours),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Column(Modifier.selectableGroup()) {
+            COLOURS.forEach { (option, label) ->
+                Choice(
+                    label = label,
+                    detail = if (option == WallpaperColours.ARTWORK) R.string.wallpaper_colours_artwork_detail else null,
+                    selected = option == colours,
+                    onSelect = { onColours(option) },
+                )
+            }
+        }
+        // Under the choice it belongs to, and only while it is the one chosen: a row of colours
+        // beside an unchosen option reads as a second setting rather than as its argument.
+        if (colours == WallpaperColours.CUSTOM) Swatches(colour = colour, onColour = onColour)
+    }
+}
+
+/**
+ * The colours on offer, as a wrapping row.
+ *
+ * A row of swatches rather than a wheel: a wheel is a dependency and a fiddle on a phone, and what
+ * this decides is the accent a whole system is derived from, which a dozen good colours serve as
+ * well as sixteen million — most of which make a phone nobody can read.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun Swatches(colour: Int, onColour: (Int) -> Unit) {
+    val chosen = stringResource(R.string.wallpaper_colour_chosen)
+    FlowRow(
+        modifier = Modifier.fillMaxWidth().padding(start = 16.dp, top = 4.dp, bottom = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        WALLPAPER_SWATCHES.forEach { swatch ->
+            val selected = swatch == colour
+            Box(
+                modifier =
+                    Modifier.size(44.dp)
+                        .clip(CircleShape)
+                        .background(Color(swatch))
+                        // The ring is the only thing that says which one is on, so it is drawn in
+                        // the surface's own colour rather than in the swatch's, which would vanish.
+                        .border(width = if (selected) 3.dp else 1.dp, color = MaterialTheme.colorScheme.onSurface, shape = CircleShape)
+                        .selectable(
+                            selected = selected,
+                            role = Role.RadioButton,
+                            // The colour has no name to read out, so the state is the whole label.
+                            onClick = { onColour(swatch) },
+                        )
+                        .semantics { if (selected) stateDescription = chosen },
+            )
         }
     }
 }
@@ -123,6 +201,13 @@ private val FOLLOWS =
     listOf(
         WallpaperFollows.THIS_PHONE to R.string.wallpaper_this_phone,
         WallpaperFollows.STATION to R.string.wallpaper_station,
+    )
+
+private val COLOURS =
+    listOf(
+        WallpaperColours.STATION to R.string.wallpaper_colours_station,
+        WallpaperColours.ARTWORK to R.string.wallpaper_colours_artwork,
+        WallpaperColours.CUSTOM to R.string.wallpaper_colours_custom,
     )
 
 private val IDLES =

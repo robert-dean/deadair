@@ -5,10 +5,13 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.maroonedsoftware.deadair.station.StationUrl
 import com.maroonedsoftware.deadair.station.StreamFormat
+import com.maroonedsoftware.deadair.wallpaper.STATION_PALETTE
+import com.maroonedsoftware.deadair.wallpaper.WallpaperColours
 import com.maroonedsoftware.deadair.wallpaper.WallpaperFollows
 import com.maroonedsoftware.deadair.wallpaper.WallpaperIdle
 import kotlinx.coroutines.flow.Flow
@@ -39,6 +42,8 @@ class SettingsStore(private val context: Context) {
                 // And a wallpaper setting this build does not know, on the format's argument.
                 wallpaperFollows = stored[WALLPAPER_FOLLOWS]?.let { name -> WallpaperFollows.entries.firstOrNull { it.name == name } } ?: WallpaperFollows.THIS_PHONE,
                 wallpaperIdle = stored[WALLPAPER_IDLE]?.let { name -> WallpaperIdle.entries.firstOrNull { it.name == name } } ?: WallpaperIdle.LAST_COVER,
+                wallpaperColours = stored[WALLPAPER_COLOURS]?.let { name -> WallpaperColours.entries.firstOrNull { it.name == name } } ?: WallpaperColours.STATION,
+                wallpaperColour = stored[WALLPAPER_COLOUR] ?: STATION_PALETTE.accent,
             )
         }
 
@@ -70,6 +75,18 @@ class SettingsStore(private val context: Context) {
         context.preferences.edit { it[WALLPAPER_IDLE] = idle.name }
     }
 
+    suspend fun setWallpaperColours(colours: WallpaperColours) {
+        context.preferences.edit { it[WALLPAPER_COLOURS] = colours.name }
+    }
+
+    /** Pick the colour, and follow it: choosing a swatch is what asking for it means. */
+    suspend fun setWallpaperColour(colour: Int) {
+        context.preferences.edit {
+            it[WALLPAPER_COLOUR] = colour
+            it[WALLPAPER_COLOURS] = WallpaperColours.CUSTOM.name
+        }
+    }
+
     private companion object {
         val STATION = stringPreferencesKey("station_url")
         val STATION_NAME = stringPreferencesKey("station_name")
@@ -78,5 +95,7 @@ class SettingsStore(private val context: Context) {
         val PLAY_ON_OPEN = booleanPreferencesKey("play_on_open")
         val WALLPAPER_FOLLOWS = stringPreferencesKey("wallpaper_follows")
         val WALLPAPER_IDLE = stringPreferencesKey("wallpaper_idle")
+        val WALLPAPER_COLOURS = stringPreferencesKey("wallpaper_colours")
+        val WALLPAPER_COLOUR = intPreferencesKey("wallpaper_colour")
     }
 }

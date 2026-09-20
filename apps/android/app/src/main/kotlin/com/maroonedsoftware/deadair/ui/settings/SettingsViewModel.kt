@@ -2,6 +2,8 @@ package com.maroonedsoftware.deadair.ui.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.maroonedsoftware.deadair.wallpaper.WallpaperFollows
+import com.maroonedsoftware.deadair.wallpaper.WallpaperIdle
 import com.maroonedsoftware.deadair.auth.SessionManager
 import com.maroonedsoftware.deadair.auth.SessionState
 import com.maroonedsoftware.deadair.settings.SettingsStore
@@ -119,6 +121,14 @@ class SettingsViewModel(
 
     fun setDynamicColour(on: Boolean) {
         viewModelScope.launch { store.setDynamicColour(on) }
+    }
+
+    fun setWallpaperFollows(follows: WallpaperFollows) {
+        viewModelScope.launch { store.setWallpaperFollows(follows) }
+    }
+
+    fun setWallpaperIdle(idle: WallpaperIdle) {
+        viewModelScope.launch { store.setWallpaperIdle(idle) }
     }
 
     fun setPlayOnOpen(on: Boolean) {

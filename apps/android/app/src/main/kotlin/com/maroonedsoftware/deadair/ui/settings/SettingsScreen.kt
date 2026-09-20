@@ -41,6 +41,8 @@ import com.maroonedsoftware.deadair.auth.SessionState
 import com.maroonedsoftware.deadair.playback.SleepRequest
 import com.maroonedsoftware.deadair.playback.SleepState
 import com.maroonedsoftware.deadair.station.StreamFormat
+import com.maroonedsoftware.deadair.wallpaper.WallpaperFollows
+import com.maroonedsoftware.deadair.wallpaper.WallpaperIdle
 import com.maroonedsoftware.deadair.ui.PrivacyPolicyLink
 import com.maroonedsoftware.deadair.ui.nowplaying.SleepControl
 import com.maroonedsoftware.deadair.ui.text.resolve
@@ -69,12 +71,16 @@ fun SettingsScreen(
     availability: Map<StreamFormat, Boolean>,
     session: SessionState,
     dynamicColour: Boolean,
+    wallpaperFollows: WallpaperFollows,
+    wallpaperIdle: WallpaperIdle,
     playOnOpen: Boolean,
     onAddressChange: (String) -> Unit,
     onCheck: () -> Unit,
     onConfirm: () -> Unit,
     onFormat: (StreamFormat) -> Unit,
     onDynamicColour: (Boolean) -> Unit,
+    onWallpaperFollows: (WallpaperFollows) -> Unit,
+    onWallpaperIdle: (WallpaperIdle) -> Unit,
     onPlayOnOpen: (Boolean) -> Unit,
     /** Open the sign-in page. */
     onOpenSignIn: () -> Unit,
@@ -185,6 +191,18 @@ fun SettingsScreen(
                     modifier = Modifier.fillMaxWidth().selectable(selected = dynamicColour, role = Role.Switch, onClick = { onDynamicColour(!dynamicColour) }),
                 )
             }
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+
+            // Under Appearance rather than Listening: it is a picture on the phone, and it draws
+            // whether or not this phone is the thing playing.
+            Text(stringResource(R.string.wallpaper_label), style = MaterialTheme.typography.titleMedium)
+            WallpaperSection(
+                follows = wallpaperFollows,
+                idle = wallpaperIdle,
+                onFollows = onWallpaperFollows,
+                onIdle = onWallpaperIdle,
+            )
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
 

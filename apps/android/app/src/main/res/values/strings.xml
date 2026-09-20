@@ -45,6 +45,16 @@
     <!-- The station as a live wallpaper, chosen from the system's wallpaper picker -->
     <string name="wallpaper_label">Station wallpaper</string>
     <string name="wallpaper_description">The cover of whatever the station is playing.</string>
+    <string name="wallpaper_set">Set as wallpaper</string>
+    <string name="wallpaper_shows">Show the cover</string>
+    <string name="wallpaper_this_phone">While this phone is playing</string>
+    <string name="wallpaper_this_phone_detail">The station is asked nothing while you are not listening.</string>
+    <string name="wallpaper_station">Whenever the station is on air</string>
+    <string name="wallpaper_station_detail">The home screen asks the station what is on while it is showing.</string>
+    <string name="wallpaper_otherwise">With nothing to show</string>
+    <string name="wallpaper_last_cover">Keep the last cover, dimmed</string>
+    <string name="wallpaper_mark">The station\'s mark</string>
+    <string name="wallpaper_plain">Nothing at all</string>
 
     <!-- The sleep timer: its button, its choices, and the line that counts down under the button -->
     <string name="sleep_timer">Sleep timer</string>

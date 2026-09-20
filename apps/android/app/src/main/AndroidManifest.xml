@@ -3,6 +3,17 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <!-- Offered where the phone has a wallpaper picker, and simply absent where it has not. -->
+    <!--
+      Package visibility: from API 30 an app cannot see which activity handles an intent unless it
+      says which intents it cares about, and the wallpaper picker is another app. Without this the
+      picker resolves to nothing and the Set as wallpaper button hides itself on a phone that has one.
+    -->
+    <queries>
+        <intent>
+            <action android:name="android.service.wallpaper.CHANGE_LIVE_WALLPAPER" />
+        </intent>
+    </queries>
+
     <uses-feature
         android:name="android.software.live_wallpaper"
         android:required="false" />
@@ -100,6 +111,11 @@
             The station as a Quick Settings tile. Bound only by System UI, which is what the
             permission guarantees; toggleable, so accessibility services read it as on or off.
         -->
+        <activity
+            android:name=".wallpaper.WallpaperSettingsActivity"
+            android:exported="true"
+            android:label="@string/wallpaper_label" />
+
         <service
             android:name=".wallpaper.StationWallpaperService"
             android:exported="true"

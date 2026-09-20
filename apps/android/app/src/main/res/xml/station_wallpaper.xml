@@ -7,6 +7,7 @@
 <wallpaper xmlns:android="http://schemas.android.com/apk/res/android"
     android:author="@string/app_name"
     android:description="@string/wallpaper_description"
+    android:settingsActivity="com.maroonedsoftware.deadair.wallpaper.WallpaperSettingsActivity"
     android:thumbnail="@mipmap/ic_launcher"
     tools:ignore="UnusedAttribute"
     xmlns:tools="http://schemas.android.com/tools" />

@@ -55,6 +55,7 @@ import {
 import type { PersonaNotesForPrompt } from '#modules/personas/persona.note.js';
 import type { PersonaStoryForPrompt } from '#modules/personas/persona.story.js';
 import type { SpokenWeather } from '#modules/weather/weather.words.js';
+import type { AlmanacEntry } from '@deadair/plugin-sdk';
 import type { BreakStory, BreakTrack, BreakWriteRequest } from './break.writer.js';
 import { contradictsDayPart, namesWrongSky, namesWrongTimeOfDay, type RoughTime } from './clock.words.js';
 import { retryNudge } from './break.retry.js';
@@ -996,6 +997,24 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape:
         );
     }
 
+    // The date's substrate, rendered on the same terms as the two above and carrying the third
+    // version of the same rule. A bulletin must not add a detail to a story, a forecast must not add
+    // a NUMBER, and this must not add what it REMEMBERS — which is the hardest of the three to
+    // resist, because a model handed "Nuno Bettencourt, Portuguese guitarist" knows what band he was
+    // in, and that sentence is indistinguishable on air from the one the station was actually given.
+    if (request.almanac !== undefined && request.almanac.entries.length > 0) {
+        parts.push(describeDay(request.almanac.day.date, request.almanac.entries));
+        parts.push(
+            'Pick one of those and say it. Everything you say about it has to be in the line you picked: do not add what somebody is known ' +
+                'for, which band they were in, what else happened that year, or how any of it was received — the station was not told any of ' +
+                'that, and what you remember about it sounds exactly like what you were given. ' +
+                'Say the year as it is written above. ' +
+                'You may say it as a person would rather than reading it out flat, and you may work out how long ago it was, since that is ' +
+                'arithmetic on the year you were given. ' +
+                'Nothing about what it means, what it led to, or how things were back then.',
+        );
+    }
+
     // What the show has played, for a kind that is presenting one. OFFERED, and the wording of that
     // is the whole of this block: the measured failure of handing a model material is that the model
     // gets through it. "Work at most one of them in" read as an instruction to work one in, which is
@@ -1263,6 +1282,25 @@ function describeStory(story: BreakStory): string {
  * own, converted before this file ever saw them, and a model told the unit three times starts saying
  * it out loud.
  */
+/**
+ * The day's entries, as lines a model chooses between.
+ *
+ * `describeStory`'s shape rather than `describeWeather`'s, because these are sentences somebody
+ * wrote rather than figures somebody measured — and with `describeStory`'s hardest-won lesson
+ * applied from the start: what is handed over is the entry and its year and NOTHING else. The
+ * subjects' descriptions are deliberately withheld even though the station holds them, because a
+ * model shown "Portuguese guitarist" beside a name treats the pair as a licence to say what else it
+ * knows about him. The entry already carries whatever the source thought worth saying.
+ *
+ * The date is stated at the top so the model can say which day it is talking about without working
+ * it out of anything, which is `describeWeather`'s reason for naming the place.
+ */
+function describeDay(date: string, entries: readonly AlmanacEntry[]): string {
+    const lines = entries.map(entry => `- ${entry.year === undefined ? 'Today' : entry.year}: ${entry.text}`);
+
+    return [`What happened on today's date (${date}), one line each. These were looked up; they are not yours to add to.`, ...lines].join('\n');
+}
+
 function describeWeather(weather: SpokenWeather): string {
     const degrees = weather.units === 'imperial' ? 'Fahrenheit' : 'Celsius';
     const speed = weather.units === 'imperial' ? 'miles per hour' : 'kilometres per hour';

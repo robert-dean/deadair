@@ -17,6 +17,7 @@ import { ModelWeatherBreakWriter } from './model.weather.break.writer.js';
 import { WeatherBreakWriter } from './weather.break.writer.js';
 import { WeatherSource } from './weather.source.js';
 import { AlmanacBreakWriter } from './almanac.break.writer.js';
+import { ModelAlmanacBreakWriter } from './model.almanac.break.writer.js';
 import { AlmanacSource, SaidLog } from './almanac.source.js';
 import { ModelWelcomeWriter } from './model.welcome.writer.js';
 import { TalkBreakWriter } from './talk.break.writer.js';
@@ -147,6 +148,7 @@ export const DirectorModule: ServerKitModule = {
         registry.register(NewsBreakWriter).useClass(NewsBreakWriter).asScoped();
         registry.register(ModelWeatherBreakWriter).useClass(ModelWeatherBreakWriter).asScoped();
         registry.register(WeatherBreakWriter).useClass(WeatherBreakWriter).asScoped();
+        registry.register(ModelAlmanacBreakWriter).useClass(ModelAlmanacBreakWriter).asScoped();
         registry.register(AlmanacBreakWriter).useClass(AlmanacBreakWriter).asScoped();
         registry.register(ModelStoryBreakWriter).useClass(ModelStoryBreakWriter).asScoped();
         registry.register(StoryBreakWriter).useClass(StoryBreakWriter).asScoped();
@@ -212,12 +214,13 @@ export const DirectorModule: ServerKitModule = {
                             // station was never given is refused outright.
                             container.get(ModelWeatherBreakWriter),
                             container.get(WeatherBreakWriter),
-                            // The kind with no model in front of it YET, and the floor under it is
-                            // the strictest in this list: it frames a sentence somebody else
-                            // published and may not touch a word of it, so the claim and its
-                            // evidence are the same span. What it cannot do — say why a year
-                            // mattered, or which record came out of it — is what a binding above it
-                            // would be for.
+                            // The seventh kind, ranked the same way, and the floor under it is the
+                            // strictest in this list: it frames a sentence somebody else published
+                            // and may not touch a word of it, so the claim and its evidence are the
+                            // same span. The model above earns its place by saying the anniversary
+                            // as a presenter would and is checked the weather's way for it — a year
+                            // the station was never given is refused outright.
+                            container.get(ModelAlmanacBreakWriter),
                             container.get(AlmanacBreakWriter),
                             // The fifth kind, ranked the same way and inverted underneath: the
                             // floor here is not a pool of phrasings but the operator's own prose,

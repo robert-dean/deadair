@@ -22,6 +22,7 @@ import {
     cuesOf,
     deliveriesOf,
     effectiveVariant,
+    encodableFormat,
     EngineCapabilities,
     maxCharactersOf,
     speedDialOf,
@@ -293,8 +294,14 @@ export class RhapsodePlugin extends Plugin implements SpeechPluginInstance {
         const capabilities = this.capabilities;
 
         const asked = this.resolveVoice(request.voice);
-        const format = isResponseFormat(request.format) ? request.format : this.format;
-        const params = await speedParams(capabilities, host.logger, asked);
+
+        // Read once, for both of the things it decides. Cached per engine for minutes, so an
+        // ordinary break pays for this on the first line after a restart and never again — and what
+        // it buys is the two failures a station cannot diagnose from the outside: a format this
+        // server was built without an encoder for, and a dial this build does not have.
+        const document = capabilities === undefined ? undefined : await capabilities.of(asked.engine);
+        const format = encodableFormat(document, isResponseFormat(request.format) ? request.format : this.format, host.logger);
+        const params = speedParams(effectiveVariant(document, asked.variant), host.logger, asked);
 
         // Typed as the server's own request shape, so a field this plugin spells wrong is a build
         // failure here rather than a 400 on air. The text goes through untouched: a cue rides inside
@@ -325,7 +332,11 @@ export class RhapsodePlugin extends Plugin implements SpeechPluginInstance {
         }
 
         host.logger.debug('rhapsode speaking', {
-            ...asked,
+            // The address without the row's speed on it: what was actually SENT is in `params`, and
+            // a line reading `speed: 1.1` beside a request that withheld it is a log that lies.
+            engine: asked.engine,
+            ...(asked.voice === undefined ? {} : { voice: asked.voice }),
+            ...(asked.variant === undefined ? {} : { variant: asked.variant }),
             format,
             chars: text.length,
             ...(request.delivery === undefined ? {} : { delivery: request.delivery }),
@@ -486,14 +497,10 @@ interface SpeakAddress {
  * A document that could not be read means no speed, for the same reason. An unconfirmed dial and an
  * absent one are the same risk.
  */
-async function speedParams(
-    capabilities: EngineCapabilities | undefined,
-    logger: PluginLogger,
-    asked: SpeakAddress,
-): Promise<Record<string, number> | undefined> {
-    if (asked.speed === undefined || capabilities === undefined) return undefined;
+function speedParams(build: EffectiveVariant | undefined, logger: PluginLogger, asked: SpeakAddress): Record<string, number> | undefined {
+    if (asked.speed === undefined) return undefined;
 
-    const dial = speedDialOf(effectiveVariant(await capabilities.of(asked.engine), asked.variant));
+    const dial = speedDialOf(build);
     if (dial === undefined) {
         logger.debug('rhapsode withheld the speed, because this build declares no speed dial', {
             engine: asked.engine,

@@ -37,10 +37,10 @@
  * document at all is silence rather than a throw.
  */
 
-import { isSpeechDelivery, SPEECH_CUES, tryJsonBody, type SpeechCue, type SpeechDelivery } from '@deadair/plugin-sdk';
+import { isSpeechDelivery, SPEECH_CUES, tryJsonBody, type PluginLogger, type SpeechCue, type SpeechDelivery } from '@deadair/plugin-sdk';
 import type { Capabilities, CurrentVariant, Dial, Variant } from '@maroonedsoftware/rhapsode-sdk';
 import type { RhapsodeAccess } from './rhapsode.directory.js';
-import { PROBE_TIMEOUT_MS } from './rhapsode.manifest.js';
+import { PROBE_TIMEOUT_MS, type ResponseFormat } from './rhapsode.manifest.js';
 
 /**
  * How long a document is believed.
@@ -151,6 +151,46 @@ export function effectiveVariant(document: Capabilities | undefined, variant: st
     if (document.current !== undefined) return document.current;
 
     return Object.values(document.variants)[0];
+}
+
+/**
+ * What to ask for when the format the operator chose is one this server cannot make.
+ *
+ * `wav` first, and it is not an arbitrary order: every rhapsode encodes `pcm` and `wav` with no
+ * help, while `mp3`, `opus` and `flac` each need an ffmpeg with the matching encoder built in. A
+ * server without one refuses the request naming the format, which is a break lost over a
+ * preference — and a wav the station can store is worth more than the bytes it saves.
+ *
+ * `pcm` is not on the list at any position: it answers `audio/L16` with the rate in the content-type
+ * parameters, and the segment store has nowhere to put it.
+ */
+const FALLBACK_FORMATS: readonly ResponseFormat[] = ['wav', 'flac', 'opus', 'mp3'];
+
+/**
+ * The format to actually ask for, given what this server says it can encode.
+ *
+ * Silent when the answer is the one that was wanted, which is every ordinary station. When it is
+ * not, the substitution is logged rather than hidden, because an operator who chose mp3 and is
+ * getting wav should be able to find out why without reading this file.
+ *
+ * A server that would not describe itself gets the request as asked. Guessing from no evidence would
+ * trade a refusal that names the problem — this is where the "ffmpeg is not on PATH" sentence comes
+ * from — for a format nobody chose.
+ */
+export function encodableFormat(document: Capabilities | undefined, wanted: ResponseFormat, logger: PluginLogger): ResponseFormat {
+    const encodable = document?.formats;
+    if (!Array.isArray(encodable) || encodable.length === 0 || encodable.includes(wanted)) return wanted;
+
+    const instead = FALLBACK_FORMATS.find(format => encodable.includes(format));
+    if (instead === undefined) return wanted;
+
+    logger.debug('rhapsode asked for a different format, because this server cannot encode the one configured', {
+        wanted,
+        instead,
+        encodes: encodable,
+    });
+
+    return instead;
 }
 
 /**

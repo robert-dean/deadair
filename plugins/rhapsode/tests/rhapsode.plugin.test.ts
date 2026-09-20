@@ -160,8 +160,9 @@ describe('speak', () => {
 
         await plugin.speak(say());
 
-        expect(calls[0]?.url).toBe(`${BASE_URL}/speak`);
-        expect(calls[0]?.method).toBe('POST');
+        const posted = calls.find(call => call.url.endsWith('/speak'));
+        expect(posted?.url).toBe(`${BASE_URL}/speak`);
+        expect(posted?.method).toBe('POST');
         expect(sentBody(calls)).toEqual({ engine: 'kokoro', text: 'Good evening.', format: 'mp3', stream: true });
     });
 
@@ -435,17 +436,18 @@ describe('speed', () => {
         expect(sentBody(calls)).not.toHaveProperty('params');
     });
 
-    it('asks the server nothing extra for a line with no speed on it', async () => {
-        // The common case stays one request: a row with no speed never reaches the capability
-        // document at all.
+    it('reads what the engine can do once, however many lines it speaks', async () => {
+        // The document decides the format as well as the dial, so it is read on the first line after
+        // a restart — and then not again until it goes stale.
         const { plugin, calls } = await started({
             capabilities: { kokoro: withSpeedDial },
-            config: { voices: voiceRows({ name: 'host', voice: 'af_heart' }) },
+            config: { voices: voiceRows({ name: 'host', voice: 'af_heart', speed: '1.2' }) },
         });
 
         await plugin.speak(say({ voice: 'host' }));
+        await plugin.speak(say({ voice: 'host' }));
 
-        expect(calls.map(call => call.url)).toEqual([`${BASE_URL}/speak`]);
+        expect(calls.map(call => call.url)).toEqual([`${BASE_URL}/engines/kokoro/capabilities`, `${BASE_URL}/speak`, `${BASE_URL}/speak`]);
     });
 
     it('reads the dial off the variant the row names', async () => {
@@ -723,5 +725,52 @@ describe('suggestConfigOptions', () => {
         expect(suggested.defaultEngine).toHaveLength(2);
         expect(suggested).not.toHaveProperty('voices.voice');
         expect(suggested).not.toHaveProperty('defaultVoice');
+    });
+});
+
+describe('the format it asks for', () => {
+    it('asks for the configured one when this server can encode it', async () => {
+        const { plugin, calls } = await started({ capabilities: { kokoro: capabilities({ formats: ['wav', 'mp3'] }) } });
+
+        await plugin.speak(say());
+
+        expect(sentBody(calls).format).toBe('mp3');
+    });
+
+    it('asks for wav rather than losing the break, when the server was built without ffmpeg', async () => {
+        // Measured against a real server: mp3, opus and flac each need an encoder compiled in, and
+        // asking for one it has not got is a 422 naming the format.
+        const { plugin, calls, host } = await started({
+            capabilities: { kokoro: capabilities({ formats: ['pcm', 'wav'] }) },
+            contentType: 'audio/wav',
+        });
+
+        const handle = await plugin.speak(say());
+
+        expect(sentBody(calls).format).toBe('wav');
+        expect(handle.mime).toBe('audio/wav');
+        expect(host.logger.debug).toHaveBeenCalledWith(
+            'rhapsode asked for a different format, because this server cannot encode the one configured',
+            expect.objectContaining({ wanted: 'mp3', instead: 'wav' }),
+        );
+    });
+
+    it('asks as configured when the server would not describe itself', async () => {
+        // Guessing from no evidence would trade a refusal that names the problem for a format
+        // nobody chose.
+        const { plugin, calls } = await started();
+
+        await plugin.speak(say());
+
+        expect(sentBody(calls).format).toBe('mp3');
+    });
+
+    it('asks as configured when nothing it could store is on offer', async () => {
+        // pcm alone: the station has nowhere to put audio/L16, so let the server say so.
+        const { plugin, calls } = await started({ capabilities: { kokoro: capabilities({ formats: ['pcm'] }) } });
+
+        await plugin.speak(say());
+
+        expect(sentBody(calls).format).toBe('mp3');
     });
 });

@@ -18,6 +18,7 @@ import type { Persona } from '#modules/personas/persona.js';
 import { ProductionRepository } from '#modules/productions/production.repository.js';
 import { ProductionScheduler } from '#modules/productions/production.scheduler.js';
 import { NarrationPieceRepository } from '#modules/narrations/narration.piece.repository.js';
+import { PersonaTellingRepository } from '#modules/personas/persona.telling.repository.js';
 import { NarrationScheduler } from '#modules/narrations/narration.scheduler.js';
 import { isNarrationKind } from '#modules/narrations/narration.kind.js';
 import { PodcastEpisodeRepository } from '#modules/podcasts/podcast.episode.repository.js';
@@ -3147,7 +3148,27 @@ export class DirectorService {
                 await scope.get(NarrationPieceRepository).markAired(item.externalId, at);
             }).catch(error => this.logger.warn(`director: could not mark a programme aired (${errorText(error)})`));
         }
-        if (isRenderItem(item)) return;
+
+        // The second thing a segment has to write down, and for the programme mark's reason read one
+        // layer in: a break may have carried one of the presenting character's own stories, and a
+        // PART of a story stays owed until somebody could actually have heard the last one.
+        //
+        // The distinction is the whole point of the column. A break is written up to eight items
+        // ahead of its slot and can be retracted in between, so "written" and "heard" are different
+        // facts — and without this edge a story's progress would advance on breaks that never went
+        // out, which costs a listener an episode nothing will ever offer again.
+        //
+        // Keyed on the segment and unconditional, exactly as the two marks above are: one statement
+        // matching nothing is cheaper than asking first whether this break carried a story. A
+        // production's turn is deliberately NOT covered — its telling is recorded against no segment
+        // (see `ProduceProductionJob.storyOf`), so this matches nothing for one, and a caller's
+        // anecdote in a phone-in is not a thread the host is carrying.
+        if (isRenderItem(item)) {
+            void inScope(this.container, async scope => await scope.get(PersonaTellingRepository).markAired(item.externalId, Date.now())).catch(
+                error => this.logger.warn(`director: could not mark a telling aired (${errorText(error)})`),
+            );
+            return;
+        }
 
         const source = this.lineup?.source ?? 'director';
         // Off the running order rather than the shared holder, because this one CAN say which

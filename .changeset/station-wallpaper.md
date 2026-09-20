@@ -12,5 +12,8 @@ phone is playing (the default, and the one that asks the station nothing while y
 listening) or whenever the station is on air. **With nothing to show** keep the last cover dimmed,
 draw the station's mark, or draw nothing.
 
-It runs only while it can be seen, and it reports the station's own colours rather than each cover's,
-so your phone's palette does not change every few minutes.
+**Colour the phone from** the station's own colours (the default, and the one that never moves), the
+cover on screen, or a colour you pick from a row of swatches. Following the cover means your phone
+re-colours itself every time the station changes record, which is the point of choosing it.
+
+It runs only while it can be seen.

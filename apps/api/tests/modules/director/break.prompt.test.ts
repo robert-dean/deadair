@@ -28,6 +28,8 @@ import type { BreakWriteRequest } from '../../../src/modules/director/break.writ
 import { dayPart } from '../../../src/modules/director/clock.words.js';
 import { NEWS_SHAPE } from '../../../src/modules/director/model.news.break.writer.js';
 import { WELCOME_SHAPE } from '../../../src/modules/director/model.welcome.writer.js';
+import { WEATHER_SHAPE } from '../../../src/modules/director/model.weather.break.writer.js';
+import type { SpokenWeather } from '../../../src/modules/weather/weather.words.js';
 import { LATITUDE_INSTRUCTIONS, LATITUDE_LICENCE, LATITUDE_MAX_WORDS } from '../../../src/modules/personas/persona.sheet.js';
 
 const previous = { title: 'Solid Air', artist: 'John Martyn' };
@@ -2202,5 +2204,63 @@ describe('breakPrompt on a second ask', () => {
 
         expect(system(second)).toBe(system(ordinary));
         expect(user(second)).toBe(user(ordinary));
+    });
+});
+
+// The two licences the same reading is handed under, which is the whole of `BreakPromptShape.weather`.
+//
+// One block used to render whenever the request carried a reading, with one set of rules on it. That
+// was right while the weather break was the only kind that could be given one, and it made "nothing
+// about how the weather makes anyone feel" a rule for a presenter linking two records — which
+// forbids the sentence this feature exists for.
+describe('the weather, under two licences', () => {
+    const reading: SpokenWeather = {
+        place: 'Atlanta',
+        observedAt: '2026-08-29T09:00:00-04:00',
+        units: 'metric',
+        current: { condition: 'clear', words: 'clear', temperature: 26 },
+    };
+
+    const talk = () => user(breakPrompt({ kind: 'talkbreak', previous, next, weather: reading }, {}, TALK_BREAK_SHAPE));
+    const forecast = () => user(breakPrompt({ kind: 'weather', next, weather: reading }, {}, WEATHER_SHAPE));
+
+    it('shows the same figures to both', () => {
+        for (const said of [talk(), forecast()]) {
+            expect(said).toMatch(/Atlanta/);
+            expect(said).toMatch(/Temperature: 26/);
+        }
+    });
+
+    it('tells a talk break it may leave the weather alone, and does not tell a forecast that', () => {
+        // The wording the notes and the story block already use, and for their measured reason: a
+        // labelled table of figures is the one shape a model will simply read out.
+        expect(talk()).toMatch(/do not have to mention the weather/i);
+        expect(forecast()).not.toMatch(/do not have to mention/i);
+    });
+
+    it('lets a talk break react to it and tells a forecast not to', () => {
+        // The sentence this feature was asked for: "It's sunny today, get out there and tan."
+        expect(forecast()).toMatch(/No advice about coats or umbrellas/);
+        expect(forecast()).toMatch(/nothing about how the weather makes anyone feel/);
+        expect(talk()).not.toMatch(/No advice about coats or umbrellas/);
+        expect(talk()).not.toMatch(/nothing about how the weather makes anyone feel/);
+    });
+
+    it('holds both to the figures they were given, which is not a question about the kind of break', () => {
+        for (const said of [talk(), forecast()]) {
+            expect(said).toMatch(/do not round, do not convert/);
+        }
+    });
+
+    it('says nothing at all about the weather to a kind whose shape does not carry it', () => {
+        // A bulletin handed a reading — which nothing does — still gets no weather block, because
+        // what the prompt says is a function of the KIND and not only of what the request holds.
+        const bulletin = user(breakPrompt({ kind: 'news', next, weather: reading, stories: [{ headline: 'Bridge reopens.' }] }, {}, NEWS_SHAPE));
+
+        expect(bulletin).not.toMatch(/Temperature: 26/);
+    });
+
+    it('says nothing about the weather to a talk break that was given no reading, which is the default', () => {
+        expect(user(breakPrompt({ kind: 'talkbreak', previous, next }, {}, TALK_BREAK_SHAPE))).not.toMatch(/weather/i);
     });
 });

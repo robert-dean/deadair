@@ -80,11 +80,12 @@ class ReconnectPolicyTest {
     }
 
     @Test
-    fun `gives up once the backoff is exhausted`() = runTest {
+    fun `gives up once the backoff is exhausted, and stops`() = runTest {
         var reconnects = 0
+        var stops = 0
         // Two 1s waits exhaust a 2s budget, so the third error should schedule nothing.
         val backoff = Backoff(firstMs = 1_000, ceilingMs = 1_000, giveUpAfterMs = 2_000)
-        val policy = policy(wantsPlay = { true }, reconnect = { reconnects += 1 }, backoff = backoff)
+        val policy = policy(wantsPlay = { true }, reconnect = { reconnects += 1 }, stop = { stops += 1 }, backoff = backoff)
 
         policy.onPlayerError(error())
         advanceTimeBy(1_001)
@@ -97,6 +98,9 @@ class ReconnectPolicyTest {
         policy.onPlayerError(error())
         advanceTimeBy(60_000)
         assertEquals(2, reconnects)
+        // Standing down is not enough: a player still wanting to play is a poll still asking the
+        // station what is on, every three seconds, for a stream this has given up on.
+        assertEquals(1, stops)
     }
 
     @Test

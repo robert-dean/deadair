@@ -18,6 +18,7 @@ import {
 import { TALK_BREAK_KIND } from '../../../src/modules/director/talk.break.writer.js';
 import { DEFAULT_MAX_WORDS } from '../../../src/modules/director/break.prompt.js';
 import { patienceFor, WAIT } from '../../../src/modules/director/break.writer.js';
+import type { SpokenWeather } from '../../../src/modules/weather/weather.words.js';
 
 const previous = { title: 'Solid Air', artist: 'John Martyn' };
 const next = { title: 'Pink Moon', artist: 'Nick Drake' };
@@ -499,5 +500,84 @@ describe('ModelTalkBreakWriter and a delivery', () => {
 
         expect(written?.script).toBe(atTheCeiling);
         expect(written?.delivery).toBe('frantic');
+    });
+});
+
+// The fourth dimension of a claim, arriving at the kind that may IGNORE its substrate.
+//
+// A weather break stamps `claimsReadingUntil` always, because `WEATHER_SHAPE` exists to make the
+// model state the reading. Here the reading is offered, the prompt says most breaks are better
+// without it, and the stamp has to follow what the answer actually did — which is `claimsTime`'s
+// posture rather than `claimsNext`'s.
+describe('ModelTalkBreakWriter and a reading it was offered', () => {
+    const weather: SpokenWeather = {
+        place: 'Atlanta',
+        observedAt: '2026-08-29T09:00:00-04:00',
+        units: 'metric',
+        current: { condition: 'clear', words: 'clear', temperature: 26 },
+    };
+
+    const freshUntil = 1_800_000;
+
+    it('stamps the expiry when the break actually reported the sky', async () => {
+        const { writer } = build({ answer: "It's sunny today. Get out there and tan to this one, Pink Moon." });
+
+        const written = await writer.write({ kind: TALK_BREAK_KIND, previous, next, weather, weatherFreshUntil: freshUntil });
+
+        expect(written?.claimsReadingUntil).toBe(freshUntil);
+    });
+
+    it('stamps nothing when the break ignored the offer, which is most of them', async () => {
+        // The direction that matters. A stamp here would have `brokenClaim` reopen the break — and
+        // eventually drop it at hand-over — over a claim about the weather it never made.
+        const { writer } = build({ answer: 'That was Solid Air, and this one has been stuck in my head all week. Pink Moon.' });
+
+        const written = await writer.write({ kind: TALK_BREAK_KIND, previous, next, weather, weatherFreshUntil: freshUntil });
+
+        expect(written?.script).toContain('Pink Moon');
+        expect(written?.claimsReadingUntil).toBeUndefined();
+    });
+
+    it('stamps nothing when no reading was offered at all, which is every station with this off', async () => {
+        const { writer } = build({ answer: "It's sunny today. Coming up, Pink Moon." });
+
+        const written = await writer.write({ kind: TALK_BREAK_KIND, previous, next });
+
+        expect(written?.claimsReadingUntil).toBeUndefined();
+    });
+
+    it('declines a break that said a figure the station was never given', async () => {
+        // `inventedFigure`'s doctrine reaching the music path. The reading says 26 and the model
+        // said 31, which sounds exactly like a number the service measured.
+        const { writer } = build({ answer: "It's 31 degrees out there. Pink Moon to cool you down." });
+
+        const written = await writer.write({ kind: TALK_BREAK_KIND, previous, next, weather, weatherFreshUntil: freshUntil });
+
+        expect(written).toBeUndefined();
+    });
+
+    it('permits the figure it was given', async () => {
+        const { writer } = build({ answer: "26 degrees and not a cloud. Pink Moon, and I am not moving." });
+
+        const written = await writer.write({ kind: TALK_BREAK_KIND, previous, next, weather, weatherFreshUntil: freshUntil });
+
+        expect(written?.script).toContain('26');
+        expect(written?.claimsReadingUntil).toBe(freshUntil);
+    });
+
+    it('does not read a number in a record it was shown as a temperature', async () => {
+        // The record names come out before the figures are read, which is `inventedYearIn`'s own
+        // reason one substrate along: a title full of digits is not a claim about the sky.
+        const { writer } = build({ answer: 'Here is Summer 68, and it is sunny enough for it.' });
+
+        const written = await writer.write({
+            kind: TALK_BREAK_KIND,
+            previous,
+            next: { title: 'Summer 68', artist: 'Pink Floyd' },
+            weather,
+            weatherFreshUntil: freshUntil,
+        });
+
+        expect(written?.script).toContain('Summer 68');
     });
 });

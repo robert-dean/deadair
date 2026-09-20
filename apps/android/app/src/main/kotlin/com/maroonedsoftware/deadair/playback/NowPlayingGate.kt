@@ -22,16 +22,26 @@ import com.maroonedsoftware.deadair.sdk.models.NowPlayingTrackKind
 class NowPlayingGate(
     private val schedule: (Long, () -> Unit) -> Cancel,
     private val push: (NowPlaying?) -> Unit,
+    /**
+     * Ask the station now rather than waiting for the next poll.
+     *
+     * Called when the ICY title moves with nothing held, which is the encoder saying the record
+     * changed before the poll had noticed. That is the one moment the answer is genuinely wanted,
+     * and asking for it here is what lets the poll itself be slow: one request per record, on the
+     * record's own schedule, instead of twenty a minute in the hope of catching the change.
+     */
+    private val refresh: () -> Unit = {},
 ) {
     private var pending: Cancel? = null
 
     /** The reading held back because its track moved and the audio has not caught up yet. */
     private var held: NowPlaying? = null
 
-    /** The most recent reading seen, held or not: what an ICY change with nothing held falls back to. */
-    private var latest: NowPlaying? = null
     private var seenFirst = false
     private var lastIcyTitle: String? = null
+
+    /** An ICY change has asked the station for a fresh reading, and the next one is that answer. */
+    private var awaitingRefresh = false
 
     /** What was pushed for last, so an unmoved `startedAt` can still be told from a moved one. */
     private var pushedFor: Long? = null
@@ -49,25 +59,40 @@ class NowPlayingGate(
      * of the poll: however much audio is already sitting in the buffer is exactly how far behind
      * the poll the listener's ears are, so it is also how long the held reading may wait before
      * being pushed anyway, ICY title or not.
+     *
+     * `ageMs` is how long ago that reading was actually TAKEN. It was assumed to be nothing for as
+     * long as the poll ran every three seconds no matter what, and then it stopped being nothing:
+     * a poll that slows down while nobody can see it (`NowPlayingRepository`'s unwatched cadence)
+     * hands this a reading that already describes the past. The hold is the part of the buffer
+     * that has not played yet, so the arithmetic is the buffer MINUS that age; holding the whole
+     * of it again would publish the record about as long after the listener heard it start as the
+     * poll is slow.
      */
-    fun onPoll(reading: NowPlaying?, bufferedMs: Long) {
-        latest = reading
+    fun onPoll(reading: NowPlaying?, bufferedMs: Long, ageMs: Long = 0) {
         val startedAt = reading?.track?.startedAt
         val trackMoved = seenFirst && startedAt != pushedFor
+        // This is the answer an ICY change asked for, so the audio is already known to have
+        // reached whatever it says: there is nothing left to hold it for.
+        val confirming = awaitingRefresh
+        awaitingRefresh = false
         seenFirst = true
 
-        if (!trackMoved) {
+        if (!trackMoved || confirming) {
             cancelPending()
             held = null
+            // `pushedFor` moves even when nothing is pushed, so a record whose fields happen to
+            // match the one before it (the same track aired twice) is not read as a fresh change
+            // by every poll after this one. Unchanged in the ordinary `!trackMoved` case, where it
+            // is already this value.
+            pushedFor = startedAt
             // A field the lock screen does not show (listeners, remainingMs, ...) moving on its own
             // is not a reason to push: only what `Shown` captures is.
             if (reading.shown() != lastPushedShown) pushNow(reading)
             return
         }
 
-        // The poll runs every three seconds, and a buffer longer than that (routine on HLS, which
-        // carries no ICY of its own) means this same moved track is seen again before its release
-        // fires. Cancelling and rescheduling on every one of those polls would push the release out
+        // A buffer longer than the poll interval (routine on HLS, which carries no ICY of its own)
+        // means this same moved track is seen again before its release fires. Cancelling and rescheduling on every one of those polls would push the release out
         // by another `bufferedMs` each time and it would never actually happen. So a poll that is
         // still describing the track already held just refreshes the fields that will eventually be
         // pushed, without touching the timer already counting down to that release.
@@ -78,13 +103,19 @@ class NowPlayingGate(
 
         held = reading
         cancelPending()
-        pending = schedule(bufferedMs) { releaseHeld() }
+        pending = schedule((bufferedMs - ageMs).coerceAtLeast(0)) { releaseHeld() }
     }
 
     /**
-     * The in-band title changed. Whatever was held is released early, and an ICY change with
-     * nothing held still republishes the latest reading, because the change just proved the audio
-     * caught up to it.
+     * The in-band title changed: the encoder has moved to the next record, on the audio's own
+     * schedule, which is the listener's.
+     *
+     * Whatever was held is released early — the poll had already seen this record and was only
+     * waiting for the ears to catch up. With nothing held the poll has NOT seen it yet, so the
+     * reading in hand describes the record that just ended and publishing it would put the wrong
+     * title on the lock screen; the station is asked instead, and `onPoll` publishes the answer
+     * the moment it lands. Republishing `latest` was what this did while the poll ran every three
+     * seconds, when `latest` was at worst three seconds stale and usually already the new record.
      */
     fun onIcyTitle(title: String?) {
         if (title == lastIcyTitle) return
@@ -92,9 +123,14 @@ class NowPlayingGate(
         if (!seenFirst) return
 
         cancelPending()
-        val toPush = held ?: latest
+        val toRelease = held
         held = null
-        pushNow(toPush)
+        if (toRelease != null) {
+            pushNow(toRelease)
+            return
+        }
+        awaitingRefresh = true
+        refresh()
     }
 
     /**
@@ -109,6 +145,7 @@ class NowPlayingGate(
         cancelPending()
         held = null
         lastPushedShown = null
+        awaitingRefresh = false
     }
 
     private fun releaseHeld() {

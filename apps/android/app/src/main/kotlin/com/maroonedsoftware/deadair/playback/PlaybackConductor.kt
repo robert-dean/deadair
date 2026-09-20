@@ -20,11 +20,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
@@ -40,6 +43,16 @@ class PlaybackConductor(
     private val player: Player,
     private val graph: AppGraph,
     private val words: LockScreenWords,
+    /**
+     * Whether the phone's display is on.
+     *
+     * Not used to decide anything about the audio: it decides whether the poll behind the lock
+     * screen runs at the cadence of something being READ. The activity says so for itself by
+     * collecting `watched`, but the lock screen, the notification shade and a car's screen are
+     * drawn by other processes out of the media session, and none of them is a collector here.
+     * A dark display is the one state where it is certain nobody is reading any of them.
+     */
+    private val displayOn: Flow<Boolean> = flowOf(false),
     /** Where the sleep timer's state goes, for a screen to show. */
     publishSleep: (SleepState) -> Unit = {},
     /** Called after the sleep timer has stopped the station, for the service to tidy itself away. */
@@ -99,7 +112,7 @@ class PlaybackConductor(
      * from `onMetadata`, kept separate from `policy` because the two listeners answer unrelated
      * questions.
      */
-    private val gate = NowPlayingGate(schedule = ::schedule, push = ::pushMetadata)
+    private val gate = NowPlayingGate(schedule = ::schedule, push = ::pushMetadata, refresh = graph.nowPlaying::retry)
     private val metadataListener =
         object : Player.Listener {
             override fun onMetadata(metadata: Metadata) {
@@ -141,13 +154,30 @@ class PlaybackConductor(
             .onEach { (settings, state) ->
                 station = settings.station
                 format = settings.format
-                val now = state.nowPlaying()
+                val reading = state.reading()
+                val now = reading?.nowPlaying
                 if (now != null) mounts = now.mounts
 
                 retarget()
-                gate.onPoll(now, player.totalBufferedDuration)
-                sleep.onPoll(state.reading(), player.totalBufferedDuration)
+                // How old the reading is, not how old the emission is: the poll slows down while
+                // nobody can see it, so what arrives here can describe a moment already gone, and
+                // the gate's hold is the part of the buffer that is left rather than all of it.
+                val age = reading?.let { SystemClock.elapsedRealtime() - it.readAtMs } ?: 0
+                gate.onPoll(now, player.totalBufferedDuration, ageMs = age)
+                sleep.onPoll(reading, player.totalBufferedDuration)
             }
+            .launchIn(scope)
+
+        // A second subscription, and it uses nothing it collects: subscribing to `watched` is how
+        // a collector says these readings are being shown to somebody, and while the display is
+        // lit the lock screen and the shade are showing exactly that — out of the media session
+        // rather than out of this flow, which is why nothing here has a value to read.
+        // Gated on `playWhenReady` as well, so a service left bound with the station stopped does
+        // not hold the fast cadence open for a screen showing no player at all.
+        playWhenReady
+            .combine(displayOn) { playing, lit -> playing && lit }
+            .distinctUntilChanged()
+            .flatMapLatest { showing -> if (showing) graph.nowPlaying.watched else emptyFlow() }
             .launchIn(scope)
     }
 
@@ -185,8 +215,6 @@ class PlaybackConductor(
         current = choice
         return MediaItems.forMount(where, choice, MediaItems.metadataFor(where, null, words))
     }
-
-    private fun NowPlayingState.nowPlaying(): NowPlaying? = reading()?.nowPlaying
 
     /** The reading, with when it was taken, which the sleep timer needs to project the record's end. */
     private fun NowPlayingState.reading(): Reading? =

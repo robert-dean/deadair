@@ -95,6 +95,50 @@ measured, between two programmes. `BroadcastUiState.nothingOn` reads both.
 the five-minute linger, so probing five formats puts a silent station on air and holds it there.
 `GET /nowplaying` carries `mounts[]` for exactly this reason; read that.
 
+**The poll runs at two speeds, and what the slow one buys is not what it was expected to buy.**
+`WhileSubscribed` already stopped `/nowplaying` when nothing collected it, which covers a
+backgrounded app with the player stopped and covers nothing about the case that actually costs a
+listener: an hour of listening with the phone in a pocket, where the poll is right to run and ran
+at three seconds, twelve hundred requests, none of them drawn anywhere. So a collector that is
+SHOWING the readings to somebody takes them through `NowPlayingRepository.watched` and gets three
+seconds; everything else gets thirty.
+
+The argument for it was that each of those requests wakes a radio the audio's own buffered bursts
+would otherwise let idle. **Measured on a Pixel 8 Pro, that argument is wrong**, and it is recorded
+here so nobody makes it again: two twenty-minute screen-off runs on wifi, this branch against its
+base, put Wi-Fi sleep time at 97.0% BOTH ways, with Rx time within 0.3% and Tx within 2.1%. The
+stream is ~9.6 MB a minute and never lets the radio idle in the first place, so the poll rides a
+connection that is already up and costs almost nothing in radio time. Whole-device drain came out
+2.77 mAh/min on the base and 2.99 on this branch — the wrong way round, and noise: the window is
+uncontrolled and the power model attributed CPU and wakelock differently between the two runs.
+What the same runs DID show is CPU: 21.4 s/min of app-process CPU on the base against 17.5 here,
+18% less, with total CPU 11% lower, which is the twelve hundred TLS requests and JSON decodes not
+happening. So the honest case for the slow cadence is CPU, one-tenth the requests against the
+station, and one-tenth the lines in its log — not the radio. Whether a low-bitrate mount on
+cellular, where the audio really is bursty, behaves differently is untested; do not assume it.
+The lock screen is not left to that clock: `NowPlayingGate` publishes on the ICY title, which is
+the encoder saying the record changed and arrives on the audio's own schedule, and a change with
+nothing held asks the station for a fresh reading rather than republishing one taken up to half a
+minute ago. Two things fall out that are easy to get wrong. The gate's hold is the buffer MINUS
+the reading's age, because "the listener is `bufferedMs` behind the poll" stops being true the
+moment the poll is slower than the buffer. And the display being lit is itself a watcher —
+`PlaybackService` registers for `ACTION_SCREEN_ON`/`OFF` and `PlaybackConductor` subscribes to
+`watched` while it is on and playing — because the lock screen, the shade and a car's screen are
+drawn by other processes out of the media session, and none of them is a collector this app can
+count. What stays coarse while the display is off: HLS, which carries no ICY at all, and a sleep
+timer armed for the end of a record that the operator then SKIPS, which fires up to thirty seconds
+late. Both were accepted knowingly; neither is ever what somebody is looking at while it is wrong.
+
+**Giving up on the stream means stopping, not standing down.** `ReconnectPolicy` has always had a
+five-minute budget so a listener who walked away from a dead station does not come back to a dead
+battery, and for as long as it merely stopped RETRYING it did not buy that: ExoPlayer leaves
+`playWhenReady` standing through a failure, which is what everything else in this app reads as
+"somebody is listening". A player still wanting to play is a notification still offering Stop and,
+expensively, `PlaybackConductor`'s poll still asking the station what is on. The poll backs off only
+when the POLL fails, so the bad case is a mount that has lost its source while the API answers
+normally: retries end after five minutes and the requests do not end at all. The budget running out
+now calls the same `stop` the audio-focus cases use.
+
 **HLS listeners are counted per IP and User-Agent**, from playlist re-fetches inside a 15-second
 window. So there is one agent string (`UserAgent.VALUE`), and it reaches every request from one of
 two places: an interceptor on the shared OkHttp client, which the SDK and the image loader both go

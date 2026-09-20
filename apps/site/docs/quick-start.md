@@ -120,6 +120,7 @@ why in one sentence, and [Help](./help.md) covers the usual causes.
 
 - [Install](./install.md) for the choices this page made for you: which tag, bringing your own
   database, putting it on the internet, and the two-disk layout for a big library.
+- [On Unraid](./unraid.md) if that is where it is going, which is a form rather than a compose file.
 - [Music licensing](./licensing.md) before you publish an address. The station grants you no rights
   to broadcast anything in your library.
 - [What it does](./features/index.md) for the rest of the station: the schedule, facts, phone-ins,

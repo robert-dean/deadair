@@ -23,6 +23,7 @@ import {
 import { resolveBreakWords } from './break.words.js';
 import { TEMPLATE_KEYS } from './break.templates.js';
 import { timeClaimIn } from './clock.words.js';
+import { mentionsWeather } from './weather.figures.js';
 import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBreak, patienceFor } from './break.writer.js';
 import { labelFor, TALK_BREAK_KIND } from './talk.break.writer.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
@@ -276,6 +277,12 @@ export class ModelTalkBreakWriter extends BreakWriter {
             // invented year sitting in one of those quoted scripts would otherwise be permitted here
             // on no more authority than having been echoed back.
             years: permittedYears([request.previous, request.next], request.moment, shownWithoutRecent(messages, request.recent)),
+            // The reading, when the operator has switched it on and the station had one to give. The
+            // same doctrine as `years` immediately above and the same field on the guard, so a talk
+            // break that mentions the weather is held to the figures it was shown exactly as the
+            // weather break is. Absent on every station that has this off, which is the default, and
+            // absent asks nothing. See `AnswerGuard.weather`.
+            ...(request.weather === undefined ? {} : { weather: request.weather }),
         };
         // A reading the model chose, lifted off the front before anything judges the answer, and
         // against the list the prompt OFFERED rather than the request: `offeredPads`' rule. From here
@@ -347,6 +354,11 @@ export class ModelTalkBreakWriter extends BreakWriter {
         }
 
         const claimsTime = timeClaimIn(script, request.clock, request.dayPart);
+        // Whether this break actually reported the sky, which is a question the weather break never
+        // has to ask. There the reading IS the break; here it was OFFERED, the prompt says outright
+        // that most breaks are better without it, and most of them will take that. See
+        // `mentionsWeather`.
+        const reported = request.weather !== undefined && mentionsWeather(script, request.weather);
 
         return {
             script,
@@ -372,6 +384,18 @@ export class ModelTalkBreakWriter extends BreakWriter {
             // without ever naming the hour — and "this morning" spoken at ten past twelve is the
             // same broken promise the clock check exists for, arriving through the other field.
             ...(claimsTime === undefined ? {} : { claimsTime }),
+            // `claimsTime`'s posture exactly, applied to the fourth dimension, and the reasoning
+            // transfers whole: the words either report the weather or they do not, so there is
+            // nothing to assume. It is the OPPOSITE of what `ModelWeatherBreakWriter` does, and the
+            // difference is which way the error costs something. A weather break that reached its
+            // stamp reported the weather by definition, so stamping always is free. Here a break
+            // that ignored the offer — which the prompt asks most of them to — would be stamped with
+            // an expiry for a claim it never made, and `brokenClaim` would then reopen it, and
+            // eventually drop it at hand-over, over a sentence about a record.
+            //
+            // The expiry is `WeatherSource`'s rather than one derived here, so every kind that can
+            // report a reading agrees about how long one observation lasts.
+            ...(reported && request.weatherFreshUntil !== undefined ? { claimsReadingUntil: request.weatherFreshUntil } : {}),
             // Only when the model chose one, and only one it was offered: see `liftDelivery`.
             ...(delivery === undefined ? {} : { delivery }),
         };

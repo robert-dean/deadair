@@ -9,6 +9,132 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.21.0] — 2026-09-20
+
+- Let the presenter mention the weather between records
+
+  The station could already give the weather: a band on the format clock asks for
+  it, and what comes back is a report — the conditions, today's high, and back to
+  the music. That break is written to be correct, so the rules on it forbid
+  comparing, advising and saying how any of it feels, because a presenter who does
+  those things to a measurement has editorialised it.
+
+  What it could not do was mention the weather while talking about a record. "It's
+  sunny today, get out there and tan while you listen to this one" is a presenter
+  doing their job, and every rule the station had about the weather forbade it.
+
+  Turn on "Let the presenter mention the weather between records" and the reading
+  is offered on an ordinary link, to use or ignore. Most breaks ignore it, which
+  the prompt asks for in as many words: a link that notices it is outside is worth
+  more than one that reports the forecast, and a presenter who mentioned the sky
+  every quarter of an hour would be a station with a tic. The ones that take it up
+  react to it, say what to do with an afternoon like this, and tie it to whatever
+  is playing.
+
+  The figures stay exactly as unfabricable as they are in a weather break. A number
+  the service did not measure is refused before the words reach air, in the same
+  check the weather break uses, and the station never rounds or converts on the
+  model's behalf. What changes between the two kinds is only what a presenter is
+  allowed to DO with a reading, never what they are allowed to claim about one.
+
+  Off by default, and an upgrade changes nothing until you switch it on. It needs
+  a weather plugin, a model writing the breaks, and "Where the station is" set;
+  the station's own phrasings underneath the model do not mention the weather, so a
+  station running without a model sounds exactly as it did. A break that does
+  report the sky expires with the reading behind it, as a weather break does, so a
+  sunny afternoon cannot go out at dusk — and one that ignored the offer is not
+  held to a claim it never made.
+
+## [0.20.0] — 2026-09-20
+
+- A Deezer similarity source, so discovery works without an API key
+
+  The station already reaches past its own library: it programmes part of every
+  hour from artists who resemble what has recently aired, mixes neighbours into a
+  playlist on request, and fetches a record it does not own when something picks
+  one. All of that needed a similarity plugin, and there was exactly one —
+  Last.fm, which needs an API key you have to go and register for. Until you had,
+  the settings said discovery was on and nothing came of it.
+
+  Enable Deezer and it works. There is no account, no key and nothing to fill in:
+  Deezer's catalogue answers who resembles an artist, and what to play by them, to
+  anyone who asks.
+
+  It sits alongside Last.fm rather than replacing it. Two sources disagreeing
+  about who sounds like Portishead are not in conflict, so the station keeps every
+  name both of them offer and has a wider pool to programme from than either gives
+  on its own.
+
+  One thing worth knowing: Deezer's search is fuzzy and ranks by popularity, so
+  this plugin takes an exact name match or nothing. An artist Deezer does not
+  carry under the spelling your library uses is passed over quietly rather than
+  answered with the nearest famous act, which would fill an hour with the wrong
+  scene and look perfectly healthy while doing it.
+- Similar artists from ListenBrainz, with no token needed
+
+  The MusicBrainz plugin now also answers who sounds like an artist, using
+  ListenBrainz's listening data. It is the same organisation's data under the
+  same ids, which is why it lives here rather than in a plugin of its own, and
+  it is now called **MusicBrainz and ListenBrainz** on the plugins page.
+
+  The ListenBrainz token stays optional and does the same job it always did:
+  enrichment in batches rather than one request a second. Similar artists work
+  whether or not you have pasted one in, because the endpoint behind them is open
+  to anyone.
+
+  If you already run Last.fm, this sits alongside it. The station keeps every name
+  both sources offer rather than picking between them, so the pool it programmes
+  from gets wider.
+- Records that sound like one record, from ListenBrainz
+
+  When the station mixes similar records into a playlist it would rather ask
+  "what do people play alongside this record" than "what else is by someone who
+  resembles this artist". With a ListenBrainz token set, the plugin now answers
+  the first question. Massive Attack's *Teardrop* comes back as Glory Box, Roads,
+  Sour Times, Porcelain and In the Waiting Line.
+
+  It needs the token because of how the data is keyed. MusicBrainz holds a
+  separate recording id for every release a song appeared on, and the similarity
+  data exists only against the one ListenBrainz treats as canonical; finding that
+  one is a lookup only a token can make. Without a token the station keeps the
+  answer it had, which is to reach for a record by a similar artist instead.
+
+  This adds `labs.api.listenbrainz.org` to the plugin's network permissions,
+  paced on the same budget as the rest of ListenBrainz.
+- Name an artist's records from ListenBrainz, with a token
+
+  Similar artists tell the station who to reach for; this is what it actually
+  plays by them. With a ListenBrainz token set, the plugin now answers an
+  artist's best known recordings, ordered by how much they are listened to.
+
+  It needs the token, and says nothing without one. The endpoint behind it
+  refuses anonymous callers, and the open endpoint that looks like a substitute
+  is a radio sampler: asked for Daft Punk's best it offered a four-track medley,
+  a mashup and a radio edit, and asked for Portishead's it offered album
+  interludes and live takes. Records by the right artist that nobody would have
+  chosen are worse than no answer, because the station has other sources and this
+  one would have spoken over them.
+
+  So: no token, and this contributes similar artists while Deezer or Last.fm name
+  the records. With a token, all three answer and the station asks them in turn.
+- Choose which similarity source the station asks first
+
+  With more than one similarity plugin enabled, two of the three questions the
+  station asks them take the first usable answer and stop: what to play by an
+  artist, and what sounds like a particular record. Which source answered was
+  decided by alphabetical order of the plugin id, which is not a decision anybody
+  made, and an operator who trusted one source over another had no way to say so
+  short of switching the others off.
+
+  **Which similarity source to ask first**, under Settings, Rotation, is that
+  list. Leave it empty and nothing changes. Listing a source does not enable it
+  and leaving one out does not disable it: anything unlisted is simply asked
+  after the ones that are.
+
+  Who resembles an artist is unaffected, because that question is asked of every
+  source and the answers pooled. Two sources disagreeing about who sounds like
+  Portishead are not in conflict.
+
 ## [0.19.3] — 2026-09-19
 
 - The station now says so when Icecast has no source on its mount. Liquidsoap could be running and
@@ -337,7 +463,9 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.19.3...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.21.0...HEAD
+[0.21.0]: https://github.com/robert-dean/deadair/compare/v0.20.0...v0.21.0
+[0.20.0]: https://github.com/robert-dean/deadair/compare/v0.19.3...v0.20.0
 [0.19.3]: https://github.com/robert-dean/deadair/compare/v0.19.2...v0.19.3
 [0.19.2]: https://github.com/robert-dean/deadair/compare/v0.19.1...v0.19.2
 [0.19.1]: https://github.com/robert-dean/deadair/compare/v0.19.0...v0.19.1

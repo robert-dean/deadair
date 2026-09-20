@@ -1,7 +1,12 @@
 package com.maroonedsoftware.deadair.playback
 
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.os.Bundle
+import android.os.PowerManager
+import androidx.core.content.ContextCompat
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
@@ -32,6 +37,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -60,10 +66,38 @@ class PlaybackService : MediaLibraryService() {
     /** The main looper, because everything here touches a `Player`. Cancelled with the service. */
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
+    /**
+     * Whether the phone's display is on, for `PlaybackConductor`'s poll cadence and nothing else.
+     *
+     * Registered rather than asked each time, because what it answers is "could somebody be
+     * reading the lock screen right now", and that question has to be answered continuously. The
+     * two actions are protected system broadcasts and cannot be sent by another app; they also
+     * cannot be declared in the manifest, which is why this is here and lives as long as the
+     * service does. Off by default: a service created with nothing playing has nothing to show.
+     */
+    private val displayOn = MutableStateFlow(false)
+    private val displayWatcher =
+        object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                displayOn.value = intent?.action == Intent.ACTION_SCREEN_ON
+            }
+        }
+
     override fun onCreate() {
         super.onCreate()
         val graph = (application as DeadairApp).graph
         setMediaNotificationProvider(LiveNotificationProvider(this))
+
+        displayOn.value = getSystemService(PowerManager::class.java)?.isInteractive == true
+        ContextCompat.registerReceiver(
+            this,
+            displayWatcher,
+            IntentFilter().apply {
+                addAction(Intent.ACTION_SCREEN_ON)
+                addAction(Intent.ACTION_SCREEN_OFF)
+            },
+            ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
 
         // One HTTP factory for the stream and for the artwork the session fetches for the lock
         // screen, so both carry the app's agent. The session's default loader used the platform's
@@ -148,6 +182,7 @@ class PlaybackService : MediaLibraryService() {
                 live,
                 graph,
                 words,
+                displayOn = displayOn,
                 publishSleep = { session?.setSessionExtras(SleepCommands.extras(it)) },
                 // A timer that fires after the task was swiped away would otherwise leave an idle
                 // service and its notification behind: `onTaskRemoved` only stops one that is quiet.
@@ -324,6 +359,7 @@ class PlaybackService : MediaLibraryService() {
     }
 
     override fun onDestroy() {
+        unregisterReceiver(displayWatcher)
         scope.cancel()
         conductor?.stop()
         conductor = null

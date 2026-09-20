@@ -22,21 +22,22 @@ import org.junit.Test
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class NowPlayingGateTest {
-    private fun reading(startedAt: Long) =
+    private fun reading(startedAt: Long, title: String = "A Song") =
         NowPlaying(
             station = "Test FM",
             onAir = true,
             listeners = 1,
             mounts = emptyList(),
-            track = NowPlayingTrack(title = "A Song", artist = "Someone", startedAt = startedAt),
+            track = NowPlayingTrack(title = title, artist = "Someone", startedAt = startedAt),
         )
 
-    private fun TestScope.gate(push: (NowPlaying?) -> Unit) =
+    private fun TestScope.gate(refresh: () -> Unit = {}, push: (NowPlaying?) -> Unit) =
         NowPlayingGate(
             // `.let` rather than a `{ job.cancel() }` on a line of its own, which Kotlin reads as a
             // trailing lambda passed to the `launch` above it.
             schedule = { ms, run -> backgroundScope.launch { delay(ms); run() }.let { job -> { job.cancel() } } },
             push = push,
+            refresh = refresh,
         )
 
     @Test
@@ -104,6 +105,38 @@ class NowPlayingGateTest {
     }
 
     @Test
+    fun `a reading taken a while ago is held only for the buffer it has not outlived`() = runTest {
+        var pushes = 0
+        val gate = gate { pushes += 1 }
+
+        gate.onPoll(reading(startedAt = 1_000), bufferedMs = 5_000, ageMs = 0)
+        assertEquals(1, pushes)
+
+        // Twenty seconds of buffer, but the reading that says the record moved was taken fifteen
+        // seconds ago — the unwatched cadence — so five seconds of that buffer are left to play.
+        gate.onPoll(reading(startedAt = 2_000), bufferedMs = 20_000, ageMs = 15_000)
+        advanceTimeBy(4_999)
+        assertEquals(1, pushes)
+        advanceTimeBy(2)
+        assertEquals(2, pushes)
+    }
+
+    @Test
+    fun `a reading older than the buffer is not held at all`() = runTest {
+        var pushes = 0
+        val gate = gate { pushes += 1 }
+
+        gate.onPoll(reading(startedAt = 1_000), bufferedMs = 5_000, ageMs = 0)
+        assertEquals(1, pushes)
+
+        // The listener heard this record start before the reading even reached us: there is
+        // nothing left to wait for, and a negative wait must not become a long one.
+        gate.onPoll(reading(startedAt = 2_000), bufferedMs = 5_000, ageMs = 30_000)
+        advanceTimeBy(1)
+        assertEquals(2, pushes)
+    }
+
+    @Test
     fun `re-polling the same moved track while held does not restart the wait`() = runTest {
         var pushed: NowPlaying? = null
         var pushes = 0
@@ -156,33 +189,53 @@ class NowPlayingGateTest {
     }
 
     @Test
-    fun `an ICY change with no held reading pushes the latest`() = runTest {
+    fun `an ICY change with no held reading asks the station, and publishes that answer at once`() = runTest {
         var pushed: NowPlaying? = null
         var pushes = 0
-        val gate = gate { pushed = it; pushes += 1 }
+        var refreshes = 0
+        val gate = gate(refresh = { refreshes += 1 }) { pushed = it; pushes += 1 }
 
         val first = reading(startedAt = 1_000)
         gate.onPoll(first, bufferedMs = 5_000)
         assertEquals(1, pushes)
 
-        gate.onIcyTitle("A Song - Someone")
+        // The poll has not seen the new record yet, so the reading in hand is the one that just
+        // ended. Pushing it would put the previous title on the lock screen at the exact moment
+        // the listener started hearing the next one.
+        gate.onIcyTitle("Another Song - Someone Else")
+        assertEquals(1, refreshes)
+        assertEquals(1, pushes)
+
+        // The answer that refresh asked for. The ICY change already proved the audio is there, so
+        // it goes up now rather than waiting out a buffer it has already outlived.
+        val next = reading(startedAt = 2_000, title = "Another Song")
+        gate.onPoll(next, bufferedMs = 30_000)
         assertEquals(2, pushes)
-        assertEquals(first, pushed)
+        assertEquals(next, pushed)
+
+        // And nothing is left scheduled to push it a second time.
+        advanceTimeBy(60_000)
+        assertEquals(2, pushes)
     }
 
     @Test
     fun `a repeated ICY title is not a change`() = runTest {
         var pushes = 0
-        val gate = gate { pushes += 1 }
+        var refreshes = 0
+        val gate = gate(refresh = { refreshes += 1 }) { pushes += 1 }
 
         gate.onPoll(reading(startedAt = 1_000), bufferedMs = 5_000)
         assertEquals(1, pushes)
 
         gate.onIcyTitle("A Song - Someone")
-        assertEquals(2, pushes)
+        assertEquals(1, refreshes)
 
+        // Icecast repeats the current title on a schedule of its own; only a change is an event,
+        // and asking the station again for each repeat would be a request every few seconds by
+        // another name.
         gate.onIcyTitle("A Song - Someone")
-        assertEquals(2, pushes)
+        assertEquals(1, refreshes)
+        assertEquals(1, pushes)
     }
 
     @Test

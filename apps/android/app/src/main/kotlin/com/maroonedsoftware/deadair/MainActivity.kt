@@ -138,8 +138,10 @@ private fun Listener(graph: AppGraph, links: MutableStateFlow<String?>) {
         onDispose { connection.release() }
     }
     val playback by connection.state.collectAsStateWithLifecycle()
-    // Collected here so the poll runs while the app is up. It stops on its own when it is not.
-    val nowPlaying by graph.nowPlaying.state.collectAsStateWithLifecycle()
+    // Collected here so the poll runs while the app is up. It stops on its own when it is not, and
+    // through `watched` rather than `state` because this is a screen: a collector that is drawing
+    // the readings for somebody is what asks the poll for its fast cadence.
+    val nowPlaying by graph.nowPlaying.watched.collectAsStateWithLifecycle()
 
     // Play when the app opens, if the listener asked for that. Decided ONCE per activity, at the
     // first moment it can be (the controller bound, the settings read), and kept across rotation and

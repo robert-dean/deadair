@@ -12,6 +12,7 @@
 //     pnpm --filter @deadair/site capture shoot --only desk,checkup --blur-art
 //     pnpm --filter @deadair/site capture shoot --only desk --theme white
 //     pnpm --filter @deadair/site capture shoot --only voice.said --hide 'news flash'
+//     pnpm --filter @deadair/site capture shoot --only checkup --qr '#main svg[role="img"]'
 //
 // ## The signed-in state goes stale every time it is used
 //
@@ -33,7 +34,7 @@
 
 import { execFile } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { mkdir, rm, stat } from 'node:fs/promises';
+import { mkdir, readFile, rm, stat } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs, promisify } from 'node:util';
@@ -100,6 +101,8 @@ const { values, positionals } = parseArgs({
         scrub: { type: 'string', multiple: true, default: [] },
         hide: { type: 'string', multiple: true, default: [] },
         'blur-art': { type: 'boolean', default: false },
+        mask: { type: 'string', multiple: true, default: [] },
+        qr: { type: 'string', multiple: true, default: [] },
         'keep-png': { type: 'boolean', default: false },
         settle: { type: 'string', default: '1500' },
     },
@@ -114,7 +117,10 @@ if (!themes.includes(values.theme)) fail(`--theme must be one of ${themes.join('
 
 if (command === 'login') await login();
 else if (command === 'shoot') await shoot();
-else fail('Usage: capture login | capture shoot [--only id,id] [--theme carbon|white|neon] [--scrub TEXT] [--hide TEXT] [--blur-art]');
+else
+    fail(
+        'Usage: capture login | capture shoot [--only id,id] [--theme carbon|white|neon] [--scrub TEXT] [--hide TEXT] [--mask SELECTOR] [--qr SELECTOR] [--blur-art]',
+    );
 
 function fail(message) {
     console.error(message);
@@ -158,6 +164,12 @@ async function shoot() {
 
     const scrub = values.scrub.map(text => text.trim()).filter(Boolean);
     const hide = values.hide.map(text => text.trim()).filter(Boolean);
+    const mask = values.mask.map(selector => selector.trim()).filter(Boolean);
+    const qr = values.qr.map(selector => selector.trim()).filter(Boolean);
+    const placeholder = qr.length > 0 ? await readFile(resolve(site, 'scripts/qr.placeholder.svg'), 'utf8') : '';
+    // A placeholder that does not parse would leave the station's OWN code in the picture, which is
+    // the one thing --qr exists to prevent, so it is a hard stop rather than a warning.
+    if (qr.length > 0 && !placeholder.includes('<svg')) fail('scripts/qr.placeholder.svg holds no <svg>; refusing to photograph the real code.');
     const settle = Number.parseInt(values.settle, 10);
 
     await mkdir(rawDir, { recursive: true });
@@ -187,6 +199,19 @@ async function shoot() {
             if (scrub.length > 0) await page.evaluate(scrubText, { needles: scrub, replacement: scrubbedAs });
             if (hide.length > 0) await page.evaluate(hideRows, hide);
             if (values['blur-art']) await page.addStyleTag({ content: 'img[src*="/api/"] { filter: blur(10px); }' });
+            // The check-up's QR code encodes the station's own address, so a published screenshot of
+            // it is a scannable link into somebody's install. Swapping in a code that encodes
+            // something harmless keeps the page looking like itself, which blurring does not.
+            if (qr.length > 0) {
+                const swapped = await page.evaluate(swapQr, { selectors: qr, svg: placeholder });
+                // Same reason: a selector that matches nothing means the real code is still there.
+                if (swapped === 0) throw new Error(`${target.id}: --qr matched nothing, so the station's own code would be in the picture.`);
+            }
+            // Anything else that is a picture OF this station rather than of the console.
+            if (mask.length > 0)
+                await page.evaluate(selectors => {
+                    for (const selector of selectors) document.querySelectorAll(selector).forEach(element => (element.style.filter = 'blur(6px)'));
+                }, mask);
 
             // Carbon is the site's own scheme, so it is the plain name and every other theme is a suffix.
             const name = values.theme === 'carbon' ? target.id : `${target.id}.${values.theme}`;
@@ -261,6 +286,25 @@ function scrubText({ needles, replacement }) {
             if (value) element.setAttribute(attribute, swap(value));
         }
     }
+}
+
+/** Runs in the page. Replaces each matching element with the placeholder code, at the size it drew. */
+function swapQr({ selectors, svg }) {
+    let swapped = 0;
+    for (const selector of selectors) {
+        for (const element of document.querySelectorAll(selector)) {
+            const { width, height } = element.getBoundingClientRect();
+            const holder = document.createElement('div');
+            holder.innerHTML = svg;
+            const replacement = holder.querySelector('svg');
+            if (!replacement) continue;
+            replacement.setAttribute('width', String(Math.round(width)));
+            replacement.setAttribute('height', String(Math.round(height)));
+            element.replaceWith(replacement);
+            swapped += 1;
+        }
+    }
+    return swapped;
 }
 
 /**

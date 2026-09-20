@@ -13,6 +13,8 @@ typealias Cancel = () -> Unit
  * JVM with no `android.*` import. One retry is ever pending: a fresh error cancels whatever was
  * already waiting, and `STATE_READY` cancels it outright, because a stream that recovered on its
  * own should not then be restarted a moment later.
+ *
+ * Running out of budget STOPS the player rather than quietly standing down; see `retryLater`.
  */
 class ReconnectPolicy(
     private val backoff: Backoff,
@@ -75,7 +77,20 @@ class ReconnectPolicy(
     private fun retryLater() {
         cancel()
         if (!wantsPlay()) return
-        val wait = backoff.next() ?: return
+        val wait = backoff.next()
+        // Out of budget. Stopping rather than merely standing down, because `playWhenReady` is
+        // what the rest of the app reads as "somebody is listening": ExoPlayer leaves it standing
+        // through a failure, so a policy that only stopped RETRYING left a player that still
+        // wanted to play, a notification still offering Stop, and — the expensive part —
+        // `PlaybackConductor`'s poll collecting `/nowplaying` every three seconds for a stream it
+        // had already given up on, for as long as the listener left it. The poll backs off only
+        // when the POLL fails, so a station whose mount has lost its source while the API goes on
+        // answering is the bad case: the retries end after five minutes and the requests do not
+        // end at all.
+        if (wait == null) {
+            stop()
+            return
+        }
         pending = schedule(wait) { if (wantsPlay()) reconnect() }
     }
 }

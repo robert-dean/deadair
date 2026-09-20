@@ -3,6 +3,10 @@ import {
     configString,
     type AlbumEnrichment,
     type AlbumRef,
+    type AlmanacDay,
+    type AlmanacEntry,
+    type AlmanacPluginInstance,
+    type AlmanacQuery,
     type ArtistEnrichment,
     type ArtistRef,
     type EnrichmentMatchKey,
@@ -14,6 +18,17 @@ import {
 } from '@deadair/plugin-sdk';
 
 import { MediaWikiClient, MediaWikiRequestError } from './wikipedia.client.js';
+import {
+    almanacDate,
+    askableDate,
+    cappedPerKind,
+    entriesIn,
+    feedTypesFor,
+    feedUrl,
+    ofKinds,
+    withoutDuplicates,
+    type FeedType,
+} from './wikipedia.almanac.js';
 import {
     DEFAULT_LANGUAGE,
     PROPERTY_MUSICBRAINZ_ARTIST,
@@ -36,7 +51,13 @@ import {
     statementQuery,
     type SongCandidate,
 } from './wikipedia.resolve.js';
-import type { MediaWikiSearchResponse, WikidataEntitiesResponse, WikidataEntity, WikipediaExtractResponse } from './wikipedia.types.js';
+import type {
+    MediaWikiSearchResponse,
+    OnThisDayResponse,
+    WikidataEntitiesResponse,
+    WikidataEntity,
+    WikipediaExtractResponse,
+} from './wikipedia.types.js';
 
 export { wikipediaManifest } from './wikipedia.manifest.js';
 
@@ -56,6 +77,19 @@ const SEARCH_LIMIT = 6;
  * throwing away what it already paid for.
  */
 const STEP_BUDGET_MS = 2_000;
+
+/** How long a day's entries are reused for. See {@link WikipediaPlugin.feedEntries} for why it is this long. */
+const FEED_CACHE_MS = 12 * 60 * 60_000;
+
+/**
+ * How many days' entries are held at once.
+ *
+ * A station asks about today and, for the last minutes before midnight,
+ * tomorrow; four endpoints each is the whole of what a running station touches,
+ * and the ceiling is only here so a process that runs for a year does not hold
+ * one.
+ */
+const MAX_CACHED_FEEDS = 8;
 
 /**
  * What an identified item contributes, whichever of the three levels it is.
@@ -97,12 +131,15 @@ type IdentifiedEnrichment = Partial<Pick<TrackEnrichment, 'providerRef' | 'exter
  * path searches by name and then refuses everything whose label is not the
  * title and whose performers do not include the artist.
  */
-export class WikipediaPlugin extends Plugin implements EnrichmentPluginInstance {
+export class WikipediaPlugin extends Plugin implements EnrichmentPluginInstance, AlmanacPluginInstance {
     /** Supplementary. It contributes prose and no canonical field, so it competes with nobody. */
     readonly priority = 500;
 
     /** Every level here is reached from a name plus, where the catalog has one, an mbid. */
     readonly matchKeys: EnrichmentMatchKey[] = ['artist-title'];
+
+    /** A day's entries and when they were read, keyed by language, date and endpoint. See {@link feedEntries}. */
+    private readonly days = new Map<string, { at: number; entries: AlmanacEntry[] }>();
 
     private wikidata?: MediaWikiClient;
     private wikipedia?: MediaWikiClient;
@@ -132,6 +169,9 @@ export class WikipediaPlugin extends Plugin implements EnrichmentPluginInstance 
     protected async onUnload(): Promise<void> {
         this.wikidata = undefined;
         this.wikipedia = undefined;
+        // A map a plugin forgets lives in the API server until a restart, which
+        // is what in-process plugins make cheap to get wrong.
+        this.days.clear();
     }
 
     async testConnection(): Promise<PluginConnectionResult> {
@@ -195,6 +235,109 @@ export class WikipediaPlugin extends Plugin implements EnrichmentPluginInstance 
         if (!id) return {};
 
         return await this.enrichmentFor(id);
+    }
+
+    /**
+     * What happened on that date, out of the edition's "on this day" feed.
+     *
+     * `undefined` for every way of having nothing — a plugin with no contact
+     * address, an edition that does not publish the feed, a service that is
+     * down — because they are one outcome to the station and the log line is
+     * where the difference lives. A date the feed knows nothing about is the
+     * same answer and is not a failure: the 29th of February is a thin day
+     * everywhere.
+     *
+     * The budget check is before the first request rather than after, for
+     * `plugins/weather`'s reason: being cut off mid-request costs the request
+     * and leaves nothing to show for it.
+     */
+    async getDay(query: AlmanacQuery): Promise<AlmanacDay | undefined> {
+        const host = this.host;
+        if (!this.wikipedia) return undefined;
+
+        const date = askableDate(query.month, query.day);
+        if (date === undefined) {
+            host.logger.debug('wikipedia: that is not a date', { month: query.month, day: query.day });
+            return undefined;
+        }
+
+        const fetched: AlmanacEntry[] = [];
+        for (const type of feedTypesFor(query.kinds)) {
+            const entries = await this.feedEntries(type, date.month, date.day);
+            if (entries !== undefined) fetched.push(...entries);
+        }
+
+        // Nothing at all is nothing to say, and is told apart from a day whose
+        // entries were all filtered away by the caller's own kinds: this one is
+        // usually a service that did not answer, and the line above it said so.
+        if (fetched.length === 0) return undefined;
+
+        const entries = cappedPerKind(ofKinds(withoutDuplicates(fetched), query.kinds), query.limit);
+        return { date: almanacDate(date.month, date.day), entries };
+    }
+
+    /**
+     * One endpoint's entries, fetched once a day and then remembered.
+     *
+     * In memory rather than `host.storage`, which is the right lifetime: an
+     * operator saving the form reinitializes the plugin, and what they have
+     * usually just changed is the language — so a day parsed out of another
+     * edition must not survive it. Small because it holds what came out of the
+     * parse rather than the response: the whole day is 1.4 MB on the wire and a
+     * few kilobytes of sentences afterwards.
+     *
+     * The window is half a day because that is the shape of the mistake it can
+     * make. The day's page is edited occasionally and a station holding a
+     * yesterday's copy of it says something slightly out of date rather than
+     * something false, so the reuse is worth far more than the freshness — and
+     * a station asks about at most two dates, today's and, in the last minutes
+     * before midnight, tomorrow's.
+     */
+    private async feedEntries(type: FeedType, month: number, day: number): Promise<AlmanacEntry[] | undefined> {
+        const host = this.host;
+        const key = `${this.language}|${almanacDate(month, day)}|${type}`;
+
+        const held = this.days.get(key);
+        if (held !== undefined && Date.now() - held.at <= FEED_CACHE_MS) return held.entries;
+        if (held !== undefined) this.days.delete(key);
+
+        if (host.remainingMs() < STEP_BUDGET_MS) {
+            host.logger.debug('wikipedia: not enough of the call left to read the day', { type });
+            return undefined;
+        }
+
+        try {
+            const response = await this.wikipedia!.getUrl<OnThisDayResponse>(feedUrl(this.language, type, month, day));
+            const entries = entriesIn(response);
+
+            // Kept even when empty, which is the point of remembering: an
+            // edition that answers 200 with nothing would otherwise be asked
+            // again at every break for the rest of the day.
+            this.forget();
+            this.days.set(key, { at: Date.now(), entries });
+
+            return entries;
+        } catch (error) {
+            // A 404 is the edition not publishing this feed at all, which is
+            // the one failure here an operator can act on — and it is reported
+            // rather than thrown, because a thrown one would fail the whole
+            // invocation on every break for a station that simply has to change
+            // its language or stop asking.
+            const status = error instanceof MediaWikiRequestError ? error.status : undefined;
+            if (status === undefined) throw error;
+
+            host.logger.info('wikipedia: the day could not be read', { language: this.language, type, status });
+            return undefined;
+        }
+    }
+
+    /** The oldest day, dropped, so a station that runs for months holds a handful rather than a year. */
+    private forget(): void {
+        while (this.days.size >= MAX_CACHED_FEEDS) {
+            const oldest = this.days.keys().next().value;
+            if (oldest === undefined) return;
+            this.days.delete(oldest);
+        }
     }
 
     /**

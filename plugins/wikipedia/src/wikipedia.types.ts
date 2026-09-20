@@ -59,6 +59,45 @@ export interface WikipediaExtractResponse {
     };
 }
 
+/**
+ * One article as the "on this day" feed summarises it.
+ *
+ * The feed sends the whole page summary — extract, thumbnail, revision id, half
+ * a dozen spellings of the title — and this describes the three parts anything
+ * here reads. Optional throughout for this file's own reason, and `description`
+ * most of all: it is the line that says somebody was a guitarist, and plenty of
+ * pages have none.
+ */
+export interface OnThisDayPage {
+    title?: string;
+    titles?: { normalized?: string };
+    description?: string;
+    content_urls?: { desktop?: { page?: string } };
+}
+
+/** One thing that happened, or one day that recurs. `year` is absent on a holiday. */
+export interface OnThisDayItem {
+    text?: string;
+    year?: number;
+    pages?: OnThisDayPage[];
+}
+
+/**
+ * `GET /api/rest_v1/feed/onthisday/{type}/{MM}/{DD}`.
+ *
+ * Every list optional because which ones arrive depends on the endpoint: `all`
+ * answers with the five, and a narrow endpoint answers with the one it is named
+ * after. Reading it as "whichever of these are present" is what lets both go
+ * through `entriesIn` unchanged.
+ */
+export interface OnThisDayResponse {
+    selected?: OnThisDayItem[];
+    events?: OnThisDayItem[];
+    births?: OnThisDayItem[];
+    deaths?: OnThisDayItem[];
+    holidays?: OnThisDayItem[];
+}
+
 /** Every action API error, whichever module produced it. */
 export interface MediaWikiErrorResponse {
     error?: { code?: string; info?: string };

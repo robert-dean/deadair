@@ -24,7 +24,9 @@ export const wikipediaHost = (language: string): string => `${language}.wikipedi
  *
  * Shared across `wikidata.org` and every language's Wikipedia deliberately —
  * a published limit covers a service and not a hostname, and resolving one
- * record touches both.
+ * record touches both. The "on this day" feed is a third address on the same
+ * terms: a different API on a host already listed, so it shares this bucket
+ * rather than earning one, and it asks once a day.
  */
 export const RATE_PER_SECOND = 2;
 
@@ -80,14 +82,18 @@ export const wikipediaManifest: PluginManifest = {
     id: PLUGIN_ID,
     name: 'Wikipedia',
     version: PLUGIN_VERSION,
-    capabilities: ['enrichment'],
+    capabilities: ['enrichment', 'almanac'],
     apiVersion: '^1.0.0',
-    description: 'Encyclopaedia articles about the songs, records and artists in the library, for the station to draw its facts from.',
+    description:
+        'Encyclopaedia articles about the songs, records and artists in the library, for the station to draw its facts from, and what happened on ' +
+        "today's date.",
     homepage: 'https://www.mediawiki.org/wiki/API:Main_page',
     permissions: {
         // Both hosts on one bucket. The language wildcard covers every edition
         // rather than only the configured one, because an operator changing the
-        // language must not have to change a permission to make it work.
+        // language must not have to change a permission to make it work — and it
+        // is what lets the REST feed the almanac half reads be a new API rather
+        // than a new permission.
         network: [
             { host: WIKIDATA_HOST, ratePerSecond: RATE_PER_SECOND, bucket: BUCKET },
             { host: '*.wikipedia.org', ratePerSecond: RATE_PER_SECOND, bucket: BUCKET },

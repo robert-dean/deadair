@@ -77,8 +77,23 @@ export class MediaWikiClient {
      */
     async get<T>(params: Record<string, string>): Promise<T> {
         const query = new URLSearchParams({ ...params, format: 'json', formatversion: '2' });
-        const url = `${this.endpoint}?${query.toString()}`;
+        return await this.getUrl<T>(`${this.endpoint}?${query.toString()}`);
+    }
 
+    /**
+     * One GET at an address the caller built, parsed.
+     *
+     * The REST feed this plugin also reads is not the action API and takes no
+     * `format` parameter, so it comes through here rather than through
+     * {@link get}. What it shares is everything that matters: the identifying
+     * header Wikimedia asks for, the timeout, and one reading of what a non-2xx
+     * means — which is why it is a method here rather than a second `host.fetch`
+     * somewhere else.
+     *
+     * @throws {MediaWikiRequestError} on any non-2xx, including the 404 the feed
+     *   answers for a language edition that does not publish it.
+     */
+    async getUrl<T>(url: string): Promise<T> {
         const response = await this.host.fetch(url, {
             method: 'GET',
             headers: { accept: 'application/json', 'user-agent': this.userAgent },

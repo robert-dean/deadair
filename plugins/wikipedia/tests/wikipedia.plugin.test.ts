@@ -231,3 +231,97 @@ describe('the language', () => {
         expect(enrichment.documents?.[0]?.url).toBe('https://de.wikipedia.org/wiki/Soundgarden');
     });
 });
+
+describe('what happened on a date', () => {
+    const day = (payload: Record<string, unknown>) => reply(payload);
+
+    it('reads the whole day in one request and answers with the date it was asked about', async () => {
+        await initialize();
+        host.queueResponse(day({ births: [{ year: 1966, text: 'Nuno Bettencourt, Portuguese guitarist' }] }));
+
+        const answer = await plugin.getDay({ month: 9, day: 20 });
+
+        expect(host.calls).toHaveLength(1);
+        expect(host.calls[0]?.url).toBe('https://en.wikipedia.org/api/rest_v1/feed/onthisday/all/09/20');
+        expect(answer?.date).toBe('09-20');
+        expect(answer?.entries[0]).toMatchObject({ kind: 'birth', year: 1966 });
+    });
+
+    it('identifies itself on the feed as it does on the action API', async () => {
+        await initialize();
+        host.queueResponse(day({ events: [{ year: 1999, text: 'Something happened.' }] }));
+
+        await plugin.getDay({ month: 1, day: 1 });
+
+        expect(host.calls[0]?.headers?.['user-agent']).toContain('mailto:station@example.test');
+    });
+
+    it('asks the edition the operator chose', async () => {
+        await initialize({ language: 'de' });
+        host.queueResponse(day({ events: [{ year: 1999, text: 'Etwas ist passiert.' }] }));
+
+        await plugin.getDay({ month: 3, day: 4 });
+
+        expect(host.calls[0]?.url).toContain('de.wikipedia.org');
+    });
+
+    it('asks for only the narrow endpoints a narrow caller needs', async () => {
+        await initialize();
+        host.queueResponse(day({ holidays: [{ text: 'A feast day' }] }));
+
+        await plugin.getDay({ month: 9, day: 20, kinds: ['observance'] });
+
+        expect(host.calls).toHaveLength(1);
+        expect(host.calls[0]?.url).toContain('/onthisday/holidays/');
+    });
+
+    it('reads the day once and then remembers it, because the day does not change', async () => {
+        await initialize();
+        host.queueResponse(day({ births: [{ year: 1966, text: 'Nuno Bettencourt, Portuguese guitarist' }] }));
+
+        const first = await plugin.getDay({ month: 9, day: 20 });
+        const second = await plugin.getDay({ month: 9, day: 20 });
+
+        expect(host.calls).toHaveLength(1);
+        expect(second?.entries).toEqual(first?.entries);
+    });
+
+    it('remembers a day that answered with nothing, rather than asking again every break', async () => {
+        await initialize();
+        host.queueResponse(day({}));
+
+        expect(await plugin.getDay({ month: 2, day: 30 })).toBeUndefined();
+        expect(await plugin.getDay({ month: 2, day: 30 })).toBeUndefined();
+        expect(host.calls).toHaveLength(1);
+    });
+
+    it('reports an edition with no feed rather than failing the invocation', async () => {
+        // A throw here would fail every break on a station that simply has to change its language.
+        await initialize({ language: 'xx' });
+        host.queueResponse({ status: 404, statusText: 'Not Found', body: '{}' });
+
+        expect(await plugin.getDay({ month: 9, day: 20 })).toBeUndefined();
+    });
+
+    it('does nothing without a contact address, as the enrichment half does not', async () => {
+        await initialize({ contactEmail: '' });
+
+        expect(await plugin.getDay({ month: 9, day: 20 })).toBeUndefined();
+        expect(host.calls).toHaveLength(0);
+    });
+
+    it('refuses a date that is not one, rather than asking about another day', async () => {
+        await initialize();
+
+        expect(await plugin.getDay({ month: 13, day: 1 })).toBeUndefined();
+        expect(host.calls).toHaveLength(0);
+    });
+
+    it('stops before the request rather than being cut off mid-way through it', async () => {
+        await initialize();
+        host.seedRemainingMs(500);
+
+        expect(await plugin.getDay({ month: 9, day: 20 })).toBeUndefined();
+        expect(host.calls).toHaveLength(0);
+    });
+});

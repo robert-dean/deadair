@@ -1,6 +1,8 @@
 package com.maroonedsoftware.deadair.settings
 
 import com.maroonedsoftware.deadair.station.StationUrl
+import com.maroonedsoftware.deadair.wallpaper.WallpaperFollows
+import com.maroonedsoftware.deadair.wallpaper.WallpaperIdle
 import com.maroonedsoftware.deadair.station.StreamFormat
 
 /**
@@ -19,4 +21,8 @@ data class ListenerSettings(
     val dynamicColour: Boolean = true,
     /** Start the station when the app opens. Off by default: opening an app is not always wanting to hear it. */
     val playOnOpen: Boolean = false,
+    /** When the station wallpaper shows a cover. This phone by default, which is the version that asks the station nothing while nobody is listening. */
+    val wallpaperFollows: WallpaperFollows = WallpaperFollows.THIS_PHONE,
+    /** What the station wallpaper shows with no cover to show. */
+    val wallpaperIdle: WallpaperIdle = WallpaperIdle.LAST_COVER,
 )

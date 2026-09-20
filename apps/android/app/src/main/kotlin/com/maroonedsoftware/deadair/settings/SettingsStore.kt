@@ -9,6 +9,8 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.maroonedsoftware.deadair.station.StationUrl
 import com.maroonedsoftware.deadair.station.StreamFormat
+import com.maroonedsoftware.deadair.wallpaper.WallpaperFollows
+import com.maroonedsoftware.deadair.wallpaper.WallpaperIdle
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -34,6 +36,9 @@ class SettingsStore(private val context: Context) {
                 format = stored[FORMAT]?.let { name -> StreamFormat.entries.firstOrNull { it.name == name } } ?: StreamFormat.MP3,
                 dynamicColour = stored[DYNAMIC_COLOUR] ?: true,
                 playOnOpen = stored[PLAY_ON_OPEN] ?: false,
+                // And a wallpaper setting this build does not know, on the format's argument.
+                wallpaperFollows = stored[WALLPAPER_FOLLOWS]?.let { name -> WallpaperFollows.entries.firstOrNull { it.name == name } } ?: WallpaperFollows.THIS_PHONE,
+                wallpaperIdle = stored[WALLPAPER_IDLE]?.let { name -> WallpaperIdle.entries.firstOrNull { it.name == name } } ?: WallpaperIdle.LAST_COVER,
             )
         }
 
@@ -57,11 +62,21 @@ class SettingsStore(private val context: Context) {
         context.preferences.edit { it[PLAY_ON_OPEN] = on }
     }
 
+    suspend fun setWallpaperFollows(follows: WallpaperFollows) {
+        context.preferences.edit { it[WALLPAPER_FOLLOWS] = follows.name }
+    }
+
+    suspend fun setWallpaperIdle(idle: WallpaperIdle) {
+        context.preferences.edit { it[WALLPAPER_IDLE] = idle.name }
+    }
+
     private companion object {
         val STATION = stringPreferencesKey("station_url")
         val STATION_NAME = stringPreferencesKey("station_name")
         val FORMAT = stringPreferencesKey("stream_format")
         val DYNAMIC_COLOUR = booleanPreferencesKey("dynamic_colour")
         val PLAY_ON_OPEN = booleanPreferencesKey("play_on_open")
+        val WALLPAPER_FOLLOWS = stringPreferencesKey("wallpaper_follows")
+        val WALLPAPER_IDLE = stringPreferencesKey("wallpaper_idle")
     }
 }

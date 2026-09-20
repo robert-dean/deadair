@@ -150,11 +150,16 @@ the station" on every page when opened that way; pulling a current one is the cu
 
 ## On Unraid
 
-Install the template in `unraid/deadair.xml`, fill in the fields, start it. The data path defaults
-to `/mnt/user/appdata/deadair` and everything the station keeps goes there.
+Search for `deadair` under **Apps**, install the template, fill in the fields, start it. The data
+path defaults to `/mnt/user/appdata/deadair` and everything the station keeps goes there.
 
 There is no ownership step: the container runs as 99:100, which is what an appdata share is owned
 by, so it can write to the volume as it stands.
+
+**[On Unraid](https://deadair.radio/docs/unraid) is that form field by field**: which of the three
+tags to pick, the six fields you have to fill in, which ones to leave empty on the `full` tag, and
+what the Advanced view holds. The template itself is `unraid/deadair.xml`, and every field's
+description there is the same text.
 
 ## Anywhere else
 

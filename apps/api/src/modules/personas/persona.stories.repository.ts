@@ -381,19 +381,6 @@ export class PersonaStoriesRepository extends DataRepository {
         }));
     }
 
-    /**
-     * Rest the story that was just carried into a break, and count the telling.
-     *
-     * **Now a no-op, and kept only until its last caller goes.** The rotation and the count are read
-     * off `deadair.persona_tellings`, which the caller writes a row to in the same step — so doing
-     * anything here would be a second writer of the same fact, able to disagree with the first.
-     *
-     * The two columns it used to set still exist and are read by nothing; migration 0038 drops them.
-     */
-    async markTold(_id: string): Promise<void> {
-        return;
-    }
-
     /** Writes one story and answers with it. */
     async add(write: PersonaStoryWrite): Promise<PersonaStory> {
         const row = await this.db.insertInto('deadair.personaStories').values(this.valuesFor(write)).returning('id').executeTakeFirstOrThrow();

@@ -1,6 +1,6 @@
 ---
 title: 'PersonaFileStoryDetail'
-sidebar_position: 21
+sidebar_position: 22
 mdx:
     format: 'md'
 ---

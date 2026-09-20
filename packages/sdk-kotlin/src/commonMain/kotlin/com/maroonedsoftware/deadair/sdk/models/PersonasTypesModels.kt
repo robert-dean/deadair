@@ -256,6 +256,15 @@ data class PersonaStoryState(
     val state: PersonaStoryStateState,
 )
 
+/** One part of an arc, as a file carries it. No `origin` and no `source`, for the story's own reason */
+@Serializable
+data class PersonaFileStoryBeat(
+    val ordinal: Long,
+    val beat: String,
+    /** Absent means `active`, exactly as a story's does */
+    val state: PersonaFileStoryBeatState? = null,
+)
+
 /** One thing a story picked up after it was written, carried the same way and for the same reasons */
 @Serializable
 data class PersonaFileStoryDetail(
@@ -499,9 +508,13 @@ data class PersonaStoryInput(
 data class PersonaFileStory(
     val title: String,
     val story: String,
+    /** Absent means `anecdote`. What sort of thing this is travels because it is part of what the story IS, not part of what this station has done with it */
+    val kind: PersonaFileStoryKind? = null,
     /** Absent means `active`. A turned-down story travels so the enrichment pass does not propose it again on the far side; an undecided one does not travel at all, because nobody has decided it yet */
     val state: PersonaFileStoryState? = null,
     val details: List<PersonaFileStoryDetail>,
+    /** The parts an arc is told in, in order. Empty for the other two kinds */
+    val beats: List<PersonaFileStoryBeat>,
 )
 
 /** One character in a file, and what would become of it here */
@@ -1017,9 +1030,29 @@ enum class PersonaFilePersonaKind {
     CALLER,
 }
 
+/** Absent means `anecdote`. What sort of thing this is travels because it is part of what the story IS, not part of what this station has done with it */
+@Serializable
+enum class PersonaFileStoryKind {
+    @SerialName("anecdote")
+    ANECDOTE,
+    @SerialName("arc")
+    ARC,
+    @SerialName("bit")
+    BIT,
+}
+
 /** Absent means `active`. A turned-down story travels so the enrichment pass does not propose it again on the far side; an undecided one does not travel at all, because nobody has decided it yet */
 @Serializable
 enum class PersonaFileStoryState {
+    @SerialName("active")
+    ACTIVE,
+    @SerialName("rejected")
+    REJECTED,
+}
+
+/** Absent means `active`, exactly as a story's does */
+@Serializable
+enum class PersonaFileStoryBeatState {
     @SerialName("active")
     ACTIVE,
     @SerialName("rejected")

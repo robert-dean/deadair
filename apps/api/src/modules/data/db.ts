@@ -479,14 +479,12 @@ export interface DeadairPersonaStories {
   createdAt: Generated<DateTime>;
   id: Generated<string>;
   kind: Generated<"anecdote" | "arc" | "bit">;
-  lastToldAt: DateTime | null;
   origin: "operator" | "model";
   personaKey: string;
   source: string | null;
   state: "active" | "suggested" | "rejected";
   stationKey: Generated<string>;
   story: string;
-  timesTold: Generated<number>;
   title: string;
   updatedAt: Generated<DateTime>;
 }

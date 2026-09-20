@@ -358,8 +358,19 @@ export const PersonaStoryState = z.strictObject({
 export type PersonaStoryState = z.infer<typeof PersonaStoryState>;
 
 /**
+ * One part of an arc, as a file carries it. No `origin` and no `source`, for the story's own reason
+ * generated from [PersonaFileStoryBeat](../../../../data/contracts/personas/personas.types.ck#L202)
+ */
+export const PersonaFileStoryBeat = z.strictObject({
+    ordinal: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)),
+    beat: z.string().min(1).max(4000),
+    state: z.enum(['active', 'rejected']).optional().describe("Absent means `active`, exactly as a story's does"),
+});
+export type PersonaFileStoryBeat = z.infer<typeof PersonaFileStoryBeat>;
+
+/**
  * One thing a story picked up after it was written, carried the same way and for the same reasons
- * generated from [PersonaFileStoryDetail](../../../../data/contracts/personas/personas.types.ck#L199)
+ * generated from [PersonaFileStoryDetail](../../../../data/contracts/personas/personas.types.ck#L208)
  */
 export const PersonaFileStoryDetail = z.strictObject({
     detail: z.string().min(1).max(1000),
@@ -371,7 +382,7 @@ export type PersonaFileStoryDetail = z.infer<typeof PersonaFileStoryDetail>;
  * Something to know before pressing Import. Not a refusal: every one of these describes a state the
  * station can be in perfectly well, and the point of saying it is that each one is otherwise
  * discovered by putting the character on air
- * generated from [PersonaImportNotice](../../../../data/contracts/personas/personas.types.ck#L247)
+ * generated from [PersonaImportNotice](../../../../data/contracts/personas/personas.types.ck#L256)
  */
 export const PersonaImportNotice = z.strictObject({
     kind: z
@@ -388,7 +399,7 @@ export type PersonaImportNoticeInput = z.infer<typeof PersonaImportNoticeInput>;
  * One writer's turn at a rehearsal. Every writer asked is reported and not only the one that won: a
  * model that declined and a floor that covered for it are two facts, and the second on its own reads
  * as a station that never had a model configured
- * generated from [PersonaRehearsalAttempt](../../../../data/contracts/personas/personas.types.ck#L264)
+ * generated from [PersonaRehearsalAttempt](../../../../data/contracts/personas/personas.types.ck#L273)
  */
 export const PersonaRehearsalAttempt = z.strictObject({
     writer: z.string().min(1).max(100).describe('Which binding was asked, as `segments.writer` would record it'),
@@ -407,7 +418,7 @@ export type PersonaRehearsalAttempt = z.infer<typeof PersonaRehearsalAttempt>;
  * What an operator asks for when they put a character through a playlist. The playlist is READ at the
  * moment of asking and its records are stored on the run, so a list edited at the provider afterwards
  * does not change what was measured
- * generated from [PersonaAuditionRequest](../../../../data/contracts/personas/personas.types.ck#L286)
+ * generated from [PersonaAuditionRequest](../../../../data/contracts/personas/personas.types.ck#L295)
  */
 export const PersonaAuditionRequest = z.strictObject({
     pluginId: z.string().min(1).max(200).describe('Which catalog plugin the playlist belongs to'),
@@ -429,7 +440,7 @@ export type PersonaAuditionRequest = z.infer<typeof PersonaAuditionRequest>;
 /**
  * Where the records came from. A snapshot of the name rather than a reference, so a playlist renamed
  * or deleted at the provider leaves a finished audition readable
- * generated from [PersonaAuditionSource](../../../../data/contracts/personas/personas.types.ck#L295)
+ * generated from [PersonaAuditionSource](../../../../data/contracts/personas/personas.types.ck#L304)
  */
 export const PersonaAuditionSource = z.strictObject({
     pluginId: z.string().min(1).max(200),
@@ -440,7 +451,7 @@ export type PersonaAuditionSource = z.infer<typeof PersonaAuditionSource>;
 
 /**
  * One record, exactly as the writers were shown it
- * generated from [PersonaAuditionRecord](../../../../data/contracts/personas/personas.types.ck#L302)
+ * generated from [PersonaAuditionRecord](../../../../data/contracts/personas/personas.types.ck#L311)
  */
 export const PersonaAuditionRecord = z.strictObject({
     title: z.string().min(1).max(500),
@@ -456,7 +467,7 @@ export type PersonaAuditionRecord = z.infer<typeof PersonaAuditionRecord>;
  * One time a character actually told one of its own stories. What the timeline lists, and what a
  * rollback is chosen from: the moment on each row is the exact string the station compares against,
  * not a rounding of it
- * generated from [PersonaTelling](../../../../data/contracts/personas/personas.types.ck#L352)
+ * generated from [PersonaTelling](../../../../data/contracts/personas/personas.types.ck#L361)
  */
 export const PersonaTelling = z.strictObject({
     id: z.string().min(1).max(100),
@@ -488,7 +499,7 @@ export type PersonaTellingInput = z.infer<typeof PersonaTellingInput>;
 /**
  * What a rollback would undo, or did. Counted with the same predicates the delete uses, so a preview
  * cannot promise one thing and do another
- * generated from [PersonaMemoryChange](../../../../data/contracts/personas/personas.types.ck#L372)
+ * generated from [PersonaMemoryChange](../../../../data/contracts/personas/personas.types.ck#L381)
  */
 export const PersonaMemoryChange = z.strictObject({
     tellings: z
@@ -516,7 +527,7 @@ export type PersonaMemoryChange = z.infer<typeof PersonaMemoryChange>;
 
 /**
  * Undo what this character accumulated on its own
- * generated from [PersonaMemoryRollback](../../../../data/contracts/personas/personas.types.ck#L381)
+ * generated from [PersonaMemoryRollback](../../../../data/contracts/personas/personas.types.ck#L390)
  */
 export const PersonaMemoryRollback = z.strictObject({
     to: z.string().max(40).optional().describe('The moment to go back to, as a timeline row reports it. Absent means all of it, which is a reset'),
@@ -635,6 +646,12 @@ export type PersonaStoryInput = z.infer<typeof PersonaStoryInput>;
 export const PersonaFileStory = z.strictObject({
     title: z.string().min(1).max(200),
     story: z.string().min(1).max(4000),
+    kind: z
+        .enum(['anecdote', 'arc', 'bit'])
+        .optional()
+        .describe(
+            'Absent means `anecdote`. What sort of thing this is travels because it is part of what the story IS, not part of what this station has done with it',
+        ),
     state: z
         .enum(['active', 'rejected'])
         .optional()
@@ -642,12 +659,13 @@ export const PersonaFileStory = z.strictObject({
             'Absent means `active`. A turned-down story travels so the enrichment pass does not propose it again on the far side; an undecided one does not travel at all, because nobody has decided it yet',
         ),
     details: z.array(PersonaFileStoryDetail),
+    beats: z.array(PersonaFileStoryBeat).describe('The parts an arc is told in, in order. Empty for the other two kinds'),
 });
 export type PersonaFileStory = z.infer<typeof PersonaFileStory>;
 
 /**
  * One character in a file, and what would become of it here
- * generated from [PersonaImportEntry](../../../../data/contracts/personas/personas.types.ck#L218)
+ * generated from [PersonaImportEntry](../../../../data/contracts/personas/personas.types.ck#L227)
  */
 export const PersonaImportEntry = z.strictObject({
     key: z.string().min(1).max(100).describe('What identifies this character across two installs'),
@@ -673,7 +691,7 @@ export type PersonaImportEntryInput = z.infer<typeof PersonaImportEntryInput>;
 
 /**
  * What a persona says when it is asked for a break it will never air
- * generated from [PersonaRehearsal](../../../../data/contracts/personas/personas.types.ck#L273)
+ * generated from [PersonaRehearsal](../../../../data/contracts/personas/personas.types.ck#L282)
  */
 export const PersonaRehearsal = z.strictObject({
     personaId: z.string().min(1).max(100),
@@ -692,7 +710,7 @@ export type PersonaRehearsal = z.infer<typeof PersonaRehearsal>;
 
 /**
  * A run of one character over one playlist, without its breaks: what a list draws
- * generated from [PersonaAuditionSummary](../../../../data/contracts/personas/personas.types.ck#L326)
+ * generated from [PersonaAuditionSummary](../../../../data/contracts/personas/personas.types.ck#L335)
  */
 export const PersonaAuditionSummary = z.strictObject({
     id: z.string().min(1).max(100),
@@ -717,7 +735,7 @@ export type PersonaAuditionSummary = z.infer<typeof PersonaAuditionSummary>;
  * One transition, and everything the writers said about it. Every writer asked is reported and not
  * only the one that won, on the rehearsal's own argument: a model that declined and a floor that
  * covered for it are two facts
- * generated from [PersonaAuditionBreak](../../../../data/contracts/personas/personas.types.ck#L314)
+ * generated from [PersonaAuditionBreak](../../../../data/contracts/personas/personas.types.ck#L323)
  */
 export const PersonaAuditionBreak = z.strictObject({
     ordinal: z
@@ -740,7 +758,7 @@ export type PersonaAuditionBreak = z.infer<typeof PersonaAuditionBreak>;
 
 /**
  * What one character has told, newest first
- * generated from [PersonaMemoryTimeline](../../../../data/contracts/personas/personas.types.ck#L365)
+ * generated from [PersonaMemoryTimeline](../../../../data/contracts/personas/personas.types.ck#L374)
  */
 export const PersonaMemoryTimeline = z.strictObject({
     personaId: z.string().min(1).max(100),
@@ -756,7 +774,7 @@ export type PersonaMemoryTimelineInput = z.infer<typeof PersonaMemoryTimelineInp
 
 /**
  * What was undone, and where the timeline stands now
- * generated from [PersonaMemory](../../../../data/contracts/personas/personas.types.ck#L386)
+ * generated from [PersonaMemory](../../../../data/contracts/personas/personas.types.ck#L395)
  */
 export const PersonaMemory = z.strictObject({
     personaId: z.string().min(1).max(100),
@@ -813,7 +831,7 @@ export type PersonaFilePersona = z.infer<typeof PersonaFilePersona>;
  * The same code the import itself runs, so what this reports is what will happen rather than a second
  * opinion about it. It answers two questions an operator cannot get from the file alone: which
  * characters are new here and which would be rewritten, and what this station cannot honour about them
- * generated from [PersonaImportPlan](../../../../data/contracts/personas/personas.types.ck#L209)
+ * generated from [PersonaImportPlan](../../../../data/contracts/personas/personas.types.ck#L218)
  */
 export const PersonaImportPlan = z.strictObject({
     format: z
@@ -834,7 +852,7 @@ export const PersonaImportPlanInput = z.strictObject({});
 export type PersonaImportPlanInput = z.infer<typeof PersonaImportPlanInput>;
 
 /**
- * generated from [PersonaAuditionList](../../../../data/contracts/personas/personas.types.ck#L345)
+ * generated from [PersonaAuditionList](../../../../data/contracts/personas/personas.types.ck#L354)
  */
 export const PersonaAuditionList = z.strictObject({
     auditions: z.array(PersonaAuditionSummary),
@@ -843,7 +861,7 @@ export type PersonaAuditionList = z.infer<typeof PersonaAuditionList>;
 
 /**
  * The same run with every break it has written so far, in order
- * generated from [PersonaAudition](../../../../data/contracts/personas/personas.types.ck#L341)
+ * generated from [PersonaAudition](../../../../data/contracts/personas/personas.types.ck#L350)
  */
 export const PersonaAudition = PersonaAuditionSummary.extend({
     breaks: z.array(PersonaAuditionBreak),
@@ -881,7 +899,7 @@ export type PersonaFile = z.infer<typeof PersonaFile>;
  * All or nothing: a file whose import failed part-way leaves the station exactly as it was, on
  * `PUT /settings`' own rule. The preview is what stands between an operator and a surprise, so a
  * partial landing would be the one outcome nothing had described
- * generated from [PersonaImportResult](../../../../data/contracts/personas/personas.types.ck#L235)
+ * generated from [PersonaImportResult](../../../../data/contracts/personas/personas.types.ck#L244)
  */
 export const PersonaImportResult = z.strictObject({
     plan: PersonaImportPlan.describe('What it decided to do, notices and all, so the answer carries its own explanation'),

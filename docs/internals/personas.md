@@ -227,6 +227,97 @@ one a callback can be built on.
 break is written up to eight items ahead of its slot, and a part of a story stays OWED until a listener could
 actually have heard it. Without that, a break retracted before it aired silently costs a listener episode two.
 
+## Threads
+
+**A "story" turned out to be three things, and `persona_stories.kind` says which.** An ANECDOTE is
+the shape that table was built for and most of what a character holds: self-contained, told whole or
+not at all. An ARC is told a part at a time and gets somewhere. A BIT is a running joke with no end
+and no order, the thing a presenter returns to and escalates. One column rather than three tables,
+because everything they share is everything the store already does — the states, the handle index,
+the rotation, the details, the cascade — and what differs is only how one is read INTO a break.
+
+**`persona_story_beats` holds the parts of an arc, and a beat is a SCRIPT** for the same reason
+`persona_stories.story` is: the floor speaks it as it stands, so a station with no model does not
+hold arcs it can never tell. It is deliberately not a detail. A detail has no position and every
+active one is shown at once; exactly ONE beat is ever shown, which is the whole of what makes an arc
+an arc. Gaps in `ordinal` are legal, so inserting a part between two others never means renumbering
+the rest, and both the console and the nightly pass number a new one ten past the last.
+
+**What an arc owes next is the lowest active beat with no AIRED telling**, and aired rather than
+written is the load-bearing word. A break is planned up to eight items ahead of its slot and can be
+retracted in between, so a part skipped on the strength of a break nobody heard is one nothing will
+ever offer again.
+
+**`personas.threadGapMinutes` is a correctness bound, not taste.** Without it, two breaks planned
+before either aired would both be handed part two — the listener hears one part twice and never
+hears the next. A thread is ineligible while any telling of it is younger than the gap, and its
+FLOOR has to stay above the time the planner's write-ahead window takes to play. The rule runs the
+other way too: a telling older than the gap that never aired is treated as void, so a dropped break
+gives its part back rather than stalling the arc forever. It deliberately does not apply to an
+anecdote, where the rotation has always been the whole mechanism.
+
+**A bit is shown its own history, which nothing else here is**, because a running joke only works if
+a listener recognises it coming back. That is also the strongest possible invitation to reproduce
+the words, so `retold-verbatim` refuses a script that does — `echoedSample`'s matcher generalised
+over any list of lines, catching a partial copy for the same measured reason. `persona_story_recaps`
+is the better answer to the same need: a one-line summary of where the thing has GOT to, shown
+instead of the words, so a model cannot repeat sentences it was never given. The words still travel
+beside it for the guard, and they are stripped from `permittedYears` on `shownWithoutRecent`'s
+argument — they are past scripts, and a year the character once invented must not become permitted
+evidence about a different record today. A beat and the story itself are NOT stripped: those are
+prose an operator approved and the station asked to hear.
+
+**`personas.growth` is whether a character may change itself.** `proposes` is every station until
+somebody says otherwise; `self-directed` lets the nightly passes write `active` rather than
+`suggested`. What makes that offerable at all, having been refused everywhere else in this tree, is
+that there is now a way BACK — see "Rolling a character back" below. Without it this would be the
+one-way door `pronunciations` refused to build. It is not in the generate-a-persona schema, because
+a model writing a character must not be able to grant that character autonomy; it does not travel in
+a persona file, because a character arriving from elsewhere and quietly rewriting itself is the one
+thing the field exists to make an operator opt into; and it reaches no prompt at all.
+
+**The one thing it does not relax** is what may be STORED unread. A model-written beat is spoken by
+the deterministic floor verbatim, and that floor runs no checks — under `self-directed` it is no
+longer speaking approved prose. So the pass puts its own output through `characterFault` first.
+There is no broadcast-clean CHECKER anywhere in this tree (`speaksClean` shapes a prompt and nothing
+reads an answer back against it), so a self-directed character inherits exactly the exposure a
+seeded story already has. That is stated rather than implied, because the obvious assumption is that
+autonomy is fenced further than it is, and the honest answer is that what makes it safe is the
+rollback.
+
+## Rolling a character back
+
+**Everything a character accrues can be undone to a moment**, per persona, from the Memory panel or
+`POST /personas/{id}/memory/rollback`. What goes is what the STATION accrued — every telling, every
+recap, and anything the nightly passes proposed. What an operator wrote is never touched at any
+depth, including a full reset, which is not a second operation but the same path with no moment
+given (`-infinity`).
+
+**The moment travels as the column's own TEXT and is parsed only to refuse a malformed one.** Luxon
+is millisecond-resolution and Postgres is microsecond, so a moment taken off a row and round-tripped
+through a `DateTime` compares as EARLIER than the row it came from — and "roll back to here" would
+delete the row an operator clicked on. The console hands back the row's own string for the same
+reason, which is also why there is no date picker: pointing at a row is both the question an operator
+actually has and the only form that compares exactly.
+
+**Nothing is put back in step afterwards**, and that is most of why the ledger is worth having: the
+rotation and the telling count are READ off it rather than stored beside it, so cutting it down is
+the whole of undoing them.
+
+**Three things it cannot put back, all stated rather than hidden.** What the distil pass read, since
+`script_history` is swept nightly and pulling the watermark past that window asks it to re-derive
+from scripts that are gone — rolling back can forget, it cannot re-remember. A proposal that was
+turned down, since deleting a `rejected` row lets the nightly pass offer it again, which the preview
+counts separately and says. And a break already written: one planned before the rollback and aired
+after it stamps a telling that no longer exists, which costs one row rather than anything a listener
+hears, and is the price of not holding the running order still while somebody edits history.
+
+**Re-reading the window is a separate question and defaults to off.** It is right when an operator is
+testing and wrong when they are undoing a character that drifted: the second wants the conclusions
+gone, and moving the watermark back invites the same pass to reach them again tonight.
+`PersonaNotesRepository.pullReadThrough` is the only writer allowed to move that watermark DOWN —
+`markRead` is `greatest(...)` and cannot, which is right for two passes racing and wrong here.
+
 ## How much rope
 
 **A character can be given ROPE, and what it buys is the station asking for more rather than accepting

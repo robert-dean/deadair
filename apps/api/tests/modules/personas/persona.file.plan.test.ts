@@ -16,6 +16,9 @@ import type { PersonaFile, PersonaFilePersona, PersonaFileStory } from '../../..
 const story = (title: string, details: string[] = []): PersonaFileStory => ({
     title,
     story: 'Something happened, and here is how it went.',
+    // Present and empty, as `details` is: both are lists a file always carries. What this plan is
+    // about is which STORIES land, and an arc's parts ride with the story rather than changing that.
+    beats: [],
     details: details.map(detail => ({ detail })),
 });
 

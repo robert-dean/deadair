@@ -862,8 +862,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
             const found = await this.stories.forPrompt(personaKey, { now: Date.now(), gapMs: resolveThreadGapMs(this.config) });
             if (found === undefined) return {};
 
-            await this.stories.markTold(found.id);
-            // The ledger behind that stamp (migration 0034). `record` rather than the break path's
+            // The ledger (migration 0034). `record` rather than the break path's
             // `replaceForSegment`, because a turn is not a segment: a production enters the running
             // order as one block and there is no per-turn row for this to be keyed on. Told
             // unconditionally, because a caller's turn is BUILT around the story it was handed.

@@ -910,11 +910,6 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
                 // not that. It also satisfies the store's own constraint.
                 ...(written.toldStory === true ? { said: written.script } : {}),
             });
-
-            // The two columns this ledger replaces, still the authority until they are derived from
-            // it. Moved here with the row above, so a story is spent by being TOLD rather than by
-            // being read — which is the difference this commit is for.
-            await this.stories.markTold(chosen.id);
         } catch (error) {
             this.logger.warn(`director: could not record that a story was told (${errorText(error)})`);
         }

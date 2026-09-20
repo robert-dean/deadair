@@ -146,7 +146,6 @@ function harness(
     // somebody writes one down and the state every other assertion here was written against.
     const personaStories = {
         forPrompt: vi.fn(async () => (options.story === undefined ? undefined : { id: 's1', story: options.story })),
-        markTold: vi.fn(async (_id: string) => {}),
     };
     // The ledger behind that stamp (migration 0034), written on the same line while the two columns
     // are still the authority. Real enough to assert against, because "a carry is a row" is the
@@ -505,8 +504,8 @@ describe('WriteBreakJob', () => {
             ['track-b', ['Recorded over two nights.']],
         ]);
 
-        it('hands one over on a talk break, and rests it', async () => {
-            const { job, writers, personaStories } = harness({ lineup: await lineupWithBreak(), persona: persona('often'), story });
+        it('hands one over on a talk break, and spends it in the ledger', async () => {
+            const { job, writers, personaStories, tellings } = harness({ lineup: await lineupWithBreak(), persona: persona('often'), story });
 
             await job.run({ segmentId: 'seg-1' });
 
@@ -514,7 +513,9 @@ describe('WriteBreakJob', () => {
             // last carried, which the store cannot know on its own. See `nextThread`.
             expect(personaStories.forPrompt).toHaveBeenCalledWith('conspiracy', { now: expect.any(Number), gapMs: expect.any(Number) });
             expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ story }));
-            expect(personaStories.markTold).toHaveBeenCalledWith('s1');
+            // The ledger IS the spend now: `markTold` and the two columns behind it are gone, so
+            // there is one writer of this fact rather than two that could disagree.
+            expect(tellings.replaceForSegment).toHaveBeenCalledWith('seg-1', expect.objectContaining({ storyId: 's1' }));
         });
 
         // A story is spent by being TOLD, not by being read. What is pinned here is the ordering:
@@ -573,7 +574,7 @@ describe('WriteBreakJob', () => {
             await job.run({ segmentId: 'seg-1' });
 
             expect(tellings.replaceForSegment).not.toHaveBeenCalled();
-            expect(personaStories.markTold).not.toHaveBeenCalled();
+            expect(tellings.replaceForSegment).not.toHaveBeenCalled();
         });
 
         it('spends nothing when no writer produced anything', async () => {
@@ -584,7 +585,7 @@ describe('WriteBreakJob', () => {
             await job.run({ segmentId: 'seg-1' });
 
             expect(tellings.replaceForSegment).not.toHaveBeenCalled();
-            expect(personaStories.markTold).not.toHaveBeenCalled();
+            expect(tellings.replaceForSegment).not.toHaveBeenCalled();
         });
 
         it('writes the break anyway when the ledger cannot be written', async () => {
@@ -609,12 +610,14 @@ describe('WriteBreakJob', () => {
         });
 
         it('reads none at all at "never", so nothing is spent', async () => {
-            const { job, writers, personaStories } = harness({ lineup: await lineupWithBreak(), persona: persona('never'), story });
+            const { job, writers, personaStories, tellings } = harness({ lineup: await lineupWithBreak(), persona: persona('never'), story });
 
             await job.run({ segmentId: 'seg-1' });
 
             expect(personaStories.forPrompt).not.toHaveBeenCalled();
-            expect(personaStories.markTold).not.toHaveBeenCalled();
+            // Cleared rather than untouched: this break won its segment carrying no story, and a
+            // rewrite has to take the previous attempt's row with it.
+            expect(tellings.replaceForSegment).toHaveBeenCalledWith('seg-1', undefined);
             expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ story: expect.anything() }));
         });
 
@@ -632,7 +635,7 @@ describe('WriteBreakJob', () => {
             expect(known.writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ story: expect.anything() }));
             // And nothing was spent on the break that never carried one, which is the whole reason
             // this rung is read here rather than where the prompt is built.
-            expect(known.personaStories.markTold).not.toHaveBeenCalled();
+            expect(known.tellings.replaceForSegment).toHaveBeenCalledWith('seg-1', undefined);
         });
 
         it('offers one at "often" even where both records carry notes', async () => {
@@ -652,11 +655,11 @@ describe('WriteBreakJob', () => {
         });
 
         it('spends nothing for a character that has written none', async () => {
-            const { job, writers, personaStories } = harness({ lineup: await lineupWithBreak(), persona: persona('often') });
+            const { job, writers, tellings } = harness({ lineup: await lineupWithBreak(), persona: persona('often') });
 
             await job.run({ segmentId: 'seg-1' });
 
-            expect(personaStories.markTold).not.toHaveBeenCalled();
+            expect(tellings.replaceForSegment).toHaveBeenCalledWith('seg-1', undefined);
             expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ story: expect.anything() }));
         });
 

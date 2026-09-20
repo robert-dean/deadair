@@ -192,8 +192,17 @@ contract PersonaFilePersona: PersonaDraftView & {
 contract PersonaFileStory: {
     title: string(min=1, max=200)
     story: string(min=1, max=4000)
+    kind?: enum(anecdote, arc, bit) # Absent means `anecdote`. What sort of thing this is travels because it is part of what the story IS, not part of what this station has done with it
     state?: enum(active, rejected) # Absent means `active`. A turned-down story travels so the enrichment pass does not propose it again on the far side; an undecided one does not travel at all, because nobody has decided it yet
     details: array(PersonaFileStoryDetail)
+    beats: array(PersonaFileStoryBeat) # The parts an arc is told in, in order. Empty for the other two kinds
+}
+
+# One part of an arc, as a file carries it. No `origin` and no `source`, for the story's own reason
+contract PersonaFileStoryBeat: {
+    ordinal: int(min=0)
+    beat: string(min=1, max=4000)
+    state?: enum(active, rejected) # Absent means `active`, exactly as a story's does
 }
 
 contract PersonaFileStoryDetail: { # One thing a story picked up after it was written, carried the same way and for the same reasons

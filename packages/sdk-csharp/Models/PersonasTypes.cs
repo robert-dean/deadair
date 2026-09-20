@@ -510,6 +510,21 @@ public sealed record PersonaStoryState
     public required PersonaStoryStateState State { get; init; }
 }
 
+/// <summary>One part of an arc, as a file carries it. No `origin` and no `source`, for the story's own reason</summary>
+public sealed record PersonaFileStoryBeat
+{
+    [JsonPropertyName("ordinal")]
+    public required long Ordinal { get; init; }
+
+    [JsonPropertyName("beat")]
+    public required string Beat { get; init; }
+
+    /// <summary>Absent means `active`, exactly as a story's does</summary>
+    [JsonPropertyName("state")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PersonaFileStoryBeatState? State { get; init; }
+}
+
 /// <summary>One thing a story picked up after it was written, carried the same way and for the same reasons</summary>
 public sealed record PersonaFileStoryDetail
 {
@@ -883,6 +898,11 @@ public sealed record PersonaFileStory
     [JsonPropertyName("story")]
     public required string Story { get; init; }
 
+    /// <summary>Absent means `anecdote`. What sort of thing this is travels because it is part of what the story IS, not part of what this station has done with it</summary>
+    [JsonPropertyName("kind")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PersonaFileStoryKind? Kind { get; init; }
+
     /// <summary>Absent means `active`. A turned-down story travels so the enrichment pass does not propose it again on the far side; an undecided one does not travel at all, because nobody has decided it yet</summary>
     [JsonPropertyName("state")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -890,6 +910,10 @@ public sealed record PersonaFileStory
 
     [JsonPropertyName("details")]
     public required List<PersonaFileStoryDetail> Details { get; init; }
+
+    /// <summary>The parts an arc is told in, in order. Empty for the other two kinds</summary>
+    [JsonPropertyName("beats")]
+    public required List<PersonaFileStoryBeat> Beats { get; init; }
 }
 
 /// <summary>One character in a file, and what would become of it here</summary>
@@ -1682,9 +1706,34 @@ public enum PersonaFilePersonaKind
     Caller,
 }
 
+/// <summary>Absent means `anecdote`. What sort of thing this is travels because it is part of what the story IS, not part of what this station has done with it</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<PersonaFileStoryKind>))]
+public enum PersonaFileStoryKind
+{
+    [JsonStringEnumMemberName("anecdote")]
+    Anecdote,
+
+    [JsonStringEnumMemberName("arc")]
+    Arc,
+
+    [JsonStringEnumMemberName("bit")]
+    Bit,
+}
+
 /// <summary>Absent means `active`. A turned-down story travels so the enrichment pass does not propose it again on the far side; an undecided one does not travel at all, because nobody has decided it yet</summary>
 [JsonConverter(typeof(JsonStringEnumConverter<PersonaFileStoryState>))]
 public enum PersonaFileStoryState
+{
+    [JsonStringEnumMemberName("active")]
+    Active,
+
+    [JsonStringEnumMemberName("rejected")]
+    Rejected,
+}
+
+/// <summary>Absent means `active`, exactly as a story's does</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<PersonaFileStoryBeatState>))]
+public enum PersonaFileStoryBeatState
 {
     [JsonStringEnumMemberName("active")]
     Active,

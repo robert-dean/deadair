@@ -867,6 +867,40 @@ public struct PersonaStoryState: Codable, Equatable, Sendable {
     }
 }
 
+/// One part of an arc, as a file carries it. No `origin` and no `source`, for the story's own reason
+public struct PersonaFileStoryBeat: Codable, Equatable, Sendable {
+    public var ordinal: Int
+    public var beat: String
+    /// Absent means `active`, exactly as a story's does
+    public var state: PersonaFileStoryBeatState?
+
+    public init(ordinal: Int, beat: String, state: PersonaFileStoryBeatState? = nil) {
+        self.ordinal = ordinal
+        self.beat = beat
+        self.state = state
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case ordinal = "ordinal"
+        case beat = "beat"
+        case state = "state"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.ordinal = try container.decode(Int.self, forKey: .ordinal)
+        self.beat = try container.decode(String.self, forKey: .beat)
+        self.state = try container.decodeIfPresent(PersonaFileStoryBeatState.self, forKey: .state)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.ordinal, forKey: .ordinal)
+        try container.encode(self.beat, forKey: .beat)
+        try container.encodeIfPresent(self.state, forKey: .state)
+    }
+}
+
 /// One thing a story picked up after it was written, carried the same way and for the same reasons
 public struct PersonaFileStoryDetail: Codable, Equatable, Sendable {
     public var detail: String
@@ -1569,38 +1603,50 @@ public struct PersonaStoryInput: Codable, Equatable, Sendable {
 public struct PersonaFileStory: Codable, Equatable, Sendable {
     public var title: String
     public var story: String
+    /// Absent means `anecdote`. What sort of thing this is travels because it is part of what the story IS, not part of what this station has done with it
+    public var kind: PersonaFileStoryKind?
     /// Absent means `active`. A turned-down story travels so the enrichment pass does not propose it again on the far side; an undecided one does not travel at all, because nobody has decided it yet
     public var state: PersonaFileStoryState?
     public var details: [PersonaFileStoryDetail]
+    /// The parts an arc is told in, in order. Empty for the other two kinds
+    public var beats: [PersonaFileStoryBeat]
 
-    public init(title: String, story: String, state: PersonaFileStoryState? = nil, details: [PersonaFileStoryDetail]) {
+    public init(title: String, story: String, kind: PersonaFileStoryKind? = nil, state: PersonaFileStoryState? = nil, details: [PersonaFileStoryDetail], beats: [PersonaFileStoryBeat]) {
         self.title = title
         self.story = story
+        self.kind = kind
         self.state = state
         self.details = details
+        self.beats = beats
     }
 
     private enum CodingKeys: String, CodingKey {
         case title = "title"
         case story = "story"
+        case kind = "kind"
         case state = "state"
         case details = "details"
+        case beats = "beats"
     }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.title = try container.decode(String.self, forKey: .title)
         self.story = try container.decode(String.self, forKey: .story)
+        self.kind = try container.decodeIfPresent(PersonaFileStoryKind.self, forKey: .kind)
         self.state = try container.decodeIfPresent(PersonaFileStoryState.self, forKey: .state)
         self.details = try container.decode([PersonaFileStoryDetail].self, forKey: .details)
+        self.beats = try container.decode([PersonaFileStoryBeat].self, forKey: .beats)
     }
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(self.title, forKey: .title)
         try container.encode(self.story, forKey: .story)
+        try container.encodeIfPresent(self.kind, forKey: .kind)
         try container.encodeIfPresent(self.state, forKey: .state)
         try container.encode(self.details, forKey: .details)
+        try container.encode(self.beats, forKey: .beats)
     }
 }
 
@@ -2639,8 +2685,21 @@ public enum PersonaFilePersonaKind: String, Codable, CaseIterable, Sendable {
     case caller = "caller"
 }
 
+/// Absent means `anecdote`. What sort of thing this is travels because it is part of what the story IS, not part of what this station has done with it
+public enum PersonaFileStoryKind: String, Codable, CaseIterable, Sendable {
+    case anecdote = "anecdote"
+    case arc = "arc"
+    case bit = "bit"
+}
+
 /// Absent means `active`. A turned-down story travels so the enrichment pass does not propose it again on the far side; an undecided one does not travel at all, because nobody has decided it yet
 public enum PersonaFileStoryState: String, Codable, CaseIterable, Sendable {
+    case active = "active"
+    case rejected = "rejected"
+}
+
+/// Absent means `active`, exactly as a story's does
+public enum PersonaFileStoryBeatState: String, Codable, CaseIterable, Sendable {
     case active = "active"
     case rejected = "rejected"
 }

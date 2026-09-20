@@ -258,8 +258,19 @@ export interface PersonaStoryState {
 }
 
 /**
+ * One part of an arc, as a file carries it. No `origin` and no `source`, for the story's own reason
+ * generated from [PersonaFileStoryBeat](../../../../../apps/api/data/contracts/personas/personas.types.ck#L202)
+ */
+export interface PersonaFileStoryBeat {
+    ordinal: number;
+    beat: string;
+    /** Absent means `active`, exactly as a story's does */
+    state?: 'active' | 'rejected';
+}
+
+/**
  * One thing a story picked up after it was written, carried the same way and for the same reasons
- * generated from [PersonaFileStoryDetail](../../../../../apps/api/data/contracts/personas/personas.types.ck#L199)
+ * generated from [PersonaFileStoryDetail](../../../../../apps/api/data/contracts/personas/personas.types.ck#L208)
  */
 export interface PersonaFileStoryDetail {
     detail: string;
@@ -270,7 +281,7 @@ export interface PersonaFileStoryDetail {
  * Something to know before pressing Import. Not a refusal: every one of these describes a state the
  * station can be in perfectly well, and the point of saying it is that each one is otherwise
  * discovered by putting the character on air
- * generated from [PersonaImportNotice](../../../../../apps/api/data/contracts/personas/personas.types.ck#L247)
+ * generated from [PersonaImportNotice](../../../../../apps/api/data/contracts/personas/personas.types.ck#L256)
  */
 export interface PersonaImportNotice {
     /** Which sort, so a console can group or ignore by it rather than parsing the sentence */
@@ -285,7 +296,7 @@ export interface PersonaImportNoticeInput {}
  * One writer's turn at a rehearsal. Every writer asked is reported and not only the one that won: a
  * model that declined and a floor that covered for it are two facts, and the second on its own reads
  * as a station that never had a model configured
- * generated from [PersonaRehearsalAttempt](../../../../../apps/api/data/contracts/personas/personas.types.ck#L264)
+ * generated from [PersonaRehearsalAttempt](../../../../../apps/api/data/contracts/personas/personas.types.ck#L273)
  */
 export interface PersonaRehearsalAttempt {
     /** Which binding was asked, as `segments.writer` would record it */
@@ -304,7 +315,7 @@ export interface PersonaRehearsalAttempt {
  * What an operator asks for when they put a character through a playlist. The playlist is READ at the
  * moment of asking and its records are stored on the run, so a list edited at the provider afterwards
  * does not change what was measured
- * generated from [PersonaAuditionRequest](../../../../../apps/api/data/contracts/personas/personas.types.ck#L286)
+ * generated from [PersonaAuditionRequest](../../../../../apps/api/data/contracts/personas/personas.types.ck#L295)
  */
 export interface PersonaAuditionRequest {
     /** Which catalog plugin the playlist belongs to */
@@ -319,7 +330,7 @@ export interface PersonaAuditionRequest {
 /**
  * Where the records came from. A snapshot of the name rather than a reference, so a playlist renamed
  * or deleted at the provider leaves a finished audition readable
- * generated from [PersonaAuditionSource](../../../../../apps/api/data/contracts/personas/personas.types.ck#L295)
+ * generated from [PersonaAuditionSource](../../../../../apps/api/data/contracts/personas/personas.types.ck#L304)
  */
 export interface PersonaAuditionSource {
     pluginId: string;
@@ -329,7 +340,7 @@ export interface PersonaAuditionSource {
 
 /**
  * One record, exactly as the writers were shown it
- * generated from [PersonaAuditionRecord](../../../../../apps/api/data/contracts/personas/personas.types.ck#L302)
+ * generated from [PersonaAuditionRecord](../../../../../apps/api/data/contracts/personas/personas.types.ck#L311)
  */
 export interface PersonaAuditionRecord {
     title: string;
@@ -346,7 +357,7 @@ export interface PersonaAuditionRecord {
  * One time a character actually told one of its own stories. What the timeline lists, and what a
  * rollback is chosen from: the moment on each row is the exact string the station compares against,
  * not a rounding of it
- * generated from [PersonaTelling](../../../../../apps/api/data/contracts/personas/personas.types.ck#L352)
+ * generated from [PersonaTelling](../../../../../apps/api/data/contracts/personas/personas.types.ck#L361)
  */
 export interface PersonaTelling {
     id: string;
@@ -374,7 +385,7 @@ export interface PersonaTellingInput {}
 /**
  * What a rollback would undo, or did. Counted with the same predicates the delete uses, so a preview
  * cannot promise one thing and do another
- * generated from [PersonaMemoryChange](../../../../../apps/api/data/contracts/personas/personas.types.ck#L372)
+ * generated from [PersonaMemoryChange](../../../../../apps/api/data/contracts/personas/personas.types.ck#L381)
  */
 export interface PersonaMemoryChange {
     /** Tellings forgotten. Every one, whatever wrote it: a telling is a record of something the station did rather than a claim somebody made */
@@ -393,7 +404,7 @@ export interface PersonaMemoryChange {
 
 /**
  * Undo what this character accumulated on its own
- * generated from [PersonaMemoryRollback](../../../../../apps/api/data/contracts/personas/personas.types.ck#L381)
+ * generated from [PersonaMemoryRollback](../../../../../apps/api/data/contracts/personas/personas.types.ck#L390)
  */
 export interface PersonaMemoryRollback {
     /** The moment to go back to, as a timeline row reports it. Absent means all of it, which is a reset */
@@ -490,14 +501,18 @@ export interface PersonaStoryInput {
 export interface PersonaFileStory {
     title: string;
     story: string;
+    /** Absent means `anecdote`. What sort of thing this is travels because it is part of what the story IS, not part of what this station has done with it */
+    kind?: 'anecdote' | 'arc' | 'bit';
     /** Absent means `active`. A turned-down story travels so the enrichment pass does not propose it again on the far side; an undecided one does not travel at all, because nobody has decided it yet */
     state?: 'active' | 'rejected';
     details: PersonaFileStoryDetail[];
+    /** The parts an arc is told in, in order. Empty for the other two kinds */
+    beats: PersonaFileStoryBeat[];
 }
 
 /**
  * One character in a file, and what would become of it here
- * generated from [PersonaImportEntry](../../../../../apps/api/data/contracts/personas/personas.types.ck#L218)
+ * generated from [PersonaImportEntry](../../../../../apps/api/data/contracts/personas/personas.types.ck#L227)
  */
 export interface PersonaImportEntry {
     /** What identifies this character across two installs */
@@ -518,7 +533,7 @@ export interface PersonaImportEntryInput {}
 
 /**
  * What a persona says when it is asked for a break it will never air
- * generated from [PersonaRehearsal](../../../../../apps/api/data/contracts/personas/personas.types.ck#L273)
+ * generated from [PersonaRehearsal](../../../../../apps/api/data/contracts/personas/personas.types.ck#L282)
  */
 export interface PersonaRehearsal {
     personaId: string;
@@ -537,7 +552,7 @@ export interface PersonaRehearsal {
 
 /**
  * A run of one character over one playlist, without its breaks: what a list draws
- * generated from [PersonaAuditionSummary](../../../../../apps/api/data/contracts/personas/personas.types.ck#L326)
+ * generated from [PersonaAuditionSummary](../../../../../apps/api/data/contracts/personas/personas.types.ck#L335)
  */
 export interface PersonaAuditionSummary {
     id: string;
@@ -565,7 +580,7 @@ export interface PersonaAuditionSummary {
  * One transition, and everything the writers said about it. Every writer asked is reported and not
  * only the one that won, on the rehearsal's own argument: a model that declined and a floor that
  * covered for it are two facts
- * generated from [PersonaAuditionBreak](../../../../../apps/api/data/contracts/personas/personas.types.ck#L314)
+ * generated from [PersonaAuditionBreak](../../../../../apps/api/data/contracts/personas/personas.types.ck#L323)
  */
 export interface PersonaAuditionBreak {
     /** Which transition, from 0 */
@@ -587,7 +602,7 @@ export interface PersonaAuditionBreak {
 
 /**
  * What one character has told, newest first
- * generated from [PersonaMemoryTimeline](../../../../../apps/api/data/contracts/personas/personas.types.ck#L365)
+ * generated from [PersonaMemoryTimeline](../../../../../apps/api/data/contracts/personas/personas.types.ck#L374)
  */
 export interface PersonaMemoryTimeline {
     personaId: string;
@@ -601,7 +616,7 @@ export interface PersonaMemoryTimelineInput {
 
 /**
  * What was undone, and where the timeline stands now
- * generated from [PersonaMemory](../../../../../apps/api/data/contracts/personas/personas.types.ck#L386)
+ * generated from [PersonaMemory](../../../../../apps/api/data/contracts/personas/personas.types.ck#L395)
  */
 export interface PersonaMemory {
     personaId: string;
@@ -649,7 +664,7 @@ export interface PersonaFilePersona extends Omit<PersonaDraftView, 'soundboard'>
  * The same code the import itself runs, so what this reports is what will happen rather than a second
  * opinion about it. It answers two questions an operator cannot get from the file alone: which
  * characters are new here and which would be rewritten, and what this station cannot honour about them
- * generated from [PersonaImportPlan](../../../../../apps/api/data/contracts/personas/personas.types.ck#L209)
+ * generated from [PersonaImportPlan](../../../../../apps/api/data/contracts/personas/personas.types.ck#L218)
  */
 export interface PersonaImportPlan {
     /** What the file said it was. Reported rather than enforced: this repo edits migrations in place, so a version stamp cannot promise a shape, and the shapes are what was actually validated */
@@ -666,7 +681,7 @@ export interface PersonaImportPlan {
 export interface PersonaImportPlanInput {}
 
 /**
- * generated from [PersonaAuditionList](../../../../../apps/api/data/contracts/personas/personas.types.ck#L345)
+ * generated from [PersonaAuditionList](../../../../../apps/api/data/contracts/personas/personas.types.ck#L354)
  */
 export interface PersonaAuditionList {
     auditions: PersonaAuditionSummary[];
@@ -674,7 +689,7 @@ export interface PersonaAuditionList {
 
 /**
  * The same run with every break it has written so far, in order
- * generated from [PersonaAudition](../../../../../apps/api/data/contracts/personas/personas.types.ck#L341)
+ * generated from [PersonaAudition](../../../../../apps/api/data/contracts/personas/personas.types.ck#L350)
  */
 export interface PersonaAudition extends PersonaAuditionSummary {
     breaks: PersonaAuditionBreak[];
@@ -701,7 +716,7 @@ export interface PersonaFile {
  * All or nothing: a file whose import failed part-way leaves the station exactly as it was, on
  * `PUT /settings`' own rule. The preview is what stands between an operator and a surprise, so a
  * partial landing would be the one outcome nothing had described
- * generated from [PersonaImportResult](../../../../../apps/api/data/contracts/personas/personas.types.ck#L235)
+ * generated from [PersonaImportResult](../../../../../apps/api/data/contracts/personas/personas.types.ck#L244)
  */
 export interface PersonaImportResult {
     /** What it decided to do, notices and all, so the answer carries its own explanation */

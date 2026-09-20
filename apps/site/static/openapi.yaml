@@ -7882,6 +7882,10 @@ components:
                     type: string
                     minLength: 1
                     maxLength: 4000
+                kind:
+                    type: string
+                    enum: [anecdote, arc, bit]
+                    description: 'Absent means `anecdote`. What sort of thing this is travels because it is part of what the story IS, not part of what this station has done with it'
                 state:
                     type: string
                     enum: [active, rejected]
@@ -7890,8 +7894,29 @@ components:
                     type: array
                     items:
                         '$ref': '#/components/schemas/PersonaFileStoryDetail'
-            required: [title, story, details]
+                beats:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/PersonaFileStoryBeat'
+                    description: 'The parts an arc is told in, in order. Empty for the other two kinds'
+            required: [title, story, details, beats]
             description: "Something that happened to this character, as a file carries it. No `origin` and no `source`,\nunlike the stored row: whoever exported this stood behind every story in it, so on the far side\nthey are the receiving operator's own, and a sentence about where a proposal came from names a\ncatalogue that station does not have"
+        PersonaFileStoryBeat:
+            type: object
+            properties:
+                ordinal:
+                    type: integer
+                    minimum: 0
+                beat:
+                    type: string
+                    minLength: 1
+                    maxLength: 4000
+                state:
+                    type: string
+                    enum: [active, rejected]
+                    description: "Absent means `active`, exactly as a story's does"
+            required: [ordinal, beat]
+            description: "One part of an arc, as a file carries it. No `origin` and no `source`, for the story's own reason"
         PersonaFileStoryDetail:
             type: object
             properties:

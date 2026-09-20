@@ -9,6 +9,13 @@ import {
     TARGET_LUFS_KEY,
 } from '#modules/playout/gain.js';
 import { DEFAULT_TRACK_CACHE_MAX_BYTES, TRACK_CACHE_MAX_BYTES_KEY } from '#modules/playout/audio/track.cache.limit.js';
+import {
+    DEFAULT_ORPHAN_GRACE_HOURS,
+    DEFAULT_SWEEP_ORPHANS,
+    MINIMUM_ORPHAN_GRACE_HOURS,
+    ORPHAN_GRACE_HOURS_KEY,
+    SWEEP_ORPHANS_KEY,
+} from '#modules/storage/orphan.sweep.js';
 import { DEFAULT_RESTART_STUCK_CHAIN, RESTART_STUCK_CHAIN_KEY } from '#modules/playout/audio.chain.watchdog.js';
 import { DEFAULT_AUTO_EXTEND, DEFAULT_RULES, MIX_IN_EVERY_RANGE, ROTATION_KEYS } from '#modules/director/rotation.rules.js';
 import { DEFAULT_MAX_TRACK_SECONDS, DEFAULT_MIN_TRACK_SECONDS, TRACK_LENGTH_KEYS } from '#modules/director/track.length.js';
@@ -482,6 +489,26 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         max: 100,
         control: 'slider',
         help: 'Each time it reads the playlists, the station asks a music source what it still has, and stops offering whatever is no longer there. If a source suddenly does not recognise more than this much of what the station holds — which is what a library server renumbering its own ids looks like, not a library being deleted — the station refuses rather than throwing the lot away. Set it to 100 to retire whatever a sync did not see. Copies that really have gone are still dropped one at a time when their audio does not arrive.',
+    },
+
+    {
+        group: 'housekeeping',
+        key: SWEEP_ORPHANS_KEY,
+        label: 'Delete media files nothing points at',
+        type: 'boolean',
+        default: DEFAULT_SWEEP_ORPHANS,
+        help: 'The station keeps records, cover art and the audio of everything it has said in folders named by what the bytes hash to, and a row in the database points at each one. A file whose row has gone cannot be reached by anything ever again — nothing knows its name to ask for it — so it is dead weight. Storage on this page counts them and, with this off, that is all it does. Turn it on and the station deletes them, no sooner than the age below. Nothing with a row is ever touched, however old it is.',
+    },
+    {
+        group: 'housekeeping',
+        key: ORPHAN_GRACE_HOURS_KEY,
+        label: 'Leave an unpointed-at file alone for (hours)',
+        type: 'number',
+        default: DEFAULT_ORPHAN_GRACE_HOURS,
+        // The same floor `resolveOrphanGraceHours` clamps a stored row to, shared for the reason
+        // every default in this file is shared. No maximum: keeping rubbish longer harms nothing.
+        min: MINIMUM_ORPHAN_GRACE_HOURS,
+        help: 'A file that has only just been written has no row yet either, for the moment between the two, and at that instant it is indistinguishable from one whose row has gone. This is how long the station waits before believing the difference. A day is far longer than anything it does — writing a break takes seconds — so the only reason to lower it is impatience, and lowering it far enough will eventually delete audio out from under the row that was about to claim it. It cannot be set below an hour.',
     },
 
     // ── rotation ───────────────────────────────────────────────────────────────

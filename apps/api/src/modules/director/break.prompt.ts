@@ -189,6 +189,30 @@ export interface BreakPromptShape {
      */
     stories?: 'offered' | 'told';
     /**
+     * Whether this kind of break may say what it is like outside, and on what terms.
+     *
+     * {@link BreakPromptShape.stories}' exact shape and for its exact reason — two kinds want the
+     * same substrate on opposite terms, and the difference is the whole of what this field carries:
+     *
+     * - `reported` — the reading IS the break. The figures are the point, so the rules around them
+     *   are the strictest in this file: no comparison, no advice, nothing about how it feels. The
+     *   weather break.
+     * - `offered` — the reading is colour on a break about something else, and the presenter may
+     *   ignore it, react to it, or tie it to the record. The ordinary talk break.
+     *
+     * **The licence is the difference; the figures are not.** Both terms forbid inventing a number,
+     * because that guard is about what the station KNOWS rather than about what this kind of break is
+     * for, and `inventedFigure` is asked by both writers. What `offered` drops is the ban on advice
+     * and on feeling — "it's sunny, get out there while it lasts" is the presenter doing their job,
+     * and the same sentence in a bulletin is a newsreader editorialising. That is `allowsCues`' line
+     * drawn around a different thing.
+     *
+     * **Whether there is a reading here at all is the CALLER's decision**, exactly as it is for a
+     * story: `WeatherSource` decides which kinds get one and what it costs to ask, and a shape that
+     * permits the weather on a station with no weather plugin simply never sees one.
+     */
+    weather?: 'reported' | 'offered';
+    /**
      * Whether a persona's {@link PersonaSheet.latitude} is offered on this kind of break.
      *
      * Off unless a shape asks for it, and the shape has the last word rather than the sheet — which
@@ -984,15 +1008,36 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape:
     // not add a detail to a story, and this must not add a NUMBER — and a plausible temperature is
     // much easier to write than a plausible news story, because the model knows roughly what August
     // in Atlanta is like and will say so if the line below does not stop it.
-    if (request.weather !== undefined) {
+    //
+    // Which of the two terms applies is the shape's, on `BreakPromptShape.weather`: a kind whose job
+    // is the reading and a kind that may mention it in passing want the same figures under opposite
+    // licences, and rendering one block for both is what made "nothing about how the weather makes
+    // anyone feel" a rule for a presenter linking two records.
+    if (request.weather !== undefined && shape.weather !== undefined) {
         parts.push(describeWeather(request.weather));
         parts.push(
-            'Give the weather from those figures and nothing else. Every number and every word about the sky has to be one written above: ' +
-                'do not round, do not convert, do not add a figure that is not there, and do not say what it was like yesterday or what it ' +
-                'will be like after the days listed. ' +
-                'You may say it as a person would rather than reading a table, and you may leave a figure out — but a figure you say has to ' +
-                'be one you were given. ' +
-                'No advice about coats or umbrellas, and nothing about how the weather makes anyone feel.',
+            shape.weather === 'reported'
+                ? 'Give the weather from those figures and nothing else. Every number and every word about the sky has to be one written ' +
+                      'above: do not round, do not convert, do not add a figure that is not there, and do not say what it was like yesterday ' +
+                      'or what it will be like after the days listed. ' +
+                      'You may say it as a person would rather than reading a table, and you may leave a figure out — but a figure you say ' +
+                      'has to be one you were given. ' +
+                      'No advice about coats or umbrellas, and nothing about how the weather makes anyone feel.'
+                : // The offered wording, and every clause of it is doing one job. The optionality is
+                  // stated outright and FIRST, in the words the notes and the story block already use
+                  // — "work at most one of them in" read as an instruction to work one in, and a
+                  // labelled table of figures is that hazard at its largest, since a table is the one
+                  // shape a model will simply read out. Then the licence, which is the whole feature:
+                  // a presenter may react to the sky and say what to do about it, where the weather
+                  // break may not. Then the figures rule, unchanged and unsoftened, because what a
+                  // model may INVENT is not a question about what kind of break this is.
+                  'You do not have to mention the weather, and most breaks are better without it. It is here in case the day gives you ' +
+                      'something to say — a link that notices it is outside is worth more than one that reports it. ' +
+                      'If you do use it: it is yours to react to. Say what you make of it, tell a listener what to do with an afternoon ' +
+                      'like this, tie it to the record if it goes there. ' +
+                      'What you may not do is make a figure up. Every number you say has to be one written above — do not round, do not ' +
+                      'convert, do not add one that is not there, and do not say what it was like yesterday or what it will be like after ' +
+                      'the days listed. Leaving every figure out and just saying what it is like is usually the better break.',
         );
     }
 

@@ -13,7 +13,7 @@ import type { LlmMessage } from '@deadair/plugin-sdk';
 import type { Logger } from '@maroonedsoftware/logger';
 
 import type { BreakWriteRequest } from '../../../src/modules/director/break.writer.js';
-import { inventedFigure, ModelWeatherBreakWriter, WEATHER_MAX_WORDS } from '../../../src/modules/director/model.weather.break.writer.js';
+import { ModelWeatherBreakWriter, WEATHER_MAX_WORDS } from '../../../src/modules/director/model.weather.break.writer.js';
 import { MODEL_WRITER_KEYS } from '../../../src/modules/director/model.talk.break.writer.js';
 import { WEATHER_KIND } from '../../../src/modules/weather/weather.kind.js';
 import type { SpokenWeather } from '../../../src/modules/weather/weather.words.js';
@@ -167,40 +167,6 @@ describe('a figure nobody measured', () => {
 
         expect(written?.script).toContain('17');
         expect(written?.label).toBe('Weather');
-    });
-});
-
-describe('inventedFigure', () => {
-    it('permits every figure in the reading, not only the ones the prompt emphasised', () => {
-        // A model that mentioned the humidity has said something true, and refusing it would push it
-        // toward saying less than it knows.
-        expect(inventedFigure('17 degrees, wind 20, humidity 72, high 24, low 12, 40 per cent chance.', READING)).toBeUndefined();
-    });
-
-    it('names the first figure that was not measured', () => {
-        expect(inventedFigure("It's 17 now and 31 by the weekend.", READING)).toBe('31');
-    });
-
-    it('lets a spelled-out number through, which is the gap it deliberately has', () => {
-        // Catching the spelled-out form would mean a number vocabulary in eleven languages to catch
-        // a shape no model actually produces. Stated as a test so it is a decision rather than a bug.
-        expect(inventedFigure("It's thirty-one degrees out there.", READING)).toBeUndefined();
-    });
-
-    it('is not fooled by a clock time, a date or a year', () => {
-        // None of those is a measurement, and all three turn up in ordinary speech about the weather.
-        expect(inventedFigure('Sunrise was at 6:07 this morning.', READING)).toBeUndefined();
-        expect(inventedFigure('On the 31st it was much the same.', READING)).toBeUndefined();
-        expect(inventedFigure('The wettest August since 2019.', READING)).toBeUndefined();
-    });
-
-    it('matches a figure the model rounded, since a rounded true figure is still true', () => {
-        const fractional: SpokenWeather = { ...READING, current: { condition: 'rain', words: 'raining', temperature: 17 } };
-        expect(inventedFigure("It's 17 degrees.", fractional)).toBeUndefined();
-    });
-
-    it('passes a script with no figures in it at all', () => {
-        expect(inventedFigure("It's raining in Atlanta and it does not look like stopping.", READING)).toBeUndefined();
     });
 });
 

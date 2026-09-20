@@ -280,9 +280,15 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         // quarter of an hour early is judged fresh against the slot it will actually air in.
         const bulletin = await this.bulletin.storiesFor(segment.kind, context, segment.airsAt ?? Date.now());
 
-        // The same arrangement for the kind that reports a PLACE rather than an event, and
-        // `undefined` for every other kind for the same reason: asking a weather service costs a
-        // request, and a talk break that wants to mention the weather reaches `get_weather` itself.
+        // The same arrangement for the kind that reports a PLACE rather than an event. TWO kinds
+        // answer here now: the weather break always, and the talk break when the operator has
+        // switched `rotation.weatherInTalk` on. Every other kind is `undefined` for the reason that
+        // setting exists at all — asking a weather service costs a request, and the talk break is
+        // the kind this station makes most of.
+        //
+        // This used to say that a talk break wanting the weather "reaches `get_weather` itself". It
+        // could not: every break writer passes `tools: false`, so no tool answer has ever reached
+        // air, and the comment described a route that was never open.
         //
         // Against the same instant as the bulletin above, and it was the only call in this file that
         // did not know one. A reading is a statement about the present with a shelf life, so which

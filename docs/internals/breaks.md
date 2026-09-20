@@ -405,6 +405,42 @@ a `weather` topic is for somewhere ELSE, which is what a band on the format cloc
 `station.units` decides what a listener hears, and a location may override it — the capability is
 metric on the wire always, and `weather.words.ts` is the one place that changes.
 
+**A presenter may also mention the weather on an ordinary link, and the rules it is handed under are
+the OPPOSITE ones.** `BreakPromptShape.weather` is what says which: `reported` for the weather break,
+where the reading is the break, and `offered` for the talk break, where it is colour on a break about
+a record. The difference is the LICENCE and not the figures. Under `reported` the model may not
+compare, advise or say how it feels, because a newsreader who does any of those has editorialised;
+under `offered` all three are the point, since "it's sunny, get out there while it lasts" is a
+presenter doing their job and is the sentence the feature was asked for. Both are held to the figures
+they were shown. One block rendering both was live: the weather break's rules read `No advice about
+coats or umbrellas, and nothing about how the weather makes anyone feel`, and they applied to any kind
+handed a reading — so the talk break could not have said the one thing it was wanted for.
+
+**The offer is `rotation.weatherInTalk` and it is OFF**, because the talk break is the kind this
+station makes most of and the setting decides whether a weather service is asked on every link.
+`WeatherSource` resolves no location for it and returns no `subject` — a location is a thing a weather
+BAND was pointed at — and its four declines drop to `debug` there: they exist for an operator whose
+clock asks every hour and hears silence every hour, and on a talk break nothing was passed over.
+
+**The stamp is conditional on the talk break and unconditional on the weather break, which is one
+argument read from both ends.** `ModelWeatherBreakWriter` stamps `claims_reading_until` always,
+because `WEATHER_SHAPE` exists to make the model state the reading and a break that reached the stamp
+reported it by definition. `ModelTalkBreakWriter` asks `mentionsWeather` first, which is `claimsTime`'s
+posture rather than `claimsNext`'s: the reading was offered, the prompt tells most breaks to leave it
+alone, and a break that did would otherwise be reopened — and eventually dropped at hand-over — over a
+claim it never made. `mentionsWeather` leans toward YES for that asymmetry, and it matches a
+vocabulary per CONDITION rather than the reading's own adjective, because the reading says `clear`
+and the presenter says "sunny": a test for the word the prompt showed would answer no for exactly the
+break that reported the sky. What it cannot catch is a sky described in words no list anticipated,
+which airs unstamped, and that floor is deliberate — the alternative is asking a model to tell us what
+it just did.
+
+**`inventedFigure` is asked through `AnswerGuard.weather` now, in `writeDecline` and `readAnswer` in
+the same position**, beside the `invented-year` check it shares a doctrine with. It used to sit inside
+the weather writer, after the answer had already been judged, which was fine while one kind could be
+handed a reading and became two copies of one question when two could. It is not retryable, matching
+`invented-year`: a fabricated measurement is not the class of mistake a nudge fixes.
+
 ## The format clock, and what a break is about
 
 **The format clock is ROWS, and what a break is ABOUT is the operator's own word.** `rotation.clockBands` was

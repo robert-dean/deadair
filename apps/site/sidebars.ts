@@ -15,6 +15,7 @@ import type { SidebarsConfig } from '@docusaurus/plugin-content-docs';
  */
 const sidebars: SidebarsConfig = {
     run: [
+        'quick-start',
         'install',
         {
             type: 'category',

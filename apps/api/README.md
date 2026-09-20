@@ -293,5 +293,7 @@ so neither folder tells you it has drifted until this does.
 stubs: `silence.smoke.ts` (why the station is quiet, `--blind` to fake an unreachable Icecast without
 touching a container), `playout.smoke.ts` (airs an ident to the mount), `stream.config.smoke.ts`
 (renders the container config through `StreamService`), `rating.smoke.ts` (the rating SQL, which
-nothing else covers) and `verify.speech.ts` (a real mp3 out of a real Kokoro). Each carries its own
-run line in its header.
+nothing else covers), `verify.speech.ts` (a real mp3 out of a real Kokoro), `weather.smoke.ts` (a
+place name to the sentence the station would say, and how far behind each service actually is) and
+`almanac.smoke.ts` (a date to the same, and how much of a real day a music station can use). Each
+carries its own run line in its header.

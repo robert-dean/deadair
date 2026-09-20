@@ -34,6 +34,13 @@ import type { AlmanacEntry } from '@deadair/plugin-sdk';
  * whatever it is about — which is exactly the field
  * {@link AlmanacSubject.description} exists to carry.
  *
+ * `opera` was on the list and is not, measured against the real feed rather than
+ * reasoned about: on the 20th of September it claimed L. Ron Hubbard announcing
+ * the story of Xenu, whose article Wikipedia describes as a space opera. A soap
+ * opera would have done the same. Nothing is lost — an opera singer's entry says
+ * `singer`, `soprano` or `composer` — and what was gained was a station reading
+ * out Scientology as a music anniversary.
+ *
  * Missing a musician is a cheap mistake here and claiming a general entry is a
  * dear one: the first costs an ordering, and the second is a station announcing
  * a battle as though it were a birthday.
@@ -94,7 +101,6 @@ export const MUSIC_WORDS: readonly string[] = [
     'discography',
     'orchestra',
     'choir',
-    'opera',
     'symphony',
     'jazz',
     'blues',

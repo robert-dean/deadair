@@ -32,6 +32,10 @@ describe('what counts as music', () => {
         ['a concert of nations', entry('The Concert of Europe met at Aix-la-Chapelle.')],
         ['an abandoned settlement, which contains "band"', entry('The settlement was abandoned.')],
         ['an operation, which contains "opera"', entry('The operation began at dawn.')],
+        // Measured on the real feed: this one was claimed as music by an `opera` entry in the list,
+        // because Wikipedia describes Xenu's article as a space opera.
+        ['a space opera', entry('He announced the story of Xenu in a taped lecture.', 'Scientology space opera figure')],
+        ['a soap opera', entry('The soap opera was first broadcast.', 'American soap opera')],
         ['a footballer', entry('Charli Grant, Australian soccer player')],
     ])('is not %s', (_case, subject) => {
         expect(isMusical(subject)).toBe(false);

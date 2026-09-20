@@ -4,6 +4,7 @@ import {
     PLUGIN_CAPABILITY_MIXER,
     PLUGIN_CAPABILITY_SIMILARITY,
     PLUGIN_CAPABILITY_SPEECH,
+    PLUGIN_CAPABILITY_WEATHER,
 } from '@deadair/plugin-sdk';
 import type { AppConfig } from '@maroonedsoftware/appconfig';
 
@@ -12,17 +13,20 @@ import { LLM_PLUGIN_KEY } from '#modules/llm/llm.settings.js';
 import { MIXER_PLUGIN_KEY } from '#modules/render/mixer.settings.js';
 import { SPEECH_PLUGIN_KEY } from '#modules/render/speech.settings.js';
 import { SIMILARITY_ORDER_KEY } from '#modules/similarity/similarity.settings.js';
+import { WEATHER_KEYS } from '#modules/weather/weather.keys.js';
 import {
     asAnalysisPlugin,
     asLlmPlugin,
     asMixerPlugin,
     asSimilarityPlugin,
     asSpeechPlugin,
+    asWeatherPlugin,
     type AnalysisPlugin,
     type LlmPlugin,
     type MixerPlugin,
     type SimilarityPlugin,
     type SpeechPlugin,
+    type WeatherPlugin,
 } from './plugin.capabilities.js';
 import { byOrderThen, pluginOrder } from './plugin.order.js';
 import { pluginsWith, selectPlugin } from './plugin.selection.js';
@@ -123,6 +127,12 @@ export const PROVIDER_CAPABILITIES = {
         settingKey: SIMILARITY_ORDER_KEY,
         as: asSimilarityPlugin,
     } satisfies ProviderCapability<SimilarityPlugin>,
+    [PLUGIN_CAPABILITY_WEATHER]: {
+        capability: PLUGIN_CAPABILITY_WEATHER,
+        mode: 'ordered',
+        settingKey: WEATHER_KEYS.providerOrder,
+        as: asWeatherPlugin,
+    } satisfies ProviderCapability<WeatherPlugin>,
 } as const;
 
 /** Every entry, in the order the console draws them. */

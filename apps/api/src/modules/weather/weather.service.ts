@@ -2,8 +2,8 @@ import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import type { WeatherReading } from '@deadair/plugin-sdk';
-import { asWeatherPlugin, type WeatherPlugin } from '#modules/plugins/plugin.capabilities.js';
-import { byPluginId, pluginsWith } from '#modules/plugins/plugin.selection.js';
+import { type WeatherPlugin } from '#modules/plugins/plugin.capabilities.js';
+import { PROVIDER_CAPABILITIES, pluginsInOrder } from '#modules/plugins/plugin.providers.js';
 import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
 import { errorText } from '#modules/shared/error.text.js';
@@ -140,8 +140,16 @@ export class WeatherService {
         }
     }
 
-    /** Every plugin that can answer right now, in a stable order. */
+    /**
+     * Every plugin that can answer right now, in the order they are asked.
+     *
+     * The operator's order first, then everything unlisted alphabetically,
+     * which is what this sorted by before the setting existed. It matters more
+     * here than the setting's one line suggests: `reading` stops at the first
+     * answer, so this decides whose forecast the station reads out whenever two
+     * services are installed.
+     */
     private plugins(): WeatherPlugin[] {
-        return pluginsWith(this.pluginRegistry.list(), asWeatherPlugin).sort(byPluginId);
+        return pluginsInOrder(this.pluginRegistry.list(), this.config, PROVIDER_CAPABILITIES.weather);
     }
 }

@@ -23,6 +23,21 @@ export const WEATHER_KEYS = {
     location: 'station.location',
     /** Whether this station's listeners think in Celsius or in Fahrenheit. */
     units: 'station.units',
+    /**
+     * Which weather service is asked first.
+     *
+     * In the `weather.` namespace rather than `station.`, unlike the two above,
+     * because this is a fact about the PLUGINS and not about the station: it
+     * means nothing to an install with one weather source, and the two above
+     * mean everything to one with none.
+     *
+     * This capability stops at the first service that answers, so before the
+     * setting existed the order was alphabetical by plugin id and "whose
+     * forecast the station reads out" was an accident of spelling. An empty
+     * value keeps exactly that, and a listed id that is not installed is
+     * ignored rather than gating: see `plugins/plugin.order.ts`.
+     */
+    providerOrder: 'weather.providerOrder',
 } as const;
 
 /**

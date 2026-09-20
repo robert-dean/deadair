@@ -178,6 +178,7 @@ export const SETTING_GROUPS = [
     'analysis',
     'schedule',
     'personas',
+    'providers',
 ] as const;
 
 export type SettingGroup = (typeof SETTING_GROUPS)[number];
@@ -1468,6 +1469,24 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         default: '',
         dependsOn: MAIL_KEYS.host,
         help: 'The address sign-in emails come from. Needed as much as the server is: most providers refuse an envelope whose sender is not one of theirs.',
+    },
+
+    // ── providers ──────────────────────────────────────────────────────────────
+    // Which plugin does a job, and in what order, for the capabilities where more than one can.
+    // Drawn by the Providers section rather than as a form of text fields, because the question is
+    // always about the plugins in front of the operator: who can do this, who is doing it, who is
+    // asked second. `plugins/plugin.providers.ts` pairs each of these keys with its capability, and
+    // both the station and that page read the pairing from there.
+    {
+        group: 'providers',
+        key: WEATHER_KEYS.providerOrder,
+        label: 'Which weather service to ask first',
+        type: 'list',
+        placeholder: 'No order set, so services are asked alphabetically.',
+        // One column, because a row here IS a service. The same shape every provider order uses;
+        // `ORDER_SOURCE_COLUMN` is the name the reader looks for.
+        columns: [{ key: 'source', label: 'Service', type: 'select', required: true }],
+        help: 'Only matters with more than one weather plugin enabled. The station asks them in this order and takes the first reading it gets, because two services asked about one sky are two readings of the same thing rather than two facts. Leave it empty and they are asked in alphabetical order of their plugin id. Listing a service does not enable it, and leaving one out does not disable it: anything not listed is asked after the ones that are.',
     },
 ];
 

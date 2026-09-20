@@ -173,6 +173,57 @@ describe('several plugins', () => {
     });
 });
 
+describe('the order services are asked in', () => {
+    /** The value the console writes: a JSON array of one-column rows. */
+    const order = (...ids: string[]): string => JSON.stringify(ids.map(source => ({ source })));
+
+    it('asks them alphabetically when no order is set', async () => {
+        // Which is what the station did before the setting existed, so an install that never
+        // opens the page reads the same forecast it always did.
+        const alpha = vi.fn(async () => reading('Atlanta', 17));
+        const beta = vi.fn(async () => reading('Atlanta', 21));
+        const service = build([record(BETA, beta), record(ALPHA, alpha)], { [WEATHER_KEYS.location]: 'Atlanta' });
+
+        expect((await service.read())?.current.temperature).toBe(17);
+        expect(beta).not.toHaveBeenCalled();
+    });
+
+    it('reads the forecast of the service the operator put first', async () => {
+        const alpha = vi.fn(async () => reading('Atlanta', 17));
+        const beta = vi.fn(async () => reading('Atlanta', 21));
+        const service = build([record(ALPHA, alpha), record(BETA, beta)], {
+            [WEATHER_KEYS.location]: 'Atlanta',
+            [WEATHER_KEYS.providerOrder]: order(BETA),
+        });
+
+        expect((await service.read())?.current.temperature).toBe(21);
+        expect(alpha).not.toHaveBeenCalled();
+    });
+
+    it('falls through to an unlisted service when the listed one has nothing', async () => {
+        // The order says who is asked first, not who may answer.
+        const alpha = vi.fn(async () => reading('Atlanta', 17));
+        const beta = vi.fn(async () => undefined);
+        const service = build([record(ALPHA, alpha), record(BETA, beta)], {
+            [WEATHER_KEYS.location]: 'Atlanta',
+            [WEATHER_KEYS.providerOrder]: order(BETA),
+        });
+
+        expect((await service.read())?.current.temperature).toBe(17);
+    });
+
+    it('ignores a service that is listed and not installed, rather than answering nothing', async () => {
+        // A typo here must not cost the station its weather.
+        const alpha = vi.fn(async () => reading('Atlanta', 17));
+        const service = build([record(ALPHA, alpha)], {
+            [WEATHER_KEYS.location]: 'Atlanta',
+            [WEATHER_KEYS.providerOrder]: order('deadair.gone'),
+        });
+
+        expect((await service.read())?.current.temperature).toBe(17);
+    });
+});
+
 describe('a plugin that cannot answer', () => {
     it('costs the reading and not the request', async () => {
         const service = build(

@@ -160,11 +160,22 @@ export function writePluginDetail(queryClient: QueryClient, detail: PluginDetail
  * So the body is still filed, because it is the truth about the configuration and filing it is
  * what keeps a card from blanking mid-toggle, and then the record is refetched for the status.
  * Not awaited: the mutation is done, and the refetch is for whatever renders next.
+ *
+ * The suggestions go with it, and this is the one place that knows to drop them. They are cached
+ * with `staleTime: Infinity` on purpose — answering costs a round trip to somebody else's server —
+ * and the three calls that come through here are exactly the three that change the answer: a new
+ * address to ask, a plugin that has just gained or lost the instance that does the asking, and a
+ * credential that has just been cleared. Measured on a plugin imported and configured in one
+ * sitting: every autocomplete on its form was empty, because the form asked once while the plugin
+ * was still disabled — no instance, so the host answered `supported: false` — and nothing ever
+ * asked again. The explicit refresh beside the form was the only way back, and an operator who has
+ * just typed the address has no reason to think the form is showing them a stale answer.
  */
 function writePluginDetailPendingReinit(queryClient: QueryClient, detail: PluginDetail): void {
     writePluginDetail(queryClient, detail);
     void queryClient.invalidateQueries({ queryKey: queryKeys.plugins.detail(detail.id) });
     void queryClient.invalidateQueries({ queryKey: queryKeys.plugins.list() });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.plugins.configSuggestions(detail.id) });
 }
 
 /**

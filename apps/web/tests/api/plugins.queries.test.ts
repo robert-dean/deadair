@@ -4,19 +4,29 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SdkError } from '@deadair/sdk';
 
-import { completePluginOAuth, useSetPluginLogLevel, writePluginDetail } from '../../src/api/plugins.queries';
+import {
+    completePluginOAuth,
+    useSetPluginEnabled,
+    useSetPluginLogLevel,
+    useUpdatePluginConfig,
+    writePluginDetail,
+} from '../../src/api/plugins.queries';
 import { queryKeys } from '../../src/api/query.keys';
 import { pluginDetail, pluginSummary } from '../utils/plugin.fixture';
 import { createTestQueryClient } from '../utils/render';
 
 const completePluginOAuthAuthorization = vi.fn();
 const setPluginLogLevel = vi.fn();
+const updatePluginConfiguration = vi.fn();
+const enablePlugin = vi.fn();
 
 vi.mock('../../src/api/client', () => ({
     sdk: {
         plugins: {
             completePluginOAuthAuthorization: (...args: unknown[]) => completePluginOAuthAuthorization(...args),
             setPluginLogLevel: (...args: unknown[]) => setPluginLogLevel(...args),
+            updatePluginConfiguration: (...args: unknown[]) => updatePluginConfiguration(...args),
+            enablePlugin: (...args: unknown[]) => enablePlugin(...args),
         },
     },
 }));
@@ -24,6 +34,8 @@ vi.mock('../../src/api/client', () => ({
 afterEach(() => {
     completePluginOAuthAuthorization.mockReset();
     setPluginLogLevel.mockReset();
+    updatePluginConfiguration.mockReset();
+    enablePlugin.mockReset();
 });
 
 /** Wraps a hook under test with the same provider `render` uses, for a query client the test controls. */
@@ -185,5 +197,59 @@ describe('useSetPluginLogLevel', () => {
 
         await waitFor(() => expect(result.current.isSuccess).toBe(true));
         expect(queryClient.getQueryState(otherPluginKey)?.isInvalidated).toBe(false);
+    });
+});
+
+describe('the suggestions a settings form offers', () => {
+    // They are cached with `staleTime: Infinity`, so nothing drops them on its own. Measured on a
+    // plugin imported and configured in one sitting: every autocomplete stayed empty, because the
+    // form asked once while the plugin was still disabled and nothing asked again.
+    const suggestionsKey = queryKeys.plugins.configSuggestions('deadair.spotify');
+
+    it('are dropped when the address they came from has just been saved', async () => {
+        const queryClient = createTestQueryClient();
+        queryClient.setQueryData(suggestionsKey, { supported: true, fields: {} });
+        updatePluginConfiguration.mockResolvedValue(pluginDetail({ config: { baseUrl: 'http://elsewhere.test' } }));
+
+        const { result } = renderHook(() => useUpdatePluginConfig('deadair.spotify'), { wrapper: wrapWithQueryClient(queryClient) });
+
+        act(() => {
+            result.current.mutate({ baseUrl: 'http://elsewhere.test' });
+        });
+
+        await waitFor(() => expect(queryClient.getQueryState(suggestionsKey)?.isInvalidated).toBe(true));
+    });
+
+    it('are dropped when the plugin gains the instance that does the asking', async () => {
+        // A disabled plugin has no instance, so the host answers `supported: false` — which is a
+        // correct answer that stops being true the moment the switch moves.
+        const queryClient = createTestQueryClient();
+        queryClient.setQueryData(suggestionsKey, { supported: false, fields: {} });
+        enablePlugin.mockResolvedValue(pluginDetail({ enabled: true, status: 'active' }));
+
+        const { result } = renderHook(() => useSetPluginEnabled(), { wrapper: wrapWithQueryClient(queryClient) });
+
+        act(() => {
+            result.current.mutate({ id: 'deadair.spotify', enabled: true });
+        });
+
+        await waitFor(() => expect(queryClient.getQueryState(suggestionsKey)?.isInvalidated).toBe(true));
+    });
+
+    it('are left alone by a call that does not reinitialize the plugin', async () => {
+        // A log level is not something a plugin's upstream has an opinion about, and re-asking
+        // costs a round trip to somebody else's server.
+        const queryClient = createTestQueryClient();
+        queryClient.setQueryData(suggestionsKey, { supported: true, fields: { model: [{ value: 'a', label: 'a' }] } });
+        setPluginLogLevel.mockResolvedValue(pluginDetail({ logLevel: 'warn' }));
+
+        const { result } = renderHook(() => useSetPluginLogLevel('deadair.spotify'), { wrapper: wrapWithQueryClient(queryClient) });
+
+        act(() => {
+            result.current.mutate('warn');
+        });
+
+        await waitFor(() => expect(setPluginLogLevel).toHaveBeenCalled());
+        expect(queryClient.getQueryState(suggestionsKey)?.isInvalidated).toBe(false);
     });
 });

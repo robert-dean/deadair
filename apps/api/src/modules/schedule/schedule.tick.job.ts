@@ -2,12 +2,14 @@ import { Container, Injectable } from 'injectkit';
 import { JobContext } from '@maroonedsoftware/jobbroker';
 import { Logger } from '@maroonedsoftware/logger';
 import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
+import type { ActivitySeverity } from '#modules/activity/station.events.repository.js';
 import { DirectorConsoleService } from '#modules/director/director.console.service.js';
 import { DirectorService } from '#modules/director/director.service.js';
 import { isChartSource, type ScheduleSlot, type ScheduleSlotSource } from '#modules/director/schedule.js';
 import type { PutOnAirInput } from '#modules/director/types/director.types.js';
 import { PlainJob } from '#modules/jobs/plain.job.js';
 import { errorText } from '#modules/shared/error.text.js';
+import { hasOverrun } from './changeover.overrun.js';
 import { ScheduleNotices } from './schedule.notices.js';
 import { ScheduleService } from './schedule.service.js';
 
@@ -116,9 +118,57 @@ export class ScheduleTickJob extends PlainJob {
             return;
         }
 
-        if (airing === slot.id) return;
+        if (airing === slot.id) {
+            await this.boundOverrun(slot);
+            return;
+        }
 
         await this.changeOver(slot, airing);
+    }
+
+    /**
+     * Cut a record from the programme that has just ended, once it has kept this block waiting as long
+     * as the station allows.
+     *
+     * The one thing here that acts on the transport, and it still decides nothing about WHEN the
+     * changeover happens: that already happened, the director let the record on air finish as it
+     * always does, and this only puts a ceiling on how long "finish" may take. Off unless an operator
+     * set one — see `changeover.overrun.ts` for why, and for the second clock `hasOverrun` reads.
+     *
+     * Stateless like the rest of the tick. The record being cut is in no running order, which is how
+     * `overrunning` recognises it, and once it is cut the record on air belongs to this block and the
+     * question answers itself.
+     */
+    private async boundOverrun(slot: ScheduleSlot): Promise<void> {
+        const cap = this.schedule.overrunCap();
+        if (cap === undefined) return;
+
+        const record = this.console.overrunning();
+        if (record === undefined) return;
+
+        const now = Date.now();
+        if (!hasOverrun(this.schedule.minutesInto(slot, now), record.startedAt, now, cap)) return;
+
+        if (!(await this.console.cutOverrun(record.itemId))) {
+            // Once per record rather than once a minute, on `say`'s argument: the stream refusing a cut
+            // is still true next minute, and the next minute tries again anyway.
+            this.logger.warn('schedule: a record from the last programme ran past its limit, but the stream did not take the cut');
+            this.say(`overrun:${record.itemId}`, {
+                kind: 'schedule.overrun',
+                severity: 'warn',
+                detail: `"${record.title}" ran ${cap === 1 ? 'a minute' : `${cap} minutes`} into ${named(slot)} and could not be cut, so it is still playing.`,
+                data: { slot: slot.id, item: record.itemId },
+            });
+            return;
+        }
+
+        this.logger.info('schedule: cut a record from the last programme that ran past its limit', { slot: slot.id, item: record.itemId, cap });
+        void this.activity.record({
+            module: 'director',
+            kind: 'schedule.overrun',
+            detail: `"${record.title}" ran ${cap === 1 ? 'a minute' : `${cap} minutes`} into ${named(slot)}, so the station cut it to start the show on time.`,
+            data: { slot: slot.id, item: record.itemId, minutes: cap },
+        });
     }
 
     /**
@@ -261,7 +311,7 @@ export class ScheduleTickJob extends PlainJob {
      * and all of this is a fact about what the station is AIRING, which is where `air.on` and
      * `order.*` already sit. Who caused it is what `kind` says.
      */
-    private say(notice: string, event: { kind: string; detail: string; data?: Record<string, unknown> }): void {
+    private say(notice: string, event: { kind: string; detail: string; severity?: ActivitySeverity; data?: Record<string, unknown> }): void {
         if (!this.notices.shouldSay(notice)) return;
 
         void this.activity.record({ module: 'director', ...event });

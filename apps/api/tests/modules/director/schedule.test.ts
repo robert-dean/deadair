@@ -8,7 +8,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { overlap, resolveSlot, type ScheduleSlot } from '../../../src/modules/director/schedule.js';
+import { minutesIntoSlot, overlap, resolveSlot, type ScheduleSlot } from '../../../src/modules/director/schedule.js';
 
 const LONDON = 'Europe/London';
 
@@ -141,6 +141,22 @@ describe('resolveSlot', () => {
 // Refused rather than resolved by precedence, so this is what decides whether an operator can save a
 // schedule at all. The expensive mistakes are both about a shape that does not state the day it
 // actually collides on.
+describe('minutesIntoSlot', () => {
+    it('counts from the start on the station clock, not the process one', () => {
+        // 09:00 London is 08:00 UTC, so a machine on UTC reading its own clock would say zero.
+        expect(minutesIntoSlot(slot('breakfast', at(7), at(10)), WED_0900, LONDON)).toBe(120);
+    });
+
+    it('is zero at the boundary itself', () => {
+        expect(minutesIntoSlot(slot('breakfast', at(9), at(12)), WED_0900, LONDON)).toBe(0);
+    });
+
+    it('counts a late block from the evening it began, not the morning it spills into', () => {
+        // 22:00 to 06:00, asked at 02:00 on the morning after.
+        expect(minutesIntoSlot(slot('overnight', at(22), at(6)), WED_0200, LONDON)).toBe(240);
+    });
+});
+
 describe('overlap', () => {
     it('sees two blocks sharing hours on a day they both run', () => {
         expect(overlap(slot('a', at(6), at(10)), slot('b', at(9), at(12)))).toBe(true);

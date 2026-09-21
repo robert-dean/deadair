@@ -165,6 +165,24 @@ export function resolveSlot(at: Date | number, zone: string, slots: readonly Sch
 }
 
 /**
+ * How many whole minutes ago a slot that is in force at `at` began, on the station's clock.
+ *
+ * Asked only of the slot {@link resolveSlot} answered for the same instant, so "in force" is a
+ * precondition rather than something checked here: a block that started yesterday evening and runs
+ * past midnight is still counted from yesterday's start, which is what the wrap below does.
+ *
+ * Whole minutes because a slot is only ever stated in minutes, and the tick asking this runs once a
+ * minute. A spring-forward morning makes the answer an hour too large for a block spanning the jump
+ * and an autumn one an hour too small, and neither matters to its only caller, which compares it
+ * against a few minutes and takes the smaller of this and a second, wall-clock-free measurement.
+ */
+export function minutesIntoSlot(slot: ScheduleSlot, at: Date | number, zone: string): number {
+    const clock = readClock(typeof at === 'number' ? at : at.getTime(), zone);
+
+    return (clock.hour * 60 + clock.minute - slot.startsAtMinutes + MINUTES_IN_DAY) % MINUTES_IN_DAY;
+}
+
+/**
  * The slot in force at a point on the station's WEEKLY clock, rather than at an instant.
  *
  * The whole of {@link resolveSlot}'s decision, with the reading of the clock lifted out. It is split

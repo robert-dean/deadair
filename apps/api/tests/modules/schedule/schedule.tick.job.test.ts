@@ -44,12 +44,22 @@ interface Options {
     sustaining?: SustainingSource;
     /** A hold on the running order, as epoch millis. `Infinity` never lapses; absent is no hold. */
     holdUntil?: number;
+    /** The station's overrun limit in minutes. Absent is the switch off. */
+    overrunCap?: number;
+    /** Whole minutes since the slot in force began. */
+    minutesInto?: number;
+    /** A record from the programme that just ended, still on air. */
+    overrunning?: { itemId: string; startedAt: number; title: string };
+    /** Whether the stream takes a cut. */
+    cutTakes?: boolean;
 }
 
 function build(options: Options = {}) {
     const schedule = {
         inForce: vi.fn(async () => options.inForce),
         sustaining: vi.fn(() => options.sustaining),
+        overrunCap: vi.fn(() => options.overrunCap),
+        minutesInto: vi.fn(() => options.minutesInto ?? 0),
     } as unknown as ScheduleService;
 
     const director = {
@@ -60,6 +70,8 @@ function build(options: Options = {}) {
 
     const console = {
         putOnAir: vi.fn(options.putOnAir ?? (async () => ({}))),
+        overrunning: vi.fn(() => options.overrunning),
+        cutOverrun: vi.fn(async () => options.cutTakes ?? true),
     } as unknown as DirectorConsoleService;
 
     const activity = { record: vi.fn(async (_event?: Record<string, unknown>) => undefined) };
@@ -245,6 +257,80 @@ describe('ScheduleTickJob', () => {
         await tick();
 
         expect(console.putOnAir).not.toHaveBeenCalled();
+    });
+
+    // Once the block is on, the only thing left for the tick is the record the last programme left
+    // playing. It is allowed to finish; what an operator can switch on is a limit on how long.
+    describe('a record left over from the last programme', () => {
+        const long = { itemId: 'item-old', startedAt: Date.now() - 20 * 60_000, title: 'Echoes' };
+
+        it('lets it finish when the station has set no limit', async () => {
+            const { tick, console } = build({ inForce: slot('morning'), airing: 'morning', overrunning: long, minutesInto: 30 });
+
+            await tick();
+
+            expect(console.cutOverrun).not.toHaveBeenCalled();
+        });
+
+        it('lets it run while it is inside the limit', async () => {
+            const { tick, console } = build({ inForce: slot('morning'), airing: 'morning', overrunCap: 5, overrunning: long, minutesInto: 4 });
+
+            await tick();
+
+            expect(console.cutOverrun).not.toHaveBeenCalled();
+        });
+
+        it('cuts it once it has kept the block waiting as long as allowed, and says so', async () => {
+            const { tick, console, activity } = build({
+                inForce: slot('morning'),
+                airing: 'morning',
+                overrunCap: 5,
+                overrunning: long,
+                minutesInto: 5,
+            });
+
+            await tick();
+
+            expect(console.cutOverrun).toHaveBeenCalledWith('item-old');
+            expect(activity.record).toHaveBeenCalledWith(expect.objectContaining({ kind: 'schedule.overrun' }));
+        });
+
+        // `overrunning` answers nothing for a programme an operator put on, and nothing once the
+        // record on air belongs to this block, so both reach here as the same absence.
+        it('has nothing to cut when nothing from the last programme is still playing', async () => {
+            const { tick, console } = build({ inForce: slot('morning'), airing: 'morning', overrunCap: 0, minutesInto: 30 });
+
+            await tick();
+
+            expect(console.cutOverrun).not.toHaveBeenCalled();
+        });
+
+        it('says once, not every minute, when the stream will not take the cut', async () => {
+            const { tick, activity } = build({
+                inForce: slot('morning'),
+                airing: 'morning',
+                overrunCap: 5,
+                overrunning: long,
+                minutesInto: 6,
+                cutTakes: false,
+            });
+
+            await tick();
+            await tick();
+
+            const refused = activity.record.mock.calls.filter(call => (call[0] as { kind?: string } | undefined)?.kind === 'schedule.overrun');
+            expect(refused).toHaveLength(1);
+            expect(refused[0]?.[0]).toEqual(expect.objectContaining({ severity: 'warn' }));
+        });
+
+        it('never asks during a changeover, which is the director letting the record finish', async () => {
+            const { tick, console } = build({ inForce: slot('morning'), airing: 'overnight', overrunCap: 0, overrunning: long, minutesInto: 30 });
+
+            await tick();
+
+            expect(console.putOnAir).toHaveBeenCalled();
+            expect(console.cutOverrun).not.toHaveBeenCalled();
+        });
     });
 
     it('changes over when the running order belongs to a different slot', async () => {

@@ -11,6 +11,7 @@ import { ErrorAlert } from '../shared/error.alert';
 import { PageSkeleton } from '../shared/page.skeleton';
 import { ClockPanel } from './clock.panel';
 import { OnNowStrip } from './on.now.strip';
+import { OverrunPanel } from './overrun.panel';
 import { colorOf, weekdayOf } from './schedule.day';
 import { blockEdit, minutesOf, type DraggedBlock, type SlotEdit } from './schedule.edits';
 import { SlotEditor, type EditorTarget } from './slot.editor';
@@ -52,8 +53,9 @@ import { SustainingPanel } from './sustaining.panel';
  *
  * ## Nothing here changes what is on air
  *
- * Saving a slot takes effect when it next comes round, and the record playing at a boundary always
- * finishes. That is the invariant the schedule lives inside rather than a limitation of the page.
+ * Saving a slot takes effect when it next comes round, and the record playing at a boundary
+ * finishes, unless the operator has set a limit on how long it may run into the next block
+ * (`OverrunPanel`, under the grid). That limit is the only way the schedule itself ends a record early.
  *
  * ## The hours nothing claims are edited here too
  *
@@ -274,6 +276,9 @@ export function SchedulePage({ tab, onSelect }: SchedulePageProps) {
                         one.
                         {airingId === undefined ? '' : ' The block the station is airing now is filled in.'}
                     </Text>
+
+                    {/* A fact about every boundary drawn above, so it sits under the grid. */}
+                    <OverrunPanel />
                 </Stack>
             )}
 

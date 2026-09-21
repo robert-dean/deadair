@@ -88,6 +88,8 @@ interface Options {
     airing?: boolean;
     /** Whether the stream takes that cut. Defaults to true. */
     cutTakes?: boolean;
+    /** The id of the item the transport says is on air. Defaults to one no running order holds. */
+    onAirId?: string;
     /**
      * What `CandidatesRepository.effectiveRating` answers for a canonical track id, for the veto.
      *
@@ -288,7 +290,9 @@ function build(options: Options = {}) {
     } as unknown as PlayHistoryRepository;
     // The transport's half of a skip to a record. The cut remembers what the order said when it
     // landed, which is how a case can tell the edit happened first.
-    const rundown = { nowPlaying: vi.fn(() => (options.airing ? { item: { id: 'on-air' }, startedAt: 0 } : undefined)) };
+    const rundown = {
+        nowPlaying: vi.fn(() => (options.airing ? { item: { id: options.onAirId ?? 'on-air', title: 'Echoes' }, startedAt: 0 } : undefined)),
+    };
     const cutAgainst: string[][] = [];
     const pusher = {
         skipCurrent: vi.fn(async () => {
@@ -1813,5 +1817,56 @@ describe('DirectorConsoleService vetoing what the station has been forbidden', (
         await service.vetoDisliked('Grateful Dead');
 
         expect(director.invalidate).toHaveBeenCalled();
+    });
+});
+
+describe('DirectorConsoleService and a record left over from the last programme', () => {
+    const scheduled = (placedBy: 'schedule' | 'operator' = 'schedule'): StationLineup => {
+        const order = new StationLineup({ name: 'Breakfast', mode: 'rotation', onEnd: 'extend', source: 'import', slotId: 'morning', placedBy });
+        order.append([{ pluginId: 'p', externalId: 't0', title: 'T0', artists: ['X'], artist: 'X' }]);
+        return order;
+    };
+
+    // The item ids ARE the running order's, so a record on air that the order does not hold is
+    // whatever the changeover let finish. That membership is the whole recognition.
+    it('names a record on air that the new running order does not hold', () => {
+        const { service } = build({ order: scheduled(), airing: true });
+
+        expect(service.overrunning()).toEqual({ itemId: 'on-air', startedAt: 0, title: 'Echoes' });
+    });
+
+    it('names nothing once the record on air belongs to this programme', () => {
+        const order = scheduled();
+        const { service } = build({ order, airing: true, onAirId: order.all()[0]!.id });
+
+        expect(service.overrunning()).toBeUndefined();
+    });
+
+    it('names nothing for a programme an operator put on, who chose to let the record finish', () => {
+        const { service } = build({ order: scheduled('operator'), airing: true });
+
+        expect(service.overrunning()).toBeUndefined();
+    });
+
+    it('names nothing when nothing is on air', () => {
+        const { service } = build({ order: scheduled(), airing: false });
+
+        expect(service.overrunning()).toBeUndefined();
+    });
+
+    it('cuts the record it was asked about', async () => {
+        const { service, pusher } = build({ order: scheduled(), airing: true });
+
+        expect(await service.cutOverrun('on-air')).toBe(true);
+        expect(pusher.skipCurrent).toHaveBeenCalledTimes(1);
+    });
+
+    // The record may have ended on its own since the tick named it, and a cut then would take the
+    // new programme's first record off air instead.
+    it('cuts nothing when the record on air is no longer the one it was asked about', async () => {
+        const { service, pusher } = build({ order: scheduled(), airing: true, onAirId: 'the-next-one' });
+
+        expect(await service.cutOverrun('on-air')).toBe(false);
+        expect(pusher.skipCurrent).not.toHaveBeenCalled();
     });
 });

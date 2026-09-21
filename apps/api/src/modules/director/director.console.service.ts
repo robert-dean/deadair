@@ -917,6 +917,46 @@ export class DirectorConsoleService {
     }
 
     /**
+     * The record still on air from a programme the SCHEDULE has already replaced, or nothing.
+     *
+     * What a clock-fired changeover leaves behind on purpose: `putOnAir` retracts what the player was
+     * holding and lets the record on air finish, so for a while the station is airing something that
+     * is in no running order at all. That is the state this recognises, and it is recognised by
+     * membership rather than by remembering the changeover: the item ids ARE the running order's, so
+     * an airing id the order does not hold belongs to whatever came before it.
+     *
+     * Only for a broadcast the schedule placed. An operator's own takeover is a person choosing to
+     * let the record finish, and nothing here overrules that.
+     */
+    overrunning(): { itemId: string; startedAt: number; title: string } | undefined {
+        const order = this.director.order();
+        if (order === undefined || order.placedBy !== 'schedule') return undefined;
+
+        const playing = this.rundown.nowPlaying();
+        if (playing === undefined) return undefined;
+        if (order.items.some(item => item.id === playing.item.id)) return undefined;
+
+        return { itemId: playing.item.id, startedAt: playing.startedAt, title: playing.item.title };
+    }
+
+    /**
+     * Cut the record {@link overrunning} named, through the operator's own Skip.
+     *
+     * The id is checked again right before the cut, because the record may have ended on its own
+     * since it was named, and a cut then would take the new programme's FIRST record off air instead.
+     * Nothing moves in the running order: the record being cut is in none, so this is the transport's
+     * half alone, outside the mailbox for {@link skipToOrderItem}'s reason.
+     *
+     * @returns whether the stream took the cut. Nothing to cut is `false` too, and the caller only
+     *   ever asks the next minute either way.
+     */
+    async cutOverrun(itemId: string): Promise<boolean> {
+        if (this.rundown.nowPlaying()?.item.id !== itemId) return false;
+
+        return await this.pusher.skipCurrent();
+    }
+
+    /**
      * Put a segment into the running order at a position.
      *
      * @throws 404 when the segment does not exist, and 422 when it has no audio.

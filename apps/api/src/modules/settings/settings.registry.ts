@@ -61,6 +61,13 @@ import {
 } from '#modules/director/break.words.js';
 import { DEFAULT_MAX_WORDS } from '#modules/director/break.prompt.js';
 import { SUSTAINING_KEYS } from '#modules/schedule/schedule.service.js';
+import {
+    CAP_OVERRUN_KEY,
+    DEFAULT_CAP_OVERRUN,
+    DEFAULT_OVERRUN_MINUTES,
+    OVERRUN_MINUTES_KEY,
+    OVERRUN_MINUTES_RANGE,
+} from '#modules/schedule/changeover.overrun.js';
 import { DEFAULT_MAX_OUTPUT_TOKENS, MODEL_GENERATOR_DEFAULT, MODEL_GENERATOR_KEYS } from '#modules/director/model.set.generator.js';
 import { CHART_GENERATOR_KEYS, DEFAULT_CHART_MIX } from '#modules/director/chart.set.generator.js';
 import { DEFAULT_SIMILAR_MIX, SIMILAR_GENERATOR_KEYS } from '#modules/director/similar.set.generator.js';
@@ -1435,6 +1442,29 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         label: 'To year',
         type: 'number',
         help: 'The other end, on the same terms. Set both for a decade; either stands alone, so a lower bound on its own means "this year onwards".',
+    },
+    // Drawn by `OverrunPanel` on the schedule page, beside the timetable whose boundaries they are
+    // about, on the terms the rest of this group is drawn there.
+    {
+        group: 'schedule',
+        key: CAP_OVERRUN_KEY,
+        label: 'Start shows on time',
+        type: 'boolean',
+        default: DEFAULT_CAP_OVERRUN,
+        help:
+            'When a block starts, the record already playing is left to finish, however long it is. Turn this on and a record still going the ' +
+            'number of minutes below into the new block is cut, the way the Skip button cuts, so the show starts close to when the ' +
+            'timetable says. Only the schedule’s own changeovers are affected; a programme you put on by hand always lets the record finish.',
+    },
+    {
+        group: 'schedule',
+        key: OVERRUN_MINUTES_KEY,
+        label: 'Let a record run into the next show for (minutes)',
+        type: 'number',
+        default: DEFAULT_OVERRUN_MINUTES,
+        min: OVERRUN_MINUTES_RANGE.min,
+        max: OVERRUN_MINUTES_RANGE.max,
+        help: 'Most records end well inside five minutes, so only the long ones are ever cut. Zero cuts whatever is playing the moment the block starts.',
     },
 
     // ── personas ───────────────────────────────────────────────────────────────

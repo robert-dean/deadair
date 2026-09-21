@@ -6,7 +6,9 @@ import { readClock } from '#modules/director/clock.bands.js';
 import { stationZone } from '#modules/director/clock.words.js';
 import { DirectorService } from '#modules/director/director.service.js';
 import type { ChartOrder } from '#modules/director/chart.picks.js';
-import { isChartSource, overlap, resolveSlot, type ScheduleSlot } from '#modules/director/schedule.js';
+import { isChartSource, minutesIntoSlot, overlap, resolveSlot, type ScheduleSlot } from '#modules/director/schedule.js';
+import { settingIsOn } from '#modules/shared/setting.flags.js';
+import { CAP_OVERRUN_KEY, DEFAULT_CAP_OVERRUN, OVERRUN_MINUTES_KEY, resolveOverrunMinutes } from './changeover.overrun.js';
 import type { ScheduleNow, ScheduleSlotInput, ScheduleSlotList, ScheduleTimetable, ScheduleTimetableQuery } from './types/schedule.types.js';
 import { project, stamp, type StationDate } from './schedule.occurrences.js';
 import { ScheduleRepository, type ScheduleSlotDraft } from './schedule.repository.js';
@@ -168,6 +170,21 @@ export class ScheduleService {
      */
     async inForce(at: Date = new Date()): Promise<ScheduleSlot | undefined> {
         return resolveSlot(at, stationZone(this.config), await this.slots.list());
+    }
+
+    /**
+     * How many minutes a record from the programme that has just ended may run into a block, or
+     * `undefined` when the station lets it finish however long it is. See `changeover.overrun.ts`.
+     */
+    overrunCap(): number | undefined {
+        if (!settingIsOn(this.config, CAP_OVERRUN_KEY, DEFAULT_CAP_OVERRUN)) return undefined;
+
+        return resolveOverrunMinutes(this.config.get(OVERRUN_MINUTES_KEY, ''));
+    }
+
+    /** Whole minutes since `slot` began, on the station's own clock. `slot` must be the one in force. */
+    minutesInto(slot: ScheduleSlot, at: number = Date.now()): number {
+        return minutesIntoSlot(slot, at, stationZone(this.config));
     }
 
     /**

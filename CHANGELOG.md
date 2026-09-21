@@ -9,6 +9,45 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.24.0] — 2026-09-21
+
+- Scheduled shows can now start on time. **Schedule > Timetable > At a boundary > Start shows on time**,
+  which is **off** until you turn it on.
+
+  When a block on the schedule starts, the record already playing is left to finish, and that has not
+  changed. What was missing was a limit: a seventeen-minute record playing at the top of the hour meant
+  the new show started at seventeen minutes past. Turn this on and a record from the programme that
+  just ended that is still playing a set number of minutes into the new block (five unless you change
+  it) is cut, the same way the Skip button cuts, so the show starts close to when the timetable says.
+  Most records end well inside five minutes, so it is only ever the long ones.
+
+  Only the schedule's own changeovers are affected. A programme you put on by hand always lets the
+  record finish, and so does a changeover that happens late in a block (when a hold runs out, say):
+  the record is never counted as overrunning for longer than it has actually been playing. Each cut is
+  written to the activity feed, naming the record and the show it was holding up.
+- Measuring records no longer makes the stream fall behind.
+
+  The analyzer that works out where each record starts and ends and how loud it is now runs at a
+  lower priority than the audio chain. On a busy machine the two used to compete as equals, and while
+  a batch of records was being measured the broadcast could fall seconds behind real time; once, by
+  26 seconds. Measuring now waits for the stream instead of the other way round. Nothing changes on a
+  machine with CPU to spare.
+- A presenter no longer says the same thing twice in one show.
+
+  The station already shows the model the last few things it said and asks it not to reuse them, and
+  now it checks. A talk break or a welcome that repeats a long stretch of an earlier break word for
+  word (the same anecdote told again, the same intro read out a second time, a line turned into a
+  habit) is sent back once to be said differently, and the ordinary phrasings air if the second try
+  repeats itself too.
+
+  Only long stretches count. The time, the station's name and a record's title come round again all
+  the time and are left alone. News, weather and This Day are left alone too: when they repeat
+  themselves it is because the headline or the conditions are the same, and saying them differently
+  would not change that.
+
+  The reason shows up in the script history as "said again, word for word, a long stretch of something
+  the station said a few breaks ago".
+
 ## [0.23.0] — 2026-09-21
 
 - The station can now delete media files that nothing points at any more. **Settings > Housekeeping >
@@ -598,7 +637,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.23.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.24.0...HEAD
+[0.24.0]: https://github.com/robert-dean/deadair/compare/v0.23.0...v0.24.0
 [0.23.0]: https://github.com/robert-dean/deadair/compare/v0.22.0...v0.23.0
 [0.22.0]: https://github.com/robert-dean/deadair/compare/v0.21.0...v0.22.0
 [0.21.0]: https://github.com/robert-dean/deadair/compare/v0.20.0...v0.21.0

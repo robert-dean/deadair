@@ -9,6 +9,59 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.23.0] — 2026-09-21
+
+- The station can now delete media files that nothing points at any more. **Settings > Housekeeping >
+  Delete media files nothing points at**, which is **off** until you turn it on.
+
+  Records, cover art and the audio of everything the station has said are kept in folders named after
+  what the bytes hash to, with a row in the database pointing at each one. When a row goes without its
+  file going — a crash between writing the bytes and writing the row, or something deleted through the
+  API — the file is left behind, and nothing can ever reach it again, because everything that reads
+  one of these files starts from a row holding the name to ask for. Storage on the settings page has
+  counted those files for a while and deleted none of them. This is the half that deletes them.
+
+  Nothing that still has a row is touched, however old it is, and a file two rows share — the same
+  ident at three slots in an hour is one recording — is kept as long as either row wants it. The
+  voice previews are never swept at all: they are named after the question they answer rather than by
+  any row, so every one of them looks unclaimed and none of them is.
+
+  **A file is left alone until it has sat unclaimed for a day**, which you can change and cannot set
+  below an hour. That wait is the whole safety of it: a file being written right now has no row yet
+  either, for the moment between the two, and at that instant it looks exactly like one whose row has
+  gone. A day is far longer than anything the station does, since writing a break takes seconds.
+
+  The sweep runs nightly at 05:17 and puts one line in the activity feed when it removes anything,
+  under a new **Storage** filter. It will not run at all while the switch is off.
+- Presenters can now tell a story across several breaks, and keep a running joke going.
+
+  A story on a character's shelf can be an ordinary one-off, a story in PARTS that goes out a piece at
+  a time and gets somewhere, or a running BIT with no end that the presenter keeps coming back to and
+  building on. A story in parts only moves to its next piece once the last one has actually aired, and
+  a presenter leaves a wait between returning to the same thing — you set how long on the Settings
+  page, under the persona group.
+
+  Every time a character carries one of its own stories into a break is now written down, along with
+  what it actually said. That record is what a running joke is built on, and it is also the thing the
+  new Memory panel shows: what this character has told, newest first, with a way to roll back to any
+  moment. Rolling back undoes what the station worked out on its own — the tellings, and anything the
+  nightly passes wrote — and never touches a story, a note or a part you typed yourself. There is a
+  preview before anything happens, and "clear all of it" for a fresh start.
+
+  With a way back in place, a character can also be left to develop unsupervised: the new
+  "Whether they develop on their own" setting on each persona decides whether the nightly passes hold
+  their ideas for you to approve, as they always have, or keep what they write. Every character ships
+  holding them for you.
+
+  The nightly pass also learns two new tricks where it is switched on. It can suggest the next part of
+  a story you have already started, and it can notice a running thing you have been doing on air
+  without having written it down — it only offers one when it can quote the line it spotted it in. And
+  it summarises where each running joke has got to, so the presenter is reminded what the thing has
+  become rather than handed its own last sentences to repeat.
+
+  One older rough edge goes with this: a note distilled from a break you thumbed down is no longer
+  used. A character can no longer be taught to repeat something you said you disliked.
+
 ## [0.22.0] — 2026-09-20
 
 - This day in history, as a kind of break the station can be given
@@ -545,7 +598,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.22.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.23.0...HEAD
+[0.23.0]: https://github.com/robert-dean/deadair/compare/v0.22.0...v0.23.0
 [0.22.0]: https://github.com/robert-dean/deadair/compare/v0.21.0...v0.22.0
 [0.21.0]: https://github.com/robert-dean/deadair/compare/v0.20.0...v0.21.0
 [0.20.0]: https://github.com/robert-dean/deadair/compare/v0.19.3...v0.20.0

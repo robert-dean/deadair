@@ -1,6 +1,6 @@
 ---
 title: 'PersonaRehearsalAttempt'
-sidebar_position: 24
+sidebar_position: 27
 mdx:
     format: 'md'
 ---

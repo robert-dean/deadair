@@ -66,8 +66,8 @@ const build = (
         presenting?: { chattiness?: string };
         /** What a `syndicated` band would carry. Nothing, by default: no station subscribes to anything. */
         carried?: SyndicatedAnswer;
-    /** What a `narration` band is answered with. Declines by default, as `carried` does. */
-    reading?: SyndicatedAnswer;
+        /** What a `narration` band is answered with. Declines by default, as `carried` does. */
+        reading?: SyndicatedAnswer;
     } = {},
 ) => {
     // Answers for the KIND it was asked about, the way the repository does. A blanket answer would

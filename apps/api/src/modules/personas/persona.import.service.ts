@@ -174,6 +174,10 @@ export class PersonaImportService {
                     // operator's own — `PersonaStoryWrite`'s "always theirs", one install further
                     // out. See `persona.file.ts` for why `origin` does not travel.
                     origin: 'operator',
+                    // Part of what the story IS rather than what the exporting station did with it.
+                    // Absent means `anecdote`, which is what every story written before arcs existed
+                    // is and what a file from an older build carries.
+                    ...(story.kind === undefined ? {} : { kind: story.kind }),
                     // Carried so the enrichment pass does not propose here what was turned down
                     // there, which is `pronunciations`' argument one table over.
                     state: story.state ?? 'active',
@@ -186,6 +190,24 @@ export class PersonaImportService {
                 if (carried.has(detailHandle(detail.detail))) continue;
 
                 await this.stories.addDetail({ storyId: row.id, detail: detail.detail, origin: 'operator', state: detail.state ?? 'active' });
+                details += 1;
+            }
+
+            // The parts, on the details' own terms: added, never replaced, and skipped where this
+            // station already has one in those words. Nothing about how far through the arc the
+            // exporting station had got travels — a telling is a record of what THAT station did,
+            // and here nobody has heard any of it, so every imported arc starts at its first part.
+            const parts = new Set(row.beats.map(beat => detailHandle(beat.beat)));
+            for (const beat of story.beats) {
+                if (parts.has(detailHandle(beat.beat))) continue;
+
+                await this.stories.addBeat({
+                    storyId: row.id,
+                    ordinal: beat.ordinal,
+                    beat: beat.beat,
+                    origin: 'operator',
+                    state: beat.state ?? 'active',
+                });
                 details += 1;
             }
         }

@@ -27,9 +27,13 @@ const story = (over: Partial<PersonaStory> = {}): PersonaStory => ({
     personaKey: 'overnight',
     title: 'The Barstow lights',
     story: 'Three of them, over the desert, and nobody else on the road.',
+    // Never absent on a stored row, whatever the draft allows: the column is `not null` with a
+    // default, so what a repository answers with is always one of the three.
+    kind: 'anecdote',
     state: 'active',
     origin: 'operator',
     details: [],
+    beats: [],
     timesTold: 0,
     createdAt: '2026-08-01T00:00:00.000Z',
     ...over,
@@ -110,10 +114,14 @@ describe('the stories a file carries', () => {
     it('carries an active story with no state on it, since active is what a story ordinarily is', () => {
         const [carried] = personaForFile(persona(), [story()]).stories;
 
+        // `kind` is absent for an anecdote, for `state`'s reason: an ordinary story does not carry
+        // a field saying it is ordinary. `beats` is present and empty, as `details` is — both are
+        // lists a reader expects to find rather than flags.
         expect(carried).toEqual({
             title: 'The Barstow lights',
             story: 'Three of them, over the desert, and nobody else on the road.',
             details: [],
+            beats: [],
         });
     });
 
@@ -176,5 +184,46 @@ describe('the format stamp', () => {
     // shape — but it has to be stable, or every file already written stops being readable.
     it('is the version an import will recognise', () => {
         expect(PERSONA_FILE_FORMAT).toBe('deadair.persona/1');
+    });
+});
+
+// What a story in parts carries across, and the one thing about it that must NOT.
+describe('an arc in a file', () => {
+    const arc = () =>
+        story({
+            title: 'The letter',
+            story: 'It started with a letter.',
+            kind: 'arc',
+            beats: [
+                { id: 'b1', storyId: 'a1', ordinal: 10, beat: 'You opened it in the car park.', state: 'active', origin: 'operator', createdAt: '' },
+                { id: 'b2', storyId: 'a1', ordinal: 20, beat: 'A part nobody approved.', state: 'suggested', origin: 'model', createdAt: '' },
+            ],
+        });
+
+    it('says what sort of thing it is, because that is part of what the story is', () => {
+        const [carried] = personaForFile(persona(), [arc()]).stories;
+
+        expect(carried?.kind).toBe('arc');
+    });
+
+    it('carries the parts in order', () => {
+        const [carried] = personaForFile(persona(), [arc()]).stories;
+
+        expect(carried?.beats.map(beat => beat.beat)).toEqual(['You opened it in the car park.']);
+    });
+
+    it('leaves a proposal behind, exactly as it leaves a proposed story behind', () => {
+        // Nobody has decided it yet, so there is nothing for the receiving operator to inherit.
+        const [carried] = personaForFile(persona(), [arc()]).stories;
+
+        expect(carried?.beats).toHaveLength(1);
+    });
+
+    it('carries nothing about how far through it this station had got', () => {
+        // A telling is a record of what THIS station did. On the far side nobody has heard any of
+        // it, so an imported arc starts at its first part.
+        const [carried] = personaForFile(persona(), [arc()]).stories;
+
+        expect(JSON.stringify(carried)).not.toMatch(/told|aired|telling/i);
     });
 });

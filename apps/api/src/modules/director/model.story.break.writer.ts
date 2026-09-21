@@ -181,6 +181,10 @@ export class ModelStoryBreakWriter extends BreakWriter {
             label: request.story.title,
             // The deterministic story writer's reason exactly: the title is the story's own.
             listenerLabel: request.story.title,
+            // The floor's reason too: this whole shape exists to TELL the story, `stories: 'told'`
+            // rather than `offered`, so a break that got this far told it. No read-back, because
+            // there was never an option to leave it alone.
+            toldStory: true,
             // Told what plays next means allowed to name it, so assume it did — over-stamping costs
             // a break the order drifted under, which is the safe direction. Unlike the floor, which
             // says nothing about the record at all.

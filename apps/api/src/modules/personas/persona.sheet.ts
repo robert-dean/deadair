@@ -302,6 +302,58 @@ export const storytellingOf = (sheet: PersonaSheet | undefined): PersonaStorytel
     sheet !== undefined && isPersonaStorytelling(sheet.storytelling) ? sheet.storytelling : DEFAULT_STORYTELLING;
 
 /**
+ * Whether a character may change itself, or only ever propose.
+ *
+ * The second sheet field that never reaches a model, after `storytelling` — and the reason is
+ * sharper here: this decides what STATE the nightly passes write in, which is a decision about the
+ * station's relationship with its own machinery and none of the character's business.
+ */
+export const PERSONA_GROWTHS = ['proposes', 'self-directed'] as const;
+
+export type PersonaGrowth = (typeof PERSONA_GROWTHS)[number];
+
+/** Whether a stored value is a rung, so a hand-edited row cannot switch a character loose. */
+export const isPersonaGrowth = (value: unknown): value is PersonaGrowth => PERSONA_GROWTHS.includes(value as PersonaGrowth);
+
+/**
+ * What a sheet with nothing set means, and it is the cautious one.
+ *
+ * `rotation.breaks`' rule: a character changing on its own is a feature an operator opts into, not
+ * the behaviour of a station nobody has configured. Every character that existed before this field
+ * did is therefore unchanged, which is the only honest reading of a column they were never offered.
+ */
+export const DEFAULT_GROWTH: PersonaGrowth = 'proposes';
+
+/**
+ * The rung in force, with {@link DEFAULT_GROWTH} behind an unset or nonsense one.
+ *
+ * ## What it actually changes
+ *
+ * `proposes` is the posture every store here already has: anything a model writes arrives
+ * `suggested` and an operator is the check, because no amount of catalogue entails that this
+ * character was ever in that room.
+ *
+ * `self-directed` lets the nightly passes write `active` instead, so a character genuinely develops
+ * between one week and the next without anybody approving each step.
+ *
+ * ## Why that is offerable at all, having been refused everywhere else
+ *
+ * Because there is now a way back. A character's accumulated memory can be rolled back to a moment,
+ * so "let it run and see" is something an operator can undo in one click rather than a decision they
+ * are stuck with. Without `PersonaMemoryService` this rung would be a one-way door, which is exactly
+ * what `pronunciations` refused to build and what `persona_stories` inherited the refusal from.
+ *
+ * ## The one thing it does NOT relax
+ *
+ * A model-written beat under `self-directed` is spoken by the deterministic floor verbatim, and that
+ * floor runs no checks at all — it speaks approved prose, which under this rung it no longer is. So
+ * the pass puts its own output through `characterFault` and the station's clean-language rule before
+ * storing it active. Autonomy is about who APPROVES, never about what may go out unchecked.
+ */
+export const growthOf = (sheet: PersonaSheet | undefined): PersonaGrowth =>
+    sheet !== undefined && isPersonaGrowth(sheet.growth) ? sheet.growth : DEFAULT_GROWTH;
+
+/**
  * The one of this character's {@link PersonaSheet.preoccupations} that `rotationId` gets.
  *
  * Here rather than in each caller so the sheet's own normalizer and its own cap are what decide what
@@ -474,6 +526,18 @@ export interface PersonaSheet {
      * rather than what the model is told.
      */
     storytelling?: PersonaStorytelling;
+    /**
+     * Whether this character may change itself, or only ever propose.
+     *
+     * Read through {@link growthOf}, where the two rungs are argued, and like `storytelling` above it
+     * this reaches no prompt at all — it decides what STATE the nightly passes write in, which is a
+     * question about the station's relationship with its own machinery rather than about the
+     * character.
+     *
+     * Absent means {@link DEFAULT_GROWTH}, which is the cautious one: a character that changes on
+     * its own is something an operator opts into.
+     */
+    growth?: PersonaGrowth;
     /**
      * Which soundboard this character has to hand, as a `deadair.pad_sets.key`, or absent for a
      * presenter who works without one.
@@ -936,10 +1000,27 @@ export function avoidedWording(sheet: PersonaSheet, script: string): string[] {
  * the same rule and not a special case: there is no longer run in it to find.
  */
 export function echoedSample(sheet: PersonaSheet, script: string): string | undefined {
+    return echoOf(cleanList(sheet.samples, PERSONA_SHEET_LIMITS.samples), script);
+}
+
+/**
+ * The line a script lifted a clause from, or `undefined`.
+ *
+ * {@link echoedSample}'s matcher with the sample list made a parameter, because the same question is
+ * asked of a second thing: what this character has ALREADY SAID when it last picked up a running
+ * thread. Both are a model handed prose and repeating it rather than writing from it, and the
+ * measured shape of that failure is a partial copy — "Okay that was rough and I picked it, so that's
+ * on me" came back once entire and once truncated, so it is a RUN of words rather than a whole line.
+ *
+ * Compared as words rather than as text so punctuation, capitals and a curly apostrophe cannot hide
+ * a copy. A line shorter than {@link MAX_SAMPLE_ECHO_WORDS} has to appear whole to count, which is
+ * the same rule and not a special case: there is no longer run in it to find.
+ */
+export function echoOf(lines: readonly string[], script: string): string | undefined {
     const spoken = ` ${wordsOf(script).join(' ')} `;
 
-    return cleanList(sheet.samples, PERSONA_SHEET_LIMITS.samples).find(sample => {
-        const words = wordsOf(sample);
+    return lines.find(line => {
+        const words = wordsOf(line);
         const run = Math.min(words.length, MAX_SAMPLE_ECHO_WORDS + 1);
         if (run === 0) return false;
 
@@ -980,6 +1061,8 @@ export function spentCatchphrases(sheet: PersonaSheet, recent: readonly string[]
 export type CharacterFault =
     /** A clause lifted from one of the sheet's own sample lines. */
     | 'quoted-sample'
+    /** A clause lifted from what this character said last time it picked up the same thread. */
+    | 'retold-verbatim'
     /** A signature phrase the station has just used. */
     | 'spent-catchphrase'
     /** Wording the sheet forbids. */
@@ -991,6 +1074,14 @@ export type CharacterFault =
 export interface CharacterContext {
     /** The last few things the station said, as `BreakWriteRequest.recent` holds them. */
     recent?: readonly string[];
+    /**
+     * What this character said the last few times it picked up the thread this break was handed.
+     *
+     * Shown to the model so a running joke can be BUILT on, and refused here so it cannot be
+     * repeated. Those two are not in tension: the prompt asks for the thread to move, and this is
+     * what makes the ask enforceable rather than a suggestion.
+     */
+    told?: readonly string[];
     /**
      * Whether the dialect is REQUIRED of this script, or whether only the prohibitions apply.
      *
@@ -1039,6 +1130,11 @@ export interface CharacterContext {
  */
 export function characterFault(sheet: PersonaSheet, script: string, context: CharacterContext = {}): CharacterFault | undefined {
     if (echoedSample(sheet, script) !== undefined) return 'quoted-sample';
+    // The same failure through the other door, and it had no guard at all: a character shown what it
+    // said last time it returned to a running thread will say it again. The sample check above reads
+    // the sheet only, so nothing stopped a prior telling being lifted whole — which is the worst
+    // possible outcome for a callback, since the whole point is a listener hearing the thing move on.
+    if (context.told !== undefined && echoOf(context.told, script) !== undefined) return 'retold-verbatim';
     if (avoidedWording(sheet, script).length > 0) return 'avoided-wording';
 
     const spent = spentCatchphrases(sheet, context.recent);

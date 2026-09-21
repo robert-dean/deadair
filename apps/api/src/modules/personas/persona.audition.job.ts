@@ -237,6 +237,11 @@ export class PersonaAuditionJob extends PlainJob<AuditionPayload> {
             ...(result.written === undefined ? {} : { script: result.written.script }),
             ...(result.writer === undefined ? {} : { writer: result.writer }),
             ...(result.reason === undefined ? {} : { reason: result.reason }),
+            // The writer's own read-back, recorded only where there was a story to judge. This is
+            // what makes `mentionsStory`'s bar measurable: a run of twenty transitions under one
+            // character reports how often the check recognised a telling, which is a query rather
+            // than an argument. See migration 0038.
+            ...(story === undefined || result.written === undefined ? {} : { told: result.written.toldStory === true }),
         });
 
         return true;

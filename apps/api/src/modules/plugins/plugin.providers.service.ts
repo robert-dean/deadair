@@ -90,7 +90,8 @@ export class PluginProvidersService {
 
         // An `ordered` setting holds rows and a `one` setting holds an id. Both answer the
         // question "which ids did the operator name", which is what `listed` and `stale` are about.
-        const named = capability.mode === 'ordered' ? pluginOrder(this.config, capability.settingKey) : [configured.trim()].filter(id => id.length > 0);
+        const named =
+            capability.mode === 'ordered' ? pluginOrder(this.config, capability.settingKey) : [configured.trim()].filter(id => id.length > 0);
 
         // `selectPlugin`'s two rules, over the same candidates the service passes it. For an
         // `ordered` capability every active candidate is reached, so there is nothing to choose.

@@ -1494,9 +1494,103 @@ function traitLines(notes: PersonaNotesForPrompt | undefined): string[] {
  * optionality goes, because there the story IS the break and a presenter who declined to tell it
  * would be a break about nothing.
  */
+/**
+ * The next part of a story the character has already started telling on air.
+ *
+ * ## It asks for ONE part, and that is the whole of what makes an arc an arc
+ *
+ * The instruction that matters most here is the one telling the model to stop: handed the shape of a
+ * story a model will finish it, which is the measured failure this file records about every other
+ * kind of material. A break that told parts two, three and four is not an arc, it is a story that
+ * took one break and a listener who will never be asked back.
+ *
+ * ## Where it was left is the PREVIOUS part's own words
+ *
+ * Not what the break actually said about it, though the ledger holds that too. The previous beat is
+ * prose an operator approved, it does not age out of `script_history`, and it says what the listener
+ * was told rather than how — so a model reading it continues the story instead of being handed
+ * somebody else's phrasing to echo.
+ *
+ * ## It still names the record
+ *
+ * `mustNameRecord` is unchanged, and this block does not excuse it. A break that told a beautiful
+ * beat and never said what was playing is the failure `breaks.md` measured over thirty-nine
+ * consecutive breaks, and an arc is not a reason to reopen it.
+ */
+function beatLines(story: PersonaStoryForPrompt, beat: NonNullable<PersonaStoryForPrompt['beat']>): string[] {
+    return [
+        'You have been telling this on air, a piece at a time:',
+        story.story,
+        ...(beat.leftAt === undefined ? [] : ['Last time you got as far as this:', beat.leftAt]),
+        'This break carries the next piece, and only this piece:',
+        beat.text,
+        ...(beat.last ? ['That is the end of it, so land it rather than leaving it open.'] : []),
+        // The stop instruction, stated as its own sentence because it is the one the model is most
+        // likely to sail past. See the note at the top of this function.
+        'Tell this much and no more, even if you can see where it goes — the rest is for another ' +
+            'break. Work it in naturally and still say what is playing.',
+        'It happened to you and it is yours to tell. It is not a fact about any record: do not attach it to what is playing, do not ' +
+            'present it as something the station knows, and do not turn it into a claim about anybody real.',
+    ];
+}
+
+/**
+ * A running joke the character keeps coming back to.
+ *
+ * ## It is shown where it has been, which nothing else here does
+ *
+ * An anecdote is told and a beat moves a story on; a bit only works if the listener recognises it
+ * returning, and the character can only do that knowing where it got to. So the last couple of
+ * tellings go in, as the character's own past words.
+ *
+ * ## Which is why the verbatim guard exists
+ *
+ * Handing a model its own prior wording is the strongest possible invitation to reproduce it — the
+ * measured failure this file records about sample lines, arriving through a door the sheet's own
+ * check does not cover. `characterFault` refuses that as `retold-verbatim`, and the prompt ASKS
+ * first, which is the bargain `spentCatchphrases` already makes: a script is only ever refused for
+ * an instruction it was actually given.
+ */
+function bitLines(story: PersonaStoryForPrompt, shape: BreakPromptShape): string[] {
+    return [
+        'A running thing of yours, which listeners know you for:',
+        story.story,
+        // A recap where there is one, and the words themselves only until there is. The summary is
+        // strictly better: it says what the thing has become over its whole life, where a pair of
+        // tellings can only say where it is now — and a model cannot reproduce sentences it was
+        // never shown, which is the hazard the raw form creates and `retold-verbatim` exists to
+        // catch. The guard stays either way, because a coincidence is still possible.
+        ...(story.recap !== undefined
+            ? ['Where it has got to:', story.recap, 'Take it further than that. Coming back to it only works if it has moved.']
+            : story.said === undefined || story.said.length === 0
+              ? []
+              : [
+                    'The last times you came back to it you said:',
+                    ...story.said.map(said => `- ${said}`),
+                    'Do not say any of that again. Coming back to it only works if it has moved: take it somewhere it has not been.',
+                ]),
+        shape.stories === 'told'
+            ? 'Pick it up now.'
+            : 'You do not have to reach for it, and most breaks are better without it. If this moment gives you a reason to, pick it up.',
+        'It is yours and it is a joke rather than a fact: do not attach it to what is playing, do not present it as something the station ' +
+            'knows, and never let it become a claim about anybody real.',
+    ];
+}
+
 function storyLines(settings: PromptSettings, shape: BreakPromptShape): string[] {
     const story = settings.story;
     if (shape.stories === undefined || story === undefined) return [];
+
+    // A part of an ARC, which is the one case where the offer is not optional. The story has been
+    // started on air and a listener is owed the next of it, so the wording that invites a break to
+    // leave it alone would be inviting the station to drop a thread it began. The other half of that
+    // bargain is the cadence gap, which is what stops this arriving on every break.
+    if (story.beat !== undefined) return [beatLines(story, story.beat).join('\n')];
+
+    // A running BIT, which is neither a one-off nor a story in parts: it has no end and no order, and
+    // what makes it work is the character coming back to it having moved it on. So it is shown where
+    // it has already been, and `retold-verbatim` refuses a script that simply says that again.
+    if (story.kind === 'bit') return [bitLines(story, shape).join('\n')];
 
     const lines = [
         shape.stories === 'told'
@@ -1597,7 +1691,7 @@ const MIN_WORN_LENGTH = 4;
  * to catch nothing. What is here is grammar rather than vocabulary — words a sentence needs and a
  * character cannot be blamed for.
  */
-const NOT_A_HABIT = new Set([
+export const NOT_A_HABIT = new Set([
     'that',
     'this',
     'with',
@@ -1867,6 +1961,14 @@ export interface AnswerGuard {
      * checkable claim and so passes everything. See {@link characterFault}.
      */
     persona?: PersonaSheet;
+    /**
+     * What this character said the last few times it picked up the thread this break was handed.
+     *
+     * Shown in the prompt so a running joke can be built on, and refused here so it cannot simply be
+     * said again — the two halves of one bargain, and the same one `spentCatchphrases` already
+     * strikes. See `CharacterContext.told`.
+     */
+    told?: readonly string[];
     /**
      * Whether that character's DIALECT is required of the answer, or only its prohibitions.
      *
@@ -2225,7 +2327,7 @@ const wrongDayPartIn = (script: string, guard: AnswerGuard): string | undefined 
  * result exactly as they read the bare copy: `saysTime` lower-cases before its `includes`, `wholeWord`
  * bounds on letters, and the no-records path above always handed them the punctuated script anyway.
  */
-const withoutRecordNames = (script: string, guard: AnswerGuard): string => {
+export const withoutRecordNames = (script: string, guard: AnswerGuard): string => {
     const records = (guard.names ?? []).filter((record): record is BreakTrack => record !== undefined);
     if (records.length === 0) return script;
 
@@ -2518,6 +2620,7 @@ export function faultIn(script: string, guard: AnswerGuard): CharacterFault | un
 
     return characterFault(guard.persona, script, {
         ...(guard.recent === undefined ? {} : { recent: guard.recent }),
+        ...(guard.told === undefined ? {} : { told: guard.told }),
         ...(guard.dialect === undefined ? {} : { dialect: guard.dialect }),
     });
 }
@@ -2550,6 +2653,7 @@ const FAULT_REASONS: Record<WriteFault, string> = {
     // by — a temperature said confidently is acted on.
     'invented-figure': 'the model gave a figure the station was never given, which sounds exactly like one the service measured',
     'quoted-sample': 'the model read one of the persona’s own sample lines back rather than writing in its voice',
+    'retold-verbatim': 'the model repeated what this character said the last time it picked up the same thread, rather than moving it on',
     'spent-catchphrase': 'the model reached for a signature the station had just used',
     'avoided-wording': 'the model used wording the persona forbids',
     'out-of-character': 'the model wrote a line the station could say, but not in its own voice',

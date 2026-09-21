@@ -190,6 +190,14 @@ export class PersonaAuditionRepository extends DataRepository {
             script?: string;
             writer?: string;
             reason?: string;
+            /**
+             * Whether the writer's read-back found the story it was handed in what it wrote.
+             *
+             * Absent means the break carried no story, which is most of them. See migration 0038 for
+             * why this is recorded at all: `mentionsStory` decides what an arc owes next, and its bar
+             * has to be measurable against real scripts before a real arc is trusted to it.
+             */
+            told?: boolean;
         },
     ): Promise<void> {
         await this.db
@@ -203,6 +211,7 @@ export class PersonaAuditionRepository extends DataRepository {
                 script: written.script ?? null,
                 writer: written.writer ?? null,
                 reason: written.reason ?? null,
+                told: written.told ?? null,
             })
             .execute();
 
@@ -342,6 +351,7 @@ function toBreak(row: Record<string, unknown>): AuditionBreak {
         ...(row.script == null ? {} : { script: String(row.script) }),
         ...(row.writer == null ? {} : { writer: String(row.writer) }),
         ...(row.reason == null ? {} : { reason: String(row.reason) }),
+        ...(row.told == null ? {} : { told: Boolean(row.told) }),
         createdAt: millisOf(row.createdAt as DateTime | null) ?? 0,
     };
 }

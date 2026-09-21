@@ -25,6 +25,7 @@ import {
     preoccupationOf,
     PERSONA_SHEET_LIMITS,
     spentCatchphrases,
+    growthOf,
 } from '../../../src/modules/personas/persona.sheet.js';
 
 describe('personaLines', () => {
@@ -618,5 +619,37 @@ describe('latitude', () => {
     // guard can see it: a break that undoes itself is a valid break. Naming it is the only lever.
     it('refuses the caveat as well as the softening', () => {
         expect(LATITUDE_LICENCE).toMatch(/never soften a line, add a caveat, or balance it out afterwards/i);
+    });
+});
+
+// The rung that decides whether a character may change itself. It reaches no prompt at all, which is
+// the property most worth pinning: it is a decision about the station's relationship with its own
+// machinery, and telling a character it is self-directed would be telling it something about the
+// operator rather than about itself.
+describe('growthOf', () => {
+    it('is cautious for a sheet that says nothing', () => {
+        // A fresh install proposes. A character that changes on its own is something an operator
+        // opts into, which is `rotation.breaks`' rule.
+        expect(growthOf({})).toBe('proposes');
+        expect(growthOf(undefined)).toBe('proposes');
+    });
+
+    it('takes the rung when one is set', () => {
+        expect(growthOf({ growth: 'self-directed' })).toBe('self-directed');
+        expect(growthOf({ growth: 'proposes' })).toBe('proposes');
+    });
+
+    it('falls back rather than trusting a hand-edited row', () => {
+        // The column is plain text and a row edited by psql could say anything. Nonsense must not
+        // switch a character loose.
+        expect(growthOf({ growth: 'yes' } as never)).toBe('proposes');
+    });
+
+    it('never reaches the prompt', () => {
+        const loose = personaLines({ diction: ['plain'], growth: 'self-directed' }).join('\n');
+        const held = personaLines({ diction: ['plain'], growth: 'proposes' }).join('\n');
+
+        expect(loose).toBe(held);
+        expect(loose).not.toMatch(/self-directed|proposes/);
     });
 });

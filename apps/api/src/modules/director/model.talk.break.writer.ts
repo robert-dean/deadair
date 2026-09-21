@@ -24,6 +24,7 @@ import { resolveBreakWords } from './break.words.js';
 import { TEMPLATE_KEYS } from './break.templates.js';
 import { timeClaimIn } from './clock.words.js';
 import { mentionsWeather } from './weather.figures.js';
+import { mentionsStory } from './persona.story.mentions.js';
 import { SaidLog } from './almanac.source.js';
 import { entriesUsed } from './model.almanac.break.writer.js';
 import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBreak, patienceFor } from './break.writer.js';
@@ -179,6 +180,10 @@ export class ModelTalkBreakWriter extends BreakWriter {
             // come from one call.
             maxWords: resolveBreakWords(this.config),
             ...(request.persona === undefined ? {} : { persona: request.persona }),
+            // What this character said the last times it came back to this running bit, so a script
+            // that simply says it again is refused as `retold-verbatim`. The prompt asks for the
+            // thing to have MOVED, and this is what makes the ask enforceable.
+            ...(request.story?.said === undefined ? {} : { told: request.story.said }),
             // Carried across rather than read here, for the reason the persona is: the caller read
             // the notebook and rested what it took, so a writer that fetched its own would spend the
             // rotation a second time and show a different character to the guard than to the prompt.
@@ -283,7 +288,18 @@ export class ModelTalkBreakWriter extends BreakWriter {
             // filled from every writer's scripts (including a kind with no year guard at all), so an
             // invented year sitting in one of those quoted scripts would otherwise be permitted here
             // on no more authority than having been echoed back.
-            years: permittedYears([request.previous, request.next], request.moment, shownWithoutRecent(messages, request.recent)),
+            //
+            // A bit's prior SAYINGS are stripped for exactly that reason, and they are the same hole
+            // one source further out: they are past scripts, quoted verbatim into this prompt, and a
+            // year the character once invented about a record last week must not become permitted
+            // evidence about a different record today. The arc's beats and the story itself are NOT
+            // stripped — those are prose an operator approved and the station asked to hear, which
+            // is the bargain this whole argument rests on.
+            years: permittedYears(
+                [request.previous, request.next],
+                request.moment,
+                shownWithoutRecent(messages, [...(request.recent ?? []), ...(request.story?.said ?? [])]),
+            ),
             // The reading, when the operator has switched it on and the station had one to give. The
             // same doctrine as `years` immediately above and the same field on the guard, so a talk
             // break that mentions the weather is held to the figures it was shown exactly as the
@@ -372,6 +388,22 @@ export class ModelTalkBreakWriter extends BreakWriter {
         // day in 1966" names one of the entries and a link that ignored the offer names none. See
         // `entriesUsed`.
         const used = request.almanac === undefined ? [] : entriesUsed(script, request.almanac.entries);
+        // Whether the story it was handed actually went out. Judged against the same `guard` the
+        // record checks used, so a title the break named cannot be read as the character reaching
+        // for its own material. The character's diction is excluded for `overusedWords`' reason:
+        // those words are asked for by name in every prompt, so they are in both texts whatever the
+        // break did.
+        const told =
+            request.story !== undefined &&
+            mentionsStory(
+                script,
+                {
+                    text: request.story.story,
+                    details: request.story.details,
+                    ...(request.persona?.dictionMarkers === undefined ? {} : { diction: request.persona.dictionMarkers }),
+                },
+                guard,
+            );
         // Spent where it reached a script, as both writers for the date do. A link that mentioned an
         // anniversary takes it out of the day, so the band at twenty past says something else.
         for (const entry of used) this.said.keep(entry, request.almanac!.day.date);
@@ -424,6 +456,12 @@ export class ModelTalkBreakWriter extends BreakWriter {
             // The expiry is `WeatherSource`'s rather than one derived here, so every kind that can
             // report a reading agrees about how long one observation lasts.
             ...(reported && request.weatherFreshUntil !== undefined ? { claimsReadingUntil: request.weatherFreshUntil } : {}),
+            // The same question about the third offer, and `reported`'s posture again: a story here
+            // was offered, the prompt says most breaks are better without one, and a break that left
+            // it alone must not be recorded as having told it. What rides on the answer is not a
+            // claim's expiry this time but a story's own progress — see `mentionsStory` for why the
+            // bar leans towards NO, and why it is a read-back rather than something the model says.
+            ...(told ? { toldStory: true } : {}),
             // Only when the model chose one, and only one it was offered: see `liftDelivery`.
             ...(delivery === undefined ? {} : { delivery }),
         };

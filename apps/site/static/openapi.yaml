@@ -2088,6 +2088,224 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/PersonaRehearsal'
+    '/personas/{id}/stories/{storyId}/beats':
+        post:
+            operationId: addBeat
+            summary: 'Add persona story beat'
+            description: 'Adds one part to an arc. A script rather than a summary: the floor speaks it as it stands'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 100
+                - name: storyId
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 100
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/PersonaStoryBeatWrite'
+            responses:
+                '201':
+                    description: Created
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/PersonaStoryList'
+    '/personas/{id}/stories/{storyId}/beats/{beatId}':
+        put:
+            operationId: updateBeat
+            summary: 'Update persona story beat'
+            description: "Rewrites one part's words, or moves it in the order"
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 100
+                - name: storyId
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 100
+                - name: beatId
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 100
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/PersonaStoryBeatWrite'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/PersonaStoryList'
+        delete:
+            operationId: removeBeat
+            summary: 'Delete persona story beat'
+            description: 'Removes one part outright, leaving the arc standing. Turning down a PROPOSAL is a state instead'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 100
+                - name: storyId
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 100
+                - name: beatId
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 100
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/PersonaStoryList'
+    '/personas/{id}/stories/{storyId}/beats/{beatId}/state':
+        put:
+            operationId: setBeatState
+            summary: 'Set persona story beat state'
+            description: 'Accepts a proposed part, or turns it down without losing that it was turned down'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 100
+                - name: storyId
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 100
+                - name: beatId
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 100
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/PersonaStoryState'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/PersonaStoryList'
+    '/personas/{id}/memory':
+        get:
+            operationId: timeline
+            summary: 'Read persona memory'
+            description: 'What this character has told, newest first. The timeline a moment is picked from'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 100
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/PersonaMemoryTimeline'
+    '/personas/{id}/memory/preview':
+        get:
+            operationId: preview
+            summary: 'Preview persona memory rollback'
+            description: 'What rolling back to a moment would undo, without undoing it'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 100
+                - name: to
+                  in: query
+                  required: false
+                  schema:
+                      type: string
+                      maxLength: 40
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/PersonaMemoryChange'
+    '/personas/{id}/memory/rollback':
+        post:
+            operationId: rollback
+            summary: 'Roll back persona memory'
+            description: 'Undo it. Everything the station accrued after that moment goes; everything an operator wrote stays'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 100
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/PersonaMemoryRollback'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/PersonaMemory'
     '/playlists':
         get:
             operationId: listPlaylists
@@ -7178,6 +7396,10 @@ components:
                     type: string
                     enum: [never, occasionally, often]
                     description: 'How readily this character works one of its own stories into an ordinary talk break. Absent is `occasionally`, which offers one only where the station knows nothing about the records either side. The stories themselves are their own list, and a `story` band on the clock outranks this whatever it says'
+                growth:
+                    type: string
+                    enum: [proposes, self-directed]
+                    description: 'Whether the nightly passes may write this character new material outright, or only ever propose it for you to accept. Absent is `proposes`, which is what every character does until somebody says otherwise. It reaches no prompt: the character is never told which it is'
                 samples:
                     type: array
                     items:
@@ -7443,12 +7665,23 @@ components:
                     maxLength: 1000
                     readOnly: true
                     description: "Where a proposal came from, in the station's own words. Absent for anything an operator wrote"
+                kind:
+                    type: string
+                    enum: [anecdote, arc, bit]
+                    readOnly: true
+                    description: 'An `anecdote` is told whole, an `arc` a part at a time, a `bit` is a running joke with no end'
                 details:
                     type: array
                     items:
                         '$ref': '#/components/schemas/PersonaStoryDetail'
                     readOnly: true
                     description: 'What it has picked up since, in every state'
+                beats:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/PersonaStoryBeat'
+                    readOnly: true
+                    description: 'The parts an arc is told in, in order and in every state. Empty for the other two kinds'
                 lastToldAt:
                     type: string
                     maxLength: 40
@@ -7464,7 +7697,7 @@ components:
                     minLength: 1
                     maxLength: 40
                     readOnly: true
-            required: [id, title, story, state, origin, details, timesTold, createdAt]
+            required: [id, title, story, state, origin, kind, details, beats, timesTold, createdAt]
             description: "Something that happened to this character, in its own telling. Not a claim about the world and never\nchecked as one: `source` says where a proposal came from, for the operator reading it, and nothing\ndownstream reads it as evidence — see `persona.story.ts` for why that is the load-bearing difference\nfrom a fact"
         PersonaStoryDetail:
             type: object
@@ -7521,8 +7754,65 @@ components:
                     type: string
                     minLength: 1
                     maxLength: 4000
+                kind:
+                    type: string
+                    enum: [anecdote, arc, bit]
+                    description: 'What sort of thing this is. Absent means `anecdote`, which is what every story written before arcs existed is'
             required: [title, story]
             description: 'A story an operator is writing by hand. Always active and always theirs; a proposal is something only the enrichment pass creates'
+        PersonaStoryBeat:
+            type: object
+            properties:
+                id:
+                    type: string
+                    minLength: 1
+                    maxLength: 100
+                    readOnly: true
+                storyId:
+                    type: string
+                    minLength: 1
+                    maxLength: 100
+                    readOnly: true
+                ordinal:
+                    type: integer
+                    minimum: 0
+                    description: 'Where it comes in the telling. Gaps are legal: inserting a part between two others must not mean renumbering the rest'
+                beat:
+                    type: string
+                    minLength: 1
+                    maxLength: 4000
+                state:
+                    type: string
+                    enum: [active, suggested, rejected]
+                    readOnly: true
+                origin:
+                    type: string
+                    enum: [operator, model]
+                    readOnly: true
+                source:
+                    type: string
+                    maxLength: 1000
+                    readOnly: true
+                    description: "Where a proposal came from. Not evidence; see the note on a story's own source"
+                createdAt:
+                    type: string
+                    minLength: 1
+                    maxLength: 40
+                    readOnly: true
+            required: [id, storyId, ordinal, beat, state, origin, createdAt]
+            description: 'One part of an arc, in the order it is told. A SCRIPT rather than a summary, because the floor speaks it as it stands'
+        PersonaStoryBeatWrite:
+            type: object
+            properties:
+                ordinal:
+                    type: integer
+                    minimum: 0
+                beat:
+                    type: string
+                    minLength: 1
+                    maxLength: 4000
+            required: [ordinal, beat]
+            description: 'A part to add to an arc, or an edit to one'
         PersonaStoryDetailWrite:
             type: object
             properties:
@@ -7592,6 +7882,10 @@ components:
                     type: string
                     minLength: 1
                     maxLength: 4000
+                kind:
+                    type: string
+                    enum: [anecdote, arc, bit]
+                    description: 'Absent means `anecdote`. What sort of thing this is travels because it is part of what the story IS, not part of what this station has done with it'
                 state:
                     type: string
                     enum: [active, rejected]
@@ -7600,8 +7894,29 @@ components:
                     type: array
                     items:
                         '$ref': '#/components/schemas/PersonaFileStoryDetail'
-            required: [title, story, details]
+                beats:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/PersonaFileStoryBeat'
+                    description: 'The parts an arc is told in, in order. Empty for the other two kinds'
+            required: [title, story, details, beats]
             description: "Something that happened to this character, as a file carries it. No `origin` and no `source`,\nunlike the stored row: whoever exported this stood behind every story in it, so on the far side\nthey are the receiving operator's own, and a sentence about where a proposal came from names a\ncatalogue that station does not have"
+        PersonaFileStoryBeat:
+            type: object
+            properties:
+                ordinal:
+                    type: integer
+                    minimum: 0
+                beat:
+                    type: string
+                    minLength: 1
+                    maxLength: 4000
+                state:
+                    type: string
+                    enum: [active, rejected]
+                    description: "Absent means `active`, exactly as a story's does"
+            required: [ordinal, beat]
+            description: "One part of an arc, as a file carries it. No `origin` and no `source`, for the story's own reason"
         PersonaFileStoryDetail:
             type: object
             properties:
@@ -7907,6 +8222,9 @@ components:
                     type: string
                     maxLength: 1000
                     description: 'Why there are none, when every writer had nothing. On air this break is skipped'
+                told:
+                    type: boolean
+                    description: "Whether the writer's read-back found the story this break was handed. Absent means it carried none, which is most of them. On air this is what decides whether a story in parts owes the next one, so a run is how you check the reading is right before trusting an arc to it"
             required: [ordinal, previous, next, attempts]
             description: "One transition, and everything the writers said about it. Every writer asked is reported and not\nonly the one that won, on the rehearsal's own argument: a model that declined and a floor that\ncovered for it are two facts"
         PersonaAuditionSummary:
@@ -7976,6 +8294,130 @@ components:
                     items:
                         '$ref': '#/components/schemas/PersonaAuditionSummary'
             required: [auditions]
+        PersonaTelling:
+            type: object
+            properties:
+                id:
+                    type: string
+                    minLength: 1
+                    maxLength: 100
+                    readOnly: true
+                storyId:
+                    type: string
+                    minLength: 1
+                    maxLength: 100
+                    readOnly: true
+                title:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                    readOnly: true
+                    description: 'The handle of the story this told, so a timeline reads as something rather than as ids'
+                source:
+                    type: string
+                    enum: [break, production, backfill]
+                    readOnly: true
+                    description: 'What wrote it. `backfill` is the rows migration 0034 reconstructed from the two columns it replaced'
+                mode:
+                    type: string
+                    enum: [offered, told]
+                    readOnly: true
+                    description: 'Whether the story was handed over as something the writer MAY use, or as the thing the break was for'
+                told:
+                    type: boolean
+                    readOnly: true
+                    description: 'Whether it actually went out, as the WRITER read its own answer back. An offered story may simply be ignored'
+                said:
+                    type: string
+                    maxLength: 2000
+                    readOnly: true
+                    description: 'The words that carried it, kept here because the script history they came from is swept nightly'
+                segmentId:
+                    type: string
+                    maxLength: 100
+                    readOnly: true
+                    description: 'The break that carried it, while that row still exists'
+                airedAt:
+                    type: string
+                    maxLength: 40
+                    readOnly: true
+                    description: 'When a listener could first have heard it. Absent means written but not yet aired, or never aired at all'
+                at:
+                    type: string
+                    minLength: 1
+                    maxLength: 40
+                    readOnly: true
+                    description: 'When it was written. Hand this back as `to` to roll back to just before it'
+            required: [id, storyId, title, source, mode, told, at]
+            description: "One time a character actually told one of its own stories. What the timeline lists, and what a\nrollback is chosen from: the moment on each row is the exact string the station compares against,\nnot a rounding of it"
+        PersonaMemoryTimeline:
+            type: object
+            properties:
+                personaId:
+                    type: string
+                    minLength: 1
+                    maxLength: 100
+                tellings:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/PersonaTelling'
+            required: [personaId, tellings]
+            description: 'What one character has told, newest first'
+        PersonaMemoryChange:
+            type: object
+            properties:
+                tellings:
+                    type: integer
+                    minimum: 0
+                    description: 'Tellings forgotten. Every one, whatever wrote it: a telling is a record of something the station did rather than a claim somebody made'
+                notes:
+                    type: integer
+                    minimum: 0
+                    description: 'Notes the distil pass wrote. Nothing an operator typed is ever counted here or deleted'
+                stories:
+                    type: integer
+                    minimum: 0
+                    description: 'Stories the enrichment pass proposed'
+                details:
+                    type: integer
+                    minimum: 0
+                    description: 'Details it proposed. A floor rather than a total: a story that is itself going takes every detail hung on it'
+                rejected:
+                    type: integer
+                    minimum: 0
+                    description: 'How many of the above were proposals somebody turned down. Deleting one lets the nightly pass offer it again'
+                touched:
+                    type: integer
+                    minimum: 0
+                    description: 'How many the operator had since accepted or edited. They still go, and this is the one loss they did not cause'
+            required: [tellings, notes, stories, details, rejected, touched]
+            description: "What a rollback would undo, or did. Counted with the same predicates the delete uses, so a preview\ncannot promise one thing and do another"
+        PersonaMemoryRollback:
+            type: object
+            properties:
+                to:
+                    type: string
+                    maxLength: 40
+                    description: 'The moment to go back to, as a timeline row reports it. Absent means all of it, which is a reset'
+                relearn:
+                    type: boolean
+                    description: "Also drag the distil pass's watermark back, so it reads that window again. Right for testing and wrong for undoing a character that drifted, so it is asked for rather than assumed"
+            description: 'Undo what this character accumulated on its own'
+        PersonaMemory:
+            type: object
+            properties:
+                personaId:
+                    type: string
+                    minLength: 1
+                    maxLength: 100
+                undone:
+                    '$ref': '#/components/schemas/PersonaMemoryChange'
+                tellings:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/PersonaTelling'
+            required: [personaId, undone, tellings]
+            description: 'What was undone, and where the timeline stands now'
         PlaylistPermission:
             type: string
             enum: [read, edit]

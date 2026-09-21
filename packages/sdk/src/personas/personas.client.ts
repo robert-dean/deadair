@@ -1,5 +1,5 @@
 import type { SdkFetch } from '../sdk-options.js';
-import { bigIntReplacer, parseJson } from '../sdk-options.js';
+import { bigIntReplacer, parseJson, buildQueryString } from '../sdk-options.js';
 import type {
     GeneratedPersona,
     PersonaAudition,
@@ -11,11 +11,16 @@ import type {
     PersonaImportResult,
     PersonaInput,
     PersonaList,
+    PersonaMemory,
+    PersonaMemoryChange,
+    PersonaMemoryRollback,
+    PersonaMemoryTimeline,
     PersonaNoteList,
     PersonaNoteState,
     PersonaNoteWrite,
     PersonaRehearsal,
     PersonaRequest,
+    PersonaStoryBeatWrite,
     PersonaStoryDetailWrite,
     PersonaStoryList,
     PersonaStoryState,
@@ -364,5 +369,96 @@ export class PersonasClient {
     async rehearsePersona(id: string): Promise<PersonaRehearsal> {
         const result = await this.fetch(`/personas/${encodeURIComponent(id)}/rehearse`, { method: 'POST' });
         return await parseJson<PersonaRehearsal>(result);
+    }
+
+    /**
+     * @name Add persona story beat
+     * @description Adds one part to an arc. A script rather than a summary: the floor speaks it as it stands
+     */
+    async addPersonaStoryBeat(id: string, storyId: string, body: PersonaStoryBeatWrite): Promise<PersonaStoryList> {
+        const result = await this.fetch(`/personas/${encodeURIComponent(id)}/stories/${encodeURIComponent(storyId)}/beats`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<PersonaStoryList>(result);
+    }
+
+    /**
+     * @name Update persona story beat
+     * @description Rewrites one part's words, or moves it in the order
+     */
+    async updatePersonaStoryBeat(id: string, storyId: string, beatId: string, body: PersonaStoryBeatWrite): Promise<PersonaStoryList> {
+        const result = await this.fetch(
+            `/personas/${encodeURIComponent(id)}/stories/${encodeURIComponent(storyId)}/beats/${encodeURIComponent(beatId)}`,
+            {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body, bigIntReplacer),
+            },
+        );
+        return await parseJson<PersonaStoryList>(result);
+    }
+
+    /**
+     * @name Delete persona story beat
+     * @description Removes one part outright, leaving the arc standing. Turning down a PROPOSAL is a state instead
+     */
+    async deletePersonaStoryBeat(id: string, storyId: string, beatId: string): Promise<PersonaStoryList> {
+        const result = await this.fetch(
+            `/personas/${encodeURIComponent(id)}/stories/${encodeURIComponent(storyId)}/beats/${encodeURIComponent(beatId)}`,
+            { method: 'DELETE' },
+        );
+        return await parseJson<PersonaStoryList>(result);
+    }
+
+    /**
+     * @name Set persona story beat state
+     * @description Accepts a proposed part, or turns it down without losing that it was turned down
+     */
+    async setPersonaStoryBeatState(id: string, storyId: string, beatId: string, body: PersonaStoryState): Promise<PersonaStoryList> {
+        const result = await this.fetch(
+            `/personas/${encodeURIComponent(id)}/stories/${encodeURIComponent(storyId)}/beats/${encodeURIComponent(beatId)}/state`,
+            {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body, bigIntReplacer),
+            },
+        );
+        return await parseJson<PersonaStoryList>(result);
+    }
+
+    /**
+     * @name Read persona memory
+     * @description What this character has told, newest first. The timeline a moment is picked from
+     */
+    async readPersonaMemory(id: string): Promise<PersonaMemoryTimeline> {
+        const result = await this.fetch(`/personas/${encodeURIComponent(id)}/memory`, { method: 'GET' });
+        return await parseJson<PersonaMemoryTimeline>(result);
+    }
+
+    /**
+     * @name Preview persona memory rollback
+     * @description What rolling back to a moment would undo, without undoing it
+     */
+    async previewPersonaMemoryRollback(id: string, query?: { to?: string }): Promise<PersonaMemoryChange> {
+        const qs = buildQueryString(query);
+        const result = await this.fetch(`/personas/${encodeURIComponent(id)}/memory/preview${qs}`, {
+            method: 'GET',
+        });
+        return await parseJson<PersonaMemoryChange>(result);
+    }
+
+    /**
+     * @name Roll back persona memory
+     * @description Undo it. Everything the station accrued after that moment goes; everything an operator wrote stays
+     */
+    async rollBackPersonaMemory(id: string, body: PersonaMemoryRollback): Promise<PersonaMemory> {
+        const result = await this.fetch(`/personas/${encodeURIComponent(id)}/memory/rollback`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<PersonaMemory>(result);
     }
 }

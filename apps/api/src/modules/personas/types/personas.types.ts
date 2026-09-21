@@ -70,6 +70,12 @@ export const Persona = z.strictObject({
         .describe(
             'How readily this character works one of its own stories into an ordinary talk break. Absent is `occasionally`, which offers one only where the station knows nothing about the records either side. The stories themselves are their own list, and a `story` band on the clock outranks this whatever it says',
         ),
+    growth: z
+        .enum(['proposes', 'self-directed'])
+        .optional()
+        .describe(
+            'Whether the nightly passes may write this character new material outright, or only ever propose it for you to accept. Absent is `proposes`, which is what every character does until somebody says otherwise. It reaches no prompt: the character is never told which it is',
+        ),
     samples: z.array(z.string().min(1).max(500)).optional().describe('Lines in their own voice, used as examples and as a console preview'),
     templates: z.string().max(20000).optional().describe("This character's own break phrasings, one per line. Empty means the station's global ones"),
     defaultHost: z
@@ -150,6 +156,12 @@ export const PersonaInput = z.strictObject({
         .describe(
             'How readily this character works one of its own stories into an ordinary talk break. Absent is `occasionally`, which offers one only where the station knows nothing about the records either side. The stories themselves are their own list, and a `story` band on the clock outranks this whatever it says',
         ),
+    growth: z
+        .enum(['proposes', 'self-directed'])
+        .optional()
+        .describe(
+            'Whether the nightly passes may write this character new material outright, or only ever propose it for you to accept. Absent is `proposes`, which is what every character does until somebody says otherwise. It reaches no prompt: the character is never told which it is',
+        ),
     samples: z.array(z.string().min(1).max(500)).optional().describe('Lines in their own voice, used as examples and as a console preview'),
     templates: z.string().max(20000).optional().describe("This character's own break phrasings, one per line. Empty means the station's global ones"),
 });
@@ -157,7 +169,7 @@ export type PersonaInput = z.infer<typeof PersonaInput>;
 
 /**
  * A description of a character, in the operator's own words
- * generated from [PersonaRequest](../../../../data/contracts/personas/personas.types.ck#L39)
+ * generated from [PersonaRequest](../../../../data/contracts/personas/personas.types.ck#L40)
  */
 export const PersonaRequest = z.strictObject({
     description: z.string().min(1).max(2000),
@@ -168,7 +180,7 @@ export type PersonaRequest = z.infer<typeof PersonaRequest>;
  * A persona as a form's contents rather than a row: no id and not on air, because nothing has been
  * saved. The console opens this in the editor and the operator saves it through POST /personas, which
  * is what keeps generating a way of filling in the form rather than a second writer of the table
- * generated from [PersonaDraftView](../../../../data/contracts/personas/personas.types.ck#L46)
+ * generated from [PersonaDraftView](../../../../data/contracts/personas/personas.types.ck#L47)
  */
 export const PersonaDraftView = z.strictObject({
     key: z.string().min(1).max(100),
@@ -198,7 +210,7 @@ export type PersonaDraftView = z.infer<typeof PersonaDraftView>;
  * different claims: `said` records something it actually put on air and carries the script as its
  * evidence, so it is a record and goes straight into use; `trait` infers who the character is
  * becoming, which nothing can verify, so a model's arrives `suggested` and the operator is the check
- * generated from [PersonaNote](../../../../data/contracts/personas/personas.types.ck#L80)
+ * generated from [PersonaNote](../../../../data/contracts/personas/personas.types.ck#L81)
  */
 export const PersonaNote = z.strictObject({
     id: z.string().min(1).max(100),
@@ -241,7 +253,7 @@ export type PersonaNoteInput = z.infer<typeof PersonaNoteInput>;
 
 /**
  * A note an operator is writing by hand. Always active and always theirs; a proposal is something only the distil pass creates
- * generated from [PersonaNoteWrite](../../../../data/contracts/personas/personas.types.ck#L97)
+ * generated from [PersonaNoteWrite](../../../../data/contracts/personas/personas.types.ck#L98)
  */
 export const PersonaNoteWrite = z.strictObject({
     kind: z.enum(['said', 'trait']),
@@ -251,7 +263,7 @@ export type PersonaNoteWrite = z.infer<typeof PersonaNoteWrite>;
 
 /**
  * Accepting a proposal, turning one down, or taking a note out of use without losing it
- * generated from [PersonaNoteState](../../../../data/contracts/personas/personas.types.ck#L102)
+ * generated from [PersonaNoteState](../../../../data/contracts/personas/personas.types.ck#L103)
  */
 export const PersonaNoteState = z.strictObject({
     state: z.enum(['active', 'suggested', 'rejected']),
@@ -260,7 +272,7 @@ export type PersonaNoteState = z.infer<typeof PersonaNoteState>;
 
 /**
  * One thing a story has picked up since it was written. A row rather than a rewrite, so an invented clause can be turned down without losing the story
- * generated from [PersonaStoryDetail](../../../../data/contracts/personas/personas.types.ck#L123)
+ * generated from [PersonaStoryDetail](../../../../data/contracts/personas/personas.types.ck#L126)
  */
 export const PersonaStoryDetail = z.strictObject({
     id: z.string().min(1).max(100),
@@ -279,17 +291,57 @@ export type PersonaStoryDetailInput = z.infer<typeof PersonaStoryDetailInput>;
 
 /**
  * A story an operator is writing by hand. Always active and always theirs; a proposal is something only the enrichment pass creates
- * generated from [PersonaStoryWrite](../../../../data/contracts/personas/personas.types.ck#L137)
+ * generated from [PersonaStoryWrite](../../../../data/contracts/personas/personas.types.ck#L140)
  */
 export const PersonaStoryWrite = z.strictObject({
     title: z.string().min(1).max(200),
     story: z.string().min(1).max(4000),
+    kind: z
+        .enum(['anecdote', 'arc', 'bit'])
+        .optional()
+        .describe('What sort of thing this is. Absent means `anecdote`, which is what every story written before arcs existed is'),
 });
 export type PersonaStoryWrite = z.infer<typeof PersonaStoryWrite>;
 
 /**
+ * One part of an arc, in the order it is told. A SCRIPT rather than a summary, because the floor speaks it as it stands
+ * generated from [PersonaStoryBeat](../../../../data/contracts/personas/personas.types.ck#L146)
+ */
+export const PersonaStoryBeat = z.strictObject({
+    id: z.string().min(1).max(100),
+    storyId: z.string().min(1).max(100),
+    ordinal: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
+        .describe('Where it comes in the telling. Gaps are legal: inserting a part between two others must not mean renumbering the rest'),
+    beat: z.string().min(1).max(4000),
+    state: z.enum(['active', 'suggested', 'rejected']),
+    origin: z.enum(['operator', 'model']),
+    source: z.string().max(1000).optional().describe("Where a proposal came from. Not evidence; see the note on a story's own source"),
+    createdAt: z.string().min(1).max(40),
+});
+export type PersonaStoryBeat = z.infer<typeof PersonaStoryBeat>;
+
+export const PersonaStoryBeatInput = z.strictObject({
+    ordinal: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
+        .describe('Where it comes in the telling. Gaps are legal: inserting a part between two others must not mean renumbering the rest'),
+    beat: z.string().min(1).max(4000),
+});
+export type PersonaStoryBeatInput = z.infer<typeof PersonaStoryBeatInput>;
+
+/**
+ * A part to add to an arc, or an edit to one
+ * generated from [PersonaStoryBeatWrite](../../../../data/contracts/personas/personas.types.ck#L157)
+ */
+export const PersonaStoryBeatWrite = z.strictObject({
+    ordinal: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)),
+    beat: z.string().min(1).max(4000),
+});
+export type PersonaStoryBeatWrite = z.infer<typeof PersonaStoryBeatWrite>;
+
+/**
  * One thing to add to a story that already exists
- * generated from [PersonaStoryDetailWrite](../../../../data/contracts/personas/personas.types.ck#L142)
+ * generated from [PersonaStoryDetailWrite](../../../../data/contracts/personas/personas.types.ck#L162)
  */
 export const PersonaStoryDetailWrite = z.strictObject({
     detail: z.string().min(1).max(1000),
@@ -298,7 +350,7 @@ export type PersonaStoryDetailWrite = z.infer<typeof PersonaStoryDetailWrite>;
 
 /**
  * Accepting a proposal, turning one down, or taking a story out of the rotation without losing it
- * generated from [PersonaStoryState](../../../../data/contracts/personas/personas.types.ck#L146)
+ * generated from [PersonaStoryState](../../../../data/contracts/personas/personas.types.ck#L166)
  */
 export const PersonaStoryState = z.strictObject({
     state: z.enum(['active', 'suggested', 'rejected']),
@@ -306,8 +358,19 @@ export const PersonaStoryState = z.strictObject({
 export type PersonaStoryState = z.infer<typeof PersonaStoryState>;
 
 /**
+ * One part of an arc, as a file carries it. No `origin` and no `source`, for the story's own reason
+ * generated from [PersonaFileStoryBeat](../../../../data/contracts/personas/personas.types.ck#L202)
+ */
+export const PersonaFileStoryBeat = z.strictObject({
+    ordinal: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)),
+    beat: z.string().min(1).max(4000),
+    state: z.enum(['active', 'rejected']).optional().describe("Absent means `active`, exactly as a story's does"),
+});
+export type PersonaFileStoryBeat = z.infer<typeof PersonaFileStoryBeat>;
+
+/**
  * One thing a story picked up after it was written, carried the same way and for the same reasons
- * generated from [PersonaFileStoryDetail](../../../../data/contracts/personas/personas.types.ck#L179)
+ * generated from [PersonaFileStoryDetail](../../../../data/contracts/personas/personas.types.ck#L208)
  */
 export const PersonaFileStoryDetail = z.strictObject({
     detail: z.string().min(1).max(1000),
@@ -319,7 +382,7 @@ export type PersonaFileStoryDetail = z.infer<typeof PersonaFileStoryDetail>;
  * Something to know before pressing Import. Not a refusal: every one of these describes a state the
  * station can be in perfectly well, and the point of saying it is that each one is otherwise
  * discovered by putting the character on air
- * generated from [PersonaImportNotice](../../../../data/contracts/personas/personas.types.ck#L227)
+ * generated from [PersonaImportNotice](../../../../data/contracts/personas/personas.types.ck#L256)
  */
 export const PersonaImportNotice = z.strictObject({
     kind: z
@@ -336,7 +399,7 @@ export type PersonaImportNoticeInput = z.infer<typeof PersonaImportNoticeInput>;
  * One writer's turn at a rehearsal. Every writer asked is reported and not only the one that won: a
  * model that declined and a floor that covered for it are two facts, and the second on its own reads
  * as a station that never had a model configured
- * generated from [PersonaRehearsalAttempt](../../../../data/contracts/personas/personas.types.ck#L244)
+ * generated from [PersonaRehearsalAttempt](../../../../data/contracts/personas/personas.types.ck#L273)
  */
 export const PersonaRehearsalAttempt = z.strictObject({
     writer: z.string().min(1).max(100).describe('Which binding was asked, as `segments.writer` would record it'),
@@ -355,7 +418,7 @@ export type PersonaRehearsalAttempt = z.infer<typeof PersonaRehearsalAttempt>;
  * What an operator asks for when they put a character through a playlist. The playlist is READ at the
  * moment of asking and its records are stored on the run, so a list edited at the provider afterwards
  * does not change what was measured
- * generated from [PersonaAuditionRequest](../../../../data/contracts/personas/personas.types.ck#L266)
+ * generated from [PersonaAuditionRequest](../../../../data/contracts/personas/personas.types.ck#L295)
  */
 export const PersonaAuditionRequest = z.strictObject({
     pluginId: z.string().min(1).max(200).describe('Which catalog plugin the playlist belongs to'),
@@ -377,7 +440,7 @@ export type PersonaAuditionRequest = z.infer<typeof PersonaAuditionRequest>;
 /**
  * Where the records came from. A snapshot of the name rather than a reference, so a playlist renamed
  * or deleted at the provider leaves a finished audition readable
- * generated from [PersonaAuditionSource](../../../../data/contracts/personas/personas.types.ck#L275)
+ * generated from [PersonaAuditionSource](../../../../data/contracts/personas/personas.types.ck#L304)
  */
 export const PersonaAuditionSource = z.strictObject({
     pluginId: z.string().min(1).max(200),
@@ -388,7 +451,7 @@ export type PersonaAuditionSource = z.infer<typeof PersonaAuditionSource>;
 
 /**
  * One record, exactly as the writers were shown it
- * generated from [PersonaAuditionRecord](../../../../data/contracts/personas/personas.types.ck#L282)
+ * generated from [PersonaAuditionRecord](../../../../data/contracts/personas/personas.types.ck#L311)
  */
 export const PersonaAuditionRecord = z.strictObject({
     title: z.string().min(1).max(500),
@@ -401,7 +464,84 @@ export const PersonaAuditionRecord = z.strictObject({
 export type PersonaAuditionRecord = z.infer<typeof PersonaAuditionRecord>;
 
 /**
- * generated from [PersonaList](../../../../data/contracts/personas/personas.types.ck#L34)
+ * One time a character actually told one of its own stories. What the timeline lists, and what a
+ * rollback is chosen from: the moment on each row is the exact string the station compares against,
+ * not a rounding of it
+ * generated from [PersonaTelling](../../../../data/contracts/personas/personas.types.ck#L361)
+ */
+export const PersonaTelling = z.strictObject({
+    id: z.string().min(1).max(100),
+    storyId: z.string().min(1).max(100),
+    title: z.string().min(1).max(200).describe('The handle of the story this told, so a timeline reads as something rather than as ids'),
+    source: z
+        .enum(['break', 'production', 'backfill'])
+        .describe('What wrote it. `backfill` is the rows migration 0034 reconstructed from the two columns it replaced'),
+    mode: z
+        .enum(['offered', 'told'])
+        .describe('Whether the story was handed over as something the writer MAY use, or as the thing the break was for'),
+    told: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .describe('Whether it actually went out, as the WRITER read its own answer back. An offered story may simply be ignored'),
+    said: z.string().max(2000).optional().describe('The words that carried it, kept here because the script history they came from is swept nightly'),
+    segmentId: z.string().max(100).optional().describe('The break that carried it, while that row still exists'),
+    airedAt: z
+        .string()
+        .max(40)
+        .optional()
+        .describe('When a listener could first have heard it. Absent means written but not yet aired, or never aired at all'),
+    at: z.string().min(1).max(40).describe('When it was written. Hand this back as `to` to roll back to just before it'),
+});
+export type PersonaTelling = z.infer<typeof PersonaTelling>;
+
+export const PersonaTellingInput = z.strictObject({});
+export type PersonaTellingInput = z.infer<typeof PersonaTellingInput>;
+
+/**
+ * What a rollback would undo, or did. Counted with the same predicates the delete uses, so a preview
+ * cannot promise one thing and do another
+ * generated from [PersonaMemoryChange](../../../../data/contracts/personas/personas.types.ck#L381)
+ */
+export const PersonaMemoryChange = z.strictObject({
+    tellings: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
+        .describe(
+            'Tellings forgotten. Every one, whatever wrote it: a telling is a record of something the station did rather than a claim somebody made',
+        ),
+    notes: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
+        .describe('Notes the distil pass wrote. Nothing an operator typed is ever counted here or deleted'),
+    stories: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
+        .describe('Stories the enrichment pass proposed'),
+    details: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
+        .describe('Details it proposed. A floor rather than a total: a story that is itself going takes every detail hung on it'),
+    rejected: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
+        .describe('How many of the above were proposals somebody turned down. Deleting one lets the nightly pass offer it again'),
+    touched: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
+        .describe('How many the operator had since accepted or edited. They still go, and this is the one loss they did not cause'),
+});
+export type PersonaMemoryChange = z.infer<typeof PersonaMemoryChange>;
+
+/**
+ * Undo what this character accumulated on its own
+ * generated from [PersonaMemoryRollback](../../../../data/contracts/personas/personas.types.ck#L390)
+ */
+export const PersonaMemoryRollback = z.strictObject({
+    to: z.string().max(40).optional().describe('The moment to go back to, as a timeline row reports it. Absent means all of it, which is a reset'),
+    relearn: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .optional()
+        .describe(
+            "Also drag the distil pass's watermark back, so it reads that window again. Right for testing and wrong for undoing a character that drifted, so it is asked for rather than assumed",
+        ),
+});
+export type PersonaMemoryRollback = z.infer<typeof PersonaMemoryRollback>;
+
+/**
+ * generated from [PersonaList](../../../../data/contracts/personas/personas.types.ck#L35)
  */
 export const PersonaList = z.strictObject({
     personas: z.array(Persona),
@@ -415,7 +555,7 @@ export type PersonaListInput = z.infer<typeof PersonaListInput>;
 
 /**
  * One character's whole notebook, oldest first, in every state
- * generated from [PersonaNoteList](../../../../data/contracts/personas/personas.types.ck#L92)
+ * generated from [PersonaNoteList](../../../../data/contracts/personas/personas.types.ck#L93)
  */
 export const PersonaNoteList = z.strictObject({
     personaId: z.string().min(1).max(100),
@@ -430,47 +570,8 @@ export const PersonaNoteListInput = z.strictObject({
 export type PersonaNoteListInput = z.infer<typeof PersonaNoteListInput>;
 
 /**
- * Something that happened to this character, in its own telling. Not a claim about the world and never
- * checked as one: `source` says where a proposal came from, for the operator reading it, and nothing
- * downstream reads it as evidence — see `persona.story.ts` for why that is the load-bearing difference
- * from a fact
- * generated from [PersonaStory](../../../../data/contracts/personas/personas.types.ck#L110)
- */
-export const PersonaStory = z.strictObject({
-    id: z.string().min(1).max(100),
-    title: z.string().min(1).max(200).describe('A short handle. Never spoken; what this list is read by and what a proposal names'),
-    story: z
-        .string()
-        .min(1)
-        .max(4000)
-        .describe("The telling itself, in the character's voice. Already speakable, because the floor reads it as it stands"),
-    state: z
-        .enum(['active', 'suggested', 'rejected'])
-        .describe('`active` can be told. `rejected` outlives the pass that proposed it, or the same catalogue proposes it forever'),
-    origin: z.enum(['operator', 'model']).describe('Who says so. `model` is the enrichment pass writing from what the station already holds'),
-    source: z.string().max(1000).optional().describe("Where a proposal came from, in the station's own words. Absent for anything an operator wrote"),
-    details: z.array(PersonaStoryDetail).describe('What it has picked up since, in every state'),
-    lastToldAt: z.string().max(40).optional().describe('Absent means never told, which is what puts it at the front of the rotation'),
-    timesTold: z
-        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
-        .describe('How often it has gone out, which changes how the model is asked to tell it'),
-    createdAt: z.string().min(1).max(40),
-});
-export type PersonaStory = z.infer<typeof PersonaStory>;
-
-export const PersonaStoryInput = z.strictObject({
-    title: z.string().min(1).max(200).describe('A short handle. Never spoken; what this list is read by and what a proposal names'),
-    story: z
-        .string()
-        .min(1)
-        .max(4000)
-        .describe("The telling itself, in the character's voice. Already speakable, because the floor reads it as it stands"),
-});
-export type PersonaStoryInput = z.infer<typeof PersonaStoryInput>;
-
-/**
  * What a model wrote, and what had to be dropped to make it usable
- * generated from [GeneratedPersona](../../../../data/contracts/personas/personas.types.ck#L69)
+ * generated from [GeneratedPersona](../../../../data/contracts/personas/personas.types.ck#L70)
  */
 export const GeneratedPersona = z.strictObject({
     persona: PersonaDraftView,
@@ -493,15 +594,64 @@ export const GeneratedPersona = z.strictObject({
 export type GeneratedPersona = z.infer<typeof GeneratedPersona>;
 
 /**
+ * Something that happened to this character, in its own telling. Not a claim about the world and never
+ * checked as one: `source` says where a proposal came from, for the operator reading it, and nothing
+ * downstream reads it as evidence — see `persona.story.ts` for why that is the load-bearing difference
+ * from a fact
+ * generated from [PersonaStory](../../../../data/contracts/personas/personas.types.ck#L111)
+ */
+export const PersonaStory = z.strictObject({
+    id: z.string().min(1).max(100),
+    title: z.string().min(1).max(200).describe('A short handle. Never spoken; what this list is read by and what a proposal names'),
+    story: z
+        .string()
+        .min(1)
+        .max(4000)
+        .describe("The telling itself, in the character's voice. Already speakable, because the floor reads it as it stands"),
+    state: z
+        .enum(['active', 'suggested', 'rejected'])
+        .describe('`active` can be told. `rejected` outlives the pass that proposed it, or the same catalogue proposes it forever'),
+    origin: z.enum(['operator', 'model']).describe('Who says so. `model` is the enrichment pass writing from what the station already holds'),
+    source: z.string().max(1000).optional().describe("Where a proposal came from, in the station's own words. Absent for anything an operator wrote"),
+    kind: z
+        .enum(['anecdote', 'arc', 'bit'])
+        .describe('An `anecdote` is told whole, an `arc` a part at a time, a `bit` is a running joke with no end'),
+    details: z.array(PersonaStoryDetail).describe('What it has picked up since, in every state'),
+    beats: z.array(PersonaStoryBeat).describe('The parts an arc is told in, in order and in every state. Empty for the other two kinds'),
+    lastToldAt: z.string().max(40).optional().describe('Absent means never told, which is what puts it at the front of the rotation'),
+    timesTold: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
+        .describe('How often it has gone out, which changes how the model is asked to tell it'),
+    createdAt: z.string().min(1).max(40),
+});
+export type PersonaStory = z.infer<typeof PersonaStory>;
+
+export const PersonaStoryInput = z.strictObject({
+    title: z.string().min(1).max(200).describe('A short handle. Never spoken; what this list is read by and what a proposal names'),
+    story: z
+        .string()
+        .min(1)
+        .max(4000)
+        .describe("The telling itself, in the character's voice. Already speakable, because the floor reads it as it stands"),
+});
+export type PersonaStoryInput = z.infer<typeof PersonaStoryInput>;
+
+/**
  * Something that happened to this character, as a file carries it. No `origin` and no `source`,
  * unlike the stored row: whoever exported this stood behind every story in it, so on the far side
  * they are the receiving operator's own, and a sentence about where a proposal came from names a
  * catalogue that station does not have
- * generated from [PersonaFileStory](../../../../data/contracts/personas/personas.types.ck#L172)
+ * generated from [PersonaFileStory](../../../../data/contracts/personas/personas.types.ck#L192)
  */
 export const PersonaFileStory = z.strictObject({
     title: z.string().min(1).max(200),
     story: z.string().min(1).max(4000),
+    kind: z
+        .enum(['anecdote', 'arc', 'bit'])
+        .optional()
+        .describe(
+            'Absent means `anecdote`. What sort of thing this is travels because it is part of what the story IS, not part of what this station has done with it',
+        ),
     state: z
         .enum(['active', 'rejected'])
         .optional()
@@ -509,12 +659,13 @@ export const PersonaFileStory = z.strictObject({
             'Absent means `active`. A turned-down story travels so the enrichment pass does not propose it again on the far side; an undecided one does not travel at all, because nobody has decided it yet',
         ),
     details: z.array(PersonaFileStoryDetail),
+    beats: z.array(PersonaFileStoryBeat).describe('The parts an arc is told in, in order. Empty for the other two kinds'),
 });
 export type PersonaFileStory = z.infer<typeof PersonaFileStory>;
 
 /**
  * One character in a file, and what would become of it here
- * generated from [PersonaImportEntry](../../../../data/contracts/personas/personas.types.ck#L198)
+ * generated from [PersonaImportEntry](../../../../data/contracts/personas/personas.types.ck#L227)
  */
 export const PersonaImportEntry = z.strictObject({
     key: z.string().min(1).max(100).describe('What identifies this character across two installs'),
@@ -540,7 +691,7 @@ export type PersonaImportEntryInput = z.infer<typeof PersonaImportEntryInput>;
 
 /**
  * What a persona says when it is asked for a break it will never air
- * generated from [PersonaRehearsal](../../../../data/contracts/personas/personas.types.ck#L253)
+ * generated from [PersonaRehearsal](../../../../data/contracts/personas/personas.types.ck#L282)
  */
 export const PersonaRehearsal = z.strictObject({
     personaId: z.string().min(1).max(100),
@@ -559,7 +710,7 @@ export type PersonaRehearsal = z.infer<typeof PersonaRehearsal>;
 
 /**
  * A run of one character over one playlist, without its breaks: what a list draws
- * generated from [PersonaAuditionSummary](../../../../data/contracts/personas/personas.types.ck#L305)
+ * generated from [PersonaAuditionSummary](../../../../data/contracts/personas/personas.types.ck#L335)
  */
 export const PersonaAuditionSummary = z.strictObject({
     id: z.string().min(1).max(100),
@@ -584,7 +735,7 @@ export type PersonaAuditionSummary = z.infer<typeof PersonaAuditionSummary>;
  * One transition, and everything the writers said about it. Every writer asked is reported and not
  * only the one that won, on the rehearsal's own argument: a model that declined and a floor that
  * covered for it are two facts
- * generated from [PersonaAuditionBreak](../../../../data/contracts/personas/personas.types.ck#L294)
+ * generated from [PersonaAuditionBreak](../../../../data/contracts/personas/personas.types.ck#L323)
  */
 export const PersonaAuditionBreak = z.strictObject({
     ordinal: z
@@ -596,12 +747,52 @@ export const PersonaAuditionBreak = z.strictObject({
     script: z.string().max(5000).optional().describe('The words a listener would have heard, from whichever writer answered first'),
     writer: z.string().min(1).max(100).optional().describe('Which one that was. Present exactly when `script` is'),
     reason: z.string().max(1000).optional().describe('Why there are none, when every writer had nothing. On air this break is skipped'),
+    told: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .optional()
+        .describe(
+            "Whether the writer's read-back found the story this break was handed. Absent means it carried none, which is most of them. On air this is what decides whether a story in parts owes the next one, so a run is how you check the reading is right before trusting an arc to it",
+        ),
 });
 export type PersonaAuditionBreak = z.infer<typeof PersonaAuditionBreak>;
 
 /**
+ * What one character has told, newest first
+ * generated from [PersonaMemoryTimeline](../../../../data/contracts/personas/personas.types.ck#L374)
+ */
+export const PersonaMemoryTimeline = z.strictObject({
+    personaId: z.string().min(1).max(100),
+    tellings: z.array(PersonaTelling),
+});
+export type PersonaMemoryTimeline = z.infer<typeof PersonaMemoryTimeline>;
+
+export const PersonaMemoryTimelineInput = z.strictObject({
+    personaId: z.string().min(1).max(100),
+    tellings: z.array(PersonaTellingInput),
+});
+export type PersonaMemoryTimelineInput = z.infer<typeof PersonaMemoryTimelineInput>;
+
+/**
+ * What was undone, and where the timeline stands now
+ * generated from [PersonaMemory](../../../../data/contracts/personas/personas.types.ck#L395)
+ */
+export const PersonaMemory = z.strictObject({
+    personaId: z.string().min(1).max(100),
+    undone: PersonaMemoryChange,
+    tellings: z.array(PersonaTelling),
+});
+export type PersonaMemory = z.infer<typeof PersonaMemory>;
+
+export const PersonaMemoryInput = z.strictObject({
+    personaId: z.string().min(1).max(100),
+    undone: PersonaMemoryChange,
+    tellings: z.array(PersonaTellingInput),
+});
+export type PersonaMemoryInput = z.infer<typeof PersonaMemoryInput>;
+
+/**
  * Every story one character holds, oldest first, in every state
- * generated from [PersonaStoryList](../../../../data/contracts/personas/personas.types.ck#L132)
+ * generated from [PersonaStoryList](../../../../data/contracts/personas/personas.types.ck#L135)
  */
 export const PersonaStoryList = z.strictObject({
     personaId: z.string().min(1).max(100),
@@ -619,7 +810,7 @@ export type PersonaStoryListInput = z.infer<typeof PersonaStoryListInput>;
  * One character in a file. `PersonaDraftView` is the sheet with no id and not on air, which is
  * exactly what travels, plus the two fields a model is deliberately not asked for and a real install
  * always knows: what the character is FOR, and which rack it has to hand
- * generated from [PersonaFilePersona](../../../../data/contracts/personas/personas.types.ck#L162)
+ * generated from [PersonaFilePersona](../../../../data/contracts/personas/personas.types.ck#L182)
  */
 export const PersonaFilePersona = PersonaDraftView.extend({
     kind: z.enum(['host', 'caller']).optional().describe('Absent means `host`, as everywhere else'),
@@ -640,7 +831,7 @@ export type PersonaFilePersona = z.infer<typeof PersonaFilePersona>;
  * The same code the import itself runs, so what this reports is what will happen rather than a second
  * opinion about it. It answers two questions an operator cannot get from the file alone: which
  * characters are new here and which would be rewritten, and what this station cannot honour about them
- * generated from [PersonaImportPlan](../../../../data/contracts/personas/personas.types.ck#L189)
+ * generated from [PersonaImportPlan](../../../../data/contracts/personas/personas.types.ck#L218)
  */
 export const PersonaImportPlan = z.strictObject({
     format: z
@@ -661,7 +852,7 @@ export const PersonaImportPlanInput = z.strictObject({});
 export type PersonaImportPlanInput = z.infer<typeof PersonaImportPlanInput>;
 
 /**
- * generated from [PersonaAuditionList](../../../../data/contracts/personas/personas.types.ck#L324)
+ * generated from [PersonaAuditionList](../../../../data/contracts/personas/personas.types.ck#L354)
  */
 export const PersonaAuditionList = z.strictObject({
     auditions: z.array(PersonaAuditionSummary),
@@ -670,7 +861,7 @@ export type PersonaAuditionList = z.infer<typeof PersonaAuditionList>;
 
 /**
  * The same run with every break it has written so far, in order
- * generated from [PersonaAudition](../../../../data/contracts/personas/personas.types.ck#L320)
+ * generated from [PersonaAudition](../../../../data/contracts/personas/personas.types.ck#L350)
  */
 export const PersonaAudition = PersonaAuditionSummary.extend({
     breaks: z.array(PersonaAuditionBreak),
@@ -680,7 +871,7 @@ export type PersonaAudition = z.infer<typeof PersonaAudition>;
 /**
  * A character as a file: everything somebody would have to send to put this presenter on another
  * station, and nothing that belongs to the station it came from
- * generated from [PersonaFile](../../../../data/contracts/personas/personas.types.ck#L152)
+ * generated from [PersonaFile](../../../../data/contracts/personas/personas.types.ck#L172)
  */
 export const PersonaFile = z.strictObject({
     format: z
@@ -708,7 +899,7 @@ export type PersonaFile = z.infer<typeof PersonaFile>;
  * All or nothing: a file whose import failed part-way leaves the station exactly as it was, on
  * `PUT /settings`' own rule. The preview is what stands between an operator and a surprise, so a
  * partial landing would be the one outcome nothing had described
- * generated from [PersonaImportResult](../../../../data/contracts/personas/personas.types.ck#L215)
+ * generated from [PersonaImportResult](../../../../data/contracts/personas/personas.types.ck#L244)
  */
 export const PersonaImportResult = z.strictObject({
     plan: PersonaImportPlan.describe('What it decided to do, notices and all, so the answer carries its own explanation'),

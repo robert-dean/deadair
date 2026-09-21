@@ -245,6 +245,87 @@ export class PersonaNotesRepository extends DataRepository {
             .execute();
     }
 
+    /**
+     * What a rollback to this moment would take out of the notebook, and what it would unsettle.
+     *
+     * Counted with the same predicates {@link rollbackAfter} deletes with, so a preview cannot
+     * promise one thing and do another. `to` is the column's own text — see {@link readThrough} for
+     * why a `DateTime` here reads as earlier than the row it came from.
+     */
+    async countAfter(personaKey: string, to: string): Promise<{ notes: number; rejected: number; touched: number }> {
+        const row = await this.db
+            .selectFrom('deadair.personaNotes')
+            .select([
+                sql<string>`count(*)`.as('notes'),
+                // Rows kept ONLY so the nightly pass stops re-proposing them. Deleting one is
+                // honest — it never happened — but the pass may well write it again, and an
+                // operator who turned it down deserves to be told that before it reappears.
+                sql<string>`count(*) filter (where state = 'rejected')`.as('rejected'),
+                // A proposal an operator has since accepted or edited. It still goes, because it is
+                // the station's row, but it is the one kind of loss they did not cause.
+                sql<string>`count(*) filter (where updated_at > created_at)`.as('touched'),
+            ])
+            .where('stationKey', '=', this.station.stationKey)
+            .where('personaKey', '=', personaKey)
+            .where('origin', '=', 'model')
+            .where(sql<boolean>`created_at > ${to}::timestamptz`)
+            .executeTakeFirstOrThrow();
+
+        return { notes: Number(row.notes), rejected: Number(row.rejected), touched: Number(row.touched) };
+    }
+
+    /**
+     * Undo what the STATION accrued in this notebook after a moment, and nothing an operator wrote.
+     *
+     * Two statements, and the second is not optional. Deleting the rows the pass wrote is only half
+     * of "put this character back": a note written long before `to` that has been CARRIED since
+     * still holds a `last_used_at` from after it, and leaving that stamp means the rotation resumes
+     * where the rolled-back station left off rather than where it actually stood.
+     *
+     * `origin = 'operator'` rows are never touched, which is the whole shape of this feature: an
+     * operator is undoing the station's work, not their own.
+     */
+    async rollbackAfter(personaKey: string, to: string): Promise<number> {
+        const removed = await this.db
+            .deleteFrom('deadair.personaNotes')
+            .where('stationKey', '=', this.station.stationKey)
+            .where('personaKey', '=', personaKey)
+            .where('origin', '=', 'model')
+            .where(sql<boolean>`created_at > ${to}::timestamptz`)
+            .executeTakeFirst();
+
+        await this.db
+            .updateTable('deadair.personaNotes')
+            .set({ lastUsedAt: null })
+            .where('stationKey', '=', this.station.stationKey)
+            .where('personaKey', '=', personaKey)
+            .where(sql<boolean>`last_used_at > ${to}::timestamptz`)
+            .execute();
+
+        return Number(removed.numDeletedRows);
+    }
+
+    /**
+     * Drag the distil watermark BACK, so the pass reads that window again.
+     *
+     * Deliberately not {@link markRead}, which is `greatest(...)` and cannot go backwards — that
+     * guard is right for two passes racing and wrong for an operator who has just deleted what a
+     * pass concluded. This is the only writer allowed to move it down, and it is asked for
+     * explicitly: re-learning is right for testing and wrong for "this character drifted, undo it",
+     * so nothing here decides which of those an operator meant.
+     *
+     * `least` rather than a bare set, so rolling back to a moment the pass had not yet reached does
+     * not accidentally move the watermark FORWARD and skip scripts nothing has read.
+     */
+    async pullReadThrough(personaKey: string, to: string): Promise<void> {
+        await this.db
+            .updateTable('deadair.personaNotePasses')
+            .set({ readThrough: sql`least(read_through, ${to}::timestamptz)` as never })
+            .where('stationKey', '=', this.station.stationKey)
+            .where('personaKey', '=', personaKey)
+            .execute();
+    }
+
     private async chooseKind(personaKey: string, kind: PersonaNoteKind): Promise<{ id: string; note: string }[]> {
         return await this.db
             .selectFrom('deadair.personaNotes')

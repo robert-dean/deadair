@@ -562,7 +562,7 @@ describe('ModelTalkBreakWriter and a reading it was offered', () => {
     });
 
     it('permits the figure it was given', async () => {
-        const { writer } = build({ answer: "26 degrees and not a cloud. Pink Moon, and I am not moving." });
+        const { writer } = build({ answer: '26 degrees and not a cloud. Pink Moon, and I am not moving.' });
 
         const written = await writer.write({ kind: TALK_BREAK_KIND, previous, next, weather, weatherFreshUntil: freshUntil });
 

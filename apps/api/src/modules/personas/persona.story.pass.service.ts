@@ -6,9 +6,12 @@ import { LlmService } from '#modules/llm/llm.service.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
 import { MODEL_PRIORITY, MODEL_WAIT_MS } from './persona.distil.service.js';
+import { ScriptHistoryRepository } from '#modules/render/script.history.repository.js';
 import { PersonaRepository } from './persona.repository.js';
+import { characterFault, growthOf } from './persona.sheet.js';
+import type { Persona } from './persona.js';
 import { PersonaStoriesRepository } from './persona.stories.repository.js';
-import { readProposals, storyPrompt, type ExistingStory } from './persona.story.model.js';
+import { MAX_PROPOSALS, MIN_RECAP_TELLINGS, readProposals, readRecaps, recapPrompt, storyPrompt, type ExistingStory } from './persona.story.model.js';
 
 /**
  * The story pass's settings, keyed like every other model-driven feature.
@@ -37,6 +40,14 @@ export const MODEL_BUDGET_MS = 120_000;
  * past deepen rather than simply lengthen — and which is what the prompt already prefers.
  */
 export const MAX_STORIES_PER_CHARACTER = 12;
+
+/**
+ * How many of a character's recent scripts the pass reads looking for a running thing.
+ *
+ * Enough for a habit to be visible as one — a thing said once is not a bit — and bounded because it
+ * shares a prompt with the shelf and the sheet. The distil pass's `MAX_SCRIPTS` for the same reason.
+ */
+const CORPUS_WINDOW = 40;
 
 /** One pass, for the job's log line and the activity row. */
 export interface StoryPassSummary {
@@ -86,6 +97,9 @@ export class PersonaStoryPassService {
     constructor(
         private readonly personas: PersonaRepository,
         private readonly stories: PersonaStoriesRepository,
+        // What this character has actually said lately, so the pass can notice a running thing
+        // rather than only invent one. See `remember`.
+        private readonly scripts: ScriptHistoryRepository,
         private readonly llm: LlmService,
         private readonly activity: ActivityRecorder,
         private readonly config: AppConfig,
@@ -159,10 +173,7 @@ export class PersonaStoryPassService {
      * unique index over the handle, and the `rejected` state that outlives the pass — plus the
      * existing shelf being in the prompt.
      */
-    private async remember(
-        personaKey: string,
-        persona: { label: string; style: string; diction?: readonly string[]; quirks?: readonly string[]; avoid?: readonly string[] },
-    ): Promise<{ stories: number; details: number } | undefined> {
+    private async remember(personaKey: string, persona: Persona): Promise<{ stories: number; details: number } | undefined> {
         const held = await this.stories.list(personaKey);
         // Turned-down proposals are shown as well as live ones, and deliberately: the unique index
         // would refuse a duplicate handle anyway, so leaving them out would spend a generation
@@ -173,10 +184,21 @@ export class PersonaStoryPassService {
                 title: story.title,
                 story: story.story,
                 details: story.details.filter(detail => detail.state === 'active').map(detail => detail.detail),
+                // An arc is shown as one, with its parts in order, so a proposed beat carries the
+                // story on rather than restating a part it was shown. Only an arc may take one.
+                ...(story.kind === 'arc' ? { arc: true } : {}),
+                ...(story.kind === 'arc' ? { beats: story.beats.filter(beat => beat.state !== 'rejected').map(beat => beat.beat) } : {}),
             }));
 
         const model = this.config.get(PERSONA_STORIES_KEYS.model, '').trim();
         const started = Date.now();
+
+        // What this character has actually said lately, so the pass can NOTICE a running thing
+        // rather than only invent one. A fixed recent window with no watermark, deliberately: the
+        // question is what recurs, and a watermarked read would show each break exactly once and
+        // make recurrence invisible. It is the distil pass's read and inherits its clause — a break
+        // the operator disliked is not evidence of a habit worth keeping.
+        const corpus = (await this.scripts.writtenBy(personaKey, undefined, CORPUS_WINDOW)).map(row => row.script);
 
         const answer = await this.llm.converse(
             {
@@ -189,6 +211,8 @@ export class PersonaStoryPassService {
                         ...(persona.avoid === undefined ? {} : { avoid: persona.avoid }),
                     },
                     existing,
+                    MAX_PROPOSALS,
+                    corpus,
                 ),
                 ...(model.length === 0 ? {} : { model }),
                 reasoningEffort: 'low',
@@ -199,27 +223,51 @@ export class PersonaStoryPassService {
             { budgetMs: MODEL_BUDGET_MS, maxWaitMs: MODEL_WAIT_MS, priority: MODEL_PRIORITY },
         );
 
-        const proposals = readProposals(answer.text, existing);
+        const proposals = readProposals(answer.text, existing, MAX_PROPOSALS, corpus);
         if (proposals.length === 0) {
             this.logger.debug('personas: a model had nothing to remember for this character', { persona: personaKey });
             return undefined;
         }
 
         const full = existing.length >= MAX_STORIES_PER_CHARACTER;
-        const stories = full ? [] : proposals.filter(proposal => proposal.kind === 'story');
+        // A noticed bit and an invented story are written the same way and counted against the same
+        // cap — what differs is the `kind` column and that one of them carried a quote.
+        const stories = full ? [] : proposals.filter(proposal => proposal.kind === 'story' || proposal.kind === 'bit');
         const details = proposals.filter(proposal => proposal.kind === 'detail');
+        const beats = proposals.filter(proposal => proposal.kind === 'beat');
 
-        // `suggested`, all of it, and that is the whole safety property of this pass. See the class
-        // note for why there is nothing here to verify instead.
+        // What state this character's new material arrives in, which is the operator's call and not
+        // the pass's. `proposes` is every station until somebody says otherwise. See `growthOf`.
+        const state = growthOf(persona) === 'self-directed' ? ('active' as const) : ('suggested' as const);
+
+        // `suggested` unless the operator has opted this character out of being asked, which is the
+        // whole safety property of this pass and the one thing the rung above relaxes. See the class
+        // note for why there is nothing here to verify instead, and `guarded` for what still applies
+        // when nobody is going to read it first.
         const wroteStories = await this.stories.addAll(
-            stories.map(proposal => ({
-                personaKey,
-                title: proposal.title,
-                story: proposal.kind === 'story' ? proposal.story : '',
-                state: 'suggested' as const,
-                origin: 'model' as const,
-                ...(proposal.source === undefined ? {} : { source: proposal.source }),
-            })),
+            stories.flatMap(proposal => {
+                const words = proposal.kind === 'story' || proposal.kind === 'bit' ? proposal.story : '';
+                if (!this.guarded(personaKey, persona, words, state)) return [];
+
+                return [
+                    {
+                        personaKey,
+                        title: proposal.title,
+                        story: words,
+                        ...(proposal.kind === 'bit' ? { kind: 'bit' as const } : {}),
+                        state,
+                        origin: 'model' as const,
+                        // The line the pass spotted it in, kept as the source so an operator can see
+                        // what it is being asked about. Still not evidence in `facts`' sense — it
+                        // evidences the HABIT rather than anything the story claims.
+                        ...(proposal.kind === 'bit'
+                            ? { source: `noticed in: "${proposal.quote}"` }
+                            : proposal.source === undefined
+                              ? {}
+                              : { source: proposal.source }),
+                    },
+                ];
+            }),
         );
 
         const byTitle = new Map(held.map(story => [story.title.trim().toLowerCase(), story.id]));
@@ -232,7 +280,29 @@ export class PersonaStoryPassService {
                     {
                         storyId,
                         detail: proposal.detail,
-                        state: 'suggested' as const,
+                        state,
+                        origin: 'model' as const,
+                        ...(proposal.source === undefined ? {} : { source: proposal.source }),
+                    },
+                ];
+            }),
+        );
+
+        const wroteBeats = await this.stories.addBeats(
+            beats.flatMap(proposal => {
+                const storyId = byTitle.get(proposal.title.trim().toLowerCase());
+                if (storyId === undefined || proposal.kind !== 'beat') return [];
+                if (!this.guarded(personaKey, persona, proposal.beat, state)) return [];
+
+                const arc = held.find(story => story.id === storyId);
+                return [
+                    {
+                        storyId,
+                        // Ten past the last, so an operator can always put something between two
+                        // parts without renumbering either. The console numbers by the same rule.
+                        ordinal: (arc?.beats.at(-1)?.ordinal ?? 0) + 10,
+                        beat: proposal.beat,
+                        state,
                         origin: 'model' as const,
                         ...(proposal.source === undefined ? {} : { source: proposal.source }),
                     },
@@ -257,6 +327,83 @@ export class PersonaStoryPassService {
             ...(answer.usage === undefined ? {} : { tokens: answer.usage.totalTokens ?? answer.usage.outputTokens }),
         });
 
-        return { stories: wroteStories, details: wroteDetails };
+        await this.recap(personaKey, model);
+
+        return { stories: wroteStories + wroteBeats, details: wroteDetails };
+    }
+
+    /**
+     * Say where each of this character's running bits has got to.
+     *
+     * A second turn rather than a fourth shape in the proposal answer, because the two ask for
+     * different things: that one invents and this one summarises, and a summariser behind rules
+     * written for an inventor is a summariser invited to embellish. See `recapPrompt`.
+     *
+     * Stored unattended, which nothing else this pass writes is. The argument is that a recap is
+     * DERIVED from tellings the station itself recorded rather than inferred about the character —
+     * the `said` versus `trait` line one table over — and that what it replaces in a prompt is those
+     * same tellings shown raw, so it is strictly less exposure than the thing it displaces.
+     *
+     * Best-effort and last: a pass that proposed good material and could not summarise anything has
+     * still done its job.
+     */
+    private async recap(personaKey: string, model: string): Promise<void> {
+        try {
+            const bits = await this.stories.recappable(personaKey, MIN_RECAP_TELLINGS);
+            if (bits.length === 0) return;
+
+            const answer = await this.llm.converse(
+                {
+                    messages: recapPrompt(bits),
+                    ...(model.length === 0 ? {} : { model }),
+                    reasoningEffort: 'low',
+                },
+                // Tools OFF, unlike the proposal turn above. There is nothing to look up: every word
+                // this may use is already in front of it, and a search here could only add something
+                // the station never said.
+                { budgetMs: MODEL_BUDGET_MS, maxWaitMs: MODEL_WAIT_MS, priority: MODEL_PRIORITY, tools: false },
+            );
+
+            for (const written of readRecaps(answer.text, bits)) {
+                await this.stories.addRecap(written.id, written.recap, written.tellings);
+            }
+        } catch (error) {
+            this.logger.warn(`personas: could not summarise this character's running bits (${errorText(error)})`);
+        }
+    }
+
+    /**
+     * Whether these words may be stored without anybody reading them first.
+     *
+     * ## It only ever refuses something nobody is going to look at
+     *
+     * A `suggested` row is safe by construction: an operator reads it before it can reach a listener,
+     * and refusing one here would be the station quietly narrowing what it is willing to OFFER them.
+     * So this passes everything under `proposes` and is a real gate only under `self-directed`.
+     *
+     * ## What it can check, and what it cannot
+     *
+     * `characterFault` gives the three prohibitions the sheet already states and nothing was reading
+     * back against a proposal: no sample line echoed, no wording the operator forbade, no signature
+     * this station has just spent. `dialect: 'optional'` because a proposal is not a break — requiring
+     * diction markers would refuse most good stories for not being written as scripts twice over.
+     *
+     * **There is no broadcast-clean CHECKER anywhere in this tree**, and it would be dishonest to
+     * imply one: `speaksClean` shapes a prompt and nothing reads an answer back against it. So a
+     * self-directed character inherits exactly the exposure a seeded story already has, which is a
+     * thing an operator opts into and can roll back. Said here rather than left for somebody to
+     * discover, because the obvious assumption is that autonomy is fenced further than this.
+     */
+    private guarded(personaKey: string, persona: Persona, words: string, state: 'active' | 'suggested'): boolean {
+        if (state !== 'active') return true;
+
+        const fault = characterFault(persona, words, { dialect: 'optional' });
+        if (fault === undefined) return true;
+
+        this.logger.info('personas: a self-directed character proposed something that was not it speaking', {
+            persona: personaKey,
+            fault,
+        });
+        return false;
     }
 }

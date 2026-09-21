@@ -39,7 +39,8 @@
 
 import type { Persona } from './persona.js';
 import type { PersonaStory, PersonaStoryDetail } from './persona.story.js';
-import type { PersonaFilePersona, PersonaFileStory, PersonaFileStoryDetail } from './types/personas.types.js';
+import type { PersonaStoryBeat } from './persona.story.beat.js';
+import type { PersonaFilePersona, PersonaFileStory, PersonaFileStoryBeat, PersonaFileStoryDetail } from './types/personas.types.js';
 
 /**
  * What shape a file is.
@@ -89,6 +90,10 @@ export function personaForFile(persona: Persona, stories: readonly PersonaStory[
             latitude: persona.latitude,
             chattiness: persona.chattiness,
             storytelling: persona.storytelling,
+            // `growth` deliberately does NOT travel. A character arriving from somewhere else and
+            // quietly rewriting itself on this station is the one thing this field exists to make an
+            // operator opt into, and a file is not that operator saying so. An import lands on the
+            // default, which is `proposes`.
             templates: persona.templates,
             diction: mutable(persona.diction),
             dictionMarkers: mutable(persona.dictionMarkers),
@@ -121,8 +126,24 @@ function storyForFile(story: PersonaStory): PersonaFileStory {
         title: story.title,
         story: story.story,
         details: story.details.filter(detail => travels(detail.state)).map(detailForFile),
-        // Absent means `active`, so an ordinary story is not carrying a field saying it is ordinary.
+        // The parts, on the same terms the details are. What does NOT travel is anything about how
+        // far through one this station had got: a telling is a record of something THIS station did,
+        // and a character arriving elsewhere starts its arcs from the beginning because on that
+        // station nobody has heard any of it.
+        beats: story.beats.filter(beat => travels(beat.state)).map(beatForFile),
+        // `kind` travels because it is part of what the story IS rather than part of what this
+        // station has done with it. Absent means `anecdote`, so an ordinary story is not carrying a
+        // field saying it is ordinary — the same rule `state` follows on the line below.
+        ...(story.kind === 'anecdote' ? {} : { kind: story.kind }),
         ...(story.state === 'rejected' ? { state: 'rejected' as const } : {}),
+    };
+}
+
+function beatForFile(beat: PersonaStoryBeat): PersonaFileStoryBeat {
+    return {
+        ordinal: beat.ordinal,
+        beat: beat.beat,
+        ...(beat.state === 'rejected' ? { state: 'rejected' as const } : {}),
     };
 }
 

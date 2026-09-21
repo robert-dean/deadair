@@ -22,6 +22,7 @@ import { StationLineupRepository } from '../../../src/modules/director/station.l
 import { ProductionRepository } from '../../../src/modules/productions/production.repository.js';
 import { PlayHistoryRepository } from '../../../src/modules/director/play.history.repository.js';
 import { PodcastEpisodeRepository } from '../../../src/modules/podcasts/podcast.episode.repository.js';
+import { PersonaTellingRepository } from '../../../src/modules/personas/persona.telling.repository.js';
 import { PodcastScheduler } from '../../../src/modules/podcasts/podcast.scheduler.js';
 import { ArtRepository } from '../../../src/modules/art/art.repository.js';
 import { CandidatesRepository } from '../../../src/modules/director/candidates.repository.js';
@@ -205,6 +206,9 @@ function build(options: Options = {}) {
     // and the aired mark an episode gets on the same edge a record's history row is written on.
     const podcastScheduler = { ripen: vi.fn(async () => 0) };
     const podcastEpisodes = { markAired: vi.fn(async () => {}) };
+    // The third thing marked on that edge: whether a story a break carried was actually heard, which
+    // is what keeps a part of one owed until a listener could have got it.
+    const personaTellings = { markAired: vi.fn(async () => {}) };
 
     // Produced episodes. `unfinished` answers nothing by default, so the commit pass's injection
     // step is a no-op unless a test says otherwise; `moveTo` is what a changeover uses to hand back
@@ -418,7 +422,9 @@ function build(options: Options = {}) {
                                         ? podcastScheduler
                                         : token === PodcastEpisodeRepository
                                           ? podcastEpisodes
-                                          : history,
+                                          : token === PersonaTellingRepository
+                                            ? personaTellings
+                                            : history,
         ),
         disposeAsync: vi.fn(async () => {}),
     };
@@ -477,6 +483,7 @@ function build(options: Options = {}) {
         history,
         podcastScheduler,
         podcastEpisodes,
+        personaTellings,
         airRepository,
         audience,
         activity,
@@ -2238,6 +2245,47 @@ describe('DirectorService committing segments', () => {
 
         expect(podcastEpisodes.markAired).toHaveBeenCalledWith('seg-episode', expect.any(Number));
         expect(history.record).not.toHaveBeenCalled();
+    });
+
+    // A break is written up to eight items ahead of its slot and can be retracted in between, so
+    // "written" and "heard" are different facts about a story. Without this edge a story's progress
+    // would advance on breaks that never went out, and the part it skipped is one nothing will ever
+    // offer again.
+    it('marks a telling aired when the break that carried it airs', async () => {
+        const talk = { id: 'seg-talk', kind: 'talkbreak', state: 'ready' as const, label: 'Talk break', source: 'render' };
+        const { director, lineup, rundown, personaTellings, history, seed } = build({ items: ['a', 'b'], segments: [talk] });
+        await seed();
+        lineup.insertSegment('seg-talk', 0);
+        await director.start();
+        await settle();
+
+        const item = rundown.upcoming().find(candidate => candidate.pluginId === RENDER_PLUGIN_ID)!;
+        await rundown.next();
+        rundown.markAired(item.id);
+        await settle();
+
+        expect(personaTellings.markAired).toHaveBeenCalledWith('seg-talk', expect.any(Number));
+        // Still not a record, so still no play history: a break has no artist and a row for one
+        // would put the station's own idents into the repeat window.
+        expect(history.record).not.toHaveBeenCalled();
+    });
+
+    it('marks one for a break that carried no story, because asking first costs more than the statement', async () => {
+        // One statement matching nothing is cheaper than reading the ledger to find out whether this
+        // segment carried anything, which is the posture both programme marks above already take.
+        const ident = { id: 'seg-ident', kind: 'ident', state: 'ready' as const, label: 'Ident', source: 'library' };
+        const { director, lineup, rundown, personaTellings, seed } = build({ items: ['a', 'b'], segments: [ident] });
+        await seed();
+        lineup.insertSegment('seg-ident', 0);
+        await director.start();
+        await settle();
+
+        const item = rundown.upcoming().find(candidate => candidate.pluginId === RENDER_PLUGIN_ID)!;
+        await rundown.next();
+        rundown.markAired(item.id);
+        await settle();
+
+        expect(personaTellings.markAired).toHaveBeenCalledWith('seg-ident', expect.any(Number));
     });
 
     it('still records a record that airs', async () => {

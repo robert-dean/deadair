@@ -49,6 +49,13 @@ for (const file of files) {
             columns[`${table.schema}.${table.name}.${col.name}`] = overrideType(union, col);
         }
     }
+    // An enum column ADDED by a later migration, which is how every one of them arrives now that
+    // migrations are append-only files rather than edited in place. It states its own default and
+    // nullability exactly as a CREATE TABLE column does, so it is read the same way — unlike the
+    // ADD CONSTRAINT form below, which restates neither and has to carry them across.
+    for (const added of extractAlterAddedEnums(sql)) {
+        columns[`${added.schema}.${added.table}.${added.column}`] = overrideType(added.values.map(v => `'${v}'`).join(' | '), added);
+    }
     // A later migration can widen/replace an enum CHECK via ALTER TABLE ... ADD CONSTRAINT; files
     // iterate in timestamp order, so the ALTER overwrites the CREATE's override. An ALTER states
     // only the new value list, so the two facts it does NOT restate -- the default and the
@@ -220,6 +227,46 @@ function extractAlterEnumChecks(sql: string): Array<{ schema: string; table: str
         const values = parseStringList(m[4]!);
         if (values.length > 0) result.push({ schema: m[1]!, table: m[2]!, column: m[3]!, values });
     }
+    return result;
+}
+
+/**
+ * `alter table x.y add column z text not null default 'a' constraint … check (z in ('a','b'))`.
+ *
+ * The form every new enum column takes, since a migration is a new numbered file rather than an
+ * edit to the one that created the table. Without this the column generates as bare `string` and
+ * nothing says so: the code still compiles, and the union it was given in SQL is simply not there.
+ *
+ * The nullable spelling `check (z is null or z in (…))` is read too, because that is what a column
+ * whose absence means something has to say — a bare `in` list would reject the null.
+ */
+function extractAlterAddedEnums(sql: string): Array<{ schema: string; table: string; column: string; values: string[] } & Column> {
+    const result: Array<{ schema: string; table: string; column: string; values: string[] } & Column> = [];
+    const re =
+        /alter\s+table\s+(?:if\s+exists\s+)?(?:only\s+)?([a-zA-Z_]\w*)\.([a-zA-Z_]\w*)\s+add\s+column\s+(?:if\s+not\s+exists\s+)?([a-zA-Z_]\w*)\s+([^;]*?)check\s*\(\s*(?:[a-zA-Z_]\w*\s+is\s+null\s+or\s+)?[a-zA-Z_]\w*\s+in\s*\(([\s\S]*?)\)\s*\)/gi;
+
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(sql)) !== null) {
+        const values = parseStringList(m[5]!);
+        if (values.length === 0) continue;
+
+        // Everything between the column name and the CHECK: where `not null` and `default` live.
+        const modifiers = m[4]!;
+        const fallback = /\bdefault\s+('(?:[^']*)'|[a-zA-Z0-9_.]+)/i.exec(modifiers)?.[1];
+
+        result.push({
+            schema: m[1]!,
+            table: m[2]!,
+            column: m[3]!,
+            name: m[3]!,
+            values,
+            // Nullable unless it says otherwise, which is SQL's own default and the opposite of
+            // the assumption every enum column carried before `track_sources.advisory`.
+            nullable: !/\bnot\s+null\b/i.test(modifiers),
+            ...(fallback === undefined ? {} : { default: fallback }),
+        });
+    }
+
     return result;
 }
 

@@ -630,6 +630,21 @@ export interface WrittenBreak {
      * onto the row with the words, and clears it when this is absent.
      */
     delivery?: SpeechDelivery;
+    /**
+     * Whether these words actually TOLD the story the writer was handed.
+     *
+     * The fourth thing only the writer can answer, and the reason is {@link claimsNext}'s exactly: a
+     * story on a talk break is OFFERED and most breaks will leave it alone, so being in the prompt
+     * says nothing about whether a listener heard it. The caller writes the difference into the
+     * ledger, where the rotation reads every carry and a story's own progress reads only this.
+     *
+     * Never asked of the model. See `mentionsStory`, and `weather.figures.ts` for the rule it
+     * inherits: a model asked to report what it just did is a check that approves its own work.
+     *
+     * Absent means no — which is what the deterministic floor always answers, because a phrasing
+     * pool has no way to say a story and a break that fell through to one said nothing of it.
+     */
+    toldStory?: boolean;
 }
 
 /**

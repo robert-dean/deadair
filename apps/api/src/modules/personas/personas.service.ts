@@ -417,6 +417,9 @@ export function draftOf(body: PersonaInput): PersonaDraft {
             // the editor never drew it back — the field worked for seeds and for nothing else.
             chattiness: body.chattiness,
             storytelling: body.storytelling,
+            // Threaded here and in `toView`, and deliberately NOT in `toDraftView`: a model writing
+            // a character must not be able to grant that character autonomy. See `growthOf`.
+            growth: body.growth,
             templates: text(body.templates),
             diction: list(body.diction),
             dictionMarkers: list(body.dictionMarkers),
@@ -452,6 +455,7 @@ function toView(persona: Persona, presentingId: string | undefined): PersonaView
             latitude: persona.latitude,
             chattiness: persona.chattiness,
             storytelling: persona.storytelling,
+            growth: persona.growth,
             templates: persona.templates,
             diction: mutable(persona.diction),
             dictionMarkers: mutable(persona.dictionMarkers),

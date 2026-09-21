@@ -42,6 +42,7 @@ import { personaForFile, PERSONA_FILE_FORMAT } from '../src/modules/personas/per
 import { PersonaImportService } from '../src/modules/personas/persona.import.service.js';
 import { PersonaRepository } from '../src/modules/personas/persona.repository.js';
 import { PersonaStoriesRepository } from '../src/modules/personas/persona.stories.repository.js';
+import { PersonaTellingRepository } from '../src/modules/personas/persona.telling.repository.js';
 import type { PersonasService } from '../src/modules/personas/personas.service.js';
 import { StationIdentity } from '../src/modules/shared/station.identity.js';
 
@@ -78,6 +79,7 @@ await db
         const station = new StationIdentity();
         const personas = new PersonaRepository(trx, station);
         const stories = new PersonaStoriesRepository(trx, station);
+        const tellings = new PersonaTellingRepository(trx, station);
 
         // Deliberately a character with every optional field set AND put on air, because the two
         // things that must not travel are the id the row was given and the fact that it is
@@ -119,7 +121,9 @@ await db
             state: 'active',
             origin: 'operator',
         });
-        await stories.markTold(told.id);
+        // A telling, which is what spending a story means now: `markTold` and the two columns behind
+        // it are gone, and the ledger is the single writer of this fact.
+        await tellings.record({ personaKey: KEY, storyId: told.id, source: 'production', mode: 'told', told: true });
         await stories.addDetail({ storyId: told.id, detail: 'the third one held still', state: 'active', origin: 'operator' });
         await stories.addDetail({ storyId: told.id, detail: 'a model made this up', state: 'suggested', origin: 'model' });
         await stories.add({ personaKey: KEY, title: 'A proposal', story: 'Nobody has looked at this.', state: 'suggested', origin: 'model' });

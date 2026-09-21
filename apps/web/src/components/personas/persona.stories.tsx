@@ -1,12 +1,15 @@
 import { useState } from 'react';
-import { ActionIcon, Badge, Button, Card, Group, Stack, Text, Textarea, TextInput } from '@mantine/core';
+import { ActionIcon, Badge, Button, Card, Group, Select, Stack, Text, Textarea, TextInput } from '@mantine/core';
 import type { PersonaStory } from '@deadair/sdk';
 
 import {
+    useAddPersonaStoryBeat,
     useAddPersonaStoryDetail,
     useDeletePersonaStory,
+    useDeletePersonaStoryBeat,
     useDeletePersonaStoryDetail,
     usePersonaStories,
+    useSetPersonaStoryBeatState,
     useSetPersonaStoryDetailState,
     useSetPersonaStoryState,
     useUpdatePersonaStory,
@@ -46,6 +49,9 @@ export function PersonaStoriesPanel({ personaId }: { personaId: string }) {
     const addDetail = useAddPersonaStoryDetail();
     const removeDetail = useDeletePersonaStoryDetail();
     const setDetailState = useSetPersonaStoryDetailState();
+    const addBeat = useAddPersonaStoryBeat();
+    const removeBeat = useDeletePersonaStoryBeat();
+    const setBeatState = useSetPersonaStoryBeatState();
 
     const all = stories.data?.stories ?? [];
     const suggested = all.filter(story => story.state === 'suggested');
@@ -59,9 +65,22 @@ export function PersonaStoriesPanel({ personaId }: { personaId: string }) {
         setState.isPending ||
         addDetail.isPending ||
         removeDetail.isPending ||
-        setDetailState.isPending;
+        setDetailState.isPending ||
+        addBeat.isPending ||
+        removeBeat.isPending ||
+        setBeatState.isPending;
 
-    const failure = write.error ?? update.error ?? remove.error ?? setState.error ?? addDetail.error ?? removeDetail.error ?? setDetailState.error;
+    const failure =
+        write.error ??
+        update.error ??
+        remove.error ??
+        setState.error ??
+        addDetail.error ??
+        removeDetail.error ??
+        setDetailState.error ??
+        addBeat.error ??
+        removeBeat.error ??
+        setBeatState.error;
 
     const row = (story: PersonaStory, actions: React.ReactNode) => (
         <StoryRow
@@ -69,7 +88,11 @@ export function PersonaStoriesPanel({ personaId }: { personaId: string }) {
             story={story}
             busy={busy}
             actions={actions}
-            onSave={(title, telling) => update.mutate({ id: personaId, storyId: story.id, body: { title, story: telling } })}
+            onSave={(title, telling, kind) => update.mutate({ id: personaId, storyId: story.id, body: { title, story: telling, kind } })}
+            onAddBeat={(ordinal, text) => addBeat.mutate({ id: personaId, storyId: story.id, body: { ordinal, beat: text } })}
+            onAcceptBeat={beatId => setBeatState.mutate({ id: personaId, storyId: story.id, beatId, state: 'active' })}
+            onRejectBeat={beatId => setBeatState.mutate({ id: personaId, storyId: story.id, beatId, state: 'rejected' })}
+            onDeleteBeat={beatId => removeBeat.mutate({ id: personaId, storyId: story.id, beatId })}
             onAddDetail={detail => addDetail.mutate({ id: personaId, storyId: story.id, body: { detail } })}
             onAcceptDetail={detailId => setDetailState.mutate({ id: personaId, storyId: story.id, detailId, state: 'active' })}
             onRejectDetail={detailId => setDetailState.mutate({ id: personaId, storyId: story.id, detailId, state: 'rejected' })}
@@ -180,6 +203,18 @@ export function PersonaStoriesPanel({ personaId }: { personaId: string }) {
 }
 
 /** One story, its details, and everything that can be done to either. Editable in place. */
+/**
+ * What an operator is choosing between, in their words rather than the column's.
+ *
+ * The labels say what each one DOES on air, because "arc" and "bit" are this codebase's words for
+ * them and an operator picking from a list has no reason to know either.
+ */
+const KINDS = [
+    { value: 'anecdote', label: 'A one-off — told whole, whenever it comes round' },
+    { value: 'arc', label: 'A story in parts — one part per break, in order' },
+    { value: 'bit', label: 'A running joke — returned to and built on, with no end' },
+];
+
 function StoryRow({
     story,
     actions,
@@ -189,21 +224,31 @@ function StoryRow({
     onAcceptDetail,
     onRejectDetail,
     onDeleteDetail,
+    onAddBeat,
+    onAcceptBeat,
+    onRejectBeat,
+    onDeleteBeat,
 }: {
     story: PersonaStory;
     actions: React.ReactNode;
     busy: boolean;
-    onSave: (title: string, story: string) => void;
+    onSave: (title: string, story: string, kind: PersonaStory['kind']) => void;
     onAddDetail: (detail: string) => void;
     onAcceptDetail: (detailId: string) => void;
     onRejectDetail: (detailId: string) => void;
     onDeleteDetail: (detailId: string) => void;
+    onAddBeat: (ordinal: number, beat: string) => void;
+    onAcceptBeat: (beatId: string) => void;
+    onRejectBeat: (beatId: string) => void;
+    onDeleteBeat: (beatId: string) => void;
 }) {
-    const [draft, setDraft] = useState<{ title: string; story: string } | undefined>(undefined);
+    const [draft, setDraft] = useState<{ title: string; story: string; kind: PersonaStory['kind'] } | undefined>(undefined);
+    const [beat, setBeat] = useState('');
     const [detail, setDetail] = useState('');
     const editing = draft !== undefined;
 
     const details = story.details.filter(held => held.state !== 'rejected');
+    const beats = story.beats.filter(held => held.state !== 'rejected');
 
     return (
         <Stack gap="xxs">
@@ -227,7 +272,7 @@ function StoryRow({
                                 size="compact-xs"
                                 disabled={busy || draft.title.trim().length === 0 || draft.story.trim().length === 0}
                                 onClick={() => {
-                                    onSave(draft.title.trim(), draft.story.trim());
+                                    onSave(draft.title.trim(), draft.story.trim(), draft.kind);
                                     setDraft(undefined);
                                 }}
                             >
@@ -242,7 +287,7 @@ function StoryRow({
                             variant="subtle"
                             size="compact-xs"
                             disabled={busy}
-                            onClick={() => setDraft({ title: story.title, story: story.story })}
+                            onClick={() => setDraft({ title: story.title, story: story.story, kind: story.kind })}
                         >
                             Edit
                         </Button>
@@ -269,6 +314,17 @@ function StoryRow({
                         maxLength={4000}
                         aria-label="The story"
                     />
+                    {/* Changing an anecdote into an arc is the ordinary way one starts: somebody
+                        writes a story, then thinks of where it goes. Changing it back leaves any
+                        parts where they are rather than deleting them. */}
+                    <Select
+                        size="xs"
+                        value={draft.kind}
+                        onChange={value => setDraft({ ...draft, kind: (value ?? 'anecdote') as PersonaStory['kind'] })}
+                        data={KINDS}
+                        aria-label="What sort of story this is"
+                        allowDeselect={false}
+                    />
                 </Stack>
             ) : (
                 <>
@@ -286,6 +342,61 @@ function StoryRow({
                 <Text size="xs" c="dimmed" fs="italic">
                     from {story.source}
                 </Text>
+            ) : undefined}
+
+            {story.kind === 'arc' ? (
+                <Stack gap="xxs" pl="md">
+                    {/* In telling order, with the one that goes out next marked. Only ACTIVE parts
+                        are ever told, so a proposal sits in the list without being counted. */}
+                    {beats.map((part, at) => (
+                        <Group key={part.id} gap="xs" wrap="nowrap" align="flex-start">
+                            <Text size="xs" c="dimmed" className="da-num" style={{ minWidth: '2.5rem' }}>
+                                {part.ordinal}
+                            </Text>
+                            <Text size="xs" c={part.state === 'suggested' ? 'grape' : undefined} style={{ flex: 1 }}>
+                                {part.state === 'suggested' ? 'proposed: ' : ''}
+                                {part.beat}
+                            </Text>
+                            {at === 0 && part.state === 'active' ? (
+                                <Badge size="xs" variant="light" color="teal" tt="none">
+                                    next
+                                </Badge>
+                            ) : undefined}
+                            {part.state === 'suggested' ? (
+                                <>
+                                    <Button variant="light" size="compact-xs" disabled={busy} onClick={() => onAcceptBeat(part.id)}>
+                                        Keep
+                                    </Button>
+                                    <Button variant="subtle" size="compact-xs" disabled={busy} onClick={() => onRejectBeat(part.id)}>
+                                        Reject
+                                    </Button>
+                                </>
+                            ) : (
+                                <Button variant="subtle" color="red" size="compact-xs" disabled={busy} onClick={() => onDeleteBeat(part.id)}>
+                                    Delete
+                                </Button>
+                            )}
+                        </Group>
+                    ))}
+                    <Group gap="xs" wrap="nowrap">
+                        <TextInput
+                            size="xs"
+                            style={{ flex: 1 }}
+                            placeholder="what happens next in it"
+                            maxLength={4000}
+                            value={beat}
+                            onChange={event => setBeat(event.currentTarget.value)}
+                            onKeyDown={event => {
+                                if (event.key !== 'Enter' || beat.trim().length === 0) return;
+                                // Ten past the last, so there is always room to put something
+                                // between two parts without renumbering either of them.
+                                onAddBeat((beats.at(-1)?.ordinal ?? 0) + 10, beat.trim());
+                                setBeat('');
+                            }}
+                            aria-label="The next part of this story"
+                        />
+                    </Group>
+                </Stack>
             ) : undefined}
 
             {details.length > 0 ? (

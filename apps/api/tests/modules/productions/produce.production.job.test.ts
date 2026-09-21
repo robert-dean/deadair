@@ -60,6 +60,7 @@ function build(answers: string[]) {
         {} as never,
         {} as never,
         {} as never,
+        {} as never,
         caster,
         {} as never,
         llm,
@@ -153,6 +154,7 @@ describe('sending the beats to be spoken', () => {
         const job = new ProduceProductionJob(
             productions,
             segments,
+            {} as never,
             {} as never,
             {} as never,
             {} as never,

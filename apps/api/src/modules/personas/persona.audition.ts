@@ -90,6 +90,15 @@ export interface AuditionBreak {
     writer?: string;
     /** Why there are none, when there are none. Not a fault: on air this break is skipped. */
     reason?: string;
+    /**
+     * Whether the writer's read-back found the story this break was handed.
+     *
+     * Absent means it carried none, which is most breaks and is not the same as `false` — one is
+     * nothing to judge and the other is a story the writer passed over. What it is FOR is measuring
+     * `mentionsStory`, which decides what an arc owes next: a part it wrongly says yes to is one a
+     * listener never gets, and nothing on air would notice. See migration 0038.
+     */
+    told?: boolean;
     createdAt: number;
 }
 

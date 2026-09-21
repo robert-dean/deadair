@@ -520,6 +520,17 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
 
                         <Select
                             {...DIAL}
+                            label="Whether they develop on their own"
+                            description="What the nightly passes do with material they write for this character: hold it for you to accept, or put it straight into use. Self-directed characters change between one week and the next without being asked. Everything they accrue can be rolled back from the Memory panel."
+                            data={[
+                                { value: '', label: 'Proposes — you approve anything new' },
+                                { value: 'self-directed', label: 'Self-directed — it keeps what it writes' },
+                            ]}
+                            {...form.getInputProps('growth')}
+                        />
+
+                        <Select
+                            {...DIAL}
                             label="How often they talk"
                             description="Scales the gap your station leaves between its own breaks. It does not touch anything on your clock: a band asking for news at nine is you asking in as many words. There is no silent setting — turning breaks off is a station setting, and two switches for one thing would disagree."
                             data={[
@@ -857,6 +868,7 @@ interface FormValues {
     latitude: string;
     chattiness: string;
     storytelling: string;
+    growth: string;
     templates: string;
     diction: string;
     dictionMarkers: string;
@@ -888,7 +900,7 @@ const titleFor = (persona: Persona | undefined, caller: boolean): string =>
  * this reads neither. That is what lets one function serve opening an existing persona and dropping
  * a generated one into the same fields.
  */
-function valuesOf(persona: PersonaDraftView | undefined): FormValues {
+function valuesOf(persona: PersonaDraftView | Persona | undefined): FormValues {
     return {
         key: persona?.key ?? '',
         label: persona?.label ?? '',
@@ -901,6 +913,10 @@ function valuesOf(persona: PersonaDraftView | undefined): FormValues {
         latitude: persona?.latitude ?? '',
         chattiness: persona?.chattiness ?? '',
         storytelling: persona?.storytelling ?? '',
+        // An `in` check rather than an optional read, because a GENERATED sheet genuinely has no
+        // such field: a model writing a character must not be able to grant it autonomy, so the
+        // field is absent from `PersonaDraftView` by design. See `growthOf`.
+        growth: persona !== undefined && 'growth' in persona ? (persona.growth ?? '') : '',
         templates: persona?.templates ?? '',
         diction: linesOf(persona?.diction),
         dictionMarkers: linesOf(persona?.dictionMarkers),
@@ -933,6 +949,9 @@ function draftOf(values: FormValues, kind: PersonaKind): PersonaInput {
     const latitude: PersonaInput['latitude'] = values.latitude === 'loose' || values.latitude === 'unleashed' ? values.latitude : undefined;
     const storytelling: PersonaInput['storytelling'] =
         values.storytelling === 'never' || values.storytelling === 'often' ? values.storytelling : undefined;
+    // '' is `proposes`, which is the cautious rung and the one every character has until somebody
+    // opts it out — so absent is the right shape for it, as with the rungs above.
+    const growth: PersonaInput['growth'] = values.growth === 'self-directed' ? values.growth : undefined;
     // `ordinary` is the default and is sent as absent, matching how every other rung on this form
     // treats its middle: a stored value that means "unchanged" is a row saying what a null already says.
     const chattiness: PersonaInput['chattiness'] =
@@ -956,6 +975,7 @@ function draftOf(values: FormValues, kind: PersonaKind): PersonaInput {
             // Same rule: '' is the station's ordinary discipline, which is a field that is not there
             // rather than a rung meaning "no extra room".
             latitude,
+            growth,
             // And again, with one difference worth knowing: the absent value here is the MIDDLE
             // rung rather than the bottom one. `occasionally` is what a character with nothing set
             // does, so it is the one option in the select with no value behind it — a persona that

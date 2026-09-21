@@ -146,7 +146,14 @@ function harness(
     // somebody writes one down and the state every other assertion here was written against.
     const personaStories = {
         forPrompt: vi.fn(async () => (options.story === undefined ? undefined : { id: 's1', story: options.story })),
-        markTold: vi.fn(async (_id: string) => {}),
+    };
+    // The ledger behind that stamp (migration 0034), written on the same line while the two columns
+    // are still the authority. Real enough to assert against, because "a carry is a row" is the
+    // property this store exists for.
+    const tellings = {
+        replaceForSegment: vi.fn(async (_segmentId: string, _write: unknown) => {}),
+        record: vi.fn(async (_write: unknown) => {}),
+        markAired: vi.fn(async (_segmentId: string, _at: number) => {}),
     };
     const jobs = { send: vi.fn(async () => {}) };
     const config = { get: vi.fn((key: string, fallback: string) => options.settings?.[key] ?? fallback) };
@@ -202,6 +209,7 @@ function harness(
         pads as never,
         notes as never,
         personaStories as never,
+        tellings as never,
         plays as never,
         identity as never,
         speech as never,
@@ -225,6 +233,7 @@ function harness(
         personas,
         notes,
         personaStories,
+        tellings,
         jobs,
         logger,
         activity,
@@ -495,23 +504,120 @@ describe('WriteBreakJob', () => {
             ['track-b', ['Recorded over two nights.']],
         ]);
 
-        it('hands one over on a talk break, and rests it', async () => {
-            const { job, writers, personaStories } = harness({ lineup: await lineupWithBreak(), persona: persona('often'), story });
+        it('hands one over on a talk break, and spends it in the ledger', async () => {
+            const { job, writers, personaStories, tellings } = harness({ lineup: await lineupWithBreak(), persona: persona('often'), story });
 
             await job.run({ segmentId: 'seg-1' });
 
-            expect(personaStories.forPrompt).toHaveBeenCalledWith('conspiracy');
+            // The gap rides along because which story is ELIGIBLE now depends on when this one was
+            // last carried, which the store cannot know on its own. See `nextThread`.
+            expect(personaStories.forPrompt).toHaveBeenCalledWith('conspiracy', { now: expect.any(Number), gapMs: expect.any(Number) });
             expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ story }));
-            expect(personaStories.markTold).toHaveBeenCalledWith('s1');
+            // The ledger IS the spend now: `markTold` and the two columns behind it are gone, so
+            // there is one writer of this fact rather than two that could disagree.
+            expect(tellings.replaceForSegment).toHaveBeenCalledWith('seg-1', expect.objectContaining({ storyId: 's1' }));
+        });
+
+        // A story is spent by being TOLD, not by being read. What is pinned here is the ordering:
+        // the row is written only once a script has won, it carries the writer's own read-back, and
+        // a break that never became this segment's script spends nothing at all.
+        it('records the carry in the ledger, keyed on the segment that carried it', async () => {
+            const { job, tellings } = harness({ lineup: await lineupWithBreak(), persona: persona('often'), story });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(tellings.replaceForSegment).toHaveBeenCalledWith(
+                'seg-1',
+                expect.objectContaining({ personaKey: 'conspiracy', storyId: 's1', source: 'break', mode: 'offered' }),
+            );
+        });
+
+        it('takes the writer’s word for whether the story went out, and keeps what it said', async () => {
+            const { job, tellings, writers } = harness({ lineup: await lineupWithBreak(), persona: persona('often'), story });
+            writers.write.mockResolvedValueOnce({
+                written: { script: 'Three lights over the desert, and nobody believed me.', label: 'Talk break', toldStory: true },
+                writer: 'model',
+                attempts: [],
+            });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(tellings.replaceForSegment).toHaveBeenCalledWith(
+                'seg-1',
+                expect.objectContaining({ told: true, said: 'Three lights over the desert, and nobody believed me.' }),
+            );
+        });
+
+        it('records a carry the writer ignored as untold, and keeps none of its words', async () => {
+            // The ordinary outcome of an OFFER, and the reason the rotation and a story's progress
+            // are two different reads of this table.
+            const { job, tellings, writers } = harness({ lineup: await lineupWithBreak(), persona: persona('often'), story });
+            writers.write.mockResolvedValueOnce({
+                written: { script: 'Something else entirely.', label: 'Talk break' },
+                writer: 'template',
+                attempts: [],
+            });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            const written = tellings.replaceForSegment.mock.calls[0]?.[1] as { told: boolean; said?: string };
+            expect(written.told).toBe(false);
+            expect(written.said).toBeUndefined();
+        });
+
+        it('spends nothing when something else claimed the segment first', async () => {
+            // The break was written and then lost the row. The story it chose is still owed to
+            // whatever does air there, which is exactly what spending at selection got wrong.
+            const { job, tellings, personaStories, segments } = harness({ lineup: await lineupWithBreak(), persona: persona('often'), story });
+            segments.writeScript.mockResolvedValueOnce(false);
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(tellings.replaceForSegment).not.toHaveBeenCalled();
+            expect(tellings.replaceForSegment).not.toHaveBeenCalled();
+        });
+
+        it('spends nothing when no writer produced anything', async () => {
+            const { job, tellings, personaStories, writers } = harness({ lineup: await lineupWithBreak(), persona: persona('often'), story });
+            // What the registry answers when every writer declined: attempts, and no words.
+            writers.write.mockResolvedValueOnce({ attempts: [{ writer: 'model', reason: 'declined' }], reason: 'nothing wrote this talkbreak' });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(tellings.replaceForSegment).not.toHaveBeenCalled();
+            expect(tellings.replaceForSegment).not.toHaveBeenCalled();
+        });
+
+        it('writes the break anyway when the ledger cannot be written', async () => {
+            const { job, segments, tellings, logger } = harness({ lineup: await lineupWithBreak(), persona: persona('often'), story });
+            tellings.replaceForSegment.mockRejectedValueOnce(new Error('the database is away'));
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(segments.writeScript).toHaveBeenCalled();
+            expect(logger.warn).toHaveBeenCalled();
+        });
+
+        it('clears the segment rather than leaving a stale telling on it', async () => {
+            const { job, tellings } = harness({ lineup: await lineupWithBreak(), persona: persona('never'), story });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            // Not "writes nothing": a break REWRITTEN into one that carries no story has to take the
+            // previous attempt's row with it, or the aired edge stamps a telling that never went out.
+            // That is the case an upsert cannot express, and the reason this call is unconditional.
+            expect(tellings.replaceForSegment).toHaveBeenCalledWith('seg-1', undefined);
         });
 
         it('reads none at all at "never", so nothing is spent', async () => {
-            const { job, writers, personaStories } = harness({ lineup: await lineupWithBreak(), persona: persona('never'), story });
+            const { job, writers, personaStories, tellings } = harness({ lineup: await lineupWithBreak(), persona: persona('never'), story });
 
             await job.run({ segmentId: 'seg-1' });
 
             expect(personaStories.forPrompt).not.toHaveBeenCalled();
-            expect(personaStories.markTold).not.toHaveBeenCalled();
+            // Cleared rather than untouched: this break won its segment carrying no story, and a
+            // rewrite has to take the previous attempt's row with it.
+            expect(tellings.replaceForSegment).toHaveBeenCalledWith('seg-1', undefined);
             expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ story: expect.anything() }));
         });
 
@@ -529,7 +635,7 @@ describe('WriteBreakJob', () => {
             expect(known.writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ story: expect.anything() }));
             // And nothing was spent on the break that never carried one, which is the whole reason
             // this rung is read here rather than where the prompt is built.
-            expect(known.personaStories.markTold).not.toHaveBeenCalled();
+            expect(known.tellings.replaceForSegment).toHaveBeenCalledWith('seg-1', undefined);
         });
 
         it('offers one at "often" even where both records carry notes', async () => {
@@ -549,11 +655,11 @@ describe('WriteBreakJob', () => {
         });
 
         it('spends nothing for a character that has written none', async () => {
-            const { job, writers, personaStories } = harness({ lineup: await lineupWithBreak(), persona: persona('often') });
+            const { job, writers, tellings } = harness({ lineup: await lineupWithBreak(), persona: persona('often') });
 
             await job.run({ segmentId: 'seg-1' });
 
-            expect(personaStories.markTold).not.toHaveBeenCalled();
+            expect(tellings.replaceForSegment).toHaveBeenCalledWith('seg-1', undefined);
             expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ story: expect.anything() }));
         });
 

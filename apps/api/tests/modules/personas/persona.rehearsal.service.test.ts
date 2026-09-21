@@ -188,7 +188,7 @@ describe('PersonaRehearsalService', () => {
 
         await service.rehearse('p1');
 
-        expect(stories.forPrompt).toHaveBeenCalledWith('pirate');
+        expect(stories.forPrompt).toHaveBeenCalledWith('pirate', { now: expect.any(Number), gapMs: expect.any(Number) });
         expect(writers.seen[0]?.story?.title).toBe('The Barstow lights');
         expect(stories.markTold).not.toHaveBeenCalled();
     });

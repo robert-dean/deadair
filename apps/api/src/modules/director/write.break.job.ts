@@ -14,6 +14,8 @@ import { PersonaRepository } from '#modules/personas/persona.repository.js';
 import { PersonaNotesRepository } from '#modules/personas/persona.notes.repository.js';
 import type { PersonaNotesForPrompt } from '#modules/personas/persona.note.js';
 import { PersonaStoriesRepository } from '#modules/personas/persona.stories.repository.js';
+import { PersonaTellingRepository } from '#modules/personas/persona.telling.repository.js';
+import { resolveThreadGapMs } from '#modules/personas/persona.thread.settings.js';
 import type { PersonaStoryForPrompt } from '#modules/personas/persona.story.js';
 import { preoccupationOf, storytellingOf } from '#modules/personas/persona.sheet.js';
 import type { Persona } from '#modules/personas/persona.js';
@@ -163,6 +165,8 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         private readonly padRepository: PadRepository,
         private readonly notes: PersonaNotesRepository,
         private readonly stories: PersonaStoriesRepository,
+        /** The ledger behind the two stamps on a story. See {@link story}. */
+        private readonly tellings: PersonaTellingRepository,
         private readonly plays: PlayHistoryRepository,
         private readonly identity: StationIdentity,
         private readonly speech: SpeechService,
@@ -313,6 +317,12 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         // reads as a chain rather than a merge.
         const subject = bulletin?.subject ?? forecast?.subject;
 
+        // Chosen here and SPENT further down, once a writer has actually won. The two used to be one
+        // step, which is what let a break that was rewritten, failed, or claimed by something else
+        // still count as a telling — `breaks.md` records what the same mistake cost the bulletin
+        // that made it: three rewrites emptied the window and lost seven bulletins in two hours.
+        const chosen = await this.story(persona, segment.kind, neighbours);
+
         const result = await this.writers.write({
             kind: segment.kind,
             ...(clock === undefined ? {} : { clock }),
@@ -353,7 +363,7 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
             // Read here and RESTED here, for the notebook's reason and one of its own: the rung that
             // decides whether this break gets a story at all is applied in the same step as the
             // stamp, or the store fills up with tellings nobody heard. See `story`.
-            ...(await this.story(persona, segment.kind, neighbours)),
+            ...(chosen === undefined ? {} : { story: chosen.story }),
             // What the engine that will speak this can do beyond reading. Read here for the notebook's
             // reason and answered once, so every binding asked for this break agrees about what was on
             // offer — and so a station that changed engine between two breaks writes for the one that
@@ -444,9 +454,15 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
             }))
         ) {
             // The row moved out of `planned` while this was being written. Whoever moved it owns it.
+            // Nothing is spent: the story this job chose is still owed to whatever airs here.
             this.logger.info('director: a break was written after something else had claimed it', { job: this.context.id, segment: segmentId });
             return;
         }
+
+        // These words are this segment's now, so whatever they did with the story is a fact. Before
+        // this line the break could still have been lost; after it, what a listener will hear is
+        // settled. See `spend`.
+        await this.spend(segmentId, chosen, { ...result.written, script });
 
         // Last, and deliberately: a render that ran before the script was committed would claim a
         // segment with nothing to say and fail it. If this send fails the row survives as a written
@@ -792,15 +808,20 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
     }
 
     /**
-     * The one story this break may draw on, chosen and rested here.
+     * The one story this break may draw on. Chosen here, and spent by {@link spend} further down.
      *
      * ## The rung is applied HERE, and that is the whole reason this is not in the prompt builder
      *
-     * A story's turn is spent by reading it, because {@link PersonaStoriesRepository.markTold} is
-     * what comes next. So a rung consulted at RENDER time would have this method spending a story on
-     * every break under `occasionally` and the prompt then quietly dropping most of them — a store
-     * reporting tellings nobody heard, and a "you have told this before" rule firing over breaks
-     * that never carried it. The decision and the stamp have to be the same step.
+     * A rung consulted at RENDER time would leave this method choosing a story for every break under
+     * `occasionally` and the prompt then quietly dropping most of them — a store reporting tellings
+     * nobody heard, and a "you have told this before" rule firing over breaks that never carried it.
+     * The rung and the prompt have to agree, so the rung is read where the material is.
+     *
+     * ## Choosing and spending are NOT the same step, which is a correction
+     *
+     * They were, and a break that was rewritten, failed, or claimed by another job still counted as
+     * a telling. The stamp now happens after `writeScript` has won, which is also the only point at
+     * which the writer's answer exists to be read back. See {@link spend}.
      *
      * ## What each kind may have, from the shapes themselves
      *
@@ -819,29 +840,78 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
      * Best-effort, like the notebook and the facts: a story that could not be read costs the story
      * and never the break.
      */
-    private async story(persona: Persona | undefined, kind: string, neighbours: Neighbours): Promise<{ story?: PersonaStoryForPrompt }> {
-        if (persona === undefined) return {};
+    private async story(persona: Persona | undefined, kind: string, neighbours: Neighbours): Promise<ChosenStory | undefined> {
+        if (persona === undefined) return undefined;
 
         const mode = STORY_MODES.get(kind);
-        if (mode === undefined) return {};
+        if (mode === undefined) return undefined;
 
         if (mode === 'offered') {
             const rung = storytellingOf(persona);
-            if (rung === 'never') return {};
+            if (rung === 'never') return undefined;
             // Every record the break was shown carries something to say, so there is no silence for
             // a story to fill. A break with no records at all is not one of these kinds.
-            if (rung === 'occasionally' && !nothingKnownAbout(neighbours)) return {};
+            if (rung === 'occasionally' && !nothingKnownAbout(neighbours)) return undefined;
         }
 
         try {
-            const found = await this.stories.forPrompt(persona.key);
-            if (found === undefined) return {};
+            const found = await this.stories.forPrompt(persona.key, { now: Date.now(), gapMs: resolveThreadGapMs(this.config) });
+            if (found === undefined) return undefined;
 
-            await this.stories.markTold(found.id);
-            return { story: found.story };
+            return {
+                id: found.id,
+                story: found.story,
+                mode,
+                personaKey: persona.key,
+                ...(found.beatId === undefined ? {} : { beatId: found.beatId }),
+            };
         } catch (error) {
             this.logger.warn(`director: could not read this character's own stories (${errorText(error)})`);
-            return {};
+            return undefined;
+        }
+    }
+
+    /**
+     * Write down that this break carried a story, once it is actually this break's script.
+     *
+     * Called only after `writeScript` has won, so nothing is spent by a break that failed, was
+     * rewritten into something else, or was claimed by another job between the writing and the
+     * commit. That is the whole correction this method exists for; see {@link story}.
+     *
+     * `replaceForSegment` rather than an insert, because a segment is rewritten often and every
+     * rewrite of one break is still one thing a listener hears. It is also why the no-story case has
+     * to reach this at all — a break rewritten into one that carries nothing must take the previous
+     * attempt's row with it, or the aired edge stamps a telling that never went out.
+     *
+     * Best-effort, like the reads that fed it: a ledger that could not be written costs the record
+     * of a telling and never the break.
+     */
+    private async spend(segmentId: string, chosen: ChosenStory | undefined, written: WrittenBreak): Promise<void> {
+        try {
+            if (chosen === undefined) {
+                await this.tellings.replaceForSegment(segmentId, undefined);
+                return;
+            }
+
+            await this.tellings.replaceForSegment(segmentId, {
+                personaKey: chosen.personaKey,
+                storyId: chosen.id,
+                // WHICH part it told, so the next one is owed rather than guessed at. Absent for
+                // anything that is not an arc.
+                ...(chosen.beatId === undefined ? {} : { beatId: chosen.beatId }),
+                source: 'break',
+                mode: chosen.mode,
+                // The WRITER's own read-back, never the model's word for it. A story offered on a
+                // talk break may simply be ignored, and a break that fell through to the phrasings
+                // said nothing of it at all — see `mentionsStory`.
+                told: written.toldStory === true,
+                // Kept only where something was actually told, because this is what a later break is
+                // shown so it can refer back, and the words of a break that ignored the story are
+                // not that. It also satisfies the store's own constraint.
+                ...(written.toldStory === true ? { said: written.script } : {}),
+            });
+        } catch (error) {
+            this.logger.warn(`director: could not record that a story was told (${errorText(error)})`);
         }
     }
 
@@ -1057,4 +1127,21 @@ interface Neighbour {
 interface Neighbours {
     previous?: Neighbour;
     next?: Neighbour;
+}
+
+/**
+ * The story a break was given, held between choosing it and spending it.
+ *
+ * Carries what the prompt needs and what the ledger needs, because the two happen either side of the
+ * writers: the request is built before anything is written, and the row is only a fact once a script
+ * has won. See `WriteBreakJob.story` and `WriteBreakJob.spend`.
+ */
+interface ChosenStory {
+    id: string;
+    story: PersonaStoryForPrompt;
+    /** What the kind's shape said this story was FOR, recorded so a timeline can say which. */
+    mode: 'offered' | 'told';
+    personaKey: string;
+    /** The part of an arc this break was handed, when it was handed one. */
+    beatId?: string;
 }

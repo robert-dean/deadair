@@ -77,9 +77,14 @@ describe('PersonaStoriesRepository.tellable', () => {
         const captured: Captured = { statements: [] };
         await repositoryOver(fakeDb([[storyRow('s1', 'The Barstow lights')], []], captured)).tellable('latenight');
 
-        // Least recently told first, never-told ahead of every told one, then oldest — so the story
-        // an audition hears first is the one the next real break would be given.
-        expect(captured.statements[0]?.sql).toContain('last_told_at asc nulls first');
+        // Least recently CARRIED first, never-carried ahead of every carried one, then oldest — so
+        // the story an audition hears first is the one the next real break would be given.
+        //
+        // Carried rather than told, and off the ledger rather than off a column: a story the model
+        // keeps being offered and keeps passing over would otherwise sit at the front of the queue
+        // forever and the rest of the shelf would never come round.
+        expect(captured.statements[0]?.sql).toContain('last_carried asc nulls first');
+        expect(captured.statements[0]?.sql).toContain('deadair.persona_tellings');
         expect(captured.statements[0]?.sql).toContain('order by');
     });
 

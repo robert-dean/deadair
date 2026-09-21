@@ -1,6 +1,6 @@
 ---
 title: 'PersonaFileStory'
-sidebar_position: 18
+sidebar_position: 20
 mdx:
     format: 'md'
 ---
@@ -11,13 +11,15 @@ mdx:
 > catalogue that station does not have
 
 <details>
-<summary>Attributes (4)</summary>
+<summary>Attributes (6)</summary>
 
-| Attribute | Type                       | Required | Description                                                                                                                                                                                     |
-| --------- | -------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `title`   | `string`                   | Yes      |                                                                                                                                                                                                 |
-| `story`   | `string`                   | Yes      |                                                                                                                                                                                                 |
-| `state`   | `'active' \| 'rejected'`   | No       | Absent means `active`. A turned-down story travels so the enrichment pass does not propose it again on the far side; an undecided one does not travel at all, because nobody has decided it yet |
-| `details` | `PersonaFileStoryDetail[]` | Yes      |                                                                                                                                                                                                 |
+| Attribute | Type                           | Required | Description                                                                                                                                                                                     |
+| --------- | ------------------------------ | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `title`   | `string`                       | Yes      |                                                                                                                                                                                                 |
+| `story`   | `string`                       | Yes      |                                                                                                                                                                                                 |
+| `kind`    | `'anecdote' \| 'arc' \| 'bit'` | No       | Absent means `anecdote`. What sort of thing this is travels because it is part of what the story IS, not part of what this station has done with it                                             |
+| `state`   | `'active' \| 'rejected'`       | No       | Absent means `active`. A turned-down story travels so the enrichment pass does not propose it again on the far side; an undecided one does not travel at all, because nobody has decided it yet |
+| `details` | `PersonaFileStoryDetail[]`     | Yes      |                                                                                                                                                                                                 |
+| `beats`   | `PersonaFileStoryBeat[]`       | Yes      | The parts an arc is told in, in order. Empty for the other two kinds                                                                                                                            |
 
 </details>

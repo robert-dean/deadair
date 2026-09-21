@@ -237,6 +237,67 @@ public final class PersonasClient: Sendable {
         let response = try await http.execute(request)
         return try http.decodeJSON(PersonaRehearsal.self, from: response)
     }
+
+    /// Add persona story beat
+    /// Adds one part to an arc. A script rather than a summary: the floor speaks it as it stands
+    public func addPersonaStoryBeat(id: String, storyId: String, body: PersonaStoryBeatWrite) async throws -> PersonaStoryList {
+        var request = try SdkRequest(method: "POST", path: ["personas", http.segment(id), "stories", http.segment(storyId), "beats"])
+        try http.setJSONBody(&request, body, contentType: "application/json")
+        let response = try await http.execute(request)
+        return try http.decodeJSON(PersonaStoryList.self, from: response)
+    }
+
+    /// Update persona story beat
+    /// Rewrites one part's words, or moves it in the order
+    public func updatePersonaStoryBeat(id: String, storyId: String, beatId: String, body: PersonaStoryBeatWrite) async throws -> PersonaStoryList {
+        var request = try SdkRequest(method: "PUT", path: ["personas", http.segment(id), "stories", http.segment(storyId), "beats", http.segment(beatId)])
+        try http.setJSONBody(&request, body, contentType: "application/json")
+        let response = try await http.execute(request)
+        return try http.decodeJSON(PersonaStoryList.self, from: response)
+    }
+
+    /// Delete persona story beat
+    /// Removes one part outright, leaving the arc standing. Turning down a PROPOSAL is a state instead
+    public func deletePersonaStoryBeat(id: String, storyId: String, beatId: String) async throws -> PersonaStoryList {
+        let request = try SdkRequest(method: "DELETE", path: ["personas", http.segment(id), "stories", http.segment(storyId), "beats", http.segment(beatId)])
+        let response = try await http.execute(request)
+        return try http.decodeJSON(PersonaStoryList.self, from: response)
+    }
+
+    /// Set persona story beat state
+    /// Accepts a proposed part, or turns it down without losing that it was turned down
+    public func setPersonaStoryBeatState(id: String, storyId: String, beatId: String, body: PersonaStoryState) async throws -> PersonaStoryList {
+        var request = try SdkRequest(method: "PUT", path: ["personas", http.segment(id), "stories", http.segment(storyId), "beats", http.segment(beatId), "state"])
+        try http.setJSONBody(&request, body, contentType: "application/json")
+        let response = try await http.execute(request)
+        return try http.decodeJSON(PersonaStoryList.self, from: response)
+    }
+
+    /// Read persona memory
+    /// What this character has told, newest first. The timeline a moment is picked from
+    public func readPersonaMemory(id: String) async throws -> PersonaMemoryTimeline {
+        let request = try SdkRequest(method: "GET", path: ["personas", http.segment(id), "memory"])
+        let response = try await http.execute(request)
+        return try http.decodeJSON(PersonaMemoryTimeline.self, from: response)
+    }
+
+    /// Preview persona memory rollback
+    /// What rolling back to a moment would undo, without undoing it
+    public func previewPersonaMemoryRollback(id: String, query: PreviewPersonaMemoryRollbackQuery? = nil) async throws -> PersonaMemoryChange {
+        var request = try SdkRequest(method: "GET", path: ["personas", http.segment(id), "memory", "preview"])
+        try http.addQuery(&request, query)
+        let response = try await http.execute(request)
+        return try http.decodeJSON(PersonaMemoryChange.self, from: response)
+    }
+
+    /// Roll back persona memory
+    /// Undo it. Everything the station accrued after that moment goes; everything an operator wrote stays
+    public func rollBackPersonaMemory(id: String, body: PersonaMemoryRollback) async throws -> PersonaMemory {
+        var request = try SdkRequest(method: "POST", path: ["personas", http.segment(id), "memory", "rollback"])
+        try http.setJSONBody(&request, body, contentType: "application/json")
+        let response = try await http.execute(request)
+        return try http.decodeJSON(PersonaMemory.self, from: response)
+    }
 }
 
 /// Response headers declared on GET /personas/export.
@@ -276,5 +337,18 @@ public struct ExportPersonaResult: Equatable, Sendable {
     public init(data: PersonaFile, headers: ExportPersonaHeaders) {
         self.data = data
         self.headers = headers
+    }
+}
+
+/// Query parameters for GET /personas/{id}/memory/preview.
+public struct PreviewPersonaMemoryRollbackQuery: Encodable, Equatable, Sendable {
+    public var to: String?
+
+    public init(to: String? = nil) {
+        self.to = to
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case to = "to"
     }
 }

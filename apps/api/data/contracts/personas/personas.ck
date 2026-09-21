@@ -9,6 +9,7 @@ options {
         PersonaRehearsalService: "#src/modules/personas/persona.rehearsal.service.js"
         PersonaNotesService: "#src/modules/personas/persona.notes.service.js"
         PersonaStoriesService: "#src/modules/personas/persona.stories.service.js"
+        PersonaMemoryService: "#src/modules/personas/persona.memory.service.js"
     }
     security: {
         # The floor for this file is the WRITE end, unlike settings beside it, because this file is
@@ -489,6 +490,144 @@ operation /personas/{id}/rehearse: {
         response: {
             200: {
                 application/json: PersonaRehearsal
+            }
+        }
+    }
+}
+
+# The parts an ARC is told in. Its own routes rather than a mode of the details above, because the
+# two are different things: a detail is something the story picked up and every active one is shown
+# at once, while a beat is one telling's worth and exactly one is ever shown. See
+# `persona.story.beat.ts`.
+operation /personas/{id}/stories/{storyId}/beats: {
+    params: {
+        id: string(min=1, max=100)
+        storyId: string(min=1, max=100)
+    }
+    post: { # Adds one part to an arc. A script rather than a summary: the floor speaks it as it stands
+        name: Add persona story beat
+        service: PersonaStoriesService.addBeat
+        request: {
+            application/json: PersonaStoryBeatWrite
+        }
+        response: {
+            201: {
+                application/json: PersonaStoryList
+            }
+        }
+    }
+}
+
+operation /personas/{id}/stories/{storyId}/beats/{beatId}: {
+    params: {
+        id: string(min=1, max=100)
+        storyId: string(min=1, max=100)
+        beatId: string(min=1, max=100)
+    }
+    put: { # Rewrites one part's words, or moves it in the order
+        name: Update persona story beat
+        service: PersonaStoriesService.updateBeat
+        request: {
+            application/json: PersonaStoryBeatWrite
+        }
+        response: {
+            200: {
+                application/json: PersonaStoryList
+            }
+        }
+    }
+    delete: { # Removes one part outright, leaving the arc standing. Turning down a PROPOSAL is a state instead
+        name: Delete persona story beat
+        service: PersonaStoriesService.removeBeat
+        response: {
+            200: {
+                application/json: PersonaStoryList
+            }
+        }
+    }
+}
+
+operation /personas/{id}/stories/{storyId}/beats/{beatId}/state: {
+    params: {
+        id: string(min=1, max=100)
+        storyId: string(min=1, max=100)
+        beatId: string(min=1, max=100)
+    }
+    put: { # Accepts a proposed part, or turns it down without losing that it was turned down
+        name: Set persona story beat state
+        service: PersonaStoriesService.setBeatState
+        request: {
+            application/json: PersonaStoryState
+        }
+        response: {
+            200: {
+                application/json: PersonaStoryList
+            }
+        }
+    }
+}
+
+# Undoing what a character accumulated on its own.
+#
+# A station whose characters grow unattended needs a way back, or every experiment is permanent and
+# the only safe setting is off. What this undoes is what the STATION accrued — tellings, and anything
+# the nightly passes proposed — and never what an operator wrote by hand.
+#
+# The two READS are `platform.view` like the notebook and the shelf beside them, because looking at
+# what a character has said is part of reading the station. The rollback itself inherits the file's
+# `platform.manage` floor, because it is the most destructive thing in this file.
+operation /personas/{id}/memory: {
+    params: {
+        id: string(min=1, max=100)
+    }
+    get: { # What this character has told, newest first. The timeline a moment is picked from
+        name: Read persona memory
+        service: PersonaMemoryService.timeline
+        security: {
+            policy: platform.view
+        }
+        response: {
+            200: {
+                application/json: PersonaMemoryTimeline
+            }
+        }
+    }
+}
+
+operation /personas/{id}/memory/preview: {
+    params: {
+        id: string(min=1, max=100)
+    }
+    get: { # What rolling back to a moment would undo, without undoing it
+        name: Preview persona memory rollback
+        service: PersonaMemoryService.preview
+        security: {
+            policy: platform.view
+        }
+        query: {
+            to?: string(max=40) # The moment to go back to, as a timeline row reports it. Absent counts all of it, which is what a reset would take
+        }
+        response: {
+            200: {
+                application/json: PersonaMemoryChange
+            }
+        }
+    }
+}
+
+operation /personas/{id}/memory/rollback: {
+    params: {
+        id: string(min=1, max=100)
+    }
+    post: { # Undo it. Everything the station accrued after that moment goes; everything an operator wrote stays
+        name: Roll back persona memory
+        service: PersonaMemoryService.rollback
+        request: {
+            application/json: PersonaMemoryRollback
+        }
+        response: {
+            200: {
+                application/json: PersonaMemory
             }
         }
     }

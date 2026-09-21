@@ -25,6 +25,7 @@ contract Persona: {
     latitude?: enum(loose, unleashed) # How much room this character is given, above the station's ordinary discipline: a bigger word ceiling, a licence to follow the thought instead of making one point, and at `unleashed` no restraint on how it says it. Offered only by the ordinary talk break, always outranked by the station's content policy, and it switches off no refusal
     chattiness?: enum(reserved, sparing, ordinary, chatty, relentless) # How often this character talks, as a scale on the station's own interval between breaks. Absent is `ordinary`, which is that interval unchanged. The quietest rung is half as often and never silence: turning the station's breaks off is a station setting, and two switches for one thing can disagree
     storytelling?: enum(never, occasionally, often) # How readily this character works one of its own stories into an ordinary talk break. Absent is `occasionally`, which offers one only where the station knows nothing about the records either side. The stories themselves are their own list, and a `story` band on the clock outranks this whatever it says
+    growth?: enum(proposes, self-directed) # Whether the nightly passes may write this character new material outright, or only ever propose it for you to accept. Absent is `proposes`, which is what every character does until somebody says otherwise. It reaches no prompt: the character is never told which it is
     samples?: array(string(min=1, max=500)) # Lines in their own voice, used as examples and as a console preview
     templates?: string(max=20000) # This character's own break phrasings, one per line. Empty means the station's global ones
     defaultHost: readonly boolean # The station's own host: who presents when the broadcast on air names nobody. At most one per station. Was `active` until it was renamed, because a reader who had not read `PersonaRepository.presenting` reasonably took that to mean "on air", which it is not during a show that named its own host
@@ -114,7 +115,9 @@ contract PersonaStory: {
     state: readonly enum(active, suggested, rejected) # `active` can be told. `rejected` outlives the pass that proposed it, or the same catalogue proposes it forever
     origin: readonly enum(operator, model) # Who says so. `model` is the enrichment pass writing from what the station already holds
     source?: readonly string(max=1000) # Where a proposal came from, in the station's own words. Absent for anything an operator wrote
+    kind: readonly enum(anecdote, arc, bit) # An `anecdote` is told whole, an `arc` a part at a time, a `bit` is a running joke with no end
     details: readonly array(PersonaStoryDetail) # What it has picked up since, in every state
+    beats: readonly array(PersonaStoryBeat) # The parts an arc is told in, in order and in every state. Empty for the other two kinds
     lastToldAt?: readonly string(max=40) # Absent means never told, which is what puts it at the front of the rotation
     timesTold: readonly int(min=0) # How often it has gone out, which changes how the model is asked to tell it
     createdAt: readonly string(min=1, max=40)
@@ -137,6 +140,23 @@ contract PersonaStoryList: { # Every story one character holds, oldest first, in
 contract PersonaStoryWrite: { # A story an operator is writing by hand. Always active and always theirs; a proposal is something only the enrichment pass creates
     title: string(min=1, max=200)
     story: string(min=1, max=4000)
+    kind?: enum(anecdote, arc, bit) # What sort of thing this is. Absent means `anecdote`, which is what every story written before arcs existed is
+}
+
+contract PersonaStoryBeat: { # One part of an arc, in the order it is told. A SCRIPT rather than a summary, because the floor speaks it as it stands
+    id: readonly string(min=1, max=100)
+    storyId: readonly string(min=1, max=100)
+    ordinal: int(min=0) # Where it comes in the telling. Gaps are legal: inserting a part between two others must not mean renumbering the rest
+    beat: string(min=1, max=4000)
+    state: readonly enum(active, suggested, rejected)
+    origin: readonly enum(operator, model)
+    source?: readonly string(max=1000) # Where a proposal came from. Not evidence; see the note on a story's own source
+    createdAt: readonly string(min=1, max=40)
+}
+
+contract PersonaStoryBeatWrite: { # A part to add to an arc, or an edit to one
+    ordinal: int(min=0)
+    beat: string(min=1, max=4000)
 }
 
 contract PersonaStoryDetailWrite: { # One thing to add to a story that already exists
@@ -172,8 +192,17 @@ contract PersonaFilePersona: PersonaDraftView & {
 contract PersonaFileStory: {
     title: string(min=1, max=200)
     story: string(min=1, max=4000)
+    kind?: enum(anecdote, arc, bit) # Absent means `anecdote`. What sort of thing this is travels because it is part of what the story IS, not part of what this station has done with it
     state?: enum(active, rejected) # Absent means `active`. A turned-down story travels so the enrichment pass does not propose it again on the far side; an undecided one does not travel at all, because nobody has decided it yet
     details: array(PersonaFileStoryDetail)
+    beats: array(PersonaFileStoryBeat) # The parts an arc is told in, in order. Empty for the other two kinds
+}
+
+# One part of an arc, as a file carries it. No `origin` and no `source`, for the story's own reason
+contract PersonaFileStoryBeat: {
+    ordinal: int(min=0)
+    beat: string(min=1, max=4000)
+    state?: enum(active, rejected) # Absent means `active`, exactly as a story's does
 }
 
 contract PersonaFileStoryDetail: { # One thing a story picked up after it was written, carried the same way and for the same reasons
@@ -299,6 +328,7 @@ contract PersonaAuditionBreak: {
     script?: string(max=5000) # The words a listener would have heard, from whichever writer answered first
     writer?: string(min=1, max=100) # Which one that was. Present exactly when `script` is
     reason?: string(max=1000) # Why there are none, when every writer had nothing. On air this break is skipped
+    told?: boolean # Whether the writer's read-back found the story this break was handed. Absent means it carried none, which is most of them. On air this is what decides whether a story in parts owes the next one, so a run is how you check the reading is right before trusting an arc to it
 }
 
 # A run of one character over one playlist, without its breaks: what a list draws
@@ -323,4 +353,47 @@ contract PersonaAudition: PersonaAuditionSummary & {
 
 contract PersonaAuditionList: {
     auditions: array(PersonaAuditionSummary)
+}
+
+# One time a character actually told one of its own stories. What the timeline lists, and what a
+# rollback is chosen from: the moment on each row is the exact string the station compares against,
+# not a rounding of it
+contract PersonaTelling: {
+    id: readonly string(min=1, max=100)
+    storyId: readonly string(min=1, max=100)
+    title: readonly string(min=1, max=200) # The handle of the story this told, so a timeline reads as something rather than as ids
+    source: readonly enum(break, production, backfill) # What wrote it. `backfill` is the rows migration 0034 reconstructed from the two columns it replaced
+    mode: readonly enum(offered, told) # Whether the story was handed over as something the writer MAY use, or as the thing the break was for
+    told: readonly boolean # Whether it actually went out, as the WRITER read its own answer back. An offered story may simply be ignored
+    said?: readonly string(max=2000) # The words that carried it, kept here because the script history they came from is swept nightly
+    segmentId?: readonly string(max=100) # The break that carried it, while that row still exists
+    airedAt?: readonly string(max=40) # When a listener could first have heard it. Absent means written but not yet aired, or never aired at all
+    at: readonly string(min=1, max=40) # When it was written. Hand this back as `to` to roll back to just before it
+}
+
+contract PersonaMemoryTimeline: { # What one character has told, newest first
+    personaId: string(min=1, max=100)
+    tellings: array(PersonaTelling)
+}
+
+# What a rollback would undo, or did. Counted with the same predicates the delete uses, so a preview
+# cannot promise one thing and do another
+contract PersonaMemoryChange: {
+    tellings: int(min=0) # Tellings forgotten. Every one, whatever wrote it: a telling is a record of something the station did rather than a claim somebody made
+    notes: int(min=0) # Notes the distil pass wrote. Nothing an operator typed is ever counted here or deleted
+    stories: int(min=0) # Stories the enrichment pass proposed
+    details: int(min=0) # Details it proposed. A floor rather than a total: a story that is itself going takes every detail hung on it
+    rejected: int(min=0) # How many of the above were proposals somebody turned down. Deleting one lets the nightly pass offer it again
+    touched: int(min=0) # How many the operator had since accepted or edited. They still go, and this is the one loss they did not cause
+}
+
+contract PersonaMemoryRollback: { # Undo what this character accumulated on its own
+    to?: string(max=40) # The moment to go back to, as a timeline row reports it. Absent means all of it, which is a reset
+    relearn?: boolean # Also drag the distil pass's watermark back, so it reads that window again. Right for testing and wrong for undoing a character that drifted, so it is asked for rather than assumed
+}
+
+contract PersonaMemory: { # What was undone, and where the timeline stands now
+    personaId: string(min=1, max=100)
+    undone: PersonaMemoryChange
+    tellings: array(PersonaTelling)
 }

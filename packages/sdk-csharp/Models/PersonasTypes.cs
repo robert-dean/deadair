@@ -102,6 +102,11 @@ public sealed record Persona
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public PersonaStorytelling? Storytelling { get; init; }
 
+    /// <summary>Whether the nightly passes may write this character new material outright, or only ever propose it for you to accept. Absent is `proposes`, which is what every character does until somebody says otherwise. It reaches no prompt: the character is never told which it is</summary>
+    [JsonPropertyName("growth")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PersonaGrowth? Growth { get; init; }
+
     /// <summary>Lines in their own voice, used as examples and as a console preview</summary>
     [JsonPropertyName("samples")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -209,6 +214,11 @@ public sealed record PersonaInput
     [JsonPropertyName("storytelling")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public PersonaStorytelling? Storytelling { get; init; }
+
+    /// <summary>Whether the nightly passes may write this character new material outright, or only ever propose it for you to accept. Absent is `proposes`, which is what every character does until somebody says otherwise. It reaches no prompt: the character is never told which it is</summary>
+    [JsonPropertyName("growth")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PersonaGrowth? Growth { get; init; }
 
     /// <summary>Lines in their own voice, used as examples and as a console preview</summary>
     [JsonPropertyName("samples")]
@@ -427,6 +437,63 @@ public sealed record PersonaStoryWrite
 
     [JsonPropertyName("story")]
     public required string Story { get; init; }
+
+    /// <summary>What sort of thing this is. Absent means `anecdote`, which is what every story written before arcs existed is</summary>
+    [JsonPropertyName("kind")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PersonaStoryWriteKind? Kind { get; init; }
+}
+
+/// <summary>One part of an arc, in the order it is told. A SCRIPT rather than a summary, because the floor speaks it as it stands</summary>
+public sealed record PersonaStoryBeat
+{
+    [JsonPropertyName("id")]
+    public required string Id { get; init; }
+
+    [JsonPropertyName("storyId")]
+    public required string StoryId { get; init; }
+
+    /// <summary>Where it comes in the telling. Gaps are legal: inserting a part between two others must not mean renumbering the rest</summary>
+    [JsonPropertyName("ordinal")]
+    public required long Ordinal { get; init; }
+
+    [JsonPropertyName("beat")]
+    public required string Beat { get; init; }
+
+    [JsonPropertyName("state")]
+    public required PersonaStoryBeatState State { get; init; }
+
+    [JsonPropertyName("origin")]
+    public required PersonaStoryBeatOrigin Origin { get; init; }
+
+    /// <summary>Where a proposal came from. Not evidence; see the note on a story's own source</summary>
+    [JsonPropertyName("source")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Source { get; init; }
+
+    [JsonPropertyName("createdAt")]
+    public required string CreatedAt { get; init; }
+}
+
+/// <summary>One part of an arc, in the order it is told. A SCRIPT rather than a summary, because the floor speaks it as it stands</summary>
+public sealed record PersonaStoryBeatInput
+{
+    /// <summary>Where it comes in the telling. Gaps are legal: inserting a part between two others must not mean renumbering the rest</summary>
+    [JsonPropertyName("ordinal")]
+    public required long Ordinal { get; init; }
+
+    [JsonPropertyName("beat")]
+    public required string Beat { get; init; }
+}
+
+/// <summary>A part to add to an arc, or an edit to one</summary>
+public sealed record PersonaStoryBeatWrite
+{
+    [JsonPropertyName("ordinal")]
+    public required long Ordinal { get; init; }
+
+    [JsonPropertyName("beat")]
+    public required string Beat { get; init; }
 }
 
 /// <summary>One thing to add to a story that already exists</summary>
@@ -441,6 +508,21 @@ public sealed record PersonaStoryState
 {
     [JsonPropertyName("state")]
     public required PersonaStoryStateState State { get; init; }
+}
+
+/// <summary>One part of an arc, as a file carries it. No `origin` and no `source`, for the story's own reason</summary>
+public sealed record PersonaFileStoryBeat
+{
+    [JsonPropertyName("ordinal")]
+    public required long Ordinal { get; init; }
+
+    [JsonPropertyName("beat")]
+    public required string Beat { get; init; }
+
+    /// <summary>Absent means `active`, exactly as a story's does</summary>
+    [JsonPropertyName("state")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PersonaFileStoryBeatState? State { get; init; }
 }
 
 /// <summary>One thing a story picked up after it was written, carried the same way and for the same reasons</summary>
@@ -576,6 +658,107 @@ public sealed record PersonaAuditionRecord
     public long? DurationMs { get; init; }
 }
 
+/// <summary>
+/// One time a character actually told one of its own stories. What the timeline lists, and what a
+/// rollback is chosen from: the moment on each row is the exact string the station compares against,
+/// not a rounding of it
+/// </summary>
+public sealed record PersonaTelling
+{
+    [JsonPropertyName("id")]
+    public required string Id { get; init; }
+
+    [JsonPropertyName("storyId")]
+    public required string StoryId { get; init; }
+
+    /// <summary>The handle of the story this told, so a timeline reads as something rather than as ids</summary>
+    [JsonPropertyName("title")]
+    public required string Title { get; init; }
+
+    /// <summary>What wrote it. `backfill` is the rows migration 0034 reconstructed from the two columns it replaced</summary>
+    [JsonPropertyName("source")]
+    public required PersonaTellingSource Source { get; init; }
+
+    /// <summary>Whether the story was handed over as something the writer MAY use, or as the thing the break was for</summary>
+    [JsonPropertyName("mode")]
+    public required PersonaTellingMode Mode { get; init; }
+
+    /// <summary>Whether it actually went out, as the WRITER read its own answer back. An offered story may simply be ignored</summary>
+    [JsonPropertyName("told")]
+    public required bool Told { get; init; }
+
+    /// <summary>The words that carried it, kept here because the script history they came from is swept nightly</summary>
+    [JsonPropertyName("said")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Said { get; init; }
+
+    /// <summary>The break that carried it, while that row still exists</summary>
+    [JsonPropertyName("segmentId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? SegmentId { get; init; }
+
+    /// <summary>When a listener could first have heard it. Absent means written but not yet aired, or never aired at all</summary>
+    [JsonPropertyName("airedAt")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? AiredAt { get; init; }
+
+    /// <summary>When it was written. Hand this back as `to` to roll back to just before it</summary>
+    [JsonPropertyName("at")]
+    public required string At { get; init; }
+}
+
+/// <summary>
+/// One time a character actually told one of its own stories. What the timeline lists, and what a
+/// rollback is chosen from: the moment on each row is the exact string the station compares against,
+/// not a rounding of it
+/// </summary>
+public sealed record PersonaTellingInput;
+
+/// <summary>
+/// What a rollback would undo, or did. Counted with the same predicates the delete uses, so a preview
+/// cannot promise one thing and do another
+/// </summary>
+public sealed record PersonaMemoryChange
+{
+    /// <summary>Tellings forgotten. Every one, whatever wrote it: a telling is a record of something the station did rather than a claim somebody made</summary>
+    [JsonPropertyName("tellings")]
+    public required long Tellings { get; init; }
+
+    /// <summary>Notes the distil pass wrote. Nothing an operator typed is ever counted here or deleted</summary>
+    [JsonPropertyName("notes")]
+    public required long Notes { get; init; }
+
+    /// <summary>Stories the enrichment pass proposed</summary>
+    [JsonPropertyName("stories")]
+    public required long Stories { get; init; }
+
+    /// <summary>Details it proposed. A floor rather than a total: a story that is itself going takes every detail hung on it</summary>
+    [JsonPropertyName("details")]
+    public required long Details { get; init; }
+
+    /// <summary>How many of the above were proposals somebody turned down. Deleting one lets the nightly pass offer it again</summary>
+    [JsonPropertyName("rejected")]
+    public required long Rejected { get; init; }
+
+    /// <summary>How many the operator had since accepted or edited. They still go, and this is the one loss they did not cause</summary>
+    [JsonPropertyName("touched")]
+    public required long Touched { get; init; }
+}
+
+/// <summary>Undo what this character accumulated on its own</summary>
+public sealed record PersonaMemoryRollback
+{
+    /// <summary>The moment to go back to, as a timeline row reports it. Absent means all of it, which is a reset</summary>
+    [JsonPropertyName("to")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? To { get; init; }
+
+    /// <summary>Also drag the distil pass's watermark back, so it reads that window again. Right for testing and wrong for undoing a character that drifted, so it is asked for rather than assumed</summary>
+    [JsonPropertyName("relearn")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Relearn { get; init; }
+}
+
 public sealed record PersonaList
 {
     [JsonPropertyName("personas")]
@@ -606,6 +789,25 @@ public sealed record PersonaNoteListInput
 
     [JsonPropertyName("notes")]
     public required List<PersonaNoteInput> Notes { get; init; }
+}
+
+/// <summary>What a model wrote, and what had to be dropped to make it usable</summary>
+public sealed record GeneratedPersona
+{
+    [JsonPropertyName("persona")]
+    public required PersonaDraftView Persona { get; init; }
+
+    /// <summary>A couple of things that have happened to this character. Beside the form rather than in it, because they are their own table: the console saves the persona and then writes these through the stories route, so they go through the same validation an operator's own typing does</summary>
+    [JsonPropertyName("stories")]
+    public required List<PersonaStoryWrite> Stories { get; init; }
+
+    /// <summary>Words the model called markers that its own sample lines never used. Dropped, because the samples are the evidence and the marker list is the claim — a marker nothing says declines every break and looks exactly like a model that is switched off</summary>
+    [JsonPropertyName("droppedMarkers")]
+    public required List<string> DroppedMarkers { get; init; }
+
+    /// <summary>Phrasings naming a value the vocabulary does not have. Dropped by the LINE, since five good phrasings and one broken one is five phrasings</summary>
+    [JsonPropertyName("droppedTemplates")]
+    public required List<string> DroppedTemplates { get; init; }
 }
 
 /// <summary>
@@ -640,9 +842,17 @@ public sealed record PersonaStory
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Source { get; init; }
 
+    /// <summary>An `anecdote` is told whole, an `arc` a part at a time, a `bit` is a running joke with no end</summary>
+    [JsonPropertyName("kind")]
+    public required PersonaStoryKind Kind { get; init; }
+
     /// <summary>What it has picked up since, in every state</summary>
     [JsonPropertyName("details")]
     public required List<PersonaStoryDetail> Details { get; init; }
+
+    /// <summary>The parts an arc is told in, in order and in every state. Empty for the other two kinds</summary>
+    [JsonPropertyName("beats")]
+    public required List<PersonaStoryBeat> Beats { get; init; }
 
     /// <summary>Absent means never told, which is what puts it at the front of the rotation</summary>
     [JsonPropertyName("lastToldAt")]
@@ -674,25 +884,6 @@ public sealed record PersonaStoryInput
     public required string Story { get; init; }
 }
 
-/// <summary>What a model wrote, and what had to be dropped to make it usable</summary>
-public sealed record GeneratedPersona
-{
-    [JsonPropertyName("persona")]
-    public required PersonaDraftView Persona { get; init; }
-
-    /// <summary>A couple of things that have happened to this character. Beside the form rather than in it, because they are their own table: the console saves the persona and then writes these through the stories route, so they go through the same validation an operator's own typing does</summary>
-    [JsonPropertyName("stories")]
-    public required List<PersonaStoryWrite> Stories { get; init; }
-
-    /// <summary>Words the model called markers that its own sample lines never used. Dropped, because the samples are the evidence and the marker list is the claim — a marker nothing says declines every break and looks exactly like a model that is switched off</summary>
-    [JsonPropertyName("droppedMarkers")]
-    public required List<string> DroppedMarkers { get; init; }
-
-    /// <summary>Phrasings naming a value the vocabulary does not have. Dropped by the LINE, since five good phrasings and one broken one is five phrasings</summary>
-    [JsonPropertyName("droppedTemplates")]
-    public required List<string> DroppedTemplates { get; init; }
-}
-
 /// <summary>
 /// Something that happened to this character, as a file carries it. No `origin` and no `source`,
 /// unlike the stored row: whoever exported this stood behind every story in it, so on the far side
@@ -707,6 +898,11 @@ public sealed record PersonaFileStory
     [JsonPropertyName("story")]
     public required string Story { get; init; }
 
+    /// <summary>Absent means `anecdote`. What sort of thing this is travels because it is part of what the story IS, not part of what this station has done with it</summary>
+    [JsonPropertyName("kind")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PersonaFileStoryKind? Kind { get; init; }
+
     /// <summary>Absent means `active`. A turned-down story travels so the enrichment pass does not propose it again on the far side; an undecided one does not travel at all, because nobody has decided it yet</summary>
     [JsonPropertyName("state")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -714,6 +910,10 @@ public sealed record PersonaFileStory
 
     [JsonPropertyName("details")]
     public required List<PersonaFileStoryDetail> Details { get; init; }
+
+    /// <summary>The parts an arc is told in, in order. Empty for the other two kinds</summary>
+    [JsonPropertyName("beats")]
+    public required List<PersonaFileStoryBeat> Beats { get; init; }
 }
 
 /// <summary>One character in a file, and what would become of it here</summary>
@@ -871,6 +1071,57 @@ public sealed record PersonaAuditionBreak
     [JsonPropertyName("reason")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Reason { get; init; }
+
+    /// <summary>Whether the writer's read-back found the story this break was handed. Absent means it carried none, which is most of them. On air this is what decides whether a story in parts owes the next one, so a run is how you check the reading is right before trusting an arc to it</summary>
+    [JsonPropertyName("told")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Told { get; init; }
+}
+
+/// <summary>What one character has told, newest first</summary>
+public sealed record PersonaMemoryTimeline
+{
+    [JsonPropertyName("personaId")]
+    public required string PersonaId { get; init; }
+
+    [JsonPropertyName("tellings")]
+    public required List<PersonaTelling> Tellings { get; init; }
+}
+
+/// <summary>What one character has told, newest first</summary>
+public sealed record PersonaMemoryTimelineInput
+{
+    [JsonPropertyName("personaId")]
+    public required string PersonaId { get; init; }
+
+    [JsonPropertyName("tellings")]
+    public required List<PersonaTellingInput> Tellings { get; init; }
+}
+
+/// <summary>What was undone, and where the timeline stands now</summary>
+public sealed record PersonaMemory
+{
+    [JsonPropertyName("personaId")]
+    public required string PersonaId { get; init; }
+
+    [JsonPropertyName("undone")]
+    public required PersonaMemoryChange Undone { get; init; }
+
+    [JsonPropertyName("tellings")]
+    public required List<PersonaTelling> Tellings { get; init; }
+}
+
+/// <summary>What was undone, and where the timeline stands now</summary>
+public sealed record PersonaMemoryInput
+{
+    [JsonPropertyName("personaId")]
+    public required string PersonaId { get; init; }
+
+    [JsonPropertyName("undone")]
+    public required PersonaMemoryChange Undone { get; init; }
+
+    [JsonPropertyName("tellings")]
+    public required List<PersonaTellingInput> Tellings { get; init; }
 }
 
 /// <summary>Every story one character holds, oldest first, in every state</summary>
@@ -1210,6 +1461,17 @@ public enum PersonaStorytelling
     Often,
 }
 
+/// <summary>Whether the nightly passes may write this character new material outright, or only ever propose it for you to accept. Absent is `proposes`, which is what every character does until somebody says otherwise. It reaches no prompt: the character is never told which it is</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<PersonaGrowth>))]
+public enum PersonaGrowth
+{
+    [JsonStringEnumMemberName("proposes")]
+    Proposes,
+
+    [JsonStringEnumMemberName("self-directed")]
+    SelfDirected,
+}
+
 [JsonConverter(typeof(JsonStringEnumConverter<PersonaDraftViewBrevity>))]
 public enum PersonaDraftViewBrevity
 {
@@ -1346,6 +1608,20 @@ public enum PersonaStoryOrigin
     Model,
 }
 
+/// <summary>An `anecdote` is told whole, an `arc` a part at a time, a `bit` is a running joke with no end</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<PersonaStoryKind>))]
+public enum PersonaStoryKind
+{
+    [JsonStringEnumMemberName("anecdote")]
+    Anecdote,
+
+    [JsonStringEnumMemberName("arc")]
+    Arc,
+
+    [JsonStringEnumMemberName("bit")]
+    Bit,
+}
+
 [JsonConverter(typeof(JsonStringEnumConverter<PersonaStoryDetailState>))]
 public enum PersonaStoryDetailState
 {
@@ -1361,6 +1637,43 @@ public enum PersonaStoryDetailState
 
 [JsonConverter(typeof(JsonStringEnumConverter<PersonaStoryDetailOrigin>))]
 public enum PersonaStoryDetailOrigin
+{
+    [JsonStringEnumMemberName("operator")]
+    Operator,
+
+    [JsonStringEnumMemberName("model")]
+    Model,
+}
+
+/// <summary>What sort of thing this is. Absent means `anecdote`, which is what every story written before arcs existed is</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<PersonaStoryWriteKind>))]
+public enum PersonaStoryWriteKind
+{
+    [JsonStringEnumMemberName("anecdote")]
+    Anecdote,
+
+    [JsonStringEnumMemberName("arc")]
+    Arc,
+
+    [JsonStringEnumMemberName("bit")]
+    Bit,
+}
+
+[JsonConverter(typeof(JsonStringEnumConverter<PersonaStoryBeatState>))]
+public enum PersonaStoryBeatState
+{
+    [JsonStringEnumMemberName("active")]
+    Active,
+
+    [JsonStringEnumMemberName("suggested")]
+    Suggested,
+
+    [JsonStringEnumMemberName("rejected")]
+    Rejected,
+}
+
+[JsonConverter(typeof(JsonStringEnumConverter<PersonaStoryBeatOrigin>))]
+public enum PersonaStoryBeatOrigin
 {
     [JsonStringEnumMemberName("operator")]
     Operator,
@@ -1393,9 +1706,34 @@ public enum PersonaFilePersonaKind
     Caller,
 }
 
+/// <summary>Absent means `anecdote`. What sort of thing this is travels because it is part of what the story IS, not part of what this station has done with it</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<PersonaFileStoryKind>))]
+public enum PersonaFileStoryKind
+{
+    [JsonStringEnumMemberName("anecdote")]
+    Anecdote,
+
+    [JsonStringEnumMemberName("arc")]
+    Arc,
+
+    [JsonStringEnumMemberName("bit")]
+    Bit,
+}
+
 /// <summary>Absent means `active`. A turned-down story travels so the enrichment pass does not propose it again on the far side; an undecided one does not travel at all, because nobody has decided it yet</summary>
 [JsonConverter(typeof(JsonStringEnumConverter<PersonaFileStoryState>))]
 public enum PersonaFileStoryState
+{
+    [JsonStringEnumMemberName("active")]
+    Active,
+
+    [JsonStringEnumMemberName("rejected")]
+    Rejected,
+}
+
+/// <summary>Absent means `active`, exactly as a story's does</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<PersonaFileStoryBeatState>))]
+public enum PersonaFileStoryBeatState
 {
     [JsonStringEnumMemberName("active")]
     Active,
@@ -1482,4 +1820,29 @@ public enum PersonaAuditionSummaryState
 
     [JsonStringEnumMemberName("cancelled")]
     Cancelled,
+}
+
+/// <summary>What wrote it. `backfill` is the rows migration 0034 reconstructed from the two columns it replaced</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<PersonaTellingSource>))]
+public enum PersonaTellingSource
+{
+    [JsonStringEnumMemberName("break")]
+    Break,
+
+    [JsonStringEnumMemberName("production")]
+    Production,
+
+    [JsonStringEnumMemberName("backfill")]
+    Backfill,
+}
+
+/// <summary>Whether the story was handed over as something the writer MAY use, or as the thing the break was for</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<PersonaTellingMode>))]
+public enum PersonaTellingMode
+{
+    [JsonStringEnumMemberName("offered")]
+    Offered,
+
+    [JsonStringEnumMemberName("told")]
+    Told,
 }

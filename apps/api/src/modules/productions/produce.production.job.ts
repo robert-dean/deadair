@@ -11,6 +11,8 @@ import { PlainJob } from '#modules/jobs/plain.job.js';
 import { LlmService, type LlmConversation } from '#modules/llm/llm.service.js';
 import { PersonaNotesRepository } from '#modules/personas/persona.notes.repository.js';
 import { PersonaStoriesRepository } from '#modules/personas/persona.stories.repository.js';
+import { PersonaTellingRepository } from '#modules/personas/persona.telling.repository.js';
+import { resolveThreadGapMs } from '#modules/personas/persona.thread.settings.js';
 import { PersonaRepository } from '#modules/personas/persona.repository.js';
 import type { PersonaNotesForPrompt } from '#modules/personas/persona.note.js';
 import type { PersonaStoryForPrompt } from '#modules/personas/persona.story.js';
@@ -158,6 +160,8 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
         // breaks, so a caller who has rung before reaches them without a line of new storage.
         private readonly notes: PersonaNotesRepository,
         private readonly stories: PersonaStoriesRepository,
+        /** The ledger behind the stamp on a story. See {@link storyOf}. */
+        private readonly tellings: PersonaTellingRepository,
         private readonly caster: ProductionCaster,
         // What the engine can PERFORM, asked once per pass. A beat's own answer is stripped against
         // the same list it was offered, which is what keeps the two from disagreeing.
@@ -855,10 +859,20 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
     /** One of this character's stories, rested as it is read. */
     private async storyOf(personaKey: string): Promise<{ story?: PersonaStoryForPrompt }> {
         try {
-            const found = await this.stories.forPrompt(personaKey);
+            const found = await this.stories.forPrompt(personaKey, { now: Date.now(), gapMs: resolveThreadGapMs(this.config) });
             if (found === undefined) return {};
 
-            await this.stories.markTold(found.id);
+            // The ledger (migration 0034). `record` rather than the break path's
+            // `replaceForSegment`, because a turn is not a segment: a production enters the running
+            // order as one block and there is no per-turn row for this to be keyed on. Told
+            // unconditionally, because a caller's turn is BUILT around the story it was handed.
+            await this.tellings.record({
+                personaKey,
+                storyId: found.id,
+                source: 'production',
+                mode: 'told',
+                told: true,
+            });
             return { story: found.story };
         } catch (error) {
             this.logger.warn(`productions: a turn was written without its character's story (${errorText(error)})`);

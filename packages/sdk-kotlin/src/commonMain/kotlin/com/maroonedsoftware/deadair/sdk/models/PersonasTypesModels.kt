@@ -43,6 +43,8 @@ data class Persona(
     val chattiness: PersonaChattiness? = null,
     /** How readily this character works one of its own stories into an ordinary talk break. Absent is `occasionally`, which offers one only where the station knows nothing about the records either side. The stories themselves are their own list, and a `story` band on the clock outranks this whatever it says */
     val storytelling: PersonaStorytelling? = null,
+    /** Whether the nightly passes may write this character new material outright, or only ever propose it for you to accept. Absent is `proposes`, which is what every character does until somebody says otherwise. It reaches no prompt: the character is never told which it is */
+    val growth: PersonaGrowth? = null,
     /** Lines in their own voice, used as examples and as a console preview */
     val samples: List<String>? = null,
     /** This character's own break phrasings, one per line. Empty means the station's global ones */
@@ -91,6 +93,8 @@ data class PersonaInput(
     val chattiness: PersonaChattiness? = null,
     /** How readily this character works one of its own stories into an ordinary talk break. Absent is `occasionally`, which offers one only where the station knows nothing about the records either side. The stories themselves are their own list, and a `story` band on the clock outranks this whatever it says */
     val storytelling: PersonaStorytelling? = null,
+    /** Whether the nightly passes may write this character new material outright, or only ever propose it for you to accept. Absent is `proposes`, which is what every character does until somebody says otherwise. It reaches no prompt: the character is never told which it is */
+    val growth: PersonaGrowth? = null,
     /** Lines in their own voice, used as examples and as a console preview */
     val samples: List<String>? = null,
     /** This character's own break phrasings, one per line. Empty means the station's global ones */
@@ -206,6 +210,38 @@ data class PersonaStoryDetailInput(
 data class PersonaStoryWrite(
     val title: String,
     val story: String,
+    /** What sort of thing this is. Absent means `anecdote`, which is what every story written before arcs existed is */
+    val kind: PersonaStoryWriteKind? = null,
+)
+
+/** One part of an arc, in the order it is told. A SCRIPT rather than a summary, because the floor speaks it as it stands */
+@Serializable
+data class PersonaStoryBeat(
+    val id: String,
+    val storyId: String,
+    /** Where it comes in the telling. Gaps are legal: inserting a part between two others must not mean renumbering the rest */
+    val ordinal: Long,
+    val beat: String,
+    val state: PersonaStoryBeatState,
+    val origin: PersonaStoryBeatOrigin,
+    /** Where a proposal came from. Not evidence; see the note on a story's own source */
+    val source: String? = null,
+    val createdAt: String,
+)
+
+/** One part of an arc, in the order it is told. A SCRIPT rather than a summary, because the floor speaks it as it stands */
+@Serializable
+data class PersonaStoryBeatInput(
+    /** Where it comes in the telling. Gaps are legal: inserting a part between two others must not mean renumbering the rest */
+    val ordinal: Long,
+    val beat: String,
+)
+
+/** A part to add to an arc, or an edit to one */
+@Serializable
+data class PersonaStoryBeatWrite(
+    val ordinal: Long,
+    val beat: String,
 )
 
 /** One thing to add to a story that already exists */
@@ -218,6 +254,15 @@ data class PersonaStoryDetailWrite(
 @Serializable
 data class PersonaStoryState(
     val state: PersonaStoryStateState,
+)
+
+/** One part of an arc, as a file carries it. No `origin` and no `source`, for the story's own reason */
+@Serializable
+data class PersonaFileStoryBeat(
+    val ordinal: Long,
+    val beat: String,
+    /** Absent means `active`, exactly as a story's does */
+    val state: PersonaFileStoryBeatState? = null,
 )
 
 /** One thing a story picked up after it was written, carried the same way and for the same reasons */
@@ -307,6 +352,70 @@ data class PersonaAuditionRecord(
     val durationMs: Long? = null,
 )
 
+/**
+ * One time a character actually told one of its own stories. What the timeline lists, and what a
+ * rollback is chosen from: the moment on each row is the exact string the station compares against,
+ * not a rounding of it
+ */
+@Serializable
+data class PersonaTelling(
+    val id: String,
+    val storyId: String,
+    /** The handle of the story this told, so a timeline reads as something rather than as ids */
+    val title: String,
+    /** What wrote it. `backfill` is the rows migration 0034 reconstructed from the two columns it replaced */
+    val source: PersonaTellingSource,
+    /** Whether the story was handed over as something the writer MAY use, or as the thing the break was for */
+    val mode: PersonaTellingMode,
+    /** Whether it actually went out, as the WRITER read its own answer back. An offered story may simply be ignored */
+    val told: Boolean,
+    /** The words that carried it, kept here because the script history they came from is swept nightly */
+    val said: String? = null,
+    /** The break that carried it, while that row still exists */
+    val segmentId: String? = null,
+    /** When a listener could first have heard it. Absent means written but not yet aired, or never aired at all */
+    val airedAt: String? = null,
+    /** When it was written. Hand this back as `to` to roll back to just before it */
+    val at: String,
+)
+
+/**
+ * One time a character actually told one of its own stories. What the timeline lists, and what a
+ * rollback is chosen from: the moment on each row is the exact string the station compares against,
+ * not a rounding of it
+ */
+@Serializable
+class PersonaTellingInput
+
+/**
+ * What a rollback would undo, or did. Counted with the same predicates the delete uses, so a preview
+ * cannot promise one thing and do another
+ */
+@Serializable
+data class PersonaMemoryChange(
+    /** Tellings forgotten. Every one, whatever wrote it: a telling is a record of something the station did rather than a claim somebody made */
+    val tellings: Long,
+    /** Notes the distil pass wrote. Nothing an operator typed is ever counted here or deleted */
+    val notes: Long,
+    /** Stories the enrichment pass proposed */
+    val stories: Long,
+    /** Details it proposed. A floor rather than a total: a story that is itself going takes every detail hung on it */
+    val details: Long,
+    /** How many of the above were proposals somebody turned down. Deleting one lets the nightly pass offer it again */
+    val rejected: Long,
+    /** How many the operator had since accepted or edited. They still go, and this is the one loss they did not cause */
+    val touched: Long,
+)
+
+/** Undo what this character accumulated on its own */
+@Serializable
+data class PersonaMemoryRollback(
+    /** The moment to go back to, as a timeline row reports it. Absent means all of it, which is a reset */
+    val to: String? = null,
+    /** Also drag the distil pass's watermark back, so it reads that window again. Right for testing and wrong for undoing a character that drifted, so it is asked for rather than assumed */
+    val relearn: Boolean? = null,
+)
+
 @Serializable
 data class PersonaList(
     val personas: List<Persona>,
@@ -331,6 +440,18 @@ data class PersonaNoteListInput(
     val notes: List<PersonaNoteInput>,
 )
 
+/** What a model wrote, and what had to be dropped to make it usable */
+@Serializable
+data class GeneratedPersona(
+    val persona: PersonaDraftView,
+    /** A couple of things that have happened to this character. Beside the form rather than in it, because they are their own table: the console saves the persona and then writes these through the stories route, so they go through the same validation an operator's own typing does */
+    val stories: List<PersonaStoryWrite>,
+    /** Words the model called markers that its own sample lines never used. Dropped, because the samples are the evidence and the marker list is the claim — a marker nothing says declines every break and looks exactly like a model that is switched off */
+    val droppedMarkers: List<String>,
+    /** Phrasings naming a value the vocabulary does not have. Dropped by the LINE, since five good phrasings and one broken one is five phrasings */
+    val droppedTemplates: List<String>,
+)
+
 /**
  * Something that happened to this character, in its own telling. Not a claim about the world and never
  * checked as one: `source` says where a proposal came from, for the operator reading it, and nothing
@@ -350,8 +471,12 @@ data class PersonaStory(
     val origin: PersonaStoryOrigin,
     /** Where a proposal came from, in the station's own words. Absent for anything an operator wrote */
     val source: String? = null,
+    /** An `anecdote` is told whole, an `arc` a part at a time, a `bit` is a running joke with no end */
+    val kind: PersonaStoryKind,
     /** What it has picked up since, in every state */
     val details: List<PersonaStoryDetail>,
+    /** The parts an arc is told in, in order and in every state. Empty for the other two kinds */
+    val beats: List<PersonaStoryBeat>,
     /** Absent means never told, which is what puts it at the front of the rotation */
     val lastToldAt: String? = null,
     /** How often it has gone out, which changes how the model is asked to tell it */
@@ -373,18 +498,6 @@ data class PersonaStoryInput(
     val story: String,
 )
 
-/** What a model wrote, and what had to be dropped to make it usable */
-@Serializable
-data class GeneratedPersona(
-    val persona: PersonaDraftView,
-    /** A couple of things that have happened to this character. Beside the form rather than in it, because they are their own table: the console saves the persona and then writes these through the stories route, so they go through the same validation an operator's own typing does */
-    val stories: List<PersonaStoryWrite>,
-    /** Words the model called markers that its own sample lines never used. Dropped, because the samples are the evidence and the marker list is the claim — a marker nothing says declines every break and looks exactly like a model that is switched off */
-    val droppedMarkers: List<String>,
-    /** Phrasings naming a value the vocabulary does not have. Dropped by the LINE, since five good phrasings and one broken one is five phrasings */
-    val droppedTemplates: List<String>,
-)
-
 /**
  * Something that happened to this character, as a file carries it. No `origin` and no `source`,
  * unlike the stored row: whoever exported this stood behind every story in it, so on the far side
@@ -395,9 +508,13 @@ data class GeneratedPersona(
 data class PersonaFileStory(
     val title: String,
     val story: String,
+    /** Absent means `anecdote`. What sort of thing this is travels because it is part of what the story IS, not part of what this station has done with it */
+    val kind: PersonaFileStoryKind? = null,
     /** Absent means `active`. A turned-down story travels so the enrichment pass does not propose it again on the far side; an undecided one does not travel at all, because nobody has decided it yet */
     val state: PersonaFileStoryState? = null,
     val details: List<PersonaFileStoryDetail>,
+    /** The parts an arc is told in, in order. Empty for the other two kinds */
+    val beats: List<PersonaFileStoryBeat>,
 )
 
 /** One character in a file, and what would become of it here */
@@ -482,6 +599,38 @@ data class PersonaAuditionBreak(
     val writer: String? = null,
     /** Why there are none, when every writer had nothing. On air this break is skipped */
     val reason: String? = null,
+    /** Whether the writer's read-back found the story this break was handed. Absent means it carried none, which is most of them. On air this is what decides whether a story in parts owes the next one, so a run is how you check the reading is right before trusting an arc to it */
+    val told: Boolean? = null,
+)
+
+/** What one character has told, newest first */
+@Serializable
+data class PersonaMemoryTimeline(
+    val personaId: String,
+    val tellings: List<PersonaTelling>,
+)
+
+/** What one character has told, newest first */
+@Serializable
+data class PersonaMemoryTimelineInput(
+    val personaId: String,
+    val tellings: List<PersonaTellingInput>,
+)
+
+/** What was undone, and where the timeline stands now */
+@Serializable
+data class PersonaMemory(
+    val personaId: String,
+    val undone: PersonaMemoryChange,
+    val tellings: List<PersonaTelling>,
+)
+
+/** What was undone, and where the timeline stands now */
+@Serializable
+data class PersonaMemoryInput(
+    val personaId: String,
+    val undone: PersonaMemoryChange,
+    val tellings: List<PersonaTellingInput>,
 )
 
 /** Every story one character holds, oldest first, in every state */
@@ -688,6 +837,15 @@ enum class PersonaStorytelling {
     OFTEN,
 }
 
+/** Whether the nightly passes may write this character new material outright, or only ever propose it for you to accept. Absent is `proposes`, which is what every character does until somebody says otherwise. It reaches no prompt: the character is never told which it is */
+@Serializable
+enum class PersonaGrowth {
+    @SerialName("proposes")
+    PROPOSES,
+    @SerialName("self-directed")
+    SELF_DIRECTED,
+}
+
 @Serializable
 enum class PersonaDraftViewBrevity {
     @SerialName("short")
@@ -795,6 +953,17 @@ enum class PersonaStoryOrigin {
     MODEL,
 }
 
+/** An `anecdote` is told whole, an `arc` a part at a time, a `bit` is a running joke with no end */
+@Serializable
+enum class PersonaStoryKind {
+    @SerialName("anecdote")
+    ANECDOTE,
+    @SerialName("arc")
+    ARC,
+    @SerialName("bit")
+    BIT,
+}
+
 @Serializable
 enum class PersonaStoryDetailState {
     @SerialName("active")
@@ -807,6 +976,35 @@ enum class PersonaStoryDetailState {
 
 @Serializable
 enum class PersonaStoryDetailOrigin {
+    @SerialName("operator")
+    OPERATOR,
+    @SerialName("model")
+    MODEL,
+}
+
+/** What sort of thing this is. Absent means `anecdote`, which is what every story written before arcs existed is */
+@Serializable
+enum class PersonaStoryWriteKind {
+    @SerialName("anecdote")
+    ANECDOTE,
+    @SerialName("arc")
+    ARC,
+    @SerialName("bit")
+    BIT,
+}
+
+@Serializable
+enum class PersonaStoryBeatState {
+    @SerialName("active")
+    ACTIVE,
+    @SerialName("suggested")
+    SUGGESTED,
+    @SerialName("rejected")
+    REJECTED,
+}
+
+@Serializable
+enum class PersonaStoryBeatOrigin {
     @SerialName("operator")
     OPERATOR,
     @SerialName("model")
@@ -832,9 +1030,29 @@ enum class PersonaFilePersonaKind {
     CALLER,
 }
 
+/** Absent means `anecdote`. What sort of thing this is travels because it is part of what the story IS, not part of what this station has done with it */
+@Serializable
+enum class PersonaFileStoryKind {
+    @SerialName("anecdote")
+    ANECDOTE,
+    @SerialName("arc")
+    ARC,
+    @SerialName("bit")
+    BIT,
+}
+
 /** Absent means `active`. A turned-down story travels so the enrichment pass does not propose it again on the far side; an undecided one does not travel at all, because nobody has decided it yet */
 @Serializable
 enum class PersonaFileStoryState {
+    @SerialName("active")
+    ACTIVE,
+    @SerialName("rejected")
+    REJECTED,
+}
+
+/** Absent means `active`, exactly as a story's does */
+@Serializable
+enum class PersonaFileStoryBeatState {
     @SerialName("active")
     ACTIVE,
     @SerialName("rejected")
@@ -900,4 +1118,24 @@ enum class PersonaAuditionSummaryState {
     FAILED,
     @SerialName("cancelled")
     CANCELLED,
+}
+
+/** What wrote it. `backfill` is the rows migration 0034 reconstructed from the two columns it replaced */
+@Serializable
+enum class PersonaTellingSource {
+    @SerialName("break")
+    BREAK,
+    @SerialName("production")
+    PRODUCTION,
+    @SerialName("backfill")
+    BACKFILL,
+}
+
+/** Whether the story was handed over as something the writer MAY use, or as the thing the break was for */
+@Serializable
+enum class PersonaTellingMode {
+    @SerialName("offered")
+    OFFERED,
+    @SerialName("told")
+    TOLD,
 }

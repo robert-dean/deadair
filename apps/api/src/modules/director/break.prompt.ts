@@ -2655,6 +2655,7 @@ const FAULT_REASONS: Record<WriteFault, string> = {
     'quoted-sample': 'the model read one of the persona’s own sample lines back rather than writing in its voice',
     'retold-verbatim': 'the model repeated what this character said the last time it picked up the same thread, rather than moving it on',
     'spent-catchphrase': 'the model reached for a signature the station had just used',
+    'repeated-itself': 'the model said again, word for word, a long stretch of something the station said a few breaks ago',
     'avoided-wording': 'the model used wording the persona forbids',
     'out-of-character': 'the model wrote a line the station could say, but not in its own voice',
     'character-trimmed': 'the model wrote in character but put the character past the word ceiling, so what would have aired carries none of it',

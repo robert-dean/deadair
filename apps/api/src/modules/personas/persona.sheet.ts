@@ -1021,14 +1021,49 @@ export function echoOf(lines: readonly string[], script: string): string | undef
 
     return lines.find(line => {
         const words = wordsOf(line);
-        const run = Math.min(words.length, MAX_SAMPLE_ECHO_WORDS + 1);
-        if (run === 0) return false;
 
-        for (let i = 0; i + run <= words.length; i++) {
-            if (spoken.includes(` ${words.slice(i, i + run).join(' ')} `)) return true;
-        }
-        return false;
+        return sharesRun(words, spoken, Math.min(words.length, MAX_SAMPLE_ECHO_WORDS + 1));
     });
+}
+
+/**
+ * How many words in a row a script may share with something the station said recently.
+ *
+ * Far longer than {@link MAX_SAMPLE_ECHO_WORDS}, because a sample and a recent break are not the same
+ * kind of text. A sample is prose the model was handed to learn a voice from, and any clause lifted
+ * out of it is a copy. A recent break is the station's own last hour, and a lot of it legitimately
+ * comes round again: the time ("coming up to quarter past six"), the ident ("and this is deadair"),
+ * a record's title. Measured against every model-written break on the live station
+ * (2026-09-08 to 2026-09-21, 1,767 of them, each judged against the six scripts the prompt had shown
+ * it): a six-word run would have refused 20.7%, most of them time checks and idents; eight words
+ * 8.1%; ten 4.6%, still catching the same record introduced in the same words twice. At twelve it
+ * was 2.7%, and what was left was the failure this exists for: an anecdote told again in the same
+ * sentences, a record's intro read out a second time, a line the presenter had turned into a tic
+ * ("not the worst thing that has ever been thrust upon a listener").
+ */
+export const MAX_RECENT_ECHO_WORDS = 11;
+
+/**
+ * The recent break a script repeated a stretch of, or `undefined`.
+ *
+ * {@link echoOf}'s question with one rule changed: a recent break shorter than the run is never
+ * matched whole. A sample that short is still a sentence somebody wrote as an example, but a recent
+ * break that short is usually an ident, and saying the station's name again is the job.
+ */
+export function repeatOf(recent: readonly string[], script: string): string | undefined {
+    const spoken = ` ${wordsOf(script).join(' ')} `;
+
+    return recent.find(line => sharesRun(wordsOf(line), spoken, MAX_RECENT_ECHO_WORDS + 1));
+}
+
+/** Whether any `run` consecutive words of `words` appear in `spoken`, which is space-padded. */
+function sharesRun(words: readonly string[], spoken: string, run: number): boolean {
+    if (run === 0 || words.length < run) return false;
+
+    for (let i = 0; i + run <= words.length; i++) {
+        if (spoken.includes(` ${words.slice(i, i + run).join(' ')} `)) return true;
+    }
+    return false;
 }
 
 /**
@@ -1065,6 +1100,8 @@ export type CharacterFault =
     | 'retold-verbatim'
     /** A signature phrase the station has just used. */
     | 'spent-catchphrase'
+    /** A long stretch of something the station said in the last few breaks, said again. */
+    | 'repeated-itself'
     /** Wording the sheet forbids. */
     | 'avoided-wording'
     /** Nothing in it carries the dialect at all. */
@@ -1104,7 +1141,8 @@ export interface CharacterContext {
      * four to avoid one re-permitted exactly the failure this file was built for and documents at
      * the top: `I said what I said` closing a talk break, a welcome, **and a news bulletin**.
      *
-     * So the prohibitions now hold everywhere, and only the dialect is a lean. It cannot cost a
+     * So the prohibitions now hold everywhere, and only the dialect is a lean. (The check for
+     * repeating a recent break is excused with it, on a separate measurement; see `repeatOf`.) It cannot cost a
      * bulletin: all three are things a script must not DO, and the deterministic floor underneath is
      * the operator's own news phrasings, which chain no persona templates and so cannot trip any of
      * them.
@@ -1125,8 +1163,9 @@ export interface CharacterContext {
  * Ordered by how specific the fault is rather than by severity: all four decline, so the only thing
  * the order decides is what the log says, and the narrower reason is the more useful one.
  *
- * The three prohibitions run for every caller. Only the last is conditional, and
- * {@link CharacterContext.dialect} is where that is argued.
+ * The three prohibitions about the sheet run for every caller. The last two are conditional:
+ * {@link CharacterContext.dialect} is where the dialect is argued, and the check against the
+ * station's recent breaks ({@link repeatOf}) is excused with it, for the reason given beside it.
  */
 export function characterFault(sheet: PersonaSheet, script: string, context: CharacterContext = {}): CharacterFault | undefined {
     if (echoedSample(sheet, script) !== undefined) return 'quoted-sample';
@@ -1140,9 +1179,16 @@ export function characterFault(sheet: PersonaSheet, script: string, context: Cha
     const spent = spentCatchphrases(sheet, context.recent);
     if (spent.length > 0 && catchphrasesIn(spent, script).length > 0) return 'spent-catchphrase';
 
-    // The one check a kind may be excused, and the only one that ASKS for something rather than
-    // forbidding it. See `CharacterContext.dialect`.
+    // The checks a kind may be excused. See `CharacterContext.dialect`.
     if (context.dialect === 'optional') return undefined;
+
+    // Excused with the dialect, and for a measured reason rather than by association: the kinds
+    // that pass `optional` are the bulletins (news, weather, almanac), and every repeat they made
+    // was their DATA coming round again — the same conditions read twice, the same headline twice —
+    // which a second attempt cannot say differently and the floor would read out anyway. The kinds
+    // that keep the dialect are the ones whose repeats were the presenter's own. See
+    // `MAX_RECENT_ECHO_WORDS`.
+    if (context.recent !== undefined && repeatOf(context.recent, script) !== undefined) return 'repeated-itself';
 
     return keepsCharacter(sheet, script) ? undefined : 'out-of-character';
 }

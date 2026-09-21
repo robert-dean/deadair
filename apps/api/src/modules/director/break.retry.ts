@@ -70,6 +70,7 @@ export const RETRYABLE_FAULTS: ReadonlySet<WriteFault> = new Set<WriteFault>([
     'spent-catchphrase',
     'quoted-sample',
     'retold-verbatim',
+    'repeated-itself',
     'wrong-daypart',
     'nothing-said',
 ]);
@@ -101,6 +102,8 @@ const NUDGES: Record<string, string> = {
         'That read one of your own example lines back. Those show the grammar, never the sentence. Say the same break again in words you have not been given.',
     'retold-verbatim':
         'That said again what you said the last time you came back to this. Coming back to it only works if it has moved. Say the same break again, taking it somewhere it has not been.',
+    'repeated-itself':
+        'That said again, word for word, something you said on air a few breaks ago, and a listener heard it the first time. Say the same break again in words you have not used today.',
     'wrong-daypart':
         'That named the wrong part of the day. Say the same break again, fitting the time you were told, or saying nothing about the time at all.',
     'nothing-said': 'That answered with nothing the station could read aloud. Write the break.',

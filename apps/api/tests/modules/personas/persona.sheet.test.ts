@@ -474,6 +474,47 @@ describe('characterFault', () => {
         expect(characterFault(sheet, 'Alright, next up is Pantera. I said what I said.', { recent: ['That was Ozzy. Wow.'] })).toBeUndefined();
     });
 
+    // The station's own last hour, said again. Every run below is twelve words or more of an earlier
+    // break, which is where the live station's repeats stopped being time checks and idents.
+    describe('a stretch of a recent break said again', () => {
+        const recent = ['Wow, that was Hell Fire, a San Francisco outfit that tried to out-shout the whole Bay Area. Anyway.'];
+
+        it('refuses the same anecdote told twice', () => {
+            const again = 'Alright. Up next, more from Hell Fire, a San Francisco outfit that tried to out-shout the whole Bay Area.';
+
+            expect(characterFault(sheet, again, { recent })).toBe('repeated-itself');
+        });
+
+        it('sees through punctuation and capitals, as every other copy check does', () => {
+            const again = 'Wow! HELL FIRE — a San Francisco outfit, that tried to out-shout the whole Bay Area.';
+
+            expect(characterFault(sheet, again, { recent })).toBe('repeated-itself');
+        });
+
+        // The whole reason the run is long: a time check or a record's name coming round again is
+        // the job, not a repeat.
+        it('allows a shorter shared stretch, which is how a time check or a title comes round', () => {
+            const clock = ['Wow, coming up to quarter past six on a Tuesday here. Anyway.'];
+
+            expect(characterFault(sheet, 'Alright, coming up to quarter past six, and here is Slayer.', { recent: clock })).toBeUndefined();
+        });
+
+        it('never matches a short recent break whole, because a short one is usually an ident', () => {
+            const ident = ['Wow. This is deadair, anyway.'];
+
+            expect(characterFault(sheet, 'Wow. This is deadair, anyway. Alright, here is Pantera.', { recent: ident })).toBeUndefined();
+        });
+
+        // A bulletin's repeats were its data coming round: the same conditions, the same headline.
+        // A second attempt cannot say those differently, so the check is excused with the dialect.
+        it('lets a bulletin read the same figures again', () => {
+            const weather = ['Overcast, temperature eighty seven, feels like ninety one, wind six miles per hour from the south.'];
+            const again = 'Still overcast, temperature eighty seven, feels like ninety one, wind six miles per hour from the south.';
+
+            expect(characterFault(sheet, again, { recent: weather, dialect: 'optional' })).toBeUndefined();
+        });
+    });
+
     it('still finds the plain-English line, which is the fault it started as', () => {
         expect(characterFault(sheet, 'That was Pink Moon by Nick Drake. Coming up, Solid Air.')).toBe('out-of-character');
     });

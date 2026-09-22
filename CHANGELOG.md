@@ -9,6 +9,59 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.26.0] — 2026-09-22
+
+- **Settings, Breaks** is a new section holding how often the station talks and for how long: breaks,
+  jingles, calls, the welcome for a new listener and the word limits. They were at the top of Settings,
+  Rotation, which now keeps to what the station plays. Nothing about them changed but where they are.
+- **Settings, Bulletins** is a new section for what the station reads of the news, the weather and the
+  date: how many headlines and how old, which feeds, how far ahead the weather looks, what it picks out of
+  the day, and whether the presenter may mention the weather or the date between records. They were in
+  Settings, Rotation, which now holds only what the station plays.
+- The station says so when the timetable changes the show. **Settings > Breaks > Say so when the show
+  changes**, which is **on** for any station that allows breaks.
+
+  Between the last record of the old show and the first of the new one, whoever presents the new show
+  thanks the last host by name when that was somebody else and names the show starting. A host carrying
+  on into their own next show just names it. When a block ends with nothing scheduled after it, the
+  station names the show that ended and carries on with what it plays between shows. Only a change the
+  timetable makes is marked: putting something on air yourself stays silent, and a block opening a
+  setlist or a feature marks nothing, since those take no breaks.
+
+  The lines are yours to change under **Voice > Phrasings > What the station says when the show changes**, with
+  `{{show.name}}`, `{{outgoing.show}}` and `{{outgoing.name}}` for the two shows and the last host. A
+  listener who tunes in just before one hears it as their welcome, as with a jingle.
+- The MusicBrainz plugin can scrobble what the station plays to ListenBrainz. **Plugins > MusicBrainz and
+  ListenBrainz > Scrobble what the station plays to ListenBrainz**, which is **off** until you switch it
+  on, and needs the ListenBrainz token already in those settings.
+
+  It is a second destination beside Last.fm, and the two fail independently: each has its own queue
+  and its own retries. A token ListenBrainz refuses keeps the plays for later and says so in the log,
+  without taking the plugin's enrichment or similar artists down with it.
+- A cap on how many people can listen at once. **Settings > Stream > Most listeners on each stream**,
+  which is **off** (zero) until you set it.
+
+  The number applies to each stream separately: the MP3 mount, each extra format you have switched on,
+  and HLS. Somebody already listening is never cut off; only a new listener is turned away. Saving it
+  restarts the stream server, which drops everyone listening for a few seconds. A station that sets no
+  cap renders exactly the stream config it rendered before, so upgrading restarts nothing.
+- The station's own phrasings (what it says to a new listener, in a jingle, around the news, the weather
+  and the date) have moved from Settings, Rotation to a new **Phrasings** tab under Voice, beside
+  everything else about what the station says. Nothing about them changed: the same boxes, the same
+  saved values, and the same switches under Settings to turn each one on.
+- Talk-break phrasings are written on each character now, and the station-wide **What the station says**
+  box under Settings, Rotation is gone. Every character the station ships with already carries its own,
+  so a character's box was always read first and the station-wide one only mattered for a character with
+  none. Such a character now falls back to the station's own five lines, exactly as clearing the old box
+  did. If you had rewritten the station-wide lines, copy them into the phrasings of whichever characters
+  should say them.
+- Tune-in files for players that take a playlist rather than a stream address: `/listen.pls` and
+  `/listen.m3u` at the root of the station's address. Each lists every stream the station publishes,
+  MP3 first, as full addresses on the station's public address, and the `.m3u` adds the HLS stream when
+  it is on. Point a hardware radio, a car receiver or a desktop player at either. Both need
+  **Settings > Stream > Public URL** (or the station's own address from the environment), and answer
+  404 without one.
+
 ## [0.25.2] — 2026-09-22
 
 - The TypeScript SDK no longer depends on `decimal.js`. Its generated types imported `decimal.js` even in files with no decimal field, and no contract has one today, so the import is gone and so is the dependency. That also means importing the SDK no longer calls `Decimal.set(...)` on your copy of `decimal.js` as a side effect. If your own code relied on the SDK having set `toExpNeg` and `toExpPos`, set them yourself.
@@ -664,7 +717,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.25.2...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.26.0...HEAD
+[0.26.0]: https://github.com/robert-dean/deadair/compare/v0.25.2...v0.26.0
 [0.25.2]: https://github.com/robert-dean/deadair/compare/v0.25.1...v0.25.2
 [0.25.1]: https://github.com/robert-dean/deadair/compare/v0.25.0...v0.25.1
 [0.25.0]: https://github.com/robert-dean/deadair/compare/v0.24.0...v0.25.0

@@ -10,6 +10,9 @@ import {
     type EnrichmentMatchKey,
     type EnrichmentPluginInstance,
     type PluginConnectionResult,
+    type ScrobblePlay,
+    type ScrobbleProvider,
+    type ScrobbleResult,
     type SimilarArtist,
     type SimilarityPluginInstance,
     type TrackEnrichment,
@@ -29,7 +32,7 @@ import {
     topRecordingMbids,
     toTopTracks,
 } from './listenbrainz.mapping.js';
-import { DEFAULT_BASE_URL, DEFAULT_MATCH_SCORE, REQUEST_TIMEOUT_MS, TEST_ARTIST_MBID } from './musicbrainz.manifest.js';
+import { DEFAULT_BASE_URL, DEFAULT_MATCH_SCORE, PLUGIN_VERSION, REQUEST_TIMEOUT_MS, TEST_ARTIST_MBID } from './musicbrainz.manifest.js';
 import { mapArtist } from './musicbrainz.artist.js';
 import { mapAlbum, mapRecording, selectRelease, selectReleaseFromGroup, selectReleaseGroup } from './musicbrainz.mapping.js';
 import {
@@ -53,6 +56,7 @@ import type {
     MusicBrainzReleaseGroup,
     MusicBrainzReleaseGroupSearchResponse,
 } from './musicbrainz.types.js';
+import type { ListenBrainzListen } from './listenbrainz.types.js';
 
 export { musicbrainzManifest } from './musicbrainz.manifest.js';
 
@@ -218,7 +222,7 @@ function errorText(error: unknown): string {
  * `enrichTrack`. The host asks about an artist once per artist, so the answer
  * covers every track they appear on instead of being bought again for each.
  */
-export class MusicBrainzPlugin extends Plugin implements EnrichmentPluginInstance, SimilarityPluginInstance {
+export class MusicBrainzPlugin extends Plugin implements EnrichmentPluginInstance, SimilarityPluginInstance, ScrobbleProvider {
     /** Canonical source, per the SDK's own scale. Lower runs first and wins conflicts on merge. */
     readonly priority = 100;
 
@@ -232,6 +236,8 @@ export class MusicBrainzPlugin extends Plugin implements EnrichmentPluginInstanc
     private matchScore = DEFAULT_MATCH_SCORE;
     private includeArtwork = true;
     private includeArtistFacts = true;
+    /** The operator's switch for publishing plays to ListenBrainz. See {@link accepting}. */
+    private scrobbling = false;
 
     protected async onLoad(): Promise<void> {
         const config = await this.host.config.get();
@@ -241,6 +247,9 @@ export class MusicBrainzPlugin extends Plugin implements EnrichmentPluginInstanc
         this.matchScore = Number.isFinite(matchScore) ? matchScore : DEFAULT_MATCH_SCORE;
         this.includeArtwork = config.includeArtwork !== false;
         this.includeArtistFacts = config.includeArtistFacts !== false;
+        // `=== true` rather than `!== false`, the opposite posture to the two above: those default ON
+        // and this defaults OFF, and a value nobody can read must land on the default.
+        this.scrobbling = config.scrobbling === true;
 
         // No contact address means no client at all rather than a client that
         // will be refused on every call: MusicBrainz blocks unidentified
@@ -267,6 +276,98 @@ export class MusicBrainzPlugin extends Plugin implements EnrichmentPluginInstanc
     protected async onUnload(): Promise<void> {
         this.client = undefined;
         this.listenBrainz = undefined;
+    }
+
+    // ------------------------------------------------------------------ scrobble
+
+    /**
+     * Whether this installation is publishing anything to ListenBrainz: the switch is on and there is
+     * a token to publish with. Either missing means nothing is queued at all, which is what lets a
+     * station use this plugin for enrichment alone and accumulate nothing.
+     */
+    async accepting(): Promise<boolean> {
+        return this.scrobbling && this.listenBrainz?.authenticated === true;
+    }
+
+    /**
+     * Report a batch of plays, oldest first.
+     *
+     * **This never throws for a refused token, and that is the whole design.** The host's circuit is
+     * per PLUGIN, and a `config` failure (which is what a 401 or 403 maps to here) quarantines it
+     * until an operator reloads it. Thrown from here, one bad token would take this plugin's
+     * enrichment and similarity down with the scrobbling. So each failure is answered in the shape
+     * that costs only the scrobbling:
+     *
+     * - **401 or 403**: every play comes back rejected and RETRYABLE, with one warning naming the
+     *   setting. The host backs off and gives up after its own attempt limit; the plugin stays up.
+     * - **400**: the service refuses the whole payload and names no listen, so each play is sent
+     *   again on its own and the ones it still refuses come back as permanent.
+     * - **429 and 5xx**: thrown, as the contract asks for a batch that failed for one reason. Those
+     *   are retryable in the client's vocabulary, so the circuit probes again rather than closing.
+     */
+    async scrobble(plays: ScrobblePlay[]): Promise<ScrobbleResult> {
+        if (plays.length === 0) return { accepted: 0, rejected: [] };
+
+        const client = this.listenBrainz;
+        if (!client?.authenticated) return this.refusedAll(plays, 'there is no ListenBrainz token to scrobble with');
+
+        try {
+            await client.submitListens({ listen_type: plays.length === 1 ? 'single' : 'import', payload: plays.map(listenOf) });
+            return { accepted: plays.length, rejected: [] };
+        } catch (error) {
+            if (!(error instanceof ListenBrainzRequestError)) throw error;
+            if (error.status === 401 || error.status === 403) return this.refusedAll(plays, `ListenBrainz refused the token (HTTP ${error.status})`);
+            if (error.status === 400) return await this.oneAtATime(client, plays);
+            throw error;
+        }
+    }
+
+    /**
+     * Say what is on air. Never throws and is never retried, per the contract: a failure here is
+     * worth nothing, and thrown it would count against the circuit the durable path relies on.
+     */
+    async nowPlaying(play: ScrobblePlay): Promise<void> {
+        if (!(await this.accepting()) || !this.listenBrainz) return;
+
+        const { listened_at: _listenedAt, ...listen } = listenOf(play);
+        try {
+            await this.listenBrainz.submitListens({ listen_type: 'playing_now', payload: [listen] });
+        } catch (error) {
+            this.host.logger.debug('listenbrainz playing-now was not taken', { error: errorText(error) });
+        }
+    }
+
+    /** Every play refused as worth another try, with one line in the log saying why. */
+    private refusedAll(plays: ScrobblePlay[], reason: string): ScrobbleResult {
+        this.host.logger.warn(`${reason}; the plays are kept and retried. Check the ListenBrainz token in this plugin's settings.`);
+        return { accepted: 0, rejected: plays.map((_play, index) => ({ index, reason, retryable: true })) };
+    }
+
+    /**
+     * A refused payload, sent again one listen at a time so the good ones land and the bad ones are
+     * named. A second failure of any other kind stops the walk and marks what is left retryable,
+     * since nothing about those plays has been judged yet.
+     */
+    private async oneAtATime(client: ListenBrainzClient, plays: ScrobblePlay[]): Promise<ScrobbleResult> {
+        const rejected: ScrobbleResult['rejected'] = [];
+        let accepted = 0;
+
+        for (const [index, play] of plays.entries()) {
+            try {
+                await client.submitListens({ listen_type: 'single', payload: [listenOf(play)] });
+                accepted += 1;
+            } catch (error) {
+                if (error instanceof ListenBrainzRequestError && error.status === 400) {
+                    rejected.push({ index, reason: 'ListenBrainz refused this listen as malformed', retryable: false });
+                    continue;
+                }
+                const reason = error instanceof ListenBrainzRequestError ? `ListenBrainz answered HTTP ${error.status}` : errorText(error);
+                for (let rest = index; rest < plays.length; rest++) rejected.push({ index: rest, reason, retryable: true });
+                break;
+            }
+        }
+
+        return { accepted, rejected };
     }
 
     async testConnection(): Promise<PluginConnectionResult> {
@@ -1030,4 +1131,27 @@ export class MusicBrainzPlugin extends Plugin implements EnrichmentPluginInstanc
             return candidate;
         }
     }
+}
+
+/**
+ * One play as a ListenBrainz listen. Seconds, where the host speaks milliseconds: a millisecond
+ * `listened_at` is the year 57000, which the service refuses rather than accepts, so the mistake
+ * would at least be loud.
+ */
+export function listenOf(play: ScrobblePlay): ListenBrainzListen {
+    return {
+        listened_at: Math.floor(play.playedAt / 1000),
+        track_metadata: {
+            artist_name: play.artist,
+            track_name: play.title,
+            ...(play.album ? { release_name: play.album } : {}),
+            additional_info: {
+                ...(play.durationMs === undefined ? {} : { duration_ms: Math.round(play.durationMs) }),
+                ...(play.trackNumber === undefined ? {} : { tracknumber: play.trackNumber }),
+                ...(play.mbid ? { recording_mbid: play.mbid } : {}),
+                submission_client: 'deadair',
+                submission_client_version: PLUGIN_VERSION,
+            },
+        },
+    };
 }

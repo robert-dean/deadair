@@ -7,6 +7,7 @@ import type {
     ListenBrainzRadioResponse,
     ListenBrainzRecordingMetadataResponse,
     ListenBrainzSimilarRecording,
+    ListenBrainzSubmission,
     ListenBrainzTopRecording,
 } from './listenbrainz.types.js';
 
@@ -214,6 +215,18 @@ export class ListenBrainzClient {
             algorithm: SIMILAR_RECORDINGS_ALGORITHM,
         });
         return Array.isArray(answer) ? answer : [];
+    }
+
+    /**
+     * `POST /1/submit-listens`: report listens to the account the token belongs to.
+     *
+     * The one WRITE this client makes, and the one call here that needs the token by definition
+     * rather than for speed. The service answers a whole payload at once: a 400 refuses every
+     * listen in it without saying which, so a caller that wants to know has to ask again one at a
+     * time.
+     */
+    async submitListens(submission: ListenBrainzSubmission): Promise<void> {
+        await this.post<unknown>('1/submit-listens', submission);
     }
 
     private async get<T>(path: string, params: Record<string, string> = {}): Promise<T> {

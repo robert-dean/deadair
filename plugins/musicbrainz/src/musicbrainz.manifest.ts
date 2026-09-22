@@ -11,7 +11,7 @@ export const PLUGIN_ID = 'deadair.musicbrainz';
  * well as `enrichment`, it is called MusicBrainz and ListenBrainz now, and it
  * reaches a host it did not before.
  */
-export const PLUGIN_VERSION = '0.1.0';
+export const PLUGIN_VERSION = '0.2.0';
 
 /** The public web service. Also the default `baseUrl`, which an operator can point at a mirror. */
 export const DEFAULT_BASE_URL = 'https://musicbrainz.org/ws/2';
@@ -108,6 +108,7 @@ export const configSchema = z.object({
     matchScore: z.coerce.number().int().min(0).max(100).default(DEFAULT_MATCH_SCORE),
     includeArtistFacts: z.boolean().default(true),
     includeArtwork: z.boolean().default(true),
+    scrobbling: z.boolean().default(false),
 });
 
 export type MusicBrainzConfig = z.infer<typeof configSchema>;
@@ -116,10 +117,10 @@ export const musicbrainzManifest: PluginManifest = {
     id: PLUGIN_ID,
     name: 'MusicBrainz and ListenBrainz',
     version: PLUGIN_VERSION,
-    capabilities: ['enrichment', 'similarity'],
+    capabilities: ['enrichment', 'similarity', 'scrobble'],
     apiVersion: '^1.0.0',
     description:
-        'Canonical artist, release and recording identity from MusicBrainz, plus genres, label and artwork; and from ListenBrainz, who sounds like whom.',
+        'Canonical artist, release and recording identity from MusicBrainz, plus genres, label and artwork; and from ListenBrainz, who sounds like whom, and somewhere to scrobble what the station plays.',
     homepage: 'https://musicbrainz.org/doc/MusicBrainz_API',
     permissions: {
         // The two public entries share a bucket and are listed first, so a
@@ -167,6 +168,16 @@ export const musicbrainzManifest: PluginManifest = {
             // `host.config.get`, which is why it is absent from `configSchema`.
             type: 'secret',
             help: 'Free, from your ListenBrainz profile settings. ListenBrainz publishes the same data as MusicBrainz over endpoints that answer about fifty tracks at once, so a token turns a catalog that would take days into one that takes minutes. Leave it blank and the facts still arrive, one request a second — and who-sounds-like-whom works either way, because the endpoint behind it is open to anyone.',
+        },
+        {
+            key: 'scrobbling',
+            label: 'Scrobble what the station plays to ListenBrainz',
+            type: 'boolean',
+            default: false,
+            // Its own switch rather than following the token, because the token already turns on
+            // the enrichment fast path, and reading a service is not a decision to publish your
+            // listening to it. Last.fm's `scrobbling` switch, for Last.fm's reason.
+            help: 'Off by default, because the token above is also what speeds up enrichment, and publishing your listening is a separate decision. With it on, every record the station airs is submitted to the ListenBrainz account the token belongs to, once it has played for half its length.',
         },
         {
             key: 'matchScore',

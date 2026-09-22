@@ -192,6 +192,12 @@ the crop are invisible, and these keys put it on a RED heart as often as a green
 made TRANSPARENT rather than cropped, and the cream/field edge is feathered by alpha; keying it hard
 leaves a one-pixel green halo that cannot be seen on green and cannot be missed on red.
 
+**The category icon is the same skull, as a white silhouette.** It is the heading the app draws over
+the actions in its sidebar, and Elgato wants it white and monochrome, so it cannot be the mark as it
+is; it was a hand-drawn pair of headphones that read as nobody's. `tools/make-skull.py` writes it
+beside `skull.png` as a 28 and 56 pixel PNG: bone white with its holes punched through, headphones
+white and cut apart from the skull by a gap, which is what makes them read as headphones at 28.
+
 **The heart stands in for the badge's disc.** `logo-mark.png` is a bone skull on a field of phosphor
 green; these keys are that with the field cut to a heart. Same drawing, same green, a different shape
 under it.

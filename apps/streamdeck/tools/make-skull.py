@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Lift the skull off the console's mark, for the vote keys to draw inside their heart.
+"""Lift the skull off the console's mark, for the vote keys to draw inside their heart and the category icon.
 
 Run after `apps/web/public/logo-mark.png` changes, from anywhere:
 
@@ -14,6 +14,15 @@ committed, so the plugin's build needs neither Python nor Pillow.
 It writes `imgs/plugin/skull.png`: the drawing ALONE on transparency, which the Like and Dislike
 keys draw inside their heart — the heart standing in for the badge's own green disc. It is read off
 the plugin folder at start, as `mark.png` beside it already is, rather than bundled.
+
+It also writes `imgs/plugin/category-icon.png` and its `@2x`: the heading the app draws over the
+plugin's actions in its sidebar. Elgato wants that white and monochrome on transparency, so it cannot be
+the mark itself, and it was a hand-drawn pair of headphones that looked like nobody's. It is the same
+drawing as a SILHOUETTE instead: the bone solid white with the eyes, nose and jaw punched through,
+and the headphones solid white beside it, held apart from the skull by a gap cut around the skull's
+outline. At 28 pixels that gap is what makes them read as headphones rather than as a wider head.
+The mark's shading is hatched, and each hatch would be a speck at this size, so the bone is closed
+and median-filtered before it is filled, which costs the teeth. They do not survive 28 pixels anyway.
 
 `mark.png` is NOT written here. It is the badge as it is, copied in when the mark changes, and
 rewriting it through a resize would churn a committed file for nothing.
@@ -30,7 +39,7 @@ green and obvious on red.
 
 import os
 
-from PIL import Image
+from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '..'))
 MARK = os.path.join(ROOT, 'apps/web/public/logo-mark.png')
@@ -75,5 +84,47 @@ def square(image, size):
     return out
 
 
-square(lift(Image.open(MARK).convert('RGBA')), SKULL_SIZE).save(os.path.join(PLUGIN, 'skull.png'))
+def threshold(image, keep):
+    """A mask of the pixels `keep` accepts."""
+    out = Image.new('L', image.size, 0)
+    px, op = image.load(), out.load()
+    for y in range(image.size[1]):
+        for x in range(image.size[0]):
+            if keep(px[x, y]):
+                op[x, y] = 255
+    return out
+
+
+def closed(mask, size=3):
+    """Specks and hatching shut, so the silhouette has no holes the drawing did not mean."""
+    return mask.filter(ImageFilter.MaxFilter(size)).filter(ImageFilter.MinFilter(size))
+
+
+def silhouette(mark):
+    """The drawing in white alone, for the category icon: the bone with its holes, the headphones apart."""
+    drawing = closed(threshold(mark, lambda p: p[3] > 128 and distance(p) > 100))
+    bone = closed(threshold(mark, lambda p: p[3] > 128 and distance(p) > 100 and p[0] + p[1] + p[2] > 420))
+    bone = bone.filter(ImageFilter.MedianFilter(3))
+    # The skull with its holes filled: flood the outside, and whatever the flood did not reach is skull.
+    width, height = mark.size
+    padded = Image.new('L', (width + 2, height + 2), 0)
+    padded.paste(bone, (1, 1))
+    ImageDraw.floodfill(padded, (0, 0), 128)
+    skull = padded.crop((1, 1, width + 1, height + 1)).point(lambda v: 0 if v == 128 else 255)
+    # The headphones are the rest of the drawing, less a gap around the skull so the two stay apart.
+    headphones = ImageChops.subtract(drawing, skull.filter(ImageFilter.MaxFilter(7))).filter(ImageFilter.MedianFilter(5))
+    alpha = ImageChops.lighter(bone, headphones)
+    alpha = alpha.crop(alpha.getbbox())
+    out = Image.new('RGBA', alpha.size, (255, 255, 255, 0))
+    out.putalpha(alpha)
+    return out
+
+
+mark = Image.open(MARK).convert('RGBA')
+square(lift(mark), SKULL_SIZE).save(os.path.join(PLUGIN, 'skull.png'))
 print('radio.deadair.streamdeck.sdPlugin/imgs/plugin/skull.png')
+
+icon = silhouette(mark)
+for name, size in (('category-icon.png', 28), ('category-icon@2x.png', 56)):
+    square(icon, size).save(os.path.join(PLUGIN, name))
+    print(f'radio.deadair.streamdeck.sdPlugin/imgs/plugin/{name}')

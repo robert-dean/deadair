@@ -18,8 +18,10 @@ import { spoken } from './talk.break.writer.js';
 /**
  * The station's own jingle: a few seconds between two records that says whose station this is.
  *
- * What a station with nobody recording its imaging says instead. This is what makes jingles work on
- * a fresh install, where the CC0-or-nothing rule means the image ships no audio of its own.
+ * What a station with nobody recording its imaging says instead. An operator who drops files in
+ * `media/segments/inbox/jingle/` never hears these, because a recording is drawn first (see
+ * {@link yieldsToRecordings}); this is what makes jingles work on a fresh install, where the
+ * CC0-or-nothing rule means the image ships no audio of its own.
  *
  * ## No model, and there should not be one
  *
@@ -89,6 +91,11 @@ const RECENT_WINDOW = JINGLE_TEMPLATES.length - 1;
 export class JingleWriter extends BreakWriter {
     readonly kind = JINGLE_KIND;
     readonly name = JINGLE_WRITER;
+    /**
+     * A recording of this kind is drawn before anything is written. An operator who recorded
+     * jingles wants to hear those, and these words are for a station that has none.
+     */
+    override readonly yieldsToRecordings = true;
 
     /** Which phrasing produced the last line, for the record. See {@link detailOfLastWrite}. */
     private lastTemplate?: string;

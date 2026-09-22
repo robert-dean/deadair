@@ -720,6 +720,16 @@ export abstract class BreakWriter {
     abstract readonly name: string;
 
     /**
+     * Whether a RECORDING of this kind should be drawn in preference to anything written.
+     *
+     * Absent for almost every writer, which is the planner's ordinary order: write the break, and
+     * reach for the shelf only when nothing can. That order is right for a talk break, whose shelf is
+     * every break the station ever rendered, and wrong for a kind an operator records on purpose,
+     * where writing one anyway would silence every file they dropped in. `JingleWriter` is that kind.
+     */
+    readonly yieldsToRecordings?: boolean;
+
+    /**
      * Write one break, or answer `undefined` when there is nothing worth saying.
      *
      * Must not throw for an ordinary empty request. A writer that cannot work without a model is

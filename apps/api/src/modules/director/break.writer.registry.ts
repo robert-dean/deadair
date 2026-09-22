@@ -123,6 +123,15 @@ export class BreakWriterRegistry {
         return this.byKind.has(kind);
     }
 
+    /**
+     * Whether a recording of this kind is drawn before anything is written. See
+     * {@link BreakWriter.yieldsToRecordings}. Any writer of the kind saying so is enough, because the
+     * question is about the kind: a recording an operator made is one they meant to be heard.
+     */
+    yieldsToRecordings(kind: string): boolean {
+        return (this.byKind.get(kind) ?? []).some(writer => writer.yieldsToRecordings === true);
+    }
+
     /** Every kind something can write. */
     kinds(): string[] {
         return [...this.byKind.keys()];

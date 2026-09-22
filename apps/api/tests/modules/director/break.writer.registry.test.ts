@@ -55,6 +55,20 @@ describe('BreakWriterRegistry', () => {
         expect(registry.kinds()).toEqual(['talkbreak', 'news']);
     });
 
+    it('says a kind yields to recordings when a writer of it does, and not otherwise', () => {
+        class Yielding extends StubWriter {
+            override readonly yieldsToRecordings = true;
+        }
+        const registry = new BreakWriterRegistry(
+            [new StubWriter('talkbreak', 'stub', words('talking')), new Yielding('jingle', 'stub', words('this is the station'))],
+            logger() as never,
+        );
+
+        expect(registry.yieldsToRecordings('jingle')).toBe(true);
+        expect(registry.yieldsToRecordings('talkbreak')).toBe(false);
+        expect(registry.yieldsToRecordings('news')).toBe(false);
+    });
+
     it('answers with a reason when nothing writes that kind', async () => {
         const registry = new BreakWriterRegistry([], logger() as never);
 

@@ -1230,6 +1230,9 @@ export class BreakPlanner {
         // Read at most once per kind, and only for a kind a band actually asked for, so a station
         // with no schedule pays nothing for this.
         const shelved = new Map<string, readonly Segment[]>();
+        // The recording each kind last drew this pass, so two drawn together are two different ones.
+        // `previousIdent`'s rule, kept per kind because a band can name any kind.
+        const drawn = new Map<string, string>();
 
         for (const { atIndex, band, topic, airsAt } of wanted) {
             // A slot the operator's clock placed is filled with EXACTLY the kind they named, and
@@ -1241,7 +1244,7 @@ export class BreakPlanner {
             // writes a clock, never once said what time it was. What makes a break a band's is that
             // a time was asked for, not which kind was named.
             if (band !== undefined) {
-                const planted = await this.fillBand(band, atIndex, shelved, airsAt, topic, onOrder);
+                const planted = await this.fillBand(band, atIndex, shelved, drawn, airsAt, topic, onOrder);
                 if (planted !== undefined) placements.push(planted);
                 // The alternation is deliberately NOT advanced. What the operator scheduled is not
                 // the station taking its turn at anything.
@@ -1285,6 +1288,11 @@ export class BreakPlanner {
      * holds none — is an ordinary outcome and says so once, because a station whose schedule names
      * `news` before anything can produce news is a station mid-setup rather than a broken one.
      *
+     * A kind whose writer yields to recordings (a jingle) is tried the other way round: the shelf
+     * first, and the writer only when the shelf is empty. Writing first would silence every
+     * recording an operator made on purpose. It is not the rule for every kind because the shelf of
+     * `talkbreak` is every break the station has ever rendered, and drawing from it would replay them.
+     *
      * Nothing here validates the kind against a list. `segments.kind` is free text on purpose, so a
      * station that wants sponsor spots writes `:20 sponsor`, drops the recordings in the inbox, and
      * needs no migration and no code.
@@ -1293,6 +1301,7 @@ export class BreakPlanner {
         kind: string,
         atIndex: number,
         shelved: Map<string, readonly Segment[]>,
+        drawn: Map<string, string>,
         airsAt: number | undefined,
         topic: ClockBandSubject | undefined,
         onOrder: Set<string>,
@@ -1340,6 +1349,12 @@ export class BreakPlanner {
             };
         }
 
+        // Recordings first, for a kind that asks for it. See the note on the method.
+        if (this.writers.yieldsToRecordings(kind)) {
+            const recorded = await this.shelf(kind, shelved, drawn, atIndex);
+            if (recorded !== undefined) return recorded;
+        }
+
         if (this.writers.canWrite(kind) && this.speech.speaker() !== undefined) {
             // `airsAt` travels on the row rather than in the write job's payload, because the words
             // are asked for on a LATER pass than this one and nothing recomputes the schedule in
@@ -1359,15 +1374,30 @@ export class BreakPlanner {
             return { segmentId: segment.id, atIndex, kind, written: true };
         }
 
+        const recorded = await this.shelf(kind, shelved, drawn, atIndex);
+        if (recorded === undefined) this.logger.info('director: the station clock asks for a break nothing can produce', { kind });
+        return recorded;
+    }
+
+    /**
+     * A recording of this kind off the shelf, or `undefined` when the library holds none.
+     *
+     * Read at most once per kind per pass through `shelved`, and never the recording this kind drew
+     * last in the same pass where the library has another.
+     */
+    private async shelf(
+        kind: string,
+        shelved: Map<string, readonly Segment[]>,
+        drawn: Map<string, string>,
+        atIndex: number,
+    ): Promise<Placement | undefined> {
         if (!shelved.has(kind)) shelved.set(kind, await this.segments.listReady(kind));
         const available = shelved.get(kind) ?? [];
+        if (available.length === 0) return undefined;
 
-        if (available.length === 0) {
-            this.logger.info('director: the station clock asks for a break nothing can produce', { kind });
-            return undefined;
-        }
-
-        return { segmentId: choose(available, undefined).id, atIndex, kind, written: false };
+        const segment = choose(available, drawn.get(kind));
+        drawn.set(kind, segment.id);
+        return { segmentId: segment.id, atIndex, kind, written: false };
     }
 
     /**

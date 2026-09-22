@@ -68,6 +68,8 @@ const build = (
         carried?: SyndicatedAnswer;
         /** What a `narration` band is answered with. Declines by default, as `carried` does. */
         reading?: SyndicatedAnswer;
+        /** Kinds whose writer yields to a recording. None by default, which is every kind but a jingle. */
+        yields?: readonly string[];
     } = {},
 ) => {
     // Answers for the KIND it was asked about, the way the repository does. A blanket answer would
@@ -169,7 +171,10 @@ const build = (
     // The format clock, as the rows the planner is handed. Only `active` is reached from here: a
     // band that is switched off never leaves the repository.
     const clockBands = { active: vi.fn(async () => options.bands ?? []) };
-    const writers = { canWrite: vi.fn(() => options.canWrite ?? false) };
+    const writers = {
+        canWrite: vi.fn(() => options.canWrite ?? false),
+        yieldsToRecordings: vi.fn((kind: string) => options.yields?.includes(kind) ?? false),
+    };
     const speech = { speaker: vi.fn(() => ((options.speaker ?? options.canWrite) ? { record: { id: 'deadair.kokoro' } } : undefined)) };
     const send = vi.fn(async () => {});
     // The presenter, whose `chattiness` scales the station's own spacing floor. Absent by default,
@@ -1968,5 +1973,70 @@ describe('BreakPlanner.ripen', () => {
 
             expect(plan).toHaveBeenCalledWith(expect.objectContaining({ requestId: 'req-1', airsAt: now + TRACK_MINUTES * 60_000 }));
         });
+    });
+});
+
+// A kind an operator records on purpose. The shelf is drawn before anything is written, so a station
+// with jingles recorded hears those, and one with none still has the station's own.
+describe('BreakPlanner filling a jingle', () => {
+    const jingleBand: ClockBand[] = [{ at: 'interval', everyMs: 2 * TRACK_MINUTES * 60_000, kind: 'jingle' } as ClockBand];
+
+    /** The segment id at each jingle position, in order. */
+    const jinglesIn = (lineup: StationLineup): string[] =>
+        lineup.all().flatMap(item => (item.kind === 'segment' && item.segmentKind === 'jingle' ? [item.segmentId] : []));
+
+    it('plays a recording rather than writing one, when the library holds any', async () => {
+        const { planner, plan } = build({
+            canWrite: true,
+            yields: ['jingle'],
+            idents: [recorded('j-1', 'jingle'), recorded('j-2', 'jingle')],
+            bands: jingleBand,
+        });
+        const lineup = await lineupOf(16);
+
+        await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 0 }), clock());
+
+        const planted = jinglesIn(lineup);
+        expect(planted.length).toBeGreaterThan(1);
+        expect(planted.every(id => id === 'j-1' || id === 'j-2')).toBe(true);
+        expect(plan.mock.calls.filter(([input]) => input.kind === 'jingle')).toHaveLength(0);
+    });
+
+    it('never draws the same recording twice running in one pass, where there is another', async () => {
+        const { planner } = build({
+            canWrite: true,
+            yields: ['jingle'],
+            idents: [recorded('j-1', 'jingle'), recorded('j-2', 'jingle')],
+            bands: jingleBand,
+        });
+        const lineup = await lineupOf(24);
+
+        await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 0 }), clock());
+
+        const planted = jinglesIn(lineup);
+        for (let index = 1; index < planted.length; index++) expect(planted[index]).not.toBe(planted[index - 1]);
+    });
+
+    it('writes its own when the library has none', async () => {
+        const { planner, plan } = build({ canWrite: true, yields: ['jingle'], idents: [], bands: jingleBand });
+        const lineup = await lineupOf(16);
+
+        await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 0 }), clock());
+
+        expect(plan.mock.calls.filter(([input]) => input.kind === 'jingle').length).toBeGreaterThan(0);
+    });
+
+    it('still writes first for a kind whose writer does not yield, recordings or not', async () => {
+        // The ordinary order, unchanged: a `talkbreak` shelf is every break the station ever rendered.
+        const { planner, plan } = build({
+            canWrite: true,
+            idents: [recorded('s-1', 'sponsorspot')],
+            bands: [{ at: 'interval', everyMs: 2 * TRACK_MINUTES * 60_000, kind: 'sponsorspot' } as ClockBand],
+        });
+        const lineup = await lineupOf(16);
+
+        await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 0 }), clock());
+
+        expect(plan.mock.calls.filter(([input]) => input.kind === 'sponsorspot').length).toBeGreaterThan(0);
     });
 });

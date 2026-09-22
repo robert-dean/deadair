@@ -9,6 +9,11 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.25.1] — 2026-09-22
+
+- The audio chain's log is mostly useful lines again. Liquidsoap warned about a "possible source leak" and printed its whole list of sources, about 40 lines each time, whenever the station had more than 50 sources. The station normally runs with 50 to 52 and nothing is leaking, so the warning now waits until 100. Beyond that, the audio chain no longer uses two functions Liquidsoap has deprecated, so it will keep starting after a future Liquidsoap upgrade removes them.
+- When a service answers with something that is not JSON, the error in the station log no longer includes the API key from the request URL. Keys sent in the query string (Last.fm's `api_key`, for example) now show as `REDACTED`, and the rest of the URL is kept so you can still tell which call failed.
+
 ## [0.25.0] — 2026-09-22
 
 - The station can play jingles between records. **Settings > Rotation > Minutes between jingles**, which
@@ -654,7 +659,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.25.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.25.1...HEAD
+[0.25.1]: https://github.com/robert-dean/deadair/compare/v0.25.0...v0.25.1
 [0.25.0]: https://github.com/robert-dean/deadair/compare/v0.24.0...v0.25.0
 [0.24.0]: https://github.com/robert-dean/deadair/compare/v0.23.0...v0.24.0
 [0.23.0]: https://github.com/robert-dean/deadair/compare/v0.22.0...v0.23.0

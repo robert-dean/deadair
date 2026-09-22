@@ -22,10 +22,31 @@ const snippet = (body: string): string => {
 };
 
 /**
+ * Query parameters whose value is a credential. Last.fm, OpenWeatherMap and Brave all take their key
+ * in the query string, and the log store's redaction keys on the meta KEY, so a key inside a
+ * message is written out whole. Seen on a live station: a Last.fm `api_key` in plain text.
+ */
+const CREDENTIAL_PARAM = /key|token|secret|sig|pass|auth/i;
+
+/** The URL with every credential-shaped query value replaced, so the message still names the call. */
+const redactedUrl = (raw: string): string => {
+    let url: URL;
+    try {
+        url = new URL(raw);
+    } catch {
+        return raw;
+    }
+    for (const name of [...url.searchParams.keys()]) {
+        if (CREDENTIAL_PARAM.test(name)) url.searchParams.set(name, 'REDACTED');
+    }
+    return url.toString();
+};
+
+/**
  * The body parsed as JSON.
  *
- * Throws when it is not JSON, with the status, the URL and the start of the
- * body in the message. That detail is the point, and it is why this reads the
+ * Throws when it is not JSON, with the status, the URL (credential-shaped query
+ * values redacted) and the start of the body in the message. That detail is the point, and it is why this reads the
  * body as text and parses that rather than calling `response.json()`: the text
  * is what names what the server actually sent.
  *
@@ -43,7 +64,9 @@ export async function jsonBody<T>(response: Response): Promise<T> {
         return JSON.parse(text) as T;
     } catch (error) {
         const reason = error instanceof Error ? error.message : String(error);
-        throw new Error(`expected JSON from ${response.url} (HTTP ${response.status}) but got ${snippet(text)}: ${reason}`, { cause: error });
+        throw new Error(`expected JSON from ${redactedUrl(response.url)} (HTTP ${response.status}) but got ${snippet(text)}: ${reason}`, {
+            cause: error,
+        });
     }
 }
 

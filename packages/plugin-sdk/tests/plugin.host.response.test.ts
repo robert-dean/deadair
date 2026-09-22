@@ -9,9 +9,9 @@ import { jsonBody, tryJsonBody } from '../src/plugin.host.response.js';
  * and empty on a hand-built response, and it is the field that makes these
  * error messages name which call failed.
  */
-const response = (body: string, init: ResponseInit = {}): Response => {
+const response = (body: string, init: ResponseInit = {}, url = 'https://api.example.com/v1/tracks'): Response => {
     const built = new Response(body, { status: 200, statusText: 'OK', headers: { 'content-type': 'application/json' }, ...init });
-    Object.defineProperty(built, 'url', { value: 'https://api.example.com/v1/tracks' });
+    Object.defineProperty(built, 'url', { value: url });
     return built;
 };
 
@@ -24,6 +24,18 @@ describe('jsonBody', () => {
         await expect(jsonBody(response('<html>rate limited</html>', { status: 429 }))).rejects.toThrow(
             /expected JSON from https:\/\/api\.example\.com\/v1\/tracks \(HTTP 429\) but got <html>rate limited<\/html>/,
         );
+    });
+
+    it('redacts a credential in the query string but keeps the rest of the call', async () => {
+        const message = await jsonBody(
+            response('<html/>', {}, 'https://ws.example.com/2.0/?method=track.getInfo&api_key=abc123&token=t0k&artist=X'),
+        ).then(
+            () => '',
+            (error: unknown) => (error instanceof Error ? error.message : ''),
+        );
+
+        expect(message).not.toMatch(/abc123|t0k/);
+        expect(message).toMatch(/method=track\.getInfo&api_key=REDACTED&token=REDACTED&artist=X/);
     });
 
     it('says so rather than quoting nothing when the body is empty', async () => {

@@ -8,6 +8,10 @@ version (the merge of the version pull request), tagged `streamdeck-v<version>`.
 
 ## [Unreleased]
 
+## [0.2.1] — 2026-09-22
+
+- The plugin asks the station what is on air every five seconds instead of every two, and once more just after the record on air is due to end, so a new record now shows on the Now Playing key within a second of starting. That is 60% fewer requests from a deck left on all day. A Now Playing key with the progress bar turned off also no longer runs the half-second clock that moves the bar.
+
 ## [0.2.0] — 2026-09-17
 
 - Like and Dislike: two new keys that set what the station thinks of the record on air, the same opinion you would set from the running order in the console. A like plays that record more often and a dislike means never again. Both draw the station's own skull on a heart, and the heart fills with colour when the station already agrees; pressing the lit one takes the opinion back. Both need an API key issued with Read and manage; a Read-only key still shows you what the station thinks.
@@ -18,6 +22,7 @@ version (the merge of the version pull request), tagged `streamdeck-v<version>`.
 - Each Now Playing key can leave out the progress bar, or the title and artist, from its own settings.
 - With no cover to show, the Now Playing key shows the deadair mark, faint while the station is stopped or not answering. When the station stops answering, the last cover stays on the key, faint.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/streamdeck-v0.2.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/streamdeck-v0.2.1...HEAD
+[0.2.1]: https://github.com/robert-dean/deadair/compare/streamdeck-v0.2.0...streamdeck-v0.2.1
 [0.2.0]: https://github.com/robert-dean/deadair/compare/streamdeck-v0.1.0...streamdeck-v0.2.0
 [0.1.0]: https://github.com/robert-dean/deadair/releases/tag/streamdeck-v0.1.0

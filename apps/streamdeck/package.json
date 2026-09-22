@@ -1,6 +1,6 @@
 {
     "name": "@deadair/streamdeck",
-    "version": "0.2.0",
+    "version": "0.2.1",
     "private": true,
     "description": "The station on a Stream Deck: what is on air, Skip, and Stop or Start.",
     "license": "MIT",

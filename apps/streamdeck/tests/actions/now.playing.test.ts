@@ -183,6 +183,40 @@ describe('NowPlayingKeys', () => {
         expect(lastImage(bare)).toContain('height="8"');
     });
 
+    it('sends one image a record with the bar turned off, however long it plays', async () => {
+        const key = fakeKey('one');
+        keys().show(key, { showProgress: false });
+        await vi.advanceTimersByTimeAsync(0);
+        await vi.advanceTimersByTimeAsync(500);
+        const images = () => key.calls.filter(call => call.startsWith('image ')).length;
+        const withCover = images();
+        expect(decodeURIComponent(key.calls.filter(call => call.startsWith('image ')).at(-1)!)).toContain('data:image/jpeg;base64,');
+
+        // The station's countdown falls through several steps' worth of the record, reading after
+        // reading, and a key with no bar has nothing to show for it.
+        for (let remainingMs = 190_000; remainingMs > 100_000; remainingMs -= 10_000) {
+            answers = [airing({ nowPlaying: { item: record, startedAt: 1_000, remainingMs } })];
+            await vi.advanceTimersByTimeAsync(2_000);
+        }
+        expect(images()).toBe(withCover);
+    });
+
+    it('runs the clock only while some key draws a bar', async () => {
+        const nowPlaying = keys();
+        nowPlaying.show(fakeKey('bare'), { showProgress: false });
+        await vi.advanceTimersByTimeAsync(0);
+        const withoutClock = vi.getTimerCount();
+
+        nowPlaying.show(fakeKey('plain'), {});
+        expect(vi.getTimerCount()).toBe(withoutClock + 1);
+        nowPlaying.configure('plain', { showProgress: false });
+        expect(vi.getTimerCount()).toBe(withoutClock);
+        nowPlaying.configure('bare', {});
+        expect(vi.getTimerCount()).toBe(withoutClock + 1);
+        nowPlaying.disappear('bare');
+        expect(vi.getTimerCount()).toBe(withoutClock);
+    });
+
     it('draws the station’s mark while there is no cover yet', async () => {
         const key = fakeKey('one');
         new NowPlayingKeys({ poller, artwork, station: () => station, openConsole: vi.fn(), mark: 'data:image/png;base64,MARK' }).appear(key);

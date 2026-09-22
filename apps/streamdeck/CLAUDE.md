@@ -264,7 +264,9 @@ is exactly what should travel in an exported profile. Absent means shown, so an 
 draws everything. Turning the title off takes away the record's title and artist and the shade under
 them, and never the station's own words ("ready", "off air") or a failure's ("No station"), because
 a bare placeholder or a silently old cover would say nothing true. Turning the bar off also means
-fewer redraws, since the image then changes only with the cover. The settings panel shows the two
+fewer redraws, since the image then changes only with the cover: one image a record, held by a test.
+The half-second clock that moves the bar between readings runs only while some key on the deck draws
+one, so a deck whose keys all have the bar off wakes only for the poll. The settings panel shows the two
 checkboxes only when it is opened on a Now Playing key, saves on every tick (Elgato's rule for a
 checkbox) with `setSettings`, and the plugin redraws that key alone from `didReceiveSettings`.
 

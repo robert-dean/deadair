@@ -80,9 +80,11 @@ export function viewFor(
 /**
  * Every Now Playing key on the deck, drawn from the one poller.
  *
- * Holding the poller also starts the half-second clock that carries the bar between readings, and
- * letting go stops it. The image is composed only when what it shows changes (another cover, another
- * step of the bar, another tone), which on an ordinary record is every few seconds, never every tick.
+ * The half-second clock that carries the bar between readings runs only while some key on the deck
+ * draws a bar. A key with the bar turned off changes only with a reading, so ticking for it would
+ * compose a frame twice a second for the painter to drop. The image is composed only when what it
+ * shows changes (another cover, another step of the bar, another tone), which on an ordinary record
+ * is every few seconds, never every tick.
  * Each key draws by its own options, so the few images in use at once are each composed once and
  * shared by every key that shows the same thing.
  */
@@ -102,11 +104,13 @@ export class NowPlayingKeys extends StationKeys {
     show(face: KeyFace, settings: unknown): void {
         this.options.set(face.id, optionsFrom(settings));
         this.appear(face);
+        this.syncTicker();
     }
 
     /** A key's settings changed in the settings panel. */
     configure(id: string, settings: unknown): void {
         this.options.set(id, optionsFrom(settings));
+        this.syncTicker();
         this.render();
     }
 
@@ -124,20 +128,37 @@ export class NowPlayingKeys extends StationKeys {
     }
 
     protected override onHold(): void {
-        this.ticker = setInterval(() => {
-            this.clock.tick();
-            this.render();
-        }, TICK_MS);
+        this.syncTicker();
     }
 
     protected override onRelease(): void {
-        clearInterval(this.ticker);
-        this.ticker = undefined;
+        this.syncTicker();
         this.composed.clear();
     }
 
     protected override onDisappear(id: string): void {
         this.options.delete(id);
+        this.syncTicker();
+    }
+
+    /**
+     * Start the clock if a key showing needs it, and stop it if none does.
+     *
+     * A clock stopped and started again carries a count from before it stopped, and that is safe for
+     * the reason a suspended process is: the bar under-counts until the next reading re-anchors it,
+     * which is two seconds away, and never runs ahead of the record.
+     */
+    private syncTicker(): void {
+        const wanted = this.painter.ids().some(id => (this.options.get(id) ?? SHOW_EVERYTHING).progress);
+        if (wanted && this.ticker === undefined) {
+            this.ticker = setInterval(() => {
+                this.clock.tick();
+                this.render();
+            }, TICK_MS);
+        } else if (!wanted && this.ticker !== undefined) {
+            clearInterval(this.ticker);
+            this.ticker = undefined;
+        }
     }
 
     protected render(): void {

@@ -79,8 +79,8 @@ importers:
         specifier: ^1.12.2
         version: 1.12.2(pg-boss@12.27.0)
       '@maroonedsoftware/koa':
-        specifier: ^4.0.0
-        version: 4.0.0(@koa/cors@5.0.0)(@koa/router@15.7.0(koa@3.2.1))(@maroonedsoftware/authentication@5.1.0(ioredis@6.0.0))(@maroonedsoftware/serverfeed@0.1.6(@maroonedsoftware/logger@1.1.9))(koa@3.2.1)(pg@8.22.0)(yaml@2.9.0)
+        specifier: ^4.1.0
+        version: 4.1.0(@koa/cors@5.0.0)(@koa/router@15.7.0(koa@3.2.1))(@maroonedsoftware/authentication@5.1.0(ioredis@6.0.0))(@maroonedsoftware/serverfeed@0.1.6(@maroonedsoftware/logger@1.1.9))(koa@3.2.1)(pg@8.22.0)(yaml@2.9.0)
       '@maroonedsoftware/kysely':
         specifier: ^0.7.11
         version: 0.7.11
@@ -3033,8 +3033,8 @@ packages:
       pg-boss:
         optional: true
 
-  '@maroonedsoftware/koa@4.0.0':
-    resolution: {integrity: sha512-GBuo6lhf6HwPlRT56/fyR1CZYSZArYhUc12vVMsk7ObjS7gyyP2UFM4eJezQKNQjCwYjsYMOT7UPEIn1dCzhCw==}
+  '@maroonedsoftware/koa@4.1.0':
+    resolution: {integrity: sha512-rNSSZSpypzxGi7mRIrF6CSVSE7KiVto4YsUPCEGWhPvD9oN2c4mi0XfuwmVAO+WoTlDmcLDoqQHmUhY8xrz26g==}
     engines: {node: '>=22'}
     peerDependencies:
       '@koa/cors': ^5.0.0
@@ -13361,7 +13361,7 @@ snapshots:
     optionalDependencies:
       pg-boss: 12.27.0
 
-  '@maroonedsoftware/koa@4.0.0(@koa/cors@5.0.0)(@koa/router@15.7.0(koa@3.2.1))(@maroonedsoftware/authentication@5.1.0(ioredis@6.0.0))(@maroonedsoftware/serverfeed@0.1.6(@maroonedsoftware/logger@1.1.9))(koa@3.2.1)(pg@8.22.0)(yaml@2.9.0)':
+  '@maroonedsoftware/koa@4.1.0(@koa/cors@5.0.0)(@koa/router@15.7.0(koa@3.2.1))(@maroonedsoftware/authentication@5.1.0(ioredis@6.0.0))(@maroonedsoftware/serverfeed@0.1.6(@maroonedsoftware/logger@1.1.9))(koa@3.2.1)(pg@8.22.0)(yaml@2.9.0)':
     dependencies:
       '@koa/cors': 5.0.0
       '@koa/router': 15.7.0(koa@3.2.1)

@@ -52,7 +52,7 @@
         "@maroonedsoftware/errors": "^1.9.1",
         "@maroonedsoftware/eventbus": "^0.1.8",
         "@maroonedsoftware/jobbroker": "^1.12.2",
-        "@maroonedsoftware/koa": "^4.0.0",
+        "@maroonedsoftware/koa": "^4.1.0",
         "@maroonedsoftware/kysely": "^0.7.11",
         "@maroonedsoftware/logger": "^1.1.9",
         "@maroonedsoftware/multipart": "^1.3.8",

@@ -7,6 +7,7 @@ import { BreakPlanner } from './break.planner.js';
 import { BreakRequestRepository } from './break.request.repository.js';
 import { BreakWriterRegistry } from './break.writer.registry.js';
 import { WarmUpWriter } from './warmup.writer.js';
+import { JingleWriter } from './jingle.writer.js';
 import { ModelNewsBreakWriter } from './model.news.break.writer.js';
 import { ModelTalkBreakWriter } from './model.talk.break.writer.js';
 import { NewsBreakWriter } from './news.break.writer.js';
@@ -153,6 +154,7 @@ export const DirectorModule: ServerKitModule = {
         registry.register(ModelStoryBreakWriter).useClass(ModelStoryBreakWriter).asScoped();
         registry.register(StoryBreakWriter).useClass(StoryBreakWriter).asScoped();
         registry.register(WarmUpWriter).useClass(WarmUpWriter).asScoped();
+        registry.register(JingleWriter).useClass(JingleWriter).asScoped();
         // What the station has already read out. A SINGLETON beside the scoped source below, for the
         // same reason `AdvisoryWatch` is one among the scoped generators: "the station already said
         // this" has to outlive the scope that discovered it. It was a field on `BulletinSource` and
@@ -234,6 +236,10 @@ export const DirectorModule: ServerKitModule = {
                             // able to produce anything, so a binding that could be slow would
                             // arrive after the records it was covering for. See `WarmUpWriter`.
                             container.get(WarmUpWriter),
+                            // The eighth kind, and the third with no model in front of it. A jingle
+                            // is a fixed line the listener is meant to recognise, so a model would
+                            // add variety to the one thing that should not vary. See `JingleWriter`.
+                            container.get(JingleWriter),
                         ],
                         container.get(Logger),
                     ),

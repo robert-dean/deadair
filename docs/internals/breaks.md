@@ -43,6 +43,21 @@ the operator's: a placeholder outside an optional chunk that cannot be filled me
 not apply, and a phrasing saying nothing about the record just finished is only offered where there
 is none.
 
+**A jingle is a kind with a floor and nothing above it.** `JingleWriter` writes `jingle` out of
+`rotation.jingleTemplates` and is the third deterministic writer with no model in front of it, after
+`WarmUpWriter` and the story floor's operator prose. A jingle is a fixed line a listener is meant to
+recognise, so a model would add variety to the one thing that should not vary, and would spend the model
+slot every few records on a sentence the station already knows. Three things differ from the talk-break
+floor. It fills `{{station.name}}` and `{{dj.name}}` and nothing else, whatever the request carries: a
+jingle is planted by a spacing rule an hour ahead and checked against no claim at hand-over, so naming a
+record or saying good morning would be a promise nothing polices. It reads `BreakWriteRequest.pads`, which
+every other deterministic writer leaves alone, and ends every jingle on the first pad offered (the least
+recently hit), because the argument against an air horn on a schedule is about a presenter talking and
+imaging is the one place a station makes the same noise on purpose. That hit is a written row with pads, so
+it resets `breaksSincePad` like any other and the talk-break floor reaches for the rack less often while
+jingles are on. That is deliberate: the station has one budget for noise, not one per kind. And its
+repetition window is the pool minus one, `WarmUpWriter`'s choice, since one listener hears several an hour.
+
 **A phrasing the station just used is recognised by its OPENING, or failing that by its refrain.**
 `recent` is a list of scripts and carries no template identity, so `wasHeard` has to recognise a
 phrasing from words that name records the station has since played past. The opening literal does it

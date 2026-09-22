@@ -31,6 +31,12 @@ public static class SdkJson
         options.Converters.Add(new BigIntegerConverter());
         options.Converters.Add(new DecimalStringConverter());
         options.Converters.Add(new IsoTimeSpanConverter());
+#if NETSTANDARD2_0
+        // These are the SDK's own types on this framework, so System.Text.Json has no built-in
+        // converter for them. On net10.0 the framework handles them and these are not compiled.
+        options.Converters.Add(new DateOnlyConverter());
+        options.Converters.Add(new TimeOnlyConverter());
+#endif
         return options;
     }
 }
@@ -55,8 +61,9 @@ public sealed class BigIntegerConverter : JsonConverter<BigInteger>
         if (reader.TokenType == JsonTokenType.Number)
         {
             // Read the raw token rather than a long: the value may be wider than any BCL integer,
-            // which is the whole reason the contract called it a bigint.
-            var raw = Encoding.UTF8.GetString(reader.HasValueSequence ? reader.ValueSequence.ToArray() : reader.ValueSpan);
+            // which is the whole reason the contract called it a bigint. Copied to an array rather
+            // than handed to the span overload of GetString, which netstandard2.0 does not have.
+            var raw = Encoding.UTF8.GetString(reader.HasValueSequence ? reader.ValueSequence.ToArray() : reader.ValueSpan.ToArray());
             return BigInteger.Parse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture);
         }
 
@@ -128,3 +135,69 @@ public sealed class IsoTimeSpanConverter : JsonConverter<TimeSpan>
         writer.WriteStringValue(XmlConvert.ToString(value));
     }
 }
+
+#if NETSTANDARD2_0
+
+/// <summary>
+/// A calendar date, as <c>yyyy-MM-dd</c>.
+/// </summary>
+/// <remarks>
+/// Compiled only where <c>DateOnly</c> is the SDK's own polyfill. The wire form is the one the
+/// framework's converter writes on net10.0, so a service reads a body from either leg of the build.
+/// </remarks>
+public sealed class DateOnlyConverter : JsonConverter<DateOnly>
+{
+    public override DateOnly Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a date string, got {reader.TokenType}.");
+        }
+
+        var text = reader.GetString() ?? throw new JsonException("Expected a date string.");
+        if (!DateOnly.TryParse(text, CultureInfo.InvariantCulture, out var value))
+        {
+            throw new JsonException($"'{text}' is not a date.");
+        }
+
+        return value;
+    }
+
+    public override void Write(Utf8JsonWriter writer, DateOnly value, JsonSerializerOptions options)
+    {
+        writer.WriteStringValue(value.ToString());
+    }
+}
+
+/// <summary>
+/// A time of day, as <c>HH:mm:ss</c>, with a seven-digit fraction when there is one.
+/// </summary>
+/// <remarks>
+/// Compiled only where <c>TimeOnly</c> is the SDK's own polyfill, and writing what the framework's
+/// own converter writes on net10.0, so a service reads a body from either leg of the build.
+/// </remarks>
+public sealed class TimeOnlyConverter : JsonConverter<TimeOnly>
+{
+    public override TimeOnly Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException($"Expected a time-of-day string, got {reader.TokenType}.");
+        }
+
+        var text = reader.GetString() ?? throw new JsonException("Expected a time-of-day string.");
+        if (!TimeOnly.TryParse(text, CultureInfo.InvariantCulture, out var value))
+        {
+            throw new JsonException($"'{text}' is not a time of day.");
+        }
+
+        return value;
+    }
+
+    public override void Write(Utf8JsonWriter writer, TimeOnly value, JsonSerializerOptions options)
+    {
+        writer.WriteStringValue(value.ToString());
+    }
+}
+
+#endif

@@ -1,7 +1,4 @@
-import { Decimal } from 'decimal.js';
 import { DateTime } from 'luxon';
-
-Decimal.set({ toExpNeg: -9e15, toExpPos: 9e15 });
 const __dt = (v: unknown, path: string): DateTime => {
     if (typeof v !== 'string') {
         throw new TypeError(`ContractKit: expected an ISO 8601 string at '${path}', received ${typeof v}.`);

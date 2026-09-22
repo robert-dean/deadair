@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Numerics;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using MaroonedSoftware.Deadair.Sdk.Runtime;
 
 namespace MaroonedSoftware.Deadair.Sdk.Models;
 

@@ -54,7 +54,7 @@ public sealed class DirectorClient(SdkHttp http)
     public async Task<StationAir> SetTheAirModeAsync(SetStationAirInput body, CancellationToken cancellationToken = default)
     {
         var response = await http.ExecuteAsync(
-            HttpMethod.Patch,
+            SdkHttp.Patch,
             http.Path("director", "air"),
             content: http.JsonContent(body, "application/json"),
             cancellationToken: cancellationToken).ConfigureAwait(false);
@@ -121,7 +121,7 @@ public sealed class DirectorClient(SdkHttp http)
     public async Task<StationAir> HoldTheStationAgainstTheScheduleAsync(HoldStationInput body, CancellationToken cancellationToken = default)
     {
         var response = await http.ExecuteAsync(
-            HttpMethod.Patch,
+            SdkHttp.Patch,
             http.Path("director", "air", "hold"),
             content: http.JsonContent(body, "application/json"),
             cancellationToken: cancellationToken).ConfigureAwait(false);
@@ -189,7 +189,7 @@ public sealed class DirectorClient(SdkHttp http)
     public async Task<StationOrder> MoveARunningOrderItemAsync(string itemId, MoveStationItemInput body, CancellationToken cancellationToken = default)
     {
         var response = await http.ExecuteAsync(
-            HttpMethod.Patch,
+            SdkHttp.Patch,
             http.Path("director", "air", "items", http.Segment(itemId)),
             content: http.JsonContent(body, "application/json"),
             cancellationToken: cancellationToken).ConfigureAwait(false);

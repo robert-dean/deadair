@@ -77,6 +77,14 @@ settings.log.file.set(true)
 settings.log.file.append.set(true)
 settings.log.file.path.set(environment.get("LOG_FILE", default="/streamlogs/liquidsoap.log"))
 
+# The source-leak warning fires at 50 sources by default, and this file builds 50 to 52 of them
+# with nothing leaking: a live station held that count flat from 2026-09-09 to 2026-09-22. Every
+# warning also dumps the whole source list, about 40 lines, and it fired about 1,300 times in those
+# two weeks, so most of the log was that dump. 100 is well clear of the real graph and still low
+# enough to catch an actual leak, which is a count that keeps climbing (a loop minting a source
+# per track) rather than one sitting just over a threshold.
+settings.clock.leak_warning := 100
+
 # The image runs as root so the bundled helpers can write their logs. Liquidsoap's init refuses
 # root by default; allow it for this local/personal container.
 settings.init.allow_root := true

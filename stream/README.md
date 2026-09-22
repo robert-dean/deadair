@@ -828,14 +828,17 @@ because one of them took the station off air for a day without anything saying s
   `liq_cue_out` now apply whether or not an operator sits in the graph. The call is gone from this
   script; adding it back would be the no-op, which is the exact inverse of what it used to be.
 
-Two deprecation warnings are still outstanding, deliberately. Both still work on 2.4.5 and neither
-is worth a blind edit to a script whose failure mode is no stream at all, so they are the next
-bump's work rather than this one's:
+Two deprecation warnings were left outstanding after the bump and cleared on 2026-09-22, once they
+could be checked against the pinned image rather than edited blind:
 
-| Warning on every boot | Replacement | Sites |
+| Warning on every boot | Replacement | How it was checked |
 | --- | --- | --- |
-| `"map_metadata" is deprecated` | `metadata.map` | `radio.liq` bed labels (two calls) |
-| `insert_metadata operator is deprecated` | the `insert_metadata` SOURCE method | `radio = insert_metadata(radio)`; note the comment further down about rebinding moving the method onto the wrong source |
+| `"map_metadata" is deprecated` | `metadata.map`, at the two bed-label sites | `liquidsoap -h` on both shows the identical signature, `insert_missing` included |
+| `insert_metadata operator is deprecated` | nothing: `radio = insert_metadata(radio)` is gone | `liquidsoap -h fallback` lists `insert_metadata` as a method of the source itself, and a probe calling it on a bare `fallback` fired `on_metadata` with the inserted title |
+
+A 12-second run of `radio.liq` against the image logged three `lang.deprecated` lines before and
+none after. The comment above `bus` about rebinding `radio` still holds: the inserts go to
+whichever source is named `radio`, so it must stay the fallback.
 
 **Liquidsoap logs to stdout and only to stdout**, so every one of those findings needed
 `docker compose logs`. That is a wall for anything without the Docker socket — see

@@ -251,12 +251,12 @@ def bed_label(m) =
   list.append(title, station_art)
 end
 
-music = map_metadata(bed_label, insert_missing=true, music)
+music = metadata.map(bed_label, insert_missing=true, music)
 
 # The floor UNDER the programme: a bundled station ident/bed. Always available, so a gap inside
 # a programme deadair is driving never becomes dead air, and the voice always has something to
 # duck. It is not a floor under the station itself — the lease gate below is above all of this.
-station_id = map_metadata(bed_label, insert_missing=true, mksafe(single("/radio/station-id.mp3")))
+station_id = metadata.map(bed_label, insert_missing=true, mksafe(single("/radio/station-id.mp3")))
 
 # 2) The music bed: a request.queue the APP pushes into (POST /control/push below), one item at a
 # time. Empty queue → the source is unavailable, so the enclosing fallback drops to the local
@@ -1342,8 +1342,8 @@ radio = fallback(track_sensitive=false, [switch(track_sensitive=false, [({drivin
 #
 # So the transition into silence is announced explicitly. `insert_metadata` puts a packet into the
 # stream at the current position rather than at a boundary, which is the only way to label a
-# source that has none.
-radio = insert_metadata(radio)
+# source that has none. It is a method `fallback` already carries, so `radio` needs no wrapping;
+# the `insert_metadata(radio)` operator that used to sit here is deprecated and did the same.
 
 # Deliberately seeded as if the station had been driving, so the FIRST tick after startup labels
 # a freshly started mount with the station name instead of leaving it blank until something airs.

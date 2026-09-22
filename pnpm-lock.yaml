@@ -91,8 +91,8 @@ importers:
         specifier: ^1.3.8
         version: 1.3.8
       '@maroonedsoftware/permissions':
-        specifier: ^0.2.9
-        version: 0.2.9
+        specifier: ^0.3.0
+        version: 0.3.0
       '@maroonedsoftware/policies':
         specifier: ^0.6.9
         version: 0.6.9
@@ -173,8 +173,8 @@ importers:
         specifier: workspace:*
         version: link:../../plugins/spotify
       '@maroonedsoftware/permissions-dsl':
-        specifier: ^0.5.6
-        version: 0.5.6
+        specifier: ^0.5.7
+        version: 0.5.7
       '@repo/config-eslint':
         specifier: workspace:*
         version: link:../../packages/config-eslint
@@ -3058,13 +3058,13 @@ packages:
     resolution: {integrity: sha512-k4bD2+iqZ7IAL2CMxK7Tt4UQEjhEbRblRxN6hS8OAYF/sbXf0HDBNziUzI6YMmux+G26tDCokIBe9Ph8rSuQ9Q==}
     engines: {node: '>=22'}
 
-  '@maroonedsoftware/permissions-dsl@0.5.6':
-    resolution: {integrity: sha512-SaBM4nijuN00bmqscaOdWwMK8YWCiT83VU4LBRAToCmXN3n7kyizriyvlDKxrEAgu3O/7Yx46V5C5UyAV11xjA==}
+  '@maroonedsoftware/permissions-dsl@0.5.7':
+    resolution: {integrity: sha512-G5qOuZmybMqGNDMeFe/iliPxCONoeSQ28zU3PNY3Xil4tE2lW4p1sF2b/Cx8aH/cmw1IMCFRiAjfRP+xRoJSSg==}
     engines: {node: '>=22'}
     hasBin: true
 
-  '@maroonedsoftware/permissions@0.2.9':
-    resolution: {integrity: sha512-SUu/MBLbmogzZYkw8aOe+oR2kVLc6Ksk0lWRXGudcGcRzuGj/rXtkYv/a3o4LiZVU1WVaSWGGK3CYyqRMK3gNA==}
+  '@maroonedsoftware/permissions@0.3.0':
+    resolution: {integrity: sha512-RdHOvoHmkWUN/doOPeJuyRU7jtmiM5Fjajn2ZOtpt0ubKoO9VrlpVXNwiHyMiBKT6jDfcg84Ucu9yGVWF7GJug==}
     engines: {node: '>=22'}
 
   '@maroonedsoftware/policies@0.6.9':
@@ -13402,15 +13402,15 @@ snapshots:
       '@fastify/busboy': 3.2.2
       '@maroonedsoftware/errors': 1.9.1
 
-  '@maroonedsoftware/permissions-dsl@0.5.6':
+  '@maroonedsoftware/permissions-dsl@0.5.7':
     dependencies:
-      '@maroonedsoftware/permissions': 0.2.9
+      '@maroonedsoftware/permissions': 0.3.0
       ohm-js: 17.5.0
       prettier: 3.9.6
       yaml: 2.9.0
       zod: 4.5.4
 
-  '@maroonedsoftware/permissions@0.2.9':
+  '@maroonedsoftware/permissions@0.3.0':
     dependencies:
       injectkit: 1.7.1
       zod: 4.5.4

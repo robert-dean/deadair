@@ -37,6 +37,34 @@ public sealed class StreamClient(SdkHttp http)
     }
 
     /// <summary>
+    /// Get tune-in pls
+    /// The station's streams as a PLS playlist, MP3 first, for a player that takes a playlist file rather than a stream address
+    /// </summary>
+    /// <exception cref="SdkException">On 404.</exception>
+    public async Task<byte[]> GetTuneInPlsAsync(CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Get,
+            http.Path("listen.pls"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return response.Bytes;
+    }
+
+    /// <summary>
+    /// Get tune-in m3u
+    /// The station's streams as an M3U playlist, MP3 first, for a player that takes a playlist file rather than a stream address
+    /// </summary>
+    /// <exception cref="SdkException">On 404.</exception>
+    public async Task<byte[]> GetTuneInM3uAsync(CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Get,
+            http.Path("listen.m3u"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return response.Bytes;
+    }
+
+    /// <summary>
     /// Read fetcher authorization
     /// What the track fetcher holds by way of a Spotify login, and whether an authorization is already waiting to be finished
     /// </summary>

@@ -15,7 +15,17 @@ import {
     writeStreamConfig,
     type StreamPlayoutConfig,
 } from './stream.config.js';
-import { ensureStreamSecrets, resolveStreamSettings, STREAM_DEFAULTS, STREAM_KEYS, type StreamSettings } from './stream.settings.js';
+import {
+    ensureStreamSecrets,
+    resolveMountSettings,
+    resolvePublicUrl,
+    resolveStreamSettings,
+    STREAM_DEFAULTS,
+    STREAM_KEYS,
+    streamMounts,
+    type StreamSettings,
+} from './stream.settings.js';
+import { tuneInM3u, tuneInPls } from './tunein.playlist.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
 import { hlsPlaylistPath } from './hls.playlist.js';
 import { SpotifyShimClient, type FetcherResult } from './spotify.shim.client.js';
@@ -104,6 +114,37 @@ export class StreamService {
     /** The resolved settings, secrets decrypted. */
     settings(): StreamSettings {
         return resolveStreamSettings(this.config, this.encryption);
+    }
+
+    /**
+     * The station's streams as a PLS file, for a player that takes a playlist rather than an address.
+     *
+     * Off the config with no scope and no decryption, for `getHlsPlaylist`'s reason: this is anonymous
+     * and a device may fetch it on every start. 404 when the station has no public address, because a
+     * file of relative paths is worse than none for the players this is for. See `tunein.playlist.ts`.
+     */
+    async getTuneInPls(): Promise<string> {
+        return tuneInPls(this.tuneInOrigin(), this.stationTitle(), streamMounts(resolveMountSettings(this.config)));
+    }
+
+    /** The same streams as an extended M3U, with the HLS stream after them when it is on. See {@link getTuneInPls}. */
+    async getTuneInM3u(): Promise<string> {
+        const mounts = resolveMountSettings(this.config);
+        return tuneInM3u(this.tuneInOrigin(), this.stationTitle(), streamMounts(mounts), mounts.hlsEnabled);
+    }
+
+    /** Where listeners reach the station, or a 404 naming the setting when it is nowhere. */
+    private tuneInOrigin(): string {
+        const origin = resolvePublicUrl(this.config);
+        if (origin.length === 0) {
+            throw httpError(404).withDetails({ message: 'the station has no public address to name; set stream.publicUrl' });
+        }
+        return origin;
+    }
+
+    private stationTitle(): string {
+        const title = String(this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title) ?? '').trim();
+        return title.length > 0 ? title : STREAM_DEFAULTS.title;
     }
 
     /**

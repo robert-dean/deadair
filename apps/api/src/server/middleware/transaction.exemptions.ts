@@ -77,6 +77,11 @@ export const artExemption: TransactionExemption = ({ method, path }) => method =
 // and a transaction each time. Anything that grows a database read here has to come out of this list.
 export const nowPlayingExemption: TransactionExemption = ({ method, path }) => method === 'GET' && path === '/nowplaying';
 
+// The tune-in files, on the now-playing argument exactly: both are built from `AppConfig` alone, with
+// no scope and no query, and a hardware player may fetch one on every power-on. Anything that grows a
+// database read here has to come out of this list.
+export const tuneInExemption: TransactionExemption = ({ method, path }) => method === 'GET' && (path === '/listen.pls' || path === '/listen.m3u');
+
 // Drafting a persona, which is the "must not pin a connection" case again with the holding time set
 // by a language model rather than by a file read.
 //
@@ -154,6 +159,7 @@ export const DEFAULT_TRANSACTION_EXEMPTIONS: readonly TransactionExemption[] = [
     streamingExemption,
     artExemption,
     nowPlayingExemption,
+    tuneInExemption,
     personaDraftExemption,
     personaRehearsalExemption,
     voiceSampleExemption,

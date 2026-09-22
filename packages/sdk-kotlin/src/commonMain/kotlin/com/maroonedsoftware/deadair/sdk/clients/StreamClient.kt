@@ -26,6 +26,30 @@ class StreamClient(private val http: SdkHttp) {
     }
 
     /**
+     * Get tune-in pls
+     * The station's streams as a PLS playlist, MP3 first, for a player that takes a playlist file rather than a stream address
+     * @throws SdkError on 404
+     */
+    suspend fun getTuneInPls(): ByteArray {
+        val response = http.execute(HttpMethod.Get) {
+            path("listen.pls")
+        }
+        return response.bytes
+    }
+
+    /**
+     * Get tune-in m3u
+     * The station's streams as an M3U playlist, MP3 first, for a player that takes a playlist file rather than a stream address
+     * @throws SdkError on 404
+     */
+    suspend fun getTuneInM3u(): ByteArray {
+        val response = http.execute(HttpMethod.Get) {
+            path("listen.m3u")
+        }
+        return response.bytes
+    }
+
+    /**
      * Read fetcher authorization
      * What the track fetcher holds by way of a Spotify login, and whether an authorization is already waiting to be finished
      */

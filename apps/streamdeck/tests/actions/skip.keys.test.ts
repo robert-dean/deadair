@@ -5,6 +5,7 @@ import { SkipKeys } from '../../src/actions/skip.keys.js';
 import { fakeKey } from '../fixtures/fake.key.js';
 import { fakeStation } from '../fixtures/fake.station.js';
 import { airing, stoodDown } from '../fixtures/playout.status.js';
+import { POLL_INTERVAL_MS } from '../../src/station/status.poller.js';
 
 beforeEach(() => {
     vi.useFakeTimers();
@@ -44,7 +45,7 @@ describe('SkipKeys', () => {
         const station = fakeStation();
         const { skip, key } = await showing(station);
         station.playout.getPlayoutStatus.mockRejectedValue(new TypeError('fetch failed'));
-        await vi.advanceTimersByTimeAsync(2_000);
+        await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS);
         await skip.press('skip');
         expect(station.playout.skipTheCurrentItem).not.toHaveBeenCalled();
         expect(key.calls).toContain('alert');

@@ -89,8 +89,8 @@ export class VoteKeys extends StationKeys {
      * The composed face, remembered.
      *
      * A key has four of them at most and each carries the skull's bytes, so composing one on every
-     * reading would be base64-encoding fifty kilobytes twice a second to hand the painter something
-     * it has already sent. The painter drops an identical frame, so this saves the encoding rather
+     * reading would be base64-encoding fifty kilobytes each time to hand the painter something it
+     * has already sent. The painter drops an identical frame, so this saves the encoding rather
      * than the traffic.
      */
     private faceFor(lit: boolean, dim: boolean): string {

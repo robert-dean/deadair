@@ -8,6 +8,7 @@ import { fakeCatalog } from '../fixtures/fake.catalog.js';
 import { fakeKey } from '../fixtures/fake.key.js';
 import { fakeStation } from '../fixtures/fake.station.js';
 import { airing, record, stoodDown, TRACK_ID } from '../fixtures/playout.status.js';
+import { POLL_INTERVAL_MS } from '../../src/station/status.poller.js';
 
 beforeEach(() => {
     vi.useFakeTimers();
@@ -110,7 +111,7 @@ describe('VoteKeys', () => {
         expect(last(likeKey.calls, 'image')).toBe(face('liked', true));
 
         station.playout.getPlayoutStatus.mockRejectedValue(new TypeError('fetch failed'));
-        await vi.advanceTimersByTimeAsync(2_000);
+        await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS);
 
         expect(last(likeKey.calls, 'image')).toBe(face('liked', false, true));
         expect(likeKey.calls).toContain('title No station');
@@ -160,7 +161,7 @@ describe('VoteKeys', () => {
     it('asks about the next record when the station moves on', async () => {
         const { catalog, station } = await deck();
         station.answer(airing({ nowPlaying: { item: { ...record, id: 'item-2', trackId: 'track-2' }, startedAt: 2_000 } }));
-        await vi.advanceTimersByTimeAsync(2_000);
+        await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS);
 
         expect(catalog.getTrack).toHaveBeenCalledTimes(2);
         expect(catalog.getTrack).toHaveBeenLastCalledWith('track-2');

@@ -56,8 +56,9 @@ in your Stream Deck profiles, so exporting or sharing a profile does not share t
 log shows only the key's first eight characters, the same the console shows beside it. To stop a
 Stream Deck using a key, revoke the key in the console.
 
-The plugin asks the station what is on air every two seconds while a deadair key is showing, and
-nothing while none is. It fetches covers from wherever the station says they are, without the key.
+The plugin asks the station what is on air every five seconds while a deadair key is showing, and once
+more when the record on air is due to end, so a new record shows within a second. It asks nothing
+while no deadair key is showing. It fetches covers from wherever the station says they are, without the key.
 With a Like or Dislike key on the deck it also asks what the station thinks of each record once, when
 that record starts.
 

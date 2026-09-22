@@ -5,7 +5,7 @@ import { NowPlayingKeys, viewFor } from '../../src/actions/now.playing.js';
 import { ArtworkCache } from '../../src/display/artwork.js';
 import { PROGRESS_STEPS } from '../../src/display/key.image.js';
 import type { Station } from '../../src/station/station.settings.js';
-import { StatusPoller, type Playout } from '../../src/station/status.poller.js';
+import { POLL_INTERVAL_MS, StatusPoller, type Playout } from '../../src/station/status.poller.js';
 import { fakeKey } from '../fixtures/fake.key.js';
 import { airing, record, stoodDown, waitingForListener } from '../fixtures/playout.status.js';
 
@@ -154,10 +154,10 @@ describe('NowPlayingKeys', () => {
         await vi.advanceTimersByTimeAsync(0);
         await vi.advanceTimersByTimeAsync(500);
         const before = key.calls.filter(call => call.startsWith('image ')).length;
-        // Readings that keep saying 200 seconds left re-anchor the clock every two seconds, so the
+        // Readings that keep saying 200 seconds left re-anchor the clock at every reading, so the
         // move has to come from the station's own countdown dropping.
         answers = [airing({ nowPlaying: { item: record, startedAt: 1_000, remainingMs: 180_000 } })];
-        await vi.advanceTimersByTimeAsync(2_000);
+        await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS);
         expect(key.calls.filter(call => call.startsWith('image ')).length).toBeGreaterThan(before);
     });
 
@@ -196,7 +196,7 @@ describe('NowPlayingKeys', () => {
         // reading, and a key with no bar has nothing to show for it.
         for (let remainingMs = 190_000; remainingMs > 100_000; remainingMs -= 10_000) {
             answers = [airing({ nowPlaying: { item: record, startedAt: 1_000, remainingMs } })];
-            await vi.advanceTimersByTimeAsync(2_000);
+            await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS);
         }
         expect(images()).toBe(withCover);
     });

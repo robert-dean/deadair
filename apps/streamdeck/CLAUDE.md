@@ -89,13 +89,28 @@ fails with "URL must be resolvable" on a manifest that is fine. CI has the netwo
 
 **The keys never ask the station anything themselves.** They subscribe to one `StatusPoller`, because
 the station rate-limits by caller address (a hundred points in five seconds) and that bucket is shared
-with whatever else is on the operator's network. It polls `GET /playout/status` every two seconds, the
-console's interval and the station's own reconcile tick, and only while some key holds it: a deck on
-another page asks nothing.
+with whatever else is on the operator's network. It polls `GET /playout/status` only while some key
+holds it: a deck on another page asks nothing.
+
+**Every five seconds, and once more just after the record on air is due to end.** This was two, the
+console's interval and the station's own reconcile tick, and matching them bought nothing a deck
+shows. The bar is carried between readings by the key's own clock, and a bar step is about nine
+seconds, so it moves the same either way. What a reading is for is noticing a change nobody on the
+deck pressed for, and the one an operator sees at once is the record changing. Every reading carries
+`remainingMs`, so the poller times one reading to 750ms past the end whenever that comes before the
+interval, and the key flips within a second where two-second polling took up to two. That is 60%
+fewer requests (a key showing all day was 43,200 of them, each building the whole silence diagnosis)
+for a deck that is quicker at the one change it cares about. One reading per item is timed and no
+more, so a countdown stuck at zero is looked at once and then at the interval. With no countdown (a
+break with no length, nothing on air), it is the interval. A command's own readings at 0.4, 1 and
+2.5 seconds are unchanged, so the deck's own presses are as quick as ever; what is slower is a Stop
+from the console showing here, by up to five seconds. A user setting for the interval was considered
+and not built: the timed reading leaves nothing worth tuning, and a deck set to one second spends a
+rate-limit bucket it shares with the whole network.
 
 **A failure backs off, doubling to thirty seconds**, and a 429 waits at least as long as it asks. A
-station that is down for an hour is asked about eight times a minute, and a revoked key does not
-knock every two seconds. A command, or the settings changing, starts over.
+station that is down for an hour is asked twice a minute, and a revoked key does not knock every
+five seconds. A command, or the settings changing, starts over.
 
 **A failed poll keeps the last reading and marks it stale**, as on the desktop and the phone: blanking
 a key throws away something true. A stale reading is never drawn in a live colour, and Skip and Stop
@@ -150,7 +165,7 @@ yet draws unlit and writes its own value, so the first press of a record is neve
 the record changes, remembered by track id in `RatingStore`, and refreshed from the write's own
 answer — the cover's arrangement in `display/artwork.ts`, for the cover's reason. The alternative was
 `rating` on `PlayoutItem`, which would have kept the deck in step with the console at every moment
-and cost a catalog lookup on a route every console and every deck polls every two seconds, plus the
+and cost a catalog lookup on a route every console and every deck polls every few seconds, plus the
 four generated SDKs. What is given up is real and small: a rating changed in the console is not seen
 on the deck until the record changes.
 
@@ -216,7 +231,7 @@ colour, whichever way it was lit, by the rule the rest of the plugin follows. Th
 gives each vote action ONE state, as Now Playing has, and the plugin sends the picture.
 
 **The four faces are composed once each and remembered.** Each carries the skull's bytes, so
-composing on every reading would base64-encode fifty kilobytes twice a second to hand the painter
+composing on every reading would base64-encode fifty kilobytes each time to hand the painter
 something it has already sent. The painter drops an identical frame either way; the cache saves the
 encoding rather than the traffic.
 

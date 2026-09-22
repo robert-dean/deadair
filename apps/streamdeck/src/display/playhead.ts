@@ -15,7 +15,7 @@ export interface Playhead {
  * The playhead of the item on air, carried forward from the last reading.
  *
  * The console's `usePlayhead` without React. The station answers with the DECODER's own countdown at
- * the moment it was read; projecting from it makes a bar that moves between two-second readings, and
+ * the moment it was read; projecting from it makes a bar that moves between readings, and
  * re-anchoring on each one keeps it from drifting. `undefined` without a duration or a countdown,
  * because a clock extrapolated from `startedAt` measures when the station started the record, which
  * leads what anybody hears by the encoder and the buffers: a moving, confident lie.

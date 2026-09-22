@@ -146,7 +146,7 @@ export class NowPlayingKeys extends StationKeys {
      *
      * A clock stopped and started again carries a count from before it stopped, and that is safe for
      * the reason a suspended process is: the bar under-counts until the next reading re-anchors it,
-     * which is two seconds away, and never runs ahead of the record.
+     * which is at most five seconds away, and never runs ahead of the record.
      */
     private syncTicker(): void {
         const wanted = this.painter.ids().some(id => (this.options.get(id) ?? SHOW_EVERYTHING).progress);

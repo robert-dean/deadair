@@ -18,12 +18,12 @@ export interface RatingStoreOptions {
  * The transport reading the keys already share says which record is on air but not what the station
  * thinks of it, so the opinion is read separately — once when the record changes, never on a poll.
  * That is the cover's arrangement in `display/artwork.ts` and it is here for the cover's reason: a
- * key redraws every couple of seconds and the answer changes once a record.
+ * key redraws every few seconds and the answer changes once a record.
  *
  * The cost of reading it this way rather than carrying it on the status is that a rating changed in
  * the console is not seen here until the record changes. The alternative was `rating` on
  * `PlayoutItem`, which would put a catalog lookup on a route every console and every deck polls
- * every two seconds; `apps/streamdeck/CLAUDE.md` records the choice.
+ * every few seconds; `apps/streamdeck/CLAUDE.md` records the choice.
  *
  * A record that could not be asked about is remembered as such, for the reason a 404 cover is: one
  * request per record whatever the answer. A Read-only key is refused the write and not the read, so

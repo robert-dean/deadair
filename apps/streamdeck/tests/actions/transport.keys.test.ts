@@ -5,6 +5,7 @@ import { START, STOP, TransportKeys } from '../../src/actions/transport.keys.js'
 import { fakeKey } from '../fixtures/fake.key.js';
 import { fakeStation } from '../fixtures/fake.station.js';
 import { stoodDown } from '../fixtures/playout.status.js';
+import { POLL_INTERVAL_MS } from '../../src/station/status.poller.js';
 
 beforeEach(() => {
     vi.useFakeTimers();
@@ -29,7 +30,7 @@ describe('TransportKeys', () => {
         const { key } = await showing(station);
         expect(key.calls).toContain(`state ${STOP}`);
         station.answer(stoodDown());
-        await vi.advanceTimersByTimeAsync(2_000);
+        await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS);
         expect(key.calls.at(-1)).toBe(`state ${START}`);
     });
 
@@ -71,7 +72,7 @@ describe('TransportKeys', () => {
         const { transport, key } = await showing(station);
         await transport.press('stop');
         station.answer(stoodDown());
-        await vi.advanceTimersByTimeAsync(2_000);
+        await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS);
         expect(key.calls).not.toContain('ok');
         // The next press is now a Start, not the second half of a Stop.
         await transport.press('stop');
@@ -84,9 +85,9 @@ describe('TransportKeys', () => {
         const { transport } = await showing(station);
         await transport.press('stop');
         station.playout.getPlayoutStatus.mockRejectedValueOnce(new TypeError('fetch failed'));
-        await vi.advanceTimersByTimeAsync(2_000);
+        await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS);
         station.playout.getPlayoutStatus.mockResolvedValue(await station.playout.getPlayoutStatus());
-        await vi.advanceTimersByTimeAsync(2_000);
+        await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS);
         await transport.press('stop');
         expect(station.playout.stopPlayout).not.toHaveBeenCalled();
     });

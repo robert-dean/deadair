@@ -18,15 +18,20 @@ export interface Reading {
 }
 
 export interface PollerOptions {
-    /** Between readings while the station answers. The console's two seconds, which is the station's own reconcile tick. */
+    /** Between readings while the station answers, unless the record on air is due to end sooner. */
     intervalMs?: number;
+    /** How long after the record on air is due to end the station is asked what replaced it. */
+    endMarginMs?: number;
     /** When to look again after a command, from its answer. The console's schedule. */
     followUpMs?: readonly number[];
     /** The longest a failing station is left between attempts. */
     maxBackoffMs?: number;
 }
 
-const DEFAULTS = { intervalMs: 2_000, followUpMs: [400, 1_000, 2_500], maxBackoffMs: 30_000 } as const;
+/** Between readings while the station answers and nothing is due to change sooner. */
+export const POLL_INTERVAL_MS = 5_000;
+
+const DEFAULTS = { intervalMs: POLL_INTERVAL_MS, endMarginMs: 750, followUpMs: [400, 1_000, 2_500], maxBackoffMs: 30_000 } as const;
 
 /**
  * The transport reading, polled once for every key on the deck.
@@ -37,6 +42,12 @@ const DEFAULTS = { intervalMs: 2_000, followUpMs: [400, 1_000, 2_500], maxBackof
  *
  * It polls only while a key holds it: `acquire` on a key appearing, the release on it going. A deck
  * on another page, or a Stream Deck app with the profile closed, asks the station nothing.
+ *
+ * Every five seconds, and once more just after the record on air is due to end. The bar is carried
+ * between readings by the key's own clock, so what a reading is FOR is noticing a change nobody on
+ * the deck pressed for, and the one an operator sees at once is the record changing. The station
+ * says how long the record has left, so the reading that catches it is timed to it, and the rest can
+ * be slow: a new record shows within a second of starting, where polling every two seconds took up to two.
  *
  * The station has no push channel, so this is the seam a feed would replace: keys only ever
  * `subscribe`, and never learn where readings come from.
@@ -54,6 +65,8 @@ export class StatusPoller {
     private pauseUntil = 0;
     /** Bumped whenever the station changes, so an answer from the old one is dropped when it lands. */
     private generation = 0;
+    /** The item whose end a reading has already been timed to, so a countdown stuck at zero is looked at once, not chased. */
+    private timedEndFor?: string;
 
     constructor(options: PollerOptions = {}) {
         this.options = { ...DEFAULTS, ...options };
@@ -95,6 +108,7 @@ export class StatusPoller {
         this.inFlight = false;
         this.failures = 0;
         this.pauseUntil = 0;
+        this.timedEndFor = undefined;
         this.clearFollowUps();
         this.publish(playout ? { stale: false } : { failure: 'unconfigured', stale: false });
         if (this.holders > 0) this.schedule(0);
@@ -135,15 +149,33 @@ export class StatusPoller {
     }
 
     /**
-     * Two seconds while the station answers. After a failure, twice as long each time up to thirty
-     * seconds: a station that is down is asked about eight times a minute rather than thirty, and a
-     * revoked key does not knock on the door every two seconds for as long as the deck is on. A 429
-     * waits at least as long as the station asked.
+     * Five seconds while the station answers, or sooner when the record on air ends first. After a
+     * failure, twice as long each time up to thirty seconds: a station that is down is asked a few
+     * times a minute, and a revoked key does not knock on the door for as long as the deck is on. A
+     * 429 waits at least as long as the station asked.
      */
     private nextDelay(): number {
         const { intervalMs, maxBackoffMs } = this.options;
-        const backoff = this.failures === 0 ? intervalMs : Math.min(intervalMs * 2 ** (this.failures - 1), maxBackoffMs);
+        const backoff = this.failures === 0 ? (this.untilRecordEnds() ?? intervalMs) : Math.min(intervalMs * 2 ** (this.failures - 1), maxBackoffMs);
         return Math.max(backoff, this.pauseUntil - Date.now());
+    }
+
+    /**
+     * How long until just after the record on air is due to end, when that comes before the next
+     * ordinary reading. `undefined` otherwise: no countdown (a break with no length, nothing on air),
+     * an end further off than the interval, or an item whose end a reading was already timed to and
+     * that was still on when it came, which is the decoder running a little behind, or a countdown
+     * that has stopped, and neither is worth asking about again before the interval is up.
+     */
+    private untilRecordEnds(): number | undefined {
+        const { status, readAt } = this.reading;
+        const nowPlaying = status?.nowPlaying;
+        if (nowPlaying?.remainingMs === undefined || readAt === undefined) return undefined;
+        if (this.timedEndFor === nowPlaying.item.id) return undefined;
+        const delay = Math.max(0, nowPlaying.remainingMs - (Date.now() - readAt)) + this.options.endMarginMs;
+        if (delay >= this.options.intervalMs) return undefined;
+        this.timedEndFor = nowPlaying.item.id;
+        return delay;
     }
 
     private async poll(): Promise<void> {

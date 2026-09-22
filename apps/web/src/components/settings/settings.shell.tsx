@@ -24,6 +24,7 @@ export type SettingsSectionId =
     | 'security'
     | 'rotation'
     | 'breaks'
+    | 'bulletins'
     | 'playout'
     | 'render'
     | 'llm'
@@ -147,6 +148,13 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
         blurb: 'How often the station talks between records and how long it may go on: breaks, jingles, calls and the welcome for a new listener. A lineup can override whether it talks and how often, and a setlist or a feature switches all of it off. What it says is under Voice.',
     },
     {
+        id: 'bulletins',
+        label: 'Bulletins',
+        hint: 'What it reads of the news, the weather and the date',
+        group: 'bulletins',
+        blurb: 'What goes into a news bulletin, a weather report and a reading of the date, and whether the presenter may bring the weather or the date up between records. When a bulletin airs is the format clock, under Programme; the words around it are under Voice.',
+    },
+    {
         id: 'playout',
         label: 'Playout',
         hint: 'What puts it on air',
@@ -210,6 +218,7 @@ export const SETTINGS_ROUTES: Record<
     | '/settings/security'
     | '/settings/rotation'
     | '/settings/breaks'
+    | '/settings/bulletins'
     | '/settings/playout'
     | '/settings/render'
     | '/settings/llm'
@@ -228,6 +237,7 @@ export const SETTINGS_ROUTES: Record<
     security: '/settings/security',
     rotation: '/settings/rotation',
     breaks: '/settings/breaks',
+    bulletins: '/settings/bulletins',
     playout: '/settings/playout',
     render: '/settings/render',
     llm: '/settings/llm',

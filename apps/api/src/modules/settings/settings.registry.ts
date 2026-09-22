@@ -841,7 +841,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
             "jingle is placed well ahead and must not name a record or the time of day. Empty restores the station's own.",
     },
     {
-        group: 'rotation',
+        group: 'bulletins',
         key: BULLETIN_KEYS.storiesMin,
         label: 'Headlines in a news bulletin',
         type: 'number',
@@ -861,7 +861,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         help: 'How many stories the station reads when the clock asks for news. A range rather than a number, because the story count is what makes one bulletin longer than the next — a fixed one is a news round that is the same shape every half hour. Around three is a headline round; a station that stops for two minutes every half hour is a news station that plays records. Put both handles on the same number for a bulletin that is always the same length.',
     },
     {
-        group: 'rotation',
+        group: 'bulletins',
         key: BULLETIN_KEYS.storiesMax,
         // Not drawn on its own: the console gives this end the far handle of the control above. The
         // label is what `serializeSetting` calls it when it refuses one, so it still has to read as
@@ -873,7 +873,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         default: DEFAULT_STORY_COUNT_MAX,
     },
     {
-        group: 'rotation',
+        group: 'bulletins',
         key: BULLETIN_KEYS.maxAgeHours,
         label: 'How old a story may be (hours)',
         type: 'number',
@@ -881,7 +881,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         help: 'Anything older than this is not read. A feed that stopped updating yesterday would otherwise have the station reading last night as though it had just happened, and a listener cannot tell that from the station being wrong. A bulletin with nothing fresh enough is skipped rather than filled.',
     },
     {
-        group: 'rotation',
+        group: 'bulletins',
         key: NEWS_FEEDS_KEY,
         label: 'The feeds a bulletin reads',
         type: 'list',
@@ -909,7 +909,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
             "{{news.headlines}} outside its [[optional]] parts. Empty restores the station's own.",
     },
     {
-        group: 'rotation',
+        group: 'bulletins',
         key: WEATHER_SOURCE_KEYS.days,
         label: 'How far ahead the weather looks',
         type: 'number',
@@ -921,7 +921,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
             "alone. More than one is only read by a model, since the station's own phrasings mention today and no further.",
     },
     {
-        group: 'rotation',
+        group: 'bulletins',
         key: WEATHER_SOURCE_KEYS.maxAgeMinutes,
         label: 'How old a reading may be (minutes)',
         type: 'number',
@@ -935,7 +935,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
             'the station ever sees a reading, and a tighter setting silences the weather on a station that is working.',
     },
     {
-        group: 'rotation',
+        group: 'bulletins',
         key: WEATHER_SOURCE_KEYS.inTalk,
         label: 'Let the presenter mention the weather between records',
         type: 'boolean',
@@ -959,7 +959,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
             "to carry {{weather.report}} outside its [[optional]] parts and after a full stop. Empty restores the station's own.",
     },
     {
-        group: 'rotation',
+        group: 'bulletins',
         key: ALMANAC_SOURCE_KEYS.inTalk,
         label: 'Let the presenter mention the date between records',
         type: 'boolean',
@@ -983,7 +983,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
             "line has to carry {{almanac.report}} outside its [[optional]] parts and after a full stop. Empty restores the station's own.",
     },
     {
-        group: 'rotation',
+        group: 'bulletins',
         key: ALMANAC_KEYS.lean,
         label: 'What the station picks out of the day',
         type: 'select',

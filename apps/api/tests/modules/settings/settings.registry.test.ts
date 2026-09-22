@@ -109,6 +109,24 @@ describe('the settings registry', () => {
         }
     });
 
+    it('keeps what a bulletin reads in the Bulletins section', () => {
+        // The news, the weather and the date: what the station reads out of the world, split out of
+        // Rotation, which is about records. When one airs is the format clock's business.
+        for (const key of [
+            'rotation.newsStoriesMin',
+            'rotation.newsStoriesMax',
+            'rotation.newsMaxAgeHours',
+            'rotation.newsFeeds',
+            'rotation.weatherDays',
+            'rotation.weatherMaxAgeMinutes',
+            'rotation.weatherInTalk',
+            'rotation.dateInTalk',
+            'rotation.almanacLean',
+        ]) {
+            expect(findDescriptor(key)?.group, key).toBe('bulletins');
+        }
+    });
+
     it('keeps every station-wide phrasing in the group the Voice page draws', () => {
         // Drawn by the Phrasings tab and by no settings section. Back in `rotation` they would be six
         // boxes of eight rows at the bottom of the longest page in the console, a long way from

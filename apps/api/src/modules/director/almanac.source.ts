@@ -167,7 +167,7 @@ const key = (entry: AlmanacEntry): string =>
  */
 const SHOWN = 6;
 
-/** The `deadair.settings` key for the offer. In `rotation`, beside the weather's own. */
+/** The `deadair.settings` key for the offer. In the `bulletins` group, beside the weather's own. */
 export const ALMANAC_SOURCE_KEYS = {
     inTalk: 'rotation.dateInTalk',
 } as const;

@@ -72,7 +72,7 @@ import type { BreakSubject } from './break.writer.js';
  * fourth kind of nothing, and it declines exactly like the other three.
  */
 
-/** The `deadair.settings` keys. In `rotation`, beside the station's other words. */
+/** The `deadair.settings` keys. In the `bulletins` group; the `rotation.` prefix is from when they sat under Rotation. */
 export const WEATHER_SOURCE_KEYS = {
     days: 'rotation.weatherDays',
     maxAgeMinutes: 'rotation.weatherMaxAgeMinutes',

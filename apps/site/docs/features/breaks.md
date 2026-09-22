@@ -34,7 +34,7 @@ A model can be given tools to search the library, the news and the web, though n
 
 ## Bulletins
 
-"The feeds a bulletin reads" under Settings, Rotation is an ordered list. Empty, every feed is read. Filled in, only those feeds are, one story from each in turn, so a publisher posting twenty times a day cannot crowd out one posting three times.
+"The feeds a bulletin reads" under Settings, Bulletins is an ordered list. Empty, every feed is read. Filled in, only those feeds are, one story from each in turn, so a publisher posting twenty times a day cannot crowd out one posting three times.
 
 A bulletin never repeats a story while it is fresh (twelve hours by default), and when everything fresh has been read it is skipped. It is not shown notes about the next record, because a bulletin finishing a note it half understood is how this station once aired false discography. It reports in its own words and keeps the facts, never reads a headline and then restates it, and stops when the stories stop. The floor under it reads the headlines as published.
 
@@ -44,15 +44,15 @@ News categories under Voice, Subjects let a band on the format clock ask for a s
 
 Where the station is, and its units, are under Settings, Station. A weather break states only figures a service measured: no comparison with yesterday, no advice about coats. A model naming a temperature it was not given is declined, and a reading that will be older than "How old a reading may be" (two hours by default) when it airs is not used.
 
-A presenter can also mention the weather on an ordinary link, which is a separate switch: **"Let the presenter mention the weather between records"** under Settings, Rotation, off by default. The reading is offered rather than asked for, so most links ignore it and the ones that do not say something like "it's sunny, get out there while it lasts" instead of reading a forecast out. It needs a weather plugin, a model writing the breaks and Where the station is set; the station's own phrasings underneath the model never mention it, and what the presenter is handed is the station's own place, never a location a band on the format clock was pointed at. Figures are held to what the service measured either way: a temperature the station never gave the model is declined here too.
+A presenter can also mention the weather on an ordinary link, which is a separate switch: **"Let the presenter mention the weather between records"** under Settings, Bulletins, off by default. The reading is offered rather than asked for, so most links ignore it and the ones that do not say something like "it's sunny, get out there while it lasts" instead of reading a forecast out. It needs a weather plugin, a model writing the breaks and Where the station is set; the station's own phrasings underneath the model never mention it, and what the presenter is handed is the station's own place, never a location a band on the format clock was pointed at. Figures are held to what the service measured either way: a temperature the station never gave the model is declined here too.
 
 ## This day in history
 
 A band on the format clock set to **This day** reads out something that happened on today's date. The entries come from whichever plugin can answer — the bundled Wikipedia one does, once it has a contact address — and the station reads them as they were published: the break frames a line with the year and whether it is a birth, a death, an event or a day that comes round every year, and adds nothing else.
 
-A day is mostly general history, so **"What the station picks out of the day"** under Settings, Rotation decides what a music station does with it. The default puts the musicians first and keeps the rest behind them; "Music only" is stricter and will skip the slot on a thin day. Nothing is read out twice in the same day, and the date is the one the break AIRS on, in your station's own timezone, so a break written at ten to midnight is about tomorrow. A model naming a year it was not given is declined, exactly as one naming a temperature it was not given is.
+A day is mostly general history, so **"What the station picks out of the day"** under Settings, Bulletins decides what a music station does with it. The default puts the musicians first and keeps the rest behind them; "Music only" is stricter and will skip the slot on a thin day. Nothing is read out twice in the same day, and the date is the one the break AIRS on, in your station's own timezone, so a break written at ten to midnight is about tomorrow. A model naming a year it was not given is declined, exactly as one naming a temperature it was not given is.
 
-A presenter can also mention the date on an ordinary link, which is a separate switch: **"Let the presenter mention the date between records"** under Settings, Rotation, off by default. The day is offered rather than asked for, so most links ignore it and the ones that do not mention an anniversary in passing. Anything said that way is spent, so a band set to This day has one fewer entry to use.
+A presenter can also mention the date on an ordinary link, which is a separate switch: **"Let the presenter mention the date between records"** under Settings, Bulletins, off by default. The day is offered rather than asked for, so most links ignore it and the ones that do not mention an anniversary in passing. Anything said that way is spent, so a band set to This day has one fewer entry to use.
 
 ## Jingles
 

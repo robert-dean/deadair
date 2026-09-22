@@ -49,7 +49,7 @@ import { NEWS_KIND } from './news.break.writer.js';
  * this must never do is put a bulletin on air that announces itself and then says nothing.
  */
 
-/** The `deadair.settings` keys. In `rotation`, beside the station's other words. */
+/** The `deadair.settings` keys. In the `bulletins` group; the `rotation.` prefix is from when they sat under Rotation. */
 export const BULLETIN_KEYS = {
     storiesMin: 'rotation.newsStoriesMin',
     storiesMax: 'rotation.newsStoriesMax',

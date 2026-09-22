@@ -127,6 +127,18 @@ export interface TemplateInputs {
      * simply not used, or drops the chunk it sits in.
      */
     greeting?: string;
+    /**
+     * The presenter of the programme that has just ended, as the station calls them.
+     *
+     * Filled only on a break marking a change of programme, and only when that presenter is somebody
+     * other than whoever is on now: a phrasing thanking them is then simply not used for a host who
+     * carries on into their own next show, which is the no-branch behaviour {@link clock} has.
+     */
+    outgoing?: string;
+    /** The name of the show that has just ended, when it was a block of the timetable. */
+    outgoingShow?: string;
+    /** The name of the show starting now. Absent when the station moved to its sustaining source. */
+    show?: string;
 }
 
 /** One template, rendered. */
@@ -240,6 +252,11 @@ const VALUES: Record<string, Resolver> = {
     // Out of `SPOKEN_VALUES` for `clock.rough`'s reason, which the filter below already gets right by
     // naming the two prefixes that ARE read as titles: "good morning" has no catalogue furniture.
     greeting: inputs => inputs.greeting,
+    // A change of programme's three, out of `SPOKEN_VALUES` for `station.name`'s reason: a show's
+    // name and a presenter's are the operator's own words and have no catalogue furniture to strip.
+    'outgoing.name': inputs => inputs.outgoing,
+    'outgoing.show': inputs => inputs.outgoingShow,
+    'show.name': inputs => inputs.show,
 };
 
 /** Which placeholders are read out loud, and so go through {@link spoken}. */

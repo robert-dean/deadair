@@ -26,6 +26,7 @@ import { PodcastScheduler } from '#modules/podcasts/podcast.scheduler.js';
 import { SegmentRepository, type Segment } from '#modules/render/segment.repository.js';
 import { WARMUP_KIND } from './warmup.writer.js';
 import { WELCOME_KIND } from './welcome.writer.js';
+import { CHANGEOVER_KIND } from './changeover.writer.js';
 import { isRenderItem, segmentRundownTrack } from '#modules/render/segment.source.js';
 import { inScope } from '#modules/shared/scoped.work.js';
 import { ScrobbleService } from '#modules/scrobble/scrobble.service.js';
@@ -816,12 +817,24 @@ export class DirectorService {
                 const rules = resolveRules(lineup.mode, lineup.rules, stationRules(this.config));
                 const planner = scope.get(BreakPlanner);
 
-                // A jingle the listener is about to hear IS the greeting: the station saying its name
-                // twice in a row is worse than once. Not a fault and not counted against the cooldown,
-                // so the next arrival is judged afresh. See `BreakPlanner.greetedByJingle`.
-                if (request.kind === WELCOME_KIND && planner.greetedByJingle(lineup)) {
-                    this.logger.info('director: a jingle is about to greet the listener, so no welcome was asked for');
-                    return { accepted: false, reason: 'a jingle is about to say the station name' };
+                // A jingle or a changeover the listener is about to hear IS the greeting: the station
+                // saying its name twice in a row is worse than once. Not a fault and not counted
+                // against the cooldown, so the next arrival is judged afresh. See
+                // `BreakPlanner.greetedAlready`.
+                //
+                // A changeover is also rendered first and has no position until its audio exists, so
+                // one still being written is asked of the request table rather than the order: the
+                // two would otherwise be injected in front of the same record, back to back.
+                if (request.kind === WELCOME_KIND) {
+                    const greeting =
+                        planner.greetedAlready(lineup) ??
+                        ((await requests.waiting()).some(waiting => waiting.kind === CHANGEOVER_KIND && waiting.broadcastId === lineup.broadcastId)
+                            ? CHANGEOVER_KIND
+                            : undefined);
+                    if (greeting !== undefined) {
+                        this.logger.info(`director: a ${greeting} is about to greet the listener, so no welcome was asked for`);
+                        return { accepted: false, reason: `a ${greeting} is about to say the station name` };
+                    }
                 }
 
                 // Asked BEFORE the row is written, so the table does not fill with requests for a

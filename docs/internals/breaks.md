@@ -93,12 +93,33 @@ it.
 **A jingle the listener is about to hear IS their welcome.** A rendered welcome lands in front of the first
 record at or after the head, so anything before that record is what a new listener hears first. When a
 jingle is in that stretch (still to come, with the player, or airing), `DirectorService.takeRequest` declines
-the welcome before writing anything down (`BreakPlanner.greetedByJingle`), because the station saying its own
+the welcome before writing anything down (`BreakPlanner.greetedAlready`), because the station saying its own
 name twice in a row is worse than once. Nothing is removed: the decline is not an acceptance, so it spends no
 cooldown and the next arrival is judged afresh. A cut or skipped jingle greets nobody, and an ident does not
 count, which leaves the welcome exactly as it was on a station with jingles off. Merging the two kinds was
 considered and refused: the writer registry is keyed by kind, so `ModelWelcomeWriter` would have written
 every spaced jingle.
+
+**A change of programme is marked AFTER the boundary, not before it, and that is what makes it cheap.**
+`DirectorConsoleService.putOnAir` reads the outgoing order, posts the command, and only then asks for a
+`changeover` with urgency `next`, and only when the schedule made the change (`onSlot` or `bySchedule`;
+an operator's own takeover stays silent). It rides the welcome's road from there: rendered first, then
+placed in front of the first record at or after the head, which is the new show's first record, so it
+airs between the record that was on when the clock changed over and the one that opens the next show.
+The obvious design was a sign-off planted in the outgoing order ahead of its last record, and it needs
+three things this tree has refused on purpose: an order that knows where its block ENDS (the binding
+carries only `slotId`), a projection of the last record that is only a lower bound, and the schedule
+saying WHEN, which is the director's alone. Being in the new broadcast also means it needs no exemption
+from any sweep a changeover runs: its request carries the new `broadcastId`, so `injectReady` does not
+expire it; it is written under the incoming host, so `SegmentRepository.recast` never reads it as out
+of character; and `retireSegments` only touches the outgoing items. Whether the outgoing host is
+somebody else is decided once, in `ChangeoverSource`, by comparing both sides through
+`PersonaRepository.presenting`, so a host carrying on into their own next show is never thanked. A
+changeover counts as a welcome's greeting the way a jingle does, and because it has no position until
+its audio exists, one still being written is found in the request table rather than the order. **The
+known limit is the welcome's:** a changeover landing in the last seconds of a record is not ready at its
+slot, `toPlayerItems` skips it, and the new show starts unannounced. Silence on one boundary beats a
+late greeting.
 
 ## A claim needs its evidence
 

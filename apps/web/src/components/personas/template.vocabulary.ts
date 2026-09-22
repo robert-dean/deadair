@@ -50,6 +50,9 @@ export const TEMPLATE_VOCABULARY: readonly string[] = [
     'almanac.report',
     'almanac.date',
     'greeting',
+    'outgoing.name',
+    'outgoing.show',
+    'show.name',
 ];
 
 const KNOWN = new Set(TEMPLATE_VOCABULARY);

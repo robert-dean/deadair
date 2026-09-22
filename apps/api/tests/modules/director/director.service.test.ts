@@ -3468,6 +3468,34 @@ describe('DirectorService opening a database scope', () => {
             expect((await director.requestBreak({ ...asking })).accepted).toBe(true);
         });
 
+        it('asks for no welcome while a changeover for this broadcast is still being written', async () => {
+            // A changeover is rendered first too, so it has no position yet and the order cannot show
+            // it. Both would otherwise be injected in front of the same record, back to back.
+            const { director, seed, requests, lineup } = build({ canTalk: true });
+            await seed();
+            await director.start();
+            const changeover = {
+                id: 'req-change',
+                kind: 'changeover',
+                urgency: 'next',
+                source: 'schedule',
+                state: 'pending',
+                broadcastId: lineup.broadcastId,
+            } as StoredBreakRequest;
+            vi.mocked(requests.waiting).mockResolvedValue([changeover]);
+
+            const welcome = { ...asking, kind: 'welcome', key: 'welcome', cooldownMs: 20 * 60_000 } as const;
+            const declined = await director.requestBreak(welcome);
+
+            expect(declined.accepted).toBe(false);
+            expect(declined.reason).toContain('changeover');
+            expect(requests.open).not.toHaveBeenCalled();
+
+            // One left over from a broadcast that has already ended greets nobody on this one.
+            vi.mocked(requests.waiting).mockResolvedValue([{ ...changeover, broadcastId: 'an-earlier-broadcast' }]);
+            expect((await director.requestBreak(welcome)).accepted).toBe(true);
+        });
+
         it('writes nothing down for a break this station could never produce', async () => {
             // Judged before the row exists, so the table does not fill with requests for a kind
             // nothing here can write or speak.

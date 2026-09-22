@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { SpeechCue, SpeechDelivery } from '@deadair/plugin-sdk';
 
 import type { StoredBreakRequest } from '../../../src/modules/director/break.request.js';
-import type { BreakStory, BreakWriteRequest } from '../../../src/modules/director/break.writer.js';
+import type { BreakChangeover, BreakStory, BreakWriteRequest } from '../../../src/modules/director/break.writer.js';
 import { StationLineup } from '../../../src/modules/director/station.lineup.js';
 import { WriteBreakJob } from '../../../src/modules/director/write.break.job.js';
 import type { RundownTrack } from '../../../src/modules/playout/rundown.js';
@@ -65,6 +65,8 @@ function harness(
         weather?: SpokenWeather;
         /** What happened on the date, for the one test about handing the day over. */
         almanac?: StationAlmanac;
+        /** The programmes either side of a changeover, for the one test about handing them over. */
+        changeover?: BreakChangeover;
         /** What this broadcast has played, for the tests about the writer's memory of the show. */
         played?: readonly { title: string; artist: string }[];
         /** What the installed engine can perform, for the tests about handing that to the writers. */
@@ -183,6 +185,11 @@ function harness(
     const almanac = {
         entriesFor: vi.fn(async (_kind: string, _airsAt?: number) => (options.almanac === undefined ? undefined : { almanac: options.almanac })),
     };
+    // The two programmes either side of a changeover. Answers nothing unless a test hands one over,
+    // which is every break that is not a changeover.
+    const changeovers = {
+        changeoverFor: vi.fn(async (_kind: string, _context?: unknown, _persona?: unknown) => options.changeover),
+    };
     // What this broadcast has played, for the writer's memory of the show it is presenting. Empty
     // unless a test asks otherwise, which is the state every other assertion here was written
     // against.
@@ -205,6 +212,7 @@ function harness(
         bulletin as never,
         weather as never,
         almanac as never,
+        changeovers as never,
         personas as never,
         pads as never,
         notes as never,
@@ -239,6 +247,7 @@ function harness(
         activity,
         bulletin,
         weather,
+        changeovers,
         plays,
         identity,
         speech,
@@ -408,6 +417,22 @@ describe('WriteBreakJob', () => {
         await job.run({ segmentId: 'seg-1' });
 
         expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ subject: { key: 'technology', label: 'Technology' } }));
+    });
+
+    it('hands a changeover the two programmes, compared against the host it will be written under', async () => {
+        const changeover: BreakChangeover = { outgoingShow: 'Breakfast', incomingShow: 'Afternoons' };
+        const { job, writers, changeovers } = harness({
+            lineup: await lineupWithBreak(),
+            segment: planned({ kind: 'changeover', context: { outgoingShow: 'Breakfast', incomingShow: 'Afternoons' } }),
+            changeover,
+        });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        // The context off the row, and the presenter the job already resolved: whether the outgoing
+        // host is somebody else is a comparison against the character this break is written under.
+        expect(changeovers.changeoverFor).toHaveBeenCalledWith('changeover', { outgoingShow: 'Breakfast', incomingShow: 'Afternoons' }, undefined);
+        expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ changeover }));
     });
 
     it('hands no stories at all to a kind that does not report', async () => {

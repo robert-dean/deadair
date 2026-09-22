@@ -24,6 +24,7 @@ import type { ResolvedRules } from './rotation.rules.js';
 import type { BreakRequestResult, BreakUrgency, StoredBreakRequest } from './break.request.js';
 import { TALK_BREAK_KIND } from './talk.break.writer.js';
 import { WELCOME_KIND } from './welcome.writer.js';
+import { CHANGEOVER_KIND } from './changeover.writer.js';
 import { JINGLE_KIND } from './jingle.writer.js';
 
 /**
@@ -34,6 +35,12 @@ import { JINGLE_KIND } from './jingle.writer.js';
  * when the station cannot write and speak one of its own.
  */
 const IDENT_KIND = 'ident';
+
+/**
+ * The kinds that say the station's name to whoever is listening, and so stand in for a welcome when
+ * a newcomer is about to hear one. See {@link BreakPlanner.greetedAlready}.
+ */
+const GREETS: ReadonlySet<string> = new Set([JINGLE_KIND, CHANGEOVER_KIND]);
 
 /**
  * How far past the cursor a break may be planted.
@@ -550,29 +557,37 @@ export class BreakPlanner {
     }
 
     /**
-     * Whether a listener arriving now will hear a jingle before a welcome could reach them.
+     * What a listener arriving now will hear say the station's name before a welcome could reach
+     * them, or `undefined` for nothing.
      *
      * A welcome is rendered first and then put in front of the first record at or after the head
      * (see {@link injectRequested}), so everything before that record is what the listener hears
      * first. A jingle anywhere in that stretch, airing, with the player or still to come, is the
      * station saying its own name to them already, and a welcome on top of it is the station saying
-     * it twice. So the jingle stands in for the greeting and the director does not ask for one.
+     * it twice. So the jingle stands in for the greeting and the director does not ask for one. A
+     * changeover is the same thing said at more length, since it names the station and the show.
      *
      * Nothing is removed and nothing is retired: this only decides whether a welcome is worth
      * requesting. A jingle an operator has cut, or one the station passed over, greets nobody.
+     *
+     * Answers the KIND rather than a yes, because the director's log line and its reason to the
+     * caller say which one it was.
      */
-    greetedByJingle(lineup: StationLineup): boolean {
+    greetedAlready(lineup: StationLineup): string | undefined {
         const items = lineup.all();
         const head = lineup.committedThrough();
         const landing = items.findIndex((item, index) => index >= head && item.kind !== 'segment');
         const heard = landing < 0 ? items : items.slice(0, landing);
 
-        return heard.some(
+        const greeting = heard.find(
             item =>
                 item.kind === 'segment' &&
-                item.segmentKind === JINGLE_KIND &&
+                item.segmentKind !== undefined &&
+                GREETS.has(item.segmentKind) &&
                 (item.state === 'airing' || item.state === 'handed' || item.state === 'planned'),
         );
+
+        return greeting?.kind === 'segment' ? greeting.segmentKind : undefined;
     }
 
     /**
@@ -638,6 +653,7 @@ export class BreakPlanner {
         // against the running order, so a broadcast may turn greetings off without touching the
         // station's own setting.
         if (kind === WELCOME_KIND && !rules.welcome) return 'the station has been told not to greet new listeners';
+        if (kind === CHANGEOVER_KIND && !rules.changeovers) return 'the station has been told not to mark a change of programme';
         if (!this.writers.canWrite(kind)) return `nothing on this station knows how to write a ${kind}`;
         if (this.speech.speaker() === undefined) return 'the station has no voice to speak with';
 

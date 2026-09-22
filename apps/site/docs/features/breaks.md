@@ -62,6 +62,12 @@ If you have jingles recorded, drop them in the segment inbox's `jingle` folder, 
 
 A listener who tunes in just before a jingle hears it as their welcome, and the station does not greet them a second time on top of it.
 
+## When the show changes
+
+When the timetable moves from one block to the next, the station says so between the last record of the old show and the first of the new one. Whoever presents the new show says it, thanks the last host by name when that was somebody else, and names the show starting. When a block ends and nothing is scheduled after it, the station names the show that ended and carries on with its sustaining source. It is on by default under **"Say so when the show changes"** in Settings, Rotation, and it follows **"Let the station interrupt itself"**: a block opening a setlist or a feature marks no change, since those take no breaks.
+
+Only a change the timetable makes is marked. Putting something on air yourself stays silent. The lines come from **"What the station says when the show changes"**, where `{{show.name}}` is the show starting, `{{outgoing.show}}` the one ending and `{{outgoing.name}}` its host. The station picks a line thanking the last host if one fits, then one naming the new show, then one naming the old. If the change lands in the last seconds of a record there is not always time to speak one, and the new show simply starts.
+
 ## What a break looks like
 
 A break is the station talking, so the stream's one line of text carries your station's name rather than the producer's label for it. What changes is the picture beside it: a weather forecast and a news bulletin each have one of their own, which a listener's app draws beside the title and a hardware player draws in its artwork slot. Every other kind of break shows your station's logo, as the bed and off air do.

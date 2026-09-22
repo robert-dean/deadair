@@ -43,6 +43,8 @@ interface Options {
     onAir?: { active?: boolean; name?: string; source?: string; remaining?: number };
     /** What the running order holds, for the edit cases. */
     order?: StationLineup;
+    /** What the director answers a request for a changeover with, or throws. Accepted by default. */
+    changeoverAnswer?: { accepted: boolean; reason?: string };
     /** What the segment library holds, for the lines a lineup names by id. */
     segments?: Partial<Segment>[];
     /**
@@ -141,6 +143,7 @@ function build(options: Options = {}) {
             return undefined;
         }),
         order: vi.fn(() => order?.toSnapshot()),
+        requestBreak: vi.fn(async () => options.changeoverAnswer ?? { accepted: true, requestId: 'req-1', segmentId: 'seg-1' }),
         applyEdit: vi.fn(async (edit: OrderEdit) => {
             if (!order) return { ok: false, reason: 'not-found', message: 'nothing on air' } as const;
             if (edit.kind === 'shuffle') return order.shuffleRemaining().result;
@@ -1868,5 +1871,103 @@ describe('DirectorConsoleService and a record left over from the last programme'
 
         expect(await service.cutOverrun('on-air')).toBe(false);
         expect(pusher.skipCurrent).not.toHaveBeenCalled();
+    });
+});
+
+describe('DirectorConsoleService marking a change of programme', () => {
+    // The order coming off, as the schedule left it: a block with its own host.
+    const breakfast = () => {
+        const lineup = new StationLineup({
+            name: 'Breakfast',
+            mode: 'rotation',
+            onEnd: 'extend',
+            source: 'import',
+            personaId: 'p-dave',
+            slotId: 'slot-breakfast',
+            placedBy: 'schedule',
+        });
+        lineup.append([{ pluginId: 'p', externalId: 't0', title: 'Solid Air', artists: ['John Martyn'], artist: 'John Martyn' }]);
+        return lineup;
+    };
+
+    it('asks for a changeover when the timetable moves from one block to the next', async () => {
+        const { service, director } = build({ order: breakfast() });
+
+        await service.putOnAir({ brief: 'the usual', personaId: 'p-ruth' }, { id: 'slot-afternoon', label: 'Afternoons' } as never);
+
+        expect(director.requestBreak).toHaveBeenCalledWith(
+            expect.objectContaining({
+                kind: 'changeover',
+                urgency: 'next',
+                source: 'schedule',
+                // The outgoing binding, read BEFORE the command replaced it: nothing else knows who
+                // presented the show coming off.
+                context: { outgoingPersonaId: 'p-dave', outgoingShow: 'Breakfast', incomingShow: 'Afternoons' },
+            }),
+        );
+    });
+
+    it('asks after the new order is in place, so the break belongs to the broadcast that airs it', async () => {
+        const { service, director } = build({ order: breakfast() });
+        const calls: string[] = [];
+        vi.mocked(director.post).mockImplementation(async () => {
+            calls.push('post');
+            return undefined;
+        });
+        vi.mocked(director.requestBreak).mockImplementation(async () => {
+            calls.push('request');
+            return { accepted: true };
+        });
+
+        await service.putOnAir({ brief: 'the usual' }, { id: 'slot-afternoon', label: 'Afternoons' } as never);
+
+        expect(calls).toEqual(['post', 'request']);
+    });
+
+    it('names no show starting when the timetable runs out into the sustaining source', async () => {
+        const { service, director } = build({ order: breakfast() });
+
+        await service.putOnAir({ name: 'Sustaining', brief: 'warm and unhurried' }, undefined, true);
+
+        expect(director.requestBreak).toHaveBeenCalledWith(
+            expect.objectContaining({ context: { outgoingPersonaId: 'p-dave', outgoingShow: 'Breakfast' } }),
+        );
+    });
+
+    it('does not name an operator’s own programme as a show that ended', async () => {
+        const handmade = new StationLineup({ name: 'Heavy metal hits', mode: 'rotation', onEnd: 'extend', source: 'import', placedBy: 'operator' });
+        const { service, director } = build({ order: handmade });
+
+        await service.putOnAir({ brief: 'the usual' }, { id: 'slot-afternoon', label: 'Afternoons' } as never);
+
+        expect(director.requestBreak).toHaveBeenCalledWith(expect.objectContaining({ context: { incomingShow: 'Afternoons' } }));
+    });
+
+    it('stays silent when an operator puts something on by hand', async () => {
+        const { service, director } = build({ order: breakfast(), slot: { id: 'slot-afternoon' } });
+
+        await service.putOnAir({ brief: 'heavy metal hits' });
+
+        expect(director.requestBreak).not.toHaveBeenCalled();
+    });
+
+    it('stays silent when there was nothing on air to change from', async () => {
+        const { service, director } = build();
+
+        await service.putOnAir({ brief: 'the usual' }, { id: 'slot-afternoon', label: 'Afternoons' } as never);
+
+        expect(director.requestBreak).not.toHaveBeenCalled();
+    });
+
+    it('changes the programme over even when the changeover itself cannot be asked for', async () => {
+        const { service, director, posted } = build({ order: breakfast() });
+        vi.mocked(director.requestBreak).mockRejectedValue(new Error('the mailbox is shut'));
+
+        // Named as the tick names it, from the slot's label.
+        await expect(
+            service.putOnAir({ name: 'Afternoons', brief: 'the usual' }, { id: 'slot-afternoon', label: 'Afternoons' } as never),
+        ).resolves.toBeDefined();
+
+        expect(posted()[0]).toMatchObject({ kind: 'putOnAir', binding: { name: 'Afternoons' } });
     });
 });

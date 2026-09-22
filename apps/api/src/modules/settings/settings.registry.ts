@@ -27,6 +27,7 @@ import {
     THREAD_GAP_KEY,
 } from '#modules/personas/persona.thread.settings.js';
 import { WELCOME_KEYS, WELCOME_TEMPLATES } from '#modules/director/welcome.writer.js';
+import { CHANGEOVER_KEYS, CHANGEOVER_TEMPLATES } from '#modules/director/changeover.writer.js';
 import { JINGLE_KEYS, JINGLE_TEMPLATES } from '#modules/director/jingle.writer.js';
 import { NEWS_KEYS, NEWS_TEMPLATES } from '#modules/director/news.break.writer.js';
 import { WEATHER_BREAK_KEYS, WEATHER_TEMPLATES } from '#modules/director/weather.break.writer.js';
@@ -788,6 +789,15 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
     },
     {
         group: 'rotation',
+        key: ROTATION_KEYS.changeovers,
+        label: 'Say so when the show changes',
+        type: 'boolean',
+        default: DEFAULT_RULES.changeovers,
+        dependsOn: ROTATION_KEYS.breaks,
+        help: 'Whether the station marks the timetable moving from one show to the next, or into what it plays between shows. It is said between the last record of the old show and the first of the new, by whoever presents the new one, thanking the last host when that was somebody else. Only a change the timetable makes is marked: putting something on air yourself is not.',
+    },
+    {
+        group: 'rotation',
         key: ROTATION_KEYS.callins,
         label: 'Take calls',
         type: 'boolean',
@@ -816,6 +826,18 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
             'One phrasing per line, in the same syntax as the breaks above, with {{greeting}} for "good morning" and the like. ' +
             'A greeting is deliberately not a back-announce: somebody who has just arrived did not hear the last record, so ' +
             "{{previous.*}} is not offered here. Empty restores the station's own.",
+    },
+    {
+        group: 'rotation',
+        key: CHANGEOVER_KEYS.templates,
+        label: 'What the station says when the show changes',
+        type: 'text',
+        default: CHANGEOVER_TEMPLATES.join('\n'),
+        dependsOn: ROTATION_KEYS.changeovers,
+        help:
+            'One phrasing per line, in the same syntax as the breaks above, with {{show.name}} for the show starting, {{outgoing.show}} for the one ending and ' +
+            '{{outgoing.name}} for its host, which is only filled when that host is somebody else. The station picks a line thanking the last host when one fits, ' +
+            "then one naming the new show, then one naming the old. No record is offered, before or after. Empty restores the station's own.",
     },
     {
         group: 'rotation',

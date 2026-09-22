@@ -575,6 +575,16 @@ spacing shapes exclusive), edited on the schedule page because a slot and a band
 answers. `clock.bands.ts` keeps only what was always the hard half: `nextOccurrence` and the daylight-saving
 care under it.
 
+**A jingle has a band AND a floor, the way a talk break does.** An interval band of kind `jingle` is the
+precise tool (one rate in the morning, another at night), and `rotation.jingleEveryMinutes` is the one number
+for everybody else, as `rotation.breakEveryMinutes` is to a `talkbreak` band. The floor is the LAST walk in
+`BreakPlanner.slotsFor`, after the station's talk-break spacing, so a break always has first pick of a
+boundary and `blockedBy(taken)` keeps a jingle off it and off the boundary either side. Its slot carries
+`jingle` as if a band had named it, so `fillBand` fills it: a recording first (`yieldsToRecordings`), the
+station's own words when the library has none. It is behind `rotation.breaks`, since a jingle is the
+station interrupting its music, is not scaled by the presenter's chattiness, and has no per-broadcast
+override. The two rules coexist: each counts every `jingle` in the order, so the tighter one decides.
+
 **Minutes rather than an SQL `interval`**, for `starts_at_minutes`'s reason — every occurrence is computed in
 JS against `Intl`, nothing does interval arithmetic in SQL, and `interval '1 mon'` is not a fixed number of
 milliseconds a spacing rule could use.

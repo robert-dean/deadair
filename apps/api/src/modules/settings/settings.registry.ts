@@ -734,6 +734,21 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
     },
     {
         group: 'rotation',
+        key: ROTATION_KEYS.jingleEveryMinutes,
+        label: 'Minutes between jingles',
+        type: 'number',
+        default: DEFAULT_RULES.jingleEveryMinutes,
+        dependsOn: ROTATION_KEYS.breaks,
+        min: 0,
+        max: 720,
+        help:
+            'A few seconds of the station saying its own name between two records, this often. Zero is off. A jingle never lands beside a ' +
+            'break and a break always wins the boundary. Recordings dropped in the jingle folder, or uploaded as the jingle kind, are played ' +
+            'first; with none, the station says one of its own lines below, ending on a hit from the soundboard if the presenter has one. ' +
+            'Ten or so sounds like a commercial station; thirty is a nudge.',
+    },
+    {
+        group: 'rotation',
         key: BREAK_WORD_KEYS.talk,
         label: 'Words a talk break may run to',
         type: 'number',

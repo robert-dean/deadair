@@ -95,6 +95,8 @@ describe('resolveRules', () => {
             // not stop halfway to introduce itself to whoever just arrived.
             welcome: false,
             breakEveryMinutes: 0,
+            // A jingle between two of their records is an ident by another name.
+            jingleEveryMinutes: 0,
             // And the same argument again for a phone-in, which is a break's worth of
             // intrusion several times over: an album side interrupted by somebody
             // ringing in is exactly what this mode exists to prevent.
@@ -204,6 +206,12 @@ describe('stationRules', () => {
         const { config } = settingsConfig({ [ROTATION_KEYS.breakEveryMinutes]: '2' });
 
         expect(stationRules(config)).toEqual({ ...DEFAULT_RULES, breakEveryMinutes: 2 });
+    });
+
+    it('leaves jingles off until an operator sets a spacing, and reads the one they set', () => {
+        expect(stationRules(settingsConfig().config).jingleEveryMinutes).toBe(0);
+        expect(stationRules(settingsConfig({ [ROTATION_KEYS.jingleEveryMinutes]: '12' }).config).jingleEveryMinutes).toBe(12);
+        expect(stationRules(settingsConfig({ [ROTATION_KEYS.jingleEveryMinutes]: 'often' }).config).jingleEveryMinutes).toBe(0);
     });
 
     it('reads zero as zero rather than as unset', () => {

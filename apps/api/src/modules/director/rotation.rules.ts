@@ -88,6 +88,18 @@ export interface ResolvedRules {
      */
     breakEveryMinutes: number;
     /**
+     * Minutes of airtime between one jingle and the next. `0` is off.
+     *
+     * The station's own floor for `jingle`, as {@link breakEveryMinutes} is for the talk break, and
+     * counted the same way: only a jingle resets it, and every other break is ordinary airtime. A
+     * `jingle` interval band on the format clock does the same job for an operator who wants it at
+     * one rate in the morning and another at night; this is the one number for everybody else.
+     *
+     * Behind {@link breaks} rather than beside it, because a jingle is the station interrupting its
+     * music, which is exactly what that switch turns off.
+     */
+    jingleEveryMinutes: number;
+    /**
      * Whether one record may be blended into the next.
      *
      * The odd one out here, and worth knowing why it lives in this bag anyway.
@@ -158,6 +170,9 @@ export const DEFAULT_RULES: ResolvedRules = {
     // break spacing takes and no more — and a phone-in every quarter of an hour is a phone-in show,
     // which is a thing to ask for rather than to arrive at.
     callinEveryMinutes: 30,
+    // OFF. A station making a noise between records it did not make before is something an operator
+    // turns on having heard one, not something an upgrade does to them.
+    jingleEveryMinutes: 0,
     // ON. It was held off on the belief that a blend puts `on_air_elapsed` -- which every DJ break
     // is timed against -- ahead of the audience. Measured, it does not: the counter is a wall clock
     // zeroed at the instant the record becomes audible, and a cross moves the source pointer rather
@@ -192,6 +207,7 @@ export const ROTATION_KEYS = {
     callins: 'rotation.callins',
     callinEveryMinutes: 'rotation.callinEveryMinutes',
     breakEveryMinutes: 'rotation.breakEveryMinutes',
+    jingleEveryMinutes: 'rotation.jingleEveryMinutes',
     crossfade: 'rotation.crossfade',
     mixInSimilar: 'rotation.mixInSimilar',
     mixInEvery: 'rotation.mixInEvery',
@@ -263,6 +279,7 @@ export function stationRules(config: AppConfig): ResolvedRules {
         callins: boolean(ROTATION_KEYS.callins, DEFAULT_RULES.callins),
         callinEveryMinutes: number(ROTATION_KEYS.callinEveryMinutes, DEFAULT_RULES.callinEveryMinutes),
         breakEveryMinutes: number(ROTATION_KEYS.breakEveryMinutes, DEFAULT_RULES.breakEveryMinutes),
+        jingleEveryMinutes: number(ROTATION_KEYS.jingleEveryMinutes, DEFAULT_RULES.jingleEveryMinutes),
         crossfade: boolean(ROTATION_KEYS.crossfade, DEFAULT_RULES.crossfade),
         mixInSimilar: boolean(ROTATION_KEYS.mixInSimilar, DEFAULT_RULES.mixInSimilar),
         // Clamped rather than refused, on the settings rule: this reads a row that is already stored.
@@ -293,6 +310,7 @@ export const NO_RULES: ResolvedRules = {
     breaks: false,
     welcome: false,
     breakEveryMinutes: 0,
+    jingleEveryMinutes: 0,
     callins: false,
     callinEveryMinutes: 0,
     crossfade: false,
@@ -353,6 +371,9 @@ export const resolveRules = (mode: StationLineupMode, overrides?: StationLineupR
         callins: overrides?.callins ?? base.callins,
         callinEveryMinutes: overrides?.callinEveryMinutes ?? base.callinEveryMinutes,
         breakEveryMinutes: overrides?.breakEveryMinutes ?? base.breakEveryMinutes,
+        // No per-lineup override, `maxPerAlbum`'s call: `StationLineupRules` carries none and adding
+        // one would change a stored shape. `breaks` above still gates it per broadcast.
+        jingleEveryMinutes: base.jingleEveryMinutes,
         crossfade: overrides?.crossfade ?? base.crossfade,
         // Only a rotation may have anything mixed in, whatever the override says. `mayGenerate` is
         // the same fact about the mode, and asking the station to choose records for a setlist is

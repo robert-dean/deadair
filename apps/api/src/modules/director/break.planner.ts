@@ -24,6 +24,7 @@ import type { ResolvedRules } from './rotation.rules.js';
 import type { BreakRequestResult, BreakUrgency, StoredBreakRequest } from './break.request.js';
 import { TALK_BREAK_KIND } from './talk.break.writer.js';
 import { WELCOME_KIND } from './welcome.writer.js';
+import { JINGLE_KIND } from './jingle.writer.js';
 
 /**
  * The kind of break whose audio already exists, because somebody recorded it and
@@ -706,7 +707,9 @@ export class BreakPlanner {
         //
         // Undefined is still an ordinary answer and is still dropped. `projectAirTimes` runs out past
         // the end of the order, which is a slot the walk can reach and the clock cannot describe.
-        const claim = (atIndex: number, band?: ClockBand, airsAt?: number): void => {
+        // `band` is what claimed the slot: an operator's band, or a kind the station's own rules plant
+        // exactly as if one had asked for it (a jingle). Absent is the station's own talk break.
+        const claim = (atIndex: number, band?: Pick<ClockBand, 'kind' | 'topic'>, airsAt?: number): void => {
             if (taken.has(atIndex)) return;
             taken.add(atIndex);
             slots.push({
@@ -807,6 +810,20 @@ export class BreakPlanner {
             // could explain.
             const everyMs = Math.max(1, Math.round(rules.breakEveryMinutes * CHATTINESS_SPACING[chattiness])) * 60_000;
             for (const at of placementsFor(items, cursor, everyMs, isStationBreak, pending, blockedBy(taken))) claim(at, undefined, projected[at]);
+        }
+
+        // ── the station's jingles, after every break ───────────────────────────
+        // Last, so a talk break or a band always has first pick of a boundary and a jingle takes what
+        // is left: `blockedBy(taken)` keeps it off, and one either side of, every slot claimed above.
+        // The slot carries the kind as a band would, so `fill` sends it through `fillBand` exactly as
+        // an operator's `jingle` band: a recording if there is one, the station's own words if not.
+        // Not scaled by chattiness, which is about the presenter talking; this is the station's own
+        // imaging, and it is the same whoever is on.
+        if (rules.jingleEveryMinutes > 0) {
+            const counts = (item: StationLineupSegmentItem): boolean => item.segmentKind === JINGLE_KIND;
+            const everyMs = Math.max(1, Math.round(rules.jingleEveryMinutes)) * 60_000;
+            for (const at of placementsFor(items, cursor, everyMs, counts, sameKind(slots, JINGLE_KIND), blockedBy(taken)))
+                claim(at, { kind: JINGLE_KIND }, projected[at]);
         }
 
         return slots.sort((left, right) => left.atIndex - right.atIndex);

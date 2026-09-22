@@ -172,6 +172,9 @@ describe('reading a persona out of an answer', () => {
         // that looked like a rung.
         expect(readPersona(answer({ latitude: 'unleashed' }))?.draft.latitude).toBe('unleashed');
         expect(readPersona(answer({ latitude: 'high' }))?.draft.latitude).toBeUndefined();
+        // And this one widens what a break is handed, so "lots" is no rung at all.
+        expect(readPersona(answer({ trivia: 'keen' }))?.draft.trivia).toBe('keen');
+        expect(readPersona(answer({ trivia: 'lots' }))?.draft.trivia).toBeUndefined();
     });
 
     it('drops a field of the wrong type rather than coercing it', () => {

@@ -508,6 +508,17 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
 
                         <Select
                             {...DIAL}
+                            label="How much they lean on what the station knows"
+                            description="What the station has learned about a record: who made it, where it came from, what happened to it. Keen presenters are handed more of it, a note about the album and the artist as well as the track, and are asked to build each link out of the story, with a longer break to tell it in. Links only. They can still only say what a note says."
+                            data={[
+                                { value: '', label: "The station's usual — a note now and then" },
+                                { value: 'keen', label: 'Keen — the story behind every record' },
+                            ]}
+                            {...form.getInputProps('trivia')}
+                        />
+
+                        <Select
+                            {...DIAL}
                             label="How often they bring up their own past"
                             description="Their stories are kept on this character's own shelf, and at most one ever reaches a break. This is only about ordinary talk breaks: a story band on your clock asks for one whatever this says."
                             data={[
@@ -549,7 +560,13 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                         what they have actually asked for. Each field's own description explains what
                         it does; this says what the combination comes to. */}
                     <Text size="xs" c="dimmed">
-                        {voiceReadout(form.values.brevity, form.values.latitude, form.values.storytelling, form.values.chattiness)}
+                        {voiceReadout(
+                            form.values.brevity,
+                            form.values.latitude,
+                            form.values.storytelling,
+                            form.values.chattiness,
+                            form.values.trivia,
+                        )}
                     </Text>
 
                     <Textarea
@@ -676,13 +693,13 @@ const DIAL = {
  * with what gets measured on air, and a number repeated here would be a second claim about them that
  * nothing keeps true.
  */
-function voiceReadout(brevity: string, latitude: string, storytelling: string, chattiness: string): string {
+function voiceReadout(brevity: string, latitude: string, storytelling: string, chattiness: string, trivia: string): string {
     const length =
         brevity === 'one-line'
             ? 'one line'
             : brevity === 'short'
               ? 'a sentence or two'
-              : latitude === ''
+              : latitude === '' && trivia === ''
                 ? "the station's usual length"
                 : 'as long as it takes';
 
@@ -703,6 +720,10 @@ function voiceReadout(brevity: string, latitude: string, storytelling: string, c
               ? ' It works one of its own stories into most breaks.'
               : ' It reaches for one of its own stories when the station knows nothing about the records.';
 
+    // Material again, but the station's rather than the character's own: what it knows about the
+    // records. A sentence of its own for the stories' reason.
+    const lore = trivia === 'keen' ? ' It builds each link out of the story behind the record, from what the station knows about it.' : '';
+
     // Frequency is the one of the four that is not about a break at all — it is about how many
     // there are — so it leads with "and" rather than joining the sentence about how one sounds.
     const often =
@@ -716,7 +737,7 @@ function voiceReadout(brevity: string, latitude: string, storytelling: string, c
                   ? ' It talks a little less often than the station would on its own.'
                   : ' It talks half as often as the station would on its own.';
 
-    return `${manner}, in ${length}. The station's content rules and its refusals are unchanged either way.${stories}${often}`;
+    return `${manner}, in ${length}. The station's content rules and its refusals are unchanged either way.${lore}${stories}${often}`;
 }
 
 /**
@@ -869,6 +890,7 @@ interface FormValues {
     chattiness: string;
     storytelling: string;
     growth: string;
+    trivia: string;
     templates: string;
     diction: string;
     dictionMarkers: string;
@@ -917,6 +939,7 @@ function valuesOf(persona: PersonaDraftView | Persona | undefined): FormValues {
         // such field: a model writing a character must not be able to grant it autonomy, so the
         // field is absent from `PersonaDraftView` by design. See `growthOf`.
         growth: persona !== undefined && 'growth' in persona ? (persona.growth ?? '') : '',
+        trivia: persona?.trivia ?? '',
         templates: persona?.templates ?? '',
         diction: linesOf(persona?.diction),
         dictionMarkers: linesOf(persona?.dictionMarkers),
@@ -952,6 +975,8 @@ function draftOf(values: FormValues, kind: PersonaKind): PersonaInput {
     // '' is `proposes`, which is the cautious rung and the one every character has until somebody
     // opts it out — so absent is the right shape for it, as with the rungs above.
     const growth: PersonaInput['growth'] = values.growth === 'self-directed' ? values.growth : undefined;
+    // '' is the station's ordinary break, which is a rung that is not there, as with latitude.
+    const trivia: PersonaInput['trivia'] = values.trivia === 'keen' ? values.trivia : undefined;
     // `ordinary` is the default and is sent as absent, matching how every other rung on this form
     // treats its middle: a stored value that means "unchanged" is a row saying what a null already says.
     const chattiness: PersonaInput['chattiness'] =
@@ -975,6 +1000,7 @@ function draftOf(values: FormValues, kind: PersonaKind): PersonaInput {
             // Same rule: '' is the station's ordinary discipline, which is a field that is not there
             // rather than a rung meaning "no extra room".
             latitude,
+            trivia,
             growth,
             // And again, with one difference worth knowing: the absent value here is the MIDDLE
             // rung rather than the bottom one. `occasionally` is what a character with nothing set

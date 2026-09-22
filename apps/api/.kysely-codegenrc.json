@@ -63,7 +63,8 @@
             "deadair.persona_story_beats.state": "'active' | 'suggested' | 'rejected'",
             "deadair.persona_story_beats.origin": "'operator' | 'model'",
             "deadair.persona_stories.kind": "Generated<'anecdote' | 'arc' | 'bit'>",
-            "deadair.personas.growth": "'proposes' | 'self-directed' | null"
+            "deadair.personas.growth": "'proposes' | 'self-directed' | null",
+            "deadair.personas.trivia": "'keen' | null"
         }
     },
     "partitions": false,

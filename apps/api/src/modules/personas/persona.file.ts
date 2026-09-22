@@ -90,6 +90,7 @@ export function personaForFile(persona: Persona, stories: readonly PersonaStory[
             latitude: persona.latitude,
             chattiness: persona.chattiness,
             storytelling: persona.storytelling,
+            trivia: persona.trivia,
             // `growth` deliberately does NOT travel. A character arriving from somewhere else and
             // quietly rewriting itself on this station is the one thing this field exists to make an
             // operator opt into, and a file is not that operator saying so. An import lands on the

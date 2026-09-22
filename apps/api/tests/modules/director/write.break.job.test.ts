@@ -1206,7 +1206,8 @@ describe('WriteBreakJob', () => {
 
             await job.run({ segmentId: 'seg-1' });
 
-            expect(enrichment.factsForTracks).toHaveBeenCalledWith(['track-a', 'track-b'], expect.any(Number));
+            // No options on an ordinary break: the read is exactly the one the station always made.
+            expect(enrichment.factsForTracks).toHaveBeenCalledWith(['track-a', 'track-b'], expect.any(Number), {});
             expect(writers.write).toHaveBeenCalledWith(
                 expect.objectContaining({
                     previous: {
@@ -1264,6 +1265,47 @@ describe('WriteBreakJob', () => {
 
             expect(history.recordAll.mock.calls[0]?.[0]?.[0]).toMatchObject({
                 previous: { title: 'Solid Air', facts: ['Born in New Malden in 1948.'] },
+            });
+        });
+
+        // The keen presenter's whole bargain starts here: more of what the station knows, and a note
+        // about the album and the artist as well as the take.
+        describe('under a presenter keen on the story behind the record', () => {
+            const keen = {
+                id: 'p-1',
+                key: 'countdown',
+                label: 'Countdown host',
+                style: 'a countdown host',
+                defaultHost: true,
+                trivia: 'keen',
+            } as Persona;
+
+            it('asks for the wider read, spread across what is known', async () => {
+                const { job, enrichment } = harness({ lineup: withIds(), persona: keen });
+
+                await job.run({ segmentId: 'seg-1' });
+
+                expect(enrichment.factsForTracks).toHaveBeenCalledWith(['track-a', 'track-b'], expect.any(Number), {
+                    budget: { limit: 4, spread: true },
+                });
+            });
+
+            it('reads the ordinary budget for a kind of break that does not offer the rung', async () => {
+                // A story break keeps its notes paragraph's "never more than one", so four notes in
+                // front of it would be four invitations to break that.
+                const { job, enrichment } = harness({ lineup: withIds(), persona: keen, segment: planned({ kind: 'story' }) });
+
+                await job.run({ segmentId: 'seg-1' });
+
+                expect(enrichment.factsForTracks).toHaveBeenCalledWith(['track-a', 'track-b'], expect.any(Number), {});
+            });
+
+            it('reads the ordinary budget for a presenter with a rung nobody recognises', async () => {
+                const { job, enrichment } = harness({ lineup: withIds(), persona: { ...keen, trivia: 'obsessive' } as unknown as Persona });
+
+                await job.run({ segmentId: 'seg-1' });
+
+                expect(enrichment.factsForTracks).toHaveBeenCalledWith(['track-a', 'track-b'], expect.any(Number), {});
             });
         });
 

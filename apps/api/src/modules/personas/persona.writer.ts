@@ -43,6 +43,7 @@ import {
     isPersonaLatitude,
     isPersonaChattiness,
     isPersonaStorytelling,
+    isPersonaTrivia,
     MAX_SAMPLES_JUDGED,
     PERSONA_SHEET_LIMITS,
     unearnedMarkers,
@@ -169,6 +170,7 @@ export function personaPrompt(description: string): LlmMessage[] {
                 '  "latitude": "omit this unless the character is one that has to be allowed to run: \\"loose\\" for one who follows a thought wherever it goes, \\"unleashed\\" for one who does that and says it however they like",',
                 '  "chattiness": "how often this character talks, scaling the gap the station leaves between breaks: \\"reserved\\", \\"sparing\\", \\"ordinary\\", \\"chatty\\" or \\"relentless\\". Omit it for ordinary. There is no silent option.",',
                 '  "storytelling": "how often they bring up something that happened to them: \\"never\\", \\"occasionally\\" or \\"often\\". Omit it for occasionally.",',
+                '  "trivia": "omit this unless the character is one whose whole job is the story behind every record: \\"keen\\" for one who builds every link out of who made it, where it came from and what happened to it",',
                 '  "stories": [{"title": "a short handle, never said out loud", "story": "two or three sentences of something that happened to this character, in their own voice, as told on air"}],',
                 `  "templates": ["five phrasings in this character's voice, one string each. Values you may use: ${TEMPLATE_VALUES.join(' ')}"]`,
                 '}',
@@ -320,6 +322,9 @@ function draftFrom(raw: Record<string, unknown>): GeneratedPersona | undefined {
     // `occasionally` — the default, and the one an unset field should mean.
     const chattiness = isPersonaChattiness(raw.chattiness) ? raw.chattiness : undefined;
     const storytelling = isPersonaStorytelling(raw.storytelling) ? raw.storytelling : undefined;
+    // And again: this one widens what a break is handed about a record, so anything but the rung
+    // itself leaves the character on the ordinary break.
+    const trivia = isPersonaTrivia(raw.trivia) ? raw.trivia : undefined;
 
     // Unwrapped BEFORE it is judged, because the quotes are the model's packaging rather than part
     // of the phrasing — a line refused for marks that were never meant to be there would be a line
@@ -346,6 +351,7 @@ function draftFrom(raw: Record<string, unknown>): GeneratedPersona | undefined {
                 latitude,
                 chattiness,
                 storytelling,
+                trivia,
                 // Empty means the station's own phrasings, which is a legitimate persona and the
                 // right answer for one whose every generated line was malformed.
                 templates: templates.length === 0 ? undefined : templates.join('\n'),

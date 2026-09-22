@@ -354,6 +354,82 @@ export const growthOf = (sheet: PersonaSheet | undefined): PersonaGrowth =>
     sheet !== undefined && isPersonaGrowth(sheet.growth) ? sheet.growth : DEFAULT_GROWTH;
 
 /**
+ * How much a character leans on what the station knows about a record. See {@link PersonaSheet.trivia}.
+ *
+ * One rung, above the station's ordinary discipline, for the reason `latitude` has two rather than a
+ * rung at "none": the ordinary break is already the modest end, so there is nothing below it to name.
+ */
+export const PERSONA_TRIVIA = ['keen'] as const;
+
+export type PersonaTrivia = (typeof PERSONA_TRIVIA)[number];
+
+/** Whether a stored value is a rung, so a hand-edited row cannot decide how much a prompt carries. */
+export const isPersonaTrivia = (value: unknown): value is PersonaTrivia => PERSONA_TRIVIA.includes(value as PersonaTrivia);
+
+/**
+ * What the rung tells the model, in the system turn beside the latitude line.
+ *
+ * Phrased as what the presenter is FOR rather than as a count, for {@link BREVITY_INSTRUCTIONS}'
+ * reason. The grounding half is restated inside it rather than left to the rules below, because this
+ * is the one line in the prompt that asks for MORE facts, and a model reading "tell the story" with
+ * nothing beside it reaches for the story it remembers.
+ */
+export const TRIVIA_INSTRUCTIONS: Record<PersonaTrivia, string> = {
+    keen:
+        'The story behind the record is what you are for. Who made it, where it came from, what happened to it after: you build a ' +
+        'break out of what the station tells you about a record, and you land on the record itself. Only ever the story you were ' +
+        'given, never one you remember.',
+};
+
+/**
+ * The word ceiling the rung buys, beside {@link LATITUDE_MAX_WORDS} and read through the same
+ * `maxWordsFor`, so the prompt and `readAnswer`'s guard stay one number.
+ *
+ * Seventy, `loose`'s figure, because a story and a hand-over do not fit in forty and a
+ * countdown's link has never been a monologue either.
+ */
+export const TRIVIA_MAX_WORDS: Record<PersonaTrivia, number> = {
+    keen: 70,
+};
+
+/**
+ * How many facts one record contributes at each rung, and how they are drawn.
+ *
+ * Four, spread across the recording, its record and whoever made it, so there is a note about each
+ * thing the presenter might want to say rather than the two best notes about the take. The shape is
+ * `EnrichmentReadService`'s `FactBudget`, written out here rather than imported because this file
+ * stays free of any module's imports; the job passes it straight through.
+ */
+export const TRIVIA_FACT_BUDGET: Record<PersonaTrivia, { limit: number; spread: boolean }> = {
+    keen: { limit: 4, spread: true },
+};
+
+/**
+ * The rung this sheet carries, or `undefined` for the station's ordinary discipline.
+ *
+ * ## A permission, like `latitude`, and it reaches three places for the same reason
+ *
+ * The facts read (a wider budget, spread across the levels), the word ceiling, and the prompt, where
+ * one line is added to the system turn and the notes paragraph is swapped rather than appended to.
+ * Swapped because the ordinary one says most breaks are better without a note, and a model given
+ * that and "the story is what you are for" in one prompt hedges into neither. Each of those is read
+ * through the shape's veto (`BreakPromptShape.allowsTrivia`), so a bulletin under a keen presenter is
+ * still the bulletin it was.
+ *
+ * ## What it does not move
+ *
+ * The grounding rules, which no sheet can loosen: "say only what the notes tell you" is the same
+ * sentence under this rung, and the paragraph telling the model the station knows nothing about a
+ * record with no notes still fires. `mustNameRecord` still refuses a break about no record. And the
+ * cooldown still rests every claim a break is handed, so a keen presenter uses the store faster and
+ * says each line no more often.
+ *
+ * Validated here, so a hand-edited row carrying `trivia: 'obsessive'` reads as no rung at all.
+ */
+export const triviaOf = (sheet: PersonaSheet | undefined): PersonaTrivia | undefined =>
+    sheet !== undefined && isPersonaTrivia(sheet.trivia) ? sheet.trivia : undefined;
+
+/**
  * The one of this character's {@link PersonaSheet.preoccupations} that `rotationId` gets.
  *
  * Here rather than in each caller so the sheet's own normalizer and its own cap are what decide what
@@ -538,6 +614,15 @@ export interface PersonaSheet {
      * its own is something an operator opts into.
      */
     growth?: PersonaGrowth;
+    /**
+     * How much this character leans on what the station knows about a record, or absent for the
+     * station's ordinary discipline.
+     *
+     * Read through {@link triviaOf}, where the rung is argued. It is `latitude`'s kind of field rather
+     * than `storytelling`'s: a permission the shape can veto, reaching the facts read, the word ceiling
+     * and the prompt at once.
+     */
+    trivia?: PersonaTrivia;
     /**
      * Which soundboard this character has to hand, as a `deadair.pad_sets.key`, or absent for a
      * presenter who works without one.

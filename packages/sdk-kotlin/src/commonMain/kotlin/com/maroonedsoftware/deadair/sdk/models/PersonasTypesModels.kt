@@ -45,6 +45,8 @@ data class Persona(
     val storytelling: PersonaStorytelling? = null,
     /** Whether the nightly passes may write this character new material outright, or only ever propose it for you to accept. Absent is `proposes`, which is what every character does until somebody says otherwise. It reaches no prompt: the character is never told which it is */
     val growth: PersonaGrowth? = null,
+    /** How much this character leans on what the station knows about a record. Absent is the station's ordinary break, where the notes are optional and two at most. At `keen` each record brings up to four, one each about the recording, its album and its artist before a second about any, and the break is built out of them with the room to tell one. Offered only by the ordinary talk break, and the grounding rules do not move: it may still say only what a note says */
+    val trivia: PersonaTrivia? = null,
     /** Lines in their own voice, used as examples and as a console preview */
     val samples: List<String>? = null,
     /** This character's own break phrasings, one per line. Empty means the station's own five */
@@ -95,6 +97,8 @@ data class PersonaInput(
     val storytelling: PersonaStorytelling? = null,
     /** Whether the nightly passes may write this character new material outright, or only ever propose it for you to accept. Absent is `proposes`, which is what every character does until somebody says otherwise. It reaches no prompt: the character is never told which it is */
     val growth: PersonaGrowth? = null,
+    /** How much this character leans on what the station knows about a record. Absent is the station's ordinary break, where the notes are optional and two at most. At `keen` each record brings up to four, one each about the recording, its album and its artist before a second about any, and the break is built out of them with the room to tell one. Offered only by the ordinary talk break, and the grounding rules do not move: it may still say only what a note says */
+    val trivia: PersonaTrivia? = null,
     /** Lines in their own voice, used as examples and as a console preview */
     val samples: List<String>? = null,
     /** This character's own break phrasings, one per line. Empty means the station's own five */
@@ -131,6 +135,7 @@ data class PersonaDraftView(
     val latitude: PersonaDraftViewLatitude? = null,
     val chattiness: PersonaDraftViewChattiness? = null,
     val storytelling: PersonaDraftViewStorytelling? = null,
+    val trivia: PersonaDraftViewTrivia? = null,
     val samples: List<String>? = null,
     val templates: String? = null,
 )
@@ -672,6 +677,7 @@ data class PersonaFilePersona(
     val latitude: PersonaDraftViewLatitude? = null,
     val chattiness: PersonaDraftViewChattiness? = null,
     val storytelling: PersonaDraftViewStorytelling? = null,
+    val trivia: PersonaDraftViewTrivia? = null,
     val samples: List<String>? = null,
     val templates: String? = null,
     /** Absent means `host`, as everywhere else */
@@ -846,6 +852,13 @@ enum class PersonaGrowth {
     SELF_DIRECTED,
 }
 
+/** How much this character leans on what the station knows about a record. Absent is the station's ordinary break, where the notes are optional and two at most. At `keen` each record brings up to four, one each about the recording, its album and its artist before a second about any, and the break is built out of them with the room to tell one. Offered only by the ordinary talk break, and the grounding rules do not move: it may still say only what a note says */
+@Serializable
+enum class PersonaTrivia {
+    @SerialName("keen")
+    KEEN,
+}
+
 @Serializable
 enum class PersonaDraftViewBrevity {
     @SerialName("short")
@@ -884,6 +897,12 @@ enum class PersonaDraftViewStorytelling {
     OCCASIONALLY,
     @SerialName("often")
     OFTEN,
+}
+
+@Serializable
+enum class PersonaDraftViewTrivia {
+    @SerialName("keen")
+    KEEN,
 }
 
 /** `said` is what this character did, rendered beside the show's memory. `trait` is who it has become, rendered beside the sheet */

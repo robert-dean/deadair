@@ -87,6 +87,7 @@ export interface CatalogCharacter {
     latitude?: string;
     chattiness?: string;
     storytelling?: string;
+    trivia?: string;
     quirks?: string[];
     catchphrases?: string[];
     samples?: string[];

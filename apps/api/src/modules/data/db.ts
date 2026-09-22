@@ -471,6 +471,7 @@ export interface DeadairPersonas {
   storytelling: string | null;
   style: string;
   templates: string | null;
+  trivia: "keen" | null;
   updatedAt: Generated<DateTime>;
   voice: string | null;
 }

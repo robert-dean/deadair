@@ -30,7 +30,13 @@ import { NEWS_SHAPE } from '../../../src/modules/director/model.news.break.write
 import { WELCOME_SHAPE } from '../../../src/modules/director/model.welcome.writer.js';
 import { WEATHER_SHAPE } from '../../../src/modules/director/model.weather.break.writer.js';
 import type { SpokenWeather } from '../../../src/modules/weather/weather.words.js';
-import { LATITUDE_INSTRUCTIONS, LATITUDE_LICENCE, LATITUDE_MAX_WORDS } from '../../../src/modules/personas/persona.sheet.js';
+import {
+    LATITUDE_INSTRUCTIONS,
+    LATITUDE_LICENCE,
+    LATITUDE_MAX_WORDS,
+    TRIVIA_INSTRUCTIONS,
+    TRIVIA_MAX_WORDS,
+} from '../../../src/modules/personas/persona.sheet.js';
 
 const previous = { title: 'Solid Air', artist: 'John Martyn' };
 const next = { title: 'Pink Moon', artist: 'Nick Drake' };
@@ -1239,6 +1245,84 @@ describe('breakPrompt', () => {
 
             expect(rules).toMatch(new RegExp(`under ${DEFAULT_MAX_WORDS} words`));
             expect(rules).toMatch(/Make one point/);
+        });
+    });
+
+    // A presenter whose job is the story behind the record. The ordinary notes paragraph says most
+    // breaks are better without a note, and the rung's line says the notes are the break: a prompt
+    // carrying both is two rules that disagree, so the paragraph is SWAPPED and the grounding stays.
+    describe('a persona keen on the story behind the record', () => {
+        const host = { style: 'an earnest countdown host', dictionMarkers: ['the story behind'] };
+        const keen = { ...host, trivia: 'keen' as const };
+        const noted = {
+            previous: { ...previous, facts: ['Solid Air was written for Nick Drake.', 'It was recorded at Island’s Basing Street studio.'] },
+            next: { ...next, facts: ['Pink Moon was recorded in two late-night sessions.'] },
+        };
+        const OPTIONAL = /most breaks are better without one/;
+        const MATERIAL = /they are what your break is made of/;
+
+        it('tells the character what it is for, in the system turn', () => {
+            expect(system(prompt({ kind: 'talkbreak', ...noted }, { persona: keen }))).toContain(TRIVIA_INSTRUCTIONS.keen);
+        });
+
+        it('states the rung’s ceiling rather than the station’s', () => {
+            const rules = system(prompt({ kind: 'talkbreak', ...noted }, { persona: keen }));
+
+            expect(rules).toMatch(new RegExp(`under ${TRIVIA_MAX_WORDS.keen} words`));
+            expect(rules).not.toMatch(new RegExp(`under ${DEFAULT_MAX_WORDS} words`));
+        });
+
+        it('swaps the notes paragraph rather than adding to it, so the two cannot disagree', () => {
+            const said = user(prompt({ kind: 'talkbreak', ...noted }, { persona: keen }));
+
+            expect(said).toMatch(MATERIAL);
+            expect(said).not.toMatch(OPTIONAL);
+            // What the two paragraphs share is kept word for word.
+            expect(said).toMatch(/Never read a note out as it stands/);
+            expect(said).toMatch(/is background, never something to cue or play/);
+        });
+
+        it('keeps every grounding rule, since a keen presenter may still say only what a note says', () => {
+            const rules = system(prompt({ kind: 'talkbreak', ...noted }, { persona: keen }));
+
+            expect(rules).toMatch(/Say only what the notes below actually tell you/);
+            expect(rules).toMatch(/Only ever refer to the records listed below/);
+            expect(rules).toMatch(/Name a record, and then say what/);
+        });
+
+        it('still says the station knows nothing about a record that brought no notes', () => {
+            const said = user(prompt({ kind: 'talkbreak', previous: noted.previous, next }, { persona: keen }));
+
+            expect(said).toMatch(MATERIAL);
+            expect(said).toMatch(/The station knows nothing about "Pink Moon"/);
+        });
+
+        it('says nothing about notes at all when neither record brought any', () => {
+            const said = user(prompt({ kind: 'talkbreak', previous, next }, { persona: keen }));
+
+            expect(said).not.toMatch(MATERIAL);
+            expect(said).not.toMatch(OPTIONAL);
+        });
+
+        it('takes the larger ceiling when a character carries both rungs', () => {
+            const rules = system(prompt({ kind: 'talkbreak', ...noted }, { persona: { ...keen, latitude: 'unleashed' as const } }));
+
+            expect(rules).toMatch(new RegExp(`under ${Math.max(TRIVIA_MAX_WORDS.keen, LATITUDE_MAX_WORDS.unleashed)} words`));
+        });
+
+        it('is not offered by a kind that did not ask for it', () => {
+            // A welcome shows the next record's notes and never asked for the rung, so it keeps the
+            // ordinary paragraph and the ordinary ceiling whoever is presenting.
+            const messages = breakPrompt({ kind: 'welcome', next: noted.next }, { persona: keen }, WELCOME_SHAPE);
+
+            expect(system(messages)).not.toContain(TRIVIA_INSTRUCTIONS.keen);
+            expect(user(messages)).not.toMatch(MATERIAL);
+        });
+
+        it('leaves the prompt exactly as it was for a presenter without it', () => {
+            const request = { kind: 'talkbreak', ...noted } as const;
+
+            expect(prompt(request, { persona: { ...keen, trivia: 'obsessive' as never } })).toEqual(prompt(request, { persona: host }));
         });
     });
 });

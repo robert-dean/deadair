@@ -152,6 +152,13 @@ claim's is the cooldown applied inside the query, a provider fact's is `chooseFa
 at SELECTION, so a break dropped before its slot still rests its facts; that inaccuracy is bought deliberately
 against a `segment_events` reader.
 
+**How much of that a break is handed is the one thing about it a persona can move.** Two facts per record, in
+preference order, is the ordinary budget and the notes paragraph calls them optional. A persona carrying
+`trivia: 'keen'` is handed four, one each about the recording, its record and its artist before a second about
+any, and a notes paragraph that asks for the story they tell. Spreading gives up the rule that a claim outranks
+a provider line ACROSS levels (within a level it still does), which is the trade a keen presenter is asking for:
+a note about each thing rather than the best two about the take. `personas.md` § "How much rope" has the rest.
+
 **A break's forward claim is checked before it airs.** "Coming up, X" is a statement about the future
 baked into audio that cannot be re-cut, so `segments.claims_item_id` records the lineup LINE the
 words named, and `toPlayerItems` drops the break when that is no longer what plays next. The next

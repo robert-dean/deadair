@@ -5,7 +5,7 @@ import { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
 import { Logger } from '@maroonedsoftware/logger';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
-import { EnrichmentReadService } from '#modules/enrichment/enrichment.read.service.js';
+import { EnrichmentReadService, type FactBudget } from '#modules/enrichment/enrichment.read.service.js';
 import { PlainJob } from '#modules/jobs/plain.job.js';
 import { padCue, padsIn } from '#modules/render/pad.cues.js';
 import { PadRepository } from '#modules/render/pad.repository.js';
@@ -17,7 +17,7 @@ import { PersonaStoriesRepository } from '#modules/personas/persona.stories.repo
 import { PersonaTellingRepository } from '#modules/personas/persona.telling.repository.js';
 import { resolveThreadGapMs } from '#modules/personas/persona.thread.settings.js';
 import type { PersonaStoryForPrompt } from '#modules/personas/persona.story.js';
-import { preoccupationOf, storytellingOf } from '#modules/personas/persona.sheet.js';
+import { preoccupationOf, storytellingOf, triviaOf, TRIVIA_FACT_BUDGET } from '#modules/personas/persona.sheet.js';
 import type { Persona } from '#modules/personas/persona.js';
 import { ScriptHistoryRepository } from '#modules/render/script.history.repository.js';
 import { SegmentRepository, type PadHit, type Segment } from '#modules/render/segment.repository.js';
@@ -80,6 +80,29 @@ const STORY_MODES = new Map<string, 'offered' | 'told'>(
         ] as const
     ).flatMap(([kind, mode]) => (mode === undefined ? [] : [[kind, mode] as const])),
 );
+
+/**
+ * Which kinds of break may be handed a keen presenter's wider read of the facts.
+ *
+ * {@link STORY_MODES}' shape and its reason: built from the shapes, so the job holds no second
+ * opinion about `BreakPromptShape.allowsTrivia`. A kind absent from here reads the ordinary budget
+ * whoever is presenting, which keeps four notes out of a prompt whose notes paragraph still says
+ * "never more than one".
+ */
+const TRIVIA_KINDS = new Set<string>(
+    (
+        [
+            [TALK_BREAK_KIND, TALK_BREAK_SHAPE],
+            [STORY_KIND, STORY_SHAPE],
+        ] as const
+    ).flatMap(([kind, shape]) => (shape.allowsTrivia === true ? [kind] : [])),
+);
+
+/** How much of what the station knows this break is handed about each record. */
+function factBudget(persona: Persona | undefined, kind: string): FactBudget | undefined {
+    const rung = triviaOf(persona);
+    return rung === undefined || !TRIVIA_KINDS.has(kind) ? undefined : TRIVIA_FACT_BUDGET[rung];
+}
 
 /** Whether every record this break was shown came with nothing to say about it. See {@link WriteBreakJob.story}. */
 const nothingKnownAbout = (neighbours: Neighbours): boolean =>
@@ -258,16 +281,19 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         // nothing for and a presenter has the most to say about; see `dayPart`.
         const part = segment.airsAt === undefined ? undefined : dayPart(segment.airsAt, zone);
 
-        // After the claim, so a job that was merely early does no work at all, and for EVERY break
-        // rather than only when a model might use them: what the station knows about a record is a
-        // property of the moment, not of whichever binding takes it, and reading `llm.breakWriter`
-        // here would make the substrate depend on a setting.
-        await this.attachFacts(segmentId, neighbours);
-
         // This broadcast's own host where it named one, and the station's behind it. `undefined` is
         // an ordinary answer: a station that has chosen no persona writes exactly what it wrote
         // before personas existed.
         const persona = await this.personas.presenting(lineup.personaId);
+
+        // After the claim, so a job that was merely early does no work at all, and for EVERY break
+        // rather than only when a model might use them: what the station knows about a record is a
+        // property of the moment, not of whichever binding takes it, and reading `llm.breakWriter`
+        // here would make the substrate depend on a setting.
+        //
+        // After the persona too, since how much a record brings is partly who is presenting: a
+        // presenter keen on the story behind a record is handed more of it. See `factBudget`.
+        await this.attachFacts(segmentId, neighbours, factBudget(persona, segment.kind));
 
         // What this break is about. Read off the row rather than carried in the payload, for the
         // reason the neighbours are: the row is the record, and a job re-sent after a restart has to
@@ -611,13 +637,13 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
      * one: an artist who comes round twice in an evening gets a different sentence the second time
      * without anything having to remember the first.
      */
-    private async attachFacts(segmentId: string, neighbours: Neighbours): Promise<void> {
+    private async attachFacts(segmentId: string, neighbours: Neighbours, budget: FactBudget | undefined): Promise<void> {
         const sides = [neighbours.previous, neighbours.next].filter((side): side is Neighbour => side !== undefined);
         const trackIds = sides.map(side => side.track.trackId).filter((trackId): trackId is string => trackId !== undefined);
         if (trackIds.length === 0) return;
 
         try {
-            const facts = await this.enrichment.factsForTracks(trackIds, rotationOf(segmentId));
+            const facts = await this.enrichment.factsForTracks(trackIds, rotationOf(segmentId), budget === undefined ? {} : { budget });
             for (const side of sides) {
                 const found = side.track.trackId === undefined ? undefined : facts.get(side.track.trackId);
                 if (found !== undefined && found.length > 0) side.track = { ...side.track, facts: found };

@@ -41,6 +41,8 @@ public struct Persona: Codable, Equatable, Sendable {
     public var storytelling: PersonaStorytelling?
     /// Whether the nightly passes may write this character new material outright, or only ever propose it for you to accept. Absent is `proposes`, which is what every character does until somebody says otherwise. It reaches no prompt: the character is never told which it is
     public var growth: PersonaGrowth?
+    /// How much this character leans on what the station knows about a record. Absent is the station's ordinary break, where the notes are optional and two at most. At `keen` each record brings up to four, one each about the recording, its album and its artist before a second about any, and the break is built out of them with the room to tell one. Offered only by the ordinary talk break, and the grounding rules do not move: it may still say only what a note says
+    public var trivia: PersonaTrivia?
     /// Lines in their own voice, used as examples and as a console preview
     public var samples: [String]?
     /// This character's own break phrasings, one per line. Empty means the station's own five
@@ -50,7 +52,7 @@ public struct Persona: Codable, Equatable, Sendable {
     /// Whether this character is the one writing breaks right now. Derived per request from the running order, falling back to `defaultHost`, through the one place that precedence lives (`PersonaRepository.presenting`). Never stored, so it cannot drift from what the director is actually doing
     public var presenting: Bool
 
-    public init(id: String, key: String, kind: PersonaKind? = nil, label: String, style: String, djName: String? = nil, voice: String? = nil, soundboard: String? = nil, diction: [String]? = nil, dictionMarkers: [String]? = nil, quirks: [String]? = nil, preoccupations: [String]? = nil, catchphrases: [String]? = nil, avoid: [String]? = nil, background: String? = nil, brevity: PersonaBrevity? = nil, latitude: PersonaLatitude? = nil, chattiness: PersonaChattiness? = nil, storytelling: PersonaStorytelling? = nil, growth: PersonaGrowth? = nil, samples: [String]? = nil, templates: String? = nil, defaultHost: Bool, presenting: Bool) {
+    public init(id: String, key: String, kind: PersonaKind? = nil, label: String, style: String, djName: String? = nil, voice: String? = nil, soundboard: String? = nil, diction: [String]? = nil, dictionMarkers: [String]? = nil, quirks: [String]? = nil, preoccupations: [String]? = nil, catchphrases: [String]? = nil, avoid: [String]? = nil, background: String? = nil, brevity: PersonaBrevity? = nil, latitude: PersonaLatitude? = nil, chattiness: PersonaChattiness? = nil, storytelling: PersonaStorytelling? = nil, growth: PersonaGrowth? = nil, trivia: PersonaTrivia? = nil, samples: [String]? = nil, templates: String? = nil, defaultHost: Bool, presenting: Bool) {
         self.id = id
         self.key = key
         self.kind = kind
@@ -71,6 +73,7 @@ public struct Persona: Codable, Equatable, Sendable {
         self.chattiness = chattiness
         self.storytelling = storytelling
         self.growth = growth
+        self.trivia = trivia
         self.samples = samples
         self.templates = templates
         self.defaultHost = defaultHost
@@ -98,6 +101,7 @@ public struct Persona: Codable, Equatable, Sendable {
         case chattiness = "chattiness"
         case storytelling = "storytelling"
         case growth = "growth"
+        case trivia = "trivia"
         case samples = "samples"
         case templates = "templates"
         case defaultHost = "defaultHost"
@@ -126,6 +130,7 @@ public struct Persona: Codable, Equatable, Sendable {
         self.chattiness = try container.decodeIfPresent(PersonaChattiness.self, forKey: .chattiness)
         self.storytelling = try container.decodeIfPresent(PersonaStorytelling.self, forKey: .storytelling)
         self.growth = try container.decodeIfPresent(PersonaGrowth.self, forKey: .growth)
+        self.trivia = try container.decodeIfPresent(PersonaTrivia.self, forKey: .trivia)
         self.samples = try container.decodeIfPresent([String].self, forKey: .samples)
         self.templates = try container.decodeIfPresent(String.self, forKey: .templates)
         self.defaultHost = try container.decode(Bool.self, forKey: .defaultHost)
@@ -154,6 +159,7 @@ public struct Persona: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.chattiness, forKey: .chattiness)
         try container.encodeIfPresent(self.storytelling, forKey: .storytelling)
         try container.encodeIfPresent(self.growth, forKey: .growth)
+        try container.encodeIfPresent(self.trivia, forKey: .trivia)
         try container.encodeIfPresent(self.samples, forKey: .samples)
         try container.encodeIfPresent(self.templates, forKey: .templates)
         try container.encode(self.defaultHost, forKey: .defaultHost)
@@ -200,12 +206,14 @@ public struct PersonaInput: Codable, Equatable, Sendable {
     public var storytelling: PersonaStorytelling?
     /// Whether the nightly passes may write this character new material outright, or only ever propose it for you to accept. Absent is `proposes`, which is what every character does until somebody says otherwise. It reaches no prompt: the character is never told which it is
     public var growth: PersonaGrowth?
+    /// How much this character leans on what the station knows about a record. Absent is the station's ordinary break, where the notes are optional and two at most. At `keen` each record brings up to four, one each about the recording, its album and its artist before a second about any, and the break is built out of them with the room to tell one. Offered only by the ordinary talk break, and the grounding rules do not move: it may still say only what a note says
+    public var trivia: PersonaTrivia?
     /// Lines in their own voice, used as examples and as a console preview
     public var samples: [String]?
     /// This character's own break phrasings, one per line. Empty means the station's own five
     public var templates: String?
 
-    public init(key: String, kind: PersonaKind? = nil, label: String, style: String, djName: String? = nil, voice: String? = nil, soundboard: String? = nil, diction: [String]? = nil, dictionMarkers: [String]? = nil, quirks: [String]? = nil, preoccupations: [String]? = nil, catchphrases: [String]? = nil, avoid: [String]? = nil, background: String? = nil, brevity: PersonaBrevity? = nil, latitude: PersonaLatitude? = nil, chattiness: PersonaChattiness? = nil, storytelling: PersonaStorytelling? = nil, growth: PersonaGrowth? = nil, samples: [String]? = nil, templates: String? = nil) {
+    public init(key: String, kind: PersonaKind? = nil, label: String, style: String, djName: String? = nil, voice: String? = nil, soundboard: String? = nil, diction: [String]? = nil, dictionMarkers: [String]? = nil, quirks: [String]? = nil, preoccupations: [String]? = nil, catchphrases: [String]? = nil, avoid: [String]? = nil, background: String? = nil, brevity: PersonaBrevity? = nil, latitude: PersonaLatitude? = nil, chattiness: PersonaChattiness? = nil, storytelling: PersonaStorytelling? = nil, growth: PersonaGrowth? = nil, trivia: PersonaTrivia? = nil, samples: [String]? = nil, templates: String? = nil) {
         self.key = key
         self.kind = kind
         self.label = label
@@ -225,6 +233,7 @@ public struct PersonaInput: Codable, Equatable, Sendable {
         self.chattiness = chattiness
         self.storytelling = storytelling
         self.growth = growth
+        self.trivia = trivia
         self.samples = samples
         self.templates = templates
     }
@@ -249,6 +258,7 @@ public struct PersonaInput: Codable, Equatable, Sendable {
         case chattiness = "chattiness"
         case storytelling = "storytelling"
         case growth = "growth"
+        case trivia = "trivia"
         case samples = "samples"
         case templates = "templates"
     }
@@ -274,6 +284,7 @@ public struct PersonaInput: Codable, Equatable, Sendable {
         self.chattiness = try container.decodeIfPresent(PersonaChattiness.self, forKey: .chattiness)
         self.storytelling = try container.decodeIfPresent(PersonaStorytelling.self, forKey: .storytelling)
         self.growth = try container.decodeIfPresent(PersonaGrowth.self, forKey: .growth)
+        self.trivia = try container.decodeIfPresent(PersonaTrivia.self, forKey: .trivia)
         self.samples = try container.decodeIfPresent([String].self, forKey: .samples)
         self.templates = try container.decodeIfPresent(String.self, forKey: .templates)
     }
@@ -299,6 +310,7 @@ public struct PersonaInput: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.chattiness, forKey: .chattiness)
         try container.encodeIfPresent(self.storytelling, forKey: .storytelling)
         try container.encodeIfPresent(self.growth, forKey: .growth)
+        try container.encodeIfPresent(self.trivia, forKey: .trivia)
         try container.encodeIfPresent(self.samples, forKey: .samples)
         try container.encodeIfPresent(self.templates, forKey: .templates)
     }
@@ -348,10 +360,11 @@ public struct PersonaDraftView: Codable, Equatable, Sendable {
     public var latitude: PersonaDraftViewLatitude?
     public var chattiness: PersonaDraftViewChattiness?
     public var storytelling: PersonaDraftViewStorytelling?
+    public var trivia: PersonaDraftViewTrivia?
     public var samples: [String]?
     public var templates: String?
 
-    public init(key: String, label: String, style: String, djName: String? = nil, voice: String? = nil, soundboard: String? = nil, diction: [String]? = nil, dictionMarkers: [String]? = nil, quirks: [String]? = nil, preoccupations: [String]? = nil, catchphrases: [String]? = nil, avoid: [String]? = nil, background: String? = nil, brevity: PersonaDraftViewBrevity? = nil, latitude: PersonaDraftViewLatitude? = nil, chattiness: PersonaDraftViewChattiness? = nil, storytelling: PersonaDraftViewStorytelling? = nil, samples: [String]? = nil, templates: String? = nil) {
+    public init(key: String, label: String, style: String, djName: String? = nil, voice: String? = nil, soundboard: String? = nil, diction: [String]? = nil, dictionMarkers: [String]? = nil, quirks: [String]? = nil, preoccupations: [String]? = nil, catchphrases: [String]? = nil, avoid: [String]? = nil, background: String? = nil, brevity: PersonaDraftViewBrevity? = nil, latitude: PersonaDraftViewLatitude? = nil, chattiness: PersonaDraftViewChattiness? = nil, storytelling: PersonaDraftViewStorytelling? = nil, trivia: PersonaDraftViewTrivia? = nil, samples: [String]? = nil, templates: String? = nil) {
         self.key = key
         self.label = label
         self.style = style
@@ -369,6 +382,7 @@ public struct PersonaDraftView: Codable, Equatable, Sendable {
         self.latitude = latitude
         self.chattiness = chattiness
         self.storytelling = storytelling
+        self.trivia = trivia
         self.samples = samples
         self.templates = templates
     }
@@ -391,6 +405,7 @@ public struct PersonaDraftView: Codable, Equatable, Sendable {
         case latitude = "latitude"
         case chattiness = "chattiness"
         case storytelling = "storytelling"
+        case trivia = "trivia"
         case samples = "samples"
         case templates = "templates"
     }
@@ -414,6 +429,7 @@ public struct PersonaDraftView: Codable, Equatable, Sendable {
         self.latitude = try container.decodeIfPresent(PersonaDraftViewLatitude.self, forKey: .latitude)
         self.chattiness = try container.decodeIfPresent(PersonaDraftViewChattiness.self, forKey: .chattiness)
         self.storytelling = try container.decodeIfPresent(PersonaDraftViewStorytelling.self, forKey: .storytelling)
+        self.trivia = try container.decodeIfPresent(PersonaDraftViewTrivia.self, forKey: .trivia)
         self.samples = try container.decodeIfPresent([String].self, forKey: .samples)
         self.templates = try container.decodeIfPresent(String.self, forKey: .templates)
     }
@@ -437,6 +453,7 @@ public struct PersonaDraftView: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.latitude, forKey: .latitude)
         try container.encodeIfPresent(self.chattiness, forKey: .chattiness)
         try container.encodeIfPresent(self.storytelling, forKey: .storytelling)
+        try container.encodeIfPresent(self.trivia, forKey: .trivia)
         try container.encodeIfPresent(self.samples, forKey: .samples)
         try container.encodeIfPresent(self.templates, forKey: .templates)
     }
@@ -2135,13 +2152,14 @@ public struct PersonaFilePersona: Codable, Equatable, Sendable {
     public var latitude: PersonaDraftViewLatitude?
     public var chattiness: PersonaDraftViewChattiness?
     public var storytelling: PersonaDraftViewStorytelling?
+    public var trivia: PersonaDraftViewTrivia?
     public var samples: [String]?
     public var templates: String?
     /// Absent means `host`, as everywhere else
     public var kind: PersonaFilePersonaKind?
     public var stories: [PersonaFileStory]
 
-    public init(key: String, label: String, style: String, djName: String? = nil, voice: String? = nil, soundboard: String? = nil, diction: [String]? = nil, dictionMarkers: [String]? = nil, quirks: [String]? = nil, preoccupations: [String]? = nil, catchphrases: [String]? = nil, avoid: [String]? = nil, background: String? = nil, brevity: PersonaDraftViewBrevity? = nil, latitude: PersonaDraftViewLatitude? = nil, chattiness: PersonaDraftViewChattiness? = nil, storytelling: PersonaDraftViewStorytelling? = nil, samples: [String]? = nil, templates: String? = nil, kind: PersonaFilePersonaKind? = nil, stories: [PersonaFileStory]) {
+    public init(key: String, label: String, style: String, djName: String? = nil, voice: String? = nil, soundboard: String? = nil, diction: [String]? = nil, dictionMarkers: [String]? = nil, quirks: [String]? = nil, preoccupations: [String]? = nil, catchphrases: [String]? = nil, avoid: [String]? = nil, background: String? = nil, brevity: PersonaDraftViewBrevity? = nil, latitude: PersonaDraftViewLatitude? = nil, chattiness: PersonaDraftViewChattiness? = nil, storytelling: PersonaDraftViewStorytelling? = nil, trivia: PersonaDraftViewTrivia? = nil, samples: [String]? = nil, templates: String? = nil, kind: PersonaFilePersonaKind? = nil, stories: [PersonaFileStory]) {
         self.key = key
         self.label = label
         self.style = style
@@ -2159,6 +2177,7 @@ public struct PersonaFilePersona: Codable, Equatable, Sendable {
         self.latitude = latitude
         self.chattiness = chattiness
         self.storytelling = storytelling
+        self.trivia = trivia
         self.samples = samples
         self.templates = templates
         self.kind = kind
@@ -2183,6 +2202,7 @@ public struct PersonaFilePersona: Codable, Equatable, Sendable {
         case latitude = "latitude"
         case chattiness = "chattiness"
         case storytelling = "storytelling"
+        case trivia = "trivia"
         case samples = "samples"
         case templates = "templates"
         case kind = "kind"
@@ -2208,6 +2228,7 @@ public struct PersonaFilePersona: Codable, Equatable, Sendable {
         self.latitude = try container.decodeIfPresent(PersonaDraftViewLatitude.self, forKey: .latitude)
         self.chattiness = try container.decodeIfPresent(PersonaDraftViewChattiness.self, forKey: .chattiness)
         self.storytelling = try container.decodeIfPresent(PersonaDraftViewStorytelling.self, forKey: .storytelling)
+        self.trivia = try container.decodeIfPresent(PersonaDraftViewTrivia.self, forKey: .trivia)
         self.samples = try container.decodeIfPresent([String].self, forKey: .samples)
         self.templates = try container.decodeIfPresent(String.self, forKey: .templates)
         self.kind = try container.decodeIfPresent(PersonaFilePersonaKind.self, forKey: .kind)
@@ -2233,6 +2254,7 @@ public struct PersonaFilePersona: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.latitude, forKey: .latitude)
         try container.encodeIfPresent(self.chattiness, forKey: .chattiness)
         try container.encodeIfPresent(self.storytelling, forKey: .storytelling)
+        try container.encodeIfPresent(self.trivia, forKey: .trivia)
         try container.encodeIfPresent(self.samples, forKey: .samples)
         try container.encodeIfPresent(self.templates, forKey: .templates)
         try container.encodeIfPresent(self.kind, forKey: .kind)
@@ -2570,6 +2592,11 @@ public enum PersonaGrowth: String, Codable, CaseIterable, Sendable {
     case selfDirected = "self-directed"
 }
 
+/// How much this character leans on what the station knows about a record. Absent is the station's ordinary break, where the notes are optional and two at most. At `keen` each record brings up to four, one each about the recording, its album and its artist before a second about any, and the break is built out of them with the room to tell one. Offered only by the ordinary talk break, and the grounding rules do not move: it may still say only what a note says
+public enum PersonaTrivia: String, Codable, CaseIterable, Sendable {
+    case keen = "keen"
+}
+
 public enum PersonaDraftViewBrevity: String, Codable, CaseIterable, Sendable {
     case short = "short"
     case oneLine = "one-line"
@@ -2592,6 +2619,10 @@ public enum PersonaDraftViewStorytelling: String, Codable, CaseIterable, Sendabl
     case never = "never"
     case occasionally = "occasionally"
     case often = "often"
+}
+
+public enum PersonaDraftViewTrivia: String, Codable, CaseIterable, Sendable {
+    case keen = "keen"
 }
 
 /// `said` is what this character did, rendered beside the show's memory. `trait` is who it has become, rendered beside the sheet

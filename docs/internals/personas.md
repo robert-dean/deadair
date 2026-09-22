@@ -360,6 +360,23 @@ title and the fact that a sleeve was approved, never the music itself. Its fence
 splitting the taste from the listener and one splitting a chosen name from the person who has it, and it
 forbids describing a sleeve the writer is never shown. `persona.defaults.ts` has the argument.
 
+**A third rung sits beside those two, and it is about MATERIAL rather than room.** `personas.trivia` has one
+value, `keen`, for a presenter whose job is the story behind the record: who made it, where it came from, what
+happened to it. The ordinary break could not host one. It handed over two notes, both from the recording
+before the album or the artist, and told the model most breaks are better without either, so a countdown host
+whose first quirk asked for "the reason somebody cared about it" was hedging between its sheet and its prompt.
+Measured on the live station on 2026-09-22: of 563 records played that week, 383 carried five or more facts and
+197 carried facts about the track, the album and the artist, and a break saw two of them. `keen` is latitude's
+kind of field and reaches three places the same way. The job reads four facts per record, spread one per level
+before a second from any (`TRIVIA_FACT_BUDGET`, through `factsForTracks`' `budget`). The ceiling rises to
+`TRIVIA_MAX_WORDS` through the same `maxWordsFor`. And the prompt carries `TRIVIA_INSTRUCTIONS` in the system
+turn and SWAPS the user turn's notes paragraph rather than appending to it, since "most breaks are better
+without one" and "the notes are what your break is made of" are two rules that disagree. The shape vetoes
+(`allowsTrivia`, the talk break alone), and the job asks the same shapes before it widens the read, so a
+bulletin under a keen presenter is handed what it always was. The grounding rules are the part that does not
+move: "say only what the notes tell you" is the same sentence, and a record with no notes still gets the
+paragraph saying the station knows nothing about it.
+
 ## Hearing a character before it goes on air
 
 **A rehearsal is one break; an AUDITION is a playlist.** `POST /personas/{id}/rehearse` writes a single break

@@ -26,6 +26,7 @@ import {
     PERSONA_SHEET_LIMITS,
     spentCatchphrases,
     growthOf,
+    triviaOf,
 } from '../../../src/modules/personas/persona.sheet.js';
 
 describe('personaLines', () => {
@@ -692,5 +693,27 @@ describe('growthOf', () => {
 
         expect(loose).toBe(held);
         expect(loose).not.toMatch(/self-directed|proposes/);
+    });
+});
+
+// The rung that hands a presenter more of what the station knows about a record. Like `latitude` it
+// is a permission, and the prompt reads it through the shape's veto in `break.prompt.ts` rather than
+// through the sheet's own lines, which is what the last case pins.
+describe('triviaOf', () => {
+    it('is the ordinary break for a sheet that says nothing', () => {
+        expect(triviaOf({})).toBeUndefined();
+        expect(triviaOf(undefined)).toBeUndefined();
+    });
+
+    it('takes the rung when one is set', () => {
+        expect(triviaOf({ trivia: 'keen' })).toBe('keen');
+    });
+
+    it('falls back rather than trusting a hand-edited row', () => {
+        expect(triviaOf({ trivia: 'obsessive' } as never)).toBeUndefined();
+    });
+
+    it('adds nothing to the sheet’s own lines, since the shape decides whether it is said', () => {
+        expect(personaLines({ diction: ['plain'], trivia: 'keen' })).toEqual(personaLines({ diction: ['plain'] }));
     });
 });

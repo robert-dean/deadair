@@ -123,6 +123,7 @@ export default function Personas() {
                                 ['Talks', persona.chattiness],
                                 ['Says', persona.brevity === undefined ? undefined : persona.brevity === 'one-line' ? 'one line' : 'a little'],
                                 ['Latitude', persona.latitude],
+                                ['Trivia', persona.trivia],
                                 [
                                     'Stories',
                                     persona.stories.length > 0

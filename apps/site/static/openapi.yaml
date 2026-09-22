@@ -7430,6 +7430,10 @@ components:
                     type: string
                     enum: [proposes, self-directed]
                     description: 'Whether the nightly passes may write this character new material outright, or only ever propose it for you to accept. Absent is `proposes`, which is what every character does until somebody says otherwise. It reaches no prompt: the character is never told which it is'
+                trivia:
+                    type: string
+                    enum: [keen]
+                    description: "How much this character leans on what the station knows about a record. Absent is the station's ordinary break, where the notes are optional and two at most. At `keen` each record brings up to four, one each about the recording, its album and its artist before a second about any, and the break is built out of them with the room to tell one. Offered only by the ordinary talk break, and the grounding rules do not move: it may still say only what a note says"
                 samples:
                     type: array
                     items:
@@ -7543,6 +7547,9 @@ components:
                 storytelling:
                     type: string
                     enum: [never, occasionally, often]
+                trivia:
+                    type: string
+                    enum: [keen]
                 samples:
                     type: array
                     items:

@@ -53,6 +53,7 @@ describe('personaForFile', () => {
                 brevity: 'short',
                 latitude: 'loose',
                 storytelling: 'often',
+                trivia: 'keen',
             }),
             [],
         );
@@ -72,6 +73,7 @@ describe('personaForFile', () => {
             brevity: 'short',
             latitude: 'loose',
             storytelling: 'often',
+            trivia: 'keen',
         });
     });
 

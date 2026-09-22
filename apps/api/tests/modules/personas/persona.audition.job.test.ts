@@ -354,6 +354,17 @@ describe('PersonaAuditionJob: the facts and the stories', () => {
         expect(factsForTracks.mock.calls[0]?.[2]).toEqual({ stamp: false });
     });
 
+    it('hears what a keen presenter would be handed on air', async () => {
+        // A transition IS an ordinary talk break, so an audition of a character keen on the story
+        // behind the record reads the same wider budget the station would, still unstamped.
+        const withIds = audition({ records: [record({ trackId: 't1' }), record({ externalId: 'track-2', trackId: 't2' })] });
+        const { run, factsForTracks } = build({ claimed: withIds, found: persona({ trivia: 'keen' }) });
+
+        await run({ auditionId: 'audition-1', ordinal: 0 });
+
+        expect(factsForTracks.mock.calls[0]?.[2]).toEqual({ stamp: false, budget: { limit: 4, spread: true } });
+    });
+
     it('shows each side its own facts', async () => {
         const withIds = audition({ records: [record({ trackId: 't1' }), record({ externalId: 'track-2', trackId: 't2' })] });
         const { run, seen } = build({

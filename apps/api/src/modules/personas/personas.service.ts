@@ -420,6 +420,7 @@ export function draftOf(body: PersonaInput): PersonaDraft {
             // Threaded here and in `toView`, and deliberately NOT in `toDraftView`: a model writing
             // a character must not be able to grant that character autonomy. See `growthOf`.
             growth: body.growth,
+            trivia: body.trivia,
             templates: text(body.templates),
             diction: list(body.diction),
             dictionMarkers: list(body.dictionMarkers),
@@ -456,6 +457,7 @@ function toView(persona: Persona, presentingId: string | undefined): PersonaView
             chattiness: persona.chattiness,
             storytelling: persona.storytelling,
             growth: persona.growth,
+            trivia: persona.trivia,
             templates: persona.templates,
             diction: mutable(persona.diction),
             dictionMarkers: mutable(persona.dictionMarkers),
@@ -497,6 +499,7 @@ function toDraftView(draft: PersonaDraft): PersonaDraftView {
             latitude: draft.latitude,
             chattiness: draft.chattiness,
             storytelling: draft.storytelling,
+            trivia: draft.trivia,
             templates: draft.templates,
             diction: mutable(draft.diction),
             dictionMarkers: mutable(draft.dictionMarkers),

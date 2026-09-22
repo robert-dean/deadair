@@ -13,7 +13,7 @@ import { errorText } from '#modules/shared/error.text.js';
 import { rotationOf } from '#modules/shared/rotation.js';
 import { transitionAt, type Audition, type AuditionAttempt } from './persona.audition.js';
 import { auditionRequest } from './persona.audition.request.js';
-import { storytellingOf } from './persona.sheet.js';
+import { storytellingOf, triviaOf, TRIVIA_FACT_BUDGET } from './persona.sheet.js';
 import { PersonaAuditionRepository } from './persona.audition.repository.js';
 import { PersonaRepository } from './persona.repository.js';
 import { PersonaNotesRepository } from './persona.notes.repository.js';
@@ -194,7 +194,7 @@ export class PersonaAuditionJob extends PlainJob<AuditionPayload> {
 
         // Before the story, because the rung that decides whether there is one is keyed on whether
         // the station knows anything about these records.
-        const facts = await this.factsFor(audition.id, ordinal, transition);
+        const facts = await this.factsFor(audition.id, ordinal, transition, persona);
         const story = await this.storyFor(persona, ordinal, facts);
 
         const recent = await this.auditions.recentScripts(audition.id);
@@ -266,12 +266,19 @@ export class PersonaAuditionJob extends PlainJob<AuditionPayload> {
         auditionId: string,
         ordinal: number,
         transition: { previous: { trackId?: string }; next: { trackId?: string } },
+        persona: Persona,
     ): Promise<{ previous?: readonly string[]; next?: readonly string[] } | undefined> {
         const ids = [transition.previous.trackId, transition.next.trackId].filter((id): id is string => id !== undefined);
         if (ids.length === 0) return undefined;
 
         try {
-            const found = await this.enrichment.factsForTracks(ids, rotationOf(`${auditionId}:${ordinal}`), { stamp: false });
+            // The keen presenter's wider read, exactly as `WriteBreakJob` asks for it: a transition
+            // here IS an ordinary talk break, which is the one kind that offers the rung.
+            const rung = triviaOf(persona);
+            const found = await this.enrichment.factsForTracks(ids, rotationOf(`${auditionId}:${ordinal}`), {
+                stamp: false,
+                ...(rung === undefined ? {} : { budget: TRIVIA_FACT_BUDGET[rung] }),
+            });
             const previous = transition.previous.trackId === undefined ? undefined : found.get(transition.previous.trackId);
             const next = transition.next.trackId === undefined ? undefined : found.get(transition.next.trackId);
 

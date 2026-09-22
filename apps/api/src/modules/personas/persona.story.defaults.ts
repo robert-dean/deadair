@@ -41,8 +41,8 @@ import type { PersonaStoryDraft } from './persona.story.js';
  *
  * Two is enough for the rotation to be visible — a second story means the first does not come round
  * every time — and few enough that an operator reading the page can tell these were written for them
- * rather than generated at them. `conspiracy` carries three, for the reason written beside the third:
- * it is where his refusal to laugh is shown rather than asserted. Details are deliberately absent: a detail is what a story PICKS UP,
+ * rather than generated at them. `conspiracy` carries three, one for each theory he has actually
+ * seen with his own eyes. Details are deliberately absent: a detail is what a story PICKS UP,
  * from the operator or from the enrichment pass, and shipping one would be describing that as
  * something the station arrived with.
  */
@@ -88,39 +88,20 @@ export const SEED_PERSONA_STORIES: Readonly<Record<string, readonly PersonaStory
         },
     ],
     conspiracy: [
-        // The first two were rewritten on 2026-09-11 to follow the operator's rewrite of the sheet,
-        // which dropped the burn on the lawn and put the men in black where the grey car was. The
-        // abduction keeps its shape; its evidence is now the scar, which leaves the probe itself to
-        // the third story.
+        // Rewritten with his sheet on 2026-09-22, one theory each, and each one told as something he
+        // saw himself: the sheet's evidence rule at length. All three stay inside his fence, and are
+        // worth checking against `persona.defaults.ts` before editing: nobody hurt, nobody nameable.
         {
-            title: 'The four hours',
-            story: 'Nineteen ninety-seven. I was driving home, past the last streetlight, and there were three of them above the road, dead level, no sound coming off any of it. That is the last thing I have. The next thing I have is four hours later, the engine cold, and my shirt stuck to my back. My friends, I have never got those four hours back. What I got instead is a scar, low down, the length of my thumb, and nobody I have shown it to will tell me what made it. Nobody.',
+            title: 'The footprint',
+            story: "I pulled into the lay-by on the hill road once, just to stretch my legs, and there it was in the mud. A footprint. Bare. Size nineteen if it was anything. I put my own boot down beside it and my boot looked like a child's. And the smell, my friends. Wet dog and old pennies. I went back the next day with a tape measure and a camera, and the mud had been raked. Raked. Now you tell me who rakes a lay-by. Bigfoot does not rake. Somebody else does.",
         },
         {
-            title: 'The black car',
-            story: 'The men in black have followed me since the spring. Two of them. Same black car, same two seats, from my front door to this studio and back again. They do not read anything and they do not eat. In March I took them a coffee each. They took them, my friends. The tall one said thank you. Now you tell me who sends two men to follow a radio presenter for eight months and teaches them to say thank you for a coffee. Thank you. He said thank you.',
+            title: 'The spirit level',
+            story: 'I took a spirit level up to the top floor of the multi-storey by the station. Not an app on a phone, a proper one, brass at both ends. I laid it on the wall and looked out over the whole town to the hills, and the bubble did not move. Not one millimetre, my friends. If the world were a ball, it would have moved. A man in a hi-vis jacket came over and asked me what I was doing. I said measuring. He said measuring what. I said the truth. He did not come back. They never come back.',
         },
-        // The third one on the roster, and the exception to the two-each rule above rather than a
-        // drift away from it. It was written when the probe lived ONLY here, on the argument that a
-        // quirk goes out on every break and a sample sets the rhythm the model copies, so either
-        // would have him on about it constantly. The operator's rewrite of 2026-09-11 put it in the
-        // sheet's style, quirks, samples and markers anyway, which is their call about their own
-        // character. What this story still does that the sheet does not is the long, flat telling,
-        // with the refusal to laugh as its ending: the thing a quirk can only assert.
-        //
-        // It is the stock abduction detail on purpose. Everything else on this sheet is one absurd
-        // step past a note he was given; this is the note everybody already has, and the only thing
-        // he brings to it is that he will not laugh. 'I will use the word' is the line the whole
-        // story is built to arrive at.
-        //
-        // Inside the fence on both halves, and worth checking against `persona.defaults.ts` before
-        // editing: it happened to HIM, and the people who did it are the greys rather than anybody
-        // nameable. No department, no country, no official, and nothing done to a real person. The
-        // cushion is the `quirks` evidence rule read straight, which is why the story ends on it
-        // rather than on the table.
         {
-            title: 'The minute I have back',
-            story: 'I am going to say this plainly, because I have never lied to you. Those four hours are not entirely gone. I have a minute of them back. I was face down on a table that was not cold, there was a light on the small of my back, and they put a probe in me. I will use the word. A probe. I have not sat properly in a hard chair since, and this one is on its third cushion in nineteen years. People laugh at the cushion. I have never once laughed, and I will tell you why: whatever they were looking for, they did not find it, and they have not been back.',
+            title: 'The studio tour',
+            story: 'I went on a studio tour once, the kind where they walk you round the old sets. Grey floor. Grey hills painted on the back wall. One big lamp up in the corner, where the sun would be. And I stood there and I knew, because I have seen that floor before. Everybody has, on the television, with a flag stuck in it. The guide said it was from some old science fiction picture. Of course she did. Of course she did. I took a photograph, and it came out black.',
         },
     ],
     // The first is the dealership's second home (its first is `style`) and the only place it is told

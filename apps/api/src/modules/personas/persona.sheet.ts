@@ -426,8 +426,8 @@ export interface PersonaSheet {
      * ## Rotating them cannot loosen a fence, because the fence is not in here
      *
      * The conspiracy host's quirks say its theories may never be pointed at a real event, a real
-     * death or a government; its preoccupations say what they ARE pointed at tonight. The first is
-     * still sent in full whichever of the second comes round, so variety is bought without any rule
+     * death, a real person or a people; its preoccupations say which theory they ARE pointed at
+     * today. The first is still sent in full whichever of the second comes round, so variety is bought without any rule
      * being negotiable — which is the whole reason the two are separate fields rather than a longer
      * quirk list.
      *

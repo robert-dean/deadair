@@ -21,6 +21,24 @@ public final class StreamClient: Sendable {
         return GetHlsPlaylistResult(data: response.body, headers: headers)
     }
 
+    /// Get tune-in pls
+    /// The station's streams as a PLS playlist, MP3 first, for a player that takes a playlist file rather than a stream address
+    /// - Throws: `SdkError` on 404
+    public func getTuneInPls() async throws -> Data {
+        let request = SdkRequest(method: "GET", path: ["listen.pls"])
+        let response = try await http.execute(request)
+        return response.body
+    }
+
+    /// Get tune-in m3u
+    /// The station's streams as an M3U playlist, MP3 first, for a player that takes a playlist file rather than a stream address
+    /// - Throws: `SdkError` on 404
+    public func getTuneInM3u() async throws -> Data {
+        let request = SdkRequest(method: "GET", path: ["listen.m3u"])
+        let response = try await http.execute(request)
+        return response.body
+    }
+
     /// Read fetcher authorization
     /// What the track fetcher holds by way of a Spotify login, and whether an authorization is already waiting to be finished
     public func readFetcherAuthorization() async throws -> FetcherAuthorization {

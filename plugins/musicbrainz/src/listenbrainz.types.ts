@@ -151,3 +151,36 @@ export interface ListenBrainzSimilarRecording {
     /** How alike, on this algorithm's own scale. Rows arrive highest first. */
     score?: number;
 }
+
+/**
+ * One listen as `POST /1/submit-listens` takes it.
+ *
+ * `listened_at` is Unix SECONDS, where everything on the host's side is milliseconds, and it is
+ * absent for a `playing_now` submission, which the service refuses if it carries one.
+ */
+export interface ListenBrainzListen {
+    listened_at?: number;
+    track_metadata: {
+        artist_name: string;
+        track_name: string;
+        release_name?: string;
+        additional_info?: {
+            duration_ms?: number;
+            tracknumber?: number;
+            recording_mbid?: string;
+            submission_client?: string;
+            submission_client_version?: string;
+        };
+    };
+}
+
+/**
+ * The body of `POST /1/submit-listens`.
+ *
+ * `single` is one listen that has happened, `import` several, and `playing_now` one that is
+ * happening. The service refuses a `single` or `playing_now` carrying more than one listen.
+ */
+export interface ListenBrainzSubmission {
+    listen_type: 'single' | 'import' | 'playing_now';
+    payload: ListenBrainzListen[];
+}

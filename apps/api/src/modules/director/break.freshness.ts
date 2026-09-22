@@ -122,6 +122,13 @@ export const SUBSTRATE_FRESHNESS: { [TField in keyof Required<BreakWriteRequest>
     // that ignored the offer has claimed nothing about the date.
     almanac: 'claims-time',
 
+    // The show that ended, the show starting and who presented the first. All three are facts about
+    // the moment the clock changed the station over, which has already happened by the time the
+    // request exists, so nothing can overtake them before the break airs. A recast after that moment
+    // is the new host's to answer, and `SegmentRepository.recast` already rewrites a break in the
+    // wrong character.
+    changeover: 'timeless',
+
     // What the break is about, resolved by the caller out of the context below. A category or a
     // location: an operator's own word for a thing, and it does not stop being that word.
     subject: 'timeless',

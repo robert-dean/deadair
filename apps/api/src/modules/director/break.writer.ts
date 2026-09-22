@@ -162,6 +162,28 @@ export interface BreakSubject {
     label: string;
 }
 
+/**
+ * The two programmes either side of a scheduled changeover, as a writer is shown them.
+ *
+ * Resolved by `ChangeoverSource` out of what the request carried, so the model binding and the floor
+ * are handed the same answer. Every field is optional because every one of them is an ordinary
+ * absence: a block that ends into the sustaining source has no show coming, a programme an operator
+ * put on by hand is not a show anybody would name, and a host carrying on into their own next show
+ * has nobody to thank.
+ */
+export interface BreakChangeover {
+    /**
+     * Who presented the programme that has just ended, and ONLY when that was somebody other than
+     * whoever is presenting now. Absent for the same host carrying on, which is the one case a
+     * writer must not thank anybody in: thanking yourself on air is the mistake this shape rules out.
+     */
+    outgoing?: Persona;
+    /** The name of the show that has just ended, when it was a block of the timetable. */
+    outgoingShow?: string;
+    /** The name of the show starting now, and absent when the station has moved to its sustaining source. */
+    incomingShow?: string;
+}
+
 /** What a writer is told before it writes. */
 /**
  * How long a model writer may queue for the model, given when its break is due.
@@ -471,6 +493,15 @@ export interface BreakWriteRequest {
      * the reason could only repeat it.
      */
     almanac?: StationAlmanac;
+    /**
+     * The programme that has just ended and the one starting, for a break marking the change.
+     *
+     * Present only for the `changeover` kind, and absent for it too when the request carried nothing
+     * to resolve. Fixed at the moment the clock changed the station over, which is why it needs no
+     * expiry of its own: both shows and both hosts are facts about a moment that has already
+     * happened. See `BreakChangeover`.
+     */
+    changeover?: BreakChangeover;
     /**
      * What this break is ABOUT, when something asked it to be about one thing.
      *

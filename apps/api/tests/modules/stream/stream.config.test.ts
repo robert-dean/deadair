@@ -58,6 +58,7 @@ const settings = (overrides: Partial<StreamSettings> = {}): StreamSettings => ({
     hlsEnabled: false,
     hlsSegmentSeconds: 2,
     hlsSegmentCount: 6,
+    maxListeners: 0,
     hostname: '',
     location: '',
     language: '',
@@ -326,6 +327,48 @@ describe('writeStreamConfig', () => {
             expect(block).toContain('<username>source</username>');
             expect(block).toContain(`<password>${sourcePassword}</password>`);
         }
+    });
+
+    it('caps every mount, and raises the station-wide client limit to fit, when a cap is set', () => {
+        // Against the SHIPPED template, for the reason the cases above are. The cap goes on each
+        // <mount> because `<clients>` also counts the event feed and the stats reads: a cap there
+        // would refuse the station's own bookkeeping before it refused a listener.
+        const { configDir } = dirs();
+        writeStreamConfig({
+            settings: settings({ maxListeners: 50, opusEnabled: true, aacEnabled: true }),
+            playout: playout(),
+            assetsDir: shippedAssetsDir(),
+            configDir,
+        });
+
+        const xml = readFileSync(join(configDir, 'icecast.xml'), 'utf8');
+        const blocks = xml.match(/<mount type="normal">[\s\S]*?<\/mount>/g) ?? [];
+
+        expect(blocks).toHaveLength(3);
+        for (const block of blocks) expect(block).toContain('<max-listeners>50</max-listeners>');
+        // Fifty on each of three mounts, and room for the station's own connections on top.
+        expect(xml).toContain('<clients>170</clients>');
+    });
+
+    it('never lowers the client limit below what it always was, whatever the cap', () => {
+        const { configDir } = dirs();
+        writeStreamConfig({ settings: settings({ maxListeners: 5 }), playout: playout(), assetsDir: shippedAssetsDir(), configDir });
+
+        expect(readFileSync(join(configDir, 'icecast.xml'), 'utf8')).toContain('<clients>100</clients>');
+    });
+
+    it('renders the file it always rendered when no cap is set, so an upgrade restarts nothing', () => {
+        // The config watch restarts Icecast whenever the rendered file changes, and a restart drops
+        // everybody listening. A station that never asked for a cap must not pay that.
+        const { configDir } = dirs();
+        writeStreamConfig({ settings: settings(), playout: playout(), assetsDir: shippedAssetsDir(), configDir });
+
+        const xml = readFileSync(join(configDir, 'icecast.xml'), 'utf8');
+        expect(xml).toContain('<clients>100</clients>');
+        expect(xml).not.toContain('max-listeners');
+        expect(xml).not.toMatch(/\{\{(CLIENTS|MAX_LISTENERS)\}\}/);
+        // The line the cap would sit on is exactly the line that was there before.
+        expect(xml).toContain('    <public>0</public>\n    <!-- No <authentication type="url"> here, deliberately.');
     });
 
     it('leaves the buffers exactly as they were for an unchanged station', () => {

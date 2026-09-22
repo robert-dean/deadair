@@ -52,6 +52,14 @@ export interface ResolvedRules {
      */
     welcome: boolean;
     /**
+     * Whether the station says so when the timetable changes the programme.
+     *
+     * Under {@link breaks} for {@link welcome}'s reason, and read off the INCOMING broadcast's rules,
+     * because the break airs in that broadcast: a block opening a setlist or a feature marks no
+     * change, since those modes take no breaks at all.
+     */
+    changeovers: boolean;
+    /**
      * Whether somebody phones in during this broadcast.
      *
      * Beside {@link breaks} rather than under it, which is the opposite call to {@link welcome} and
@@ -158,6 +166,9 @@ export const DEFAULT_RULES: ResolvedRules = {
     // ON. A station that never says hello to somebody who has just arrived is one they have to wait
     // a quarter of an hour to learn the name of.
     welcome: true,
+    // ON, for the welcome's reason turned round: a listener who hears the show change with nobody
+    // saying so cannot tell a timetable from a playlist that happened to change genre.
+    changeovers: true,
     // A quarter of an hour, which is about as long as a station can go without identifying itself
     // before it stops sounding like a station and starts sounding like a playlist. Erring long: a
     // break every few minutes is a novelty that wears out in an afternoon. This is the number the
@@ -204,6 +215,7 @@ export const ROTATION_KEYS = {
     autoExtend: 'rotation.autoExtend',
     breaks: 'rotation.breaks',
     welcome: 'rotation.welcome',
+    changeovers: 'rotation.changeovers',
     callins: 'rotation.callins',
     callinEveryMinutes: 'rotation.callinEveryMinutes',
     breakEveryMinutes: 'rotation.breakEveryMinutes',
@@ -276,6 +288,7 @@ export function stationRules(config: AppConfig): ResolvedRules {
         mayGenerate: DEFAULT_RULES.mayGenerate,
         breaks: boolean(ROTATION_KEYS.breaks, DEFAULT_RULES.breaks),
         welcome: boolean(ROTATION_KEYS.welcome, DEFAULT_RULES.welcome),
+        changeovers: boolean(ROTATION_KEYS.changeovers, DEFAULT_RULES.changeovers),
         callins: boolean(ROTATION_KEYS.callins, DEFAULT_RULES.callins),
         callinEveryMinutes: number(ROTATION_KEYS.callinEveryMinutes, DEFAULT_RULES.callinEveryMinutes),
         breakEveryMinutes: number(ROTATION_KEYS.breakEveryMinutes, DEFAULT_RULES.breakEveryMinutes),
@@ -309,6 +322,7 @@ export const NO_RULES: ResolvedRules = {
     mayGenerate: false,
     breaks: false,
     welcome: false,
+    changeovers: false,
     breakEveryMinutes: 0,
     jingleEveryMinutes: 0,
     callins: false,
@@ -368,6 +382,8 @@ export const resolveRules = (mode: StationLineupMode, overrides?: StationLineupR
         mayGenerate: base.mayGenerate,
         breaks: overrides?.breaks ?? base.breaks,
         welcome: overrides?.welcome ?? base.welcome,
+        // No per-lineup override, `jingleEveryMinutes`'s call: `breaks` still gates it per broadcast.
+        changeovers: base.changeovers,
         callins: overrides?.callins ?? base.callins,
         callinEveryMinutes: overrides?.callinEveryMinutes ?? base.callinEveryMinutes,
         breakEveryMinutes: overrides?.breakEveryMinutes ?? base.breakEveryMinutes,

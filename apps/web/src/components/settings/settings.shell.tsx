@@ -145,7 +145,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
         label: 'Breaks',
         hint: 'How often it talks, and for how long',
         group: 'breaks',
-        blurb: 'How often the station talks between records and how long it may go on: breaks, jingles, calls and the welcome for a new listener. A lineup can override whether it talks and how often, and a setlist or a feature switches all of it off. What it says is under Voice.',
+        blurb: 'How often the station talks between records and how long it may go on: breaks, jingles, calls, the welcome for a new listener and the word when the show changes. A lineup can override whether it talks and how often, and a setlist or a feature switches all of it off. What it says is under Voice.',
     },
     {
         id: 'bulletins',

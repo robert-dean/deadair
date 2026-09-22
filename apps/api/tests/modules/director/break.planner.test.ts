@@ -11,9 +11,10 @@ import type { StoredBreakRequest } from '../../../src/modules/director/break.req
 import type { ClockBand } from '../../../src/modules/director/clock.bands.js';
 import { TALK_BREAK_KIND } from '../../../src/modules/director/talk.break.writer.js';
 import { WELCOME_KIND } from '../../../src/modules/director/welcome.writer.js';
+import { CHANGEOVER_KIND } from '../../../src/modules/director/changeover.writer.js';
 import { settingsConfig } from '../../utils/settings.config.js';
 import { StationLineup, type StationLineupSegmentItem } from '../../../src/modules/director/station.lineup.js';
-import { resolveRules } from '../../../src/modules/director/rotation.rules.js';
+import { NO_RULES, resolveRules } from '../../../src/modules/director/rotation.rules.js';
 import type { RundownTrack } from '../../../src/modules/playout/rundown.js';
 import type { PlannedSegment, Segment, SegmentRepository } from '../../../src/modules/render/segment.repository.js';
 import type { SyndicatedAnswer } from '../../../src/modules/podcasts/syndicated.source.js';
@@ -1961,6 +1962,22 @@ describe('BreakPlanner.ripen', () => {
             expect(talk.accepted).toBe(true);
         });
 
+        it('declines a changeover on a station that has been told not to mark one, and under no rules at all', async () => {
+            // Read off the INCOMING broadcast's rules, since the break airs in it: a block opening a
+            // setlist takes no breaks, so it marks no change either.
+            const { planner } = build({ canWrite: true });
+            const lineup = await lineupOf(6, 1);
+            const now = Date.UTC(2026, 7, 13, 9, 0);
+            const asking = { id: 'req-1', kind: CHANGEOVER_KIND, urgency: 'next', source: 'schedule', state: 'placed' } as StoredBreakRequest;
+
+            const off = await planner.plantRequested(lineup, { ...rules(), changeovers: false }, { now, anchorAt: now, from: 0 }, asking);
+            expect(off.accepted).toBe(false);
+            expect(off.reason).toContain('change of programme');
+
+            expect(planner.cannotProduce(CHANGEOVER_KIND, NO_RULES)).toBeDefined();
+            expect(planner.cannotProduce(CHANGEOVER_KIND, rules())).toBeUndefined();
+        });
+
         it('stamps the projected air time and the request it came from onto the row', async () => {
             // Both travel on the row because the words are asked for on a later pass: the writer is
             // the only thing that will still know when this is going to be spoken and what it is
@@ -2124,7 +2141,7 @@ describe('BreakPlanner spacing its own jingles', () => {
 
 // A listener arriving just before a jingle hears the station's name from it, so the director does not
 // ask for a welcome on top. What decides it is the stretch a rendered welcome would be put in front of.
-describe('BreakPlanner.greetedByJingle', () => {
+describe('BreakPlanner.greetedAlready', () => {
     /** Two records already with the player, so the head is index 2. */
     const withHead = async () => lineupOf(10, 2);
     const segmentAt = (lineup: StationLineup, atIndex: number, segmentKind: string) =>
@@ -2134,7 +2151,7 @@ describe('BreakPlanner.greetedByJingle', () => {
         const lineup = await withHead();
         segmentAt(lineup, 2, 'jingle');
 
-        expect(build().planner.greetedByJingle(lineup)).toBe(true);
+        expect(build().planner.greetedAlready(lineup)).toBe('jingle');
     });
 
     it('is greeted by a jingle the player already holds', async () => {
@@ -2142,14 +2159,14 @@ describe('BreakPlanner.greetedByJingle', () => {
         segmentAt(lineup, 2, 'jingle');
         hand(lineup, 1);
 
-        expect(build().planner.greetedByJingle(lineup)).toBe(true);
+        expect(build().planner.greetedAlready(lineup)).toBe('jingle');
     });
 
     it('is not greeted by a jingle past the record a welcome would go in front of', async () => {
         const lineup = await withHead();
         segmentAt(lineup, 5, 'jingle');
 
-        expect(build().planner.greetedByJingle(lineup)).toBe(false);
+        expect(build().planner.greetedAlready(lineup)).toBeUndefined();
     });
 
     it('is not greeted by a jingle an operator cut', async () => {
@@ -2158,13 +2175,20 @@ describe('BreakPlanner.greetedByJingle', () => {
         const jingle = lineup.all().find(item => item.kind === 'segment')!;
         expect(lineup.remove(jingle.id)).toEqual({ ok: true });
 
-        expect(build().planner.greetedByJingle(lineup)).toBe(false);
+        expect(build().planner.greetedAlready(lineup)).toBeUndefined();
+    });
+
+    it('is greeted by a changeover still to come at the head, which names the station at more length', async () => {
+        const lineup = await withHead();
+        segmentAt(lineup, 2, CHANGEOVER_KIND);
+
+        expect(build().planner.greetedAlready(lineup)).toBe(CHANGEOVER_KIND);
     });
 
     it('is not greeted by an ident, which is left to the welcome as it always was', async () => {
         const lineup = await withHead();
         segmentAt(lineup, 2, 'ident');
 
-        expect(build().planner.greetedByJingle(lineup)).toBe(false);
+        expect(build().planner.greetedAlready(lineup)).toBeUndefined();
     });
 });

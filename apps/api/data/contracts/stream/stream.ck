@@ -72,6 +72,40 @@ operation /hls/{name}: {
     }
 }
 
+# ── The tune-in files ──────────────────────────────────────────────────────────────────
+#
+# Anonymous for the playlists' reason: these are for the players that cannot take a stream URL, a
+# hardware radio, a car receiver, most desktop players, and none of them can present a token. They
+# name the PUBLIC address, never the compose-internal one, and answer 404 when the station has no
+# public address to name.
+operation /listen.pls: {
+    get: { # The station's streams as a PLS playlist, MP3 first, for a player that takes a playlist file rather than a stream address
+        name: Get tune-in pls
+        service: StreamService.getTuneInPls
+        security: none
+        response: {
+            200: {
+                audio/x-scpls: string
+            }
+            404:
+        }
+    }
+}
+
+operation /listen.m3u: {
+    get: { # The station's streams as an M3U playlist, MP3 first, for a player that takes a playlist file rather than a stream address
+        name: Get tune-in m3u
+        service: StreamService.getTuneInM3u
+        security: none
+        response: {
+            200: {
+                audio/x-mpegurl: string
+            }
+            404:
+        }
+    }
+}
+
 operation /stream/authorization: {
     get: { # What the track fetcher holds by way of a Spotify login, and whether an authorization is already waiting to be finished
         name: Read fetcher authorization

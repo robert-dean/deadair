@@ -1,7 +1,7 @@
 ---
 title: 'Start fetcher authorization'
 sidebar_label: 'Start fetcher authorization'
-sidebar_position: 3
+sidebar_position: 5
 mdx:
     format: 'md'
 ---

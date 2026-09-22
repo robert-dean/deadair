@@ -94,6 +94,9 @@ describe('resolveRules', () => {
             // Including a greeting, which is a break like any other: an album played in full does
             // not stop halfway to introduce itself to whoever just arrived.
             welcome: false,
+            // A change of programme into a setlist is not marked either: the break would air inside
+            // the setlist, which takes none.
+            changeovers: false,
             breakEveryMinutes: 0,
             // A jingle between two of their records is an ident by another name.
             jingleEveryMinutes: 0,
@@ -251,6 +254,13 @@ describe('stationRules', () => {
 
     it('shares one vocabulary with every other switch', () => {
         expect(stationRules(settingsConfig({ [ROTATION_KEYS.welcome]: 'off' }).config).welcome).toBe(false);
+    });
+
+    it('marks a change of programme unless told not to, and hears "false" as no', () => {
+        // The off-case as the STRING a settings row holds, which is the only form that proves anything
+        // here: a real boolean passes whether the switch is read properly or not.
+        expect(stationRules(settingsConfig().config).changeovers).toBe(true);
+        expect(stationRules(settingsConfig({ [ROTATION_KEYS.changeovers]: 'false' }).config).changeovers).toBe(false);
     });
 
     it('reads the album cap as the string a settings row stores', () => {

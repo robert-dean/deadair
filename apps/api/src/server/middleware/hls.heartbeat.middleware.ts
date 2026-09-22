@@ -5,6 +5,7 @@ import { ServerKitMiddleware } from '@maroonedsoftware/koa';
 import { httpError } from '@maroonedsoftware/errors';
 import { HlsAudience } from '#modules/stream/hls.audience.js';
 import { refusesAgent } from '#modules/stream/hls.refusal.js';
+import { resolveMaxListeners } from '#modules/stream/stream.settings.js';
 import { trustsProxy } from '#modules/shared/request.trust.js';
 import { clientAddress } from './rate.limit.middleware.js';
 
@@ -27,10 +28,12 @@ import { clientAddress } from './rate.limit.middleware.js';
  * It records and never refuses **on its own account**. Nothing about COUNTING may fail a
  * listener's request — a heartbeat is a side effect of serving the playlist, and a station
  * that stopped serving playlists because it could not count them would have the failure
- * exactly backwards. The one refusal here is not that: it is the operator's own list, and
- * it is enforced in front of the record for the reason `modules/stream/hls.refusal.ts`
- * gives — a client the station will not serve is not an audience, and this is the only
- * place that knows both who asked and that they asked for a playlist.
+ * exactly backwards. The two refusals here are not that: both are the operator's own
+ * instruction. The first is their list of players, enforced in front of the record for the
+ * reason `modules/stream/hls.refusal.ts` gives — a client the station will not serve is not
+ * an audience, and this is the only place that knows both who asked and that they asked for
+ * a playlist. The second is their listener cap, for the same reason of place: Icecast
+ * enforces it on every mount, and HLS has no connection for Icecast to refuse.
  *
  * **A heartbeat is a playlist that was SERVED**, which is why the tick is recorded
  * after the handler rather than in front of it. It used to be recorded on the way
@@ -76,6 +79,22 @@ export const hlsHeartbeatMiddleware = (config: AppConfig): ServerKitMiddleware =
         // diagnose from the far end.
         if (isPlaylist && refusesAgent(config, ctx.req.headers['user-agent'])) {
             throw httpError(403).withDetails({ message: 'this player is not served by this station' });
+        }
+
+        // The listener cap, which Icecast enforces on its own mounts and cannot enforce here: an HLS
+        // player holds no connection to refuse. Only a NEW client is turned away, so somebody already
+        // listening is never cut off by a cap they were inside. 503 rather than 403, because this is
+        // the station being full rather than declining this player, and a player may try again.
+        // Read per request for the refusal list's reason.
+        if (isPlaylist) {
+            const cap = resolveMaxListeners(config);
+            if (cap > 0) {
+                const audience = (ctx.container as ScopedContainer).get(HlsAudience);
+                const client = clientKey(ctx, trusted);
+                if (!audience.has(client) && audience.count() >= cap) {
+                    throw httpError(503).withDetails({ message: 'the station has as many listeners as it takes on this stream' });
+                }
+            }
         }
 
         // Before the tick, always: a request that throws must reach the error middleware

@@ -29,6 +29,7 @@ import { BreakRequestRepository } from './break.request.repository.js';
 import { PlayHistoryRepository } from './play.history.repository.js';
 import { isRenderedFirst, priorityForUrgency, type StoredBreakRequest } from './break.request.js';
 import { BulletinSource } from './bulletin.source.js';
+import { ChangeoverSource } from './changeover.source.js';
 import { WeatherSource } from './weather.source.js';
 import { AlmanacSource } from './almanac.source.js';
 import type { BreakTrack, PlayedRecord, WrittenBreak } from './break.writer.js';
@@ -160,6 +161,8 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         /** The bulletin's opposite number, for the kind of break that says what it is like outside. */
         private readonly weather: WeatherSource,
         private readonly almanac: AlmanacSource,
+        /** The two programmes either side of a scheduled changeover, for the break that marks one. */
+        private readonly changeovers: ChangeoverSource,
         private readonly personas: PersonaRepository,
         // The rack, read once per break beside the persona that names it. See {@link pads}.
         private readonly padRepository: PadRepository,
@@ -313,8 +316,13 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         // below still reads as one: each source refuses every kind it was not asked about.
         const history = await this.almanac.entriesFor(segment.kind, segment.airsAt ?? Date.now());
 
-        // The three sources cannot all answer, because each refuses every kind but its own, so this
-        // reads as a chain rather than a merge.
+        // The fourth, for the kind that marks a change of programme, and the only one that needs the
+        // persona: whether the host who just finished is somebody else is a comparison against the
+        // character this break will be written under. See `ChangeoverSource`.
+        const changeover = await this.changeovers.changeoverFor(segment.kind, context, persona);
+
+        // The sources cannot all answer, because each refuses every kind but its own, so this reads
+        // as a chain rather than a merge.
         const subject = bulletin?.subject ?? forecast?.subject;
 
         // Chosen here and SPENT further down, once a writer has actually won. The two used to be one
@@ -342,6 +350,7 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
             // The day and its entries together, which is one answer rather than a substrate and a
             // policy — see `BreakWriteRequest.almanac`.
             ...(history?.almanac === undefined ? {} : { almanac: history.almanac }),
+            ...(changeover === undefined ? {} : { changeover }),
             // What the format clock asked this break to be ABOUT, resolved out of the context above
             // by the thing that owns the kind's substrate. A writer reads it here rather than
             // digging the key out of `context` itself, so the model binding and the floor cannot

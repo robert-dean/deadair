@@ -53,6 +53,19 @@ export const STREAM_KEYS = {
     hlsEnabled: 'stream.hlsEnabled',
     hlsSegmentSeconds: 'stream.hlsSegmentSeconds',
     hlsSegmentCount: 'stream.hlsSegmentCount',
+    /**
+     * The most listeners any ONE way of listening may have at once. Empty or zero is no cap.
+     *
+     * Per mount rather than for the station, because that is the only form Icecast enforces: a
+     * `<max-listeners>` on each `<mount>`. The station-wide `<clients>` is not a listener count at
+     * all, since the event feed, the stats reads and the admin calls are clients too, and a cap put
+     * there refuses the station's own bookkeeping before it refuses a listener. HLS has no Icecast
+     * connection to refuse, so the same number is applied to it in `hls.heartbeat.middleware.ts`.
+     *
+     * **Saving it restarts Icecast**, which drops everybody listening: it is in the rendered file,
+     * and the config watch restarts the server whenever that file changes. The help text says so.
+     */
+    maxListeners: 'stream.maxListeners',
     /** Hostname Icecast advertises in its own config. */
     hostname: 'stream.hostname',
     /**
@@ -158,6 +171,8 @@ export interface StreamSettings {
     hlsSegmentSeconds: number;
     /** How many segments a media playlist lists at once. */
     hlsSegmentCount: number;
+    /** The most listeners one mount may have. `0` is no cap. See {@link STREAM_KEYS.maxListeners}. */
+    maxListeners: number;
     /** Hostname Icecast advertises. Empty means "derive it from publicUrl, else localhost". */
     hostname: string;
     /** Where the station broadcasts from. Empty renders no `<location>`. */
@@ -217,6 +232,9 @@ export const STREAM_DEFAULTS = {
     // per segment; a longer window costs latency and buys resilience on a bad connection.
     hlsSegmentSeconds: 2,
     hlsSegmentCount: 6,
+    // No cap. A station that never asked for one must not start turning listeners away, and an
+    // upgrade must render exactly the file it rendered before.
+    maxListeners: 0,
     hostname: '',
     location: '',
     language: '',
@@ -275,6 +293,7 @@ export function resolveStreamSettings(config: AppConfig, encryption: EncryptionP
         // console refuses an out-of-range figure at the point somebody types one.
         hlsSegmentSeconds: clamp(numberOr(config, STREAM_KEYS.hlsSegmentSeconds, STREAM_DEFAULTS.hlsSegmentSeconds), 1, 10),
         hlsSegmentCount: clamp(numberOr(config, STREAM_KEYS.hlsSegmentCount, STREAM_DEFAULTS.hlsSegmentCount), 3, 20),
+        maxListeners: resolveMaxListeners(config),
         hostname: values.get(STREAM_KEYS.hostname) ?? STREAM_DEFAULTS.hostname,
         location: values.get(STREAM_KEYS.location) ?? STREAM_DEFAULTS.location,
         language: values.get(STREAM_KEYS.language) ?? STREAM_DEFAULTS.language,
@@ -510,6 +529,25 @@ export function resolveMountSettings(config: AppConfig): MountSettings {
         flacEnabled: settingIsOn(config, STREAM_KEYS.flacEnabled, STREAM_DEFAULTS.flacEnabled),
         hlsEnabled: settingIsOn(config, STREAM_KEYS.hlsEnabled, STREAM_DEFAULTS.hlsEnabled),
     };
+}
+
+/** The range `stream.maxListeners` takes, shared with the registry for the reason every range there is. */
+export const MAX_LISTENERS_RANGE = { min: 0, max: 10_000 } as const;
+
+/**
+ * `stream.maxListeners` as a number, `0` meaning no cap.
+ *
+ * Its own export, and read straight off the config with no scope, because two things need it and
+ * one of them is a middleware answering every HLS playlist request. Through `numberFrom` for
+ * `logLevel`'s reason: an empty string must be the default rather than `Number('')`, although here
+ * the two happen to agree. Clamped rather than refused, on the resolver rule.
+ */
+export function resolveMaxListeners(config: AppConfig): number {
+    return clamp(
+        numberFrom(config.get(STREAM_KEYS.maxListeners, ''), STREAM_DEFAULTS.maxListeners),
+        MAX_LISTENERS_RANGE.min,
+        MAX_LISTENERS_RANGE.max,
+    );
 }
 
 /**

@@ -21,6 +21,24 @@ export class StreamClient {
     }
 
     /**
+     * @name Get tune-in pls
+     * @description The station's streams as a PLS playlist, MP3 first, for a player that takes a playlist file rather than a stream address
+     */
+    async getTuneInPls(): Promise<Blob> {
+        const result = await this.fetch(`/listen.pls`, { method: 'GET' });
+        return await result.blob();
+    }
+
+    /**
+     * @name Get tune-in m3u
+     * @description The station's streams as an M3U playlist, MP3 first, for a player that takes a playlist file rather than a stream address
+     */
+    async getTuneInM3u(): Promise<Blob> {
+        const result = await this.fetch(`/listen.m3u`, { method: 'GET' });
+        return await result.blob();
+    }
+
+    /**
      * @name Read fetcher authorization
      * @description What the track fetcher holds by way of a Spotify login, and whether an authorization is already waiting to be finished
      */

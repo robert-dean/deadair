@@ -18,7 +18,11 @@ Three more mounts can be switched on beside it, each off by default because each
 
 There is also an HLS stream at `/live.m3u8`, carrying AAC. An ordinary mount is one long-lived connection, which dies when a phone moves between wifi and mobile data. HLS is a series of ordinary web requests that a player simply retries, so it survives the handover, at the cost of a few more seconds of delay and one more encoder. Any web page may embed it, including players that fetch it from script.
 
+For a hardware radio, a car receiver or a desktop player that wants a playlist file rather than a stream address, point it at `/listen.pls` or `/listen.m3u` on your station's address. Each lists every stream you publish, MP3 first, and the `.m3u` adds the HLS stream when it is on. Both need the address listeners reach you at, under **Settings**, **Stream**, because a playlist file has to name full addresses.
+
 The mount is not authenticated. Anybody who can reach the address can listen, which for a radio station is usually the point. It is still your music under somebody else's licence, so read [the licensing notes](../licensing.md) before you publish an address.
+
+To limit how many people can listen at once, set **Most listeners on each stream** under **Settings**, **Stream**. It applies to each stream separately (the MP3 mount, each extra format and HLS), turns away only a new listener and never somebody already listening, and zero means no limit. Saving it restarts the stream server, which drops everyone listening for a few seconds, so change it when nobody is.
 
 ## What a player shows
 

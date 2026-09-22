@@ -11,6 +11,8 @@ import { describe, expect, it } from 'vitest';
 
 import {
     ensureStreamSecrets,
+    MAX_LISTENERS_RANGE,
+    resolveMaxListeners,
     resolveStreamSettings,
     STREAM_KEYS,
     STREAM_SECRET_KEYS,
@@ -185,6 +187,20 @@ describe('resolveStreamSettings', () => {
 
     it('answers nothing when neither the setting nor the environment names an address', () => {
         expect(resolveStreamSettings(settingsConfig().config, encryption).publicUrl).toBe('');
+    });
+});
+
+describe('resolveMaxListeners', () => {
+    it('is no cap for a station that set none, and for a row stored empty', () => {
+        expect(resolveMaxListeners(settingsConfig().config)).toBe(0);
+        expect(resolveMaxListeners(settingsConfig({ [STREAM_KEYS.maxListeners]: '' }).config)).toBe(0);
+    });
+
+    it('reads the number a settings row stores as text, and clamps one out of range', () => {
+        expect(resolveMaxListeners(settingsConfig({ [STREAM_KEYS.maxListeners]: '40' }).config)).toBe(40);
+        expect(resolveMaxListeners(settingsConfig({ [STREAM_KEYS.maxListeners]: '-3' }).config)).toBe(0);
+        expect(resolveMaxListeners(settingsConfig({ [STREAM_KEYS.maxListeners]: '999999' }).config)).toBe(MAX_LISTENERS_RANGE.max);
+        expect(resolveMaxListeners(settingsConfig({ [STREAM_KEYS.maxListeners]: 'lots' }).config)).toBe(0);
     });
 });
 

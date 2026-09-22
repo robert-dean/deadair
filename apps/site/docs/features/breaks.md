@@ -13,9 +13,9 @@ A break is anything the station says between records: a link, a welcome for some
 
 Each kind of break has a model writer in front and the station's own phrasings behind it. If the model declines, answers with nothing, fails or takes too long, the phrasings write the break. That floor needs no model and no network, so it cannot fail.
 
-The model writer is off on a fresh install. Until you turn on "Let a model write the talk breaks" under Settings, Words, every break comes from the phrasings, instantly. The same switch covers welcomes, bulletins, weather and stories. Connecting a model is covered in [Models and voices](./models-and-voices.md).
+The model writer is off on a fresh install. Until you turn on "Let a model write the talk breaks" under Settings, Words, every break comes from the phrasings, instantly. The same switch covers welcomes, bulletins, weather, stories and the line marking a change of show. Connecting a model is covered in [Models and voices](./models-and-voices.md).
 
-The phrasings are the character's: "Their own phrasings" on each one under Voice, Characters, one per line, with placeholders such as `{{next.artist}}` and optional parts in `[[double brackets]]`. Empty the box and the station's own come back; to stop it talking, turn off "Let the station interrupt itself". See [Characters](./characters.md). The words around everything else it says (a welcome, a jingle, the news, the weather and the date) belong to the station rather than to a character, and are under Voice, Phrasings, in the same syntax.
+The phrasings are the character's: "Their own phrasings" on each one under Voice, Characters, one per line, with placeholders such as `{{next.artist}}` and optional parts in `[[double brackets]]`. Empty the box and the station's own come back; to stop it talking, turn off "Let the station interrupt itself". See [Characters](./characters.md). The words around everything else it says (a welcome, a jingle, a change of show, the news, the weather and the date) belong to the station rather than to a character, and are under Voice, Phrasings, in the same syntax.
 
 There is one model slot, and a break has priority on it over background work. A break that waits too long for it gives up and lets the floor write. Breaks are written as their slot nears, up to eight items ahead, and a station off the air writes nothing.
 
@@ -61,6 +61,12 @@ A jingle is a few seconds of the station saying its own name between two records
 If you have jingles recorded, drop them in the segment inbox's `jingle` folder, or upload them on the Segments page with the kind `jingle`, and the station plays those, never the same one twice running. With none recorded, it says one of its own lines, from **"What the station says in a jingle"** under Voice, Phrasings, and ends it on a sound from the presenter's soundboard if they have one. Those lines only ever say the station's name and the presenter's, never a record or the time of day, because a jingle is placed well before it airs. For a jingle at one rate in the morning and another at night, add a `jingle` rule to the format clock instead.
 
 A listener who tunes in just before a jingle hears it as their welcome, and the station does not greet them a second time on top of it.
+
+## When the show changes
+
+When the timetable moves from one block to the next, the station says so between the last record of the old show and the first of the new one. Whoever presents the new show says it, thanks the last host by name when that was somebody else, and names the show starting. When a block ends and nothing is scheduled after it, the station names the show that ended and carries on with its sustaining source. It is on by default under **"Say so when the show changes"** in Settings, Breaks, and it follows **"Let the station interrupt itself"**: a block opening a setlist or a feature marks no change, since those take no breaks.
+
+Only a change the timetable makes is marked. Putting something on air yourself stays silent. The lines come from **"What the station says when the show changes"** under Voice, Phrasings, where `{{show.name}}` is the show starting, `{{outgoing.show}}` the one ending and `{{outgoing.name}}` its host. The station picks a line thanking the last host if one fits, then one naming the new show, then one naming the old. If the change lands in the last seconds of a record there is not always time to speak one, and the new show simply starts.
 
 ## What a break looks like
 

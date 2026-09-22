@@ -4,7 +4,8 @@ import { SettingsGroupPage } from '../settings/settings.page';
 import { PageHeader } from '../shared/page.header';
 
 /**
- * The words the station says around a greeting, a jingle, a bulletin, the weather and the date.
+ * The words the station says around a greeting, a jingle, a change of show, a bulletin, the weather
+ * and the date.
  *
  * ## Why they are here and not under Settings
  *

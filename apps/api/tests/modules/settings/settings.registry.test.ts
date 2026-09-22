@@ -100,6 +100,7 @@ describe('the settings registry', () => {
             ROTATION_KEYS.breakEveryMinutes,
             ROTATION_KEYS.jingleEveryMinutes,
             ROTATION_KEYS.welcome,
+            ROTATION_KEYS.changeovers,
             ROTATION_KEYS.callins,
             ROTATION_KEYS.callinEveryMinutes,
             'rotation.breakWords',
@@ -133,6 +134,7 @@ describe('the settings registry', () => {
         // anything else about what the station says.
         for (const key of [
             'rotation.welcomeTemplates',
+            'rotation.changeoverTemplates',
             'rotation.jingleTemplates',
             'rotation.newsTemplates',
             'rotation.weatherTemplates',

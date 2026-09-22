@@ -30,6 +30,8 @@ import { bindsAnything, CandidatesRepository, type EraWindow } from './candidate
 import { chartPicks, DEFAULT_CHART_ORDER } from './chart.picks.js';
 import { DISCOVER_DEFAULT, DISCOVER_KEY, PickResolver } from './pick.resolver.js';
 import { songKey } from './rotation.keys.js';
+import { CHANGEOVER_KIND } from './changeover.writer.js';
+import { changeoverContext } from './changeover.source.js';
 import { NO_RULES, stationAutoExtends } from './rotation.rules.js';
 import { PlayHistoryRepository } from './play.history.repository.js';
 import { resolveSmartShuffle } from './smart.shuffle.js';
@@ -55,6 +57,17 @@ import type {
 import { errorText } from '#modules/shared/error.text.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
+
+/** The dedupe key a changeover is asked for under. One station, one change of programme at a time. */
+const CHANGEOVER_REQUEST_KEY = 'changeover';
+
+/**
+ * How long one changeover holds off another.
+ *
+ * Shorter than any block anybody schedules and longer than the minute the tick takes to notice a
+ * boundary, so it only ever absorbs the same change of programme being asked twice.
+ */
+const CHANGEOVER_COOLDOWN_MS = 10 * 60_000;
 
 /**
  * The operator's side of the director: everything a request does to the
@@ -412,10 +425,17 @@ export class DirectorConsoleService {
             ...(input.chartId === undefined ? {} : { sourceChartId: input.chartId }),
         };
 
+        // Read BEFORE the command replaces it, because the order coming off is the only record of who
+        // presented it and what it was called. Only for a change the timetable made: an operator
+        // putting something on by hand has chosen to, and the station announcing their choice back
+        // to them would be the console talking over the person at it.
+        const outgoing = onSlot !== undefined || bySchedule ? this.director.order() : undefined;
+
         // Synchronously, then the command: a commit pass may already be gathering against the
         // programme coming off, and only the epoch can reach it. See {@link announceAirChange}.
         this.director.invalidate();
         await this.director.post({ kind: 'putOnAir', binding, tracks });
+        if (outgoing !== undefined) await this.markChangeover(outgoing, onSlot);
 
         this.logger.info('director: put the station on air', {
             plugin: pluginOf(input),
@@ -424,6 +444,55 @@ export class DirectorConsoleService {
             tracks: tracks.length,
         });
         return await this.getAir();
+    }
+
+    /**
+     * Ask the station to say that the programme has changed, now that it has.
+     *
+     * AFTER the new order is in place rather than before, and that ordering is the design: the
+     * request is opened against the broadcast that just began, so it is written under whoever
+     * presents it, placed in front of its first record, and survives every sweep the changeover
+     * itself runs over the programme coming off. See `ChangeoverWriter` for where that puts it on air.
+     *
+     * Never throws. A changeover the station could not mark is still a changeover, and the tick that
+     * made it must not report a failure over the words around it. A decline is ordinary (breaks off,
+     * a setlist opening, no voice) and is logged at debug for the welcome's reason.
+     *
+     * @param onSlot - The block starting, or `undefined` for the tick handing the station to its
+     *   sustaining source, which is not a show and must not be welcomed as one.
+     */
+    private async markChangeover(outgoing: StationLineupSnapshot, onSlot: ScheduleSlot | undefined): Promise<void> {
+        // A block's name is a show's name. A programme an operator put on by hand is called whatever
+        // `nameFor` made of its source, which is a label for the desk and not a thing to say on air.
+        const outgoingShow = outgoing.placedBy === 'schedule' && outgoing.slotId !== undefined ? outgoing.name : undefined;
+        const incomingShow = onSlot?.label;
+
+        try {
+            const result = await this.director.requestBreak({
+                kind: CHANGEOVER_KIND,
+                // `next` rather than `interrupt`: it belongs between the record that was on when the
+                // clock changed over and the first of the new show, and talking over that record to
+                // say the show has changed would be interrupting the old show to open the new one.
+                urgency: 'next',
+                source: 'schedule',
+                reason: incomingShow === undefined ? 'the timetable ran out' : `the timetable moved on to ${incomingShow}`,
+                context: changeoverContext({
+                    ...(outgoing.personaId === undefined ? {} : { outgoingPersonaId: outgoing.personaId }),
+                    ...(outgoingShow === undefined ? {} : { outgoingShow }),
+                    ...(incomingShow === undefined ? {} : { incomingShow }),
+                }),
+                // One at a time. The tick changes over at most once a minute, and a slot whose source
+                // refuses is declined rather than retried, so this is belt and braces against a
+                // schedule edited back and forth across a boundary.
+                key: CHANGEOVER_REQUEST_KEY,
+                cooldownMs: CHANGEOVER_COOLDOWN_MS,
+            });
+
+            if (result.accepted) this.logger.info('director: asked the station to mark the change of programme', { show: incomingShow });
+            else this.logger.debug(`director: no changeover for this change of programme (${result.reason ?? 'the station said nothing'})`);
+        } catch (error) {
+            this.logger.warn(`director: could not ask the station to mark the change of programme (${errorText(error)})`);
+        }
     }
 
     /**

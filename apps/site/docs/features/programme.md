@@ -17,6 +17,8 @@ A schedule need not cover the day. The hours no block claims play the sustaining
 
 The schedule never interrupts a record: the running order makes each changeover at a record boundary. If you put something on yourself inside a block, yours holds until the next block begins, and the Desk offers to keep it on longer.
 
+At each changeover the station says so between the two shows, with the new host thanking the last one. See [When the show changes](./breaks.md#when-the-show-changes).
+
 ## Modes
 
 A **rotation** is the station programming for itself: by default a record does not repeat within three days, an artist rests for 40 minutes after airing, and a batch holds at most two records by one artist. A **setlist** (a sequence somebody made) and a **feature** (one artist, or an album in full) start with those rules off, since a Christmas setlist exists to repeat, and with no breaks, phone-ins or blending, since somebody chose those gaps. Only a rotation keeps going when it runs out; the others stop.

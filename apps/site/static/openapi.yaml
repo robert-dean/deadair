@@ -4072,6 +4072,36 @@ paths:
                                 type: string
                 '404':
                     description: 'Not found'
+    '/listen.pls':
+        get:
+            operationId: getTuneInPls
+            summary: 'Get tune-in pls'
+            description: "The station's streams as a PLS playlist, MP3 first, for a player that takes a playlist file rather than a stream address"
+            security: []
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'audio/x-scpls':
+                            schema:
+                                type: string
+                '404':
+                    description: 'Not found'
+    '/listen.m3u':
+        get:
+            operationId: getTuneInM3u
+            summary: 'Get tune-in m3u'
+            description: "The station's streams as an M3U playlist, MP3 first, for a player that takes a playlist file rather than a stream address"
+            security: []
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'audio/x-mpegurl':
+                            schema:
+                                type: string
+                '404':
+                    description: 'Not found'
     '/stream/authorization':
         get:
             operationId: readAuthorization

@@ -25,6 +25,9 @@ import { TalkBreakWriter } from './talk.break.writer.js';
 import { WelcomeAnnouncer } from './welcome.announcer.js';
 import { DislikeVeto } from './dislike.veto.js';
 import { WelcomeWriter } from './welcome.writer.js';
+import { ChangeoverWriter } from './changeover.writer.js';
+import { ModelChangeoverWriter } from './model.changeover.writer.js';
+import { ChangeoverSource } from './changeover.source.js';
 import { CandidatesRepository } from './candidates.repository.js';
 import { ClockBandRepository } from './clock.band.repository.js';
 import { ClockService } from './clock.service.js';
@@ -145,6 +148,8 @@ export const DirectorModule: ServerKitModule = {
         registry.register(TalkBreakWriter).useClass(TalkBreakWriter).asScoped();
         registry.register(ModelWelcomeWriter).useClass(ModelWelcomeWriter).asScoped();
         registry.register(WelcomeWriter).useClass(WelcomeWriter).asScoped();
+        registry.register(ModelChangeoverWriter).useClass(ModelChangeoverWriter).asScoped();
+        registry.register(ChangeoverWriter).useClass(ChangeoverWriter).asScoped();
         registry.register(ModelNewsBreakWriter).useClass(ModelNewsBreakWriter).asScoped();
         registry.register(NewsBreakWriter).useClass(NewsBreakWriter).asScoped();
         registry.register(ModelWeatherBreakWriter).useClass(ModelWeatherBreakWriter).asScoped();
@@ -184,6 +189,9 @@ export const DirectorModule: ServerKitModule = {
         // unlike the bulletin: a day that has run out of entries is the station working correctly
         // rather than a subject that matches nothing, and the source says so in the log.
         registry.register(AlmanacSource).useClass(AlmanacSource).asScoped();
+        // The fourth, scoped with the persona repository it reads. It fetches nothing: the request
+        // carried the facts, and this only decides whether the host who finished is somebody else.
+        registry.register(ChangeoverSource).useClass(ChangeoverSource).asScoped();
         registry
             .register(BreakWriterRegistry)
             .useFactory(
@@ -240,6 +248,12 @@ export const DirectorModule: ServerKitModule = {
                             // is a fixed line the listener is meant to recognise, so a model would
                             // add variety to the one thing that should not vary. See `JingleWriter`.
                             container.get(JingleWriter),
+                            // The ninth kind, the change of programme, ranked the same way. The floor
+                            // is enough on its own: what it says is two show names and a host's, all
+                            // of them the operator's own words. The model earns its place by saying
+                            // it as that host would. See `ChangeoverWriter`.
+                            container.get(ModelChangeoverWriter),
+                            container.get(ChangeoverWriter),
                         ],
                         container.get(Logger),
                     ),

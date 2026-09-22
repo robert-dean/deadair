@@ -7410,7 +7410,7 @@ components:
                 templates:
                     type: string
                     maxLength: 20000
-                    description: "This character's own break phrasings, one per line. Empty means the station's global ones"
+                    description: "This character's own break phrasings, one per line. Empty means the station's own five"
                 defaultHost:
                     type: boolean
                     readOnly: true

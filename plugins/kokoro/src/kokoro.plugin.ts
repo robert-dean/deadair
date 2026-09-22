@@ -95,8 +95,8 @@ export class KokoroPlugin extends Plugin implements SpeechPluginInstance {
         this.defaultVoice = configString(config.defaultVoice) ?? DEFAULT_VOICE;
         // An EMPTY table means the shipped map, exactly as an absent one does. This read `?? ` for
         // as long as it existed, on the argument that a station clearing the box wants one voice
-        // where a station clearing `rotation.breakTemplates` would want the station's phrasings
-        // back — a real distinction the console cannot express: it submits every declared field on
+        // where a station clearing its break phrasings would want the station's own back — a real
+        // distinction the console cannot express: it submits every declared field on
         // every save, so a `list` nobody has touched is stored as "[]" the moment an operator
         // changes the server URL beside it. Never-opened was therefore the only way to keep the
         // rows and an ordinary save the way to lose them, silently. Measured on this station: a

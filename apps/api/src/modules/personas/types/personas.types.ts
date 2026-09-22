@@ -77,7 +77,7 @@ export const Persona = z.strictObject({
             'Whether the nightly passes may write this character new material outright, or only ever propose it for you to accept. Absent is `proposes`, which is what every character does until somebody says otherwise. It reaches no prompt: the character is never told which it is',
         ),
     samples: z.array(z.string().min(1).max(500)).optional().describe('Lines in their own voice, used as examples and as a console preview'),
-    templates: z.string().max(20000).optional().describe("This character's own break phrasings, one per line. Empty means the station's global ones"),
+    templates: z.string().max(20000).optional().describe("This character's own break phrasings, one per line. Empty means the station's own five"),
     defaultHost: z
         .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
         .describe(
@@ -163,7 +163,7 @@ export const PersonaInput = z.strictObject({
             'Whether the nightly passes may write this character new material outright, or only ever propose it for you to accept. Absent is `proposes`, which is what every character does until somebody says otherwise. It reaches no prompt: the character is never told which it is',
         ),
     samples: z.array(z.string().min(1).max(500)).optional().describe('Lines in their own voice, used as examples and as a console preview'),
-    templates: z.string().max(20000).optional().describe("This character's own break phrasings, one per line. Empty means the station's global ones"),
+    templates: z.string().max(20000).optional().describe("This character's own break phrasings, one per line. Empty means the station's own five"),
 });
 export type PersonaInput = z.infer<typeof PersonaInput>;
 

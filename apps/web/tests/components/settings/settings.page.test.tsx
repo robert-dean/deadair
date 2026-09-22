@@ -290,22 +290,26 @@ describe('SettingsSectionPage', () => {
         // line tall.
         getSettings.mockResolvedValue(
             settingsOf({
-                descriptors: [{ group: 'rotation', key: 'rotation.breakTemplates', label: 'What the station says', type: 'text', default: '' }],
-                values: { 'rotation.breakTemplates': 'That was {{previous.title}}.\nYou just heard {{previous.title}}.' },
+                descriptors: [
+                    { group: 'rotation', key: 'rotation.jingleTemplates', label: 'What the station says in a jingle', type: 'text', default: '' },
+                ],
+                values: { 'rotation.jingleTemplates': 'This is {{station.name}}.\nYou are listening to {{station.name}}.' },
             }),
         );
 
         render(<SettingsSectionPage section="rotation" />);
 
-        const box = await screen.findByLabelText('What the station says');
+        const box = await screen.findByLabelText('What the station says in a jingle');
         expect(box.tagName).toBe('TEXTAREA');
-        expect(box).toHaveValue('That was {{previous.title}}.\nYou just heard {{previous.title}}.');
+        expect(box).toHaveValue('This is {{station.name}}.\nYou are listening to {{station.name}}.');
     });
 
     it('sends a multi-line setting back as the plain string it is', async () => {
         const templates = settingsOf({
-            descriptors: [{ group: 'rotation', key: 'rotation.breakTemplates', label: 'What the station says', type: 'text', default: '' }],
-            values: { 'rotation.breakTemplates': 'That was {{previous.title}}.' },
+            descriptors: [
+                { group: 'rotation', key: 'rotation.jingleTemplates', label: 'What the station says in a jingle', type: 'text', default: '' },
+            ],
+            values: { 'rotation.jingleTemplates': 'This is {{station.name}}.' },
         });
         getSettings.mockResolvedValue(templates);
         // The settings as they now stand, which is what the route answers with and what the
@@ -315,11 +319,11 @@ describe('SettingsSectionPage', () => {
         // this test.
         updateSettings.mockResolvedValue(templates);
         render(<SettingsSectionPage section="rotation" />);
-        await screen.findByLabelText('What the station says');
+        await screen.findByLabelText('What the station says in a jingle');
 
         await setupUser().click(screen.getByRole('button', { name: 'Save rotation' }));
 
-        expect(updateSettings).toHaveBeenCalledWith({ values: { 'rotation.breakTemplates': 'That was {{previous.title}}.' } });
+        expect(updateSettings).toHaveBeenCalledWith({ values: { 'rotation.jingleTemplates': 'This is {{station.name}}.' } });
     });
 
     it('says so when the settings cannot be read', async () => {

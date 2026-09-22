@@ -92,6 +92,12 @@ describe('the settings registry', () => {
         expect(findDescriptor('station.djName')?.group).toBe('personas');
     });
 
+    it('declares no station-wide talk-break phrasings', () => {
+        // They are written on each character. A box here would read as the station's voice while
+        // changing nothing a listener hears, since every character's own phrasings go first.
+        expect(findDescriptor('rotation.breakTemplates')).toBeUndefined();
+    });
+
     it('keeps what Icecast advertises on the stream card', () => {
         // Nothing but Icecast reads these. On the station card, beside the name, they read as the
         // station's identity and invite the question of what they do there.

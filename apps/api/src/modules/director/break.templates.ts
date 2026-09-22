@@ -1,10 +1,11 @@
 /**
  * The phrasings the station says, as something an operator owns.
  *
- * These were five entries in a TypeScript array until the operator wanted their own. They still
- * are five entries — {@link DEFAULT_TEMPLATES} is the same five, word for word — but they are now
- * the DEFAULT of a setting rather than the whole of what the station can say. Nothing about the
- * writer changed with them: same repetition rule, same reading of a title, same refusal to invent.
+ * These were five entries in a TypeScript array until the operator wanted their own, then the
+ * default of a station setting, `rotation.breakTemplates`. They are an array again, and the
+ * operator's own now live on each character: {@link DEFAULT_TEMPLATES} is only what a character with
+ * no phrasings falls back to. Nothing about the writer changed with them: same repetition rule, same
+ * reading of a title, same refusal to invent.
  *
  * ## The syntax is two things
  *
@@ -30,14 +31,16 @@ import type { BreakTrack } from './break.writer.js';
 /**
  * The `deadair.settings` keys.
  *
- * The templates sit in the `rotation` group beside how often the station talks, because that is
- * what an operator is thinking about when they change either. The DJ's name sits in `station`
- * beside the station's own, for the same reason — and it is deliberately not a rotation rule: a
- * per-broadcast override of who the presenter is would be a persona, which is a bigger idea than
- * a name and belongs with the model.
+ * The DJ's name is deliberately not a rotation rule: a per-broadcast override of who the presenter
+ * is would be a persona, which is a bigger idea than a name and belongs with the model.
+ *
+ * There used to be a second, `rotation.breakTemplates`, the station's own talk-break phrasings. It
+ * was removed once every seeded character carried phrasings of its own: the chain read it only for
+ * a character with none, which on a stock station is nobody, and a box an operator edits that
+ * changes nothing they will hear is worse than no box. A stored row under that key is left alone
+ * and read by nothing.
  */
 export const TEMPLATE_KEYS = {
-    templates: 'rotation.breakTemplates',
     djName: 'station.djName',
 } as const;
 
@@ -172,9 +175,11 @@ export interface RenderedTemplate {
 /**
  * The station's own five, as templates.
  *
- * The DEFAULT of `rotation.breakTemplates`, which means an operator who clears the box gets these
- * back rather than a silent DJ. The way to stop the station talking is `rotation.breaks`, which
- * already means exactly that; a floor that can be deleted by accident is not a floor.
+ * What a talk break is written from when the character on air has no phrasings of its own, which
+ * means an operator who clears a character's box gets these rather than a silent DJ. The way to stop
+ * the station talking is `rotation.breaks`, which already means exactly that; a floor that can be
+ * deleted by accident is not a floor. A constant rather than a character's row for the same reason:
+ * the seeds are ordinary rows an operator may rewrite or delete.
  */
 export const DEFAULT_TEMPLATES: readonly string[] = [
     "That was {{previous.title}}, from {{previous.artist}}.[[ Now, here's {{next.artist}} with {{next.title}}.]]",
@@ -268,7 +273,7 @@ export function parseTemplates(raw: string | undefined, fallback: readonly strin
 }
 
 /**
- * The phrasings this break is written from: the persona's, then the station's, then the defaults.
+ * The phrasings this break is written from: the persona's, then the station's own five.
  *
  * **The persona's own phrasings are what make a character survive the model declining**, which is
  * the ordinary case by design. A station whose pirate falls back to "That was X, from Y" has a
@@ -276,15 +281,12 @@ export function parseTemplates(raw: string | undefined, fallback: readonly strin
  * to a listener as two different stations rather than one with an occasional wobble.
  *
  * It is a chain rather than a merge, and that is the point: mixing a persona's lines with the
- * station's would put plain English back in the pool at random, which is the failure this exists to
- * close. Each step falls through only when it is EMPTY, so a persona with no phrasings gets the
- * operator's, and clearing both restores the station's own five rather than silencing the DJ.
+ * defaults would put plain English back in the pool at random, which is the failure this exists to
+ * close. It falls through only when the persona's are EMPTY, so clearing a character's box restores
+ * the station's own five rather than silencing the DJ.
  */
-export function resolveTemplates(persona: string | undefined, station: string | undefined): readonly string[] {
-    const fromPersona = phrasingLines(persona);
-    if (fromPersona.length > 0) return fromPersona;
-
-    return parseTemplates(station);
+export function resolveTemplates(persona: string | undefined): readonly string[] {
+    return parseTemplates(persona);
 }
 
 /**

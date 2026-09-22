@@ -28,7 +28,7 @@ import type { BreakPromptShape } from './break.prompt.js';
  *
  * That inverts the usual relationship and is worth stating plainly, because it explains two things
  * that would otherwise look like omissions. There is no `rotation.storyTemplates`, and this writer
- * deliberately does NOT chain into `rotation.breakTemplates` or a persona's own `templates`, on
+ * deliberately does NOT chain into a persona's own `templates` or the station's own five, on
  * `NewsBreakWriter`'s reason: those are written as back-announces, and "That was Solid Air" is not
  * how somebody starts telling you about the night they saw something over the desert.
  *

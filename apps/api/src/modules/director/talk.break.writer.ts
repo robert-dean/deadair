@@ -27,10 +27,10 @@ import {
  *
  * ## The phrasings are the OPERATOR'S
  *
- * They ship as the station's own five and are edited in `rotation.breakTemplates`, which is what
- * makes a station sound like itself with no model anywhere near it. The persona on air may carry its
- * OWN, and those sit in front — which is what keeps a character on the station through every break
- * the model declined, and that is the ordinary case rather than the exception.
+ * They are edited on each character, which is what makes a station sound like itself with no model
+ * anywhere near it: the persona on air carries its OWN, and that is what keeps a character on the
+ * station through every break the model declined, the ordinary case rather than the exception. A
+ * character with none falls back to the station's own five.
  *
  * Where the words come FROM changes nothing else here: the repetition rule, the reading of a title
  * and the refusal to invent are all where they were. See `break.templates.ts` for the syntax, the
@@ -97,11 +97,10 @@ export class TalkBreakWriter extends BreakWriter {
             ...(request.clock === undefined ? {} : { clock: request.clock.words }),
         };
 
-        // Read per break rather than held: `deadair.settings` is a layer of the config, so an
-        // operator editing their phrasings hears the change on the next break rather than after a
-        // restart, which is the whole point of them being a setting. The persona's own phrasings sit
-        // in front of them, which is what keeps a character on the station when the model declined.
-        const templates = resolveTemplates(request.persona?.templates, this.config.get(TEMPLATE_KEYS.templates, ''));
+        // The persona's own phrasings, read off the request, so an operator editing a character
+        // hears the change on the next break. They are what keeps a character on the station when
+        // the model declined; a character with none gets the station's own five.
+        const templates = resolveTemplates(request.persona?.templates);
         this.complainAboutTypos(templates);
 
         const fits = usable(templates, inputs, spoken);

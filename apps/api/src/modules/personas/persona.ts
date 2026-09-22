@@ -98,11 +98,11 @@ export interface PersonaDraft extends PersonaSheet {
      */
     voice?: string;
     /**
-     * This character's own break phrasings, one per line, in the syntax of
-     * `rotation.breakTemplates`.
+     * This character's own break phrasings, one per line, in the syntax `break.templates.ts`
+     * describes.
      *
-     * The floor, in character. Empty means the station's global phrasings, which is exactly right
-     * for a persona whose voice is a manner rather than a dialect.
+     * The floor, in character, and the only place an operator writes talk-break phrasings: there is
+     * no station-wide set any more. Empty means the station's own five.
      */
     templates?: string;
 }

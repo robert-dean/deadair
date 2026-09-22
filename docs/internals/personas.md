@@ -15,7 +15,7 @@ reason [station-moment](https://github.com/robert-dean/deadair/discussions/38) a
 this is a list an operator adds to and switches between. It replaced `llm.breakPersona` and `llm.setPersona`,
 both retired, and the reason it could not stay two settings is what putting one on air does: it changes what
 the model is TOLD (the sheet, in `break.prompt.ts`), what the station says when the model declined (the
-persona's own `templates`, ahead of `rotation.breakTemplates` in `resolveTemplates`), and which VOICE speaks
+persona's own `templates`, ahead of the station's own five in `resolveTemplates`), and which VOICE speaks
 it (`segments.voice`, stamped by `WriteBreakJob` in the same statement as the words). What it does NOT set is
 how theatrical that voice is: "he is always intense" is the voice's own baseline in the speech plugin's map
 (Chatterbox's `exaggeration` column), and how one break is read is chosen per break by the writer

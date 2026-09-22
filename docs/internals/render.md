@@ -23,7 +23,7 @@ last refresh.
 applied whenever the config maps NOTHING — an absent key, `"[]"`, blank and unparseable are one state, and
 `shippedUnlessMapped` in each manifest is the single place that decides it. It read `config[VOICES_FIELD] ??
 DEFAULT_VOICES_JSON` for as long as it existed, on the argument that this was the opposite call to
-`rotation.breakTemplates`: clearing that box produces a silent DJ and clearing this one produces a station
+the station's break phrasings: clearing those produces a silent DJ and clearing this one produces a station
 that speaks in one voice, which an operator may legitimately want. That distinction is not one the console can
 express. The settings form submits EVERY declared field on every save (`config.fields.form.tsx`,
 `rowsForSubmission`), so a `list` nobody has touched is stored as `"[]"` the moment an operator edits the

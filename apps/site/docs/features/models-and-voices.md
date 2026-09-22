@@ -11,7 +11,7 @@ The station's words can come from a language model and its voice from a speech e
 
 ## Talking without a model
 
-Every break has more than one writer, tried in order: a model first, if you have switched it on, and behind it the station's own phrasings. They are the floor: instant, and unable to fail, so a model that is slow, missing or failed a check costs a better sentence rather than a silent station. The phrasings are yours to edit under Settings → Rotation, one per line, and clearing the box restores the station's own rather than silencing it. See [breaks](./breaks.md).
+Every break has more than one writer, tried in order: a model first, if you have switched it on, and behind it the station's own phrasings. They are the floor: instant, and unable to fail, so a model that is slow, missing or failed a check costs a better sentence rather than a silent station. The phrasings are written on each character (Voice → Characters, "Their own phrasings"), one per line, and a character with none falls back to the station's own rather than silencing it. See [breaks](./breaks.md).
 
 A model writing the talk breaks is off by default, and so is a model choosing the records. See [the programme](./programme.md) for what the station does instead.
 

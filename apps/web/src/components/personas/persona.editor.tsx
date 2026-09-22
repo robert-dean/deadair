@@ -391,7 +391,7 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
 
                             <Textarea
                                 label="Their own phrasings"
-                                description="One per line, in the same syntax as the station's break phrasings. These are what the station says when the model declines, which is most breaks — so a character with none falls back to plain English."
+                                description="One per line. Fill a record in with {{previous.title}}, {{next.artist}} and the like, wrap a part in [[double brackets]] to have it dropped when there is nothing to put in it, and start a line with # to turn it off. These are what the station says when the model declines, which is most breaks, so a character with none falls back to plain English."
                                 placeholder="That was {{previous.title}}, from {{previous.artist}}.[[ Next up, {{next.title}}.]]"
                                 autosize
                                 minRows={6}

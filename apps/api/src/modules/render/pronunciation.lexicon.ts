@@ -25,7 +25,7 @@
  *
  * {@link DEFAULT_PRONUNCIATIONS} is eight entries and will never be eighty. It exists so a station
  * starts with cases an operator will recognise rather than with an empty table — the same bargain
- * `rotation.breakTemplates` makes. A real station's list is its own library's names, which nobody
+ * the seeded characters' phrasings make. A real station's list is its own library's names, which nobody
  * here can guess, and increasingly the articles answer for themselves.
  */
 

@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { AppConfig } from '@maroonedsoftware/appconfig';
 import type { Logger } from '@maroonedsoftware/logger';
 import type { Persona } from '../../../src/modules/personas/persona.js';
+import type { BreakWriteRequest } from '../../../src/modules/director/break.writer.js';
 import { spoken, TalkBreakWriter, TALK_BREAK_KIND } from '../../../src/modules/director/talk.break.writer.js';
 
 const previous = { title: 'Solid Air', artist: 'John Martyn' };
@@ -17,6 +18,21 @@ const logger = () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.
 /** A writer against whatever the operator has set, or against the station's own phrasings. */
 const build = (values: Record<string, string> = {}, log = logger()) =>
     new TalkBreakWriter({ get: (key: string, fallback: string) => values[key] ?? fallback } as unknown as AppConfig, log);
+
+/** Enough of a persona to be one. The writer reads three fields of it and nothing else. */
+const pirate = (over: Partial<Persona> = {}): Persona =>
+    ({ id: 'p-1', key: 'pirate', label: 'Pirate captain', style: 'a pirate captain', active: true, ...over }) as Persona;
+
+/**
+ * A writer whose every break is presented by a character carrying `templates`.
+ *
+ * Where an operator's own phrasings live now: the station-wide setting they used to be written in
+ * was removed once every seeded character carried its own.
+ */
+const speaking = (templates: string, values: Record<string, string> = {}, log = logger()) => {
+    const writer = build(values, log);
+    return { write: (request: BreakWriteRequest) => writer.write({ persona: pirate({ templates }), ...request }) };
+};
 
 const writer = build();
 
@@ -101,25 +117,21 @@ describe('TalkBreakWriter', () => {
     });
 });
 
-describe("TalkBreakWriter against the operator's own phrasings", () => {
-    const KEY = 'rotation.breakTemplates';
+describe("TalkBreakWriter against a character's own phrasings", () => {
     const DJ = 'station.djName';
 
     it('says what the operator wrote', async () => {
-        const own = build({
-            [KEY]: "Hi, this is {{dj.name}}. We're getting ready to rock out to {{next.name}} by {{next.artist.name}}!",
-            [DJ]: 'Sam',
-        });
+        const own = speaking("Hi, this is {{dj.name}}. We're getting ready to rock out to {{next.name}} by {{next.artist.name}}!", { [DJ]: 'Sam' });
 
         const written = await own.write({ kind: TALK_BREAK_KIND, next });
 
         expect(written?.script).toBe("Hi, this is Sam. We're getting ready to rock out to Pink Moon by Nick Drake!");
     });
 
-    it("falls back to the station's own when the setting is empty", async () => {
+    it("falls back to the station's own when the character's box is empty", async () => {
         // Clearing the box must not leave a silent DJ. The way to stop the station talking is to
         // turn breaks off, which already means exactly that.
-        const own = build({ [KEY]: '   \n\n  ' });
+        const own = speaking('   \n\n  ');
 
         const written = await own.write({ kind: TALK_BREAK_KIND, previous, next });
 
@@ -127,7 +139,7 @@ describe("TalkBreakWriter against the operator's own phrasings", () => {
     });
 
     it('ignores a commented line', async () => {
-        const own = build({ [KEY]: '# That was {{previous.title}}.\nYou just heard {{previous.title}}.' });
+        const own = speaking('# That was {{previous.title}}.\nYou just heard {{previous.title}}.');
 
         const written = await own.write({ kind: TALK_BREAK_KIND, previous });
 
@@ -138,7 +150,7 @@ describe("TalkBreakWriter against the operator's own phrasings", () => {
         // Every part optional, so dropping them leaves the joinery. Not a hypothetical: it is what a
         // model bracketing everything "to be safe" writes, and an empty-string check one line up does
         // not catch it — "—." is not empty. It renders, it speaks, and it sounds like a fault.
-        const own = build({ [KEY]: '[[{{station.name}}]] — [[{{previous.title}}]] & [[{{next.title}}]].' });
+        const own = speaking('[[{{station.name}}]] — [[{{previous.title}}]] & [[{{next.title}}]].');
 
         const written = await own.write({ kind: TALK_BREAK_KIND });
 
@@ -148,7 +160,7 @@ describe("TalkBreakWriter against the operator's own phrasings", () => {
     it('still uses an over-bracketed phrasing when its parts can be filled', async () => {
         // The guard is about what a phrasing RENDERS to, never about how it was written, so the same
         // line is fine on a boundary that has the records it names.
-        const own = build({ [KEY]: '[[{{previous.title}}]] & [[{{next.title}}]].' });
+        const own = speaking('[[{{previous.title}}]] & [[{{next.title}}]].');
 
         const written = await own.write({ kind: TALK_BREAK_KIND, previous, next });
 
@@ -156,7 +168,7 @@ describe("TalkBreakWriter against the operator's own phrasings", () => {
     });
 
     it('drops an optional chunk it cannot fill, rather than leaving a hole', async () => {
-        const own = build({ [KEY]: 'That was {{previous.title}}.[[ Coming up, {{next.title}}.]]' });
+        const own = speaking('That was {{previous.title}}.[[ Coming up, {{next.title}}.]]');
 
         const written = await own.write({ kind: TALK_BREAK_KIND, previous });
 
@@ -164,7 +176,7 @@ describe("TalkBreakWriter against the operator's own phrasings", () => {
     });
 
     it('keeps an optional chunk it can fill', async () => {
-        const own = build({ [KEY]: 'That was {{previous.title}}.[[ Coming up, {{next.title}}.]]' });
+        const own = speaking('That was {{previous.title}}.[[ Coming up, {{next.title}}.]]');
 
         const written = await own.write({ kind: TALK_BREAK_KIND, previous, next });
 
@@ -177,13 +189,13 @@ describe("TalkBreakWriter against the operator's own phrasings", () => {
         // never spent, never dropped out of the pool, and went on being picked while the phrasings
         // around it were correctly excluded as they were used. Six breaks, four of them the same
         // sentence, two of those back to back.
-        const own = build({
-            [KEY]: [
+        const own = speaking(
+            [
                 '{{previous.artist}} there, with {{previous.title}}. Documented.',
                 'That was {{previous.title}}, from {{previous.artist}}.',
                 'You are listening to {{station.name}}. {{previous.title}} there.',
             ].join('\n'),
-        });
+        );
 
         // What the station said at the LAST break, which named a record it has since moved off. That
         // is the whole difficulty: nothing in the words survives into this break except the phrasing.
@@ -200,7 +212,7 @@ describe("TalkBreakWriter against the operator's own phrasings", () => {
     it('does not use a phrasing whose required placeholder is missing', async () => {
         // Never filled with a blank: "That was , from ." is worse than saying nothing, and saying
         // nothing is a thing the station is built to absorb.
-        const own = build({ [KEY]: 'That was {{previous.title}}, from {{previous.artist}}.' });
+        const own = speaking('That was {{previous.title}}, from {{previous.artist}}.');
 
         await expect(own.write({ kind: TALK_BREAK_KIND, next })).resolves.toBeUndefined();
     });
@@ -208,14 +220,14 @@ describe("TalkBreakWriter against the operator's own phrasings", () => {
     it('will not lead into the next record while ignoring the one that just ended', async () => {
         // The rule an operator never has to know about. A break that throws away the back-announce
         // throws away the half a listener was waiting for.
-        const own = build({ [KEY]: "Here's {{next.artist}} with {{next.title}}." });
+        const own = speaking("Here's {{next.artist}} with {{next.title}}.");
 
         await expect(own.write({ kind: TALK_BREAK_KIND, previous, next })).resolves.toBeUndefined();
         await expect(own.write({ kind: TALK_BREAK_KIND, next })).resolves.toBeDefined();
     });
 
     it('counts an optional back-announce as saying something about the last record', async () => {
-        const own = build({ [KEY]: 'This is {{station.name}}.[[ {{previous.title}} there.]][[ Coming up, {{next.title}}.]]' });
+        const own = speaking('This is {{station.name}}.[[ {{previous.title}} there.]][[ Coming up, {{next.title}}.]]');
 
         const written = await own.write({ kind: TALK_BREAK_KIND, previous, next, station: 'Deadair' });
 
@@ -223,7 +235,7 @@ describe("TalkBreakWriter against the operator's own phrasings", () => {
     });
 
     it("reads a title rather than the catalogue entry, in an operator's phrasing too", async () => {
-        const own = build({ [KEY]: 'That was {{previous.title}}.' });
+        const own = speaking('That was {{previous.title}}.');
 
         const written = await own.write({ kind: TALK_BREAK_KIND, previous: { title: 'Solid Air (2005 Remaster)', artist: 'John Martyn' } });
 
@@ -231,7 +243,7 @@ describe("TalkBreakWriter against the operator's own phrasings", () => {
     });
 
     it('leaves the station name alone, because an operator meant what they typed', async () => {
-        const own = build({ [KEY]: 'This is {{station.name}}.' });
+        const own = speaking('This is {{station.name}}.');
 
         const written = await own.write({ kind: TALK_BREAK_KIND, station: 'Deadair (Deluxe Edition)' });
 
@@ -242,7 +254,7 @@ describe("TalkBreakWriter against the operator's own phrasings", () => {
         // A typo silently drops a phrasing out of rotation, which from the console looks exactly
         // like one the station has never happened to pick. The one failure here nobody can see.
         const log = logger();
-        const own = build({ [KEY]: 'That was {{previous.titel}}.\nYou just heard {{previous.title}}.' }, log);
+        const own = speaking('That was {{previous.titel}}.\nYou just heard {{previous.title}}.', {}, log);
 
         const first = await own.write({ kind: TALK_BREAK_KIND, previous });
         await own.write({ kind: TALK_BREAK_KIND, previous });
@@ -253,7 +265,7 @@ describe("TalkBreakWriter against the operator's own phrasings", () => {
     });
 
     it('avoids repeating a phrasing an operator wrote', async () => {
-        const own = build({ [KEY]: 'That was {{previous.title}}.\nYou just heard {{previous.title}}.' });
+        const own = speaking('That was {{previous.title}}.\nYou just heard {{previous.title}}.');
 
         const first = await own.write({ kind: TALK_BREAK_KIND, previous });
         const second = await own.write({ kind: TALK_BREAK_KIND, previous, recent: [first!.script] });
@@ -267,19 +279,12 @@ describe("TalkBreakWriter against the operator's own phrasings", () => {
 // wide and the station says "just after nine" at twenty past, too narrow and a perfectly good break
 // is dropped for a promise it never made.
 describe('TalkBreakWriter against the persona on air', () => {
-    const KEY = 'rotation.breakTemplates';
     const DJ = 'station.djName';
 
-    /** Enough of a persona to be one. The writer reads two fields of it and nothing else. */
-    const pirate = (over: Partial<Persona> = {}): Persona =>
-        ({ id: 'p-1', key: 'pirate', label: 'Pirate captain', style: 'a pirate captain', active: true, ...over }) as Persona;
-
-    it("uses the persona's phrasings ahead of the operator's", async () => {
-        // The whole point of this phase: the model declines on most breaks by design, so a character
-        // that lives only in the prompt is a character the listener meets occasionally.
-        const own = build({ [KEY]: 'That was {{previous.title}}, from {{previous.artist}}.' });
-
-        const written = await own.write({
+    it("uses the persona's phrasings rather than the station's own", async () => {
+        // The model declines on most breaks by design, so a character that lives only in the prompt
+        // is a character the listener meets occasionally.
+        const written = await writer.write({
             kind: TALK_BREAK_KIND,
             previous,
             persona: pirate({ templates: 'That there haul was {{previous.title}}, from {{previous.artist}}.' }),
@@ -288,30 +293,33 @@ describe('TalkBreakWriter against the persona on air', () => {
         expect(written?.script).toBe('That there haul was Solid Air, from John Martyn.');
     });
 
-    it("falls through to the operator's when the persona carries none", async () => {
-        const own = build({ [KEY]: 'You just heard {{previous.title}}.' });
+    it("falls back to the station's own five when the persona carries none", async () => {
+        // No seed ships with an empty box, but an operator can leave one. The floor must still
+        // write a break rather than silence the DJ.
+        const written = await writer.write({ kind: TALK_BREAK_KIND, previous, persona: pirate() });
 
-        const written = await own.write({ kind: TALK_BREAK_KIND, previous, persona: pirate() });
-
-        expect(written?.script).toBe('You just heard Solid Air.');
+        expect(written?.script).toMatch(/^(That was Solid Air, from John Martyn\.|You just heard John Martyn, with Solid Air\.)$/);
     });
 
     it("prefers the persona's on-air name to the station's", async () => {
         // Two writers naming the presenter differently is one station with two presenters, as far
         // as a listener can tell.
-        const own = build({ [KEY]: 'This is {{dj.name}}, with {{previous.title}}.', [DJ]: 'Sam' });
+        const own = build({ [DJ]: 'Sam' });
 
-        const written = await own.write({ kind: TALK_BREAK_KIND, previous, persona: pirate({ djName: 'Captain Salt' }) });
+        const written = await own.write({
+            kind: TALK_BREAK_KIND,
+            previous,
+            persona: pirate({ djName: 'Captain Salt', templates: 'This is {{dj.name}}, with {{previous.title}}.' }),
+        });
 
         expect(written?.script).toBe('This is Captain Salt, with Solid Air.');
     });
 
-    it('never mixes the two pools, because a stray plain line is the failure this closes', async () => {
-        const own = build({ [KEY]: 'That was {{previous.title}}.\nYou just heard {{previous.title}}.' });
+    it("never mixes in the station's own, because a stray plain line is the failure this closes", async () => {
         const persona = pirate({ templates: 'That there haul was {{previous.title}}.\nYe just heard {{previous.title}}.' });
 
         for (let attempt = 0; attempt < 20; attempt += 1) {
-            const written = await own.write({ kind: TALK_BREAK_KIND, previous, persona });
+            const written = await writer.write({ kind: TALK_BREAK_KIND, previous, persona });
             expect(written?.script).toMatch(/^(That there haul was|Ye just heard)/);
         }
     });
@@ -339,7 +347,7 @@ describe('TalkBreakWriter and the time', () => {
     it('still writes a break when no phrasing mentions the time, and claims nothing', async () => {
         // Preferred, not required. A slot that produced nothing is a slot the station is silent in,
         // which is worse than a break that does not happen to say the hour.
-        const timeless = build({ 'rotation.breakTemplates': 'That was {{previous.title}}.' });
+        const timeless = speaking('That was {{previous.title}}.');
         const written = await timeless.write({ kind: TALK_BREAK_KIND, previous, next, station: 'Deadair', clock });
 
         expect(written?.script).toBe('That was Solid Air.');

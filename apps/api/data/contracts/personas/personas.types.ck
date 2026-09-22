@@ -27,7 +27,7 @@ contract Persona: {
     storytelling?: enum(never, occasionally, often) # How readily this character works one of its own stories into an ordinary talk break. Absent is `occasionally`, which offers one only where the station knows nothing about the records either side. The stories themselves are their own list, and a `story` band on the clock outranks this whatever it says
     growth?: enum(proposes, self-directed) # Whether the nightly passes may write this character new material outright, or only ever propose it for you to accept. Absent is `proposes`, which is what every character does until somebody says otherwise. It reaches no prompt: the character is never told which it is
     samples?: array(string(min=1, max=500)) # Lines in their own voice, used as examples and as a console preview
-    templates?: string(max=20000) # This character's own break phrasings, one per line. Empty means the station's global ones
+    templates?: string(max=20000) # This character's own break phrasings, one per line. Empty means the station's own five
     defaultHost: readonly boolean # The station's own host: who presents when the broadcast on air names nobody. At most one per station. Was `active` until it was renamed, because a reader who had not read `PersonaRepository.presenting` reasonably took that to mean "on air", which it is not during a show that named its own host
     presenting: readonly boolean # Whether this character is the one writing breaks right now. Derived per request from the running order, falling back to `defaultHost`, through the one place that precedence lives (`PersonaRepository.presenting`). Never stored, so it cannot drift from what the director is actually doing
 }

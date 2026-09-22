@@ -113,7 +113,7 @@ public sealed record Persona
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<string>? Samples { get; init; }
 
-    /// <summary>This character's own break phrasings, one per line. Empty means the station's global ones</summary>
+    /// <summary>This character's own break phrasings, one per line. Empty means the station's own five</summary>
     [JsonPropertyName("templates")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Templates { get; init; }
@@ -226,7 +226,7 @@ public sealed record PersonaInput
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<string>? Samples { get; init; }
 
-    /// <summary>This character's own break phrasings, one per line. Empty means the station's global ones</summary>
+    /// <summary>This character's own break phrasings, one per line. Empty means the station's own five</summary>
     [JsonPropertyName("templates")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Templates { get; init; }

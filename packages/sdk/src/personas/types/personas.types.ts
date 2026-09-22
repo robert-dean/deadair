@@ -43,7 +43,7 @@ export interface Persona {
     growth?: 'proposes' | 'self-directed';
     /** Lines in their own voice, used as examples and as a console preview */
     samples?: string[];
-    /** This character's own break phrasings, one per line. Empty means the station's global ones */
+    /** This character's own break phrasings, one per line. Empty means the station's own five */
     templates?: string;
     /** The station's own host: who presents when the broadcast on air names nobody. At most one per station. Was `active` until it was renamed, because a reader who had not read `PersonaRepository.presenting` reasonably took that to mean "on air", which it is not during a show that named its own host */
     defaultHost: boolean;
@@ -91,7 +91,7 @@ export interface PersonaInput {
     growth?: 'proposes' | 'self-directed';
     /** Lines in their own voice, used as examples and as a console preview */
     samples?: string[];
-    /** This character's own break phrasings, one per line. Empty means the station's global ones */
+    /** This character's own break phrasings, one per line. Empty means the station's own five */
     templates?: string;
 }
 

@@ -222,7 +222,7 @@
  * dialect has no business restating the station's phrasings in slightly different words. That reads
  * well and it costs the most: the classic host is the one a fresh install lands on, so it was the
  * single persona guaranteed to be on air with no voice of its own the moment the model declined —
- * which is the ordinary case by design, not the exception. Falling back to `rotation.breakTemplates`
+ * which is the ordinary case by design, not the exception. Falling back to the station's own five
  * there is the STATION talking, and a station that sounds like nobody in particular is what a
  * persona exists to prevent.
  *
@@ -351,7 +351,7 @@ const HOSTS = [
             "Here's one worth turning up, and we'll be right here when it's finished.",
         ],
         // The default host had none, which made it the one persona a fresh install lands on with no
-        // voice of its own the moment the model declines — it fell back to `rotation.breakTemplates`,
+        // voice of its own the moment the model declines — it fell back to the station's own five,
         // which is the station speaking rather than this character. Warm, contracted and second
         // person, which is the whole of what separates it from the station's own five.
         templates: [

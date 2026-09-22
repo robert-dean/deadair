@@ -15,7 +15,7 @@ Each kind of break has a model writer in front and the station's own phrasings b
 
 The model writer is off on a fresh install. Until you turn on "Let a model write the talk breaks" under Settings, Words, every break comes from the phrasings, instantly. The same switch covers welcomes, bulletins, weather and stories. Connecting a model is covered in [Models and voices](./models-and-voices.md).
 
-The phrasings are yours: "What the station says" under Settings, Rotation, one per line, with placeholders such as `{{next.artist}}` and optional parts in `[[double brackets]]`. Empty the box and the station's own come back; to stop it talking, turn off "Let the station interrupt itself". The character on air can bring its own phrasings, which go first: see [Characters](./characters.md).
+The phrasings are the character's: "Their own phrasings" on each one under Voice, Characters, one per line, with placeholders such as `{{next.artist}}` and optional parts in `[[double brackets]]`. Empty the box and the station's own come back; to stop it talking, turn off "Let the station interrupt itself". See [Characters](./characters.md).
 
 There is one model slot, and a break has priority on it over background work. A break that waits too long for it gives up and lets the floor write. Breaks are written as their slot nears, up to eight items ahead, and a station off the air writes nothing.
 

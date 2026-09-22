@@ -19,7 +19,7 @@ import {
 import { DEFAULT_RESTART_STUCK_CHAIN, RESTART_STUCK_CHAIN_KEY } from '#modules/playout/audio.chain.watchdog.js';
 import { DEFAULT_AUTO_EXTEND, DEFAULT_RULES, MIX_IN_EVERY_RANGE, ROTATION_KEYS } from '#modules/director/rotation.rules.js';
 import { DEFAULT_MAX_TRACK_SECONDS, DEFAULT_MIN_TRACK_SECONDS, TRACK_LENGTH_KEYS } from '#modules/director/track.length.js';
-import { DEFAULT_TEMPLATES, TEMPLATE_KEYS, TEMPLATE_VOCABULARY } from '#modules/director/break.templates.js';
+import { TEMPLATE_KEYS } from '#modules/director/break.templates.js';
 import {
     DEFAULT_THREAD_GAP_MINUTES,
     MAX_THREAD_GAP_MINUTES,
@@ -813,9 +813,12 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         default: WELCOME_TEMPLATES.join('\n'),
         dependsOn: ROTATION_KEYS.welcome,
         help:
-            'One phrasing per line, in the same syntax as the breaks above, with {{greeting}} for "good morning" and the like. ' +
-            'A greeting is deliberately not a back-announce: somebody who has just arrived did not hear the last record, so ' +
-            "{{previous.*}} is not offered here. Empty restores the station's own.",
+            'One phrasing per line, picked between so the station does not repeat itself. Fill in the record coming up with ' +
+            '{{next.title}} and {{next.artist}}, the station with {{station.name}}, the presenter with {{dj.name}} and "good morning" and the ' +
+            'like with {{greeting}}; wrap a part in [[double brackets]] to have it dropped when there is nothing to put in it; and start a ' +
+            'line with # to turn it off without losing it. A greeting is deliberately not a back-announce: somebody who has just arrived ' +
+            "did not hear the last record, so {{previous.*}} is not offered here. Empty restores the station's own. What a talk break says " +
+            'is written on each character instead.',
     },
     {
         group: 'rotation',
@@ -825,7 +828,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         default: JINGLE_TEMPLATES.join('\n'),
         dependsOn: ROTATION_KEYS.breaks,
         help:
-            'One phrasing per line, in the same syntax as the breaks above, said between two records when the station has no jingle recorded. ' +
+            'One phrasing per line, in the same syntax as the greetings above, said between two records when the station has no jingle recorded. ' +
             'Keep them short: a jingle that runs past a few seconds is a talk break. Only {{station.name}} and {{dj.name}} are offered, because a ' +
             "jingle is placed well ahead and must not name a record or the time of day. Empty restores the station's own.",
     },
@@ -893,7 +896,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         type: 'text',
         default: NEWS_TEMPLATES.join('\n'),
         help:
-            'One phrasing per line, in the same syntax as the breaks below, with {{news.headlines}} for the stories themselves. ' +
+            'One phrasing per line, in the same syntax as the greetings above, with {{news.headlines}} for the stories themselves. ' +
             'The headlines are read as published and this decides only what is said around them, which is why every line has to carry ' +
             "{{news.headlines}} outside its [[optional]] parts. Empty restores the station's own.",
     },
@@ -994,19 +997,6 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         type: 'boolean',
         default: DEFAULT_RULES.crossfade,
         help: "How long each blend lasts is measured from both records rather than set here, so a record that ends cold is barely ridden and one that fades is ridden as far as the next record can absorb it. An album or a sequenced setlist ignores this and stays cold by default, because its gaps are somebody else's decision.",
-    },
-    {
-        group: 'rotation',
-        key: TEMPLATE_KEYS.templates,
-        label: 'What the station says',
-        type: 'text',
-        default: DEFAULT_TEMPLATES.join('\n'),
-        dependsOn: ROTATION_KEYS.breaks,
-        help:
-            'One phrasing per line, picked between so the station does not repeat itself. ' +
-            `Fill in a record with ${TEMPLATE_VOCABULARY.map(name => `{{${name}}}`).join(', ')}, ` +
-            'and wrap a part in [[double brackets]] to have it dropped when there is nothing to put in it. ' +
-            "A line starting with # is off without being lost. Empty restores the station's own; to stop it talking, turn breaks off above.",
     },
 
     // ── playout ────────────────────────────────────────────────────────────────

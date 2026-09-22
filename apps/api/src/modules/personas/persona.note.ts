@@ -28,7 +28,7 @@
  *
  * ## They reach the model only
  *
- * The deterministic floor writes from `rotation.breakTemplates` and a persona's own phrasings, and a
+ * The deterministic floor writes from a persona's own phrasings or the station's own five, and a
  * template has nowhere to put a sentence like this. So a station with no model keeps its notebook and
  * never says anything out of it, which is the ordinary shape of everything else here: the floor
  * cannot fail, and what capability buys is depth.

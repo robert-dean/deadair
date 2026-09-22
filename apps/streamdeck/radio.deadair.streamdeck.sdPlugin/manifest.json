@@ -2,7 +2,7 @@
     "$schema": "https://schemas.elgato.com/streamdeck/plugins/manifest.json",
     "UUID": "radio.deadair.streamdeck",
     "Name": "deadair",
-    "Version": "0.2.1.0",
+    "Version": "0.2.2.0",
     "Author": "Marooned Software",
     "Description": "Your deadair station on a Stream Deck: what is on air with its cover and a moving playhead, Skip, a Stop that asks twice, and a heart on the record playing.",
     "URL": "https://deadair.radio",

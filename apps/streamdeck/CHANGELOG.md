@@ -8,6 +8,10 @@ version (the merge of the version pull request), tagged `streamdeck-v<version>`.
 
 ## [Unreleased]
 
+## [0.2.2] — 2026-09-22
+
+- The deadair heading in the Stream Deck app's action list now shows the station's own skull in headphones, in white, instead of a plain pair of headphones.
+
 ## [0.2.1] — 2026-09-22
 
 - The plugin asks the station what is on air every five seconds instead of every two, and once more just after the record on air is due to end, so a new record now shows on the Now Playing key within a second of starting. That is 60% fewer requests from a deck left on all day. A Now Playing key with the progress bar turned off also no longer runs the half-second clock that moves the bar.
@@ -22,7 +26,8 @@ version (the merge of the version pull request), tagged `streamdeck-v<version>`.
 - Each Now Playing key can leave out the progress bar, or the title and artist, from its own settings.
 - With no cover to show, the Now Playing key shows the deadair mark, faint while the station is stopped or not answering. When the station stops answering, the last cover stays on the key, faint.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/streamdeck-v0.2.1...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/streamdeck-v0.2.2...HEAD
+[0.2.2]: https://github.com/robert-dean/deadair/compare/streamdeck-v0.2.1...streamdeck-v0.2.2
 [0.2.1]: https://github.com/robert-dean/deadair/compare/streamdeck-v0.2.0...streamdeck-v0.2.1
 [0.2.0]: https://github.com/robert-dean/deadair/compare/streamdeck-v0.1.0...streamdeck-v0.2.0
 [0.1.0]: https://github.com/robert-dean/deadair/releases/tag/streamdeck-v0.1.0

@@ -9,6 +9,12 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.26.1] — 2026-09-22
+
+- The conspiracy host has been rewritten. He used to be one man with one alien abduction; he now believes all of the classic theories at once: aliens and Roswell, chemtrails, the flat earth, the moon landing filmed on a soundstage, and bigfoot. His talking points, sample lines, fallback phrasings and three seeded stories are all new. He still never touches anything that hurt anybody (illness, vaccines, elections, wars, disasters, real deaths) and never blames a real person, a religion, a people or a nationality. This changes the seed a fresh station starts with; a station that already has him keeps its own row until an operator edits it.
+- The Countdown host that ships with a new station is now keen on trivia. It tells the story behind a record first, then names it, drawing only on what the station knows about the track, the album and the artist. It says a chart position or a year only when the station's notes give one. An existing station keeps its own copy of the Countdown host as it is: to get the new behaviour, set "How much they lean on what the station knows" to Keen on its page in the console.
+- A persona can now be keen on trivia. Set "How much they lean on what the station knows" to Keen on a host and each talk break is handed up to four facts per record instead of two: one each about the track, its album and its artist before a second about any. The break is then built around the story behind the record, with room for about 70 words instead of 40. The rule that a host may only say what a note says is unchanged, and news, weather and welcomes are unaffected. Characters imported from a persona file carry the setting with them.
+
 ## [0.26.0] — 2026-09-22
 
 - **Settings, Breaks** is a new section holding how often the station talks and for how long: breaks,
@@ -717,7 +723,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.26.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.26.1...HEAD
+[0.26.1]: https://github.com/robert-dean/deadair/compare/v0.26.0...v0.26.1
 [0.26.0]: https://github.com/robert-dean/deadair/compare/v0.25.2...v0.26.0
 [0.25.2]: https://github.com/robert-dean/deadair/compare/v0.25.1...v0.25.2
 [0.25.1]: https://github.com/robert-dean/deadair/compare/v0.25.0...v0.25.1

@@ -724,7 +724,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         help: "How many of the playlist's own records play between one mixed-in record and the next. Four is roughly one in five of what a listener hears. A mixed-in record never goes next to a break, so the spacing can stretch by a record where one is in the way.",
     },
     {
-        group: 'rotation',
+        group: 'breaks',
         key: ROTATION_KEYS.breaks,
         label: 'Let the station interrupt itself',
         type: 'boolean',
@@ -732,7 +732,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         help: 'Whether the station plants its own idents and talk breaks into a rotation.',
     },
     {
-        group: 'rotation',
+        group: 'breaks',
         key: ROTATION_KEYS.breakEveryMinutes,
         label: 'Minutes between breaks',
         type: 'number',
@@ -741,7 +741,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         help: 'Fifteen is around as long as a station can go without saying its own name before it sounds like a playlist. Each sort of break keeps its own spacing, so a news bulletin does not push the next ident back.',
     },
     {
-        group: 'rotation',
+        group: 'breaks',
         key: ROTATION_KEYS.jingleEveryMinutes,
         label: 'Minutes between jingles',
         type: 'number',
@@ -752,11 +752,11 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         help:
             'A few seconds of the station saying its own name between two records, this often. Zero is off. A jingle never lands beside a ' +
             'break and a break always wins the boundary. Recordings dropped in the jingle folder, or uploaded as the jingle kind, are played ' +
-            'first; with none, the station says one of its own lines below, ending on a hit from the soundboard if the presenter has one. ' +
+            'first; with none, the station says one of its own lines, under Voice, Phrasings, ending on a hit from the soundboard if the presenter has one. ' +
             'Ten or so sounds like a commercial station; thirty is a nudge.',
     },
     {
-        group: 'rotation',
+        group: 'breaks',
         key: BREAK_WORD_KEYS.talk,
         label: 'Words a talk break may run to',
         type: 'number',
@@ -773,7 +773,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         help: 'How long the presenter may talk between two records. Forty is about fifteen seconds, which is a link rather than a monologue — and it is a ceiling rather than a target, so raising it lets a character run where it has something to say instead of making every break longer. A persona given latitude of its own still gets whichever is the greater.',
     },
     {
-        group: 'rotation',
+        group: 'breaks',
         key: BREAK_WORD_KEYS.story,
         label: 'Words a story may run to',
         type: 'number',
@@ -786,7 +786,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         help: 'How long the presenter may take over one of their own stories, when your clock asks for one. A hundred and twenty words is around three quarters of a minute. Stories are written on each persona; a character with none passes the slot over rather than filling it.',
     },
     {
-        group: 'rotation',
+        group: 'breaks',
         key: ROTATION_KEYS.welcome,
         label: 'Say hello to a new listener',
         type: 'boolean',
@@ -795,7 +795,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         help: 'Whether the station greets somebody who tunes in to an empty room, rather than leaving them to work out what they are listening to at the next break. It is held off for twenty minutes afterwards, so a phone changing networks does not get greeted twice.',
     },
     {
-        group: 'rotation',
+        group: 'breaks',
         key: ROTATION_KEYS.callins,
         label: 'Take calls',
         type: 'boolean',
@@ -803,7 +803,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         help: 'Whether somebody phones in while the station is on air. A call is a short programme rather than a break: your host takes it, a caller answers, and the few turns go into the running order as one block, each in its own voice. Who rings is drawn from the callers on the personas page, least recently heard first, so a station with none simply never takes one. Deliberately NOT under the breaks switch — a station that wants a DJ has said nothing about whether it wants a phone-in.',
     },
     {
-        group: 'rotation',
+        group: 'breaks',
         key: ROTATION_KEYS.callinEveryMinutes,
         label: 'Minutes between calls',
         type: 'number',

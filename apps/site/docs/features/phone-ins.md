@@ -18,7 +18,7 @@ Who rings in is a rotation: the caller heard from least recently goes first. A s
 ## Three ways to take a call
 
 - **Take a call** on the Desk puts somebody on the phone now, about what the broadcast is playing unless you type another subject. It lands a few minutes later, because the turns are written and spoken one at a time.
-- **A broadcast that takes calls.** "Take calls" under Settings, Rotation (off by default), or "Take calls during this broadcast" on a single block. "Minutes between calls" (thirty by default) counts from when the last call aired. A setlist or a feature never takes calls.
+- **A broadcast that takes calls.** "Take calls" under Settings, Breaks (off by default), or "Take calls during this broadcast" on a single block. "Minutes between calls" (thirty by default) counts from when the last call aired. A setlist or a feature never takes calls.
 - **A clock band** naming `callin` on the format clock commissions one ahead of its slot.
 
 All three inherit the show: its brief is the subject and its host presents. Otherwise a call would be about nothing in particular, presented by the station's default host rather than by whoever's programme it interrupts.

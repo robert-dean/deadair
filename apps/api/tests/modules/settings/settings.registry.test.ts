@@ -92,6 +92,23 @@ describe('the settings registry', () => {
         expect(findDescriptor('station.djName')?.group).toBe('personas');
     });
 
+    it('keeps how often the station talks in the Breaks section', () => {
+        // Split out of Rotation, which is about what plays. Each of these is a lineup override or a
+        // limit on one, so an operator deciding how chatty the station is finds them together.
+        for (const key of [
+            ROTATION_KEYS.breaks,
+            ROTATION_KEYS.breakEveryMinutes,
+            ROTATION_KEYS.jingleEveryMinutes,
+            ROTATION_KEYS.welcome,
+            ROTATION_KEYS.callins,
+            ROTATION_KEYS.callinEveryMinutes,
+            'rotation.breakWords',
+            'rotation.storyWords',
+        ]) {
+            expect(findDescriptor(key)?.group, key).toBe('breaks');
+        }
+    });
+
     it('keeps every station-wide phrasing in the group the Voice page draws', () => {
         // Drawn by the Phrasings tab and by no settings section. Back in `rotation` they would be six
         // boxes of eight rows at the bottom of the longest page in the console, a long way from

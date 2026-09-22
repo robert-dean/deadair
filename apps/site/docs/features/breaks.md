@@ -56,7 +56,7 @@ A presenter can also mention the date on an ordinary link, which is a separate s
 
 ## Jingles
 
-A jingle is a few seconds of the station saying its own name between two records. Set **"Minutes between jingles"** under Settings, Rotation to how often you want one; zero, the default, is off. A jingle never lands next to a break, and a break always gets first choice of the gap between two records.
+A jingle is a few seconds of the station saying its own name between two records. Set **"Minutes between jingles"** under Settings, Breaks to how often you want one; zero, the default, is off. A jingle never lands next to a break, and a break always gets first choice of the gap between two records.
 
 If you have jingles recorded, drop them in the segment inbox's `jingle` folder, or upload them on the Segments page with the kind `jingle`, and the station plays those, never the same one twice running. With none recorded, it says one of its own lines, from **"What the station says in a jingle"** under Voice, Phrasings, and ends it on a sound from the presenter's soundboard if they have one. Those lines only ever say the station's name and the presenter's, never a record or the time of day, because a jingle is placed well before it airs. For a jingle at one rate in the morning and another at night, add a `jingle` rule to the format clock instead.
 

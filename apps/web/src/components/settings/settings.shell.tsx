@@ -23,6 +23,7 @@ export type SettingsSectionId =
     | 'appearance'
     | 'security'
     | 'rotation'
+    | 'breaks'
     | 'playout'
     | 'render'
     | 'llm'
@@ -39,7 +40,7 @@ export type SettingsSectionId =
  * The fields split three ways and the split is the mechanism rather than convenience:
  *
  * - A section with a `group` draws that group's declared settings, and its `blurb` is the sentence
- *   under the heading. Six of them.
+ *   under the heading. Most of them.
  * - A section with neither draws a card of its own that answers to nothing in the registry:
  *   Appearance writes to this browser, Storage is read-only, Grants is somebody else's question.
  * - A section with a `route` is not a card at all. Plugins is its own page.
@@ -55,7 +56,7 @@ export interface SettingsSection {
      * tabs, which had nowhere to put it; the rail and the phone's list both do.
      */
     hint: string;
-    /** The declared group this section draws, for the six that draw one. */
+    /** The declared group this section draws, for the ones that draw one. */
     group?: StationSettingDescriptor['group'];
     /** The sentence under the heading. Only a section with a `group` has one. */
     blurb?: string;
@@ -127,12 +128,23 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     // station: a second factor protects this person's sign-in, and enrolling one changes nothing
     // about what listeners hear.
     { id: 'security', label: 'Security', hint: 'How you sign in' },
+    // Rotation was one section holding what the station plays, how often it talks, what goes into a
+    // bulletin and every word it says around them: forty-two fields and six boxes of phrasings under
+    // one save. Split along `SettingGroup` in `settings.types.ck`, as Station was; the phrasings went
+    // to the Voice page, which draws the `phrasings` group, so they are not a section here.
     {
         id: 'rotation',
         label: 'Rotation',
-        hint: 'How it programmes itself',
+        hint: 'What it plays, and how often it repeats',
         group: 'rotation',
-        blurb: 'How the station programmes itself when nothing more specific is asked for. A lineup can override any of these for itself, and a setlist or a feature ignores all of them.',
+        blurb: 'How the station programmes itself when nothing more specific is asked for: how soon a record or an artist may come back, how long a record may be, and where each batch comes from. A lineup can override the spacing rules for itself, and a setlist or a feature ignores all of them.',
+    },
+    {
+        id: 'breaks',
+        label: 'Breaks',
+        hint: 'How often it talks, and for how long',
+        group: 'breaks',
+        blurb: 'How often the station talks between records and how long it may go on: breaks, jingles, calls and the welcome for a new listener. A lineup can override whether it talks and how often, and a setlist or a feature switches all of it off. What it says is under Voice.',
     },
     {
         id: 'playout',
@@ -197,6 +209,7 @@ export const SETTINGS_ROUTES: Record<
     | '/settings/appearance'
     | '/settings/security'
     | '/settings/rotation'
+    | '/settings/breaks'
     | '/settings/playout'
     | '/settings/render'
     | '/settings/llm'
@@ -214,6 +227,7 @@ export const SETTINGS_ROUTES: Record<
     appearance: '/settings/appearance',
     security: '/settings/security',
     rotation: '/settings/rotation',
+    breaks: '/settings/breaks',
     playout: '/settings/playout',
     render: '/settings/render',
     llm: '/settings/llm',

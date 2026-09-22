@@ -25,6 +25,7 @@ import { PodcastEpisodeRepository } from '#modules/podcasts/podcast.episode.repo
 import { PodcastScheduler } from '#modules/podcasts/podcast.scheduler.js';
 import { SegmentRepository, type Segment } from '#modules/render/segment.repository.js';
 import { WARMUP_KIND } from './warmup.writer.js';
+import { WELCOME_KIND } from './welcome.writer.js';
 import { isRenderItem, segmentRundownTrack } from '#modules/render/segment.source.js';
 import { inScope } from '#modules/shared/scoped.work.js';
 import { ScrobbleService } from '#modules/scrobble/scrobble.service.js';
@@ -814,6 +815,14 @@ export class DirectorService {
 
                 const rules = resolveRules(lineup.mode, lineup.rules, stationRules(this.config));
                 const planner = scope.get(BreakPlanner);
+
+                // A jingle the listener is about to hear IS the greeting: the station saying its name
+                // twice in a row is worse than once. Not a fault and not counted against the cooldown,
+                // so the next arrival is judged afresh. See `BreakPlanner.greetedByJingle`.
+                if (request.kind === WELCOME_KIND && planner.greetedByJingle(lineup)) {
+                    this.logger.info('director: a jingle is about to greet the listener, so no welcome was asked for');
+                    return { accepted: false, reason: 'a jingle is about to say the station name' };
+                }
 
                 // Asked BEFORE the row is written, so the table does not fill with requests for a
                 // kind this station has no writer or no voice for.

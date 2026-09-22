@@ -3444,6 +3444,30 @@ describe('DirectorService opening a database scope', () => {
             expect(jobs.send.mock.calls.filter(([name]) => name === 'director.write_break')).toHaveLength(1);
         });
 
+        it('asks for no welcome when a jingle is about to say the station name, and does not spend the cooldown', async () => {
+            // A real, ready jingle: one the repository could not find would be passed over at
+            // hand-over, and a jingle the station skipped greets nobody.
+            const { director, seed, requests, lineup } = build({
+                canTalk: true,
+                segments: [{ id: 'jingle-1', kind: 'jingle', state: 'ready', label: 'Jingle', audioChecksum: 'x', audioExt: 'mp3' }],
+            });
+            await seed();
+            await director.start();
+            expect(lineup.insertSegments([{ segmentId: 'jingle-1', atIndex: lineup.committedThrough(), segmentKind: 'jingle' }])).toEqual({
+                ok: true,
+            });
+
+            const welcome = { ...asking, kind: 'welcome', key: 'welcome', cooldownMs: 20 * 60_000 } as const;
+            const declined = await director.requestBreak(welcome);
+
+            expect(declined.accepted).toBe(false);
+            expect(declined.reason).toContain('jingle');
+            expect(requests.open).not.toHaveBeenCalled();
+
+            // A talk break is not a greeting, so a jingle at the head says nothing about it.
+            expect((await director.requestBreak({ ...asking })).accepted).toBe(true);
+        });
+
         it('writes nothing down for a break this station could never produce', async () => {
             // Judged before the row exists, so the table does not fill with requests for a kind
             // nothing here can write or speak.

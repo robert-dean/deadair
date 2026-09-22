@@ -2121,3 +2121,50 @@ describe('BreakPlanner spacing its own jingles', () => {
         expect(plan.mock.calls.every(([input]) => input.kind === 'jingle')).toBe(true);
     });
 });
+
+// A listener arriving just before a jingle hears the station's name from it, so the director does not
+// ask for a welcome on top. What decides it is the stretch a rendered welcome would be put in front of.
+describe('BreakPlanner.greetedByJingle', () => {
+    /** Two records already with the player, so the head is index 2. */
+    const withHead = async () => lineupOf(10, 2);
+    const segmentAt = (lineup: StationLineup, atIndex: number, segmentKind: string) =>
+        expect(lineup.insertSegments([{ segmentId: `${segmentKind}-${atIndex}`, atIndex, segmentKind }])).toEqual({ ok: true });
+
+    it('is greeted by a jingle still to come at the head', async () => {
+        const lineup = await withHead();
+        segmentAt(lineup, 2, 'jingle');
+
+        expect(build().planner.greetedByJingle(lineup)).toBe(true);
+    });
+
+    it('is greeted by a jingle the player already holds', async () => {
+        const lineup = await withHead();
+        segmentAt(lineup, 2, 'jingle');
+        hand(lineup, 1);
+
+        expect(build().planner.greetedByJingle(lineup)).toBe(true);
+    });
+
+    it('is not greeted by a jingle past the record a welcome would go in front of', async () => {
+        const lineup = await withHead();
+        segmentAt(lineup, 5, 'jingle');
+
+        expect(build().planner.greetedByJingle(lineup)).toBe(false);
+    });
+
+    it('is not greeted by a jingle an operator cut', async () => {
+        const lineup = await withHead();
+        segmentAt(lineup, 2, 'jingle');
+        const jingle = lineup.all().find(item => item.kind === 'segment')!;
+        expect(lineup.remove(jingle.id)).toEqual({ ok: true });
+
+        expect(build().planner.greetedByJingle(lineup)).toBe(false);
+    });
+
+    it('is not greeted by an ident, which is left to the welcome as it always was', async () => {
+        const lineup = await withHead();
+        segmentAt(lineup, 2, 'ident');
+
+        expect(build().planner.greetedByJingle(lineup)).toBe(false);
+    });
+});

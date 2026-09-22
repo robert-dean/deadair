@@ -90,6 +90,16 @@ gives its segment no position on purpose and `DirectorService.injectReady` finds
 carries the re-offer that `ripen` cannot, since `ripen` walks the order and this break is deliberately outside
 it.
 
+**A jingle the listener is about to hear IS their welcome.** A rendered welcome lands in front of the first
+record at or after the head, so anything before that record is what a new listener hears first. When a
+jingle is in that stretch (still to come, with the player, or airing), `DirectorService.takeRequest` declines
+the welcome before writing anything down (`BreakPlanner.greetedByJingle`), because the station saying its own
+name twice in a row is worse than once. Nothing is removed: the decline is not an acceptance, so it spends no
+cooldown and the next arrival is judged afresh. A cut or skipped jingle greets nobody, and an ident does not
+count, which leaves the welcome exactly as it was on a station with jingles off. Merging the two kinds was
+considered and refused: the writer registry is keyed by kind, so `ModelWelcomeWriter` would have written
+every spaced jingle.
+
 ## A claim needs its evidence
 
 **A FACT is a claim with its evidence attached, and it is not a plugin's payload.** `deadair.facts` holds one

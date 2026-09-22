@@ -550,6 +550,32 @@ export class BreakPlanner {
     }
 
     /**
+     * Whether a listener arriving now will hear a jingle before a welcome could reach them.
+     *
+     * A welcome is rendered first and then put in front of the first record at or after the head
+     * (see {@link injectRequested}), so everything before that record is what the listener hears
+     * first. A jingle anywhere in that stretch, airing, with the player or still to come, is the
+     * station saying its own name to them already, and a welcome on top of it is the station saying
+     * it twice. So the jingle stands in for the greeting and the director does not ask for one.
+     *
+     * Nothing is removed and nothing is retired: this only decides whether a welcome is worth
+     * requesting. A jingle an operator has cut, or one the station passed over, greets nobody.
+     */
+    greetedByJingle(lineup: StationLineup): boolean {
+        const items = lineup.all();
+        const head = lineup.committedThrough();
+        const landing = items.findIndex((item, index) => index >= head && item.kind !== 'segment');
+        const heard = landing < 0 ? items : items.slice(0, landing);
+
+        return heard.some(
+            item =>
+                item.kind === 'segment' &&
+                item.segmentKind === JINGLE_KIND &&
+                (item.state === 'airing' || item.state === 'handed' || item.state === 'planned'),
+        );
+    }
+
+    /**
      * Whether this break can be produced at all, as a sentence saying why not.
      *
      * Public because a request is judged BEFORE anything is written down, which is what stops the

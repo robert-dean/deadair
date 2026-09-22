@@ -43,7 +43,7 @@ public struct Persona: Codable, Equatable, Sendable {
     public var growth: PersonaGrowth?
     /// Lines in their own voice, used as examples and as a console preview
     public var samples: [String]?
-    /// This character's own break phrasings, one per line. Empty means the station's global ones
+    /// This character's own break phrasings, one per line. Empty means the station's own five
     public var templates: String?
     /// The station's own host: who presents when the broadcast on air names nobody. At most one per station. Was `active` until it was renamed, because a reader who had not read `PersonaRepository.presenting` reasonably took that to mean "on air", which it is not during a show that named its own host
     public var defaultHost: Bool
@@ -202,7 +202,7 @@ public struct PersonaInput: Codable, Equatable, Sendable {
     public var growth: PersonaGrowth?
     /// Lines in their own voice, used as examples and as a console preview
     public var samples: [String]?
-    /// This character's own break phrasings, one per line. Empty means the station's global ones
+    /// This character's own break phrasings, one per line. Empty means the station's own five
     public var templates: String?
 
     public init(key: String, kind: PersonaKind? = nil, label: String, style: String, djName: String? = nil, voice: String? = nil, soundboard: String? = nil, diction: [String]? = nil, dictionMarkers: [String]? = nil, quirks: [String]? = nil, preoccupations: [String]? = nil, catchphrases: [String]? = nil, avoid: [String]? = nil, background: String? = nil, brevity: PersonaBrevity? = nil, latitude: PersonaLatitude? = nil, chattiness: PersonaChattiness? = nil, storytelling: PersonaStorytelling? = nil, growth: PersonaGrowth? = nil, samples: [String]? = nil, templates: String? = nil) {

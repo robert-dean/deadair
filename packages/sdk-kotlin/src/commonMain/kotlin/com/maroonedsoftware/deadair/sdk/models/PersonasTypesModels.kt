@@ -47,7 +47,7 @@ data class Persona(
     val growth: PersonaGrowth? = null,
     /** Lines in their own voice, used as examples and as a console preview */
     val samples: List<String>? = null,
-    /** This character's own break phrasings, one per line. Empty means the station's global ones */
+    /** This character's own break phrasings, one per line. Empty means the station's own five */
     val templates: String? = null,
     /** The station's own host: who presents when the broadcast on air names nobody. At most one per station. Was `active` until it was renamed, because a reader who had not read `PersonaRepository.presenting` reasonably took that to mean "on air", which it is not during a show that named its own host */
     val defaultHost: Boolean,
@@ -97,7 +97,7 @@ data class PersonaInput(
     val growth: PersonaGrowth? = null,
     /** Lines in their own voice, used as examples and as a console preview */
     val samples: List<String>? = null,
-    /** This character's own break phrasings, one per line. Empty means the station's global ones */
+    /** This character's own break phrasings, one per line. Empty means the station's own five */
     val templates: String? = null,
 )
 

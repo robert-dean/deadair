@@ -54,6 +54,14 @@ A day is mostly general history, so **"What the station picks out of the day"** 
 
 A presenter can also mention the date on an ordinary link, which is a separate switch: **"Let the presenter mention the date between records"** under Settings, Rotation, off by default. The day is offered rather than asked for, so most links ignore it and the ones that do not mention an anniversary in passing. Anything said that way is spent, so a band set to This day has one fewer entry to use.
 
+## Jingles
+
+A jingle is a few seconds of the station saying its own name between two records. Set **"Minutes between jingles"** under Settings, Rotation to how often you want one; zero, the default, is off. A jingle never lands next to a break, and a break always gets first choice of the gap between two records.
+
+If you have jingles recorded, drop them in the segment inbox's `jingle` folder, or upload them on the Segments page with the kind `jingle`, and the station plays those, never the same one twice running. With none recorded, it says one of its own lines, from **"What the station says in a jingle"** under Settings, Rotation, and ends it on a sound from the presenter's soundboard if they have one. Those lines only ever say the station's name and the presenter's, never a record or the time of day, because a jingle is placed well before it airs. For a jingle at one rate in the morning and another at night, add a `jingle` rule to the format clock instead.
+
+A listener who tunes in just before a jingle hears it as their welcome, and the station does not greet them a second time on top of it.
+
 ## What a break looks like
 
 A break is the station talking, so the stream's one line of text carries your station's name rather than the producer's label for it. What changes is the picture beside it: a weather forecast and a news bulletin each have one of their own, which a listener's app draws beside the title and a hardware player draws in its artwork slot. Every other kind of break shows your station's logo, as the bed and off air do.

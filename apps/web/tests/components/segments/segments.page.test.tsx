@@ -112,6 +112,26 @@ describe('SegmentsPage', () => {
         });
     });
 
+    it('knows a jingle is something the station plays, before any has been uploaded', async () => {
+        // `jingle` is a kind the station draws by itself between records, so the first one uploaded is
+        // not a new hour on the format clock and must not be warned about as one.
+        listSegments.mockResolvedValue({ segments: [] });
+        listVoices.mockResolvedValue({ voices: [] });
+
+        render(<SegmentsPage />);
+
+        const user = setupUser();
+        await user.click(await screen.findByRole('button', { name: 'Upload' }));
+        const kind = screen.getByRole('combobox', { name: /^Kind/ });
+        await user.clear(kind);
+        await user.type(kind, 'jingle');
+        expect(screen.queryByText(/holds nothing of this kind yet/)).not.toBeInTheDocument();
+
+        await user.clear(kind);
+        await user.type(kind, 'sponsor');
+        expect(screen.getByText(/holds nothing of this kind yet/)).toBeInTheDocument();
+    });
+
     it('will not plan one with nothing to say', async () => {
         listSegments.mockResolvedValue({ segments: [] });
         listVoices.mockResolvedValue({ voices: [] });

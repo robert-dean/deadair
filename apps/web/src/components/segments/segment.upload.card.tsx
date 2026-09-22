@@ -48,7 +48,11 @@ export function SegmentUploadCard({ kinds, onDone }: { kinds: string[]; onDone: 
         onDone();
     };
 
-    const unfamiliar = kind.trim() !== '' && !kinds.includes(kind.trim());
+    // The kinds the station itself plays from the shelf are offered whether or not anything is filed
+    // under them yet, and are never "unfamiliar": a jingle recorded for the first time is not a new
+    // hour on the clock, it is what `rotation.jingleEveryMinutes` was waiting for.
+    const offered = [...new Set([...STATION_KINDS, ...kinds])].sort();
+    const unfamiliar = kind.trim() !== '' && !offered.includes(kind.trim());
 
     return (
         <Card withBorder padding="md">
@@ -61,7 +65,7 @@ export function SegmentUploadCard({ kinds, onDone }: { kinds: string[]; onDone: 
                     <Autocomplete
                         label="Kind"
                         description="What sort of element it is. It is also the folder the file is filed under."
-                        data={kinds}
+                        data={offered}
                         value={kind}
                         onChange={setKind}
                         style={{ flex: '0 0 16rem' }}
@@ -174,6 +178,12 @@ interface Staged {
 
 /** What a recording is when nobody says. `SegmentLibrary`'s own default kind. */
 const DEFAULT_KIND = 'ident';
+
+/**
+ * Kinds the station draws from the library by itself: an ident between talk breaks, and a jingle
+ * between records. The API's `IDENT_KIND` and `JINGLE_KIND`.
+ */
+const STATION_KINDS = ['ident', 'jingle'];
 
 /** What the store serves, as the dropzone's filter. Kept in step with `SEGMENT_CONTENT_TYPES`. */
 const ACCEPTED = ['audio/mpeg', 'audio/wav', 'audio/x-wav', 'audio/ogg', 'audio/flac', 'audio/mp4', 'audio/x-m4a'];

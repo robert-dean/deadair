@@ -12,9 +12,9 @@ import {
     sanitizeArtistEnrichment,
     sanitizeEnrichment,
 } from './enrichment.merge.js';
-import { EnrichmentRepository, type FactPayload, type StoredProviderPayload } from './enrichment.repository.js';
+import { EnrichmentRepository, type FactPayload, type StoredProviderPayload, type TrackFactPayloads } from './enrichment.repository.js';
 import { EnrichmentService } from './enrichment.service.js';
-import { FactRepository, type FactSubjectType, type StoredFact } from './fact.repository.js';
+import { FACT_SUBJECTS, FactRepository, type ClaimForTrack, type FactSubjectType, type StoredFact } from './fact.repository.js';
 
 /**
  * How many facts one record contributes to a talk break.
@@ -26,6 +26,29 @@ import { FactRepository, type FactSubjectType, type StoredFact } from './fact.re
  * slower answer.
  */
 export const MAX_BREAK_FACTS = 2;
+
+/**
+ * How many facts one record may contribute to a break, and how they are drawn.
+ *
+ * `spread: false` is the ordinary read: preference order straight down, so a record with two things
+ * known about the recording never mentions its album or whoever made it. That is right for a break
+ * that uses one note at most, because the most specific note is the best one to have.
+ *
+ * `spread: true` takes one from each level before a second from any, for a presenter whose break IS
+ * the story behind the record and who needs the artist and the album as well as the take. Within a
+ * level the order is unchanged, claims first and provider facts behind them, so what spreading gives
+ * up is only the rule that a claim about the ARTIST outranks a provider line about the album. That
+ * is the trade being asked for: a note about each thing, rather than the best two notes about one.
+ */
+export interface FactBudget {
+    /** The most facts one record contributes. */
+    limit: number;
+    /** Whether to draw across the recording, its record and its artist before going deeper into any. */
+    spread: boolean;
+}
+
+/** What every caller that says nothing gets: the budget the station's ordinary break was sized for. */
+export const DEFAULT_FACT_BUDGET: FactBudget = { limit: MAX_BREAK_FACTS, spread: false };
 
 /**
  * How long a fact may be before it is dropped rather than trimmed.
@@ -76,8 +99,10 @@ const byProviderRank = (order: string[]) => {
  * Nothing here has to fill the budget. A record with one usable fact contributes one, and a record
  * whose only fact was too long to say contributes none, which is an ordinary outcome rather than a
  * gap to pad — the writers all have phrasings that say nothing about the record at all.
+ *
+ * `limit` is the budget, and it is the caller's so a spread read can rotate each level on its own.
  */
-export function chooseFacts(facts: readonly string[], rotate = 0): string[] {
+export function chooseFacts(facts: readonly string[], rotate = 0, limit = MAX_BREAK_FACTS): string[] {
     const kept: string[] = [];
     const seen = new Set<string>();
 
@@ -95,7 +120,53 @@ export function chooseFacts(facts: readonly string[], rotate = 0): string[] {
     if (kept.length === 0) return [];
 
     const from = ((rotate % kept.length) + kept.length) % kept.length;
-    return [...kept.slice(from), ...kept.slice(0, from)].slice(0, MAX_BREAK_FACTS);
+    return [...kept.slice(from), ...kept.slice(0, from)].slice(0, limit);
+}
+
+/**
+ * One level's candidates for a spread read, in the order that level would hand them over.
+ *
+ * Claims first and provider facts behind them, which is {@link EnrichmentReadService.factsForTracks}'
+ * top-up rule applied inside one level instead of across all three.
+ */
+interface LevelCandidates {
+    claims: ClaimForTrack[];
+    supplied: string[];
+}
+
+/**
+ * Draw up to `limit` facts across the levels, one from each before a second from any.
+ *
+ * Answers the sentences in the order they were drawn and the ids of the claims among them, since
+ * only a claim has a cooldown to stamp. A sentence already taken from another level is skipped
+ * rather than counted, so a line two providers composed about the artist and the album is said once
+ * and costs one slot.
+ */
+function spreadAcross(levels: readonly LevelCandidates[], limit: number): { chosen: string[]; used: string[] } {
+    const queues = levels.map(level => [
+        ...level.claims.map(claim => ({ line: claim.claim, id: claim.id as string | undefined })),
+        ...level.supplied.map(line => ({ line, id: undefined as string | undefined })),
+    ]);
+    const chosen: string[] = [];
+    const used: string[] = [];
+    const said = new Set<string>();
+
+    while (chosen.length < limit && queues.some(queue => queue.length > 0)) {
+        for (const queue of queues) {
+            if (chosen.length >= limit) break;
+
+            // Past anything another level already said, so a duplicate never spends this level's turn.
+            let next = queue.shift();
+            while (next !== undefined && said.has(next.line.toLowerCase())) next = queue.shift();
+            if (next === undefined) continue;
+
+            said.add(next.line.toLowerCase());
+            chosen.push(next.line);
+            if (next.id !== undefined) used.push(next.id);
+        }
+    }
+
+    return { chosen, used };
 }
 
 /**
@@ -240,11 +311,20 @@ export class EnrichmentReadService {
      * Only tracks with something to say appear in the answer. Absent is the ordinary case: on a
      * fresh install nothing has been enriched at all, and a station with no facts talks perfectly
      * well.
+     *
+     * `budget` is how many each record contributes and whether they are spread across the levels.
+     * Absent is {@link DEFAULT_FACT_BUDGET}, and a caller saying nothing gets exactly the read this
+     * was before there was a choice. See {@link FactBudget}.
      */
-    async factsForTracks(trackIds: readonly string[], rotate = 0, options: { stamp?: boolean } = {}): Promise<Map<string, string[]>> {
+    async factsForTracks(
+        trackIds: readonly string[],
+        rotate = 0,
+        options: { stamp?: boolean; budget?: FactBudget } = {},
+    ): Promise<Map<string, string[]>> {
         const facts = new Map<string, string[]>();
         if (trackIds.length === 0) return facts;
 
+        const budget = options.budget ?? DEFAULT_FACT_BUDGET;
         const ids = [...new Set(trackIds)];
         const [stored, claims] = await Promise.all([
             this.enrichmentRepository.findFactPayloadsForTracks(ids),
@@ -254,29 +334,32 @@ export class EnrichmentReadService {
         const used: string[] = [];
 
         for (const trackId of ids) {
-            const believed = (claims.get(trackId) ?? []).slice(0, MAX_BREAK_FACTS);
+            const row = stored.find(payloads => payloads.trackId === trackId);
+            const supplied = this.suppliedFacts(row);
+
+            if (budget.spread) {
+                const believed = claims.get(trackId) ?? [];
+                const drawn = spreadAcross(
+                    FACT_SUBJECTS.map(level => ({
+                        claims: believed.filter(claim => claim.level === level),
+                        supplied: chooseFacts(supplied[level], rotate, budget.limit),
+                    })),
+                    budget.limit,
+                );
+
+                used.push(...drawn.used);
+                if (drawn.chosen.length > 0) facts.set(trackId, drawn.chosen);
+                continue;
+            }
+
+            const believed = (claims.get(trackId) ?? []).slice(0, budget.limit);
             used.push(...believed.map(claim => claim.id));
 
             const chosen = [...believed.map(claim => claim.claim)];
-            const row = stored.find(payloads => payloads.trackId === trackId);
 
-            if (chosen.length < MAX_BREAK_FACTS && row !== undefined) {
-                const supplied = chooseFacts(
-                    [
-                        ...(mergeEnrichment(this.ranked(row.track, this.enrichmentService.providerIds()).map(data => sanitizeEnrichment(data)))
-                            .facts ?? []),
-                        ...(mergeAlbumEnrichment(
-                            this.ranked(row.album, this.enrichmentService.albumProviderIds()).map(data => sanitizeAlbumEnrichment(data)),
-                        ).facts ?? []),
-                        ...(mergeArtistEnrichment(
-                            this.ranked(row.artist, this.enrichmentService.artistProviderIds()).map(data => sanitizeArtistEnrichment(data)),
-                        ).facts ?? []),
-                    ],
-                    rotate,
-                );
-
-                for (const fact of supplied) {
-                    if (chosen.length >= MAX_BREAK_FACTS) break;
+            if (chosen.length < budget.limit && row !== undefined) {
+                for (const fact of chooseFacts([...supplied.track, ...supplied.album, ...supplied.artist], rotate, budget.limit)) {
+                    if (chosen.length >= budget.limit) break;
                     if (!chosen.some(already => already.toLowerCase() === fact.toLowerCase())) chosen.push(fact);
                 }
             }
@@ -295,6 +378,24 @@ export class EnrichmentReadService {
         if (options.stamp !== false) void this.factRepository.markUsed(used).catch(() => undefined);
 
         return facts;
+    }
+
+    /**
+     * What the providers composed about one record, a list per level, each merged in plugin-priority
+     * order and not yet cleaned or rotated. Empty lists for a track nothing has been stored about.
+     */
+    private suppliedFacts(row: TrackFactPayloads | undefined): Record<FactSubjectType, string[]> {
+        if (row === undefined) return { track: [], album: [], artist: [] };
+
+        return {
+            track: mergeEnrichment(this.ranked(row.track, this.enrichmentService.providerIds()).map(data => sanitizeEnrichment(data))).facts ?? [],
+            album:
+                mergeAlbumEnrichment(this.ranked(row.album, this.enrichmentService.albumProviderIds()).map(data => sanitizeAlbumEnrichment(data)))
+                    .facts ?? [],
+            artist:
+                mergeArtistEnrichment(this.ranked(row.artist, this.enrichmentService.artistProviderIds()).map(data => sanitizeArtistEnrichment(data)))
+                    .facts ?? [],
+        };
     }
 
     /** One level's payloads in plugin-priority order, which is the order the merge has to see them in. */

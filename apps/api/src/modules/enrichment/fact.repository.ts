@@ -100,6 +100,14 @@ export interface FactWrite {
 export interface ClaimForTrack {
     id: string;
     claim: string;
+    /**
+     * Which of the three things this claim is about.
+     *
+     * The one piece of provenance a writer does get, and only because a reader spreading its budget
+     * across the recording, its record and whoever made it has to know which is which. It was already
+     * the query's sort key; this hands it over rather than throwing it away.
+     */
+    level: FactSubjectType;
 }
 
 /** A claim on its way out, as the reader wants it. */
@@ -395,7 +403,7 @@ export class FactRepository extends DataRepository {
 
         for (const row of rows.rows) {
             const claims = found.get(row.trackId) ?? [];
-            claims.push({ id: row.factId, claim: row.claim });
+            claims.push({ id: row.factId, claim: row.claim, level: FACT_SUBJECTS[row.level] ?? 'artist' });
             found.set(row.trackId, claims);
         }
 

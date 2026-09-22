@@ -392,6 +392,107 @@ describe('EnrichmentReadService', () => {
             expect(repository.findFactPayloadsForTracks).not.toHaveBeenCalled();
         });
 
+        // A presenter whose break IS the story behind the record needs the artist and the album as
+        // well as the take. The ordinary read never reaches them on a record with two track facts.
+        describe('spread across the recording, its record and whoever made it', () => {
+            const SPREAD = { budget: { limit: 4, spread: true } };
+            const levels = factRows({
+                track: [{ facts: ['Recorded in one take.', 'It was used in a film.'] }],
+                album: [{ facts: ['The record was cut at Abbey Road.'] }],
+                artist: [{ facts: ['Portishead formed in Bristol in 1991.'] }],
+            });
+
+            it('takes one from each level before a second from any', async () => {
+                await expect(factReader(levels).factsForTracks([TRACK_ID], 0, SPREAD)).resolves.toEqual(
+                    new Map([
+                        [
+                            TRACK_ID,
+                            [
+                                'Recorded in one take.',
+                                'The record was cut at Abbey Road.',
+                                'Portishead formed in Bristol in 1991.',
+                                'It was used in a film.',
+                            ],
+                        ],
+                    ]),
+                );
+            });
+
+            it('stops at the budget, and still reaches every level first', async () => {
+                await expect(factReader(levels).factsForTracks([TRACK_ID], 0, { budget: { limit: 3, spread: true } })).resolves.toEqual(
+                    new Map([[TRACK_ID, ['Recorded in one take.', 'The record was cut at Abbey Road.', 'Portishead formed in Bristol in 1991.']]]),
+                );
+            });
+
+            it('fills a level that has nothing from the ones that do', async () => {
+                const read = factReader(
+                    factRows({
+                        track: [{ facts: ['Recorded in one take.', 'It was used in a film.'] }],
+                        artist: [{ facts: ['Formed in Bristol.', 'Signed to Go! Beat.'] }],
+                    }),
+                );
+
+                await expect(read.factsForTracks([TRACK_ID], 0, SPREAD)).resolves.toEqual(
+                    new Map([[TRACK_ID, ['Recorded in one take.', 'Formed in Bristol.', 'It was used in a film.', 'Signed to Go! Beat.']]]),
+                );
+            });
+
+            it('says a line once when two levels carry it, without it costing a slot', async () => {
+                const read = factReader(
+                    factRows({
+                        track: [{ facts: ['Formed in Bristol in 1991.'] }],
+                        artist: [{ facts: ['formed in bristol in 1991.', 'Signed to Go! Beat.'] }],
+                    }),
+                );
+
+                await expect(read.factsForTracks([TRACK_ID], 0, SPREAD)).resolves.toEqual(
+                    new Map([[TRACK_ID, ['Formed in Bristol in 1991.', 'Signed to Go! Beat.']]]),
+                );
+            });
+
+            it('puts a level’s claims ahead of its provider lines, and stamps only the claims it handed over', async () => {
+                const believed = new Map<string, ClaimForTrack[]>([
+                    [
+                        TRACK_ID,
+                        [
+                            { id: 'track-claim', claim: 'It reached number three.', level: 'track' },
+                            { id: 'artist-claim-1', claim: 'They met at a job centre.', level: 'artist' },
+                            { id: 'artist-claim-2', claim: 'Their first record won a prize.', level: 'artist' },
+                        ],
+                    ],
+                ]);
+                const facts = fakeFacts([], believed);
+                const read = new EnrichmentReadService(fakeRepository({}, levels), fakeService([MUSICBRAINZ]), facts);
+
+                await expect(read.factsForTracks([TRACK_ID], 0, { budget: { limit: 3, spread: true } })).resolves.toEqual(
+                    new Map([[TRACK_ID, ['It reached number three.', 'The record was cut at Abbey Road.', 'They met at a job centre.']]]),
+                );
+                expect(facts.markUsed).toHaveBeenCalledWith(['track-claim', 'artist-claim-1']);
+            });
+
+            it('rotates within each level, so a record played twice opens differently', async () => {
+                await expect(factReader(levels).factsForTracks([TRACK_ID], 1, SPREAD)).resolves.toEqual(
+                    new Map([
+                        [
+                            TRACK_ID,
+                            [
+                                'It was used in a film.',
+                                'The record was cut at Abbey Road.',
+                                'Portishead formed in Bristol in 1991.',
+                                'Recorded in one take.',
+                            ],
+                        ],
+                    ]),
+                );
+            });
+
+            it('leaves the ordinary read exactly as it was when a caller asks for nothing', async () => {
+                await expect(factReader(levels).factsForTracks([TRACK_ID])).resolves.toEqual(
+                    new Map([[TRACK_ID, ['Recorded in one take.', 'It was used in a film.']]]),
+                );
+            });
+        });
+
         // A claim carries the span of an article that says so, and a provider's `facts` line carries
         // a source name. Only one of those can be checked when something sounds wrong on air.
         describe('against what the station believes', () => {

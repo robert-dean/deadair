@@ -15,7 +15,7 @@ Each kind of break has a model writer in front and the station's own phrasings b
 
 The model writer is off on a fresh install. Until you turn on "Let a model write the talk breaks" under Settings, Words, every break comes from the phrasings, instantly. The same switch covers welcomes, bulletins, weather and stories. Connecting a model is covered in [Models and voices](./models-and-voices.md).
 
-The phrasings are the character's: "Their own phrasings" on each one under Voice, Characters, one per line, with placeholders such as `{{next.artist}}` and optional parts in `[[double brackets]]`. Empty the box and the station's own come back; to stop it talking, turn off "Let the station interrupt itself". See [Characters](./characters.md).
+The phrasings are the character's: "Their own phrasings" on each one under Voice, Characters, one per line, with placeholders such as `{{next.artist}}` and optional parts in `[[double brackets]]`. Empty the box and the station's own come back; to stop it talking, turn off "Let the station interrupt itself". See [Characters](./characters.md). The words around everything else it says (a welcome, a jingle, the news, the weather and the date) belong to the station rather than to a character, and are under Voice, Phrasings, in the same syntax.
 
 There is one model slot, and a break has priority on it over background work. A break that waits too long for it gives up and lets the floor write. Breaks are written as their slot nears, up to eight items ahead, and a station off the air writes nothing.
 
@@ -58,7 +58,7 @@ A presenter can also mention the date on an ordinary link, which is a separate s
 
 A jingle is a few seconds of the station saying its own name between two records. Set **"Minutes between jingles"** under Settings, Rotation to how often you want one; zero, the default, is off. A jingle never lands next to a break, and a break always gets first choice of the gap between two records.
 
-If you have jingles recorded, drop them in the segment inbox's `jingle` folder, or upload them on the Segments page with the kind `jingle`, and the station plays those, never the same one twice running. With none recorded, it says one of its own lines, from **"What the station says in a jingle"** under Settings, Rotation, and ends it on a sound from the presenter's soundboard if they have one. Those lines only ever say the station's name and the presenter's, never a record or the time of day, because a jingle is placed well before it airs. For a jingle at one rate in the morning and another at night, add a `jingle` rule to the format clock instead.
+If you have jingles recorded, drop them in the segment inbox's `jingle` folder, or upload them on the Segments page with the kind `jingle`, and the station plays those, never the same one twice running. With none recorded, it says one of its own lines, from **"What the station says in a jingle"** under Voice, Phrasings, and ends it on a sound from the presenter's soundboard if they have one. Those lines only ever say the station's name and the presenter's, never a record or the time of day, because a jingle is placed well before it airs. For a jingle at one rate in the morning and another at night, add a `jingle` rule to the format clock instead.
 
 A listener who tunes in just before a jingle hears it as their welcome, and the station does not greet them a second time on top of it.
 

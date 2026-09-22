@@ -46,7 +46,11 @@ export const WELCOME_KIND = 'welcome';
 /** What `segments.writer` records for anything written here. */
 export const WELCOME_WRITER = 'deterministic';
 
-/** The `deadair.settings` key for the phrasings. In `rotation`, beside the station's other words. */
+/**
+ * The `deadair.settings` key for the phrasings. In the `phrasings` group, drawn on the Voice page's
+ * Phrasings tab; the `rotation.` prefix is from when they sat under Rotation, kept so a stored row
+ * still answers.
+ */
 export const WELCOME_KEYS = {
     templates: 'rotation.welcomeTemplates',
 } as const;

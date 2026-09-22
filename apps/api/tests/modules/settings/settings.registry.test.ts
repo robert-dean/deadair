@@ -92,6 +92,21 @@ describe('the settings registry', () => {
         expect(findDescriptor('station.djName')?.group).toBe('personas');
     });
 
+    it('keeps every station-wide phrasing in the group the Voice page draws', () => {
+        // Drawn by the Phrasings tab and by no settings section. Back in `rotation` they would be six
+        // boxes of eight rows at the bottom of the longest page in the console, a long way from
+        // anything else about what the station says.
+        for (const key of [
+            'rotation.welcomeTemplates',
+            'rotation.jingleTemplates',
+            'rotation.newsTemplates',
+            'rotation.weatherTemplates',
+            'rotation.almanacTemplates',
+        ]) {
+            expect(findDescriptor(key)?.group, key).toBe('phrasings');
+        }
+    });
+
     it('declares no station-wide talk-break phrasings', () => {
         // They are written on each character. A box here would read as the station's voice while
         // changing nothing a listener hears, since every character's own phrasings go first.

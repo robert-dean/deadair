@@ -3,6 +3,7 @@ import { Stack, Title } from '@mantine/core';
 import { PadsPage } from '../pads/pads.page';
 import { PersonasPage } from '../personas/personas.page';
 import { PersonaAuditionsPage } from '../personas/persona.auditions.page';
+import { PhrasingsPage } from '../phrasings/phrasings.page';
 import { ProductionsPage } from '../productions/productions.page';
 import { PronunciationsPage } from '../pronunciations/pronunciations.page';
 import { ScriptsPage } from '../scripts/scripts.page';
@@ -20,6 +21,7 @@ export const VOICE_TABS = [
     { key: 'segments', label: 'Segments', hint: 'Recordings it plays rather than speaks' },
     { key: 'pronunciations', label: 'Pronunciations', hint: 'Names it was getting wrong' },
     { key: 'soundboard', label: 'Soundboard', hint: 'Beds, stings and what plays under a break' },
+    { key: 'phrasings', label: 'Phrasings', hint: 'Its words around a greeting, a jingle or a bulletin' },
     { key: 'subjects', label: 'Subjects', hint: 'What it is allowed to talk about' },
     { key: 'productions', label: 'Productions', hint: 'Phone-ins and anything with more than one voice' },
     { key: 'said', label: 'What it said', hint: 'Every break it has written, and every one it declined' },
@@ -102,6 +104,8 @@ function body(tab: VoiceTab, segment?: string, persona?: string) {
             return <PronunciationsPage />;
         case 'soundboard':
             return <PadsPage />;
+        case 'phrasings':
+            return <PhrasingsPage />;
         case 'subjects':
             return <TopicsPage />;
         case 'productions':

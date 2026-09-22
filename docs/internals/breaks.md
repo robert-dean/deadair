@@ -40,7 +40,9 @@ station-wide set in between, `rotation.breakTemplates`, and it was removed once 
 carried its own: the chain read it only for a character with none, which on a stock station is nobody, and
 the live station's copy was the five word for word. A stored row under the key is read by nothing. The
 OTHER kinds (welcome, jingle, news, weather, the date) have no per-character phrasings and keep a
-station-wide set each. `{{next.title}}` resolves through an
+station-wide set each: the `phrasings` setting group, which no settings section draws and the Voice page's
+Phrasings tab does (`SettingsGroupPage`). Their keys keep the `rotation.` prefix from when they sat at the
+bottom of Rotation, so a stored row still answers. `{{next.title}}` resolves through an
 explicit map in `break.templates.ts` (which is why `{{next.album}}` is one row to add when enrichment
 lands), `[[double brackets]]` mark a part dropped when it cannot be filled, and a template with an
 unknown placeholder is never used and is logged once, quoted. Two rules are the writer's rather than

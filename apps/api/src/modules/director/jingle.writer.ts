@@ -54,7 +54,11 @@ export const JINGLE_KIND = 'jingle';
 /** What `segments.writer` records for anything written here. */
 export const JINGLE_WRITER = 'deterministic';
 
-/** The `deadair.settings` key for the phrasings. In `rotation`, beside the station's other words. */
+/**
+ * The `deadair.settings` key for the phrasings. In the `phrasings` group, drawn on the Voice page's
+ * Phrasings tab; the `rotation.` prefix is from when they sat under Rotation, kept so a stored row
+ * still answers.
+ */
 export const JINGLE_KEYS = {
     templates: 'rotation.jingleTemplates',
 } as const;

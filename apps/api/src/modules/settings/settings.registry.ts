@@ -814,7 +814,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         help: 'Airtime between one call ending and the next being asked for. Its own number rather than the break spacing, because a call runs minutes where a break runs seconds: at the break spacing the station would be on the phone for a fifth of the hour. The first call of a broadcast is not made to wait — the count starts once one has aired.',
     },
     {
-        group: 'rotation',
+        group: 'phrasings',
         key: WELCOME_KEYS.templates,
         label: 'What the station says to a new listener',
         type: 'text',
@@ -829,7 +829,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
             'is written on each character instead.',
     },
     {
-        group: 'rotation',
+        group: 'phrasings',
         key: JINGLE_KEYS.templates,
         label: 'What the station says in a jingle',
         type: 'text',
@@ -898,7 +898,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
             'still offered to the presenter.',
     },
     {
-        group: 'rotation',
+        group: 'phrasings',
         key: NEWS_KEYS.templates,
         label: 'How the station introduces the news',
         type: 'text',
@@ -948,7 +948,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
             'clock asks for and which reports the reading properly.',
     },
     {
-        group: 'rotation',
+        group: 'phrasings',
         key: WEATHER_BREAK_KEYS.templates,
         label: 'How the station gives the weather',
         type: 'text',
@@ -972,7 +972,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
             'ABOUT the date, which a band asks for and which reads an entry out properly.',
     },
     {
-        group: 'rotation',
+        group: 'phrasings',
         key: ALMANAC_BREAK_KEYS.templates,
         label: 'How the station reads the date out',
         type: 'text',

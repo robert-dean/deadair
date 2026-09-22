@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Card, Stack, Text, Title } from '@mantine/core';
-import type { ConfigFieldDescriptor, StationSettings } from '@deadair/sdk';
+import type { ConfigFieldDescriptor, StationSettingDescriptor, StationSettings } from '@deadair/sdk';
 
 import { useSettings, useUpdateSettings } from '../../api/settings.queries';
 import { EmptyState } from '../shared/empty.state';
@@ -42,7 +42,22 @@ export function SettingsSectionPage({ section: id }: SettingsSectionPageProps) {
     // the difference between them IS whether a hook runs.
     if (section.group === undefined) return <StandaloneSection section={section} />;
 
-    return <GroupSection section={section} group={section.group} />;
+    return (
+        <SettingsGroupPage
+            group={section.group}
+            label={section.label}
+            header={
+                <Stack gap="xxs">
+                    <Title order={2} size="h4">
+                        {section.label}
+                    </Title>
+                    <Text size="sm" c="dimmed">
+                        {section.blurb}
+                    </Text>
+                </Stack>
+            }
+        />
+    );
 }
 
 export interface SettingsSectionPageProps {
@@ -82,8 +97,16 @@ function StandaloneSection({ section }: { section: SettingsSection }) {
     return <EmptyState title="Nothing here yet">This section is in the list but has nothing to draw yet.</EmptyState>;
 }
 
-/** A section that draws its declared settings, which is six of them. */
-function GroupSection({ section, group }: { section: SettingsSection; group: NonNullable<SettingsSection['group']> }) {
+/**
+ * One declared group of settings, drawn as a form with its own save.
+ *
+ * Exported because not every group is a section of this page. `phrasings` is drawn by the Voice
+ * page's Phrasings tab, beside everything else about what the station says, and it is the same
+ * form: the rendering is `ConfigFieldsForm` and the write is partial, so a group knows nothing about
+ * the others wherever it is drawn. A tab that wrote its own copy of this would be a second place
+ * for the skeleton, the empty state and the unsaved guard to drift.
+ */
+export function SettingsGroupPage({ group, label, header }: SettingsGroupPageProps) {
     const settings = useSettings();
 
     // One flag rather than the set this held while every section shared a page: there is one form
@@ -110,26 +133,39 @@ function GroupSection({ section, group }: { section: SettingsSection; group: Non
     // built yet, and drawing a heading over nothing invites the operator to look for them. The
     // section list leaves it out for the same reason, so this is only reachable by typing the URL.
     if (fields.length === 0) {
-        return <EmptyState title={`No ${section.label.toLowerCase()} settings yet`}>Nothing declares a setting in this section yet.</EmptyState>;
+        return <EmptyState title={`No ${label.toLowerCase()} settings yet`}>Nothing declares a setting in this section yet.</EmptyState>;
     }
 
     return (
         <Stack gap="lg">
             <UnsavedGuard dirty={unsaved} />
-            <SettingsGroupCard section={section} fields={fields} settings={settings.data} onDirtyChange={setUnsaved} />
+            <SettingsGroupCard label={label} header={header} fields={fields} settings={settings.data} onDirtyChange={setUnsaved} />
         </Stack>
     );
 }
 
+export interface SettingsGroupPageProps {
+    /** The declared group to draw. */
+    group: StationSettingDescriptor['group'];
+    /** What the group is called, for the save button and the empty state. */
+    label: string;
+    /**
+     * What opens the card. The settings page names the section in it; a tab body leaves it out,
+     * because its own header and the selected tab already say what this is.
+     */
+    header?: ReactNode;
+}
+
 interface SettingsGroupCardProps {
-    section: SettingsSection;
-    /** This section's declared fields, already filtered by the caller that checked there are any. */
+    label: string;
+    header?: ReactNode;
+    /** This group's declared fields, already filtered by the caller that checked there are any. */
     fields: readonly ConfigFieldDescriptor[];
     settings: StationSettings;
     onDirtyChange: (dirty: boolean) => void;
 }
 
-function SettingsGroupCard({ section, fields, settings, onDirtyChange }: SettingsGroupCardProps) {
+function SettingsGroupCard({ label, header, fields, settings, onDirtyChange }: SettingsGroupCardProps) {
     // A mutation per section, so a save in one does not put another section's button into a
     // pending state or show it somebody else's error. It reads oddly now that a section is a page
     // on its own, and it is still the right shape: the write is partial, and this is what says so.
@@ -140,14 +176,7 @@ function SettingsGroupCard({ section, fields, settings, onDirtyChange }: Setting
         // navigates to this page instead.
         <Card padding="lg">
             <Stack gap="md">
-                <Stack gap="xxs">
-                    <Title order={2} size="h4">
-                        {section.label}
-                    </Title>
-                    <Text size="sm" c="dimmed">
-                        {section.blurb}
-                    </Text>
-                </Stack>
+                {header}
 
                 <ConfigFieldsForm
                     fields={fields}
@@ -161,7 +190,7 @@ function SettingsGroupCard({ section, fields, settings, onDirtyChange }: Setting
                     pending={save.isPending}
                     succeeded={save.isSuccess}
                     error={save.error}
-                    submitLabel={`Save ${section.label.toLowerCase()}`}
+                    submitLabel={`Save ${label.toLowerCase()}`}
                     failureTitle="Save failed"
                     failureMessage="The settings could not be saved."
                     onDirtyChange={onDirtyChange}

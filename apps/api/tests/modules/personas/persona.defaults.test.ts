@@ -181,6 +181,14 @@ describe('the seeded personas', () => {
     // exemption has nothing to be about and the rule is flat again. A seed that ships empty is still
     // worth having, since it is the state an operator's own new character starts in; whoever writes
     // the next one puts the branch back rather than leaving the field to be inferred.
+    // The rung is a claim about what a presenter is FOR, and a roster where several hosts made it
+    // would be one character in several costumes. The countdown host is the one it was built for.
+    it('leave the story behind the record to the countdown host alone', () => {
+        const keen = SEED_CHARACTERS.filter(persona => persona.trivia !== undefined).map(persona => persona.key);
+
+        expect(keen).toEqual(['countdown']);
+    });
+
     it('all have something they keep coming back to', () => {
         for (const persona of SEED_CHARACTERS) {
             expect(persona.preoccupations?.length ?? 0, `${persona.key} has nothing on its mind`).toBeGreaterThan(2);

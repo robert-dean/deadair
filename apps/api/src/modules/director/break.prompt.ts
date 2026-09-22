@@ -905,8 +905,11 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape:
 
         // The second half only where there is genuinely nothing else in the prompt to talk about. A
         // bulletin has no records either and has three stories to report, so telling it to identify
-        // the station and stop would be telling it not to do its job.
-        if ((request.stories?.length ?? 0) === 0) parts.push('Say something brief that identifies the station and nothing more.');
+        // the station and stop would be telling it not to do its job. A changeover is the same case:
+        // it has two shows and a host to name, which "nothing more" would forbid.
+        if ((request.stories?.length ?? 0) === 0 && request.changeover === undefined) {
+            parts.push('Say something brief that identifies the station and nothing more.');
+        }
     }
 
     if (previous && !request.next) {

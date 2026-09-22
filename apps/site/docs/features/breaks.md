@@ -13,7 +13,7 @@ A break is anything the station says between records: a link, a welcome for some
 
 Each kind of break has a model writer in front and the station's own phrasings behind it. If the model declines, answers with nothing, fails or takes too long, the phrasings write the break. That floor needs no model and no network, so it cannot fail.
 
-The model writer is off on a fresh install. Until you turn on "Let a model write the talk breaks" under Settings, Words, every break comes from the phrasings, instantly. The same switch covers welcomes, bulletins, weather and stories. Connecting a model is covered in [Models and voices](./models-and-voices.md).
+The model writer is off on a fresh install. Until you turn on "Let a model write the talk breaks" under Settings, Words, every break comes from the phrasings, instantly. The same switch covers welcomes, bulletins, weather, stories and the line marking a change of show. Connecting a model is covered in [Models and voices](./models-and-voices.md).
 
 The phrasings are yours: "What the station says" under Settings, Rotation, one per line, with placeholders such as `{{next.artist}}` and optional parts in `[[double brackets]]`. Empty the box and the station's own come back; to stop it talking, turn off "Let the station interrupt itself". The character on air can bring its own phrasings, which go first: see [Characters](./characters.md).
 

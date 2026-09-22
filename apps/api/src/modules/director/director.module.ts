@@ -26,6 +26,7 @@ import { WelcomeAnnouncer } from './welcome.announcer.js';
 import { DislikeVeto } from './dislike.veto.js';
 import { WelcomeWriter } from './welcome.writer.js';
 import { ChangeoverWriter } from './changeover.writer.js';
+import { ModelChangeoverWriter } from './model.changeover.writer.js';
 import { ChangeoverSource } from './changeover.source.js';
 import { CandidatesRepository } from './candidates.repository.js';
 import { ClockBandRepository } from './clock.band.repository.js';
@@ -147,6 +148,7 @@ export const DirectorModule: ServerKitModule = {
         registry.register(TalkBreakWriter).useClass(TalkBreakWriter).asScoped();
         registry.register(ModelWelcomeWriter).useClass(ModelWelcomeWriter).asScoped();
         registry.register(WelcomeWriter).useClass(WelcomeWriter).asScoped();
+        registry.register(ModelChangeoverWriter).useClass(ModelChangeoverWriter).asScoped();
         registry.register(ChangeoverWriter).useClass(ChangeoverWriter).asScoped();
         registry.register(ModelNewsBreakWriter).useClass(ModelNewsBreakWriter).asScoped();
         registry.register(NewsBreakWriter).useClass(NewsBreakWriter).asScoped();
@@ -246,9 +248,11 @@ export const DirectorModule: ServerKitModule = {
                             // is a fixed line the listener is meant to recognise, so a model would
                             // add variety to the one thing that should not vary. See `JingleWriter`.
                             container.get(JingleWriter),
-                            // The ninth kind, the change of programme. A floor only for now, and a
-                            // floor that is enough: what it says is two show names and a host's, all
-                            // of them the operator's own words. See `ChangeoverWriter`.
+                            // The ninth kind, the change of programme, ranked the same way. The floor
+                            // is enough on its own: what it says is two show names and a host's, all
+                            // of them the operator's own words. The model earns its place by saying
+                            // it as that host would. See `ChangeoverWriter`.
+                            container.get(ModelChangeoverWriter),
                             container.get(ChangeoverWriter),
                         ],
                         container.get(Logger),

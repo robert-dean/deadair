@@ -516,9 +516,6 @@ importers:
       '@types/luxon':
         specifier: ^3.7.3
         version: 3.7.3
-      decimal.js:
-        specifier: ^10.6.0
-        version: 10.6.0
       luxon:
         specifier: ^3.7.2
         version: 3.7.2

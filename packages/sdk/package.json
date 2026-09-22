@@ -40,7 +40,6 @@
     },
     "dependencies": {
         "@types/luxon": "^3.7.3",
-        "decimal.js": "^10.6.0",
         "luxon": "^3.7.2"
     },
     "devDependencies": {

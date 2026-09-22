@@ -12,7 +12,7 @@
 {{LOCATION}}  <admin>{{ADMIN_EMAIL}}</admin>
 
   <limits>
-    <clients>100</clients>
+    <clients>{{CLIENTS}}</clients>
     <!-- Four format mounts (MP3 always, Opus/AAC/FLAC as the operator switches them on) plus
          headroom for a future live/harbor source. -->
     <sources>8</sources>
@@ -84,7 +84,7 @@
     <stream-url>{{STREAM_URL}}</stream-url>
     <!-- Don't auto-advertise to public YP directories yet. -->
     <public>0</public>
-    <!-- No <authentication type="url"> here, deliberately. The app used to have Icecast call it on
+{{MAX_LISTENERS}}    <!-- No <authentication type="url"> here, deliberately. The app used to have Icecast call it on
          every listener_add and listener_remove, which made a listener's own connection wait on the
          API and let a dead API refuse new listeners at the door. It is not needed: /admin/eventfeed
          carries `source-listeners-changed` on every change in either direction with an authoritative

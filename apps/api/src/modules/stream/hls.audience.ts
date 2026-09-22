@@ -66,6 +66,18 @@ export class HlsAudience {
     }
 
     /**
+     * Whether this client is being counted right now.
+     *
+     * What lets a listener cap turn away a NEW client without turning away one already listening:
+     * a player that is counted keeps asking for the playlist, and every one of those asks has to be
+     * served or the listener is dropped mid-programme by a cap they were inside.
+     */
+    has(client: string): boolean {
+        const at = this.seenAt.get(client);
+        return at !== undefined && at >= Date.now() - HLS_PRESENCE_MS;
+    }
+
+    /**
      * How many HLS listeners there are right now.
      *
      * Prunes as it counts rather than on a timer, because there is no loop here to hang

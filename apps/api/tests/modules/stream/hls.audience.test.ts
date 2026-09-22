@@ -34,6 +34,18 @@ describe('HlsAudience', () => {
         expect(hls.count()).toBe(1);
     });
 
+    it('knows a client it is counting, and forgets one it has stopped hearing from', () => {
+        // What lets a listener cap turn away somebody new without cutting off somebody listening.
+        const hls = new HlsAudience();
+
+        hls.seen('a');
+        expect(hls.has('a')).toBe(true);
+        expect(hls.has('b')).toBe(false);
+
+        vi.advanceTimersByTime(HLS_PRESENCE_MS + 1);
+        expect(hls.has('a')).toBe(false);
+    });
+
     it('counts distinct clients separately', () => {
         const hls = new HlsAudience();
 

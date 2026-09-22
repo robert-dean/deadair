@@ -25,6 +25,16 @@ const configRefusing = (list: string): AppConfig =>
         },
     }) as AppConfig;
 
+/** Trusts the edge, with a listener cap of `cap`, stored as the text a settings row holds. */
+const configCapped = (cap: string): AppConfig =>
+    ({
+        get: (key: string, fallback: unknown) => {
+            if (key === 'TRUST_PROXY') return 'true';
+            if (key === 'stream.maxListeners') return cap;
+            return fallback;
+        },
+    }) as AppConfig;
+
 /**
  * A request as Koa presents it, plus the register the middleware resolves out of the scope.
  *
@@ -184,5 +194,51 @@ describe('clientKey', () => {
         const { ctx } = contextFor('/hls/mp3.m3u8');
 
         expect(clientKey(ctx as never, false)).toBe(`${PEER} player/1.0`);
+    });
+});
+
+describe('hlsHeartbeatMiddleware under a listener cap', () => {
+    /** A second request against the same audience, from another listener. */
+    const another = (audience: HlsAudience, agent: string) => ({
+        path: '/hls/mp3.m3u8',
+        ip: PEER,
+        status: 404,
+        req: { headers: { 'x-real-ip': '203.0.113.9', 'user-agent': agent } },
+        container: { get: () => audience },
+    });
+
+    it('turns away a new listener once the stream is full, as the station being full', async () => {
+        const { ctx, audience } = contextFor('/hls/mp3.m3u8');
+        await hlsHeartbeatMiddleware(configCapped('1'))(ctx as never, serves(ctx));
+
+        const second = another(audience, 'other/2.0');
+        const next = vi.fn(serves(second));
+        await expect(hlsHeartbeatMiddleware(configCapped('1'))(second as never, next)).rejects.toMatchObject({ statusCode: 503 });
+
+        expect(next).not.toHaveBeenCalled();
+        expect(audience.count()).toBe(1);
+    });
+
+    it('never cuts off somebody already listening, however full the stream is', async () => {
+        const { ctx, audience } = contextFor('/hls/mp3.m3u8');
+        await hlsHeartbeatMiddleware(configCapped('1'))(ctx as never, serves(ctx));
+
+        // The same player coming back for the next playlist, which is what listening IS here.
+        const again = { ...ctx, status: 404 };
+        await hlsHeartbeatMiddleware(configCapped('1'))(again as never, serves(again));
+
+        expect(again.status).toBe(200);
+    });
+
+    it('turns nobody away with no cap set, or with a cap of zero', async () => {
+        for (const cap of ['', '0']) {
+            const { ctx, audience } = contextFor('/hls/mp3.m3u8');
+            await hlsHeartbeatMiddleware(configCapped(cap))(ctx as never, serves(ctx));
+
+            const second = another(audience, 'other/2.0');
+            await hlsHeartbeatMiddleware(configCapped(cap))(second as never, serves(second));
+
+            expect(audience.count()).toBe(2);
+        }
     });
 });

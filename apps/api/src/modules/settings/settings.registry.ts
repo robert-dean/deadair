@@ -125,7 +125,15 @@ import {
     MIN_PRODUCTION_MINUTES,
     PRODUCTION_KEYS,
 } from '#modules/productions/production.settings.js';
-import { AAC_BITRATES, LOG_LEVELS, MP3_BITRATES, OPUS_BITRATES, STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
+import {
+    AAC_BITRATES,
+    LOG_LEVELS,
+    MP3_BITRATES,
+    OPUS_BITRATES,
+    STREAM_DEFAULTS,
+    STREAM_KEYS,
+    MAX_LISTENERS_RANGE,
+} from '#modules/stream/stream.settings.js';
 // Deliberately NOT in `STREAM_KEYS`: that set is what `isStreamSettingKey` marks as needing the
 // stream config re-rendered and the audio chain restarted, and this one is read per request by a
 // middleware. Putting it there would bounce Liquidsoap to change a list the app alone consults.
@@ -369,6 +377,19 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         min: 3,
         max: 20,
         help: 'How much a player is told about at once. More is more delay and more tolerance of a bad connection; fewer is the opposite. Segment length multiplied by this is roughly how far behind live a listener starts.',
+    },
+    {
+        group: 'stream',
+        key: STREAM_KEYS.maxListeners,
+        label: 'Most listeners on each stream',
+        type: 'number',
+        default: STREAM_DEFAULTS.maxListeners,
+        min: MAX_LISTENERS_RANGE.min,
+        max: MAX_LISTENERS_RANGE.max,
+        help:
+            'How many people may listen to each format at once: the MP3 stream, each extra format you have switched on, and HLS, each counted on its own. ' +
+            'Somebody already listening is never cut off; only a new listener is turned away. Zero is no limit. ' +
+            'Saving this restarts the stream server, which drops everyone listening for a few seconds.',
     },
     // How Icecast describes the station to players and directories. These were on the Station card,
     // beside the name, which made them read as the station's identity; nothing but Icecast and the

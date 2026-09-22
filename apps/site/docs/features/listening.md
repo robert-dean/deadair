@@ -20,6 +20,8 @@ There is also an HLS stream at `/live.m3u8`, carrying AAC. An ordinary mount is 
 
 The mount is not authenticated. Anybody who can reach the address can listen, which for a radio station is usually the point. It is still your music under somebody else's licence, so read [the licensing notes](../licensing.md) before you publish an address.
 
+To limit how many people can listen at once, set **Most listeners on each stream** under **Settings**, **Stream**. It applies to each stream separately (the MP3 mount, each extra format and HLS), turns away only a new listener and never somebody already listening, and zero means no limit. Saving it restarts the stream server, which drops everyone listening for a few seconds, so change it when nobody is.
+
 ## What a player shows
 
 A stream carries one line of text and one URL, and that is the whole display ceiling for anything that can only take a stream: a car head unit, a hardware radio, an amp with a screen.

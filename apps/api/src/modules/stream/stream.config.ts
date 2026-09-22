@@ -102,6 +102,22 @@ export function bufferSizes(mounts: StreamMount[]): { queue: number; burst: numb
 }
 
 /**
+ * What Icecast's `<clients>` is set to: the historical 100, or enough for the cap on every mount.
+ *
+ * `<clients>` counts EVERY connection, the station's own included: the event feed the audience gate
+ * reads, the stats polls and the admin calls. So it is never where a listener cap goes, and when
+ * one is set it has to rise above the cap times the mounts, or the server would run out of room for
+ * its own bookkeeping before any mount reached its limit. The twenty is that bookkeeping's headroom.
+ */
+export const CLIENT_HEADROOM = 20;
+export const DEFAULT_CLIENTS = 100;
+
+export function clientLimit(maxListeners: number, mountCount: number): number {
+    if (maxListeners <= 0) return DEFAULT_CLIENTS;
+    return Math.max(DEFAULT_CLIENTS, maxListeners * mountCount + CLIENT_HEADROOM);
+}
+
+/**
  * The `<mount>` blocks for every format beside MP3, or an empty string when there are
  * none.
  *
@@ -113,7 +129,7 @@ export function bufferSizes(mounts: StreamMount[]): { queue: number; burst: numb
  * which in practice means FLAC: 8192 bytes is half a second at 128 kbps and seven
  * hundredths of one at 900, and below about a tenth of a second players start raggedly.
  */
-function extraMountBlocks(mounts: StreamMount[], sourcePassword: string, globalBurst: number): string {
+function extraMountBlocks(mounts: StreamMount[], sourcePassword: string, globalBurst: number, maxListeners: number): string {
     return mounts
         .slice(1)
         .map(mount => {
@@ -126,6 +142,7 @@ function extraMountBlocks(mounts: StreamMount[], sourcePassword: string, globalB
                 `    <username>source</username>`,
                 `    <password>${xml(sourcePassword)}</password>`,
                 `    <public>0</public>${burst}`,
+                ...(maxListeners > 0 ? [`    <max-listeners>${maxListeners}</max-listeners>`] : []),
                 `  </mount>`,
             ].join('\n');
         })
@@ -387,7 +404,11 @@ export function writeStreamConfig({
     const tokens: Record<string, string> = {
         QUEUE_SIZE: String(queue),
         BURST_SIZE: String(burst),
-        EXTRA_MOUNTS: extraMountBlocks(mounts, sourcePassword, burst),
+        EXTRA_MOUNTS: extraMountBlocks(mounts, sourcePassword, burst, settings.maxListeners),
+        CLIENTS: String(clientLimit(settings.maxListeners, mounts.length)),
+        // On the MP3 mount in the template, as a whole line or nothing, so a station with no cap
+        // renders the file it rendered before this existed and the config watch restarts nothing.
+        MAX_LISTENERS: settings.maxListeners > 0 ? `    <max-listeners>${settings.maxListeners}</max-listeners>\n` : '',
         SOURCE_PASSWORD: xml(sourcePassword),
         RELAY_PASSWORD: xml(sourcePassword),
         ADMIN_PASSWORD: xml(adminPassword),

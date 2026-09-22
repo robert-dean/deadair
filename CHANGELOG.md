@@ -9,6 +9,11 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.25.2] — 2026-09-22
+
+- The TypeScript SDK no longer depends on `decimal.js`. Its generated types imported `decimal.js` even in files with no decimal field, and no contract has one today, so the import is gone and so is the dependency. That also means importing the SDK no longer calls `Decimal.set(...)` on your copy of `decimal.js` as a side effect. If your own code relied on the SDK having set `toExpNeg` and `toExpPos`, set them yourself.
+- A failed request now shows up in the station log with its method, its path (never the query string, which can carry a token), its status, and the request and correlation ids. Before this, a line like `Too Many Requests` didn't say which route was refused. Refusals that are the caller's fault (401, 403, 404, 409, 429) are logged as warnings rather than errors, so the errors in the log are the station's own faults.
+
 ## [0.25.1] — 2026-09-22
 
 - The audio chain's log is mostly useful lines again. Liquidsoap warned about a "possible source leak" and printed its whole list of sources, about 40 lines each time, whenever the station had more than 50 sources. The station normally runs with 50 to 52 and nothing is leaking, so the warning now waits until 100. Beyond that, the audio chain no longer uses two functions Liquidsoap has deprecated, so it will keep starting after a future Liquidsoap upgrade removes them.
@@ -659,7 +664,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.25.1...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.25.2...HEAD
+[0.25.2]: https://github.com/robert-dean/deadair/compare/v0.25.1...v0.25.2
 [0.25.1]: https://github.com/robert-dean/deadair/compare/v0.25.0...v0.25.1
 [0.25.0]: https://github.com/robert-dean/deadair/compare/v0.24.0...v0.25.0
 [0.24.0]: https://github.com/robert-dean/deadair/compare/v0.23.0...v0.24.0

@@ -371,7 +371,11 @@ kind of field and reaches three places the same way. The job reads four facts pe
 before a second from any (`TRIVIA_FACT_BUDGET`, through `factsForTracks`' `budget`). The ceiling rises to
 `TRIVIA_MAX_WORDS` through the same `maxWordsFor`. And the prompt carries `TRIVIA_INSTRUCTIONS` in the system
 turn and SWAPS the user turn's notes paragraph rather than appending to it, since "most breaks are better
-without one" and "the notes are what your break is made of" are two rules that disagree. The shape vetoes
+without one" and "the notes are what your break is made of" are two rules that disagree. It swaps the shape's
+rules too (`BreakPromptShape.triviaRules`, which win over `latitudeRules` when a character has both), because
+reading a keen prompt back found the same fault one list down: the countdown sheet names the record LAST and
+"name a record, and then say what you make of it" asks for it first. The swapped set still asks for a record a
+listener can name, which `mustNameRecord` refuses over, and drops only the order. The shape vetoes
 (`allowsTrivia`, the talk break alone), and the job asks the same shapes before it widens the read, so a
 bulletin under a keen presenter is handed what it always was. The grounding rules are the part that does not
 move: "say only what the notes tell you" is the same sentence, and a record with no notes still gets the

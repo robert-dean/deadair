@@ -1287,7 +1287,26 @@ describe('breakPrompt', () => {
 
             expect(rules).toMatch(/Say only what the notes below actually tell you/);
             expect(rules).toMatch(/Only ever refer to the records listed below/);
-            expect(rules).toMatch(/Name a record, and then say what/);
+            // Still asked for plainly, since `mustNameRecord` refuses a break that never says.
+            expect(rules).toMatch(/Make the story about a record a listener can name/);
+        });
+
+        it('lets the record land at the end of the story, rather than asking for it first', () => {
+            // The sheet tells the story first and names the record last. "Name a record, and then say
+            // what you make of it" is the same slot in the other order, and a model given both hedges.
+            const rules = system(prompt({ kind: 'talkbreak', ...noted }, { persona: keen }));
+
+            expect(rules).not.toMatch(/Name a record, and then say what/);
+            expect(rules).not.toMatch(/Make one point/);
+            expect(rules).toMatch(/at the end once the story has earned it/);
+        });
+
+        it('keeps its own rules when the character also has room, since one story is both at once', () => {
+            const rules = system(prompt({ kind: 'talkbreak', ...noted }, { persona: { ...keen, latitude: 'loose' as const } }));
+
+            expect(rules).toMatch(/Tell one story, and tell it all the way/);
+            expect(rules).not.toMatch(/Take the thought as far as it goes/);
+            expect(rules).toContain(LATITUDE_INSTRUCTIONS.loose);
         });
 
         it('still says the station knows nothing about a record that brought no notes', () => {

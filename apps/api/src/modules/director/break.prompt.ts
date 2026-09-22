@@ -287,6 +287,21 @@ export interface BreakPromptShape {
      */
     latitudeRules?: readonly string[];
     /**
+     * The {@link BreakPromptShape.rules} to send INSTEAD when trivia is in force, and over
+     * {@link BreakPromptShape.latitudeRules} when both are.
+     *
+     * {@link BreakPromptShape.latitudeRules}' argument exactly, and it was found the same way: by
+     * reading a keen presenter's prompt back. The sheet it was built for tells the story first and
+     * names the record last, and the ordinary rules said "name a record, and then say what you make of
+     * it", which is the same slot with the order reversed. So the shape owns a third version, and the
+     * rule a kind cannot give up is in it too: a listener still has to be able to tell which record the
+     * story was about, and {@link BreakPromptShape.mustNameRecord} still refuses a break that never says.
+     *
+     * It wins over the latitude set because its first rule is written to hold under both rungs: one
+     * story, told as far as it goes, is the one point and the thought taken all the way at once.
+     */
+    triviaRules?: readonly string[];
+    /**
      * Whether a performance cue may be written into this kind of break.
      *
      * Off unless a shape asks for it, and the shape has the last word exactly as it does over
@@ -434,6 +449,18 @@ export const TALK_BREAK_SHAPE: BreakPromptShape = {
             'one too many.',
         'Talk, do not announce. Naming the record is not the break, it is what the break hangs on: a reaction, an opinion, something it ' +
             'reminded you of. If your break would still make sense read out by anybody else, it is not yours yet.',
+    ],
+    // The same three again for a presenter keen on the story behind the record, with the ORDER taken out
+    // of the second: the story comes first and the record lands at the end of it, which "name a record,
+    // and then say what you make of it" forbade in as many words. What is kept is what `mustNameRecord`
+    // refuses over, so it is still asked for plainly before anything is refused for missing it.
+    triviaRules: [
+        'Tell one story, and tell it all the way. A break is the story behind one record told well, not everything you were given about ' +
+            'both: pick the note worth telling and let the rest go.',
+        'Make the story about a record a listener can name. Say its title, or who it is by, somewhere in the break: at the start, or at ' +
+            'the end once the story has earned it. One of the two is plenty; both is usually one too many.',
+        'Talk, do not announce. Naming the record is not the break, and neither is reading out what the station knows: the break is the ' +
+            'story, told the way only you would tell it. If it would still make sense read out by anybody else, it is not yours yet.',
     ],
     // A link between two records is the presenter being a person, which is exactly what a cue is for.
     // See `allowsCues` for why the bulletin and the welcome are not.
@@ -742,11 +769,7 @@ export function maxWordsFor(settings: PromptSettings, shape: BreakPromptShape): 
     const trivia = triviaIn(settings, shape);
     // Both rungs are floors under the station's own figure, and under each other: a keen presenter
     // with `unleashed` has the larger of the two rather than whichever was read last.
-    return Math.max(
-        base,
-        latitude === undefined ? 0 : LATITUDE_MAX_WORDS[latitude],
-        trivia === undefined ? 0 : TRIVIA_MAX_WORDS[trivia],
-    );
+    return Math.max(base, latitude === undefined ? 0 : LATITUDE_MAX_WORDS[latitude], trivia === undefined ? 0 : TRIVIA_MAX_WORDS[trivia]);
 }
 
 /**
@@ -886,7 +909,12 @@ function systemPrompt(settings: PromptSettings, shape: BreakPromptShape): string
               : []),
         // Last in the list, because a rule true of this kind alone should not push the shared ones
         // further from the end than they already are.
-        ...(latitude === undefined ? (shape.rules ?? []) : (shape.latitudeRules ?? shape.rules ?? [])).map(rule => `- ${rule}`),
+        ...(trivia !== undefined && shape.triviaRules !== undefined
+            ? shape.triviaRules
+            : latitude === undefined
+              ? (shape.rules ?? [])
+              : (shape.latitudeRules ?? shape.rules ?? [])
+        ).map(rule => `- ${rule}`),
     ];
 
     // AFTER the rules, and that position is the whole reason it exists. The failure it addresses is

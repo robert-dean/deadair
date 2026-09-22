@@ -10,19 +10,25 @@ contract SettingGroup: enum(
     housekeeping,
     mail,
     rotation,
+    breaks,
+    bulletins,
     playout,
     render,
     llm,
     analysis,
     schedule,
     personas,
+    phrasings,
     providers
-) # Which part of the console owns a setting. Every one of these but `schedule`, `personas` and `providers` is a section of the settings page; `schedule` is edited on the schedule page, beside the timetable it describes, `personas` on the characters page, beside the names it stands behind, and `providers` on the Providers section, which draws each capability beside the plugins that answer it rather than as a form of text fields.
+) # Which part of the console owns a setting. Every one of these but `schedule`, `personas`, `phrasings` and `providers` is a section of the settings page; `schedule` is edited on the schedule page, beside the timetable it describes, `personas` on the characters page, beside the names it stands behind, `phrasings` on the Voice page's Phrasings tab, beside everything else about what the station says, and `providers` on the Providers section, which draws each capability beside the plugins that answer it rather than as a form of text fields.
   # `station`, `stream` and `housekeeping` were one group until the page under it grew to thirty-one
   # fields under a single save: station identity, stream formats and HLS tuning, activity retention and
   # the sync threshold, and four passwords, each meant for a different kind of visit. The passwords
   # were a fourth group, `secrets`, until the station stopped declaring them: it seeds them itself
   # and nothing outside it holds one.
+  # `rotation`, `breaks`, `bulletins` and `phrasings` were one group, `rotation`, until it reached
+  # forty-two fields and six boxes of phrasings under a single save: what plays, how often the
+  # station talks, what goes into a bulletin and the words it says, each a different visit.
 
 # A station setting as the console needs to render it. `ConfigFieldDescriptor` is the plugins area's,
 # and shared deliberately: a plugin's settings form and the station's are the same problem, and the

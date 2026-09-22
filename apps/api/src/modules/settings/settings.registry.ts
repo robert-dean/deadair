@@ -168,11 +168,11 @@ export interface SettingDescriptor extends ConfigField {
     /**
      * Which part of the console owns this setting.
      *
-     * A section of the settings page for all but two of them. `schedule` and `personas` are the
-     * exceptions and are deliberately not drawn there: what the station plays between blocks is a
-     * question about the timetable, and what an unnamed host is called is a question about the
-     * roster, so each is edited beside the thing it explains, by a panel that draws its own controls.
-     * See the groups' own note below.
+     * A section of the settings page for all but three of them. `schedule`, `personas` and
+     * `phrasings` are the exceptions and are deliberately not drawn there: what the station plays
+     * between blocks is a question about the timetable, what an unnamed host is called is a question
+     * about the roster, and the words the station says are a question about its voice, so each is
+     * edited beside the thing it explains. See the groups' own note below.
      */
     group: SettingGroup;
 }
@@ -181,7 +181,8 @@ export interface SettingDescriptor extends ConfigField {
  * The groups there are, in the order the settings page draws the ones it draws.
  *
  * Not every group is a card on that page. `schedule` is owned by `SustainingPanel` on the schedule
- * page and `personas` by `PresenterNamePanel` on the characters page, which is why
+ * page, `personas` by `PresenterNamePanel` on the characters page and `phrasings` by the Voice
+ * page's Phrasings tab, which is why
  * `SETTINGS_SECTIONS` in `settings.shell.tsx` is a list of its own rather than this one: a
  * group that is not in that list is drawn by whoever claimed it, and a group in neither is a bug
  * `settings.registry.test.ts` cannot see. Adding one means deciding which page draws it.
@@ -192,6 +193,10 @@ export interface SettingDescriptor extends ConfigField {
  * `SettingGroup` in `settings.types.ck`, so the wire enum and this list cannot disagree about what
  * a group is called. The passwords were a fourth group, `secrets`, until none of them was declared
  * any more; the note above `mail` below says why.
+ *
+ * `rotation` went the same way at forty-two fields and six boxes of phrasings: what the station
+ * plays stayed, how often it talks went to `breaks`, what a bulletin reads went to `bulletins`, and
+ * the words it says around them went to `phrasings`, off the settings page altogether.
  */
 export const SETTING_GROUPS = [
     'station',
@@ -199,12 +204,15 @@ export const SETTING_GROUPS = [
     'housekeeping',
     'mail',
     'rotation',
+    'breaks',
+    'bulletins',
     'playout',
     'render',
     'llm',
     'analysis',
     'schedule',
     'personas',
+    'phrasings',
     'providers',
 ] as const;
 

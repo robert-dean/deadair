@@ -11,7 +11,7 @@ using MaroonedSoftware.Deadair.Sdk.Runtime;
 
 namespace MaroonedSoftware.Deadair.Sdk.Models;
 
-/// <summary>Which part of the console owns a setting. Every one of these but `schedule`, `personas` and `providers` is a section of the settings page; `schedule` is edited on the schedule page, beside the timetable it describes, `personas` on the characters page, beside the names it stands behind, and `providers` on the Providers section, which draws each capability beside the plugins that answer it rather than as a form of text fields.</summary>
+/// <summary>Which part of the console owns a setting. Every one of these but `schedule`, `personas`, `phrasings` and `providers` is a section of the settings page; `schedule` is edited on the schedule page, beside the timetable it describes, `personas` on the characters page, beside the names it stands behind, `phrasings` on the Voice page's Phrasings tab, beside everything else about what the station says, and `providers` on the Providers section, which draws each capability beside the plugins that answer it rather than as a form of text fields.</summary>
 [JsonConverter(typeof(JsonStringEnumConverter<SettingGroup>))]
 public enum SettingGroup
 {
@@ -30,6 +30,12 @@ public enum SettingGroup
     [JsonStringEnumMemberName("rotation")]
     Rotation,
 
+    [JsonStringEnumMemberName("breaks")]
+    Breaks,
+
+    [JsonStringEnumMemberName("bulletins")]
+    Bulletins,
+
     [JsonStringEnumMemberName("playout")]
     Playout,
 
@@ -47,6 +53,9 @@ public enum SettingGroup
 
     [JsonStringEnumMemberName("personas")]
     Personas,
+
+    [JsonStringEnumMemberName("phrasings")]
+    Phrasings,
 
     [JsonStringEnumMemberName("providers")]
     Providers,

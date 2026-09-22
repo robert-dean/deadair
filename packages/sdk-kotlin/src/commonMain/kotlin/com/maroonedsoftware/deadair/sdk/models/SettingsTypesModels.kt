@@ -5,7 +5,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 
-/** Which part of the console owns a setting. Every one of these but `schedule`, `personas` and `providers` is a section of the settings page; `schedule` is edited on the schedule page, beside the timetable it describes, `personas` on the characters page, beside the names it stands behind, and `providers` on the Providers section, which draws each capability beside the plugins that answer it rather than as a form of text fields. */
+/** Which part of the console owns a setting. Every one of these but `schedule`, `personas`, `phrasings` and `providers` is a section of the settings page; `schedule` is edited on the schedule page, beside the timetable it describes, `personas` on the characters page, beside the names it stands behind, `phrasings` on the Voice page's Phrasings tab, beside everything else about what the station says, and `providers` on the Providers section, which draws each capability beside the plugins that answer it rather than as a form of text fields. */
 @Serializable
 enum class SettingGroup {
     @SerialName("station")
@@ -18,6 +18,10 @@ enum class SettingGroup {
     MAIL,
     @SerialName("rotation")
     ROTATION,
+    @SerialName("breaks")
+    BREAKS,
+    @SerialName("bulletins")
+    BULLETINS,
     @SerialName("playout")
     PLAYOUT,
     @SerialName("render")
@@ -30,6 +34,8 @@ enum class SettingGroup {
     SCHEDULE,
     @SerialName("personas")
     PERSONAS,
+    @SerialName("phrasings")
+    PHRASINGS,
     @SerialName("providers")
     PROVIDERS,
 }

@@ -75,6 +75,21 @@ export interface StationBacklog {
 export interface StationBacklogInput {}
 
 /**
+ * One release of the station, in the words its changelog entry used
+ * generated from [StationRelease](../../../../../apps/api/data/contracts/station/station.types.ck#L89)
+ */
+export interface StationRelease {
+    /** The release, as its tag names it without the leading `v` */
+    version: string;
+    /** The day it went out, as an ISO date. Absent where the entry named none */
+    date?: string;
+    /** What changed, as the Markdown of its changelog entry. Empty for a release that recorded nothing */
+    notes: string;
+}
+
+export interface StationReleaseInput {}
+
+/**
  * One thing that wants the operator's attention, or the fact that nothing does
  * generated from [AttentionItem](../../../../../apps/api/data/contracts/station/station.types.ck#L21)
  */
@@ -144,6 +159,19 @@ export function reviveStationCheckup(raw: StationCheckup): StationCheckup {
     }
     return raw;
 }
+
+/**
+ * What this build is, and what changed in it
+ * generated from [StationReleases](../../../../../apps/api/data/contracts/station/station.types.ck#L96)
+ */
+export interface StationReleases {
+    /** The newest release this build contains, read off the changelog it was built with. Present on a build that follows `main` too, where `version` on the check-up is absent: every build carries the entry of the last release merged before it. Absent only when the build carries no changelog to read */
+    current?: string;
+    /** Every release this build contains, newest first */
+    notes: StationRelease[];
+}
+
+export interface StationReleasesInput {}
 
 /**
  * Everything wrong or waiting, worst first

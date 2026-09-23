@@ -74,6 +74,24 @@ export const StationBacklogInput = z.strictObject({});
 export type StationBacklogInput = z.infer<typeof StationBacklogInput>;
 
 /**
+ * One release of the station, in the words its changelog entry used
+ * generated from [StationRelease](../../../../data/contracts/station/station.types.ck#L89)
+ */
+export const StationRelease = z.strictObject({
+    version: z.string().min(1).max(50).describe('The release, as its tag names it without the leading `v`'),
+    date: z
+        .string()
+        .regex(/^\d{4}-\d{2}-\d{2}$/)
+        .optional()
+        .describe('The day it went out, as an ISO date. Absent where the entry named none'),
+    notes: z.string().max(40000).describe('What changed, as the Markdown of its changelog entry. Empty for a release that recorded nothing'),
+});
+export type StationRelease = z.infer<typeof StationRelease>;
+
+export const StationReleaseInput = z.strictObject({});
+export type StationReleaseInput = z.infer<typeof StationReleaseInput>;
+
+/**
  * One thing that wants the operator's attention, or the fact that nothing does
  * generated from [AttentionItem](../../../../data/contracts/station/station.types.ck#L21)
  */
@@ -159,6 +177,26 @@ export type StationCheckup = z.infer<typeof StationCheckup>;
 
 export const StationCheckupInput = z.strictObject({});
 export type StationCheckupInput = z.infer<typeof StationCheckupInput>;
+
+/**
+ * What this build is, and what changed in it
+ * generated from [StationReleases](../../../../data/contracts/station/station.types.ck#L96)
+ */
+export const StationReleases = z.strictObject({
+    current: z
+        .string()
+        .min(1)
+        .max(50)
+        .optional()
+        .describe(
+            'The newest release this build contains, read off the changelog it was built with. Present on a build that follows `main` too, where `version` on the check-up is absent: every build carries the entry of the last release merged before it. Absent only when the build carries no changelog to read',
+        ),
+    notes: z.array(StationRelease).describe('Every release this build contains, newest first'),
+});
+export type StationReleases = z.infer<typeof StationReleases>;
+
+export const StationReleasesInput = z.strictObject({});
+export type StationReleasesInput = z.infer<typeof StationReleasesInput>;
 
 /**
  * Everything wrong or waiting, worst first

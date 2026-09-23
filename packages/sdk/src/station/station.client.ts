@@ -2,7 +2,7 @@ import type { SdkFetch } from '../sdk-options.js';
 import { parseJson, buildQueryString } from '../sdk-options.js';
 import type { LogPage, LogQuery, LogSourceList } from './types/logs.types.js';
 import { reviveLogSourceList } from './types/logs.types.js';
-import type { StationAttention, StationCheckup } from './types/station.types.js';
+import type { StationAttention, StationCheckup, StationReleases } from './types/station.types.js';
 import { reviveStationCheckup } from './types/station.types.js';
 import type { TraceDetail, TracesPage, TracesQuery } from './types/traces.types.js';
 import { reviveTraceDetail, reviveTracesPage } from './types/traces.types.js';
@@ -57,6 +57,15 @@ export class StationClient {
     async readStationCheckup(): Promise<StationCheckup> {
         const result = await this.fetch(`/station/checkup`, { method: 'GET' });
         return reviveStationCheckup(await parseJson<StationCheckup>(result));
+    }
+
+    /**
+     * @name Read station releases
+     * @description The releases this build contains and what each one changed, newest first
+     */
+    async readStationReleases(): Promise<StationReleases> {
+        const result = await this.fetch(`/station/releases`, { method: 'GET' });
+        return await parseJson<StationReleases>(result);
     }
 
     /**

@@ -80,6 +80,21 @@ data class StationBacklog(
 @Serializable
 class StationBacklogInput
 
+/** One release of the station, in the words its changelog entry used */
+@Serializable
+data class StationRelease(
+    /** The release, as its tag names it without the leading `v` */
+    val version: String,
+    /** The day it went out, as an ISO date. Absent where the entry named none */
+    val date: String? = null,
+    /** What changed, as the Markdown of its changelog entry. Empty for a release that recorded nothing */
+    val notes: String,
+)
+
+/** One release of the station, in the words its changelog entry used */
+@Serializable
+class StationReleaseInput
+
 /** One thing that wants the operator's attention, or the fact that nothing does */
 @Serializable
 data class AttentionItem(
@@ -155,6 +170,19 @@ data class StationCheckup(
  */
 @Serializable
 class StationCheckupInput
+
+/** What this build is, and what changed in it */
+@Serializable
+data class StationReleases(
+    /** The newest release this build contains, read off the changelog it was built with. Present on a build that follows `main` too, where `version` on the check-up is absent: every build carries the entry of the last release merged before it. Absent only when the build carries no changelog to read */
+    val current: String? = null,
+    /** Every release this build contains, newest first */
+    val notes: List<StationRelease>,
+)
+
+/** What this build is, and what changed in it */
+@Serializable
+class StationReleasesInput
 
 /** Everything wrong or waiting, worst first */
 @Serializable

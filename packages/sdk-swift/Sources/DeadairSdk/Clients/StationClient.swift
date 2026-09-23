@@ -24,4 +24,12 @@ public final class StationClient: Sendable {
         let response = try await http.execute(request)
         return try http.decodeJSON(StationCheckup.self, from: response)
     }
+
+    /// Read station releases
+    /// The releases this build contains and what each one changed, newest first
+    public func readStationReleases() async throws -> StationReleases {
+        let request = SdkRequest(method: "GET", path: ["station", "releases"])
+        let response = try await http.execute(request)
+        return try http.decodeJSON(StationReleases.self, from: response)
+    }
 }

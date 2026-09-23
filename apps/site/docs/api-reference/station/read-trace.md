@@ -1,7 +1,7 @@
 ---
 title: 'Read trace'
 sidebar_label: 'Read trace'
-sidebar_position: 7
+sidebar_position: 8
 mdx:
     format: 'md'
 ---

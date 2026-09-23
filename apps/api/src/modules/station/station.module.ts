@@ -1,15 +1,26 @@
+import { readFile } from 'node:fs/promises';
 import { Registry } from 'injectkit';
+import { AppConfig } from '@maroonedsoftware/appconfig';
 import { ServerKitModule } from '@maroonedsoftware/koa';
 import { StationAttentionService } from './station.attention.service.js';
 import { StationCheckupService } from './station.checkup.service.js';
 import { TracesService } from './traces.service.js';
 import { LogsService } from './logs.service.js';
+import { BundledChangelog, parseChangelog } from './station.changelog.js';
+import { StationReleasesService } from './station.releases.service.js';
+
+/**
+ * Where the changelog is read from when `CHANGELOG_PATH` is unset: the repository's own, relative to
+ * `apps/api`, which is the working directory in the dev tree and in the image alike. The image sets
+ * the variable anyway, on the convention its other shipped files follow.
+ */
+const DEFAULT_CHANGELOG_PATH = '../../CHANGELOG.md';
 
 /**
  * The station about itself, composed across everything else.
  *
- * Two routes: what needs somebody, and the machinery underneath it. It owns no table, writes nothing and starts nothing — the
- * whole of it is that facts an operator needs together are scattered across the five pages that own
+ * What needs somebody, the machinery underneath it, and what changed in each release. It owns no
+ * table, writes nothing and starts nothing — the whole of it is that facts an operator needs together are scattered across the five pages that own
  * them, and an operator has to already be on a page to find out that page has something wrong on it.
  *
  * ## Last, because it reads everything
@@ -27,7 +38,7 @@ import { LogsService } from './logs.service.js';
  */
 export const StationModule: ServerKitModule = {
     name: 'Station',
-    setup: async (registry: Registry) => {
+    setup: async (registry: Registry, config: AppConfig) => {
         // Scoped, like every other request-path service: it opens no loop and holds nothing between
         // requests, and the repositories under it are scoped already.
         registry.register(StationAttentionService).useClass(StationAttentionService).asScoped();
@@ -44,5 +55,21 @@ export const StationModule: ServerKitModule = {
         // it comes from the process-wide holder, which is what keeps this module free of a
         // registration `PluginsModule` owns.
         registry.register(LogsService).useClass(LogsService).asScoped();
+
+        // Read here, once, rather than per request: the file is part of the build and cannot change
+        // while the process runs. A build that carries none answers an empty list, which the
+        // contract's absent `current` already says, rather than failing a boot over a page of notes.
+        const changelog = new BundledChangelog(await readChangelog(String(config.get('CHANGELOG_PATH', DEFAULT_CHANGELOG_PATH))));
+        registry.register(BundledChangelog).useValue(changelog);
+        // Scoped on the same answer as the rest: a request-path service holding nothing of its own.
+        registry.register(StationReleasesService).useClass(StationReleasesService).asScoped();
     },
 };
+
+async function readChangelog(path: string) {
+    try {
+        return parseChangelog(await readFile(path, 'utf8'));
+    } catch {
+        return [];
+    }
+}

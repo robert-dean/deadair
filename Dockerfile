@@ -411,6 +411,13 @@ COPY assets/pads /app/assets/pads
 # from there; an operator who uploads their own replaces the bytes, and Revert re-reads these.
 COPY assets/art/breaks /app/assets/art/breaks
 
+# The station's changelog, which is how the console says what changed in the release it is running
+# without asking the internet, and how the update check knows which release this image already
+# contains. The image's version label cannot answer that second question: it is stamped on a release
+# run alone, and every build from `main` carries the changelog entry of the last release merged
+# before it. About 90KB, and it changes only when a version pull request merges.
+COPY CHANGELOG.md /app/CHANGELOG.md
+
 # What the app renders its stream config FROM. Only the template: `station-id.mp3` and the script
 # are the audio chain's, not the app's, and the app reads nothing else here.
 COPY stream/icecast.xml.tmpl /app/stream/
@@ -483,6 +490,9 @@ ENV NODE_ENV=production \
     # library rather than served from here.
     PAD_ASSETS_DIR=/app/assets/pads \
     BREAK_ART_ASSETS_DIR=/app/assets/art/breaks \
+    # What changed in each release, which the console's What's new reads and the update check reads
+    # to know which release this image already contains.
+    CHANGELOG_PATH=/app/CHANGELOG.md \
     STREAM_CONFIG_DIR=/data/streamconfig \
     # Everything that reads the rendered config here is the station's own user, so the passwords
     # in it are not world-readable. The default is looser because it has to serve a deployment

@@ -159,6 +159,55 @@ public struct StationBacklogInput: Codable, Equatable, Sendable {
     }
 }
 
+/// One release of the station, in the words its changelog entry used
+public struct StationRelease: Codable, Equatable, Sendable {
+    /// The release, as its tag names it without the leading `v`
+    public var version: String
+    /// The day it went out, as an ISO date. Absent where the entry named none
+    public var date: String?
+    /// What changed, as the Markdown of its changelog entry. Empty for a release that recorded nothing
+    public var notes: String
+
+    public init(version: String, date: String? = nil, notes: String) {
+        self.version = version
+        self.date = date
+        self.notes = notes
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case version = "version"
+        case date = "date"
+        case notes = "notes"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.version = try container.decode(String.self, forKey: .version)
+        self.date = try container.decodeIfPresent(String.self, forKey: .date)
+        self.notes = try container.decode(String.self, forKey: .notes)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.version, forKey: .version)
+        try container.encodeIfPresent(self.date, forKey: .date)
+        try container.encode(self.notes, forKey: .notes)
+    }
+}
+
+/// One release of the station, in the words its changelog entry used
+public struct StationReleaseInput: Codable, Equatable, Sendable {
+    public init() {}
+
+    public init(from decoder: Decoder) throws {
+        _ = try decoder.container(keyedBy: DynamicCodingKey.self)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        _ = encoder.container(keyedBy: DynamicCodingKey.self)
+    }
+}
+
 /// One thing that wants the operator's attention, or the fact that nothing does
 public struct AttentionItem: Codable, Equatable, Sendable {
     /// What this is, as a stable key: `silence`, `benchedCopies`, `noPersona`. The console groups and counts on it rather than on the sentence
@@ -303,6 +352,49 @@ public struct StationCheckup: Codable, Equatable, Sendable {
 /// — which would leave "which build is this" answerable only from a shell, the one thing carrying it
 /// here exists to fix.
 public struct StationCheckupInput: Codable, Equatable, Sendable {
+    public init() {}
+
+    public init(from decoder: Decoder) throws {
+        _ = try decoder.container(keyedBy: DynamicCodingKey.self)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        _ = encoder.container(keyedBy: DynamicCodingKey.self)
+    }
+}
+
+/// What this build is, and what changed in it
+public struct StationReleases: Codable, Equatable, Sendable {
+    /// The newest release this build contains, read off the changelog it was built with. Present on a build that follows `main` too, where `version` on the check-up is absent: every build carries the entry of the last release merged before it. Absent only when the build carries no changelog to read
+    public var current: String?
+    /// Every release this build contains, newest first
+    public var notes: [StationRelease]
+
+    public init(current: String? = nil, notes: [StationRelease]) {
+        self.current = current
+        self.notes = notes
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case current = "current"
+        case notes = "notes"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.current = try container.decodeIfPresent(String.self, forKey: .current)
+        self.notes = try container.decode([StationRelease].self, forKey: .notes)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(self.current, forKey: .current)
+        try container.encode(self.notes, forKey: .notes)
+    }
+}
+
+/// What this build is, and what changed in it
+public struct StationReleasesInput: Codable, Equatable, Sendable {
     public init() {}
 
     public init(from decoder: Decoder) throws {

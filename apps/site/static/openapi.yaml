@@ -3992,6 +3992,18 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/StationCheckup'
+    '/station/releases':
+        get:
+            operationId: read
+            summary: 'Read station releases'
+            description: 'The releases this build contains and what each one changed, newest first'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/StationReleases'
     '/traces':
         get:
             operationId: readTraces
@@ -10879,6 +10891,44 @@ components:
                     readOnly: true
             required: [readAt]
             description: "One reading of the machinery, for a page that assembles the station's health.\n\nIt carries ONLY the two signals nothing else exposes. Everything else a check-up shows — the\nsilence verdict, the listener count, what needs somebody, the plugin statuses, the disk — is\nalready on a contract the console reads, and composing them again here would be a second answer\nthat can disagree with the first. `/playout/status` in particular is polled every two seconds for\nthe transport strip, so asking for it a second way would be a second reading of the same fact.\n\nEach section is OPTIONAL and absent means that reader failed. A page saying what is wrong is the\nworst place for one broken reader to take the whole answer down, which is the rule\n`StationAttentionService` already works to. `revision` is the one exception and says so on its\nown line: it cannot fail, so absent there means something else.\n\nThe revision is on THIS contract rather than composed from `/health`, which also reports it, and\nthat is not the second-answer problem the paragraph above describes. Both read one string from one\nplace at boot, so they cannot disagree. What they differ in is who can reach them: `/health` is\n`operation(internal)`, deliberately, so it generates no SDK method and the console cannot call it\n— which would leave \"which build is this\" answerable only from a shell, the one thing carrying it\nhere exists to fix."
+        StationRelease:
+            type: object
+            properties:
+                version:
+                    type: string
+                    minLength: 1
+                    maxLength: 50
+                    readOnly: true
+                    description: 'The release, as its tag names it without the leading `v`'
+                date:
+                    type: string
+                    pattern: '^\d{4}-\d{2}-\d{2}$'
+                    readOnly: true
+                    description: 'The day it went out, as an ISO date. Absent where the entry named none'
+                notes:
+                    type: string
+                    maxLength: 40000
+                    readOnly: true
+                    description: 'What changed, as the Markdown of its changelog entry. Empty for a release that recorded nothing'
+            required: [version, notes]
+            description: 'One release of the station, in the words its changelog entry used'
+        StationReleases:
+            type: object
+            properties:
+                current:
+                    type: string
+                    minLength: 1
+                    maxLength: 50
+                    readOnly: true
+                    description: 'The newest release this build contains, read off the changelog it was built with. Present on a build that follows `main` too, where `version` on the check-up is absent: every build carries the entry of the last release merged before it. Absent only when the build carries no changelog to read'
+                notes:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/StationRelease'
+                    readOnly: true
+                    description: 'Every release this build contains, newest first'
+            required: [notes]
+            description: 'What this build is, and what changed in it'
         TraceOutcome:
             type: string
             enum: [ok, failed]

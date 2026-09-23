@@ -45,4 +45,17 @@ public sealed class StationClient(SdkHttp http)
             cancellationToken: cancellationToken).ConfigureAwait(false);
         return http.ReadJson<StationCheckup>(response);
     }
+
+    /// <summary>
+    /// Read station releases
+    /// The releases this build contains and what each one changed, newest first
+    /// </summary>
+    public async Task<StationReleases> ReadStationReleasesAsync(CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Get,
+            http.Path("station", "releases"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<StationReleases>(response);
+    }
 }

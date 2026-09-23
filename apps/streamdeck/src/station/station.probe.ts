@@ -39,7 +39,10 @@ export async function probeStation(settings: StationSettings, clients: ProbeClie
     }
     const station = stationFrom(settings);
     if (station === undefined) {
-        return { ok: false, text: 'Enter an API key. Issue one in the console under Settings, Security, API keys, with Read and manage.' };
+        return {
+            ok: false,
+            text: 'Enter an API key. Issue one in the console under Settings, Sign-in and security, API keys, with Read and manage.',
+        };
     }
 
     const host = new URL(station.origin).host;

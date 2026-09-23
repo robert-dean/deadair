@@ -17,6 +17,8 @@ vi.mock('../../src/components/shared/use.phone', () => ({ usePhone: () => phone 
 
 vi.mock('@tanstack/react-router', () => ({
     createFileRoute: () => (options: unknown) => options,
+    // What `beforeLoad` throws, kept inspectable: the real one is a Response the test has no use for.
+    redirect: (options: unknown) => ({ redirectedTo: options }),
     Navigate: ({ to, replace }: { to: string; replace?: boolean }) => <div data-testid="redirect" data-to={to} data-replace={String(replace)} />,
     Link: ({ to, children, ...props }: { to?: string; children?: ReactNode }) => (
         <a href={to} {...props}>
@@ -26,6 +28,7 @@ vi.mock('@tanstack/react-router', () => ({
 }));
 
 const { Route: IndexRoute } = await import('../../src/routes/settings/index');
+const { Route: SigninRoute } = await import('../../src/routes/settings/signin');
 
 const IndexComponent = (IndexRoute as unknown as { component: () => ReactNode }).component;
 
@@ -90,5 +93,18 @@ describe('the section list', () => {
         // It was a route long before the others were, and its URL is one an operator may have
         // bookmarked. Moving it under `/settings` would have been a rename nobody asked for.
         expect(SETTINGS_ROUTES.plugins).toBe('/plugins');
+    });
+});
+
+describe('/settings/signin', () => {
+    it('sends the old address to Sign-in and security, which is where its settings went', () => {
+        const beforeLoad = (SigninRoute as unknown as { beforeLoad: () => void }).beforeLoad;
+
+        // `replace`, so back does not land on an address that would only send the operator here again.
+        expect(beforeLoad).toThrow(expect.objectContaining({ redirectedTo: { to: '/settings/security', replace: true } }));
+    });
+
+    it('is no longer a section of its own', () => {
+        expect(Object.values(SETTINGS_ROUTES)).not.toContain('/settings/signin');
     });
 });

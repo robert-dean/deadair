@@ -40,4 +40,4 @@ trusting it.
 
 **One thing genuinely thin**, stated because it is better said than found: the admin password
 minimum is eight characters with no breach check, on the account that owns the whole station. Use a
-long one, and enrol an authenticator from Settings → Security.
+long one, and enrol an authenticator from Settings → Sign-in and security.

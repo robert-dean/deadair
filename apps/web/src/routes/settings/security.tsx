@@ -16,7 +16,7 @@ function validateSearch(search: Record<string, unknown>): SecuritySearch {
 
 export const Route = createFileRoute('/settings/security')({ component: SecuritySettingsRoute, validateSearch });
 
-/** Security: how the operator signs in, which is the one section about a person rather than the station. */
+/** Sign-in and security: how the operator signs in, then what the sign-in page offers everybody. */
 function SecuritySettingsRoute() {
     return (
         <SettingsShell active="security">

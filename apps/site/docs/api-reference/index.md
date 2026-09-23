@@ -34,7 +34,7 @@ part of signing in.
 ### API keys
 
 For a script or an integration, use an API key rather than a password. Create one in the console
-under Settings → Security, or with [Create API key](./authentication/create-api-key.md) from a
+under Settings → Sign-in and security, or with [Create API key](./authentication/create-api-key.md) from a
 signed-in session, and send it the same way:
 
 ```

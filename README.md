@@ -123,7 +123,7 @@ from `apps/android`), and the iPhone app (`apps/ios`) and the desktop app (`apps
 build and run one. The desk also comes as hardware: the Stream Deck plugin (on the
 [Elgato Marketplace](https://marketplace.elgato.com/product/deadair-67841f42-616f-45f3-9708-341017359656), or built
 from `apps/streamdeck`) puts
-what is on air, Skip and Stop on keys, with an API key from Settings, Security.
+what is on air, Skip and Stop on keys, with an API key from Settings, Sign-in and security.
 
 A rail down the left carries four destinations, with a key each: D, P, L and V. **Desk** is the
 running order, live, with the playhead, every item's state and whatever needs you. **Programme** is
@@ -135,7 +135,7 @@ declined. Below a rule sit **Check-up** and **Settings**. Check-up is what is wr
 Machinery for every part as it stands, What it has been doing for what aired and what failed, What it
 cost for every call the station made, and Logs for what the processes themselves wrote.
 
-**Settings → Security** is how you sign in. Enrol an authenticator app there (Google Authenticator,
+**Settings → Sign-in and security** is how you sign in. Enrol an authenticator app there (Google Authenticator,
 1Password, Aegis, anything that shows six-digit codes) and from then on every sign-in to that
 account asks for the code after the password. Remove it and sign-in goes back to the password
 alone. Either change asks for a fresh code first if the one you signed in with is more than a few
@@ -178,7 +178,7 @@ redis-cli FLUSHALL
 (`pnpm flush:sessions` in a development checkout. If your Redis asks for a password, `redis-cli -u
 "$REDIS_URL" FLUSHALL`, or `-a` with the password you gave `REDIS_PASSWORD`.) That turns the challenge off for every account
 on the station, since there is one. Sign in with the password, and enrol the new phone from
-Security.
+Settings → Sign-in and security.
 
 ## Configuration
 

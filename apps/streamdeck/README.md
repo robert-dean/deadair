@@ -39,7 +39,7 @@ the last record it knew, faint and never in the on-air colour.
    or open the `.streamDeckPlugin` file from a
    [release](https://github.com/robert-dean/deadair/releases?q=streamdeck). It needs the Stream Deck
    app 7.1 or later.
-2. In the station's console, go to **Settings, Security, API keys** and issue a key. Choose **Read
+2. In the station's console, go to **Settings, Sign-in and security, API keys** and issue a key. Choose **Read
    and manage** if you want Skip, Stop and voting to work; **Read only** is enough for Now playing,
    and for Like and Dislike to show you what the station already thinks. Copy the key: the console
    shows it once.

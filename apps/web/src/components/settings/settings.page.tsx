@@ -5,6 +5,7 @@ import type { ConfigFieldDescriptor, StationSettingDescriptor, StationSettings }
 import { useSettings, useUpdateSettings } from '../../api/settings.queries';
 import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
+import { Eyebrow } from '../shared/eyebrow';
 import { PageSkeleton } from '../shared/page.skeleton';
 import { AppearanceCard } from './appearance.card';
 import { ConfigFieldsForm } from './config.fields.form';
@@ -44,34 +45,52 @@ export function SettingsSectionPage({ section: id }: SettingsSectionPageProps) {
     // the difference between them IS whether a hook runs.
     if (section.group === undefined) return <StandaloneSection section={section} />;
 
-    const form = (
-        <SettingsGroupPage
-            group={section.group}
-            label={section.label}
-            header={
-                <Stack gap="xxs">
-                    <Title order={2} size="h4">
-                        {section.label}
-                    </Title>
-                    <Text size="sm" c="dimmed">
-                        {section.blurb}
-                    </Text>
-                </Stack>
-            }
-        />
-    );
-
-    // Sign-in and connections draws the apps registered with the station below its form: the form
-    // says whether apps may connect, and the card says which ones have.
-    if (section.id === 'signin')
+    // Sign-in and security is two halves on one page, and the heading over each is what says so. The
+    // person signed in owns the first: their factors, keys and the apps they approved, whatever their
+    // role. The station owns the second: the form is the providers, the allowlist and whether apps may
+    // connect, and the card below it is which apps have registered. The form carries a title of its
+    // own rather than the section's, because it saves the station half only, and a button reading
+    // "Save sign-in and security" would promise the other half as well.
+    if (section.id === 'security')
         return (
-            <Stack gap="lg">
-                {form}
-                <OAuthClientsCard />
+            <Stack gap="xl">
+                <Stack gap="xs">
+                    <Eyebrow>Your account</Eyebrow>
+                    <Stack gap="lg">
+                        <SecurityCard />
+                        <ApiKeysCard />
+                        <ConnectedAppsCard />
+                    </Stack>
+                </Stack>
+                <Stack gap="xs">
+                    <Eyebrow>The station</Eyebrow>
+                    <Stack gap="lg">
+                        <SettingsGroupPage
+                            group={section.group}
+                            label="Sign-in for everyone"
+                            header={<SectionHeader title="Sign-in for everyone" blurb={section.blurb} />}
+                        />
+                        <OAuthClientsCard />
+                    </Stack>
+                </Stack>
             </Stack>
         );
 
-    return form;
+    return <SettingsGroupPage group={section.group} label={section.label} header={<SectionHeader title={section.label} blurb={section.blurb} />} />;
+}
+
+/** The title and the sentence that open a section's form. */
+function SectionHeader({ title, blurb }: { title: string; blurb?: string }) {
+    return (
+        <Stack gap="xxs">
+            <Title order={2} size="h4">
+                {title}
+            </Title>
+            <Text size="sm" c="dimmed">
+                {blurb}
+            </Text>
+        </Stack>
+    );
 }
 
 export interface SettingsSectionPageProps {
@@ -83,8 +102,8 @@ export interface SettingsSectionPageProps {
  * A section whose contents are a card of its own rather than declared settings.
  *
  * Appearance writes to this browser, Storage is read-only, Grants is somebody else's question,
- * Security is about the operator rather than the station, and Artwork is pictures rather than
- * settings — every layer of `AppConfig` holds text, so an image was never going to be one.
+ * and Artwork is pictures rather than settings — every layer of `AppConfig` holds text, so an
+ * image was never going to be one.
  * None of them reads `GET /settings`, so none of them shows a skeleton waiting for it.
  */
 function StandaloneSection({ section }: { section: SettingsSection }) {
@@ -96,17 +115,6 @@ function StandaloneSection({ section }: { section: SettingsSection }) {
     // question is which plugin does a job, and a form of text fields holding plugin ids is the
     // shape that made the question hard to answer in the first place.
     if (section.id === 'providers') return <ProvidersCard />;
-    // Keys beside the factors rather than in a section of their own: both are how this account gets
-    // in, and a sibling card rather than a child keeps each card's data and tests to itself.
-    if (section.id === 'security')
-        return (
-            <Stack gap="lg">
-                <SecurityCard />
-                <ApiKeysCard />
-                <ConnectedAppsCard />
-            </Stack>
-        );
-
     // A section with no group and no card of its own is a list entry nobody finished. Said out
     // loud rather than rendered as a blank page.
     return <EmptyState title="Nothing here yet">This section is in the list but has nothing to draw yet.</EmptyState>;

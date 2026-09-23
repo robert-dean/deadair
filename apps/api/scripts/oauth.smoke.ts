@@ -18,7 +18,7 @@
  *   DEADAIR_ORIGIN=https://radio.example.com DEADAIR_TOKEN=<console access token> \
  *     node --import @swc-node/register/esm-register ./scripts/oauth.smoke.ts
  *
- * OAuth has to be switched on under Settings, Sign-in and connections.
+ * OAuth has to be switched on under Settings, Sign-in and security.
  */
 import { createHash, randomBytes } from 'node:crypto';
 import { AppConfigBuilder, AppConfigResolverEnv, AppConfigSourceDotenv } from '@maroonedsoftware/appconfig';

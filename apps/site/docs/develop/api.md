@@ -35,7 +35,7 @@ playing while you look at the page.
 
 ## A key, for everything else
 
-In the console, open **Settings → Security** and create an API key. Give it a name and a scope:
+In the console, open **Settings → Sign-in and security** and create an API key. Give it a name and a scope:
 
 - **`view`** reaches every route the console reads with.
 - **`manage`** reaches the ones that change something, and includes `view`.

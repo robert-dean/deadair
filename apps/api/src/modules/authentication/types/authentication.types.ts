@@ -36,7 +36,7 @@ export const AuthenticationFactorKind = z.enum(['knowledge', 'possession', 'biom
 export type AuthenticationFactorKind = z.infer<typeof AuthenticationFactorKind>;
 
 /**
- * The name of an identity provider the station offers, as the operator set it under Settings, Sign-in and connections. `GET /auth/login/oidc/providers` lists them
+ * The name of an identity provider the station offers, as the operator set it under Settings, Sign-in and security. `GET /auth/login/oidc/providers` lists them
  * generated from [OidcProvider](../../../../data/contracts/authentication/authentication.types.ck#L24)
  */
 export const OidcProvider = z.string().min(1).max(32);

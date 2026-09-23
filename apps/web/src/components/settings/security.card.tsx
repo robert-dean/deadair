@@ -71,7 +71,7 @@ export function SecurityCard() {
                 <Stack gap="md">
                     <Stack gap="xxs">
                         <Title order={2} size="h4">
-                            Security
+                            How you sign in
                         </Title>
                         <Text size="sm" c="dimmed">
                             With an authenticator enrolled, every sign-in to this account asks for its code after the password. Lose the phone and the

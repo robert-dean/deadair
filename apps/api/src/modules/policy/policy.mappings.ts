@@ -127,7 +127,7 @@ export const ServerPolicyMappings: Record<AuthenticationPolicyNames | DeadairPol
     // survives; `MfaOrchestrator.issueOrChallenge` mints a challenge on that denial and nothing
     // else. So an account holding a password alone signs in exactly as before, and an account that
     // has enrolled an authenticator is asked for its code. Opt-in per account, and the console's
-    // Security page is where the opting happens.
+    // Sign-in and security page is where the opting happens.
     //
     // This used to be `AlwaysAllowPolicy`, on the argument that one operator on one install did not
     // want to be handed a code every time the console reloaded a plugin. That argument was about

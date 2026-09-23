@@ -12,7 +12,7 @@
 export type StationSettings = {
     /** The station's address as the operator typed it: the same one the console opens at. */
     address?: string;
-    /** A key issued in the console under Settings, Security, API keys. */
+    /** A key issued in the console under Settings, Sign-in and security, API keys. */
     apiKey?: string;
 };
 

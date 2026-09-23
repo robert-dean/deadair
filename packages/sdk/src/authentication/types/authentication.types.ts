@@ -33,7 +33,7 @@ export type AuthenticationFactorMethod = 'phone' | 'password' | 'email' | 'authe
 export type AuthenticationFactorKind = 'knowledge' | 'possession' | 'biometric';
 
 /**
- * The name of an identity provider the station offers, as the operator set it under Settings, Sign-in and connections. `GET /auth/login/oidc/providers` lists them
+ * The name of an identity provider the station offers, as the operator set it under Settings, Sign-in and security. `GET /auth/login/oidc/providers` lists them
  * generated from [OidcProvider](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L24)
  */
 export type OidcProvider = string;

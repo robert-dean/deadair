@@ -104,7 +104,7 @@ export function OAuthConsentPage({ query, leave = url => window.location.assign(
                             </Stack>
 
                             <Text size="sm">
-                                It will be able to do anything you can on this station, until you disconnect it on the Security page.
+                                It will be able to do anything you can on this station, until you disconnect it under Settings, Sign-in and security.
                             </Text>
                             <Text size="sm">
                                 Your answer is sent to <strong>{result.redirectHost}</strong>.

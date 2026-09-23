@@ -35,7 +35,7 @@ Under the console's 1,500 characters.
 > takes it off air, and once it is stopped the same key starts it again.
 >
 > You enter your station's address and an API key once, in any deadair key's settings, and every
-> key shares them. The key is issued in the station's console under Settings, Security, API keys:
+> key shares them. The key is issued in the station's console under Settings, Sign-in and security, API keys:
 > Read only is enough for Now playing, and for seeing what the station thinks of a record; Skip,
 > Stop and voting need Read and manage. It stays on your computer and never goes into a Stream Deck
 > profile you export.

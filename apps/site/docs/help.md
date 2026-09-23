@@ -88,7 +88,7 @@ redis-cli FLUSHALL
 
 If your Redis asks for a password, `redis-cli -u "$REDIS_URL" FLUSHALL`, or `-a` with the password
 you gave `REDIS_PASSWORD`. That turns the challenge off for every account on the station, since there
-is one. Sign in with the password, and enrol the new phone from **Settings → Security**.
+is one. Sign in with the password, and enrol the new phone from **Settings → Sign-in and security**.
 
 A sign-in link is worth one warning: it is the whole of the sign-in, so anybody who can read that
 message can get in. It works once, it expires in half an hour, and it should not be forwarded.

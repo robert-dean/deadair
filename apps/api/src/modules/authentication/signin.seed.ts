@@ -57,7 +57,7 @@ export async function seedSigninProvidersFromEnv(container: Container): Promise<
     }
 
     logger.warn(
-        'sign-in: copied GOOGLE_OIDC_CLIENT_ID and GOOGLE_OIDC_CLIENT_SECRET into Settings, Sign-in and connections. ' +
+        'sign-in: copied GOOGLE_OIDC_CLIENT_ID and GOOGLE_OIDC_CLIENT_SECRET into Settings, Sign-in and security. ' +
             'They are no longer read and can be removed from the environment.',
     );
     return 'seeded';

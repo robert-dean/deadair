@@ -21,7 +21,7 @@ contract AuthenticationFactorMethod: enum(phone, password, email, authenticator,
 
 contract AuthenticationFactorKind: enum(knowledge, possession, biometric) # The kind of the factor
 
-contract OidcProvider: string(min=1, max=32) # The name of an identity provider the station offers, as the operator set it under Settings, Sign-in and connections. `GET /auth/login/oidc/providers` lists them
+contract OidcProvider: string(min=1, max=32) # The name of an identity provider the station offers, as the operator set it under Settings, Sign-in and security. `GET /auth/login/oidc/providers` lists them
 
 contract BaseAuthenticationRequest: {
     grant_type: AuthenticationGrantType # The grant type for the request

@@ -7,7 +7,7 @@ import { DataRepository, type DeadairOauthGrants } from '#src/modules/data/data.
 /**
  * One operator's approval of one app for one resource. `OAuthGrantRepository` for the library, which
  * upserts one at every code exchange and refuses a refresh on a revoked one, plus the list and the
- * revoke the Security page needs.
+ * revoke the Sign-in and security page needs.
  */
 @Injectable()
 export class DeadairOAuthGrantRepository extends DataRepository implements OAuthGrantRepository {

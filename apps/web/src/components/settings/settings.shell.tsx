@@ -22,7 +22,6 @@ export type SettingsSectionId =
     | 'mail'
     | 'appearance'
     | 'security'
-    | 'signin'
     | 'rotation'
     | 'breaks'
     | 'bulletins'
@@ -42,7 +41,8 @@ export type SettingsSectionId =
  * The fields split three ways and the split is the mechanism rather than convenience:
  *
  * - A section with a `group` draws that group's declared settings, and its `blurb` is the sentence
- *   under the heading. Most of them.
+ *   under the heading. Most of them. Sign-in and security draws its group too, below cards of its
+ *   own about the person signed in, which is `settings.page.tsx`'s business rather than this list's.
  * - A section with neither draws a card of its own that answers to nothing in the registry:
  *   Appearance writes to this browser, Storage is read-only, Grants is somebody else's question.
  * - A section with a `route` is not a card at all. Plugins is its own page.
@@ -112,9 +112,9 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
         group: 'housekeeping',
         blurb: 'How long the station keeps its own history, and how much of a library sync it will trust before it refuses rather than throwing the rest away.',
     },
-    // Immediately before Security because it is what makes Security's second half work: the codes
-    // and sign-in links this station sends go out through whatever is set here, and until something
-    // is, they do not go.
+    // Ahead of Sign-in and security because it is what makes that section's email step work: the
+    // codes and sign-in links this station sends go out through whatever is set here, and until
+    // something is, they do not go.
     {
         id: 'mail',
         label: 'Mail',
@@ -126,16 +126,16 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     // because "how do I make this readable in daylight" is a question an operator brings to
     // Settings, and the card itself says plainly that it is remembered on this browser alone.
     { id: 'appearance', label: 'Appearance', hint: 'How the console looks, on this browser' },
-    // Beside Appearance because it is the other section about the operator rather than the
-    // station: a second factor protects this person's sign-in, and enrolling one changes nothing
-    // about what listeners hear.
-    { id: 'security', label: 'Security', hint: 'How you sign in' },
-    // Straight after Security because it is the station-wide half of the same question: Security is
-    // how YOU sign in, this is what the sign-in page offers everybody and who may join through it.
+    // One section with two halves: how YOU sign in, then what the sign-in page offers everybody and
+    // who may join through it. They were two sections, Security and "Sign-in and connections", and
+    // every feature in them was split across both: a provider is set up on one and linked on the
+    // other, apps are allowed and registered on one and approved apps listed on the other, and the
+    // page named "connections" was the one that did not show yours. The halves differ in who may
+    // change them, which the page says with a heading rather than with a second address.
     {
-        id: 'signin',
-        label: 'Sign-in and connections',
-        hint: 'Identity providers, who may join, and apps that connect as you',
+        id: 'security',
+        label: 'Sign-in and security',
+        hint: 'How you sign in, and how everybody else may',
         group: 'signin',
         blurb: 'The identity providers the sign-in page offers beside a password, such as Authelia, Authentik, Keycloak or Google, and the addresses allowed to create an account through one. Anyone who already has an account can sign in through a provider linked to it whatever the list says. Below them, whether apps such as a Claude connector may connect to the station as whoever approves them.',
     },
@@ -226,7 +226,6 @@ export const SETTINGS_ROUTES: Record<
     | '/settings/mail'
     | '/settings/appearance'
     | '/settings/security'
-    | '/settings/signin'
     | '/settings/rotation'
     | '/settings/breaks'
     | '/settings/bulletins'
@@ -246,7 +245,6 @@ export const SETTINGS_ROUTES: Record<
     mail: '/settings/mail',
     appearance: '/settings/appearance',
     security: '/settings/security',
-    signin: '/settings/signin',
     rotation: '/settings/rotation',
     breaks: '/settings/breaks',
     bulletins: '/settings/bulletins',

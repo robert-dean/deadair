@@ -1699,7 +1699,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         help:
             'Addresses or whole domains, one per line. Somebody signing in through a provider for the first time gets an account, as a ' +
             'listener, only if their address is here or ends in a domain that is; a domain does not cover its subdomains. Anyone who ' +
-            'already has an account signs in whatever this says, through a provider they have linked on the Security page or one that ' +
+            'already has an account signs in whatever this says, through a provider they have linked under Your account on this page, or one that ' +
             'vouches for the same address. Leave it empty and nobody new can join this way.',
     },
 
@@ -1717,7 +1717,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         help:
             'Turns the station into an OAuth authorization server, so an app such as a Claude connector can act as whoever signs in and ' +
             "approves it. The app is pointed at your station's public address followed by /api/mcp. Whoever approves decides; what the " +
-            'app can do is exactly what they can. Approved apps are listed, and can be disconnected, on the Security page.',
+            'app can do is exactly what they can. Approved apps are listed, and can be disconnected, under Your account on this page.',
     },
     {
         group: 'signin',

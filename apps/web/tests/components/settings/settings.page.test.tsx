@@ -46,6 +46,13 @@ vi.mock('../../../src/api/client', () => ({
     },
 }));
 
+// Sign-in and security draws four cards beside its form, each with reads of its own and a test file
+// of its own. Stubbed to their names here, because what this file pins is where they go.
+vi.mock('../../../src/components/settings/security.card', () => ({ SecurityCard: () => <p>factors card</p> }));
+vi.mock('../../../src/components/settings/api.keys.card', () => ({ ApiKeysCard: () => <p>keys card</p> }));
+vi.mock('../../../src/components/settings/connected.apps.card', () => ({ ConnectedAppsCard: () => <p>connected apps card</p> }));
+vi.mock('../../../src/components/settings/oauth.clients.card', () => ({ OAuthClientsCard: () => <p>registered apps card</p> }));
+
 afterEach(() => {
     getSettings.mockReset();
     updateSettings.mockReset();
@@ -324,6 +331,49 @@ describe('SettingsSectionPage', () => {
         await setupUser().click(screen.getByRole('button', { name: 'Save phrasings' }));
 
         expect(updateSettings).toHaveBeenCalledWith({ values: { 'rotation.jingleTemplates': 'This is {{station.name}}.' } });
+    });
+
+    it('draws sign-in as two halves, yours above the station’s', async () => {
+        // It was two sections, and every feature in them was split across both: a provider set up on
+        // one was linked on the other, and an app allowed on one was disconnected on the other.
+        getSettings.mockResolvedValue(
+            settingsOf({
+                descriptors: [{ group: 'signin', key: 'auth.oidc.allowlist', label: 'Who may join through a provider', type: 'text', default: '' }],
+            }),
+        );
+
+        render(<SettingsSectionPage section="security" />);
+
+        await screen.findByLabelText('Who may join through a provider');
+        const order = [
+            'Your account',
+            'factors card',
+            'keys card',
+            'connected apps card',
+            'The station',
+            'Sign-in for everyone',
+            'registered apps card',
+        ];
+        const text = document.body.textContent ?? '';
+        const positions = order.map(needle => text.indexOf(needle));
+        expect(positions.every(position => position >= 0)).toBe(true);
+        expect([...positions].sort((a, b) => a - b)).toEqual(positions);
+    });
+
+    it('names the station half on its save, which is all that button saves', async () => {
+        // The cards above it save themselves, one change at a time. A button reading "Save sign-in and
+        // security" would claim them as well.
+        getSettings.mockResolvedValue(
+            settingsOf({
+                descriptors: [{ group: 'signin', key: 'auth.oidc.allowlist', label: 'Who may join through a provider', type: 'text', default: '' }],
+            }),
+        );
+        const user = setupUser();
+
+        render(<SettingsSectionPage section="security" />);
+
+        await user.type(await screen.findByLabelText('Who may join through a provider'), 'example.org');
+        expect(screen.getByRole('button', { name: 'Save sign-in for everyone' })).toBeInTheDocument();
     });
 
     it('says so when the settings cannot be read', async () => {

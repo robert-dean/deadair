@@ -1,15 +1,12 @@
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, redirect } from '@tanstack/react-router';
 
-import { SettingsSectionPage } from '../../components/settings/settings.page';
-import { SettingsShell } from '../../components/settings/settings.shell';
-
-export const Route = createFileRoute('/settings/signin')({ component: SigninSettingsRoute });
-
-/** Sign-in and connections: the identity providers the sign-in page offers, and who may join through one. */
-function SigninSettingsRoute() {
-    return (
-        <SettingsShell active="signin">
-            <SettingsSectionPage section="signin" />
-        </SettingsShell>
-    );
-}
+/**
+ * Where "Sign-in and connections" used to be, before it became the second half of Sign-in and
+ * security. Kept as a redirect because the address was a page for a release and more, so it is in
+ * bookmarks and old links, and following one should land on the page rather than on nothing.
+ */
+export const Route = createFileRoute('/settings/signin')({
+    beforeLoad: () => {
+        throw redirect({ to: '/settings/security', replace: true });
+    },
+});

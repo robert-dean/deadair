@@ -51,10 +51,10 @@ station's API, and the console's own sign-in is refused at the MCP endpoint.
 
 ## Taking it back
 
-**Settings → Security** lists the apps you have connected. **Disconnect** stops one straight away:
+**Settings → Sign-in and security** lists the apps you have connected. **Disconnect** stops one straight away:
 the next thing it asks for is refused, and it has to be approved again to come back.
 
-An operator can see every app registered with the station on **Settings → Sign-in and connections**,
+An operator can see every app registered with the station on **Settings → Sign-in and security**,
 and **Withdraw** one, which disconnects it from everybody at once. Apps that registered themselves
 are deleted after ninety days of disuse; Claude registers a new one each time somebody connects it.
 Turning **Let apps connect as you** off stops every connected app at once without disconnecting

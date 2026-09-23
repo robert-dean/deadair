@@ -282,7 +282,7 @@ export default function Home() {
                             <p className="da-eyebrow">The API</p>
                             <p>
                                 Every station serves the same HTTP API, and the console and all three listener apps are built on it. A key from
-                                Settings, Security drives the desk from your own code, a keypad or a home-automation hub.{' '}
+                                Settings, Sign-in and security drives the desk from your own code, a keypad or a home-automation hub.{' '}
                                 <Link to="/docs/develop/api">Build on the API.</Link>
                             </p>
                         </div>

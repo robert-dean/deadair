@@ -35,13 +35,14 @@ import { ServerPolicyEnvelope } from './policy.envelope.js';
 import { DeadairMfaRequiredPolicy } from '#modules/authentication/mfa.required.policy.js';
 import type { ApiKeyGrant } from '#modules/authentication/api.key.scopes.js';
 import type { UserActor } from '#modules/permissions/authorization.context.js';
+import { OAuthGrantPolicy, type OAuthGrantPolicyContext } from '#modules/oauth/oauth.grant.policy.js';
 
 /**
  * Policy names this application adds on top of the authentication library's.
  * A generated router opts a route in by naming one in its contract's
  * `security: { policy: ... }` block, which becomes `requirePolicy({ policy })`.
  */
-export type DeadairPolicyNames = 'platform.manage' | 'platform.view';
+export type DeadairPolicyNames = 'platform.manage' | 'platform.view' | 'oauth.grant';
 
 /** `requirePolicy` always asserts with `{ session }`, whatever the policy needs. */
 export interface RequirePolicyContext {
@@ -111,6 +112,9 @@ export class PlatformViewPolicy extends PlatformPolicy {
 export const ServerPolicyMappings: Record<AuthenticationPolicyNames | DeadairPolicyNames, Constructor<Policy>> = {
     'platform.manage': PlatformManagePolicy,
     'platform.view': PlatformViewPolicy,
+    // The MCP endpoint's gate: a session an app was granted through OAuth for this station's MCP
+    // resource. See the policy for why it is the second lock rather than the only one.
+    'oauth.grant': OAuthGrantPolicy,
     'auth.factor.email.allowed': EmailAllowedPolicy,
     'auth.factor.phone.allowed': PhoneAllowedPolicy,
     'auth.factor.password.allowed': PasswordAllowedPolicy,
@@ -154,6 +158,7 @@ export const ServerPolicyMappings: Record<AuthenticationPolicyNames | DeadairPol
 export type ServerPolicyContexts = {
     'platform.manage': RequirePolicyContext;
     'platform.view': RequirePolicyContext;
+    'oauth.grant': OAuthGrantPolicyContext;
     'auth.factor.email.allowed': EmailAllowedPolicyContext;
     'auth.factor.phone.allowed': PhoneAllowedPolicyContext;
     'auth.factor.password.allowed': PasswordAllowedPolicyContext;

@@ -55,6 +55,10 @@ describe('the module list', () => {
         expect(tearsDownBefore('Topics', 'Podcasts')).toBe(true);
     });
 
+    it('registers MCP last, since it composes everything and nothing resolves it', () => {
+        expect(tearsDownBefore('Mcp', 'Station')).toBe(true);
+    });
+
     it('registers OAuth after the authentication and policies it builds on', () => {
         expect(tearsDownBefore('OAuth', 'Authentication')).toBe(true);
         expect(tearsDownBefore('OAuth', 'Policy')).toBe(true);

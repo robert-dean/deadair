@@ -41,6 +41,7 @@ import { LoggingModule } from '#src/logging/logging.module.js';
 import { JobsModule } from './jobs/jobs.module.js';
 import { withBoundedShutdown } from './shared/shutdown.guard.js';
 import { OAuthModule } from './oauth/oauth.module.js';
+import { McpModule } from './mcp/mcp.module.js';
 
 // Registered in dependency order: infrastructure (data, shared, messaging,
 // events) first, then the single-actor identity/auth foundation. IdentityModule
@@ -270,6 +271,8 @@ const ordered: ServerKitModule[] = [
     // composes them and owns nothing, so nothing resolves it back — which is what makes the bottom
     // of the list a free position rather than a compromise.
     StationModule,
+    // Last: nothing resolves it, and once it serves tools it composes everything above. See the module.
+    McpModule,
 ];
 
 /**

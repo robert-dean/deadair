@@ -11,6 +11,13 @@ describe('resolveAuthRedirect', () => {
         expect(resolveAuthRedirect(pathname, false)).toBeUndefined();
     });
 
+    // An app's consent page must never be public: approving acts as whoever is signed in, so an
+    // anonymous visitor is sent to sign in first and comes back with the app's query intact.
+    it('keeps the OAuth consent page behind sign-in', () => {
+        expect(resolveAuthRedirect('/oauth/authorize', false)).toBe('/login');
+        expect(resolveAuthRedirect('/oauth/authorize', true)).toBeUndefined();
+    });
+
     it('pulls an authenticated visitor off /login', () => {
         expect(resolveAuthRedirect('/login', true)).toBe('/');
     });

@@ -49,7 +49,7 @@ describe('LoginPage', () => {
         await fillAndSubmit('admin@example.com', 'hunter2');
 
         await vi.waitFor(() => {
-            expect(navigate).toHaveBeenCalledWith({ to: '/dashboard' });
+            expect(navigate).toHaveBeenCalledWith({ href: '/dashboard' });
         });
         expect(getSession().accessToken).toBe('tok-1');
     });
@@ -61,7 +61,7 @@ describe('LoginPage', () => {
         await fillAndSubmit('admin@example.com', 'hunter2');
 
         await vi.waitFor(() => {
-            expect(navigate).toHaveBeenCalledWith({ to: '/' });
+            expect(navigate).toHaveBeenCalledWith({ href: '/' });
         });
     });
 
@@ -104,7 +104,7 @@ describe('LoginPage', () => {
             await user.type(await screen.findByLabelText('Authenticator code'), '123456');
 
             await vi.waitFor(() => {
-                expect(navigate).toHaveBeenCalledWith({ to: '/dashboard' });
+                expect(navigate).toHaveBeenCalledWith({ href: '/dashboard' });
             });
             expect(requestToken).toHaveBeenLastCalledWith({
                 grant_type: 'authenticator',

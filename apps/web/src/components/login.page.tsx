@@ -74,7 +74,9 @@ export function LoginPage({ redirect }: LoginPageProps) {
             if (response.result === 'mfa_required') {
                 return;
             }
-            await navigate({ to: safeRedirectTarget(redirect) });
+            // `href` rather than `to`: the target is a path that may carry a query (an app's
+            // authorization request does), and `to` would read the whole of it as a path.
+            await navigate({ href: safeRedirectTarget(redirect) });
         } catch (caught) {
             const details = apiErrorDetails(caught);
             if (details) {
@@ -125,7 +127,7 @@ export function LoginPage({ redirect }: LoginPageProps) {
                     {challenge ? (
                         <ChallengePanel
                             challenge={challenge}
-                            onComplete={() => navigate({ to: safeRedirectTarget(redirect) })}
+                            onComplete={() => navigate({ href: safeRedirectTarget(redirect) })}
                             onExpired={() => {
                                 login.reset();
                                 setNotice('That sign-in timed out. Enter your password again.');

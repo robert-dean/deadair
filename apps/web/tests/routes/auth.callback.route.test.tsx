@@ -8,6 +8,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { render } from '../utils/render';
 
 const state: { outcome: unknown; search: Record<string, string | undefined> } = { outcome: { kind: 'signed-in' }, search: {} };
+const navigate = vi.fn();
 
 vi.mock('@tanstack/react-router', () => ({
     createFileRoute: () => (options: Record<string, unknown>) => ({
@@ -15,9 +16,8 @@ vi.mock('@tanstack/react-router', () => ({
         useLoaderData: () => state.outcome,
         useSearch: () => state.search,
     }),
-    Navigate: ({ to }: { to: string }) => <div data-testid="navigate">{to}</div>,
     Link: ({ children }: { children: ReactNode }) => <a>{children}</a>,
-    useNavigate: () => vi.fn(),
+    useNavigate: () => navigate,
 }));
 
 vi.mock('../../src/api/client', () => ({ sdk: {} }));
@@ -26,21 +26,27 @@ const { Route } = await import('../../src/routes/auth/callback');
 const Component = (Route as unknown as { component: () => ReactNode }).component;
 
 describe('/auth/callback once signed in', () => {
+    it('keeps the query on a path it returns to, such as an app waiting for approval', () => {
+        state.search = { redirect: '/oauth/authorize?client_id=dyn_1&state=abc' };
+        render(<Component />);
+        expect(navigate).toHaveBeenLastCalledWith({ href: '/oauth/authorize?client_id=dyn_1&state=abc', replace: true });
+    });
+
     it('goes to the path the sign-in started from', () => {
         state.search = { redirect: '/settings/security' };
-        const { getByTestId } = render(<Component />);
-        expect(getByTestId('navigate').textContent).toBe('/settings/security');
+        render(<Component />);
+        expect(navigate).toHaveBeenLastCalledWith({ href: '/settings/security', replace: true });
     });
 
     it('goes home for a return address that would leave the console', () => {
         state.search = { redirect: '//evil.example/' };
-        const { getByTestId } = render(<Component />);
-        expect(getByTestId('navigate').textContent).toBe('/');
+        render(<Component />);
+        expect(navigate).toHaveBeenLastCalledWith({ href: '/', replace: true });
     });
 
     it('goes home when no return address came back', () => {
         state.search = {};
-        const { getByTestId } = render(<Component />);
-        expect(getByTestId('navigate').textContent).toBe('/');
+        render(<Component />);
+        expect(navigate).toHaveBeenLastCalledWith({ href: '/', replace: true });
     });
 });

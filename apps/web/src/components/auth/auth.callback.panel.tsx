@@ -40,7 +40,7 @@ export function AuthCallbackPanel({ outcome, redirect = '/' }: AuthCallbackPanel
                     {outcome.kind === 'challenge' ? (
                         <ChallengePanel
                             challenge={outcome.challenge}
-                            onComplete={() => navigate({ to: redirect })}
+                            onComplete={() => navigate({ href: redirect })}
                             onExpired={() => navigate({ to: '/login' })}
                             onStartOver={() => navigate({ to: '/login' })}
                             startOverLabel="Sign in another way"

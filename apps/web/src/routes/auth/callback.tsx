@@ -1,5 +1,6 @@
 import { Card, Center, Group, Image, Loader, Stack, Text, Title } from '@mantine/core';
-import { createFileRoute, Navigate } from '@tanstack/react-router';
+import { useEffect } from 'react';
+import { createFileRoute, useNavigate } from '@tanstack/react-router';
 
 import { completeAuthCallback, type AuthCallbackOutcome, type AuthCallbackQuery } from '../../api/auth.callback.queries';
 import { AuthCallbackPanel } from '../../components/auth/auth.callback.panel';
@@ -34,7 +35,7 @@ function AuthCallbackRoute() {
     const target = safeRedirectTarget(Route.useSearch().redirect);
 
     // Nothing to draw: the session is stored and the shell is what they came for.
-    if (outcome.kind === 'signed-in') return <Navigate to={target} replace />;
+    if (outcome.kind === 'signed-in') return <GoTo href={target} />;
 
     return <AuthCallbackPanel outcome={outcome} redirect={target} />;
 }
@@ -56,4 +57,16 @@ function AuthCallbackPending() {
             </Card>
         </Center>
     );
+}
+
+/**
+ * Replaces this page with a path that may carry a query. `<Navigate>` takes only `to`, which would read
+ * `/oauth/authorize?client_id=...` as one long path; `href` is parsed into a path and a search.
+ */
+function GoTo({ href }: { href: string }) {
+    const navigate = useNavigate();
+    useEffect(() => {
+        void navigate({ href, replace: true });
+    }, [href, navigate]);
+    return null;
 }

@@ -24,6 +24,7 @@ import { Route as TracesRouteImport } from './routes/traces'
 import { Route as VoiceRouteImport } from './routes/voice'
 import { Route as AuthCallbackRouteImport } from './routes/auth/callback'
 import { Route as CatalogIndexRouteImport } from './routes/catalog/index'
+import { Route as OauthAuthorizeRouteImport } from './routes/oauth/authorize'
 import { Route as PlaylistsIndexRouteImport } from './routes/playlists/index'
 import { Route as PluginsIndexRouteImport } from './routes/plugins/index'
 import { Route as SettingsIndexRouteImport } from './routes/settings/index'
@@ -126,6 +127,11 @@ const AuthCallbackRoute = AuthCallbackRouteImport.update({
 const CatalogIndexRoute = CatalogIndexRouteImport.update({
   id: '/catalog/',
   path: '/catalog/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OauthAuthorizeRoute = OauthAuthorizeRouteImport.update({
+  id: '/oauth/authorize',
+  path: '/oauth/authorize',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PlaylistsIndexRoute = PlaylistsIndexRouteImport.update({
@@ -285,6 +291,7 @@ export interface FileRoutesByFullPath {
   '/traces': typeof TracesRoute
   '/voice': typeof VoiceRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/oauth/authorize': typeof OauthAuthorizeRoute
   '/settings/analysis': typeof SettingsAnalysisRoute
   '/settings/appearance': typeof SettingsAppearanceRoute
   '/settings/artwork': typeof SettingsArtworkRoute
@@ -330,6 +337,7 @@ export interface FileRoutesByTo {
   '/traces': typeof TracesRoute
   '/voice': typeof VoiceRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/oauth/authorize': typeof OauthAuthorizeRoute
   '/settings/analysis': typeof SettingsAnalysisRoute
   '/settings/appearance': typeof SettingsAppearanceRoute
   '/settings/artwork': typeof SettingsArtworkRoute
@@ -376,6 +384,7 @@ export interface FileRoutesById {
   '/traces': typeof TracesRoute
   '/voice': typeof VoiceRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/oauth/authorize': typeof OauthAuthorizeRoute
   '/settings/analysis': typeof SettingsAnalysisRoute
   '/settings/appearance': typeof SettingsAppearanceRoute
   '/settings/artwork': typeof SettingsArtworkRoute
@@ -423,6 +432,7 @@ export interface FileRouteTypes {
     | '/traces'
     | '/voice'
     | '/auth/callback'
+    | '/oauth/authorize'
     | '/settings/analysis'
     | '/settings/appearance'
     | '/settings/artwork'
@@ -468,6 +478,7 @@ export interface FileRouteTypes {
     | '/traces'
     | '/voice'
     | '/auth/callback'
+    | '/oauth/authorize'
     | '/settings/analysis'
     | '/settings/appearance'
     | '/settings/artwork'
@@ -513,6 +524,7 @@ export interface FileRouteTypes {
     | '/traces'
     | '/voice'
     | '/auth/callback'
+    | '/oauth/authorize'
     | '/settings/analysis'
     | '/settings/appearance'
     | '/settings/artwork'
@@ -559,6 +571,7 @@ export interface RootRouteChildren {
   TracesRoute: typeof TracesRoute
   VoiceRoute: typeof VoiceRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
+  OauthAuthorizeRoute: typeof OauthAuthorizeRoute
   SettingsAnalysisRoute: typeof SettingsAnalysisRoute
   SettingsAppearanceRoute: typeof SettingsAppearanceRoute
   SettingsArtworkRoute: typeof SettingsArtworkRoute
@@ -695,6 +708,13 @@ declare module '@tanstack/react-router' {
       path: '/catalog'
       fullPath: '/catalog/'
       preLoaderRoute: typeof CatalogIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/oauth/authorize': {
+      id: '/oauth/authorize'
+      path: '/oauth/authorize'
+      fullPath: '/oauth/authorize'
+      preLoaderRoute: typeof OauthAuthorizeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/playlists/': {
@@ -911,6 +931,7 @@ const rootRouteChildren: RootRouteChildren = {
   TracesRoute: TracesRoute,
   VoiceRoute: VoiceRoute,
   AuthCallbackRoute: AuthCallbackRoute,
+  OauthAuthorizeRoute: OauthAuthorizeRoute,
   SettingsAnalysisRoute: SettingsAnalysisRoute,
   SettingsAppearanceRoute: SettingsAppearanceRoute,
   SettingsArtworkRoute: SettingsArtworkRoute,

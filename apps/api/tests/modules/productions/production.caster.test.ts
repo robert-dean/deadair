@@ -10,7 +10,7 @@ import type { Production } from '../../../src/modules/productions/production.js'
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() };
 
-const caller = (key: string) => ({ id: `id-${key}`, key, kind: 'caller' as const, label: key, style: 'somebody', voice: key, active: false });
+const caller = (key: string) => ({ id: `id-${key}`, key, kind: 'caller' as const, label: key, style: 'somebody', voice: key, defaultHost: false });
 
 const production = (over: Partial<Production> = {}): Production =>
     ({
@@ -26,10 +26,19 @@ const production = (over: Partial<Production> = {}): Production =>
     }) as Production;
 
 function build(
-    options: { roster?: ReturnType<typeof caller>[]; heard?: Map<string, number>; rosterThrows?: boolean; kinds?: string; djName?: string } = {},
+    options: {
+        roster?: ReturnType<typeof caller>[];
+        heard?: Map<string, number>;
+        rosterThrows?: boolean;
+        kinds?: string;
+        djName?: string;
+        nobodyPresents?: boolean;
+    } = {},
 ) {
     const personas = {
-        presenting: vi.fn(async () => ({ id: 'host-1', key: 'classic', kind: 'host', label: 'Classic', style: 'warm', voice: 'classic' })),
+        presenting: vi.fn(async () =>
+            options.nobodyPresents ? undefined : { id: 'host-1', key: 'classic', kind: 'host', label: 'Classic', style: 'warm', voice: 'classic' },
+        ),
         castable: vi.fn(async () => {
             if (options.rosterThrows) throw new Error('the roster could not be read');
             return options.roster ?? [];
@@ -114,5 +123,36 @@ describe('casting a production', () => {
 
         expect(await caster.cast(production({ kind: 'phone-in' }), 9)).toHaveLength(2);
         expect(await caster.cast(production({ kind: 'callin' }), 9)).toHaveLength(1);
+    });
+});
+
+// A caller can be tied to the hosts it rings in to. Which callers qualify is the repository's SQL and
+// is held there; what the caster owes it is the right host, and a rotation run over what comes back.
+describe('casting the callers who ring this host', () => {
+    it('asks for the callers of whoever is presenting', async () => {
+        const { caster, personas } = build({ roster: [caller('skeptic')] });
+
+        await caster.cast(production({ personaId: 'host-1' }), 9);
+
+        expect(personas.presenting).toHaveBeenCalledWith('host-1');
+        expect(personas.castable).toHaveBeenCalledWith('host-1');
+    });
+
+    it('asks for the untied alone when the station presents as nobody', async () => {
+        const { caster, personas } = build({ roster: [caller('skeptic')], nobodyPresents: true });
+
+        await caster.cast(production(), 9);
+
+        expect(personas.castable).toHaveBeenCalledWith(undefined);
+    });
+
+    it('rotates over the callers that came back and nobody else', async () => {
+        // The repository has already narrowed the roster to this host's callers; a caller it left out
+        // must not reach the cast however long ago it last rang.
+        const { caster } = build({ roster: [caller('tipster'), caller('trucker')], heard: new Map([['id-trucker', 1]]) });
+
+        const cast = await caster.cast(production(), 9);
+
+        expect(cast.filter(member => member.role === 'caller').map(member => member.personaKey)).toEqual(['tipster']);
     });
 });

@@ -26,6 +26,14 @@ import type { Production } from './production.js';
  * from a column of its own, because that row already exists and a second record of the same fact is
  * a second thing that can be wrong.
  *
+ * ## Over the callers who ring THIS host
+ *
+ * A caller an operator tied to hosts (`deadair.caller_hosts`) rings in only to a programme one of them
+ * presents, and an untied caller rings anybody's. The tie is matched against the host this cast
+ * RESOLVES — the programme's own, or the station's behind it — because that is who the listener hears
+ * take the call. It narrows who may ring and changes nothing about the rotation among them, so a
+ * host's regular is not put ahead of anybody; a station presenting as nobody casts only the untied.
+ *
  * ## A station with no callers is an ordinary state
  *
  * It casts the host alone, the planner uses the monologue band, and what comes out is exactly the
@@ -53,11 +61,13 @@ export class ProductionCaster {
     async cast(production: Production, turns: number): Promise<ProductionCast> {
         // Who is presenting, resolved the one way everything resolves it, and called what the breaks
         // around this programme call them.
-        const host = hostMember(await this.personas.presenting(production.personaId), production.id, this.config.get(TEMPLATE_KEYS.djName, ''));
+        const presenting = await this.personas.presenting(production.personaId);
+        const host = hostMember(presenting, production.id, this.config.get(TEMPLATE_KEYS.djName, ''));
         if (!this.wantsCallers(production.kind)) return [host];
 
         try {
-            const roster = await this.personas.castable();
+            // Whoever may ring THIS host: the ones tied to them, and everybody tied to nobody.
+            const roster = await this.personas.castable(presenting?.id);
             const wanted = callerCount(turns, roster.length);
             if (wanted === 0) return [host];
 
@@ -71,6 +81,7 @@ export class ProductionCaster {
 
             this.logger.info('productions: cast somebody to ring in', {
                 production: production.id,
+                host: host.personaKey ?? '',
                 callers: callers.map(caller => caller.personaKey ?? '').join(', '),
             });
             return [host, ...callers];

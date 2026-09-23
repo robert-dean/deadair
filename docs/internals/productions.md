@@ -41,6 +41,27 @@ the console's own narrowing keeps that from being reachable by hand. Closing it 
 a broadcast does with a host it may not use — drop back to the station's own, or refuse the
 broadcast — which is a different question from this one and has not been answered.
 
+**A caller can be tied to the hosts it rings in to, and a tie is a RESTRICTION rather than a
+preference.** `deadair.caller_hosts` (migration 0045) holds one row per caller and host, and
+`PersonaRepository.castable(hostId)` answers the callers tied to that host plus every caller tied
+to nobody, so the roster was built without ties and still casts exactly as it did. The obvious
+alternative was to put a host's regulars first; that makes every phone-in on the show the same
+regular, and it still lets the foil written for one presenter ring the breakfast show when the
+regulars run out. So the tie narrows who may ring and the least-recently-heard rotation runs
+unchanged over what is left. The host it is matched against is the one `ProductionCaster` RESOLVES
+through `presenting` — the programme's own, or the station's behind it — because that is who the
+listener hears take the call, and a station presenting as nobody casts only the untied. The ties are
+rows with foreign keys rather than a list of ids on the sheet, on `clock_bands`' argument that a row
+can carry a foreign key, and both ends cascade: deleting a host unties its callers rather than
+silencing them, which is the call `schedule_slots.persona_id` makes with `set null`. A host rewritten
+as a caller is untied the same way. `PersonasService` refuses ties on a host and to anything but a
+host, since the table checks neither kind, and a caller saved without `hosts` is untied, because the
+console leaves an empty field out and "leave them alone" would make the last tie impossible to
+remove. Ties do not travel in a persona file (they name this station's ids) and an import leaves
+them alone. **Tying a caller to a SHOW is not built**: a production records no schedule slot, so it
+would need `productions.slot_id` taken from `lineup.slotId` where `DirectorService` commissions, and
+the desk's Take a call passing the slot it is airing.
+
 ## Commissioning one
 
 **All three commission through one path** and every one of them hands over the SHOW — a production airs as a

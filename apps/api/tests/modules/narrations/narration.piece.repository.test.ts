@@ -317,6 +317,21 @@ describe('NarrationPieceRepository claiming and marking', () => {
         expect(await repository.claimRender('piece-1', 1_000_000, 60_000)).toBe(false);
     });
 
+    it('finds every piece a production is being made for, withdrawn or not', async () => {
+        // Not through `nextFor`: the piece a production belongs to may no longer be the next one.
+        const captured: Captured = { queries: [] };
+        const repository = new NarrationPieceRepository(fakeDb([row({ productionId: 'prod-1' })], captured), new StationIdentity());
+
+        const found = await repository.awaitingCollection();
+
+        expect(found[0]?.productionId).toBe('prod-1');
+        const asked = captured.queries[0]!.sql;
+        expect(asked).toContain('"production_id" is not null');
+        expect(asked).toContain('"segment_id" is null');
+        expect(asked).not.toContain('withdrawn_at');
+        expect(asked).not.toContain('aired_at');
+    });
+
     it('takes a production only when the row names none', async () => {
         const captured: Captured = { queries: [] };
         const repository = new NarrationPieceRepository(fakeDb([{ id: 'piece-1' }], captured), new StationIdentity());

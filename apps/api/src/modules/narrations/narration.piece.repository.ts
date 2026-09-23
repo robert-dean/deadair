@@ -292,6 +292,29 @@ export class NarrationPieceRepository extends DataRepository {
     }
 
     /**
+     * The pieces a production is being made for, oldest ask first: what the scheduler collects.
+     *
+     * Every one of them, not only those a band would read next, and withdrawn ones included: a piece
+     * whose production is never collected leaves that production out of `aired` for good, where it
+     * crowds the phone-ins out of `ProductionRepository.unfinished`. `narration_pieces_production_idx`
+     * is what makes this cheap enough to ask on every commit pass.
+     */
+    async awaitingCollection(limit = 20): Promise<NarrationPieceRecord[]> {
+        const rows = await this.db
+            .selectFrom('deadair.narrationPieces')
+            .selectAll()
+            .where('stationKey', '=', this.station.stationKey)
+            .where('productionId', 'is not', null)
+            .where('segmentId', 'is', null)
+            .orderBy(sql`render_requested_at asc nulls first`)
+            .orderBy('id', 'asc')
+            .limit(limit)
+            .execute();
+
+        return rows.map(toRecord);
+    }
+
+    /**
      * This piece is being spoken by that production.
      *
      * Guarded on `production_id is null`, so two renders that both got past {@link claimRender} still

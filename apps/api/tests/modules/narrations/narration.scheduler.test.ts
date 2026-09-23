@@ -32,6 +32,8 @@ interface Options {
     production?: { id: string; state: string; error?: string } | undefined;
     joined?: { id: string; durationMs?: number };
     bandKind?: string;
+    /** What the collection sweep finds: every piece a production is being made for. */
+    awaiting?: NarrationPieceRecord[];
 }
 
 function build(options: Options = {}) {
@@ -48,6 +50,7 @@ function build(options: Options = {}) {
 
     const pieces = {
         claimRender: vi.fn(async () => options.claimed ?? true),
+        awaitingCollection: vi.fn(async () => options.awaiting ?? []),
         markRendered: vi.fn(async () => {}),
         markRenderFailed: vi.fn(async () => {}),
     };
@@ -152,6 +155,7 @@ describe('NarrationScheduler collecting what has been spoken', () => {
     it('hands a finished reading to the piece that asked for it', async () => {
         const { scheduler, pieces, productions } = build({
             found: waiting,
+            awaiting: [waiting],
             production: { id: 'prod-1', state: 'ready' },
             joined: { id: 'joined-1', durationMs: 612_000 },
         });
@@ -167,7 +171,12 @@ describe('NarrationScheduler collecting what has been spoken', () => {
     it('fails the piece when nothing joined the parts, rather than airing them separately', async () => {
         // A block of beats cannot ride a single-segment answer, so unlike a phone-in this cannot air
         // as its parts. A station with no mixer gets a reason on the row instead.
-        const { scheduler, pieces, productions } = build({ found: waiting, production: { id: 'prod-1', state: 'ready' }, joined: undefined });
+        const { scheduler, pieces, productions } = build({
+            found: waiting,
+            awaiting: [waiting],
+            production: { id: 'prod-1', state: 'ready' },
+            joined: undefined,
+        });
 
         await scheduler.ripen(inWindow);
 
@@ -177,7 +186,11 @@ describe('NarrationScheduler collecting what has been spoken', () => {
     });
 
     it('writes down a production that failed, so the piece can be tried again', async () => {
-        const { scheduler, pieces } = build({ found: waiting, production: { id: 'prod-1', state: 'failed', error: 'a beat could not be spoken' } });
+        const { scheduler, pieces } = build({
+            found: waiting,
+            awaiting: [waiting],
+            production: { id: 'prod-1', state: 'failed', error: 'a beat could not be spoken' },
+        });
 
         await scheduler.ripen(inWindow);
 
@@ -185,7 +198,7 @@ describe('NarrationScheduler collecting what has been spoken', () => {
     });
 
     it('writes down a production an operator cancelled', async () => {
-        const { scheduler, pieces } = build({ found: waiting, production: { id: 'prod-1', state: 'cancelled' } });
+        const { scheduler, pieces } = build({ found: waiting, awaiting: [waiting], production: { id: 'prod-1', state: 'cancelled' } });
 
         await scheduler.ripen(inWindow);
 
@@ -194,7 +207,7 @@ describe('NarrationScheduler collecting what has been spoken', () => {
 
     it('writes down a production that has been deleted out from under the piece', async () => {
         // Otherwise the piece waits forever on a row that no longer exists.
-        const { scheduler, pieces } = build({ found: waiting, production: undefined });
+        const { scheduler, pieces } = build({ found: waiting, awaiting: [waiting], production: undefined });
 
         await scheduler.ripen(inWindow);
 
@@ -203,7 +216,7 @@ describe('NarrationScheduler collecting what has been spoken', () => {
 
     it('leaves a production that is still being spoken alone', async () => {
         // The ordinary state on most passes.
-        const { scheduler, pieces, productions } = build({ found: waiting, production: { id: 'prod-1', state: 'rendering' } });
+        const { scheduler, pieces, productions } = build({ found: waiting, awaiting: [waiting], production: { id: 'prod-1', state: 'rendering' } });
 
         await scheduler.ripen(inWindow);
 
@@ -213,10 +226,56 @@ describe('NarrationScheduler collecting what has been spoken', () => {
     });
 
     it('never asks for a second render while one is in flight', async () => {
-        const { scheduler, jobs } = build({ found: waiting, production: { id: 'prod-1', state: 'rendering' } });
+        const { scheduler, jobs } = build({ found: waiting, awaiting: [waiting], production: { id: 'prod-1', state: 'rendering' } });
 
         await scheduler.ripen(inWindow);
 
         expect(jobs.send).not.toHaveBeenCalled();
+    });
+
+    // The piece a production was made for is not always the one a band wants next: a `latest` issue
+    // overtaken while it was being spoken, a piece its plugin withdrew mid-render. Collecting only
+    // what `nextFor` answered left those productions out of `aired`, crowding the phone-ins.
+    it('collects a finished reading no band will ask about again', async () => {
+        const overtaken = piece({ id: 'piece-0', productionId: 'prod-0' });
+        const { scheduler, pieces, productions } = build({
+            found: piece({ id: 'piece-2', pieceId: 'ch6' }),
+            awaiting: [overtaken],
+            production: { id: 'prod-0', state: 'ready' },
+            joined: { id: 'joined-0', durationMs: 540_000 },
+        });
+
+        await scheduler.ripen(inWindow);
+
+        expect(pieces.markRendered).toHaveBeenCalledWith('piece-0', 'joined-0');
+        expect(productions.moveTo).toHaveBeenCalledWith('prod-0', 'aired', 'ready');
+    });
+
+    it('collects a withdrawn piece, which keeps its audio and is kept off air by nextFor', async () => {
+        const withdrawn = piece({ productionId: 'prod-1', withdrawnAt: NOW });
+        const { scheduler, pieces } = build({
+            found: { declined: 'nothing left' },
+            awaiting: [withdrawn],
+            production: { id: 'prod-1', state: 'ready' },
+            joined: { id: 'joined-1' },
+        });
+
+        await scheduler.ripen(inWindow);
+
+        expect(pieces.markRendered).toHaveBeenCalledWith('piece-1', 'joined-1');
+    });
+
+    it('collects even when no band wants a reading', async () => {
+        // A band removed mid-render still leaves a production somebody has to move on.
+        const { scheduler, pieces } = build({
+            bandKind: 'syndicated',
+            awaiting: [waiting],
+            production: { id: 'prod-1', state: 'ready' },
+            joined: { id: 'joined-1' },
+        });
+
+        await scheduler.ripen(NOW);
+
+        expect(pieces.markRendered).toHaveBeenCalledWith('piece-1', 'joined-1');
     });
 });

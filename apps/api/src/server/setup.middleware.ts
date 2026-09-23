@@ -13,6 +13,7 @@ import { hlsCorsMiddleware } from './middleware/hls.cors.middleware.js';
 import { hlsHeartbeatMiddleware } from './middleware/hls.heartbeat.middleware.js';
 import { nowPlayingCorsMiddleware } from './middleware/nowplaying.cors.middleware.js';
 import { rateLimitMiddleware } from './middleware/rate.limit.middleware.js';
+import { oauthChallengeMiddleware } from './middleware/oauth.challenge.middleware.js';
 
 export const setupMiddleware = (container: Container) => {
     const middlewares: ServerKitMiddleware[] = [];
@@ -35,6 +36,10 @@ export const setupMiddleware = (container: Container) => {
     });
 
     middlewares.push(errorMiddleware());
+    // Immediately inside the error middleware, so it wraps every other layer: a 401 at the MCP
+    // endpoint from any of them gains the RFC 9728 pointer an MCP client needs to find out how to
+    // get a token. See the middleware for why it rethrows rather than editing the response.
+    middlewares.push(oauthChallengeMiddleware(config));
     middlewares.push(serverKitContextMiddleware(container));
     // Ours rather than ServerKit's, for one reason: it keys on the real caller instead of on
     // `ctx.ip`, which behind nginx is the edge and therefore one bucket for every client at once.

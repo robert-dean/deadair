@@ -53,7 +53,8 @@ import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import { RateLimiterRedis } from 'rate-limiter-flexible';
 import { Redis } from 'ioredis';
-import { ServerKitModule } from '@maroonedsoftware/koa';
+import { ServerKitContext, ServerKitModule } from '@maroonedsoftware/koa';
+import { OAuthOptions } from '#modules/oauth/oauth.options.js';
 import { DeadairPasswordFactorRepository } from './repositories/password.factor.repository.js';
 import { AuthenticationService } from './authentication.service.js';
 import { AuthenticationServiceOptions } from './authentication.options.js';
@@ -157,7 +158,16 @@ export const AuthenticationModule: ServerKitModule = {
 
         registry.register(JwtAuthenticationIssuerMap).useMap(JwtAuthenticationIssuerMap).set('deadair', DeadairJwtAuthenticationIssuer);
 
-        registry.register(DeadairJwtAuthenticationIssuer).useClass(DeadairJwtAuthenticationIssuer).asScoped();
+        // A factory rather than a class, because the OAuth addresses are absent on a station with no
+        // public address and constructor injection cannot say "maybe". The issuer uses them to ask
+        // for the MCP resource's audience on the MCP endpoint and the station's own everywhere else.
+        const oauth = OAuthOptions.fromConfig(config);
+        registry
+            .register(DeadairJwtAuthenticationIssuer)
+            .useFactory(
+                container => new DeadairJwtAuthenticationIssuer(container.get(AuthenticationSessionService), container.get(ServerKitContext), oauth),
+            )
+            .asScoped();
 
         // Checked here rather than in the scoped factory below, for `CryptoModule`'s reason: an
         // unset key is `''`, which signs nothing and fails at whichever request first tries to mint

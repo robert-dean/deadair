@@ -2,13 +2,19 @@ import { describe, expect, it, vi } from 'vitest';
 import { DateTime } from 'luxon';
 import { AuthenticationSession, AuthenticationSessionService, invalidAuthenticationSession } from '@maroonedsoftware/authentication';
 import { httpError, unauthorizedError } from '@maroonedsoftware/errors';
+import type { ServerKitContext } from '@maroonedsoftware/koa';
 
 import { DeadairJwtAuthenticationIssuer } from '../../../../src/modules/authentication/issuers/jwt.authentication.issuer.js';
 
 // No database, no cache: the issuer's only collaborator is stubbed. `lookupSessionFromJwt` is the
-// single method under exercise, so the stub is cast rather than fully implemented.
+// single method under exercise, so the stub is cast rather than fully implemented. No OAuth
+// addresses, so every path asks for the station's own audience; the audience file covers the rest.
 const issuerWithLookup = (lookup: AuthenticationSessionService['lookupSessionFromJwt']): DeadairJwtAuthenticationIssuer =>
-    new DeadairJwtAuthenticationIssuer({ lookupSessionFromJwt: lookup } as unknown as AuthenticationSessionService);
+    new DeadairJwtAuthenticationIssuer(
+        { lookupSessionFromJwt: lookup } as unknown as AuthenticationSessionService,
+        { path: '/settings' } as unknown as ServerKitContext,
+        undefined,
+    );
 
 const liveSession = (): AuthenticationSession => ({
     subject: 'actor-1',

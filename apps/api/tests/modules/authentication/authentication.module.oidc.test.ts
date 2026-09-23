@@ -13,6 +13,7 @@ import { InjectKitRegistry, type Identifier } from 'injectkit';
 import { Kysely } from 'kysely';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
+import { ServerKitContext } from '@maroonedsoftware/koa';
 import { CacheProvider } from '@maroonedsoftware/cache';
 import { EncryptionProvider } from '@maroonedsoftware/encryption';
 import { PolicyService } from '@maroonedsoftware/policies';
@@ -42,6 +43,7 @@ const FOREIGN: Identifier<unknown>[] = [
     AuthorizationContext,
     MailService,
     PermissionsService,
+    ServerKitContext,
 ];
 
 const encryption = new EncryptionProvider(randomBytes(32));

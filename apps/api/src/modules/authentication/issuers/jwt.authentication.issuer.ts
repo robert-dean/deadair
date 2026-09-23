@@ -6,11 +6,30 @@ import {
 } from '@maroonedsoftware/authentication';
 import { Injectable } from 'injectkit';
 import { IsHttpError } from '@maroonedsoftware/errors';
+import { ServerKitContext } from '@maroonedsoftware/koa';
+import { OAuthOptions } from '#modules/oauth/oauth.options.js';
 
 @Injectable()
 export class DeadairJwtAuthenticationIssuer extends JwtAuthenticationIssuer {
-    constructor(private readonly sessionService: AuthenticationSessionService) {
+    constructor(
+        private readonly sessionService: AuthenticationSessionService,
+        private readonly context: ServerKitContext,
+        // Absent on a station with no public address, which therefore has no MCP resource.
+        private readonly oauth: OAuthOptions | undefined,
+    ) {
         super();
+    }
+
+    /**
+     * The audience a token must carry on this request: the MCP resource at the MCP endpoint, and the
+     * station's own everywhere else (`undefined` lets the session service use its configured one).
+     *
+     * This is what keeps a token an app was granted for the MCP endpoint off every other route, and
+     * a console session off the MCP endpoint, with no route having to ask. A token for the wrong
+     * audience is refused before its session is read, and comes back here as the sentinel.
+     */
+    private expectedAudience(): string | undefined {
+        return this.oauth?.isMcpPath(this.context.path) ? this.oauth.resource : undefined;
     }
 
     /**
@@ -35,7 +54,7 @@ export class DeadairJwtAuthenticationIssuer extends JwtAuthenticationIssuer {
      */
     override async parse(token: string, _payload: unknown): Promise<AuthenticationSession> {
         try {
-            const { session } = await this.sessionService.lookupSessionFromJwt(token);
+            const { session } = await this.sessionService.lookupSessionFromJwt(token, undefined, this.expectedAudience());
             return session ?? invalidAuthenticationSession;
         } catch (error) {
             // `lookupSessionFromJwt` reports every authentication failure by throwing 401

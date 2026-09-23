@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.27.2] — 2026-09-23
+
+- The conspiracy host is now deadpan. He is every bit as unhinged, but he has seen too much to be excited: the wilder the claim, the flatter he says it. He broadcasts from a trailer in the West Texas desert and mentions its state the way other men mention the weather, answers a question with a stranger theory that has nothing to do with it, sometimes opens with a string of tabloid questions, and makes up new theories on the spot as well as believing the classics. Still one theory per break, and still nothing that hurt anybody.
+
 ## [0.27.1] — 2026-09-23
 
 - The conspiracy host is now a Southern man. His dialect is in every sentence (y'all, fixin' to, I reckon, might could, dropped g's), his sample lines, stories and fallback phrasings are retold in that voice, and the British places he used to mention are American ones: a pull-off on the county road instead of a lay-by, a parking garage instead of a multi-storey car park. This changes the words he writes; how he sounds is the speech engine's voice for him, which this does not change. A station that already has him keeps its own row until an operator edits it.
@@ -743,7 +747,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.27.1...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.27.2...HEAD
+[0.27.2]: https://github.com/robert-dean/deadair/compare/v0.27.1...v0.27.2
 [0.27.1]: https://github.com/robert-dean/deadair/compare/v0.27.0...v0.27.1
 [0.27.0]: https://github.com/robert-dean/deadair/compare/v0.26.3...v0.27.0
 [0.26.3]: https://github.com/robert-dean/deadair/compare/v0.26.2...v0.26.3

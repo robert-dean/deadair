@@ -43,6 +43,18 @@ export class DeadairOAuthGrantRepository extends DataRepository implements OAuth
         return rows.map(toGrant);
     }
 
+    /** Withdraw every approval of one app, for everybody, as withdrawing the app itself does. */
+    async revokeForClient(clientId: string): Promise<OAuthGrant[]> {
+        const rows = await this.db
+            .updateTable('deadair.oauthGrants')
+            .set({ revokedAt: DateTime.utc() })
+            .where('clientId', '=', clientId)
+            .where('revokedAt', 'is', null)
+            .returningAll()
+            .execute();
+        return rows.map(toGrant);
+    }
+
     /** Withdraw one of this person's approvals. Answers the grant withdrawn, or nothing if it was not theirs. */
     async revoke(id: string, actorId: string): Promise<OAuthGrant | undefined> {
         const row = await this.db

@@ -10,6 +10,7 @@ import { HistoryClient } from './history/history.client.js';
 import { NarrationsClient } from './narrations/narrations.client.js';
 import { NewsClient } from './news/news.client.js';
 import { NowplayingClient } from './nowplaying/nowplaying.client.js';
+import { OauthClient } from './oauth/oauth.client.js';
 import { OnboardingClient } from './onboarding/onboarding.client.js';
 import { PersonasClient } from './personas/personas.client.js';
 import { PlaylistsClient } from './playlists/playlists.client.js';
@@ -36,6 +37,7 @@ export class DeadairSdk {
     readonly narrations: NarrationsClient;
     readonly news: NewsClient;
     readonly nowplaying: NowplayingClient;
+    readonly oauth: OauthClient;
     readonly onboarding: OnboardingClient;
     readonly personas: PersonasClient;
     readonly playlists: PlaylistsClient;
@@ -63,6 +65,7 @@ export class DeadairSdk {
         this.narrations = new NarrationsClient(sdkFetch);
         this.news = new NewsClient(sdkFetch);
         this.nowplaying = new NowplayingClient(sdkFetch);
+        this.oauth = new OauthClient(sdkFetch);
         this.onboarding = new OnboardingClient(sdkFetch);
         this.personas = new PersonasClient(sdkFetch);
         this.playlists = new PlaylistsClient(sdkFetch);

@@ -2,6 +2,7 @@ import { Registry } from 'injectkit';
 import { Duration } from 'luxon';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { ServerKitModule } from '@maroonedsoftware/koa';
+import { httpError } from '@maroonedsoftware/errors';
 import {
     AuthorizationCodeService,
     AuthorizationCodeServiceOptions,
@@ -19,6 +20,9 @@ import {
     OAuthTokenEndpoint,
 } from '@maroonedsoftware/authentication';
 import { OAuthOptions } from './oauth.options.js';
+import { OAuthConsentService } from './oauth.consent.service.js';
+import { OAuthClientsService } from './oauth.clients.service.js';
+import { OAuthGrantsService } from './oauth.grants.service.js';
 import { clientMetadataHostAllowed, dynamicRegistrationIsOn } from './oauth.settings.js';
 import { DeadairOAuthClientRepository } from './repositories/oauth.client.repository.js';
 import { DeadairOAuthGrantRepository } from './repositories/oauth.grant.repository.js';
@@ -45,8 +49,8 @@ export const OAUTH_SESSION_LIFETIME = Duration.fromObject({ days: 7 });
  * setting each time. `oauth.enabled` itself is checked by the routes and the MCP policy, which
  * answer as though none of this existed while it is off.
  *
- * Registered only on a station with a public address: without `APP_BASE_URL` there is no issuer,
- * and the routes answer 404.
+ * On a station with no public address there is no issuer: the pieces are still registered, and
+ * resolving one answers 404.
  */
 export const OAuthModule: ServerKitModule = {
     name: 'OAuth',
@@ -83,25 +87,35 @@ export const OAuthModule: ServerKitModule = {
         registry.register(AuthorizationCodeServiceOptions).useInstance(new AuthorizationCodeServiceOptions());
         registry.register(AuthorizationCodeService).useClass(AuthorizationCodeService).asScoped();
 
-        if (oauth === undefined) return;
-        registry.register(OAuthOptions).useInstance(oauth);
+        // Registered whether or not the station has a public address, so a service can take the
+        // authorization server as an ordinary dependency. Without one there is no issuer, and the
+        // first thing to ask for these answers 404, which is what every OAuth route should say then.
+        const requireOAuth = (): OAuthOptions => {
+            if (oauth === undefined) throw httpError(404).withDetails({ oauth: 'the station has no public address to be an issuer at' });
+            return oauth;
+        };
+        registry.register(OAuthOptions).useFactory(requireOAuth).asSingleton();
         registry
             .register(OAuthAuthorizationServerOptions)
-            .useFactory(
-                () =>
-                    new OAuthAuthorizationServerOptions(
-                        oauth.issuer,
-                        oauth.authorizationEndpoint,
-                        oauth.tokenEndpoint,
-                        [oauth.resource],
-                        OAUTH_SCOPES,
-                        dynamicRegistrationIsOn(config) ? oauth.registrationEndpoint : undefined,
-                        OAUTH_SESSION_LIFETIME,
-                    ),
-            )
+            .useFactory(() => {
+                const options = requireOAuth();
+                return new OAuthAuthorizationServerOptions(
+                    options.issuer,
+                    options.authorizationEndpoint,
+                    options.tokenEndpoint,
+                    [options.resource],
+                    OAUTH_SCOPES,
+                    dynamicRegistrationIsOn(config) ? options.registrationEndpoint : undefined,
+                    OAUTH_SESSION_LIFETIME,
+                );
+            })
             .asScoped();
         // Both reach the session service, which is scoped.
         registry.register(OAuthTokenEndpoint).useClass(OAuthTokenEndpoint).asScoped();
         registry.register(OAuthAuthorizationServer).useClass(OAuthAuthorizationServer).asScoped();
+
+        registry.register(OAuthConsentService).useClass(OAuthConsentService).asScoped();
+        registry.register(OAuthClientsService).useClass(OAuthClientsService).asScoped();
+        registry.register(OAuthGrantsService).useClass(OAuthGrantsService).asScoped();
     },
 };

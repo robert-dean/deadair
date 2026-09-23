@@ -21,6 +21,7 @@ public final class Deadair: Sendable {
     public let narrations: NarrationsClient
     public let news: NewsClient
     public let nowplaying: NowplayingClient
+    public let oauth: OauthClient
     public let onboarding: OnboardingClient
     public let personasAuditions: PersonasAuditionsClient
     public let personas: PersonasClient
@@ -57,6 +58,7 @@ public final class Deadair: Sendable {
         self.narrations = NarrationsClient(http: http)
         self.news = NewsClient(http: http)
         self.nowplaying = NowplayingClient(http: http)
+        self.oauth = OauthClient(http: http)
         self.onboarding = OnboardingClient(http: http)
         self.personasAuditions = PersonasAuditionsClient(http: http)
         self.personas = PersonasClient(http: http)

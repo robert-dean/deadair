@@ -23,6 +23,8 @@ export * from './news/news.client.js';
 export * from './news/types/index.js';
 export * from './nowplaying/nowplaying.client.js';
 export * from './nowplaying/types/index.js';
+export * from './oauth/oauth.client.js';
+export * from './oauth/types/index.js';
 export * from './onboarding/onboarding.client.js';
 export * from './onboarding/types/index.js';
 export * from './personas/personas.client.js';

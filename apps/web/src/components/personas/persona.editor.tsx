@@ -378,6 +378,16 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                         <Textarea label="Never say" description="One per line." autosize minRows={3} maxRows={10} {...form.getInputProps('avoid')} />
                     </SimpleGrid>
 
+                    <Textarea
+                        label="Never in the same break"
+                        description="One subject per line, written as the words that mean it, separated by commas. A break that brings up words from two lines is refused and written again; a word inside a record's title does not count. Leave empty to keep nothing apart."
+                        placeholder={'bigfoot, sasquatch, yeti\nchemtrail, contrail'}
+                        autosize
+                        minRows={3}
+                        maxRows={10}
+                        {...form.getInputProps('exclusiveSubjects')}
+                    />
+
                     {/* A caller has no floor and should not have one: phrasings are what the STATION
                         says when the model declines, and a phone-in whose caller was written by a
                         template is a phone-in with nobody on the phone. So the section is not drawn
@@ -898,6 +908,7 @@ interface FormValues {
     preoccupations: string;
     catchphrases: string;
     avoid: string;
+    exclusiveSubjects: string;
     samples: string;
 }
 
@@ -947,6 +958,7 @@ function valuesOf(persona: PersonaDraftView | Persona | undefined): FormValues {
         preoccupations: linesOf(persona?.preoccupations),
         catchphrases: linesOf(persona?.catchphrases),
         avoid: linesOf(persona?.avoid),
+        exclusiveSubjects: linesOf(persona?.exclusiveSubjects),
         samples: linesOf(persona?.samples),
     };
 }
@@ -1017,6 +1029,7 @@ function draftOf(values: FormValues, kind: PersonaKind): PersonaInput {
             preoccupations: list(values.preoccupations),
             catchphrases: list(values.catchphrases),
             avoid: list(values.avoid),
+            exclusiveSubjects: list(values.exclusiveSubjects),
             samples: list(values.samples),
         }),
     };

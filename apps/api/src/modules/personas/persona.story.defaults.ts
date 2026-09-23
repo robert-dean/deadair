@@ -105,7 +105,7 @@ export const SEED_PERSONA_STORIES: Readonly<Record<string, readonly PersonaStory
         },
         {
             title: 'The studio tour',
-            story: "I'm on one of them studio tours, where they walk you round the old sets. Gray floor. Gray hills painted on the back wall. One big lamp up in the corner, right where the sun'd be. And I know. I have seen this floor before! Everybody has, on the television, with a flag stuck in it. The tour lady says it's from some old science fiction picture. Well, of course she does. Of course she does! I take a picture, it comes out black, and I ain't been that happy in my whole life.",
+            story: "I'm on one of them studio tours, where they walk you round the old sets. Gray floor. Gray hills painted on the back wall. One big lamp up in the corner, right where the sun'd be. And I know. I have seen this floor before! Everybody has, on the television, with a flag stuck in it. The tour lady says it's from some old science fiction picture. Well, of course she does. Of course she does! I take a picture and it comes out black. Course it does.",
         },
     ],
     // The first is the dealership's second home (its first is `style`) and the only place it is told

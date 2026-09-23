@@ -110,6 +110,10 @@ export const DEFAULT_VOICE_ROWS: readonly { name: string; engine: string; speed?
     // one production talking to each other.
     { name: 'skeptic', engine: 'Eli.wav' },
     { name: 'pedant', engine: 'Elena.wav' },
+    // The conspiracy host's regulars, matched to the kokoro rows as the callers above are.
+    { name: 'tipster', engine: 'Axel.wav' },
+    { name: 'trucker', engine: 'Henry.wav' },
+    { name: 'worrier', engine: 'Ryan.wav' },
 ];
 
 /** The rows as the config stores them: a JSON array in a string, exactly as the console writes it. */

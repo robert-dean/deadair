@@ -22,6 +22,7 @@ export type SettingsSectionId =
     | 'mail'
     | 'appearance'
     | 'security'
+    | 'signin'
     | 'rotation'
     | 'breaks'
     | 'bulletins'
@@ -129,6 +130,15 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     // station: a second factor protects this person's sign-in, and enrolling one changes nothing
     // about what listeners hear.
     { id: 'security', label: 'Security', hint: 'How you sign in' },
+    // Straight after Security because it is the station-wide half of the same question: Security is
+    // how YOU sign in, this is what the sign-in page offers everybody and who may join through it.
+    {
+        id: 'signin',
+        label: 'Sign-in and connections',
+        hint: 'Identity providers, and who may join through them',
+        group: 'signin',
+        blurb: 'The identity providers the sign-in page offers beside a password, such as Authelia, Authentik, Keycloak or Google, and the addresses allowed to create an account through one. Anyone who already has an account can sign in through a provider linked to it whatever the list says.',
+    },
     // Rotation was one section holding what the station plays, how often it talks, what goes into a
     // bulletin and every word it says around them: forty-two fields and six boxes of phrasings under
     // one save. Split along `SettingGroup` in `settings.types.ck`, as Station was; the phrasings went
@@ -216,6 +226,7 @@ export const SETTINGS_ROUTES: Record<
     | '/settings/mail'
     | '/settings/appearance'
     | '/settings/security'
+    | '/settings/signin'
     | '/settings/rotation'
     | '/settings/breaks'
     | '/settings/bulletins'
@@ -235,6 +246,7 @@ export const SETTINGS_ROUTES: Record<
     mail: '/settings/mail',
     appearance: '/settings/appearance',
     security: '/settings/security',
+    signin: '/settings/signin',
     rotation: '/settings/rotation',
     breaks: '/settings/breaks',
     bulletins: '/settings/bulletins',

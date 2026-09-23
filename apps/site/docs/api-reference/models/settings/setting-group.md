@@ -13,6 +13,7 @@ type SettingGroup =
     | 'stream'
     | 'housekeeping'
     | 'mail'
+    | 'signin'
     | 'rotation'
     | 'breaks'
     | 'bulletins'

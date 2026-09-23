@@ -100,6 +100,7 @@ import { CHARTS_KEYS } from '#modules/charts/charts.keys.js';
 import { ENRICHMENT_KEYS } from '#modules/enrichment/enrichment.keys.js';
 import { MIXER_PLUGIN_KEY } from '#modules/render/mixer.settings.js';
 import { MAIL_DEFAULTS, MAIL_KEYS, MAX_MAIL_PORT, MIN_MAIL_PORT } from '#modules/mail/mail.settings.js';
+import { SIGNIN_KEYS, SIGNIN_PROVIDER_COLUMNS } from '#modules/authentication/signin.settings.js';
 import {
     PAD_DUCK_KEY,
     PAD_EVERY_BOUNDS,
@@ -212,6 +213,7 @@ export const SETTING_GROUPS = [
     'stream',
     'housekeeping',
     'mail',
+    'signin',
     'rotation',
     'breaks',
     'bulletins',
@@ -1653,6 +1655,42 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         default: '',
         dependsOn: MAIL_KEYS.host,
         help: 'The address sign-in emails come from. Needed as much as the server is: most providers refuse an envelope whose sender is not one of theirs.',
+    },
+
+    // ── sign-in ────────────────────────────────────────────────────────────────
+    // Signing in through an identity provider the operator already runs or uses: Authelia,
+    // Authentik, Keycloak, Google, Microsoft, anything that speaks OpenID Connect. A provider is a
+    // row rather than a fixed field, because a station may offer more than one, and its client
+    // secret is held per row (see `shared/config.rows.ts`). The allowlist beside it is what keeps
+    // "anyone with an account there" from meaning "anyone with an account here": an account that
+    // already exists signs in through a provider it is linked to, or whose verified address it
+    // shares, and nobody else gets one unless this list names them.
+    {
+        group: 'signin',
+        key: SIGNIN_KEYS.providers,
+        label: 'Identity providers',
+        type: 'list',
+        placeholder: 'No providers, so the sign-in page offers a password and an emailed link only.',
+        columns: SIGNIN_PROVIDER_COLUMNS,
+        help:
+            'Each row becomes a "Continue with" button on the sign-in page. Register the station with the provider as a web application ' +
+            "whose redirect address is your station's public address followed by /api/auth/login/oidc/callback, then copy the issuer, " +
+            'client id and client secret it gives you into the row. The name goes into links and is recorded against every account ' +
+            'signed in through it, so changing it later unlinks those accounts. Leave the secret empty only for a provider set up as a ' +
+            'public client. Scopes default to openid email profile.',
+    },
+    {
+        group: 'signin',
+        key: SIGNIN_KEYS.allowlist,
+        label: 'Who may join through a provider',
+        type: 'text',
+        default: '',
+        placeholder: 'alice@example.com\nexample.org',
+        help:
+            'Addresses or whole domains, one per line. Somebody signing in through a provider for the first time gets an account, as a ' +
+            'listener, only if their address is here or ends in a domain that is; a domain does not cover its subdomains. Anyone who ' +
+            'already has an account signs in whatever this says, through a provider they have linked on the Security page or one that ' +
+            'vouches for the same address. Leave it empty and nobody new can join this way.',
     },
 
     // ── providers ──────────────────────────────────────────────────────────────

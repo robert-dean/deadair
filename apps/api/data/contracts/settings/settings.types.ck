@@ -9,6 +9,7 @@ contract SettingGroup: enum(
     stream,
     housekeeping,
     mail,
+    signin,
     rotation,
     breaks,
     bulletins,
@@ -26,6 +27,8 @@ contract SettingGroup: enum(
   # the sync threshold, and four passwords, each meant for a different kind of visit. The passwords
   # were a fourth group, `secrets`, until the station stopped declaring them: it seeds them itself
   # and nothing outside it holds one.
+  # `signin` holds the identity providers the console offers as sign-in buttons and the allowlist of
+  # who may join through one; it sits beside `mail` because both answer "how do people get in".
   # `rotation`, `breaks`, `bulletins` and `phrasings` were one group, `rotation`, until it reached
   # forty-two fields and six boxes of phrasings under a single save: what plays, how often the
   # station talks, what goes into a bulletin and the words it says, each a different visit.

@@ -7,6 +7,7 @@ public enum SettingGroup: String, Codable, CaseIterable, Sendable {
     case stream = "stream"
     case housekeeping = "housekeeping"
     case mail = "mail"
+    case signin = "signin"
     case rotation = "rotation"
     case breaks = "breaks"
     case bulletins = "bulletins"

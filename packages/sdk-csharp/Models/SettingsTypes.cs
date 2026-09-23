@@ -27,6 +27,9 @@ public enum SettingGroup
     [JsonStringEnumMemberName("mail")]
     Mail,
 
+    [JsonStringEnumMemberName("signin")]
+    Signin,
+
     [JsonStringEnumMemberName("rotation")]
     Rotation,
 

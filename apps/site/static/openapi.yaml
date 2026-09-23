@@ -10578,6 +10578,7 @@ components:
                 - stream
                 - housekeeping
                 - mail
+                - signin
                 - rotation
                 - breaks
                 - bulletins

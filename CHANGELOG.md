@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.26.2] — 2026-09-23
+
+- An API key typed into a provider row of the Language model plugin (or any other table with a key in it) is no longer lost the second time the form is saved. The first save stored it. The next save, made without reloading the page, sent the row as if it were new, so the stored key was dropped and the save was refused with "Anthropic and Gemini need an API key". A row now keeps the same identity from the moment it is added, so its key stays attached across saves. A station already caught by this only needs the key typed in once more. (#242)
+
 ## [0.26.1] — 2026-09-22
 
 - The conspiracy host has been rewritten. He used to be one man with one alien abduction; he now believes all of the classic theories at once: aliens and Roswell, chemtrails, the flat earth, the moon landing filmed on a soundstage, and bigfoot. His talking points, sample lines, fallback phrasings and three seeded stories are all new. He still never touches anything that hurt anybody (illness, vaccines, elections, wars, disasters, real deaths) and never blames a real person, a religion, a people or a nationality. This changes the seed a fresh station starts with; a station that already has him keeps its own row until an operator edits it.
@@ -723,7 +727,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.26.1...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.26.2...HEAD
+[0.26.2]: https://github.com/robert-dean/deadair/compare/v0.26.1...v0.26.2
 [0.26.1]: https://github.com/robert-dean/deadair/compare/v0.26.0...v0.26.1
 [0.26.0]: https://github.com/robert-dean/deadair/compare/v0.25.2...v0.26.0
 [0.25.2]: https://github.com/robert-dean/deadair/compare/v0.25.1...v0.25.2

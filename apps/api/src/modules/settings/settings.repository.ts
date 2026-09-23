@@ -1,4 +1,5 @@
 import { Injectable } from 'injectkit';
+import { sql } from 'kysely';
 import { DataRepository } from '../data/data.repository.js';
 
 /**
@@ -40,6 +41,27 @@ export class SettingsRepository extends DataRepository {
         if (keys.length === 0) return values;
 
         const rows = await this.db.selectFrom('deadair.settings').select(['key', 'value']).where('key', 'in', keys).execute();
+        for (const row of rows) {
+            if (row.value != null) values.set(row.key, row.value);
+        }
+        return values;
+    }
+
+    /**
+     * Every setting whose key starts with `prefix`, as a map.
+     *
+     * For the credentials a `list` setting keeps per row, which are stored one row each under
+     * `field/rowId/column` (see `shared/config.rows.ts`): saving the list has to know which cells it
+     * already holds, to keep the ones a row still claims and delete the ones it no longer does.
+     * `starts_with` rather than `LIKE`, so an `_` or `%` in a key is a character and not a wildcard.
+     */
+    async getByPrefix(prefix: string): Promise<Map<string, string>> {
+        const rows = await this.db
+            .selectFrom('deadair.settings')
+            .select(['key', 'value'])
+            .where(sql<boolean>`starts_with(key, ${prefix})`)
+            .execute();
+        const values = new Map<string, string>();
         for (const row of rows) {
             if (row.value != null) values.set(row.key, row.value);
         }

@@ -71,7 +71,7 @@ remembers episodes by them. `parseFeed` keeps it: guid, then Atom id, then link,
 **A show's id is derived from its feed address** (`showIdFor` in `plugins/podcast`). A band names a
 show by it, so it must survive a rename and a reorder. The name, which is what `plugins/rss` uses, is
 exactly what an operator edits. The host mints a row id only for a list holding a credential
-(`plugin.config.rows.ts` argues why), and a feed list holds none.
+(`shared/config.rows.ts` argues why), and a feed list holds none.
 
 **`itunes:title` beside `<title>` dropped every episode, until `text()` read an array.** With
 `removeNSPrefix` the two are one element name, so the parser handed over an array and the text reader

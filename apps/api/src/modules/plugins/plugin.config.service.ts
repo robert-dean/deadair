@@ -3,7 +3,7 @@ import type { DateTime } from 'luxon';
 import { EncryptionProvider } from '@maroonedsoftware/encryption';
 import { ConfigField } from '@deadair/plugin-sdk';
 import { PluginConfigRecord, PluginConfigRepository } from './plugin.config.repository.js';
-import { configuredCells, holdsRowSecrets, splitRowSecrets } from './plugin.config.rows.js';
+import { configuredCells, holdsRowSecrets, splitRowSecrets } from '#modules/shared/config.rows.js';
 import { PLUGIN_OAUTH_SECRET_KEY } from './plugin.oauth.secret.js';
 import { PluginLogLevel } from './types/plugins.types.js';
 
@@ -70,7 +70,7 @@ export class PluginConfigService {
         for (const field of fields.filter(isStoredPlainField)) {
             // A list holding credentials is the one field whose plain half and secret half are the
             // same submission, so it is split before either is written: the cells come out, the row
-            // keeps an id so its ciphertext has something to belong to. See `plugin.config.rows.ts`.
+            // keeps an id so its ciphertext has something to belong to. See `shared/config.rows.ts`.
             if (holdsRowSecrets(field) && Object.hasOwn(submitted, field.key)) {
                 const split = splitRowSecrets(field, submitted[field.key], secrets, plaintext => this.encryptionProvider.encrypt(plaintext));
                 config[field.key] = split.value;

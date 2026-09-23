@@ -6,7 +6,7 @@
 import { describe, expect, it } from 'vitest';
 import { parseRows, ROW_ID_KEY, rowSecretKey, type ConfigField } from '@deadair/plugin-sdk';
 
-import { configuredCells, formAsItWillBe, holdsRowSecrets, splitRowSecrets } from '../../../src/modules/plugins/plugin.config.rows.js';
+import { configuredCells, formAsItWillBe, holdsRowSecrets, splitRowSecrets } from '../../../src/modules/shared/config.rows.js';
 
 const PROVIDERS: ConfigField = {
     key: 'providers',

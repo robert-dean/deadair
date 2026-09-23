@@ -99,7 +99,7 @@ export interface SplitRows {
     /** The rows as they will be STORED: ids ensured, every secret cell removed. */
     value: string;
 
-    /** The plugin's whole secrets map, updated for this field. */
+    /** The whole secrets map the field's cells live in (a plugin's, or the station's settings), updated for this field. */
     secrets: Record<string, string>;
 }
 

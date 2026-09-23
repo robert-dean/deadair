@@ -4,7 +4,7 @@ import { pathToFileURL } from 'node:url';
 import { Container, Injectable } from 'injectkit';
 import type { DeadairPlugin, PluginFactory, PluginInstance, PluginManifest } from '@deadair/plugin-sdk';
 import { PluginConfigRepository, type PluginConfigRecord } from './plugin.config.repository.js';
-import { formAsItWillBe } from './plugin.config.rows.js';
+import { formAsItWillBe } from '#modules/shared/config.rows.js';
 import { PluginConfigService } from './plugin.config.service.js';
 import { PLUGIN_OAUTH_SECRET_KEY, PluginHostFactory } from './plugin.host.factory.js';
 import { DISPOSE_OP, PluginInvoker } from './plugin.invoker.js';
@@ -313,7 +313,7 @@ export class PluginLifecycleManager {
         // schema would reject it.
         delete secrets[PLUGIN_OAUTH_SECRET_KEY];
 
-        // The same merge the save path validates against (`plugin.config.rows.ts`), so a form that
+        // The same merge the save path validates against (`shared/config.rows.ts`), so a form that
         // is refused at save cannot be one that loads, and a credential kept in a ROW is put back
         // into its row rather than spread over the top of the form as a key nobody declared.
         const submitted = formAsItWillBe(manifest.configFields, config.config, secrets);

@@ -44,7 +44,7 @@ sentence saying which cell is empty.
 encrypted per cell, never in the stored row, never returned by the API, write-only in the console —
 everything a `secret` FIELD already was. What it needed was a name for the row, since a ciphertext
 has to belong to one and a list is an array the console rewrites whole on every save. `ROW_ID_KEY`
-and `plugin.config.rows.ts` are that, and the rule the whole file keeps is that a secret cell is
+and `shared/config.rows.ts` are that, and the rule the whole file keeps is that a secret cell is
 never in the row: it is merged back exactly once, in memory, so a plugin's own schema can judge a
 form that has one.
 

@@ -10,7 +10,7 @@ import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
 import { AccessControlService, isAllVisible } from '#modules/permissions/access.control.service.js';
 import { AuthorizationContext } from '#modules/permissions/authorization.context.js';
 import { safeChannel } from '#src/logging/rotating.log.store.js';
-import { formAsItWillBe } from './plugin.config.rows.js';
+import { formAsItWillBe } from '#modules/shared/config.rows.js';
 import { OAUTH_SECRET_FIELD, PLUGIN_OAUTH_SECRET_KEY } from './plugin.oauth.secret.js';
 import { PluginConfigService, type PluginConfigReadModel } from './plugin.config.service.js';
 import { asCatalogPlugin } from './plugin.capabilities.js';
@@ -784,7 +784,7 @@ export class PluginsService {
     /**
      * The settings form as it will stand once `submitted` is saved.
      *
-     * The merge itself is `formAsItWillBe` in `plugin.config.rows.ts`, shared with the load-time
+     * The merge itself is `formAsItWillBe` in `shared/config.rows.ts`, shared with the load-time
      * check in `PluginLifecycleManager` — two copies of "stored plus secrets plus the submission"
      * was survivable while every secret was a top-level field, and stopped being once one could sit
      * in a row: spreading the secrets map would put `providers/ab12/apiKey` into the form as a key

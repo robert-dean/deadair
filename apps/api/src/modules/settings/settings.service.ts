@@ -2,13 +2,15 @@ import { Injectable } from 'injectkit';
 import { AppConfig, AppConfigStore } from '@maroonedsoftware/appconfig';
 import { EncryptionProvider } from '@maroonedsoftware/encryption';
 import { httpError } from '@maroonedsoftware/errors';
+import { isRowSecretKey } from '@deadair/plugin-sdk';
 import { AfterCommit } from '#modules/data/after.commit.js';
+import { configuredCells, holdsRowSecrets, splitRowSecrets } from '#modules/shared/config.rows.js';
 import { StreamService } from '#modules/stream/stream.service.js';
 import { isStreamSettingKey } from '#modules/stream/stream.settings.js';
 import { SettingsRepository } from './settings.repository.js';
 import { derivedSettings } from './settings.derived.js';
 import { parseSetting, serializeSetting, type SettingRejection, type SettingValue } from './setting.values.js';
-import { findDescriptor, isSecretField, isValueField, SETTING_DESCRIPTORS } from './settings.registry.js';
+import { findDescriptor, isSecretField, isValueField, SETTING_DESCRIPTORS, type SettingDescriptor } from './settings.registry.js';
 import type { StationSettings, StationSettingsInput } from './types/settings.types.js';
 
 /**
@@ -66,6 +68,10 @@ export class SettingsService {
                 continue;
             }
 
+            // A list whose rows hold credentials reports each stored cell the same way, under the
+            // `field/row/column` key the console looks it up by. The row itself never carries it.
+            if (holdsRowSecrets(descriptor)) Object.assign(configured, configuredCells(this.storedCellsOf(descriptor.key)));
+
             const stored = this.config.has(descriptor.key) ? this.config.get(descriptor.key, '') : undefined;
             values[descriptor.key] = parseSetting(descriptor, stored);
         }
@@ -108,6 +114,13 @@ export class SettingsService {
             if (isSecretField(descriptor)) {
                 const raw = typeof submittedValue === 'string' ? submittedValue.trim() : '';
                 writes.push({ key, value: raw === '' ? null : this.encryption.encrypt(raw) });
+                continue;
+            }
+
+            if (holdsRowSecrets(descriptor)) {
+                const rowWrites = await this.rowSecretWrites(descriptor, submittedValue);
+                if ('rejected' in rowWrites) rejections.push(rowWrites.rejected);
+                else writes.push(...rowWrites.writes);
                 continue;
             }
 
@@ -220,6 +233,62 @@ export class SettingsService {
             else model.values[write.key] = parseSetting(descriptor, write.value ?? undefined);
         }
 
+        // A row's credential has no descriptor of its own, so it is not caught above. The config
+        // still holds the cells as they stood before this request, so a deleted one reads `false`
+        // here rather than lingering until the reload.
+        for (const write of writes) {
+            if (isRowSecretKey(write.key)) model.configured[write.key] = write.value !== null;
+        }
+
         return model;
+    }
+
+    /**
+     * What saving a `list` whose rows hold credentials writes: the rows themselves, with every
+     * credential taken out, plus one encrypted row per cell under `field/rowId/column`.
+     *
+     * The same split a plugin's config goes through (`shared/config.rows.ts`), stored in this table
+     * rather than a plugin's secrets map. A cell a surviving row no longer claims is deleted, so
+     * removing a provider removes its secret rather than leaving the ciphertext behind for good. A
+     * cell whose ciphertext is unchanged is not rewritten.
+     *
+     * `null` resets the list to its default, which is no rows, and so takes every cell with it.
+     * Anything but a string is refused before anything is read: the console always sends the rows
+     * as JSON, and a value that parsed as no rows would otherwise delete every stored credential.
+     */
+    private async rowSecretWrites(
+        descriptor: SettingDescriptor,
+        submitted: unknown,
+    ): Promise<{ writes: { key: string; value: string | null }[] } | { rejected: SettingRejection }> {
+        const existing = Object.fromEntries(await this.settingsRepository.getByPrefix(`${descriptor.key}/`));
+        const orphans = (kept: Record<string, string>) =>
+            Object.keys(existing)
+                .filter(key => isRowSecretKey(key) && !Object.hasOwn(kept, key))
+                .map(key => ({ key, value: null }));
+
+        if (submitted === null) return { writes: [{ key: descriptor.key, value: null }, ...orphans({})] };
+        if (typeof submitted !== 'string') {
+            return { rejected: { key: descriptor.key, message: `"${descriptor.label}" takes its rows as JSON text` } };
+        }
+
+        const split = splitRowSecrets(descriptor, submitted, existing, plaintext => this.encryption.encrypt(plaintext));
+        const serialized = serializeSetting(descriptor, split.value);
+        if ('rejected' in serialized) return serialized;
+
+        const changed = Object.entries(split.secrets)
+            .filter(([key, ciphertext]) => existing[key] !== ciphertext)
+            .map(([key, value]) => ({ key, value }));
+
+        return { writes: [{ key: descriptor.key, value: serialized.value }, ...changed, ...orphans(split.secrets)] };
+    }
+
+    /** The cells a list setting currently holds, as the config sees them: key to ciphertext. */
+    private storedCellsOf(fieldKey: string): Record<string, string> {
+        const prefix = `${fieldKey}/`;
+        const cells: Record<string, string> = {};
+        for (const [key, value] of Object.entries(this.config.toObject() as Record<string, unknown>)) {
+            if (key.startsWith(prefix) && typeof value === 'string') cells[key] = value;
+        }
+        return cells;
     }
 }

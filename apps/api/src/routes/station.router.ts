@@ -2,7 +2,7 @@ import { ServerKitRouter, requirePolicy } from '@maroonedsoftware/koa';
 import { StationAttentionService } from '#src/modules/station/station.attention.service.js';
 import { StationCheckupService } from '#src/modules/station/station.checkup.service.js';
 import { StationReleasesService } from '#src/modules/station/station.releases.service.js';
-import { StationAttention, StationCheckup, StationReleases } from '../modules/station/types/station.types.js';
+import { StationAttention, StationCheckup, StationReleases, serializeStationReleases } from '../modules/station/types/station.types.js';
 
 /**
  * generated from [station.ck](../../data/contracts/station/station.ck)
@@ -45,5 +45,5 @@ StationRouter.get('/station/releases', requirePolicy({ policy: 'platform.view' }
 
     ctx.status = 200;
     ctx.type = 'application/json';
-    ctx.body = result;
+    ctx.body = serializeStationReleases(result);
 });

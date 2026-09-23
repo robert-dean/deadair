@@ -41,9 +41,9 @@ export class StationReleasesService {
 function toRelease(entry: ChangelogEntry | AvailableRelease): StationRelease {
     return {
         version: entry.version,
-        // A day rather than a moment, so it crosses as the ISO date it was read as. A Luxon value here
-        // would be written by `JSON.stringify` as a UTC midnight, which is a timestamp and not a day.
-        ...(entry.date === undefined ? {} : { date: entry.date }),
+        // In UTC, so the router writes back the same day it was read as whatever zone the process
+        // runs in.
+        ...(entry.date === undefined ? {} : { date: DateTime.fromISO(entry.date, { zone: 'utc' }) }),
         notes: entry.notes,
         ...('url' in entry ? { url: entry.url } : {}),
     };

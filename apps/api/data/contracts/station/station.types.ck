@@ -88,7 +88,7 @@ contract StationCheckup: {
 # One release of the station, in the words its changelog entry used
 contract StationRelease: {
     version: readonly string(min=1, max=50) # The release, as its tag names it without the leading `v`
-    date?: readonly string(regex=/^\d{4}-\d{2}-\d{2}$/) # The day it went out, as an ISO date. Absent where the entry named none
+    date?: readonly date # The day it went out. Absent where the entry named none
     notes: readonly string(max=40000) # What changed, as the Markdown of its changelog entry. Empty for a release that recorded nothing
     url?: readonly url # The release's page on GitHub. Present on a release this station does not contain yet, which is where its notes came from
 }

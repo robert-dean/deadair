@@ -2,6 +2,7 @@
 package com.maroonedsoftware.deadair.sdk.models
 
 import kotlin.time.Instant
+import kotlinx.datetime.LocalDate
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -85,8 +86,8 @@ class StationBacklogInput
 data class StationRelease(
     /** The release, as its tag names it without the leading `v` */
     val version: String,
-    /** The day it went out, as an ISO date. Absent where the entry named none */
-    val date: String? = null,
+    /** The day it went out. Absent where the entry named none */
+    val date: LocalDate? = null,
     /** What changed, as the Markdown of its changelog entry. Empty for a release that recorded nothing */
     val notes: String,
     /** The release's page on GitHub. Present on a release this station does not contain yet, which is where its notes came from */

@@ -163,14 +163,14 @@ public struct StationBacklogInput: Codable, Equatable, Sendable {
 public struct StationRelease: Codable, Equatable, Sendable {
     /// The release, as its tag names it without the leading `v`
     public var version: String
-    /// The day it went out, as an ISO date. Absent where the entry named none
-    public var date: String?
+    /// The day it went out. Absent where the entry named none
+    public var date: LocalDate?
     /// What changed, as the Markdown of its changelog entry. Empty for a release that recorded nothing
     public var notes: String
     /// The release's page on GitHub. Present on a release this station does not contain yet, which is where its notes came from
     public var url: String?
 
-    public init(version: String, date: String? = nil, notes: String, url: String? = nil) {
+    public init(version: String, date: LocalDate? = nil, notes: String, url: String? = nil) {
         self.version = version
         self.date = date
         self.notes = notes
@@ -187,7 +187,7 @@ public struct StationRelease: Codable, Equatable, Sendable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.version = try container.decode(String.self, forKey: .version)
-        self.date = try container.decodeIfPresent(String.self, forKey: .date)
+        self.date = try container.decodeIfPresent(LocalDate.self, forKey: .date)
         self.notes = try container.decode(String.self, forKey: .notes)
         self.url = try container.decodeIfPresent(String.self, forKey: .url)
     }

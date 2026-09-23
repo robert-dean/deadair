@@ -10902,9 +10902,9 @@ components:
                     description: 'The release, as its tag names it without the leading `v`'
                 date:
                     type: string
-                    pattern: '^\d{4}-\d{2}-\d{2}$'
+                    format: date
                     readOnly: true
-                    description: 'The day it went out, as an ISO date. Absent where the entry named none'
+                    description: 'The day it went out. Absent where the entry named none'
                 notes:
                     type: string
                     maxLength: 40000

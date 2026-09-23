@@ -108,10 +108,10 @@ public sealed record StationRelease
     [JsonPropertyName("version")]
     public required string Version { get; init; }
 
-    /// <summary>The day it went out, as an ISO date. Absent where the entry named none</summary>
+    /// <summary>The day it went out. Absent where the entry named none</summary>
     [JsonPropertyName("date")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? Date { get; init; }
+    public DateOnly? Date { get; init; }
 
     /// <summary>What changed, as the Markdown of its changelog entry. Empty for a release that recorded nothing</summary>
     [JsonPropertyName("notes")]

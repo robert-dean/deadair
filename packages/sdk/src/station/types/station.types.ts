@@ -7,6 +7,14 @@ const __dt = (v: unknown, path: string): DateTime => {
     if (!d.isValid) throw new TypeError(`ContractKit: '${v}' at '${path}' is not a valid ISO 8601 datetime.`);
     return d;
 };
+const __dtf = (v: unknown, path: string, fmt: string): DateTime => {
+    if (typeof v !== 'string') {
+        throw new TypeError(`ContractKit: expected a string at '${path}' in format ${fmt}, received ${typeof v}.`);
+    }
+    const d = DateTime.fromFormat(v, fmt);
+    if (!d.isValid) throw new TypeError(`ContractKit: '${v}' at '${path}' does not match format ${fmt}.`);
+    return d;
+};
 
 /**
  * One concrete thing an attention row is about, so the reason does not live a page away.
@@ -81,8 +89,8 @@ export interface StationBacklogInput {}
 export interface StationRelease {
     /** The release, as its tag names it without the leading `v` */
     version: string;
-    /** The day it went out, as an ISO date. Absent where the entry named none */
-    date?: string;
+    /** The day it went out. Absent where the entry named none */
+    date?: DateTime;
     /** What changed, as the Markdown of its changelog entry. Empty for a release that recorded nothing */
     notes: string;
     /** The release's page on GitHub. Present on a release this station does not contain yet, which is where its notes came from */
@@ -90,6 +98,15 @@ export interface StationRelease {
 }
 
 export interface StationReleaseInput {}
+
+/** Rehydrates every wire-encoded scalar in a StationRelease into its runtime type. Mutates and returns `raw`. */
+export function reviveStationRelease(raw: StationRelease): StationRelease {
+    const __o0 = raw as unknown as Record<string, unknown>;
+    if (__o0['date'] != null) {
+        __o0['date'] = __dtf(__o0['date'], 'StationRelease.date', 'yyyy-MM-dd');
+    }
+    return raw;
+}
 
 /**
  * One thing that wants the operator's attention, or the fact that nothing does
@@ -184,8 +201,20 @@ export interface StationReleasesInput {}
 /** Rehydrates every wire-encoded scalar in a StationReleases into its runtime type. Mutates and returns `raw`. */
 export function reviveStationReleases(raw: StationReleases): StationReleases {
     const __o0 = raw as unknown as Record<string, unknown>;
+    {
+        const __a1 = __o0['notes'] as unknown[];
+        for (let __i2 = 0; __i2 < __a1.length; __i2++) {
+            reviveStationRelease(__a1[__i2] as never);
+        }
+    }
     if (__o0['checkedAt'] != null) {
         __o0['checkedAt'] = __dt(__o0['checkedAt'], 'StationReleases.checkedAt');
+    }
+    {
+        const __a3 = __o0['available'] as unknown[];
+        for (let __i4 = 0; __i4 < __a3.length; __i4++) {
+            reviveStationRelease(__a3[__i4] as never);
+        }
     }
     return raw;
 }

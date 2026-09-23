@@ -6,6 +6,10 @@ const _ZodDatetime = z.preprocess(
     z.custom<DateTime>(val => val instanceof DateTime && val.isValid, { message: 'Must be in ISO 8601 format' }),
 );
 
+/** A luxon DateTime in `fmt`, as the reader's `DateTime.fromFormat` parses it. Anything else is returned as it is. */
+const __wireDt = (v: unknown, fmt: string): unknown =>
+    (v as { isLuxonDateTime?: unknown } | null | undefined)?.isLuxonDateTime === true ? (v as { toFormat(fmt: string): string }).toFormat(fmt) : v;
+
 /**
  * One concrete thing an attention row is about, so the reason does not live a page away.
  *
@@ -80,10 +84,12 @@ export type StationBacklogInput = z.infer<typeof StationBacklogInput>;
 export const StationRelease = z.strictObject({
     version: z.string().min(1).max(50).describe('The release, as its tag names it without the leading `v`'),
     date: z
-        .string()
-        .regex(/^\d{4}-\d{2}-\d{2}$/)
+        .preprocess(
+            val => (typeof val === 'string' ? DateTime.fromFormat(val, 'yyyy-MM-dd') : val),
+            z.custom<DateTime>(val => val instanceof DateTime && val.isValid, { message: 'Must be a date in format yyyy-MM-dd' }),
+        )
         .optional()
-        .describe('The day it went out, as an ISO date. Absent where the entry named none'),
+        .describe('The day it went out. Absent where the entry named none'),
     notes: z.string().max(40000).describe('What changed, as the Markdown of its changelog entry. Empty for a release that recorded nothing'),
     url: z
         .url()
@@ -94,6 +100,15 @@ export type StationRelease = z.infer<typeof StationRelease>;
 
 export const StationReleaseInput = z.strictObject({});
 export type StationReleaseInput = z.infer<typeof StationReleaseInput>;
+
+/** StationRelease as a response body writes it, with every `date` and `time` in the text the SDK parses. Returns a copy; `value` is not modified. */
+export function serializeStationRelease(value: StationRelease): unknown {
+    const __o0 = { ...value } as Record<string, unknown>;
+    if (__o0['date'] != null) {
+        __o0['date'] = __wireDt(__o0['date'], 'yyyy-MM-dd');
+    }
+    return __o0;
+}
 
 /**
  * One thing that wants the operator's attention, or the fact that nothing does
@@ -210,6 +225,26 @@ export type StationReleases = z.infer<typeof StationReleases>;
 
 export const StationReleasesInput = z.strictObject({});
 export type StationReleasesInput = z.infer<typeof StationReleasesInput>;
+
+/** StationReleases as a response body writes it, with every `date` and `time` in the text the SDK parses. Returns a copy; `value` is not modified. */
+export function serializeStationReleases(value: StationReleases): unknown {
+    const __o0 = { ...value } as Record<string, unknown>;
+    {
+        const __a1 = [...(__o0['notes'] as unknown[])];
+        for (let __i2 = 0; __i2 < __a1.length; __i2++) {
+            __a1[__i2] = serializeStationRelease(__a1[__i2] as never);
+        }
+        __o0['notes'] = __a1;
+    }
+    {
+        const __a3 = [...(__o0['available'] as unknown[])];
+        for (let __i4 = 0; __i4 < __a3.length; __i4++) {
+            __a3[__i4] = serializeStationRelease(__a3[__i4] as never);
+        }
+        __o0['available'] = __a3;
+    }
+    return __o0;
+}
 
 /**
  * Everything wrong or waiting, worst first

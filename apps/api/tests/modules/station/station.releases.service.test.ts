@@ -3,11 +3,12 @@
 // what the watch last heard rides along without the read asking GitHub anything.
 
 import { describe, expect, it, vi } from 'vitest';
+import { DateTime } from 'luxon';
 
 import { BundledChangelog } from '../../../src/modules/station/station.changelog.js';
 import type { ReleaseReading, ReleaseWatch } from '../../../src/modules/station/station.release.watch.js';
 import { StationReleasesService } from '../../../src/modules/station/station.releases.service.js';
-import { StationReleases } from '../../../src/modules/station/types/station.types.js';
+import { StationReleases, serializeStationReleases } from '../../../src/modules/station/types/station.types.js';
 
 function watching(reading: ReleaseReading) {
     const check = vi.fn();
@@ -28,9 +29,11 @@ describe('StationReleasesService.read', () => {
 
         expect(reading.current).toBe('0.26.2');
         expect(reading.notes).toHaveLength(2);
-        // A day crosses as the ISO date it is. A Luxon value would be written as a UTC midnight
-        // timestamp, which the SDK's `yyyy-MM-dd` reader refuses.
-        expect(reading.notes[0]!.date).toBe('2026-09-23');
+        expect(reading.notes[0]!.date).toBeInstanceOf(DateTime);
+        // What the router writes: the day it was read as, in the `yyyy-MM-dd` the SDK reads back,
+        // rather than the UTC-midnight timestamp `JSON.stringify` alone would make of it.
+        const wire = JSON.parse(JSON.stringify(serializeStationReleases(reading))) as { notes: { date?: string }[] };
+        expect(wire.notes[0]!.date).toBe('2026-09-23');
         expect(reading.notes[1]).toEqual({ version: '0.26.1', notes: '' });
     });
 
@@ -55,11 +58,11 @@ describe('StationReleasesService.read', () => {
         expect(reading.checks).toBe(true);
         expect(reading.checkedAt!.toISO()).toBe('2026-09-24T12:00:00.000Z');
         expect(reading.available).toEqual([
-            { version: '0.27.0', date: '2026-09-24', notes: '- New.', url: 'https://github.com/robert-dean/deadair/releases/tag/v0.27.0' },
+            { version: '0.27.0', date: expect.any(DateTime), notes: '- New.', url: 'https://github.com/robert-dean/deadair/releases/tag/v0.27.0' },
         ]);
         expect(reading.notes[0]).not.toHaveProperty('url');
-        // The whole answer, serialised the way the router's response is, is what the contract accepts.
-        expect(() => StationReleases.parse(JSON.parse(JSON.stringify(reading)))).not.toThrow();
+        // The whole answer, serialised the way the router writes it, is what the contract accepts.
+        expect(() => StationReleases.parse(JSON.parse(JSON.stringify(serializeStationReleases(reading))))).not.toThrow();
     });
 
     it('says the check is off', async () => {

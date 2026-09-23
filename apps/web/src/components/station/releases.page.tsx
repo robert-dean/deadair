@@ -142,7 +142,7 @@ function CheckLine({ releases }: { releases: StationReleases }) {
 /**
  * One release and its notes.
  *
- * The day arrives as an ISO date, which is what it is: a release goes out on a day, not at a moment.
+ * The SDK reads the day as a local midnight, so Luxon formats it as the same day in every zone.
  */
 function ReleaseCard({ release, state }: { release: StationRelease; state?: 'running' | 'available' }) {
     return (
@@ -154,7 +154,7 @@ function ReleaseCard({ release, state }: { release: StationRelease; state?: 'run
                     </Title>
                     {release.date !== undefined && (
                         <Text size="sm" c="dimmed">
-                            {formatReleaseDay(release.date)}
+                            {release.date.toLocaleString(DateTime.DATE_MED)}
                         </Text>
                     )}
                     {state === 'running' && (
@@ -183,14 +183,4 @@ function ReleaseCard({ release, state }: { release: StationRelease; state?: 'run
             </Stack>
         </Card>
     );
-}
-
-/**
- * An ISO date as the operator's locale writes one. Read by Luxon in the browser's own zone rather than
- * handed to `Date`, which reads `2026-09-23` as a UTC midnight and shows the day before anywhere west of
- * Greenwich. A value that is not a date is drawn as it came.
- */
-export function formatReleaseDay(day: string): string {
-    const parsed = DateTime.fromISO(day);
-    return parsed.isValid ? parsed.toLocaleString(DateTime.DATE_MED) : day;
 }

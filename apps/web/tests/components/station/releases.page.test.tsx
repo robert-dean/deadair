@@ -8,7 +8,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DateTime } from 'luxon';
 import type { StationRelease } from '@deadair/sdk';
 
-import { RELEASES_SHOWN, ReleasesPage, formatReleaseDay } from '../../../src/components/station/releases.page';
+import { RELEASES_SHOWN, ReleasesPage } from '../../../src/components/station/releases.page';
 import { render, screen, setupUser } from '../../utils/render';
 
 const readStationReleases = vi.fn();
@@ -30,7 +30,7 @@ const answer = (over: Record<string, unknown>) => ({ checks: true, available: []
 
 const release = (version: string, notes = `- Changed in **${version}**.`): StationRelease => ({
     version,
-    date: '2026-09-23',
+    date: DateTime.fromFormat('2026-09-23', 'yyyy-MM-dd'),
     notes,
 });
 
@@ -47,6 +47,10 @@ describe('ReleasesPage', () => {
         expect(await screen.findByRole('heading', { name: '0.26.2' })).toBeInTheDocument();
         expect(screen.getByText('This station')).toBeInTheDocument();
         expect(screen.getAllByText('This station')).toHaveLength(1);
+        // The day the SDK read is the day drawn, in whatever zone the browser is in. A UTC midnight
+        // formatted west of Greenwich would show the 22nd.
+        expect(screen.getAllByText(/\b23\b/).length).toBeGreaterThan(0);
+        expect(screen.queryByText(/\b22\b/)).not.toBeInTheDocument();
         expect(screen.getByText('0.26.1', { selector: 'strong' })).toBeInTheDocument();
         expect(screen.queryByText(/\*\*/)).not.toBeInTheDocument();
     });
@@ -123,12 +127,5 @@ describe('ReleasesPage, on whether it is looking', () => {
         render(<ReleasesPage />);
 
         expect(await screen.findByText(/has not heard back yet/)).toBeInTheDocument();
-    });
-});
-
-describe('formatReleaseDay', () => {
-    it('keeps the day it was given in every zone, and passes through what is not a date', () => {
-        expect(formatReleaseDay('2026-09-23')).toMatch(/23/);
-        expect(formatReleaseDay('someday')).toBe('someday');
     });
 });

@@ -298,7 +298,7 @@ describe('NarrationsService.requestRender', () => {
 
         const answered = await service.requestRender('piece-1');
 
-        expect(answered).toMatchObject({ id: 'piece-1', rendered: true });
+        expect(answered).toMatchObject({ id: 'piece-1', rendered: true, withdrawnAt: '2026-09-20T12:00:00.000Z' });
         expect(jobs.send).not.toHaveBeenCalled();
     });
 

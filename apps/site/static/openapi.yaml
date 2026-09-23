@@ -7057,6 +7057,10 @@ components:
                     type: string
                     maxLength: 40
                     description: 'ISO-8601: when a refresh last saw it listed'
+                withdrawnAt:
+                    type: string
+                    maxLength: 40
+                    description: 'ISO-8601: when a refresh found its plugin no longer listing it. The station never picks a withdrawn piece; the row is kept so what was done with it is not lost'
                 rendered:
                     type: boolean
                     description: 'Whether the station has the spoken audio, ready to air'

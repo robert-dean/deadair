@@ -52,6 +52,13 @@ export const StationPiece = z.strictObject({
         .optional()
         .describe('Roughly how many words it runs to, as the plugin counted them'),
     seenAt: z.string().max(40).describe('ISO-8601: when a refresh last saw it listed'),
+    withdrawnAt: z
+        .string()
+        .max(40)
+        .optional()
+        .describe(
+            'ISO-8601: when a refresh found its plugin no longer listing it. The station never picks a withdrawn piece; the row is kept so what was done with it is not lost',
+        ),
     rendered: z
         .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
         .describe('Whether the station has the spoken audio, ready to air'),
@@ -72,7 +79,7 @@ export const StationPiece = z.strictObject({
 export type StationPiece = z.infer<typeof StationPiece>;
 
 /**
- * generated from [StationPieceQuery](../../../../data/contracts/narrations/narrations.types.ck#L46)
+ * generated from [StationPieceQuery](../../../../data/contracts/narrations/narrations.types.ck#L47)
  */
 export const StationPieceQuery = z.strictObject({
     seriesId: z.string().max(400).optional().describe("One series' pieces in its own order, or absent for every series' newest first"),
@@ -89,7 +96,7 @@ export const StationSeriesList = z.strictObject({
 export type StationSeriesList = z.infer<typeof StationSeriesList>;
 
 /**
- * generated from [StationPiecePage](../../../../data/contracts/narrations/narrations.types.ck#L51)
+ * generated from [StationPiecePage](../../../../data/contracts/narrations/narrations.types.ck#L52)
  */
 export const StationPiecePage = z.strictObject({
     pieces: z.array(StationPiece).describe('Empty when the station knows of none, which is not an error'),

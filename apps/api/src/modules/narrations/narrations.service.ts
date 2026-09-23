@@ -359,6 +359,7 @@ function toStationPiece(row: NarrationPieceRecord): StationPiece {
         ...(row.renderError === undefined ? {} : { renderError: row.renderError }),
         ...(row.scheduledFor === undefined ? {} : { scheduledFor: iso(row.scheduledFor) }),
         ...(row.airedAt === undefined ? {} : { airedAt: iso(row.airedAt) }),
+        ...(row.withdrawnAt === undefined ? {} : { withdrawnAt: iso(row.withdrawnAt) }),
     };
 }
 

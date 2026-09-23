@@ -35,6 +35,7 @@ contract StationPiece: { # One instalment, and what the station has done with it
     publishedAt?: string(max=40) # ISO-8601
     wordCount?: int(min=0) # Roughly how many words it runs to, as the plugin counted them
     seenAt: string(max=40) # ISO-8601: when a refresh last saw it listed
+    withdrawnAt?: string(max=40) # ISO-8601: when a refresh found its plugin no longer listing it. The station never picks a withdrawn piece; the row is kept so what was done with it is not lost
     rendered: boolean # Whether the station has the spoken audio, ready to air
     rendering: boolean # Whether the words are being spoken right now
     renderRequestedAt?: string(max=40) # ISO-8601: when the station last asked for it to be spoken

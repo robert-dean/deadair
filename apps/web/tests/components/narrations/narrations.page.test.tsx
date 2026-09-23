@@ -1,10 +1,30 @@
 // What a piece's state reads as on the desk. The station tells the page two different things about a
-// reading in progress and they are not the same, which is the one bit of logic here worth pinning.
+// reading in progress and they are not the same, which is most of the logic here worth pinning; the
+// rest is that a withdrawn piece says why it will not be read and offers nothing to press.
 
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { StationPiece } from '@deadair/sdk';
 
-import { pieceState } from '../../../src/components/narrations/narrations.page';
+import { NarrationsPage, pieceState } from '../../../src/components/narrations/narrations.page';
+import { render, screen, within } from '../../utils/render';
+
+const listSeries = vi.fn();
+const listPieces = vi.fn();
+
+vi.mock('../../../src/api/client', () => ({
+    sdk: {
+        narrations: {
+            listSeries: (...args: unknown[]) => listSeries(...args),
+            listPieces: (...args: unknown[]) => listPieces(...args),
+            refreshNarrations: vi.fn(),
+            renderPiece: vi.fn(),
+        },
+    },
+}));
+
+afterEach(() => {
+    vi.resetAllMocks();
+});
 
 const NOW = Date.parse('2026-09-16T12:00:00.000Z');
 
@@ -28,6 +48,21 @@ describe('pieceState', () => {
         const state = pieceState(piece({ airedAt: new Date(NOW).toISOString(), rendered: true }), NOW);
 
         expect(state).toEqual({ label: 'Read', tone: 'off' });
+    });
+
+    it('reads a withdrawn piece as withdrawn, even with its audio ready', () => {
+        // The station never picks a withdrawn piece, so "Ready to air" would promise a reading that
+        // is not coming.
+        const withdrawnAt = new Date(NOW - 60_000).toISOString();
+
+        expect(pieceState(piece({ withdrawnAt }), NOW)).toEqual({ label: 'Withdrawn', tone: 'off' });
+        expect(pieceState(piece({ withdrawnAt, rendered: true }), NOW)).toEqual({ label: 'Withdrawn', tone: 'off' });
+    });
+
+    it('still reads a withdrawn piece that aired as read', () => {
+        const at = new Date(NOW).toISOString();
+
+        expect(pieceState(piece({ airedAt: at, withdrawnAt: at }), NOW).label).toBe('Read');
     });
 
     it('reads a spoken piece as ready to air', () => {
@@ -61,5 +96,32 @@ describe('pieceState', () => {
 
     it('reads a piece nothing has happened to yet as not read', () => {
         expect(pieceState(piece(), NOW)).toEqual({ label: 'Not read yet', tone: 'off' });
+    });
+});
+
+describe('NarrationsPage', () => {
+    it('says a withdrawn chapter will not be read, and offers no way to ask for it', async () => {
+        // The operator's answer to "why did it skip chapter seven": on the row, not in a log.
+        listSeries.mockResolvedValue({ series: [] });
+        listPieces.mockResolvedValue({
+            pieces: [piece({ withdrawnAt: '2026-09-20T12:00:00.000Z', renderError: 'the plugin could not produce the words for it' })],
+        });
+
+        render(<NarrationsPage />);
+
+        const card = (await screen.findByText('Chapter 4')).closest('[class*="Card"]') as HTMLElement;
+        expect(within(card).getByText('Withdrawn')).toBeInTheDocument();
+        expect(within(card).getByText(/its source no longer lists it/)).toBeInTheDocument();
+        expect(within(card).getByText('the plugin could not produce the words for it')).toBeInTheDocument();
+        expect(within(card).queryByRole('button', { name: 'Read it now' })).not.toBeInTheDocument();
+    });
+
+    it('still offers to read a piece that is listed', async () => {
+        listSeries.mockResolvedValue({ series: [] });
+        listPieces.mockResolvedValue({ pieces: [piece()] });
+
+        render(<NarrationsPage />);
+
+        expect(await screen.findByRole('button', { name: 'Read it now' })).toBeInTheDocument();
     });
 });

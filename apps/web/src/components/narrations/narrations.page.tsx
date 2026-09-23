@@ -65,7 +65,8 @@ export function NarrationsPage() {
                         loading={refresh.isPending}
                         onClick={() =>
                             refresh.mutate(undefined, {
-                                onSuccess: () => notifyQueued('The station is reading every series again. New pieces appear here in a minute or two.'),
+                                onSuccess: () =>
+                                    notifyQueued('The station is reading every series again. New pieces appear here in a minute or two.'),
                             })
                         }
                     >
@@ -74,7 +75,9 @@ export function NarrationsPage() {
                 }
             />
 
-            {series.error ? <ErrorAlert title="The series could not be read" error={series.error} fallback="No narration plugin answered." /> : undefined}
+            {series.error ? (
+                <ErrorAlert title="The series could not be read" error={series.error} fallback="No narration plugin answered." />
+            ) : undefined}
             {pieces.error ? <ErrorAlert title="The pieces could not be read" error={pieces.error} /> : undefined}
             {refresh.error ? <ErrorAlert title="The series could not be read again" error={refresh.error} /> : undefined}
             {renderPiece.error ? <ErrorAlert title="That piece could not be asked for" error={renderPiece.error} /> : undefined}
@@ -103,9 +106,7 @@ export function NarrationsPage() {
             ) : undefined}
 
             {pieces.data && offered.length > 0 && listed.length === 0 ? (
-                <EmptyState>
-                    The station has found no pieces yet. It looks twice an hour; look now to see what there is.
-                </EmptyState>
+                <EmptyState>The station has found no pieces yet. It looks twice an hour; look now to see what there is.</EmptyState>
             ) : undefined}
 
             {listed.length > 0 ? (
@@ -138,9 +139,14 @@ export function NarrationsPage() {
  * same: `rendering` means a production actually exists and its parts are being spoken, where a recent
  * `renderRequestedAt` only means somebody asked. Both read as "Reading" to an operator, and the first
  * is the one that survives a restart.
+ *
+ * A withdrawn piece reads as withdrawn even with its audio ready: the station never picks one, so
+ * "Ready to air" would promise a reading that is not coming. Having been read still comes first,
+ * because that is true whatever the plugin says now.
  */
 export function pieceState(piece: StationPiece, now = Date.now()): { label: string; tone: StatusTone } {
     if (piece.airedAt !== undefined) return { label: 'Read', tone: 'off' };
+    if (piece.withdrawnAt !== undefined) return { label: 'Withdrawn', tone: 'off' };
     if (piece.rendered) return { label: 'Ready to air', tone: 'ok' };
     if (piece.rendering) return { label: 'Reading', tone: 'standby' };
 
@@ -154,7 +160,7 @@ export function pieceState(piece: StationPiece, now = Date.now()): { label: stri
 /** One piece, with what the station has done with it and a way to ask for it to be spoken. */
 function Piece({ piece, asking, onRender }: { piece: StationPiece; asking: boolean; onRender: () => void }) {
     const state = pieceState(piece);
-    const canRender = !piece.rendered && state.label !== 'Reading';
+    const canRender = !piece.rendered && piece.withdrawnAt === undefined && state.label !== 'Reading';
 
     return (
         <Card padding="md">
@@ -197,6 +203,14 @@ function Piece({ piece, asking, onRender }: { piece: StationPiece; asking: boole
                     {piece.airedAt !== undefined ? (
                         <Text size="xs" c="dimmed">
                             Read {formatMomentMinute(piece.airedAt, { weekday: true })}.
+                        </Text>
+                    ) : undefined}
+
+                    {/* Why it will not be read: the station's own answer to "why did it skip chapter seven". */}
+                    {piece.airedAt === undefined && piece.withdrawnAt !== undefined ? (
+                        <Text size="xs" c="dimmed">
+                            Withdrawn {formatMomentMinute(piece.withdrawnAt, { weekday: true })}: its source no longer lists it, so the station will
+                            not read it.
                         </Text>
                     ) : undefined}
 

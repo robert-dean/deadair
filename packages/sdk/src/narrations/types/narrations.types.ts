@@ -48,6 +48,8 @@ export interface StationPiece {
     wordCount?: number;
     /** ISO-8601: when a refresh last saw it listed */
     seenAt: string;
+    /** ISO-8601: when a refresh found its plugin no longer listing it. The station never picks a withdrawn piece; the row is kept so what was done with it is not lost */
+    withdrawnAt?: string;
     /** Whether the station has the spoken audio, ready to air */
     rendered: boolean;
     /** Whether the words are being spoken right now */
@@ -63,7 +65,7 @@ export interface StationPiece {
 }
 
 /**
- * generated from [StationPieceQuery](../../../../../apps/api/data/contracts/narrations/narrations.types.ck#L46)
+ * generated from [StationPieceQuery](../../../../../apps/api/data/contracts/narrations/narrations.types.ck#L47)
  */
 export interface StationPieceQuery {
     /** One series' pieces in its own order, or absent for every series' newest first */
@@ -79,7 +81,7 @@ export interface StationSeriesList {
 }
 
 /**
- * generated from [StationPiecePage](../../../../../apps/api/data/contracts/narrations/narrations.types.ck#L51)
+ * generated from [StationPiecePage](../../../../../apps/api/data/contracts/narrations/narrations.types.ck#L52)
  */
 export interface StationPiecePage {
     /** Empty when the station knows of none, which is not an error */

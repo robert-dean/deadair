@@ -46,6 +46,18 @@ describe('splitting a submitted list', () => {
         expect(existing?.[ROW_ID_KEY]).toBe('kept1');
     });
 
+    it('keeps the id a brand new row arrives with, so the next save finds its credential', () => {
+        // Issue #242. The console mints a new row's id, because it never learns one minted here: a
+        // row saved without one and then saved again arrived as a second new row, and its key was
+        // deleted as belonging to a row that no longer existed.
+        const first = splitRowSecrets(PROVIDERS, rows({ [ROW_ID_KEY]: 'c1', name: 'gemini', apiKey: 'AIza-key' }), {}, encrypt);
+        expect(first.secrets).toEqual({ 'providers/c1/apiKey': 'enc(AIza-key)' });
+
+        const second = splitRowSecrets(PROVIDERS, rows({ [ROW_ID_KEY]: 'c1', name: 'gemini-flash' }), first.secrets, encrypt);
+        expect(second.secrets).toEqual({ 'providers/c1/apiKey': 'enc(AIza-key)' });
+        expect(storedRows(second.value)).toEqual([{ [ROW_ID_KEY]: 'c1', name: 'gemini-flash' }]);
+    });
+
     it('encrypts the cell and takes it out of the row', () => {
         // The rule the whole module keeps. A row that still carried the key would be a JSON string
         // with a password in it, which is the thing a secret column exists not to be.
@@ -186,7 +198,7 @@ describe('the form as a schema should judge it', () => {
     });
 
     it('gives a brand new row only what was typed into it', () => {
-        // It has no id, so nothing can be stored against it. A required credential on a new row is
+        // Nothing can be stored against a row never saved. A required credential on a new row is
         // therefore refused while the same column on an existing row passes untouched.
         const effective = formAsItWillBe(fields, stored, secrets, { providers: rows({ name: 'fresh' }) });
 

@@ -269,8 +269,8 @@ export function parseMultiSelect(raw: unknown): string[] {
  *
  * A reserved name rather than a column an author declares, because it is not data: nobody types it,
  * nothing renders it, and a plugin that ignores it entirely is a plugin that behaves exactly as it
- * did before this existed. The host mints one when a row is first saved and preserves it forever
- * after.
+ * did before this existed. The console mints one when a row is added (the host, for a row that
+ * reaches it without one), and the host preserves it forever after.
  *
  * ## Why a row needs a name at all
  *

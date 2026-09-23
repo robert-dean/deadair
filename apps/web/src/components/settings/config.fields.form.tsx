@@ -45,11 +45,41 @@ import classes from './config.fields.form.module.css';
  * Both are spelled out here rather than imported, for the reason `declared.options.ts` spells the
  * plugin capabilities out: this console has no dependency on `@deadair/plugin-sdk`, and these are
  * part of the wire contract rather than something that moves without a contract change of its own.
- * The API mints the id and reports each cell's configured-ness under the joined key; the form's job
- * is to send the id back and never to show what it addresses.
+ * The API reports each cell's configured-ness under the joined key; the form's job is to send the
+ * id and never to show what it addresses.
  */
 const ROW_ID_KEY = '$id';
 const rowSecretKey = (fieldKey: string, rowId: string, columnKey: string): string => `${fieldKey}/${rowId}/${columnKey}`;
+
+/**
+ * A new row's id, minted HERE rather than left to the API, which keeps whatever id a row arrives with
+ * and mints one only for a row that has none.
+ *
+ * It used to be left to the API, and that was issue #242. This form is not rebuilt from the server
+ * after a save, so an id minted there never reached it: the next save sent the row with no id and,
+ * the key cell having been wiped after the first save, no key. The server read that as a brand-new
+ * row, deleted the stored key along with the row it thought was gone, and refused the form for a
+ * missing key the operator had typed a minute before. An id that exists before the first save is
+ * the same id on every save after it.
+ *
+ * The API's own shape: six random bytes as base64url, which can never hold the `/` that
+ * {@link rowSecretKey} joins on. `getRandomValues` rather than `randomUUID` because the latter needs
+ * a secure context, and a station on a home network is opened over plain http (see `pkce.ts`).
+ */
+function mintRowId(): string {
+    const bytes = new Uint8Array(6);
+    crypto.getRandomValues(bytes);
+    let binary = '';
+    for (const byte of bytes) binary += String.fromCharCode(byte);
+    return btoa(binary).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '');
+}
+
+/**
+ * Whether a list's rows carry ids at all. Only a list holding a credential does, which is the API's
+ * rule too (`holdsRowSecrets`): in a list of feeds an id addresses nothing, and the API stores such
+ * a list exactly as sent, so one minted here would be written into every row for nothing to read.
+ */
+const holdsRowSecrets = (columns: readonly ConfigFieldColumn[]): boolean => columns.some(column => column.type === 'secret');
 
 /** One row of a `list` field. Every cell is a string; the column decides the control, not the value. */
 type FieldRow = Record<string, string>;
@@ -84,6 +114,9 @@ const cellNameOf = (column: number): string => `c${column}`;
  * A stored cell whose column the manifest no longer declares is dropped rather than carried through
  * invisibly, which is the treatment `PluginConfigService.saveConfig` already gives a stored key with
  * no descriptor behind it.
+ *
+ * A row of a credential-holding list stored before rows had ids is given one here, for
+ * {@link mintRowId}'s reason: left without, the API would mint a different one on every save.
  */
 function parseStoredRows(value: unknown, columns: readonly ConfigFieldColumn[]): FieldRow[] {
     if (typeof value !== 'string' || value.trim().length === 0) return [];
@@ -102,6 +135,7 @@ function parseStoredRows(value: unknown, columns: readonly ConfigFieldColumn[]):
             // so a row that loses it on the way through this form is a row whose key is orphaned.
             const rowId = stored[ROW_ID_KEY];
             if (typeof rowId === 'string' && rowId.length > 0) row[ROW_ID_KEY] = rowId;
+            else if (holdsRowSecrets(columns)) row[ROW_ID_KEY] = mintRowId();
 
             columns.forEach((column, at) => {
                 const cell = stored[column.key];
@@ -180,8 +214,14 @@ const rowsForSubmission = (
             return submitted;
         });
 
-/** An empty row of the declared columns, so a new row draws every cell rather than growing them as it is typed into. */
-const emptyRow = (columns: readonly ConfigFieldColumn[]): FieldRow => Object.fromEntries(columns.map((_, at) => [cellNameOf(at), '']));
+/**
+ * An empty row of the declared columns, so a new row draws every cell rather than growing them as it
+ * is typed into. One that can hold a credential is born with its id; see {@link mintRowId}.
+ */
+const emptyRow = (columns: readonly ConfigFieldColumn[]): FieldRow => ({
+    ...(holdsRowSecrets(columns) ? { [ROW_ID_KEY]: mintRowId() } : {}),
+    ...Object.fromEntries(columns.map((_, at) => [cellNameOf(at), ''])),
+});
 
 /** The columns a `list` declared. A field of another type has none, and a `list` with none draws nothing to fill in. */
 const columnsOf = (field: ConfigFieldDescriptor): readonly ConfigFieldColumn[] => field.columns ?? [];

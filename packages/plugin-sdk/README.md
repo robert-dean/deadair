@@ -1182,8 +1182,8 @@ for (const row of parseRows(config.providers)) {
 }
 ```
 
-Every row also carries `ROW_ID_KEY` (`$id`), minted by the host the first time the
-row is saved and stable across reorders and edits. It exists so a ciphertext can
+Every row also carries `ROW_ID_KEY` (`$id`), minted when the row is added and stable
+across saves, reorders and edits. It exists so a ciphertext can
 belong to a row rather than to a position in an array the console rewrites whole
 on every save. Ignore it and nothing changes; `readRowSecret` is the only thing
 that reads it.

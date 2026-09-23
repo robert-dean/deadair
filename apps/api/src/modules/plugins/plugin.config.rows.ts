@@ -11,10 +11,15 @@ import { isRowSecretKey, parseRows, ROW_ID_KEY, rowSecretKey, type ConfigField, 
  * console rewrites the whole array on every save, and the operator can reorder it — so "the key in
  * the third row" is not an address, it is a coincidence that survives until somebody drags a row.
  *
- * So a row gets an id (`ROW_ID_KEY`), minted here the first time it is saved and preserved
- * afterwards, and the cell's ciphertext lives in the same flat secrets map every other secret uses,
- * under `field/row/column`. Nothing about encryption, reporting or the never-leaves-the-server rule
- * changed; only the key did.
+ * So a row gets an id (`ROW_ID_KEY`), preserved from save to save, and the cell's ciphertext lives
+ * in the same flat secrets map every other secret uses, under `field/row/column`. Nothing about
+ * encryption, reporting or the never-leaves-the-server rule changed; only the key did.
+ *
+ * **The console mints the id**, the moment a row is added, and this file mints one only for a row
+ * that arrives without (an API caller, or a row stored before ids existed). It used to be the other
+ * way round, and that was issue #242: the console's form is not rebuilt after a save, so an id minted
+ * here never reached it, and the NEXT save sent the row with no id — which read as a new row, and
+ * deleted the credential of the one it replaced.
  *
  * **Only a list that holds a credential is given ids**, rather than every list uniformly. There is
  * nothing for an id to do in a list of feeds or a voice map, and minting them anyway would rewrite
@@ -231,8 +236,8 @@ export function formAsItWillBe(
  * One list field's rows, with their credentials put back, as the JSON string a schema reads.
  *
  * The submission decides which rows there are; the stored secrets decide what a cell holds where
- * the submission did not say. A row the console has just added has no id, so nothing can be stored
- * against it and only what was typed counts — which is exactly right, and is why a required
+ * the submission did not say. A row the console has just added has an id nothing is stored against
+ * yet (or none at all), so only what was typed counts — which is exactly right, and is why a required
  * credential on a new row is refused while the same field on an existing row passes untouched.
  */
 function rowsAsTheyWillBe(field: ConfigField, storedValue: unknown, secrets: Record<string, string>, submittedValue: unknown): string {

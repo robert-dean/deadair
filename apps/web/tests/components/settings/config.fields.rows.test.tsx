@@ -185,7 +185,7 @@ describe('a credential inside a row', () => {
     });
 
     it('offers nothing to clear on a row the server has never seen', async () => {
-        // A new row has no id, so nothing can be stored against it and there is nothing to describe.
+        // Nothing can be stored against a row that has never been saved, so there is nothing to describe.
         const { onSubmit, user } = drawProviders({ providers: '[]' });
 
         await user.click(screen.getByRole('button', { name: 'Add' }));
@@ -195,7 +195,59 @@ describe('a credential inside a row', () => {
         expect(screen.queryByRole('button', { name: /Clear the stored/ })).not.toBeInTheDocument();
 
         await user.click(saveButton());
-        expect(sentRow(onSubmit)).toEqual({ name: 'fresh', apiKey: 'sk-new' });
+        expect(sentRow(onSubmit)).toEqual({ $id: expect.any(String), name: 'fresh', apiKey: 'sk-new' });
+    });
+
+    // Issue #242. The form is not rebuilt from the server after a save, so an id the SERVER minted
+    // never reached it: the second save sent the row with no id and, the key cell having been wiped
+    // after the first, no key either. The server read that as a new row, dropped the stored key with
+    // the old one, and refused the form for a missing key the operator had typed a minute earlier.
+    it('sends a new row under the same id on every save, so its credential stays attached', async () => {
+        const { onSubmit, user } = drawProviders({ providers: '[]' });
+
+        await user.click(screen.getByRole('button', { name: 'Add' }));
+        await user.type(screen.getByLabelText('Name'), 'gemini');
+        await user.type(screen.getByLabelText('API key'), 'AIza-key');
+        await user.click(saveButton());
+        await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+
+        const first = sentRow(onSubmit);
+        expect(first.$id).toEqual(expect.any(String));
+
+        await user.type(screen.getByLabelText('Name'), '-flash');
+        await user.click(saveButton());
+        await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(2));
+
+        expect(sentRow(onSubmit)).toEqual({ $id: first.$id, name: 'gemini-flash' });
+    });
+
+    it('gives a stored row that predates ids one, and keeps it', async () => {
+        const { onSubmit, user } = drawProviders(provider({ name: 'claude' }));
+
+        await user.type(screen.getByLabelText('API key'), 'sk-live');
+        await user.click(saveButton());
+        await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+        const first = sentRow(onSubmit);
+
+        await user.click(saveButton());
+        await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(2));
+
+        expect(first).toEqual({ $id: expect.any(String), name: 'claude', apiKey: 'sk-live' });
+        expect(sentRow(onSubmit)).toEqual({ $id: first.$id, name: 'claude' });
+    });
+
+    it('gives each new row an id of its own', async () => {
+        const { onSubmit, user } = drawProviders({ providers: '[]' });
+
+        await user.click(screen.getByRole('button', { name: 'Add' }));
+        await user.click(screen.getByRole('button', { name: 'Add' }));
+        const names = screen.getAllByLabelText('Name');
+        await user.type(names[0]!, 'one');
+        await user.type(names[1]!, 'two');
+        await user.click(saveButton());
+
+        const [one, two] = sentRows(onSubmit);
+        expect(one!.$id).not.toEqual(two!.$id);
     });
 
     it('carries the row id through a reorder, so a credential stays with its row', async () => {

@@ -221,10 +221,19 @@ memory under both spellings (both are transaction-exempt for that reason).
 ### Server middleware
 
 Assembled in [setup.middleware.ts](src/server/setup.middleware.ts), in order: error handling,
-ServerKit context, Redis rate limiting (100 requests / 5s, with an in-memory `insuranceLimiter` so a
+the OAuth challenge at the MCP path, ServerKit context, Redis rate limiting (100 requests / 5s, with an in-memory `insuranceLimiter` so a
 Redis blip fails open rather than 429-ing the whole API), credentialed CORS against the explicit
-`SPA_BASE_URL` / `APP_BASE_URL` origins, authentication, audit context, authorization context, and
-the refresh-cookie hook.
+`SPA_BASE_URL` / `APP_BASE_URL` origins, the OAuth client credential, authentication, audit context,
+authorization context, and the refresh-cookie hook.
+
+Two of those exist for the station as an OAuth authorization server (see
+[docs/internals/authentication.md](../../docs/internals/authentication.md)).
+[oauth.challenge](src/server/middleware/oauth.challenge.middleware.ts) sits just inside error handling
+so it wraps everything: a 401 at the MCP path gains the RFC 9728 `resource_metadata` pointer an MCP
+client needs to find out how to get a token.
+[oauth.client.credential](src/server/middleware/oauth.client.credential.middleware.ts) sits just
+before authentication, which deletes `Authorization` from every request, and sets aside a client's
+HTTP Basic credential sent to the token endpoint.
 
 Three of those carry most of the weight:
 
@@ -257,7 +266,7 @@ Three of those carry most of the weight:
 
 [transaction.exemptions.ts](src/server/middleware/transaction.exemptions.ts) makes the opt-out set
 declarative: OPTIONS preflight, `/`, `/healthcheck`, streaming responses, cached cover art,
-now-playing, and the four routes whose holding time is set by a language model or a speech engine
+now-playing, the two OAuth discovery documents, and the four routes whose holding time is set by a language model or a speech engine
 rather than by the station (drafting a persona, rehearsing one, a voice sample, a speech preview).
 Its header documents the bar a new exemption has to clear: an exempt request has no transaction, so
 it must not enqueue a job describing work that could still fail, and must not rely on `AfterCommit`

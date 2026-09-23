@@ -124,6 +124,17 @@ different caller on every request — rate limiting nobody at all, which is wors
 together. The compose edge takes the same include and expects a mounted file rather than an environment
 variable.
 
+**Two paths reach the API that are not under `/api/`.** Every edge (the image's nginx, both compose
+edges, Vite) forwards `/.well-known/oauth-` to the API with the path KEPT, where everything else it
+forwards has `/api` stripped. The station is its own OAuth authorization server for MCP clients, and its
+issuer is the ORIGIN (`OAuthOptions`): RFC 8414 puts the issuer's metadata at
+`<origin>/.well-known/oauth-authorization-server`, and RFC 9728 puts the MCP endpoint's at
+`<origin>/.well-known/oauth-protected-resource/api/mcp`. An issuer under `/api` would be found only by a
+client's third guess. Before the forward, both fell to the console's `try_files` and answered its
+`index.html`, which a client reads as a server that does not do OAuth. A reverse proxy an operator puts
+in front has to pass `/.well-known/` through too; `/.well-known/openid-configuration` is deliberately not
+served, since the station is not an OpenID provider.
+
 ## What the layer rules forbid
 
 And **nothing derived from this repository may sit above the fence comment in the final stage**, which is the

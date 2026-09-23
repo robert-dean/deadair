@@ -38,6 +38,7 @@ const sidebars: SidebarsConfig = {
                 'features/models-and-voices',
                 'features/console',
                 'features/listening',
+                'features/connect-claude',
             ],
         },
         'licensing',

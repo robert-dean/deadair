@@ -111,5 +111,7 @@ listener apps are built on:
 - The [API reference](../api-reference/index.md) is every route, generated from the contracts, with
   what each one needs and answers.
 - [Listing your app](/community/apps) puts what you built in front of other operators.
+- [Connecting Claude](../features/connect-claude.md) covers the other way in: an app that signs in
+  with OAuth and acts as whoever approved it, rather than holding a key.
 - If what you want is for the station to *do* something new rather than to be driven from outside,
   that is a [plugin](../plugin-development/index.md) instead.

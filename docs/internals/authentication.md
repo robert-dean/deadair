@@ -1,7 +1,8 @@
-# Internals: signing in through an identity provider
+# Internals: signing in, both ways
 
-Where the providers come from, who may join through one, how a link is made and undone, and what
-the station does with the Google variables it used to read. The always-loaded index is
+Where the identity providers come from, who may join through one, how a link is made and undone, and
+what the station does with the Google variables it used to read. Then the other direction: the station
+as an OAuth authorization server, for apps that connect to it as one of its people. The always-loaded index is
 [`CLAUDE.md`](../../CLAUDE.md); the chassis the module sits on is [`apps/api/CLAUDE.md`](../../apps/api/CLAUDE.md).
 
 ## Where the providers come from
@@ -92,6 +93,49 @@ records `signin.seededFromEnvironment` so an operator who deletes the Google row
 after the next restart. It never writes over a stored list, even an empty one, and never stops the
 boot. Nothing else reads the variables. The seed, and the variable's entry in
 `scrub.process.env.ts`, go in a later release.
+
+## Apps that connect as somebody: the station as an OAuth authorization server
+
+The other direction: not the station signing people in through somebody else's provider, but an app
+(a Claude connector, first) signing in to the station as one of its people. The flow is
+`@maroonedsoftware/authentication`'s `OAuthAuthorizationServer`; `modules/oauth` supplies the stores,
+the addresses and the switches, and nothing happens until `oauth.enabled` is on.
+
+**The issuer is the origin** (`OAuthOptions`), so the RFC 8414 and RFC 9728 documents are at the
+root, which every edge forwards with the path kept (`docs/internals/deployment.md`). The MCP endpoint
+is the resource, `<origin>/api/mcp`.
+
+**A grant is a session.** Approving on the console's `/oauth/authorize` stashes nothing new about the
+person: the token endpoint mints an ordinary session for them, with their login claims and factors,
+`claims.oauth` naming the app, the resource and the grant, and the resource as its **audience**. The
+JWT issuer asks for that audience at the MCP path and the station's own everywhere else
+(`issuers/jwt.authentication.issuer.ts`), so the app's token is refused by every other route and a
+console session is refused at `/mcp`, with no route having to ask. The `oauth.grant` policy on the MCP
+route is the second lock: it reads the grant, and refuses everything while the switch is off. A grant
+session lasts seven days (`OAUTH_SESSION_LIFETIME`); the app refreshes it, and a refresh is refused
+for a revoked grant or the wrong client.
+
+**The RFC endpoints are hand-written** (`routes/oauth.protocol.router.ts`), because their status
+codes and error bodies are the RFCs' and a generated route cannot produce them. The console's half
+(consent, registered apps, connected apps) is generated from `data/contracts/oauth`. Consent takes the
+app's query string as one string, since a generated query schema is strict and would refuse any
+parameter an app adds.
+
+**Two things ServerKit does that would otherwise break it.** Its authentication middleware deletes
+`Authorization` from every request before routes run, so a client authenticating to the token endpoint
+with HTTP Basic has its header set aside first (`oauth.client.credential.middleware.ts`). And a 401 is
+thrown rather than returned, so the RFC 9728 `resource_metadata` pointer is added by a middleware that
+catches it just inside the error middleware (`oauth.challenge.middleware.ts`).
+
+**Clients.** Claude registers itself (RFC 7591) on every connection, so a self-registered client lapses
+ninety days after its last use and a nightly job deletes it. Claude Code identifies itself with a
+metadata document on its own site, fetched and cached, never stored, which is why a grant's
+`client_id` is not a foreign key. An operator can register one by hand, with a show-once secret, and
+withdrawing any client ends every grant of it and every session held through them.
+
+**Nothing in the cache-holding pieces may be a singleton**: the Redis cache is scoped, and
+`tests/modules/oauth/oauth.module.test.ts` builds the module with a scoped stand-in so the captive
+dependency fails the suite rather than the boot.
 
 ## Working on it locally
 

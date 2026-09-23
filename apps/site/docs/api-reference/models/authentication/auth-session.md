@@ -1,6 +1,6 @@
 ---
 title: 'AuthSession'
-sidebar_position: 58
+sidebar_position: 59
 mdx:
     format: 'md'
 ---

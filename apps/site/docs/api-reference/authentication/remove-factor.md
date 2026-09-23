@@ -1,7 +1,7 @@
 ---
 title: 'Remove factor'
 sidebar_label: 'Remove factor'
-sidebar_position: 14
+sidebar_position: 15
 mdx:
     format: 'md'
 ---

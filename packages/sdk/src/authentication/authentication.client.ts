@@ -9,6 +9,7 @@ import type {
     AuthenticationRequest,
     AuthenticationTokenOutput,
     AuthenticationTokenResponseOutput,
+    OidcProviderSummary,
 } from './types/authentication.types.js';
 import {
     reviveAuthenticationLoginStartResponse,
@@ -88,5 +89,14 @@ export class AuthenticationClient {
             body: JSON.stringify(body, bigIntReplacer),
         });
         return reviveAuthenticationLoginStartResponse(await parseJson<AuthenticationLoginStartResponse>(result));
+    }
+
+    /**
+     * @name List sign-in providers
+     * @description The identity providers the sign-in page offers beside a password, in the order the operator listed them. Empty when none is set up
+     */
+    async listSignInProviders(): Promise<OidcProviderSummary[]> {
+        const result = await this.fetch(`/auth/login/oidc/providers`, { method: 'GET' });
+        return await parseJson<OidcProviderSummary[]>(result);
     }
 }

@@ -14,7 +14,7 @@ const NEW_ACTOR = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const EXISTING_ACTOR = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 
 type Completion =
-    | { kind: 'signed-in' | 'linked'; actorId: string; factorId: string }
+    | { kind: 'signed-in' | 'linked'; actorId: string; factorId: string; redirectAfter?: string }
     | { kind: 'new-user'; authorizationId: string; profile: { email?: string; emailVerified?: boolean }; emailConflict?: { actorId: string } };
 
 function build(completion: Completion, allowlist = '') {
@@ -60,6 +60,24 @@ describe('AuthenticationService.handleOidcCallback', () => {
         expect(target.searchParams.get('token')).toBe('oidc:exchange-1');
         expect(h.oidcFactorService.stashAuthenticatedExchange).toHaveBeenCalledWith(expect.objectContaining({ actorId: EXISTING_ACTOR }));
         expect(h.actorsRepository.create).not.toHaveBeenCalled();
+    });
+
+    it('always lands on the console callback, carrying the path to return to beside the token', async () => {
+        const h = build({ kind: 'signed-in', actorId: EXISTING_ACTOR, factorId: 'factor-1', redirectAfter: '/settings/security' });
+
+        const target = await h.callback();
+
+        expect(target.origin + target.pathname).toBe('https://radio.example/auth/callback');
+        expect(target.searchParams.get('redirect')).toBe('/settings/security');
+    });
+
+    it('drops a return address that would leave the console', async () => {
+        const h = build({ kind: 'signed-in', actorId: EXISTING_ACTOR, factorId: 'factor-1', redirectAfter: 'https://evil.example/' });
+
+        const target = await h.callback();
+
+        expect(target.origin).toBe('https://radio.example');
+        expect(target.searchParams.has('redirect')).toBe(false);
     });
 
     it('turns away a newcomer the allowlist does not name, and creates nothing', async () => {
@@ -124,5 +142,23 @@ describe('AuthenticationService.handleOidcCallback', () => {
         expect(target.searchParams.get('error')).toBe('oidc_failed');
         expect(target.toString()).not.toContain('ECONNREFUSED');
         expect(h.sessionActivity.recordFactorFailure).toHaveBeenCalledWith(expect.objectContaining({ lastReason: 'ECONNREFUSED 10.0.0.4:443' }));
+    });
+});
+
+describe('AuthenticationService.listOidcProviders', () => {
+    it('offers each usable provider by name and button, and never a secret', async () => {
+        const rows = [
+            { $id: 'r1', name: 'authelia', label: 'Authelia', issuer: 'https://auth.example.com', clientId: 'x' },
+            { $id: 'r2', name: 'broken', label: 'Broken', issuer: 'not a url', clientId: 'x' },
+        ];
+        const service = Object.create(AuthenticationService.prototype) as AuthenticationService;
+        Object.assign(service, {
+            config: settingsConfig({
+                [SIGNIN_KEYS.providers]: JSON.stringify(rows),
+                ['signin.providers/r1/clientSecret']: 'secret',
+            }).config,
+        });
+
+        await expect(service.listOidcProviders()).resolves.toEqual([{ name: 'authelia', label: 'Authelia' }]);
     });
 });

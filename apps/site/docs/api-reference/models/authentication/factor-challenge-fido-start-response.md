@@ -1,6 +1,6 @@
 ---
 title: 'FactorChallengeFidoStartResponse'
-sidebar_position: 53
+sidebar_position: 54
 mdx:
     format: 'md'
 ---

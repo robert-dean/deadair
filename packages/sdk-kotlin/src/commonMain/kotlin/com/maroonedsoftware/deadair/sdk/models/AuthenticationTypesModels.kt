@@ -86,12 +86,8 @@ enum class AuthenticationFactorKind {
     BIOMETRIC,
 }
 
-/** The OIDC identity provider */
-@Serializable
-enum class OidcProvider {
-    @SerialName("google")
-    GOOGLE,
-}
+/** The name of an identity provider the station offers, as the operator set it under Settings, Sign-in and connections. `GET /auth/login/oidc/providers` lists them */
+typealias OidcProvider = String
 
 /** Represents an authentication token */
 @Serializable
@@ -216,17 +212,6 @@ enum class FidoAuthenticatorTransport {
     @SerialName("usb")
     USB,
 }
-
-/** Response from `/auth/login/oidc/start` instructing the client to navigate to `authorize_url` */
-@Serializable
-data class OidcLoginStartResponse(
-    /** Fully-formed authorize URL the user-agent should be redirected to */
-    @SerialName("authorize_url") val authorizeUrl: String,
-    /** Opaque state token bound to this authorization round-trip */
-    val state: String,
-    /** When the cached state record expires */
-    @SerialName("expires_at") val expiresAt: Instant,
-)
 
 /** Request to complete an OIDC sign-in flow */
 @Serializable
@@ -457,13 +442,13 @@ data class StepUpStartRequest(
     val excludeMethods: List<AuthenticationFactorMethod>? = null,
 )
 
-/** Request to begin an OIDC sign-in flow */
+/** An identity provider the sign-in page can offer */
 @Serializable
-data class OidcLoginStart(
-    /** The IdP to authorize against */
-    val provider: OidcProvider,
-    /** Optional URL the SPA wants the callback to land on after token issuance */
-    @SerialName("redirect_after") val redirectAfter: String? = null,
+data class OidcProviderSummary(
+    /** What to start a sign-in with */
+    val name: OidcProvider,
+    /** What its button says */
+    val label: String,
 )
 
 @Serializable
@@ -701,6 +686,8 @@ data class OidcAuthenticationLoginStart(
     @SerialName("client_id") val clientId: Uuid? = null,
     /** The IdP to authorize against */
     val provider: OidcProvider,
+    /** A path on the console to return to once signed in, such as `/settings/security`. Anything that is not a same-origin path is ignored and the console opens at its home page */
+    @SerialName("redirect_after") val redirectAfter: String? = null,
 ) : AuthenticationLoginStart
 
 @Serializable

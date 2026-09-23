@@ -31,8 +31,7 @@ import {
     OidcAuthenticationLoginStart,
     OidcAuthenticationRequest,
     OidcLoginCallback,
-    OidcLoginStart,
-    OidcLoginStartResponse,
+    OidcProviderSummary,
     PasswordAuthenticationRequest,
     RefreshTokenAuthenticationRequest,
     StepUpStartRequest,
@@ -47,7 +46,8 @@ import { PermissionsService } from '#modules/permissions/permissions.service.js'
 import { PLATFORM_NAMESPACE, PLATFORM_OBJECT_ID } from '#modules/permissions/platform.roles.js';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { OidcSignInRefused } from './oidc.sign.in.refused.js';
-import { allowlistAdmits, resolveSigninAllowlist } from './signin.settings.js';
+import { allowlistAdmits, resolveSigninAllowlist, resolveSigninProviders } from './signin.settings.js';
+import { safeRedirectPath } from './redirect.after.js';
 import {
     AuthenticationSession,
     AuthenticationSessionFactor,
@@ -846,9 +846,11 @@ export class AuthenticationService {
     }
 
     private async handleOidcStartLogin(request: OidcAuthenticationLoginStart): Promise<AuthenticationLoginStartResponse> {
+        const redirectAfter = safeRedirectPath(request.redirect_after);
         const { url, state, expiresAt } = await this.oidcFactorService.beginAuthorization({
             provider: request.provider,
             intent: 'sign-in',
+            ...(redirectAfter === undefined ? {} : { redirectAfter }),
         });
 
         return await parseAndValidate(
@@ -969,21 +971,15 @@ export class AuthenticationService {
         };
     }
 
-    async startOidcLogin(request: OidcLoginStart): Promise<OidcLoginStartResponse> {
-        const { url, state, expiresAt } = await this.oidcFactorService.beginAuthorization({
-            provider: request.provider,
-            intent: 'sign-in',
-            redirectAfter: request.redirect_after,
-        });
-
-        return await parseAndValidate(
-            {
-                authorize_url: url.toString(),
-                state,
-                expires_at: expiresAt,
-            },
-            OidcLoginStartResponse,
-        );
+    /**
+     * The identity providers the sign-in page offers, by name and button, in the operator's order.
+     *
+     * Read from the same list and through the same resolver the registry's source uses, so a row
+     * the station cannot sign in through is not offered as a button either. Secrets are never read
+     * here: a button needs a name and a label.
+     */
+    async listOidcProviders(): Promise<OidcProviderSummary[]> {
+        return resolveSigninProviders(this.config, () => '').map(provider => ({ name: provider.name, label: provider.label }));
     }
 
     /**
@@ -1011,8 +1007,12 @@ export class AuthenticationService {
                 isNewUser: identity.isNewUser,
             });
 
-            const target = new URL(result.redirectAfter ?? `${this.options.spaBaseUrl}/auth/callback`);
+            const target = new URL(`${this.options.spaBaseUrl}/auth/callback`);
             target.searchParams.set('token', `oidc:${exchangeId}`);
+            // A path, checked again here although it was checked when the sign-in began, because the
+            // state that carried it came back through somebody else's server.
+            const redirect = safeRedirectPath(result.redirectAfter);
+            if (redirect !== undefined) target.searchParams.set('redirect', redirect);
             if (identity.isNewUser) target.searchParams.set('is_new_user', 'true');
 
             return this.htmlRedirectProvider.getRedirectHtml(target).html;

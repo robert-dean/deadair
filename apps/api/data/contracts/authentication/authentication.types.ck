@@ -21,7 +21,7 @@ contract AuthenticationFactorMethod: enum(phone, password, email, authenticator,
 
 contract AuthenticationFactorKind: enum(knowledge, possession, biometric) # The kind of the factor
 
-contract OidcProvider: enum(google) # The OIDC identity provider
+contract OidcProvider: string(min=1, max=32) # The name of an identity provider the station offers, as the operator set it under Settings, Sign-in and connections. `GET /auth/login/oidc/providers` lists them
 
 contract BaseAuthenticationRequest: {
     grant_type: AuthenticationGrantType # The grant type for the request
@@ -184,6 +184,7 @@ contract FidoAuthenticationLoginStart: BaseAuthenticationLoginStartWithEmail & {
 contract OidcAuthenticationLoginStart: BaseAuthenticationLoginStart & { # Request to begin an OIDC sign-in flow
     grant_type: literal("oidc") # The grant type for the request
     provider: OidcProvider # The IdP to authorize against
+    redirect_after?: string(max=2048) # A path on the console to return to once signed in, such as `/settings/security`. Anything that is not a same-origin path is ignored and the console opens at its home page
 }
 
 contract AuthenticationLoginStart: discriminated(by=grant_type, LinkAuthenticationLoginStart | CodeAuthenticationLoginStart | FidoAuthenticationLoginStart | OidcAuthenticationLoginStart)
@@ -252,15 +253,9 @@ contract AuthenticationFactor: {
     label?: string # The label for the factor
 }
 
-contract OidcLoginStart: { # Request to begin an OIDC sign-in flow
-    provider: OidcProvider # The IdP to authorize against
-    redirect_after?: string(max=2048) # Optional URL the SPA wants the callback to land on after token issuance
-}
-
-contract OidcLoginStartResponse: { # Response from `/auth/login/oidc/start` instructing the client to navigate to `authorize_url`
-    authorize_url: string # Fully-formed authorize URL the user-agent should be redirected to
-    state: string(max=200) # Opaque state token bound to this authorization round-trip
-    expires_at: datetime # When the cached state record expires
+contract OidcProviderSummary: { # An identity provider the sign-in page can offer
+    name: OidcProvider # What to start a sign-in with
+    label: string # What its button says
 }
 
 contract OidcLoginCallback: { # Request to complete an OIDC sign-in flow

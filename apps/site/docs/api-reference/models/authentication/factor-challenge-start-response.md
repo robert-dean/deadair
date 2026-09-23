@@ -1,6 +1,6 @@
 ---
 title: 'FactorChallengeStartResponse'
-sidebar_position: 55
+sidebar_position: 56
 mdx:
     format: 'md'
 ---

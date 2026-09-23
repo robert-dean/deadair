@@ -9,6 +9,7 @@ import com.maroonedsoftware.deadair.sdk.models.AuthenticationRegistrationVerific
 import com.maroonedsoftware.deadair.sdk.models.AuthenticationRequest
 import com.maroonedsoftware.deadair.sdk.models.AuthenticationToken
 import com.maroonedsoftware.deadair.sdk.models.AuthenticationTokenResponse
+import com.maroonedsoftware.deadair.sdk.models.OidcProviderSummary
 import com.maroonedsoftware.deadair.sdk.runtime.SdkHttp
 import io.ktor.http.HttpMethod
 
@@ -58,6 +59,17 @@ class AuthenticationClient(private val http: SdkHttp) {
         val response = http.execute(HttpMethod.Post) {
             path("auth", "login", "start")
             jsonBody(body, "application/json")
+        }
+        return http.decodeJson(response)
+    }
+
+    /**
+     * List sign-in providers
+     * The identity providers the sign-in page offers beside a password, in the order the operator listed them. Empty when none is set up
+     */
+    suspend fun listSignInProviders(): List<OidcProviderSummary> {
+        val response = http.execute(HttpMethod.Get) {
+            path("auth", "login", "oidc", "providers")
         }
         return http.decodeJson(response)
     }

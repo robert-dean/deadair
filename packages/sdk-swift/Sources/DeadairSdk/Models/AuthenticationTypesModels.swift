@@ -38,10 +38,8 @@ public enum AuthenticationFactorKind: String, Codable, CaseIterable, Sendable {
     case biometric = "biometric"
 }
 
-/// The OIDC identity provider
-public enum OidcProvider: String, Codable, CaseIterable, Sendable {
-    case google = "google"
-}
+/// The name of an identity provider the station offers, as the operator set it under Settings, Sign-in and connections. `GET /auth/login/oidc/providers` lists them
+public typealias OidcProvider = String
 
 /// Represents an authentication token
 public struct AuthenticationToken: Codable, Equatable, Sendable {
@@ -450,42 +448,6 @@ public enum FidoAuthenticatorTransport: String, Codable, CaseIterable, Sendable 
     case `internal` = "internal"
     case nfc = "nfc"
     case usb = "usb"
-}
-
-/// Response from `/auth/login/oidc/start` instructing the client to navigate to `authorize_url`
-public struct OidcLoginStartResponse: Codable, Equatable, Sendable {
-    /// Fully-formed authorize URL the user-agent should be redirected to
-    public var authorizeUrl: String
-    /// Opaque state token bound to this authorization round-trip
-    public var state: String
-    /// When the cached state record expires
-    public var expiresAt: Date
-
-    public init(authorizeUrl: String, state: String, expiresAt: Date) {
-        self.authorizeUrl = authorizeUrl
-        self.state = state
-        self.expiresAt = expiresAt
-    }
-
-    private enum CodingKeys: String, CodingKey {
-        case authorizeUrl = "authorize_url"
-        case state = "state"
-        case expiresAt = "expires_at"
-    }
-
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.authorizeUrl = try container.decode(String.self, forKey: .authorizeUrl)
-        self.state = try container.decode(String.self, forKey: .state)
-        self.expiresAt = try container.decode(Date.self, forKey: .expiresAt)
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(self.authorizeUrl, forKey: .authorizeUrl)
-        try container.encode(self.state, forKey: .state)
-        try container.encode(self.expiresAt, forKey: .expiresAt)
-    }
 }
 
 /// Request to complete an OIDC sign-in flow
@@ -1234,33 +1196,33 @@ public struct StepUpStartRequest: Codable, Equatable, Sendable {
     }
 }
 
-/// Request to begin an OIDC sign-in flow
-public struct OidcLoginStart: Codable, Equatable, Sendable {
-    /// The IdP to authorize against
-    public var provider: OidcProvider
-    /// Optional URL the SPA wants the callback to land on after token issuance
-    public var redirectAfter: String?
+/// An identity provider the sign-in page can offer
+public struct OidcProviderSummary: Codable, Equatable, Sendable {
+    /// What to start a sign-in with
+    public var name: OidcProvider
+    /// What its button says
+    public var label: String
 
-    public init(provider: OidcProvider, redirectAfter: String? = nil) {
-        self.provider = provider
-        self.redirectAfter = redirectAfter
+    public init(name: OidcProvider, label: String) {
+        self.name = name
+        self.label = label
     }
 
     private enum CodingKeys: String, CodingKey {
-        case provider = "provider"
-        case redirectAfter = "redirect_after"
+        case name = "name"
+        case label = "label"
     }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.provider = try container.decode(OidcProvider.self, forKey: .provider)
-        self.redirectAfter = try container.decodeIfPresent(String.self, forKey: .redirectAfter)
+        self.name = try container.decode(OidcProvider.self, forKey: .name)
+        self.label = try container.decode(String.self, forKey: .label)
     }
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(self.provider, forKey: .provider)
-        try container.encodeIfPresent(self.redirectAfter, forKey: .redirectAfter)
+        try container.encode(self.name, forKey: .name)
+        try container.encode(self.label, forKey: .label)
     }
 }
 
@@ -2034,17 +1996,21 @@ public struct OidcAuthenticationLoginStart: Codable, Equatable, Sendable {
     public var clientId: UUID?
     /// The IdP to authorize against
     public var provider: OidcProvider
+    /// A path on the console to return to once signed in, such as `/settings/security`. Anything that is not a same-origin path is ignored and the console opens at its home page
+    public var redirectAfter: String?
 
-    public init(grantType: String = "oidc", clientId: UUID? = nil, provider: OidcProvider) {
+    public init(grantType: String = "oidc", clientId: UUID? = nil, provider: OidcProvider, redirectAfter: String? = nil) {
         self.grantType = grantType
         self.clientId = clientId
         self.provider = provider
+        self.redirectAfter = redirectAfter
     }
 
     private enum CodingKeys: String, CodingKey {
         case grantType = "grant_type"
         case clientId = "client_id"
         case provider = "provider"
+        case redirectAfter = "redirect_after"
     }
 
     public init(from decoder: Decoder) throws {
@@ -2055,6 +2021,7 @@ public struct OidcAuthenticationLoginStart: Codable, Equatable, Sendable {
         }
         self.clientId = try container.decodeIfPresent(UUID.self, forKey: .clientId)
         self.provider = try container.decode(OidcProvider.self, forKey: .provider)
+        self.redirectAfter = try container.decodeIfPresent(String.self, forKey: .redirectAfter)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -2062,6 +2029,7 @@ public struct OidcAuthenticationLoginStart: Codable, Equatable, Sendable {
         try container.encode(self.grantType, forKey: .grantType)
         try container.encodeIfPresent(self.clientId, forKey: .clientId)
         try container.encode(self.provider, forKey: .provider)
+        try container.encodeIfPresent(self.redirectAfter, forKey: .redirectAfter)
     }
 }
 

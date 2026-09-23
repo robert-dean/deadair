@@ -1,7 +1,7 @@
 ---
 title: 'Verify factor registration'
 sidebar_label: 'Verify factor registration'
-sidebar_position: 11
+sidebar_position: 12
 mdx:
     format: 'md'
 ---

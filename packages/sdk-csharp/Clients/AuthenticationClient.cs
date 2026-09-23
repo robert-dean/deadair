@@ -75,4 +75,17 @@ public sealed class AuthenticationClient(SdkHttp http)
             cancellationToken: cancellationToken).ConfigureAwait(false);
         return http.ReadJson<AuthenticationLoginStartResponse>(response);
     }
+
+    /// <summary>
+    /// List sign-in providers
+    /// The identity providers the sign-in page offers beside a password, in the order the operator listed them. Empty when none is set up
+    /// </summary>
+    public async Task<List<OidcProviderSummary>> ListSignInProvidersAsync(CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Get,
+            http.Path("auth", "login", "oidc", "providers"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<List<OidcProviderSummary>>(response);
+    }
 }

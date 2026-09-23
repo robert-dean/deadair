@@ -44,4 +44,12 @@ public final class AuthenticationClient: Sendable {
         let response = try await http.execute(request)
         return try http.decodeJSON(AuthenticationLoginStartResponse.self, from: response)
     }
+
+    /// List sign-in providers
+    /// The identity providers the sign-in page offers beside a password, in the order the operator listed them. Empty when none is set up
+    public func listSignInProviders() async throws -> [OidcProviderSummary] {
+        let request = SdkRequest(method: "GET", path: ["auth", "login", "oidc", "providers"])
+        let response = try await http.execute(request)
+        return try http.decodeJSON([OidcProviderSummary].self, from: response)
+    }
 }

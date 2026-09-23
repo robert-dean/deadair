@@ -1,6 +1,6 @@
 ---
 title: 'PhoneFactorRegistration'
-sidebar_position: 64
+sidebar_position: 65
 mdx:
     format: 'md'
 ---

@@ -36,10 +36,10 @@ export const AuthenticationFactorKind = z.enum(['knowledge', 'possession', 'biom
 export type AuthenticationFactorKind = z.infer<typeof AuthenticationFactorKind>;
 
 /**
- * The OIDC identity provider
+ * The name of an identity provider the station offers, as the operator set it under Settings, Sign-in and connections. `GET /auth/login/oidc/providers` lists them
  * generated from [OidcProvider](../../../../data/contracts/authentication/authentication.types.ck#L24)
  */
-export const OidcProvider = z.enum(['google']);
+export const OidcProvider = z.string().min(1).max(32);
 export type OidcProvider = z.infer<typeof OidcProvider>;
 
 /**
@@ -182,7 +182,7 @@ export type AuthenticationRegistrationVerification = z.infer<typeof Authenticati
 
 /**
  * A credential the relying party expects the user to be able to present
- * generated from [PublicKeyCredentialDescriptor](../../../../data/contracts/authentication/authentication.types.ck#L191)
+ * generated from [PublicKeyCredentialDescriptor](../../../../data/contracts/authentication/authentication.types.ck#L192)
  */
 export const PublicKeyCredentialDescriptor = z.strictObject({
     type: z.literal('public-key').describe('The credential type — currently always `public-key`'),
@@ -196,25 +196,14 @@ export type PublicKeyCredentialDescriptor = z.infer<typeof PublicKeyCredentialDe
 
 /**
  * The transport used by the authenticator
- * generated from [FidoAuthenticatorTransport](../../../../data/contracts/authentication/authentication.types.ck#L235)
+ * generated from [FidoAuthenticatorTransport](../../../../data/contracts/authentication/authentication.types.ck#L236)
  */
 export const FidoAuthenticatorTransport = z.enum(['hybrid', 'ble', 'internal', 'nfc', 'usb']);
 export type FidoAuthenticatorTransport = z.infer<typeof FidoAuthenticatorTransport>;
 
 /**
- * Response from `/auth/login/oidc/start` instructing the client to navigate to `authorize_url`
- * generated from [OidcLoginStartResponse](../../../../data/contracts/authentication/authentication.types.ck#L260)
- */
-export const OidcLoginStartResponse = z.strictObject({
-    authorize_url: z.string().describe('Fully-formed authorize URL the user-agent should be redirected to'),
-    state: z.string().max(200).describe('Opaque state token bound to this authorization round-trip'),
-    expires_at: _ZodDatetime.describe('When the cached state record expires'),
-});
-export type OidcLoginStartResponse = z.infer<typeof OidcLoginStartResponse>;
-
-/**
  * Request to complete an OIDC sign-in flow
- * generated from [OidcLoginCallback](../../../../data/contracts/authentication/authentication.types.ck#L266)
+ * generated from [OidcLoginCallback](../../../../data/contracts/authentication/authentication.types.ck#L261)
  */
 export const OidcLoginCallback = z.strictObject({
     iss: z.string().optional().describe('The issuer of the token'),
@@ -232,7 +221,7 @@ export type OidcLoginCallback = z.infer<typeof OidcLoginCallback>;
 
 /**
  * Issue a phone SMS challenge during a pending MFA round
- * generated from [FactorChallengePhoneStart](../../../../data/contracts/authentication/authentication.types.ck#L279)
+ * generated from [FactorChallengePhoneStart](../../../../data/contracts/authentication/authentication.types.ck#L274)
  */
 export const FactorChallengePhoneStart = z.strictObject({
     method: z.literal('phone').describe('Discriminator'),
@@ -243,7 +232,7 @@ export type FactorChallengePhoneStart = z.infer<typeof FactorChallengePhoneStart
 
 /**
  * Issue a WebAuthn assertion challenge during a pending MFA round
- * generated from [FactorChallengeFidoStart](../../../../data/contracts/authentication/authentication.types.ck#L285)
+ * generated from [FactorChallengeFidoStart](../../../../data/contracts/authentication/authentication.types.ck#L280)
  */
 export const FactorChallengeFidoStart = z.strictObject({
     method: z.literal('fido').describe('Discriminator'),
@@ -253,7 +242,7 @@ export type FactorChallengeFidoStart = z.infer<typeof FactorChallengeFidoStart>;
 
 /**
  * Issue an email one-time-code challenge during a pending MFA round. Always a code: a magic link cannot complete an MFA round, since the `code` grant that redeems one takes `code(min=6, max=10)` and a link token is 43 characters
- * generated from [FactorChallengeEmailStart](../../../../data/contracts/authentication/authentication.types.ck#L290)
+ * generated from [FactorChallengeEmailStart](../../../../data/contracts/authentication/authentication.types.ck#L285)
  */
 export const FactorChallengeEmailStart = z.strictObject({
     method: z.literal('email').describe('Discriminator'),
@@ -263,7 +252,7 @@ export type FactorChallengeEmailStart = z.infer<typeof FactorChallengeEmailStart
 
 /**
  * Response for a phone SMS challenge
- * generated from [FactorChallengePhoneStartResponse](../../../../data/contracts/authentication/authentication.types.ck#L297)
+ * generated from [FactorChallengePhoneStartResponse](../../../../data/contracts/authentication/authentication.types.ck#L292)
  */
 export const FactorChallengePhoneStartResponse = z
     .strictObject({
@@ -283,7 +272,7 @@ export type FactorChallengePhoneStartResponseOutput = z.output<typeof FactorChal
 
 /**
  * Response for an email one-time-code challenge
- * generated from [FactorChallengeEmailStartResponse](../../../../data/contracts/authentication/authentication.types.ck#L311)
+ * generated from [FactorChallengeEmailStartResponse](../../../../data/contracts/authentication/authentication.types.ck#L306)
  */
 export const FactorChallengeEmailStartResponse = z
     .strictObject({
@@ -301,7 +290,7 @@ export type FactorChallengeEmailStartResponseOutput = z.output<typeof FactorChal
 
 /**
  * A factor satisfied by the session
- * generated from [SessionFactor](../../../../data/contracts/authentication/authentication.types.ck#L325)
+ * generated from [SessionFactor](../../../../data/contracts/authentication/authentication.types.ck#L320)
  */
 export const SessionFactor = z.strictObject({
     method: z.enum(['phone', 'password', 'authenticator', 'email', 'fido', 'oidc']).describe('The verification method'),
@@ -321,7 +310,7 @@ export type SessionFactorInput = z.infer<typeof SessionFactorInput>;
 
 /**
  * Optional metadata supplied to a revoke action
- * generated from [SessionRevoke](../../../../data/contracts/authentication/authentication.types.ck#L345)
+ * generated from [SessionRevoke](../../../../data/contracts/authentication/authentication.types.ck#L340)
  */
 export const SessionRevoke = z.strictObject({
     reason: z.string().max(255).nullable().optional().describe('Free-form reason recorded with the revoke'),
@@ -330,14 +319,14 @@ export type SessionRevoke = z.infer<typeof SessionRevoke>;
 
 /**
  * A platform-wide role held on `platform:main`. `admin` grants every operation; `listener` grants the reads
- * generated from [PlatformRole](../../../../data/contracts/authentication/authentication.types.ck#L350)
+ * generated from [PlatformRole](../../../../data/contracts/authentication/authentication.types.ck#L345)
  */
 export const PlatformRole = z.enum(['admin', 'listener']);
 export type PlatformRole = z.infer<typeof PlatformRole>;
 
 /**
  * A successful authentication record
- * generated from [Login](../../../../data/contracts/authentication/authentication.types.ck#L357)
+ * generated from [Login](../../../../data/contracts/authentication/authentication.types.ck#L352)
  */
 export const Login = z.strictObject({
     id: z
@@ -363,7 +352,7 @@ export type LoginInput = z.infer<typeof LoginInput>;
 
 /**
  * The current user's display preferences, auto-detected by the SPA from the browser (Intl timezone + navigator.language). Omitted fields are left unchanged (absent = never set).
- * generated from [ActorPreferences](../../../../data/contracts/authentication/authentication.types.ck#L377)
+ * generated from [ActorPreferences](../../../../data/contracts/authentication/authentication.types.ck#L372)
  */
 export const ActorPreferences = z.strictObject({
     locale: z.string().max(32).optional().describe('RFC 5646 locale, e.g. "en-US"'),
@@ -373,7 +362,7 @@ export type ActorPreferences = z.infer<typeof ActorPreferences>;
 
 /**
  * What an API key may be granted. `view` covers every route a listener may read; `manage` covers the rest, and includes `view`
- * generated from [ApiKeyScope](../../../../data/contracts/authentication/authentication.types.ck#L383)
+ * generated from [ApiKeyScope](../../../../data/contracts/authentication/authentication.types.ck#L378)
  */
 export const ApiKeyScope = z.enum(['view', 'manage']);
 export type ApiKeyScope = z.infer<typeof ApiKeyScope>;
@@ -398,7 +387,7 @@ export const BaseAuthenticationLoginStart = z.strictObject({
 export type BaseAuthenticationLoginStart = z.infer<typeof BaseAuthenticationLoginStart>;
 
 /**
- * generated from [BaseAuthenticationLoginStartResponse](../../../../data/contracts/authentication/authentication.types.ck#L197)
+ * generated from [BaseAuthenticationLoginStartResponse](../../../../data/contracts/authentication/authentication.types.ck#L198)
  */
 export const BaseAuthenticationLoginStartResponse = z.strictObject({
     grant_type: PasswordlessAuthenticationGrantType.describe('The grant type for the response'),
@@ -432,7 +421,7 @@ export type MfaChallengeFactor = z.input<typeof MfaChallengeFactor>;
 export type MfaChallengeFactorOutput = z.output<typeof MfaChallengeFactor>;
 
 /**
- * generated from [AuthenticationFactor](../../../../data/contracts/authentication/authentication.types.ck#L248)
+ * generated from [AuthenticationFactor](../../../../data/contracts/authentication/authentication.types.ck#L249)
  */
 export const AuthenticationFactor = z.strictObject({
     method: AuthenticationFactorMethod.describe('The method of the factor'),
@@ -444,7 +433,7 @@ export type AuthenticationFactor = z.infer<typeof AuthenticationFactor>;
 
 /**
  * Mint a fresh MFA challenge for the current session so the SPA can satisfy a `step_up_required` denial. Filters mirror `StepUpRequirement` from `@maroonedsoftware/policies`.
- * generated from [StepUpStartRequest](../../../../data/contracts/authentication/authentication.types.ck#L319)
+ * generated from [StepUpStartRequest](../../../../data/contracts/authentication/authentication.types.ck#L314)
  */
 export const StepUpStartRequest = z.strictObject({
     acceptableMethods: z.array(AuthenticationFactorMethod).optional().describe('If set, only these factor methods are listed as eligible'),
@@ -454,14 +443,14 @@ export const StepUpStartRequest = z.strictObject({
 export type StepUpStartRequest = z.infer<typeof StepUpStartRequest>;
 
 /**
- * Request to begin an OIDC sign-in flow
- * generated from [OidcLoginStart](../../../../data/contracts/authentication/authentication.types.ck#L255)
+ * An identity provider the sign-in page can offer
+ * generated from [OidcProviderSummary](../../../../data/contracts/authentication/authentication.types.ck#L256)
  */
-export const OidcLoginStart = z.strictObject({
-    provider: OidcProvider.describe('The IdP to authorize against'),
-    redirect_after: z.string().max(2048).optional().describe('Optional URL the SPA wants the callback to land on after token issuance'),
+export const OidcProviderSummary = z.strictObject({
+    name: OidcProvider.describe('What to start a sign-in with'),
+    label: z.string().describe('What its button says'),
 });
-export type OidcLoginStart = z.infer<typeof OidcLoginStart>;
+export type OidcProviderSummary = z.infer<typeof OidcProviderSummary>;
 
 /**
  * generated from [PublicKeyCredentialWithAssertion](../../../../data/contracts/authentication/authentication.types.ck#L145)
@@ -473,7 +462,7 @@ export const PublicKeyCredentialWithAssertion = PublicKeyCredential.extend({
 export type PublicKeyCredentialWithAssertion = z.infer<typeof PublicKeyCredentialWithAssertion>;
 
 /**
- * generated from [FidoPublicKeyCredentialRequestOptions](../../../../data/contracts/authentication/authentication.types.ck#L211)
+ * generated from [FidoPublicKeyCredentialRequestOptions](../../../../data/contracts/authentication/authentication.types.ck#L212)
  */
 export const FidoPublicKeyCredentialRequestOptions = z.strictObject({
     challenge: z.string(),
@@ -492,7 +481,7 @@ export type FidoPublicKeyCredentialRequestOptions = z.infer<typeof FidoPublicKey
 
 /**
  * Serialized form of `AuthenticatorAttestationResponse` — produced by the browser at registration; all binary fields are base64-encoded for transport
- * generated from [FidoAuthenticatorAttestationResponse](../../../../data/contracts/authentication/authentication.types.ck#L237)
+ * generated from [FidoAuthenticatorAttestationResponse](../../../../data/contracts/authentication/authentication.types.ck#L238)
  */
 export const FidoAuthenticatorAttestationResponse = z.strictObject({
     clientDataJSON: z.string().describe('The client data JSON'),
@@ -502,7 +491,7 @@ export const FidoAuthenticatorAttestationResponse = z.strictObject({
 export type FidoAuthenticatorAttestationResponse = z.infer<typeof FidoAuthenticatorAttestationResponse>;
 
 /**
- * generated from [FactorChallengeStartRequest](../../../../data/contracts/authentication/authentication.types.ck#L295)
+ * generated from [FactorChallengeStartRequest](../../../../data/contracts/authentication/authentication.types.ck#L290)
  */
 export const FactorChallengeStartRequest = z.discriminatedUnion('method', [
     FactorChallengePhoneStart,
@@ -513,7 +502,7 @@ export type FactorChallengeStartRequest = z.infer<typeof FactorChallengeStartReq
 
 /**
  * An active authentication session
- * generated from [Session](../../../../data/contracts/authentication/authentication.types.ck#L333)
+ * generated from [Session](../../../../data/contracts/authentication/authentication.types.ck#L328)
  */
 export const Session = z.strictObject({
     sessionToken: z.string().max(255).describe('Opaque session token used as the cache key and embedded in JWTs'),
@@ -535,7 +524,7 @@ export type SessionInput = z.infer<typeof SessionInput>;
 
 /**
  * Who the caller is, as the station sees them
- * generated from [AuthSession](../../../../data/contracts/authentication/authentication.types.ck#L352)
+ * generated from [AuthSession](../../../../data/contracts/authentication/authentication.types.ck#L347)
  */
 export const AuthSession = z.strictObject({
     actorId: z.string().max(100).describe('The actor the session belongs to'),
@@ -549,7 +538,7 @@ export type AuthSession = z.infer<typeof AuthSession>;
 
 /**
  * A personal API key, as its owner sees it in a list. The token itself is never returned after it is issued
- * generated from [ApiKey](../../../../data/contracts/authentication/authentication.types.ck#L385)
+ * generated from [ApiKey](../../../../data/contracts/authentication/authentication.types.ck#L380)
  */
 export const ApiKey = z.strictObject({
     id: z.uuid().describe("The key's identifier, for rotating or revoking it"),
@@ -565,7 +554,7 @@ export type ApiKey = z.infer<typeof ApiKey>;
 
 /**
  * A new API key
- * generated from [ApiKeyCreate](../../../../data/contracts/authentication/authentication.types.ck#L400)
+ * generated from [ApiKeyCreate](../../../../data/contracts/authentication/authentication.types.ck#L395)
  */
 export const ApiKeyCreate = z.strictObject({
     name: z.string().min(1).max(100).describe('What to call the key, so a list of several says which is which'),
@@ -697,11 +686,18 @@ export type BaseAuthenticationLoginStartWithEmail = z.infer<typeof BaseAuthentic
 export const OidcAuthenticationLoginStart = BaseAuthenticationLoginStart.extend({
     grant_type: z.literal('oidc').describe('The grant type for the request'),
     provider: OidcProvider.describe('The IdP to authorize against'),
+    redirect_after: z
+        .string()
+        .max(2048)
+        .optional()
+        .describe(
+            'A path on the console to return to once signed in, such as `/settings/security`. Anything that is not a same-origin path is ignored and the console opens at its home page',
+        ),
 });
 export type OidcAuthenticationLoginStart = z.infer<typeof OidcAuthenticationLoginStart>;
 
 /**
- * generated from [CodeAuthenticationLoginStartResponse](../../../../data/contracts/authentication/authentication.types.ck#L203)
+ * generated from [CodeAuthenticationLoginStartResponse](../../../../data/contracts/authentication/authentication.types.ck#L204)
  */
 export const CodeAuthenticationLoginStartResponse = BaseAuthenticationLoginStartResponse.extend({
     grant_type: z.literal('code').describe('The grant type for the response'),
@@ -709,7 +705,7 @@ export const CodeAuthenticationLoginStartResponse = BaseAuthenticationLoginStart
 export type CodeAuthenticationLoginStartResponse = z.infer<typeof CodeAuthenticationLoginStartResponse>;
 
 /**
- * generated from [LinkAuthenticationLoginStartResponse](../../../../data/contracts/authentication/authentication.types.ck#L207)
+ * generated from [LinkAuthenticationLoginStartResponse](../../../../data/contracts/authentication/authentication.types.ck#L208)
  */
 export const LinkAuthenticationLoginStartResponse = BaseAuthenticationLoginStartResponse.extend({
     grant_type: z.literal('link').describe('The grant type for the response'),
@@ -718,7 +714,7 @@ export type LinkAuthenticationLoginStartResponse = z.infer<typeof LinkAuthentica
 
 /**
  * Response from `/auth/login/oidc/start` instructing the client to navigate to `authorize_url`
- * generated from [OidcAuthenticationLoginStartResponse](../../../../data/contracts/authentication/authentication.types.ck#L227)
+ * generated from [OidcAuthenticationLoginStartResponse](../../../../data/contracts/authentication/authentication.types.ck#L228)
  */
 export const OidcAuthenticationLoginStartResponse = BaseAuthenticationLoginStartResponse.extend({
     grant_type: z.literal('oidc').describe('The grant type for the response'),
@@ -770,7 +766,7 @@ export type FidoAuthenticationRequest = z.infer<typeof FidoAuthenticationRequest
 
 /**
  * WebAuthn assertion options for `navigator.credentials.get`
- * generated from [FidoAuthenticationLoginStartResponse](../../../../data/contracts/authentication/authentication.types.ck#L222)
+ * generated from [FidoAuthenticationLoginStartResponse](../../../../data/contracts/authentication/authentication.types.ck#L223)
  */
 export const FidoAuthenticationLoginStartResponse = BaseAuthenticationLoginStartResponse.extend({
     grant_type: z.literal('fido').describe('The grant type for the response'),
@@ -780,7 +776,7 @@ export type FidoAuthenticationLoginStartResponse = z.infer<typeof FidoAuthentica
 
 /**
  * Response for a FIDO assertion challenge
- * generated from [FactorChallengeFidoStartResponse](../../../../data/contracts/authentication/authentication.types.ck#L304)
+ * generated from [FactorChallengeFidoStartResponse](../../../../data/contracts/authentication/authentication.types.ck#L299)
  */
 export const FactorChallengeFidoStartResponse = z
     .strictObject({
@@ -800,7 +796,7 @@ export type FactorChallengeFidoStartResponseOutput = z.output<typeof FactorChall
 
 /**
  * The credential the client posts back to complete registration
- * generated from [PublicKeyCredentialWithAttestation](../../../../data/contracts/authentication/authentication.types.ck#L243)
+ * generated from [PublicKeyCredentialWithAttestation](../../../../data/contracts/authentication/authentication.types.ck#L244)
  */
 export const PublicKeyCredentialWithAttestation = PublicKeyCredential.extend({
     clientExtensionResults: SimpleClientExtensionResults.describe('The client extension results'),
@@ -810,7 +806,7 @@ export type PublicKeyCredentialWithAttestation = z.infer<typeof PublicKeyCredent
 
 /**
  * Every API key the account holds, newest first, revoked and expired keys included
- * generated from [ApiKeyList](../../../../data/contracts/authentication/authentication.types.ck#L396)
+ * generated from [ApiKeyList](../../../../data/contracts/authentication/authentication.types.ck#L391)
  */
 export const ApiKeyList = z.strictObject({
     keys: z.array(ApiKey),
@@ -819,7 +815,7 @@ export type ApiKeyList = z.infer<typeof ApiKeyList>;
 
 /**
  * A key and its token. The only time the token is ever returned: store it now, because nothing can show it again
- * generated from [ApiKeyIssued](../../../../data/contracts/authentication/authentication.types.ck#L406)
+ * generated from [ApiKeyIssued](../../../../data/contracts/authentication/authentication.types.ck#L401)
  */
 export const ApiKeyIssued = z.strictObject({
     key: ApiKey.describe('The key as it will appear in the list'),
@@ -885,7 +881,7 @@ export const AuthenticationRequest = z.discriminatedUnion('grant_type', [
 export type AuthenticationRequest = z.infer<typeof AuthenticationRequest>;
 
 /**
- * generated from [AuthenticationLoginStartResponse](../../../../data/contracts/authentication/authentication.types.ck#L233)
+ * generated from [AuthenticationLoginStartResponse](../../../../data/contracts/authentication/authentication.types.ck#L234)
  */
 export const AuthenticationLoginStartResponse = z.discriminatedUnion('grant_type', [
     CodeAuthenticationLoginStartResponse,
@@ -896,7 +892,7 @@ export const AuthenticationLoginStartResponse = z.discriminatedUnion('grant_type
 export type AuthenticationLoginStartResponse = z.infer<typeof AuthenticationLoginStartResponse>;
 
 /**
- * generated from [FactorChallengeStartResponse](../../../../data/contracts/authentication/authentication.types.ck#L317)
+ * generated from [FactorChallengeStartResponse](../../../../data/contracts/authentication/authentication.types.ck#L312)
  */
 export const FactorChallengeStartResponse = z.discriminatedUnion('method', [
     FactorChallengePhoneStartResponse,
@@ -907,7 +903,7 @@ export type FactorChallengeStartResponse = z.infer<typeof FactorChallengeStartRe
 export type FactorChallengeStartResponseOutput = z.output<typeof FactorChallengeStartResponse>;
 
 /**
- * generated from [AuthenticationLoginStart](../../../../data/contracts/authentication/authentication.types.ck#L189)
+ * generated from [AuthenticationLoginStart](../../../../data/contracts/authentication/authentication.types.ck#L190)
  */
 export const AuthenticationLoginStart = z.discriminatedUnion('grant_type', [
     LinkAuthenticationLoginStart,

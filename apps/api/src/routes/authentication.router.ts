@@ -11,6 +11,7 @@ import {
     AuthenticationTokenOutput,
     AuthenticationTokenResponseOutput,
     OidcLoginCallback,
+    OidcProviderSummary,
 } from '../modules/authentication/types/authentication.types.js';
 import { parseAndValidate } from '@maroonedsoftware/zod';
 
@@ -84,8 +85,22 @@ AuthenticationRouter.post('/auth/login/start', bodyParserMiddleware(['json']), a
 });
 
 /**
- * OIDC callback endpoint. The IdP redirects the user-agent here with `code` and `state`. Server completes the authorization, issues a session, and returns an HTML page that hands the token back to the SPA.
+ * The identity providers the sign-in page offers beside a password, in the order the operator listed them. Empty when none is set up
  * from [authentication.ck](../../data/contracts/authentication/authentication.ck#L81)
+ * anonymous access, no security required
+ */
+AuthenticationRouter.get('/auth/login/oidc/providers', async ctx => {
+    const service = ctx.container.get(AuthenticationService);
+    const result: OidcProviderSummary[] = await service.listOidcProviders();
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
+ * OIDC callback endpoint. The IdP redirects the user-agent here with `code` and `state`. Server completes the authorization, issues a session, and returns an HTML page that hands the token back to the SPA.
+ * from [authentication.ck](../../data/contracts/authentication/authentication.ck#L93)
  * anonymous access, no security required
  * @internal
  */

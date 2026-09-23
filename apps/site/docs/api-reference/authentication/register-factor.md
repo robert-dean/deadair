@@ -1,7 +1,7 @@
 ---
 title: 'Register factor'
 sidebar_label: 'Register factor'
-sidebar_position: 10
+sidebar_position: 11
 mdx:
     format: 'md'
 ---

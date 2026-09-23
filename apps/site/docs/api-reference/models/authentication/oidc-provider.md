@@ -5,8 +5,8 @@ mdx:
     format: 'md'
 ---
 
-> The OIDC identity provider
+> The name of an identity provider the station offers, as the operator set it under Settings, Sign-in and connections. `GET /auth/login/oidc/providers` lists them
 
 ```typescript
-type OidcProvider = 'google';
+type OidcProvider = string;
 ```

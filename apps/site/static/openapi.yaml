@@ -323,6 +323,21 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/AuthenticationLoginStartResponse'
+    '/auth/login/oidc/providers':
+        get:
+            operationId: listOidcProviders
+            summary: 'List sign-in providers'
+            description: 'The identity providers the sign-in page offers beside a password, in the order the operator listed them. Empty when none is set up'
+            security: []
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                type: array
+                                items:
+                                    '$ref': '#/components/schemas/OidcProviderSummary'
     '/auth/factors':
         get:
             operationId: listFactors
@@ -4381,8 +4396,9 @@ components:
             description: 'The kind of the factor'
         OidcProvider:
             type: string
-            enum: [google]
-            description: 'The OIDC identity provider'
+            minLength: 1
+            maxLength: 32
+            description: 'The name of an identity provider the station offers, as the operator set it under Settings, Sign-in and connections. `GET /auth/login/oidc/providers` lists them'
         BaseAuthenticationRequest:
             type: object
             properties:
@@ -4834,6 +4850,10 @@ components:
                       provider:
                           '$ref': '#/components/schemas/OidcProvider'
                           description: 'The IdP to authorize against'
+                      redirect_after:
+                          type: string
+                          maxLength: 2048
+                          description: 'A path on the console to return to once signed in, such as `/settings/security`. Anything that is not a same-origin path is ignored and the console opens at its home page'
                   required: [grant_type, provider]
         AuthenticationLoginStart:
             oneOf:
@@ -5016,6 +5036,17 @@ components:
                     type: string
                     description: 'The label for the factor'
             required: [method, kind, methodId]
+        OidcProviderSummary:
+            type: object
+            properties:
+                name:
+                    '$ref': '#/components/schemas/OidcProvider'
+                    description: 'What to start a sign-in with'
+                label:
+                    type: string
+                    description: 'What its button says'
+            required: [name, label]
+            description: 'An identity provider the sign-in page can offer'
         FactorChallengePhoneStart:
             type: object
             properties:

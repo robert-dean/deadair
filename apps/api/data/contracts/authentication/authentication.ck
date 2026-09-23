@@ -77,6 +77,18 @@ operation /auth/login/start: {
     }
 }
 
+operation /auth/login/oidc/providers: {
+    get: { # The identity providers the sign-in page offers beside a password, in the order the operator listed them. Empty when none is set up
+        name: List sign-in providers
+        service: AuthenticationService.listOidcProviders
+        response: {
+            200: {
+                application/json: array(OidcProviderSummary)
+            }
+        }
+    }
+}
+
 operation(internal) /auth/login/oidc/callback: {
     get: { # OIDC callback endpoint. The IdP redirects the user-agent here with `code` and `state`. Server completes the authorization, issues a session, and returns an HTML page that hands the token back to the SPA.
         name: OIDC Callback

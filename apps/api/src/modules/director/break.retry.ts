@@ -67,6 +67,7 @@ export const RETRYABLE_FAULTS: ReadonlySet<WriteFault> = new Set<WriteFault>([
     'out-of-character',
     'character-trimmed',
     'avoided-wording',
+    'mixed-subjects',
     'spent-catchphrase',
     'quoted-sample',
     'retold-verbatim',
@@ -97,6 +98,8 @@ const NUDGES: Record<string, string> = {
     'character-trimmed':
         'That was you, but it ran past the length you have, so what would have aired carried none of it. Say the same break again, shorter, with the part that sounds like you at the front.',
     'avoided-wording': 'That used wording you do not use. Say the same break again without it.',
+    'mixed-subjects':
+        'That brought up more than one of the subjects you only ever take one at a time. Say the same break again about just one of them.',
     'spent-catchphrase': 'That reached for a signature this station has just used. Say the same break again, with a different one or none at all.',
     'quoted-sample':
         'That read one of your own example lines back. Those show the grammar, never the sentence. Say the same break again in words you have not been given.',

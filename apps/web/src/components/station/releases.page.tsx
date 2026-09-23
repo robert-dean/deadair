@@ -1,11 +1,13 @@
 import { useState } from 'react';
-import { Badge, Button, Card, Group, Stack, Text, Title } from '@mantine/core';
-import type { StationRelease } from '@deadair/sdk';
+import { Anchor, Badge, Button, Card, Group, Stack, Text, Title } from '@mantine/core';
+import { Link } from '@tanstack/react-router';
+import type { StationRelease, StationReleases } from '@deadair/sdk';
 import { DateTime } from 'luxon';
 
 import { useStationReleases } from '../../api/station.queries';
 import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
+import { Eyebrow } from '../shared/eyebrow';
 import { MarkdownView } from '../shared/markdown.view';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
@@ -20,10 +22,12 @@ import { PageSkeleton } from '../shared/page.skeleton';
 export const RELEASES_SHOWN = 5;
 
 /**
- * What changed in each release this station contains, newest first.
+ * What changed in each release this station contains, newest first, and anything newer that is out.
  *
- * Read from the changelog the build carries, so it answers with no internet: it is the station saying
- * what it is, not a page about the project.
+ * The releases it contains are read from the changelog the build carries, so they answer with no
+ * internet: that part is the station saying what it is, not a page about the project. The newer ones
+ * are what the station last heard from GitHub, drawn first and set apart, because they are the reason
+ * somebody following the header's notice came here.
  */
 export function ReleasesPage() {
     const releases = useStationReleases();
@@ -58,13 +62,32 @@ export function ReleasesPage() {
         );
     }
 
-    const { current, notes } = releases.data;
+    const { current, notes, available } = releases.data;
     const shown = showAll ? notes : notes.slice(0, RELEASES_SHOWN);
     const hidden = notes.length - shown.length;
 
     return (
         <Stack gap="lg">
             {header}
+
+            <CheckLine releases={releases.data} />
+
+            {available.length > 0 && (
+                <Stack gap="md">
+                    <Eyebrow>
+                        {available.length === 1
+                            ? 'Out, and not on this station yet'
+                            : `${available.length} releases out, and not on this station yet`}
+                    </Eyebrow>
+                    <Text size="sm">
+                        Upgrading is pulling the new image, the same way the station was installed. It keeps everything it holds across the upgrade.
+                    </Text>
+                    {available.map(release => (
+                        <ReleaseCard key={release.version} release={release} state="available" />
+                    ))}
+                    <Eyebrow>On this station</Eyebrow>
+                </Stack>
+            )}
 
             {notes.length === 0 ? (
                 <EmptyState title="No release notes">
@@ -73,7 +96,7 @@ export function ReleasesPage() {
             ) : (
                 <Stack gap="md">
                     {shown.map(release => (
-                        <ReleaseCard key={release.version} release={release} running={release.version === current} />
+                        <ReleaseCard key={release.version} release={release} state={release.version === current ? 'running' : undefined} />
                     ))}
                     {hidden > 0 && (
                         <Group>
@@ -89,11 +112,39 @@ export function ReleasesPage() {
 }
 
 /**
+ * Whether the station is looking for newer releases, and when it last heard.
+ *
+ * Said on the page rather than left to the absence of a newer release, because "nothing newer" and
+ * "not looking" read identically otherwise, and only one of them is something the operator chose.
+ */
+function CheckLine({ releases }: { releases: StationReleases }) {
+    if (!releases.checks) {
+        return (
+            <Text size="sm" c="dimmed">
+                The station is not checking for newer releases. Turn it on under{' '}
+                <Anchor size="sm" renderRoot={(props: object) => <Link to="/settings/station" {...props} />}>
+                    Settings, Station
+                </Anchor>
+                .
+            </Text>
+        );
+    }
+
+    return (
+        <Text size="sm" c="dimmed">
+            {releases.checkedAt === undefined
+                ? 'The station checks GitHub for newer releases every few hours, and has not heard back yet.'
+                : `The station checks GitHub for newer releases every few hours. It last heard back ${releases.checkedAt.toLocaleString(DateTime.DATETIME_MED)}.`}
+        </Text>
+    );
+}
+
+/**
  * One release and its notes.
  *
  * The day arrives as an ISO date, which is what it is: a release goes out on a day, not at a moment.
  */
-function ReleaseCard({ release, running }: { release: StationRelease; running: boolean }) {
+function ReleaseCard({ release, state }: { release: StationRelease; state?: 'running' | 'available' }) {
     return (
         <Card padding="md">
             <Stack gap="sm">
@@ -106,10 +157,20 @@ function ReleaseCard({ release, running }: { release: StationRelease; running: b
                             {formatReleaseDay(release.date)}
                         </Text>
                     )}
-                    {running && (
+                    {state === 'running' && (
                         <Badge variant="light" color="teal">
                             This station
                         </Badge>
+                    )}
+                    {state === 'available' && (
+                        <Badge variant="light" color="blue">
+                            Not installed
+                        </Badge>
+                    )}
+                    {release.url !== undefined && (
+                        <Anchor size="sm" href={release.url} target="_blank" rel="noreferrer">
+                            Release page
+                        </Anchor>
                     )}
                 </Group>
                 {release.notes === '' ? (

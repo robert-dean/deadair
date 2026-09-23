@@ -43,6 +43,9 @@ export function useUpdateSettings() {
             // than only for the provider keys: the check would be a list of keys kept in step by
             // hand, and this is one request after a save the operator is watching anyway.
             void queryClient.invalidateQueries({ queryKey: queryKeys.plugins.providers() });
+            // The same argument for the release check: switching it off hides the header's notice
+            // at once only if the console asks again, rather than at its next half-hourly poll.
+            void queryClient.invalidateQueries({ queryKey: queryKeys.station.releases() });
         },
     });
 }

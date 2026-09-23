@@ -15,13 +15,18 @@ import { render, screen, within } from '../../utils/render';
 const getPlayoutStatus = vi.fn();
 const readStationAttention = vi.fn();
 const readStationCheckup = vi.fn();
+const readStationReleases = vi.fn();
 const listPlugins = vi.fn();
 const readStorage = vi.fn();
 
 vi.mock('../../../src/api/client', () => ({
     sdk: {
         playout: { getPlayoutStatus: () => getPlayoutStatus() },
-        station: { readStationAttention: () => readStationAttention(), readStationCheckup: () => readStationCheckup() },
+        station: {
+            readStationAttention: () => readStationAttention(),
+            readStationCheckup: () => readStationCheckup(),
+            readStationReleases: () => readStationReleases(),
+        },
         plugins: { listPlugins: () => listPlugins() },
         storage: { readStorage: () => readStorage() },
     },
@@ -61,6 +66,7 @@ function allWell() {
     readStationCheckup.mockResolvedValue(checkup());
     listPlugins.mockResolvedValue([]);
     readStorage.mockResolvedValue({ readAt: DateTime.fromISO('2026-08-25T12:00:00.000Z'), stores: [] });
+    readStationReleases.mockResolvedValue({ current: '0.26.2', notes: [], checks: true, available: [] });
 }
 
 afterEach(() => {
@@ -210,6 +216,29 @@ describe('CheckupPage', () => {
         // And the whole of it is what gets pasted back into one, which is what the copy button
         // carries and the title attribute shows.
         expect(screen.getByTitle('a518ad85c82e33e7f535afb067bb6e6f22e9eb11')).toBeInTheDocument();
+    });
+
+    it('links the build to what changed in it', async () => {
+        allWell();
+
+        render(<CheckupPage />);
+
+        expect(await screen.findByRole('link', { name: 'What changed in this release' })).toHaveAttribute('href', '/releases');
+    });
+
+    it('names a newer release under the build when one is out', async () => {
+        allWell();
+        readStationReleases.mockResolvedValue({
+            current: '0.26.2',
+            notes: [],
+            checks: true,
+            available: [{ version: '0.27.0', notes: '', url: 'https://github.com/robert-dean/deadair/releases/tag/v0.27.0' }],
+        });
+
+        render(<CheckupPage />);
+
+        expect(await screen.findByText('deadair 0.27.0 is out.')).toBeInTheDocument();
+        expect(screen.getByRole('link', { name: 'See what changed' })).toHaveAttribute('href', '/releases');
     });
 
     /**

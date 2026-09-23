@@ -61,10 +61,20 @@ export function useStationCheckup() {
 /**
  * How long the release notes are kept before they are asked for again.
  *
- * Five minutes, and never polled. The build's own notes cannot change while the station runs: a
- * different changelog is a different image, and a restart reloads the console with it.
+ * Five minutes. The build's own notes cannot change while the station runs, since a different
+ * changelog is a different image, but what it has heard about NEWER releases can: the station asks
+ * GitHub every few hours, and the console should not show an old answer for longer than it takes an
+ * operator to come back to the page.
  */
 const RELEASES_STALE_MS = 5 * 60_000;
+
+/**
+ * How often the header re-reads it, in the background.
+ *
+ * Thirty minutes. The station itself asks GitHub at most every six hours, so polling faster would be
+ * re-reading an answer that has not moved, and the whole payload is every release's notes.
+ */
+const RELEASES_POLL_MS = 30 * 60_000;
 
 export const stationReleasesOptions = queryOptions({
     queryKey: queryKeys.station.releases(),
@@ -75,6 +85,17 @@ export const stationReleasesOptions = queryOptions({
 /** The releases this build contains and what each one changed, newest first. */
 export function useStationReleases() {
     return useQuery(stationReleasesOptions);
+}
+
+/**
+ * The same reading, kept fresh from the header on every page.
+ *
+ * One query key for both, so the header's notice and What's new cannot disagree about whether there
+ * is anything newer. `enabled` is how the shell keeps it off the login page, as the attention poll
+ * does.
+ */
+export function useStationReleasesPoll(enabled: boolean) {
+    return useQuery({ ...stationReleasesOptions, enabled, refetchInterval: RELEASES_POLL_MS, refetchIntervalInBackground: true });
 }
 
 /**

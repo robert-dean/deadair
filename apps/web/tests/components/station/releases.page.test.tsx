@@ -1,8 +1,11 @@
 // What's new. Pinned: the release this station is running is marked, only the newest few are drawn
-// until more are asked for, a release's Markdown is drawn as elements rather than as its raw text, and
-// a build with no changelog says so rather than drawing an empty page.
+// until more are asked for, a release's Markdown is drawn as elements rather than as its raw text, a
+// build with no changelog says so rather than drawing an empty page, a newer release is drawn first
+// and set apart, and "not looking" is said rather than left to read as "nothing newer".
 
+import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { DateTime } from 'luxon';
 import type { StationRelease } from '@deadair/sdk';
 
 import { RELEASES_SHOWN, ReleasesPage, formatReleaseDay } from '../../../src/components/station/releases.page';
@@ -13,6 +16,17 @@ const readStationReleases = vi.fn();
 vi.mock('../../../src/api/client', () => ({
     sdk: { station: { readStationReleases: () => readStationReleases() } },
 }));
+
+vi.mock('@tanstack/react-router', () => ({
+    Link: ({ to, children, ...rest }: { to?: string; children?: ReactNode }) => (
+        <a href={to} {...rest}>
+            {children}
+        </a>
+    ),
+}));
+
+/** An answer from a station that has checked and heard of nothing newer, over the given notes. */
+const answer = (over: Record<string, unknown>) => ({ checks: true, available: [], notes: [], ...over });
 
 const release = (version: string, notes = `- Changed in **${version}**.`): StationRelease => ({
     version,
@@ -26,7 +40,7 @@ afterEach(() => {
 
 describe('ReleasesPage', () => {
     it('marks the release this station contains and draws its notes as Markdown', async () => {
-        readStationReleases.mockResolvedValue({ current: '0.26.2', notes: [release('0.26.2'), release('0.26.1')] });
+        readStationReleases.mockResolvedValue(answer({ current: '0.26.2', notes: [release('0.26.2'), release('0.26.1')] }));
 
         render(<ReleasesPage />);
 
@@ -39,7 +53,7 @@ describe('ReleasesPage', () => {
 
     it('draws the newest few and the rest on request', async () => {
         const notes = Array.from({ length: RELEASES_SHOWN + 2 }, (_, index) => release(`0.${30 - index}.0`));
-        readStationReleases.mockResolvedValue({ current: notes[0]!.version, notes });
+        readStationReleases.mockResolvedValue(answer({ current: notes[0]!.version, notes }));
         const user = setupUser();
 
         render(<ReleasesPage />);
@@ -53,7 +67,7 @@ describe('ReleasesPage', () => {
     });
 
     it('says a release recorded nothing rather than drawing an empty card', async () => {
-        readStationReleases.mockResolvedValue({ current: '0.2.2', notes: [release('0.2.2', '')] });
+        readStationReleases.mockResolvedValue(answer({ current: '0.2.2', notes: [release('0.2.2', '')] }));
 
         render(<ReleasesPage />);
 
@@ -61,11 +75,54 @@ describe('ReleasesPage', () => {
     });
 
     it('says a build with no changelog has nothing to show', async () => {
-        readStationReleases.mockResolvedValue({ notes: [] });
+        readStationReleases.mockResolvedValue(answer({}));
 
         render(<ReleasesPage />);
 
         expect(await screen.findByText(/carries no changelog/)).toBeInTheDocument();
+    });
+});
+
+describe('ReleasesPage, with a newer release out', () => {
+    it('draws it first, marked as not installed, with its page', async () => {
+        readStationReleases.mockResolvedValue(
+            answer({
+                current: '0.26.2',
+                notes: [release('0.26.2')],
+                available: [{ ...release('0.27.0'), url: 'https://github.com/robert-dean/deadair/releases/tag/v0.27.0' }],
+                checkedAt: DateTime.fromISO('2026-09-24T12:00:00.000Z'),
+            }),
+        );
+
+        render(<ReleasesPage />);
+
+        const headings = await screen.findAllByRole('heading', { level: 3 });
+        expect(headings.map(heading => heading.textContent)).toEqual(['0.27.0', '0.26.2']);
+        expect(screen.getByText('Not installed')).toBeInTheDocument();
+        expect(screen.getByRole('link', { name: 'Release page' })).toHaveAttribute(
+            'href',
+            'https://github.com/robert-dean/deadair/releases/tag/v0.27.0',
+        );
+        expect(screen.getByText(/last heard back/)).toBeInTheDocument();
+    });
+});
+
+describe('ReleasesPage, on whether it is looking', () => {
+    it('says the check is off and where to turn it on', async () => {
+        readStationReleases.mockResolvedValue(answer({ current: '0.26.2', notes: [release('0.26.2')], checks: false }));
+
+        render(<ReleasesPage />);
+
+        expect(await screen.findByText(/not checking for newer releases/)).toBeInTheDocument();
+        expect(screen.getByRole('link', { name: 'Settings, Station' })).toHaveAttribute('href', '/settings/station');
+    });
+
+    it('says it has not heard back yet rather than implying nothing is newer', async () => {
+        readStationReleases.mockResolvedValue(answer({ current: '0.26.2', notes: [release('0.26.2')] }));
+
+        render(<ReleasesPage />);
+
+        expect(await screen.findByText(/has not heard back yet/)).toBeInTheDocument();
     });
 });
 

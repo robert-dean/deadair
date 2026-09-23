@@ -9,6 +9,23 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.28.0] — 2026-09-23
+
+- Settings, Security has a Linked sign-ins card. Link any identity provider the station offers to your own account, after proving it is yours at the provider, and sign in through it from then on. Unlink one the same way. The station refuses to unlink the only way an account can sign in, and refuses to link an identity that already belongs to somebody else's account, and says so on the card when it does. The SDK's factor registration takes `{ method: 'oidc', provider }` and answers with the provider's address.
+- Approving an app happens on a new page in the console: it says which app is asking, where your answer goes, and that the app will be able to do what you can, and warns when the app runs only on your own computer. Settings, Sign-in and connections lists the apps registered with the station and lets an operator register one by hand, with its secret shown once, or withdraw one. Settings, Security lists the apps you have connected, each of which you can disconnect. Signing in now always returns you to the page you were trying to open, query and all.
+- The station can be an OAuth authorization server, so an app such as a Claude connector can connect to it as whoever approves it. Turn it on under Settings, Sign-in and connections, then point the app at your station's public address followed by /api/mcp. The app registers itself, sends you to the station to sign in and approve it, and gets a token that works at that address only. It can do what you can, and nothing more. The MCP endpoint offers no tools yet; this is the way in, and the tools come next. Everything stays off until you switch it on.
+- Signing in through an identity provider no longer creates an account for anybody who has one there. Somebody new gets an account only when the provider confirms their address and Settings, Sign-in and connections lists that address or its domain, and the account they get can listen and look but change nothing until an administrator gives it more. Everyone who already has an account signs in as before. A refused sign-in lands on the station's sign-in page with a sentence saying why, rather than an error from deep inside the station.
+- A new public endpoint, `GET /auth/login/oidc/providers`, lists the identity providers a station offers for signing in, by name and button text. Starting a sign-in through one takes any provider's name rather than only `google`, and can carry `redirect_after`, a path on the console to return to afterwards; anything that is not a path on the console is ignored. The unused `OidcLoginStart` and `OidcLoginStartResponse` types are gone from the SDK.
+- The sign-in page offers a "Continue with" button for each identity provider set up under Settings, Sign-in and connections, and none on a station that has none. Signing in through one comes back to the page you were trying to open, as a password sign-in already did. A sign-in the station turns away says why on the page it lands on.
+- Signing in through an identity provider is set up in the console now, under Settings, Sign-in and connections, rather than through two environment variables that only knew about Google. Add a row per provider: Google, Authelia, Authentik, Keycloak, Microsoft or anything else that speaks OpenID Connect, with its issuer, client id and client secret. The secret is stored encrypted and never shown again. Each provider's redirect address is your station's public address followed by /api/auth/login/oidc/callback.
+
+  A station that had GOOGLE_OIDC_CLIENT_ID and GOOGLE_OIDC_CLIENT_SECRET set copies them into that list once, at its first start after this upgrade, and says so in its log. The variables are not read after that and can be removed. The unraid template no longer has the two Sign-in fields.
+
+  Beside the providers is the list of addresses and domains allowed to create an account through one.
+- The station moves onto version 6 of its sign-in library. Nothing about signing in changes. A token that refreshes a session for an account deleted since is still refused and its session revoked; that check now runs inside the refresh itself, because the new library refuses the quick look at the token it used to take first, and that look had quietly stopped checking anything. Google sign-in is wired the way the new library expects, and a test now builds the real sign-in wiring so a mistake there fails the build rather than the server at boot.
+- A phone-in nobody gave a subject to is now about why the caller rang. Calls taken by a broadcast's standing call-in rule carry that broadcast's brief, and most broadcasts have none, so the call used to be planned around nothing and the model made a subject up: the conspiracy host's first call was a chat about a community garden. With no brief, the caller's own preoccupation (the thing on their mind that day) is now the subject, for the plan and for every turn. A brief, when there is one, still wins.
+- Productions written in the `polished` mode now go on air. Every one of them used to stop after its turns were written, with none of them ever spoken, so a phone-in never reached the running order; and because a broadcast that takes calls commissions a new call only once the last one has settled, one stuck call stopped every call after it. The `outlined` mode, the default, was never affected. Productions already stuck in `rendering` stay there; cancel them from the productions page and the next call is commissioned.
+
 ## [0.27.3] — 2026-09-23
 
 - Three new callers for the conspiracy host's phone-ins. Wendell is sure the host is secretly one of them and always has proof coming next time; Lonnie is a long-haul trucker who agrees with every word and then tells him about something he saw from the road; Gary rings about one small worry at home and hangs up more worried than he rang. Each carries the same limits the host does, and each has its own voice on both bundled speech engines. A fresh station gets them with the other callers; a station that already has callers can add them from the personas page.
@@ -754,7 +771,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.27.3...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.28.0...HEAD
+[0.28.0]: https://github.com/robert-dean/deadair/compare/v0.27.3...v0.28.0
 [0.27.3]: https://github.com/robert-dean/deadair/compare/v0.27.2...v0.27.3
 [0.27.2]: https://github.com/robert-dean/deadair/compare/v0.27.1...v0.27.2
 [0.27.1]: https://github.com/robert-dean/deadair/compare/v0.27.0...v0.27.1

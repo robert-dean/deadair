@@ -16,7 +16,8 @@ import type { StationRelease, StationReleases } from './types/station.types.js';
  *
  * The third is whatever `ReleaseWatch` last heard. Reading it never asks GitHub anything: the request
  * belongs to the watch's own schedule, and a page that sent one per visit would be a page whose
- * visitors decided how often this station talks to the internet.
+ * visitors decided how often this station talks to the internet. `check` is the exception, and it is
+ * an operator's action behind its own gate rather than a side effect of looking.
  */
 @Injectable()
 export class StationReleasesService {
@@ -24,6 +25,18 @@ export class StationReleasesService {
         private readonly changelog: BundledChangelog,
         private readonly watch: ReleaseWatch,
     ) {}
+
+    /**
+     * Asks GitHub now, then answers what the station knows. The operator's Check now.
+     *
+     * The one path here that sends a request, and it does so only because somebody pressed the
+     * button. The watch keeps its own rules: nothing while the switch is off, and nothing within a
+     * minute of the last question.
+     */
+    async check(): Promise<StationReleases> {
+        await this.watch.checkNow();
+        return this.read();
+    }
 
     async read(): Promise<StationReleases> {
         const current = this.changelog.current;

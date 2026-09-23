@@ -8,13 +8,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DateTime } from 'luxon';
 import type { StationRelease } from '@deadair/sdk';
 
-import { RELEASES_SHOWN, ReleasesPage } from '../../../src/components/station/releases.page';
+import { RELEASES_SHOWN, ReleasesPage, checkOutcome } from '../../../src/components/station/releases.page';
 import { render, screen, setupUser } from '../../utils/render';
 
 const readStationReleases = vi.fn();
+const checkStationReleases = vi.fn();
 
 vi.mock('../../../src/api/client', () => ({
-    sdk: { station: { readStationReleases: () => readStationReleases() } },
+    sdk: { station: { readStationReleases: () => readStationReleases(), checkStationReleases: () => checkStationReleases() } },
 }));
 
 vi.mock('@tanstack/react-router', () => ({
@@ -36,6 +37,7 @@ const release = (version: string, notes = `- Changed in **${version}**.`): Stati
 
 afterEach(() => {
     readStationReleases.mockReset();
+    checkStationReleases.mockReset();
 });
 
 describe('ReleasesPage', () => {
@@ -127,5 +129,70 @@ describe('ReleasesPage, on whether it is looking', () => {
         render(<ReleasesPage />);
 
         expect(await screen.findByText(/has not heard back yet/)).toBeInTheDocument();
+    });
+});
+
+describe('ReleasesPage, Check now', () => {
+    it('asks the station, then draws what it found everywhere the reading is used', async () => {
+        readStationReleases.mockResolvedValue(
+            answer({ current: '0.26.2', notes: [release('0.26.2')], checkedAt: DateTime.now().minus({ hours: 5 }) }),
+        );
+        checkStationReleases.mockResolvedValue(
+            answer({
+                current: '0.26.2',
+                notes: [release('0.26.2')],
+                checkedAt: DateTime.now(),
+                available: [{ ...release('0.27.0'), url: 'https://github.com/robert-dean/deadair/releases/tag/v0.27.0' }],
+            }),
+        );
+        const user = setupUser();
+
+        render(<ReleasesPage />);
+        await user.click(await screen.findByRole('button', { name: 'Check now' }));
+
+        expect(await screen.findByRole('status')).toHaveTextContent('deadair 0.27.0 is out.');
+        expect(checkStationReleases).toHaveBeenCalledOnce();
+        expect(screen.getByRole('heading', { name: '0.27.0' })).toBeInTheDocument();
+    });
+
+    it('is not offered while the check is off', async () => {
+        readStationReleases.mockResolvedValue(answer({ current: '0.26.2', notes: [release('0.26.2')], checks: false }));
+
+        render(<ReleasesPage />);
+
+        expect(await screen.findByText(/not checking for newer releases/)).toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Check now' })).not.toBeInTheDocument();
+    });
+
+    it('shows the station’s refusal to somebody who may not ask', async () => {
+        readStationReleases.mockResolvedValue(answer({ current: '0.26.2', notes: [release('0.26.2')] }));
+        checkStationReleases.mockRejectedValue(new Error('Forbidden'));
+        const user = setupUser();
+
+        render(<ReleasesPage />);
+        await user.click(await screen.findByRole('button', { name: 'Check now' }));
+
+        expect(await screen.findByText('Could not check for new releases')).toBeInTheDocument();
+    });
+});
+
+describe('checkOutcome', () => {
+    const now = DateTime.fromISO('2026-09-24T12:00:00.000Z');
+    const reading = (over: Record<string, unknown>) => answer({ current: '0.26.2', checkedAt: now.minus({ seconds: 5 }), ...over }) as never;
+
+    it('says nothing newer is out when GitHub answered with nothing', () => {
+        expect(checkOutcome(reading({}), now)).toBe('Nothing newer than 0.26.2 is out.');
+    });
+
+    it('names the newest release, and counts them when there are several', () => {
+        expect(checkOutcome(reading({ available: [release('0.27.0')] }), now)).toBe('deadair 0.27.0 is out.');
+        expect(checkOutcome(reading({ available: [release('0.28.0'), release('0.27.0')] }), now)).toBe(
+            '2 newer releases are out, the newest 0.28.0.',
+        );
+    });
+
+    it('says GitHub did not answer when the answer is an old one, or there is none', () => {
+        expect(checkOutcome(reading({ checkedAt: now.minus({ hours: 3 }) }), now)).toMatch(/did not answer/);
+        expect(checkOutcome(reading({ checkedAt: undefined }), now)).toMatch(/did not answer/);
     });
 });

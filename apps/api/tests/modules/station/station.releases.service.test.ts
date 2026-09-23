@@ -72,3 +72,23 @@ describe('StationReleasesService.read', () => {
         expect(reading).not.toHaveProperty('checkedAt');
     });
 });
+
+describe('StationReleasesService.check', () => {
+    it('asks the watch to check now, then answers with what it knows', async () => {
+        const order: string[] = [];
+        const watch = {
+            checkNow: vi.fn(async () => {
+                order.push('checkNow');
+            }),
+            reading: () => {
+                order.push('reading');
+                return nothingHeard;
+            },
+        } as unknown as ReleaseWatch;
+
+        const reading = await new StationReleasesService(new BundledChangelog([{ version: '0.26.2', notes: '' }]), watch).check();
+
+        expect(order).toEqual(['checkNow', 'reading']);
+        expect(reading).toMatchObject({ current: '0.26.2', checks: true, available: [] });
+    });
+});

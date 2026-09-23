@@ -69,6 +69,15 @@ export class StationClient {
     }
 
     /**
+     * @name Check station releases
+     * @description Asks GitHub for newer releases now, and answers with what the station then knows
+     */
+    async checkStationReleases(): Promise<StationReleases> {
+        const result = await this.fetch(`/station/releases/check`, { method: 'POST' });
+        return reviveStationReleases(await parseJson<StationReleases>(result));
+    }
+
+    /**
      * @name Read traces
      * @description Recent decisions, newest first, folded to one row each
      */

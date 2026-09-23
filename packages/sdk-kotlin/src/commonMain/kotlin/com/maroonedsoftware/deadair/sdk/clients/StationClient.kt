@@ -41,4 +41,15 @@ class StationClient(private val http: SdkHttp) {
         }
         return http.decodeJson(response)
     }
+
+    /**
+     * Check station releases
+     * Asks GitHub for newer releases now, and answers with what the station then knows
+     */
+    suspend fun checkStationReleases(): StationReleases {
+        val response = http.execute(HttpMethod.Post) {
+            path("station", "releases", "check")
+        }
+        return http.decodeJson(response)
+    }
 }

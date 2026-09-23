@@ -1,4 +1,4 @@
-import { queryOptions, useQuery } from '@tanstack/react-query';
+import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { LogLevel } from '@deadair/sdk';
 
 import { sdk } from './client';
@@ -96,6 +96,23 @@ export function useStationReleases() {
  */
 export function useStationReleasesPoll(enabled: boolean) {
     return useQuery({ ...stationReleasesOptions, enabled, refetchInterval: RELEASES_POLL_MS, refetchIntervalInBackground: true });
+}
+
+/**
+ * Asks the station to check GitHub now. Needs `platform.manage`, so a non-admin gets a 403.
+ *
+ * The answer is the whole reading, written straight into the cache rather than invalidated: it is
+ * already what a refetch would return, and writing it is what updates What's new, the header notice
+ * and the Build line at once.
+ */
+export function useCheckStationReleases() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: () => sdk.station.checkStationReleases(),
+        onSuccess: releases => {
+            queryClient.setQueryData(queryKeys.station.releases(), releases);
+        },
+    });
 }
 
 /**

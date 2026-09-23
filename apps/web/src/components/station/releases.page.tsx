@@ -4,7 +4,7 @@ import { Link } from '@tanstack/react-router';
 import type { StationRelease, StationReleases } from '@deadair/sdk';
 import { DateTime } from 'luxon';
 
-import { useStationReleases } from '../../api/station.queries';
+import { useCheckStationReleases, useStationReleases } from '../../api/station.queries';
 import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
 import { Eyebrow } from '../shared/eyebrow';
@@ -112,12 +112,18 @@ export function ReleasesPage() {
 }
 
 /**
- * Whether the station is looking for newer releases, and when it last heard.
+ * Whether the station is looking for newer releases, when it last heard, and the button that asks now.
  *
  * Said on the page rather than left to the absence of a newer release, because "nothing newer" and
- * "not looking" read identically otherwise, and only one of them is something the operator chose.
+ * "not looking" read identically otherwise, and only one of them is something the operator chose. No
+ * button while the check is off: it would send nothing, and pressing it would look like an answer.
+ *
+ * The button is drawn for everybody, as the plugin page's Rescan is, and a listener pressing it gets
+ * the station's own refusal: the console holds no copy of who may do what.
  */
 function CheckLine({ releases }: { releases: StationReleases }) {
+    const check = useCheckStationReleases();
+
     if (!releases.checks) {
         return (
             <Text size="sm" c="dimmed">
@@ -131,12 +137,58 @@ function CheckLine({ releases }: { releases: StationReleases }) {
     }
 
     return (
-        <Text size="sm" c="dimmed">
-            {releases.checkedAt === undefined
-                ? 'The station checks GitHub for newer releases every few hours, and has not heard back yet.'
-                : `The station checks GitHub for newer releases every few hours. It last heard back ${releases.checkedAt.toLocaleString(DateTime.DATETIME_MED)}.`}
-        </Text>
+        <Stack gap="xs">
+            <Group gap="sm" wrap="wrap">
+                <Text size="sm" c="dimmed">
+                    {releases.checkedAt === undefined
+                        ? 'The station checks GitHub for newer releases every few hours, and has not heard back yet.'
+                        : `The station checks GitHub for newer releases every few hours. It last heard back ${releases.checkedAt.toLocaleString(DateTime.DATETIME_MED)}.`}
+                </Text>
+                <Button variant="light" size="compact-sm" loading={check.isPending} onClick={() => check.mutate()}>
+                    Check now
+                </Button>
+            </Group>
+            {check.data !== undefined && (
+                <Text size="sm" role="status">
+                    {checkOutcome(check.data, DateTime.now())}
+                </Text>
+            )}
+            {check.error && (
+                <ErrorAlert
+                    title="Could not check for new releases"
+                    error={check.error}
+                    fallback="The station could not be asked to check."
+                    onDismiss={check.reset}
+                />
+            )}
+        </Stack>
     );
+}
+
+/**
+ * How long ago an answer can be and still count as the one a Check now just got.
+ *
+ * Two minutes: the station answers a click inside a minute of its last question with that question's
+ * answer, and a little more covers a slow request.
+ */
+const FRESH_ANSWER_MS = 2 * 60_000;
+
+/**
+ * What a Check now found, in a sentence.
+ *
+ * The page redraws from the same answer, so a newer release appears in the list either way. This says
+ * what the redraw cannot: that GitHub did not answer, which otherwise looks exactly like nothing having
+ * happened, or that it did and there is nothing newer.
+ */
+export function checkOutcome(releases: StationReleases, now: DateTime): string {
+    const answered = releases.checkedAt !== undefined && now.toMillis() - releases.checkedAt.toMillis() < FRESH_ANSWER_MS;
+    if (!answered) return 'GitHub did not answer. The station will try again within the hour.';
+
+    const newest = releases.available[0];
+    if (newest === undefined) return releases.current === undefined ? 'Nothing newer is out.' : `Nothing newer than ${releases.current} is out.`;
+    return releases.available.length === 1
+        ? `deadair ${newest.version} is out.`
+        : `${releases.available.length} newer releases are out, the newest ${newest.version}.`;
 }
 
 /**

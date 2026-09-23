@@ -38,6 +38,16 @@ export const RELEASES_ENDPOINT = 'https://api.github.com/repos/robert-dean/deada
  */
 export const CHECK_EVERY_MS = 6 * 60 * 60_000;
 
+/**
+ * How soon after the last question to GitHub an operator's Check now may ask again.
+ *
+ * A minute. The button skips the six-hour window, which is what it is for, but GitHub allows sixty
+ * unauthenticated requests an hour for the whole ADDRESS, and a station behind a home router shares
+ * that address with everything else on the network. A click inside the minute gets the answer the
+ * last question got, which is at most a minute old.
+ */
+export const CHECK_NOW_FLOOR_MS = 60_000;
+
 /** Long enough for a slow link, short enough that a hung connection does not hold a job worker. */
 const CHECK_TIMEOUT_MS = 15_000;
 
@@ -139,6 +149,8 @@ function releasePage(named: unknown, tag: string): string {
 export class ReleaseWatch {
     private newer: readonly AvailableRelease[] = [];
     private checkedAt?: number;
+    /** When GitHub was last asked, answered or not. What the Check now floor is measured from. */
+    private askedAt?: number;
     private inFlight?: Promise<void>;
 
     constructor(
@@ -171,6 +183,25 @@ export class ReleaseWatch {
         }
         if (this.checkedAt !== undefined && this.now() - this.checkedAt < CHECK_EVERY_MS) return;
 
+        await this.askOnce();
+    }
+
+    /**
+     * Asks GitHub now, whatever the six-hour window says: the operator's Check now. Never throws.
+     *
+     * Still nothing while the switch is off, and nothing within {@link CHECK_NOW_FLOOR_MS} of the last
+     * question, when it waits for that one if it is still running and otherwise leaves the answer as
+     * it stands. A failure keeps the last good answer, as a scheduled check's does.
+     */
+    async checkNow(): Promise<void> {
+        if (!this.enabled()) return;
+        if (this.inFlight === undefined && this.askedAt !== undefined && this.now() - this.askedAt < CHECK_NOW_FLOOR_MS) return;
+
+        await this.askOnce();
+    }
+
+    /** One request at a time: a second caller while one is running waits for that one. */
+    private async askOnce(): Promise<void> {
         this.inFlight ??= this.ask().finally(() => {
             this.inFlight = undefined;
         });
@@ -184,6 +215,7 @@ export class ReleaseWatch {
             return;
         }
 
+        this.askedAt = this.now();
         try {
             const response = await this.fetcher(RELEASES_ENDPOINT, {
                 headers: { accept: 'application/vnd.github+json', 'x-github-api-version': '2022-11-28', 'user-agent': 'deadair' },

@@ -12,7 +12,14 @@ import type { Logger } from '@maroonedsoftware/logger';
 
 import { BuildRevision } from '../../../src/modules/shared/build.revision.js';
 import { BundledChangelog } from '../../../src/modules/station/station.changelog.js';
-import { CHECK_EVERY_MS, RELEASE_KEYS, RELEASES_ENDPOINT, ReleaseWatch, newerReleases } from '../../../src/modules/station/station.release.watch.js';
+import {
+    CHECK_EVERY_MS,
+    CHECK_NOW_FLOOR_MS,
+    RELEASE_KEYS,
+    RELEASES_ENDPOINT,
+    ReleaseWatch,
+    newerReleases,
+} from '../../../src/modules/station/station.release.watch.js';
 
 const quiet = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
 
@@ -201,5 +208,51 @@ describe('ReleaseWatch', () => {
 
         expect(fetcher).not.toHaveBeenCalled();
         expect(watch.reading()).toEqual({ enabled: true, newer: [] });
+    });
+
+    describe('checkNow', () => {
+        it('asks inside the six-hour window, which is what the button is for', async () => {
+            const { watch, fetcher, advance } = harness({ current: '0.26.2' });
+            await watch.check();
+
+            advance(CHECK_NOW_FLOOR_MS);
+            await watch.checkNow();
+
+            expect(fetcher).toHaveBeenCalledTimes(2);
+        });
+
+        it('asks nothing within a minute of the last question, answered or not', async () => {
+            const fetcher = vi.fn(async () => new Response('', { status: 503 })) as unknown as typeof fetch;
+            const { watch, advance } = harness({ current: '0.26.2', fetcher });
+            await watch.check();
+
+            advance(CHECK_NOW_FLOOR_MS - 1);
+            await watch.checkNow();
+            await watch.checkNow();
+
+            expect(fetcher).toHaveBeenCalledTimes(1);
+        });
+
+        it('waits for a question already running rather than sending a second', async () => {
+            let answer: (response: Response) => void = () => undefined;
+            const fetcher = vi.fn(() => new Promise<Response>(resolve => (answer = resolve))) as unknown as typeof fetch;
+            const { watch } = harness({ current: '0.26.2', fetcher });
+
+            const scheduled = watch.check();
+            const pressed = watch.checkNow();
+            answer(new Response(JSON.stringify([githubRelease('v0.27.0')]), { status: 200 }));
+            await Promise.all([scheduled, pressed]);
+
+            expect(fetcher).toHaveBeenCalledTimes(1);
+            expect(watch.reading().newer.map(release => release.version)).toEqual(['0.27.0']);
+        });
+
+        it('sends nothing while the switch is off', async () => {
+            const { watch, fetcher } = harness({ current: '0.26.2', enabled: 'off' });
+
+            await watch.checkNow();
+
+            expect(fetcher).not.toHaveBeenCalled();
+        });
     });
 });

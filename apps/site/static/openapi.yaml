@@ -4004,6 +4004,18 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/StationReleases'
+    '/station/releases/check':
+        post:
+            operationId: check
+            summary: 'Check station releases'
+            description: 'Asks GitHub for newer releases now, and answers with what the station then knows'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/StationReleases'
     '/traces':
         get:
             operationId: readTraces

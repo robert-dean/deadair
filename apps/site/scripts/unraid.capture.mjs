@@ -77,8 +77,6 @@ const EXAMPLES = {
     REDIS_PASSWORD: '',
     REDIS_TLS: 'false',
     REDIS_URL: '',
-    GOOGLE_OIDC_CLIENT_ID: '',
-    GOOGLE_OIDC_CLIENT_SECRET: '',
     REAL_IP_FROM: '',
     REAL_IP_HEADER: 'X-Forwarded-For',
     MIGRATE_ON_BOOT: 'true',

@@ -140,13 +140,6 @@
         Description="The whole cache as one URL instead, which is the shape a hosted Redis hands you: rediss://default:the-password@cache.example.com:6380/0. Fill this in and it is the WHOLE answer: the four fields above are not read at all, so there is no way for the two to half-disagree. It is also the only way to name a database index, if you are sharing one Redis between applications. rediss:// is TLS, redis:// is not, and anything in the password that is not a plain letter or digit has to be percent-encoded (@ is %40)."
         Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
 
-    <Config Name="Sign-in client id" Target="GOOGLE_OIDC_CLIENT_ID" Default="" Mode=""
-        Description="Optional, for signing in with Google. Without this the station signs you in with a one-time code instead. Register the public address followed by /api/auth/login/oidc/callback as the OAuth client's authorized redirect URI in the Google Cloud console."
-        Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
-
-    <Config Name="Sign-in client secret" Target="GOOGLE_OIDC_CLIENT_SECRET" Default="" Mode=""
-        Description="Optional." Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
-
     <Config Name="Proxy in front" Target="REAL_IP_FROM" Default="" Mode=""
         Description="Leave empty unless a tunnel or a reverse proxy sits in front of this station. When one does, every listener reaches the station as THAT, so they all share one rate limit and the listener count collapses to however many different players are tuned in. Naming the proxy here — an address or a CIDR, and 172.16.0.0/12 covers another container on this box — lets the station see who actually asked. Only name something you put there yourself: it means believing an address that arrives in a header."
         Type="Variable" Display="advanced" Required="false" Mask="false"></Config>

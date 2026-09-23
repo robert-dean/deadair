@@ -1,7 +1,7 @@
 // Removing a factor is the change a stolen session would most like to make, so it sits behind the
 // same gate as enrolling one: a strong factor verified within the last five minutes, once any
 // strong factor exists. What is pinned here is that gate, the caller scoping, and that nothing
-// but an authenticator is answered yet.
+// but an authenticator or a linked identity provider is answered yet (the provider has its own file).
 //
 // Built off the prototype with only the collaborators on this path, the way the other
 // authentication tests are: the constructor populates a handler map this method never reads.
@@ -68,7 +68,7 @@ describe('removing a factor', () => {
         expect(h.authenticatorFactorService.deleteFactor).not.toHaveBeenCalled();
     });
 
-    it('answers only an authenticator for now', async () => {
+    it('answers only an authenticator or a linked provider for now', async () => {
         const h = build();
 
         expect(await statusOf(h.remove('fido', 'key-1'))).toBe(400);

@@ -80,6 +80,18 @@ public sealed record FidoFactorRegistration : AuthenticationFactorRegistration
     public string? Label { get; init; }
 }
 
+/// <summary>Link an identity provider to the signed-in account. Answered with the provider's address; the browser goes there and comes back to Security</summary>
+public sealed record OidcFactorRegistration : AuthenticationFactorRegistration
+{
+    /// <summary>The method of the factor</summary>
+    [JsonPropertyName("method")]
+    public string Method { get; init; } = "oidc";
+
+    /// <summary>The provider to link, as `GET /auth/login/oidc/providers` names it</summary>
+    [JsonPropertyName("provider")]
+    public required OidcProvider Provider { get; init; }
+}
+
 public sealed record PhoneFactorRegistrationResponse : AuthenticationFactorRegistrationResponse
 {
     /// <summary>The method of the factor</summary>
@@ -186,6 +198,21 @@ public sealed record FidoFactorAttestation
     /// <summary>The attestation</summary>
     [JsonPropertyName("attestation")]
     public required FidoFactorAttestationAttestation Attestation { get; init; }
+}
+
+public sealed record OidcFactorRegistrationResponse : AuthenticationFactorRegistrationResponse
+{
+    /// <summary>The method of the factor</summary>
+    [JsonPropertyName("method")]
+    public string Method { get; init; } = "oidc";
+
+    /// <summary>Where to send the browser. The provider sends it back to Security, with `?linked=&lt;provider&gt;` on success</summary>
+    [JsonPropertyName("authorizeUrl")]
+    public required string AuthorizeUrl { get; init; }
+
+    /// <summary>When the link attempt expires if the provider has not answered</summary>
+    [JsonPropertyName("expiresAt")]
+    public required DateTimeOffset ExpiresAt { get; init; }
 }
 
 public sealed record PhoneFactorRegistrationVerification : AuthenticationFactorRegistrationVerification
@@ -458,6 +485,7 @@ public sealed class AuthenticationFactorRegistrationConverter : JsonConverter<Au
             "email" => element.Deserialize<EmailFactorRegistration>(options)!,
             "authenticator" => element.Deserialize<AuthenticatorFactorRegistration>(options)!,
             "fido" => element.Deserialize<FidoFactorRegistration>(options)!,
+            "oidc" => element.Deserialize<OidcFactorRegistration>(options)!,
             _ => throw new JsonException($"Unknown AuthenticationFactorRegistration method: {tag}"),
         };
     }
@@ -479,6 +507,9 @@ public sealed class AuthenticationFactorRegistrationConverter : JsonConverter<Au
                 JsonSerializer.Serialize(writer, member, options);
                 break;
             case FidoFactorRegistration member:
+                JsonSerializer.Serialize(writer, member, options);
+                break;
+            case OidcFactorRegistration member:
                 JsonSerializer.Serialize(writer, member, options);
                 break;
             default:
@@ -565,6 +596,7 @@ public sealed class AuthenticationFactorRegistrationResponseConverter : JsonConv
             "email" => element.Deserialize<EmailFactorRegistrationResponse>(options)!,
             "authenticator" => element.Deserialize<AuthenticatorFactorRegistrationResponse>(options)!,
             "fido" => element.Deserialize<FidoFactorRegistrationResponse>(options)!,
+            "oidc" => element.Deserialize<OidcFactorRegistrationResponse>(options)!,
             _ => throw new JsonException($"Unknown AuthenticationFactorRegistrationResponse method: {tag}"),
         };
     }
@@ -586,6 +618,9 @@ public sealed class AuthenticationFactorRegistrationResponseConverter : JsonConv
                 JsonSerializer.Serialize(writer, member, options);
                 break;
             case FidoFactorRegistrationResponse member:
+                JsonSerializer.Serialize(writer, member, options);
+                break;
+            case OidcFactorRegistrationResponse member:
                 JsonSerializer.Serialize(writer, member, options);
                 break;
             default:

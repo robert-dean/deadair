@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { DateTime } from 'luxon';
+import { OidcProvider } from './authentication.types.js';
 import { PublicKeyCredentialWithAttestation } from './authentication.types.js';
 
 const _ZodDatetime = z.preprocess(
@@ -68,7 +69,17 @@ export const FidoFactorRegistration = z.strictObject({
 export type FidoFactorRegistration = z.infer<typeof FidoFactorRegistration>;
 
 /**
- * generated from [PhoneFactorRegistrationResponse](../../../../data/contracts/authentication/registration.types.ck#L37)
+ * Link an identity provider to the signed-in account. Answered with the provider's address; the browser goes there and comes back to Security
+ * generated from [OidcFactorRegistration](../../../../data/contracts/authentication/registration.types.ck#L35)
+ */
+export const OidcFactorRegistration = z.strictObject({
+    method: z.literal('oidc').describe('The method of the factor'),
+    provider: OidcProvider.describe('The provider to link, as `GET /auth/login/oidc/providers` names it'),
+});
+export type OidcFactorRegistration = z.infer<typeof OidcFactorRegistration>;
+
+/**
+ * generated from [PhoneFactorRegistrationResponse](../../../../data/contracts/authentication/registration.types.ck#L42)
  */
 export const PhoneFactorRegistrationResponse = z.strictObject({
     method: z.literal('phone').describe('The method of the factor'),
@@ -79,7 +90,7 @@ export const PhoneFactorRegistrationResponse = z.strictObject({
 export type PhoneFactorRegistrationResponse = z.infer<typeof PhoneFactorRegistrationResponse>;
 
 /**
- * generated from [PasswordFactorRegistrationResponse](../../../../data/contracts/authentication/registration.types.ck#L44)
+ * generated from [PasswordFactorRegistrationResponse](../../../../data/contracts/authentication/registration.types.ck#L49)
  */
 export const PasswordFactorRegistrationResponse = z.strictObject({
     method: z.literal('password').describe('The method of the factor'),
@@ -88,7 +99,7 @@ export const PasswordFactorRegistrationResponse = z.strictObject({
 export type PasswordFactorRegistrationResponse = z.infer<typeof PasswordFactorRegistrationResponse>;
 
 /**
- * generated from [EmailFactorRegistrationResponse](../../../../data/contracts/authentication/registration.types.ck#L49)
+ * generated from [EmailFactorRegistrationResponse](../../../../data/contracts/authentication/registration.types.ck#L54)
  */
 export const EmailFactorRegistrationResponse = z.strictObject({
     method: z.literal('email').describe('The method of the factor'),
@@ -99,7 +110,7 @@ export const EmailFactorRegistrationResponse = z.strictObject({
 export type EmailFactorRegistrationResponse = z.infer<typeof EmailFactorRegistrationResponse>;
 
 /**
- * generated from [AuthenticatorFactorRegistrationResponse](../../../../data/contracts/authentication/registration.types.ck#L56)
+ * generated from [AuthenticatorFactorRegistrationResponse](../../../../data/contracts/authentication/registration.types.ck#L61)
  */
 export const AuthenticatorFactorRegistrationResponse = z.strictObject({
     method: z.literal('authenticator').describe('The method of the factor'),
@@ -114,7 +125,7 @@ export type AuthenticatorFactorRegistrationResponse = z.infer<typeof Authenticat
 
 /**
  * The FIDO factor attestation information
- * generated from [FidoFactorAttestation](../../../../data/contracts/authentication/registration.types.ck#L66)
+ * generated from [FidoFactorAttestation](../../../../data/contracts/authentication/registration.types.ck#L71)
  */
 export const FidoFactorAttestation = z.strictObject({
     rp: z
@@ -147,7 +158,17 @@ export const FidoFactorAttestation = z.strictObject({
 export type FidoFactorAttestation = z.infer<typeof FidoFactorAttestation>;
 
 /**
- * generated from [PhoneFactorRegistrationVerification](../../../../data/contracts/authentication/registration.types.ck#L93)
+ * generated from [OidcFactorRegistrationResponse](../../../../data/contracts/authentication/registration.types.ck#L96)
+ */
+export const OidcFactorRegistrationResponse = z.strictObject({
+    method: z.literal('oidc').describe('The method of the factor'),
+    authorizeUrl: z.string().describe('Where to send the browser. The provider sends it back to Security, with `?linked=<provider>` on success'),
+    expiresAt: _ZodDatetime.describe('When the link attempt expires if the provider has not answered'),
+});
+export type OidcFactorRegistrationResponse = z.infer<typeof OidcFactorRegistrationResponse>;
+
+/**
+ * generated from [PhoneFactorRegistrationVerification](../../../../data/contracts/authentication/registration.types.ck#L104)
  */
 export const PhoneFactorRegistrationVerification = z.strictObject({
     method: z.literal('phone').describe('The method of the factor'),
@@ -162,7 +183,7 @@ export const PhoneFactorRegistrationVerification = z.strictObject({
 export type PhoneFactorRegistrationVerification = z.infer<typeof PhoneFactorRegistrationVerification>;
 
 /**
- * generated from [EmailFactorRegistrationVerification](../../../../data/contracts/authentication/registration.types.ck#L100)
+ * generated from [EmailFactorRegistrationVerification](../../../../data/contracts/authentication/registration.types.ck#L111)
  */
 export const EmailFactorRegistrationVerification = z.strictObject({
     method: z.literal('email').describe('The method of the factor'),
@@ -177,7 +198,7 @@ export const EmailFactorRegistrationVerification = z.strictObject({
 export type EmailFactorRegistrationVerification = z.infer<typeof EmailFactorRegistrationVerification>;
 
 /**
- * generated from [AuthenticatorFactorRegistrationVerification](../../../../data/contracts/authentication/registration.types.ck#L107)
+ * generated from [AuthenticatorFactorRegistrationVerification](../../../../data/contracts/authentication/registration.types.ck#L118)
  */
 export const AuthenticatorFactorRegistrationVerification = z.strictObject({
     method: z.literal('authenticator').describe('The method of the factor'),
@@ -192,7 +213,7 @@ export const AuthenticatorFactorRegistrationVerification = z.strictObject({
 export type AuthenticatorFactorRegistrationVerification = z.infer<typeof AuthenticatorFactorRegistrationVerification>;
 
 /**
- * generated from [FidoFactorRegistrationVerification](../../../../data/contracts/authentication/registration.types.ck#L114)
+ * generated from [FidoFactorRegistrationVerification](../../../../data/contracts/authentication/registration.types.ck#L125)
  */
 export const FidoFactorRegistrationVerification = z.strictObject({
     method: z.literal('fido').describe('The method of the factor'),
@@ -203,7 +224,7 @@ export type FidoFactorRegistrationVerification = z.infer<typeof FidoFactorRegist
 
 /**
  * Begin enrolling a TOTP authenticator during a pending login MFA challenge (no session — authorized by the challenge)
- * generated from [MfaEnrollAuthenticatorStart](../../../../data/contracts/authentication/registration.types.ck#L122)
+ * generated from [MfaEnrollAuthenticatorStart](../../../../data/contracts/authentication/registration.types.ck#L133)
  */
 export const MfaEnrollAuthenticatorStart = z.strictObject({
     mfa_challenge_id: z.string().max(100).describe('The pending MFA challenge from the `mfa_required` login response'),
@@ -213,7 +234,7 @@ export type MfaEnrollAuthenticatorStart = z.infer<typeof MfaEnrollAuthenticatorS
 
 /**
  * Verify the first TOTP code, persist the authenticator, and complete login
- * generated from [MfaEnrollAuthenticatorVerify](../../../../data/contracts/authentication/registration.types.ck#L127)
+ * generated from [MfaEnrollAuthenticatorVerify](../../../../data/contracts/authentication/registration.types.ck#L138)
  */
 export const MfaEnrollAuthenticatorVerify = z.strictObject({
     mfa_challenge_id: z.string().max(100).describe('The same pending MFA challenge'),
@@ -224,14 +245,14 @@ export type MfaEnrollAuthenticatorVerify = z.infer<typeof MfaEnrollAuthenticator
 
 /**
  * A second-factor method a user may enroll
- * generated from [EnrollmentMethod](../../../../data/contracts/authentication/registration.types.ck#L133)
+ * generated from [EnrollmentMethod](../../../../data/contracts/authentication/registration.types.ck#L144)
  */
 export const EnrollmentMethod = z.enum(['authenticator', 'phone', 'fido']);
 export type EnrollmentMethod = z.infer<typeof EnrollmentMethod>;
 
 /**
  * Begin enrolling an SMS phone factor during a pending login MFA challenge (no session — authorized by the challenge)
- * generated from [MfaEnrollPhoneStart](../../../../data/contracts/authentication/registration.types.ck#L139)
+ * generated from [MfaEnrollPhoneStart](../../../../data/contracts/authentication/registration.types.ck#L150)
  */
 export const MfaEnrollPhoneStart = z.strictObject({
     mfa_challenge_id: z.string().max(100).describe('The pending MFA challenge from the `mfa_required` login response'),
@@ -244,7 +265,7 @@ export type MfaEnrollPhoneStart = z.infer<typeof MfaEnrollPhoneStart>;
 
 /**
  * Acknowledges the phone registration and that an OTP was texted
- * generated from [MfaEnrollPhoneStartResponse](../../../../data/contracts/authentication/registration.types.ck#L144)
+ * generated from [MfaEnrollPhoneStartResponse](../../../../data/contracts/authentication/registration.types.ck#L155)
  */
 export const MfaEnrollPhoneStartResponse = z.strictObject({
     method: z.literal('phone').describe('The method of the factor'),
@@ -256,7 +277,7 @@ export type MfaEnrollPhoneStartResponse = z.infer<typeof MfaEnrollPhoneStartResp
 
 /**
  * Verify the texted OTP, persist the phone factor, and complete login
- * generated from [MfaEnrollPhoneVerify](../../../../data/contracts/authentication/registration.types.ck#L151)
+ * generated from [MfaEnrollPhoneVerify](../../../../data/contracts/authentication/registration.types.ck#L162)
  */
 export const MfaEnrollPhoneVerify = z.strictObject({
     mfa_challenge_id: z.string().max(100).describe('The same pending MFA challenge'),
@@ -267,7 +288,7 @@ export type MfaEnrollPhoneVerify = z.infer<typeof MfaEnrollPhoneVerify>;
 
 /**
  * Begin enrolling a passkey during a pending login MFA challenge (no session — authorized by the challenge)
- * generated from [MfaEnrollFidoStart](../../../../data/contracts/authentication/registration.types.ck#L157)
+ * generated from [MfaEnrollFidoStart](../../../../data/contracts/authentication/registration.types.ck#L168)
  */
 export const MfaEnrollFidoStart = z.strictObject({
     mfa_challenge_id: z.string().max(100).describe('The pending MFA challenge from the `mfa_required` login response'),
@@ -277,7 +298,7 @@ export type MfaEnrollFidoStart = z.infer<typeof MfaEnrollFidoStart>;
 
 /**
  * Post the new credential back, persist the passkey factor, and complete login
- * generated from [MfaEnrollFidoVerify](../../../../data/contracts/authentication/registration.types.ck#L170)
+ * generated from [MfaEnrollFidoVerify](../../../../data/contracts/authentication/registration.types.ck#L181)
  */
 export const MfaEnrollFidoVerify = z.strictObject({
     mfa_challenge_id: z.string().max(100).describe('The same pending MFA challenge'),
@@ -287,7 +308,7 @@ export const MfaEnrollFidoVerify = z.strictObject({
 export type MfaEnrollFidoVerify = z.infer<typeof MfaEnrollFidoVerify>;
 
 /**
- * generated from [AuthenticationFactorRegistration](../../../../data/contracts/authentication/registration.types.ck#L35)
+ * generated from [AuthenticationFactorRegistration](../../../../data/contracts/authentication/registration.types.ck#L40)
  */
 export const AuthenticationFactorRegistration = z.discriminatedUnion('method', [
     PhoneFactorRegistration,
@@ -295,11 +316,12 @@ export const AuthenticationFactorRegistration = z.discriminatedUnion('method', [
     EmailFactorRegistration,
     AuthenticatorFactorRegistration,
     FidoFactorRegistration,
+    OidcFactorRegistration,
 ]);
 export type AuthenticationFactorRegistration = z.infer<typeof AuthenticationFactorRegistration>;
 
 /**
- * generated from [FidoFactorRegistrationResponse](../../../../data/contracts/authentication/registration.types.ck#L83)
+ * generated from [FidoFactorRegistrationResponse](../../../../data/contracts/authentication/registration.types.ck#L88)
  */
 export const FidoFactorRegistrationResponse = z.strictObject({
     method: z.literal('fido').describe('The method of the factor'),
@@ -312,7 +334,7 @@ export type FidoFactorRegistrationResponse = z.infer<typeof FidoFactorRegistrati
 
 /**
  * WebAuthn attestation options for `navigator.credentials.create`
- * generated from [MfaEnrollFidoStartResponse](../../../../data/contracts/authentication/registration.types.ck#L162)
+ * generated from [MfaEnrollFidoStartResponse](../../../../data/contracts/authentication/registration.types.ck#L173)
  */
 export const MfaEnrollFidoStartResponse = z.strictObject({
     method: z.literal('fido').describe('The method of the factor'),
@@ -324,7 +346,7 @@ export const MfaEnrollFidoStartResponse = z.strictObject({
 export type MfaEnrollFidoStartResponse = z.infer<typeof MfaEnrollFidoStartResponse>;
 
 /**
- * generated from [AuthenticationFactorRegistrationVerification](../../../../data/contracts/authentication/registration.types.ck#L120)
+ * generated from [AuthenticationFactorRegistrationVerification](../../../../data/contracts/authentication/registration.types.ck#L131)
  */
 export const AuthenticationFactorRegistrationVerification = z.discriminatedUnion('method', [
     PhoneFactorRegistrationVerification,
@@ -336,7 +358,7 @@ export type AuthenticationFactorRegistrationVerification = z.infer<typeof Authen
 
 /**
  * Which second factors this instance permits enrolling. `phone` is present only when an SMS provider is configured (SMS_DELIVERY != noop); `authenticator` and `fido` are always available.
- * generated from [EnrollmentMethods](../../../../data/contracts/authentication/registration.types.ck#L135)
+ * generated from [EnrollmentMethods](../../../../data/contracts/authentication/registration.types.ck#L146)
  */
 export const EnrollmentMethods = z.strictObject({
     methods: z.array(EnrollmentMethod).describe('The enrollable factor methods, in suggested display order'),
@@ -344,7 +366,7 @@ export const EnrollmentMethods = z.strictObject({
 export type EnrollmentMethods = z.infer<typeof EnrollmentMethods>;
 
 /**
- * generated from [AuthenticationFactorRegistrationResponse](../../../../data/contracts/authentication/registration.types.ck#L91)
+ * generated from [AuthenticationFactorRegistrationResponse](../../../../data/contracts/authentication/registration.types.ck#L102)
  */
 export const AuthenticationFactorRegistrationResponse = z.discriminatedUnion('method', [
     PhoneFactorRegistrationResponse,
@@ -352,5 +374,6 @@ export const AuthenticationFactorRegistrationResponse = z.discriminatedUnion('me
     EmailFactorRegistrationResponse,
     AuthenticatorFactorRegistrationResponse,
     FidoFactorRegistrationResponse,
+    OidcFactorRegistrationResponse,
 ]);
 export type AuthenticationFactorRegistrationResponse = z.infer<typeof AuthenticationFactorRegistrationResponse>;

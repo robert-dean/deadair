@@ -13,6 +13,7 @@ import {
     EmailFactorService,
     EmailFactorServiceOptions,
     FidoFactorService,
+    OidcFactorService,
     PasswordFactorService,
     PkceProvider,
 } from '@maroonedsoftware/authentication';
@@ -32,6 +33,8 @@ import {
     FidoFactorRegistration,
     FidoFactorRegistrationResponse,
     FidoFactorRegistrationVerification,
+    OidcFactorRegistration,
+    OidcFactorRegistrationResponse,
     PasswordFactorRegistration,
     PasswordFactorRegistrationResponse,
 } from './types/registration.types.js';
@@ -79,6 +82,7 @@ export class AuthenticationRegistrationService {
         private readonly cacheProvider: CacheProvider,
         private readonly pkceProvider: PkceProvider,
         private readonly sessionActivity: SessionActivityService,
+        private readonly oidcFactorService: OidcFactorService,
     ) {
         this.factorHandlerMap = new Map<AuthenticationFactorMethod, FactorHandlers>();
         this.factorHandlerMap.set('password', {
@@ -96,6 +100,10 @@ export class AuthenticationRegistrationService {
                 this.registerAuthenticatorFactor(actorId, request as AuthenticatorFactorRegistration),
             verifyFactorRegistration: (actorId: string, request: AuthenticationFactorRegistrationVerification) =>
                 this.verifyAuthenticatorFactorRegistration(actorId, request as AuthenticatorFactorRegistrationVerification),
+        });
+        this.factorHandlerMap.set('oidc', {
+            registerFactor: (actorId: string, request: AuthenticationFactorRegistration) =>
+                this.registerOidcFactor(actorId, request as OidcFactorRegistration),
         });
         this.factorHandlerMap.set('fido', {
             registerFactor: (actorId: string, request: AuthenticationFactorRegistration) =>
@@ -259,12 +267,16 @@ export class AuthenticationRegistrationService {
     }
 
     /**
-     * Removes one of the caller's own factors. Only `authenticator` is answered today.
+     * Removes one of the caller's own factors: an authenticator, or a linked identity provider.
      *
      * Behind the same gate as enrolment: once a strong factor exists, taking one away is as much
      * a change to how the account is protected as adding one, and it is the change a stolen
      * session would want to make. Removing the last authenticator simply turns the sign-in
      * challenge off for the account, which the `mfa.required` rule handles on its own.
+     *
+     * An identity provider is refused when it is the account's only way back in: no password, no
+     * other provider, and no email address the station could send a sign-in link to. An account
+     * made by signing in through a provider starts out exactly like that.
      *
      * The step-up denial is thrown as the policy renders it (403, `details.kind:
      * 'step_up_required'`), so the console can open its re-verify dialog and try again.
@@ -272,13 +284,18 @@ export class AuthenticationRegistrationService {
     async removeFactor(method: AuthenticationFactorMethod, methodId: string): Promise<void> {
         const { actorId } = this.authorizationContext.requireAuthentication();
 
-        if (method !== 'authenticator') {
+        if (method !== 'authenticator' && method !== 'oidc') {
             throw httpError(400).withDetails({
                 method: `Unsupported method ${method}`,
             });
         }
 
         await this.strongFactorGate.assertRecentIfAnyEnrolled(actorId);
+
+        if (method === 'oidc') {
+            await this.removeOidcFactor(actorId, methodId);
+            return;
+        }
 
         // Scoped to the caller: the repository answers only this actor's rows, so somebody else's
         // factor id is indistinguishable from one that never existed.
@@ -290,6 +307,30 @@ export class AuthenticationRegistrationService {
         }
 
         await this.authenticatorFactorService.deleteFactor(actorId, methodId);
+    }
+
+    private async removeOidcFactor(actorId: string, methodId: string): Promise<void> {
+        const factor = await this.oidcFactorService.getFactor(actorId, methodId).catch(() => undefined);
+        if (!factor || !factor.active) {
+            throw httpError(404).withDetails({
+                methodId: 'No such factor',
+            });
+        }
+
+        const remaining = (await this.actorsRepository.listFactors(actorId, true)).filter(
+            candidate => !(candidate.method === 'oidc' && candidate.methodId === methodId),
+        );
+        const canStillSignIn = remaining.some(
+            candidate =>
+                candidate.method === 'password' || candidate.method === 'oidc' || (candidate.method === 'email' && this.mailService.isConfigured()),
+        );
+        if (!canStillSignIn) {
+            throw httpError(409).withDetails({
+                methodId: 'This is the only way this account signs in. Set a password or link another provider first.',
+            });
+        }
+
+        await this.oidcFactorService.deleteFactor(actorId, methodId);
     }
 
     async verifyFactorRegistration(request: AuthenticationFactorRegistrationVerification) {
@@ -403,6 +444,17 @@ export class AuthenticationRegistrationService {
             expiresAt: result.expiresAt,
             issuedAt: result.issuedAt,
         };
+    }
+
+    /**
+     * Link an identity provider to the signed-in account: begin an authorization with `intent:
+     * 'link'` and hand back where the browser goes. The provider sends it back to the OIDC callback,
+     * which attaches the identity to this account and lands on Security rather than signing anybody
+     * in. An identity already linked to a different account is refused there, by the library.
+     */
+    private async registerOidcFactor(actorId: string, request: OidcFactorRegistration): Promise<OidcFactorRegistrationResponse> {
+        const { url, expiresAt } = await this.oidcFactorService.beginAuthorization({ provider: request.provider, intent: 'link', actorId });
+        return { method: 'oidc', authorizeUrl: url.toString(), expiresAt };
     }
 
     private async registerFidoFactor(actorId: string, request: FidoFactorRegistration): Promise<FidoFactorRegistrationResponse> {

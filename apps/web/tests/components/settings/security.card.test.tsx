@@ -12,11 +12,14 @@ const verifyFactorRegistration = vi.fn();
 const removeFactor = vi.fn();
 const startMFAChallenge = vi.fn();
 const requestToken = vi.fn();
+const listSignInProviders = vi.fn(async (): Promise<unknown[]> => []);
+const search: { linked?: string; link_error?: string } = {};
 
 vi.mock('../../../src/api/client', () => ({
     sdk: {
         authentication: {
             requestToken: (...args: unknown[]) => requestToken(...args),
+            listSignInProviders: () => listSignInProviders(),
             factors: {
                 listFactors: (...args: unknown[]) => listFactors(...args),
                 registerFactor: (...args: unknown[]) => registerFactor(...args),
@@ -32,6 +35,7 @@ vi.mock('../../../src/api/client', () => ({
 // a plain anchor here for the reason `settings.shell.test.tsx` gives: the card is under test, not
 // the router, and a real `Link` needs a `RouterProvider` around it.
 vi.mock('@tanstack/react-router', () => ({
+    useSearch: () => search,
     Link: ({ to, children, ...props }: { to?: string; children?: ReactNode }) => (
         <a href={to} {...props}>
             {children}
@@ -41,6 +45,11 @@ vi.mock('@tanstack/react-router', () => ({
 
 afterEach(() => {
     for (const mock of [listFactors, registerFactor, verifyFactorRegistration, removeFactor, startMFAChallenge, requestToken]) mock.mockReset();
+    listSignInProviders.mockReset();
+    listSignInProviders.mockResolvedValue([]);
+    delete search.linked;
+    delete search.link_error;
+    vi.unstubAllGlobals();
     clearSession();
 });
 
@@ -308,5 +317,71 @@ describe('SecurityCard, enrolling an email address', () => {
         expect(await screen.findByText(/That code was not accepted/)).toBeInTheDocument();
         expect(screen.getByLabelText('Emailed code')).toBeInTheDocument();
         expect(getSession().accessToken).toBeUndefined();
+    });
+});
+
+describe('SecurityCard, linked sign-ins', () => {
+    const AUTHELIA_LINK = { method: 'oidc', kind: 'possession', methodId: 'oidc-1', label: 'authelia' };
+
+    it('draws nothing about providers on a station that offers none and an account with no link', async () => {
+        listFactors.mockResolvedValue([PASSWORD]);
+        render(<SecurityCard />);
+
+        expect(await screen.findByText('Password')).toBeInTheDocument();
+        await waitFor(() => expect(listSignInProviders).toHaveBeenCalled());
+        expect(screen.queryByText('Linked sign-ins')).not.toBeInTheDocument();
+    });
+
+    it('lists a linked provider by its button text and offers to link the others', async () => {
+        listFactors.mockResolvedValue([PASSWORD, AUTHELIA_LINK]);
+        listSignInProviders.mockResolvedValue([
+            { name: 'authelia', label: 'Authelia' },
+            { name: 'google', label: 'Google' },
+        ]);
+        render(<SecurityCard />);
+
+        expect(await screen.findByText('Linked sign-ins')).toBeInTheDocument();
+        expect(await screen.findByText('Authelia')).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Link Google' })).toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Link Authelia' })).not.toBeInTheDocument();
+    });
+
+    it('starts a link and sends the browser to the provider', async () => {
+        const assign = vi.fn();
+        vi.stubGlobal('location', { ...window.location, assign });
+        listFactors.mockResolvedValue([PASSWORD]);
+        listSignInProviders.mockResolvedValue([{ name: 'google', label: 'Google' }]);
+        registerFactor.mockResolvedValue({ method: 'oidc', authorizeUrl: 'https://accounts.google.com/o/oauth2/auth?x=1' });
+        render(<SecurityCard />);
+
+        await setupUser().click(await screen.findByRole('button', { name: 'Link Google' }));
+
+        await waitFor(() => expect(assign).toHaveBeenCalledWith('https://accounts.google.com/o/oauth2/auth?x=1'));
+        expect(registerFactor).toHaveBeenCalledWith({ method: 'oidc', provider: 'google' });
+    });
+
+    it('unlinks a provider after asking', async () => {
+        listFactors.mockResolvedValue([PASSWORD, AUTHELIA_LINK]);
+        listSignInProviders.mockResolvedValue([{ name: 'authelia', label: 'Authelia' }]);
+        removeFactor.mockResolvedValue(undefined);
+        render(<SecurityCard />);
+        const user = setupUser();
+
+        await user.click(await screen.findByRole('button', { name: 'Unlink' }));
+        await waitFor(() => expect(screen.getAllByRole('button', { name: 'Unlink' })).toHaveLength(2));
+        await user.click(screen.getAllByRole('button', { name: 'Unlink' }).at(-1)!);
+
+        await waitFor(() => expect(removeFactor).toHaveBeenCalledWith('oidc', 'oidc-1'));
+    });
+
+    it('says a link took, and says why one did not', async () => {
+        listFactors.mockResolvedValue([PASSWORD, AUTHELIA_LINK]);
+        listSignInProviders.mockResolvedValue([{ name: 'authelia', label: 'Authelia' }]);
+        search.linked = 'authelia';
+        search.link_error = 'already_linked';
+        render(<SecurityCard />);
+
+        expect(await screen.findByText('Authelia now signs you in to this account.')).toBeInTheDocument();
+        expect(screen.getByText(/already belongs to a different account/)).toBeInTheDocument();
     });
 });

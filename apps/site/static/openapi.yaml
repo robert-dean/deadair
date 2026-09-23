@@ -429,7 +429,7 @@ paths:
         delete:
             operationId: removeFactor
             summary: 'Remove factor'
-            description: "Remove one of the caller's own factors. Answered only for `authenticator` today, and only after a recent strong-factor verification: the same gate enrolment sits behind once a strong factor exists, so a stolen session cannot quietly switch the second factor off. Removing the last authenticator turns the sign-in challenge off for that account."
+            description: "Remove one of the caller's own factors. Answered for `authenticator` and `oidc`, and only after a recent strong-factor verification: the same gate enrolment sits behind once a strong factor exists, so a stolen session cannot quietly switch the second factor off. Removing the last authenticator turns the sign-in challenge off for that account. A linked identity provider that is the account's only way to sign in is refused with 409."
             parameters:
                 - name: method
                   in: path
@@ -5346,6 +5346,17 @@ components:
                     type: string
                     description: 'The label for the FIDO factor'
             required: [method]
+        OidcFactorRegistration:
+            type: object
+            properties:
+                method:
+                    const: oidc
+                    description: 'The method of the factor'
+                provider:
+                    '$ref': '#/components/schemas/OidcProvider'
+                    description: 'The provider to link, as `GET /auth/login/oidc/providers` names it'
+            required: [method, provider]
+            description: "Link an identity provider to the signed-in account. Answered with the provider's address; the browser goes there and comes back to Security"
         AuthenticationFactorRegistration:
             oneOf:
                 - '$ref': '#/components/schemas/PhoneFactorRegistration'
@@ -5353,6 +5364,7 @@ components:
                 - '$ref': '#/components/schemas/EmailFactorRegistration'
                 - '$ref': '#/components/schemas/AuthenticatorFactorRegistration'
                 - '$ref': '#/components/schemas/FidoFactorRegistration'
+                - '$ref': '#/components/schemas/OidcFactorRegistration'
             discriminator:
                 propertyName: method
                 mapping:
@@ -5361,6 +5373,7 @@ components:
                     email: '#/components/schemas/EmailFactorRegistration'
                     authenticator: '#/components/schemas/AuthenticatorFactorRegistration'
                     fido: '#/components/schemas/FidoFactorRegistration'
+                    oidc: '#/components/schemas/OidcFactorRegistration'
         PhoneFactorRegistrationResponse:
             type: object
             properties:
@@ -5508,6 +5521,20 @@ components:
                     '$ref': '#/components/schemas/FidoFactorAttestation'
                     description: 'The FIDO factor attestation information'
             required: [method, registrationId, expiresAt, issuedAt, attestation]
+        OidcFactorRegistrationResponse:
+            type: object
+            properties:
+                method:
+                    const: oidc
+                    description: 'The method of the factor'
+                authorizeUrl:
+                    type: string
+                    description: 'Where to send the browser. The provider sends it back to Security, with `?linked=<provider>` on success'
+                expiresAt:
+                    type: string
+                    format: date-time
+                    description: 'When the link attempt expires if the provider has not answered'
+            required: [method, authorizeUrl, expiresAt]
         AuthenticationFactorRegistrationResponse:
             oneOf:
                 - '$ref': '#/components/schemas/PhoneFactorRegistrationResponse'
@@ -5515,6 +5542,7 @@ components:
                 - '$ref': '#/components/schemas/EmailFactorRegistrationResponse'
                 - '$ref': '#/components/schemas/AuthenticatorFactorRegistrationResponse'
                 - '$ref': '#/components/schemas/FidoFactorRegistrationResponse'
+                - '$ref': '#/components/schemas/OidcFactorRegistrationResponse'
             discriminator:
                 propertyName: method
                 mapping:
@@ -5523,6 +5551,7 @@ components:
                     email: '#/components/schemas/EmailFactorRegistrationResponse'
                     authenticator: '#/components/schemas/AuthenticatorFactorRegistrationResponse'
                     fido: '#/components/schemas/FidoFactorRegistrationResponse'
+                    oidc: '#/components/schemas/OidcFactorRegistrationResponse'
         PhoneFactorRegistrationVerification:
             type: object
             properties:

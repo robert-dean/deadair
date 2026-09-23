@@ -54,7 +54,7 @@ public final class AuthenticationFactorClient: Sendable {
     }
 
     /// Remove factor
-    /// Remove one of the caller's own factors. Answered only for `authenticator` today, and only after a recent strong-factor verification: the same gate enrolment sits behind once a strong factor exists, so a stolen session cannot quietly switch the second factor off. Removing the last authenticator turns the sign-in challenge off for that account.
+    /// Remove one of the caller's own factors. Answered for `authenticator` and `oidc`, and only after a recent strong-factor verification: the same gate enrolment sits behind once a strong factor exists, so a stolen session cannot quietly switch the second factor off. Removing the last authenticator turns the sign-in challenge off for that account. A linked identity provider that is the account's only way to sign in is refused with 409.
     public func removeFactor(method: AuthenticationFactorMethod, methodId: String) async throws {
         let request = try SdkRequest(method: "DELETE", path: ["auth", "factors", http.segment(method), http.segment(methodId)])
         _ = try await http.execute(request)

@@ -996,6 +996,14 @@ export class AuthenticationService {
         try {
             const result = await this.oidcFactorService.completeAuthorization({ params: query });
 
+            // A link started from Security by somebody already signed in: the identity is now on
+            // their account, and there is nothing to sign in. Back to Security, which says so.
+            if (result.intent === 'link') {
+                const linked = new URL(`${this.options.spaBaseUrl}/settings/security`);
+                linked.searchParams.set('linked', result.profile.provider);
+                return this.htmlRedirectProvider.getRedirectHtml(linked).html;
+            }
+
             const identity =
                 result.kind === 'new-user'
                     ? await this.provisionOidcNewUser(result.authorizationId, result.profile, result.emailConflict !== undefined)
@@ -1017,7 +1025,7 @@ export class AuthenticationService {
 
             return this.htmlRedirectProvider.getRedirectHtml(target).html;
         } catch (err) {
-            const refusal = err instanceof OidcSignInRefused ? err : undefined;
+            const refusal = err instanceof OidcSignInRefused ? err : isLinkTaken(err) ? new OidcSignInRefused('already_linked') : undefined;
             const code = refusal?.code ?? (query.error ? 'provider_error' : 'oidc_failed');
             await this.sessionActivity.recordFactorFailure({
                 identifier: query.state ?? code,
@@ -1028,6 +1036,13 @@ export class AuthenticationService {
             // (expired/missing) or never existed (IdP rejected before we could read it). Fall back
             // to the configured SPA base URL so the user lands on the console's callback page with
             // an actionable error rather than raw 4xx JSON on the API host.
+            // Only a link can find the identity taken, and the person linking is signed in: they
+            // go back to Security rather than to a sign-in page telling them they are not.
+            if (refusal?.code === 'already_linked') {
+                const security = new URL(`${this.options.spaBaseUrl}/settings/security`);
+                security.searchParams.set('link_error', refusal.code);
+                return this.htmlRedirectProvider.getRedirectHtml(security).html;
+            }
             const target = new URL(`${this.options.spaBaseUrl}/auth/callback`);
             target.searchParams.set('error', code);
             const description =
@@ -1091,4 +1106,13 @@ export class AuthenticationService {
 
         return { actorId: actor.id, factorId: factor.id, isNewUser: true };
     }
+}
+
+/**
+ * The library's answer to linking an identity that already belongs to another account: a 409 whose
+ * details name the provider. Told apart from this file's own 409 (an email factor collision) by
+ * those details.
+ */
+function isLinkTaken(error: unknown): boolean {
+    return IsHttpError(error) && error.statusCode === 409 && typeof error.details?.['provider'] === 'string';
 }

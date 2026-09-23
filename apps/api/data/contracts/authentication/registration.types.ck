@@ -32,7 +32,12 @@ contract FidoFactorRegistration: {
     label?: string # The label for the FIDO factor
 }
 
-contract AuthenticationFactorRegistration: discriminated(by=method, PhoneFactorRegistration | PasswordFactorRegistration | EmailFactorRegistration | AuthenticatorFactorRegistration | FidoFactorRegistration)
+contract OidcFactorRegistration: { # Link an identity provider to the signed-in account. Answered with the provider's address; the browser goes there and comes back to Security
+    method: literal("oidc") # The method of the factor
+    provider: OidcProvider # The provider to link, as `GET /auth/login/oidc/providers` names it
+}
+
+contract AuthenticationFactorRegistration: discriminated(by=method, PhoneFactorRegistration | PasswordFactorRegistration | EmailFactorRegistration | AuthenticatorFactorRegistration | FidoFactorRegistration | OidcFactorRegistration)
 
 contract PhoneFactorRegistrationResponse: {
     method: literal("phone") # The method of the factor
@@ -88,7 +93,13 @@ contract FidoFactorRegistrationResponse: {
     attestation: FidoFactorAttestation # The FIDO factor attestation information
 }
 
-contract AuthenticationFactorRegistrationResponse: discriminated(by=method, PhoneFactorRegistrationResponse | PasswordFactorRegistrationResponse | EmailFactorRegistrationResponse | AuthenticatorFactorRegistrationResponse | FidoFactorRegistrationResponse)
+contract OidcFactorRegistrationResponse: {
+    method: literal("oidc") # The method of the factor
+    authorizeUrl: string # Where to send the browser. The provider sends it back to Security, with `?linked=<provider>` on success
+    expiresAt: datetime # When the link attempt expires if the provider has not answered
+}
+
+contract AuthenticationFactorRegistrationResponse: discriminated(by=method, PhoneFactorRegistrationResponse | PasswordFactorRegistrationResponse | EmailFactorRegistrationResponse | AuthenticatorFactorRegistrationResponse | FidoFactorRegistrationResponse | OidcFactorRegistrationResponse)
 
 contract PhoneFactorRegistrationVerification: {
     method: literal("phone") # The method of the factor

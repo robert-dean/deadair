@@ -21,6 +21,7 @@ import { ErrorAlert } from '../shared/error.alert';
 import { notifyDone, notifySaved } from '../shared/notify';
 import { ONE_TIME_CODE_LENGTH, OneTimeCodeInput } from '../shared/one.time.code.input';
 import { PageSkeleton } from '../shared/page.skeleton';
+import { LinkedSigninsCard } from './linked.signins.card';
 import { isStepUpCancelled, StepUpDialog, useStepUpGate } from './step.up.dialog';
 
 /** What a factor is called in the list. The API's labels are for authenticators; the rest are what they are. */
@@ -61,7 +62,8 @@ export function SecurityCard() {
     const gate = useStepUpGate();
 
     const authenticators = (factors.data ?? []).filter(factor => factor.method === 'authenticator');
-    const others = (factors.data ?? []).filter(factor => factor.method !== 'authenticator');
+    // Linked providers have a card of their own below, with the link and unlink they need.
+    const others = (factors.data ?? []).filter(factor => factor.method !== 'authenticator' && factor.method !== 'oidc');
 
     return (
         <Stack gap="lg">
@@ -104,6 +106,7 @@ export function SecurityCard() {
                 </Stack>
             </Card>
 
+            {factors.data ? <LinkedSigninsCard factors={factors.data} gate={gate} /> : undefined}
             {factors.data ? <EnrolAuthenticatorCard gate={gate} /> : undefined}
             {factors.data ? <EnrolEmailCard gate={gate} /> : undefined}
 

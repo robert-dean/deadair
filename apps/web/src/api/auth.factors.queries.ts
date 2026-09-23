@@ -170,6 +170,24 @@ export function useRemoveFactor() {
     });
 }
 
+/**
+ * Starts linking an identity provider to the signed-in account, and answers where the browser goes.
+ *
+ * Behind the same step-up gate as any other enrolment, so the caller runs it through
+ * `useStepUpGate().run`. The navigation is the caller's: it leaves the console, and the provider
+ * sends the browser back to Security with `?linked=` or `?link_error=` on it.
+ */
+export function useLinkOidcFactor() {
+    return useMutation({
+        retry: false,
+        mutationFn: async ({ provider }: { provider: string }): Promise<string> => {
+            const response = await sdk.authentication.factors.registerFactor({ method: 'oidc', provider });
+            if (response.method !== 'oidc') throw new Error('The station answered a different kind of enrolment.');
+            return response.authorizeUrl;
+        },
+    });
+}
+
 /** A pending challenge, whether it came from a sign-in that stopped or from a step-up. */
 export interface MfaChallenge {
     challengeId: string;

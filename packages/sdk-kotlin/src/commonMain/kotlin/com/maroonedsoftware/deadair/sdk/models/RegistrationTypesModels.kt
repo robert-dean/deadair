@@ -64,6 +64,15 @@ data class FidoFactorRegistration(
     val label: String? = null,
 ) : AuthenticationFactorRegistration
 
+/** Link an identity provider to the signed-in account. Answered with the provider's address; the browser goes there and comes back to Security */
+@Serializable
+data class OidcFactorRegistration(
+    /** The method of the factor */
+    val method: String = "oidc",
+    /** The provider to link, as `GET /auth/login/oidc/providers` names it */
+    val provider: OidcProvider,
+) : AuthenticationFactorRegistration
+
 @Serializable
 data class PhoneFactorRegistrationResponse(
     /** The method of the factor */
@@ -129,6 +138,16 @@ data class FidoFactorAttestation(
     /** The attestation */
     val attestation: FidoFactorAttestationAttestation,
 )
+
+@Serializable
+data class OidcFactorRegistrationResponse(
+    /** The method of the factor */
+    val method: String = "oidc",
+    /** Where to send the browser. The provider sends it back to Security, with `?linked=<provider>` on success */
+    val authorizeUrl: String,
+    /** When the link attempt expires if the provider has not answered */
+    val expiresAt: Instant,
+) : AuthenticationFactorRegistrationResponse
 
 @Serializable
 data class PhoneFactorRegistrationVerification(
@@ -310,6 +329,7 @@ object AuthenticationFactorRegistrationSerializer : KSerializer<AuthenticationFa
             is EmailFactorRegistration -> output.json.encodeToJsonElement(EmailFactorRegistration.serializer(), value)
             is AuthenticatorFactorRegistration -> output.json.encodeToJsonElement(AuthenticatorFactorRegistration.serializer(), value)
             is FidoFactorRegistration -> output.json.encodeToJsonElement(FidoFactorRegistration.serializer(), value)
+            is OidcFactorRegistration -> output.json.encodeToJsonElement(OidcFactorRegistration.serializer(), value)
         }
         output.encodeJsonElement(element)
     }
@@ -323,6 +343,7 @@ object AuthenticationFactorRegistrationSerializer : KSerializer<AuthenticationFa
             "email" -> input.json.decodeFromJsonElement(EmailFactorRegistration.serializer(), element)
             "authenticator" -> input.json.decodeFromJsonElement(AuthenticatorFactorRegistration.serializer(), element)
             "fido" -> input.json.decodeFromJsonElement(FidoFactorRegistration.serializer(), element)
+            "oidc" -> input.json.decodeFromJsonElement(OidcFactorRegistration.serializer(), element)
             else -> throw SerializationException("Unknown AuthenticationFactorRegistration method: $tag")
         }
     }
@@ -380,6 +401,7 @@ object AuthenticationFactorRegistrationResponseSerializer : KSerializer<Authenti
             is EmailFactorRegistrationResponse -> output.json.encodeToJsonElement(EmailFactorRegistrationResponse.serializer(), value)
             is AuthenticatorFactorRegistrationResponse -> output.json.encodeToJsonElement(AuthenticatorFactorRegistrationResponse.serializer(), value)
             is FidoFactorRegistrationResponse -> output.json.encodeToJsonElement(FidoFactorRegistrationResponse.serializer(), value)
+            is OidcFactorRegistrationResponse -> output.json.encodeToJsonElement(OidcFactorRegistrationResponse.serializer(), value)
         }
         output.encodeJsonElement(element)
     }
@@ -393,6 +415,7 @@ object AuthenticationFactorRegistrationResponseSerializer : KSerializer<Authenti
             "email" -> input.json.decodeFromJsonElement(EmailFactorRegistrationResponse.serializer(), element)
             "authenticator" -> input.json.decodeFromJsonElement(AuthenticatorFactorRegistrationResponse.serializer(), element)
             "fido" -> input.json.decodeFromJsonElement(FidoFactorRegistrationResponse.serializer(), element)
+            "oidc" -> input.json.decodeFromJsonElement(OidcFactorRegistrationResponse.serializer(), element)
             else -> throw SerializationException("Unknown AuthenticationFactorRegistrationResponse method: $tag")
         }
     }

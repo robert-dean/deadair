@@ -5,6 +5,7 @@
 // browser on the console with a code and a sentence.
 
 import { describe, expect, it, vi } from 'vitest';
+import { httpError } from '@maroonedsoftware/errors';
 
 import { AuthenticationService } from '../../../src/modules/authentication/authentication.service.js';
 import { SIGNIN_KEYS } from '../../../src/modules/authentication/signin.settings.js';
@@ -14,12 +15,19 @@ const NEW_ACTOR = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const EXISTING_ACTOR = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 
 type Completion =
-    | { kind: 'signed-in' | 'linked'; actorId: string; factorId: string; redirectAfter?: string }
+    | {
+          kind: 'signed-in' | 'linked';
+          actorId: string;
+          factorId: string;
+          redirectAfter?: string;
+          intent?: 'sign-in' | 'link';
+          profile?: { provider: string };
+      }
     | { kind: 'new-user'; authorizationId: string; profile: { email?: string; emailVerified?: boolean }; emailConflict?: { actorId: string } };
 
 function build(completion: Completion, allowlist = '') {
     const oidcFactorService = {
-        completeAuthorization: vi.fn(async () => ({ ...completion, intent: 'sign-in' })),
+        completeAuthorization: vi.fn(async (): Promise<unknown> => ({ intent: 'sign-in', ...completion })),
         createFactorFromAuthorization: vi.fn(async () => ({ id: 'factor-new' })),
         stashAuthenticatedExchange: vi.fn(async () => 'exchange-1'),
     };
@@ -60,6 +68,28 @@ describe('AuthenticationService.handleOidcCallback', () => {
         expect(target.searchParams.get('token')).toBe('oidc:exchange-1');
         expect(h.oidcFactorService.stashAuthenticatedExchange).toHaveBeenCalledWith(expect.objectContaining({ actorId: EXISTING_ACTOR }));
         expect(h.actorsRepository.create).not.toHaveBeenCalled();
+    });
+
+    it('lands a finished link on Security, naming the provider, without signing anybody in', async () => {
+        const h = build({ kind: 'linked', actorId: EXISTING_ACTOR, factorId: 'f', intent: 'link', profile: { provider: 'authelia' } });
+
+        const target = await h.callback();
+
+        expect(target.pathname).toBe('/settings/security');
+        expect(target.searchParams.get('linked')).toBe('authelia');
+        expect(h.oidcFactorService.stashAuthenticatedExchange).not.toHaveBeenCalled();
+    });
+
+    it('sends a link to an identity another account holds back to Security, saying so', async () => {
+        const h = build({ kind: 'signed-in', actorId: EXISTING_ACTOR, factorId: 'f' });
+        h.oidcFactorService.completeAuthorization.mockRejectedValueOnce(
+            httpError(409).withDetails({ provider: 'already linked to another account' }),
+        );
+
+        const target = await h.callback();
+
+        expect(target.pathname).toBe('/settings/security');
+        expect(target.searchParams.get('link_error')).toBe('already_linked');
     });
 
     it('always lands on the console callback, carrying the path to return to beside the token', async () => {

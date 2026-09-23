@@ -179,6 +179,39 @@ public struct FidoFactorRegistration: Codable, Equatable, Sendable {
     }
 }
 
+/// Link an identity provider to the signed-in account. Answered with the provider's address; the browser goes there and comes back to Security
+public struct OidcFactorRegistration: Codable, Equatable, Sendable {
+    /// The method of the factor
+    public var method: String
+    /// The provider to link, as `GET /auth/login/oidc/providers` names it
+    public var provider: OidcProvider
+
+    public init(method: String = "oidc", provider: OidcProvider) {
+        self.method = method
+        self.provider = provider
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case method = "method"
+        case provider = "provider"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.method = try container.decode(String.self, forKey: .method)
+        guard self.method == "oidc" else {
+            throw DecodingError.dataCorruptedError(forKey: .method, in: container, debugDescription: "Expected \"oidc\"")
+        }
+        self.provider = try container.decode(OidcProvider.self, forKey: .provider)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.method, forKey: .method)
+        try container.encode(self.provider, forKey: .provider)
+    }
+}
+
 public struct PhoneFactorRegistrationResponse: Codable, Equatable, Sendable {
     /// The method of the factor
     public var method: String
@@ -411,6 +444,44 @@ public struct FidoFactorAttestation: Codable, Equatable, Sendable {
         try container.encode(self.pubKeyCredParams, forKey: .pubKeyCredParams)
         try container.encodeIfPresent(self.timeout, forKey: .timeout)
         try container.encode(self.attestation, forKey: .attestation)
+    }
+}
+
+public struct OidcFactorRegistrationResponse: Codable, Equatable, Sendable {
+    /// The method of the factor
+    public var method: String
+    /// Where to send the browser. The provider sends it back to Security, with `?linked=<provider>` on success
+    public var authorizeUrl: String
+    /// When the link attempt expires if the provider has not answered
+    public var expiresAt: Date
+
+    public init(method: String = "oidc", authorizeUrl: String, expiresAt: Date) {
+        self.method = method
+        self.authorizeUrl = authorizeUrl
+        self.expiresAt = expiresAt
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case method = "method"
+        case authorizeUrl = "authorizeUrl"
+        case expiresAt = "expiresAt"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.method = try container.decode(String.self, forKey: .method)
+        guard self.method == "oidc" else {
+            throw DecodingError.dataCorruptedError(forKey: .method, in: container, debugDescription: "Expected \"oidc\"")
+        }
+        self.authorizeUrl = try container.decode(String.self, forKey: .authorizeUrl)
+        self.expiresAt = try container.decode(Date.self, forKey: .expiresAt)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.method, forKey: .method)
+        try container.encode(self.authorizeUrl, forKey: .authorizeUrl)
+        try container.encode(self.expiresAt, forKey: .expiresAt)
     }
 }
 
@@ -965,6 +1036,7 @@ public indirect enum AuthenticationFactorRegistration: Codable, Equatable, Senda
     case emailFactorRegistration(EmailFactorRegistration)
     case authenticatorFactorRegistration(AuthenticatorFactorRegistration)
     case fidoFactorRegistration(FidoFactorRegistration)
+    case oidcFactorRegistration(OidcFactorRegistration)
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: DynamicCodingKey.self)
@@ -980,6 +1052,8 @@ public indirect enum AuthenticationFactorRegistration: Codable, Equatable, Senda
             self = .authenticatorFactorRegistration(try AuthenticatorFactorRegistration(from: decoder))
         case .string("fido"):
             self = .fidoFactorRegistration(try FidoFactorRegistration(from: decoder))
+        case .string("oidc"):
+            self = .oidcFactorRegistration(try OidcFactorRegistration(from: decoder))
         default:
             throw DecodingError.dataCorruptedError(forKey: DynamicCodingKey(stringValue: "method"), in: container, debugDescription: "Unknown AuthenticationFactorRegistration method: \(tag)")
         }
@@ -996,6 +1070,8 @@ public indirect enum AuthenticationFactorRegistration: Codable, Equatable, Senda
         case .authenticatorFactorRegistration(let value):
             try value.encode(to: encoder)
         case .fidoFactorRegistration(let value):
+            try value.encode(to: encoder)
+        case .oidcFactorRegistration(let value):
             try value.encode(to: encoder)
         }
     }
@@ -1115,6 +1191,7 @@ public indirect enum AuthenticationFactorRegistrationResponse: Codable, Equatabl
     case emailFactorRegistrationResponse(EmailFactorRegistrationResponse)
     case authenticatorFactorRegistrationResponse(AuthenticatorFactorRegistrationResponse)
     case fidoFactorRegistrationResponse(FidoFactorRegistrationResponse)
+    case oidcFactorRegistrationResponse(OidcFactorRegistrationResponse)
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: DynamicCodingKey.self)
@@ -1130,6 +1207,8 @@ public indirect enum AuthenticationFactorRegistrationResponse: Codable, Equatabl
             self = .authenticatorFactorRegistrationResponse(try AuthenticatorFactorRegistrationResponse(from: decoder))
         case .string("fido"):
             self = .fidoFactorRegistrationResponse(try FidoFactorRegistrationResponse(from: decoder))
+        case .string("oidc"):
+            self = .oidcFactorRegistrationResponse(try OidcFactorRegistrationResponse(from: decoder))
         default:
             throw DecodingError.dataCorruptedError(forKey: DynamicCodingKey(stringValue: "method"), in: container, debugDescription: "Unknown AuthenticationFactorRegistrationResponse method: \(tag)")
         }
@@ -1146,6 +1225,8 @@ public indirect enum AuthenticationFactorRegistrationResponse: Codable, Equatabl
         case .authenticatorFactorRegistrationResponse(let value):
             try value.encode(to: encoder)
         case .fidoFactorRegistrationResponse(let value):
+            try value.encode(to: encoder)
+        case .oidcFactorRegistrationResponse(let value):
             try value.encode(to: encoder)
         }
     }

@@ -93,10 +93,11 @@ export const SEED_PERSONA_STORIES: Readonly<Record<string, readonly PersonaStory
         // asks, because a story is the one place a model will otherwise slip into the past. None of
         // them says the sky is doing anything now ("the sun rises", "night falls"), which is what
         // `namesWrongSky` refuses a present-tense script for. All three stay inside his fence, and are
-        // worth checking against `persona.defaults.ts` before editing: nobody hurt, nobody nameable.
+        // worth checking against `persona.defaults.ts` before editing: nobody hurt, nobody nameable. Each
+        // is about ONE theory, because the sheet asks for one per break and a story carries its own.
         {
             title: 'The footprint',
-            story: "I pull into the lay-by on the hill road, just to stretch my legs, and there it is in the mud. A footprint. Bare. Size nineteen if it is anything! I put my own boot down beside it and my boot looks like a child's. And the smell, my friends. Wet dog and old pennies. So I come back the next day with a tape measure and a camera, and the mud has been raked. Raked! Who rakes a lay-by? Bigfoot does not rake. Bigfoot has never held a rake in his life. Somebody else is raking, and the men in black own a great many rakes.",
+            story: "I pull into the lay-by on the hill road, just to stretch my legs, and there it is in the mud. A footprint. Bare. Size nineteen if it is anything! I put my own boot down beside it and my boot looks like a child's. And the smell, my friends. Wet dog and old pennies. So I come back the next day with a tape measure and a camera, and the mud has been raked. Raked! Who rakes a lay-by? Bigfoot does not rake. Bigfoot has never held a rake in his life. Somebody else is raking, my friends, and they are very, very good at it.",
         },
         {
             title: 'The spirit level',

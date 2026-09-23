@@ -5,6 +5,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    callSubjectOf,
     callerCount,
     callerMember,
     coerceCast,
@@ -13,6 +14,7 @@ import {
     MAX_CALLERS,
     MIN_TURNS_FOR_A_CALLER,
     speakerOrder,
+    type CastMember,
     type ProductionCast,
 } from '../../../src/modules/productions/production.cast.js';
 import { planProduction, turnsFor } from '../../../src/modules/productions/production.plan.js';
@@ -207,5 +209,41 @@ describe('deciding a cast from a length', () => {
         // Kept as the record of what went wrong rather than as a rule: this is the number the code
         // used to hand the caster.
         expect(planProduction(3 * 60_000).beats.length).toBeLessThan(MIN_TURNS_FOR_A_CALLER);
+    });
+});
+
+// The conspiracy host's first live call had no brief, so its outline invented one (a community
+// garden) while the cast carried a preoccupation for both people the whole time. A caller rings a
+// phone-in about their own thing, and that is what the programme is about when nobody said.
+describe('what a programme is about when nobody said', () => {
+    const host: CastMember = { role: 'host', name: 'Todd', preoccupation: 'what really came down at Roswell' };
+    const lonnie: CastMember = { role: 'caller', name: 'Lonnie', preoccupation: 'the load he hauled once that nobody would name' };
+
+    it('is why the caller rang', () => {
+        expect(callSubjectOf(undefined, [host, lonnie])).toEqual({ caller: 'Lonnie', about: 'the load he hauled once that nobody would name' });
+    });
+
+    // A brief is somebody saying what they want, and it always wins.
+    it('is whatever was asked for, when anything was', () => {
+        expect(callSubjectOf('the time I saw a light over the lake', [host, lonnie])).toBeUndefined();
+    });
+
+    it('treats a blank brief as nothing asked for', () => {
+        expect(callSubjectOf('   ', [host, lonnie])?.caller).toBe('Lonnie');
+    });
+
+    // The host's preoccupation is not the subject: a phone-in is the caller's call.
+    it('is nothing for a cast with no caller', () => {
+        expect(callSubjectOf(undefined, [host])).toBeUndefined();
+    });
+
+    it('passes over a caller with nothing on their mind for the next one who has', () => {
+        const quiet: CastMember = { role: 'caller', name: 'Dale' };
+
+        expect(callSubjectOf(undefined, [host, quiet, lonnie])?.caller).toBe('Lonnie');
+    });
+
+    it('calls a caller with no name the caller', () => {
+        expect(callSubjectOf(undefined, [host, { role: 'caller', preoccupation: 'the clicking on his line' }])?.caller).toBe('the caller');
     });
 });

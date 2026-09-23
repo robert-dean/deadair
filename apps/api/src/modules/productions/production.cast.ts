@@ -70,6 +70,37 @@ export interface CastMember {
 /** A cast, in the order it was assembled: the presenter first, then whoever rang in. */
 export type ProductionCast = readonly CastMember[];
 
+/** Why a caller rang, for a programme nobody said anything about. See {@link callSubjectOf}. */
+export interface CallSubject {
+    /** What the caller is called on air, or "the caller" for one with no name. */
+    caller: string;
+    /** Their preoccupation for this programme, which is what they rang about. */
+    about: string;
+}
+
+/**
+ * What a programme is about when nobody said: why its first caller rang.
+ *
+ * A call-in taken by a broadcast's standing rule carries that broadcast's brief, and most broadcasts
+ * have none, because a broadcast's brief is what it PLAYS. With nothing to plan around, the outline
+ * invented a subject and every turn obeyed it: the conspiracy host's first live call was a wholesome
+ * chat about a community garden, while the cast carried his preoccupation (Roswell) and the caller's
+ * (a load nobody would name) the whole time. A preoccupation is offered to a turn as a lean, which
+ * no turn can hold against an outline's throughline.
+ *
+ * So the caller's preoccupation becomes the subject: somebody rings a phone-in about their own
+ * thing, and the host takes it from there. A brief always wins, because it is somebody saying what
+ * they want. Absent for a cast with no caller, or whose callers have nothing on their minds.
+ */
+export function callSubjectOf(brief: string | undefined, cast: ProductionCast): CallSubject | undefined {
+    if (brief !== undefined && brief.trim().length > 0) return undefined;
+
+    const caller = cast.find(member => member.role === 'caller' && (member.preoccupation?.trim().length ?? 0) > 0);
+    if (caller?.preoccupation === undefined) return undefined;
+
+    return { caller: caller.name?.trim() || 'the caller', about: caller.preoccupation.trim() };
+}
+
 /** Whether this production has anybody on the phone, which is what makes it a dialogue. */
 export const isDialogue = (cast: ProductionCast | undefined): boolean => (cast ?? []).some(member => member.role === 'caller');
 

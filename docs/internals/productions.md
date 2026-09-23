@@ -53,6 +53,15 @@ TABLE READ in a fixed order: one unsettled call-in for this broadcast means one 
 clock does not start until it AIRS, so checking the spacing first would queue a switchboard. Nine things are
 load-bearing, in two halves: how long a turn is and who takes it, then what a caller may say.
 
+**A call nobody briefed is about why its caller rang** (`callSubjectOf` in `production.cast.ts`). The
+standing rule hands a call its broadcast's brief, and most broadcasts have none, because a broadcast's
+brief is what it PLAYS. With nothing to plan around, the outline invented a subject and every turn
+obeyed it: the conspiracy host's first live call was a chat about a community garden while the cast
+carried his preoccupation and the caller's the whole time, because a preoccupation reaches a turn as a
+lean and no turn can hold a lean against an outline's throughline. So with no brief, the first caller's
+preoccupation is the subject, told to the outline and to every turn in one shared sentence. A brief
+always wins.
+
 ## How long a turn is, and who takes it
 
 **Who says a turn is arithmetic**: `OutlineBeat.lead` is deleted and `BeatPlan.speaker` replaced it, on

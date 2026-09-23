@@ -36,7 +36,7 @@ import type { Persona } from '#modules/personas/persona.js';
 import { latitudeOf, personaLines } from '#modules/personas/persona.sheet.js';
 import type { PersonaNotesForPrompt } from '#modules/personas/persona.note.js';
 import type { PersonaStoryForPrompt } from '#modules/personas/persona.story.js';
-import type { CastMember } from './production.cast.js';
+import type { CallSubject, CastMember } from './production.cast.js';
 import type { OutlineBeat, ProductionOutline } from './production.js';
 
 /** How many words of the previous beat are handed over as the run-in. */
@@ -48,6 +48,8 @@ export interface OutlineRequest {
     title: string;
     /** What the operator asked for, in their own words. */
     brief?: string;
+    /** Why the caller rang, for a programme with no brief. See `callSubjectOf`. */
+    subject?: CallSubject;
     /** How many beats the arithmetic decided on. The model fills them; it does not choose how many. */
     beats: number;
     /** About how many words each beat gets, for the model's sense of pace. */
@@ -88,6 +90,8 @@ export interface BeatRequest {
     kind: string;
     title: string;
     brief?: string;
+    /** Why the caller rang, for a programme with no brief. Every turn is told, as every turn is told the brief. */
+    subject?: CallSubject;
     /** Where this beat comes, from 0. */
     ordinal: number;
     /** About how many spoken words it should be. */
@@ -286,6 +290,9 @@ export function outlinePrompt(request: OutlineRequest): LlmMessage[] {
     const user = [
         `The programme is called "${request.title}".`,
         ...(request.brief === undefined ? [] : ['', `What was asked for: ${request.brief}`]),
+        ...(request.brief !== undefined || request.subject === undefined
+            ? []
+            : ['', `Nobody asked for anything in particular. ${subjectLine(request.subject)} Plan every beat around that.`]),
         ...(request.station === undefined ? [] : ['', `It goes out on ${request.station}.`]),
         ...(request.dayPart === undefined ? [] : ['', `It goes out ${request.dayPart}, so do not plan it around any other part of the day.`]),
         ...speakerLines(request.speakers),
@@ -419,6 +426,7 @@ export function beatPrompt(request: BeatRequest): LlmMessage[] {
         );
     }
     if (request.brief !== undefined) parts.push(`What was asked for: ${request.brief}`);
+    if (request.brief === undefined && request.subject !== undefined) parts.push(subjectLine(request.subject));
     if (request.outline?.throughline !== undefined) parts.push(`What it is really about: ${request.outline.throughline}`);
 
     // The map: every beat as a title, with this one marked. Titles only — a beat that could read the
@@ -759,4 +767,9 @@ export function beatBrief(beat: OutlineBeat): string[] {
     // is planting something.
     if (beat.setup !== undefined) lines.push(`Plant this here for a later beat to pay off, without underlining it: ${beat.setup}`);
     return lines;
+}
+
+/** Why the caller rang, as one sentence both prompts share, so the outline and the turns cannot describe it differently. */
+function subjectLine(subject: CallSubject): string {
+    return `The programme is about why ${subject.caller} rang: ${subject.about}.`;
 }

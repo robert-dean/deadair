@@ -28,7 +28,7 @@ import { speakableScript } from '#modules/render/speakable.script.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { checkBeat, correctionNote } from './production.checks.js';
-import { isDialogue, speakerOrder, turnWeights, type CastMember, type ProductionCast } from './production.cast.js';
+import { callSubjectOf, isDialogue, speakerOrder, turnWeights, type CastMember, type ProductionCast } from './production.cast.js';
 import { ProductionCaster } from './production.caster.js';
 import { cuesFor } from './production.cues.js';
 import { planProduction, turnsFor } from './production.plan.js';
@@ -253,6 +253,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
         if (claimed === undefined) return false;
 
         const { plan, casting } = await this.shape(claimed);
+        const subject = callSubjectOf(claimed.brief, casting);
 
         const ask = async () =>
             await this.llm.converse(
@@ -261,6 +262,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                         kind: claimed.kind,
                         title: claimed.title,
                         ...(claimed.brief === undefined ? {} : { brief: claimed.brief }),
+                        ...(subject === undefined ? {} : { subject }),
                         beats: plan.beats.length,
                         wordsPerBeat: plan.beats[0]?.words ?? 0,
                         // No persona: the outline decides what the programme is ABOUT, and the beats
@@ -344,6 +346,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
         // Empty for a production made before there was a cast at all, which `sheets` then answers by
         // resolving the presenter — every beat is theirs, exactly as it was.
         const casting = shaped.casting ?? [];
+        const subject = callSubjectOf(claimed.brief, casting);
         // One read per character rather than one per beat. A production is up to twenty-four beats
         // and the sheet does not change while it is being written.
         const sheets = await this.sheets(claimed, casting);
@@ -397,6 +400,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                 kind: claimed.kind,
                 title: claimed.title,
                 ...(claimed.brief === undefined ? {} : { brief: claimed.brief }),
+                ...(subject === undefined ? {} : { subject }),
                 ordinal: beat.ordinal,
                 words: beat.words,
                 ...(claimed.outline === undefined ? {} : { outline: claimed.outline }),
@@ -531,6 +535,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
         const beats = await this.segments.beatsOf(claimed.id);
         const plan = claimed.plan ?? planProduction(claimed.targetMs);
         const casting = claimed.casting ?? [];
+        const subject = callSubjectOf(claimed.brief, casting);
         const sheets = await this.sheets(claimed, casting);
         const engine = await this.performable();
         const station = this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title);
@@ -575,6 +580,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                         kind: claimed.kind,
                         title: claimed.title,
                         ...(claimed.brief === undefined ? {} : { brief: claimed.brief }),
+                        ...(subject === undefined ? {} : { subject }),
                         ordinal: beat.productionOrdinal ?? index,
                         words: plan.beats[index]?.words ?? 200,
                         ...(claimed.outline === undefined ? {} : { outline: claimed.outline }),

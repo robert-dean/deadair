@@ -344,6 +344,25 @@ export function parseRows(raw: unknown): Record<string, string>[] {
 }
 
 /**
+ * A row a `list` field offers to start from, instead of an empty one.
+ *
+ * For a list whose rows usually describe one of a few well-known things: an identity provider that
+ * is Google or Keycloak, a model endpoint that is one vendor's. Adding a row from one fills the
+ * cells it names and leaves the rest empty, and what it filled is ordinary text the operator edits
+ * before saving. It is a starting point rather than a template the row stays tied to, so nothing
+ * about a preset is stored and a row does not know which one it came from.
+ *
+ * A preset names cells by column key. A key the field has no column for is ignored, and so is a
+ * `secret` column's, because a secret is never a thing a manifest should hold.
+ */
+export interface ConfigFieldPreset {
+    /** What the operator picks it by, e.g. "Google". */
+    label: string;
+    /** Cell values by column key. Omitted cells start empty. */
+    cells: Record<string, string>;
+}
+
+/**
  * A declarative description of one row in a plugin's settings form. The host
  * renders these; plugins never ship UI.
  */
@@ -435,6 +454,15 @@ export interface ConfigField {
      * A `list` with none is a field with nothing to fill in, so declare at least one.
      */
     columns?: ConfigFieldColumn[];
+
+    /**
+     * Rows a `list` offers to start from, in the order they are offered. Ignored on every other
+     * type. See {@link ConfigFieldPreset}.
+     *
+     * With any declared, the list's Add button asks which one, and an empty row is always among the
+     * answers, so a preset never stands between an operator and a row that is none of them.
+     */
+    presets?: ConfigFieldPreset[];
 
     /**
      * Key of another field in the same form. This field is only shown when
@@ -543,6 +571,11 @@ export const configFieldColumnSchema = z.object({
     dependsOnValues: z.array(z.string().min(1)).optional(),
 });
 
+export const configFieldPresetSchema = z.object({
+    label: z.string().min(1),
+    cells: z.record(z.string(), z.string()),
+});
+
 export const configFieldSchema = z.object({
     key: z.string().min(1).refine(noSeparator, separatorMessage),
     label: z.string().min(1),
@@ -559,6 +592,7 @@ export const configFieldSchema = z.object({
     options: z.array(configFieldOptionSchema).optional(),
     optionsFrom: configFieldOptionSourceSchema.optional(),
     columns: z.array(configFieldColumnSchema).optional(),
+    presets: z.array(configFieldPresetSchema).optional(),
     dependsOn: z.string().optional(),
     rangeWith: z.string().optional(),
 });

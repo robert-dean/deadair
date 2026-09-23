@@ -71,13 +71,15 @@ public struct StationSettingDescriptor: Codable, Equatable, Sendable {
     public var optionsFrom: ConfigFieldOptionSource?
     /// `list` only, and ignored elsewhere
     public var columns: [ConfigFieldColumn]?
+    /// `list` only: rows the Add button offers to start from, beside an empty one
+    public var presets: [ConfigFieldPreset]?
     /// Key of the field this one is only relevant to
     public var dependsOn: String?
     /// Key of the `number` field that is the upper end of the range this one opens, declared on the lower end only. Still two settings, each validated by name; the console draws them as one control whose handles cannot cross
     public var rangeWith: String?
     public var group: SettingGroup
 
-    public init(key: String, label: String, type: ConfigFieldType, required: Bool? = nil, `default`: ConfigFieldDescriptorDefault? = nil, unit: ConfigFieldUnit? = nil, control: ConfigFieldControl? = nil, step: Double? = nil, min: Double? = nil, max: Double? = nil, placeholder: String? = nil, help: String? = nil, options: [ConfigFieldOption]? = nil, optionsFrom: ConfigFieldOptionSource? = nil, columns: [ConfigFieldColumn]? = nil, dependsOn: String? = nil, rangeWith: String? = nil, group: SettingGroup) {
+    public init(key: String, label: String, type: ConfigFieldType, required: Bool? = nil, `default`: ConfigFieldDescriptorDefault? = nil, unit: ConfigFieldUnit? = nil, control: ConfigFieldControl? = nil, step: Double? = nil, min: Double? = nil, max: Double? = nil, placeholder: String? = nil, help: String? = nil, options: [ConfigFieldOption]? = nil, optionsFrom: ConfigFieldOptionSource? = nil, columns: [ConfigFieldColumn]? = nil, presets: [ConfigFieldPreset]? = nil, dependsOn: String? = nil, rangeWith: String? = nil, group: SettingGroup) {
         self.key = key
         self.label = label
         self.type = type
@@ -93,6 +95,7 @@ public struct StationSettingDescriptor: Codable, Equatable, Sendable {
         self.options = options
         self.optionsFrom = optionsFrom
         self.columns = columns
+        self.presets = presets
         self.dependsOn = dependsOn
         self.rangeWith = rangeWith
         self.group = group
@@ -114,6 +117,7 @@ public struct StationSettingDescriptor: Codable, Equatable, Sendable {
         case options = "options"
         case optionsFrom = "optionsFrom"
         case columns = "columns"
+        case presets = "presets"
         case dependsOn = "dependsOn"
         case rangeWith = "rangeWith"
         case group = "group"
@@ -136,6 +140,7 @@ public struct StationSettingDescriptor: Codable, Equatable, Sendable {
         self.options = try container.decodeIfPresent([ConfigFieldOption].self, forKey: .options)
         self.optionsFrom = try container.decodeIfPresent(ConfigFieldOptionSource.self, forKey: .optionsFrom)
         self.columns = try container.decodeIfPresent([ConfigFieldColumn].self, forKey: .columns)
+        self.presets = try container.decodeIfPresent([ConfigFieldPreset].self, forKey: .presets)
         self.dependsOn = try container.decodeIfPresent(String.self, forKey: .dependsOn)
         self.rangeWith = try container.decodeIfPresent(String.self, forKey: .rangeWith)
         self.group = try container.decode(SettingGroup.self, forKey: .group)
@@ -158,6 +163,7 @@ public struct StationSettingDescriptor: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.options, forKey: .options)
         try container.encodeIfPresent(self.optionsFrom, forKey: .optionsFrom)
         try container.encodeIfPresent(self.columns, forKey: .columns)
+        try container.encodeIfPresent(self.presets, forKey: .presets)
         try container.encodeIfPresent(self.dependsOn, forKey: .dependsOn)
         try container.encodeIfPresent(self.rangeWith, forKey: .rangeWith)
         try container.encode(self.group, forKey: .group)
@@ -171,7 +177,7 @@ public struct StationSettings: Codable, Equatable, Sendable {
     public var values: [String: JSONValue]
     /// One entry per `secret` setting: whether a value is currently stored. Never the value itself
     public var configured: [String: Bool]
-    /// One entry per setting whose EMPTY value is worked out rather than simply absent: the public URL from the address the station was deployed with, the advertised hostname from the public URL, the station's zone from this machine's. What the station WOULD use with the box left empty, which is not the same as what is in force — the stored value is deliberately skipped, so a filled-in field still reports what clearing it would fall back to. A key is absent where its derivation lands on nothing. Values only: where each one comes from is in the field's own help text, which has said so since before this map existed
+    /// One entry per setting whose EMPTY value is worked out rather than simply absent: the public URL from the address the station was deployed with, the advertised hostname from the public URL, the station's zone from this machine's. Also the sign-in redirect address, for the `note` that shows it, since a note holds no value of its own. What the station WOULD use with the box left empty, which is not the same as what is in force — the stored value is deliberately skipped, so a filled-in field still reports what clearing it would fall back to. A key is absent where its derivation lands on nothing. Values only: where each one comes from is in the field's own help text, which has said so since before this map existed
     public var derived: [String: String]
 
     public init(descriptors: [StationSettingDescriptor], values: [String: JSONValue], configured: [String: Bool], derived: [String: String]) {

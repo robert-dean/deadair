@@ -1,5 +1,5 @@
 import { AppConfig } from '@maroonedsoftware/appconfig';
-import { parseRows, ROW_ID_KEY, rowSecretKey, type ConfigFieldColumn } from '@deadair/plugin-sdk';
+import { parseRows, ROW_ID_KEY, rowSecretKey, type ConfigFieldColumn, type ConfigFieldPreset } from '@deadair/plugin-sdk';
 
 /**
  * The `deadair.settings` keys behind signing in through an identity provider.
@@ -14,6 +14,11 @@ export const SIGNIN_KEYS = {
     providers: 'signin.providers',
     /** Who may sign in through a provider for the FIRST time. See {@link parseAllowlist}. */
     allowlist: 'signin.allowlist',
+    /**
+     * A `note`, never stored: the address every provider is registered with. Its value reaches the
+     * console as a derived setting, from {@link oidcRedirectUri}.
+     */
+    redirectAddress: 'signin.redirectAddress',
 } as const;
 
 /** The cell keys of a provider row, shared by the registry's columns and the resolver below. */
@@ -50,6 +55,80 @@ export const SIGNIN_PROVIDER_COLUMNS: ConfigFieldColumn[] = [
     { key: SIGNIN_PROVIDER_CELLS.scopes, label: 'Scopes', type: 'string', placeholder: DEFAULT_SIGNIN_SCOPES.join(' ') },
     { key: SIGNIN_PROVIDER_CELLS.authorizeParams, label: 'Extra parameters', type: 'string', placeholder: 'prompt=select_account' },
 ];
+
+/**
+ * The providers an operator is likely to be adding, as rows to start from.
+ *
+ * Only what is the same on every station is filled in: a name, a button, and the issuer, which is
+ * fixed for Google and has a fixed SHAPE for the rest. Where it depends on the operator's own server
+ * the shape is filled in with `auth.example.com` and a placeholder segment, because an empty issuer
+ * says nothing about what goes there and the shape is exactly what somebody setting up Keycloak for
+ * the first time does not know. The client id and secret are the provider's to issue and are never
+ * here. Google's `prompt=select_account` is so a browser signed in to two Google accounts asks which
+ * rather than quietly using whichever it signed in to last.
+ */
+export const SIGNIN_PROVIDER_PRESETS: ConfigFieldPreset[] = [
+    {
+        label: 'Google',
+        cells: {
+            [SIGNIN_PROVIDER_CELLS.name]: 'google',
+            [SIGNIN_PROVIDER_CELLS.label]: 'Google',
+            [SIGNIN_PROVIDER_CELLS.issuer]: 'https://accounts.google.com',
+            [SIGNIN_PROVIDER_CELLS.authorizeParams]: 'prompt=select_account',
+        },
+    },
+    {
+        label: 'Microsoft',
+        cells: {
+            [SIGNIN_PROVIDER_CELLS.name]: 'microsoft',
+            [SIGNIN_PROVIDER_CELLS.label]: 'Microsoft',
+            [SIGNIN_PROVIDER_CELLS.issuer]: 'https://login.microsoftonline.com/your-tenant-id/v2.0',
+        },
+    },
+    {
+        label: 'Authelia',
+        cells: {
+            [SIGNIN_PROVIDER_CELLS.name]: 'authelia',
+            [SIGNIN_PROVIDER_CELLS.label]: 'Authelia',
+            [SIGNIN_PROVIDER_CELLS.issuer]: 'https://auth.example.com',
+        },
+    },
+    {
+        label: 'Authentik',
+        cells: {
+            [SIGNIN_PROVIDER_CELLS.name]: 'authentik',
+            [SIGNIN_PROVIDER_CELLS.label]: 'Authentik',
+            [SIGNIN_PROVIDER_CELLS.issuer]: 'https://auth.example.com/application/o/deadair/',
+        },
+    },
+    {
+        label: 'Keycloak',
+        cells: {
+            [SIGNIN_PROVIDER_CELLS.name]: 'keycloak',
+            [SIGNIN_PROVIDER_CELLS.label]: 'Keycloak',
+            [SIGNIN_PROVIDER_CELLS.issuer]: 'https://auth.example.com/realms/your-realm',
+        },
+    },
+];
+
+/**
+ * Where an identity provider sends the browser back to after sign-in, and so the address an
+ * operator registers with it as the redirect URI. One address for every provider: the state the
+ * station hands out with each sign-in says which provider it was.
+ *
+ * `APP_BASE_URL` is the station's ORIGIN, the address a browser reaches the console on, and every
+ * edge in front of the API (the image's nginx, both compose edges, Vite's proxy) passes it only
+ * what arrives under `/api/`, with that prefix stripped. The route is `/auth/login/oidc/callback`
+ * on the API, so on the origin it is `/api/auth/login/oidc/callback`. Built without the prefix,
+ * which it was, Google's return fell through to the console and landed on its not-found page.
+ *
+ * Here rather than in the module file so the settings read can show it to the operator without
+ * importing the module that registers everything else.
+ */
+export function oidcRedirectUri(config: AppConfig): URL {
+    const origin = String(config.get('APP_BASE_URL', '')).trim().replace(/\/+$/, '');
+    return new URL(`${origin}/api/auth/login/oidc/callback`);
+}
 
 /** One identity provider the station can send somebody to, as the sign-in flow needs it. */
 export interface SigninProvider {

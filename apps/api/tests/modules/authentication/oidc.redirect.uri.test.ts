@@ -6,7 +6,7 @@
 import { describe, expect, it } from 'vitest';
 import type { AppConfig } from '@maroonedsoftware/appconfig';
 
-import { oidcRedirectUri } from '../../../src/modules/authentication/authentication.module.js';
+import { oidcRedirectUri } from '../../../src/modules/authentication/signin.settings.js';
 import { AuthenticationRouter } from '../../../src/routes/authentication.router.js';
 
 const configWith = (appBaseUrl: string | undefined) =>

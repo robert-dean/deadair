@@ -72,6 +72,7 @@ import { DeadairOidcFactorRepository } from './repositories/oidc.factor.reposito
 import { DeadairOidcActorEmailLookup } from './oidc.actor.email.lookup.js';
 import { SettingsOidcProviderSource } from './settings.oidc.provider.source.js';
 import { seedSigninProvidersFromEnv } from './signin.seed.js';
+import { oidcRedirectUri } from './signin.settings.js';
 import { CacheProvider } from '@maroonedsoftware/cache';
 import { DeadairPhoneFactorRepository } from './repositories/phone.factor.repository.js';
 import { ActorsRepository } from './repositories/actors.repository.js';
@@ -96,22 +97,6 @@ let otpDevBypassEnabled = false;
 export function totpIssuer(config: AppConfig): string {
     const title = String(config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title)).trim();
     return title.length > 0 ? title : STREAM_DEFAULTS.title;
-}
-
-/**
- * Where an identity provider sends the browser back to after sign-in, and so the address an
- * operator registers with it as the redirect URI. One address for every provider: the state the
- * station hands out with each sign-in says which provider it was.
- *
- * `APP_BASE_URL` is the station's ORIGIN, the address a browser reaches the console on, and every
- * edge in front of the API (the image's nginx, both compose edges, Vite's proxy) passes it only
- * what arrives under `/api/`, with that prefix stripped. The route is `/auth/login/oidc/callback`
- * on the API, so on the origin it is `/api/auth/login/oidc/callback`. Built without the prefix,
- * which it was, Google's return fell through to the console and landed on its not-found page.
- */
-export function oidcRedirectUri(config: AppConfig): URL {
-    const origin = String(config.get('APP_BASE_URL', '')).trim().replace(/\/+$/, '');
-    return new URL(`${origin}/api/auth/login/oidc/callback`);
 }
 
 export const AuthenticationModule: ServerKitModule = {

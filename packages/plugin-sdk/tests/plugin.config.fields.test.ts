@@ -183,6 +183,27 @@ describe('configFieldSchema', () => {
         expect(column({ dependsOn: 'kind', dependsOnValues: [''] })).toBe(false);
     });
 
+    it("keeps a list's presets, which the loader would otherwise strip in silence", () => {
+        // `plugin.loader.ts` stores this schema's OUTPUT, and a `z.object` drops what it does not
+        // name, so a preset missing here is an Add button that offers nothing with no error anywhere.
+        const parsed = configFieldSchema.safeParse({
+            key: 'providers',
+            label: 'Providers',
+            type: 'list',
+            columns: [{ key: 'name', label: 'Name', type: 'string' }],
+            presets: [{ label: 'OpenAI', cells: { name: 'openai' } }],
+        });
+
+        expect(parsed.success).toBe(true);
+        expect(parsed.data?.presets).toEqual([{ label: 'OpenAI', cells: { name: 'openai' } }]);
+    });
+
+    it('refuses a preset with nothing to pick it by', () => {
+        expect(configFieldSchema.safeParse({ key: 'providers', label: 'Providers', type: 'list', presets: [{ label: '', cells: {} }] }).success).toBe(
+            false,
+        );
+    });
+
     it('refuses a key holding the one character a secret cell key is joined on', () => {
         // Otherwise a cell's ciphertext could be addressed two ways, and the host would have two
         // answers to "is this configured".

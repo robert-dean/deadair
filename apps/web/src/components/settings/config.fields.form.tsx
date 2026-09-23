@@ -5,9 +5,11 @@ import {
     Anchor,
     Autocomplete,
     Button,
+    Code,
     Group,
     Input,
     Loader,
+    Menu,
     MultiSelect,
     NumberInput,
     PasswordInput,
@@ -28,10 +30,11 @@ import {
     type OptionsFilter,
 } from '@mantine/core';
 import { useForm, type GetInputPropsReturnType } from '@mantine/form';
-import { IconArrowDown, IconArrowUp, IconPlus, IconTrash } from '@tabler/icons-react';
-import type { ConfigFieldColumn, ConfigFieldDescriptor, ConfigFieldOption } from '@deadair/sdk';
+import { IconArrowDown, IconArrowUp, IconChevronDown, IconPlus, IconTrash } from '@tabler/icons-react';
+import type { ConfigFieldColumn, ConfigFieldDescriptor, ConfigFieldOption, ConfigFieldPreset } from '@deadair/sdk';
 
 import { apiErrorDetails, apiErrorMessage } from '../../api/sdk.error';
+import { CopyButton } from '../shared/copy.button';
 import { ErrorAlert } from '../shared/error.alert';
 import { Eyebrow } from '../shared/eyebrow';
 import { PhoneCard } from '../shared/phone.card';
@@ -222,6 +225,22 @@ const emptyRow = (columns: readonly ConfigFieldColumn[]): FieldRow => ({
     ...(holdsRowSecrets(columns) ? { [ROW_ID_KEY]: mintRowId() } : {}),
     ...Object.fromEntries(columns.map((_, at) => [cellNameOf(at), ''])),
 });
+
+/**
+ * A new row with a preset's cells filled in and every other cell empty.
+ *
+ * Cells are matched to columns by KEY and written under the column's positional name, as every
+ * other cell is. A cell naming no column is dropped, and so is a `secret` column's, which a preset
+ * is documented never to fill: a value arriving there would be a credential out of a manifest.
+ */
+const presetRow = (columns: readonly ConfigFieldColumn[], preset: ConfigFieldPreset): FieldRow => {
+    const row = emptyRow(columns);
+    for (const [at, column] of columns.entries()) {
+        const value = preset.cells[column.key];
+        if (value !== undefined && column.type !== 'secret') row[cellNameOf(at)] = value;
+    }
+    return row;
+};
 
 /** The columns a `list` declared. A field of another type has none, and a `list` with none draws nothing to fill in. */
 const columnsOf = (field: ConfigFieldDescriptor): readonly ConfigFieldColumn[] => field.columns ?? [];
@@ -800,6 +819,20 @@ export function ConfigFieldsForm({
     function renderField(field: ConfigFieldDescriptor, index: number) {
         const name = nameOf(index);
         if (field.type === 'note') {
+            // A note with a derived value is one worth taking somewhere else, which is the only
+            // reason the server would work one out for a field that stores nothing: the sign-in
+            // redirect address, which the operator pastes into each identity provider.
+            const shown = inForce(field);
+            if (shown !== undefined) {
+                return (
+                    <Input.Wrapper key={field.key} label={field.label} description={field.help}>
+                        <Group gap="xs" wrap="nowrap" mt="xxs">
+                            <Code style={{ overflowWrap: 'anywhere', flex: 1 }}>{shown}</Code>
+                            <CopyButton value={shown} />
+                        </Group>
+                    </Input.Wrapper>
+                );
+            }
             return (
                 <Text key={field.key} size="sm" c="dimmed">
                     {field.help ?? field.label}
@@ -919,8 +952,8 @@ export function ConfigFieldsForm({
                         cellKey={path => form.key(path)}
                         optionsFor={column => columnOptionsFor(field, column)}
                         secretCell={(row, column) => secretCellState(field, row, column)}
-                        onAdd={() => {
-                            form.insertListItem(name, emptyRow(columnsOf(field)));
+                        onAdd={preset => {
+                            form.insertListItem(name, preset === undefined ? emptyRow(columnsOf(field)) : presetRow(columnsOf(field), preset));
                         }}
                         onRemove={index => {
                             form.removeListItem(name, index);
@@ -1124,7 +1157,8 @@ interface RowsFieldProps {
     optionsFor: (column: ConfigFieldColumn) => { value: string; label: string }[];
     /** What a `secret` cell has to know beyond its value, or nothing for a column that is not one. */
     secretCell: (row: FieldRow, column: ConfigFieldColumn) => RowSecretState | undefined;
-    onAdd: () => void;
+    /** Add a row: empty, or started from one of the field's presets. */
+    onAdd: (preset?: ConfigFieldPreset) => void;
     onRemove: (index: number) => void;
     /** Move one row a single place, `-1` up and `1` down. See {@link RowsField}. */
     onMove: (index: number, by: -1 | 1) => void;
@@ -1281,12 +1315,61 @@ function RowsField({
                 )}
 
                 <Group justify="flex-start">
-                    <Button variant="light" size="compact-sm" leftSection={<IconPlus size={14} />} disabled={disabled} onClick={onAdd}>
-                        Add
-                    </Button>
+                    <AddRowButton presets={field.presets ?? []} disabled={disabled} onAdd={onAdd} />
                 </Group>
             </Stack>
         </Input.Wrapper>
+    );
+}
+
+/**
+ * A list's Add button, which asks what to start from when the field declared presets.
+ *
+ * A menu rather than a row of buttons, because a preset is a way to start one row and not a set of
+ * actions of equal weight, and five buttons under a table read as five things the table does. The
+ * empty row is the menu's last item rather than a second button beside it: one Add, whatever the
+ * row is going to be.
+ */
+function AddRowButton({
+    presets,
+    disabled,
+    onAdd,
+}: {
+    presets: readonly ConfigFieldPreset[];
+    disabled: boolean;
+    onAdd: (preset?: ConfigFieldPreset) => void;
+}) {
+    if (presets.length === 0) {
+        return (
+            <Button variant="light" size="compact-sm" leftSection={<IconPlus size={14} />} disabled={disabled} onClick={() => onAdd()}>
+                Add
+            </Button>
+        );
+    }
+
+    return (
+        <Menu position="bottom-start" withinPortal>
+            <Menu.Target>
+                <Button
+                    variant="light"
+                    size="compact-sm"
+                    leftSection={<IconPlus size={14} />}
+                    rightSection={<IconChevronDown size={14} />}
+                    disabled={disabled}
+                >
+                    Add
+                </Button>
+            </Menu.Target>
+            <Menu.Dropdown>
+                {presets.map(preset => (
+                    <Menu.Item key={preset.label} onClick={() => onAdd(preset)}>
+                        {preset.label}
+                    </Menu.Item>
+                ))}
+                <Menu.Divider />
+                <Menu.Item onClick={() => onAdd()}>Something else</Menu.Item>
+            </Menu.Dropdown>
+        </Menu>
     );
 }
 

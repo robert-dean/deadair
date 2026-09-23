@@ -1,6 +1,6 @@
 ---
 title: 'ConfigFieldDescriptor'
-sidebar_position: 9
+sidebar_position: 10
 mdx:
     format: 'md'
 ---
@@ -8,7 +8,7 @@ mdx:
 > Mirrors the plugin SDK's `ConfigField`: enough for a console to render the settings form with no per-plugin code
 
 <details>
-<summary>Attributes (17)</summary>
+<summary>Attributes (18)</summary>
 
 | Attribute     | Type                          | Required | Description                                                                                                                                                                                                               |
 | ------------- | ----------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -27,6 +27,7 @@ mdx:
 | `options`     | `ConfigFieldOption[]`         | No       |                                                                                                                                                                                                                           |
 | `optionsFrom` | `ConfigFieldOptionSource`     | No       | Choices only the console can enumerate. Merged where a plugin's own suggestions are, and outranked by them                                                                                                                |
 | `columns`     | `ConfigFieldColumn[]`         | No       | `list` only, and ignored elsewhere                                                                                                                                                                                        |
+| `presets`     | `ConfigFieldPreset[]`         | No       | `list` only: rows the Add button offers to start from, beside an empty one                                                                                                                                                |
 | `dependsOn`   | `string`                      | No       | Key of the field this one is only relevant to                                                                                                                                                                             |
 | `rangeWith`   | `string`                      | No       | Key of the `number` field that is the upper end of the range this one opens, declared on the lower end only. Still two settings, each validated by name; the console draws them as one control whose handles cannot cross |
 

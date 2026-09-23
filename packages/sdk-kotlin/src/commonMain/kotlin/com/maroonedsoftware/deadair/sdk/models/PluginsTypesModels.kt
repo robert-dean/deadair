@@ -133,6 +133,15 @@ enum class ConfigFieldOptionSource {
     LLM_MODELS,
 }
 
+/** A row a `list` field offers to start from instead of an empty one. Adding a row from it fills the cells it names, by column key, and nothing records which preset a row came from */
+@Serializable
+data class ConfigFieldPreset(
+    /** What the operator picks it by */
+    val label: String,
+    /** Cell values by column key. A key with no column, or a `secret` column's, is ignored */
+    val cells: Map<String, String>,
+)
+
 /**
  * Whether a capability has ONE answer or is asked of everything in turn. `one` stores a plugin id
  * and `ordered` stores a list of them; see `plugins/plugin.providers.ts`, which both this and the
@@ -365,6 +374,8 @@ data class ConfigFieldDescriptor(
     val optionsFrom: ConfigFieldOptionSource? = null,
     /** `list` only, and ignored elsewhere */
     val columns: List<ConfigFieldColumn>? = null,
+    /** `list` only: rows the Add button offers to start from, beside an empty one */
+    val presets: List<ConfigFieldPreset>? = null,
     /** Key of the field this one is only relevant to */
     val dependsOn: String? = null,
     /** Key of the `number` field that is the upper end of the range this one opens, declared on the lower end only. Still two settings, each validated by name; the console draws them as one control whose handles cannot cross */

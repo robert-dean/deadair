@@ -101,7 +101,7 @@ import { CHARTS_KEYS } from '#modules/charts/charts.keys.js';
 import { ENRICHMENT_KEYS } from '#modules/enrichment/enrichment.keys.js';
 import { MIXER_PLUGIN_KEY } from '#modules/render/mixer.settings.js';
 import { MAIL_DEFAULTS, MAIL_KEYS, MAX_MAIL_PORT, MIN_MAIL_PORT } from '#modules/mail/mail.settings.js';
-import { SIGNIN_KEYS, SIGNIN_PROVIDER_COLUMNS } from '#modules/authentication/signin.settings.js';
+import { SIGNIN_KEYS, SIGNIN_PROVIDER_COLUMNS, SIGNIN_PROVIDER_PRESETS } from '#modules/authentication/signin.settings.js';
 import { OAUTH_DEFAULTS, OAUTH_KEYS } from '#modules/oauth/oauth.settings.js';
 import {
     PAD_DUCK_KEY,
@@ -1675,6 +1675,19 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
     // "anyone with an account there" from meaning "anyone with an account here": an account that
     // already exists signs in through a provider it is linked to, or whose verified address it
     // shares, and nobody else gets one unless this list names them.
+    // Above the list because it is the first thing a provider asks for: registering the station
+    // there comes before there is an id or a secret to copy back. A note, so it is never stored; the
+    // address itself arrives as a derived setting, worked out from `APP_BASE_URL` exactly as the
+    // sign-in flow works it out, so what the operator copies cannot disagree with what is sent.
+    {
+        group: 'signin',
+        key: SIGNIN_KEYS.redirectAddress,
+        label: 'Redirect address',
+        type: 'note',
+        help:
+            'Register the station with each provider as a web application, and give it this as the redirect address: your ' +
+            "station's public address followed by /api/auth/login/oidc/callback.",
+    },
     {
         group: 'signin',
         key: SIGNIN_KEYS.providers,
@@ -1682,12 +1695,13 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         type: 'list',
         placeholder: 'No providers, so the sign-in page offers a password and an emailed link only.',
         columns: SIGNIN_PROVIDER_COLUMNS,
+        presets: SIGNIN_PROVIDER_PRESETS,
         help:
-            'Each row becomes a "Continue with" button on the sign-in page. Register the station with the provider as a web application ' +
-            "whose redirect address is your station's public address followed by /api/auth/login/oidc/callback, then copy the issuer, " +
-            'client id and client secret it gives you into the row. The name goes into links and is recorded against every account ' +
-            'signed in through it, so changing it later unlinks those accounts. Leave the secret empty only for a provider set up as a ' +
-            'public client. Scopes default to openid email profile.',
+            'Each row becomes a "Continue with" button on the sign-in page. Add one for your provider to start from its name, button ' +
+            'and issuer, change auth.example.com to your own server where it appears, then copy the client id and client secret the ' +
+            'provider gave you into the row. The name goes into links and is recorded against every account signed in through it, so ' +
+            'changing it later unlinks those accounts. Leave the secret empty only for a provider set up as a public client. Scopes ' +
+            'default to openid email profile.',
     },
     {
         group: 'signin',

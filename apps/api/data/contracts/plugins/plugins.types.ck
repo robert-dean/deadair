@@ -48,6 +48,12 @@ contract ConfigFieldColumn: {
     dependsOnValues?: array(string(min=1, max=200)) # The values of the `dependsOn` cell this one applies to. Omitted means any non-empty value; ignored without a target
 }
 
+# A row a `list` field offers to start from instead of an empty one. Adding a row from it fills the cells it names, by column key, and nothing records which preset a row came from
+contract ConfigFieldPreset: {
+    label: string(min=1, max=200) # What the operator picks it by
+    cells: record(string, string(max=2000)) # Cell values by column key. A key with no column, or a `secret` column's, is ignored
+}
+
 # Mirrors the plugin SDK's `ConfigField`: enough for a console to render the settings form with no per-plugin code
 contract ConfigFieldDescriptor: {
     key: string(min=1, max=200)
@@ -65,6 +71,7 @@ contract ConfigFieldDescriptor: {
     options?: array(ConfigFieldOption)
     optionsFrom?: ConfigFieldOptionSource # Choices only the console can enumerate. Merged where a plugin's own suggestions are, and outranked by them
     columns?: array(ConfigFieldColumn) # `list` only, and ignored elsewhere
+    presets?: array(ConfigFieldPreset) # `list` only: rows the Add button offers to start from, beside an empty one
     dependsOn?: string(min=1, max=200) # Key of the field this one is only relevant to
     rangeWith?: string(min=1, max=200) # Key of the `number` field that is the upper end of the range this one opens, declared on the lower end only. Still two settings, each validated by name; the console draws them as one control whose handles cannot cross
 }

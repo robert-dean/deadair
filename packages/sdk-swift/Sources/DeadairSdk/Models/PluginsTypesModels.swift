@@ -92,6 +92,36 @@ public enum ConfigFieldOptionSource: String, Codable, CaseIterable, Sendable {
     case llmModels = "llm.models"
 }
 
+/// A row a `list` field offers to start from instead of an empty one. Adding a row from it fills the cells it names, by column key, and nothing records which preset a row came from
+public struct ConfigFieldPreset: Codable, Equatable, Sendable {
+    /// What the operator picks it by
+    public var label: String
+    /// Cell values by column key. A key with no column, or a `secret` column's, is ignored
+    public var cells: [String: String]
+
+    public init(label: String, cells: [String: String]) {
+        self.label = label
+        self.cells = cells
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case label = "label"
+        case cells = "cells"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.label = try container.decode(String.self, forKey: .label)
+        self.cells = try container.decode([String: String].self, forKey: .cells)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.label, forKey: .label)
+        try container.encode(self.cells, forKey: .cells)
+    }
+}
+
 /// Whether a capability has ONE answer or is asked of everything in turn. `one` stores a plugin id
 /// and `ordered` stores a list of them; see `plugins/plugin.providers.ts`, which both this and the
 /// station read the pairing from
@@ -705,12 +735,14 @@ public struct ConfigFieldDescriptor: Codable, Equatable, Sendable {
     public var optionsFrom: ConfigFieldOptionSource?
     /// `list` only, and ignored elsewhere
     public var columns: [ConfigFieldColumn]?
+    /// `list` only: rows the Add button offers to start from, beside an empty one
+    public var presets: [ConfigFieldPreset]?
     /// Key of the field this one is only relevant to
     public var dependsOn: String?
     /// Key of the `number` field that is the upper end of the range this one opens, declared on the lower end only. Still two settings, each validated by name; the console draws them as one control whose handles cannot cross
     public var rangeWith: String?
 
-    public init(key: String, label: String, type: ConfigFieldType, required: Bool? = nil, `default`: ConfigFieldDescriptorDefault? = nil, unit: ConfigFieldUnit? = nil, control: ConfigFieldControl? = nil, step: Double? = nil, min: Double? = nil, max: Double? = nil, placeholder: String? = nil, help: String? = nil, options: [ConfigFieldOption]? = nil, optionsFrom: ConfigFieldOptionSource? = nil, columns: [ConfigFieldColumn]? = nil, dependsOn: String? = nil, rangeWith: String? = nil) {
+    public init(key: String, label: String, type: ConfigFieldType, required: Bool? = nil, `default`: ConfigFieldDescriptorDefault? = nil, unit: ConfigFieldUnit? = nil, control: ConfigFieldControl? = nil, step: Double? = nil, min: Double? = nil, max: Double? = nil, placeholder: String? = nil, help: String? = nil, options: [ConfigFieldOption]? = nil, optionsFrom: ConfigFieldOptionSource? = nil, columns: [ConfigFieldColumn]? = nil, presets: [ConfigFieldPreset]? = nil, dependsOn: String? = nil, rangeWith: String? = nil) {
         self.key = key
         self.label = label
         self.type = type
@@ -726,6 +758,7 @@ public struct ConfigFieldDescriptor: Codable, Equatable, Sendable {
         self.options = options
         self.optionsFrom = optionsFrom
         self.columns = columns
+        self.presets = presets
         self.dependsOn = dependsOn
         self.rangeWith = rangeWith
     }
@@ -746,6 +779,7 @@ public struct ConfigFieldDescriptor: Codable, Equatable, Sendable {
         case options = "options"
         case optionsFrom = "optionsFrom"
         case columns = "columns"
+        case presets = "presets"
         case dependsOn = "dependsOn"
         case rangeWith = "rangeWith"
     }
@@ -767,6 +801,7 @@ public struct ConfigFieldDescriptor: Codable, Equatable, Sendable {
         self.options = try container.decodeIfPresent([ConfigFieldOption].self, forKey: .options)
         self.optionsFrom = try container.decodeIfPresent(ConfigFieldOptionSource.self, forKey: .optionsFrom)
         self.columns = try container.decodeIfPresent([ConfigFieldColumn].self, forKey: .columns)
+        self.presets = try container.decodeIfPresent([ConfigFieldPreset].self, forKey: .presets)
         self.dependsOn = try container.decodeIfPresent(String.self, forKey: .dependsOn)
         self.rangeWith = try container.decodeIfPresent(String.self, forKey: .rangeWith)
     }
@@ -788,6 +823,7 @@ public struct ConfigFieldDescriptor: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.options, forKey: .options)
         try container.encodeIfPresent(self.optionsFrom, forKey: .optionsFrom)
         try container.encodeIfPresent(self.columns, forKey: .columns)
+        try container.encodeIfPresent(self.presets, forKey: .presets)
         try container.encodeIfPresent(self.dependsOn, forKey: .dependsOn)
         try container.encodeIfPresent(self.rangeWith, forKey: .rangeWith)
     }

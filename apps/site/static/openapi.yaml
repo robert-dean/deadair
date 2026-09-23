@@ -9388,6 +9388,22 @@ components:
                     description: 'The values of the `dependsOn` cell this one applies to. Omitted means any non-empty value; ignored without a target'
             required: [key, label, type]
             description: "One column of a `list` field. Every ordinary cell is stored as a string in the row, so this describes the\ncontrol rather than the value; a `secret` cell is encrypted on its own and is never in the row at all"
+        ConfigFieldPreset:
+            type: object
+            properties:
+                label:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                    description: 'What the operator picks it by'
+                cells:
+                    type: object
+                    additionalProperties:
+                        type: string
+                        maxLength: 2000
+                    description: "Cell values by column key. A key with no column, or a `secret` column's, is ignored"
+            required: [label, cells]
+            description: 'A row a `list` field offers to start from instead of an empty one. Adding a row from it fills the cells it names, by column key, and nothing records which preset a row came from'
         ConfigFieldDescriptor:
             type: object
             properties:
@@ -9441,6 +9457,11 @@ components:
                     items:
                         '$ref': '#/components/schemas/ConfigFieldColumn'
                     description: '`list` only, and ignored elsewhere'
+                presets:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/ConfigFieldPreset'
+                    description: '`list` only: rows the Add button offers to start from, beside an empty one'
                 dependsOn:
                     type: string
                     minLength: 1
@@ -11085,7 +11106,7 @@ components:
                     type: object
                     additionalProperties:
                         type: string
-                    description: "One entry per setting whose EMPTY value is worked out rather than simply absent: the public URL from the address the station was deployed with, the advertised hostname from the public URL, the station's zone from this machine's. What the station WOULD use with the box left empty, which is not the same as what is in force — the stored value is deliberately skipped, so a filled-in field still reports what clearing it would fall back to. A key is absent where its derivation lands on nothing. Values only: where each one comes from is in the field's own help text, which has said so since before this map existed"
+                    description: "One entry per setting whose EMPTY value is worked out rather than simply absent: the public URL from the address the station was deployed with, the advertised hostname from the public URL, the station's zone from this machine's. Also the sign-in redirect address, for the `note` that shows it, since a note holds no value of its own. What the station WOULD use with the box left empty, which is not the same as what is in force — the stored value is deliberately skipped, so a filled-in field still reports what clearing it would fall back to. A key is absent where its derivation lands on nothing. Values only: where each one comes from is in the field's own help text, which has said so since before this map existed"
             required: [descriptors, values, configured, derived]
             description: 'Every station setting, with what it is currently worth'
         StationSettingsInput:

@@ -119,3 +119,44 @@ describe('a setting whose empty value is worked out', () => {
         expect(screen.queryByText(/while this is empty/)).not.toBeInTheDocument();
     });
 });
+
+describe('a note that shows a value the station worked out', () => {
+    const REDIRECT: ConfigFieldDescriptor = {
+        key: 'signin.redirectAddress',
+        label: 'Redirect address',
+        type: 'note',
+        help: 'Give each provider this as the redirect address.',
+    };
+
+    function drawNote(derived?: Record<string, string>) {
+        render(
+            <ConfigFieldsForm
+                fields={[REDIRECT]}
+                stored={{}}
+                secretsConfigured={{}}
+                derived={derived}
+                onSubmit={vi.fn(async () => {})}
+                pending={false}
+                succeeded={false}
+                submitLabel="Save"
+                failureTitle="It could not be saved"
+                failureMessage="Nothing was written."
+            />,
+        );
+    }
+
+    it('shows the value with a way to copy it, since it is only there to be pasted somewhere else', () => {
+        drawNote({ 'signin.redirectAddress': 'https://radio.test/api/auth/login/oidc/callback' });
+
+        expect(screen.getByText('https://radio.test/api/auth/login/oidc/callback')).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Copy' })).toBeInTheDocument();
+        expect(screen.getByText('Give each provider this as the redirect address.')).toBeInTheDocument();
+    });
+
+    it('is its sentence alone when the station could not work the value out', () => {
+        drawNote({});
+
+        expect(screen.getByText('Give each provider this as the redirect address.')).toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Copy' })).not.toBeInTheDocument();
+    });
+});

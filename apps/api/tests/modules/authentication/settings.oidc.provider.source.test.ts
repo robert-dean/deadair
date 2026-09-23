@@ -8,7 +8,7 @@ import { EncryptionProvider } from '@maroonedsoftware/encryption';
 import type { Logger } from '@maroonedsoftware/logger';
 import { ROW_ID_KEY } from '@deadair/plugin-sdk';
 
-import { oidcRedirectUri } from '../../../src/modules/authentication/authentication.module.js';
+import { oidcRedirectUri } from '../../../src/modules/authentication/signin.settings.js';
 import { SettingsOidcProviderSource } from '../../../src/modules/authentication/settings.oidc.provider.source.js';
 import { SIGNIN_KEYS } from '../../../src/modules/authentication/signin.settings.js';
 import { settingsConfig } from '../../utils/settings.config.js';

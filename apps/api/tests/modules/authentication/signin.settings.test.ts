@@ -14,6 +14,7 @@ import {
     parseScopes,
     resolveSigninProviders,
     SIGNIN_KEYS,
+    SIGNIN_PROVIDER_PRESETS,
 } from '../../../src/modules/authentication/signin.settings.js';
 import { settingsConfig } from '../../utils/settings.config.js';
 
@@ -123,5 +124,18 @@ describe('the allowlist', () => {
     it('admits nobody without an address, and nobody at all when empty', () => {
         expect(allowlistAdmits(list, undefined)).toBe(false);
         expect(allowlistAdmits(parseAllowlist(''), 'alice@example.com')).toBe(false);
+    });
+});
+
+describe('SIGNIN_PROVIDER_PRESETS', () => {
+    it('starts every row as one the resolver would keep once its client id is in', () => {
+        // A preset whose name is not a slug, or whose issuer is not an address, is a row the
+        // resolver drops with a warning nobody reads: the button would never appear, however
+        // carefully the operator filled in the rest.
+        const warn = vi.fn();
+        const rows = SIGNIN_PROVIDER_PRESETS.map((preset, at) => ({ [ROW_ID_KEY]: `r${at}`, ...preset.cells, clientId: 'deadair' }));
+
+        expect(resolve(rows, {}, warn).map(provider => provider.name)).toEqual(SIGNIN_PROVIDER_PRESETS.map(preset => preset.cells.name));
+        expect(warn).not.toHaveBeenCalled();
     });
 });

@@ -1,9 +1,11 @@
 import type { AppConfig } from '@maroonedsoftware/appconfig';
+import { oidcRedirectUri, SIGNIN_KEYS } from '#modules/authentication/signin.settings.js';
 import { CLOCK_KEYS, hostZone } from '#modules/director/clock.words.js';
 import { advertisedHostname, deployedOrigin, resolvePublicUrl, STREAM_KEYS } from '#modules/stream/stream.settings.js';
 
 /**
- * What an empty setting works out to, for the three whose empty is a DERIVATION rather than an absence.
+ * What an empty setting works out to, for the three whose empty is a DERIVATION rather than an absence,
+ * and what the one `note` that shows a value shows.
  *
  * Each of them says "leave empty to …" in its own help text, and until this existed the console could
  * only repeat the sentence: the value itself is worked out server-side, from the environment or from
@@ -32,7 +34,22 @@ export function derivedSettings(config: AppConfig): Record<string, string> {
         // Never empty, since the hostname derivation ends at `localhost`.
         [STREAM_KEYS.hostname]: advertisedHostname(resolvePublicUrl(config), ''),
         [CLOCK_KEYS.timezone]: hostZone(),
+        // Not a fallback for anything, because a note holds no value: this is the whole of what the
+        // note shows, and it is here because a derived setting is the one channel that already
+        // carries a value only the server can work out to the form that draws it.
+        [SIGNIN_KEYS.redirectAddress]: redirectAddress(config),
     };
 
     return Object.fromEntries(Object.entries(derived).filter(([, value]) => value !== ''));
+}
+
+/** The sign-in redirect address, or nothing for a station that does not know its own origin. */
+function redirectAddress(config: AppConfig): string {
+    try {
+        return oidcRedirectUri(config).href;
+    } catch {
+        // `APP_BASE_URL` empty leaves a path with no origin, which `URL` refuses. Nothing to show,
+        // and a guessed address would be the one thing worse than none.
+        return '';
+    }
 }

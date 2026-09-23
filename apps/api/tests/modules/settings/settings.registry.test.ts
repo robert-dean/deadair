@@ -182,6 +182,20 @@ describe('the settings registry', () => {
         }
     });
 
+    it('only presets cells a list declares, and never a secret one', () => {
+        // The console drops either kind without a word, so a preset naming a column that was since
+        // renamed is a row that starts emptier than its label promises, and nothing fails.
+        for (const descriptor of SETTING_DESCRIPTORS.filter(candidate => candidate.presets !== undefined)) {
+            const columns = new Map((descriptor.columns ?? []).map(column => [column.key, column.type]));
+            for (const preset of descriptor.presets!) {
+                for (const key of Object.keys(preset.cells)) {
+                    expect(columns.has(key), `${descriptor.key} preset ${preset.label} names ${key}`).toBe(true);
+                    expect(columns.get(key), `${descriptor.key} preset ${preset.label} fills secret ${key}`).not.toBe('secret');
+                }
+            }
+        }
+    });
+
     it('never gives a secret a default', () => {
         // A default for a secret would be a shared password shipped in the source, and the console
         // would prefill an input that must always start empty.

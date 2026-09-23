@@ -484,3 +484,75 @@ describe('a rows table apportions its columns', () => {
         expect(Math.round(total)).toBe(100);
     });
 });
+
+describe('adding a row from a preset', () => {
+    const PROVIDERS: ConfigFieldDescriptor = {
+        key: 'providers',
+        label: 'Providers',
+        type: 'list',
+        columns: [
+            { key: 'name', label: 'Name', type: 'string' },
+            { key: 'issuer', label: 'Issuer', type: 'url' },
+            { key: 'clientSecret', label: 'Client secret', type: 'secret' },
+        ],
+        presets: [
+            // `clientSecret` and `nowhere` are both things the form must not fill: a credential out of
+            // a manifest, and a cell with no column to put it in.
+            { label: 'Google', cells: { name: 'google', issuer: 'https://accounts.google.com', clientSecret: 'leaked', nowhere: 'x' } },
+        ],
+    };
+
+    function drawProviders() {
+        const onSubmit = vi.fn(async () => {});
+        render(
+            <ConfigFieldsForm
+                fields={[PROVIDERS]}
+                stored={{}}
+                secretsConfigured={{}}
+                onSubmit={onSubmit}
+                pending={false}
+                succeeded={false}
+                submitLabel="Save"
+                failureTitle="It could not be saved"
+                failureMessage="Nothing was written."
+            />,
+        );
+        return { onSubmit, user: setupUser() };
+    }
+
+    const sentRows = (onSubmit: ReturnType<typeof vi.fn>): Record<string, unknown>[] =>
+        JSON.parse((onSubmit.mock.calls.at(-1)?.[0] as { providers: string }).providers) as Record<string, unknown>[];
+
+    it('fills the cells the preset names, and nothing it should not', async () => {
+        const { onSubmit, user } = drawProviders();
+
+        await user.click(screen.getByRole('button', { name: 'Add' }));
+        await user.click(await screen.findByRole('menuitem', { name: 'Google' }));
+        await user.click(screen.getByRole('button', { name: 'Save' }));
+
+        await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+        const [row] = sentRows(onSubmit);
+        expect(row).toMatchObject({ name: 'google', issuer: 'https://accounts.google.com' });
+        expect(row).not.toHaveProperty('clientSecret');
+        expect(row).not.toHaveProperty('nowhere');
+    });
+
+    it('still offers an empty row, for a provider that is none of them', async () => {
+        const { user } = drawProviders();
+
+        await user.click(screen.getByRole('button', { name: 'Add' }));
+        await user.click(await screen.findByRole('menuitem', { name: 'Something else' }));
+
+        expect(screen.getAllByRole('textbox').every(input => (input as HTMLInputElement).value === '')).toBe(true);
+        expect(screen.getByLabelText('Move row 1 up')).toBeInTheDocument();
+    });
+
+    it('adds an empty row straight away where a list declares no presets', async () => {
+        const { user } = draw(stored());
+
+        await user.click(screen.getByRole('button', { name: 'Add' }));
+
+        expect(screen.queryByRole('menuitem')).not.toBeInTheDocument();
+        expect(screen.getByLabelText('Move row 1 up')).toBeInTheDocument();
+    });
+});

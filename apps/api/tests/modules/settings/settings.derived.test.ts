@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest';
 import { derivedSettings } from '../../../src/modules/settings/settings.derived.js';
 import { STREAM_KEYS } from '../../../src/modules/stream/stream.settings.js';
 import { CLOCK_KEYS } from '../../../src/modules/director/clock.words.js';
+import { oidcRedirectUri, SIGNIN_KEYS } from '../../../src/modules/authentication/signin.settings.js';
 import { settingsConfig } from '../../utils/settings.config.js';
 
 describe('derivedSettings', () => {
@@ -70,5 +71,20 @@ describe('derivedSettings', () => {
         const { config } = settingsConfig({ SPA_BASE_URL: 'https://radio.test' });
 
         expect(STREAM_KEYS.location in derivedSettings(config)).toBe(false);
+    });
+
+    it('shows the sign-in redirect address, built the way the sign-in flow builds it', () => {
+        // What the operator copies into a provider has to be exactly what the station sends it, so
+        // it is asked of the same function rather than assembled a second time.
+        const { config } = settingsConfig({ APP_BASE_URL: 'https://radio.test/' });
+
+        expect(derivedSettings(config)[SIGNIN_KEYS.redirectAddress]).toBe('https://radio.test/api/auth/login/oidc/callback');
+        expect(derivedSettings(config)[SIGNIN_KEYS.redirectAddress]).toBe(oidcRedirectUri(config).href);
+    });
+
+    it('shows no redirect address for a station that does not know its own origin', () => {
+        // A path with no origin is not an address anybody can register, and guessing one from the
+        // console's own origin would be wrong on exactly the stations reached two ways.
+        expect(SIGNIN_KEYS.redirectAddress in derivedSettings(settingsConfig().config)).toBe(false);
     });
 });

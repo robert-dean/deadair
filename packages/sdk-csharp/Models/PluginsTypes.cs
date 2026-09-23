@@ -162,6 +162,18 @@ public enum ConfigFieldOptionSource
     LlmModels,
 }
 
+/// <summary>A row a `list` field offers to start from instead of an empty one. Adding a row from it fills the cells it names, by column key, and nothing records which preset a row came from</summary>
+public sealed record ConfigFieldPreset
+{
+    /// <summary>What the operator picks it by</summary>
+    [JsonPropertyName("label")]
+    public required string Label { get; init; }
+
+    /// <summary>Cell values by column key. A key with no column, or a `secret` column's, is ignored</summary>
+    [JsonPropertyName("cells")]
+    public required Dictionary<string, string> Cells { get; init; }
+}
+
 /// <summary>
 /// Whether a capability has ONE answer or is asked of everything in turn. `one` stores a plugin id
 /// and `ordered` stores a list of them; see `plugins/plugin.providers.ts`, which both this and the
@@ -553,6 +565,11 @@ public sealed record ConfigFieldDescriptor
     [JsonPropertyName("columns")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<ConfigFieldColumn>? Columns { get; init; }
+
+    /// <summary>`list` only: rows the Add button offers to start from, beside an empty one</summary>
+    [JsonPropertyName("presets")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<ConfigFieldPreset>? Presets { get; init; }
 
     /// <summary>Key of the field this one is only relevant to</summary>
     [JsonPropertyName("dependsOn")]

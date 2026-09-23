@@ -1223,6 +1223,22 @@ the whole row stays fillable until they say what kind of thing it is. A `secret`
 cell that stops applying keeps whatever is stored; nothing here deletes a
 credential.
 
+### Rows to start from
+
+Where most rows describe one of a few well-known things, `presets` offers them:
+
+```ts
+{ key: 'providers', label: 'Providers', type: 'list', columns: [...], presets: [
+    { label: 'OpenAI', cells: { name: 'openai', baseUrl: 'https://api.openai.com/v1' } },
+]}
+```
+
+The Add button then asks which one, with an empty row always among the answers.
+A preset fills the cells it names and nothing else; the operator edits the result
+like any other row, and nothing records which preset a row came from. Cells are
+named by column key, and a key the list has no column for is ignored. So is a
+`secret` column's: a credential never belongs in a manifest.
+
 ### Asking for a better control
 
 `control` says how a field should be DRAWN where the ordinary input for its type

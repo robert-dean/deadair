@@ -211,3 +211,69 @@ describe('sending the beats to be spoken', () => {
         expect(send).not.toHaveBeenCalled();
     });
 });
+
+// Every `polished` production on the live station stopped in `rendering` with its beats written and
+// none of them spoken. The check pass moved the row to `rendering` itself, so `render`, which moves
+// it there guarded on `checking` or `drafting`, found nothing to move and sent nothing. The tests
+// above stub `moveTo` to always succeed, which is exactly the guard that bit, so this one holds the
+// state the way the table does and runs the real last pass into the real render.
+describe('the last pass of a polished production', () => {
+    function buildLastPass(beats: readonly { id: string }[]) {
+        let state: Production['state'] = 'checking';
+        const row = () => production({ state, writingMode: 'polished' });
+        const productions = {
+            findById: vi.fn(async () => row()),
+            claim: vi.fn(async (_id: string, from: Production['state'], to: Production['state']) => {
+                if (state !== from) return undefined;
+                state = to;
+                return row();
+            }),
+            moveTo: vi.fn(async (_id: string, to: Production['state'], from: Production['state'] | readonly Production['state'][]) => {
+                const allowed: readonly Production['state'][] = Array.isArray(from) ? from : [from];
+                if (!allowed.includes(state)) return false;
+                state = to;
+                return true;
+            }),
+            isCancelled: vi.fn(async () => false),
+            fail: vi.fn(async () => true),
+        } as never;
+        const segments = { beatsOf: vi.fn(async () => beats) } as never;
+        const personas = { presenting: vi.fn(async () => undefined), find: vi.fn(async () => undefined) } as never;
+        const speech = { cues: vi.fn(async () => []) } as never;
+        const send = vi.fn(async () => {});
+        const config = { get: (_key: string, fallback: unknown) => fallback } as unknown as AppConfig;
+
+        const job = new ProduceProductionJob(
+            productions,
+            segments,
+            {} as never,
+            personas,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            speech,
+            {} as never,
+            { send } as never,
+            config,
+            { record: vi.fn(async () => {}) } as never,
+            { id: 'job-1' } as never,
+            {} as never,
+            logger as never,
+        );
+
+        const execute = (job as unknown as { execute: (payload: { productionId: string; pass: string }) => Promise<void> }).execute.bind(job);
+        return { execute, send, state: () => state };
+    }
+
+    it('sends every beat to be spoken once the check pass is done', async () => {
+        const { execute, send, state } = buildLastPass([{ id: 'beat-1' }, { id: 'beat-2' }]);
+
+        await execute({ productionId: 'prod-1', pass: 'check' });
+
+        expect(send).toHaveBeenCalledWith('render.segment', expect.objectContaining({ segmentId: 'beat-1' }));
+        expect(send).toHaveBeenCalledWith('render.segment', expect.objectContaining({ segmentId: 'beat-2' }));
+        expect(state()).toBe('rendering');
+    });
+});

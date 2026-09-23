@@ -647,7 +647,13 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
         }
 
         if (redrafted > 0) this.logger.info('productions: re-drafted beats that failed a check', { production: claimed.id, redrafted });
-        return await this.productions.moveTo(claimed.id, 'rendering', 'checking');
+
+        // It stays `checking`. `render` is what moves a production to `rendering`, guarded on the
+        // state it came FROM so the beats are sent exactly once, and it runs straight after this as
+        // the last pass. This used to make that move itself, which left `render` guarding on a state
+        // the row had already left: every `polished` production stopped in `rendering` with its
+        // beats written and never spoken, and a stuck call-in blocks every call after it.
+        return true;
     }
 
     /**

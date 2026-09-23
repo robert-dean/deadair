@@ -15,6 +15,7 @@ import { PluginLoader, PluginLoaderOptions } from './plugin.loader.js';
 import { PluginLog, PluginLogOptions } from './plugin.log.js';
 import { PluginPeerLinker } from './plugin.peers.js';
 import { PluginProvidersService } from './plugin.providers.service.js';
+import { PluginOperatorHosts } from './plugin.operator.hosts.js';
 import { PluginGrantsRepository } from './plugin.grants.repository.js';
 import { PluginGrantsService } from './plugin.grants.service.js';
 import { PluginOAuthStateStore } from './plugin.oauth.state.store.js';
@@ -112,6 +113,9 @@ export const PluginsModule: ServerKitModule = {
         // already fifteen dependencies deep. This one reads the registry, the config and one
         // table, and writes nothing.
         registry.register(PluginProvidersService).useClass(PluginProvidersService).asScoped();
+        // Scoped for the config repository it reads. Resolved by `ArtCacheService`, which registers
+        // earlier in the module list; the list is a lifecycle order and nothing asks for this at boot.
+        registry.register(PluginOperatorHosts).useClass(PluginOperatorHosts).asScoped();
 
         registry
             .register(PluginHostFactoryOptions)

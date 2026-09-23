@@ -4,7 +4,7 @@ import { Logger } from '@maroonedsoftware/logger';
 import { ServerKitModule } from '@maroonedsoftware/koa';
 import { errorText } from '#modules/shared/error.text.js';
 import { inScope } from '#modules/shared/scoped.work.js';
-import { ArtCacheService } from './art.cache.service.js';
+import { ArtCacheOptions, ArtCacheService } from './art.cache.service.js';
 import { ArtRepository } from './art.repository.js';
 import { ArtService } from './art.service.js';
 import { ArtStore } from './art.store.js';
@@ -67,6 +67,13 @@ export const ArtModule: ServerKitModule = {
         registry.register(ArtRepository).useClass(ArtRepository).asScoped();
         registry.register(ArtService).useClass(ArtService).asScoped();
         registry.register(ArtCacheService).useClass(ArtCacheService).asScoped();
+        // The real network: the platform's fetch and the system resolver, on `PodcastFetchOptions`'s
+        // pattern. The fetch also reads `PluginOperatorHosts`, which `PluginsModule` registers further
+        // down the list; nothing asks for it before the first sweep.
+        registry
+            .register(ArtCacheOptions)
+            .useFactory(() => new ArtCacheOptions())
+            .asSingleton();
 
         // Scoped like the two services beside it, and for the same reason: it writes through
         // `ArtRepository`. The shipped directory is a constructor argument rather than a config read

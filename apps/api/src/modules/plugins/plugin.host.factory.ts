@@ -176,15 +176,22 @@ interface NetworkEntry {
  * wildcard must never arrive from data, only from a manifest an operator read
  * before installing.
  */
-const hostnameFromSetting = (value: unknown): string | undefined => {
+const hostnameFromSetting = (value: unknown): string | undefined => addressFromSetting(value)?.hostname.toLowerCase();
+
+/**
+ * The address an operator-supplied value names, parsed, or `undefined` under every refusal
+ * {@link hostnameFromSetting} documents. The one parser both it and {@link operatorHosts} read, so
+ * the allowlist and the art fetch cannot disagree about what a setting names.
+ */
+const addressFromSetting = (value: unknown): URL | undefined => {
     if (typeof value !== 'string') return undefined;
     const trimmed = value.trim();
     if (trimmed.length === 0) return undefined;
 
     try {
-        const { hostname } = new URL(trimmed.includes('://') ? trimmed : `https://${trimmed}`);
-        const normalized = hostname.toLowerCase();
-        return normalized.length > 0 && !normalized.includes('*') ? normalized : undefined;
+        const address = new URL(trimmed.includes('://') ? trimmed : `https://${trimmed}`);
+        const hostname = address.hostname.toLowerCase();
+        return hostname.length > 0 && !hostname.includes('*') ? address : undefined;
     } catch {
         return undefined;
     }
@@ -214,18 +221,19 @@ const hostnameFromSetting = (value: unknown): string | undefined => {
  * and a repeated pattern would otherwise install a second limiter that quietly
  * doubles the rate the entry asked to be paced at.
  */
-const hostnamesFromSetting = (value: unknown, field?: ConfigField): string[] => {
-    const raw =
-        field?.type === 'list'
-            ? addressCells(value, field)
-            : Array.isArray(value)
-              ? value
-              : typeof value === 'string'
-                ? readAddressLines(value)
-                : [value];
+const hostnamesFromSetting = (value: unknown, field?: ConfigField): string[] => [
+    ...new Set(rawAddresses(value, field).flatMap(one => hostnameFromSetting(one) ?? [])),
+];
 
-    return [...new Set(raw.flatMap(one => hostnameFromSetting(one) ?? []))];
-};
+/** The unparsed addresses in one setting, by the three encodings {@link hostnamesFromSetting} names. */
+const rawAddresses = (value: unknown, field?: ConfigField): unknown[] =>
+    field?.type === 'list'
+        ? addressCells(value, field)
+        : Array.isArray(value)
+          ? value
+          : typeof value === 'string'
+            ? readAddressLines(value)
+            : [value];
 
 /**
  * The addresses in a `list` field: the cells of the columns that declared themselves `url`.
@@ -342,6 +350,34 @@ const normalizeNetwork = (network: PluginPermissions['network'], config: Record<
     }
 
     return entries;
+};
+
+/**
+ * The `host` (hostname, and port where one was given) of every address a manifest's `fromConfig`
+ * entries name in one config: the servers the OPERATOR pointed this plugin at.
+ *
+ * For callers outside the host that need the question `PluginHostFactory.assertAllowed` answers for a plugin's
+ * own fetches (is this somewhere the operator chose, and so allowed to be on the LAN?) about a URL
+ * that is merely data. `ArtCacheService` is the one: a Navidrome cover URL is on the operator's own
+ * server, and every other art URL is whatever an upstream said.
+ *
+ * The host rather than the hostname, which is the one place this is narrower than the allowlist. A
+ * plugin reaching its configured hostname is the plugin doing its job; an art URL naming that
+ * hostname is data, and a Navidrome at `http://localhost:4533` vouches for port 4533 and not for
+ * whatever else answers on that machine. Manifest literals are not included: a host the plugin's
+ * author wrote down is public, and nothing is gained by exempting it from a check it passes.
+ */
+export const operatorHosts = (network: PluginPermissions['network'], config: Record<string, unknown>, fields: ConfigField[] = []): string[] => {
+    const hosts = network.flatMap(entry =>
+        typeof entry !== 'string' && 'fromConfig' in entry
+            ? rawAddresses(
+                  config[entry.fromConfig],
+                  fields.find(field => field.key === entry.fromConfig),
+              ).flatMap(one => addressFromSetting(one)?.host.toLowerCase() ?? [])
+            : [],
+    );
+
+    return [...new Set(hosts)];
 };
 
 /** Whether any entry needs the plugin's config read before the allowlist is known. */

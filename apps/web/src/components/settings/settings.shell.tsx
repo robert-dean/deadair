@@ -135,9 +135,9 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     {
         id: 'signin',
         label: 'Sign-in and connections',
-        hint: 'Identity providers, and who may join through them',
+        hint: 'Identity providers, who may join, and apps that connect as you',
         group: 'signin',
-        blurb: 'The identity providers the sign-in page offers beside a password, such as Authelia, Authentik, Keycloak or Google, and the addresses allowed to create an account through one. Anyone who already has an account can sign in through a provider linked to it whatever the list says.',
+        blurb: 'The identity providers the sign-in page offers beside a password, such as Authelia, Authentik, Keycloak or Google, and the addresses allowed to create an account through one. Anyone who already has an account can sign in through a provider linked to it whatever the list says. Below them, whether apps such as a Claude connector may connect to the station as whoever approves them.',
     },
     // Rotation was one section holding what the station plays, how often it talks, what goes into a
     // bulletin and every word it says around them: forty-two fields and six boxes of phrasings under

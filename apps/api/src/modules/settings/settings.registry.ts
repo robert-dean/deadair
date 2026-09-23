@@ -101,6 +101,7 @@ import { ENRICHMENT_KEYS } from '#modules/enrichment/enrichment.keys.js';
 import { MIXER_PLUGIN_KEY } from '#modules/render/mixer.settings.js';
 import { MAIL_DEFAULTS, MAIL_KEYS, MAX_MAIL_PORT, MIN_MAIL_PORT } from '#modules/mail/mail.settings.js';
 import { SIGNIN_KEYS, SIGNIN_PROVIDER_COLUMNS } from '#modules/authentication/signin.settings.js';
+import { OAUTH_DEFAULTS, OAUTH_KEYS } from '#modules/oauth/oauth.settings.js';
 import {
     PAD_DUCK_KEY,
     PAD_EVERY_BOUNDS,
@@ -1691,6 +1692,46 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
             'listener, only if their address is here or ends in a domain that is; a domain does not cover its subdomains. Anyone who ' +
             'already has an account signs in whatever this says, through a provider they have linked on the Security page or one that ' +
             'vouches for the same address. Leave it empty and nobody new can join this way.',
+    },
+
+    // ── connections ────────────────────────────────────────────────────────────
+    // The other half of the sign-in group: not how people sign in to the station, but how an app
+    // signs in AS one of them, through OAuth. Claude's connectors are the case it was built for. Off
+    // until an operator turns it on, because a station reachable from the internet should not start
+    // answering an authorization flow on an upgrade. `oauth.settings.ts` reads all three.
+    {
+        group: 'signin',
+        key: OAUTH_KEYS.enabled,
+        label: 'Let apps connect as you',
+        type: 'boolean',
+        default: OAUTH_DEFAULTS.enabled,
+        help:
+            'Turns the station into an OAuth authorization server, so an app such as a Claude connector can act as whoever signs in and ' +
+            "approves it. The app is pointed at your station's public address followed by /api/mcp. Whoever approves decides; what the " +
+            'app can do is exactly what they can. Approved apps are listed, and can be disconnected, on the Security page.',
+    },
+    {
+        group: 'signin',
+        key: OAUTH_KEYS.dynamicRegistration,
+        label: 'Apps may register themselves',
+        type: 'boolean',
+        default: OAUTH_DEFAULTS.dynamicRegistration,
+        dependsOn: OAUTH_KEYS.enabled,
+        help:
+            'How Claude connects without anybody creating an app for it first. Registering gives an app nothing: it still needs somebody ' +
+            'signed in to approve it. Off, only apps you register below, and apps that publish their own description, can connect.',
+    },
+    {
+        group: 'signin',
+        key: OAUTH_KEYS.clientMetadataHosts,
+        label: 'Hosts an app may describe itself from',
+        type: 'string',
+        default: '',
+        dependsOn: OAUTH_KEYS.enabled,
+        placeholder: 'claude.ai',
+        help:
+            'Some apps, Claude Code among them, identify themselves with a document on their own website. Leave this empty to accept any ' +
+            'https site, or list the ones you trust, separated by commas; *.example.com means the subdomains of example.com.',
     },
 
     // ── providers ──────────────────────────────────────────────────────────────

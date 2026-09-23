@@ -60,6 +60,13 @@ export default defineConfig(({ mode }) => ({
                 changeOrigin: true,
                 rewrite: path => path.replace(/^\/api/, ''),
             },
+            // OAuth discovery lives at the origin root, not under /api (the issuer is the origin),
+            // so it is forwarded with the path kept. The same prefix nginx forwards; see the note
+            // above `location ^~ /.well-known/oauth-` in docker/nginx.conf.
+            '/.well-known/oauth-': {
+                target: API_TARGET,
+                changeOrigin: true,
+            },
             // A root-level `.m3u8`, which is the tidy public URL for the HLS output: `/live.m3u8`
             // beside `/live.mp3`. The REDIRECT to `/hls/` lives in the nginx snippet, because it
             // has to exist for the production edges too — so this hands the request to nginx and

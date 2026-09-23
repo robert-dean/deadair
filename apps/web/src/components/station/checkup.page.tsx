@@ -1,5 +1,6 @@
 import { Anchor, Card, Code, Group, Progress, Stack, Table, Text } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
+import { Link } from '@tanstack/react-router';
 import type { PlayoutMount, PluginSummary, StationHeartbeat } from '@deadair/sdk';
 import type { DateTime } from 'luxon';
 import { QRCodeSVG } from 'qrcode.react';
@@ -191,7 +192,12 @@ export function CheckupPage() {
             </Section>
 
             <Section title="Build" failed={checkup.isError} pending={checkup.isPending}>
-                <Build revision={checkup.data?.revision} version={checkup.data?.version} />
+                <Stack gap="xs">
+                    <Build revision={checkup.data?.revision} version={checkup.data?.version} />
+                    <Anchor size="sm" renderRoot={(props: object) => <Link to="/releases" {...props} />}>
+                        What changed in this release
+                    </Anchor>
+                </Stack>
             </Section>
         </Stack>
     );

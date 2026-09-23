@@ -158,6 +158,8 @@ export const queryKeys = {
         attention: () => ['station', 'attention'] as const,
         /** The machinery underneath it. One reading, for the same reason. */
         checkup: () => ['station', 'checkup'] as const,
+        /** What changed in each release. One reading: the build has one changelog. */
+        releases: () => ['station', 'releases'] as const,
         /**
          * What the station did, decision by decision. Keyed on the filter like the activity feed
          * and for the same reason: a filtered list is a different list rather than a stale one.

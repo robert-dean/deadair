@@ -59,6 +59,25 @@ export function useStationCheckup() {
 }
 
 /**
+ * How long the release notes are kept before they are asked for again.
+ *
+ * Five minutes, and never polled. The build's own notes cannot change while the station runs: a
+ * different changelog is a different image, and a restart reloads the console with it.
+ */
+const RELEASES_STALE_MS = 5 * 60_000;
+
+export const stationReleasesOptions = queryOptions({
+    queryKey: queryKeys.station.releases(),
+    queryFn: () => sdk.station.readStationReleases(),
+    staleTime: RELEASES_STALE_MS,
+});
+
+/** The releases this build contains and what each one changed, newest first. */
+export function useStationReleases() {
+    return useQuery(stationReleasesOptions);
+}
+
+/**
  * How often the list of decisions is re-read.
  *
  * It is not polled at all, and that is the difference from everything above. The attention list and

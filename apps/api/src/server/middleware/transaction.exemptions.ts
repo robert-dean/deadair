@@ -152,6 +152,12 @@ export const voiceSampleExemption: TransactionExemption = ({ method, path }) =>
 // predicate quietly covering a third route later.
 export const speechPreviewExemption: TransactionExemption = ({ method, path }) => method === 'POST' && path === '/voices/preview';
 
+// The OAuth discovery documents, which an MCP client fetches before every connection and which are
+// built from settings alone: no row read, nothing written, nothing enqueued. The registration and
+// token endpoints beside them write, and stay inside a transaction.
+export const oauthDiscoveryExemption: TransactionExemption = ({ method, path }) =>
+    method === 'GET' && path.toLowerCase().startsWith('/.well-known/oauth-');
+
 // The exemptions applied by default. Compose additional ones onto this list where the middleware is
 // wired (setup.middleware) when a new opt-out route is introduced.
 export const DEFAULT_TRANSACTION_EXEMPTIONS: readonly TransactionExemption[] = [
@@ -164,6 +170,7 @@ export const DEFAULT_TRANSACTION_EXEMPTIONS: readonly TransactionExemption[] = [
     personaRehearsalExemption,
     voiceSampleExemption,
     speechPreviewExemption,
+    oauthDiscoveryExemption,
 ];
 
 export const isTransactionExempt = (request: ExemptionRequest, exemptions: readonly TransactionExemption[]): boolean =>

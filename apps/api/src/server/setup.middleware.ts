@@ -14,6 +14,7 @@ import { hlsHeartbeatMiddleware } from './middleware/hls.heartbeat.middleware.js
 import { nowPlayingCorsMiddleware } from './middleware/nowplaying.cors.middleware.js';
 import { rateLimitMiddleware } from './middleware/rate.limit.middleware.js';
 import { oauthChallengeMiddleware } from './middleware/oauth.challenge.middleware.js';
+import { oauthClientCredentialMiddleware } from './middleware/oauth.client.credential.middleware.js';
 
 export const setupMiddleware = (container: Container) => {
     const middlewares: ServerKitMiddleware[] = [];
@@ -72,6 +73,9 @@ export const setupMiddleware = (container: Container) => {
     // because the route is anonymous — a player carries no session — and a tick that only
     // counted signed-in listeners would count nobody at all.
     middlewares.push(hlsHeartbeatMiddleware(config));
+    // Immediately before authentication, which deletes `Authorization` from every request: a client
+    // authenticating to the OAuth token endpoint with HTTP Basic would otherwise arrive with nothing.
+    middlewares.push(oauthClientCredentialMiddleware());
     middlewares.push(authenticationMiddleware());
     middlewares.push(auditContextMiddleware());
     // authorization.context collapses the auth package's context into the `Actor` union, checks the

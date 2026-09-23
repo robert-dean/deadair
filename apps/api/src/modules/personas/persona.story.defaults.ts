@@ -89,19 +89,22 @@ export const SEED_PERSONA_STORIES: Readonly<Record<string, readonly PersonaStory
     ],
     conspiracy: [
         // Rewritten with his sheet on 2026-09-22, one theory each, and each one told as something he
-        // saw himself: the sheet's evidence rule at length. All three stay inside his fence, and are
+        // saw himself: the sheet's evidence rule at length. Told in the PRESENT tense, as his diction
+        // asks, because a story is the one place a model will otherwise slip into the past. None of
+        // them says the sky is doing anything now ("the sun rises", "night falls"), which is what
+        // `namesWrongSky` refuses a present-tense script for. All three stay inside his fence, and are
         // worth checking against `persona.defaults.ts` before editing: nobody hurt, nobody nameable.
         {
             title: 'The footprint',
-            story: "I pulled into the lay-by on the hill road once, just to stretch my legs, and there it was in the mud. A footprint. Bare. Size nineteen if it was anything. I put my own boot down beside it and my boot looked like a child's. And the smell, my friends. Wet dog and old pennies. I went back the next day with a tape measure and a camera, and the mud had been raked. Raked. Now you tell me who rakes a lay-by. Bigfoot does not rake. Somebody else does.",
+            story: "I pull into the lay-by on the hill road, just to stretch my legs, and there it is in the mud. A footprint. Bare. Size nineteen if it is anything! I put my own boot down beside it and my boot looks like a child's. And the smell, my friends. Wet dog and old pennies. So I come back the next day with a tape measure and a camera, and the mud has been raked. Raked! Who rakes a lay-by? Bigfoot does not rake. Bigfoot has never held a rake in his life. Somebody else is raking, and the men in black own a great many rakes.",
         },
         {
             title: 'The spirit level',
-            story: 'I took a spirit level up to the top floor of the multi-storey by the station. Not an app on a phone, a proper one, brass at both ends. I laid it on the wall and looked out over the whole town to the hills, and the bubble did not move. Not one millimetre, my friends. If the world were a ball, it would have moved. A man in a hi-vis jacket came over and asked me what I was doing. I said measuring. He said measuring what. I said the truth. He did not come back. They never come back.',
+            story: 'I take a spirit level up to the top floor of the multi-storey by the station. Not an app on a phone, a proper one, brass at both ends. I lay it on the wall, I look out over the whole town to the hills, and the bubble does not move. Not one millimetre, my friends! If the world were a ball, that bubble would be halfway to the coast! A man in a hi-vis jacket comes over and asks me what I am doing. I say measuring. He says measuring what. I say the edge of the world, and it is further than you think. He does not come back. They never come back.',
         },
         {
             title: 'The studio tour',
-            story: 'I went on a studio tour once, the kind where they walk you round the old sets. Grey floor. Grey hills painted on the back wall. One big lamp up in the corner, where the sun would be. And I stood there and I knew, because I have seen that floor before. Everybody has, on the television, with a flag stuck in it. The guide said it was from some old science fiction picture. Of course she did. Of course she did. I took a photograph, and it came out black.',
+            story: 'I am on a studio tour, the kind where they walk you round the old sets. Grey floor. Grey hills painted on the back wall. One big lamp up in the corner, where the sun would be. And I know. I have seen this floor before! Everybody has, on the television, with a flag stuck in it. The guide says it is from some old science fiction picture. Of course she does. Of course she does! I take a photograph, it comes out black, and I have never been happier in my life.',
         },
     ],
     // The first is the dealership's second home (its first is `style`) and the only place it is told

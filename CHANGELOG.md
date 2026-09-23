@@ -9,6 +9,27 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.30.0] — 2026-09-23
+
+- A third voice: the station can speak through a [Rhapsode](https://github.com/MaroonedSoftware/rhapsode)
+  server, which holds several speech engines at once and publishes what each of them can do.
+
+  **A voice belongs to an engine**, so the Voices table names both: one station can read its news in
+  one engine's voice and its breaks in another's. Rows that leave the engine column empty take the
+  default engine, which is the whole setup for a station running one. The engines this server has, the
+  voices each of them holds — including any you have cloned in yourself — and the builds it can load
+  are all offered in the form once it can be reached.
+
+  **It asks the server what an engine can do rather than assuming.** Which performance cues a voice can
+  perform, whether it can be asked for a hushed or frantic reading, and how much text it takes in one
+  call are read from the server per engine, so a writer is offered what this station can actually
+  deliver. It also reads which audio formats the server can encode: a Rhapsode built without ffmpeg
+  offers wav alone, and the station asks for wav rather than losing the break.
+
+  **Residency stays with the server.** There is no unload switch and no idle timer here, because
+  Rhapsode queues, evicts and reloads models itself. The one setting is how long to keep a model loaded
+  after a break — leave it empty to use the server's own.
+
 ## [0.29.1] — 2026-09-23
 
 - Emptying a plugin setting that had a value now saves. The console sends a cleared field as `null`, and the host handed that straight to the plugin's own schema, so an optional number (Rhapsode's keep-alive, Chatterbox's idle unload, Navidrome's bit rate, the model's temperature) was refused with nothing but "Invalid input" under the box. A plain field sent as `null` is now removed, both from the form the schema judges and from what is stored, so the plugin reads it as not set.
@@ -780,7 +801,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.29.1...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.30.0...HEAD
+[0.30.0]: https://github.com/robert-dean/deadair/compare/v0.29.1...v0.30.0
 [0.29.1]: https://github.com/robert-dean/deadair/compare/v0.29.0...v0.29.1
 [0.29.0]: https://github.com/robert-dean/deadair/compare/v0.28.0...v0.29.0
 [0.28.0]: https://github.com/robert-dean/deadair/compare/v0.27.3...v0.28.0

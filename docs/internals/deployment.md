@@ -135,6 +135,19 @@ client's third guess. Before the forward, both fell to the console's `try_files`
 in front has to pass `/.well-known/` through too; `/.well-known/openid-configuration` is deliberately not
 served, since the station is not an OpenID provider.
 
+**The console's security headers are set per location, and only on the console's two.**
+`nginx/snippets/console.headers.conf` holds the CSP, `X-Frame-Options`, `nosniff` and `Referrer-Policy`, and
+both production edges include it inside `/assets/` and the history fallback rather than once on the
+server. That is forced twice over. nginx's `add_header` does not merge down, so `/assets/`, which has a
+Cache-Control of its own, would have dropped every server-level header and served the whole bundle bare.
+And a server-level header reaches every snippet location that sets none of its own, which would have
+put `frame-ancestors` and `nosniff` on the mount, the HLS output and the TuneIn playlists that players
+and other people's pages fetch. The dev edge restates the headers instead of including them, adding
+`'unsafe-inline'` to `script-src` for Vite's React Refresh preamble. That is also why `index.html` has
+no inline script: the theme boot is `public/theme.boot.js`, because `script-src 'self'` refuses inline
+scripts and a hash in the policy would break on the first edit to the script. The snippet's comments
+explain each directive, checked against the built console.
+
 ## What the layer rules forbid
 
 And **nothing derived from this repository may sit above the fence comment in the final stage**, which is the

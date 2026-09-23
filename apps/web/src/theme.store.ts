@@ -2,7 +2,7 @@ import { useSyncExternalStore } from 'react';
 
 import { DEFAULT_THEME, isThemeId, THEMES, type ThemeDefinition, type ThemeId } from './themes';
 
-/** Where the choice is kept, and the name the inline script in `index.html` reads it by. */
+/** Where the choice is kept, and the name `public/theme.boot.js` reads it by. */
 export const THEME_STORAGE_KEY = 'da-theme';
 
 /** The attribute `tokens.css` keys its `--da-*` blocks on. Written here and nowhere else. */

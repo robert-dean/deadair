@@ -8,7 +8,7 @@
  * ## Every value here belongs to a theme
  *
  * `[data-da-theme]` on `<html>` is what selects between them, written by `theme.store.ts` and, one
- * frame earlier, by the inline script in `index.html`. The `:root` block below is carbon, and it is
+ * frame earlier, by `public/theme.boot.js`. The `:root` block below is carbon, and it is
  * unqualified rather than written as `[data-da-theme='carbon']` for one reason: it is what an
  * install with no stored preference and no JavaScript yet gets. A theme that only exists behind an
  * attribute is a theme that flashes.

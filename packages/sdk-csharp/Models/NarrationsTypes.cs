@@ -114,6 +114,11 @@ public sealed record StationPiece
     [JsonPropertyName("seenAt")]
     public required string SeenAt { get; init; }
 
+    /// <summary>ISO-8601: when a refresh found its plugin no longer listing it. The station never picks a withdrawn piece; the row is kept so what was done with it is not lost</summary>
+    [JsonPropertyName("withdrawnAt")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? WithdrawnAt { get; init; }
+
     /// <summary>Whether the station has the spoken audio, ready to air</summary>
     [JsonPropertyName("rendered")]
     public required bool Rendered { get; init; }

@@ -24,6 +24,17 @@ const MAX_WORD_COUNT = 2_147_483_647;
  * fetch mark is a second download; a re-listed piece that lost its render mark is the station's only
  * speech engine spending minutes saying a chapter it has already said, and then airing it twice.
  *
+ * ## A listing also says what is not in it
+ *
+ * A piece the plugin stops listing is {@link withdraw}n, never deleted: its row keeps the audio and
+ * the aired mark, and every read that picks a piece passes over it. Without that a serial stalled on
+ * it for good, asking the plugin for words it had stopped offering. `withdrawn_at` is `seen_at`'s
+ * complement, what the plugin said and not what the station did, so {@link record} clears it for a
+ * piece listed again and the deny-list test on its update set does not name it.
+ *
+ * Which listings are trusted to be the whole series is the caller's decision, not this file's:
+ * `NarrationsService.refresh` has the rule.
+ *
  * ## The next piece is two questions, not one
  *
  * {@link nextFor} is where a series' `order` is finally read, and the two arms are genuinely
@@ -76,6 +87,8 @@ export class NarrationPieceRepository extends DataRepository {
                     publishedAt: update.ref('excluded.publishedAt'),
                     wordCount: update.ref('excluded.wordCount'),
                     seenAt: sql<never>`now()`,
+                    // Listed again, so no longer withdrawn: the plugin is the authority on both.
+                    withdrawnAt: null,
                 })),
             )
             // `xmax` is zero on a row this statement inserted and the updating transaction's id on
@@ -84,6 +97,30 @@ export class NarrationPieceRepository extends DataRepository {
             .execute();
 
         return written.filter(row => row.inserted).length;
+    }
+
+    /**
+     * Mark every piece of this series the plugin did not list as withdrawn, and answer how many were.
+     *
+     * Only pieces not already withdrawn, so the time kept is when the plugin FIRST stopped listing
+     * one. The caller passes the whole listing: every id not in it is taken to be gone, which is why
+     * it must be a listing it trusts to be complete. An empty one withdraws nothing rather than
+     * everything, here as well as at the call, since `not in ()` is not SQL and "the plugin listed
+     * nothing" is the answer the capability gives for a book it could not read today.
+     */
+    async withdraw(seriesId: string, listedPieceIds: readonly string[]): Promise<number> {
+        if (listedPieceIds.length === 0) return 0;
+
+        const withdrawn = await this.db
+            .updateTable('deadair.narrationPieces')
+            .set({ withdrawnAt: sql<never>`now()` })
+            .where('stationKey', '=', this.station.stationKey)
+            .where('seriesId', '=', seriesId)
+            .where('withdrawnAt', 'is', null)
+            .where('pieceId', 'not in', [...listedPieceIds])
+            .executeTakeFirst();
+
+        return Number(withdrawn.numUpdatedRows);
     }
 
     /**
@@ -144,12 +181,17 @@ export class NarrationPieceRepository extends DataRepository {
      *
      * Which question that is depends on how the series is carried, and the two do not fold together:
      *
-     * - `serial`: the lowest `ordinal` not yet aired. A book is worked through in order and the
+     * - `serial`: the lowest listed `ordinal` not yet aired. A book is worked through in order and the
      *   station keeps its place in this column, so this deliberately DOES reach back: a chapter
      *   published years ago is next if the station has not read it.
-     * - `latest`: the newest dated piece, and nothing at all if it has aired. Never back through the
-     *   archive, which is what carrying a column means: a band at ten is where tonight's issue goes,
-     *   and on a night nothing was published the station does not read last week's instead.
+     * - `latest`: the newest dated piece the plugin still lists, and nothing at all if it has aired.
+     *   Never back through the archive, which is what carrying a column means: a band at ten is where
+     *   tonight's issue goes, and on a night nothing was published the station does not read last
+     *   week's instead.
+     *
+     * Both pass over a withdrawn piece in the query itself, not afterwards as the aired check is: a
+     * withdrawn piece chosen and then refused would be the band declining forever, which is the stall
+     * withdrawal exists to end.
      *
      * The order is read off the pieces themselves rather than passed in, since every refresh copies
      * it onto them, so a series an operator switches from `latest` to `serial` changes behaviour at
@@ -169,6 +211,7 @@ export class NarrationPieceRepository extends DataRepository {
                 .where('stationKey', '=', this.station.stationKey)
                 .where('seriesId', '=', seriesId)
                 .where('airedAt', 'is', null)
+                .where('withdrawnAt', 'is', null)
                 .where('ordinal', 'is not', null)
                 .orderBy('ordinal', 'asc')
                 .orderBy('id', 'asc')
@@ -183,6 +226,7 @@ export class NarrationPieceRepository extends DataRepository {
             .selectAll()
             .where('stationKey', '=', this.station.stationKey)
             .where('seriesId', '=', seriesId)
+            .where('withdrawnAt', 'is', null)
             .where('publishedAt', 'is not', null)
             .orderBy('publishedAt', 'desc')
             .orderBy('id', 'asc')
@@ -224,6 +268,9 @@ export class NarrationPieceRepository extends DataRepository {
      * The `production_id is null` half is what a podcast has no equivalent of and what matters most:
      * without it, a claim taken while a production was already being written would open a second one
      * and the station would speak the chapter twice.
+     *
+     * A withdrawn piece is never claimed: its plugin has stopped offering the words, and asking would
+     * only write a failure onto a row that has nothing wrong with it.
      */
     async claimRender(id: string, now: number, retryAfterMs: number, scheduledFor?: number): Promise<boolean> {
         const claimed = await this.db
@@ -236,11 +283,35 @@ export class NarrationPieceRepository extends DataRepository {
             .where('stationKey', '=', this.station.stationKey)
             .where('segmentId', 'is', null)
             .where('productionId', 'is', null)
+            .where('withdrawnAt', 'is', null)
             .where(where => where.or([where('renderRequestedAt', 'is', null), where('renderRequestedAt', '<', instant(now - retryAfterMs))]))
             .returning('id')
             .executeTakeFirst();
 
         return claimed !== undefined;
+    }
+
+    /**
+     * The pieces a production is being made for, oldest ask first: what the scheduler collects.
+     *
+     * Every one of them, not only those a band would read next, and withdrawn ones included: a piece
+     * whose production is never collected leaves that production out of `aired` for good, where it
+     * crowds the phone-ins out of `ProductionRepository.unfinished`. `narration_pieces_production_idx`
+     * is what makes this cheap enough to ask on every commit pass.
+     */
+    async awaitingCollection(limit = 20): Promise<NarrationPieceRecord[]> {
+        const rows = await this.db
+            .selectFrom('deadair.narrationPieces')
+            .selectAll()
+            .where('stationKey', '=', this.station.stationKey)
+            .where('productionId', 'is not', null)
+            .where('segmentId', 'is', null)
+            .orderBy(sql`render_requested_at asc nulls first`)
+            .orderBy('id', 'asc')
+            .limit(limit)
+            .execute();
+
+        return rows.map(toRecord);
     }
 
     /**
@@ -389,6 +460,7 @@ function toRecord(row: Record<string, unknown>): NarrationPieceRecord {
     const renderError = text(row.renderError);
     const scheduledFor = millisOf(row.scheduledFor);
     const airedAt = millisOf(row.airedAt);
+    const withdrawnAt = millisOf(row.withdrawnAt);
 
     return {
         id: String(row.id),
@@ -413,5 +485,6 @@ function toRecord(row: Record<string, unknown>): NarrationPieceRecord {
         ...(renderError === undefined ? {} : { renderError }),
         ...(scheduledFor === undefined ? {} : { scheduledFor }),
         ...(airedAt === undefined ? {} : { airedAt }),
+        ...(withdrawnAt === undefined ? {} : { withdrawnAt }),
     };
 }

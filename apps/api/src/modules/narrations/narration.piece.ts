@@ -28,6 +28,14 @@ export interface NarrationPieceRecord {
     publishedAt?: number;
     wordCount?: number;
     seenAt: number;
+    /**
+     * When a refresh found the plugin no longer listing it. Absent while it is still listed.
+     *
+     * What the plugin said rather than what the station did, as {@link seenAt} is, and why it is not
+     * on {@link NarrationPieceListing}: a listing can say a piece is there, never that one is not. The
+     * station keeps a withdrawn piece and everything it did with it, and never picks it again.
+     */
+    withdrawnAt?: number;
     /** The production whose beats are this piece being spoken, while it is being made. */
     productionId?: string;
     /** The joined audio, once every beat has been spoken and put together. */

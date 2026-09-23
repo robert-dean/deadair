@@ -63,17 +63,34 @@ only to answer it. Free text with no check, on `segments.kind`'s rule, and read 
 that is not `latest` is a serial. That is the safer of the two to be wrong about: a serial reads
 something the station has not read, where a `latest` could decline forever on a series with no dates.
 
+**A listing also says what is NOT in it, and a piece the plugin stops listing is withdrawn.** Rows are
+still never deleted: a withdrawn piece keeps its audio and its aired mark, and `withdrawn_at` only takes
+it out of every read that PICKS a piece (both arms of `nextFor`, and `claimRender`). Before it existed a
+chapter the plugin had stopped offering stayed next forever. The concrete case was an EPUB plugin whose
+operator ticked a licence page as not to be read after the station had already listed the book: the
+render asked for the words, got none, failed three times, and the band declined every time after. A
+book whose skipped section came first never started. `withdrawn_at` is `seen_at`'s complement, what the
+plugin said rather than what the station did, so the upsert CLEARS it for a piece listed again.
+
+**A refresh withdraws only from a listing it can trust to be the whole series.** Two guards, and each is
+the capability's own wording turned into a rule. An empty answer withdraws nothing, because `[]` is
+what a plugin is told to return for a series it could not read today, and taking that as "the book has
+no chapters" would retire a whole book over a network blip. A listing as long as the most the refresh
+asks for (`REFRESH_PIECES_PER_SERIES`) withdraws nothing either, because `listPieces` has no offset and
+that answer may be a window with the rest of the book still there. A series `listSeries` stops returning
+is never visited, so nothing of it is withdrawn.
+
 ## Two orders, and they are different questions
 
 **`nextFor` has two arms and they do not fold into one query with the sort flipped.**
 
-- A `serial` takes the lowest `ordinal` not yet aired, and deliberately DOES reach back: a chapter
-  published years ago is next if the station has not read it. The station's place in a book is
-  `aired_at`, not the calendar.
-- A `latest` takes the newest dated piece and answers nothing once it has aired, never reaching into
-  the archive. That is `PodcastEpisodeRepository.newest` exactly, and it is what carrying a column
-  means: a band at ten is where tonight's issue goes, and on a night nothing was published the
-  station does not read last week's instead.
+- A `serial` takes the lowest listed `ordinal` not yet aired, and deliberately DOES reach back: a
+  chapter published years ago is next if the station has not read it. The station's place in a book
+  is `aired_at`, not the calendar.
+- A `latest` takes the newest dated piece the plugin still lists and answers nothing once it has
+  aired, never reaching into the archive. That is `PodcastEpisodeRepository.newest` exactly, and it is
+  what carrying a column means: a band at ten is where tonight's issue goes, and on a night nothing
+  was published the station does not read last week's instead.
 
 **A `narration` band REQUIRES its series**, unlike a `syndicated` band, which with no topic carries
 the newest episode of any show. There is no such answer here: "the next piece of any series" would
@@ -167,6 +184,10 @@ sort of programme it was. For a serial this is what stops the band reading chapt
   fourth copy of a vocabulary that already has three.
 - **Several voices in one piece.** `NarrationPart.role` is the shape it would take; nothing reads it.
 - **Rewinding a serial**, which would be clearing `aired_at`. An operator re-adds the series for now.
+- **Retracting a planted reading.** A chapter already in the running order when its plugin withdraws it
+  still airs: the order is the director's, and withdrawal only stops the next fill.
+- **Withdrawing a whole series** a plugin stopped offering. Its pieces keep their rows as they were,
+  and a band naming it keeps reading what is left.
 - **Nothing removes an aired piece's audio.** The segment store grows by a piece per airing, exactly
   as it does per episode.
 - **A plugin's `getText` is trusted to have stripped editorial furniture.** `[Illustration: …]` and

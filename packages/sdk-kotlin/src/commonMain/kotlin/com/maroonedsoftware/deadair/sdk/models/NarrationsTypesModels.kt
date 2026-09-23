@@ -50,6 +50,8 @@ data class StationPiece(
     val wordCount: Long? = null,
     /** ISO-8601: when a refresh last saw it listed */
     val seenAt: String,
+    /** ISO-8601: when a refresh found its plugin no longer listing it. The station never picks a withdrawn piece; the row is kept so what was done with it is not lost */
+    val withdrawnAt: String? = null,
     /** Whether the station has the spoken audio, ready to air */
     val rendered: Boolean,
     /** Whether the words are being spoken right now */

@@ -177,6 +177,16 @@ describe('RenderPieceJob', () => {
 
         expect(productions.open).not.toHaveBeenCalled();
     });
+
+    it('does nothing for a piece its plugin withdrew after the render was sent', async () => {
+        // Asking would get no words back and write a failure onto a piece with nothing wrong with it.
+        const { job, productions, pieces } = build({ piece: piece({ withdrawnAt: Date.now() }) });
+
+        await job.run({ pieceId: 'piece-1' });
+
+        expect(productions.open).not.toHaveBeenCalled();
+        expect(pieces.markRenderFailed).not.toHaveBeenCalled();
+    });
 });
 
 describe('RenderPieceJob when it cannot go on', () => {

@@ -340,6 +340,7 @@ export interface DeadairNarrationPieces {
   title: string;
   updatedAt: Generated<DateTime>;
   url: string | null;
+  withdrawnAt: DateTime | null;
   wordCount: number | null;
 }
 

@@ -95,6 +95,8 @@ public struct StationPiece: Codable, Equatable, Sendable {
     public var wordCount: Int?
     /// ISO-8601: when a refresh last saw it listed
     public var seenAt: String
+    /// ISO-8601: when a refresh found its plugin no longer listing it. The station never picks a withdrawn piece; the row is kept so what was done with it is not lost
+    public var withdrawnAt: String?
     /// Whether the station has the spoken audio, ready to air
     public var rendered: Bool
     /// Whether the words are being spoken right now
@@ -108,7 +110,7 @@ public struct StationPiece: Codable, Equatable, Sendable {
     /// ISO-8601: when a listener could first have heard it. A piece airs once, and for a serial this is also the station's place in the book
     public var airedAt: String?
 
-    public init(id: String, seriesId: String, pieceId: String, seriesTitle: String, title: String, order: StationPieceOrder, author: String? = nil, summary: String? = nil, url: String? = nil, artworkUrl: String? = nil, ordinal: Int? = nil, publishedAt: String? = nil, wordCount: Int? = nil, seenAt: String, rendered: Bool, rendering: Bool, renderRequestedAt: String? = nil, renderError: String? = nil, scheduledFor: String? = nil, airedAt: String? = nil) {
+    public init(id: String, seriesId: String, pieceId: String, seriesTitle: String, title: String, order: StationPieceOrder, author: String? = nil, summary: String? = nil, url: String? = nil, artworkUrl: String? = nil, ordinal: Int? = nil, publishedAt: String? = nil, wordCount: Int? = nil, seenAt: String, withdrawnAt: String? = nil, rendered: Bool, rendering: Bool, renderRequestedAt: String? = nil, renderError: String? = nil, scheduledFor: String? = nil, airedAt: String? = nil) {
         self.id = id
         self.seriesId = seriesId
         self.pieceId = pieceId
@@ -123,6 +125,7 @@ public struct StationPiece: Codable, Equatable, Sendable {
         self.publishedAt = publishedAt
         self.wordCount = wordCount
         self.seenAt = seenAt
+        self.withdrawnAt = withdrawnAt
         self.rendered = rendered
         self.rendering = rendering
         self.renderRequestedAt = renderRequestedAt
@@ -146,6 +149,7 @@ public struct StationPiece: Codable, Equatable, Sendable {
         case publishedAt = "publishedAt"
         case wordCount = "wordCount"
         case seenAt = "seenAt"
+        case withdrawnAt = "withdrawnAt"
         case rendered = "rendered"
         case rendering = "rendering"
         case renderRequestedAt = "renderRequestedAt"
@@ -170,6 +174,7 @@ public struct StationPiece: Codable, Equatable, Sendable {
         self.publishedAt = try container.decodeIfPresent(String.self, forKey: .publishedAt)
         self.wordCount = try container.decodeIfPresent(Int.self, forKey: .wordCount)
         self.seenAt = try container.decode(String.self, forKey: .seenAt)
+        self.withdrawnAt = try container.decodeIfPresent(String.self, forKey: .withdrawnAt)
         self.rendered = try container.decode(Bool.self, forKey: .rendered)
         self.rendering = try container.decode(Bool.self, forKey: .rendering)
         self.renderRequestedAt = try container.decodeIfPresent(String.self, forKey: .renderRequestedAt)
@@ -194,6 +199,7 @@ public struct StationPiece: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.publishedAt, forKey: .publishedAt)
         try container.encodeIfPresent(self.wordCount, forKey: .wordCount)
         try container.encode(self.seenAt, forKey: .seenAt)
+        try container.encodeIfPresent(self.withdrawnAt, forKey: .withdrawnAt)
         try container.encode(self.rendered, forKey: .rendered)
         try container.encode(self.rendering, forKey: .rendering)
         try container.encodeIfPresent(self.renderRequestedAt, forKey: .renderRequestedAt)

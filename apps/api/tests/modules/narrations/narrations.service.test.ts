@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { NarrationPiece, NarrationSeries } from '@deadair/plugin-sdk';
 
 import { NarrationsService } from '../../../src/modules/narrations/narrations.service.js';
-import type { NarrationPieceListing } from '../../../src/modules/narrations/narration.piece.js';
+import type { NarrationPieceListing, NarrationPieceRecord } from '../../../src/modules/narrations/narration.piece.js';
 import type { NarrationPieceRepository } from '../../../src/modules/narrations/narration.piece.repository.js';
 import type { PluginInvoker } from '../../../src/modules/plugins/plugin.invoker.js';
 import type { PluginRegistry } from '../../../src/modules/plugins/plugin.registry.js';
@@ -39,15 +39,35 @@ function plugin(id: string, instance: Partial<Record<'listSeries' | 'listPieces'
     };
 }
 
-function build(records: readonly ReturnType<typeof plugin>[]) {
+/** A row as the repository reads one back, for the routes that start from one. */
+const stored = (over: Partial<NarrationPieceRecord> = {}): NarrationPieceRecord => ({
+    id: 'piece-1',
+    seriesId: 'deadair.audiobook:frankenstein',
+    pieceId: 'ch4',
+    seriesTitle: 'Frankenstein',
+    title: 'Chapter 4',
+    seriesOrder: 'serial',
+    ordinal: 3,
+    seenAt: Date.parse('2026-09-16T10:00:00.000Z'),
+    renderAttempts: 0,
+    ...over,
+});
+
+function build(records: readonly ReturnType<typeof plugin>[], options: { row?: NarrationPieceRecord } = {}) {
     const written: NarrationPieceListing[][] = [];
+    const withdrawn: { seriesId: string; listed: string[] }[] = [];
     const pieces = {
         record: vi.fn(async (listings: readonly NarrationPieceListing[]) => {
             written.push([...listings]);
             return listings.length;
         }),
+        withdraw: vi.fn(async (seriesId: string, listed: readonly string[]) => {
+            withdrawn.push({ seriesId, listed: [...listed] });
+            return 1;
+        }),
         list: vi.fn(async () => []),
-        get: vi.fn(async () => undefined),
+        get: vi.fn(async () => options.row),
+        claimRender: vi.fn(async () => true),
     } as unknown as NarrationPieceRepository;
 
     const registry = { list: vi.fn(() => records) } as unknown as PluginRegistry;
@@ -58,7 +78,7 @@ function build(records: readonly ReturnType<typeof plugin>[]) {
     const jobs = { send: vi.fn(async () => {}) } as never;
 
     const service = new NarrationsService(registry, pluginInvoker, pieces, jobs, logger as never);
-    return { service, written, pieces };
+    return { service, written, withdrawn, pieces, jobs: jobs as unknown as { send: ReturnType<typeof vi.fn> } };
 }
 
 describe('NarrationsService.listSeries', () => {
@@ -192,10 +212,101 @@ describe('NarrationsService.refresh', () => {
         expect(summary.series).toBe(1);
     });
 
+    it('withdraws what a series no longer lists, against everything the plugin did list', async () => {
+        // The ids the plugin LISTED, including one the station could not place: a serial piece with no
+        // ordinal is ignored, not dropped by its plugin, and must not read as withdrawn.
+        const { service, withdrawn } = build([
+            plugin('deadair.audiobook', {
+                listSeries: async () => [series()],
+                listPieces: async () => [piece(), piece({ id: 'ch5', ordinal: undefined })],
+            }),
+        ]);
+
+        const summary = await service.refresh();
+
+        expect(withdrawn).toEqual([{ seriesId: 'deadair.audiobook:frankenstein', listed: ['ch4', 'ch5'] }]);
+        expect(summary.withdrawn).toBe(1);
+    });
+
+    it('withdraws nothing on an empty listing', async () => {
+        // `[]` is what a plugin answers for a book it could not read today. Taking it as "no chapters"
+        // would retire the whole book over a network blip.
+        const { service, withdrawn } = build([plugin('deadair.audiobook', { listSeries: async () => [series()], listPieces: async () => [] })]);
+
+        const summary = await service.refresh();
+
+        expect(withdrawn).toEqual([]);
+        expect(summary.withdrawn).toBe(0);
+    });
+
+    it('withdraws nothing on a listing as long as the refresh asked for', async () => {
+        // `listPieces` has no offset, so an answer that fills the limit may be a window with the rest
+        // of the book behind it.
+        let asked = 0;
+        const { service, withdrawn } = build([
+            plugin('deadair.audiobook', {
+                listSeries: async () => [series()],
+                listPieces: async ({ limit }: { limit: number }) => {
+                    asked = limit;
+                    return Array.from({ length: limit }, (_, ordinal) => piece({ id: `ch${ordinal}`, ordinal }));
+                },
+            }),
+        ]);
+
+        await service.refresh();
+
+        expect(asked).toBeGreaterThan(0);
+        expect(withdrawn).toEqual([]);
+    });
+
+    it('withdraws nothing from a series that could not be listed', async () => {
+        const { service, withdrawn } = build([
+            plugin('deadair.audiobook', {
+                listSeries: async () => [series()],
+                listPieces: async () => {
+                    throw new Error('could not open the file');
+                },
+            }),
+        ]);
+
+        await service.refresh();
+
+        expect(withdrawn).toEqual([]);
+    });
+
     it('offers nothing at all when no plugin declares the capability', async () => {
         const { service } = build([]);
 
         expect(service.hasNarrations()).toBe(false);
         expect(await service.refresh()).toMatchObject({ series: 0, listed: 0, added: 0 });
+    });
+});
+
+describe('NarrationsService.requestRender', () => {
+    it('refuses a piece the plugin has withdrawn, and asks for nothing', async () => {
+        // The render would ask the plugin for words it has stopped offering, and write a failure onto a
+        // row with nothing wrong with it.
+        const { service, pieces, jobs } = build([], { row: stored({ withdrawnAt: Date.parse('2026-09-20T12:00:00.000Z') }) });
+
+        await expect(service.requestRender('piece-1')).rejects.toMatchObject({ statusCode: 409 });
+        expect(pieces.claimRender).not.toHaveBeenCalled();
+        expect(jobs.send).not.toHaveBeenCalled();
+    });
+
+    it('answers a withdrawn piece it already holds audio for with its row', async () => {
+        const { service, jobs } = build([], { row: stored({ withdrawnAt: Date.parse('2026-09-20T12:00:00.000Z'), segmentId: 'seg-1' }) });
+
+        const answered = await service.requestRender('piece-1');
+
+        expect(answered).toMatchObject({ id: 'piece-1', rendered: true, withdrawnAt: '2026-09-20T12:00:00.000Z' });
+        expect(jobs.send).not.toHaveBeenCalled();
+    });
+
+    it('still asks for a piece that is listed', async () => {
+        const { service, jobs } = build([], { row: stored() });
+
+        await service.requestRender('piece-1');
+
+        expect(jobs.send).toHaveBeenCalledWith('narrations.render', { pieceId: 'piece-1' });
     });
 });

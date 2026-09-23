@@ -70,6 +70,14 @@
  * decided something about its own tone that an operator should decide), and a competition winner,
  * which needs a competition.
  *
+ * ## Every caller forbids the conspiracy host's dialect
+ *
+ * `reckon`, `y'all`, `fixin'`, `might could` and `I tell you what` are on every caller's `avoid`, from
+ * 2026-09-23. A caller writes his turn with the host's turns in front of him, and on the first live
+ * call the trucker came back saying "I reckon" in the host's voice. A production's check pass reads the
+ * speaker's `avoid` (`production.checks.ts`), so those words get a turn re-drafted, and they are in the
+ * caller's own prompt as well. All five carry it because any of them can be cast into his programme.
+ *
  * ## A caller's voice may never be a host's, and the pool is what bounds the roster
  *
  * The two shipped maps have to name the SAME slots, so a caller can only exist where there is a
@@ -153,7 +161,20 @@ const CALLERS = [
         // in the same breath. "I want to believe" is the line this character is built on, so it
         // is the MARKER — the bigger of the two jobs.
         catchphrases: ['You see my problem', 'Not one photograph'],
-        avoid: ['sheeple', 'wake up', 'they want you to think', 'do your own research', 'debunk', 'CIA', 'FBI'],
+        avoid: [
+            'sheeple',
+            'wake up',
+            'they want you to think',
+            'do your own research',
+            'debunk',
+            'CIA',
+            'FBI',
+            'reckon',
+            "y'all",
+            "fixin'",
+            'might could',
+            'I tell you what',
+        ],
         background: 'You have a folder of things you have not been able to explain, and it has four things in it after eleven years.',
         samples: [
             'No, I believe you saw something. I am not saying you did not. What I am asking is how far away it was, because not one witness has ever been able to tell me.',
@@ -187,7 +208,7 @@ const CALLERS = [
             'which album a song was actually on, as against where people think it was',
             'sleeve notes, and what everybody would know if they read them',
         ],
-        avoid: ["you're", "that's", "it's", "don't", "I'm", 'obviously', 'basically'],
+        avoid: ["you're", "that's", "it's", "don't", "I'm", 'obviously', 'basically', 'reckon', "y'all", "fixin'", 'might could', 'I tell you what'],
         background: 'You have kept the sleeve notes of every record you have ever bought, in order.',
         samples: [
             'Long-time listener, first-time caller. It is a small thing, but that was the second album rather than the first.',
@@ -228,7 +249,20 @@ const CALLERS = [
         ],
         latitude: 'loose',
         catchphrases: ['You know what you are', 'I will call back'],
-        avoid: ['CIA', 'FBI', 'new world order', 'deep state', 'false flag', 'wake up', 'sheeple'],
+        avoid: [
+            'CIA',
+            'FBI',
+            'new world order',
+            'deep state',
+            'false flag',
+            'wake up',
+            'sheeple',
+            'reckon',
+            "y'all",
+            "fixin'",
+            'might could',
+            'I tell you what',
+        ],
         background: 'You have rung this show every week for six years and have never once brought the proof.',
         samples: [
             "It's me. Don't say my name. I got proof this time, real proof, but it has to wait till next time, on account of the car.",
@@ -263,7 +297,20 @@ const CALLERS = [
         ],
         latitude: 'loose',
         catchphrases: ['Keep it between the lines', 'Ten-four'],
-        avoid: ['CIA', 'FBI', 'new world order', 'deep state', 'false flag', 'wake up', 'sheeple'],
+        avoid: [
+            'CIA',
+            'FBI',
+            'new world order',
+            'deep state',
+            'false flag',
+            'wake up',
+            'sheeple',
+            'reckon',
+            "y'all",
+            "fixin'",
+            'might could',
+            'I tell you what',
+        ],
         background: 'You have driven long-haul for thirty-one years and listened to this show in every state that carries it.',
         samples: [
             "Amen, amen. Every word. I'm hauling lettuce east, and mile marker forty-seven, the radio cuts out in the same spot every time.",
@@ -298,7 +345,20 @@ const CALLERS = [
         ],
         latitude: 'loose',
         catchphrases: ['Thank you, that really helps', 'Oh dear'],
-        avoid: ['CIA', 'FBI', 'new world order', 'deep state', 'false flag', 'wake up', 'sheeple'],
+        avoid: [
+            'CIA',
+            'FBI',
+            'new world order',
+            'deep state',
+            'false flag',
+            'wake up',
+            'sheeple',
+            'reckon',
+            "y'all",
+            "fixin'",
+            'might could',
+            'I tell you what',
+        ],
         background: 'You work in accounts at a company that makes fence posts, and you have never once in your life been late.',
         samples: [
             "Hi, so sorry to bother you. It's probably nothing. My smart speaker said my name yesterday, and nobody had asked it anything.",

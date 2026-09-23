@@ -265,3 +265,32 @@ describe('markup in something that is read aloud', () => {
         expect(beat("Don't @ me — seriously, what was that? " + words(190))).toEqual([]);
     });
 });
+
+// The conspiracy host's first live call: his caller picked up the host's dialect from the turns in
+// front of him ("I reckon"), and nothing in a production read either sheet back.
+describe('wording a speaker never uses', () => {
+    const avoid = ['reckon', "y'all", 'anything about a real person'];
+
+    it('names the forbidden words, so the one re-draft knows which to lose', () => {
+        const problems = beat(`Well, I reckon y'all know the rest. ${words(200)}`, { avoid });
+
+        expect(problems[0]).toMatch(/"reckon", "y'all"/);
+        expect(problems[0]).toMatch(/never says/);
+    });
+
+    it('comes ahead of a length complaint, since it is about what the beat says', () => {
+        const problems = beat('I reckon so.', { avoid });
+
+        expect(problems[0]).toMatch(/"reckon"/);
+        expect(problems[1]).toMatch(/too short/i);
+    });
+
+    // Only the phrase-shaped half of an avoid list can match, exactly as it is for a break.
+    it('never matches an entry that describes a subject rather than naming words', () => {
+        expect(beat(words(200), { avoid: ['anything about a real person'] })).toEqual([]);
+    });
+
+    it('asks nothing of a speaker whose sheet forbids nothing', () => {
+        expect(beat(`I reckon so. ${words(200)}`)).toEqual([]);
+    });
+});

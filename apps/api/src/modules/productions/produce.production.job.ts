@@ -556,6 +556,8 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                 // and that is the one place it is right.
                 ...(speaker === undefined ? {} : { role: speaker.role }),
                 ...(firstTurnOf(plan, index, at) ? { firstTurn: true } : {}),
+                // The speaker's, not the programme's: a caller may be forbidden the host's dialect.
+                ...(persona?.avoid === undefined ? {} : { avoid: persona.avoid }),
                 // The same words this beat was handed, so a beat that recited them instead of
                 // carrying on from them is caught.
                 ...(runIn === undefined ? {} : { runIn }),

@@ -91,6 +91,13 @@ a licence instead (what THEY think, kept theirs, never a real named person, neve
 and the host's next turn is told to take it as theirs rather than confirm it — the licence REPLACES the
 ordinary rules rather than joining them, because two rules that disagree produce neither.
 
+**A turn is held to its speaker's `avoid` list and nothing else of their character.** No break-side
+character check runs on a production, whatever `production.checks.ts` used to say about inheriting them:
+a production has its own writing path. The check pass reads each speaker's `avoid` through
+`avoidedWording` and names the words in the one re-draft's correction, which is what keeps a caller out
+of the host's dialect when he can see the host's turns. It is the `polished` mode's pass, so `outlined`
+and `quick` still only instruct. The marker floor is deliberately not applied to a turn.
+
 **A caller ARRIVES mid-programme**, so `firstTurn` is a fact about the SPEAKER rather than about the beat: it
 is the one place a greeting belongs, `checkBeat` is excused there, and the prompt says which way round the
 call went because the first live one opened with "thanks for calling", which is the presenter's line.

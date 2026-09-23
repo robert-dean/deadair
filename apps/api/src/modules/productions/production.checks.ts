@@ -16,14 +16,22 @@
  * Ordered because the correction is read by a model with finite attention: the problems that change
  * what the beat SAYS come before the ones that change how long it is.
  *
- * ## What it deliberately does not judge
+ * ## Of a speaker's character, it judges only the wording they never use
  *
- * Character and diction, which `readAnswer` and `characterFault` already own for breaks and which a
- * production inherits by going through the same writers. Duplicating either here would give a beat
- * two judges that can disagree.
+ * This used to say character and diction were not judged here because a production inherits
+ * `readAnswer` and `characterFault` by going through the same writers. It does not: a production has
+ * its own writing path and not one of those runs on a beat. What that cost was measured on the
+ * conspiracy host's first live call, where his caller picked up the host's dialect ("I reckon") from
+ * the turns in front of him, with the words on nobody's list.
+ *
+ * So the speaker's `avoid` list is read here, through the same `avoidedWording` a break uses, and
+ * only the phrase-shaped half of it can ever match. The marker floor is still NOT applied: a beat is
+ * a turn in a conversation rather than a break, and refusing a caller's reply for lacking his words
+ * is a judgement nobody has measured.
  */
 
 import { contradictsDayPart, namesWrongTimeOfDay, type RoughTime } from '#modules/director/clock.words.js';
+import { avoidedWording } from '#modules/personas/persona.sheet.js';
 import { expectedWords, MAX_WORDS } from './production.plan.js';
 
 /**
@@ -85,6 +93,13 @@ export interface BeatCheckInput {
     firstTurn?: boolean;
     /** The beats already written, for the repetition check. */
     priorBeats?: readonly string[];
+    /**
+     * The speaker's own `avoid` list, from their sheet.
+     *
+     * Per speaker, because the words are: a caller forbidden the host's dialect is not forbidding the
+     * host it.
+     */
+    avoid?: readonly string[];
     /**
      * The half of the day this beat was told it was going out in.
      *
@@ -158,6 +173,15 @@ export function checkBeat(input: BeatCheckInput): string[] {
         problems.push(
             `This beat says "${hour}", which is hours from when it goes out. Say nothing about the time of day except what you were told, ` +
                 'and do not reach for a mealtime or an hour to set a scene you were not given.',
+        );
+    }
+
+    // Still about what the beat SAYS, so ahead of every length complaint. Named rather than described,
+    // because a model told only that it used a forbidden word cannot tell which one.
+    const forbidden = avoidedWording({ avoid: input.avoid ?? [] }, text);
+    if (forbidden.length > 0) {
+        problems.push(
+            `This beat says ${forbidden.map(word => `"${word}"`).join(', ')}, which this speaker never says. Say the same thing in your own words without it.`,
         );
     }
 

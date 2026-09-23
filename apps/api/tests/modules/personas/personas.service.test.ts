@@ -22,9 +22,18 @@ const persona = (over: Partial<Persona> = {}): Persona => ({
     ...over,
 });
 
-function build(options: { setDefaultHost?: Persona | undefined; postFails?: boolean; roster?: Persona[]; ordersHost?: string } = {}) {
+function build(
+    options: { setDefaultHost?: Persona | undefined; postFails?: boolean; roster?: Persona[]; ordersHost?: string; ties?: Map<string, string[]> } = {},
+) {
     const roster = options.roster ?? [persona()];
     const personas = {
+        // The ties a caller carries to the hosts it rings in to. Empty unless a case says otherwise,
+        // which is every station before `deadair.caller_hosts` existed.
+        callerHosts: vi.fn(async () => options.ties ?? new Map<string, string[]>()),
+        setHosts: vi.fn(async () => undefined),
+        untieHost: vi.fn(async () => undefined),
+        create: vi.fn(async (draft: Persona) => ({ ...draft, id: 'new-id', defaultHost: false })),
+        update: vi.fn(async (id: string, draft: Persona) => (roster.some(row => row.id === id) ? { ...draft, id, defaultHost: false } : undefined)),
         // Answers whatever `setDefaultHost` would, because the two are now asked in sequence: the service
         // reads the row first to find out whether it is a caller, so "no such persona" has to be the
         // same answer from both or a 404 case would half-pass.
@@ -182,5 +191,95 @@ describe('PersonasService answering who is presenting', () => {
         // Putting the station's own host on does not take the show off its own: the director keeps
         // the running order's answer, so the page has to keep showing the guest as the one speaking.
         expect(list.personas.find(row => row.id === 'p2')?.presenting).toBe(true);
+    });
+});
+
+// A caller can be tied to the hosts it rings in to, and a tied caller is cast only into a phone-in
+// one of them presents. What these hold is the operator's half: which ties can be written, that a
+// refusal writes nothing at all, that absent means none rather than "leave them alone", and that the
+// roster answers each caller's ties. Casting's half is `production.caster.test.ts`.
+describe('PersonasService tying a caller to the hosts it rings', () => {
+    const host = persona({ id: 'h1', key: 'conspiracy', label: 'Conspiracy host', defaultHost: true });
+    const otherHost = persona({ id: 'h2', key: 'classic', label: 'Classic host', defaultHost: false });
+    const skeptic = persona({ id: 'c1', key: 'skeptic', kind: 'caller', label: 'Caller who wants proof', defaultHost: false });
+    const pedant = persona({ id: 'c2', key: 'pedant', kind: 'caller', label: 'Caller who knows better', defaultHost: false });
+    const roster = [host, otherHost, skeptic, pedant];
+
+    const input = (over: Record<string, unknown> = {}) =>
+        ({ key: 'skeptic', kind: 'caller', label: 'Caller who wants proof', style: 'a listener who wants proof', ...over }) as never;
+
+    // Looks the id up in the roster, which the shared double does not: these cases are about which
+    // persona an id names.
+    function tying(ties?: Map<string, string[]>) {
+        const built = build({ roster, ...(ties === undefined ? {} : { ties }) });
+        built.personas.find = vi.fn(async (id: string) => roster.find(row => row.id === id)) as never;
+        return built;
+    }
+
+    it('writes the hosts a new caller rings in to', async () => {
+        const { service, personas } = tying();
+
+        await service.create(input({ hosts: ['h1', 'h2', 'h1'] }));
+
+        // Deduplicated, because the primary key would otherwise refuse the second row as a 500.
+        expect(personas.setHosts).toHaveBeenCalledWith('new-id', ['h1', 'h2']);
+    });
+
+    it('clears a caller\u2019s ties when a save sends none', async () => {
+        // The console leaves an empty field out, so "absent" is what clearing the last host looks
+        // like on the wire. Reading it as "leave them alone" would make a tie impossible to remove.
+        const { service, personas } = tying();
+
+        await service.update('c1', input());
+
+        expect(personas.setHosts).toHaveBeenCalledWith('c1', []);
+    });
+
+    it('refuses hosts on a host, and writes nothing', async () => {
+        const { service, personas } = tying();
+
+        await expect(service.update('h2', input({ key: 'classic', kind: 'host', label: 'Classic host', hosts: ['h1'] }))).rejects.toMatchObject({
+            statusCode: 400,
+        });
+
+        expect(personas.update).not.toHaveBeenCalled();
+        expect(personas.setHosts).not.toHaveBeenCalled();
+    });
+
+    it('refuses a caller ringing in to another caller, and writes nothing', async () => {
+        const { service, personas } = tying();
+
+        await expect(service.update('c1', input({ hosts: ['c2'] }))).rejects.toMatchObject({ statusCode: 400 });
+
+        expect(personas.update).not.toHaveBeenCalled();
+        expect(personas.setHosts).not.toHaveBeenCalled();
+    });
+
+    it('refuses a host the station does not have, and writes nothing', async () => {
+        const { service, personas } = tying();
+
+        await expect(service.create(input({ hosts: ['gone'] }))).rejects.toMatchObject({ statusCode: 400 });
+
+        expect(personas.create).not.toHaveBeenCalled();
+    });
+
+    it('unties the callers of a host rewritten as somebody who phones in', async () => {
+        // Nobody can ring a character that never presents, so the ties naming it go rather than
+        // leaving a caller tied to a host that will never be on.
+        const { service, personas } = tying();
+
+        await service.update('h2', input({ key: 'classic', label: 'Classic host' }));
+
+        expect(personas.untieHost).toHaveBeenCalledWith('h2');
+    });
+
+    it('answers each caller\u2019s hosts on the roster, and none on a host', async () => {
+        const { service } = tying(new Map([['c1', ['h1']]]));
+
+        const list = await service.list();
+
+        expect(list.personas.find(row => row.id === 'c1')?.hosts).toEqual(['h1']);
+        expect(list.personas.find(row => row.id === 'c2')).not.toHaveProperty('hosts');
+        expect(list.personas.find(row => row.id === 'h1')).not.toHaveProperty('hosts');
     });
 });

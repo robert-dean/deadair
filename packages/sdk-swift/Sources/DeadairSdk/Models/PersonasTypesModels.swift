@@ -49,12 +49,14 @@ public struct Persona: Codable, Equatable, Sendable {
     public var samples: [String]?
     /// This character's own break phrasings, one per line. Empty means the station's own five
     public var templates: String?
+    /// The hosts this CALLER rings in to, as persona ids. A tied caller is cast only into a phone-in one of them presents; absent or empty rings in to whoever is presenting. Sent on a host, it is refused, and every id must be one of this station's hosts. Deleting a host unties the caller rather than silencing them. Saving a caller without it clears its ties
+    public var hosts: [String]?
     /// The station's own host: who presents when the broadcast on air names nobody. At most one per station. Was `active` until it was renamed, because a reader who had not read `PersonaRepository.presenting` reasonably took that to mean "on air", which it is not during a show that named its own host
     public var defaultHost: Bool
     /// Whether this character is the one writing breaks right now. Derived per request from the running order, falling back to `defaultHost`, through the one place that precedence lives (`PersonaRepository.presenting`). Never stored, so it cannot drift from what the director is actually doing
     public var presenting: Bool
 
-    public init(id: String, key: String, kind: PersonaKind? = nil, label: String, style: String, djName: String? = nil, voice: String? = nil, soundboard: String? = nil, diction: [String]? = nil, dictionMarkers: [String]? = nil, quirks: [String]? = nil, preoccupations: [String]? = nil, catchphrases: [String]? = nil, avoid: [String]? = nil, exclusiveSubjects: [String]? = nil, background: String? = nil, brevity: PersonaBrevity? = nil, latitude: PersonaLatitude? = nil, chattiness: PersonaChattiness? = nil, storytelling: PersonaStorytelling? = nil, growth: PersonaGrowth? = nil, trivia: PersonaTrivia? = nil, samples: [String]? = nil, templates: String? = nil, defaultHost: Bool, presenting: Bool) {
+    public init(id: String, key: String, kind: PersonaKind? = nil, label: String, style: String, djName: String? = nil, voice: String? = nil, soundboard: String? = nil, diction: [String]? = nil, dictionMarkers: [String]? = nil, quirks: [String]? = nil, preoccupations: [String]? = nil, catchphrases: [String]? = nil, avoid: [String]? = nil, exclusiveSubjects: [String]? = nil, background: String? = nil, brevity: PersonaBrevity? = nil, latitude: PersonaLatitude? = nil, chattiness: PersonaChattiness? = nil, storytelling: PersonaStorytelling? = nil, growth: PersonaGrowth? = nil, trivia: PersonaTrivia? = nil, samples: [String]? = nil, templates: String? = nil, hosts: [String]? = nil, defaultHost: Bool, presenting: Bool) {
         self.id = id
         self.key = key
         self.kind = kind
@@ -79,6 +81,7 @@ public struct Persona: Codable, Equatable, Sendable {
         self.trivia = trivia
         self.samples = samples
         self.templates = templates
+        self.hosts = hosts
         self.defaultHost = defaultHost
         self.presenting = presenting
     }
@@ -108,6 +111,7 @@ public struct Persona: Codable, Equatable, Sendable {
         case trivia = "trivia"
         case samples = "samples"
         case templates = "templates"
+        case hosts = "hosts"
         case defaultHost = "defaultHost"
         case presenting = "presenting"
     }
@@ -138,6 +142,7 @@ public struct Persona: Codable, Equatable, Sendable {
         self.trivia = try container.decodeIfPresent(PersonaTrivia.self, forKey: .trivia)
         self.samples = try container.decodeIfPresent([String].self, forKey: .samples)
         self.templates = try container.decodeIfPresent(String.self, forKey: .templates)
+        self.hosts = try container.decodeIfPresent([String].self, forKey: .hosts)
         self.defaultHost = try container.decode(Bool.self, forKey: .defaultHost)
         self.presenting = try container.decode(Bool.self, forKey: .presenting)
     }
@@ -168,6 +173,7 @@ public struct Persona: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.trivia, forKey: .trivia)
         try container.encodeIfPresent(self.samples, forKey: .samples)
         try container.encodeIfPresent(self.templates, forKey: .templates)
+        try container.encodeIfPresent(self.hosts, forKey: .hosts)
         try container.encode(self.defaultHost, forKey: .defaultHost)
         try container.encode(self.presenting, forKey: .presenting)
     }
@@ -220,8 +226,10 @@ public struct PersonaInput: Codable, Equatable, Sendable {
     public var samples: [String]?
     /// This character's own break phrasings, one per line. Empty means the station's own five
     public var templates: String?
+    /// The hosts this CALLER rings in to, as persona ids. A tied caller is cast only into a phone-in one of them presents; absent or empty rings in to whoever is presenting. Sent on a host, it is refused, and every id must be one of this station's hosts. Deleting a host unties the caller rather than silencing them. Saving a caller without it clears its ties
+    public var hosts: [String]?
 
-    public init(key: String, kind: PersonaKind? = nil, label: String, style: String, djName: String? = nil, voice: String? = nil, soundboard: String? = nil, diction: [String]? = nil, dictionMarkers: [String]? = nil, quirks: [String]? = nil, preoccupations: [String]? = nil, catchphrases: [String]? = nil, avoid: [String]? = nil, exclusiveSubjects: [String]? = nil, background: String? = nil, brevity: PersonaBrevity? = nil, latitude: PersonaLatitude? = nil, chattiness: PersonaChattiness? = nil, storytelling: PersonaStorytelling? = nil, growth: PersonaGrowth? = nil, trivia: PersonaTrivia? = nil, samples: [String]? = nil, templates: String? = nil) {
+    public init(key: String, kind: PersonaKind? = nil, label: String, style: String, djName: String? = nil, voice: String? = nil, soundboard: String? = nil, diction: [String]? = nil, dictionMarkers: [String]? = nil, quirks: [String]? = nil, preoccupations: [String]? = nil, catchphrases: [String]? = nil, avoid: [String]? = nil, exclusiveSubjects: [String]? = nil, background: String? = nil, brevity: PersonaBrevity? = nil, latitude: PersonaLatitude? = nil, chattiness: PersonaChattiness? = nil, storytelling: PersonaStorytelling? = nil, growth: PersonaGrowth? = nil, trivia: PersonaTrivia? = nil, samples: [String]? = nil, templates: String? = nil, hosts: [String]? = nil) {
         self.key = key
         self.kind = kind
         self.label = label
@@ -245,6 +253,7 @@ public struct PersonaInput: Codable, Equatable, Sendable {
         self.trivia = trivia
         self.samples = samples
         self.templates = templates
+        self.hosts = hosts
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -271,6 +280,7 @@ public struct PersonaInput: Codable, Equatable, Sendable {
         case trivia = "trivia"
         case samples = "samples"
         case templates = "templates"
+        case hosts = "hosts"
     }
 
     public init(from decoder: Decoder) throws {
@@ -298,6 +308,7 @@ public struct PersonaInput: Codable, Equatable, Sendable {
         self.trivia = try container.decodeIfPresent(PersonaTrivia.self, forKey: .trivia)
         self.samples = try container.decodeIfPresent([String].self, forKey: .samples)
         self.templates = try container.decodeIfPresent(String.self, forKey: .templates)
+        self.hosts = try container.decodeIfPresent([String].self, forKey: .hosts)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -325,6 +336,7 @@ public struct PersonaInput: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.trivia, forKey: .trivia)
         try container.encodeIfPresent(self.samples, forKey: .samples)
         try container.encodeIfPresent(self.templates, forKey: .templates)
+        try container.encodeIfPresent(self.hosts, forKey: .hosts)
     }
 }
 

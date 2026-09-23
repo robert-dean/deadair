@@ -73,18 +73,84 @@ export class PersonaRepository extends DataRepository {
      * a rule rather than a preference — a production that cast the station's own host as a caller
      * would have the presenter ring themselves up. Ordered like {@link list} so a station with no
      * history of casting anybody still draws them in a stable order.
+     *
+     * ## Who may ring THIS host
+     *
+     * `hostId` is whoever presents the programme, and a caller tied to hosts (`deadair.caller_hosts`)
+     * is castable only when that is one of them. A caller with no ties rings in to anybody. A tie is a
+     * RESTRICTION rather than a preference: the foil written for one presenter does not turn up on
+     * somebody else's show, and among the callers who may ring, the rotation is exactly what it was.
+     *
+     * `undefined` is a station presenting as nobody in particular, and it casts only the untied —
+     * a regular rings a host, and a programme with no host has nobody for them to ring.
      */
-    async castable(): Promise<Persona[]> {
+    async castable(hostId?: string): Promise<Persona[]> {
         const rows = await this.db
-            .selectFrom('deadair.personas')
-            .selectAll()
-            .where('stationKey', '=', this.station.stationKey)
-            .where('kind', '=', 'caller')
-            .orderBy('createdAt', 'asc')
-            .orderBy('key', 'asc')
+            .selectFrom('deadair.personas as caller')
+            .selectAll('caller')
+            .where('caller.stationKey', '=', this.station.stationKey)
+            .where('caller.kind', '=', 'caller')
+            .where(eb => {
+                const untied = eb.not(
+                    eb.exists(eb.selectFrom('deadair.callerHosts as tie').select('tie.hostId').whereRef('tie.callerId', '=', 'caller.id')),
+                );
+                if (hostId === undefined) return untied;
+
+                return eb.or([
+                    untied,
+                    eb.exists(
+                        eb
+                            .selectFrom('deadair.callerHosts as tie')
+                            .select('tie.hostId')
+                            .whereRef('tie.callerId', '=', 'caller.id')
+                            .where('tie.hostId', '=', hostId),
+                    ),
+                ]);
+            })
+            .orderBy('caller.createdAt', 'asc')
+            .orderBy('caller.key', 'asc')
             .execute();
 
         return rows.map(toPersona);
+    }
+
+    /**
+     * Every tie on this station, as the hosts each caller rings in to, keyed by the caller's id.
+     *
+     * A caller with no ties is absent rather than mapped to an empty list, which is the same thing to
+     * every reader and one fewer shape to handle. The hosts come back in {@link list}'s order, so the
+     * console names them the way the roster above them does.
+     */
+    async callerHosts(): Promise<Map<string, string[]>> {
+        const rows = await this.db
+            .selectFrom('deadair.callerHosts as tie')
+            .innerJoin('deadair.personas as host', 'host.id', 'tie.hostId')
+            .select(['tie.callerId', 'tie.hostId'])
+            .where('host.stationKey', '=', this.station.stationKey)
+            .orderBy('host.createdAt', 'asc')
+            .orderBy('host.key', 'asc')
+            .execute();
+
+        const ties = new Map<string, string[]>();
+        for (const row of rows) ties.set(row.callerId, [...(ties.get(row.callerId) ?? []), row.hostId]);
+        return ties;
+    }
+
+    /**
+     * Replace the hosts one caller rings in to. An empty list unties it, so it rings in to anybody.
+     *
+     * Delete then insert, atomic for {@link setDefaultHost}'s reason: the request this runs in is
+     * already a transaction. Nothing here checks the kinds at either end — the table does not, and
+     * `PersonasService` refuses anything that is not a caller naming hosts before it calls this.
+     */
+    async setHosts(callerId: string, hostIds: readonly string[]): Promise<void> {
+        await this.db.deleteFrom('deadair.callerHosts').where('callerId', '=', callerId).execute();
+        if (hostIds.length === 0) return;
+
+        await this.db
+            .insertInto('deadair.callerHosts')
+            .values(hostIds.map(hostId => ({ callerId, hostId })))
+            .execute();
     }
 
     async find(id: string): Promise<Persona | undefined> {
@@ -155,6 +221,11 @@ export class PersonaRepository extends DataRepository {
             .executeTakeFirst();
 
         return row === undefined ? undefined : toPersona(row);
+    }
+
+    /** Take every tie to this host away, so the callers who rang only it ring in to anybody. */
+    async untieHost(hostId: string): Promise<void> {
+        await this.db.deleteFrom('deadair.callerHosts').where('hostId', '=', hostId).execute();
     }
 
     /** Whether there was one to delete. The station's own host going is legitimate; see {@link defaultHost}. */

@@ -82,15 +82,22 @@ export class PersonasService {
     }
 
     async create(body: PersonaInput): Promise<PersonaList> {
-        await this.write(body.key, () => this.personas.create(draftOf(body)));
+        const hosts = await this.hostsFor(body);
+        const created = await this.write(body.key, () => this.personas.create(draftOf(body)));
+        await this.personas.setHosts(created.id, hosts);
         this.logger.info('personas: an operator wrote a persona', { key: body.key });
 
         return this.answer();
     }
 
     async update(id: string, body: PersonaInput): Promise<PersonaList> {
+        const hosts = await this.hostsFor(body);
         const updated = await this.write(body.key, () => this.personas.update(id, draftOf(body)));
         if (updated === undefined) throw httpError(404).withDetails({ message: `persona "${id}" does not exist` });
+        await this.personas.setHosts(updated.id, hosts);
+        // A host rewritten as somebody who phones in can no longer be rung, so the callers tied to it
+        // are untied rather than left naming a presenter who will never present.
+        if (updated.kind !== DEFAULT_PERSONA_KIND) await this.personas.untieHost(updated.id);
 
         // `stationDefault` rather than `onAir`, which is what this line said while meaning the
         // other thing. The flag is who presents when the broadcast names nobody; who is actually
@@ -346,9 +353,45 @@ export class PersonasService {
      * handful of rows, against a page that would otherwise show something untrue.
      */
     private async answer(): Promise<PersonaList> {
-        const [roster, presenting] = await Promise.all([this.personas.list(), this.personas.presenting(this.director.order()?.personaId)]);
+        const [roster, presenting, ties] = await Promise.all([
+            this.personas.list(),
+            this.personas.presenting(this.director.order()?.personaId),
+            this.personas.callerHosts(),
+        ]);
 
-        return { personas: roster.map(persona => toView(persona, presenting?.id)) };
+        return { personas: roster.map(persona => toView(persona, presenting?.id, ties.get(persona.id))) };
+    }
+
+    /**
+     * The hosts a submitted persona rings in to, checked, before anything is written.
+     *
+     * **Absent means NONE rather than "leave them alone"**, which is the one place this form differs
+     * from a patch. The console leaves an empty field out of what it sends, so an operator clearing
+     * the last host would otherwise send nothing and keep the tie, and removing one would be
+     * impossible to express. Every save of a caller therefore states its ties whole.
+     *
+     * Refused with a sentence rather than left to the table, which checks neither kind (see migration
+     * 0045): a host that rings in is a question with no answer, and a caller tied to another caller or
+     * to a persona this station does not have would be a tie casting could never honour. Checked
+     * BEFORE the row is written, so a refusal leaves the persona exactly as it was.
+     */
+    private async hostsFor(body: PersonaInput): Promise<string[]> {
+        const hosts = [...new Set(body.hosts ?? [])];
+        if (hosts.length === 0) return [];
+
+        if ((body.kind ?? DEFAULT_PERSONA_KIND) !== 'caller') {
+            throw httpError(400).withDetails({ message: `"${body.label}" presents, and only somebody who phones in rings in to a host` });
+        }
+
+        for (const id of hosts) {
+            const host = await this.personas.find(id);
+            if (host === undefined) throw httpError(400).withDetails({ message: `persona "${id}" does not exist, so nobody can ring in to it` });
+            if (host.kind !== 'host') {
+                throw httpError(400).withDetails({ message: `"${host.label}" phones in too, so "${body.label}" cannot ring in to them` });
+            }
+        }
+
+        return hosts;
     }
 
     /**
@@ -434,7 +477,11 @@ export function draftOf(body: PersonaInput): PersonaDraft {
     };
 }
 
-function toView(persona: Persona, presentingId: string | undefined): PersonaView {
+/**
+ * A persona as the console reads it. `hosts` are the ties a caller carries, which are a relation
+ * rather than part of the row and so are handed in beside it; a host never has any to hand in.
+ */
+function toView(persona: Persona, presentingId: string | undefined, hosts?: readonly string[]): PersonaView {
     return {
         id: persona.id,
         key: persona.key,
@@ -468,6 +515,7 @@ function toView(persona: Persona, presentingId: string | undefined): PersonaView
             avoid: mutable(persona.avoid),
             exclusiveSubjects: mutable(persona.exclusiveSubjects),
             samples: mutable(persona.samples),
+            hosts: hosts === undefined || hosts.length === 0 ? undefined : [...hosts],
         }),
     };
 }

@@ -237,6 +237,12 @@ export interface DeadairBreakRequests {
   urgency: "interrupt" | "next" | "soon" | "whenever";
 }
 
+export interface DeadairCallerHosts {
+  callerId: string;
+  createdAt: Generated<DateTime>;
+  hostId: string;
+}
+
 export interface DeadairClockBands {
   at: "clock" | "interval";
   createdAt: Generated<DateTime>;
@@ -988,6 +994,7 @@ export interface DB {
   "deadair.artists": DeadairArtists;
   "deadair.artistSources": DeadairArtistSources;
   "deadair.breakRequests": DeadairBreakRequests;
+  "deadair.callerHosts": DeadairCallerHosts;
   "deadair.clockBands": DeadairClockBands;
   "deadair.factExtractions": DeadairFactExtractions;
   "deadair.facts": DeadairFacts;

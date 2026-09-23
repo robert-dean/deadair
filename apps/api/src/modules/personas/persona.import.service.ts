@@ -113,6 +113,9 @@ export class PersonaImportService {
 
         for (const persona of file.personas) {
             const id = held.get(persona.key);
+            // Through the repository, so a caller's ties to hosts (`deadair.caller_hosts`) are neither
+            // read nor cleared: they name this station's own persona ids, a file carries none, and an
+            // import rewriting a caller's sheet must not quietly untie it from the hosts it rings.
             const saved = id === undefined ? await this.personas.create(draftOf(persona)) : await this.personas.update(id, draftOf(persona));
             if (id === undefined) created += 1;
             else updated += 1;

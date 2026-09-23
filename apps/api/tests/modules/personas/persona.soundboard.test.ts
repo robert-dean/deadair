@@ -32,6 +32,10 @@ function build() {
         // The read answers who is presenting as well as the roster, so every double of this
         // repository needs it. Nobody here: these cases are about a field surviving a round trip.
         presenting: vi.fn(async () => undefined),
+        // Caller ties. None here: a soundboard is a host's, and these rows ring in to nobody.
+        callerHosts: vi.fn(async () => new Map<string, string[]>()),
+        setHosts: vi.fn(async () => undefined),
+        untieHost: vi.fn(async () => undefined),
         create: vi.fn(async (draft: unknown) => {
             written.push(draft);
             return stored;

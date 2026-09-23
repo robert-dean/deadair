@@ -128,6 +128,11 @@ public sealed record Persona
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Templates { get; init; }
 
+    /// <summary>The hosts this CALLER rings in to, as persona ids. A tied caller is cast only into a phone-in one of them presents; absent or empty rings in to whoever is presenting. Sent on a host, it is refused, and every id must be one of this station's hosts. Deleting a host unties the caller rather than silencing them. Saving a caller without it clears its ties</summary>
+    [JsonPropertyName("hosts")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? Hosts { get; init; }
+
     /// <summary>The station's own host: who presents when the broadcast on air names nobody. At most one per station. Was `active` until it was renamed, because a reader who had not read `PersonaRepository.presenting` reasonably took that to mean "on air", which it is not during a show that named its own host</summary>
     [JsonPropertyName("defaultHost")]
     public required bool DefaultHost { get; init; }
@@ -250,6 +255,11 @@ public sealed record PersonaInput
     [JsonPropertyName("templates")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Templates { get; init; }
+
+    /// <summary>The hosts this CALLER rings in to, as persona ids. A tied caller is cast only into a phone-in one of them presents; absent or empty rings in to whoever is presenting. Sent on a host, it is refused, and every id must be one of this station's hosts. Deleting a host unties the caller rather than silencing them. Saving a caller without it clears its ties</summary>
+    [JsonPropertyName("hosts")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? Hosts { get; init; }
 }
 
 /// <summary>A description of a character, in the operator's own words</summary>

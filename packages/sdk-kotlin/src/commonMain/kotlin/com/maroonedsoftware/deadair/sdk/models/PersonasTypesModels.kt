@@ -53,6 +53,8 @@ data class Persona(
     val samples: List<String>? = null,
     /** This character's own break phrasings, one per line. Empty means the station's own five */
     val templates: String? = null,
+    /** The hosts this CALLER rings in to, as persona ids. A tied caller is cast only into a phone-in one of them presents; absent or empty rings in to whoever is presenting. Sent on a host, it is refused, and every id must be one of this station's hosts. Deleting a host unties the caller rather than silencing them. Saving a caller without it clears its ties */
+    val hosts: List<String>? = null,
     /** The station's own host: who presents when the broadcast on air names nobody. At most one per station. Was `active` until it was renamed, because a reader who had not read `PersonaRepository.presenting` reasonably took that to mean "on air", which it is not during a show that named its own host */
     val defaultHost: Boolean,
     /** Whether this character is the one writing breaks right now. Derived per request from the running order, falling back to `defaultHost`, through the one place that precedence lives (`PersonaRepository.presenting`). Never stored, so it cannot drift from what the director is actually doing */
@@ -107,6 +109,8 @@ data class PersonaInput(
     val samples: List<String>? = null,
     /** This character's own break phrasings, one per line. Empty means the station's own five */
     val templates: String? = null,
+    /** The hosts this CALLER rings in to, as persona ids. A tied caller is cast only into a phone-in one of them presents; absent or empty rings in to whoever is presenting. Sent on a host, it is refused, and every id must be one of this station's hosts. Deleting a host unties the caller rather than silencing them. Saving a caller without it clears its ties */
+    val hosts: List<String>? = null,
 )
 
 /** A description of a character, in the operator's own words */

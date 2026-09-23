@@ -7898,6 +7898,13 @@ components:
                     type: string
                     maxLength: 20000
                     description: "This character's own break phrasings, one per line. Empty means the station's own five"
+                hosts:
+                    type: array
+                    items:
+                        type: string
+                        minLength: 1
+                        maxLength: 100
+                    description: "The hosts this CALLER rings in to, as persona ids. A tied caller is cast only into a phone-in one of them presents; absent or empty rings in to whoever is presenting. Sent on a host, it is refused, and every id must be one of this station's hosts. Deleting a host unties the caller rather than silencing them. Saving a caller without it clears its ties"
                 defaultHost:
                     type: boolean
                     readOnly: true

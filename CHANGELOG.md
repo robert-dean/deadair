@@ -9,6 +9,13 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.27.0] — 2026-09-23
+
+- The station now says when a newer release is out. The console's header names it, **Check-up > What’s new** lists it first with its notes and a link to its release page, and the Build section of Check-up says so. The station asks GitHub for the project's public list of releases once when it starts and then every six hours. **Check now** on What’s new asks straight away. Each request is anonymous and carries nothing about the station. It never installs anything: upgrading is still pulling the new image.
+
+  It is **on** by default. Turn it off under **Settings > Station > Check for new releases**, and it sends nothing at all. A station that follows `latest` is told about a release only once one is out that it has not already picked up from `main`.
+- The console now says what changed in each release. **Check-up > What’s new** lists every release this station contains, newest first, with its notes, and marks the one it is running. The notes come from the changelog built into the station, so the page works with no internet connection. It shows the five newest releases and the rest on request, and the Build section of Check-up links to it.
+
 ## [0.26.3] — 2026-09-23
 
 - The conspiracy host now speaks in the present tense, even about what he saw years ago, and his three seeded stories are retold that way. His delivery is cheerfully unhinged rather than hushed and paranoid: every theory gets bigger and faster than the last, he congratulates himself when he cracks one, and he is funny because he means every word. Each talk break is about one theory and only one: whichever he has on his mind, or the one in the story he is telling, and he goes deeper into it rather than moving on to the next. What he will not talk about is unchanged. This changes the seed a fresh station starts with; a station that already has him keeps its own row until an operator edits it.
@@ -732,7 +739,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.26.3...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.27.0...HEAD
+[0.27.0]: https://github.com/robert-dean/deadair/compare/v0.26.3...v0.27.0
 [0.26.3]: https://github.com/robert-dean/deadair/compare/v0.26.2...v0.26.3
 [0.26.2]: https://github.com/robert-dean/deadair/compare/v0.26.1...v0.26.2
 [0.26.1]: https://github.com/robert-dean/deadair/compare/v0.26.0...v0.26.1

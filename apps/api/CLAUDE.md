@@ -99,8 +99,11 @@ that verify against a user who no longer exists. The root `rebuild:data` and `db
 therefore end in `pnpm flush:sessions` (`redis-cli FLUSHALL`); a reset that skips it hands the
 operator a session with no actor. The API rejects that state rather than trusting it, in
 `authorization.context.middleware` for authenticated requests and in
-`AuthenticationService.revokeIfSubjectIsGone` for the refresh grant, both of which revoke the
-session and answer 401 instead of letting it through as a user who holds no permissions.
+`AuthenticationService.refuseIfSubjectIsGone` for the refresh grant, both of which revoke the
+session and answer 401 instead of letting it through as a user who holds no permissions. The
+refresh check runs as `refreshSession`'s guard, after the token is verified and its `jti` claimed,
+because `lookupSessionFromJwt` refuses a refresh token since @maroonedsoftware/authentication 6: a
+peek through it fails on every call, and a peek whose failure is swallowed checks nothing.
 
 **One Redis client, and `resolveRedisConnection` decides what it connects as.** Both rate limiters,
 `SignInMailLimiter`, `IoRedisCacheProvider` and the session store all resolve the single `Redis`

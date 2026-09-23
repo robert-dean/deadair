@@ -37,6 +37,7 @@ import {
     OidcProviderConfig,
     OidcProviderRegistry,
     OidcProviderRegistryConfig,
+    OidcProviderSource,
     OtpProvider,
     OtpProviderMock,
     PasswordFactorRepository,
@@ -291,8 +292,12 @@ export const AuthenticationModule: ServerKitModule = {
         registry.register(MfaChallengeService).useClass(MfaChallengeService).asScoped();
         registry.register(MfaOrchestrator).useClass(MfaOrchestrator).asScoped();
 
+        // Registered under the `OidcProviderSource` token, which is what the registry asks for since
+        // @maroonedsoftware/authentication 6. The static config is the library's default source: the
+        // registry consults it on every lookup, so a source backed by settings can replace this one
+        // without the registry or the factor service changing.
         registry
-            .register(OidcProviderRegistryConfig)
+            .register(OidcProviderSource)
             .useFactory(() => {
                 const providers: OidcProviderConfig[] = [];
                 const googleClientId = config.get('GOOGLE_OIDC_CLIENT_ID', '');

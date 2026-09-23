@@ -44,6 +44,7 @@ import { parseAndValidate, parseAndValidateArray } from '@maroonedsoftware/zod';
 import { AuthenticationServiceOptions } from './authentication.options.js';
 import { ActorsRepository } from '#modules/authentication/repositories/actors.repository.js';
 import {
+    AuthenticationSession,
     AuthenticationSessionFactor,
     AuthenticationSessionService,
     AuthenticatorFactorService,
@@ -506,8 +507,7 @@ export class AuthenticationService {
         // dead token.
         const presentedByCookie = bodyToken === undefined;
         try {
-            await this.revokeIfSubjectIsGone(refreshToken);
-            const token = await this.sessionService.refreshSession(refreshToken);
+            const token = await this.sessionService.refreshSession(refreshToken, undefined, session => this.refuseIfSubjectIsGone(session));
             return {
                 result: 'token',
                 accessToken: token.accessToken,
@@ -540,16 +540,14 @@ export class AuthenticationService {
      * answers 403, and the audit hook fails its foreign key on the way past. Revoke the session
      * instead, and let the 401 route the client to a real login.
      *
-     * The lookup is read-only (no jti consumption, no rotation), so a token this rejects is left
-     * exactly as `refreshSession` would have found it. Anything the lookup itself refuses is not
-     * this method's verdict to render: fall through and let the refresh grant judge it, so replay
-     * detection and family revocation stay in one place.
+     * Runs as `refreshSession`'s guard: after the token has been verified and its `jti` claimed, and
+     * before anything is minted, so replay detection and family revocation stay in the session
+     * service and this sees only a session that grant has already accepted. It used to peek the
+     * token first with `lookupSessionFromJwt`, which since @maroonedsoftware/authentication 6
+     * refuses a refresh token outright; the peek would have failed on every call, been swallowed,
+     * and silently stopped checking anything.
      */
-    private async revokeIfSubjectIsGone(refreshToken: string): Promise<void> {
-        const lookup = await this.sessionService.lookupSessionFromJwt(refreshToken, true).catch(() => undefined);
-        if (!lookup) return;
-
-        const { session } = lookup;
+    private async refuseIfSubjectIsGone(session: AuthenticationSession): Promise<void> {
         if (await this.actorsRepository.existsActive(session.subject)) return;
 
         await this.sessionService.deleteSession(session.sessionToken, 'expiry');

@@ -25,14 +25,20 @@ const TOKENS = {
     scope: '',
 };
 
-const build = (options: { actorExists?: boolean; lookupFails?: boolean } = {}) => {
-    const lookupSessionFromJwt = options.lookupFails
-        ? vi.fn().mockRejectedValue(new Error('unverifiable'))
-        : vi.fn().mockResolvedValue({ session: { sessionToken: SESSION_TOKEN, subject: ACTOR_ID }, jwtPayload: {} });
+const build = (options: { actorExists?: boolean; refreshRejects?: boolean } = {}) => {
+    // Stands in for `refreshSession` as @maroonedsoftware/authentication 6 runs it: the token is
+    // verified and its `jti` claimed first, then the guard sees the loaded session, and only a guard
+    // that returns lets tokens be minted. A token the grant itself refuses never reaches the guard.
+    const refreshSession = vi.fn(
+        async (_token: string, _audience: string | string[] | undefined, guard?: (session: unknown) => Promise<void> | void) => {
+            if (options.refreshRejects) throw new Error('replayed');
+            await guard?.({ sessionToken: SESSION_TOKEN, subject: ACTOR_ID });
+            return TOKENS;
+        },
+    );
     const sessionService = {
-        lookupSessionFromJwt,
         deleteSession: vi.fn().mockResolvedValue(undefined),
-        refreshSession: vi.fn().mockResolvedValue(TOKENS),
+        refreshSession,
     };
     const actorsRepository = { existsActive: vi.fn().mockResolvedValue(options.actorExists ?? true) };
     const requestCookieJar = { getRefreshToken: vi.fn().mockReturnValue('refresh-presented') };
@@ -52,7 +58,7 @@ describe('AuthenticationService refresh grant', () => {
 
         await expect(h.refresh()).resolves.toMatchObject({ result: 'token', accessToken: 'access' });
         expect(h.actorsRepository.existsActive).toHaveBeenCalledWith(ACTOR_ID);
-        expect(h.sessionService.refreshSession).toHaveBeenCalledWith('refresh-presented');
+        expect(h.sessionService.refreshSession).toHaveBeenCalledWith('refresh-presented', undefined, expect.any(Function));
     });
 
     it('refuses to mint a token for an actor that no longer exists', async () => {
@@ -61,7 +67,7 @@ describe('AuthenticationService refresh grant', () => {
         const error = await h.refresh().catch((e: unknown) => e);
 
         expect(IsHttpError(error) && error.statusCode).toBe(401);
-        expect(h.sessionService.refreshSession).not.toHaveBeenCalled();
+        expect(IsHttpError(error) && error.headers?.['WWW-Authenticate']).toContain('invalid_grant');
     });
 
     it('revokes the orphaned session and drops the cookie that presented it', async () => {
@@ -81,13 +87,13 @@ describe('AuthenticationService refresh grant', () => {
         expect(h.responseCookieJar.clearRefreshToken).not.toHaveBeenCalled();
     });
 
-    it('defers to the refresh grant when the token cannot be looked up at all', async () => {
-        // Replay detection and family revocation belong to refreshSession; a token this check
-        // cannot read is not this check's verdict to render.
-        const h = build({ lookupFails: true });
+    it('leaves a token the refresh grant refuses to that grant, and never asks after the actor', async () => {
+        // Replay detection and family revocation belong to refreshSession, and they run before the
+        // guard: a token that grant refuses is not this check's verdict to render.
+        const h = build({ refreshRejects: true });
 
-        await expect(h.refresh()).resolves.toMatchObject({ result: 'token' });
-        expect(h.sessionService.refreshSession).toHaveBeenCalledOnce();
+        await expect(h.refresh()).rejects.toThrow('replayed');
         expect(h.actorsRepository.existsActive).not.toHaveBeenCalled();
+        expect(h.sessionService.deleteSession).not.toHaveBeenCalled();
     });
 });

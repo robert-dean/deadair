@@ -97,6 +97,7 @@ export const SHEET_FIELDS: ReadonlyArray<readonly [keyof PersonaFilePersona, str
     ['preoccupations', 'its preoccupations'],
     ['catchphrases', 'its catchphrases'],
     ['avoid', 'the wording it avoids'],
+    ['exclusiveSubjects', 'the subjects it keeps apart'],
     ['samples', 'its sample lines'],
 ];
 

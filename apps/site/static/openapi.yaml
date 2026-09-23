@@ -7406,6 +7406,13 @@ components:
                         minLength: 1
                         maxLength: 200
                     description: 'Wording that breaks the character'
+                exclusiveSubjects:
+                    type: array
+                    items:
+                        type: string
+                        minLength: 1
+                        maxLength: 500
+                    description: 'Subjects this character takes one at a time. Each entry is ONE subject, written as the comma-separated words that mean it ("bigfoot, sasquatch, yeti"), and a break that brings up words from two of them is refused and written again. A word inside a record''s title does not count'
                 background:
                     type: string
                     maxLength: 2000
@@ -7532,6 +7539,12 @@ components:
                         type: string
                         minLength: 1
                         maxLength: 200
+                exclusiveSubjects:
+                    type: array
+                    items:
+                        type: string
+                        minLength: 1
+                        maxLength: 500
                 background:
                     type: string
                     maxLength: 2000

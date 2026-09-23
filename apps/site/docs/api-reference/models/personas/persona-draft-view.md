@@ -10,29 +10,30 @@ mdx:
 > is what keeps generating a way of filling in the form rather than a second writer of the table
 
 <details>
-<summary>Attributes (20)</summary>
+<summary>Attributes (21)</summary>
 
-| Attribute        | Type                                                                | Required | Description |
-| ---------------- | ------------------------------------------------------------------- | -------- | ----------- |
-| `key`            | `string`                                                            | Yes      |             |
-| `label`          | `string`                                                            | Yes      |             |
-| `style`          | `string`                                                            | Yes      |             |
-| `djName`         | `string`                                                            | No       |             |
-| `voice`          | `string`                                                            | No       |             |
-| `soundboard`     | `string`                                                            | No       |             |
-| `diction`        | `string[]`                                                          | No       |             |
-| `dictionMarkers` | `string[]`                                                          | No       |             |
-| `quirks`         | `string[]`                                                          | No       |             |
-| `preoccupations` | `string[]`                                                          | No       |             |
-| `catchphrases`   | `string[]`                                                          | No       |             |
-| `avoid`          | `string[]`                                                          | No       |             |
-| `background`     | `string`                                                            | No       |             |
-| `brevity`        | `'short' \| 'one-line'`                                             | No       |             |
-| `latitude`       | `'loose' \| 'unleashed'`                                            | No       |             |
-| `chattiness`     | `'reserved' \| 'sparing' \| 'ordinary' \| 'chatty' \| 'relentless'` | No       |             |
-| `storytelling`   | `'never' \| 'occasionally' \| 'often'`                              | No       |             |
-| `trivia`         | `'keen'`                                                            | No       |             |
-| `samples`        | `string[]`                                                          | No       |             |
-| `templates`      | `string`                                                            | No       |             |
+| Attribute           | Type                                                                | Required | Description |
+| ------------------- | ------------------------------------------------------------------- | -------- | ----------- |
+| `key`               | `string`                                                            | Yes      |             |
+| `label`             | `string`                                                            | Yes      |             |
+| `style`             | `string`                                                            | Yes      |             |
+| `djName`            | `string`                                                            | No       |             |
+| `voice`             | `string`                                                            | No       |             |
+| `soundboard`        | `string`                                                            | No       |             |
+| `diction`           | `string[]`                                                          | No       |             |
+| `dictionMarkers`    | `string[]`                                                          | No       |             |
+| `quirks`            | `string[]`                                                          | No       |             |
+| `preoccupations`    | `string[]`                                                          | No       |             |
+| `catchphrases`      | `string[]`                                                          | No       |             |
+| `avoid`             | `string[]`                                                          | No       |             |
+| `exclusiveSubjects` | `string[]`                                                          | No       |             |
+| `background`        | `string`                                                            | No       |             |
+| `brevity`           | `'short' \| 'one-line'`                                             | No       |             |
+| `latitude`          | `'loose' \| 'unleashed'`                                            | No       |             |
+| `chattiness`        | `'reserved' \| 'sparing' \| 'ordinary' \| 'chatty' \| 'relentless'` | No       |             |
+| `storytelling`      | `'never' \| 'occasionally' \| 'often'`                              | No       |             |
+| `trivia`            | `'keen'`                                                            | No       |             |
+| `samples`           | `string[]`                                                          | No       |             |
+| `templates`         | `string`                                                            | No       |             |
 
 </details>

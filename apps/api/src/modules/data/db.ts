@@ -457,6 +457,7 @@ export interface DeadairPersonas {
   diction: Generated<Json>;
   dictionMarkers: Generated<Json>;
   djName: string | null;
+  exclusiveSubjects: Generated<Json>;
   growth: "proposes" | "self-directed" | null;
   id: Generated<string>;
   key: string;

@@ -24,6 +24,11 @@ on:
 
 # One release at a time, and never cancelled: a run interrupted between two variants
 # leaves the registry holding half a release with nothing saying so.
+#
+# What it does NOT give is order. The group keeps one PENDING run, and a run joining it cancels
+# whichever was pending, whatever commits the two are for, and GitHub now and then delivers a push
+# minutes late. So a run can start for a commit main has already moved past, having cancelled the
+# newer commit's run on its way in. `head`, `promote` and `versions` below each answer part of that.
 concurrency:
     group: release-${{ github.ref }}
     cancel-in-progress: false
@@ -125,6 +130,58 @@ jobs:
                   fi
                   echo "value=${version}" >> "$GITHUB_OUTPUT"
 
+    # What happens to main's head when this run is not for it. On 2026-09-23 GitHub delivered the
+    # push for 758b932a (#252) nine minutes after its merge, behind the 0.27.2 version merge and
+    # #254. Its run joined the group, cancelled #254's pending run, and then worked from 758b932a:
+    # `promote` moved the mutable tags back from 0.27.2, and `versions` rebuilt the version pull
+    # request from before the release. Those two now refuse the stale part themselves (see each).
+    # This job handles the other part: after that, nothing was ever going to build #254.
+    #
+    # It starts a manual run of this workflow on main when main has moved on and every run for the
+    # head was cancelled, or none exists. A run that is pending or finished, failed included,
+    # already owns the head, and a second would build it twice. "None" is usually a push event still
+    # on its way, and dispatching anyway costs at most a duplicate: the late run either replaces the
+    # pending dispatch or runs after it. A run a person cancelled on purpose looks the same as one the
+    # group cancelled and is started again; cancel the dispatch too to stop that.
+    #
+    # It dispatches instead of building the head in this run because every job here, `build.yml`
+    # and `images.yml` included, builds `github.sha`: the checkout, the image tags and the
+    # `REVISION` stamped inside them. Building another commit would mean threading a ref through all
+    # of that. A dispatched run is an ordinary run whose sha IS the head, and a manual run turns every
+    # flag on, which is the right answer for a head whose own run never ran. GitHub starts a run for
+    # a dispatch made with the workflow token, which is the documented exception to the rule
+    # `versions` below describes. It dispatches from main only; a manual run on a branch has no
+    # business with main's head.
+    head:
+        runs-on: ubuntu-latest
+        timeout-minutes: 5
+        permissions:
+            contents: read
+            actions: write
+        steps:
+            - name: Start a run for main's head if nothing else will
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: |
+                  set -euo pipefail
+                  if [ "${GITHUB_REF}" != refs/heads/main ]; then
+                      echo "Not main, so main's head is not this run's to look after."
+                      exit 0
+                  fi
+                  head="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq .object.sha)"
+                  if [ "$head" = "$GITHUB_SHA" ]; then
+                      echo "${GITHUB_SHA} is main's head."
+                      exit 0
+                  fi
+                  owners="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/release.yml/runs?head_sha=${head}&branch=main" \
+                      --jq '[.workflow_runs[] | select(.status != "completed" or .conclusion != "cancelled")] | length')"
+                  if [ "$owners" != 0 ]; then
+                      echo "main has moved on to ${head}, and a run for it owns it."
+                      exit 0
+                  fi
+                  echo "::warning::main has moved on to ${head} and every run for it was cancelled, or none exists yet, so this starts one."
+                  gh workflow run release.yml --ref main --repo "${GITHUB_REPOSITORY}"
+
     # Which parts of the tree this push changed.
     changes:
         uses: ./.github/workflows/changes.yml
@@ -215,12 +272,71 @@ jobs:
                   username: ${{ secrets.DOCKERHUB_USERNAME }}
                   password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-            - name: Move the mutable tags onto this commit
+            # Never BACKWARDS. A run can get here for a commit older than the one the tags already
+            # name, when its push arrived late and a newer commit's run promoted first (see `head`
+            # above). Moving the tags then rewinds every station that follows them, which is what
+            # 758b932a's run did to 0.27.2 on 2026-09-23. So each tag moves only if this commit is
+            # not behind the one the tag names. That commit is read from the image's own revision
+            # label, and the API compares the two.
+            #
+            # "Not behind" rather than "is main's head", deliberately. A head that changed nothing in
+            # the image builds and promotes nothing, so the head rule would leave this commit's image
+            # unpromoted behind a README typo merged after it, whether the typo landed while this ran
+            # or ahead of a late push. Ahead of the tag, this is the newest image there is, and a newer
+            # one queued behind it moves the tags on again when its run comes. Identical moves: a
+            # manual run rebuilding the same commit for a base image's fix is exactly the run meant to
+            # move them, and the price is that a duplicate run redeploys the same code. A tag naming a
+            # commit this one has not got in its history (diverged, or unknown to GitHub) means main
+            # was rewritten, and main wins. A tag with no label, or none at all, has nothing to protect.
+            #
+            # From main only. A manual run pointed at a branch is usually AHEAD of what the tags name,
+            # and would move `latest` onto a commit main never had. Its sha tags are published anyway.
+            #
+            # None of this touches a release run's own work. The version tags and the release line
+            # below, and `publish` after this job, run as before: this step skips a tag, it never fails
+            # the job for being late.
+            - name: Move the mutable tags onto this commit, unless they name a newer one
+              env:
+                  GH_TOKEN: ${{ github.token }}
               run: |
-                  set -eux
-                  docker buildx imagetools create --tag "${IMAGE}:latest" "${IMAGE}:${GITHUB_SHA}"
-                  docker buildx imagetools create --tag "${IMAGE}:slim" "${IMAGE}:slim-${GITHUB_SHA}"
-                  docker buildx imagetools create --tag "${IMAGE}:full" "${IMAGE}:full-${GITHUB_SHA}"
+                  set -euo pipefail
+                  if [ "${GITHUB_REF}" != refs/heads/main ]; then
+                      echo "::notice::Not main, so latest, slim and full stay where they are."
+                      exit 0
+                  fi
+
+                  move() {
+                      local tag="$1" source="$2" config named status=""
+                      # `.Image` is one config for a single-platform image and a map of them by
+                      # platform otherwise. All the platforms carry the same revision.
+                      if config="$(docker buildx imagetools inspect "${IMAGE}:${tag}" --format '{{json .Image}}')"; then
+                          named="$(printf '%s' "$config" | jq -r 'if has("config") then . else first(.[]) end | .config.Labels["org.opencontainers.image.revision"] // ""')"
+                      else
+                          echo "::warning::Could not read ${IMAGE}:${tag}, so there is nothing to compare against and it moves."
+                          named=""
+                      fi
+
+                      if [ -n "$named" ]; then
+                          if ! status="$(gh api "repos/${GITHUB_REPOSITORY}/compare/${named}...${GITHUB_SHA}" --jq .status 2> "${RUNNER_TEMP}/compare.err")"; then
+                              if ! grep -q 'HTTP 404' "${RUNNER_TEMP}/compare.err"; then
+                                  cat "${RUNNER_TEMP}/compare.err" >&2
+                                  return 1
+                              fi
+                              status=unknown
+                          fi
+                      fi
+
+                      if [ "$status" = behind ]; then
+                          echo "::notice::${IMAGE}:${tag} names ${named}, which is newer than ${GITHUB_SHA}, so it stays. This run is late, and a newer run owns the tag."
+                          return 0
+                      fi
+                      echo "Moving ${IMAGE}:${tag} from ${named:-nothing} (${status:-no revision}) onto ${source}."
+                      docker buildx imagetools create --tag "${IMAGE}:${tag}" "${IMAGE}:${source}"
+                  }
+
+                  move latest "${GITHUB_SHA}"
+                  move slim "slim-${GITHUB_SHA}"
+                  move full "full-${GITHUB_SHA}"
 
             # The exact version — `0.1.0`, `slim-0.1.0`, `full-0.1.0` — on a release run. Here rather
             # than in the images job because a release whose tests fail is retried at the same
@@ -506,6 +622,15 @@ jobs:
     # The branch is rewritten from main on every push, so an entry is edited in its changeset on
     # main, never on the branch. On the merge itself there is nothing pending and this ends quietly.
     #
+    # Only for main's head. The branch is rebuilt from whatever this run checked out, so a run for
+    # an older commit rebuilds it from the past. On 2026-09-23 758b932a's late run (see `head`
+    # above) force-pushed a branch from before the 0.27.2 merge. That became #255, a second 0.27.2
+    # that conflicted with main and left out #254's changeset. No late push is needed for the same
+    # thing: merge the version pull request while an earlier push is still testing, and that push's
+    # run opens it again. So the head is asked right before the push rather than at the start of
+    # the run, and a run that is not for it pushes nothing: the head's own run rebuilds the branch,
+    # or `head` started one. What is left is the seconds between that question and the push.
+    #
     # Needs one repository setting, which a file cannot carry: Settings, Actions, General, "Allow
     # GitHub Actions to create and approve pull requests". Without it `gh pr create` is refused.
     versions:
@@ -560,6 +685,11 @@ jobs:
                   GH_TOKEN: ${{ github.token }}
               run: |
                   set -euo pipefail
+                  head="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq .object.sha)"
+                  if [ "$head" != "$GITHUB_SHA" ]; then
+                      echo "::notice::main has moved on to ${head}, so the version pull request is left to the run for it. Built from ${GITHUB_SHA}, it would be out of date."
+                      exit 0
+                  fi
                   git config user.name 'github-actions[bot]'
                   git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
                   gh auth setup-git

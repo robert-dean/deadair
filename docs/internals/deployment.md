@@ -284,7 +284,7 @@ file per package and this tree has one station. `scripts/release.version.mjs` re
 changesets, lets `changeset version` bump, and writes one entry per release unit in the shape the
 `publish` job's awk cuts notes out of; a test runs that exact awk over a generated entry. The
 `versions` job then commits the result to `changeset-release/main` and opens the pull request with
-`gh`. It needs "Allow GitHub Actions to create and approve pull requests" on in the repository's
+`gh`, but only when its commit is still main's head (see "Publishing" for why). It needs "Allow GitHub Actions to create and approve pull requests" on in the repository's
 Actions settings, and the pull request runs no checks, because GitHub starts nothing for an event the
 workflow token caused. Nothing on that branch is new code, and the merge runs every check before
 `publish` tags anything.
@@ -302,6 +302,30 @@ a registry-side `imagetools` retag), which is what lets the image jobs run besid
 them: what the old `needs: [build]` protected was never the images but `latest`, `slim` and `full`, and those
 still wait. The speech base is pinned by digest for the fence's reason again — a moving tag there rebuilds and
 re-pushes the voice for a change nobody here made.
+
+**The mutable tags only move forwards, and a late run does not take main's head down with it.** The
+concurrency group runs one release at a time, but it does not keep them in order. It holds a single pending
+run, and a run joining the group cancels whichever run was pending, whatever commits the two are for. On
+2026-09-23 GitHub delivered the push for 758b932a (#252) nine minutes late, after the 0.27.2 version merge
+and #254. Its run cancelled #254's pending run. It then moved `latest`, `slim` and `full` back from 0.27.2
+onto 758b932a, which rewound the station, and rebuilt the version pull request from 758b932a as #255: a
+second 0.27.2 that conflicted with main and left out #254's changeset. Three jobs in `release.yml` answer
+it now:
+
+- `promote` reads the commit each mutable tag names from the image's revision label, and moves the tag only
+  if this run's commit is not behind that one. It asks "not behind" rather than "is main's head" because a
+  head that changed nothing in the image promotes nothing. The head rule would leave an image change
+  unpromoted behind a docs push merged after it.
+- `versions` asks for main's head right before it pushes and pushes nothing for any other commit. That also
+  covers the case with no late push: a version pull request merged while an earlier push is still testing.
+- `head`, at the start of every run, dispatches `release.yml` on main when main has moved on and every run
+  for its head was cancelled, or none exists. It dispatches instead of building the head itself because
+  every job builds `github.sha`, and a dispatched run's sha is the head. A manual run also turns every flag
+  on, which suits a head that nobody has tested.
+
+None of this holds back a release run: the sha tags, the version tags, the release line and the git tag go
+out as before. The mutable tags now move only from main, so a manual run on a branch publishes its sha tags
+and stops there.
 
 **The commit goes INSIDE the image as well as into its tag**, which is not redundant: the mutable tags are
 moved onto a sha-tagged image afterwards, so a station pulled as `latest` is running a commit whose name is

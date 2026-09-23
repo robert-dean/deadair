@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.29.1] — 2026-09-23
+
+- Emptying a plugin setting that had a value now saves. The console sends a cleared field as `null`, and the host handed that straight to the plugin's own schema, so an optional number (Rhapsode's keep-alive, Chatterbox's idle unload, Navidrome's bit rate, the model's temperature) was refused with nothing but "Invalid input" under the box. A plain field sent as `null` is now removed, both from the form the schema judges and from what is stored, so the plugin reads it as not set.
+
 ## [0.29.0] — 2026-09-23
 
 - A caller can now be tied to the hosts it rings in to. Pick them under "Rings in to" when editing a caller, and a phone-in only casts callers tied to whoever is presenting it, plus any caller tied to nobody. So the conspiracy host's regulars can be kept on his show and off the breakfast show. Among the callers who may ring, whoever rang longest ago still goes first. Deleting a host unties its callers rather than silencing them, and a caller card says who it rings in to.
@@ -776,7 +780,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.29.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.29.1...HEAD
+[0.29.1]: https://github.com/robert-dean/deadair/compare/v0.29.0...v0.29.1
 [0.29.0]: https://github.com/robert-dean/deadair/compare/v0.28.0...v0.29.0
 [0.28.0]: https://github.com/robert-dean/deadair/compare/v0.27.3...v0.28.0
 [0.27.3]: https://github.com/robert-dean/deadair/compare/v0.27.2...v0.27.3

@@ -2,6 +2,7 @@ import {
     configBaseUrl,
     configString,
     errorText,
+    plausibleAudio,
     Plugin,
     PluginError,
     SPEECH_CUES,
@@ -53,42 +54,6 @@ import {
 } from './rhapsode.voices.js';
 
 export { rhapsodeManifest };
-
-/**
- * Below this, what came back is a JSON error page or an empty reply, not audio.
- *
- * The same floor `plugins/kokoro` carries, and the same 256 bytes rhapsode enforces on its own side
- * — it destroys the connection rather than ending it when a worker produces less. Kept here anyway,
- * because the two are not the same check: a proxy between the station and the server can turn that
- * destroyed connection into a clean short body, and this is the last place before the segment store
- * where "was any of this plausibly audio" can still be asked.
- */
-const MIN_PLAUSIBLE_AUDIO_BYTES = 256;
-
-/**
- * The engine's body, with a size check on the end of it.
- *
- * The check belongs at the end rather than on the first chunk: a server can dribble a short JSON
- * error out in several pieces, and "was any of this plausibly audio" is only answerable once it
- * stops. Failing in `flush` is what makes the render fail loudly instead of storing a click.
- *
- * A `TransformStream` rather than a wrapper of our own, so cancelling the result still cancels the
- * socket underneath without anything here to forward it.
- */
-const withPlausibilityCheck = (asked: string): TransformStream<Uint8Array, Uint8Array> => {
-    let delivered = 0;
-
-    return new TransformStream<Uint8Array, Uint8Array>({
-        transform(chunk, controller) {
-            delivered += chunk.byteLength;
-            controller.enqueue(chunk);
-        },
-        flush() {
-            if (delivered >= MIN_PLAUSIBLE_AUDIO_BYTES) return;
-            throw new PluginError(`rhapsode returned only ${delivered} bytes for ${asked}, which is not audio`).withCode('upstream');
-        },
-    });
-};
 
 /**
  * Text to speech through a Rhapsode server.
@@ -345,7 +310,11 @@ export class RhapsodePlugin extends Plugin implements SpeechPluginInstance {
 
         return {
             mime: mimeOf(response.headers.get('content-type'), format),
-            audio: response.body.pipeThrough(withPlausibilityCheck(describe(asked))),
+            // Rhapsode enforces the same floor on its own side, destroying the connection rather than
+            // ending it when a worker produces less. Checked again anyway: a proxy between here and the
+            // server can turn that destroyed connection into a clean short body, and this is the last
+            // place before the segment store where "was any of this plausibly audio" can be asked.
+            audio: response.body.pipeThrough(plausibleAudio({ engine: 'rhapsode', asked: describe(asked) })),
         };
     }
 

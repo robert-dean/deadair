@@ -903,9 +903,12 @@ Three things that are easy to get wrong:
   that `cancel()` is the only chance anything has to release it.
 - **Check the size at the END, not on the first chunk.** A server can dribble a
   short JSON error out in several pieces, so "was any of that plausibly audio"
-  is only answerable once the stream stops. A `TransformStream` that counts and
-  throws in `flush` is the shape that fits; failing there fails the render
-  loudly instead of storing a click.
+  is only answerable once the stream stops. `plausibleAudio` is that check, a
+  `TransformStream` that counts and throws an `upstream` error in `flush` when
+  the body ends under `MIN_PLAUSIBLE_AUDIO_BYTES`; failing there fails the render
+  loudly instead of storing a click. Pipe the body through it rather than
+  writing your own:
+  `` response.body.pipeThrough(plausibleAudio({ engine: 'kokoro', asked: `voice "${voice}"` })) ``.
 - **`mime` is the answer, not the request.** `SpeechRequest.format` is a hint you
   may ignore; what you return in `SpeechHandle.mime` is what the station stores
   and later serves, and both consumers of station audio pick their behaviour from

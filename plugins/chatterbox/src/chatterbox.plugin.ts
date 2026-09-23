@@ -2,6 +2,7 @@ import {
     configBaseUrl,
     configString,
     errorText,
+    plausibleAudio,
     Plugin,
     PluginError,
     SPEECH_CUES,
@@ -33,39 +34,6 @@ import { honoursExpressionDials, ModelLifecycle, type ModelInfo } from './chatte
 import { VOICE_ENGINE_COLUMN, VOICES_FIELD, type VoiceMap, type VoiceMapping } from './chatterbox.voices.js';
 
 export { chatterboxManifest };
-
-/**
- * Below this, what came back is a JSON error page or an empty reply, not audio.
- *
- * The same floor the other speech plugin keeps, and for the same reason: a
- * server that answers 200 with a complaint produces a segment that airs as a
- * click, and the only place to notice is here.
- */
-const MIN_PLAUSIBLE_AUDIO_BYTES = 256;
-
-/**
- * The engine's body, with a size check on the end of it.
- *
- * The check belongs at the end rather than on the first chunk: a server can
- * dribble a short JSON error out in several pieces, and "was any of this
- * plausibly audio" is only answerable once it stops.
- */
-const withPlausibilityCheck = (voice: string): TransformStream<Uint8Array, Uint8Array> => {
-    let delivered = 0;
-
-    return new TransformStream<Uint8Array, Uint8Array>({
-        transform(chunk, controller) {
-            delivered += chunk.byteLength;
-            controller.enqueue(chunk);
-        },
-        flush() {
-            if (delivered >= MIN_PLAUSIBLE_AUDIO_BYTES) return;
-            throw new PluginError(
-                `chatterbox returned only ${delivered} bytes for voice "${voice}", which is not audio: check the model and voice`,
-            ).withCode('upstream');
-        },
-    });
-};
 
 /**
  * The same bytes, with something to run once the host has finished with them.
@@ -463,7 +431,10 @@ export class ChatterboxPlugin extends Plugin implements SpeechPluginInstance {
 
         return {
             mime: RESPONSE_FORMATS[format],
-            audio: whenFinished(response.body.pipeThrough(withPlausibilityCheck(voice)), () => this.releaseModel()),
+            audio: whenFinished(
+                response.body.pipeThrough(plausibleAudio({ engine: 'chatterbox', asked: `voice "${voice}"`, advice: 'check the model and voice' })),
+                () => this.releaseModel(),
+            ),
         };
     }
 

@@ -19,6 +19,7 @@ export * from './define.plugin.js';
 export * from './feed.parse.js';
 export * from './html.text.js';
 export * from './match.text.js';
+export * from './plausible.audio.js';
 export * from './plugin.api.version.js';
 export * from './plugin.base.js';
 export * from './plugin.config.fields.js';

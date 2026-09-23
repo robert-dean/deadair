@@ -2,6 +2,7 @@ import {
     configBaseUrl,
     configString,
     errorText,
+    plausibleAudio,
     Plugin,
     PluginError,
     tryJsonBody,
@@ -26,44 +27,6 @@ import {
 import { VOICE_ENGINE_COLUMN, VOICES_FIELD, type VoiceMap, type VoiceMapping } from './kokoro.voices.js';
 
 export { kokoroManifest };
-
-/**
- * Below this, what came back is a JSON error page or an empty reply, not audio.
- *
- * Ported from v1, where it was paid for: a server that answers 200 with a
- * complaint about the voice produces a segment that airs as a click, and the
- * only place to notice is here. A real line is tens of kilobytes.
- */
-const MIN_PLAUSIBLE_AUDIO_BYTES = 256;
-
-/**
- * The engine's body, with a size check on the end of it.
- *
- * The check belongs at the end rather than on the first chunk: a server can
- * dribble a short JSON error out in several pieces, and "was any of this
- * plausibly audio" is only answerable once it stops. Failing in `flush` is what
- * makes the render fail loudly instead of storing a click.
- *
- * A `TransformStream` rather than a wrapper of our own, so cancelling the
- * result still cancels the socket underneath without anything here to forward
- * it.
- */
-const withPlausibilityCheck = (voice: string): TransformStream<Uint8Array, Uint8Array> => {
-    let delivered = 0;
-
-    return new TransformStream<Uint8Array, Uint8Array>({
-        transform(chunk, controller) {
-            delivered += chunk.byteLength;
-            controller.enqueue(chunk);
-        },
-        flush() {
-            if (delivered >= MIN_PLAUSIBLE_AUDIO_BYTES) return;
-            throw new PluginError(
-                `kokoro returned only ${delivered} bytes for voice "${voice}", which is not audio: check the model and voice`,
-            ).withCode('upstream');
-        },
-    });
-};
 
 /**
  * Text to speech through any OpenAI-compatible `/audio/speech`.
@@ -279,7 +242,10 @@ export class KokoroPlugin extends Plugin implements SpeechPluginInstance {
             ...(mapping.speed === undefined ? {} : { speed: mapping.speed }),
         });
 
-        return { mime: RESPONSE_FORMATS[format], audio: response.body.pipeThrough(withPlausibilityCheck(voice)) };
+        return {
+            mime: RESPONSE_FORMATS[format],
+            audio: response.body.pipeThrough(plausibleAudio({ engine: 'kokoro', asked: `voice "${voice}"`, advice: 'check the model and voice' })),
+        };
     }
 
     /**

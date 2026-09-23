@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.27.3] — 2026-09-23
+
+- Three new callers for the conspiracy host's phone-ins. Wendell is sure the host is secretly one of them and always has proof coming next time; Lonnie is a long-haul trucker who agrees with every word and then tells him about something he saw from the road; Gary rings about one small worry at home and hangs up more worried than he rang. Each carries the same limits the host does, and each has its own voice on both bundled speech engines. A fresh station gets them with the other callers; a station that already has callers can add them from the personas page.
+
 ## [0.27.2] — 2026-09-23
 
 - The conspiracy host is now deadpan. He is every bit as unhinged, but he has seen too much to be excited: the wilder the claim, the flatter he says it. He broadcasts from a trailer in the West Texas desert and mentions its state the way other men mention the weather, answers a question with a stranger theory that has nothing to do with it, sometimes opens with a string of tabloid questions, and makes up new theories on the spot as well as believing the classics. Still one theory per break, and still nothing that hurt anybody.
@@ -750,7 +754,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.27.2...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.27.3...HEAD
+[0.27.3]: https://github.com/robert-dean/deadair/compare/v0.27.2...v0.27.3
 [0.27.2]: https://github.com/robert-dean/deadair/compare/v0.27.1...v0.27.2
 [0.27.1]: https://github.com/robert-dean/deadair/compare/v0.27.0...v0.27.1
 [0.27.0]: https://github.com/robert-dean/deadair/compare/v0.26.3...v0.27.0

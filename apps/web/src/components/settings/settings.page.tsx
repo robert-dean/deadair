@@ -19,6 +19,7 @@ import { BreakArtCard } from './break.art.card';
 import { StorageCard } from './storage.card';
 import { ConnectedAppsCard } from './connected.apps.card';
 import { OAuthClientsCard } from './oauth.clients.card';
+import { SigninCheckCard } from './signin.check.card';
 
 /**
  * One section of Settings, as its own page.
@@ -48,9 +49,10 @@ export function SettingsSectionPage({ section: id }: SettingsSectionPageProps) {
     // Sign-in and security is two halves on one page, and the heading over each is what says so. The
     // person signed in owns the first: their factors, keys and the apps they approved, whatever their
     // role. The station owns the second: the form is the providers, the allowlist and whether apps may
-    // connect, and the card below it is which apps have registered. The form carries a title of its
-    // own rather than the section's, because it saves the station half only, and a button reading
-    // "Save sign-in and security" would promise the other half as well.
+    // connect, the card under it says whether those providers answer, and the last lists the apps
+    // that have registered. The form carries a title of its own rather than the section's, because it
+    // saves the station half only, and a button reading "Save sign-in and security" would promise the
+    // other half as well.
     if (section.id === 'security')
         return (
             <Stack gap="xl">
@@ -70,6 +72,7 @@ export function SettingsSectionPage({ section: id }: SettingsSectionPageProps) {
                             label="Sign-in for everyone"
                             header={<SectionHeader title="Sign-in for everyone" blurb={section.blurb} />}
                         />
+                        <SigninCheckCard />
                         <OAuthClientsCard />
                     </Stack>
                 </Stack>

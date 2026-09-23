@@ -4,6 +4,7 @@ options {
     }
     services: {
         SettingsService: "#src/modules/settings/settings.service.js"
+        SigninProviderCheckService: "#src/modules/authentication/signin.provider.check.service.js"
     }
     security: {
         # The floor for every operation in this file. The READ end, deliberately, because this file
@@ -46,6 +47,23 @@ operation /settings: {
         response: {
             200: {
                 application/json: StationSettings
+            }
+        }
+    }
+}
+
+operation /settings/signin/check: {
+    get: { # Asks each identity provider in the sign-in settings for its discovery document, the way a sign-in would, and says which answered
+        name: Check sign-in providers
+        service: SigninProviderCheckService.check
+        security: {
+            # Above the read floor: every call reaches out to each issuer the operator listed, which
+            # is an operator's action rather than a look at what is stored.
+            policy: platform.manage
+        }
+        response: {
+            200: {
+                application/json: SigninProvidersCheck
             }
         }
     }

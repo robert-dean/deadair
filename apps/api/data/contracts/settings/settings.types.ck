@@ -53,3 +53,18 @@ contract StationSettings: {
 contract StationSettingsInput: {
     values: record(string, unknown)
 }
+
+# One identity provider row, and whether its issuer answered as one
+contract SigninProviderCheck: {
+    name: string(min=1, max=200) # The row's name
+    label: string(max=200) # What its button says
+    issuer: string(max=2000) # The issuer that was asked
+    ok: boolean # Whether the issuer answered with a discovery document naming itself
+    problem?: string(max=2000) # Why not, in a sentence. Absent when it answered
+}
+
+# Every identity provider row the station could read, and the ones it could not use at all
+contract SigninProvidersCheck: {
+    providers: array(SigninProviderCheck) # In the order the rows are listed
+    unusable: array(string(max=2000)) # One sentence per row the station drops before asking anybody: a missing cell, a name that is not a slug, an issuer that is not an address
+}

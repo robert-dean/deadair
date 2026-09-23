@@ -51,6 +51,21 @@ data class StationSettingsInput(
     val values: Map<String, JsonElement>,
 )
 
+/** One identity provider row, and whether its issuer answered as one */
+@Serializable
+data class SigninProviderCheck(
+    /** The row's name */
+    val name: String,
+    /** What its button says */
+    val label: String,
+    /** The issuer that was asked */
+    val issuer: String,
+    /** Whether the issuer answered with a discovery document naming itself */
+    val ok: Boolean,
+    /** Why not, in a sentence. Absent when it answered */
+    val problem: String? = null,
+)
+
 /**
  * A station setting as the console needs to render it. `ConfigFieldDescriptor` is the plugins area's,
  * and shared deliberately: a plugin's settings form and the station's are the same problem, and the
@@ -87,6 +102,15 @@ data class StationSettingDescriptor(
     /** Key of the `number` field that is the upper end of the range this one opens, declared on the lower end only. Still two settings, each validated by name; the console draws them as one control whose handles cannot cross */
     val rangeWith: String? = null,
     val group: SettingGroup,
+)
+
+/** Every identity provider row the station could read, and the ones it could not use at all */
+@Serializable
+data class SigninProvidersCheck(
+    /** In the order the rows are listed */
+    val providers: List<SigninProviderCheck>,
+    /** One sentence per row the station drops before asking anybody: a missing cell, a name that is not a slug, an issuer that is not an address */
+    val unusable: List<String>,
 )
 
 /** Every station setting, with what it is currently worth */

@@ -78,6 +78,12 @@ export const queryKeys = {
      */
     settings: {
         all: () => ['settings', 'all'] as const,
+        /**
+         * Whether each identity provider answers, keyed on the stored provider list itself: a save
+         * that changes a row is a new key and so a new check, and one that changes something else is
+         * not, which matters because every check reaches out to each issuer.
+         */
+        signinCheck: (providers: string) => ['settings', 'signin-check', providers] as const,
     },
     /**
      * What the station is using the disk for. One key: the API answers with every store at once,

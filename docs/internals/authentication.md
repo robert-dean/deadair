@@ -36,7 +36,27 @@ button either.
 (`actors_oidc_factors.provider`), so renaming a row orphans those links. The console says so beside
 the column. **One redirect address serves every provider**, `APP_BASE_URL` followed by
 `/api/auth/login/oidc/callback`, because the state the station hands out with each sign-in names
-the provider it began with.
+the provider it began with. The settings page shows it with a Copy button: a `note` in the `signin`
+group (`signin.redirectAddress`) whose value arrives as a derived setting, built by the same
+`oidcRedirectUri` the source hands the registry, so what the operator pastes cannot disagree with
+what the station sends.
+
+**The list offers presets** (`SIGNIN_PROVIDER_PRESETS`): Google, Microsoft, Authelia, Authentik and
+Keycloak, each filling the name, the button and the issuer, or the issuer's shape with
+`auth.example.com` and a placeholder segment where it depends on the operator's own server. Nothing
+fills the client id or secret. That is the provider's to issue, and the only way round it, dynamic
+client registration, is closed to an outside app at Google and Authelia and needs a token copied
+from Keycloak anyway. A test holds every preset, given a client id, to a row the resolver keeps.
+
+**`GET /settings/signin/check` asks each provider whether it answers**, through
+`OidcProviderRegistry.getConfiguration`, which is the discovery a sign-in runs rather than a second
+fetch of the discovery document that could pass where sign-in fails. It also returns the resolver's
+warnings as sentences, because a dropped row is a button that silently never appears. The console
+asks once per saved provider list (the query is keyed on the stored value), never on focus or a
+timer, since each ask reaches every issuer. `problemOf` puts the two failures an operator causes
+most into words: `ENOTFOUND` for a host that is not there, and a `Response` cause for a wrong issuer
+path, which `openid-client` reports as "unexpected HTTP response status code" without the status.
+It is manage-only, on the argument that reaching out to an address is an operator's action.
 
 ## Who may join
 

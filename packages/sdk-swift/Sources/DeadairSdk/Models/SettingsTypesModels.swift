@@ -45,6 +45,54 @@ public struct StationSettingsInput: Codable, Equatable, Sendable {
     }
 }
 
+/// One identity provider row, and whether its issuer answered as one
+public struct SigninProviderCheck: Codable, Equatable, Sendable {
+    /// The row's name
+    public var name: String
+    /// What its button says
+    public var label: String
+    /// The issuer that was asked
+    public var issuer: String
+    /// Whether the issuer answered with a discovery document naming itself
+    public var ok: Bool
+    /// Why not, in a sentence. Absent when it answered
+    public var problem: String?
+
+    public init(name: String, label: String, issuer: String, ok: Bool, problem: String? = nil) {
+        self.name = name
+        self.label = label
+        self.issuer = issuer
+        self.ok = ok
+        self.problem = problem
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case name = "name"
+        case label = "label"
+        case issuer = "issuer"
+        case ok = "ok"
+        case problem = "problem"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.name = try container.decode(String.self, forKey: .name)
+        self.label = try container.decode(String.self, forKey: .label)
+        self.issuer = try container.decode(String.self, forKey: .issuer)
+        self.ok = try container.decode(Bool.self, forKey: .ok)
+        self.problem = try container.decodeIfPresent(String.self, forKey: .problem)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.name, forKey: .name)
+        try container.encode(self.label, forKey: .label)
+        try container.encode(self.issuer, forKey: .issuer)
+        try container.encode(self.ok, forKey: .ok)
+        try container.encodeIfPresent(self.problem, forKey: .problem)
+    }
+}
+
 /// A station setting as the console needs to render it. `ConfigFieldDescriptor` is the plugins area's,
 /// and shared deliberately: a plugin's settings form and the station's are the same problem, and the
 /// console renders both with one component
@@ -167,6 +215,36 @@ public struct StationSettingDescriptor: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.dependsOn, forKey: .dependsOn)
         try container.encodeIfPresent(self.rangeWith, forKey: .rangeWith)
         try container.encode(self.group, forKey: .group)
+    }
+}
+
+/// Every identity provider row the station could read, and the ones it could not use at all
+public struct SigninProvidersCheck: Codable, Equatable, Sendable {
+    /// In the order the rows are listed
+    public var providers: [SigninProviderCheck]
+    /// One sentence per row the station drops before asking anybody: a missing cell, a name that is not a slug, an issuer that is not an address
+    public var unusable: [String]
+
+    public init(providers: [SigninProviderCheck], unusable: [String]) {
+        self.providers = providers
+        self.unusable = unusable
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case providers = "providers"
+        case unusable = "unusable"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.providers = try container.decode([SigninProviderCheck].self, forKey: .providers)
+        self.unusable = try container.decode([String].self, forKey: .unusable)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.providers, forKey: .providers)
+        try container.encode(self.unusable, forKey: .unusable)
     }
 }
 

@@ -4043,6 +4043,18 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/StationSettings'
+    '/settings/signin/check':
+        get:
+            operationId: check
+            summary: 'Check sign-in providers'
+            description: 'Asks each identity provider in the sign-in settings for its discovery document, the way a sign-in would, and says which answered'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/SigninProvidersCheck'
     '/logs':
         get:
             operationId: listSources
@@ -11117,6 +11129,47 @@ components:
                     additionalProperties: {}
             required: [values]
             description: "A submitted settings form. Partial: a key that is present is written, a key that is absent is left\nalone, so a console may send one field. A secret submitted blank clears it"
+        SigninProviderCheck:
+            type: object
+            properties:
+                name:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                    description: "The row's name"
+                label:
+                    type: string
+                    maxLength: 200
+                    description: 'What its button says'
+                issuer:
+                    type: string
+                    maxLength: 2000
+                    description: 'The issuer that was asked'
+                ok:
+                    type: boolean
+                    description: 'Whether the issuer answered with a discovery document naming itself'
+                problem:
+                    type: string
+                    maxLength: 2000
+                    description: 'Why not, in a sentence. Absent when it answered'
+            required: [name, label, issuer, ok]
+            description: 'One identity provider row, and whether its issuer answered as one'
+        SigninProvidersCheck:
+            type: object
+            properties:
+                providers:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/SigninProviderCheck'
+                    description: 'In the order the rows are listed'
+                unusable:
+                    type: array
+                    items:
+                        type: string
+                        maxLength: 2000
+                    description: 'One sentence per row the station drops before asking anybody: a missing cell, a name that is not a slug, an issuer that is not an address'
+            required: [providers, unusable]
+            description: 'Every identity provider row the station could read, and the ones it could not use at all'
         Pagination:
             type: object
             properties:

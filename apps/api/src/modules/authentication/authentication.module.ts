@@ -72,6 +72,7 @@ import { DeadairOidcFactorRepository } from './repositories/oidc.factor.reposito
 import { DeadairOidcActorEmailLookup } from './oidc.actor.email.lookup.js';
 import { SettingsOidcProviderSource } from './settings.oidc.provider.source.js';
 import { seedSigninProvidersFromEnv } from './signin.seed.js';
+import { SigninProviderCheckService } from './signin.provider.check.service.js';
 import { oidcRedirectUri } from './signin.settings.js';
 import { CacheProvider } from '@maroonedsoftware/cache';
 import { DeadairPhoneFactorRepository } from './repositories/phone.factor.repository.js';
@@ -298,6 +299,8 @@ export const AuthenticationModule: ServerKitModule = {
             .useFactory(container => new SettingsOidcProviderSource(container.get(AppConfig), container, container.get(Logger), oidcRedirectUri))
             .asSingleton();
         registry.register(OidcProviderRegistry).useClass(OidcProviderRegistry).asSingleton();
+        // Asked from the settings page, through the registry above, so it discovers exactly as a sign-in does.
+        registry.register(SigninProviderCheckService).useClass(SigninProviderCheckService).asScoped();
         registry.register(OidcFactorRepository).useClass(DeadairOidcFactorRepository).asScoped();
         registry.register(OidcActorEmailLookup).useClass(DeadairOidcActorEmailLookup).asScoped();
         registry

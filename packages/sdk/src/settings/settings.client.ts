@@ -1,6 +1,6 @@
 import type { SdkFetch } from '../sdk-options.js';
 import { bigIntReplacer, parseJson } from '../sdk-options.js';
-import type { StationSettings, StationSettingsInput } from './types/settings.types.js';
+import type { SigninProvidersCheck, StationSettings, StationSettingsInput } from './types/settings.types.js';
 
 export class SettingsClient {
     constructor(private fetch: SdkFetch) {}
@@ -25,5 +25,14 @@ export class SettingsClient {
             body: JSON.stringify(body, bigIntReplacer),
         });
         return await parseJson<StationSettings>(result);
+    }
+
+    /**
+     * @name Check sign-in providers
+     * @description Asks each identity provider in the sign-in settings for its discovery document, the way a sign-in would, and says which answered
+     */
+    async checkSignInProviders(): Promise<SigninProvidersCheck> {
+        const result = await this.fetch(`/settings/signin/check`, { method: 'GET' });
+        return await parseJson<SigninProvidersCheck>(result);
     }
 }

@@ -36,6 +36,21 @@ export const StationSettingsInput = z.strictObject({
 export type StationSettingsInput = z.infer<typeof StationSettingsInput>;
 
 /**
+ * One identity provider row, and whether its issuer answered as one
+ * generated from [SigninProviderCheck](../../../../data/contracts/settings/settings.types.ck#L58)
+ */
+export const SigninProviderCheck = z.strictObject({
+    name: z.string().min(1).max(200).describe("The row's name"),
+    label: z.string().max(200).describe('What its button says'),
+    issuer: z.string().max(2000).describe('The issuer that was asked'),
+    ok: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .describe('Whether the issuer answered with a discovery document naming itself'),
+    problem: z.string().max(2000).optional().describe('Why not, in a sentence. Absent when it answered'),
+});
+export type SigninProviderCheck = z.infer<typeof SigninProviderCheck>;
+
+/**
  * A station setting as the console needs to render it. `ConfigFieldDescriptor` is the plugins area's,
  * and shared deliberately: a plugin's settings form and the station's are the same problem, and the
  * console renders both with one component
@@ -45,6 +60,20 @@ export const StationSettingDescriptor = ConfigFieldDescriptor.extend({
     group: SettingGroup,
 });
 export type StationSettingDescriptor = z.infer<typeof StationSettingDescriptor>;
+
+/**
+ * Every identity provider row the station could read, and the ones it could not use at all
+ * generated from [SigninProvidersCheck](../../../../data/contracts/settings/settings.types.ck#L67)
+ */
+export const SigninProvidersCheck = z.strictObject({
+    providers: z.array(SigninProviderCheck).describe('In the order the rows are listed'),
+    unusable: z
+        .array(z.string().max(2000))
+        .describe(
+            'One sentence per row the station drops before asking anybody: a missing cell, a name that is not a slug, an issuer that is not an address',
+        ),
+});
+export type SigninProvidersCheck = z.infer<typeof SigninProvidersCheck>;
 
 /**
  * Every station setting, with what it is currently worth

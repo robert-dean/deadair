@@ -74,6 +74,31 @@ public sealed record StationSettingsInput
     public required Dictionary<string, JsonElement> Values { get; init; }
 }
 
+/// <summary>One identity provider row, and whether its issuer answered as one</summary>
+public sealed record SigninProviderCheck
+{
+    /// <summary>The row's name</summary>
+    [JsonPropertyName("name")]
+    public required string Name { get; init; }
+
+    /// <summary>What its button says</summary>
+    [JsonPropertyName("label")]
+    public required string Label { get; init; }
+
+    /// <summary>The issuer that was asked</summary>
+    [JsonPropertyName("issuer")]
+    public required string Issuer { get; init; }
+
+    /// <summary>Whether the issuer answered with a discovery document naming itself</summary>
+    [JsonPropertyName("ok")]
+    public required bool Ok { get; init; }
+
+    /// <summary>Why not, in a sentence. Absent when it answered</summary>
+    [JsonPropertyName("problem")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Problem { get; init; }
+}
+
 /// <summary>
 /// A station setting as the console needs to render it. `ConfigFieldDescriptor` is the plugins area's,
 /// and shared deliberately: a plugin's settings form and the station's are the same problem, and the
@@ -162,6 +187,18 @@ public sealed record StationSettingDescriptor
 
     [JsonPropertyName("group")]
     public required SettingGroup Group { get; init; }
+}
+
+/// <summary>Every identity provider row the station could read, and the ones it could not use at all</summary>
+public sealed record SigninProvidersCheck
+{
+    /// <summary>In the order the rows are listed</summary>
+    [JsonPropertyName("providers")]
+    public required List<SigninProviderCheck> Providers { get; init; }
+
+    /// <summary>One sentence per row the station drops before asking anybody: a missing cell, a name that is not a slug, an issuer that is not an address</summary>
+    [JsonPropertyName("unusable")]
+    public required List<string> Unusable { get; init; }
 }
 
 /// <summary>Every station setting, with what it is currently worth</summary>

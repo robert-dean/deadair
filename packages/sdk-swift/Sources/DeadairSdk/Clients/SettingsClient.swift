@@ -25,4 +25,12 @@ public final class SettingsClient: Sendable {
         let response = try await http.execute(request)
         return try http.decodeJSON(StationSettings.self, from: response)
     }
+
+    /// Check sign-in providers
+    /// Asks each identity provider in the sign-in settings for its discovery document, the way a sign-in would, and says which answered
+    public func checkSignInProviders() async throws -> SigninProvidersCheck {
+        let request = SdkRequest(method: "GET", path: ["settings", "signin", "check"])
+        let response = try await http.execute(request)
+        return try http.decodeJSON(SigninProvidersCheck.self, from: response)
+    }
 }

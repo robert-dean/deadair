@@ -49,3 +49,21 @@ export function useUpdateSettings() {
         },
     });
 }
+
+/**
+ * Whether each identity provider in the sign-in settings answers as one.
+ *
+ * Asked once per stored provider list and not again on focus or on a timer, because every ask
+ * reaches out to each issuer. `providers` is the stored `signin.providers` value, which is what
+ * makes a save that changed a row ask again.
+ */
+export function useSigninCheck(providers: string | undefined) {
+    return useQuery({
+        queryKey: queryKeys.settings.signinCheck(providers ?? ''),
+        queryFn: () => sdk.settings.checkSignInProviders(),
+        enabled: providers !== undefined,
+        staleTime: Infinity,
+        refetchOnWindowFocus: false,
+        retry: false,
+    });
+}

@@ -46,4 +46,17 @@ public sealed class SettingsClient(SdkHttp http)
             cancellationToken: cancellationToken).ConfigureAwait(false);
         return http.ReadJson<StationSettings>(response);
     }
+
+    /// <summary>
+    /// Check sign-in providers
+    /// Asks each identity provider in the sign-in settings for its discovery document, the way a sign-in would, and says which answered
+    /// </summary>
+    public async Task<SigninProvidersCheck> CheckSignInProvidersAsync(CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Get,
+            http.Path("settings", "signin", "check"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<SigninProvidersCheck>(response);
+    }
 }

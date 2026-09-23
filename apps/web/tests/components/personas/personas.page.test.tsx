@@ -114,6 +114,21 @@ describe('PersonasPage', () => {
         expect(screen.queryByText('Station\u2019s own')).not.toBeInTheDocument();
     });
 
+    it('names the hosts a caller rings in to, and says nothing on a caller tied to nobody', async () => {
+        listPersonas.mockResolvedValue({
+            personas: [
+                persona({ id: 'h-1', key: 'conspiracy', label: 'Conspiracy host' }),
+                persona({ id: 'c-1', key: 'trucker', kind: 'caller', label: 'Trucker', hosts: ['h-1', 'gone'] }),
+                persona({ id: 'c-2', key: 'pedant', kind: 'caller', label: 'Pedant' }),
+            ],
+        });
+        render(<PersonasPage />);
+
+        // The id the roster no longer holds is skipped rather than printed as an id.
+        expect(await screen.findByText('Rings in to Conspiracy host')).toBeInTheDocument();
+        expect(screen.getAllByText(/^Rings in to/)).toHaveLength(1);
+    });
+
     it('still renders a name, a description and the three actions on a phone', async () => {
         // Below 500px the action row used to hold its intrinsic width while the left column
         // collapsed toward zero, printing the buttons over the persona's name.

@@ -8,6 +8,8 @@ import {
     Divider,
     Drawer,
     Group,
+    MultiSelect,
+    Pill,
     Select,
     SimpleGrid,
     Stack,
@@ -20,10 +22,10 @@ import { IconDice5, IconPlayerPauseFilled, IconPlayerPlayFilled } from '@tabler/
 import { useForm } from '@mantine/form';
 import type { Persona, PersonaDraftView, PersonaInput } from '@deadair/sdk';
 
-import { useGeneratePersona, useRehearsePersona } from '../../api/personas.queries';
+import { useGeneratePersona, usePersonas, useRehearsePersona } from '../../api/personas.queries';
 import { usePads } from '../../api/pads.queries';
 import { usePhone } from '../shared/use.phone';
-import type { PersonaKind } from './persona.kind';
+import { presents, type PersonaKind } from './persona.kind';
 import { fetchVoiceSample, useVoices } from '../../api/voices.queries';
 import { useVoicePreview } from '../voices/voice.preview';
 import { suggestAirName } from './air.names';
@@ -85,6 +87,8 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
     const caller = kind === 'caller';
     const voices = useVoices(opened);
     const pads = usePads();
+    // The roster, for the hosts a caller may ring in to. Already cached by the page this opens from.
+    const personas = usePersonas();
     const generate = useGeneratePersona();
     const preview = useVoicePreview();
     const rehearse = useRehearsePersona();
@@ -110,6 +114,11 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
             style: value => (value.trim().length === 0 ? 'Say who this character is' : undefined),
         },
     });
+
+    // Hosts only, through `presents`: a caller ringing in to another caller is a tie the API refuses,
+    // and offering it would be a form that cannot be saved.
+    const hostOptions = (personas.data?.personas ?? []).filter(presents).map(host => ({ value: host.id, label: host.label }));
+    const hostLabel = (id: string | undefined) => hostOptions.find(option => option.value === id)?.label ?? id ?? '';
 
     const voiceOptions = (voices.data?.voices ?? []).map(voice => ({ value: voice.id, label: voice.label }));
 
@@ -331,6 +340,38 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                         maxRows={8}
                         {...form.getInputProps('background')}
                     />
+
+                    {/* Callers only, the other way round from the phrasings below, which only a host has.
+                        A tie is a restriction: a caller with hosts here rings in to nobody else's
+                        programme, and one with none rings in to anybody's. */}
+                    {caller ? (
+                        <>
+                            <Section
+                                title="Who they ring"
+                                blurb="A phone-in is cast from the callers who ring whoever is presenting it. Among them, whoever rang longest ago goes first."
+                            />
+                            <MultiSelect
+                                label="Rings in to"
+                                description="Leave it empty and they ring in to whoever is presenting."
+                                data={hostOptions}
+                                searchable
+                                clearable
+                                // Labelled for the reason `config.fields.form.tsx` labels its tag pills:
+                                // Mantine hides a pill's remove button from the accessibility tree, and
+                                // it is still the only way a host is dropped with a mouse.
+                                renderPill={({ value, onRemove, disabled }) => (
+                                    <Pill
+                                        withRemoveButton={!disabled}
+                                        onRemove={onRemove}
+                                        removeButtonProps={{ 'aria-label': `Remove ${hostLabel(value)}` }}
+                                    >
+                                        {hostLabel(value)}
+                                    </Pill>
+                                )}
+                                {...form.getInputProps('hosts')}
+                            />
+                        </>
+                    ) : undefined}
 
                     <Section
                         title="How they talk"
@@ -886,7 +927,12 @@ interface Props {
     error?: unknown;
 }
 
-/** The form's own shape: every list field is one string, one entry per line. */
+/**
+ * The form's own shape: every list field is one string, one entry per line.
+ *
+ * Except `hosts`, which is ids picked from a list rather than lines anybody types, so it is held as
+ * the array it is sent as.
+ */
 interface FormValues {
     key: string;
     label: string;
@@ -910,6 +956,7 @@ interface FormValues {
     avoid: string;
     exclusiveSubjects: string;
     samples: string;
+    hosts: string[];
 }
 
 /**
@@ -960,6 +1007,9 @@ function valuesOf(persona: PersonaDraftView | Persona | undefined): FormValues {
         avoid: linesOf(persona?.avoid),
         exclusiveSubjects: linesOf(persona?.exclusiveSubjects),
         samples: linesOf(persona?.samples),
+        // An `in` check, as `growth` is: a generated draft carries no ties, which are this station's
+        // own ids and nothing a model could know.
+        hosts: persona !== undefined && 'hosts' in persona ? [...(persona.hosts ?? [])] : [],
     };
 }
 
@@ -1031,6 +1081,8 @@ function draftOf(values: FormValues, kind: PersonaKind): PersonaInput {
             avoid: list(values.avoid),
             exclusiveSubjects: list(values.exclusiveSubjects),
             samples: list(values.samples),
+            // Only a caller rings in. Absent unties it, which is what the API reads it as.
+            hosts: kind === 'caller' && values.hosts.length > 0 ? values.hosts : undefined,
         }),
     };
 }

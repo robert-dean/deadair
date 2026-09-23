@@ -302,6 +302,7 @@ export function PersonasPage() {
                                         {persona.style}
                                     </Text>
                                     <PersonaSummary persona={persona} />
+                                    <RingsIn persona={persona} roster={all} />
 
                                     {persona.voice ? (
                                         <Group gap="xxs" wrap="nowrap">
@@ -554,6 +555,27 @@ function PersonaSummary({ persona }: { persona: Persona }) {
     return (
         <Text size="xs" c="dimmed">
             {summary}
+        </Text>
+    );
+}
+
+/**
+ * Which hosts a caller rings in to, named, or nothing for a caller tied to nobody.
+ *
+ * Nothing rather than "rings in to anybody", because that is what every caller did before ties
+ * existed and a line on every card saying so would be the ordinary case reported as news. An id the
+ * roster does not hold is skipped: the tie went with its host, and the list is a moment behind.
+ */
+function RingsIn({ persona, roster }: { persona: Persona; roster: readonly Persona[] }) {
+    const names = (persona.hosts ?? []).flatMap(id => {
+        const host = roster.find(row => row.id === id);
+        return host === undefined ? [] : [host.label];
+    });
+    if (names.length === 0) return undefined;
+
+    return (
+        <Text size="xs" c="dimmed">
+            Rings in to {names.join(', ')}
         </Text>
     );
 }

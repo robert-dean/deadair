@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.27.1] — 2026-09-23
+
+- The conspiracy host is now a Southern man. His dialect is in every sentence (y'all, fixin' to, I reckon, might could, dropped g's), his sample lines, stories and fallback phrasings are retold in that voice, and the British places he used to mention are American ones: a pull-off on the county road instead of a lay-by, a parking garage instead of a multi-storey car park. This changes the words he writes; how he sounds is the speech engine's voice for him, which this does not change. A station that already has him keeps its own row until an operator edits it.
+
 ## [0.27.0] — 2026-09-23
 
 - The station now says when a newer release is out. The console's header names it, **Check-up > What’s new** lists it first with its notes and a link to its release page, and the Build section of Check-up says so. The station asks GitHub for the project's public list of releases once when it starts and then every six hours. **Check now** on What’s new asks straight away. Each request is anonymous and carries nothing about the station. It never installs anything: upgrading is still pulling the new image.
@@ -739,7 +743,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.27.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.27.1...HEAD
+[0.27.1]: https://github.com/robert-dean/deadair/compare/v0.27.0...v0.27.1
 [0.27.0]: https://github.com/robert-dean/deadair/compare/v0.26.3...v0.27.0
 [0.26.3]: https://github.com/robert-dean/deadair/compare/v0.26.2...v0.26.3
 [0.26.2]: https://github.com/robert-dean/deadair/compare/v0.26.1...v0.26.2

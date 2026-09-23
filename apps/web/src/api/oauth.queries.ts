@@ -1,4 +1,5 @@
-import { queryOptions, useMutation, useQuery } from '@tanstack/react-query';
+import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { OAuthClientCreate } from '@deadair/sdk';
 
 import { sdk } from './client';
 import { queryKeys } from './query.keys';
@@ -41,5 +42,54 @@ export function useDenyAuthorization() {
     return useMutation({
         retry: false,
         mutationFn: (requestId: string) => sdk.oauth.denyAuthorizationRequest({ requestId }),
+    });
+}
+
+/** The apps registered with the station, by an operator or by themselves. An operator's list. */
+export function useOAuthClients() {
+    return useQuery({ queryKey: queryKeys.oauth.clients(), queryFn: () => sdk.oauth.listOAuthClients(), retry: false });
+}
+
+/**
+ * Registers an app by hand. Behind the step-up gate, like issuing an API key. The secret, for an app
+ * that keeps one, is on this result and nowhere else: the card holds it in state while it is shown.
+ */
+export function useCreateOAuthClient() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        retry: false,
+        mutationFn: (request: OAuthClientCreate) => sdk.oauth.createOAuthClient(request),
+        onSuccess: () => {
+            void queryClient.invalidateQueries({ queryKey: queryKeys.oauth.clients() });
+        },
+    });
+}
+
+/** Withdraws an app, and with it every approval of it and every token it holds. */
+export function useRevokeOAuthClient() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        retry: false,
+        mutationFn: (clientId: string) => sdk.oauth.revokeOAuthClient(clientId),
+        onSuccess: () => {
+            void queryClient.invalidateQueries({ queryKey: queryKeys.oauth.clients() });
+        },
+    });
+}
+
+/** The apps the signed-in person has let act as them. */
+export function useOAuthGrants() {
+    return useQuery({ queryKey: queryKeys.oauth.grants(), queryFn: () => sdk.oauth.listOAuthGrants() });
+}
+
+/** Disconnects an app. Its tokens stop working at once. */
+export function useRevokeOAuthGrant() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        retry: false,
+        mutationFn: (id: string) => sdk.oauth.revokeOAuthGrant(id),
+        onSuccess: () => {
+            void queryClient.invalidateQueries({ queryKey: queryKeys.oauth.grants() });
+        },
     });
 }

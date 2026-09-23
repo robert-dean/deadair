@@ -23,6 +23,10 @@ export const queryKeys = {
     oauth: {
         /** One app's authorization request, keyed on the query string it arrived with. */
         authorization: (query: string) => ['oauth', 'authorization', query] as const,
+        /** The apps registered with the station. Registering or withdrawing one answers in terms of the whole list. */
+        clients: () => ['oauth', 'clients'] as const,
+        /** The apps the signed-in person has let act as them. */
+        grants: () => ['oauth', 'grants'] as const,
     },
     onboarding: {
         requirements: () => ['onboarding', 'requirements'] as const,

@@ -16,6 +16,8 @@ import { SETTINGS_SECTIONS, type SettingsSection, type SettingsSectionId } from 
 import { UnsavedGuard } from './unsaved.guard';
 import { BreakArtCard } from './break.art.card';
 import { StorageCard } from './storage.card';
+import { ConnectedAppsCard } from './connected.apps.card';
+import { OAuthClientsCard } from './oauth.clients.card';
 
 /**
  * One section of Settings, as its own page.
@@ -42,7 +44,7 @@ export function SettingsSectionPage({ section: id }: SettingsSectionPageProps) {
     // the difference between them IS whether a hook runs.
     if (section.group === undefined) return <StandaloneSection section={section} />;
 
-    return (
+    const form = (
         <SettingsGroupPage
             group={section.group}
             label={section.label}
@@ -58,6 +60,18 @@ export function SettingsSectionPage({ section: id }: SettingsSectionPageProps) {
             }
         />
     );
+
+    // Sign-in and connections draws the apps registered with the station below its form: the form
+    // says whether apps may connect, and the card says which ones have.
+    if (section.id === 'signin')
+        return (
+            <Stack gap="lg">
+                {form}
+                <OAuthClientsCard />
+            </Stack>
+        );
+
+    return form;
 }
 
 export interface SettingsSectionPageProps {
@@ -89,6 +103,7 @@ function StandaloneSection({ section }: { section: SettingsSection }) {
             <Stack gap="lg">
                 <SecurityCard />
                 <ApiKeysCard />
+                <ConnectedAppsCard />
             </Stack>
         );
 

@@ -50,6 +50,29 @@ services:
             - MP_SMTP_AUTH_ACCEPT_ANY=1
             - MP_SMTP_AUTH_ALLOW_INSECURE=1
 
+    # A stand-in identity provider for working on sign-in, so nothing needs a Google project or an
+    # Authelia to try it. Behind the `sso` profile, so a plain `docker compose up` does not start it:
+    # `docker compose --profile sso up -d oidc`.
+    #
+    # Add a provider under Settings → Sign-in and connections with issuer
+    # http://localhost:3080/default and any client id and secret; the redirect address it is sent
+    # to is the station's own. The login form it shows takes any username and optional JSON
+    # claims, so `{"email": "alice@example.com", "email_verified": true}` is how to be somebody the
+    # allowlist names, and leaving the address out is how to be somebody it does not. An http issuer
+    # is accepted only because it says so, and the station logs a warning for it.
+    #
+    # The issuer is derived from the Host header, so the API (on the host, under `pnpm dev`) and the
+    # browser must both reach it as localhost:3080.
+    oidc:
+        image: ghcr.io/navikt/mock-oauth2-server:latest
+        container_name: deadair-oidc
+        restart: unless-stopped
+        profiles: ['sso']
+        ports:
+            - '3080:8080'
+        environment:
+            - SERVER_PORT=8080
+
     # Local Kokoro TTS for the render pipeline: an OpenAI-compatible
     # /v1/audio/speech endpoint that turns generated scripts into voice segments.
     # The render pipeline points TTS_BASE_URL at it (http://kokoro:8880/v1 in a

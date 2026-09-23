@@ -38,6 +38,7 @@ was shipped first and was wrong.
 | speech engines, voices, cues, pads, segment stages, pronunciations | [`docs/internals/render.md`](docs/internals/render.md) |
 | the mount, the audience gate, why it is quiet, the activity feed | [`docs/internals/playout.md`](docs/internals/playout.md) |
 | the model, the gate, the tool loop | [`docs/internals/llm.md`](docs/internals/llm.md) |
+| signing in through an identity provider, the allowlist, linked sign-ins | [`docs/internals/authentication.md`](docs/internals/authentication.md) |
 | the Dockerfile, the image variants, CI | [`docs/internals/deployment.md`](docs/internals/deployment.md) |
 
 Each of those is sectioned, so the answer to one question is a heading rather than a file. Several

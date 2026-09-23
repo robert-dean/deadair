@@ -55,8 +55,9 @@ export class PluginConfigService {
      *
      * A secret key absent from `submitted` keeps its existing ciphertext, so a
      * PUT never has to resubmit secrets the operator did not retype. A secret
-     * key present but blank clears the stored value. Keys with no matching
-     * descriptor are ignored.
+     * key present but blank clears the stored value. A plain key sent as `null`
+     * is removed rather than stored. Keys with no matching descriptor are
+     * ignored.
      *
      * A `list` whose columns include a `secret` splits the same three ways per CELL, which is why
      * `secrets` is built before the plain loop rather than after it.
@@ -79,7 +80,9 @@ export class PluginConfigService {
             }
 
             if (Object.hasOwn(submitted, field.key)) {
-                config[field.key] = submitted[field.key];
+                // `null` clears: leaving the key out of a config built from nothing is what removes
+                // it, and a stored `null` would reach the plugin as a value it never reads as unset.
+                if (submitted[field.key] !== null) config[field.key] = submitted[field.key];
             } else if (existing && Object.hasOwn(existing.config, field.key)) {
                 config[field.key] = existing.config[field.key];
             }

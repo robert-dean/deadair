@@ -4,6 +4,7 @@
 // about the rule the module exists to keep — a secret cell is never in the row.
 
 import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
 import { parseRows, ROW_ID_KEY, rowSecretKey, type ConfigField } from '@deadair/plugin-sdk';
 
 import { configuredCells, formAsItWillBe, holdsRowSecrets, splitRowSecrets } from '../../../src/modules/shared/config.rows.js';
@@ -214,5 +215,15 @@ describe('the form as a schema should judge it', () => {
 
     it('clears a secret field the submission blanked', () => {
         expect(formAsItWillBe(fields, stored, secrets, { apiKey: null }).apiKey).toBeUndefined();
+    });
+
+    it('takes a plain field the submission blanked out of the form, so an optional schema accepts it', () => {
+        // The console sends `null` for a number box emptied after it had a value. Handed through,
+        // `z.number().optional()` refused it with nothing but "Invalid input" under the field.
+        const withNumber = [...fields, { key: 'keepAlive', label: 'Keep alive', type: 'number' } as ConfigField];
+        const effective = formAsItWillBe(withNumber, { ...stored, keepAlive: 300 }, secrets, { keepAlive: null });
+
+        expect(Object.hasOwn(effective, 'keepAlive')).toBe(false);
+        expect(z.object({ keepAlive: z.number().optional() }).safeParse(effective).success).toBe(true);
     });
 });

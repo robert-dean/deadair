@@ -226,7 +226,13 @@ export function formAsItWillBe(
             continue;
         }
 
-        if (isSubmitted) effective[field.key] = submitted[field.key];
+        // `null` is the console clearing a field that had a value, and the key goes rather than
+        // reaching the schema as a value: plugin code reads "not set" as `undefined`, so an
+        // `.optional()` number refused the blanked box with zod's bare "Invalid input".
+        if (isSubmitted) {
+            if (submitted[field.key] === null) delete effective[field.key];
+            else effective[field.key] = submitted[field.key];
+        }
     }
 
     return effective;

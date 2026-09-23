@@ -92,6 +92,16 @@ describe('PluginConfigService.saveConfig', () => {
         expect(result.configured).toEqual({ apiKey: false });
         await expect(svc.getSecrets('plugin.a')).resolves.toEqual({});
     });
+
+    it('removes a plain value the submission sends as null, rather than storing the null', async () => {
+        const { service: svc } = service();
+
+        await svc.saveConfig('plugin.a', fields, { apiUrl: 'https://api.example.com' });
+        const result = await svc.saveConfig('plugin.a', fields, { apiUrl: null });
+
+        expect(result.config).toEqual({});
+        await expect(svc.getConfig('plugin.a')).resolves.toEqual({});
+    });
 });
 
 describe('PluginConfigService.getReadModel', () => {

@@ -22,6 +22,7 @@ import { ROW_ID_KEY, rowSecretKey } from '@deadair/plugin-sdk';
 import { AuthenticationModule } from '../../../src/modules/authentication/authentication.module.js';
 import { MailService } from '../../../src/modules/mail/mail.service.js';
 import { AuthorizationContext } from '../../../src/modules/permissions/authorization.context.js';
+import { PermissionsService } from '../../../src/modules/permissions/permissions.service.js';
 import { DeadairPermissionsTupleRepository } from '../../../src/modules/permissions/permissions.repository.js';
 import { SIGNIN_KEYS } from '../../../src/modules/authentication/signin.settings.js';
 import { settingsConfig } from '../../utils/settings.config.js';
@@ -33,7 +34,15 @@ const logger = { debug() {}, info() {}, warn() {}, error() {} } as unknown as Lo
 
 // Registered by modules this one depends on at request time. Stood in for by value so the build
 // verifies AuthenticationModule's own graph, which is the thing under test; nothing here resolves them.
-const FOREIGN: Identifier<unknown>[] = [Kysely, DeadairPermissionsTupleRepository, CacheProvider, PolicyService, AuthorizationContext, MailService];
+const FOREIGN: Identifier<unknown>[] = [
+    Kysely,
+    DeadairPermissionsTupleRepository,
+    CacheProvider,
+    PolicyService,
+    AuthorizationContext,
+    MailService,
+    PermissionsService,
+];
 
 const encryption = new EncryptionProvider(randomBytes(32));
 

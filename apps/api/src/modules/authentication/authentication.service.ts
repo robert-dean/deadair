@@ -43,6 +43,11 @@ import { Injectable } from 'injectkit';
 import { parseAndValidate, parseAndValidateArray } from '@maroonedsoftware/zod';
 import { AuthenticationServiceOptions } from './authentication.options.js';
 import { ActorsRepository } from '#modules/authentication/repositories/actors.repository.js';
+import { PermissionsService } from '#modules/permissions/permissions.service.js';
+import { PLATFORM_NAMESPACE, PLATFORM_OBJECT_ID } from '#modules/permissions/platform.roles.js';
+import { AppConfig } from '@maroonedsoftware/appconfig';
+import { OidcSignInRefused } from './oidc.sign.in.refused.js';
+import { allowlistAdmits, resolveSigninAllowlist } from './signin.settings.js';
 import {
     AuthenticationSession,
     AuthenticationSessionFactor,
@@ -144,6 +149,8 @@ export class AuthenticationService {
         private readonly oidcFactorService: OidcFactorService,
         private readonly requestCookieJar: RequestCookieJar,
         private readonly responseCookieJar: ResponseCookieJar,
+        private readonly permissionsService: PermissionsService,
+        private readonly config: AppConfig,
     ) {
         this.authenticateHandlerMap = new Map<AuthenticationGrantType, AuthenticationHandlers>();
         this.authenticateHandlerMap.set('client_credentials', {
@@ -979,17 +986,23 @@ export class AuthenticationService {
         );
     }
 
-    // Returns the redirect HTML plus the resolved `actorId` (when the callback
-    // succeeded) so the route can run post-auth side effects — notably the
-    // OIDC-avatar capture — without `AuthenticationService` importing identity
-    // services (which would form an import cycle via ReferrersService).
+    /**
+     * Where an identity provider sends the browser back to. Completes the authorization, resolves
+     * it to an account, and answers an HTML page that hands the console a one-time exchange id.
+     *
+     * An identity already linked to an account, or one the library auto-linked because the provider
+     * vouched for an address an account already holds, signs in as that account. Anything else is a
+     * NEW account, which {@link provisionOidcNewUser} creates only for an address the allowlist
+     * names. Every refusal lands the browser on the console's callback page with a code and a
+     * sentence, never on raw JSON from the API, and never with an exception's own message in the URL.
+     */
     async handleOidcCallback(query: OidcLoginCallback): Promise<string> {
         try {
             const result = await this.oidcFactorService.completeAuthorization({ params: query });
 
             const identity =
                 result.kind === 'new-user'
-                    ? await this.provisionOidcNewUser(result.authorizationId, result.profile)
+                    ? await this.provisionOidcNewUser(result.authorizationId, result.profile, result.emailConflict !== undefined)
                     : { actorId: result.actorId, factorId: result.factorId, isNewUser: false };
 
             const exchangeId = await this.oidcFactorService.stashAuthenticatedExchange({
@@ -1002,55 +1015,56 @@ export class AuthenticationService {
             target.searchParams.set('token', `oidc:${exchangeId}`);
             if (identity.isNewUser) target.searchParams.set('is_new_user', 'true');
 
-            const { html } = this.htmlRedirectProvider.getRedirectHtml(target);
-
-            // Capture the IdP avatar (e.g. Google's `picture`) for an already-existing
-            // person — covers account-linking and returning-user sign-in, where the
-            // person predates the picture. New users have no person yet (no-op); their
-            // avatar is captured at onboarding in `createPerson`. Done here (not in
-            // AuthenticationService) to avoid an identity↔authentication import cycle;
-            // best-effort so it never blocks the sign-in redirect.
-            // if (identity.actorId) {
-            //     try {
-            //         await this.actorsRepository.ensureOidcAvatar(identity.actorId);
-            //     } catch {
-            //         /* avatar capture is best-effort */
-            //     }
-            // }
-
-            return html;
+            return this.htmlRedirectProvider.getRedirectHtml(target).html;
         } catch (err) {
-            const code = query.error ?? (err instanceof Error ? err.message : 'oidc_failed');
+            const refusal = err instanceof OidcSignInRefused ? err : undefined;
+            const code = refusal?.code ?? (query.error ? 'provider_error' : 'oidc_failed');
             await this.sessionActivity.recordFactorFailure({
                 identifier: query.state ?? code,
                 factorType: 'oidc',
-                lastReason: code,
+                lastReason: query.error ?? (err instanceof Error ? err.message : code),
             });
             // We don't know the SPA's redirect_after here — the state record may already be gone
             // (expired/missing) or never existed (IdP rejected before we could read it). Fall back
-            // to the configured SPA base URL so the user lands on the demo's callback page with
+            // to the configured SPA base URL so the user lands on the console's callback page with
             // an actionable error rather than raw 4xx JSON on the API host.
             const target = new URL(`${this.options.spaBaseUrl}/auth/callback`);
             target.searchParams.set('error', code);
-            if (query.error_description) target.searchParams.set('error_description', query.error_description);
-            const { html } = this.htmlRedirectProvider.getRedirectHtml(target);
-            return html;
+            const description =
+                refusal?.description ?? query.error_description ?? 'Could not finish signing you in through that provider. Try again.';
+            target.searchParams.set('error_description', description);
+            return this.htmlRedirectProvider.getRedirectHtml(target).html;
         }
     }
 
+    /**
+     * An account for somebody signing in through a provider for the first time, if they may have one.
+     *
+     * Two refusals come first, before anything is written. `emailConflict` means an account with
+     * this address exists but the provider does not call the address verified: creating a second
+     * account would shadow the first, and linking to it would hand it over on the provider's word
+     * alone. Then the allowlist (`signin.allowlist`), checked against the address only when the
+     * provider vouches for it, since an unverified address is whatever the person typed there.
+     *
+     * An admitted identity gets an account holding the `listener` role and nothing more: it can
+     * hear the station and read the console, and an administrator decides the rest. Its verified
+     * address becomes an email factor too, so a later auto-link or emailed sign-in finds it.
+     */
     private async provisionOidcNewUser(
         authorizationId: string,
         profile: { email?: string; emailVerified?: boolean },
+        emailConflict: boolean,
     ): Promise<{ actorId: string; factorId: string; isNewUser: true }> {
+        if (emailConflict) throw new OidcSignInRefused('email_unverified');
+
+        const verifiedEmail = profile.emailVerified === true ? profile.email : undefined;
+        if (!allowlistAdmits(resolveSigninAllowlist(this.config), verifiedEmail)) throw new OidcSignInRefused('not_allowed');
+
         const actor = await this.actorsRepository.create('user');
 
-        // The IdP already verified the email; we mirror that into our email-factor table so
-        // future flows that look up by email (auto-link, magic link) can find this account.
-        // We skip if the IdP didn't return a verified email — better to leave the user
-        // OIDC-only than to claim ownership of an unverified address.
-        if (profile.email && profile.emailVerified) {
+        if (verifiedEmail) {
             try {
-                await this.emailFactorRepository.createFactor(actor.id, profile.email);
+                await this.emailFactorRepository.createFactor(actor.id, verifiedEmail);
             } catch {
                 // Unique-constraint collision: another account already owns this email.
                 // The package's auto-link path should have caught this; if we still got
@@ -1061,6 +1075,20 @@ export class AuthenticationService {
         }
 
         const factor = await this.oidcFactorService.createFactorFromAuthorization(actor.id, authorizationId);
+
+        // The one role a newcomer gets. `createdBy` is the new account itself, as onboarding's grant
+        // is: nobody signed in performed it.
+        await this.permissionsService.writeDirect(
+            [
+                {
+                    object: { namespace: PLATFORM_NAMESPACE, id: PLATFORM_OBJECT_ID },
+                    relation: 'listener',
+                    subject: { kind: 'concrete', namespace: 'user', id: actor.id },
+                },
+            ],
+            actor.id,
+        );
+
         return { actorId: actor.id, factorId: factor.id, isNewUser: true };
     }
 }

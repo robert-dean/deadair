@@ -40,6 +40,7 @@ import { ArtModule } from './art/art.module.js';
 import { LoggingModule } from '#src/logging/logging.module.js';
 import { JobsModule } from './jobs/jobs.module.js';
 import { withBoundedShutdown } from './shared/shutdown.guard.js';
+import { OAuthModule } from './oauth/oauth.module.js';
 
 // Registered in dependency order: infrastructure (data, shared, messaging,
 // events) first, then the single-actor identity/auth foundation. IdentityModule
@@ -85,6 +86,10 @@ const ordered: ServerKitModule[] = [
     AuthenticationModule,
     PermissionsModule,
     PolicyModule,
+    // After AuthenticationModule and PolicyModule: its token endpoint mints sessions through the
+    // session service and the MCP route's policy is registered beside the others. Nothing it holds is
+    // needed by a module below at boot, and it holds nothing to tear down.
+    OAuthModule,
     // Before CatalogModule: catalog reads join `art_assets` so a row that has a
     // locally cached cover reports that instead of the upstream URL. Nothing
     // here reaches back into the catalog.

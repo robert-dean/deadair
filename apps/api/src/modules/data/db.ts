@@ -343,6 +343,35 @@ export interface DeadairNarrationPieces {
   wordCount: number | null;
 }
 
+export interface DeadairOauthClients {
+  clientId: string;
+  clientUri: string | null;
+  createdAt: Generated<DateTime>;
+  createdBy: string | null;
+  expiresAt: DateTime | null;
+  kind: "preregistered" | "dynamic";
+  lastUsedAt: DateTime | null;
+  logoUri: string | null;
+  name: string | null;
+  redirectUris: string[];
+  revokedAt: DateTime | null;
+  secretHash: string | null;
+  tokenEndpointAuthMethod: "none" | "client_secret_post" | "client_secret_basic";
+  updatedAt: Generated<DateTime>;
+}
+
+export interface DeadairOauthGrants {
+  actorId: string;
+  clientId: string;
+  createdAt: Generated<DateTime>;
+  id: Generated<string>;
+  lastUsedAt: DateTime | null;
+  resource: string;
+  revokedAt: DateTime | null;
+  scope: Generated<string[]>;
+  updatedAt: Generated<DateTime>;
+}
+
 export interface DeadairPads {
   audioChecksum: string;
   audioExt: string;
@@ -964,6 +993,8 @@ export interface DB {
   "deadair.loginEvents": DeadairLoginEvents;
   "deadair.loginFailureCounters": DeadairLoginFailureCounters;
   "deadair.narrationPieces": DeadairNarrationPieces;
+  "deadair.oauthClients": DeadairOauthClients;
+  "deadair.oauthGrants": DeadairOauthGrants;
   "deadair.pads": DeadairPads;
   "deadair.padSetMembers": DeadairPadSetMembers;
   "deadair.padSets": DeadairPadSets;

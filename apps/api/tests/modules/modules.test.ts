@@ -55,6 +55,11 @@ describe('the module list', () => {
         expect(tearsDownBefore('Topics', 'Podcasts')).toBe(true);
     });
 
+    it('registers OAuth after the authentication and policies it builds on', () => {
+        expect(tearsDownBefore('OAuth', 'Authentication')).toBe(true);
+        expect(tearsDownBefore('OAuth', 'Policy')).toBe(true);
+    });
+
     it('stops the job workers before the plugin instances under them are disposed', () => {
         // Nothing else pins this one: Jobs resolves nothing Plugins registers, so the position is a
         // teardown constraint and only a teardown constraint. Workers still dequeuing against

@@ -25,6 +25,7 @@ import { PersonaAuditionJob } from '#modules/personas/persona.audition.job.js';
 import { PersonaDistilJob } from '#modules/personas/persona.distil.job.js';
 import { PersonaStoryPassJob } from '#modules/personas/persona.story.pass.job.js';
 import { PruneActivityJob } from '#modules/activity/prune.activity.job.js';
+import { ExpireOAuthClientsJob } from '#modules/oauth/expire.oauth.clients.job.js';
 import { SweepTrackCacheJob } from '#modules/playout/audio/sweep.track.cache.job.js';
 import { SweepOrphansJob } from '#modules/storage/sweep.orphans.job.js';
 import { ScrobbleFlushJob } from '#modules/scrobble/scrobble.flush.job.js';
@@ -456,6 +457,14 @@ export const JobMappings: Record<JobNames, JobMapping> = {
         job: PruneActivityJob,
         cron: '53 4 * * *',
         policy: { retryLimit: 0, expiresIn: Duration.fromObject({ minutes: 10 }) },
+    },
+
+    // Nightly, and NO retry, like the prune jobs: an app that lapsed today is as harmless deleted
+    // tomorrow, and a retry only buys a second try at deleting something. One statement.
+    'oauth.expire_clients': {
+        job: ExpireOAuthClientsJob,
+        cron: '41 4 * * *',
+        policy: { retryLimit: 0, expiresIn: Duration.fromObject({ minutes: 5 }) },
     },
 
     // Every two minutes, which is a latency choice rather than a throughput one: a scrobble is a

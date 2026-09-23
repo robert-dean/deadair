@@ -64,7 +64,9 @@
             "deadair.persona_story_beats.origin": "'operator' | 'model'",
             "deadair.persona_stories.kind": "Generated<'anecdote' | 'arc' | 'bit'>",
             "deadair.personas.growth": "'proposes' | 'self-directed' | null",
-            "deadair.personas.trivia": "'keen' | null"
+            "deadair.personas.trivia": "'keen' | null",
+            "deadair.oauth_clients.kind": "'preregistered' | 'dynamic'",
+            "deadair.oauth_clients.token_endpoint_auth_method": "'none' | 'client_secret_post' | 'client_secret_basic'"
         }
     },
     "partitions": false,

@@ -1077,8 +1077,8 @@ const HOSTS = [
         // first draft had him connecting them all in one breath, and a break that visits five theories
         // in forty words is a list rather than a man going deeper into the one he cannot let go of.
         // The prompt already hands him exactly one preoccupation and at most one story, so the first
-        // quirk points him at whichever of those he was given. It is an instruction and nothing checks
-        // it: no marker check counts WHICH markers a script carries.
+        // quirk points him at whichever of those he was given, and `exclusiveSubjects` below is what
+        // refuses a break that wanders onto a second one anyway.
         //
         // Two things are carried over deliberately, because they are properties of the station rather
         // than of the old character. `style` names no part of the day (it is the first sentence of the
@@ -1158,6 +1158,21 @@ const HOSTS = [
             '5G',
             'fluoride',
             'wake up',
+        ],
+        // One entry per theory, and what the first quirk's "one per break" is enforced by: a break
+        // bringing up words from two entries is refused as `mixed-subjects` and written again.
+        //
+        // Words a record title is full of are left out even where they mean the theory. A record the
+        // break was GIVEN has its name taken out before the check reads the script, but one the
+        // presenter merely remembers does not, so "moon", "footprint" and "astronaut" would refuse a
+        // break over a song. The men in black are in none of them, because the fourth quirk lets them
+        // be the ones hiding any theory at all.
+        exclusiveSubjects: [
+            'alien, UFO, Roswell, Area 51, flying saucer',
+            'chemtrail, contrail',
+            'flat earth, ice wall, firmament, edge of the world, spirit level',
+            'moon landing, soundstage, moon hoax',
+            'bigfoot, sasquatch, yeti',
         ],
         // One theory per preoccupation, so the rotation walks him through the whole canon. Each is
         // something to NOTICE rather than a claim already made, which leaves him the leap.

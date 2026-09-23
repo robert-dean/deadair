@@ -9,6 +9,21 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.31.0] — 2026-09-23
+
+- A `list` config field can declare `presets`: rows the console's Add button offers to start from, each filling the cells it names. An empty row is always offered beside them, and a preset never fills a `secret` column.
+- The check every speech plugin puts on the end of its engine's body now lives in the SDK. `plausibleAudio` passes the audio through and fails it as an `upstream` error when it ends under `MIN_PLAUSIBLE_AUDIO_BYTES`, which is what a server answering 200 with a short JSON complaint looks like. Kokoro, Chatterbox and Rhapsode each carried their own copy and now use it, with the same messages as before; a new speech plugin pipes its body through it rather than writing a fourth.
+- Saving the identity providers under Settings, Sign-in and security now checks them: the station asks each one for its sign-in details, the way the sign-in page will, and says under the list which answered. One that did not says why, such as "There is no server at auth.example.com." for a preset's placeholder left in place, or the status an issuer answered when its address is not quite right. A row the station cannot use at all, such as one still missing its client id, is listed too, since its button would otherwise just never appear. Check again asks once more.
+- Adding an identity provider under Settings, Sign-in and security starts from the provider you pick: Google, Microsoft, Authelia, Authentik or Keycloak fills in its name, its button and its issuer, or the shape of the issuer where it depends on your own server. The client id and secret still come from the provider. The redirect address to register the station with is shown above the list, with a Copy button.
+- The station no longer fetches cover and artist art from private addresses it was never told about. An art URL is whatever an upstream said (Last.fm, Deezer, Wikipedia, Cover Art Archive, Spotify, a Navidrome's artist info), and one pointing at `127.0.0.1`, a cloud metadata address or anything else on the station's own network was fetched and, if it answered with an image, served publicly. Every hop is now resolved before it is connected to and refused if it reaches a private address, and redirects are followed by hand so a public host cannot bounce the fetch onto a private one. The servers you pointed a plugin at are still trusted, by host and port, so a Navidrome on your LAN keeps its cover art.
+- The console is now served with security headers: a Content-Security-Policy, `X-Frame-Options: SAMEORIGIN`,
+  `X-Content-Type-Options: nosniff` and `Referrer-Policy: same-origin`. The policy allows scripts only from the station
+  itself and allows the console to be framed only by the station's own pages, so a page elsewhere can no longer embed
+  the console in a frame to trick someone into clicking inside it. If you showed the console inside another dashboard's
+  iframe, that dashboard's page is now refused. The stream, HLS and TuneIn URLs players fetch are unchanged, and so is
+  the API.
+- Settings, Security and Settings, Sign-in and connections are one section now, Sign-in and security. Your own sign-in comes first: your authenticators and linked sign-ins, your API keys and the apps you have connected. Below that is what the station offers everybody: identity providers, who may join through one, whether apps may connect, and the apps registered with it. Setting up a provider and linking your own account to it no longer means two pages. An old link to Sign-in and connections opens the new section. The Stream Deck plugin points you to the new name when it asks for an API key.
+
 ## [0.30.1] — 2026-09-23
 
 - A plugin setting can offer the station's similarity sources as its choices (`optionsFrom: 'plugins.similarity'`).
@@ -807,7 +822,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.30.1...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.31.0...HEAD
+[0.31.0]: https://github.com/robert-dean/deadair/compare/v0.30.1...v0.31.0
 [0.30.1]: https://github.com/robert-dean/deadair/compare/v0.30.0...v0.30.1
 [0.30.0]: https://github.com/robert-dean/deadair/compare/v0.29.1...v0.30.0
 [0.29.1]: https://github.com/robert-dean/deadair/compare/v0.29.0...v0.29.1

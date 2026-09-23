@@ -8,6 +8,10 @@ version (the merge of the version pull request), tagged `streamdeck-v<version>`.
 
 ## [Unreleased]
 
+## [0.2.3] — 2026-09-23
+
+- Settings, Security and Settings, Sign-in and connections are one section now, Sign-in and security. Your own sign-in comes first: your authenticators and linked sign-ins, your API keys and the apps you have connected. Below that is what the station offers everybody: identity providers, who may join through one, whether apps may connect, and the apps registered with it. Setting up a provider and linking your own account to it no longer means two pages. An old link to Sign-in and connections opens the new section. The Stream Deck plugin points you to the new name when it asks for an API key.
+
 ## [0.2.2] — 2026-09-22
 
 - The deadair heading in the Stream Deck app's action list now shows the station's own skull in headphones, in white, instead of a plain pair of headphones.
@@ -26,7 +30,8 @@ version (the merge of the version pull request), tagged `streamdeck-v<version>`.
 - Each Now Playing key can leave out the progress bar, or the title and artist, from its own settings.
 - With no cover to show, the Now Playing key shows the deadair mark, faint while the station is stopped or not answering. When the station stops answering, the last cover stays on the key, faint.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/streamdeck-v0.2.2...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/streamdeck-v0.2.3...HEAD
+[0.2.3]: https://github.com/robert-dean/deadair/compare/streamdeck-v0.2.2...streamdeck-v0.2.3
 [0.2.2]: https://github.com/robert-dean/deadair/compare/streamdeck-v0.2.1...streamdeck-v0.2.2
 [0.2.1]: https://github.com/robert-dean/deadair/compare/streamdeck-v0.2.0...streamdeck-v0.2.1
 [0.2.0]: https://github.com/robert-dean/deadair/compare/streamdeck-v0.1.0...streamdeck-v0.2.0

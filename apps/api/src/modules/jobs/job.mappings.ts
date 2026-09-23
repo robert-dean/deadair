@@ -25,6 +25,7 @@ import { PersonaAuditionJob } from '#modules/personas/persona.audition.job.js';
 import { PersonaDistilJob } from '#modules/personas/persona.distil.job.js';
 import { PersonaStoryPassJob } from '#modules/personas/persona.story.pass.job.js';
 import { PruneActivityJob } from '#modules/activity/prune.activity.job.js';
+import { CheckReleasesJob } from '#modules/station/check.releases.job.js';
 import { SweepTrackCacheJob } from '#modules/playout/audio/sweep.track.cache.job.js';
 import { SweepOrphansJob } from '#modules/storage/sweep.orphans.job.js';
 import { ScrobbleFlushJob } from '#modules/scrobble/scrobble.flush.job.js';
@@ -456,6 +457,18 @@ export const JobMappings: Record<JobNames, JobMapping> = {
         job: PruneActivityJob,
         cron: '53 4 * * *',
         policy: { retryLimit: 0, expiresIn: Duration.fromObject({ minutes: 10 }) },
+    },
+
+    // Hourly, though GitHub is asked at most every six hours: the watch answers a run inside that
+    // window from memory. The hour is how soon a switch turned back on, or a check that failed, gets
+    // its next chance, and a run that asks nothing costs nothing.
+    //
+    // NO retry, for the reason the prune jobs give: the next hourly run IS the retry, and the watch
+    // swallows every failure anyway, so a job-level retry would never fire.
+    'station.check_releases': {
+        job: CheckReleasesJob,
+        cron: '41 * * * *',
+        policy: { retryLimit: 0, expiresIn: Duration.fromObject({ minutes: 2 }) },
     },
 
     // Every two minutes, which is a latency choice rather than a throughput one: a scrobble is a

@@ -85,6 +85,8 @@ export interface StationRelease {
     date?: string;
     /** What changed, as the Markdown of its changelog entry. Empty for a release that recorded nothing */
     notes: string;
+    /** The release's page on GitHub. Present on a release this station does not contain yet, which is where its notes came from */
+    url?: string;
 }
 
 export interface StationReleaseInput {}
@@ -162,16 +164,31 @@ export function reviveStationCheckup(raw: StationCheckup): StationCheckup {
 
 /**
  * What this build is, and what changed in it
- * generated from [StationReleases](../../../../../apps/api/data/contracts/station/station.types.ck#L96)
+ * generated from [StationReleases](../../../../../apps/api/data/contracts/station/station.types.ck#L97)
  */
 export interface StationReleases {
     /** The newest release this build contains, read off the changelog it was built with. Present on a build that follows `main` too, where `version` on the check-up is absent: every build carries the entry of the last release merged before it. Absent only when the build carries no changelog to read */
     current?: string;
     /** Every release this build contains, newest first */
     notes: StationRelease[];
+    /** Whether the station asks GitHub for newer releases, which the operator switches under Settings, Station */
+    checks: boolean;
+    /** When GitHub last answered. Absent until it has, and while the check is switched off */
+    checkedAt?: DateTime;
+    /** Releases newer than this build, newest first, each with its notes and its page. Empty when there are none, while the check is off, and until GitHub has answered */
+    available: StationRelease[];
 }
 
 export interface StationReleasesInput {}
+
+/** Rehydrates every wire-encoded scalar in a StationReleases into its runtime type. Mutates and returns `raw`. */
+export function reviveStationReleases(raw: StationReleases): StationReleases {
+    const __o0 = raw as unknown as Record<string, unknown>;
+    if (__o0['checkedAt'] != null) {
+        __o0['checkedAt'] = __dt(__o0['checkedAt'], 'StationReleases.checkedAt');
+    }
+    return raw;
+}
 
 /**
  * Everything wrong or waiting, worst first

@@ -87,3 +87,25 @@ export class BundledChangelog {
         return this.entries[0]?.version;
     }
 }
+
+/**
+ * Orders two `major.minor.patch` versions: negative when `a` is older, positive when newer.
+ *
+ * Numeric per part, because as strings `0.10.0` sorts before `0.9.0`. Anything past the three numbers
+ * (a prerelease suffix) is ignored, which is safe here because nothing this reads is a prerelease: the
+ * changelog heading pattern refuses one and the release check filters them out before comparing.
+ */
+export function compareVersions(a: string, b: string): number {
+    const pa = parts(a);
+    const pb = parts(b);
+    for (let i = 0; i < 3; i++) {
+        const diff = pa[i]! - pb[i]!;
+        if (diff !== 0) return diff;
+    }
+    return 0;
+}
+
+function parts(version: string): number[] {
+    const [major = 0, minor = 0, patch = 0] = version.split(/[.-]/, 3).map(part => Number.parseInt(part, 10) || 0);
+    return [major, minor, patch];
+}

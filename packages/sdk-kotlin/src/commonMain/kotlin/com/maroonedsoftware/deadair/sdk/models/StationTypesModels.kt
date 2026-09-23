@@ -89,6 +89,8 @@ data class StationRelease(
     val date: String? = null,
     /** What changed, as the Markdown of its changelog entry. Empty for a release that recorded nothing */
     val notes: String,
+    /** The release's page on GitHub. Present on a release this station does not contain yet, which is where its notes came from */
+    val url: String? = null,
 )
 
 /** One release of the station, in the words its changelog entry used */
@@ -178,6 +180,12 @@ data class StationReleases(
     val current: String? = null,
     /** Every release this build contains, newest first */
     val notes: List<StationRelease>,
+    /** Whether the station asks GitHub for newer releases, which the operator switches under Settings, Station */
+    val checks: Boolean,
+    /** When GitHub last answered. Absent until it has, and while the check is switched off */
+    val checkedAt: Instant? = null,
+    /** Releases newer than this build, newest first, each with its notes and its page. Empty when there are none, while the check is off, and until GitHub has answered */
+    val available: List<StationRelease>,
 )
 
 /** What this build is, and what changed in it */

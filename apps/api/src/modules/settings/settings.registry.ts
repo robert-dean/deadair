@@ -49,6 +49,7 @@ import {
 } from '#modules/director/bulletin.source.js';
 import { NEWS_FEEDS_KEY } from '#modules/news/news.settings.js';
 import { CLOCK_KEYS, NAMES_THE_TIME_DEFAULT } from '#modules/director/clock.words.js';
+import { CHECK_FOR_UPDATES_DEFAULT, RELEASE_KEYS } from '#modules/station/station.release.watch.js';
 import { DEFAULT_UNITS, WEATHER_KEYS } from '#modules/weather/weather.keys.js';
 import { ALMANAC_KEYS, DEFAULT_LEAN } from '#modules/almanac/almanac.keys.js';
 import { ALMANAC_BREAK_KEYS, ALMANAC_TEMPLATES } from '#modules/director/almanac.break.writer.js';
@@ -292,6 +293,14 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         type: 'boolean',
         default: NAMES_THE_TIME_DEFAULT,
         help: 'A break that says "just after half past four" is only true for a few minutes, so the station checks the clock before airing it and drops it if the running order arrived early. While the order runs ahead of what the station projects, that check costs almost every break that names an hour. With this off the station still says "this afternoon", which stays true for hours. Turn it back on once breaks stop being dropped for reaching their slot early.',
+    },
+    {
+        group: 'station',
+        key: RELEASE_KEYS.checkForUpdates,
+        label: 'Check for new releases',
+        type: 'boolean',
+        default: CHECK_FOR_UPDATES_DEFAULT,
+        help: 'Asks GitHub every few hours whether a newer release of deadair is out, and says so on Check-up and in the console’s header. It sends one anonymous request for the project’s public releases and nothing about this station. Off, it sends nothing at all.',
     },
 
     // ── stream ─────────────────────────────────────────────────────────────────

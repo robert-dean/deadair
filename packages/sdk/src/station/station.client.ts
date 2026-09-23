@@ -3,7 +3,7 @@ import { parseJson, buildQueryString } from '../sdk-options.js';
 import type { LogPage, LogQuery, LogSourceList } from './types/logs.types.js';
 import { reviveLogSourceList } from './types/logs.types.js';
 import type { StationAttention, StationCheckup, StationReleases } from './types/station.types.js';
-import { reviveStationCheckup } from './types/station.types.js';
+import { reviveStationCheckup, reviveStationReleases } from './types/station.types.js';
 import type { TraceDetail, TracesPage, TracesQuery } from './types/traces.types.js';
 import { reviveTraceDetail, reviveTracesPage } from './types/traces.types.js';
 
@@ -65,7 +65,7 @@ export class StationClient {
      */
     async readStationReleases(): Promise<StationReleases> {
         const result = await this.fetch(`/station/releases`, { method: 'GET' });
-        return await parseJson<StationReleases>(result);
+        return reviveStationReleases(await parseJson<StationReleases>(result));
     }
 
     /**

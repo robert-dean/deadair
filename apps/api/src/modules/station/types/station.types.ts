@@ -85,6 +85,10 @@ export const StationRelease = z.strictObject({
         .optional()
         .describe('The day it went out, as an ISO date. Absent where the entry named none'),
     notes: z.string().max(40000).describe('What changed, as the Markdown of its changelog entry. Empty for a release that recorded nothing'),
+    url: z
+        .url()
+        .optional()
+        .describe("The release's page on GitHub. Present on a release this station does not contain yet, which is where its notes came from"),
 });
 export type StationRelease = z.infer<typeof StationRelease>;
 
@@ -180,7 +184,7 @@ export type StationCheckupInput = z.infer<typeof StationCheckupInput>;
 
 /**
  * What this build is, and what changed in it
- * generated from [StationReleases](../../../../data/contracts/station/station.types.ck#L96)
+ * generated from [StationReleases](../../../../data/contracts/station/station.types.ck#L97)
  */
 export const StationReleases = z.strictObject({
     current: z
@@ -192,6 +196,15 @@ export const StationReleases = z.strictObject({
             'The newest release this build contains, read off the changelog it was built with. Present on a build that follows `main` too, where `version` on the check-up is absent: every build carries the entry of the last release merged before it. Absent only when the build carries no changelog to read',
         ),
     notes: z.array(StationRelease).describe('Every release this build contains, newest first'),
+    checks: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .describe('Whether the station asks GitHub for newer releases, which the operator switches under Settings, Station'),
+    checkedAt: _ZodDatetime.optional().describe('When GitHub last answered. Absent until it has, and while the check is switched off'),
+    available: z
+        .array(StationRelease)
+        .describe(
+            'Releases newer than this build, newest first, each with its notes and its page. Empty when there are none, while the check is off, and until GitHub has answered',
+        ),
 });
 export type StationReleases = z.infer<typeof StationReleases>;
 

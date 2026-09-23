@@ -167,17 +167,21 @@ public struct StationRelease: Codable, Equatable, Sendable {
     public var date: String?
     /// What changed, as the Markdown of its changelog entry. Empty for a release that recorded nothing
     public var notes: String
+    /// The release's page on GitHub. Present on a release this station does not contain yet, which is where its notes came from
+    public var url: String?
 
-    public init(version: String, date: String? = nil, notes: String) {
+    public init(version: String, date: String? = nil, notes: String, url: String? = nil) {
         self.version = version
         self.date = date
         self.notes = notes
+        self.url = url
     }
 
     private enum CodingKeys: String, CodingKey {
         case version = "version"
         case date = "date"
         case notes = "notes"
+        case url = "url"
     }
 
     public init(from decoder: Decoder) throws {
@@ -185,6 +189,7 @@ public struct StationRelease: Codable, Equatable, Sendable {
         self.version = try container.decode(String.self, forKey: .version)
         self.date = try container.decodeIfPresent(String.self, forKey: .date)
         self.notes = try container.decode(String.self, forKey: .notes)
+        self.url = try container.decodeIfPresent(String.self, forKey: .url)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -192,6 +197,7 @@ public struct StationRelease: Codable, Equatable, Sendable {
         try container.encode(self.version, forKey: .version)
         try container.encodeIfPresent(self.date, forKey: .date)
         try container.encode(self.notes, forKey: .notes)
+        try container.encodeIfPresent(self.url, forKey: .url)
     }
 }
 
@@ -369,27 +375,45 @@ public struct StationReleases: Codable, Equatable, Sendable {
     public var current: String?
     /// Every release this build contains, newest first
     public var notes: [StationRelease]
+    /// Whether the station asks GitHub for newer releases, which the operator switches under Settings, Station
+    public var checks: Bool
+    /// When GitHub last answered. Absent until it has, and while the check is switched off
+    public var checkedAt: Date?
+    /// Releases newer than this build, newest first, each with its notes and its page. Empty when there are none, while the check is off, and until GitHub has answered
+    public var available: [StationRelease]
 
-    public init(current: String? = nil, notes: [StationRelease]) {
+    public init(current: String? = nil, notes: [StationRelease], checks: Bool, checkedAt: Date? = nil, available: [StationRelease]) {
         self.current = current
         self.notes = notes
+        self.checks = checks
+        self.checkedAt = checkedAt
+        self.available = available
     }
 
     private enum CodingKeys: String, CodingKey {
         case current = "current"
         case notes = "notes"
+        case checks = "checks"
+        case checkedAt = "checkedAt"
+        case available = "available"
     }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.current = try container.decodeIfPresent(String.self, forKey: .current)
         self.notes = try container.decode([StationRelease].self, forKey: .notes)
+        self.checks = try container.decode(Bool.self, forKey: .checks)
+        self.checkedAt = try container.decodeIfPresent(Date.self, forKey: .checkedAt)
+        self.available = try container.decode([StationRelease].self, forKey: .available)
     }
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encodeIfPresent(self.current, forKey: .current)
         try container.encode(self.notes, forKey: .notes)
+        try container.encode(self.checks, forKey: .checks)
+        try container.encodeIfPresent(self.checkedAt, forKey: .checkedAt)
+        try container.encode(self.available, forKey: .available)
     }
 }
 

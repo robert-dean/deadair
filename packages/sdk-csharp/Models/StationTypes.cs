@@ -116,6 +116,11 @@ public sealed record StationRelease
     /// <summary>What changed, as the Markdown of its changelog entry. Empty for a release that recorded nothing</summary>
     [JsonPropertyName("notes")]
     public required string Notes { get; init; }
+
+    /// <summary>The release's page on GitHub. Present on a release this station does not contain yet, which is where its notes came from</summary>
+    [JsonPropertyName("url")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Url { get; init; }
 }
 
 /// <summary>One release of the station, in the words its changelog entry used</summary>
@@ -235,6 +240,19 @@ public sealed record StationReleases
     /// <summary>Every release this build contains, newest first</summary>
     [JsonPropertyName("notes")]
     public required List<StationRelease> Notes { get; init; }
+
+    /// <summary>Whether the station asks GitHub for newer releases, which the operator switches under Settings, Station</summary>
+    [JsonPropertyName("checks")]
+    public required bool Checks { get; init; }
+
+    /// <summary>When GitHub last answered. Absent until it has, and while the check is switched off</summary>
+    [JsonPropertyName("checkedAt")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DateTimeOffset? CheckedAt { get; init; }
+
+    /// <summary>Releases newer than this build, newest first, each with its notes and its page. Empty when there are none, while the check is off, and until GitHub has answered</summary>
+    [JsonPropertyName("available")]
+    public required List<StationRelease> Available { get; init; }
 }
 
 /// <summary>What this build is, and what changed in it</summary>

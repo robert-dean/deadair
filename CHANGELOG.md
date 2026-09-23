@@ -9,6 +9,11 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.29.0] — 2026-09-23
+
+- A caller can now be tied to the hosts it rings in to. Pick them under "Rings in to" when editing a caller, and a phone-in only casts callers tied to whoever is presenting it, plus any caller tied to nobody. So the conspiracy host's regulars can be kept on his show and off the breakfast show. Among the callers who may ring, whoever rang longest ago still goes first. Deleting a host unties its callers rather than silencing them, and a caller card says who it rings in to.
+- Callers keep their own voice on a phone-in. A caller writes his turn with the host's turns in front of him, and on the conspiracy host's first call the trucker came back talking in the host's Southern dialect. Every caller now forbids that dialect, and a polished production's check pass reads each speaker's forbidden words (it used to read none of a character's sheet at all), naming them when it asks for the turn to be written again.
+
 ## [0.28.0] — 2026-09-23
 
 - Settings, Security has a Linked sign-ins card. Link any identity provider the station offers to your own account, after proving it is yours at the provider, and sign in through it from then on. Unlink one the same way. The station refuses to unlink the only way an account can sign in, and refuses to link an identity that already belongs to somebody else's account, and says so on the card when it does. The SDK's factor registration takes `{ method: 'oidc', provider }` and answers with the provider's address.
@@ -771,7 +776,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.28.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.29.0...HEAD
+[0.29.0]: https://github.com/robert-dean/deadair/compare/v0.28.0...v0.29.0
 [0.28.0]: https://github.com/robert-dean/deadair/compare/v0.27.3...v0.28.0
 [0.27.3]: https://github.com/robert-dean/deadair/compare/v0.27.2...v0.27.3
 [0.27.2]: https://github.com/robert-dean/deadair/compare/v0.27.1...v0.27.2

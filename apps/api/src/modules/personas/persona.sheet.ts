@@ -520,6 +520,23 @@ export interface PersonaSheet {
     catchphrases?: readonly string[];
     /** Wording that breaks the character. Also the lever against a model's own tells. */
     avoid?: readonly string[];
+    /**
+     * Subjects this character takes one at a time: never two of them in one break.
+     *
+     * Each entry is ONE subject, written as the comma-separated words that mean it ("bigfoot,
+     * sasquatch, yeti"), and a script carrying words from two entries is refused as `mixed-subjects`
+     * ({@link subjectsVisited}). Words match the way {@link PersonaSheet.dictionMarkers} do, plurals
+     * and all.
+     *
+     * Built for the conspiracy host, who believes every classic theory and was told in his quirks to
+     * keep to one per break. An instruction alone had nothing behind it: the marker check counts HOW
+     * MANY of a character's words a script carries and never WHICH, so a break visiting bigfoot and
+     * the moon landing in forty words passed everything. This is the which.
+     *
+     * Sent to the model as well as checked, for the marker rule's reason: a writer refused for a rule
+     * it was never shown is being graded on a rubric it cannot read.
+     */
+    exclusiveSubjects?: readonly string[];
     /** A couple of grounded facts about the character they may self-reference. */
     background?: string;
     /**
@@ -674,8 +691,16 @@ export const PERSONA_SHEET_LIMITS = {
      * caught the register in a third of them, and the model moved to four synonyms it did not.
      */
     avoid: 16,
+    /** Enough for a character built on a handful of preoccupations to keep each one apart. */
+    exclusiveSubjects: 8,
     samples: 3,
 } as const;
+
+/**
+ * Words one {@link PersonaSheet.exclusiveSubjects} entry may carry. A subject is a handful of words
+ * that mean it, and past a dozen the entry is a vocabulary rather than a subject.
+ */
+export const MAX_SUBJECT_WORDS = 12;
 
 /** How many example lines a prompt carries by default. Enough to set a rhythm, few enough to read. */
 const MAX_EXAMPLES = 3;
@@ -835,6 +860,15 @@ export function personaLines(sheet: PersonaSheet, opts: PersonaLineOptions = {})
 
     const avoid = cleanList(sheet.avoid, PERSONA_SHEET_LIMITS.avoid);
     if (avoid.length > 0) lines.push(`Never say: ${avoid.join('; ')}`);
+
+    // Beside `avoid`, because it is the other rule here a script is refused for breaking. Every word
+    // of every subject is listed, since those are the words the check reads.
+    const subjects = subjectsOf(sheet);
+    if (subjects.length > 1) {
+        lines.push(
+            `Only ever ONE of these subjects in any one break, never two, not even in passing: ${subjects.map(words => words.join(' / ')).join('; ')}`,
+        );
+    }
 
     const background = sheet.background?.trim();
     if (background !== undefined && background.length > 0) lines.push(`True about you, if it comes up: ${background}`);
@@ -1078,6 +1112,38 @@ export function avoidedWording(sheet: PersonaSheet, script: string): string[] {
 }
 
 /**
+ * A sheet's {@link PersonaSheet.exclusiveSubjects} as lists of words, one list per subject.
+ *
+ * Each entry is split on its commas, and the words go through the sheet's own normalizer. An entry
+ * with no words left is dropped, and so is a word another subject already claimed: a word in two
+ * subjects would make every script that says it visit both.
+ */
+export function subjectsOf(sheet: PersonaSheet): string[][] {
+    const claimed = new Set<string>();
+    const subjects: string[][] = [];
+
+    for (const entry of cleanList(sheet.exclusiveSubjects, PERSONA_SHEET_LIMITS.exclusiveSubjects)) {
+        const words = cleanList(entry.split(','), MAX_SUBJECT_WORDS).filter(word => !claimed.has(word.toLowerCase()));
+        for (const word of words) claimed.add(word.toLowerCase());
+        if (words.length > 0) subjects.push(words);
+    }
+    return subjects;
+}
+
+/**
+ * The {@link PersonaSheet.exclusiveSubjects} a script visits, each named by the first of its words.
+ *
+ * More than one is the `mixed-subjects` fault. A caller that knows the records a script names should
+ * pass the script with those names taken out, because a record called "Aliens Exist" is not the
+ * presenter bringing up aliens.
+ */
+export function subjectsVisited(sheet: PersonaSheet, script: string): string[] {
+    return subjectsOf(sheet)
+        .filter(words => words.some(word => matchesDictionMarker(word, script)))
+        .map(words => words[0]!);
+}
+
+/**
  * The sample line a script lifted a clause from, or `undefined`.
  *
  * Compared as words rather than as text so punctuation, capitals and a curly apostrophe cannot hide
@@ -1189,6 +1255,8 @@ export type CharacterFault =
     | 'repeated-itself'
     /** Wording the sheet forbids. */
     | 'avoided-wording'
+    /** Two of the subjects the sheet keeps to one per break. */
+    | 'mixed-subjects'
     /** Nothing in it carries the dialect at all. */
     | 'out-of-character';
 
@@ -1233,6 +1301,13 @@ export interface CharacterContext {
      * them.
      */
     dialect?: 'required' | 'optional';
+    /**
+     * The script with the record names taken out, for the subject check.
+     *
+     * {@link subjectsVisited} reads words a title can contain, and a record called "Moon River" is
+     * not the presenter bringing up the moon landing. Absent, the check reads the script as it is.
+     */
+    withoutRecordNames?: string;
 }
 
 /**
@@ -1248,9 +1323,10 @@ export interface CharacterContext {
  * Ordered by how specific the fault is rather than by severity: all four decline, so the only thing
  * the order decides is what the log says, and the narrower reason is the more useful one.
  *
- * The three prohibitions about the sheet run for every caller. The last two are conditional:
- * {@link CharacterContext.dialect} is where the dialect is argued, and the check against the
- * station's recent breaks ({@link repeatOf}) is excused with it, for the reason given beside it.
+ * The three prohibitions about the sheet run for every caller. The last three are conditional:
+ * {@link CharacterContext.dialect} is where the dialect is argued, and the checks for mixed subjects
+ * ({@link subjectsVisited}) and against the station's recent breaks ({@link repeatOf}) are excused
+ * with it, for the reasons given beside them.
  */
 export function characterFault(sheet: PersonaSheet, script: string, context: CharacterContext = {}): CharacterFault | undefined {
     if (echoedSample(sheet, script) !== undefined) return 'quoted-sample';
@@ -1266,6 +1342,11 @@ export function characterFault(sheet: PersonaSheet, script: string, context: Cha
 
     // The checks a kind may be excused. See `CharacterContext.dialect`.
     if (context.dialect === 'optional') return undefined;
+
+    // Excused with the dialect: a bulletin's subjects are its headlines, and a news day that carries
+    // two of them is the data, not the presenter wandering. Ahead of the repeat check because it is
+    // the narrower reason.
+    if (subjectsVisited(sheet, context.withoutRecordNames ?? script).length > 1) return 'mixed-subjects';
 
     // Excused with the dialect, and for a measured reason rather than by association: the kinds
     // that pass `optional` are the bulletins (news, weather, almanac), and every repeat they made

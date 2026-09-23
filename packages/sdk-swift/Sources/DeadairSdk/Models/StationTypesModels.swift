@@ -159,6 +159,61 @@ public struct StationBacklogInput: Codable, Equatable, Sendable {
     }
 }
 
+/// One release of the station, in the words its changelog entry used
+public struct StationRelease: Codable, Equatable, Sendable {
+    /// The release, as its tag names it without the leading `v`
+    public var version: String
+    /// The day it went out. Absent where the entry named none
+    public var date: LocalDate?
+    /// What changed, as the Markdown of its changelog entry. Empty for a release that recorded nothing
+    public var notes: String
+    /// The release's page on GitHub. Present on a release this station does not contain yet, which is where its notes came from
+    public var url: String?
+
+    public init(version: String, date: LocalDate? = nil, notes: String, url: String? = nil) {
+        self.version = version
+        self.date = date
+        self.notes = notes
+        self.url = url
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case version = "version"
+        case date = "date"
+        case notes = "notes"
+        case url = "url"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.version = try container.decode(String.self, forKey: .version)
+        self.date = try container.decodeIfPresent(LocalDate.self, forKey: .date)
+        self.notes = try container.decode(String.self, forKey: .notes)
+        self.url = try container.decodeIfPresent(String.self, forKey: .url)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.version, forKey: .version)
+        try container.encodeIfPresent(self.date, forKey: .date)
+        try container.encode(self.notes, forKey: .notes)
+        try container.encodeIfPresent(self.url, forKey: .url)
+    }
+}
+
+/// One release of the station, in the words its changelog entry used
+public struct StationReleaseInput: Codable, Equatable, Sendable {
+    public init() {}
+
+    public init(from decoder: Decoder) throws {
+        _ = try decoder.container(keyedBy: DynamicCodingKey.self)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        _ = encoder.container(keyedBy: DynamicCodingKey.self)
+    }
+}
+
 /// One thing that wants the operator's attention, or the fact that nothing does
 public struct AttentionItem: Codable, Equatable, Sendable {
     /// What this is, as a stable key: `silence`, `benchedCopies`, `noPersona`. The console groups and counts on it rather than on the sentence
@@ -303,6 +358,67 @@ public struct StationCheckup: Codable, Equatable, Sendable {
 /// — which would leave "which build is this" answerable only from a shell, the one thing carrying it
 /// here exists to fix.
 public struct StationCheckupInput: Codable, Equatable, Sendable {
+    public init() {}
+
+    public init(from decoder: Decoder) throws {
+        _ = try decoder.container(keyedBy: DynamicCodingKey.self)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        _ = encoder.container(keyedBy: DynamicCodingKey.self)
+    }
+}
+
+/// What this build is, and what changed in it
+public struct StationReleases: Codable, Equatable, Sendable {
+    /// The newest release this build contains, read off the changelog it was built with. Present on a build that follows `main` too, where `version` on the check-up is absent: every build carries the entry of the last release merged before it. Absent only when the build carries no changelog to read
+    public var current: String?
+    /// Every release this build contains, newest first
+    public var notes: [StationRelease]
+    /// Whether the station asks GitHub for newer releases, which the operator switches under Settings, Station
+    public var checks: Bool
+    /// When GitHub last answered. Absent until it has, and while the check is switched off
+    public var checkedAt: Date?
+    /// Releases newer than this build, newest first, each with its notes and its page. Empty when there are none, while the check is off, and until GitHub has answered
+    public var available: [StationRelease]
+
+    public init(current: String? = nil, notes: [StationRelease], checks: Bool, checkedAt: Date? = nil, available: [StationRelease]) {
+        self.current = current
+        self.notes = notes
+        self.checks = checks
+        self.checkedAt = checkedAt
+        self.available = available
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case current = "current"
+        case notes = "notes"
+        case checks = "checks"
+        case checkedAt = "checkedAt"
+        case available = "available"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.current = try container.decodeIfPresent(String.self, forKey: .current)
+        self.notes = try container.decode([StationRelease].self, forKey: .notes)
+        self.checks = try container.decode(Bool.self, forKey: .checks)
+        self.checkedAt = try container.decodeIfPresent(Date.self, forKey: .checkedAt)
+        self.available = try container.decode([StationRelease].self, forKey: .available)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(self.current, forKey: .current)
+        try container.encode(self.notes, forKey: .notes)
+        try container.encode(self.checks, forKey: .checks)
+        try container.encodeIfPresent(self.checkedAt, forKey: .checkedAt)
+        try container.encode(self.available, forKey: .available)
+    }
+}
+
+/// What this build is, and what changed in it
+public struct StationReleasesInput: Codable, Equatable, Sendable {
     public init() {}
 
     public init(from decoder: Decoder) throws {

@@ -19,12 +19,15 @@ import {
     LATITUDE_MAX_WORDS,
     matchesDictionMarker,
     MAX_SAMPLE_ECHO_WORDS,
+    MAX_SUBJECT_WORDS,
     MIN_DICTION_MARKERS,
     personaLines,
     personaVoiceReminder,
     preoccupationOf,
     PERSONA_SHEET_LIMITS,
     spentCatchphrases,
+    subjectsOf,
+    subjectsVisited,
     growthOf,
     triviaOf,
 } from '../../../src/modules/personas/persona.sheet.js';
@@ -40,6 +43,18 @@ describe('personaLines', () => {
         expect(lines[0]).toContain('every sentence');
         expect(lines[0]).toContain('Ye for you');
         expect(lines[1]).toContain('Every record is plunder');
+    });
+
+    // The subject check refuses on these words, so the model is shown every one of them.
+    it('names every word of every subject it keeps apart, since those are what the check reads', () => {
+        const line = personaLines({ exclusiveSubjects: ['bigfoot, sasquatch', 'chemtrail'] }).find(one => one.includes('ONE of these'));
+
+        expect(line).toContain('bigfoot / sasquatch; chemtrail');
+    });
+
+    // With one subject there is nothing to keep apart, and the line would be a rule about nothing.
+    it('says nothing about subjects when there is only one', () => {
+        expect(personaLines({ exclusiveSubjects: ['bigfoot, sasquatch'] })).toEqual([]);
     });
 
     // They are what `keepsCharacter` counts, so a sheet that did not send them was grading a writer
@@ -420,6 +435,46 @@ describe('avoidedWording', () => {
     });
 });
 
+describe('subjectsVisited', () => {
+    const sheet = { exclusiveSubjects: ['bigfoot, sasquatch, yeti', 'chemtrail, contrail', 'moon landing, soundstage'] };
+
+    it('names each subject a script visits by its first word', () => {
+        expect(subjectsVisited(sheet, 'A sasquatch, my friends, and a soundstage!')).toEqual(['bigfoot', 'moon landing']);
+    });
+
+    it('takes plurals and a capital the way a marker does', () => {
+        expect(subjectsVisited(sheet, 'Chemtrails. Six of them.')).toEqual(['chemtrail']);
+    });
+
+    it('counts a subject once however many of its words a script uses', () => {
+        expect(subjectsVisited(sheet, 'Bigfoot. Sasquatch. The yeti. All one fellow.')).toEqual(['bigfoot']);
+    });
+
+    it('visits nothing on a sheet that keeps no subjects apart', () => {
+        expect(subjectsVisited({}, 'Bigfoot on a soundstage.')).toEqual([]);
+    });
+});
+
+describe('subjectsOf', () => {
+    it('splits each entry on its commas and drops the blanks', () => {
+        expect(subjectsOf({ exclusiveSubjects: [' bigfoot ,  sasquatch,, ', ',', 'chemtrail'] })).toEqual([['bigfoot', 'sasquatch'], ['chemtrail']]);
+    });
+
+    // A word in two subjects would make every script that says it visit both, which refuses the one
+    // subject that word was written for.
+    it('gives a word to the first subject that claims it', () => {
+        expect(subjectsOf({ exclusiveSubjects: ['alien, UFO', 'ufo, crop circle'] })).toEqual([['alien', 'UFO'], ['crop circle']]);
+    });
+
+    it('caps the subjects and the words in each, so nothing unbounded reaches a prompt', () => {
+        const many = Array.from({ length: PERSONA_SHEET_LIMITS.exclusiveSubjects + 3 }, (_, i) => `subject${i}`);
+        const wordy = Array.from({ length: MAX_SUBJECT_WORDS + 3 }, (_, i) => `word${i}`).join(', ');
+
+        expect(subjectsOf({ exclusiveSubjects: many })).toHaveLength(PERSONA_SHEET_LIMITS.exclusiveSubjects);
+        expect(subjectsOf({ exclusiveSubjects: [wordy] })[0]).toHaveLength(MAX_SUBJECT_WORDS);
+    });
+});
+
 describe('spentCatchphrases', () => {
     const sheet = { catchphrases: ['I said what I said', "Don't @ me"] };
 
@@ -462,6 +517,29 @@ describe('characterFault', () => {
 
     it('names the forbidden wording', () => {
         expect(characterFault(sheet, 'Alright, buckle up for this next one.')).toBe('avoided-wording');
+    });
+
+    describe('with subjects kept apart', () => {
+        const apart = { ...sheet, exclusiveSubjects: ['bigfoot, sasquatch', 'moon landing, soundstage'] };
+
+        it('refuses a script that visits two of them', () => {
+            expect(characterFault(apart, 'Wow. Bigfoot, on a soundstage, holding the fan.')).toBe('mixed-subjects');
+        });
+
+        it('takes a script that stays on one', () => {
+            expect(characterFault(apart, 'Wow. Bigfoot again, and nobody believes me.')).toBeUndefined();
+        });
+
+        it('reads the script it is handed without the record names, where the caller has one', () => {
+            const script = 'Wow. That was Soundstage Blues, and bigfoot was humming it.';
+
+            expect(characterFault(apart, script, { withoutRecordNames: 'wow. that was , and bigfoot was humming it.' })).toBeUndefined();
+        });
+
+        // A bulletin's subjects are its headlines, so two of them on one news day is the data.
+        it('excuses a kind that does not require the dialect', () => {
+            expect(characterFault(apart, 'Wow. Bigfoot, on a soundstage, holding the fan.', { dialect: 'optional' })).toBeUndefined();
+        });
     });
 
     it('refuses a signature the station has just used, which is what makes "not every time" real', () => {

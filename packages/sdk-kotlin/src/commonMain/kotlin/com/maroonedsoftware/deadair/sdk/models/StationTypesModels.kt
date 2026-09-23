@@ -2,6 +2,7 @@
 package com.maroonedsoftware.deadair.sdk.models
 
 import kotlin.time.Instant
+import kotlinx.datetime.LocalDate
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -80,6 +81,23 @@ data class StationBacklog(
 @Serializable
 class StationBacklogInput
 
+/** One release of the station, in the words its changelog entry used */
+@Serializable
+data class StationRelease(
+    /** The release, as its tag names it without the leading `v` */
+    val version: String,
+    /** The day it went out. Absent where the entry named none */
+    val date: LocalDate? = null,
+    /** What changed, as the Markdown of its changelog entry. Empty for a release that recorded nothing */
+    val notes: String,
+    /** The release's page on GitHub. Present on a release this station does not contain yet, which is where its notes came from */
+    val url: String? = null,
+)
+
+/** One release of the station, in the words its changelog entry used */
+@Serializable
+class StationReleaseInput
+
 /** One thing that wants the operator's attention, or the fact that nothing does */
 @Serializable
 data class AttentionItem(
@@ -155,6 +173,25 @@ data class StationCheckup(
  */
 @Serializable
 class StationCheckupInput
+
+/** What this build is, and what changed in it */
+@Serializable
+data class StationReleases(
+    /** The newest release this build contains, read off the changelog it was built with. Present on a build that follows `main` too, where `version` on the check-up is absent: every build carries the entry of the last release merged before it. Absent only when the build carries no changelog to read */
+    val current: String? = null,
+    /** Every release this build contains, newest first */
+    val notes: List<StationRelease>,
+    /** Whether the station asks GitHub for newer releases, which the operator switches under Settings, Station */
+    val checks: Boolean,
+    /** When GitHub last answered. Absent until it has, and while the check is switched off */
+    val checkedAt: Instant? = null,
+    /** Releases newer than this build, newest first, each with its notes and its page. Empty when there are none, while the check is off, and until GitHub has answered */
+    val available: List<StationRelease>,
+)
+
+/** What this build is, and what changed in it */
+@Serializable
+class StationReleasesInput
 
 /** Everything wrong or waiting, worst first */
 @Serializable

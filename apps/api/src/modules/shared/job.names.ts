@@ -23,6 +23,7 @@ export type JobNames =
     | 'storage.sweep_orphans'
     | 'activity.prune_events'
     | 'oauth.expire_clients'
+    | 'station.check_releases'
     | 'scrobble.flush'
     | 'podcasts.refresh'
     | 'podcasts.fetch'

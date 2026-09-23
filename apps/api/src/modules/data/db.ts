@@ -340,6 +340,7 @@ export interface DeadairNarrationPieces {
   title: string;
   updatedAt: Generated<DateTime>;
   url: string | null;
+  withdrawnAt: DateTime | null;
   wordCount: number | null;
 }
 
@@ -486,6 +487,7 @@ export interface DeadairPersonas {
   diction: Generated<Json>;
   dictionMarkers: Generated<Json>;
   djName: string | null;
+  exclusiveSubjects: Generated<Json>;
   growth: "proposes" | "self-directed" | null;
   id: Generated<string>;
   key: string;

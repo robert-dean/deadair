@@ -2078,6 +2078,24 @@ describe('writeDecline', () => {
         expect(writeDecline('Aye, matey, buckle up.', { persona: { ...pirate, avoid: ['buckle up'] } })?.fault).toBe('avoided-wording');
     });
 
+    describe('with subjects kept apart', () => {
+        const believer = { ...pirate, exclusiveSubjects: ['bigfoot, sasquatch', 'moon, soundstage'] };
+
+        it('names the two subjects a script mixed, so an operator knows which pair to read for', () => {
+            const decline = writeDecline('Aye, bigfoot on a soundstage, matey.', { persona: believer });
+
+            expect(decline?.fault).toBe('mixed-subjects');
+            expect(decline?.reason).toMatch(/"bigfoot" and "moon"/);
+        });
+
+        // "Pink Moon" is the record, not the presenter bringing up the moon.
+        it('does not count a subject word that is only there inside a record name', () => {
+            expect(
+                writeDecline('Aye, that were Pink Moon, matey, and bigfoot were humming it.', { persona: believer, names: [previous, next] }),
+            ).toBeUndefined();
+        });
+    });
+
     it('carries a sentence an operator can read beside the fault', () => {
         expect(writeDecline('   ', {})?.reason).toMatch(/nothing/i);
         expect(writeDecline(Array.from({ length: 99 }, () => 'word').join(' '), {})?.reason).toMatch(/word ceiling/i);

@@ -1,12 +1,13 @@
 import { Anchor, Card, Code, Group, Progress, Stack, Table, Text } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
+import { Link } from '@tanstack/react-router';
 import type { PlayoutMount, PluginSummary, StationHeartbeat } from '@deadair/sdk';
 import type { DateTime } from 'luxon';
 import { QRCodeSVG } from 'qrcode.react';
 
 import { usePlayoutStatus } from '../../api/playout.queries';
 import { pluginsListOptions } from '../../api/plugins.queries';
-import { useStationAttention, useStationCheckup } from '../../api/station.queries';
+import { useStationAttention, useStationCheckup, useStationReleases } from '../../api/station.queries';
 import { useStorage } from '../../api/storage.queries';
 import { AttentionList } from './attention.list';
 import { CopyButton } from '../shared/copy.button';
@@ -191,7 +192,10 @@ export function CheckupPage() {
             </Section>
 
             <Section title="Build" failed={checkup.isError} pending={checkup.isPending}>
-                <Build revision={checkup.data?.revision} version={checkup.data?.version} />
+                <Stack gap="xs">
+                    <Build revision={checkup.data?.revision} version={checkup.data?.version} />
+                    <ReleaseLine />
+                </Stack>
             </Section>
         </Stack>
     );
@@ -237,6 +241,32 @@ function Build({ revision, version }: { revision?: string; version?: string }) {
             <Text size="sm">Built from</Text>
             <Code title={revision}>{revision.slice(0, 7)}</Code>
             <CopyButton value={revision} />
+        </Group>
+    );
+}
+
+/**
+ * The way to What's new, which names a newer release when the station has heard of one.
+ *
+ * Its own query rather than a field on the check-up, because the answer is What's new's and the header
+ * notice reads the same one: three surfaces, one reading. While it has not arrived, or failed, this is
+ * the plain link, which is true either way.
+ */
+function ReleaseLine() {
+    const releases = useStationReleases();
+    const newest = releases.data?.available[0];
+    const link = (label: string) => (
+        <Anchor size="sm" renderRoot={(props: object) => <Link to="/releases" {...props} />}>
+            {label}
+        </Anchor>
+    );
+
+    if (newest === undefined) return link('What changed in this release');
+
+    return (
+        <Group gap="xs" wrap="wrap">
+            <Text size="sm">deadair {newest.version} is out.</Text>
+            {link('See what changed')}
         </Group>
     );
 }

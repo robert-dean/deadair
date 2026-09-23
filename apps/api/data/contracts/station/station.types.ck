@@ -84,3 +84,20 @@ contract StationCheckup: {
     heartbeats?: readonly array(StationHeartbeat)
     backlog?: readonly StationBacklog
 }
+
+# One release of the station, in the words its changelog entry used
+contract StationRelease: {
+    version: readonly string(min=1, max=50) # The release, as its tag names it without the leading `v`
+    date?: readonly date # The day it went out. Absent where the entry named none
+    notes: readonly string(max=40000) # What changed, as the Markdown of its changelog entry. Empty for a release that recorded nothing
+    url?: readonly url # The release's page on GitHub. Present on a release this station does not contain yet, which is where its notes came from
+}
+
+# What this build is, and what changed in it
+contract StationReleases: {
+    current?: readonly string(min=1, max=50) # The newest release this build contains, read off the changelog it was built with. Present on a build that follows `main` too, where `version` on the check-up is absent: every build carries the entry of the last release merged before it. Absent only when the build carries no changelog to read
+    notes: readonly array(StationRelease) # Every release this build contains, newest first
+    checks: readonly boolean # Whether the station asks GitHub for newer releases, which the operator switches under Settings, Station
+    checkedAt?: readonly datetime # When GitHub last answered. Absent until it has, and while the check is switched off
+    available: readonly array(StationRelease) # Releases newer than this build, newest first, each with its notes and its page. Empty when there are none, while the check is off, and until GitHub has answered
+}

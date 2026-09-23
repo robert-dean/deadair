@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 
 import { SEED_PERSONAS } from '../../../src/modules/personas/persona.defaults.js';
 import { SEED_CALLERS } from '../../../src/modules/personas/caller.defaults.js';
+import { SEED_PERSONA_STORIES } from '../../../src/modules/personas/persona.story.defaults.js';
 import {
     avoidedWording,
     echoedSample,
@@ -14,6 +15,7 @@ import {
     MIN_DICTION_MARKERS,
     personaLines,
     PERSONA_SHEET_LIMITS,
+    subjectsVisited,
 } from '../../../src/modules/personas/persona.sheet.js';
 import { parseTemplates, renderTemplate, unknownPlaceholders, usable, wasHeard } from '../../../src/modules/director/break.templates.js';
 import { spoken } from '../../../src/modules/director/talk.break.writer.js';
@@ -243,6 +245,28 @@ describe('the seeded personas', () => {
             for (const subject of persona.preoccupations ?? []) {
                 expect(avoidedWording(persona, subject), `${persona.key} is on about wording it forbids: "${subject}"`).toEqual([]);
             }
+        }
+    });
+
+    // A sample is the rhythm the model copies and a story is told whole, so either one crossing two
+    // subjects teaches exactly the break `mixed-subjects` refuses.
+    it('keep every sample and story to one of the subjects they keep apart', () => {
+        for (const persona of SEED_CHARACTERS) {
+            const told = (SEED_PERSONA_STORIES[persona.key] ?? []).map(story => story.story);
+
+            for (const line of [...(persona.samples ?? []), ...told]) {
+                expect(subjectsVisited(persona, line).length, `${persona.key} mixes subjects in "${line}"`).toBeLessThanOrEqual(1);
+            }
+        }
+    });
+
+    // `subjectsOf` gives a word claimed twice to the first subject, silently, so a seed doing it has a
+    // subject shorter than the one it wrote.
+    it('give each word to one subject only', () => {
+        for (const persona of SEED_CHARACTERS) {
+            const written = (persona.exclusiveSubjects ?? []).flatMap(entry => entry.split(',').map(word => word.trim().toLowerCase()));
+
+            expect(new Set(written).size, `${persona.key} names a word in two subjects`).toBe(written.length);
         }
     });
 

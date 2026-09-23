@@ -44,6 +44,7 @@ import {
     personaLines,
     personaVoiceReminder,
     spentCatchphrases,
+    subjectsVisited,
     LATITUDE_INSTRUCTIONS,
     LATITUDE_LICENCE,
     LATITUDE_MAX_WORDS,
@@ -2700,6 +2701,7 @@ export function faultIn(script: string, guard: AnswerGuard): CharacterFault | un
         ...(guard.recent === undefined ? {} : { recent: guard.recent }),
         ...(guard.told === undefined ? {} : { told: guard.told }),
         ...(guard.dialect === undefined ? {} : { dialect: guard.dialect }),
+        withoutRecordNames: withoutRecordNames(script, guard),
     });
 }
 
@@ -2735,6 +2737,7 @@ const FAULT_REASONS: Record<WriteFault, string> = {
     'spent-catchphrase': 'the model reached for a signature the station had just used',
     'repeated-itself': 'the model said again, word for word, a long stretch of something the station said a few breaks ago',
     'avoided-wording': 'the model used wording the persona forbids',
+    'mixed-subjects': 'the model took the persona onto two of the subjects its sheet keeps to one per break',
     'out-of-character': 'the model wrote a line the station could say, but not in its own voice',
     'character-trimmed': 'the model wrote in character but put the character past the word ceiling, so what would have aired carries none of it',
 };
@@ -2837,6 +2840,12 @@ export function writeDecline(text: string, guard: AnswerGuard): { fault: WriteFa
     // It refuses either way. This is a change of what the ROW says, not of what airs: the words are
     // no more speakable for having been in character further down than the listener will ever hear.
     if (fault === 'out-of-character' && speakable !== tidied && faultIn(tidied, guard) === undefined) return reasoned('character-trimmed');
+
+    // Named for the daypart's reason: "two subjects" does not say which two, and the pair is what an
+    // operator reads a capture for.
+    if (fault === 'mixed-subjects' && guard.persona !== undefined) {
+        return reasoned(fault, subjectsVisited(guard.persona, withoutRecordNames(speakable, guard)).join('" and "'));
+    }
 
     return reasoned(fault);
 }

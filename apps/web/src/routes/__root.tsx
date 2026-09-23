@@ -28,6 +28,7 @@ import { SideNav } from '../components/shell/side.nav';
 import { StationMark } from '../components/shell/station.mark';
 import { StationClock } from '../components/shell/station.clock';
 import { StationTally } from '../components/shell/station.tally';
+import { UpdateNotice } from '../components/shell/update.notice';
 
 /** Everything the router's gates need. Supplied once in `main.tsx`. */
 export interface RouterContext {
@@ -145,6 +146,9 @@ export function RootLayout() {
                         ending your session is neither. */}
                     {signedIn ? (
                         <Group gap="sm" wrap="nowrap" style={{ flexShrink: 0 }}>
+                            {/* Only when a newer release is out. See the component for why it is
+                                here rather than in the attention list. */}
+                            <UpdateNotice enabled={signedIn} />
                             <Button
                                 variant="default"
                                 size="compact-sm"

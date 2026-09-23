@@ -1,6 +1,6 @@
 {
     "name": "@deadair/api",
-    "version": "0.26.2",
+    "version": "0.27.2",
     "private": true,
     "license": "MIT",
     "type": "module",
@@ -84,7 +84,7 @@
         "@contractkit/plugin-docs": "^0.4.2",
         "@contractkit/plugin-kotlin": "^0.1.7",
         "@contractkit/plugin-swift": "^0.1.7",
-        "@contractkit/plugin-typescript": "^0.38.14",
+        "@contractkit/plugin-typescript": "^0.38.15",
         "@deadair/plugin-musicbrainz": "workspace:*",
         "@deadair/plugin-spotify": "workspace:*",
         "@maroonedsoftware/permissions-dsl": "^0.5.7",

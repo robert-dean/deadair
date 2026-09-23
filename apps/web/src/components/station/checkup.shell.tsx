@@ -10,16 +10,18 @@ export const CHECKUP_TABS = [
     { key: 'history', label: 'What it has been doing', hint: 'Everything that aired, wrote or failed' },
     { key: 'cost', label: 'What it cost', hint: 'Every call it made, and what it spent' },
     { key: 'logs', label: 'Logs', hint: 'The station’s own log, and the audio chain’s' },
+    { key: 'releases', label: 'What’s new', hint: 'What changed in each release' },
 ] as const satisfies readonly DestinationTab<string>[];
 
 export type CheckupTab = (typeof CHECKUP_TABS)[number]['key'];
 
 /** Where each tab goes, so the palette and the tab strip cannot disagree about it. */
-export const CHECKUP_ROUTES: Record<CheckupTab, '/checkup' | '/activity' | '/traces' | '/logs'> = {
+export const CHECKUP_ROUTES: Record<CheckupTab, '/checkup' | '/activity' | '/traces' | '/logs' | '/releases'> = {
     machinery: '/checkup',
     history: '/activity',
     cost: '/traces',
     logs: '/logs',
+    releases: '/releases',
 };
 
 export interface CheckupShellProps {
@@ -39,6 +41,10 @@ export interface CheckupShellProps {
  * worded; this is what the processes actually wrote, including the two that are not the station at
  * all. It is where somebody ends up when the composed answer was not enough, which is why it is last
  * rather than first.
+ *
+ * What's new is about the build rather than about what it is doing: which release this is, and what
+ * changed in it. It sits here because Check-up is where the build is already named, and last because
+ * it is the tab an operator opens after an upgrade rather than when something is wrong.
  *
  * Separate routes rather than a search param, unlike Voice: each carries its own filters and its own
  * scroll or drawer state, and there is nothing to gain by moving that into a sibling's query string.

@@ -3,6 +3,7 @@ package com.maroonedsoftware.deadair.sdk.clients
 
 import com.maroonedsoftware.deadair.sdk.models.StationAttention
 import com.maroonedsoftware.deadair.sdk.models.StationCheckup
+import com.maroonedsoftware.deadair.sdk.models.StationReleases
 import com.maroonedsoftware.deadair.sdk.runtime.SdkHttp
 import io.ktor.http.HttpMethod
 
@@ -26,6 +27,28 @@ class StationClient(private val http: SdkHttp) {
     suspend fun readStationCheckup(): StationCheckup {
         val response = http.execute(HttpMethod.Get) {
             path("station", "checkup")
+        }
+        return http.decodeJson(response)
+    }
+
+    /**
+     * Read station releases
+     * The releases this build contains and what each one changed, newest first
+     */
+    suspend fun readStationReleases(): StationReleases {
+        val response = http.execute(HttpMethod.Get) {
+            path("station", "releases")
+        }
+        return http.decodeJson(response)
+    }
+
+    /**
+     * Check station releases
+     * Asks GitHub for newer releases now, and answers with what the station then knows
+     */
+    suspend fun checkStationReleases(): StationReleases {
+        val response = http.execute(HttpMethod.Post) {
+            path("station", "releases", "check")
         }
         return http.decodeJson(response)
     }

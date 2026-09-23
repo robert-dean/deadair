@@ -12,7 +12,14 @@ import type { WriteFault } from '../../../src/modules/director/break.prompt.js';
 
 describe('worthRetrying', () => {
     it('asks again about a rule the model was given and broke', () => {
-        for (const fault of ['out-of-character', 'avoided-wording', 'spent-catchphrase', 'quoted-sample', 'wrong-daypart'] as WriteFault[]) {
+        for (const fault of [
+            'out-of-character',
+            'avoided-wording',
+            'mixed-subjects',
+            'spent-catchphrase',
+            'quoted-sample',
+            'wrong-daypart',
+        ] as WriteFault[]) {
             expect(worthRetrying(fault), fault).toBe(true);
         }
     });

@@ -91,6 +91,11 @@ export const DEFAULT_VOICE_ROWS: readonly { name: string; engine: string; speed?
     // voice with a host, since the two are in one production talking to each other.
     { name: 'skeptic', engine: 'am_v0gurney' },
     { name: 'pedant', engine: 'bf_isabella' },
+    // The conspiracy host's regulars. Speeds from their own diction: the tipster is "fast and
+    // hushed", the trucker "slow and friendly, in no hurry at all".
+    { name: 'tipster', engine: 'am_fenrir', speed: '1.1' },
+    { name: 'trucker', engine: 'am_santa', speed: '0.9' },
+    { name: 'worrier', engine: 'am_liam' },
 ];
 
 /** The rows as the config stores them: a JSON array in a string, exactly as the console writes it. */

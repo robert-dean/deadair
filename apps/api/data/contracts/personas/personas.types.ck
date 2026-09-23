@@ -20,6 +20,7 @@ contract Persona: {
     preoccupations?: array(string(min=1, max=500)) # The standing subjects they keep coming back to. Exactly ONE reaches any one break, chosen by rotation, which is what makes a character sound like it has things on its mind rather than one thing
     catchphrases?: array(string(min=1, max=200)) # Signature phrases, asked for sparingly
     avoid?: array(string(min=1, max=200)) # Wording that breaks the character
+    exclusiveSubjects?: array(string(min=1, max=500)) # Subjects this character takes one at a time. Each entry is ONE subject, written as the comma-separated words that mean it ("bigfoot, sasquatch, yeti"), and a break that brings up words from two of them is refused and written again. A word inside a record's title does not count
     background?: string(max=2000) # A couple of grounded facts they may self-reference
     brevity?: enum(short, one-line) # How much this character says. Absent for the station's ordinary length; the rung above it is `latitude`, which is a different kind of thing rather than a longer one
     latitude?: enum(loose, unleashed) # How much room this character is given, above the station's ordinary discipline: a bigger word ceiling, a licence to follow the thought instead of making one point, and at `unleashed` no restraint on how it says it. Offered only by the ordinary talk break, always outranked by the station's content policy, and it switches off no refusal
@@ -58,6 +59,7 @@ contract PersonaDraftView: {
     preoccupations?: array(string(min=1, max=500))
     catchphrases?: array(string(min=1, max=200))
     avoid?: array(string(min=1, max=200))
+    exclusiveSubjects?: array(string(min=1, max=500))
     background?: string(max=2000)
     brevity?: enum(short, one-line)
     latitude?: enum(loose, unleashed)

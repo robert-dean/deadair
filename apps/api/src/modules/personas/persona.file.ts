@@ -102,6 +102,7 @@ export function personaForFile(persona: Persona, stories: readonly PersonaStory[
             preoccupations: mutable(persona.preoccupations),
             catchphrases: mutable(persona.catchphrases),
             avoid: mutable(persona.avoid),
+            exclusiveSubjects: mutable(persona.exclusiveSubjects),
             samples: mutable(persona.samples),
         }),
         // Last, so the file reads the way the character does: the sheet, then what has happened to

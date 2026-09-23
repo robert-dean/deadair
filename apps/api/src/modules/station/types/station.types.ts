@@ -6,6 +6,10 @@ const _ZodDatetime = z.preprocess(
     z.custom<DateTime>(val => val instanceof DateTime && val.isValid, { message: 'Must be in ISO 8601 format' }),
 );
 
+/** A luxon DateTime in `fmt`, as the reader's `DateTime.fromFormat` parses it. Anything else is returned as it is. */
+const __wireDt = (v: unknown, fmt: string): unknown =>
+    (v as { isLuxonDateTime?: unknown } | null | undefined)?.isLuxonDateTime === true ? (v as { toFormat(fmt: string): string }).toFormat(fmt) : v;
+
 /**
  * One concrete thing an attention row is about, so the reason does not live a page away.
  *
@@ -72,6 +76,39 @@ export type StationBacklog = z.infer<typeof StationBacklog>;
 
 export const StationBacklogInput = z.strictObject({});
 export type StationBacklogInput = z.infer<typeof StationBacklogInput>;
+
+/**
+ * One release of the station, in the words its changelog entry used
+ * generated from [StationRelease](../../../../data/contracts/station/station.types.ck#L89)
+ */
+export const StationRelease = z.strictObject({
+    version: z.string().min(1).max(50).describe('The release, as its tag names it without the leading `v`'),
+    date: z
+        .preprocess(
+            val => (typeof val === 'string' ? DateTime.fromFormat(val, 'yyyy-MM-dd') : val),
+            z.custom<DateTime>(val => val instanceof DateTime && val.isValid, { message: 'Must be a date in format yyyy-MM-dd' }),
+        )
+        .optional()
+        .describe('The day it went out. Absent where the entry named none'),
+    notes: z.string().max(40000).describe('What changed, as the Markdown of its changelog entry. Empty for a release that recorded nothing'),
+    url: z
+        .url()
+        .optional()
+        .describe("The release's page on GitHub. Present on a release this station does not contain yet, which is where its notes came from"),
+});
+export type StationRelease = z.infer<typeof StationRelease>;
+
+export const StationReleaseInput = z.strictObject({});
+export type StationReleaseInput = z.infer<typeof StationReleaseInput>;
+
+/** StationRelease as a response body writes it, with every `date` and `time` in the text the SDK parses. Returns a copy; `value` is not modified. */
+export function serializeStationRelease(value: StationRelease): unknown {
+    const __o0 = { ...value } as Record<string, unknown>;
+    if (__o0['date'] != null) {
+        __o0['date'] = __wireDt(__o0['date'], 'yyyy-MM-dd');
+    }
+    return __o0;
+}
 
 /**
  * One thing that wants the operator's attention, or the fact that nothing does
@@ -159,6 +196,55 @@ export type StationCheckup = z.infer<typeof StationCheckup>;
 
 export const StationCheckupInput = z.strictObject({});
 export type StationCheckupInput = z.infer<typeof StationCheckupInput>;
+
+/**
+ * What this build is, and what changed in it
+ * generated from [StationReleases](../../../../data/contracts/station/station.types.ck#L97)
+ */
+export const StationReleases = z.strictObject({
+    current: z
+        .string()
+        .min(1)
+        .max(50)
+        .optional()
+        .describe(
+            'The newest release this build contains, read off the changelog it was built with. Present on a build that follows `main` too, where `version` on the check-up is absent: every build carries the entry of the last release merged before it. Absent only when the build carries no changelog to read',
+        ),
+    notes: z.array(StationRelease).describe('Every release this build contains, newest first'),
+    checks: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .describe('Whether the station asks GitHub for newer releases, which the operator switches under Settings, Station'),
+    checkedAt: _ZodDatetime.optional().describe('When GitHub last answered. Absent until it has, and while the check is switched off'),
+    available: z
+        .array(StationRelease)
+        .describe(
+            'Releases newer than this build, newest first, each with its notes and its page. Empty when there are none, while the check is off, and until GitHub has answered',
+        ),
+});
+export type StationReleases = z.infer<typeof StationReleases>;
+
+export const StationReleasesInput = z.strictObject({});
+export type StationReleasesInput = z.infer<typeof StationReleasesInput>;
+
+/** StationReleases as a response body writes it, with every `date` and `time` in the text the SDK parses. Returns a copy; `value` is not modified. */
+export function serializeStationReleases(value: StationReleases): unknown {
+    const __o0 = { ...value } as Record<string, unknown>;
+    {
+        const __a1 = [...(__o0['notes'] as unknown[])];
+        for (let __i2 = 0; __i2 < __a1.length; __i2++) {
+            __a1[__i2] = serializeStationRelease(__a1[__i2] as never);
+        }
+        __o0['notes'] = __a1;
+    }
+    {
+        const __a3 = [...(__o0['available'] as unknown[])];
+        for (let __i4 = 0; __i4 < __a3.length; __i4++) {
+            __a3[__i4] = serializeStationRelease(__a3[__i4] as never);
+        }
+        __o0['available'] = __a3;
+    }
+    return __o0;
+}
 
 /**
  * Everything wrong or waiting, worst first

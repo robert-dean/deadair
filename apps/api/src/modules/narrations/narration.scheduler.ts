@@ -51,6 +51,16 @@ export const MAX_AUTOMATIC_RENDER_ATTEMPTS = 3;
  * anyway, because the three ways a production can end badly (no mixer, a beat that could not be
  * spoken, an operator cancelling it) are all states somebody has to notice and write down.
  *
+ * ## Why collecting is a sweep of its own
+ *
+ * It goes by the piece's `production_id`, not through the piece a band would read next. Those used
+ * to be the same question and are not: a `latest` issue overtaken by a newer one while it was being
+ * spoken, a piece its plugin withdrew mid-render, or a band an operator removed all leave a production
+ * that no band will ever ask about again. Nothing attached it, so it was never moved to `aired` and
+ * sat in `ProductionRepository.unfinished` for good, which is the crowd-out that moving a finished
+ * reading to `aired` exists to prevent. A piece collected that way keeps its audio and airs only if a
+ * band asks for it again: `nextFor` decides that, not this.
+ *
  * ## Idempotent by the row, not by memory
  *
  * Run on every commit pass, so it must be safe to run constantly. It is, because the ask is a claim
@@ -78,6 +88,7 @@ export class NarrationScheduler {
      */
     async ripen(now = Date.now()): Promise<number> {
         try {
+            await this.collectAll();
             return await this.speakAhead(now);
         } catch (error) {
             this.logger.warn(`narrations: could not make what the clock will want (${errorText(error)})`);
@@ -103,11 +114,9 @@ export class NarrationScheduler {
             // Already spoken: nothing to do but wait for the band to place it.
             if (piece.segmentId !== undefined) continue;
 
-            // Being spoken, or was: whatever its production did, the piece's row learns it here.
-            if (piece.productionId !== undefined) {
-                await this.collect(piece, piece.productionId);
-                continue;
-            }
+            // Still being spoken. Whatever its production has done by now, {@link collectAll} wrote it
+            // down before this loop read the piece.
+            if (piece.productionId !== undefined) continue;
 
             if (piece.renderAttempts >= MAX_AUTOMATIC_RENDER_ATTEMPTS) continue;
             if (!(await this.pieces.claimRender(piece.id, now, RENDER_RETRY_AFTER_MS, at))) continue;
@@ -123,6 +132,18 @@ export class NarrationScheduler {
         }
 
         return asked;
+    }
+
+    /**
+     * Collect every piece a production is being made for, whether or not a band still wants it.
+     *
+     * Before asking ahead, so the loop reads each piece after its production's outcome is on the row:
+     * a failure written here is a piece the same pass may claim again.
+     */
+    private async collectAll(): Promise<void> {
+        for (const piece of await this.pieces.awaitingCollection()) {
+            if (piece.productionId !== undefined) await this.collect(piece, piece.productionId);
+        }
     }
 
     /**

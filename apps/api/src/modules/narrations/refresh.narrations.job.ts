@@ -34,7 +34,7 @@ export class RefreshNarrationsJob extends PlainJob {
         const summary = await this.narrations.refresh(signal);
         if (summary.series === 0) return;
 
-        const fields = { job: this.context.id, series: summary.series, listed: summary.listed, added: summary.added };
+        const fields = { job: this.context.id, series: summary.series, listed: summary.listed, added: summary.added, withdrawn: summary.withdrawn };
         if (summary.failed.length > 0)
             this.logger.warn('narrations: refreshed, and some series could not be read', { ...fields, failed: summary.failed });
         else this.logger.info('narrations: refreshed', fields);

@@ -79,7 +79,17 @@ The seeds are written from `persona.defaults.ts` in `ready()` rather than from t
 sheets have one source, and the guard is that the station is EMPTY rather than that each key is missing —
 which is what makes deleting a seeded persona expressible.
 
-**Every one of them names a voice, and it is its own key.** They shipped without one for a long time, on the
+**The marker floor counts HOW MANY of a character's words a script carries and never WHICH, and
+`exclusiveSubjects` is the which.** Each entry is one subject written as the comma-separated words that mean
+it, and a script carrying words from two entries is refused as `mixed-subjects`, with the pair named in the
+reason. It was built for the conspiracy host, who believes every classic theory and was told in a quirk to
+keep to one per break: with nothing behind that quirk, a break visiting bigfoot and the moon landing in forty
+words passed every check. The words match the way markers do and are listed in the prompt, on the markers'
+own argument. The check reads the script with the record names taken out (`withoutRecordNames`, the clock
+checks' helper), because a record called "Pink Moon" is not the presenter bringing up the moon. It is excused
+with the dialect, since a bulletin's subjects are its headlines, and it is retryable, since the model broke a
+rule it was shown.
+ They shipped without one for a long time, on the
 grounds that which ids exist is a question only the installed engine can answer — right about an ENGINE id and
 wrong about the STATION name the column holds, and it cost the whole roster sounding identical: nineteen
 sheets, nineteen sets of diction markers, and a listener hearing one warm American female read all of them,

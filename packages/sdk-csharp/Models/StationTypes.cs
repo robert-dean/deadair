@@ -101,6 +101,31 @@ public sealed record StationBacklog
 /// </summary>
 public sealed record StationBacklogInput;
 
+/// <summary>One release of the station, in the words its changelog entry used</summary>
+public sealed record StationRelease
+{
+    /// <summary>The release, as its tag names it without the leading `v`</summary>
+    [JsonPropertyName("version")]
+    public required string Version { get; init; }
+
+    /// <summary>The day it went out. Absent where the entry named none</summary>
+    [JsonPropertyName("date")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DateOnly? Date { get; init; }
+
+    /// <summary>What changed, as the Markdown of its changelog entry. Empty for a release that recorded nothing</summary>
+    [JsonPropertyName("notes")]
+    public required string Notes { get; init; }
+
+    /// <summary>The release's page on GitHub. Present on a release this station does not contain yet, which is where its notes came from</summary>
+    [JsonPropertyName("url")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Url { get; init; }
+}
+
+/// <summary>One release of the station, in the words its changelog entry used</summary>
+public sealed record StationReleaseInput;
+
 /// <summary>One thing that wants the operator's attention, or the fact that nothing does</summary>
 public sealed record AttentionItem
 {
@@ -203,6 +228,35 @@ public sealed record StationCheckup
 /// here exists to fix.
 /// </summary>
 public sealed record StationCheckupInput;
+
+/// <summary>What this build is, and what changed in it</summary>
+public sealed record StationReleases
+{
+    /// <summary>The newest release this build contains, read off the changelog it was built with. Present on a build that follows `main` too, where `version` on the check-up is absent: every build carries the entry of the last release merged before it. Absent only when the build carries no changelog to read</summary>
+    [JsonPropertyName("current")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Current { get; init; }
+
+    /// <summary>Every release this build contains, newest first</summary>
+    [JsonPropertyName("notes")]
+    public required List<StationRelease> Notes { get; init; }
+
+    /// <summary>Whether the station asks GitHub for newer releases, which the operator switches under Settings, Station</summary>
+    [JsonPropertyName("checks")]
+    public required bool Checks { get; init; }
+
+    /// <summary>When GitHub last answered. Absent until it has, and while the check is switched off</summary>
+    [JsonPropertyName("checkedAt")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DateTimeOffset? CheckedAt { get; init; }
+
+    /// <summary>Releases newer than this build, newest first, each with its notes and its page. Empty when there are none, while the check is off, and until GitHub has answered</summary>
+    [JsonPropertyName("available")]
+    public required List<StationRelease> Available { get; init; }
+}
+
+/// <summary>What this build is, and what changed in it</summary>
+public sealed record StationReleasesInput;
 
 /// <summary>Everything wrong or waiting, worst first</summary>
 public sealed record StationAttention

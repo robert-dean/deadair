@@ -95,6 +95,12 @@ export class RenderPieceJob extends PlainJob<RenderPiecePayload> {
         // Already spoken, or already being spoken by somebody else's production. Either way this send
         // is a duplicate, which is free by design.
         if (piece.segmentId !== undefined || piece.productionId !== undefined) return;
+        // Withdrawn after this was sent: the plugin has stopped offering the words, so asking would
+        // only write a failure and an attempt onto a piece with nothing wrong with it.
+        if (piece.withdrawnAt !== undefined) {
+            this.logger.info('narrations: the piece a render was for is no longer listed by its plugin', { job: this.context.id, piece: piece.id });
+            return;
+        }
 
         const words = await this.wordsFor(piece.id, piece.seriesId, piece.pieceId);
         if (words === undefined) return;

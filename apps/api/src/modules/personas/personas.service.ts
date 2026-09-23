@@ -428,6 +428,7 @@ export function draftOf(body: PersonaInput): PersonaDraft {
             preoccupations: list(body.preoccupations),
             catchphrases: list(body.catchphrases),
             avoid: list(body.avoid),
+            exclusiveSubjects: list(body.exclusiveSubjects),
             samples: list(body.samples),
         }),
     };
@@ -465,6 +466,7 @@ function toView(persona: Persona, presentingId: string | undefined): PersonaView
             preoccupations: mutable(persona.preoccupations),
             catchphrases: mutable(persona.catchphrases),
             avoid: mutable(persona.avoid),
+            exclusiveSubjects: mutable(persona.exclusiveSubjects),
             samples: mutable(persona.samples),
         }),
     };
@@ -507,6 +509,7 @@ function toDraftView(draft: PersonaDraft): PersonaDraftView {
             preoccupations: mutable(draft.preoccupations),
             catchphrases: mutable(draft.catchphrases),
             avoid: mutable(draft.avoid),
+            exclusiveSubjects: mutable(draft.exclusiveSubjects),
             samples: mutable(draft.samples),
         }),
     };

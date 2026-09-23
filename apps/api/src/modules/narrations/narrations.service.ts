@@ -37,8 +37,11 @@ export const LIST_PIECES_TIMEOUT_MS = 30_000;
  *
  * Far more than a podcast's twenty-five, because a serial is worked through from its beginning: the
  * station's place in a book is a row in this table, so a book whose later chapters were never listed
- * is one the station stops part-way through. Two hundred covers a long novel whole, and a serial
- * longer than that is read across refreshes as the station advances.
+ * is one the station stops part-way through. Two hundred covers a long novel whole.
+ *
+ * It is also the line past which a listing is not trusted to be the whole series. `listPieces` has no
+ * offset, so an answer this long may be a window with more behind it, and the refresh withdraws
+ * nothing from one: a piece past the window is not a piece the plugin stopped offering.
  */
 export const REFRESH_PIECES_PER_SERIES = 200;
 
@@ -61,6 +64,8 @@ export interface NarrationRefreshSummary {
     series: number;
     listed: number;
     added: number;
+    /** How many pieces were newly found to be no longer listed. */
+    withdrawn: number;
     /** Qualified ids of the series that could not be listed. */
     failed: string[];
 }
@@ -155,6 +160,12 @@ export class NarrationsService {
     async requestRender(id: string): Promise<StationPiece> {
         const piece = await this.pieces.get(id);
         if (piece === undefined) throw httpError(404).withDetails({ message: 'the station does not know that piece' });
+        // Refused rather than quietly claimed: the render would ask the plugin for words it has
+        // stopped offering, and write a failure onto a row that has nothing wrong with it. A withdrawn
+        // piece the station already holds audio for is answered with its row, like any other.
+        if (piece.withdrawnAt !== undefined && piece.segmentId === undefined) {
+            throw httpError(409).withDetails({ message: 'the plugin no longer lists this piece, so the station cannot ask for its words' });
+        }
 
         if (piece.segmentId === undefined && (await this.pieces.claimRender(id, Date.now(), RENDER_RETRY_AFTER_MS))) {
             await this.jobs.send('narrations.render', { pieceId: id });
@@ -168,9 +179,13 @@ export class NarrationsService {
      *
      * One series at a time, so a failing one costs itself and the rest are still written. Stops early,
      * between series, when the job is being abandoned, rather than starting a read nobody will keep.
+     *
+     * A listing is also taken as a statement about what the series no longer has, but only one that
+     * can be trusted to be the whole of it (see {@link withdrawable}): the pieces it leaves out are
+     * withdrawn, so no band picks them again.
      */
     async refresh(signal?: AbortSignal): Promise<NarrationRefreshSummary> {
-        const summary: NarrationRefreshSummary = { series: 0, listed: 0, added: 0, failed: [] };
+        const summary: NarrationRefreshSummary = { series: 0, listed: 0, added: 0, withdrawn: 0, failed: [] };
 
         for (const plugin of this.plugins()) {
             if (signal?.aborted) break;
@@ -217,6 +232,19 @@ export class NarrationsService {
 
                 summary.listed += listings.length;
                 summary.added += await this.pieces.record(listings);
+
+                // After the record, not in a transaction with it: between the two statements a band
+                // can only see MORE pieces as candidates than the refresh leaves, never a wrong one.
+                const listed = withdrawable(pieces);
+                if (listed === undefined) {
+                    if (pieces.length > 0) {
+                        this.logger.info(`narrations: a listing may not be the whole series, so nothing of it was withdrawn (${seriesId})`, {
+                            listed: pieces.length,
+                        });
+                    }
+                    continue;
+                }
+                summary.withdrawn += await this.pieces.withdraw(seriesId, listed);
             }
         }
 
@@ -227,6 +255,26 @@ export class NarrationsService {
     private plugins(): NarrationPlugin[] {
         return pluginsWith(this.pluginRegistry.list(), asNarrationPlugin).sort(byPluginId);
     }
+}
+
+/**
+ * The ids a listing names, when it can be trusted to be the whole series, or `undefined` when it
+ * cannot and nothing may be withdrawn on its word.
+ *
+ * - **Empty** is not "this book has no chapters". The capability tells a plugin to answer `[]` for a
+ *   series it does not recognise AND for one it could not read today, so withdrawing on it would
+ *   retire a whole book over a network blip.
+ * - **As long as the refresh asked for** may be a window, since `listPieces` has no offset: a chapter
+ *   past it is still there.
+ *
+ * The ids are what the plugin LISTED, not what survived {@link toListing}: a piece the station could
+ * not place is one it ignores, not one the plugin dropped.
+ */
+function withdrawable(pieces: readonly NarrationPiece[]): string[] | undefined {
+    if (pieces.length === 0 || pieces.length >= REFRESH_PIECES_PER_SERIES) return undefined;
+
+    const ids = pieces.flatMap(piece => (typeof piece?.id === 'string' && piece.id.length > 0 ? [piece.id] : []));
+    return ids.length === 0 ? undefined : ids;
 }
 
 /** A plugin's series as the console reads it. */
@@ -311,6 +359,7 @@ function toStationPiece(row: NarrationPieceRecord): StationPiece {
         ...(row.renderError === undefined ? {} : { renderError: row.renderError }),
         ...(row.scheduledFor === undefined ? {} : { scheduledFor: iso(row.scheduledFor) }),
         ...(row.airedAt === undefined ? {} : { airedAt: iso(row.airedAt) }),
+        ...(row.withdrawnAt === undefined ? {} : { withdrawnAt: iso(row.withdrawnAt) }),
     };
 }
 

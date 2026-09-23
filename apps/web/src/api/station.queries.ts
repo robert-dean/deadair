@@ -1,4 +1,4 @@
-import { queryOptions, useQuery } from '@tanstack/react-query';
+import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { LogLevel } from '@deadair/sdk';
 
 import { sdk } from './client';
@@ -56,6 +56,63 @@ export const stationCheckupOptions = queryOptions({
 /** The loops the station runs, and how much of the library it has looked at. */
 export function useStationCheckup() {
     return useQuery(stationCheckupOptions);
+}
+
+/**
+ * How long the release notes are kept before they are asked for again.
+ *
+ * Five minutes. The build's own notes cannot change while the station runs, since a different
+ * changelog is a different image, but what it has heard about NEWER releases can: the station asks
+ * GitHub every few hours, and the console should not show an old answer for longer than it takes an
+ * operator to come back to the page.
+ */
+const RELEASES_STALE_MS = 5 * 60_000;
+
+/**
+ * How often the header re-reads it, in the background.
+ *
+ * Thirty minutes. The station itself asks GitHub at most every six hours, so polling faster would be
+ * re-reading an answer that has not moved, and the whole payload is every release's notes.
+ */
+const RELEASES_POLL_MS = 30 * 60_000;
+
+export const stationReleasesOptions = queryOptions({
+    queryKey: queryKeys.station.releases(),
+    queryFn: () => sdk.station.readStationReleases(),
+    staleTime: RELEASES_STALE_MS,
+});
+
+/** The releases this build contains and what each one changed, newest first. */
+export function useStationReleases() {
+    return useQuery(stationReleasesOptions);
+}
+
+/**
+ * The same reading, kept fresh from the header on every page.
+ *
+ * One query key for both, so the header's notice and What's new cannot disagree about whether there
+ * is anything newer. `enabled` is how the shell keeps it off the login page, as the attention poll
+ * does.
+ */
+export function useStationReleasesPoll(enabled: boolean) {
+    return useQuery({ ...stationReleasesOptions, enabled, refetchInterval: RELEASES_POLL_MS, refetchIntervalInBackground: true });
+}
+
+/**
+ * Asks the station to check GitHub now. Needs `platform.manage`, so a non-admin gets a 403.
+ *
+ * The answer is the whole reading, written straight into the cache rather than invalidated: it is
+ * already what a refetch would return, and writing it is what updates What's new, the header notice
+ * and the Build line at once.
+ */
+export function useCheckStationReleases() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: () => sdk.station.checkStationReleases(),
+        onSuccess: releases => {
+            queryClient.setQueryData(queryKeys.station.releases(), releases);
+        },
+    });
 }
 
 /**

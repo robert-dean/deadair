@@ -78,6 +78,11 @@ public sealed record Persona
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<string>? Avoid { get; init; }
 
+    /// <summary>Subjects this character takes one at a time. Each entry is ONE subject, written as the comma-separated words that mean it ("bigfoot, sasquatch, yeti"), and a break that brings up words from two of them is refused and written again. A word inside a record's title does not count</summary>
+    [JsonPropertyName("exclusiveSubjects")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? ExclusiveSubjects { get; init; }
+
     /// <summary>A couple of grounded facts they may self-reference</summary>
     [JsonPropertyName("background")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -196,6 +201,11 @@ public sealed record PersonaInput
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<string>? Avoid { get; init; }
 
+    /// <summary>Subjects this character takes one at a time. Each entry is ONE subject, written as the comma-separated words that mean it ("bigfoot, sasquatch, yeti"), and a break that brings up words from two of them is refused and written again. A word inside a record's title does not count</summary>
+    [JsonPropertyName("exclusiveSubjects")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? ExclusiveSubjects { get; init; }
+
     /// <summary>A couple of grounded facts they may self-reference</summary>
     [JsonPropertyName("background")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -300,6 +310,10 @@ public sealed record PersonaDraftView
     [JsonPropertyName("avoid")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<string>? Avoid { get; init; }
+
+    [JsonPropertyName("exclusiveSubjects")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? ExclusiveSubjects { get; init; }
 
     [JsonPropertyName("background")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -1211,6 +1225,10 @@ public sealed record PersonaFilePersona
     [JsonPropertyName("avoid")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<string>? Avoid { get; init; }
+
+    [JsonPropertyName("exclusiveSubjects")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? ExclusiveSubjects { get; init; }
 
     [JsonPropertyName("background")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

@@ -9,6 +9,26 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.27.2] — 2026-09-23
+
+- The conspiracy host is now deadpan. He is every bit as unhinged, but he has seen too much to be excited: the wilder the claim, the flatter he says it. He broadcasts from a trailer in the West Texas desert and mentions its state the way other men mention the weather, answers a question with a stranger theory that has nothing to do with it, sometimes opens with a string of tabloid questions, and makes up new theories on the spot as well as believing the classics. Still one theory per break, and still nothing that hurt anybody.
+
+## [0.27.1] — 2026-09-23
+
+- The conspiracy host is now a Southern man. His dialect is in every sentence (y'all, fixin' to, I reckon, might could, dropped g's), his sample lines, stories and fallback phrasings are retold in that voice, and the British places he used to mention are American ones: a pull-off on the county road instead of a lay-by, a parking garage instead of a multi-storey car park. This changes the words he writes; how he sounds is the speech engine's voice for him, which this does not change. A station that already has him keeps its own row until an operator edits it.
+
+## [0.27.0] — 2026-09-23
+
+- The station now says when a newer release is out. The console's header names it, **Check-up > What’s new** lists it first with its notes and a link to its release page, and the Build section of Check-up says so. The station asks GitHub for the project's public list of releases once when it starts and then every six hours. **Check now** on What’s new asks straight away. Each request is anonymous and carries nothing about the station. It never installs anything: upgrading is still pulling the new image.
+
+  It is **on** by default. Turn it off under **Settings > Station > Check for new releases**, and it sends nothing at all. A station that follows `latest` is told about a release only once one is out that it has not already picked up from `main`.
+- The console now says what changed in each release. **Check-up > What’s new** lists every release this station contains, newest first, with its notes, and marks the one it is running. The notes come from the changelog built into the station, so the page works with no internet connection. It shows the five newest releases and the rest on request, and the Build section of Check-up links to it.
+
+## [0.26.3] — 2026-09-23
+
+- The conspiracy host now speaks in the present tense, even about what he saw years ago, and his three seeded stories are retold that way. His delivery is cheerfully unhinged rather than hushed and paranoid: every theory gets bigger and faster than the last, he congratulates himself when he cracks one, and he is funny because he means every word. Each talk break is about one theory and only one: whichever he has on his mind, or the one in the story he is telling, and he goes deeper into it rather than moving on to the next. What he will not talk about is unchanged. This changes the seed a fresh station starts with; a station that already has him keeps its own row until an operator edits it.
+- A character can now keep subjects apart, so that no break brings up two of them. In the persona editor, "Never in the same break" takes one subject per line, written as the words that mean it separated by commas (for example `bigfoot, sasquatch, yeti`). A break that uses words from two lines is refused, the model gets one retry, and after that the character's own fallback phrasings speak. Words match the way diction markers do, plurals included, and a word that only appears inside the title of a record the break names does not count. The words are shown to the model too, so it knows the rule it is being held to. News, weather and almanac bulletins are excused. The field is stored on the persona, is in the API and every SDK, and travels in persona export files. The conspiracy host's seed uses it, with one subject per theory.
+
 ## [0.26.2] — 2026-09-23
 
 - An API key typed into a provider row of the Language model plugin (or any other table with a key in it) is no longer lost the second time the form is saved. The first save stored it. The next save, made without reloading the page, sent the row as if it were new, so the stored key was dropped and the save was refused with "Anthropic and Gemini need an API key". A row now keeps the same identity from the moment it is added, so its key stays attached across saves. A station already caught by this only needs the key typed in once more. (#242)
@@ -727,7 +747,11 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.26.2...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.27.2...HEAD
+[0.27.2]: https://github.com/robert-dean/deadair/compare/v0.27.1...v0.27.2
+[0.27.1]: https://github.com/robert-dean/deadair/compare/v0.27.0...v0.27.1
+[0.27.0]: https://github.com/robert-dean/deadair/compare/v0.26.3...v0.27.0
+[0.26.3]: https://github.com/robert-dean/deadair/compare/v0.26.2...v0.26.3
 [0.26.2]: https://github.com/robert-dean/deadair/compare/v0.26.1...v0.26.2
 [0.26.1]: https://github.com/robert-dean/deadair/compare/v0.26.0...v0.26.1
 [0.26.0]: https://github.com/robert-dean/deadair/compare/v0.25.2...v0.26.0

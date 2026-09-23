@@ -5,10 +5,12 @@ options {
     services: {
         StationAttentionService: "#src/modules/station/station.attention.service.js"
         StationCheckupService: "#src/modules/station/station.checkup.service.js"
+        StationReleasesService: "#src/modules/station/station.releases.service.js"
     }
     security: {
-        # Reads only, so the floor is the read gate every console page sits on. Nothing in this area
-        # writes anything: it composes facts other modules own.
+        # Reads, so the floor is the read gate every console page sits on. Nothing in this area writes
+        # anything: it composes facts other modules own. The one action, asking GitHub for releases
+        # now, raises its own gate below.
         policy: platform.view
     }
 }
@@ -51,6 +53,41 @@ operation /station/checkup: {
         response: {
             200: {
                 application/json: StationCheckup
+            }
+        }
+    }
+}
+
+# What changed in each release, from the changelog the image was built with. A station with no route
+# to the internet still has these, because they are part of the build rather than something fetched.
+
+operation /station/releases: {
+    get: { # The releases this build contains and what each one changed, newest first
+        name: Read station releases
+        service: StationReleasesService.read
+        response: {
+            200: {
+                application/json: StationReleases
+            }
+        }
+    }
+}
+
+# Ask GitHub now rather than at the next scheduled check, which is what an operator reaches for right
+# after hearing a release went out.
+
+operation /station/releases/check: {
+    post: { # Asks GitHub for newer releases now, and answers with what the station then knows
+        name: Check station releases
+        service: StationReleasesService.check
+        # Manage rather than view: it makes the station send a request to the internet, and GitHub's
+        # allowance is per address, so it is an operator's action and not a reader's.
+        security: {
+            policy: platform.manage
+        }
+        response: {
+            200: {
+                application/json: StationReleases
             }
         }
     }

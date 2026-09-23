@@ -296,6 +296,7 @@ function columnsOf(draft: PersonaDraft) {
         preoccupations: jsonOf(draft.preoccupations),
         catchphrases: jsonOf(draft.catchphrases),
         avoid: jsonOf(draft.avoid),
+        exclusiveSubjects: jsonOf(draft.exclusiveSubjects),
         samples: jsonOf(draft.samples),
     };
 }
@@ -340,6 +341,7 @@ function toPersona(row: {
     preoccupations: unknown;
     catchphrases: unknown;
     avoid: unknown;
+    exclusiveSubjects: unknown;
     samples: unknown;
 }): Persona {
     const list = (value: unknown, key: string): Record<string, string[]> => {
@@ -377,6 +379,7 @@ function toPersona(row: {
         ...list(row.preoccupations, 'preoccupations'),
         ...list(row.catchphrases, 'catchphrases'),
         ...list(row.avoid, 'avoid'),
+        ...list(row.exclusiveSubjects, 'exclusiveSubjects'),
         ...list(row.samples, 'samples'),
     };
 }

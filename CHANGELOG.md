@@ -9,6 +9,12 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.30.1] — 2026-09-23
+
+- A plugin setting can offer the station's similarity sources as its choices (`optionsFrom: 'plugins.similarity'`).
+  The type allowed it, but the check a plugin's manifest passes at load did not, so a plugin that asked for
+  it was refused and never started.
+
 ## [0.30.0] — 2026-09-23
 
 - A third voice: the station can speak through a [Rhapsode](https://github.com/MaroonedSoftware/rhapsode)
@@ -801,7 +807,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.30.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.30.1...HEAD
+[0.30.1]: https://github.com/robert-dean/deadair/compare/v0.30.0...v0.30.1
 [0.30.0]: https://github.com/robert-dean/deadair/compare/v0.29.1...v0.30.0
 [0.29.1]: https://github.com/robert-dean/deadair/compare/v0.29.0...v0.29.1
 [0.29.0]: https://github.com/robert-dean/deadair/compare/v0.28.0...v0.29.0

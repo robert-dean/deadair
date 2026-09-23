@@ -7,11 +7,15 @@ import { render, screen, setupUser } from '../utils/render';
 
 const requestToken = vi.fn();
 const navigate = vi.fn();
+const listSignInProviders = vi.fn(async (): Promise<unknown[]> => []);
+const startLogin = vi.fn();
 
 vi.mock('../../src/api/client', () => ({
     sdk: {
         authentication: {
             requestToken: (...args: unknown[]) => requestToken(...args),
+            listSignInProviders: () => listSignInProviders(),
+            startLogin: (...args: unknown[]) => startLogin(...args),
         },
     },
 }));
@@ -23,6 +27,10 @@ vi.mock('@tanstack/react-router', () => ({
 afterEach(() => {
     requestToken.mockReset();
     navigate.mockReset();
+    listSignInProviders.mockReset();
+    listSignInProviders.mockResolvedValue([]);
+    startLogin.mockReset();
+    vi.unstubAllGlobals();
     clearSession();
 });
 
@@ -252,5 +260,48 @@ describe('LoginPage', () => {
         await fillAndSubmit('admin@example.com', 'hunter2');
 
         expect(await screen.findByText('Too many attempts. Wait a moment and try again.')).toBeInTheDocument();
+    });
+});
+
+describe('LoginPage identity providers', () => {
+    it('offers no provider button on a station that has none', async () => {
+        render(<LoginPage />);
+
+        await vi.waitFor(() => expect(listSignInProviders).toHaveBeenCalled());
+        expect(screen.queryByRole('button', { name: /Continue with/ })).toBeNull();
+    });
+
+    it('offers one button per provider, labelled as the operator named it', async () => {
+        listSignInProviders.mockResolvedValue([
+            { name: 'authelia', label: 'Authelia' },
+            { name: 'google', label: 'Google' },
+        ]);
+        render(<LoginPage />);
+
+        expect(await screen.findByRole('button', { name: 'Continue with Authelia' })).toBeTruthy();
+        expect(screen.getByRole('button', { name: 'Continue with Google' })).toBeTruthy();
+    });
+
+    it('starts the sign-in with the sanitised return path and goes to the provider', async () => {
+        const assign = vi.fn();
+        vi.stubGlobal('location', { ...window.location, assign });
+        listSignInProviders.mockResolvedValue([{ name: 'authelia', label: 'Authelia' }]);
+        startLogin.mockResolvedValue({ grant_type: 'oidc', authorize_url: 'https://auth.example.com/authorize?x=1', state: 's' });
+        render(<LoginPage redirect="https://evil.com" />);
+
+        await setupUser().click(await screen.findByRole('button', { name: 'Continue with Authelia' }));
+
+        await vi.waitFor(() => expect(assign).toHaveBeenCalledWith('https://auth.example.com/authorize?x=1'));
+        expect(startLogin).toHaveBeenCalledWith({ grant_type: 'oidc', provider: 'authelia', redirect_after: '/' });
+    });
+
+    it('says so when the provider could not be reached', async () => {
+        listSignInProviders.mockResolvedValue([{ name: 'authelia', label: 'Authelia' }]);
+        startLogin.mockRejectedValue(new Error('offline'));
+        render(<LoginPage />);
+
+        await setupUser().click(await screen.findByRole('button', { name: 'Continue with Authelia' }));
+
+        expect(await screen.findByText('Could not start that sign-in')).toBeTruthy();
     });
 });

@@ -3,11 +3,18 @@ import { createFileRoute, Navigate } from '@tanstack/react-router';
 
 import { completeAuthCallback, type AuthCallbackOutcome, type AuthCallbackQuery } from '../../api/auth.callback.queries';
 import { AuthCallbackPanel } from '../../components/auth/auth.callback.panel';
+import { safeRedirectTarget } from '../../auth/redirect.target';
 
 /** Only what the API sends back survives; anything else appended to the link is dropped. */
 function validateSearch(search: Record<string, unknown>): AuthCallbackQuery {
     const take = (key: keyof AuthCallbackQuery): string | undefined => (typeof search[key] === 'string' ? search[key] : undefined);
-    return { token: take('token'), challenge_id: take('challenge_id'), error: take('error'), error_description: take('error_description') };
+    return {
+        token: take('token'),
+        challenge_id: take('challenge_id'),
+        error: take('error'),
+        error_description: take('error_description'),
+        redirect: take('redirect'),
+    };
 }
 
 export const Route = createFileRoute('/auth/callback')({
@@ -23,11 +30,13 @@ export const Route = createFileRoute('/auth/callback')({
 
 function AuthCallbackRoute() {
     const outcome: AuthCallbackOutcome = Route.useLoaderData();
+    // Sanitised again here, although the API already did: this is a URL anybody can type.
+    const target = safeRedirectTarget(Route.useSearch().redirect);
 
     // Nothing to draw: the session is stored and the shell is what they came for.
-    if (outcome.kind === 'signed-in') return <Navigate to="/" replace />;
+    if (outcome.kind === 'signed-in') return <Navigate to={target} replace />;
 
-    return <AuthCallbackPanel outcome={outcome} />;
+    return <AuthCallbackPanel outcome={outcome} redirect={target} />;
 }
 
 function AuthCallbackPending() {

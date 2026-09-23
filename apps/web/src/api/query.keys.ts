@@ -16,6 +16,8 @@ export const queryKeys = {
         factors: () => ['auth', 'factors'] as const,
         /** The signed-in account's API keys. Issuing, rotating or revoking one answers in terms of the whole list again. */
         apikeys: () => ['auth', 'apikeys'] as const,
+        /** The identity providers the sign-in page offers. Public: asked before anybody is signed in. */
+        providers: () => ['auth', 'providers'] as const,
     },
     onboarding: {
         requirements: () => ['onboarding', 'requirements'] as const,

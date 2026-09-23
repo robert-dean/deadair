@@ -8,6 +8,8 @@ import { ChallengePanel } from './challenge.panel';
 export interface AuthCallbackPanelProps {
     /** Anything but `signed-in`; the route navigates away on that one rather than drawing. */
     outcome: Exclude<AuthCallbackOutcome, { kind: 'signed-in' }>;
+    /** Where to go once the second factor is in. An already-sanitised path; `/` when absent. */
+    redirect?: string;
 }
 
 /**
@@ -19,7 +21,7 @@ export interface AuthCallbackPanelProps {
  * error at all: it is single use, and reloading the page or a mail scanner having fetched it first
  * both land here. Said in those words rather than as a status code.
  */
-export function AuthCallbackPanel({ outcome }: AuthCallbackPanelProps) {
+export function AuthCallbackPanel({ outcome, redirect = '/' }: AuthCallbackPanelProps) {
     const navigate = useNavigate();
 
     return (
@@ -31,14 +33,14 @@ export function AuthCallbackPanel({ outcome }: AuthCallbackPanelProps) {
                         <Stack gap="xxxs" align="center">
                             <Title order={2}>{outcome.kind === 'challenge' ? 'One more step' : 'Not signed in'}</Title>
                             <Text c="dimmed" size="sm">
-                                {outcome.kind === 'challenge' ? 'One more factor, and you are in.' : 'That link did not get you in.'}
+                                {outcome.kind === 'challenge' ? 'One more factor, and you are in.' : 'That did not get you in.'}
                             </Text>
                         </Stack>
                     </Stack>
                     {outcome.kind === 'challenge' ? (
                         <ChallengePanel
                             challenge={outcome.challenge}
-                            onComplete={() => navigate({ to: '/' })}
+                            onComplete={() => navigate({ to: redirect })}
                             onExpired={() => navigate({ to: '/login' })}
                             onStartOver={() => navigate({ to: '/login' })}
                             startOverLabel="Sign in another way"

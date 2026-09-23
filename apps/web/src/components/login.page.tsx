@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Alert, Button, Card, Center, Group, Image, PasswordInput, Stack, Text, TextInput, Title } from '@mantine/core';
+import { Alert, Button, Card, Center, Divider, Group, Image, PasswordInput, Stack, Text, TextInput, Title } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { useNavigate } from '@tanstack/react-router';
 
-import { useLoginMutation, useMagicLinkMutation } from '../api/auth.mutations';
+import { useLoginMutation, useMagicLinkMutation, useOidcSignInMutation } from '../api/auth.mutations';
+import { useSigninProviders } from '../api/auth.providers.queries';
 import { isRateLimited, retryAfterMs } from '../api/retry.policy';
 import { apiErrorDetails, apiErrorMessage, isInvalidToken } from '../api/sdk.error';
 import { safeRedirectTarget } from '../auth/redirect.target';
@@ -50,6 +51,8 @@ export function LoginPage({ redirect }: LoginPageProps) {
     const navigate = useNavigate();
     const login = useLoginMutation();
     const magicLink = useMagicLinkMutation();
+    const providers = useSigninProviders().data ?? [];
+    const oidc = useOidcSignInMutation();
     // A sentence that has to outlive the mutation it came from: the challenge expiring resets the
     // login, and the reset would take the explanation with it.
     const [notice, setNotice] = useState<string>();
@@ -157,6 +160,13 @@ export function LoginPage({ redirect }: LoginPageProps) {
                                     </Alert>
                                 ) : undefined}
                                 {error ? <ErrorAlert title="Sign-in failed">{error}</ErrorAlert> : undefined}
+                                {oidc.error ? (
+                                    <ErrorAlert
+                                        title="Could not start that sign-in"
+                                        error={oidc.error}
+                                        fallback="Could not reach that provider. Try again."
+                                    />
+                                ) : undefined}
                                 {magicLink.error ? (
                                     <ErrorAlert title="No link sent" error={magicLink.error} fallback="Could not send a sign-in link. Try again." />
                                 ) : undefined}
@@ -192,6 +202,29 @@ export function LoginPage({ redirect }: LoginPageProps) {
                                         Email me a sign-in link
                                     </Button>
                                 </Group>
+                                {/* Only when the operator has set one up, so a station without any
+                                    looks exactly as it did. Each leaves the console for the provider,
+                                    which sends the browser back to /auth/callback. */}
+                                {providers.length > 0 ? (
+                                    <Stack gap="xs">
+                                        <Divider label="or" labelPosition="center" />
+                                        {providers.map(provider => (
+                                            <Button
+                                                key={provider.name}
+                                                variant="default"
+                                                fullWidth
+                                                loading={oidc.isPending && oidc.variables?.provider === provider.name}
+                                                disabled={login.isPending || (oidc.isPending && oidc.variables?.provider !== provider.name)}
+                                                onClick={() => {
+                                                    setNotice(undefined);
+                                                    oidc.mutate({ provider: provider.name, redirect: safeRedirectTarget(redirect) });
+                                                }}
+                                            >
+                                                Continue with {provider.label}
+                                            </Button>
+                                        ))}
+                                    </Stack>
+                                ) : undefined}
                             </Stack>
                         </form>
                     )}

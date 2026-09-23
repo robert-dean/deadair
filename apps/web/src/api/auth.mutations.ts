@@ -54,6 +54,38 @@ export function useMagicLinkMutation() {
     });
 }
 
+export interface OidcSignIn {
+    /** The provider's name, as `GET /auth/login/oidc/providers` lists it. */
+    provider: string;
+    /** A path on the console to come back to. Checked again by the API, which drops anything else. */
+    redirect?: string;
+}
+
+/**
+ * Starts a sign-in through an identity provider and sends the browser there.
+ *
+ * The API answers with the provider's address rather than redirecting to it, as the plugin OAuth
+ * start does, so the navigation happens here. It leaves the console, so a success never settles in
+ * this page: the provider sends the browser back to `/auth/callback` when it is done.
+ */
+export function useOidcSignInMutation() {
+    return useMutation({
+        retry: false,
+        mutationFn: async ({ provider, redirect }: OidcSignIn) => {
+            const response = await sdk.authentication.startLogin({
+                grant_type: 'oidc',
+                provider,
+                ...(redirect === undefined ? {} : { redirect_after: redirect }),
+            });
+            if (response.grant_type !== 'oidc') throw new Error('The station answered a different kind of sign-in.');
+            return response;
+        },
+        onSuccess: response => {
+            window.location.assign(response.authorize_url);
+        },
+    });
+}
+
 export function useLogoutMutation() {
     const queryClient = useQueryClient();
     return useMutation({

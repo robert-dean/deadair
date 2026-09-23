@@ -17,6 +17,8 @@ export interface AuthCallbackQuery {
     challenge_id?: string;
     error?: string;
     error_description?: string;
+    /** Where to go once signed in: a path the API checked and carried through the provider. */
+    redirect?: string;
 }
 
 export type AuthCallbackOutcome =

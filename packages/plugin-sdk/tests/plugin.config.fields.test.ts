@@ -1,6 +1,32 @@
 import { describe, expect, it } from 'vitest';
 
-import { configFieldSchema, isRowSecretKey, parseMultiSelect, parseRows, ROW_ID_KEY, rowSecretKey } from '../src/plugin.config.fields.js';
+import {
+    type ConfigFieldOptionSource,
+    configFieldOptionSourceSchema,
+    configFieldSchema,
+    isRowSecretKey,
+    parseMultiSelect,
+    parseRows,
+    ROW_ID_KEY,
+    rowSecretKey,
+} from '../src/plugin.config.fields.js';
+
+// Typed as a Record so a member of the union with no key here is a type error, which is what makes
+// this the union's members at run time. `tsc` does not check this folder yet, so the guard that
+// holds the build is `AssertOptionSourceSchemaIsExhaustive` beside the schema.
+const everyOptionSource: Record<ConfigFieldOptionSource, true> = {
+    'station.newsCategories': true,
+    'station.newsFeeds': true,
+    'station.podcastShows': true,
+    'station.narrationSeries': true,
+    'intl.timeZones': true,
+    'plugins.speech': true,
+    'plugins.llm': true,
+    'plugins.mixer': true,
+    'plugins.analysis': true,
+    'plugins.similarity': true,
+    'llm.models': true,
+};
 
 describe('parseMultiSelect', () => {
     it('reads the values back out of the array they are stored as', () => {
@@ -169,24 +195,15 @@ describe('configFieldSchema', () => {
         expect(field('a.b')).toBe(true);
     });
 
-    it('accepts every option source the union declares', () => {
+    it('accepts exactly the option sources the union declares', () => {
         // This schema validates real manifests at load, so a source missing from it is a plugin the
-        // host refuses to start. Two were missing and nothing noticed, because no bundled plugin had
-        // asked for one yet.
+        // host refuses to start. Three went missing and nothing noticed, because no bundled plugin
+        // had asked for one yet.
+        expect([...configFieldOptionSourceSchema.options].sort()).toEqual(Object.keys(everyOptionSource).sort());
+
         const source = (optionsFrom: string) => configFieldSchema.safeParse({ key: 'a', label: 'A', type: 'string', optionsFrom }).success;
 
-        for (const declared of [
-            'station.newsCategories',
-            'station.newsFeeds',
-            'station.podcastShows',
-            'station.narrationSeries',
-            'intl.timeZones',
-            'plugins.speech',
-            'plugins.llm',
-            'plugins.mixer',
-            'plugins.analysis',
-            'llm.models',
-        ]) {
+        for (const declared of Object.keys(everyOptionSource)) {
             expect(source(declared), declared).toBe(true);
         }
     });

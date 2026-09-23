@@ -487,9 +487,9 @@ export const configFieldControlSchema = z.enum(['slider', 'tags']);
 
 /**
  * Every member of {@link ConfigFieldOptionSource}, and it has to stay every member: this validates
- * real manifests at load, so a source missing here is a plugin the host refuses to start. Two were
+ * real manifests at load, so a source missing here is a plugin the host refuses to start. Three were
  * missing for exactly that reason and nothing caught it, because no bundled plugin had asked for
- * one yet.
+ * one yet. {@link AssertOptionSourceSchemaIsExhaustive} is what catches the next one.
  */
 export const configFieldOptionSourceSchema = z.enum([
     'station.newsCategories',
@@ -501,8 +501,23 @@ export const configFieldOptionSourceSchema = z.enum([
     'plugins.llm',
     'plugins.mixer',
     'plugins.analysis',
+    'plugins.similarity',
     'llm.models',
 ]);
+
+/** `true` when `A` and `B` hold the same members. The tuples stop either side distributing over a union. */
+type SameMembers<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+
+/** Compiles only when `T` is `true`. */
+type AssertTrue<T extends true> = T;
+
+/**
+ * Fails `tsc` the moment {@link configFieldOptionSourceSchema} and {@link ConfigFieldOptionSource}
+ * disagree in either direction, so a source added to the union and not the schema is a build error
+ * rather than a plugin the host refuses to start. `plugins.similarity` was the third to go missing
+ * that way. `tests/plugin.config.fields.test.ts` checks the same thing at run time.
+ */
+export type AssertOptionSourceSchemaIsExhaustive = AssertTrue<SameMembers<ConfigFieldOptionSource, z.infer<typeof configFieldOptionSourceSchema>>>;
 
 /** The one character a key may not hold, because {@link rowSecretKey} joins on it. */
 const noSeparator = (key: string): boolean => !key.includes('/');

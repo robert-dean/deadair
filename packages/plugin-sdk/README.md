@@ -858,6 +858,15 @@ at a time, and stores the cursor you return. Hold the call open for up to
 the platform delivered, including what you filtered out, or the same messages
 come back forever. No cursor at all means "from now", never "replay everything".
 
+**A platform that pushes holds a socket instead.** Where messages, slash
+commands and button presses arrive over a WebSocket (Discord's Gateway, Slack's
+Socket Mode), open it with [`host.socket`](#when-your-platform-talks-over-a-socket),
+queue what it hears, and have `receive` drain the queue, waiting on it for up to
+`waitMs`. Return no cursor. Start the session on the first `receive` rather than
+in `onLoad`, so a failure to connect is the poll's failure and shows on your
+plugin's page. `plugins/discord` is the worked example, including acknowledging
+an interaction the moment it arrives, since the host answers when its turn comes.
+
 **Which chats count is yours to decide.** Chat ids are your platform's
 vocabulary, so the list of chats the station listens in is your configuration,
 and anything you return from `receive` is something the host acts on. Drop
@@ -881,6 +890,10 @@ buttons renders them as text or drops them.
 `announceTargets()` says which chats want which announcements (today only
 `nowPlaying`); leave it out and the station only ever answers when spoken to.
 `accepting()` is the operator's off switch, as it is for scrobbling.
+`commands(list)` is told the station's commands (`{ name, description,
+takesArgs }`) each time the host starts listening on your plugin, for a platform
+that lists commands in its own interface; overwrite, don't append. Leave it out
+and people type the commands as they always could.
 
 ## Music providers
 

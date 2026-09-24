@@ -13,8 +13,13 @@
  * `after` snowflake). The host stores the cursor durably, so a restart neither
  * replays a command nor loses one.
  *
- * A platform that can only deliver by webhook does not fit this capability yet,
- * and that is a known gap rather than an oversight.
+ * A platform that pushes over a WebSocket (Slack's Socket Mode, the Discord
+ * Gateway) fits the same way: the plugin holds the socket through
+ * `host.socket`, queues what it hears, and `receive` drains the queue, waiting
+ * on it for up to `waitMs`. Such a plugin has no cursor to return.
+ *
+ * A platform that can only deliver to a public URL does not fit this
+ * capability yet, and that is a known gap rather than an oversight.
  *
  * ## The plugin decides which chats count
  *

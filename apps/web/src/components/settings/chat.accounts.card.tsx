@@ -39,8 +39,8 @@ export function ChatAccountsCard() {
                         Chat accounts
                     </Title>
                     <Text size="sm" c="dimmed">
-                        Link your account on a chat platform, such as Telegram, to skip a record or take the station off the air from a chat. It can
-                        do only what you can.
+                        Link your account on a chat platform, such as Telegram or Discord, to skip a record or take the station off the air from a
+                        chat. It can do only what you can.
                     </Text>
                 </Stack>
                 {links.error ? (

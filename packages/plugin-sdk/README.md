@@ -421,6 +421,35 @@ it, including the time `host.fetch` parks waiting for rate-limit headroom, and
 `host.fetch` caps its own timeout by it. Read a small number as advice to wrap
 up, not as permission to run that long.
 
+## When your platform talks over a socket
+
+Some platforms only deliver over a WebSocket you hold open: Slack's Socket Mode
+and the Discord Gateway, where button presses and slash commands arrive and
+nowhere else does without a public URL. `host.socket` opens one, under the same
+policy as `host.fetch`:
+
+```ts
+const socket = await host.socket(url);               // wss: only, host in permissions.network
+socket.onMessage(text => this.handle(JSON.parse(text)));
+socket.onClose(code => this.reconnectLater(code));
+socket.send(JSON.stringify({ op: 1, d: null }));
+```
+
+Requires the `sockets` permission, and the socket's host must be in
+`permissions.network` like any other upstream. A connect costs one token from that
+host's rate bucket. Text frames only; a binary frame is dropped.
+
+The socket outlives the call that opened it, so no invocation deadline applies to
+it. The host bounds it instead: a frame over a few MiB closes it, a plugin may hold
+only a handful at once, and disposing the plugin closes every one it still has,
+**without** calling your close listeners (there is nobody left to reconnect). Stop
+your own client in a `register` disposer anyway; the host's close is the backstop.
+
+`send` after a close does nothing rather than throwing, since the likeliest sender
+is a heartbeat timer, and a listener that throws is logged rather than allowed to
+reach the event loop. The socket is the shape ServerKit's Socket Mode and Gateway
+clients call `SocketLike`, so `connect: url => host.socket(url)` is all either needs.
+
 ## When your audio needs a helper to fetch it
 
 Almost every provider answers `resolveStreamUrl` out of its own head: it knows a

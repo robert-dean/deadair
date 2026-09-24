@@ -583,6 +583,8 @@ export interface MessagingPlugin {
     declarable: boolean;
     /** Whether `announceTargets` is there to ask. Absent means no chat wants announcements. */
     announces: boolean;
+    /** Whether `commands` is there to tell. Absent means the platform keeps no list of them. */
+    listsCommands: boolean;
 }
 
 /** {@link implementsCatalog}'s rule, applied to the `messaging` capability. */
@@ -609,6 +611,7 @@ export const asMessagingPlugin = (record: PluginRecord): MessagingPlugin | undef
         instance,
         declarable: implementsAccepting(instance),
         announces: typeof (instance as unknown as Record<string, unknown>).announceTargets === 'function',
+        listsCommands: typeof (instance as unknown as Record<string, unknown>).commands === 'function',
     };
 };
 

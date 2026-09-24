@@ -1,6 +1,6 @@
 import { Injectable } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
-import type { MessagingReceiveQuery, MessagingReceiveResult, MessagingSendResult, OutboundMessage } from '@deadair/plugin-sdk';
+import type { MessagingCommand, MessagingReceiveQuery, MessagingReceiveResult, MessagingSendResult, OutboundMessage } from '@deadair/plugin-sdk';
 import { asMessagingPlugin, type MessagingPlugin } from '#modules/plugins/plugin.capabilities.js';
 import { byPluginId, pluginsWith } from '#modules/plugins/plugin.selection.js';
 import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
@@ -66,6 +66,24 @@ export class MessagingService {
         } catch (error) {
             this.logger.info(`messaging: a platform could not say whether it is accepting (${platform.record.id}: ${errorText(error)})`);
             return false;
+        }
+    }
+
+    /**
+     * Tell one platform the commands the station answers to, where it keeps a list of them.
+     *
+     * Never throws: a platform that could not take the list still hears every command typed into
+     * it, so a failure here is worth a log line and nothing more.
+     */
+    async listCommands(platform: MessagingPlugin, commands: MessagingCommand[]): Promise<void> {
+        if (!platform.listsCommands) return;
+
+        try {
+            await this.pluginInvoker.invoke(platform.record.id, 'messaging.commands', async () => platform.instance.commands!(commands), {
+                timeoutMs: SEND_TIMEOUT_MS,
+            });
+        } catch (error) {
+            this.logger.info(`messaging: a platform could not take the list of commands (${platform.record.id}: ${errorText(error)})`);
         }
     }
 

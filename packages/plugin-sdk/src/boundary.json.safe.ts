@@ -62,6 +62,7 @@ import type {
     MessagingAction,
     MessagingAnnounceTarget,
     MessagingButton,
+    MessagingCommand,
     MessagingReceiveQuery,
     MessagingReceiveResult,
     MessagingSendResult,
@@ -254,6 +255,7 @@ export type AssertAllBoundaryPayloadsAreJsonSafe = AssertAllTrue<{
     OutboundMessage: IsJsonSafe<OutboundMessage>;
     MessagingSendResult: IsJsonSafe<MessagingSendResult>;
     MessagingAnnounceTarget: IsJsonSafe<MessagingAnnounceTarget>;
+    MessagingCommand: IsJsonSafe<MessagingCommand>;
     SpeechLimits: IsJsonSafe<SpeechLimits>;
 }>;
 
@@ -351,6 +353,7 @@ export const JSON_SAFE_PAYLOAD_TYPES = [
     'OutboundMessage',
     'MessagingSendResult',
     'MessagingAnnounceTarget',
+    'MessagingCommand',
     'SpeechLimits',
 ] as const;
 

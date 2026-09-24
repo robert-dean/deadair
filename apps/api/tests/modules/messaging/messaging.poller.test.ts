@@ -5,6 +5,7 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Container } from 'injectkit';
+import { TemplateRegistry, type Reply } from '@maroonedsoftware/comms';
 import type { Logger } from '@maroonedsoftware/logger';
 import type { InboundMessage, MessagingReceiveQuery, MessagingReceiveResult, PluginManifest } from '@deadair/plugin-sdk';
 
@@ -92,8 +93,10 @@ function build(script: Array<MessagingReceiveResult | Error>, options: { savedCu
         }),
     } as unknown as Container;
 
-    const answer = vi.fn(async (_: string, inbound: InboundMessage) => (inbound.text === '/now' ? 'Teardrop' : undefined));
-    const commands = { answer } as unknown as MessagingCommands;
+    const answer = vi.fn(async (_: string, inbound: InboundMessage, reply: Reply) => {
+        if (inbound.text === '/now') await reply.send({ text: 'Teardrop' });
+    });
+    const commands = { dispatch: answer, router: { templates: new TemplateRegistry() } } as unknown as MessagingCommands;
 
     const messaging = new MessagingService(registry, new PluginInvoker(registry, stubPluginLog().log), stubLogger());
     const poller = new MessagingPoller(container, messaging, commands, stubLogger());

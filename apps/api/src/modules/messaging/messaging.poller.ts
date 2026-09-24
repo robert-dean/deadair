@@ -5,6 +5,7 @@ import { errorText } from '#modules/shared/error.text.js';
 import { inScope } from '#modules/shared/scoped.work.js';
 import { MessagingCommands } from './messaging.commands.js';
 import { MessagingRepository } from './messaging.repository.js';
+import { replyTo } from './messaging.reply.js';
 import { MessagingService } from './messaging.service.js';
 
 /**
@@ -207,17 +208,7 @@ export class MessagingPoller {
      */
     private async respond(pluginId: string, message: InboundMessage): Promise<void> {
         try {
-            const text = await this.commands.answer(pluginId, message);
-            if (text === undefined) return;
-
-            // Threaded in a group, where several people may be asking at once, and not in a direct
-            // chat, where quoting somebody's own message back to them is noise.
-            const result = await this.messaging.send(pluginId, {
-                chatId: message.chatId,
-                text,
-                ...(message.chatKind === 'group' ? { replyToId: message.id } : {}),
-            });
-            if (!result.delivered) this.logger.info(`messaging: could not answer on ${pluginId} (${result.reason ?? 'no reason given'})`);
+            await this.commands.dispatch(pluginId, message, replyTo(this.messaging, this.commands.router.templates, this.logger, pluginId, message));
         } catch (error) {
             this.logger.warn(`messaging: could not answer a message on ${pluginId} (${errorText(error)})`);
         }

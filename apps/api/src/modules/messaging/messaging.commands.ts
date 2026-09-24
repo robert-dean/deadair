@@ -1,4 +1,5 @@
 import { Injectable } from 'injectkit';
+import { ChannelRouter, type IncomingEvent, type Reply } from '@maroonedsoftware/comms';
 import type { InboundMessage } from '@deadair/plugin-sdk';
 import { NowPlayingService } from '#modules/nowplaying/nowplaying.service.js';
 import { MessagingOperator } from './messaging.operator.js';
@@ -18,6 +19,15 @@ import type { NowPlaying } from '#modules/nowplaying/types/nowplaying.types.js';
  * Nothing a person writes reaches a model here. What they typed is matched against a closed table
  * of names and otherwise ignored, which is the whole of this file's answer to the text being
  * untrusted.
+ *
+ * ## Routed by ServerKit's `comms`
+ *
+ * The table is a `ChannelRouter` from `@maroonedsoftware/comms`: commands by name, button presses
+ * by action id, everything else to the message handler, and what nothing claims to the fallback.
+ * Each platform is a channel named by its plugin id. The router is the same one ServerKit's own
+ * channel adapters dispatch into, so a handler written here is written once for every platform, and
+ * a template registered on `router.templates` renders natively where a platform has a renderer and
+ * as plain text everywhere else.
  */
 
 /** A command as it was written: `/now@deadair_bot soon` is `now` with `soon` after it. */
@@ -34,14 +44,6 @@ export interface CommandContext {
     pluginId: string;
     message: InboundMessage;
     args: string;
-}
-
-interface CommandDefinition {
-    /** One line for `/help`. */
-    summary: string;
-    /** Listed under the operator commands in `/help`, since only a linked operator can use it. */
-    operator?: boolean;
-    run(context: CommandContext): Promise<string>;
 }
 
 /** The most a command name may be. Longer is somebody's sentence that happened to start with `/`. */
@@ -81,67 +83,82 @@ export function describeRecord(station: string, record: { title: string; artist:
     return `Now playing on ${station}: ${record.title}${artist}${album}`;
 }
 
+/** The message a comms event was made from. Every event here carries one as its `raw`. */
+export const inboundOf = (event: IncomingEvent): InboundMessage => event.raw as InboundMessage;
+
+/**
+ * One message as the event `comms` routes: a button press is an `action`, a `/command` a `command`,
+ * anything else a `message`. The channel is the plugin id, so a handler can tell platforms apart
+ * without the router needing to. Exported for the tests.
+ */
+export function toIncomingEvent(pluginId: string, message: InboundMessage): IncomingEvent {
+    const base = {
+        channel: pluginId,
+        user: { id: message.sender.id, username: message.sender.displayName },
+        conversation: { id: message.chatId },
+        raw: message,
+    };
+    if (message.action !== undefined) return { ...base, kind: 'action', action: { ...message.action } };
+
+    const command = parseCommand(message.text);
+    if (command !== undefined) return { ...base, kind: 'command', text: message.text, command };
+    return { ...base, kind: 'message', text: message.text };
+}
+
 @Injectable()
 export class MessagingCommands {
-    private readonly commands: ReadonlyMap<string, CommandDefinition>;
+    /** The router every message is dispatched through. Public so a later handler (a request's buttons) can register on it. */
+    readonly router = new ChannelRouter();
+    private readonly summaries: Array<{ name: string; summary: string; operator: boolean }> = [];
 
     constructor(
         private readonly nowPlaying: NowPlayingService,
         private readonly operator: MessagingOperator,
     ) {
-        this.commands = new Map<string, CommandDefinition>([
-            ['now', { summary: 'what is on air right now', run: async () => describeNowPlaying(this.nowPlaying.getNowPlaying()) }],
-            ['help', { summary: 'what you can ask', run: async () => this.help() }],
-            [
-                'link',
-                {
-                    summary: 'CODE: link this account to your station account',
-                    operator: true,
-                    run: async c => this.operator.link(c.pluginId, c.message, c.args),
-                },
-            ],
-            ['unlink', { summary: 'undo /link', operator: true, run: async c => this.operator.unlink(c.pluginId, c.message) }],
-            ['skip', { summary: 'skip what is playing', operator: true, run: async c => this.operator.operate(c.pluginId, c.message, 'skip') }],
-            [
-                'offair',
-                { summary: 'take the station off the air', operator: true, run: async c => this.operator.operate(c.pluginId, c.message, 'offair') },
-            ],
-            [
-                'onair',
-                {
-                    summary: 'put it back on the air where it stopped',
-                    operator: true,
-                    run: async c => this.operator.operate(c.pluginId, c.message, 'onair'),
-                },
-            ],
-        ]);
+        this.command('now', 'what is on air right now', false, async () => describeNowPlaying(this.nowPlaying.getNowPlaying()));
+        this.command('help', 'what you can ask', false, async () => this.help());
+        this.command('link', 'CODE: link this account to your station account', true, async c => this.operator.link(c.pluginId, c.message, c.args));
+        this.command('unlink', 'undo /link', true, async c => this.operator.unlink(c.pluginId, c.message));
+        this.command('skip', 'skip what is playing', true, async c => this.operator.operate(c.pluginId, c.message, 'skip'));
+        this.command('offair', 'take the station off the air', true, async c => this.operator.operate(c.pluginId, c.message, 'offair'));
+        this.command('onair', 'put it back on the air where it stopped', true, async c => this.operator.operate(c.pluginId, c.message, 'onair'));
+
+        // Telegram sends `/start` the first time anybody opens a chat with a bot, so it is answered as
+        // a greeting rather than as a command nobody typed. Not listed in `/help`.
+        this.router.command('start', async (_event, reply) => reply.send({ text: this.help() }));
+
+        // Anything that is not a command: answered one to one, where somebody is writing to the
+        // station, and ignored in a group, where people are talking to each other.
+        this.router.message(async (event, reply) => {
+            if (inboundOf(event).chatKind === 'direct') await reply.send({ text: this.help() });
+        });
+
+        // A command or a button nothing here knows. Quiet in a group, where another bot may answer
+        // to it; said in a direct chat. An unknown button is always quiet: nobody typed it.
+        this.router.fallback(async (event, reply) => {
+            if (event.kind !== 'command' || inboundOf(event).chatKind !== 'direct') return;
+            await reply.send({ text: `I don't know /${event.command?.name ?? ''}.\n\n${this.help()}` });
+        });
     }
 
-    /**
-     * The answer to one message, or nothing when the station should stay quiet.
-     *
-     * Quiet for anything that is not a command in a group chat, and for a command this table does
-     * not know in one: another bot in the same group may well answer to it.
-     */
-    async answer(pluginId: string, message: InboundMessage): Promise<string | undefined> {
-        const command = parseCommand(message.text);
-        if (command === undefined) return message.chatKind === 'direct' ? this.help() : undefined;
+    /** Route one message from one platform, answering through `reply`. */
+    async dispatch(pluginId: string, message: InboundMessage, reply: Reply): Promise<void> {
+        await this.router.dispatch(toIncomingEvent(pluginId, message), reply);
+    }
 
-        // Telegram sends `/start` the first time anybody opens a chat with a bot, so it is answered
-        // as a greeting rather than as a command nobody typed.
-        if (command.name === 'start') return this.help();
-
-        const definition = this.commands.get(command.name);
-        if (definition === undefined) return message.chatKind === 'direct' ? `I don't know /${command.name}.\n\n${this.help()}` : undefined;
-
-        return definition.run({ pluginId, message, args: command.args });
+    /** Register a command that answers with text, and list it in `/help`. */
+    private command(name: string, summary: string, operator: boolean, run: (context: CommandContext) => Promise<string>): void {
+        this.summaries.push({ name, summary, operator });
+        this.router.command(name, async (event, reply) => {
+            const text = await run({ pluginId: event.channel, message: inboundOf(event), args: event.command?.args ?? '' });
+            await reply.send({ text });
+        });
     }
 
     private help(): string {
-        const line = ([name, definition]: [string, CommandDefinition]) => `/${name} ${definition.summary}`;
-        const entries = [...this.commands.entries()];
-        const everyone = entries.filter(([, definition]) => definition.operator !== true).map(line);
-        const operators = entries.filter(([, definition]) => definition.operator === true).map(line);
+        const line = (entry: { name: string; summary: string }) => `/${entry.name} ${entry.summary}`;
+        const everyone = this.summaries.filter(entry => !entry.operator).map(line);
+        const operators = this.summaries.filter(entry => entry.operator).map(line);
         return `You can ask me:\n${everyone.join('\n')}\n\nStation operators, once linked:\n${operators.join('\n')}`;
     }
 }

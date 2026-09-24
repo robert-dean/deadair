@@ -5,7 +5,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { InboundMessage } from '@deadair/plugin-sdk';
 
-import { MessagingCommands, describeNowPlaying, parseCommand } from '../../../src/modules/messaging/messaging.commands.js';
+import type { OutgoingMessage, Reply } from '@maroonedsoftware/comms';
+import { MessagingCommands, describeNowPlaying, parseCommand, toIncomingEvent } from '../../../src/modules/messaging/messaging.commands.js';
 import type { NowPlayingService } from '../../../src/modules/nowplaying/nowplaying.service.js';
 import type { MessagingOperator } from '../../../src/modules/messaging/messaging.operator.js';
 import type { NowPlaying } from '../../../src/modules/nowplaying/types/nowplaying.types.js';
@@ -35,6 +36,21 @@ const operator = {
     unlink: vi.fn(async () => 'Unlinked.'),
     operate: vi.fn(async (_p: string, _m: InboundMessage, verb: string) => `did ${verb}`),
 };
+
+/** Dispatch one message and answer with the text of the first reply, or nothing when it stayed quiet. */
+async function answer(target: MessagingCommands, pluginId: string, inbound: InboundMessage): Promise<string | undefined> {
+    const sent: OutgoingMessage[] = [];
+    const reply: Reply = {
+        channel: pluginId,
+        send: async message => {
+            sent.push(message);
+        },
+        sendTemplate: async () => undefined,
+        sendNative: async () => undefined,
+    };
+    await target.dispatch(pluginId, inbound, reply);
+    return sent[0]?.text;
+}
 
 const commands = (nowPlaying: NowPlaying = onAir()) =>
     new MessagingCommands({ getNowPlaying: vi.fn(() => nowPlaying) } as unknown as NowPlayingService, operator as unknown as MessagingOperator);
@@ -87,48 +103,75 @@ describe('what is on air', () => {
 
 describe('answering', () => {
     it('answers /now', async () => {
-        expect(await commands().answer('p', message('/now'))).toBe('Now playing on Dead Air: Teardrop by Massive Attack (Mezzanine)');
+        expect(await answer(commands(), 'p', message('/now'))).toBe('Now playing on Dead Air: Teardrop by Massive Attack (Mezzanine)');
     });
 
     it('answers /now in a group too', async () => {
-        expect(await commands().answer('p', message('/now@deadair_bot', 'group'))).toContain('Teardrop');
+        expect(await answer(commands(), 'p', message('/now@deadair_bot', 'group'))).toContain('Teardrop');
     });
 
     it('greets somebody opening a chat with /start by saying what it can do', async () => {
-        expect(await commands().answer('p', message('/start'))).toContain('/now');
+        expect(await answer(commands(), 'p', message('/start'))).toContain('/now');
     });
 
     it('answers anything that is not a command in a direct chat with the list of what is', async () => {
-        expect(await commands().answer('p', message('hi'))).toContain('/now');
+        expect(await answer(commands(), 'p', message('hi'))).toContain('/now');
     });
 
     it('stays quiet in a group when people are talking to each other', async () => {
-        expect(await commands().answer('p', message('did you hear that last one', 'group'))).toBeUndefined();
+        expect(await answer(commands(), 'p', message('did you hear that last one', 'group'))).toBeUndefined();
     });
 
     it('stays quiet in a group about a command it does not know, since another bot may', async () => {
-        expect(await commands().answer('p', message('/roll 2d6', 'group'))).toBeUndefined();
+        expect(await answer(commands(), 'p', message('/roll 2d6', 'group'))).toBeUndefined();
     });
 
     it('says it does not know a command in a direct chat', async () => {
-        expect(await commands().answer('p', message('/roll'))).toContain("I don't know /roll");
+        expect(await answer(commands(), 'p', message('/roll'))).toContain("I don't know /roll");
     });
 
     it('hands /link its code', async () => {
         const inbound = message('/link  abcd-2345 ');
-        expect(await commands().answer('deadair.telegram', inbound)).toBe('Linked.');
+        expect(await answer(commands(), 'deadair.telegram', inbound)).toBe('Linked.');
         expect(operator.link).toHaveBeenCalledWith('deadair.telegram', inbound, 'abcd-2345');
     });
 
     it('hands the operator verbs to the operator, which decides who may', async () => {
         for (const verb of ['skip', 'onair', 'offair']) {
-            expect(await commands().answer('p', message(`/${verb}`))).toBe(`did ${verb}`);
+            expect(await answer(commands(), 'p', message(`/${verb}`))).toBe(`did ${verb}`);
         }
     });
 
     it('lists the operator commands apart from everybody else’s', async () => {
-        const help = (await commands().answer('p', message('/help'))) ?? '';
+        const help = (await answer(commands(), 'p', message('/help'))) ?? '';
         expect(help.indexOf('/skip')).toBeGreaterThan(help.indexOf('Station operators'));
         expect(help.indexOf('/now')).toBeLessThan(help.indexOf('Station operators'));
+    });
+});
+
+describe('as comms events', () => {
+    it('makes a /command a command, named without its slash', () => {
+        expect(toIncomingEvent('deadair.telegram', message('/now@bot soon'))).toMatchObject({
+            channel: 'deadair.telegram',
+            kind: 'command',
+            command: { name: 'now', args: 'soon' },
+            user: { id: 'u', username: 'Robin' },
+            conversation: { id: 'c' },
+        });
+    });
+
+    it('makes a button press an action, carrying its id and value', () => {
+        expect(toIncomingEvent('p', { ...message(''), action: { id: 'request.grant', value: 'r-1' } })).toMatchObject({
+            kind: 'action',
+            action: { id: 'request.grant', value: 'r-1' },
+        });
+    });
+
+    it('makes anything else a message', () => {
+        expect(toIncomingEvent('p', message('hello')).kind).toBe('message');
+    });
+
+    it('stays quiet about a button nothing here knows', async () => {
+        expect(await answer(commands(), 'p', { ...message(''), action: { id: 'mystery' } })).toBeUndefined();
     });
 });

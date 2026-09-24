@@ -69,6 +69,13 @@ anything else gets the list of what the station answers to, because somebody wri
 writing to the station. Telegram's `/start`, which it sends the first time anybody opens a bot, is
 answered with the same list.
 
+**The table is ServerKit's `comms` `ChannelRouter`** (`@maroonedsoftware/comms`), with each platform a
+channel named by its plugin id: commands by name, button presses by action id, the rest to one
+message handler, and what nothing claims to the fallback. A handler answers through a `Reply` bound to
+the chat (`messaging.reply.ts`), threaded under the message in a group and not one to one. A button
+about one thing among several carries it as the action's `value`, since the router matches an action
+id exactly. Templates render in their portable form; no plugin takes a native payload yet.
+
 **What people write is untrusted, and here it reaches nothing that could be steered by it.** It is
 matched against the table and otherwise dropped. Anything later that carries a listener's words
 further (a request, a dedication read on air) treats them as quoted data: never in

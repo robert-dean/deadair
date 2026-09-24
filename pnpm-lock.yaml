@@ -66,6 +66,9 @@ importers:
       '@maroonedsoftware/cache':
         specifier: ^0.5.0
         version: 0.5.0(ioredis@6.0.0)
+      '@maroonedsoftware/comms':
+        specifier: ^0.2.11
+        version: 0.2.11
       '@maroonedsoftware/encryption':
         specifier: ^0.5.13
         version: 0.5.13
@@ -773,7 +776,7 @@ importers:
     dependencies:
       '@maroonedsoftware/telegram':
         specifier: ^2.1.0
-        version: 2.1.0(@maroonedsoftware/cache@0.5.0(ioredis@6.0.0))
+        version: 2.1.0(@maroonedsoftware/cache@0.5.0(ioredis@6.0.0))(@maroonedsoftware/comms@0.2.11)
     devDependencies:
       '@deadair/plugin-sdk':
         specifier: workspace:*
@@ -3063,6 +3066,10 @@ packages:
     peerDependenciesMeta:
       ioredis:
         optional: true
+
+  '@maroonedsoftware/comms@0.2.11':
+    resolution: {integrity: sha512-CpS21jH3+2IAcQkF1E6pAtEnmEyrjH/3ENtDEruTr/7FpwmmEv3cQcxk2hNADERFRRuWOPR0ESAtU8iqXbuF/g==}
+    engines: {node: '>=22'}
 
   '@maroonedsoftware/encryption@0.5.13':
     resolution: {integrity: sha512-8UqZcYUOSNCeFptHH8OxtTFYdYZklUg7jyq5D338V25zRQF0T5Gqk42Fd6bTQHAbKiDLM3u8AAI52IujJsyt0g==}
@@ -13528,6 +13535,12 @@ snapshots:
     optionalDependencies:
       ioredis: 6.0.0
 
+  '@maroonedsoftware/comms@0.2.11':
+    dependencies:
+      '@maroonedsoftware/errors': 1.9.1
+      '@maroonedsoftware/logger': 1.1.9
+      injectkit: 1.7.1
+
   '@maroonedsoftware/encryption@0.5.13':
     dependencies:
       '@maroonedsoftware/errors': 1.9.1
@@ -13659,7 +13672,7 @@ snapshots:
     optionalDependencies:
       '@maroonedsoftware/logger': 1.1.9
 
-  '@maroonedsoftware/telegram@2.1.0(@maroonedsoftware/cache@0.5.0(ioredis@6.0.0))':
+  '@maroonedsoftware/telegram@2.1.0(@maroonedsoftware/cache@0.5.0(ioredis@6.0.0))(@maroonedsoftware/comms@0.2.11)':
     dependencies:
       '@maroonedsoftware/errors': 1.9.1
       '@maroonedsoftware/logger': 1.1.9
@@ -13667,6 +13680,7 @@ snapshots:
       injectkit: 1.7.1
     optionalDependencies:
       '@maroonedsoftware/cache': 0.5.0(ioredis@6.0.0)
+      '@maroonedsoftware/comms': 0.2.11
 
   '@maroonedsoftware/utilities@1.11.5': {}
 

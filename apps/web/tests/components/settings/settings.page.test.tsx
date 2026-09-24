@@ -51,6 +51,7 @@ vi.mock('../../../src/api/client', () => ({
 vi.mock('../../../src/components/settings/security.card', () => ({ SecurityCard: () => <p>factors card</p> }));
 vi.mock('../../../src/components/settings/api.keys.card', () => ({ ApiKeysCard: () => <p>keys card</p> }));
 vi.mock('../../../src/components/settings/connected.apps.card', () => ({ ConnectedAppsCard: () => <p>connected apps card</p> }));
+vi.mock('../../../src/components/settings/chat.accounts.card', () => ({ ChatAccountsCard: () => <p>chat accounts card</p> }));
 vi.mock('../../../src/components/settings/oauth.clients.card', () => ({ OAuthClientsCard: () => <p>registered apps card</p> }));
 
 afterEach(() => {

@@ -1,6 +1,7 @@
 import { Injectable } from 'injectkit';
 import type { InboundMessage } from '@deadair/plugin-sdk';
 import { NowPlayingService } from '#modules/nowplaying/nowplaying.service.js';
+import { MessagingOperator } from './messaging.operator.js';
 import type { NowPlaying } from '#modules/nowplaying/types/nowplaying.types.js';
 
 /**
@@ -38,6 +39,8 @@ export interface CommandContext {
 interface CommandDefinition {
     /** One line for `/help`. */
     summary: string;
+    /** Listed under the operator commands in `/help`, since only a linked operator can use it. */
+    operator?: boolean;
     run(context: CommandContext): Promise<string>;
 }
 
@@ -82,10 +85,35 @@ export function describeRecord(station: string, record: { title: string; artist:
 export class MessagingCommands {
     private readonly commands: ReadonlyMap<string, CommandDefinition>;
 
-    constructor(private readonly nowPlaying: NowPlayingService) {
+    constructor(
+        private readonly nowPlaying: NowPlayingService,
+        private readonly operator: MessagingOperator,
+    ) {
         this.commands = new Map<string, CommandDefinition>([
             ['now', { summary: 'what is on air right now', run: async () => describeNowPlaying(this.nowPlaying.getNowPlaying()) }],
             ['help', { summary: 'what you can ask', run: async () => this.help() }],
+            [
+                'link',
+                {
+                    summary: 'CODE: link this account to your station account',
+                    operator: true,
+                    run: async c => this.operator.link(c.pluginId, c.message, c.args),
+                },
+            ],
+            ['unlink', { summary: 'undo /link', operator: true, run: async c => this.operator.unlink(c.pluginId, c.message) }],
+            ['skip', { summary: 'skip what is playing', operator: true, run: async c => this.operator.operate(c.pluginId, c.message, 'skip') }],
+            [
+                'offair',
+                { summary: 'take the station off the air', operator: true, run: async c => this.operator.operate(c.pluginId, c.message, 'offair') },
+            ],
+            [
+                'onair',
+                {
+                    summary: 'put it back on the air where it stopped',
+                    operator: true,
+                    run: async c => this.operator.operate(c.pluginId, c.message, 'onair'),
+                },
+            ],
         ]);
     }
 
@@ -110,7 +138,10 @@ export class MessagingCommands {
     }
 
     private help(): string {
-        const lines = [...this.commands.entries()].map(([name, definition]) => `/${name} ${definition.summary}`);
-        return `You can ask me:\n${lines.join('\n')}`;
+        const line = ([name, definition]: [string, CommandDefinition]) => `/${name} ${definition.summary}`;
+        const entries = [...this.commands.entries()];
+        const everyone = entries.filter(([, definition]) => definition.operator !== true).map(line);
+        const operators = entries.filter(([, definition]) => definition.operator === true).map(line);
+        return `You can ask me:\n${everyone.join('\n')}\n\nStation operators, once linked:\n${operators.join('\n')}`;
     }
 }

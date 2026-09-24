@@ -7,6 +7,7 @@ import type { InboundMessage } from '@deadair/plugin-sdk';
 
 import { MessagingCommands, describeNowPlaying, parseCommand } from '../../../src/modules/messaging/messaging.commands.js';
 import type { NowPlayingService } from '../../../src/modules/nowplaying/nowplaying.service.js';
+import type { MessagingOperator } from '../../../src/modules/messaging/messaging.operator.js';
 import type { NowPlaying } from '../../../src/modules/nowplaying/types/nowplaying.types.js';
 
 const offAir: NowPlaying = { station: 'Dead Air', onAir: false, listeners: 0, mounts: [] };
@@ -29,8 +30,14 @@ const message = (text: string, chatKind: InboundMessage['chatKind'] = 'direct'):
     sentAt: '2026-09-24T12:00:00.000Z',
 });
 
+const operator = {
+    link: vi.fn(async () => 'Linked.'),
+    unlink: vi.fn(async () => 'Unlinked.'),
+    operate: vi.fn(async (_p: string, _m: InboundMessage, verb: string) => `did ${verb}`),
+};
+
 const commands = (nowPlaying: NowPlaying = onAir()) =>
-    new MessagingCommands({ getNowPlaying: vi.fn(() => nowPlaying) } as unknown as NowPlayingService);
+    new MessagingCommands({ getNowPlaying: vi.fn(() => nowPlaying) } as unknown as NowPlayingService, operator as unknown as MessagingOperator);
 
 describe('reading a command', () => {
     it('reads the name and what follows it', () => {
@@ -105,5 +112,23 @@ describe('answering', () => {
 
     it('says it does not know a command in a direct chat', async () => {
         expect(await commands().answer('p', message('/roll'))).toContain("I don't know /roll");
+    });
+
+    it('hands /link its code', async () => {
+        const inbound = message('/link  abcd-2345 ');
+        expect(await commands().answer('deadair.telegram', inbound)).toBe('Linked.');
+        expect(operator.link).toHaveBeenCalledWith('deadair.telegram', inbound, 'abcd-2345');
+    });
+
+    it('hands the operator verbs to the operator, which decides who may', async () => {
+        for (const verb of ['skip', 'onair', 'offair']) {
+            expect(await commands().answer('p', message(`/${verb}`))).toBe(`did ${verb}`);
+        }
+    });
+
+    it('lists the operator commands apart from everybody else’s', async () => {
+        const help = (await commands().answer('p', message('/help'))) ?? '';
+        expect(help.indexOf('/skip')).toBeGreaterThan(help.indexOf('Station operators'));
+        expect(help.indexOf('/now')).toBeLessThan(help.indexOf('Station operators'));
     });
 });

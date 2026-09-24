@@ -34,6 +34,7 @@ import { OnboardingRouter } from './onboarding.router.js';
 import { OAuthProtocolRouter } from './oauth.protocol.router.js';
 import { OauthRouter } from './oauth.router.js';
 import { McpRouter } from './mcp.router.js';
+import { MessagingRouter } from './messaging.router.js';
 
 export const routers = [
     HealthRouter,
@@ -80,4 +81,5 @@ export const routers = [
     SettingsRouter,
     StorageRouter,
     OnboardingRouter,
+    MessagingRouter,
 ];

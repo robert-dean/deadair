@@ -13,6 +13,7 @@ import { PluginGrantsCard } from './plugin.grants.card';
 import { ProvidersCard } from './providers.card';
 import { SecurityCard } from './security.card';
 import { ApiKeysCard } from './api.keys.card';
+import { ChatAccountsCard } from './chat.accounts.card';
 import { SETTINGS_SECTIONS, type SettingsSection, type SettingsSectionId } from './settings.shell';
 import { UnsavedGuard } from './unsaved.guard';
 import { BreakArtCard } from './break.art.card';
@@ -61,6 +62,7 @@ export function SettingsSectionPage({ section: id }: SettingsSectionPageProps) {
                     <Stack gap="lg">
                         <SecurityCard />
                         <ApiKeysCard />
+                        <ChatAccountsCard />
                         <ConnectedAppsCard />
                     </Stack>
                 </Stack>

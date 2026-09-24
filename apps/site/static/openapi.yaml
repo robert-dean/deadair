@@ -1231,6 +1231,51 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/HistoryPage'
+    '/messaging/links':
+        get:
+            operationId: list
+            summary: 'List messaging links'
+            description: 'The chat accounts linked to the signed-in account'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/MessagingLinkList'
+    '/messaging/links/code':
+        post:
+            operationId: createCode
+            summary: 'Create messaging link code'
+            description: 'A new one-time code for linking a chat account. It replaces any earlier code and stops working after ten minutes'
+            responses:
+                '201':
+                    description: Created
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/MessagingLinkCode'
+    '/messaging/links/{pluginId}/{platformUserId}':
+        delete:
+            operationId: remove
+            summary: 'Remove messaging link'
+            description: 'Unlink a chat account. Its operator commands are refused from the next one on'
+            parameters:
+                - name: pluginId
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      maxLength: 200
+                - name: platformUserId
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      maxLength: 200
+            responses:
+                '204':
+                    description: 'No content'
     '/narrations/series':
         get:
             operationId: readSeries
@@ -7146,6 +7191,50 @@ components:
                     maxLength: 200
                     description: 'The cursor for the page after this one, absent once the history has been read to its end'
             required: [entries]
+        MessagingLinkCode:
+            type: object
+            properties:
+                code:
+                    type: string
+                    minLength: 6
+                    maxLength: 16
+                    description: 'The code itself. Case does not matter when it is sent'
+                expiresAt:
+                    type: string
+                    format: date-time
+                    description: 'When the code stops working. A new code replaces any earlier one'
+            required: [code, expiresAt]
+            description: "A one-time code that links a chat account to the signed-in station account. Shown once: send it to the station's bot as `/link CODE` in a direct message"
+        MessagingLink:
+            type: object
+            properties:
+                pluginId:
+                    type: string
+                    maxLength: 200
+                    description: 'Which messaging plugin the chat account is on, for example `deadair.telegram`'
+                platformUserId:
+                    type: string
+                    maxLength: 200
+                    description: "The chat platform's own id for the person"
+                displayName:
+                    type: string
+                    maxLength: 200
+                    description: 'What the chat platform called them when they linked'
+                createdAt:
+                    type: string
+                    format: date-time
+                    description: 'When the link was made'
+            required: [pluginId, platformUserId, displayName, createdAt]
+            description: "A chat account linked to the signed-in station account. Operator commands sent from it run with this account's permissions"
+        MessagingLinkList:
+            type: object
+            properties:
+                links:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/MessagingLink'
+            required: [links]
+            description: 'Every chat account linked to the signed-in station account, newest first'
         StationSeries:
             type: object
             properties:

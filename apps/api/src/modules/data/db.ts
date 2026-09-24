@@ -327,6 +327,21 @@ export interface DeadairMessagingCursors {
   updatedAt: Generated<DateTime>;
 }
 
+export interface DeadairMessagingIdentities {
+  actorId: string;
+  createdAt: Generated<DateTime>;
+  displayName: string;
+  platformUserId: string;
+  pluginId: string;
+}
+
+export interface DeadairMessagingLinkCodes {
+  actorId: string;
+  codeHash: string;
+  createdAt: Generated<DateTime>;
+  expiresAt: DateTime;
+}
+
 export interface DeadairNarrationPieces {
   airedAt: DateTime | null;
   artworkUrl: string | null;
@@ -1009,6 +1024,8 @@ export interface DB {
   "deadair.loginEvents": DeadairLoginEvents;
   "deadair.loginFailureCounters": DeadairLoginFailureCounters;
   "deadair.messagingCursors": DeadairMessagingCursors;
+  "deadair.messagingIdentities": DeadairMessagingIdentities;
+  "deadair.messagingLinkCodes": DeadairMessagingLinkCodes;
   "deadair.narrationPieces": DeadairNarrationPieces;
   "deadair.oauthClients": DeadairOauthClients;
   "deadair.oauthGrants": DeadairOauthGrants;

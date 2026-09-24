@@ -76,3 +76,25 @@ further (a request, a dedication read on air) treats them as quoted data: never 
 
 **Which chats count is the plugin's decision**, because chat ids are the platform's vocabulary.
 Anything `receive` returns is something the host acts on.
+
+## Who a chat account is
+
+**Anybody in a chat the station listens in is a listener, and needs nothing.** Operator commands
+(`/skip`, `/offair`, `/onair`) need a **linked** chat account: a signed-in operator asks the console
+for a one-time code (Settings, Sign-in and security, Chat accounts) and sends `/link CODE` to the bot
+one to one. `messaging_identities` then maps the platform's user id to the station account. There is
+no new actor kind, which keeps [#33](https://github.com/robert-dean/deadair/discussions/33) unbuilt.
+
+**The link proves an account; the permission is read fresh on every command.**
+`MessagingOperator` checks the account is still active and still holds `platform:manage` each time,
+from the tuples, the way a request resolves its roles, so a demotion or a deactivation takes effect
+on the next command. The verb then runs through `PlayoutService`, the service behind the console's
+own buttons, in a scope whose `AuthorizationContext` is that user: what the console would refuse,
+this refuses.
+
+**Codes are hashed, single-use, ten minutes, one live per account, and burned if seen in a group.**
+Only the SHA-256 is stored. Consuming one is a single `delete ... returning`, so two chats racing the
+same code cannot both win. A code sent to a group has been read by everybody there, so it is used up
+on the spot and the sender is told to get another. Minting a code refuses an API key, for
+`ApiKeysService`'s reason: a key must not hand a chat account its owner's powers.
+

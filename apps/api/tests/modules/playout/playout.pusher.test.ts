@@ -641,6 +641,55 @@ describe('PlayoutPusher.skipCurrent', () => {
     });
 });
 
+describe('PlayoutPusher.skipCurrent aimed at an item', () => {
+    it('cuts the item it names while that item is still on air', async () => {
+        const { pusher, control, first } = await onAirStation(['a', 'b', 'c']);
+        control.reading = { queued: 1, ready: true, onAir: first };
+
+        vi.useFakeTimers();
+        try {
+            const skipped = pusher.skipCurrent(first);
+            await vi.advanceTimersByTimeAsync(3_000);
+
+            expect(await skipped).toBe(true);
+            expect(control.skip).toHaveBeenCalledTimes(1);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('leaves alone the record that started after the one it was asked to cut', async () => {
+        // The operator saw the first record and pressed Skip, and it ended on its own before the cut
+        // went out. An untargeted cut would take the second record off air, which nobody asked for.
+        const { pusher, control, first, second } = await onAirStation(['a', 'b', 'c']);
+        control.reading = { queued: 1, ready: true, onAir: second };
+
+        expect(await pusher.skipCurrent(first)).toBe(true);
+        expect(control.skip).not.toHaveBeenCalled();
+    });
+
+    it('checks the id against what the pass it waited for read, not against what was true when it was asked', async () => {
+        // The race itself: the skip is asked for while a pass holds the transport, and the record
+        // crosses its boundary inside that pass.
+        const { pusher, control, first, second } = await onAirStation(['a', 'b', 'c']);
+        control.reading = { queued: 1, ready: true, onAir: first };
+        let release: (status: QueueStatus) => void = () => {};
+        control.assertOnAir.mockImplementationOnce(() => new Promise<QueueStatus>(resolve => (release = resolve)));
+
+        const pass = pusher.reconcile();
+        await Promise.resolve();
+        const skip = pusher.skipCurrent(first);
+        await Promise.resolve();
+
+        control.reading = { queued: 1, ready: true, onAir: second };
+        release(control.reading);
+        await pass;
+
+        expect(await skip).toBe(true);
+        expect(control.skip).not.toHaveBeenCalled();
+    });
+});
+
 describe('PlayoutPusher.skipCurrent against a pass in flight', () => {
     it('waits for a running pass rather than skipping beside it', async () => {
         // A pass is halfway through: it has taken its reading and is resolving an item. The skip

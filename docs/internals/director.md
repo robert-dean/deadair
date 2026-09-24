@@ -115,6 +115,15 @@ the mailbox, because the cut waits out a boundary and the mailbox must not. It c
 airing, and a cut the stream refuses is logged rather than answered as a 409: the order has already moved
 and been written down, so the record is next either way.
 
+**Every cut names the item it is for.** `skipCurrent` sends its cut only after the transport guard is free
+and a top-up pass has run, and that pass resolves and pushes, so seconds can pass between the ask and the
+cut. A record that ends on its own inside them leaves the next one airing, and an untargeted cut takes THAT
+off: the operator's Skip lands on the record after the one they saw, a skip-to can cut the very record it was
+aiming for, and an overrun cut takes the new programme's first record. So each caller reads the id airing
+when it was asked (the operator's Skip, `skipToOrderItem`, `vetoDisliked`, `cutOverrun`), and `skipCurrent`
+cuts nothing when the pass it waited for shows that item gone, answering as though the cut had landed,
+since the item is off air either way.
+
 ## What the order is asked for
 
 **The order also carries the operator's BRIEF, and that is why it is on the row rather than in a job

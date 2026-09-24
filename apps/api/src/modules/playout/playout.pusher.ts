@@ -266,14 +266,28 @@ export class PlayoutPusher {
      * built from the rundown, so returning before the player has crossed over
      * means answering with the track that was cut.
      *
-     * @returns whether the stream took the command. A skip nobody heard should
-     *   not be reported as one that happened.
+     * **Aimed at one item, when the caller names it.** The cut goes out after the guard is free and a
+     * top-up pass has run, and the pass resolves and pushes, the slowest awaits in playout. A record
+     * that ends on its own inside that wait leaves the NEXT one on air, and an untargeted cut then takes
+     * off a record nobody asked to lose: the operator's Skip lands on the track after the one they
+     * saw, and an overrun cut lands on the new programme's first record. So the id is checked against
+     * what the pass just read, and a record that has already gone is not cut at all.
+     *
+     * `itemId` is optional only for the operator's Skip with nothing known on air, where the old
+     * behaviour, cut whatever is playing, is still the right answer: an item from a previous process
+     * is airing and the rundown cannot name it.
+     *
+     * @returns whether the item is off air: the stream took the cut, or the item had already ended
+     *   and there was nothing left to cut. `false` only for a skip the stream did not take, which
+     *   should not be reported as one that happened.
      */
-    async skipCurrent(): Promise<boolean> {
+    async skipCurrent(itemId?: string): Promise<boolean> {
         const took = await this.exclusively(async () => {
             await this.pass();
 
             const before = this.rundown.nowPlaying()?.item.id;
+            if (itemId !== undefined && before !== itemId) return true;
+
             const reading = await this.control.skip();
             if (!reading) return false;
 

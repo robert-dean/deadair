@@ -3,6 +3,7 @@ import { httpError } from '@maroonedsoftware/errors';
 import { JobBroker } from '@maroonedsoftware/jobbroker';
 import { Logger } from '@maroonedsoftware/logger';
 import { entriesOfFile } from './playlist.file.js';
+import { parsePlaylistText } from './playlist.text.parser.js';
 import { PlaylistImportPlanner, type PlaylistImportEntrySource } from './playlist.import.planner.js';
 import { StationPlaylistsRepository } from './station.playlists.repository.js';
 import { toStationPlaylist } from './station.playlists.service.js';
@@ -78,10 +79,15 @@ export class PlaylistImportService {
     /**
      * The one source this input names, as entries.
      *
-     * @throws 400 when it names none. The schema cannot say "exactly one of", so this does.
+     * @throws 400 when it names none, or more than one. The schema cannot say "exactly one of", so
+     *   this does.
      */
     private sourceOf(input: PlaylistImportInput): PlaylistImportEntrySource {
+        const named = [input.file, input.text].filter(source => source !== undefined).length;
+        if (named > 1) throw httpError(400).withDetails({ message: 'import one thing at a time: a playlist file or a text list, not both' });
+
         if (input.file !== undefined) return entriesOfFile(input.file);
-        throw httpError(400).withDetails({ message: 'say what to import: a playlist file' });
+        if (input.text !== undefined) return parsePlaylistText(input.text, input.format, input.fileName);
+        throw httpError(400).withDetails({ message: 'say what to import: a playlist file or a text list' });
     }
 }

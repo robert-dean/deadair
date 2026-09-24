@@ -625,30 +625,55 @@ public struct PlaylistImportResultInput: Codable, Equatable, Sendable {
 public struct PlaylistImportInput: Codable, Equatable, Sendable {
     /// A playlist exported from a deadair station
     public var file: PlaylistFile?
+    /// A playlist another program wrote, as its text: an M3U, a CSV with a header row, or one `Artist - Title` per line
+    public var text: String?
+    /// Which of those `text` is. Absent works it out from the text
+    public var format: PlaylistImportInputFormat?
+    /// The name of the file `text` came from, which names the playlist when the text does not
+    public var fileName: String?
     /// What to call the new playlist. Absent keeps the name the source gives it
     public var name: String?
 
-    public init(file: PlaylistFile? = nil, name: String? = nil) {
+    public init(file: PlaylistFile? = nil, text: String? = nil, format: PlaylistImportInputFormat? = nil, fileName: String? = nil, name: String? = nil) {
         self.file = file
+        self.text = text
+        self.format = format
+        self.fileName = fileName
         self.name = name
     }
 
     private enum CodingKeys: String, CodingKey {
         case file = "file"
+        case text = "text"
+        case format = "format"
+        case fileName = "fileName"
         case name = "name"
     }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.file = try container.decodeIfPresent(PlaylistFile.self, forKey: .file)
+        self.text = try container.decodeIfPresent(String.self, forKey: .text)
+        self.format = try container.decodeIfPresent(PlaylistImportInputFormat.self, forKey: .format)
+        self.fileName = try container.decodeIfPresent(String.self, forKey: .fileName)
         self.name = try container.decodeIfPresent(String.self, forKey: .name)
     }
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encodeIfPresent(self.file, forKey: .file)
+        try container.encodeIfPresent(self.text, forKey: .text)
+        try container.encodeIfPresent(self.format, forKey: .format)
+        try container.encodeIfPresent(self.fileName, forKey: .fileName)
         try container.encodeIfPresent(self.name, forKey: .name)
     }
+}
+
+/// Which of those `text` is. Absent works it out from the text
+public enum PlaylistImportInputFormat: String, Codable, CaseIterable, Sendable {
+    case m3u = "m3u"
+    case csv = "csv"
+    case text = "text"
 }
 
 /// `matched`: the library holds it. `toAdd`: it names a provider's copy, which the station can add to its library. `toLookUp`: it names only a record, which the station has to search its providers for

@@ -322,10 +322,39 @@ public sealed record PlaylistImportInput
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public PlaylistFile? File { get; init; }
 
+    /// <summary>A playlist another program wrote, as its text: an M3U, a CSV with a header row, or one `Artist - Title` per line</summary>
+    [JsonPropertyName("text")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Text { get; init; }
+
+    /// <summary>Which of those `text` is. Absent works it out from the text</summary>
+    [JsonPropertyName("format")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PlaylistImportInputFormat? Format { get; init; }
+
+    /// <summary>The name of the file `text` came from, which names the playlist when the text does not</summary>
+    [JsonPropertyName("fileName")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? FileName { get; init; }
+
     /// <summary>What to call the new playlist. Absent keeps the name the source gives it</summary>
     [JsonPropertyName("name")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Name { get; init; }
+}
+
+/// <summary>Which of those `text` is. Absent works it out from the text</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<PlaylistImportInputFormat>))]
+public enum PlaylistImportInputFormat
+{
+    [JsonStringEnumMemberName("m3u")]
+    M3u,
+
+    [JsonStringEnumMemberName("csv")]
+    Csv,
+
+    [JsonStringEnumMemberName("text")]
+    Text,
 }
 
 /// <summary>`matched`: the library holds it. `toAdd`: it names a provider's copy, which the station can add to its library. `toLookUp`: it names only a record, which the station has to search its providers for</summary>

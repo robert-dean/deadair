@@ -76,6 +76,9 @@ contract PlaylistFile: {
 # Something to import a playlist from. Exactly one source
 contract PlaylistImportInput: {
     file?: PlaylistFile # A playlist exported from a deadair station
+    text?: string(min=1, max=4000000) # A playlist another program wrote, as its text: an M3U, a CSV with a header row, or one `Artist - Title` per line
+    format?: enum(m3u, csv, text) # Which of those `text` is. Absent works it out from the text
+    fileName?: string(max=400) # The name of the file `text` came from, which names the playlist when the text does not
     name?: string(min=1, max=200) # What to call the new playlist. Absent keeps the name the source gives it
 }
 

@@ -84,7 +84,7 @@ export interface PlaylistFileOrigin {
 
 /**
  * What importing one record would do here
- * generated from [PlaylistImportEntry](../../../../../apps/api/data/contracts/playlists/station.playlists.types.ck#L83)
+ * generated from [PlaylistImportEntry](../../../../../apps/api/data/contracts/playlists/station.playlists.types.ck#L86)
  */
 export interface PlaylistImportEntry {
     position: number;
@@ -153,7 +153,7 @@ export interface PlaylistFileTrack {
 
 /**
  * What an import WOULD do, written nowhere
- * generated from [PlaylistImportPlan](../../../../../apps/api/data/contracts/playlists/station.playlists.types.ck#L96)
+ * generated from [PlaylistImportPlan](../../../../../apps/api/data/contracts/playlists/station.playlists.types.ck#L99)
  */
 export interface PlaylistImportPlan {
     name: string;
@@ -184,7 +184,7 @@ export interface PlaylistFile {
 }
 
 /**
- * generated from [PlaylistImportResult](../../../../../apps/api/data/contracts/playlists/station.playlists.types.ck#L106)
+ * generated from [PlaylistImportResult](../../../../../apps/api/data/contracts/playlists/station.playlists.types.ck#L109)
  */
 export interface PlaylistImportResult {
     plan: PlaylistImportPlan;
@@ -210,6 +210,12 @@ export function revivePlaylistImportResult(raw: PlaylistImportResult): PlaylistI
 export interface PlaylistImportInput {
     /** A playlist exported from a deadair station */
     file?: PlaylistFile;
+    /** A playlist another program wrote, as its text: an M3U, a CSV with a header row, or one `Artist - Title` per line */
+    text?: string;
+    /** Which of those `text` is. Absent works it out from the text */
+    format?: 'm3u' | 'csv' | 'text';
+    /** The name of the file `text` came from, which names the playlist when the text does not */
+    fileName?: string;
     /** What to call the new playlist. Absent keeps the name the source gives it */
     name?: string;
 }

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Badge, Button, FileButton, Group, List, Modal, ScrollArea, Stack, Table, Text, TextInput } from '@mantine/core';
+import { Badge, Button, FileButton, Group, List, Modal, ScrollArea, Stack, Table, Tabs, Text, TextInput, Textarea } from '@mantine/core';
 import { useNavigate } from '@tanstack/react-router';
 import type { PlaylistFile, PlaylistImportInput, PlaylistImportPlan } from '@deadair/sdk';
 
@@ -12,15 +12,19 @@ export interface PlaylistImportModalProps {
     onClose: () => void;
 }
 
+/** The files a playlist arrives in: deadair's own JSON, and the text other software writes. */
+const ACCEPTED = '.json,.m3u,.m3u8,.csv,.tsv,.txt,application/json,text/csv,text/plain,audio/x-mpegurl,audio/mpegurl';
+
 /**
- * Making a station playlist from a file.
+ * Making a station playlist from somewhere else.
  *
  * Choose, read what it would do, do it: the persona import's three steps in one dialog, for its
  * reasons. The plan on screen is the decision rather than a forecast, because the import runs the
  * same planner on the same source.
  *
- * The source is parsed HERE only as far as knowing it is JSON, so a file that is not gets a plain
- * sentence rather than a 400 from a schema that never ran. Everything else is the API's to judge.
+ * A `.json` file is parsed HERE only as far as knowing it is JSON, so one that is not gets a plain
+ * sentence rather than a 400 from a schema that never ran. Anything else is sent as text, and the
+ * API reads it as an M3U, a CSV or a list of `Artist - Title` lines.
  */
 export function PlaylistImportModal({ opened, onClose }: PlaylistImportModalProps) {
     const phone = usePhone();
@@ -29,42 +33,53 @@ export function PlaylistImportModal({ opened, onClose }: PlaylistImportModalProp
     const write = useImportPlaylist();
 
     // The source as it was previewed, so Import sends exactly that rather than re-reading a file the
-    // operator may have replaced on disk in between.
+    // operator may have replaced on disk in between, or a paste they have since edited.
     const [source, setSource] = useState<PlaylistImportInput | undefined>(undefined);
     const [fileName, setFileName] = useState<string | undefined>(undefined);
+    const [pasted, setPasted] = useState('');
     const [name, setName] = useState('');
     const [unreadable, setUnreadable] = useState<string | undefined>(undefined);
 
-    const close = () => {
+    const restart = () => {
         setSource(undefined);
-        setFileName(undefined);
-        setName('');
         setUnreadable(undefined);
         preview.reset();
         write.reset();
+    };
+
+    const close = () => {
+        restart();
+        setFileName(undefined);
+        setPasted('');
+        setName('');
         onClose();
+    };
+
+    const read = (input: PlaylistImportInput) => {
+        setSource(input);
+        preview.mutate(input, { onSuccess: plan => setName(plan.name) });
     };
 
     const choose = async (chosen: File | null) => {
         if (chosen === null) return;
 
-        setUnreadable(undefined);
-        preview.reset();
-        write.reset();
+        restart();
         setFileName(chosen.name);
+        const text = await chosen.text();
 
-        let file: PlaylistFile;
-        try {
-            file = JSON.parse(await chosen.text()) as PlaylistFile;
-        } catch {
-            setSource(undefined);
-            setUnreadable(`"${chosen.name}" is not a file this can read. A playlist file is the JSON a station playlist's Export saved.`);
+        if (!chosen.name.toLowerCase().endsWith('.json')) {
+            read({ text, fileName: chosen.name });
             return;
         }
 
-        const input: PlaylistImportInput = { file };
-        setSource(input);
-        preview.mutate(input, { onSuccess: plan => setName(plan.name) });
+        let file: PlaylistFile;
+        try {
+            file = JSON.parse(text) as PlaylistFile;
+        } catch {
+            setUnreadable(`"${chosen.name}" is not a file this can read. A playlist file is the JSON a station playlist's Export saved.`);
+            return;
+        }
+        read({ file });
     };
 
     const plan = preview.data;
@@ -87,34 +102,68 @@ export function PlaylistImportModal({ opened, onClose }: PlaylistImportModalProp
         <Modal opened={opened} onClose={close} title="Import a playlist" size="lg" fullScreen={phone}>
             <Stack gap="md">
                 <Text size="sm" c="dimmed">
-                    A playlist file saved by this station or somebody else&apos;s. It becomes a new playlist of the station&apos;s own: importing the
-                    same file twice makes two. A record the library does not hold keeps its place, and the station looks it up at its music sources
-                    straight after the import.
+                    It becomes a new playlist of the station&apos;s own: importing the same thing twice makes two. A record the library does not hold
+                    keeps its place, and the station looks it up at its music sources straight after the import.
                 </Text>
 
-                <Group gap="sm">
-                    <FileButton onChange={file => void choose(file)} accept="application/json,.json">
-                        {props => (
-                            <Button {...props} variant="default" loading={preview.isPending}>
-                                {fileName === undefined ? 'Choose a file' : 'Choose another file'}
-                            </Button>
-                        )}
-                    </FileButton>
-                    {fileName === undefined ? undefined : (
-                        <Text size="sm" c="dimmed">
-                            {fileName}
-                        </Text>
-                    )}
-                </Group>
+                <Tabs defaultValue="file" onChange={restart}>
+                    <Tabs.List>
+                        <Tabs.Tab value="file">File</Tabs.Tab>
+                        <Tabs.Tab value="paste">Paste a list</Tabs.Tab>
+                    </Tabs.List>
+
+                    <Tabs.Panel value="file" pt="md">
+                        <Stack gap="xs">
+                            <Text size="xs" c="dimmed">
+                                A playlist file another station exported, an M3U from a media player, or a CSV from a playlist exporter.
+                            </Text>
+                            <Group gap="sm">
+                                <FileButton onChange={file => void choose(file)} accept={ACCEPTED}>
+                                    {props => (
+                                        <Button {...props} variant="default" loading={preview.isPending && source?.text === undefined}>
+                                            {fileName === undefined ? 'Choose a file' : 'Choose another file'}
+                                        </Button>
+                                    )}
+                                </FileButton>
+                                {fileName === undefined ? undefined : (
+                                    <Text size="sm" c="dimmed">
+                                        {fileName}
+                                    </Text>
+                                )}
+                            </Group>
+                        </Stack>
+                    </Tabs.Panel>
+
+                    <Tabs.Panel value="paste" pt="md">
+                        <Stack gap="xs">
+                            <Textarea
+                                label="One record per line"
+                                description="As Artist - Title. Numbered lines are fine."
+                                placeholder={'Massive Attack - Teardrop\nPortishead - Roads'}
+                                value={pasted}
+                                onChange={event => setPasted(event.currentTarget.value)}
+                                autosize
+                                minRows={4}
+                                maxRows={12}
+                            />
+                            <Group justify="flex-end">
+                                <Button
+                                    variant="default"
+                                    disabled={pasted.trim().length === 0}
+                                    loading={preview.isPending}
+                                    onClick={() => read({ text: pasted })}
+                                >
+                                    Preview
+                                </Button>
+                            </Group>
+                        </Stack>
+                    </Tabs.Panel>
+                </Tabs>
 
                 {unreadable ? <ErrorAlert tone="warning">{unreadable}</ErrorAlert> : undefined}
 
                 {preview.error ? (
-                    <ErrorAlert
-                        title="That file could not be read"
-                        error={preview.error}
-                        fallback="It is JSON, but not a playlist file this station recognises."
-                    />
+                    <ErrorAlert title="That could not be read" error={preview.error} fallback="It is not a playlist this station recognises." />
                 ) : undefined}
 
                 {write.error ? (

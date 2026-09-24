@@ -84,7 +84,7 @@ export type PlaylistFileOrigin = z.infer<typeof PlaylistFileOrigin>;
 
 /**
  * What importing one record would do here
- * generated from [PlaylistImportEntry](../../../../data/contracts/playlists/station.playlists.types.ck#L83)
+ * generated from [PlaylistImportEntry](../../../../data/contracts/playlists/station.playlists.types.ck#L86)
  */
 export const PlaylistImportEntry = z.strictObject({
     position: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)),
@@ -142,7 +142,7 @@ export type PlaylistFileTrack = z.infer<typeof PlaylistFileTrack>;
 
 /**
  * What an import WOULD do, written nowhere
- * generated from [PlaylistImportPlan](../../../../data/contracts/playlists/station.playlists.types.ck#L96)
+ * generated from [PlaylistImportPlan](../../../../data/contracts/playlists/station.playlists.types.ck#L99)
  */
 export const PlaylistImportPlan = z.strictObject({
     name: z.string().min(1).max(200),
@@ -172,7 +172,7 @@ export const PlaylistFile = z.strictObject({
 export type PlaylistFile = z.infer<typeof PlaylistFile>;
 
 /**
- * generated from [PlaylistImportResult](../../../../data/contracts/playlists/station.playlists.types.ck#L106)
+ * generated from [PlaylistImportResult](../../../../data/contracts/playlists/station.playlists.types.ck#L109)
  */
 export const PlaylistImportResult = z.strictObject({
     plan: PlaylistImportPlan,
@@ -192,6 +192,14 @@ export type PlaylistImportResultInput = z.infer<typeof PlaylistImportResultInput
  */
 export const PlaylistImportInput = z.strictObject({
     file: PlaylistFile.optional().describe('A playlist exported from a deadair station'),
+    text: z
+        .string()
+        .min(1)
+        .max(4000000)
+        .optional()
+        .describe('A playlist another program wrote, as its text: an M3U, a CSV with a header row, or one `Artist - Title` per line'),
+    format: z.enum(['m3u', 'csv', 'text']).optional().describe('Which of those `text` is. Absent works it out from the text'),
+    fileName: z.string().max(400).optional().describe('The name of the file `text` came from, which names the playlist when the text does not'),
     name: z.string().min(1).max(200).optional().describe('What to call the new playlist. Absent keeps the name the source gives it'),
 });
 export type PlaylistImportInput = z.infer<typeof PlaylistImportInput>;

@@ -319,4 +319,40 @@ describe('PlaylistsPage', () => {
         expect(await screen.findByText(/is not a file this can read/)).toBeInTheDocument();
         expect(previewPlaylistImport).not.toHaveBeenCalled();
     });
+
+    it('sends an M3U as text, named by its file, for the station to read', async () => {
+        listImportablePlaylists.mockResolvedValue(catalogPlaylistPage({ playlists: [catalogPlaylist()] }));
+        previewPlaylistImport.mockResolvedValue({ name: 'late', matched: 0, toAdd: 0, toLookUp: 1, skipped: 0, notices: [], entries: [] });
+        const user = setupUser();
+
+        render(<PlaylistsPage />);
+        await user.click(await screen.findByRole('button', { name: 'Import' }));
+        const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+        await user.upload(input, new File(['#EXTM3U\n#EXTINF:1,A - B\na.mp3'], 'late.m3u', { type: 'audio/x-mpegurl' }));
+
+        await waitFor(() => expect(previewPlaylistImport).toHaveBeenCalledWith({ text: '#EXTM3U\n#EXTINF:1,A - B\na.mp3', fileName: 'late.m3u' }));
+    });
+
+    it('previews a pasted list', async () => {
+        listImportablePlaylists.mockResolvedValue(catalogPlaylistPage({ playlists: [catalogPlaylist()] }));
+        previewPlaylistImport.mockResolvedValue({
+            name: 'Imported playlist',
+            matched: 1,
+            toAdd: 0,
+            toLookUp: 0,
+            skipped: 0,
+            notices: [],
+            entries: [{ position: 0, title: 'Teardrop', artists: ['Massive Attack'], outcome: 'matched', trackId: 't1' }],
+        });
+        const user = setupUser();
+
+        render(<PlaylistsPage />);
+        await user.click(await screen.findByRole('button', { name: 'Import' }));
+        await user.click(await screen.findByRole('tab', { name: 'Paste a list' }));
+        await user.type(screen.getByLabelText(/One record per line/), 'Massive Attack - Teardrop');
+        await user.click(screen.getByRole('button', { name: 'Preview' }));
+
+        await waitFor(() => expect(previewPlaylistImport).toHaveBeenCalledWith({ text: 'Massive Attack - Teardrop' }));
+        expect(await screen.findByRole('button', { name: 'Import 1 record' })).toBeEnabled();
+    });
 });

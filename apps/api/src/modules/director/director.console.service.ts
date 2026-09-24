@@ -1002,9 +1002,13 @@ export class DirectorConsoleService {
      * @throws 404 when the order does not hold the item, and 422 when it is not a record still to come.
      */
     async skipToOrderItem(itemId: string): Promise<StationOrder> {
+        // The record to cut is the one airing when the operator asked, read before the edit waits on
+        // the mailbox. If it ends on its own before the cut goes out, the record now airing may be the
+        // very one being skipped to, and cutting that would pass over the operator's own choice.
+        const airing = this.rundown.nowPlaying()?.item.id;
         await this.applyOrderEdit({ kind: 'skipTo', itemId });
 
-        if (this.rundown.nowPlaying() !== undefined && !(await this.pusher.skipCurrent())) {
+        if (airing !== undefined && !(await this.pusher.skipCurrent(airing))) {
             this.logger.warn('director: skipped the running order ahead, but the stream did not take the cut; the record plays when this one ends');
         }
         return await this.getOrder();
@@ -1056,7 +1060,8 @@ export class DirectorConsoleService {
 
         // Read BEFORE the edit, because the edit is what takes these lines out of the order: after
         // it, there is nothing left to ask whether the record on air was one of them.
-        const cutAiring = vetoed.some(item => item.state === 'airing');
+        const airingVetoed = vetoed.find(item => item.state === 'airing')?.id;
+        const cutAiring = airingVetoed !== undefined;
 
         await this.applyOrderEdit({ kind: 'vetoDisliked', itemIds: vetoed.map(item => item.id), forbidden });
         this.logger.info('director: took records out of the running order that the station has been told not to play', {
@@ -1073,7 +1078,10 @@ export class DirectorConsoleService {
         // rather than raised: the record has already been taken out of the order everywhere the
         // order could take it out, nobody is waiting on this, and the alternative is an operator's
         // rating reporting failure after it succeeded.
-        if (cutAiring && this.rundown.nowPlaying() !== undefined && !(await this.pusher.skipCurrent())) {
+        //
+        // Aimed at the forbidden record by id. The ratings query and the edit both wait, and a record
+        // that ends on its own inside them leaves one nobody objected to on air.
+        if (airingVetoed !== undefined && this.rundown.nowPlaying() !== undefined && !(await this.pusher.skipCurrent(airingVetoed))) {
             this.logger.warn('director: the record on air is one the station has been told not to play, but the stream did not take the cut');
         }
     }
@@ -1115,7 +1123,9 @@ export class DirectorConsoleService {
     async cutOverrun(itemId: string): Promise<boolean> {
         if (this.rundown.nowPlaying()?.item.id !== itemId) return false;
 
-        return await this.pusher.skipCurrent();
+        // The check above is only the cheap early answer. `skipCurrent` waits for the transport and
+        // runs a top-up pass before it cuts, so the id goes with it and is checked again there.
+        return await this.pusher.skipCurrent(itemId);
     }
 
     /**

@@ -373,7 +373,11 @@ export class PlayoutService {
      *   heard is never reported as one that happened.
      */
     async skip(): Promise<PlayoutStatus> {
-        if (!(await this.pusher.skipCurrent())) {
+        // What the operator was looking at when they pressed Skip, read before anything waits. The cut
+        // lands after a top-up pass, and aimed at nothing in particular it would take off whatever
+        // started in the meantime. See `PlayoutPusher.skipCurrent`.
+        const airing = this.rundown.nowPlaying()?.item.id;
+        if (!(await this.pusher.skipCurrent(airing))) {
             throw httpError(409).withDetails({ message: 'the stream did not take the skip; it may be down' });
         }
         return this.getStatus();

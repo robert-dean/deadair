@@ -35,6 +35,7 @@ import { PersonaStoriesPanel } from './persona.stories';
 import { PersonaMemoryPanel } from './persona.memory';
 import { PersonaRehearsalPanel } from './persona.rehearsal';
 import { PresenterNamePanel } from './presenter.name.panel';
+import { StoryWaitPanel } from './story.wait.panel';
 import { PresentingBanner } from './presenting.banner';
 
 /**
@@ -205,6 +206,10 @@ export function PersonasPage() {
             {/* What an unnamed host is called. Above the roster rather than on the station card,
                 because every host below with a name of its own overrides it. */}
             <PresenterNamePanel hosts={all.filter(persona => kindOf(persona) === 'host')} />
+
+            {/* How long a story in parts or a running joke rests between tellings. Beside the name
+                for the same reason: it is about every character below, not about one of them. */}
+            <StoryWaitPanel />
 
             {/* The one failure that stays page-level, because the button that asks for it is up
                 here and it is about the list rather than about any row in it. Putting one on air,

@@ -9,6 +9,18 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.34.0] — 2026-09-24
+
+- A connected app can now run any operation it found with `search_api` through `call_api`, as the person who connected it and with the same checks the operation's own route makes. It can ask for only the fields it needs, and an answer too long to return whole keeps as many whole records as fit and says how many there were. Every call is logged with the app's grant and whether it was refused.
+- Connected apps now see the station's everyday operations as tools of their own: finding and requesting a record, a person's own requests, skipping what is on air, and what the schedule says is on now and later. Each has a description written for the model, saying what it answers and when to use it rather than its neighbour.
+- An app connected to the station over MCP, such as a Claude connector, now has tools to call: what is on air, what is queued behind it, and `whoami`, which says who the app is acting as and what time it is at the station. Each call runs as the person who approved the app, with their permissions, and a refusal reaches the model as a message it can act on rather than a failed call.
+- A connected app can now find any station operation through `search_api`, not just the handful listed as tools. A query answers a short index of matching operations the app may actually use, filtered by the person's role and the app's grant, and a name answers one operation in full, with its arguments. Signing in, credentials, connected apps, station settings, plugin configuration, log files and the long persona model calls are kept out of it.
+- Approving an app now asks what it may do: read only, the default, or read and manage. The choice replaces whatever the app asked for and never exceeds what the person can do themselves. Connected apps under Sign-in and security show what each may do, in the same words API keys use.
+- An app connected over MCP now works under the same view/manage limit as an API key, read from the scopes its grant holds. Every app already connected keeps both, so nothing it could do before stops working. A connected app can no longer pass a step-up check, approve another app or manage sign-in credentials, and whoami reports what the grant allows rather than the scope the app asked for.
+- An empty **Language** setting shows `en` in grey, which is what the station broadcasts in while it is empty.
+- The API reference writes OAuth, HLS, MFA and similar names in capitals ("List OAuth clients" rather than "List oauth clients"). Underneath, the station moves to the MCP runtime and ContractKit releases that its MCP tools will need.
+- An empty model setting (**Model for a talk break** and the five beside it) shows the model the station will actually use: the default the model plugin in use marks, with "Using … while this is empty." under the box. A model server that does not answer within two seconds costs the placeholder, never the settings page.
+
 ## [0.33.1] — 2026-09-24
 
 - The checks on what a presenter wrote read an accented letter as part of its word. A persona's vocabulary is no longer found inside a longer word that happens to carry an accent, and a story is no longer marked as told because a fragment of an accented name ("rich" out of "Zürich") turned up in a break.
@@ -885,7 +897,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.33.1...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.34.0...HEAD
+[0.34.0]: https://github.com/robert-dean/deadair/compare/v0.33.1...v0.34.0
 [0.33.1]: https://github.com/robert-dean/deadair/compare/v0.33.0...v0.33.1
 [0.33.0]: https://github.com/robert-dean/deadair/compare/v0.32.1...v0.33.0
 [0.32.1]: https://github.com/robert-dean/deadair/compare/v0.32.0...v0.32.1

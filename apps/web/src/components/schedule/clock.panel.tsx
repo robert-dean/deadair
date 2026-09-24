@@ -241,7 +241,7 @@ export function ClockPanel() {
  * and the next start describing one rule differently.
  */
 export function whenOf(band: ClockBand): string {
-    if (band.at === 'interval') return i18n.t('schedule:clock.every', { minutes: Math.round((band.everyMs ?? 0) / 60_000) });
+    if (band.at === 'interval') return i18n.t('schedule:clock.every', { count: Math.round((band.everyMs ?? 0) / 60_000) });
 
     const minute = String(band.minute ?? 0).padStart(2, '0');
     return band.hour === undefined ? `:${minute}` : `${String(band.hour).padStart(2, '0')}:${minute}`;

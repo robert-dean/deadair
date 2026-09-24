@@ -543,7 +543,7 @@ function PersonaRecord({ counts }: { counts?: ScriptHistorySummaryRow }) {
                 </Text>
             ) : undefined}
             <Text size="xs" c="dimmed">
-                {t('card.record.window', { hours: SUMMARY_HOURS })}
+                {t('card.record.window', { count: SUMMARY_HOURS })}
             </Text>
         </Group>
     );

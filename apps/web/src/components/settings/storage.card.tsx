@@ -62,7 +62,7 @@ export function StorageCard() {
                                 {t('storage.everything')}
                             </Text>
                             <Text size="sm" className="da-num">
-                                {t('storage.totals', { bytes: formatBytes(storage.data.totalBytes), files: storage.data.totalFiles })}
+                                {t('storage.totals', { bytes: formatBytes(storage.data.totalBytes), count: storage.data.totalFiles })}
                             </Text>
                         </Group>
                     </Stack>

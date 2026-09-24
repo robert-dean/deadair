@@ -13,7 +13,7 @@ import { ONE_TIME_CODE_LENGTH, OneTimeCodeInput } from '../shared/one.time.code.
 /** The server's own wait, or a flat sentence when it did not say. */
 function rateLimitedMessage(error: unknown): string {
     const wait = retryAfterMs(error);
-    return wait === undefined ? i18n.t('auth:rateLimited.wait') : i18n.t('auth:rateLimited.retryIn', { seconds: Math.ceil(wait / 1000) });
+    return wait === undefined ? i18n.t('auth:rateLimited.wait') : i18n.t('auth:rateLimited.retryIn', { count: Math.ceil(wait / 1000) });
 }
 
 /**

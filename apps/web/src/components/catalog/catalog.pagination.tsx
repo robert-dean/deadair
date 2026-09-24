@@ -50,7 +50,7 @@ export function CatalogPagination({ total, pageSize, page, onChange, onPageSizeC
                         size="xs"
                         w={110}
                         aria-label={t('pagination.rowsPerPage')}
-                        data={PAGE_SIZES.map(size => ({ value: String(size), label: t('pagination.rows', { size }) }))}
+                        data={PAGE_SIZES.map(size => ({ value: String(size), label: t('pagination.rows', { count: size }) }))}
                         value={String(pageSize)}
                         allowDeselect={false}
                         onChange={next => {

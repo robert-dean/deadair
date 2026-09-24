@@ -11,7 +11,8 @@ export const auth = {
     signInFailed: 'Sign-in failed',
     rateLimited: {
         wait: 'Too many attempts. Wait a moment and try again.',
-        retryIn: 'Too many attempts. Try again in {{seconds}} seconds.',
+        retryIn_one: 'Too many attempts. Try again in {{count}} second.',
+        retryIn_other: 'Too many attempts. Try again in {{count}} seconds.',
     },
     callback: {
         failedSubtitle: 'That did not get you in.',

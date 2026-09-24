@@ -91,12 +91,12 @@ function instantOf(stamp: string): number {
  */
 export function formatSpan(minutes: number): string {
     if (minutes <= 0) return i18n.t('schedule:span.ending');
-    if (minutes < 60) return i18n.t('schedule:span.minutes', { minutes });
+    if (minutes < 60) return i18n.t('schedule:span.minutes', { count: minutes });
 
     if (minutes < 24 * 60) {
         const hours = Math.floor(minutes / 60);
         const rest = minutes % 60;
-        return rest === 0 ? i18n.t('schedule:span.hours', { hours }) : i18n.t('schedule:span.hoursMinutes', { hours, minutes: rest });
+        return rest === 0 ? i18n.t('schedule:span.hours', { count: hours }) : i18n.t('schedule:span.hoursMinutes', { hours, count: rest });
     }
 
     return i18n.t('schedule:span.days', { count: Math.round(minutes / (24 * 60)) });

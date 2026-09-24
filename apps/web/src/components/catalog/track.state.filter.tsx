@@ -123,6 +123,7 @@ export function TrackStateFilter({ counts, value, onChange }: TrackStateFilterPr
                         <Trans
                             t={t}
                             i18nKey="stateFilter.ready"
+                            count={counts.total}
                             values={{ cached: formatCount(counts.cached), total: formatCount(counts.total) }}
                             components={{ cached: <span className="da-num" style={{ fontWeight: 600 }} />, total: <span className="da-num" /> }}
                         />

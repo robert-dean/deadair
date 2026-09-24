@@ -150,7 +150,7 @@ export function ChartsPage() {
                                                 <Text size="xs" c="dimmed" className="da-num" style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
                                                     {[
                                                         record.peak !== undefined ? t('record.peak', { peak: record.peak }) : undefined,
-                                                        record.weeksOn !== undefined ? t('record.weeks', { weeks: record.weeksOn }) : undefined,
+                                                        record.weeksOn !== undefined ? t('record.weeks', { count: record.weeksOn }) : undefined,
                                                     ]
                                                         .filter(part => part !== undefined)
                                                         .join(' · ')}

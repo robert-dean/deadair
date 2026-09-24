@@ -71,7 +71,9 @@ export function VoicesPage() {
                                 i18nKey="spokenBy"
                                 values={{ plugin: pluginId }}
                                 components={{
-                                    anchor: <Anchor renderRoot={(props: object) => <Link to="/plugins/$id" params={{ id: pluginId }} {...props} />} />,
+                                    anchor: (
+                                        <Anchor renderRoot={(props: object) => <Link to="/plugins/$id" params={{ id: pluginId }} {...props} />} />
+                                    ),
                                 }}
                             />
                         </Text>

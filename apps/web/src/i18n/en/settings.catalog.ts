@@ -541,7 +541,8 @@ export const settings = {
     code: {
         invalid: 'That code was not accepted. Wait for the next one and try again.',
         rateLimited: 'Too many attempts. Wait a moment and try again.',
-        rateLimitedFor: 'Too many attempts. Try again in {{seconds}} seconds.',
+        rateLimitedFor_one: 'Too many attempts. Try again in {{count}} second.',
+        rateLimitedFor_other: 'Too many attempts. Try again in {{count}} seconds.',
         fallback: 'Could not check that code. Try again.',
     },
     stepUp: {
@@ -574,9 +575,8 @@ export const settings = {
             fallback: 'The station could not read what is on disk.',
         },
         everything: 'Everything',
-        // Not plural-aware, deliberately left as the console has always said it: the counts are
-        // figures in a column, and a store holding one file is not a case anybody reads.
-        totals: '{{bytes}} · {{files}} files',
+        totals_one: '{{bytes}} · {{count}} file',
+        totals_other: '{{bytes}} · {{count}} files',
         files_one: '{{count}} file',
         files_other: '{{count}} files',
         column: {

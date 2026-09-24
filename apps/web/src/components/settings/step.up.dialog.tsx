@@ -79,7 +79,7 @@ function codeError(error: unknown): string {
     if (isInvalidToken(error)) return i18n.t('settings:code.invalid');
     if (isRateLimited(error)) {
         const wait = retryAfterMs(error);
-        return wait === undefined ? i18n.t('settings:code.rateLimited') : i18n.t('settings:code.rateLimitedFor', { seconds: Math.ceil(wait / 1000) });
+        return wait === undefined ? i18n.t('settings:code.rateLimited') : i18n.t('settings:code.rateLimitedFor', { count: Math.ceil(wait / 1000) });
     }
     return apiErrorMessage(error, i18n.t('settings:code.fallback'));
 }

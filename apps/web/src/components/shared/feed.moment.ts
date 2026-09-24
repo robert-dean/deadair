@@ -9,23 +9,29 @@ import { perLocale } from '../../i18n/format.locale';
  */
 export type Moment = string | DateTime;
 
-const STAMP = perLocale(locale => new Intl.DateTimeFormat(locale, {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: true,
-}));
+const STAMP = perLocale(
+    locale =>
+        new Intl.DateTimeFormat(locale, {
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: true,
+        }),
+);
 const FULL = perLocale(locale => new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'medium' }));
 const MINUTE = perLocale(locale => new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }));
-const MINUTE_WITH_WEEKDAY = perLocale(locale => new Intl.DateTimeFormat(locale, {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-}));
+const MINUTE_WITH_WEEKDAY = perLocale(
+    locale =>
+        new Intl.DateTimeFormat(locale, {
+            weekday: 'short',
+            day: 'numeric',
+            month: 'short',
+            hour: '2-digit',
+            minute: '2-digit',
+        }),
+);
 const TIME_OF_DAY = perLocale(locale => new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
 
 /**

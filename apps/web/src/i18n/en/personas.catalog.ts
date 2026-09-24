@@ -92,7 +92,8 @@ export const personas = {
         record: {
             counts: '{{written}} written · {{declined}} declined',
             failed: '· {{failed}} failed',
-            window: 'in {{hours}}h',
+            window_one: 'in {{count}}h',
+            window_other: 'in {{count}}h',
         },
         summary: {
             noPhrasings: "no phrasings of its own, so it falls back to the station's when the model declines",
@@ -599,8 +600,10 @@ export const personas = {
         description:
             'How long a presenter leaves a story in parts, or a running joke, before coming back to it. Long enough that a listener hears the character return to something rather than dwell on it. {{min}} is a floor rather than a suggestion: breaks are written several records ahead, and below it two of them can be handed the same part.',
         summary: 'A presenter leaves {{duration}} before returning to a story in parts or a running joke.',
-        minutes: '{{minutes}} minutes',
+        minutes_one: '{{count}} minute',
+        minutes_other: '{{count}} minutes',
         anHour: 'an hour',
-        hours: '{{hours}} hours',
+        hours_one: '{{count}} hour',
+        hours_other: '{{count}} hours',
     },
 } as const;

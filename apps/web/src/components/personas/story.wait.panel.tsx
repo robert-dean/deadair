@@ -148,7 +148,7 @@ export function summaryOf(minutes: number): string {
 }
 
 function durationOf(minutes: number): string {
-    if (minutes < 60 || minutes % 60 !== 0) return i18n.t('personas:storyWait.minutes', { minutes });
+    if (minutes < 60 || minutes % 60 !== 0) return i18n.t('personas:storyWait.minutes', { count: minutes });
     const hours = minutes / 60;
-    return hours === 1 ? i18n.t('personas:storyWait.anHour') : i18n.t('personas:storyWait.hours', { hours });
+    return hours === 1 ? i18n.t('personas:storyWait.anHour') : i18n.t('personas:storyWait.hours', { count: hours });
 }

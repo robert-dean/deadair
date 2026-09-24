@@ -17,7 +17,8 @@ export const charts = {
     record: {
         featuring: 'feat. {{names}}',
         peak: 'peak {{peak}}',
-        weeks: '{{weeks}} wks',
+        weeks_one: '{{count}} wk',
+        weeks_other: '{{count}} wks',
         findInCatalog: 'Find in catalog',
     },
     column: {

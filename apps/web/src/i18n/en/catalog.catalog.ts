@@ -45,7 +45,8 @@ export const catalog = {
         },
     },
     stateFilter: {
-        ready: '<cached>{{cached}}</cached> of <total>{{total}}</total> records are ready to air right now.',
+        ready_one: '<cached>{{cached}}</cached> of <total>{{total}}</total> record is ready to air right now.',
+        ready_other: '<cached>{{cached}}</cached> of <total>{{total}}</total> records are ready to air right now.',
         rest: 'The rest are fetched when the station wants them.',
         bar: {
             ready: 'Fetched and measured: ready to air.',
@@ -239,7 +240,8 @@ export const catalog = {
         results_one: '{{total}} result',
         results_other: '{{total}} results',
         rowsPerPage: 'Rows per page',
-        rows: '{{size}} rows',
+        rows_one: '{{count}} row',
+        rows_other: '{{count}} rows',
     },
     enrichment: {
         loadFailedTitle: 'The enrichment could not be loaded',

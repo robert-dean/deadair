@@ -39,7 +39,8 @@ export const common = {
         title: "Can't reach the station",
         stale: 'Anything on screen may be out of date.',
         trying: 'Trying now…',
-        retryIn: 'Trying again in {{seconds}}s.',
+        retryIn_one: 'Trying again in {{count}}s.',
+        retryIn_other: 'Trying again in {{count}}s.',
     },
     routeError: {
         offlineTitle: 'This page could not be loaded',

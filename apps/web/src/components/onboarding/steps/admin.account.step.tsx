@@ -23,7 +23,7 @@ interface AdminAccountValues {
 function setupError(error: unknown): string | undefined {
     if (isRateLimited(error)) {
         const wait = retryAfterMs(error);
-        return wait === undefined ? i18n.t('onboarding:admin.rateLimited') : i18n.t('onboarding:admin.retryIn', { seconds: Math.ceil(wait / 1000) });
+        return wait === undefined ? i18n.t('onboarding:admin.rateLimited') : i18n.t('onboarding:admin.retryIn', { count: Math.ceil(wait / 1000) });
     }
     if (apiErrorDetails(error)) {
         return undefined;
@@ -41,7 +41,7 @@ export function AdminAccountStep({ requirement, onComplete }: OnboardingStepProp
         initialValues: { email: '', password: '', confirmPassword: '' },
         validate: {
             email: value => (EMAIL_PATTERN.test(value) ? undefined : t('admin.emailInvalid')),
-            password: value => (value.length >= MIN_PASSWORD_LENGTH ? undefined : t('admin.passwordShort', { min: MIN_PASSWORD_LENGTH })),
+            password: value => (value.length >= MIN_PASSWORD_LENGTH ? undefined : t('admin.passwordShort', { count: MIN_PASSWORD_LENGTH })),
             confirmPassword: (value, values) => (value === values.password ? undefined : t('admin.passwordMismatch')),
         },
     });

@@ -178,12 +178,12 @@ export function CheckupPage() {
                                     directions and each means something different. */}
                                 {store.orphanFiles === 0 ? undefined : (
                                     <Text size="xs" c="yellow.4" className="da-num">
-                                        {t('checkup.disk.unclaimed', { files: formatCount(store.orphanFiles) })}
+                                        {t('checkup.disk.unclaimed', { count: store.orphanFiles, files: formatCount(store.orphanFiles) })}
                                     </Text>
                                 )}
                                 {store.rowsWithNoFile === 0 ? undefined : (
                                     <Text size="xs" c="yellow.4" className="da-num">
-                                        {t('checkup.disk.missing', { files: formatCount(store.rowsWithNoFile) })}
+                                        {t('checkup.disk.missing', { count: store.rowsWithNoFile, files: formatCount(store.rowsWithNoFile) })}
                                     </Text>
                                 )}
                             </Group>
@@ -393,10 +393,10 @@ function Loops({ heartbeats, readAt, phone }: { heartbeats: StationHeartbeat[]; 
 /** How long between two moments, in the coarsest unit that still says something. */
 function ago(t: TFunction<'station'>, now: number, then: DateTime): string {
     const seconds = Math.max(0, Math.round((now - then.toMillis()) / 1000));
-    if (seconds < 60) return t('checkup.ago.seconds', { n: seconds });
-    if (seconds < 3600) return t('checkup.ago.minutes', { n: Math.round(seconds / 60) });
-    if (seconds < 86_400) return t('checkup.ago.hours', { n: Math.round(seconds / 3600) });
-    return t('checkup.ago.days', { n: Math.round(seconds / 86_400) });
+    if (seconds < 60) return t('checkup.ago.seconds', { count: seconds });
+    if (seconds < 3600) return t('checkup.ago.minutes', { count: Math.round(seconds / 60) });
+    if (seconds < 86_400) return t('checkup.ago.hours', { count: Math.round(seconds / 3600) });
+    return t('checkup.ago.days', { count: Math.round(seconds / 86_400) });
 }
 
 /** The wall-clock hour and minute a scheduled probe is due, in the operator's own zone. */

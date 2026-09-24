@@ -57,7 +57,9 @@ export function ConfirmModal({
             <Stack gap="md">
                 {typeof children === 'string' ? <Text size="sm">{children}</Text> : children}
 
-                {error ? <ErrorAlert title={errorTitle ?? t('confirm.errorTitle')} error={error} fallback={errorFallback ?? t('confirm.errorFallback')} /> : undefined}
+                {error ? (
+                    <ErrorAlert title={errorTitle ?? t('confirm.errorTitle')} error={error} fallback={errorFallback ?? t('confirm.errorFallback')} />
+                ) : undefined}
 
                 <Group justify="flex-end">
                     <Button variant="default" onClick={onClose}>

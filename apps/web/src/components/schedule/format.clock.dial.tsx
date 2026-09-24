@@ -149,6 +149,8 @@ function Label({ minute, text }: { minute: number; text: string }) {
  */
 function describe(t: TFunction<'schedule'>, bands: readonly ClockBand[]): string {
     if (bands.length === 0) return t('dial.describeEmpty');
-    const parts = bands.map(band => t('dial.describePart', { kind: band.kind, minute: String(band.minute ?? 0).padStart(2, '0') }));
+    const parts = bands.map(band =>
+        t('dial.describePart', { kind: band.kind, count: band.minute ?? 0, minute: String(band.minute ?? 0).padStart(2, '0') }),
+    );
     return t('dial.describe', { parts: parts.join(', ') });
 }

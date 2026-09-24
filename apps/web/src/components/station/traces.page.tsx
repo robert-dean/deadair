@@ -94,7 +94,7 @@ export function TracesPage() {
                 <>
                     <DecisionTable decisions={decisions} phone={phone} onOpen={setOpen} />
                     <Text size="xs" c="dimmed">
-                        {t('traces.showing', { shown: decisions.length, total, spans })}
+                        {t('traces.showing', { shown: decisions.length, count: total, calls: t('traces.recordedCalls', { count: spans }) })}
                     </Text>
                 </>
             )}

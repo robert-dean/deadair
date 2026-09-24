@@ -36,7 +36,7 @@ export function ApiStatusBanner() {
                         and an assertive region would have a screen reader announce each tick over
                         whatever the operator was actually doing. */}
                     <Text size="sm" role="status" aria-live="polite">
-                        {t('apiStatus.stale')} {checking ? t('apiStatus.trying') : t('apiStatus.retryIn', { seconds: retryInSeconds })}
+                        {t('apiStatus.stale')} {checking ? t('apiStatus.trying') : t('apiStatus.retryIn', { count: retryInSeconds })}
                     </Text>
                     {/* The alert's own tone, read from the same table it is: a button that named
                         its colour inline would be the exact drift `status.ts` exists to prevent. */}

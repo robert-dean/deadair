@@ -94,6 +94,17 @@ describe('CatalogPlaceholderService.resolvePending', () => {
         );
     });
 
+    it('matches a row known only by its snapshot, without asking for a binding it has no id for', async () => {
+        // A line read from a file names a record and no provider's copy of it.
+        const row = placeholder({ originPluginId: undefined, originExternalId: undefined });
+        const { service, resolver, resolved } = build([row], { byIdentity: { Hoppípolla: 'track-7' } });
+
+        await expect(service.resolvePending()).resolves.toEqual({ scanned: 1, resolved: 1 });
+
+        expect(resolved).toEqual([{ id: 'row-1', trackId: 'track-7' }]);
+        expect(resolver.findTrackSource).not.toHaveBeenCalled();
+    });
+
     it('leaves a row alone, and creates nothing, when the library still does not have it', async () => {
         const { service, resolved, placeholders } = build([placeholder()]);
 

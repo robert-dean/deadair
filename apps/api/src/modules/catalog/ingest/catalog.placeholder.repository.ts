@@ -12,8 +12,9 @@ export interface PlaylistPlaceholder {
     id: string;
     playlistId: string;
     position: number;
-    originPluginId: string;
-    originExternalId: string;
+    /** Absent on a row known only by its snapshot, such as a line read from a file. */
+    originPluginId?: string;
+    originExternalId?: string;
     originSnapshot: unknown;
 }
 
@@ -22,19 +23,20 @@ export class CatalogPlaceholderRepository extends DataRepository {
     /**
      * Placeholders waiting on a track, oldest playlists first.
      *
-     * Rows with no `origin_plugin_id`/`origin_external_id` cannot be retried at
-     * all, so they are excluded rather than fetched and skipped.
-     * `playlist_tracks_resolved_check` should make that set empty; the filter is
-     * here because a batch that silently re-reads unresolvable rows every run
-     * would starve the ones that can actually make progress.
+     * A row is retryable if it names an upstream id or carries a snapshot to
+     * match on, which `playlist_tracks_resolved_check` guarantees of every
+     * placeholder. The filter is here anyway because a batch that silently
+     * re-reads unresolvable rows every run would starve the ones that can
+     * actually make progress.
      */
     async listUnresolved(limit: number): Promise<PlaylistPlaceholder[]> {
         const rows = await this.db
             .selectFrom('deadair.playlistTracks')
             .select(['id', 'playlistId', 'position', 'originPluginId', 'originExternalId', 'originSnapshot'])
             .where('trackId', 'is', null)
-            .where('originPluginId', 'is not', null)
-            .where('originExternalId', 'is not', null)
+            .where(eb =>
+                eb.or([eb.and([eb('originPluginId', 'is not', null), eb('originExternalId', 'is not', null)]), eb('originSnapshot', 'is not', null)]),
+            )
             .orderBy('playlistId', 'asc')
             .orderBy('position', 'asc')
             .limit(limit)
@@ -44,8 +46,9 @@ export class CatalogPlaceholderRepository extends DataRepository {
             id: row.id,
             playlistId: row.playlistId,
             position: row.position,
-            originPluginId: row.originPluginId!,
-            originExternalId: row.originExternalId!,
+            ...(row.originPluginId == null || row.originExternalId == null
+                ? {}
+                : { originPluginId: row.originPluginId, originExternalId: row.originExternalId }),
             originSnapshot: row.originSnapshot,
         }));
     }

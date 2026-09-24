@@ -78,11 +78,14 @@ export class CatalogPlaceholderService {
      * The binding is asked first and is the only rung that needs no snapshot: it
      * is an exact answer to the exact question, since the placeholder recorded
      * which plugin's id space its id belongs to. Only when that misses is the
-     * snapshot worth parsing.
+     * snapshot worth parsing. A row read from a file has no binding to ask, so
+     * the snapshot is all it has.
      */
     private async findTrack(placeholder: PlaylistPlaceholder): Promise<string | undefined> {
-        const bound = await this.resolver.findTrackSource(placeholder.originPluginId, placeholder.originExternalId);
-        if (bound) return bound;
+        if (placeholder.originPluginId !== undefined && placeholder.originExternalId !== undefined) {
+            const bound = await this.resolver.findTrackSource(placeholder.originPluginId, placeholder.originExternalId);
+            if (bound) return bound;
+        }
 
         const identity = this.toIdentity(placeholder.originSnapshot);
         if (!identity) return undefined;

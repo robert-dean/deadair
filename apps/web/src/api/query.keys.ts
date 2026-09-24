@@ -197,6 +197,12 @@ export const queryKeys = {
         list: () => ['playlists', 'list'] as const,
         tracks: (pluginId: string, playlistId: string) => ['playlists', 'tracks', pluginId, playlistId] as const,
     },
+    /** The playlists the station owns, as opposed to `playlists`, which a provider holds and lends. */
+    stationPlaylists: {
+        all: () => ['stationPlaylists'] as const,
+        list: () => ['stationPlaylists', 'list'] as const,
+        detail: (id: string) => ['stationPlaylists', 'detail', id] as const,
+    },
     playout: {
         /** The transport. One key: there is only ever one station, and it is polled rather than paged. */
         status: () => ['playout', 'status'] as const,

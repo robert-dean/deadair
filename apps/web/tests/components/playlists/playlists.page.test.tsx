@@ -1,16 +1,26 @@
 import type { ReactNode } from 'react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SdkError } from '@deadair/sdk';
 
 import { PlaylistsPage } from '../../../src/components/playlists/playlists.page';
-import { catalogPlaylist, catalogPlaylistPage, catalogSourceError } from '../../utils/playlist.fixture';
+import { catalogPlaylist, catalogPlaylistPage, catalogSourceError, stationPlaylist } from '../../utils/playlist.fixture';
 import { render, screen, setupUser, waitFor } from '../../utils/render';
 
 const listImportablePlaylists = vi.fn();
 const refreshPlaylists = vi.fn();
+const listStationPlaylists = vi.fn();
+const previewPlaylistImport = vi.fn();
 
 vi.mock('../../../src/api/client', () => ({
-    sdk: { playlists: { listImportablePlaylists: () => listImportablePlaylists(), refreshPlaylists: () => refreshPlaylists() } },
+    sdk: {
+        playlists: {
+            listImportablePlaylists: () => listImportablePlaylists(),
+            refreshPlaylists: () => refreshPlaylists(),
+            listStationPlaylists: () => listStationPlaylists(),
+            previewPlaylistImport: (input: unknown) => previewPlaylistImport(input),
+        },
+        plugins: { listPlugins: () => Promise.resolve([{ id: 'deadair.spotify', name: 'Spotify' }]) },
+    },
 }));
 
 vi.mock('@tanstack/react-router', () => ({
@@ -19,11 +29,18 @@ vi.mock('@tanstack/react-router', () => ({
             {children}
         </a>
     ),
+    useNavigate: () => vi.fn(),
 }));
+
+beforeEach(() => {
+    listStationPlaylists.mockResolvedValue({ playlists: [] });
+});
 
 afterEach(() => {
     listImportablePlaylists.mockReset();
     refreshPlaylists.mockReset();
+    listStationPlaylists.mockReset();
+    previewPlaylistImport.mockReset();
 });
 
 describe('PlaylistsPage', () => {
@@ -232,5 +249,72 @@ describe('PlaylistsPage', () => {
         await user.click(await screen.findByRole('button', { name: 'Refresh now' }));
 
         expect(await screen.findByText('The playlists could not be read again')).toBeInTheDocument();
+    });
+
+    it('puts the station own playlists first, under a heading, with where each was cloned from', async () => {
+        listImportablePlaylists.mockResolvedValue(catalogPlaylistPage({ playlists: [catalogPlaylist()] }));
+        listStationPlaylists.mockResolvedValue({
+            playlists: [stationPlaylist({ originPluginId: 'deadair.spotify', trackCount: 3, resolvedCount: 2 })],
+        });
+
+        render(<PlaylistsPage />);
+
+        expect(await screen.findByText('Late Night Clone')).toBeInTheDocument();
+        expect(screen.getByText("The station's own")).toBeInTheDocument();
+        expect(screen.getByText('3 records · 2 in the library')).toBeInTheDocument();
+        expect(await screen.findByText('From Spotify')).toBeInTheDocument();
+        expect(screen.getByText('Friday Night')).toBeInTheDocument();
+    });
+
+    it('draws no heading for the station own playlists when it has none', async () => {
+        listImportablePlaylists.mockResolvedValue(catalogPlaylistPage({ playlists: [catalogPlaylist()] }));
+
+        render(<PlaylistsPage />);
+
+        expect(await screen.findByText('Friday Night')).toBeInTheDocument();
+        expect(screen.queryByText("The station's own")).not.toBeInTheDocument();
+    });
+
+    it('previews a chosen file before offering to import it', async () => {
+        listImportablePlaylists.mockResolvedValue(catalogPlaylistPage({ playlists: [catalogPlaylist()] }));
+        previewPlaylistImport.mockResolvedValue({
+            name: 'Late night',
+            matched: 1,
+            toAdd: 0,
+            toLookUp: 1,
+            skipped: 0,
+            notices: [],
+            entries: [
+                { position: 0, title: 'Teardrop', artists: ['Massive Attack'], outcome: 'matched', trackId: 'track-1' },
+                { position: 1, title: 'Angel', artists: ['Massive Attack'], outcome: 'toLookUp' },
+            ],
+        });
+        const user = setupUser();
+
+        render(<PlaylistsPage />);
+        await user.click(await screen.findByRole('button', { name: 'Import' }));
+
+        const file = new File([JSON.stringify({ format: 'deadair.playlist/1', takenAt: 'x', name: 'Late night', tracks: [] })], 'late.json', {
+            type: 'application/json',
+        });
+        const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+        await user.upload(input, file);
+
+        expect(await screen.findByText('1 record is in the library, and 1 waits for the library to gain it.')).toBeInTheDocument();
+        expect(previewPlaylistImport).toHaveBeenCalledWith({ file: expect.objectContaining({ name: 'Late night' }) });
+        expect(screen.getByRole('button', { name: 'Import 2 records' })).toBeEnabled();
+    });
+
+    it('says a file that is not JSON cannot be read, without asking the station', async () => {
+        listImportablePlaylists.mockResolvedValue(catalogPlaylistPage({ playlists: [catalogPlaylist()] }));
+        const user = setupUser();
+
+        render(<PlaylistsPage />);
+        await user.click(await screen.findByRole('button', { name: 'Import' }));
+        const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+        await user.upload(input, new File(['not json'], 'late.json', { type: 'application/json' }));
+
+        expect(await screen.findByText(/is not a file this can read/)).toBeInTheDocument();
+        expect(previewPlaylistImport).not.toHaveBeenCalled();
     });
 });

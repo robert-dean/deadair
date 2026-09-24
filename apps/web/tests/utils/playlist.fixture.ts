@@ -1,4 +1,5 @@
-import type { CatalogPlaylist, CatalogPlaylistPage, CatalogSourceError, CatalogTrack } from '@deadair/sdk';
+import { DateTime } from 'luxon';
+import type { CatalogPlaylist, CatalogPlaylistPage, CatalogSourceError, CatalogTrack, StationPlaylist } from '@deadair/sdk';
 
 /** A plausible importable playlist. Override only what a case is actually about. */
 export function catalogPlaylist(overrides: Partial<CatalogPlaylist> = {}): CatalogPlaylist {
@@ -45,6 +46,20 @@ export function catalogTrack(overrides: Partial<CatalogTrack> = {}): CatalogTrac
         artists: ['Chic'],
         album: "C'est Chic",
         durationMs: 218000,
+        ...overrides,
+    };
+}
+
+/** A playlist the station owns. Override only what a case is actually about. */
+export function stationPlaylist(overrides: Partial<StationPlaylist> = {}): StationPlaylist {
+    return {
+        id: 'station-playlist-1',
+        name: 'Late Night Clone',
+        prompt: '',
+        trackCount: 2,
+        resolvedCount: 2,
+        createdAt: DateTime.fromISO('2026-09-24T12:00:00Z'),
+        updatedAt: DateTime.fromISO('2026-09-24T12:00:00Z'),
         ...overrides,
     };
 }

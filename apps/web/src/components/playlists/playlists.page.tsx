@@ -1,15 +1,18 @@
-import { Button, List, SimpleGrid, Stack, Text } from '@mantine/core';
+import { Button, Group, List, SimpleGrid, Stack, Text, Title } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import type { CatalogPlaylist } from '@deadair/sdk';
 
 import { playlistsListOptions, useRefreshPlaylists } from '../../api/playlists.queries';
+import { stationPlaylistsListOptions } from '../../api/station.playlists.queries';
 import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
 import { notifyQueued } from '../shared/notify';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
 import { PlaylistCard } from './playlist.card';
+import { PlaylistImportModal } from './playlist.import.modal';
+import { StationPlaylistCard } from './station.playlist.card';
 
 /** The same grid every group of cards on this page is drawn in. */
 function PlaylistGrid({ playlists }: { playlists: CatalogPlaylist[] }) {
@@ -64,6 +67,10 @@ function makers(playlists: CatalogPlaylist[]): string {
 export function PlaylistsPage() {
     const playlists = useQuery(playlistsListOptions);
     const refresh = useRefreshPlaylists();
+    const station = useQuery(stationPlaylistsListOptions);
+    // Its own dialog, because taking a source in is three steps: choose it, read what it would do,
+    // do it. None of them belongs among the cards.
+    const [importing, setImporting] = useState(false);
     const sourceErrors = playlists.data?.errors ?? [];
 
     // What a person chose is the page; what the service made for the account (Discover Weekly, a
@@ -86,23 +93,51 @@ export function PlaylistsPage() {
                     </Text>
                 }
                 actions={
-                    <Button
-                        size="xs"
-                        variant="default"
-                        loading={refresh.isPending}
-                        onClick={() =>
-                            refresh.mutate(undefined, {
-                                onSuccess: () =>
-                                    notifyQueued(
-                                        'The station is reading every playlist again. New records reach the library in a few minutes, and the activity feed says when it is done.',
-                                    ),
-                            })
-                        }
-                    >
-                        Refresh now
-                    </Button>
+                    <Group gap="xs">
+                        <Button size="xs" variant="default" onClick={() => setImporting(true)}>
+                            Import
+                        </Button>
+                        <Button
+                            size="xs"
+                            variant="default"
+                            loading={refresh.isPending}
+                            onClick={() =>
+                                refresh.mutate(undefined, {
+                                    onSuccess: () =>
+                                        notifyQueued(
+                                            'The station is reading every playlist again. New records reach the library in a few minutes, and the activity feed says when it is done.',
+                                        ),
+                                })
+                            }
+                        >
+                            Refresh now
+                        </Button>
+                    </Group>
                 }
             />
+
+            <PlaylistImportModal opened={importing} onClose={() => setImporting(false)} />
+
+            {station.error ? <ErrorAlert title="The station's own playlists could not be loaded" error={station.error} /> : undefined}
+
+            {/* The station's own come first, since they are the ones it holds rather than borrows. The
+                heading exists only when there is something under it: a fresh install has none, and an
+                empty section would be a second empty state above the one that matters. */}
+            {station.data && station.data.playlists.length > 0 ? (
+                <Stack gap="sm">
+                    <Title order={2} size="h4">
+                        The station&apos;s own
+                    </Title>
+                    <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
+                        {station.data.playlists.map(playlist => (
+                            <StationPlaylistCard key={playlist.id} playlist={playlist} />
+                        ))}
+                    </SimpleGrid>
+                    <Title order={2} size="h4" mt="sm">
+                        From the music sources
+                    </Title>
+                </Stack>
+            ) : undefined}
 
             {refresh.error ? <ErrorAlert title="The playlists could not be read again" error={refresh.error} /> : undefined}
 

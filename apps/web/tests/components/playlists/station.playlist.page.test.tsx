@@ -1,0 +1,71 @@
+import type { ReactNode } from 'react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+import { StationPlaylistPage } from '../../../src/components/playlists/station.playlist.page';
+import { stationPlaylist } from '../../utils/playlist.fixture';
+import { render, screen, setupUser, waitFor } from '../../utils/render';
+
+const getStationPlaylist = vi.fn();
+const deleteStationPlaylist = vi.fn();
+const navigate = vi.fn();
+
+vi.mock('../../../src/api/client', () => ({
+    sdk: {
+        playlists: {
+            getStationPlaylist: (id: string) => getStationPlaylist(id),
+            deleteStationPlaylist: (id: string) => deleteStationPlaylist(id),
+        },
+        plugins: { listPlugins: () => Promise.resolve([{ id: 'deadair.spotify', name: 'Spotify' }]) },
+    },
+}));
+
+vi.mock('@tanstack/react-router', () => ({
+    Link: ({ children, className }: { children?: ReactNode; className?: string }) => (
+        <a href="#" className={className}>
+            {children}
+        </a>
+    ),
+    useNavigate: () => navigate,
+}));
+
+afterEach(() => {
+    getStationPlaylist.mockReset();
+    deleteStationPlaylist.mockReset();
+    navigate.mockReset();
+});
+
+const detail = () => ({
+    ...stationPlaylist({ originPluginId: 'deadair.spotify', trackCount: 2, resolvedCount: 1 }),
+    tracks: [
+        { id: 'row-1', position: 0, title: 'Teardrop', artists: ['Massive Attack'], trackId: 'track-1', durationMs: 330_000 },
+        { id: 'row-2', position: 1, title: 'Roads', artists: ['Portishead'], originPluginId: 'deadair.spotify' },
+    ],
+});
+
+describe('StationPlaylistPage', () => {
+    it('draws a placeholder in its place, labelled, rather than leaving it out', async () => {
+        getStationPlaylist.mockResolvedValue(detail());
+
+        render(<StationPlaylistPage id="station-playlist-1" />);
+
+        expect(await screen.findByText('Teardrop')).toBeInTheDocument();
+        expect(screen.getByText('Roads')).toBeInTheDocument();
+        expect(screen.getAllByText('Not in the library')).toHaveLength(1);
+        expect(await screen.findByText(/cloned from Spotify/)).toBeInTheDocument();
+        expect(screen.getByText(/2 records · 1 in the library/)).toBeInTheDocument();
+    });
+
+    it('asks before deleting, and goes back to the list once it is gone', async () => {
+        getStationPlaylist.mockResolvedValue(detail());
+        deleteStationPlaylist.mockResolvedValue(undefined);
+        const user = setupUser();
+
+        render(<StationPlaylistPage id="station-playlist-1" />);
+        await user.click(await screen.findByRole('button', { name: 'Delete' }));
+        expect(await screen.findByText('The playlist goes. The records it named stay in the library.')).toBeInTheDocument();
+        await user.click(screen.getAllByRole('button', { name: 'Delete' }).at(-1)!);
+
+        await waitFor(() => expect(deleteStationPlaylist).toHaveBeenCalledWith('station-playlist-1'));
+        await waitFor(() => expect(navigate).toHaveBeenCalledWith({ to: '/playlists' }));
+    });
+});

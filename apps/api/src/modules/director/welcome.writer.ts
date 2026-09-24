@@ -13,6 +13,7 @@ import {
 } from './break.templates.js';
 import { saysTime } from './clock.words.js';
 import { spoken } from './talk.break.writer.js';
+import { stationLanguage } from '#modules/stream/stream.settings.js';
 
 /**
  * What the station says to somebody who has just tuned in.
@@ -120,10 +121,11 @@ export class WelcomeWriter extends BreakWriter {
         // Read per greeting rather than held, so an operator editing them hears the change on the
         // next listener rather than after a restart. Falling back to the station's OWN greetings
         // rather than to its talk-break phrasings, which is what the second argument is for.
-        const templates = parseTemplates(this.config.get(WELCOME_KEYS.templates, ''), WELCOME_TEMPLATES);
+        const language = stationLanguage(this.config);
+        const templates = parseTemplates(this.config.get(WELCOME_KEYS.templates, ''), WELCOME_TEMPLATES, language);
         this.complainAboutTypos(templates);
 
-        const fits = usable(templates, inputs, spoken);
+        const fits = usable(templates, inputs, spoken, language);
         // No station name, no record coming up and no greeting: there is no true sentence to be made
         // out of that, and inventing one is how a station welcomes somebody to nowhere.
         if (fits.length === 0) return undefined;

@@ -12,7 +12,14 @@
 import { describe, expect, it } from 'vitest';
 
 import type { TemplateInputs } from '../../../src/modules/director/break.templates.js';
-import { DEFAULT_TEMPLATES, renderTemplate, usable, wasHeard } from '../../../src/modules/director/break.templates.js';
+import {
+    DEFAULT_TEMPLATES,
+    parseTemplates,
+    renderTemplate,
+    resolveTemplates,
+    usable,
+    wasHeard,
+} from '../../../src/modules/director/break.templates.js';
 import { NEWS_TEMPLATES } from '../../../src/modules/director/news.break.writer.js';
 import { WARMUP_TEMPLATES } from '../../../src/modules/director/warmup.writer.js';
 import { WEATHER_TEMPLATES } from '../../../src/modules/director/weather.break.writer.js';
@@ -272,4 +279,26 @@ describe('every phrasing the station ships', () => {
             });
         });
     }
+});
+
+// The station's own phrasings are English, so on a station that is not they are not a floor at all.
+// What an operator or a persona wrote still is, because it was written for this station.
+describe('the floor on a station that does not broadcast in English', () => {
+    it('falls back to nothing rather than to the English phrasings', () => {
+        expect(parseTemplates('', WELCOME_TEMPLATES, 'de')).toEqual([]);
+        expect(resolveTemplates(undefined, 'de')).toEqual([]);
+        expect(resolveTemplates(undefined)).toEqual(DEFAULT_TEMPLATES);
+    });
+
+    it('keeps the lines somebody wrote for the station', () => {
+        expect(parseTemplates('Das war {{previous.title}}.', WELCOME_TEMPLATES, 'de')).toEqual(['Das war {{previous.title}}.']);
+    });
+
+    it('does not fill a phrasing with the English time or greeting', () => {
+        const inputs: TemplateInputs = { station: 'Radio Nord', clock: 'just after nine', greeting: 'good morning' };
+        const templates = ['Es ist {{clock.rough}} bei {{station.name}}.', '{{greeting}} bei {{station.name}}.', 'Hier ist {{station.name}}.'];
+
+        expect(usable(templates, inputs, spoken, 'de').map(one => one.script)).toEqual(['Hier ist Radio Nord.']);
+        expect(usable(templates, inputs, spoken)).toHaveLength(3);
+    });
 });

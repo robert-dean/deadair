@@ -298,6 +298,7 @@ describe('personaPrompt on a station that does not broadcast in English', () => 
 
         expect(system).toContain('This station broadcasts in Dutch.');
         expect(system).toContain('Write every other field in English.');
+        expect(system).toContain('Do not use {{clock.rough}} or {{greeting}}');
     });
 
     it('says nothing about language on an English station', () => {

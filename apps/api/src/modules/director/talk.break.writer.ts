@@ -12,6 +12,7 @@ import {
     wasHeard,
     type RenderedTemplate,
 } from './break.templates.js';
+import { stationLanguage } from '#modules/stream/stream.settings.js';
 
 /**
  * The station's words for a talk break, written from the two records either side of it.
@@ -100,10 +101,11 @@ export class TalkBreakWriter extends BreakWriter {
         // The persona's own phrasings, read off the request, so an operator editing a character
         // hears the change on the next break. They are what keeps a character on the station when
         // the model declined; a character with none gets the station's own five.
-        const templates = resolveTemplates(request.persona?.templates);
+        const language = stationLanguage(this.config);
+        const templates = resolveTemplates(request.persona?.templates, language);
         this.complainAboutTypos(templates);
 
-        const fits = usable(templates, inputs, spoken);
+        const fits = usable(templates, inputs, spoken, language);
         // Nothing either side and no station name, or an operator whose every template needs
         // something this break has not got: there is no true sentence to be made out of that, and
         // inventing one is how a station ends up announcing a record it did not play.

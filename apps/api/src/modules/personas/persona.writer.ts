@@ -237,6 +237,9 @@ export function personaPrompt(description: string, language?: string): LlmMessag
                     ? []
                     : [
                           `- This station broadcasts in ${languageName(language)}. Write "samples", "dictionMarkers", "catchphrases", "avoid", the "stories" and the "templates" in ${languageName(language)}, because they are said on air or checked against what is. Write every other field in English.`,
+                          // The two values the station fills in English, which a phrasing on this
+                          // station never gets, so a template that names one is never said.
+                          '- Do not use {{clock.rough}} or {{greeting}} in the templates: this station fills them in English, so a phrasing that names one is never used. Write the fifth phrasing around the station name instead.',
                       ]),
             ].join('\n'),
         },

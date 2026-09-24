@@ -9,6 +9,7 @@ import type { Logger } from '@maroonedsoftware/logger';
 import { DEDICATION_CONTEXT, DedicationWriter, dedicationLines, dedicationOf } from '../../../src/modules/director/dedication.writer.js';
 import { ModelDedicationWriter, dedicationOpening, quotesListener } from '../../../src/modules/director/model.dedication.writer.js';
 import type { BreakWriteRequest } from '../../../src/modules/director/break.writer.js';
+import { settingsConfig } from '../../utils/settings.config.js';
 import type { LlmService } from '../../../src/modules/llm/llm.service.js';
 
 const logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), trace: vi.fn() } as unknown as Logger;
@@ -35,14 +36,14 @@ describe('reading a dedication off a break', () => {
 
 describe('the floor', () => {
     it('names who it is from and who it is for, and the record, cleaned of its furniture', async () => {
-        const written = await new DedicationWriter().write(request(full));
+        const written = await new DedicationWriter(settingsConfig().config).write(request(full));
 
         expect(written?.script).toBe("This one goes out to Danielle, from Marcus. Here's Massive Attack with Teardrop.");
         expect(written?.claimsNext).toBe(true);
     });
 
     it('never says the message', async () => {
-        const written = await new DedicationWriter().write(request(full));
+        const written = await new DedicationWriter(settingsConfig().config).write(request(full));
 
         expect(written?.script).not.toContain('twenty');
     });
@@ -53,13 +54,19 @@ describe('the floor', () => {
 
     it('moves to another phrasing when the first was said lately', async () => {
         const first = dedicationLines({ from: 'Marcus', to: 'Danielle' }, next)[0]!;
-        const written = await new DedicationWriter().write(request(full, { recent: [first] }));
+        const written = await new DedicationWriter(settingsConfig().config).write(request(full, { recent: [first] }));
 
         expect(written?.script).not.toBe(first);
     });
 
     it('keeps listener-typed names out of what a player shows', async () => {
-        expect((await new DedicationWriter().write(request(full)))?.listenerLabel).toBe('Dedication');
+        expect((await new DedicationWriter(settingsConfig().config).write(request(full)))?.listenerLabel).toBe('Dedication');
+    });
+
+    it('has nothing to say on a station that is not English, since its lines are English', async () => {
+        const german = settingsConfig({ 'stream.language': 'de' }).config;
+
+        expect(await new DedicationWriter(german).write(request(full))).toBeUndefined();
     });
 });
 

@@ -9,6 +9,11 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.31.2] — 2026-09-24
+
+- The Plugins page is easier to read now that the station ships sixteen plugins. Plugins are grouped by what they do for the station (music sources, voice, writing, audio, knowledge, and news and programmes) and sorted by name within each group. A search box and a filter (all, enabled, needs attention, disabled) narrow the list. The page opens on the plugins that need attention when any do, and on the enabled ones otherwise (or on everything, if nothing is switched on yet). A Cards/Table switch puts the whole station on one screen as a table, in the same groups, with a working enable switch on every row. The search, the filter and the layout are all kept in the address, so a filtered view can be linked to and reloaded. Any plugin that has failed or is waiting on its settings is listed at the top with the reason, and its card shows the same first line. Capability badges now say what a plugin does ("Library", "Voice", "Record details") in place of the manifest's ids, which are still in the tooltip.
+- How long a presenter waits before returning to a story in parts or a running joke can now be changed in the console. **Returning to a story**, above the roster on Voice, Characters, says what the wait is and changes it, from ten minutes to a day (forty minutes by default). The setting arrived with stories told across several breaks, but nothing in the console drew it, so until now it could only be changed through the API.
+
 ## [0.31.1] — 2026-09-24
 
 - A scheduled block set to stop when it runs out no longer keeps every block after it off the air. When its records were spent the station stood down, and the schedule leaves a stood-down station alone because Stop is an operator taking it out of service, so the next block never started and the timetable read as though something had been put on by hand. The station now records whether it stopped because the programme ran out or because somebody pressed Stop: a block that ran out stays quiet until the next one begins, which then starts on time, and a station you stopped yourself is still left alone.
@@ -827,7 +832,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.31.1...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.31.2...HEAD
+[0.31.2]: https://github.com/robert-dean/deadair/compare/v0.31.1...v0.31.2
 [0.31.1]: https://github.com/robert-dean/deadair/compare/v0.31.0...v0.31.1
 [0.31.0]: https://github.com/robert-dean/deadair/compare/v0.30.1...v0.31.0
 [0.30.1]: https://github.com/robert-dean/deadair/compare/v0.30.0...v0.30.1

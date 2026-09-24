@@ -1,5 +1,0 @@
----
-'@deadair/web': patch
----
-
-The Plugins page is easier to read now that the station ships sixteen plugins. Plugins are grouped by what they do for the station (music sources, voice, writing, audio, knowledge, and news and programmes) and sorted by name within each group. A search box and a filter (all, enabled, needs attention, disabled) narrow the list. The page opens on the plugins that need attention when any do, and on the enabled ones otherwise (or on everything, if nothing is switched on yet). A Cards/Table switch puts the whole station on one screen as a table, in the same groups, with a working enable switch on every row. The search, the filter and the layout are all kept in the address, so a filtered view can be linked to and reloaded. Any plugin that has failed or is waiting on its settings is listed at the top with the reason, and its card shows the same first line. Capability badges now say what a plugin does ("Library", "Voice", "Record details") in place of the manifest's ids, which are still in the tooltip.

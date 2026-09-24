@@ -87,7 +87,7 @@ the one thing that decides what they would be here. The preview and the import b
 the decision rather than a forecast of it. It only LOOKS: `findTrackSource` for an entry that names a
 provider's copy, then `findTrack` on the resolver's own keys, and nothing is searched or ingested while an
 operator waits on a preview. Every entry becomes a row, in its place: a match, or a placeholder carrying its
-snapshot, and since 0047 a placeholder may be a snapshot with no provider id at all, because a line from a
+snapshot, and since 0051 a placeholder may be a snapshot with no provider id at all, because a line from a
 file names a record and no copy of it. Refusing that row would lose the record and its position, which is
 the lossy import 0005 was written against.
 

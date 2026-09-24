@@ -11,7 +11,12 @@
 -- What 0005 forbade still holds: a placeholder whose id has no plugin to interpret it. A row that
 -- names a plugin still needs its id, and a row that names neither is resolved by its snapshot, which
 -- `catalog.resolve_placeholders` already parses for the second rung of its match.
-alter table deadair.playlist_tracks drop constraint playlist_tracks_resolved_check;
+--
+-- This shipped as 0047, beside `0047_messaging_cursors.sql`. dbmate keys `schema_migrations` on the
+-- number alone, so a station that had the messaging file recorded skipped this one as applied, and a
+-- walk from zero failed inserting 0047 twice. It moved to 0051, which means a station that DID run it
+-- as 0047 runs it again: dropping the constraint if it is there and adding it back makes that a no-op.
+alter table deadair.playlist_tracks drop constraint if exists playlist_tracks_resolved_check;
 alter table deadair.playlist_tracks add constraint playlist_tracks_resolved_check check (
     track_id is not null
     or (origin_plugin_id is not null and origin_external_id is not null)

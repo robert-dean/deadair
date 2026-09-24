@@ -16,6 +16,7 @@ import type { SettingsRepository } from '../../../src/modules/settings/settings.
 import type { SettingDescriptor } from '../../../src/modules/settings/settings.registry.js';
 import { AfterCommit } from '../../../src/modules/data/after.commit.js';
 import { settingsConfig } from '../../utils/settings.config.js';
+import type { LlmService } from '../../../src/modules/llm/llm.service.js';
 import type { StreamService } from '../../../src/modules/stream/stream.service.js';
 
 const FIELD = 'test.providers';
@@ -38,6 +39,8 @@ vi.mock('../../../src/modules/settings/settings.registry.js', async importOrigin
 
 const encryption = new EncryptionProvider(randomBytes(32));
 
+const noModel = { defaultModel: async () => undefined } as unknown as LlmService;
+
 function build(stored: Record<string, string> = {}) {
     const table = new Map(Object.entries(stored));
     const station = settingsConfig(stored);
@@ -53,7 +56,7 @@ function build(stored: Record<string, string> = {}) {
     const configStore = { reload: vi.fn(async () => undefined) } as unknown as AppConfigStore;
     const stream = { materialize: vi.fn(async () => true) } as unknown as StreamService;
 
-    return { service: new SettingsService(repository, configStore, station.config, encryption, stream, new AfterCommit()), table };
+    return { service: new SettingsService(repository, configStore, station.config, encryption, stream, new AfterCommit(), noModel), table };
 }
 
 const rows = (value: unknown[]) => JSON.stringify(value);
@@ -120,11 +123,11 @@ describe('SettingsService with credentials inside list rows', () => {
         expect(table.get(cell('r1'))).toBe(ciphertext);
     });
 
-    it('reports a stored cell as configured, never as what it holds', () => {
+    it('reports a stored cell as configured, never as what it holds', async () => {
         const ciphertext = encryption.encrypt('hunter2');
         const { service } = build({ [FIELD]: rows([{ [ROW_ID_KEY]: 'r1', name: 'google' }]), [cell('r1')]: ciphertext });
 
-        const model = service.read();
+        const model = await service.read();
 
         expect(model.configured[cell('r1')]).toBe(true);
         expect(JSON.stringify(model)).not.toContain(ciphertext);

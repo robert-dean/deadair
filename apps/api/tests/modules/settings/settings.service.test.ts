@@ -15,12 +15,15 @@ import { AfterCommit } from '../../../src/modules/data/after.commit.js';
 import { AIR_MODE_KEY } from '../../../src/modules/playout/air.mode.js';
 import { STREAM_KEYS, STREAM_SECRET_KEYS } from '../../../src/modules/stream/stream.settings.js';
 import { MAIL_KEYS } from '../../../src/modules/mail/mail.settings.js';
+import { MODEL_WRITER_KEYS } from '../../../src/modules/director/model.talk.break.writer.js';
+import { PERSONA_MODEL_KEY } from '../../../src/modules/personas/persona.writer.js';
 import { settingsConfig } from '../../utils/settings.config.js';
+import type { LlmService } from '../../../src/modules/llm/llm.service.js';
 import type { StreamService } from '../../../src/modules/stream/stream.service.js';
 
 const encryption = new EncryptionProvider(randomBytes(32));
 
-function build(stored: Record<string, string> = {}) {
+function build(stored: Record<string, string> = {}, defaultModel: () => Promise<string | undefined> = async () => undefined) {
     const station = settingsConfig(stored);
     const written: { key: string; value: string | null }[] = [];
 
@@ -40,7 +43,9 @@ function build(stored: Record<string, string> = {}) {
     const stream = { materialize } as unknown as StreamService;
 
     return {
-        service: new SettingsService(repository, configStore, station.config, encryption, stream, afterCommit),
+        service: new SettingsService(repository, configStore, station.config, encryption, stream, afterCommit, {
+            defaultModel,
+        } as unknown as LlmService),
         repository,
         reload,
         materialize,
@@ -51,20 +56,20 @@ function build(stored: Record<string, string> = {}) {
 }
 
 describe('SettingsService.read', () => {
-    it('fills in the defaults for a station nobody has configured', () => {
+    it('fills in the defaults for a station nobody has configured', async () => {
         const { service } = build();
 
-        const model = service.read();
+        const model = await service.read();
 
         expect(model.values[STREAM_KEYS.title]).toBe('Deadair');
         expect(model.values[AIR_MODE_KEY]).toBe('audience');
     });
 
-    it('reports a secret as whether it is stored, never as what it is', () => {
+    it('reports a secret as whether it is stored, never as what it is', async () => {
         const ciphertext = encryption.encrypt('hunter2');
         const { service } = build({ [MAIL_KEYS.password]: ciphertext });
 
-        const model = service.read();
+        const model = await service.read();
 
         expect(model.configured[MAIL_KEYS.password]).toBe(true);
         // Neither the plaintext nor the ciphertext is anywhere in the answer.
@@ -72,19 +77,19 @@ describe('SettingsService.read', () => {
         expect(JSON.stringify(model)).not.toContain('hunter2');
     });
 
-    it('reports a secret nobody stored as not configured', () => {
+    it('reports a secret nobody stored as not configured', async () => {
         const { service } = build();
 
-        expect(service.read().configured[MAIL_KEYS.password]).toBe(false);
+        expect((await service.read()).configured[MAIL_KEYS.password]).toBe(false);
     });
 
-    it('says nothing at all about the secrets the stream seeds for itself', () => {
+    it('says nothing at all about the secrets the stream seeds for itself', async () => {
         // Stored, and not the operator's: the console has nothing to draw for them, so the read
         // model does not so much as admit they exist.
         const stored = Object.fromEntries(STREAM_SECRET_KEYS.map(key => [key, encryption.encrypt('seeded')]));
         const { service } = build(stored);
 
-        const model = service.read();
+        const model = await service.read();
 
         for (const key of STREAM_SECRET_KEYS) {
             expect(model.configured[key], key).toBeUndefined();
@@ -95,20 +100,47 @@ describe('SettingsService.read', () => {
         }
     });
 
-    it('carries the descriptors, so a console needs nothing else to draw the form', () => {
+    it('carries the descriptors, so a console needs nothing else to draw the form', async () => {
         const { service } = build();
 
-        expect(service.read().descriptors.some(descriptor => descriptor.key === AIR_MODE_KEY)).toBe(true);
+        expect((await service.read()).descriptors.some(descriptor => descriptor.key === AIR_MODE_KEY)).toBe(true);
     });
 
-    it('carries what an empty setting works out to, which the console cannot work out itself', () => {
+    it('carries what an empty setting works out to, which the console cannot work out itself', async () => {
         // The map's own rules are `settings.derived.test.ts`; what is asserted here is that the read
         // model carries it at all. Two of the three come from the environment the station was
         // deployed with, which a browser cannot see, so a console with nothing here can only repeat
         // the field's help text.
         const { service } = build({ SPA_BASE_URL: 'https://radio.test' });
 
-        expect(service.read().derived[STREAM_KEYS.publicUrl]).toBe('https://radio.test');
+        expect((await service.read()).derived[STREAM_KEYS.publicUrl]).toBe('https://radio.test');
+    });
+
+    it("carries the model plugin's default under every empty model setting", async () => {
+        const { service } = build({}, async () => 'ollama:qwen3');
+
+        const { derived } = await service.read();
+
+        expect(derived[MODEL_WRITER_KEYS.model]).toBe('ollama:qwen3');
+        expect(derived[PERSONA_MODEL_KEY]).toBe('ollama:qwen3');
+    });
+
+    it('draws the page without one when the model server does not answer in time', async () => {
+        // A placeholder is what is lost, and a settings page that waits on somebody's model server
+        // to draw at all is the failure this bound is there to prevent.
+        vi.useFakeTimers();
+        try {
+            const { service } = build({ SPA_BASE_URL: 'https://radio.test' }, () => new Promise(() => undefined));
+
+            const read = service.read();
+            await vi.advanceTimersByTimeAsync(2_000);
+            const { derived } = await read;
+
+            expect(MODEL_WRITER_KEYS.model in derived).toBe(false);
+            expect(derived[STREAM_KEYS.publicUrl]).toBe('https://radio.test');
+        } finally {
+            vi.useRealTimers();
+        }
     });
 });
 

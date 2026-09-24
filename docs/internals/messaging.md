@@ -138,6 +138,12 @@ operator's, never the listener's.
 **Nobody's email address is shown or read out.** An app request carries the name the listener chose, or
 "a listener"; a chat one, the name the platform shows.
 
+**`/request` in a chat searches, and asks at once only for a clear match** (the only one, or an exact
+title); several are offered as up to three buttons, `request.pick` with the record's id as the value, and a
+press is looked up rather than trusted, since a client can send any value. A chat account LINKED to a
+station account asks as that account, so the one-at-a-time rule and the cooldown are one person's whether
+they ask from the app or the chat (`messaging.requests.ts`).
+
 **Somebody who asked from a chat is told what became of it** through the `messaging.announce` job, by
 name, since the messaging module registers after this one. They are told only things that happen LATER
 (placed after a wait, granted, declined by an operator, aired, lapsed): the command that took the request

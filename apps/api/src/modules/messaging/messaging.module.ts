@@ -5,6 +5,7 @@ import { MessagingAnnouncer } from './messaging.announcer.js';
 import { MessagingCommands } from './messaging.commands.js';
 import { MessagingLinksService } from './messaging.links.service.js';
 import { MessagingOperator } from './messaging.operator.js';
+import { MessagingRequests } from './messaging.requests.js';
 import { MessagingPoller } from './messaging.poller.js';
 import { MessagingRepository } from './messaging.repository.js';
 import { MessagingService } from './messaging.service.js';
@@ -31,6 +32,7 @@ export const MessagingModule: ServerKitModule = {
         registry.register(MessagingAnnouncer).useClass(MessagingAnnouncer).asSingleton();
         // `MessagingAnnounceJob` is registered by `JobsModule`, which walks `JobMappings`, like every job.
         registry.register(MessagingOperator).useClass(MessagingOperator).asSingleton();
+        registry.register(MessagingRequests).useClass(MessagingRequests).asSingleton();
         registry.register(MessagingRepository).useClass(MessagingRepository).asScoped();
         // Scoped: it answers the console's routes and reads the request's actor.
         registry.register(MessagingLinksService).useClass(MessagingLinksService).asScoped();

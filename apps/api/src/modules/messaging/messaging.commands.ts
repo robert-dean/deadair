@@ -3,6 +3,7 @@ import { ChannelRouter, type IncomingEvent, type Reply } from '@maroonedsoftware
 import type { InboundMessage } from '@deadair/plugin-sdk';
 import { NowPlayingService } from '#modules/nowplaying/nowplaying.service.js';
 import { MessagingOperator } from './messaging.operator.js';
+import { MessagingRequests, REQUEST_PICK_ACTION } from './messaging.requests.js';
 import type { NowPlaying } from '#modules/nowplaying/types/nowplaying.types.js';
 
 /**
@@ -114,8 +115,19 @@ export class MessagingCommands {
     constructor(
         private readonly nowPlaying: NowPlayingService,
         private readonly operator: MessagingOperator,
+        private readonly requests: MessagingRequests,
     ) {
         this.command('now', 'what is on air right now', false, async () => describeNowPlaying(this.nowPlaying.getNowPlaying()));
+
+        // Answered with a message rather than a line of text, since "which one did you mean" carries buttons.
+        this.summaries.push({ name: 'request', summary: 'TITLE OR ARTIST: ask for a record', operator: false });
+        this.router.command('request', async (event, reply) =>
+            reply.send(await this.requests.request(event.channel, inboundOf(event), event.command?.args ?? '')),
+        );
+        this.router.action(REQUEST_PICK_ACTION, async (event, reply) =>
+            reply.send(await this.requests.pick(event.channel, inboundOf(event), event.action?.value)),
+        );
+
         this.command('help', 'what you can ask', false, async () => this.help());
         this.command('link', 'CODE: link this account to your station account', true, async c => this.operator.link(c.pluginId, c.message, c.args));
         this.command('unlink', 'undo /link', true, async c => this.operator.unlink(c.pluginId, c.message));

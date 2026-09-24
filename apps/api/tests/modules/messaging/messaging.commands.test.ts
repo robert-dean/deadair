@@ -9,6 +9,7 @@ import type { OutgoingMessage, Reply } from '@maroonedsoftware/comms';
 import { MessagingCommands, describeNowPlaying, parseCommand, toIncomingEvent } from '../../../src/modules/messaging/messaging.commands.js';
 import type { NowPlayingService } from '../../../src/modules/nowplaying/nowplaying.service.js';
 import type { MessagingOperator } from '../../../src/modules/messaging/messaging.operator.js';
+import type { MessagingRequests } from '../../../src/modules/messaging/messaging.requests.js';
 import type { NowPlaying } from '../../../src/modules/nowplaying/types/nowplaying.types.js';
 
 const offAir: NowPlaying = { station: 'Dead Air', onAir: false, listeners: 0, mounts: [] };
@@ -52,8 +53,17 @@ async function answer(target: MessagingCommands, pluginId: string, inbound: Inbo
     return sent[0]?.text;
 }
 
+const requests = {
+    request: vi.fn(async (_p: string, _m: InboundMessage, query: string) => ({ text: `asked for ${query}` })),
+    pick: vi.fn(async (_p: string, _m: InboundMessage, trackId: string | undefined) => ({ text: `picked ${trackId}` })),
+};
+
 const commands = (nowPlaying: NowPlaying = onAir()) =>
-    new MessagingCommands({ getNowPlaying: vi.fn(() => nowPlaying) } as unknown as NowPlayingService, operator as unknown as MessagingOperator);
+    new MessagingCommands(
+        { getNowPlaying: vi.fn(() => nowPlaying) } as unknown as NowPlayingService,
+        operator as unknown as MessagingOperator,
+        requests as unknown as MessagingRequests,
+    );
 
 describe('reading a command', () => {
     it('reads the name and what follows it', () => {
@@ -173,5 +183,15 @@ describe('as comms events', () => {
 
     it('stays quiet about a button nothing here knows', async () => {
         expect(await answer(commands(), 'p', { ...message(''), action: { id: 'mystery' } })).toBeUndefined();
+    });
+
+    it('hands /request its words, and a pick its record', async () => {
+        expect(await answer(commands(), 'p', message('/request teardrop'))).toBe('asked for teardrop');
+        expect(await answer(commands(), 'p', { ...message(''), action: { id: 'request.pick', value: 't-1' } })).toBe('picked t-1');
+    });
+
+    it('lists /request for everybody', async () => {
+        const help = (await answer(commands(), 'p', message('/help'))) ?? '';
+        expect(help.indexOf('/request')).toBeLessThan(help.indexOf('Station operators'));
     });
 });

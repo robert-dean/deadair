@@ -694,6 +694,55 @@ stories are joined to it on the feed id, rather than a station's opinion being s
 entry — and the word is matched against the category's own key OR its label, since a category is written once
 and named twice.
 
+## The station's language
+
+**One language per station, and it is `stream.language`.** The key Icecast's `Content-Language` already
+came from, rather than a second one, because it was documented as "the language of what is broadcast" and
+two settings answering one question can only disagree. `stationLanguage` in `stream.settings.ts` reads it
+and answers `undefined` for English (empty, `en`, or any `en-*`), and every branch in the tree is on that
+`undefined`. So an English station is not a station with `language: 'en'`: its prompts, checks and floors are
+byte for byte what they were before a station could be anything else, and the tests that pin English were
+left untouched to prove it.
+
+**The prompt stays in English and says what to write in.** `languageRule` (`shared/language.name.ts`) is the
+last line of the system turn, after the persona's reminder, because it is the instruction every other one is
+subject to and the end is where a model weighs most. It names the source material on purpose: a record's
+facts, a headline and a persona's sheet are usually in English whatever the station broadcasts in, and a
+model handed English text drifts back into English unless told the source and the air may differ. Titles
+and names are kept as written, since a translated title names a record that does not exist. The same rule
+closes every production beat, and a production's PLAN is only told the audience, because a plan is never
+read out. The two places the prompt handed over English words to copy verbatim (the clock phrase and the
+greeting) hand them over as meaning instead: "the German for 'good morning'".
+
+**The checks on an answer do one of three things outside English, and which one is decided by how each
+would fail.** Built on English words, most of them would not refuse a German break; they would simply
+never fire. That is a guard lost silently, and saying so in the code is what makes it a decision.
+
+- **Stand down**: the cue frames (`misCuedIn`), the three clock checks (`contradictsDayPart`,
+  `namesWrongTimeOfDay`, `namesWrongSky`), spoken years (digit years are still checked), the worn-words
+  nag (`overusedWords`, whose stop list is English and would name "nicht" as a habit), and a production's
+  `OPENING`.
+- **Loosened**, because these WOULD fire, and refuse good breaks: a persona marker takes any ending of up to
+  three letters and an elided article in front (`schönen`, `l'amour`) instead of English's inflections; a
+  record name counts in the German genitive (`Metallicas`); and a figure check reads `17,5` as one number
+  and `21.30`, `21h30` and `24.` as times and dates rather than invented measurements.
+- **Fail safe**, where the check decides a CLAIM rather than a refusal: a break offered the time is stamped
+  as having said it (`timeClaimFor`), a break offered a reading as having reported it, and a story's anchor
+  words have to be seven letters or more, a crude stand-in for a stop list the language does not have. The
+  first two cost a break that did not make a claim the claim's expiry, where the other direction airs a
+  stale time or reading; the third costs a story told only in short words being offered again.
+
+The English tables were not translated. Adding a language properly is a table per check, and every one of
+them is currently a single English constant.
+
+**Outside English the station's own phrasings are not a floor.** `parseTemplates` falls back to nothing
+rather than to the built-in English set, and the values the station can only fill in English (the time,
+the greeting, the weather and almanac reports) are left out of what a template may use, so a German phrasing
+that names one does not fit. The operator's lines and a persona's still apply. What that costs is real and
+chosen: a break whose model declined and which nobody wrote a phrasing for is dropped, and a warm-up, a
+jingle or a dedication (none of which has a model in front of it, or a box for other lines in the last case)
+airs only if somebody wrote it in the station's language. An English sentence on a French station is worse.
+
 ## The record of what was written
 
 **Everything the station writes is kept.** `deadair.script_history`, one row per write ATTEMPT,

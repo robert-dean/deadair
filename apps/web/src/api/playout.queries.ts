@@ -111,6 +111,18 @@ export function usePlayPlaylist() {
     });
 }
 
+/** Loads a playlist the station owns into the running order and starts airing it, on {@link usePlayPlaylist}'s terms. */
+export function usePlayStationPlaylist() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ stationPlaylistId, mixInSimilar }: { stationPlaylistId: string; mixInSimilar?: boolean }) =>
+            sdk.playout.playAStationPlaylist({ stationPlaylistId, ...(mixInSimilar === undefined ? {} : { mixInSimilar }) }),
+        onSuccess: status => {
+            followTransport(queryClient, status);
+        },
+    });
+}
+
 /**
  * Builds the running order from a published chart and starts airing it.
  *

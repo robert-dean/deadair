@@ -26,6 +26,15 @@ public final class PlayoutClient: Sendable {
         return try http.decodeJSON(PlayoutStatus.self, from: response)
     }
 
+    /// Play a station playlist
+    /// Loads a playlist the station owns into the running order and starts handing it to the player. The same replacement a plugin playlist makes, from records the library already holds
+    public func playAStationPlaylist(body: PlayoutStationPlaylistInput) async throws -> PlayoutStatus {
+        var request = SdkRequest(method: "POST", path: ["playout", "station-playlist"])
+        try http.setJSONBody(&request, body, contentType: "application/json")
+        let response = try await http.execute(request)
+        return try http.decodeJSON(PlayoutStatus.self, from: response)
+    }
+
     /// Play a chart
     /// Builds the running order from a published chart and starts handing it to the player. The same replacement a playlist makes, from a document somebody else ranked
     public func playAChart(body: PlayoutChartInput) async throws -> PlayoutStatus {

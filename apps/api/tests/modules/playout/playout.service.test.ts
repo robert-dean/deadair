@@ -238,6 +238,25 @@ describe('PlayoutService.playPlaylist', () => {
     });
 });
 
+describe('PlayoutService.playStationPlaylist', () => {
+    it('builds the running order from a playlist the station owns, through the director', async () => {
+        const { service, director, pusher } = build();
+
+        await service.playStationPlaylist({ stationPlaylistId: 'sp-1' });
+
+        expect(director.putOnAir).toHaveBeenCalledWith({ stationPlaylistId: 'sp-1' });
+        expect(pusher.reconcile).toHaveBeenCalledOnce();
+    });
+
+    it('passes on a request to mix similar records in only when there was one', async () => {
+        const { service, director } = build();
+
+        await service.playStationPlaylist({ stationPlaylistId: 'sp-1', mixInSimilar: true });
+
+        expect(director.putOnAir).toHaveBeenCalledWith({ stationPlaylistId: 'sp-1', mixInSimilar: true });
+    });
+});
+
 describe('PlayoutService.getStatus', () => {
     it('reports the stream as down when nothing answers', async () => {
         // A running order with no stream to hand it to plays nothing; a console that

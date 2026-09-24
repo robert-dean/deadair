@@ -333,6 +333,8 @@ public struct PutOnAirInput: Codable, Equatable, Sendable {
     public var chartId: String?
     /// Which way round to play it. `countdown` opens on the lowest rank and ends on number one, which is the shape a chart show has; `ranked` walks the published document from the top; `unordered` leaves the sequence to the station's own artist spacing. Absent is `countdown`. Ignored without `chartId`
     public var chartOrder: PutOnAirInputChartOrder?
+    /// A playlist the station owns to build from instead. An ALTERNATIVE to `pluginId` and `playlistId`, and to `chartId`: its records are the library's own, so each airs from whichever provider serves a copy, and a row the library does not hold yet is left out
+    public var stationPlaylistId: UUID?
     /// What to call this broadcast. Absent names it after the chart, or after the plugin, since only the surface that listed the source knows its own name for it
     public var name: String?
     /// What the station should play, in your own words: "heavy metal hits". It steers every refill for as long as this broadcast runs, not just the first batch, and it needs a model to programme with. Absent programmes the station the way its own rules do
@@ -350,11 +352,12 @@ public struct PutOnAirInput: Codable, Equatable, Sendable {
     public var mode: StationMode?
     public var onEnd: StationOnEnd?
 
-    public init(pluginId: String? = nil, playlistId: String? = nil, chartId: String? = nil, chartOrder: PutOnAirInputChartOrder? = nil, name: String? = nil, brief: String? = nil, personaId: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, mode: StationMode? = nil, onEnd: StationOnEnd? = nil) {
+    public init(pluginId: String? = nil, playlistId: String? = nil, chartId: String? = nil, chartOrder: PutOnAirInputChartOrder? = nil, stationPlaylistId: UUID? = nil, name: String? = nil, brief: String? = nil, personaId: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, mode: StationMode? = nil, onEnd: StationOnEnd? = nil) {
         self.pluginId = pluginId
         self.playlistId = playlistId
         self.chartId = chartId
         self.chartOrder = chartOrder
+        self.stationPlaylistId = stationPlaylistId
         self.name = name
         self.brief = brief
         self.personaId = personaId
@@ -371,6 +374,7 @@ public struct PutOnAirInput: Codable, Equatable, Sendable {
         case playlistId = "playlistId"
         case chartId = "chartId"
         case chartOrder = "chartOrder"
+        case stationPlaylistId = "stationPlaylistId"
         case name = "name"
         case brief = "brief"
         case personaId = "personaId"
@@ -388,6 +392,7 @@ public struct PutOnAirInput: Codable, Equatable, Sendable {
         self.playlistId = try container.decodeIfPresent(String.self, forKey: .playlistId)
         self.chartId = try container.decodeIfPresent(String.self, forKey: .chartId)
         self.chartOrder = try container.decodeIfPresent(PutOnAirInputChartOrder.self, forKey: .chartOrder)
+        self.stationPlaylistId = try container.decodeIfPresent(UUID.self, forKey: .stationPlaylistId)
         self.name = try container.decodeIfPresent(String.self, forKey: .name)
         self.brief = try container.decodeIfPresent(String.self, forKey: .brief)
         self.personaId = try container.decodeIfPresent(String.self, forKey: .personaId)
@@ -405,6 +410,7 @@ public struct PutOnAirInput: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.playlistId, forKey: .playlistId)
         try container.encodeIfPresent(self.chartId, forKey: .chartId)
         try container.encodeIfPresent(self.chartOrder, forKey: .chartOrder)
+        try container.encodeIfPresent(self.stationPlaylistId, forKey: .stationPlaylistId)
         try container.encodeIfPresent(self.name, forKey: .name)
         try container.encodeIfPresent(self.brief, forKey: .brief)
         try container.encodeIfPresent(self.personaId, forKey: .personaId)
@@ -577,6 +583,7 @@ public struct StationOrder: Codable, Equatable, Sendable {
     public var source: String
     /// Where more material is pulled from, when it came from a playlist
     public var sourcePluginId: String?
+    /// The playlist it was built from. With no `sourcePluginId`, a playlist the station owns
     public var sourcePlaylistId: String?
     /// The published chart this broadcast was built from, qualified with the plugin that offered it. Provenance rather than a binding: a chart is a fixed document, so it is read once and never topped up from
     public var sourceChartId: String?

@@ -46,6 +46,24 @@ operation /playout/playlist: {
     }
 }
 
+operation /playout/station-playlist: {
+    post: { # Loads a playlist the station owns into the running order and starts handing it to the player. The same replacement a plugin playlist makes, from records the library already holds
+        name: Play a station playlist
+        service: PlayoutService.playStationPlaylist
+        security: {
+            policy: platform.manage
+        }
+        request: {
+            application/json: PlayoutStationPlaylistInput
+        }
+        response: {
+            200: {
+                application/json: PlayoutStatus
+            }
+        }
+    }
+}
+
 operation /playout/chart: {
     post: { # Builds the running order from a published chart and starts handing it to the player. The same replacement a playlist makes, from a document somebody else ranked
         name: Play a chart

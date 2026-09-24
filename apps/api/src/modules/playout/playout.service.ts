@@ -18,6 +18,7 @@ import type {
     PlayoutAiredQuery,
     PlayoutItem,
     PlayoutChartInput,
+    PlayoutStationPlaylistInput,
     PlayoutPlaylistInput,
     PlayoutStarveQuery,
     PlayoutStatus,
@@ -311,6 +312,20 @@ export class PlayoutService {
 
         // Hand the first item over now rather than waiting out the reconcile tick,
         // so the console's own response already reflects a station that is starting.
+        await this.pusher.reconcile();
+        return this.getStatus();
+    }
+
+    /**
+     * Play a playlist the station owns, on {@link playPlaylist}'s terms: the director builds the
+     * running order, and the first item is handed over now rather than at the next reconcile.
+     */
+    async playStationPlaylist(input: PlayoutStationPlaylistInput): Promise<PlayoutStatus> {
+        await this.director.putOnAir({
+            stationPlaylistId: input.stationPlaylistId,
+            ...(input.mixInSimilar === undefined ? {} : { mixInSimilar: input.mixInSimilar }),
+        });
+
         await this.pusher.reconcile();
         return this.getStatus();
     }

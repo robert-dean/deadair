@@ -8,6 +8,7 @@ import { render, screen, setupUser, waitFor } from '../../utils/render';
 const getStationPlaylist = vi.fn();
 const deleteStationPlaylist = vi.fn();
 const navigate = vi.fn();
+const playAStationPlaylist = vi.fn();
 
 vi.mock('../../../src/api/client', () => ({
     sdk: {
@@ -15,6 +16,7 @@ vi.mock('../../../src/api/client', () => ({
             getStationPlaylist: (id: string) => getStationPlaylist(id),
             deleteStationPlaylist: (id: string) => deleteStationPlaylist(id),
         },
+        playout: { playAStationPlaylist: (body: unknown) => playAStationPlaylist(body) },
         plugins: { listPlugins: () => Promise.resolve([{ id: 'deadair.spotify', name: 'Spotify' }]) },
     },
 }));
@@ -32,6 +34,7 @@ afterEach(() => {
     getStationPlaylist.mockReset();
     deleteStationPlaylist.mockReset();
     navigate.mockReset();
+    playAStationPlaylist.mockReset();
 });
 
 const detail = () => ({
@@ -67,5 +70,25 @@ describe('StationPlaylistPage', () => {
 
         await waitFor(() => expect(deleteStationPlaylist).toHaveBeenCalledWith('station-playlist-1'));
         await waitFor(() => expect(navigate).toHaveBeenCalledWith({ to: '/playlists' }));
+    });
+
+    it('airs the playlist from its page', async () => {
+        getStationPlaylist.mockResolvedValue(detail());
+        playAStationPlaylist.mockResolvedValue({ queue: [], stream: { up: true } });
+        const user = setupUser();
+
+        render(<StationPlaylistPage id="station-playlist-1" />);
+        await user.click(await screen.findByRole('button', { name: 'Air this playlist' }));
+
+        await waitFor(() => expect(playAStationPlaylist).toHaveBeenCalledWith({ stationPlaylistId: 'station-playlist-1' }));
+    });
+
+    it('offers no Air button when nothing on the playlist is in the library', async () => {
+        getStationPlaylist.mockResolvedValue({ ...detail(), resolvedCount: 0 });
+
+        render(<StationPlaylistPage id="station-playlist-1" />);
+
+        expect(await screen.findByText('Teardrop')).toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Air this playlist' })).not.toBeInTheDocument();
     });
 });

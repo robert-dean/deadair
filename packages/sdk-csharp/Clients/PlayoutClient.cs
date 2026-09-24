@@ -48,6 +48,20 @@ public sealed class PlayoutClient(SdkHttp http)
     }
 
     /// <summary>
+    /// Play a station playlist
+    /// Loads a playlist the station owns into the running order and starts handing it to the player. The same replacement a plugin playlist makes, from records the library already holds
+    /// </summary>
+    public async Task<PlayoutStatus> PlayAStationPlaylistAsync(PlayoutStationPlaylistInput body, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Post,
+            http.Path("playout", "station-playlist"),
+            content: http.JsonContent(body, "application/json"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<PlayoutStatus>(response);
+    }
+
+    /// <summary>
     /// Play a chart
     /// Builds the running order from a published chart and starts handing it to the player. The same replacement a playlist makes, from a document somebody else ranked
     /// </summary>

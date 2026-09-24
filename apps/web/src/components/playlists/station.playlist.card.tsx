@@ -4,6 +4,7 @@ import { Link } from '@tanstack/react-router';
 import type { StationPlaylist } from '@deadair/sdk';
 
 import { pluginsListOptions } from '../../api/plugins.queries';
+import { PlayStationPlaylistButton } from '../playout/play.playlist.button';
 
 /** The plugin a station playlist was cloned from, by the name an operator knows it by. */
 export function usePluginName(pluginId: string | undefined): string | undefined {
@@ -54,11 +55,15 @@ export function StationPlaylistCard({ playlist }: { playlist: StationPlaylist })
 
                 <Divider mt="auto" />
 
-                {/* `renderRoot` rather than `component={Link}`: the polymorphic form erases the
-                    router's own types, and with them the check that `params` matches the path. */}
-                <Anchor renderRoot={(props: object) => <Link to="/station-playlists/$id" params={{ id: playlist.id }} {...props} />} size="sm">
-                    View records
-                </Anchor>
+                <Group justify="space-between" wrap="nowrap">
+                    {/* `renderRoot` rather than `component={Link}`: the polymorphic form erases the
+                        router's own types, and with them the check that `params` matches the path. */}
+                    <Anchor renderRoot={(props: object) => <Link to="/station-playlists/$id" params={{ id: playlist.id }} {...props} />} size="sm">
+                        View records
+                    </Anchor>
+                    {/* Only when something on it can air: one made of nothing but placeholders is refused. */}
+                    {playlist.resolvedCount > 0 ? <PlayStationPlaylistButton stationPlaylistId={playlist.id} size="xs" /> : undefined}
+                </Group>
             </Stack>
         </Card>
     );

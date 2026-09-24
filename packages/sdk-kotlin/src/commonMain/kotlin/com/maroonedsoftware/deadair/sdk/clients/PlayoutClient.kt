@@ -3,6 +3,7 @@ package com.maroonedsoftware.deadair.sdk.clients
 
 import com.maroonedsoftware.deadair.sdk.models.PlayoutChartInput
 import com.maroonedsoftware.deadair.sdk.models.PlayoutPlaylistInput
+import com.maroonedsoftware.deadair.sdk.models.PlayoutStationPlaylistInput
 import com.maroonedsoftware.deadair.sdk.models.PlayoutStatus
 import com.maroonedsoftware.deadair.sdk.runtime.SdkHttp
 import io.ktor.http.HttpMethod
@@ -27,6 +28,18 @@ class PlayoutClient(private val http: SdkHttp) {
     suspend fun playAPlaylist(body: PlayoutPlaylistInput): PlayoutStatus {
         val response = http.execute(HttpMethod.Post) {
             path("playout", "playlist")
+            jsonBody(body, "application/json")
+        }
+        return http.decodeJson(response)
+    }
+
+    /**
+     * Play a station playlist
+     * Loads a playlist the station owns into the running order and starts handing it to the player. The same replacement a plugin playlist makes, from records the library already holds
+     */
+    suspend fun playAStationPlaylist(body: PlayoutStationPlaylistInput): PlayoutStatus {
+        val response = http.execute(HttpMethod.Post) {
+            path("playout", "station-playlist")
             jsonBody(body, "application/json")
         }
         return http.decodeJson(response)

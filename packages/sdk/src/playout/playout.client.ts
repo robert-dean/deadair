@@ -1,6 +1,6 @@
 import type { SdkFetch } from '../sdk-options.js';
 import { bigIntReplacer, parseJson } from '../sdk-options.js';
-import type { PlayoutChartInput, PlayoutPlaylistInput, PlayoutStatus } from './types/playout.types.js';
+import type { PlayoutChartInput, PlayoutPlaylistInput, PlayoutStationPlaylistInput, PlayoutStatus } from './types/playout.types.js';
 
 export class PlayoutClient {
     constructor(private fetch: SdkFetch) {}
@@ -20,6 +20,19 @@ export class PlayoutClient {
      */
     async playAPlaylist(body: PlayoutPlaylistInput): Promise<PlayoutStatus> {
         const result = await this.fetch(`/playout/playlist`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<PlayoutStatus>(result);
+    }
+
+    /**
+     * @name Play a station playlist
+     * @description Loads a playlist the station owns into the running order and starts handing it to the player. The same replacement a plugin playlist makes, from records the library already holds
+     */
+    async playAStationPlaylist(body: PlayoutStationPlaylistInput): Promise<PlayoutStatus> {
+        const result = await this.fetch(`/playout/station-playlist`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body, bigIntReplacer),

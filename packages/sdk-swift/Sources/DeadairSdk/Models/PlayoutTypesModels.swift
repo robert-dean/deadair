@@ -35,6 +35,35 @@ public struct PlayoutPlaylistInput: Codable, Equatable, Sendable {
     }
 }
 
+/// A playlist the station owns, to load into the running order
+public struct PlayoutStationPlaylistInput: Codable, Equatable, Sendable {
+    public var stationPlaylistId: UUID
+    /// Whether records that sound like the ones on this playlist are mixed in among them, one every `rotation.mixInEvery` records. Absent takes the station's own setting, which is off
+    public var mixInSimilar: Bool?
+
+    public init(stationPlaylistId: UUID, mixInSimilar: Bool? = nil) {
+        self.stationPlaylistId = stationPlaylistId
+        self.mixInSimilar = mixInSimilar
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case stationPlaylistId = "stationPlaylistId"
+        case mixInSimilar = "mixInSimilar"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.stationPlaylistId = try container.decode(UUID.self, forKey: .stationPlaylistId)
+        self.mixInSimilar = try container.decodeIfPresent(Bool.self, forKey: .mixInSimilar)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.stationPlaylistId, forKey: .stationPlaylistId)
+        try container.encodeIfPresent(self.mixInSimilar, forKey: .mixInSimilar)
+    }
+}
+
 /// The published chart to build the running order from
 public struct PlayoutChartInput: Codable, Equatable, Sendable {
     /// As `pluginId:chartId`, which is how `GET /charts` lists them

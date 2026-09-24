@@ -15,6 +15,7 @@ import type { StationAirRepository } from '../../../src/modules/director/station
 import type { TracksRepository } from '../../../src/modules/catalog/tracks.repository.js';
 import type { ChartsService } from '../../../src/modules/charts/charts.service.js';
 import type { PlaylistsService } from '../../../src/modules/playlists/playlists.service.js';
+import type { StationPlaylistRowTrack, StationPlaylistsRepository } from '../../../src/modules/playlists/station.playlists.repository.js';
 import type { RundownTrack } from '../../../src/modules/playout/rundown.js';
 import type { Segment, SegmentRepository } from '../../../src/modules/render/segment.repository.js';
 import type { ArtAsset, ArtRepository } from '../../../src/modules/art/art.repository.js';
@@ -35,6 +36,10 @@ import { settingsConfig } from '../../utils/settings.config.js';
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
 
 interface Options {
+    /** A playlist the station owns, by its rows, or absent for one it does not hold. */
+    stationPlaylist?: { name: string; rows: StationPlaylistRowTrack[] };
+    /** Which copy serves each library record, by canonical id, for the station playlist cases. */
+    stationBindings?: Record<string, { pluginId: string; externalId: string; durationMs?: number }>;
     tracks?: { id: string; title: string; artists: string[]; durationMs?: number; album?: string; artworkUrl?: string }[];
     playlistError?: Error;
     catalogRows?: { externalId: string; trackId: string; year: number | null; albumName: string | null; albumImageUrl: string | null }[];
@@ -176,6 +181,9 @@ function build(options: Options = {}) {
             return options.catalogRows ?? ids.map(id => ({ externalId: id, trackId: `cat-${id}`, year: null, albumName: null, albumImageUrl: null }));
         }),
         findTrack: vi.fn(async (id: string) => (options.catalogTrack?.id === id ? options.catalogTrack : undefined)),
+        findByIds: vi.fn(
+            async (ids: readonly string[]) => new Map(ids.map(id => [id, { title: '', credit: '', year: 1998, artworkUrl: `art-${id}` }])),
+        ),
         catalogRowsByTrackId: vi.fn(
             async (ids: readonly string[]) =>
                 new Map(
@@ -272,6 +280,9 @@ function build(options: Options = {}) {
     // about these — a case that wants the 404 or the 422 hands over its own `trackBinding`/`audioReady`.
     const candidates = {
         bindingsFor: vi.fn(async (ids: readonly string[]) => {
+            if (options.stationBindings !== undefined) {
+                return new Map(ids.flatMap(id => (options.stationBindings![id] ? [[id, { trackId: id, ...options.stationBindings![id]! }]] : [])));
+            }
             const binding = options.trackBinding;
             return new Map(binding && ids.includes(options.catalogTrack?.id ?? '') ? [[ids[0]!, binding]] : []);
         }),
@@ -296,6 +307,15 @@ function build(options: Options = {}) {
     const rundown = {
         nowPlaying: vi.fn(() => (options.airing ? { item: { id: options.onAirId ?? 'on-air', title: 'Echoes' }, startedAt: 0 } : undefined)),
     };
+    // A playlist the station owns, read-only from here: the playlists module owns its rows.
+    const stationPlaylists = {
+        find: vi.fn(async (id: string) =>
+            options.stationPlaylist === undefined
+                ? undefined
+                : { id, name: options.stationPlaylist.name, trackCount: options.stationPlaylist.rows.length },
+        ),
+        tracks: vi.fn(async () => options.stationPlaylist?.rows ?? []),
+    } as unknown as StationPlaylistsRepository;
     const cutAgainst: string[][] = [];
     const pusher = {
         skipCurrent: vi.fn(async () => {
@@ -328,6 +348,7 @@ function build(options: Options = {}) {
             rundown as never,
             pusher as never,
             art,
+            stationPlaylists,
         ),
         pusher,
         art,
@@ -342,6 +363,7 @@ function build(options: Options = {}) {
         air,
         director,
         playlists,
+        stationPlaylists,
         order,
         posted: () => posted,
         jobs,
@@ -731,6 +753,113 @@ describe('DirectorConsoleService.putOnAir', () => {
 
         expect(playlists.getPlaylistTracks).not.toHaveBeenCalled();
         expect(posted()[0]).toMatchObject({ kind: 'putOnAir', tracks: [], binding: { source: 'director' } });
+    });
+
+    describe('a playlist the station owns', () => {
+        const row = (overrides: Partial<StationPlaylistRowTrack>): StationPlaylistRowTrack => ({
+            id: 'row',
+            position: 0,
+            title: 'Teardrop',
+            artists: ['Massive Attack'],
+            ...overrides,
+        });
+        const id = '00000000-0000-4000-8000-000000000001';
+
+        it('airs the records the library holds, from whichever copy serves them, and leaves the placeholders out', async () => {
+            const { service, posted, resolver } = build({
+                stationPlaylist: {
+                    name: 'Late night',
+                    rows: [
+                        row({ id: 'r1', position: 0, trackId: 'cat-1', album: 'Mezzanine' }),
+                        row({
+                            id: 'r2',
+                            position: 1,
+                            title: 'Roads',
+                            artists: ['Portishead'],
+                            originPluginId: 'deadair.spotify',
+                            originExternalId: 'sp-1',
+                        }),
+                        row({ id: 'r3', position: 2, trackId: 'cat-3', title: 'Glory Box', artists: ['Portishead'], durationMs: 306_000 }),
+                    ],
+                },
+                stationBindings: {
+                    'cat-1': { pluginId: 'deadair.navidrome', externalId: 'nd-1', durationMs: 330_000 },
+                    'cat-3': { pluginId: 'deadair.spotify', externalId: 'sp-3' },
+                },
+            });
+
+            await service.putOnAir({ stationPlaylistId: id });
+
+            const command = posted().at(-1);
+            if (command?.kind !== 'putOnAir') throw new Error('expected the station to be put on air');
+            expect(command.tracks).toEqual([
+                expect.objectContaining({
+                    pluginId: 'deadair.navidrome',
+                    externalId: 'nd-1',
+                    trackId: 'cat-1',
+                    title: 'Teardrop',
+                    durationMs: 330_000,
+                    album: 'Mezzanine',
+                    year: 1998,
+                }),
+                expect.objectContaining({
+                    pluginId: 'deadair.spotify',
+                    externalId: 'sp-3',
+                    trackId: 'cat-3',
+                    title: 'Glory Box',
+                    durationMs: 306_000,
+                }),
+            ]);
+            // Named after the playlist, recorded as an import so a mix-in still applies, and with no
+            // single plugin standing beside it.
+            expect(command.binding).toMatchObject({ name: 'Late night', source: 'import', sourcePlaylistId: id });
+            expect(command.binding.sourcePluginId).toBeUndefined();
+            expect(resolver.vet).toHaveBeenCalled();
+        });
+
+        it('refuses a playlist this station does not hold', async () => {
+            const { service, director } = build({});
+
+            expect(await statusOf(service.putOnAir({ stationPlaylistId: id }))).toBe(404);
+            expect(director.post).not.toHaveBeenCalled();
+        });
+
+        it('refuses one that names no records', async () => {
+            const { service, director } = build({ stationPlaylist: { name: 'Empty', rows: [] } });
+
+            expect(await statusOf(service.putOnAir({ stationPlaylistId: id }))).toBe(422);
+            expect(director.post).not.toHaveBeenCalled();
+        });
+
+        it('refuses one made only of placeholders, and says they are waiting for the library', async () => {
+            const { service, director } = build({
+                stationPlaylist: { name: 'Waiting', rows: [row({ originPluginId: 'deadair.spotify', originExternalId: 'sp-1' })] },
+            });
+
+            expect(await refusalOf(service.putOnAir({ stationPlaylistId: id }))).toContain('in the library yet');
+            expect(director.post).not.toHaveBeenCalled();
+        });
+
+        it('refuses one no provider serves a copy of', async () => {
+            const { service, director } = build({
+                stationPlaylist: { name: 'Orphans', rows: [row({ trackId: 'cat-1' })] },
+                stationBindings: {},
+            });
+
+            expect(await statusOf(service.putOnAir({ stationPlaylistId: id }))).toBe(422);
+            expect(director.post).not.toHaveBeenCalled();
+        });
+
+        it('refuses one the veto empties', async () => {
+            const { service, director } = build({
+                stationPlaylist: { name: 'Disliked', rows: [row({ trackId: 'cat-1' })] },
+                stationBindings: { 'cat-1': { pluginId: 'deadair.spotify', externalId: 'sp-1' } },
+                vet: () => [],
+            });
+
+            expect(await statusOf(service.putOnAir({ stationPlaylistId: id }))).toBe(422);
+            expect(director.post).not.toHaveBeenCalled();
+        });
     });
 
     it('refuses an empty playlist rather than airing silence', async () => {

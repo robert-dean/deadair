@@ -243,6 +243,11 @@ public sealed record PutOnAirInput
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public PutOnAirInputChartOrder? ChartOrder { get; init; }
 
+    /// <summary>A playlist the station owns to build from instead. An ALTERNATIVE to `pluginId` and `playlistId`, and to `chartId`: its records are the library's own, so each airs from whichever provider serves a copy, and a row the library does not hold yet is left out</summary>
+    [JsonPropertyName("stationPlaylistId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Guid? StationPlaylistId { get; init; }
+
     /// <summary>What to call this broadcast. Absent names it after the chart, or after the plugin, since only the surface that listed the source knows its own name for it</summary>
     [JsonPropertyName("name")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -427,6 +432,7 @@ public sealed record StationOrder
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? SourcePluginId { get; init; }
 
+    /// <summary>The playlist it was built from. With no `sourcePluginId`, a playlist the station owns</summary>
     [JsonPropertyName("sourcePlaylistId")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? SourcePlaylistId { get; init; }

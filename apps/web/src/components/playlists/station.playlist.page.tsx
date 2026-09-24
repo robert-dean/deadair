@@ -10,6 +10,7 @@ import {
     useDeleteStationPlaylist,
     useUpdateStationPlaylist,
 } from '../../api/station.playlists.queries';
+import { PlayStationPlaylistButton } from '../playout/play.playlist.button';
 import { AlbumLink, ArtistLink, TrackLink } from '../shared/catalog.links';
 import { ConfirmModal } from '../shared/confirm.modal';
 import { EmptyState } from '../shared/empty.state';
@@ -73,6 +74,10 @@ export function StationPlaylistPage({ id }: { id: string }) {
                     actions={
                         data ? (
                             <Group gap="xs">
+                                {/* Only when something on it can air: a playlist of nothing but
+                                    placeholders is refused with a 422, so offering the button first
+                                    invites it. */}
+                                {data.resolvedCount > 0 ? <PlayStationPlaylistButton stationPlaylistId={id} size="xs" /> : undefined}
                                 <Button size="xs" variant="default" loading={exporting} onClick={() => void save()}>
                                     Export
                                 </Button>

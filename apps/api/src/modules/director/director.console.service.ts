@@ -13,6 +13,7 @@ import { ChartsService, MAX_CHART_ENTRIES } from '#modules/charts/charts.service
 import { splitChartId } from '#modules/charts/chart.ids.js';
 import { AuthorizationContext } from '#modules/permissions/authorization.context.js';
 import { PlaylistsService } from '#modules/playlists/playlists.service.js';
+import { StationPlaylistsRepository } from '#modules/playlists/station.playlists.repository.js';
 import type { CatalogTrack } from '#modules/playlists/types/playlists.types.js';
 import { AIR_MODE_KEY } from '#modules/playout/air.mode.js';
 import { PlayoutPusher } from '#modules/playout/playout.pusher.js';
@@ -30,6 +31,7 @@ import { bindsAnything, CandidatesRepository, type EraWindow } from './candidate
 import { chartPicks, DEFAULT_CHART_ORDER } from './chart.picks.js';
 import { DISCOVER_DEFAULT, DISCOVER_KEY, PickResolver } from './pick.resolver.js';
 import { songKey } from './rotation.keys.js';
+import { advisoryPolicy } from './advisory.policy.js';
 import { CHANGEOVER_KIND } from './changeover.writer.js';
 import { changeoverContext } from './changeover.source.js';
 import { NO_RULES, stationAutoExtends } from './rotation.rules.js';
@@ -136,6 +138,9 @@ export class DirectorConsoleService {
         // Read-only, and for one question: what picture a kind of break wears. See
         // {@link DirectorConsoleService.breakArtwork}.
         private readonly art: ArtRepository,
+        // Read-only: a playlist the station owns is the third thing a broadcast can be built from,
+        // and the playlists module owns its rows. See {@link stationPlaylistTracks}.
+        private readonly stationPlaylists: StationPlaylistsRepository,
     ) {}
 
     /**
@@ -421,7 +426,7 @@ export class DirectorConsoleService {
             // separately, so the console passes one string and the desk still gets the badge it
             // draws for a playlist.
             ...(pluginOf(input) === undefined ? {} : { sourcePluginId: pluginOf(input) }),
-            ...(input.playlistId === undefined ? {} : { sourcePlaylistId: input.playlistId }),
+            ...(playlistOf(input) === undefined ? {} : { sourcePlaylistId: playlistOf(input) }),
             ...(input.chartId === undefined ? {} : { sourceChartId: input.chartId }),
         };
 
@@ -440,6 +445,7 @@ export class DirectorConsoleService {
         this.logger.info('director: put the station on air', {
             plugin: pluginOf(input),
             ...(input.playlistId === undefined ? {} : { playlist: input.playlistId }),
+            ...(input.stationPlaylistId === undefined ? {} : { stationPlaylist: input.stationPlaylistId }),
             ...(input.chartId === undefined ? {} : { chart: input.chartId }),
             tracks: tracks.length,
         });
@@ -509,6 +515,7 @@ export class DirectorConsoleService {
      */
     private async sourceTracks(input: PutOnAirInput): Promise<RundownTrack[]> {
         if (input.chartId !== undefined) return await this.chartTracks(input.chartId, input.chartOrder, this.era(input));
+        if (input.stationPlaylistId !== undefined) return await this.stationPlaylistTracks(input.stationPlaylistId, this.era(input));
         if (input.pluginId === undefined || input.playlistId === undefined) return [];
 
         const { tracks } = await this.playlists.getPlaylistTracks(input.pluginId, input.playlistId);
@@ -568,6 +575,86 @@ export class DirectorConsoleService {
     }
 
     /**
+     * The records a playlist the station owns starts a broadcast from.
+     *
+     * Unlike a provider's playlist, whose copies are fixed by whoever listed them, a row here names a
+     * RECORD, so which copy airs is the station's choice: `bindingsFor` under the advisory policy,
+     * which is the choice `addTrackToOrder` makes for one record and every generator makes for a
+     * batch. A placeholder is left out, because the library does not hold it and there is nothing
+     * the player could fetch.
+     *
+     * The same three refusals a provider's playlist gets, for the same reason: each is a way a running
+     * order could report success and then air silence, or air the station's own rotation in place of
+     * the playlist the operator chose.
+     *
+     * @throws 404 for a playlist this station does not hold, 422 when nothing on it can air.
+     */
+    private async stationPlaylistTracks(id: string, era: EraWindow): Promise<RundownTrack[]> {
+        if ((await this.stationPlaylists.find(id)) === undefined) {
+            throw httpError(404).withDetails({ message: `station playlist "${id}" does not exist` });
+        }
+
+        const rows = await this.stationPlaylists.tracks(id);
+        if (rows.length === 0) throw httpError(422).withDetails({ message: 'that playlist has no tracks to play' });
+
+        // Folded by song key into the first occurrence, as a provider's playlist is in
+        // `toRundownTracks`, and for the same reason: a reprise is a repeat rather than a second record.
+        const seen = new Set<string>();
+        const held = rows.filter((row): row is typeof row & { trackId: string } => {
+            if (row.trackId === undefined) return false;
+            const key = songKey(row.title, [row.artists[0] ?? '']);
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
+        if (held.length === 0) {
+            throw httpError(422).withDetails({
+                message:
+                    'none of the records on that playlist are in the library yet, so there is nothing the station can fetch. They are kept as placeholders and match as the library gains them',
+            });
+        }
+
+        const trackIds = held.map(row => row.trackId);
+        const [bindings, catalog] = await Promise.all([
+            this.candidates.bindingsFor(trackIds, [], advisoryPolicy(this.config)),
+            this.tracks.findByIds(trackIds),
+        ]);
+
+        const tracks = held.flatMap((row): RundownTrack[] => {
+            const binding = bindings.get(row.trackId);
+            if (binding === undefined) return [];
+            const known = catalog.get(row.trackId);
+            const durationMs = row.durationMs ?? binding.durationMs;
+            return [
+                {
+                    pluginId: binding.pluginId,
+                    externalId: binding.externalId,
+                    title: row.title,
+                    artists: row.artists,
+                    // The lead, as every other producer's identity is. See `addTrackToOrder`.
+                    artist: row.artists[0] ?? '',
+                    trackId: row.trackId,
+                    ...(durationMs === undefined ? {} : { durationMs }),
+                    ...(row.album === undefined ? {} : { album: row.album }),
+                    ...(known?.artworkUrl === undefined ? {} : { artworkUrl: known.artworkUrl }),
+                    ...(known?.year === undefined ? {} : { year: known.year }),
+                },
+            ];
+        });
+        if (tracks.length === 0) {
+            throw httpError(422).withDetails({ message: 'no provider currently serves a copy of any record on that playlist' });
+        }
+
+        const vetted = await this.resolver.vet(tracks, { era });
+        if (vetted.length === 0) {
+            throw httpError(422).withDetails({
+                message: 'every record on that playlist is one this station will not play: a dislike, the period, the advisory policy, or its length',
+            });
+        }
+        return vetted;
+    }
+
+    /**
      * What to call a broadcast nobody named.
      *
      * A chart gets the chart's OWN name, which costs one call to a menu that is built without a
@@ -576,6 +663,12 @@ export class DirectorConsoleService {
      * plugin keeps a chart whose descriptor has since gone from being nameless.
      */
     private async nameFor(input: PutOnAirInput): Promise<string> {
+        // The station's own playlist has a name it chose, read again here rather than carried out of
+        // `sourceTracks` because it is one row by primary key and a label rather than a decision.
+        if (input.stationPlaylistId !== undefined && input.chartId === undefined) {
+            return (await this.stationPlaylists.find(input.stationPlaylistId))?.name ?? 'A station playlist';
+        }
+
         const plugin = pluginOf(input);
         if (plugin === undefined) return 'The station';
 
@@ -1449,6 +1542,9 @@ function describeEdit(edit: OrderEdit): string {
  */
 function sourceOf(input: PutOnAirInput): string {
     if (input.chartId !== undefined) return 'chart';
+    // A playlist the station owns is an import too: a list somebody made and the station cloned,
+    // which is what the mix-in keys on (`DirectorService.mixInIfAsked`).
+    if (input.stationPlaylistId !== undefined) return 'import';
     return input.pluginId === undefined ? 'director' : 'import';
 }
 
@@ -1467,7 +1563,18 @@ function rulesAskedFor(input: PutOnAirInput): { rules?: StationLineupRules } {
 /** The plugin behind whichever source was named, or `undefined` for a broadcast the station fills itself. */
 function pluginOf(input: PutOnAirInput): string | undefined {
     if (input.chartId !== undefined) return splitChartId(input.chartId)?.pluginId;
+    // No one plugin: each of its records airs from whichever provider serves a copy.
+    if (input.stationPlaylistId !== undefined) return undefined;
     return input.pluginId;
+}
+
+/**
+ * The playlist a broadcast was built from, for the binding's provenance. A station playlist's id
+ * stands there with no plugin beside it, which is how the contract says to tell the two apart.
+ */
+function playlistOf(input: PutOnAirInput): string | undefined {
+    if (input.chartId !== undefined) return undefined;
+    return input.stationPlaylistId ?? input.playlistId;
 }
 
 function runsOut(mode: StationMode, asked: StationOnEnd | undefined, autoExtends: boolean): StationOnEnd {

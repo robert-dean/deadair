@@ -164,6 +164,8 @@ data class PutOnAirInput(
     val chartId: String? = null,
     /** Which way round to play it. `countdown` opens on the lowest rank and ends on number one, which is the shape a chart show has; `ranked` walks the published document from the top; `unordered` leaves the sequence to the station's own artist spacing. Absent is `countdown`. Ignored without `chartId` */
     val chartOrder: PutOnAirInputChartOrder? = null,
+    /** A playlist the station owns to build from instead. An ALTERNATIVE to `pluginId` and `playlistId`, and to `chartId`: its records are the library's own, so each airs from whichever provider serves a copy, and a row the library does not hold yet is left out */
+    val stationPlaylistId: Uuid? = null,
     /** What to call this broadcast. Absent names it after the chart, or after the plugin, since only the surface that listed the source knows its own name for it */
     val name: String? = null,
     /** What the station should play, in your own words: "heavy metal hits". It steers every refill for as long as this broadcast runs, not just the first batch, and it needs a model to programme with. Absent programmes the station the way its own rules do */
@@ -242,6 +244,7 @@ data class StationOrder(
     val source: String,
     /** Where more material is pulled from, when it came from a playlist */
     val sourcePluginId: String? = null,
+    /** The playlist it was built from. With no `sourcePluginId`, a playlist the station owns */
     val sourcePlaylistId: String? = null,
     /** The published chart this broadcast was built from, qualified with the plugin that offered it. Provenance rather than a binding: a chart is a fixed document, so it is read once and never topped up from */
     val sourceChartId: String? = null,

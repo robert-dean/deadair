@@ -2715,6 +2715,24 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/PlayoutStatus'
+    '/playout/station-playlist':
+        post:
+            operationId: playStationPlaylist
+            summary: 'Play a station playlist'
+            description: 'Loads a playlist the station owns into the running order and starts handing it to the player. The same replacement a plugin playlist makes, from records the library already holds'
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/PlayoutStationPlaylistInput'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/PlayoutStatus'
     '/playout/chart':
         post:
             operationId: playChart
@@ -7082,6 +7100,7 @@ components:
                 sourcePlaylistId:
                     type: string
                     maxLength: 400
+                    description: 'The playlist it was built from. With no `sourcePluginId`, a playlist the station owns'
                 sourceChartId:
                     type: string
                     maxLength: 400
@@ -7114,6 +7133,10 @@ components:
                     type: string
                     enum: [countdown, ranked, unordered]
                     description: "Which way round to play it. `countdown` opens on the lowest rank and ends on number one, which is the shape a chart show has; `ranked` walks the published document from the top; `unordered` leaves the sequence to the station's own artist spacing. Absent is `countdown`. Ignored without `chartId`"
+                stationPlaylistId:
+                    type: string
+                    format: uuid
+                    description: "A playlist the station owns to build from instead. An ALTERNATIVE to `pluginId` and `playlistId`, and to `chartId`: its records are the library's own, so each airs from whichever provider serves a copy, and a row the library does not hold yet is left out"
                 name:
                     type: string
                     minLength: 1
@@ -9481,6 +9504,17 @@ components:
                     description: "Whether records that sound like the ones on this playlist are mixed in among them, one every `rotation.mixInEvery` records. The playlist still plays in full and in its own order around them. Absent takes the station's own setting, which is off"
             required: [pluginId, playlistId]
             description: 'The plugin playlist to load into the running order'
+        PlayoutStationPlaylistInput:
+            type: object
+            properties:
+                stationPlaylistId:
+                    type: string
+                    format: uuid
+                mixInSimilar:
+                    type: boolean
+                    description: "Whether records that sound like the ones on this playlist are mixed in among them, one every `rotation.mixInEvery` records. Absent takes the station's own setting, which is off"
+            required: [stationPlaylistId]
+            description: 'A playlist the station owns, to load into the running order'
         PlayoutChartInput:
             type: object
             properties:

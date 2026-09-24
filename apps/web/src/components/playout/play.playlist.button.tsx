@@ -1,7 +1,7 @@
 import { ActionIcon, Button, Group, Menu, Tooltip } from '@mantine/core';
 import { IconChevronDown } from '@tabler/icons-react';
 
-import { usePlayPlaylist } from '../../api/playout.queries';
+import { usePlayPlaylist, usePlayStationPlaylist } from '../../api/playout.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
 
 export interface PlayPlaylistButtonProps {
@@ -35,21 +35,57 @@ export function PlayPlaylistButton({ pluginId, playlistId, playable = true, size
         return undefined;
     }
 
+    return (
+        <AirButton
+            onAir={mixInSimilar => play.mutate({ pluginId, playlistId, ...(mixInSimilar ? { mixInSimilar } : {}) })}
+            pending={play.isPending}
+            error={play.isError ? play.error : undefined}
+            size={size}
+            variant={variant}
+        />
+    );
+}
+
+export interface PlayStationPlaylistButtonProps {
+    stationPlaylistId: string;
+    size?: 'xs' | 'sm';
+    variant?: string;
+}
+
+/** The same two presses for a playlist the station owns, whose records air from whichever copy serves them. */
+export function PlayStationPlaylistButton({ stationPlaylistId, size = 'sm', variant = 'light' }: PlayStationPlaylistButtonProps) {
+    const play = usePlayStationPlaylist();
+
+    return (
+        <AirButton
+            onAir={mixInSimilar => play.mutate({ stationPlaylistId, ...(mixInSimilar ? { mixInSimilar } : {}) })}
+            pending={play.isPending}
+            error={play.isError ? play.error : undefined}
+            size={size}
+            variant={variant}
+        />
+    );
+}
+
+interface AirButtonProps {
+    /** Air it, with similar records mixed in when `true`, and saying nothing about them otherwise. */
+    onAir: (mixInSimilar?: true) => void;
+    pending: boolean;
+    error: unknown;
+    size: 'xs' | 'sm';
+    variant: string;
+}
+
+function AirButton({ onAir, pending, error, size, variant }: AirButtonProps) {
     // The failure is kept on the button rather than raised as a page-level alert:
     // it belongs to this action, and the transport bar reports the station's own
     // state independently of whether this request landed.
-    const failure = play.isError ? apiErrorMessage(play.error, 'That playlist could not be aired.') : undefined;
+    const failure = error === undefined ? undefined : apiErrorMessage(error, 'That playlist could not be aired.');
 
     return (
         <Tooltip label={failure} disabled={!failure} color="red" multiline maw={320}>
             <Group gap={2} wrap="nowrap">
-                <Button
-                    size={size}
-                    variant={variant}
-                    color={failure ? 'red' : undefined}
-                    loading={play.isPending}
-                    onClick={() => play.mutate({ pluginId, playlistId })}
-                >
+                <Button size={size} variant={variant} color={failure ? 'red' : undefined} loading={pending} onClick={() => onAir()}>
                     {failure ? 'Failed' : 'Air this playlist'}
                 </Button>
                 <Menu position="bottom-end" withinPortal>
@@ -58,16 +94,14 @@ export function PlayPlaylistButton({ pluginId, playlistId, playable = true, size
                             size={size === 'xs' ? 30 : 36}
                             variant={variant}
                             color={failure ? 'red' : undefined}
-                            disabled={play.isPending}
+                            disabled={pending}
                             aria-label="More ways to air this playlist"
                         >
                             <IconChevronDown size={14} stroke={1.8} />
                         </ActionIcon>
                     </Menu.Target>
                     <Menu.Dropdown>
-                        <Menu.Item onClick={() => play.mutate({ pluginId, playlistId, mixInSimilar: true })}>
-                            Air with similar records mixed in
-                        </Menu.Item>
+                        <Menu.Item onClick={() => onAir(true)}>Air with similar records mixed in</Menu.Item>
                         <Menu.Label maw={260} style={{ whiteSpace: 'normal' }}>
                             A record by an artist who sounds like one of its own, every few records. Needs a similarity plugin.
                         </Menu.Label>

@@ -26,6 +26,18 @@ public sealed record PlayoutPlaylistInput
     public bool? MixInSimilar { get; init; }
 }
 
+/// <summary>A playlist the station owns, to load into the running order</summary>
+public sealed record PlayoutStationPlaylistInput
+{
+    [JsonPropertyName("stationPlaylistId")]
+    public required Guid StationPlaylistId { get; init; }
+
+    /// <summary>Whether records that sound like the ones on this playlist are mixed in among them, one every `rotation.mixInEvery` records. Absent takes the station's own setting, which is off</summary>
+    [JsonPropertyName("mixInSimilar")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? MixInSimilar { get; init; }
+}
+
 /// <summary>The published chart to build the running order from</summary>
 public sealed record PlayoutChartInput
 {

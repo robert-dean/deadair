@@ -233,6 +233,15 @@ audio-availability fact.
 
 **A record mixed into a playlist lands after a named line, and only ever between two records.** `MixInSimilarJob` (see `programming.md`) posts `interleaveTracks`, whose inserts name the ANCHOR each record was found from rather than a position, because the order moves while the job walks the similarity plugin. `StationLineup.interleave` drops an insert whose anchor has gone or been handed over, and otherwise puts it in the first QUIET GAP at or within two records after the anchor: after a record whose next live item is another record or the end of the order. That is not tidiness. A break's words are checked against the nearest record either side of it (`previousTrackBefore`, `nextTrackAfter`), so a record put in beside a break falsifies "that was X" or "coming up, Y" and costs the break at hand-over; a gap between two adjacent records moves no claim. It never lands beside another mixed-in record, and it never lands ahead of the head. The item carries `mixedIn: true`, on `segmentKind`'s rule for what may be copied onto an item (set at creation, never updated), and `toItems` reads it back only when it is literally `true`.
 
+**A record a listener asked for goes in by the same rule, near the head.** `insertRequested` (from the
+requests module, see `docs/internals/messaging.md`) looks for a quiet gap starting at the first planned record
+past what the player holds, or past the last request already in the order when that is further on, so two
+requests never sit side by side and a second waits behind the first. The item carries `requestId` on
+`mixedIn`'s rule, which is how the request is recognised when it airs, and a mixed-in record will not land
+beside one either. Nothing near enough is refused as `no-gap` rather than pushed down the order: the request is
+held and offered again, which beats one that airs an hour after anybody remembers asking. The requests module
+only ever posts a record whose audio is already local, so this never holds the commit pass behind a download.
+
 **Prepared is not handed, and the transport never hands over past a gap.** A commit PREPARES a record and
 leaves it `planned`. It becomes `handed` only when the pusher gives it to Liquidsoap, and with nobody listening
 that never happens (`WARM_LEAD` is 0). So an idle station's next record sits prepared and `planned`, and

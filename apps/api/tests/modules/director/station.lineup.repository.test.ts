@@ -74,6 +74,13 @@ const items = (): StationLineupItem[] => [
         track: { pluginId: 'spotify', externalId: 'ext-2', title: 'A Neighbour', artist: 'Somebody Similar', artists: ['Somebody Similar'] },
         mixedIn: true,
     },
+    {
+        id: 'item-requested',
+        kind: 'track',
+        state: 'planned',
+        track: { pluginId: 'spotify', externalId: 'ext-3', title: 'Asked For', artist: 'Somebody Loved', artists: ['Somebody Loved'] },
+        requestId: 'request-1',
+    },
     { id: 'item-break', kind: 'segment', state: 'planned', segmentId: 'seg-break' },
     { id: 'item-news', kind: 'segment', state: 'handed', segmentId: 'seg-news', segmentKind: 'news' },
     { id: 'item-episode', kind: 'segment', state: 'planned', segmentId: 'seg-episode', segmentKind: 'syndicated', durationMs: 3_723_000 },
@@ -155,6 +162,9 @@ describe('StationLineupRepository round trip', () => {
         // And a record the station mixed in stays badged, while one the playlist named carries nothing.
         expect(byId.get('item-mixed-in')).toMatchObject({ mixedIn: true });
         expect(byId.get('item-track')).not.toHaveProperty('mixedIn');
+        // And a record a listener asked for still says whose request it is, so it is recognised when it airs.
+        expect(byId.get('item-requested')).toMatchObject({ requestId: 'request-1' });
+        expect(byId.get('item-track')).not.toHaveProperty('requestId');
     });
 
     it('reads a mixed-in flag that is not literally true as absent', async () => {

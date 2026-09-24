@@ -121,6 +121,15 @@ export interface StationLineupTrackItem extends StationLineupLine {
      * Absent on everything else, which is every record there was before this existed.
      */
     mixedIn?: boolean;
+    /**
+     * A listener asked for this record, and this is their request's id. See
+     * {@link StationLineup.insertRequested}.
+     *
+     * On the item by {@link mixedIn}'s rule: set when the item is created and never updated. It is
+     * how the requests module recognises its record on the aired edge, and nothing in the order
+     * decides anything by it except where the next request may go.
+     */
+    requestId?: string;
 }
 
 /**
@@ -408,7 +417,7 @@ export interface StationLineupSnapshot extends StationLineupBinding {
 }
 
 /** Why an edit was refused, for a console that has to tell someone standing at the desk. */
-export type EditRefusal = 'not-found' | 'already-aired' | 'empty' | 'not-a-record';
+export type EditRefusal = 'not-found' | 'already-aired' | 'empty' | 'not-a-record' | 'no-gap';
 
 /** The outcome of an edit: it happened, or precisely why it did not. */
 export type EditResult = { ok: true } | { ok: false; reason: EditRefusal; message: string };
@@ -1078,6 +1087,34 @@ export class StationLineup implements LiveOrder {
     }
 
     /**
+     * Put a record a listener asked for into the first quiet gap near the head of the order.
+     *
+     * {@link interleave}'s placement, for its reason: a gap between two records is the only place a
+     * record can go without falsifying a break's "that was X" or "coming up, Y". The search starts
+     * at the first planned record past what the player holds, or past the last request already in
+     * the order when that is further on, so two requests never land side by side and a second waits
+     * its turn behind the first. Nothing near enough is refused as `no-gap` rather than pushed
+     * further down: the caller holds the request and asks again, which is better than a request
+     * that airs an hour after anybody remembers asking.
+     */
+    insertRequested(track: RundownTrack, requestId: string): EditResult {
+        const committed = this.committedThrough();
+        let lastRequest = -1;
+        this.itemList.forEach((item, index) => {
+            if (item.kind === 'track' && item.requestId !== undefined) lastRequest = index;
+        });
+        const floor = Math.max(committed, lastRequest + 1);
+
+        const start = this.itemList.findIndex((item, index) => index >= floor && item.kind === 'track' && item.state === 'planned');
+        const gap = start < 0 ? (floor >= this.itemList.length ? this.itemList.length : undefined) : this.quietGapFrom(start);
+        if (gap === undefined) return refuse('no-gap', 'there is no quiet place near the head of the order for a record just now');
+
+        const item: StationLineupTrackItem = { id: randomUUID(), kind: 'track', state: 'planned', track, requestId };
+        this.itemList.splice(gap, 0, item);
+        return OK;
+    }
+
+    /**
      * Where a record can go in at or just after the record at `from` without moving a break's words.
      *
      * `undefined` when there is nowhere within {@link MAX_INTERLEAVE_DRIFT} records.
@@ -1092,12 +1129,13 @@ export class StationLineup implements LiveOrder {
             passed += 1;
             // The gap after the head's last record is fair game, as it is for any insert: what may
             // not happen is a record going in AHEAD of something the player already holds.
-            if (item.mixedIn || index + 1 < committed) continue;
+            if (item.mixedIn || item.requestId !== undefined || index + 1 < committed) continue;
 
             // The next line that will actually be heard. A segment already cut from the order says
             // nothing and claims nothing, so it does not make a gap noisy.
             const next = this.itemList.slice(index + 1).find(line => line.state !== 'removed');
-            if (next === undefined || (next.kind === 'track' && next.state === 'planned' && !next.mixedIn)) return index + 1;
+            if (next === undefined || (next.kind === 'track' && next.state === 'planned' && !next.mixedIn && next.requestId === undefined))
+                return index + 1;
         }
         return undefined;
     }

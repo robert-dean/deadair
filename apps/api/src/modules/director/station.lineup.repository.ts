@@ -247,6 +247,7 @@ const toItems = (value: unknown): StationLineupItem[] => {
                   durationMs?: unknown;
                   over?: { atMs?: unknown };
                   mixedIn?: unknown;
+                  requestId?: unknown;
                   track?: Partial<RundownTrack>;
               }
             | null
@@ -298,7 +299,14 @@ const toItems = (value: unknown): StationLineupItem[] => {
                     ? (line.track as RundownTrack)
                     : ({ ...line.track, artist: line.track.artists?.[0] ?? '' } as RundownTrack);
             // Only a literal `true`, so a hand-edited row cannot badge a record the playlist named.
-            items.push({ id: line.id, kind: 'track', state, track, ...(line.mixedIn === true ? { mixedIn: true } : {}) });
+            items.push({
+                id: line.id,
+                kind: 'track',
+                state,
+                track,
+                ...(line.mixedIn === true ? { mixedIn: true } : {}),
+                ...(typeof line.requestId === 'string' ? { requestId: line.requestId } : {}),
+            });
         }
         return items;
     }, []);

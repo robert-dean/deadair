@@ -1950,6 +1950,9 @@ export class DirectorService {
 
             case 'insertTrack':
                 return { result: lineup.insertTrack(edit.track, edit.atIndex ?? lineup.size()), dropped: [] };
+
+            case 'insertRequested':
+                return { result: lineup.insertRequested(edit.track, edit.requestId), dropped: [] };
         }
     }
 

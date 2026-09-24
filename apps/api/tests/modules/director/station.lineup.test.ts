@@ -1331,3 +1331,65 @@ describe('StationLineup vetoing records the station has been forbidden', () => {
         expect(statesOf(lineup)).toEqual(['planned', 'removed', 'removed', 'planned']);
     });
 });
+
+// A record a listener asked for. It goes near the head, in a gap between two records so no break's
+// words are falsified, never beside another request, and a second waits behind the first.
+describe('StationLineup requests', () => {
+    it('lands the request just past what the player holds, and marks the item with the request', () => {
+        const lineup = lineupWith(['a', 'b', 'c']);
+        hand(lineup, 1);
+
+        expect(lineup.insertRequested(track('r'), 'req-1')).toEqual({ ok: true });
+
+        expect(idsOf(lineup.all())).toEqual(['a', 'b', 'r', 'c']);
+        expect(lineup.all()[2]).toMatchObject({ kind: 'track', state: 'planned', requestId: 'req-1' });
+    });
+
+    it("steps past a break rather than moving the break's words", () => {
+        const lineup = lineupWith(['a', 'b', 'c']);
+        lineup.insertSegment('talk', 1);
+
+        lineup.insertRequested(track('r'), 'req-1');
+
+        expect(idsOf(lineup.all())).toEqual(['a', 'segment:talk', 'b', 'r', 'c']);
+    });
+
+    it('puts a second request behind the first, never beside it', () => {
+        const lineup = lineupWith(['a', 'b', 'c', 'd']);
+
+        lineup.insertRequested(track('r1'), 'req-1');
+        lineup.insertRequested(track('r2'), 'req-2');
+
+        const ids = idsOf(lineup.all());
+        expect(ids.indexOf('r2')).toBeGreaterThan(ids.indexOf('r1') + 1);
+    });
+
+    it('refuses rather than burying a request far down the order', () => {
+        const lineup = lineupWith(['a', 'b', 'c']);
+        lineup.insertSegment('one', 1);
+        lineup.insertSegment('two', 3);
+        lineup.insertSegment('three', 5);
+
+        expect(lineup.insertRequested(track('r'), 'req-1')).toMatchObject({ ok: false, reason: 'no-gap' });
+        expect(idsOf(lineup.all())).not.toContain('r');
+    });
+
+    it('goes at the end of an order that has nothing left to play', () => {
+        const lineup = lineupWith(['a']);
+        hand(lineup, 1);
+
+        expect(lineup.insertRequested(track('r'), 'req-1')).toEqual({ ok: true });
+        expect(idsOf(lineup.all())).toEqual(['a', 'r']);
+    });
+
+    it('keeps a mixed-in record from landing beside a request', () => {
+        const lineup = lineupWith(['a', 'b', 'c']);
+        lineup.insertRequested(track('r'), 'req-1');
+        const anchor = lineup.all().find(item => item.kind === 'track' && item.track.externalId === 'a')!.id;
+
+        lineup.interleave([{ afterItemId: anchor, track: track('x') }]);
+
+        const ids = idsOf(lineup.all());
+        expect(Math.abs(ids.indexOf('x') - ids.indexOf('r'))).toBeGreaterThan(1);
+    });
+});

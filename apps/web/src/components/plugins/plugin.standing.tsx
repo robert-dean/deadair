@@ -1,28 +1,22 @@
 import { Anchor, Stack, Text } from '@mantine/core';
 import { Link } from '@tanstack/react-router';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import type { ProviderCapabilityState } from '@deadair/sdk';
 
 import { usePluginProviders } from '../../api/plugins.queries';
 
 /** The same station vocabulary the Providers section uses, for the jobs a plugin can hold. */
-const JOB: Record<string, string> = {
-    speech: 'speaking',
-    llm: 'writing',
-    mixer: 'joining audio',
-    analysis: 'measuring records',
-    similarity: 'who sounds like whom',
-    weather: 'the weather',
-    charts: 'charts',
-    enrichment: 'details about records',
-};
+const JOBS = ['speech', 'llm', 'mixer', 'analysis', 'similarity', 'weather', 'charts', 'enrichment'] as const;
+type Job = (typeof JOBS)[number];
 
-/** 1st, 2nd, 3rd. Only ever small numbers: it counts installed plugins, not records. */
-function ordinal(position: number): string {
-    const tens = position % 100;
-    if (tens >= 11 && tens <= 13) return `${position}th`;
-    const suffix = ['th', 'st', 'nd', 'rd'][position % 10] ?? 'th';
-    return `${position}${suffix}`;
+function isJob(capability: string): capability is Job {
+    return (JOBS as readonly string[]).includes(capability);
 }
+
+// 1st, 2nd, 3rd come from the catalog's ordinal plurals (`asked_ordinal_one` and its siblings),
+// so the suffix is the locale's rather than English's. Only ever small numbers: it counts
+// installed plugins, not records.
 
 /**
  * Where this plugin stands for each job it can do, and a way to the page that decides.
@@ -38,12 +32,13 @@ function ordinal(position: number): string {
  * where no decision exists, which is the noise that makes the real lines easy to skip.
  */
 export function PluginStanding({ pluginId }: { pluginId: string }) {
+    const { t } = useTranslation('plugins');
     const providers = usePluginProviders();
 
     // Silent while it loads and silent if it fails: this annotates something that is already on
     // screen and is worth nothing at the cost of an error where a badge should be.
     const standings = (providers.data?.capabilities ?? [])
-        .map(state => ({ state, line: standingFor(state, pluginId) }))
+        .map(state => ({ state, line: standingFor(state, pluginId, t) }))
         .filter((entry): entry is { state: ProviderCapabilityState; line: string } => entry.line !== undefined);
 
     if (standings.length === 0) return undefined;
@@ -73,22 +68,22 @@ export function PluginStanding({ pluginId }: { pluginId: string }) {
  * cannot answer means the station is doing that job with nothing at all, and the plugin page is
  * exactly where somebody would be standing when they disabled it.
  */
-function standingFor(state: ProviderCapabilityState, pluginId: string): string | undefined {
-    const job = JOB[state.capability] ?? state.capability;
+function standingFor(state: ProviderCapabilityState, pluginId: string, t: TFunction<'plugins'>): string | undefined {
+    const job = isJob(state.capability) ? t(`standing.job.${state.capability}`) : state.capability;
     const candidate = state.candidates.find(one => one.pluginId === pluginId);
     if (candidate === undefined) return undefined;
 
-    if (state.unanswered && candidate.listed) return `named for ${job}, and not running`;
+    if (state.unanswered && candidate.listed) return t('standing.namedNotRunning', { job });
 
     // Nothing to report where there is nothing to choose.
     if (state.candidates.length < 2) return undefined;
 
     if (candidate.position === undefined) {
-        return state.mode === 'one' ? `not in use for ${job}` : `not asked for ${job}`;
+        return state.mode === 'one' ? t('standing.notInUse', { job }) : t('standing.notAsked', { job });
     }
 
-    if (state.mode === 'one') return candidate.inUse ? `in use for ${job}` : `could do ${job}, and is not the one in use`;
+    if (state.mode === 'one') return candidate.inUse ? t('standing.inUse', { job }) : t('standing.couldDo', { job });
 
     const asked = state.candidates.filter(one => one.position !== undefined).length;
-    return `asked ${ordinal(candidate.position)} of ${asked} for ${job}`;
+    return t('standing.asked', { count: candidate.position, ordinal: true, asked, job });
 }

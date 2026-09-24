@@ -1,5 +1,7 @@
 import type { PluginSummary } from '@deadair/sdk';
 
+import { i18n } from '../../i18n/i18n.setup';
+
 /**
  * What each capability id means to an operator, for the badges on a plugin card.
  *
@@ -9,33 +11,43 @@ import type { PluginSummary } from '@deadair/sdk';
  * An id missing from here is shown as itself, which is what an installed plugin declaring a
  * capability this console has never heard of should get.
  */
-export const CAPABILITY_LABEL: Record<string, string> = {
-    catalog: 'Library',
-    stream: 'Plays records',
-    steer: 'Steers playback',
-    speech: 'Voice',
-    llm: 'Writing',
-    analysis: 'Measures records',
-    mixer: 'Joins audio',
-    enrichment: 'Record details',
-    similarity: 'Who sounds like whom',
-    search: 'Web search',
-    scrobble: 'Scrobbling',
-    news: 'News',
-    weather: 'Weather',
-    podcast: 'Podcasts',
-    almanac: 'On this day',
-    charts: 'Charts',
-    oauth: 'Sign-in',
-};
+export const KNOWN_CAPABILITIES = [
+    'catalog',
+    'stream',
+    'steer',
+    'speech',
+    'llm',
+    'analysis',
+    'mixer',
+    'enrichment',
+    'similarity',
+    'search',
+    'scrobble',
+    'news',
+    'weather',
+    'podcast',
+    'almanac',
+    'charts',
+    'oauth',
+] as const;
 
-export function capabilityLabel(capability: string): string {
-    return CAPABILITY_LABEL[capability] ?? capability;
+type KnownCapability = (typeof KNOWN_CAPABILITIES)[number];
+
+function isKnownCapability(capability: string): capability is KnownCapability {
+    return (KNOWN_CAPABILITIES as readonly string[]).includes(capability);
 }
 
+/** The label from the plugins catalog (`capability.<id>`), or the id itself when this console has never heard of it. */
+export function capabilityLabel(capability: string): string {
+    return isKnownCapability(capability) ? i18n.t(`capability.${capability}`, { ns: 'plugins' }) : capability;
+}
+
+type RoleKey = 'music' | 'voice' | 'writing' | 'audio' | 'knowledge' | 'programmes' | 'other';
+
 export interface PluginRole {
-    key: string;
-    title: string;
+    key: RoleKey;
+    /** Read from the plugins catalog (`roles.<key>`) each time, so it is in the console's current language. */
+    readonly title: string;
     /** The capabilities that put a plugin in this group, when no earlier group has claimed it. */
     capabilities: readonly string[];
 }
@@ -49,16 +61,26 @@ export interface PluginRole {
  * Knowledge because that group comes first; its other jobs are still on its badges.
  */
 export const PLUGIN_ROLES: readonly PluginRole[] = [
-    { key: 'music', title: 'Music sources', capabilities: ['catalog', 'stream'] },
-    { key: 'voice', title: 'Voice', capabilities: ['speech'] },
-    { key: 'writing', title: 'Writing', capabilities: ['llm'] },
-    { key: 'audio', title: 'Audio', capabilities: ['analysis', 'mixer'] },
-    { key: 'knowledge', title: 'Knowledge', capabilities: ['enrichment', 'similarity', 'search', 'scrobble'] },
-    { key: 'programmes', title: 'News & programmes', capabilities: ['news', 'weather', 'podcast', 'almanac', 'charts'] },
+    role('music', ['catalog', 'stream']),
+    role('voice', ['speech']),
+    role('writing', ['llm']),
+    role('audio', ['analysis', 'mixer']),
+    role('knowledge', ['enrichment', 'similarity', 'search', 'scrobble']),
+    role('programmes', ['news', 'weather', 'podcast', 'almanac', 'charts']),
 ];
 
 /** Where a plugin goes when it declares nothing any group above claims. Never empty-handed. */
-export const OTHER_ROLE: PluginRole = { key: 'other', title: 'Other', capabilities: [] };
+export const OTHER_ROLE: PluginRole = role('other', []);
+
+function role(key: RoleKey, capabilities: readonly string[]): PluginRole {
+    return {
+        key,
+        get title() {
+            return i18n.t(`roles.${key}`, { ns: 'plugins' });
+        },
+        capabilities,
+    };
+}
 
 export function roleOf(plugin: Pick<PluginSummary, 'capabilities'>): PluginRole {
     return PLUGIN_ROLES.find(role => role.capabilities.some(capability => plugin.capabilities.includes(capability))) ?? OTHER_ROLE;

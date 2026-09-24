@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { ActionIcon, Button, Card, Group, Stack, Table, Text } from '@mantine/core';
 import { IconTrash } from '@tabler/icons-react';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import type { Topic, TopicInput, TopicKindDescriptor } from '@deadair/sdk';
 
 import { useClockBands } from '../../api/clock.queries';
@@ -34,6 +36,7 @@ import { TopicEditor, type TopicTarget } from './topic.editor';
  * confirmation rather than a way back.
  */
 export function TopicsPage() {
+    const { t } = useTranslation('topics');
     const kinds = useTopicKinds();
     const topics = useTopics();
     // Only to say what else a delete takes. The schedule page already draws this list, so it is a
@@ -69,28 +72,22 @@ export function TopicsPage() {
     return (
         <Stack gap="lg">
             <PageHeader
-                title="Subjects"
+                title={t('page.title')}
                 description={
                     <Text c="dimmed" size="sm">
-                        What a break can be about. Put one on a band in the format clock and that break covers only its subject — a technology
-                        bulletin at half past, the local news at six. Leave a band without one and the station spreads what it has.
+                        {t('page.description')}
                     </Text>
                 }
             />
 
-            {kinds.error ? (
-                <ErrorAlert title="The subjects could not be loaded" error={kinds.error} fallback="This station's vocabulary is unavailable." />
-            ) : undefined}
+            {kinds.error ? <ErrorAlert title={t('page.loadFailedTitle')} error={kinds.error} fallback={t('page.loadFailedFallback')} /> : undefined}
 
-            {remove.error ? <ErrorAlert title="That could not be deleted" error={remove.error} fallback="Nothing was removed." /> : undefined}
+            {remove.error ? <ErrorAlert title={t('page.deleteFailedTitle')} error={remove.error} fallback={t('page.nothingRemoved')} /> : undefined}
 
             {kinds.isPending || topics.isPending ? <PageSkeleton variant="card" /> : undefined}
 
             {kinds.data && kinds.data.kinds.length === 0 ? (
-                <EmptyState title="Nothing on this station takes a subject yet">
-                    Subjects belong to a sort of break — news categories, and weather locations when the station can talk about the weather. None of
-                    the breaks this station can write has anything to be about, so there is nothing to name here.
-                </EmptyState>
+                <EmptyState title={t('page.noKinds.title')}>{t('page.noKinds.body')}</EmptyState>
             ) : undefined}
 
             {(kinds.data?.kinds ?? []).map(kind => {
@@ -116,7 +113,7 @@ export function TopicsPage() {
                                         })
                                     }
                                 >
-                                    New {kind.nounOne}
+                                    {t('page.new', { noun: kind.nounOne })}
                                 </Button>
                             </Group>
 
@@ -126,7 +123,7 @@ export function TopicsPage() {
                                 second thing on the page rather than as the inside of this one. */}
                             {held.length === 0 ? (
                                 <Text size="sm" c="dimmed">
-                                    No {kind.nounMany} yet, which is a working station: every break of this sort covers whatever it finds.
+                                    {t('page.none', { nouns: kind.nounMany })}
                                 </Text>
                             ) : (
                                 <Table.ScrollContainer minWidth={500}>
@@ -143,7 +140,7 @@ export function TopicsPage() {
                                                     </Table.Td>
                                                     <Table.Td>
                                                         <Text size="xs" c="dimmed">
-                                                            {summarize(topic, kind)}
+                                                            {summarize(topic, kind, t)}
                                                         </Text>
                                                     </Table.Td>
                                                     <Table.Td w={60}>
@@ -152,7 +149,7 @@ export function TopicsPage() {
                                                                 size="sm"
                                                                 variant="subtle"
                                                                 color="red"
-                                                                aria-label={`Delete ${topic.label}`}
+                                                                aria-label={t('page.deleteAriaLabel', { label: topic.label })}
                                                                 loading={remove.isPending}
                                                                 onClick={() => {
                                                                     // A band that asked for this goes
@@ -205,14 +202,14 @@ export function TopicsPage() {
                     if (deleting === undefined) return;
                     remove.mutate(deleting.topic.id, { onSuccess: () => setDeleting(undefined) });
                 }}
-                title={deleting ? `Delete ${deleting.topic.label}?` : 'Delete this subject?'}
-                confirmLabel="Delete"
+                title={deleting ? t('page.confirm.title', { label: deleting.topic.label }) : t('page.confirm.titleFallback')}
+                confirmLabel={t('page.confirm.confirm')}
                 confirming={remove.isPending}
                 error={remove.error}
-                errorTitle="That subject could not be deleted"
-                errorFallback="Nothing was removed."
+                errorTitle={t('page.confirm.errorTitle')}
+                errorFallback={t('page.nothingRemoved')}
             >
-                {deleting ? warningFor(deleting.bands) : ''}
+                {deleting ? warningFor(deleting.bands, t) : ''}
             </ConfirmModal>
         </Stack>
     );
@@ -226,10 +223,10 @@ export function TopicsPage() {
  * still gets a sentence rather than an empty dialog: "nothing else changes" is the answer an
  * operator came for, and a dialog with only buttons in it reads as a dialog that failed to load.
  */
-function warningFor(bands: number): string {
-    if (bands === 0) return 'Nothing on the format clock asks for it, so nothing else changes.';
+function warningFor(bands: number, t: TFunction<'topics'>): string {
+    if (bands === 0) return t('page.confirm.nothingElse');
 
-    return `${bands} band${bands === 1 ? '' : 's'} on the format clock ${bands === 1 ? 'asks' : 'ask'} for it and will go too.`;
+    return t('page.confirm.bands', { count: bands });
 }
 
 /**
@@ -239,16 +236,16 @@ function warningFor(bands: number): string {
  * useful for a kind this file has never heard of. A subject with nothing filled in says so, which is
  * the state worth spotting from the list: it is what makes a break asking for it fall silent.
  */
-function summarize(topic: Topic, kind: TopicKindDescriptor): string {
+function summarize(topic: Topic, kind: TopicKindDescriptor, t: TFunction<'topics'>): string {
     // The field's own label with a count after it, rather than a count with the label as a noun:
     // a descriptor's label is a sentence ("The publisher's own words for it") and "4 the publisher's
     // own words for it" is not English. This stays readable for a kind this file has never seen.
     const parts = kind.fields.flatMap(field => {
         const entries = entriesIn(topic.config[field.key]);
-        return entries.length === 0 ? [] : [`${field.label} (${entries.length})`];
+        return entries.length === 0 ? [] : [t('page.fieldCount', { label: field.label, count: entries.length })];
     });
 
-    return parts.length === 0 ? 'nothing to match on yet' : parts.join(' · ');
+    return parts.length === 0 ? t('page.nothingToMatch') : parts.join(' · ');
 }
 
 /** Whatever a field holds, as the list it stands for: an array, lines, or a comma list. */

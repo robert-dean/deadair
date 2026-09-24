@@ -1,6 +1,8 @@
 import { Badge } from '@mantine/core';
+import { useTranslation } from 'react-i18next';
 import type { PluginStatus, PluginSummary } from '@deadair/sdk';
 
+import { i18n } from '../../i18n/i18n.setup';
 import type { StatusTone } from '../shared/status';
 import { StatusLamp } from '../shared/status.lamp';
 
@@ -22,20 +24,26 @@ interface StatusDescriptor {
  * The colour itself is no longer named here: a tone is, and `shared/status.ts` maps it, so a
  * plugin that failed and a station that went off air are the same red for the same reason.
  */
-export const PLUGIN_STATUS: Record<PluginStatus, StatusDescriptor> = {
-    active: { label: 'Active', tone: 'ok', description: 'Running and available to the station.' },
-    disabled: { label: 'Disabled', tone: 'off', description: 'Switched off. Its configuration is kept.' },
-    misconfigured: { label: 'Misconfigured', tone: 'fault', description: 'Installed, but its settings are incomplete or rejected.' },
+export const PLUGIN_STATUS: Record<PluginStatus, StatusTone> = {
+    active: 'ok',
+    disabled: 'off',
+    misconfigured: 'fault',
     // Two states wear this one word, and the sentence has to fit both: a plugin the host could not
     // start, and a plugin that started and was later quarantined for failing its calls. It said only
     // the first for as long as it existed, so a speech engine the breaker had tripped read as one
     // that never loaded — sending an operator to look at the install for a fault that was an address.
-    failed: { label: 'Failed', tone: 'live', description: 'It would not start, or it failed too many calls in a row. See the error below.' },
-    discovered: { label: 'Discovered', tone: 'standby', description: 'Found on disk and not yet started.' },
+    // (The sentence itself is `status.failed.description` in the plugins catalog.)
+    failed: 'live',
+    discovered: 'standby',
 };
 
+/** The tone from the table above, with the label and sentence read from the catalog in the console's current language. */
 export function statusOf(status: PluginStatus): StatusDescriptor {
-    return PLUGIN_STATUS[status];
+    return {
+        tone: PLUGIN_STATUS[status],
+        label: i18n.t(`status.${status}.label`, { ns: 'plugins' }),
+        description: i18n.t(`status.${status}.description`, { ns: 'plugins' }),
+    };
 }
 
 /**
@@ -86,10 +94,11 @@ export interface PluginOriginBadgeProps {
  * It is a fact about where the code came from and never a trust level, since both run as the station.
  */
 export function PluginOriginBadge({ plugin }: PluginOriginBadgeProps) {
+    const { t } = useTranslation('plugins');
     if (plugin.origin !== 'installed') return undefined;
     return (
-        <Badge size="xs" variant="outline" color="gray" tt="none" title="Added to the plugins folder on this station, not shipped with it">
-            Installed
+        <Badge size="xs" variant="outline" color="gray" tt="none" title={t('origin.installedTitle')}>
+            {t('origin.installed')}
         </Badge>
     );
 }

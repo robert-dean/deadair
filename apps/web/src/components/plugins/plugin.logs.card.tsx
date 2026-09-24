@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Button, Card, Group, ScrollArea, Select, Stack, Switch, Text, Title } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import type { PluginDetail, PluginLogLevel } from '@deadair/sdk';
 
 import { sdk } from '../../api/client';
@@ -19,12 +20,7 @@ const LOG_LEVEL_COLOR: Record<PluginLogLevel, string> = {
     error: 'red',
 };
 
-const LEVEL_FILTER_DATA: { value: PluginLogLevel; label: string }[] = [
-    { value: 'debug', label: 'Debug' },
-    { value: 'info', label: 'Info' },
-    { value: 'warn', label: 'Warn' },
-    { value: 'error', label: 'Error' },
-];
+const LEVEL_FILTER_VALUES: PluginLogLevel[] = ['debug', 'info', 'warn', 'error'];
 
 export interface PluginLogsCardProps {
     plugin: PluginDetail;
@@ -39,6 +35,7 @@ export interface PluginLogsCardProps {
  * the rest of the plugin's settings do.
  */
 export function PluginLogsCard({ plugin }: PluginLogsCardProps) {
+    const { t } = useTranslation('plugins');
     const [filterLevel, setFilterLevel] = useState<PluginLogLevel | undefined>(undefined);
     const logs = useQuery(pluginLogsOptions(plugin.id, filterLevel ? { level: filterLevel } : undefined));
     const setLevel = useSetPluginLogLevel(plugin.id);
@@ -52,7 +49,7 @@ export function PluginLogsCard({ plugin }: PluginLogsCardProps) {
             const { data, headers } = await sdk.plugins.downloadPluginLogs(plugin.id);
             saveDownload(data, downloadFilename(headers.contentDisposition, `${plugin.id}.log`), 'text/plain');
         } catch (error) {
-            setDownloadError(apiErrorMessage(error, 'The log could not be downloaded.'));
+            setDownloadError(apiErrorMessage(error, t('logs.downloadFailedMessage')));
         } finally {
             setDownloading(false);
         }
@@ -66,17 +63,17 @@ export function PluginLogsCard({ plugin }: PluginLogsCardProps) {
                 <Group justify="space-between" align="flex-start">
                     <Stack gap="xxs">
                         <Title order={3} size="h5">
-                            Logs
+                            {t('logs.title')}
                         </Title>
                         <Text size="sm" c="dimmed">
-                            What this plugin has written recently.
+                            {t('logs.description')}
                         </Text>
                     </Stack>
                     <Switch
                         checked={plugin.logLevel === 'debug'}
                         disabled={setLevel.isPending}
-                        label="Verbose logging"
-                        aria-label={`Verbose logging for ${plugin.name}`}
+                        label={t('logs.verbose')}
+                        aria-label={t('logs.verboseAriaLabel', { name: plugin.name })}
                         onChange={event => {
                             setLevel.mutate(event.currentTarget.checked ? 'debug' : 'info');
                         }}
@@ -85,11 +82,11 @@ export function PluginLogsCard({ plugin }: PluginLogsCardProps) {
 
                 <Group justify="space-between" align="flex-end" wrap="wrap">
                     <Select
-                        label="Show"
-                        description="Filters this tail. Does not change what the plugin writes."
-                        placeholder="All levels"
+                        label={t('logs.filter.label')}
+                        description={t('logs.filter.description')}
+                        placeholder={t('logs.filter.placeholder')}
                         clearable
-                        data={LEVEL_FILTER_DATA}
+                        data={LEVEL_FILTER_VALUES.map(value => ({ value, label: t(`logs.level.${value}`) }))}
                         value={filterLevel ?? null}
                         onChange={value => {
                             setFilterLevel((value as PluginLogLevel | null) ?? undefined);
@@ -105,32 +102,28 @@ export function PluginLogsCard({ plugin }: PluginLogsCardProps) {
                                 void logs.refetch();
                             }}
                         >
-                            Refresh
+                            {t('logs.refresh')}
                         </Button>
                         <Button variant="default" size="compact-sm" loading={downloading} onClick={() => void download()}>
-                            Download
+                            {t('logs.download')}
                         </Button>
                     </Group>
                 </Group>
 
                 {setLevel.error ? (
-                    <ErrorAlert
-                        title="Could not change the verbose logging setting"
-                        error={setLevel.error}
-                        fallback="The plugin was left as it was."
-                    />
+                    <ErrorAlert title={t('logs.levelFailedTitle')} error={setLevel.error} fallback={t('logs.levelFailedFallback')} />
                 ) : undefined}
 
-                {downloadError ? <ErrorAlert title="Download failed">{downloadError}</ErrorAlert> : undefined}
+                {downloadError ? <ErrorAlert title={t('logs.downloadFailedTitle')}>{downloadError}</ErrorAlert> : undefined}
 
-                {logs.error ? <ErrorAlert title="Could not load logs" error={logs.error} fallback="The log tail could not be fetched." /> : undefined}
+                {logs.error ? <ErrorAlert title={t('logs.loadFailedTitle')} error={logs.error} fallback={t('logs.loadFailedFallback')} /> : undefined}
 
                 <ScrollArea h={260} type="auto" bg="dark.8" style={{ borderRadius: 'var(--mantine-radius-sm)' }} p="xs">
                     {logs.isPending ? (
                         <PageSkeleton variant="rows" />
                     ) : entries.length === 0 ? (
                         <Text size="sm" c="dimmed" p="xs">
-                            This plugin hasn&apos;t written anything yet.
+                            {t('logs.empty')}
                         </Text>
                     ) : (
                         <Stack gap="xxxs">

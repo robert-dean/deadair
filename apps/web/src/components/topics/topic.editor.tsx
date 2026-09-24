@@ -1,5 +1,6 @@
 import { Modal, Stack, Text, TextInput } from '@mantine/core';
 import { useState } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import type { Topic, TopicInput, TopicKindDescriptor } from '@deadair/sdk';
 
 import { ConfigFieldsForm } from '../settings/config.fields.form';
@@ -21,6 +22,7 @@ import { ConfigFieldsForm } from '../settings/config.fields.form';
  * honest: what it shows is what was stored.
  */
 export function TopicEditor({ target, kind, onClose, onSubmit, pending, error }: Props) {
+    const { t } = useTranslation('topics');
     const opened = target !== undefined;
     const topic = target?.kind === 'edit' ? target.topic : undefined;
 
@@ -30,7 +32,7 @@ export function TopicEditor({ target, kind, onClose, onSubmit, pending, error }:
 
     const save = async (config: Record<string, unknown>) => {
         const named = label.trim();
-        if (named.length === 0) throw new Error('A name is what the station says out loud, so it cannot be empty.');
+        if (named.length === 0) throw new Error(t('editor.nameRequired'));
 
         await onSubmit({
             kind: kind.kind,
@@ -45,19 +47,24 @@ export function TopicEditor({ target, kind, onClose, onSubmit, pending, error }:
     };
 
     return (
-        <Modal opened={opened} onClose={onClose} title={topic ? `Edit ${kind.nounOne}` : `New ${kind.nounOne}`} size="lg">
+        <Modal
+            opened={opened}
+            onClose={onClose}
+            title={topic ? t('editor.editTitle', { noun: kind.nounOne }) : t('editor.newTitle', { noun: kind.nounOne })}
+            size="lg"
+        >
             <Stack gap="md">
                 <TextInput
-                    label="Name"
-                    description={`What the station calls this ${kind.nounOne} out loud.`}
-                    placeholder="Technology"
+                    label={t('editor.name.label')}
+                    description={t('editor.name.description', { noun: kind.nounOne })}
+                    placeholder={t('editor.name.placeholder')}
                     value={label}
                     onChange={event => setLabel(event.currentTarget.value)}
                 />
 
                 {topic ? (
                     <Text size="xs" c="dimmed">
-                        Referred to as <code>{topic.key}</code>, which is what the format clock points a band at. Renaming this does not change it.
+                        <Trans t={t} i18nKey="editor.key" values={{ slug: topic.key }} components={{ code: <code /> }} />
                     </Text>
                 ) : undefined}
 
@@ -69,9 +76,9 @@ export function TopicEditor({ target, kind, onClose, onSubmit, pending, error }:
                     pending={pending}
                     succeeded={false}
                     error={error}
-                    submitLabel="Save"
-                    failureTitle={`That ${kind.nounOne} could not be saved`}
-                    failureMessage="Nothing was written."
+                    submitLabel={t('editor.save')}
+                    failureTitle={t('editor.failureTitle', { noun: kind.nounOne })}
+                    failureMessage={t('editor.failureMessage')}
                 />
             </Stack>
         </Modal>

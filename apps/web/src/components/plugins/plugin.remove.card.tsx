@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Button, Card, Group, Modal, Stack, Text, Title } from '@mantine/core';
 import { useNavigate } from '@tanstack/react-router';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import type { PluginDetail } from '@deadair/sdk';
 
 import { useRemovePlugin } from '../../api/plugins.queries';
@@ -22,6 +24,7 @@ export interface PluginRemoveCardProps {
  * makes importing it again cheap.
  */
 export function PluginRemoveCard({ plugin }: PluginRemoveCardProps) {
+    const { t } = useTranslation(['plugins', 'common']);
     const remove = useRemovePlugin();
     const navigate = useNavigate();
     const [confirmOpen, setConfirmOpen] = useState(false);
@@ -37,7 +40,7 @@ export function PluginRemoveCard({ plugin }: PluginRemoveCardProps) {
             () => false,
         );
         if (!done) return;
-        notifyDone(`${plugin.name} removed.`);
+        notifyDone(t('remove.done', { name: plugin.name }));
         void navigate({ to: '/plugins', search: PLUGINS_PAGE_DEFAULTS });
     };
 
@@ -46,30 +49,27 @@ export function PluginRemoveCard({ plugin }: PluginRemoveCardProps) {
             <Group justify="space-between" align="center">
                 <Stack gap="xxxs">
                     <Title order={3} size="h5">
-                        Remove
+                        {t('remove.title')}
                     </Title>
                     <Text size="sm" c="dimmed">
-                        Deletes this plugin&apos;s folder from the station. Its settings are kept.
+                        {t('remove.description')}
                     </Text>
                 </Stack>
                 <Button variant="subtle" color="red" onClick={() => setConfirmOpen(true)}>
-                    Remove
+                    {t('remove.button')}
                 </Button>
             </Group>
 
-            <Modal opened={confirmOpen} onClose={closeConfirm} title={`Remove ${plugin.name}?`} centered>
+            <Modal opened={confirmOpen} onClose={closeConfirm} title={t('remove.confirm.title', { name: plugin.name })} centered>
                 <Stack gap="md">
-                    <Text size="sm">
-                        {plugin.name} stops, and its folder on the station is deleted. Its settings and what it was allowed are kept, so importing it
-                        again brings them back.
-                    </Text>
-                    {remove.error ? <ErrorAlert title="That plugin was not removed">{removeError(remove.error)}</ErrorAlert> : undefined}
+                    <Text size="sm">{t('remove.confirm.body', { name: plugin.name })}</Text>
+                    {remove.error ? <ErrorAlert title={t('remove.error.title')}>{removeError(remove.error, t)}</ErrorAlert> : undefined}
                     <Group justify="flex-end">
                         <Button variant="default" onClick={closeConfirm}>
-                            Cancel
+                            {t('common:action.cancel')}
                         </Button>
                         <Button color="red" loading={remove.isPending} onClick={() => void confirmed()}>
-                            Remove {plugin.name}
+                            {t('remove.confirm.button', { name: plugin.name })}
                         </Button>
                     </Group>
                 </Stack>
@@ -79,7 +79,7 @@ export function PluginRemoveCard({ plugin }: PluginRemoveCardProps) {
 }
 
 /** What a refused removal means, in the operator's terms. */
-function removeError(error: unknown): string {
-    if (sdkError(error)?.status === 403) return 'Removing a plugin is an administrator action.';
-    return apiErrorMessage(error, 'The plugin could not be removed.');
+function removeError(error: unknown, t: TFunction<'plugins'>): string {
+    if (sdkError(error)?.status === 403) return t('remove.error.forbidden');
+    return apiErrorMessage(error, t('remove.error.fallback'));
 }

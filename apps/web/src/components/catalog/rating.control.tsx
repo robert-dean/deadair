@@ -1,6 +1,7 @@
 import { SegmentedControl, Tooltip } from '@mantine/core';
 import { IconMinus, IconThumbDown, IconThumbUp } from '@tabler/icons-react';
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { Rating } from '@deadair/sdk';
 
 export interface RatingControlProps {
@@ -41,6 +42,7 @@ export interface RatingControlProps {
  * "less" rather than as "no".
  */
 export function RatingControl({ rating = 'neutral', onChange, label, busy = false, size = 'sm' }: RatingControlProps) {
+    const { t } = useTranslation('catalog');
     return (
         <SegmentedControl
             size={size}
@@ -57,21 +59,33 @@ export function RatingControl({ rating = 'neutral', onChange, label, busy = fals
             data={[
                 {
                     value: 'disliked',
-                    label: <Segment glyph={<IconThumbDown size={GLYPH} stroke={1.7} />} hint={`Never play ${label}`} aria={`Dislike ${label}`} />,
+                    label: (
+                        <Segment
+                            glyph={<IconThumbDown size={GLYPH} stroke={1.7} />}
+                            hint={t('rating.disliked.hint', { label })}
+                            aria={t('rating.disliked.aria', { label })}
+                        />
+                    ),
                 },
                 {
                     value: 'neutral',
                     label: (
                         <Segment
                             glyph={<IconMinus size={GLYPH} stroke={1.7} />}
-                            hint={`No opinion about ${label}`}
-                            aria={`No opinion about ${label}`}
+                            hint={t('rating.neutral.hint', { label })}
+                            aria={t('rating.neutral.aria', { label })}
                         />
                     ),
                 },
                 {
                     value: 'liked',
-                    label: <Segment glyph={<IconThumbUp size={GLYPH} stroke={1.7} />} hint={`Play ${label} more often`} aria={`Like ${label}`} />,
+                    label: (
+                        <Segment
+                            glyph={<IconThumbUp size={GLYPH} stroke={1.7} />}
+                            hint={t('rating.liked.hint', { label })}
+                            aria={t('rating.liked.aria', { label })}
+                        />
+                    ),
                 },
             ]}
         />

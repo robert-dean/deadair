@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ActionIcon, Collapse, Table } from '@mantine/core';
 import { IconChevronDown, IconChevronRight } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 
 import { catalogTrackEnrichmentOptions } from '../../api/catalog.queries';
 import { EnrichmentPanel } from './enrichment.panel';
@@ -35,6 +36,7 @@ export interface TrackExpandButtonProps {
 
 /** The control that opens a row. */
 export function TrackExpandButton({ open, title, onToggle, size }: TrackExpandButtonProps) {
+    const { t } = useTranslation('catalog');
     return (
         <ActionIcon
             variant="subtle"
@@ -42,7 +44,7 @@ export function TrackExpandButton({ open, title, onToggle, size }: TrackExpandBu
             w={size}
             h={size}
             aria-expanded={open}
-            aria-label={`${open ? 'Hide' : 'Show'} what is known about ${title}`}
+            aria-label={open ? t('expansion.hide', { title }) : t('expansion.show', { title })}
             onClick={onToggle}
         >
             {open ? <IconChevronDown size={15} stroke={1.8} /> : <IconChevronRight size={15} stroke={1.8} />}
@@ -81,6 +83,7 @@ export function TrackEnrichmentCollapse({ trackId, open }: { trackId: string; op
 }
 
 function TrackEnrichment({ trackId }: { trackId: string }) {
+    const { t } = useTranslation('catalog');
     const enrichment = useQuery(catalogTrackEnrichmentOptions(trackId));
 
     return (
@@ -90,7 +93,7 @@ function TrackEnrichment({ trackId }: { trackId: string }) {
             claims={enrichment.data?.claims}
             isPending={enrichment.isPending}
             error={enrichment.error}
-            emptyMessage="No provider has been asked about this track yet. The enrichment pass picks up what it has not seen, oldest first."
+            emptyMessage={t('expansion.empty')}
         />
     );
 }

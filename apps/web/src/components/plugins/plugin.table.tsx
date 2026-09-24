@@ -1,5 +1,6 @@
 import { Anchor, Badge, Group, Stack, Table, Text } from '@mantine/core';
 import { Link } from '@tanstack/react-router';
+import { useTranslation } from 'react-i18next';
 import type { PluginSummary } from '@deadair/sdk';
 
 import { Eyebrow } from '../shared/eyebrow';
@@ -20,15 +21,16 @@ const COLUMNS = 5;
  * The groups are header rows rather than separate tables, so the columns line up down the page.
  */
 export function PluginTable({ groups }: { groups: PluginGroup<PluginSummary>[] }) {
+    const { t } = useTranslation('plugins');
     return (
         <Table.ScrollContainer minWidth={760}>
             <Table layout="fixed">
                 <Table.Thead>
                     <Table.Tr>
-                        <Table.Th w="24%">Plugin</Table.Th>
-                        <Table.Th>Does</Table.Th>
-                        <Table.Th w="26%">Status</Table.Th>
-                        <Table.Th w={70}>On</Table.Th>
+                        <Table.Th w="24%">{t('table.plugin')}</Table.Th>
+                        <Table.Th>{t('table.does')}</Table.Th>
+                        <Table.Th w="26%">{t('table.status')}</Table.Th>
+                        <Table.Th w={70}>{t('table.on')}</Table.Th>
                         <Table.Th w={90} />
                     </Table.Tr>
                 </Table.Thead>
@@ -52,6 +54,7 @@ export function PluginTable({ groups }: { groups: PluginGroup<PluginSummary>[] }
 }
 
 function PluginRow({ plugin }: { plugin: PluginSummary }) {
+    const { t } = useTranslation('plugins');
     const toggle = usePluginEnableToggle(plugin, { label: false });
     const reason = needsAttention(plugin) ? plugin.lastError : undefined;
 
@@ -95,7 +98,7 @@ function PluginRow({ plugin }: { plugin: PluginSummary }) {
                 {/* `renderRoot` rather than `component={Link}`: the polymorphic form erases the
                     router's own types, and with them the check that `params` matches the path. */}
                 <Anchor renderRoot={(props: object) => <Link to="/plugins/$id" params={{ id: plugin.id }} {...props} />} size="sm">
-                    Configure
+                    {t('card.configure')}
                 </Anchor>
             </Table.Td>
         </Table.Tr>

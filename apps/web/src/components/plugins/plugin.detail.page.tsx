@@ -2,6 +2,7 @@ import { Anchor, Badge, Button, Card, Divider, Group, Stack, Switch, Text, Title
 import { IconArrowLeft } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
+import { useTranslation } from 'react-i18next';
 
 import { pluginDetailOptions, useSetPluginEnabled, useTestPlugin } from '../../api/plugins.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
@@ -24,6 +25,7 @@ export interface PluginDetailPageProps {
 
 /** One plugin: what it is doing, why it is not doing it, and everything an operator can change. */
 export function PluginDetailPage({ id }: PluginDetailPageProps) {
+    const { t } = useTranslation('plugins');
     const plugin = useQuery(pluginDetailOptions(id));
     const setEnabled = useSetPluginEnabled();
     const test = useTestPlugin(id);
@@ -39,9 +41,9 @@ export function PluginDetailPage({ id }: PluginDetailPageProps) {
     if (plugin.error || !plugin.data) {
         return (
             <Stack gap="md" align="flex-start">
-                <ErrorAlert title="Plugin unavailable" error={plugin.error} fallback={`No plugin with the id "${id}" answered.`} />
+                <ErrorAlert title={t('detail.unavailableTitle')} error={plugin.error} fallback={t('detail.unavailableFallback', { id })} />
                 <Anchor renderRoot={(props: object) => <Link to="/plugins" search={PLUGINS_PAGE_DEFAULTS} {...props} />} size="sm">
-                    Back to plugins
+                    {t('detail.backToPlugins')}
                 </Anchor>
             </Stack>
         );
@@ -57,7 +59,7 @@ export function PluginDetailPage({ id }: PluginDetailPageProps) {
             <Anchor renderRoot={(props: object) => <Link to="/plugins" search={PLUGINS_PAGE_DEFAULTS} {...props} />} size="sm">
                 <Group gap="xxs" wrap="nowrap">
                     <IconArrowLeft size={14} stroke={1.8} />
-                    Plugins
+                    {t('detail.breadcrumb')}
                 </Group>
             </Anchor>
 
@@ -73,8 +75,8 @@ export function PluginDetailPage({ id }: PluginDetailPageProps) {
                         <Switch
                             checked={detail.enabled}
                             disabled={setEnabled.isPending}
-                            label={detail.enabled ? 'Enabled' : 'Disabled'}
-                            aria-label={`Enable ${detail.name}`}
+                            label={detail.enabled ? t('enable.enabled') : t('enable.disabled')}
+                            aria-label={t('enable.ariaLabel', { name: detail.name })}
                             onChange={event => {
                                 setEnabled.mutate({ id: detail.id, enabled: event.currentTarget.checked });
                             }}
@@ -108,11 +110,11 @@ export function PluginDetailPage({ id }: PluginDetailPageProps) {
                 </PageHeader>
 
                 {setEnabled.error ? (
-                    <ErrorAlert title="That change could not be applied" error={setEnabled.error} fallback="The plugin was left as it was." />
+                    <ErrorAlert title={t('detail.enableFailedTitle')} error={setEnabled.error} fallback={t('detail.enableFailedFallback')} />
                 ) : undefined}
 
                 {detail.lastError ? (
-                    <ErrorAlert title="Last error">
+                    <ErrorAlert title={t('detail.lastError')}>
                         <Text size="sm" ff="monospace" style={{ overflowWrap: 'anywhere' }}>
                             {detail.lastError}
                         </Text>
@@ -121,7 +123,7 @@ export function PluginDetailPage({ id }: PluginDetailPageProps) {
                             looked is the first thing needed to fix any of them. */}
                         {detail.status === 'failed' ? (
                             <Text size="xs" c="dimmed" ff="monospace" mt="xs" style={{ overflowWrap: 'anywhere' }}>
-                                Loaded from {detail.dir}
+                                {t('detail.loadedFrom', { dir: detail.dir })}
                             </Text>
                         ) : undefined}
                     </ErrorAlert>
@@ -133,10 +135,10 @@ export function PluginDetailPage({ id }: PluginDetailPageProps) {
                     <Group justify="space-between" align="center">
                         <Stack gap="xxxs">
                             <Title order={3} size="h5">
-                                Connection test
+                                {t('detail.test.title')}
                             </Title>
                             <Text size="sm" c="dimmed">
-                                Asks the plugin whether it can reach its provider right now.
+                                {t('detail.test.description')}
                             </Text>
                         </Stack>
                         <Button
@@ -147,7 +149,7 @@ export function PluginDetailPage({ id }: PluginDetailPageProps) {
                                 test.mutate();
                             }}
                         >
-                            Test connection
+                            {t('detail.test.button')}
                         </Button>
                     </Group>
 
@@ -155,12 +157,12 @@ export function PluginDetailPage({ id }: PluginDetailPageProps) {
                         reported in the same place a success would be. */}
                     {test.data ? (
                         <Text size="sm" c={test.data.ok ? 'teal' : 'red'}>
-                            {test.data.ok ? (test.data.message ?? 'Connected.') : (test.data.message ?? 'The plugin could not connect.')}
+                            {test.data.ok ? (test.data.message ?? t('detail.test.connected')) : (test.data.message ?? t('detail.test.notConnected'))}
                         </Text>
                     ) : undefined}
                     {test.error ? (
                         <Text size="sm" c="red">
-                            {apiErrorMessage(test.error, 'The test could not be run.')}
+                            {apiErrorMessage(test.error, t('detail.test.failed'))}
                         </Text>
                     ) : undefined}
                 </Stack>
@@ -175,10 +177,10 @@ export function PluginDetailPage({ id }: PluginDetailPageProps) {
                 <Stack gap="md">
                     <Stack gap="xxs">
                         <Title order={3} size="h5">
-                            Settings
+                            {t('detail.settings.title')}
                         </Title>
                         <Text size="sm" c="dimmed">
-                            Saving reinitializes the plugin, so a change takes effect without restarting the station.
+                            {t('detail.settings.description')}
                         </Text>
                     </Stack>
                     <Divider />
@@ -186,7 +188,7 @@ export function PluginDetailPage({ id }: PluginDetailPageProps) {
                         <PluginConfigForm plugin={detail} />
                     ) : (
                         <Text size="sm" c="dimmed">
-                            This plugin exposes no settings.
+                            {t('detail.settings.none')}
                         </Text>
                     )}
                 </Stack>

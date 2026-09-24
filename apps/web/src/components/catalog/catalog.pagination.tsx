@@ -1,4 +1,5 @@
 import { Group, Pagination, Select, Text } from '@mantine/core';
+import { useTranslation } from 'react-i18next';
 
 import { PAGE_SIZES } from './catalog.page.params';
 import { formatCount } from '../../i18n/format.locale';
@@ -13,8 +14,6 @@ export interface CatalogPaginationProps {
     onPageSizeChange?: (pageSize: number) => void;
 }
 
-const SIZE_OPTIONS = PAGE_SIZES.map(size => ({ value: String(size), label: `${size} rows` }));
-
 /**
  * The pager under a catalog list, plus the count it is paging through and how much of it to show.
  *
@@ -25,12 +24,13 @@ const SIZE_OPTIONS = PAGE_SIZES.map(size => ({ value: String(size), label: `${si
  * it away in the case it is most useful.
  */
 export function CatalogPagination({ total, pageSize, page, onChange, onPageSizeChange }: CatalogPaginationProps) {
+    const { t } = useTranslation('catalog');
     const pageCount = Math.ceil(total / pageSize);
 
     return (
         <Group justify="space-between">
             <Text size="sm" c="dimmed">
-                {total === 1 ? '1 result' : `${formatCount(total)} results`}
+                {t('pagination.results', { count: total, total: formatCount(total) })}
             </Text>
             {/* Allowed to wrap: at phone width a pager past a handful of pages is wider than the
                 row, and the size control dropping under it beats the page scrolling sideways. */}
@@ -49,8 +49,8 @@ export function CatalogPagination({ total, pageSize, page, onChange, onPageSizeC
                     <Select
                         size="xs"
                         w={110}
-                        aria-label="Rows per page"
-                        data={SIZE_OPTIONS}
+                        aria-label={t('pagination.rowsPerPage')}
+                        data={PAGE_SIZES.map(size => ({ value: String(size), label: t('pagination.rows', { size }) }))}
                         value={String(pageSize)}
                         allowDeselect={false}
                         onChange={next => {

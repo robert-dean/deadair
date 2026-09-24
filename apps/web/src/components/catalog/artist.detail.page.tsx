@@ -1,6 +1,7 @@
 import { Anchor, Group, Stack, Table, Text } from '@mantine/core';
 import { Link } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 
 import {
     catalogArtistAlbumsOptions,
@@ -29,6 +30,7 @@ export interface ArtistDetailPageProps {
 }
 
 export function ArtistDetailPage({ artistId, page, order, onPageChange }: ArtistDetailPageProps) {
+    const { t } = useTranslation('catalog');
     const artist = useQuery(catalogArtistOptions(artistId));
     const albums = useQuery(catalogArtistAlbumsOptions(artistId, { page, ...order }));
     const enrichment = useQuery(catalogArtistEnrichmentOptions(artistId));
@@ -46,16 +48,16 @@ export function ArtistDetailPage({ artistId, page, order, onPageChange }: Artist
                     {/* `renderRoot` rather than `component={Link}`: the polymorphic form erases the
                         router's own types, and with them the check that `params` matches the path. */}
                     <Anchor renderRoot={(props: object) => <Link to="/catalog" search={CATALOG_SEARCH_DEFAULTS} {...props} />} size="sm">
-                        Back to catalog
+                        {t('backToCatalog')}
                     </Anchor>
                     <PageHeader
-                        title={artist.data?.name ?? 'Artist'}
+                        title={artist.data?.name ?? t('artist.fallbackTitle')}
                         description={
                             artist.data ? (
                                 <Text c="dimmed" size="sm">
-                                    {artist.data.albumCount === 1 ? '1 album' : `${artist.data.albumCount} albums`}
+                                    {t('artist.albums', { count: artist.data.albumCount })}
                                     {' • '}
-                                    {artist.data.trackCount === 1 ? '1 track' : `${artist.data.trackCount} tracks`}
+                                    {t('artist.tracks', { count: artist.data.trackCount })}
                                 </Text>
                             ) : undefined
                         }
@@ -80,11 +82,11 @@ export function ArtistDetailPage({ artistId, page, order, onPageChange }: Artist
             </Group>
 
             {artist.error ? (
-                <ErrorAlert title="This artist could not be loaded" error={artist.error} fallback="No artist with that id is in the catalog." />
+                <ErrorAlert title={t('artist.loadFailedTitle')} error={artist.error} fallback={t('artist.loadFailedFallback')} />
             ) : undefined}
 
             {albums.error && !artist.error ? (
-                <ErrorAlert title="The albums could not be loaded" error={albums.error} fallback="The catalog is unavailable." />
+                <ErrorAlert title={t('artist.albumsFailedTitle')} error={albums.error} fallback={t('tracks.loadFailedFallback')} />
             ) : undefined}
 
             {/* Suppressed while the artist itself is failing: one alert about an artist who is not
@@ -96,17 +98,13 @@ export function ArtistDetailPage({ artistId, page, order, onPageChange }: Artist
                     claims={enrichment.data?.claims}
                     isPending={enrichment.isPending}
                     error={enrichment.error}
-                    emptyMessage="No provider has been asked about this artist yet. The enrichment pass picks up what it has not seen, oldest first."
+                    emptyMessage={t('artist.enrichmentEmpty')}
                 />
             )}
 
             {albums.isPending && !artist.error ? <PageSkeleton variant="table" /> : undefined}
 
-            {albums.data && rows.length === 0 ? (
-                <EmptyState>
-                    Nothing by this artist has been ingested as an album. Their tracks may still be in the catalog, filed without a release.
-                </EmptyState>
-            ) : undefined}
+            {albums.data && rows.length === 0 ? <EmptyState>{t('artist.empty')}</EmptyState> : undefined}
 
             {albums.data && rows.length > 0 ? (
                 <>
@@ -115,10 +113,10 @@ export function ArtistDetailPage({ artistId, page, order, onPageChange }: Artist
                             <Table.Thead>
                                 <Table.Tr>
                                     <Table.Th w={56} />
-                                    <Table.Th>Album</Table.Th>
-                                    <Table.Th w={100}>Year</Table.Th>
-                                    <Table.Th w={120}>Tracks</Table.Th>
-                                    <Table.Th w={150}>Rating</Table.Th>
+                                    <Table.Th>{t('columns.album')}</Table.Th>
+                                    <Table.Th w={100}>{t('columns.year')}</Table.Th>
+                                    <Table.Th w={120}>{t('columns.tracks')}</Table.Th>
+                                    <Table.Th w={150}>{t('columns.rating')}</Table.Th>
                                 </Table.Tr>
                             </Table.Thead>
                             <Table.Tbody>

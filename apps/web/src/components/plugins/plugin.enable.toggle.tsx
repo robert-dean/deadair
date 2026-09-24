@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Switch, Text } from '@mantine/core';
+import { useTranslation } from 'react-i18next';
 import type { PluginSummary } from '@deadair/sdk';
 
 import { useSetPluginEnabled } from '../../api/plugins.queries';
@@ -22,6 +23,7 @@ export interface PluginEnableToggle {
  * NOT differ between them is when the trust dialog is asked, so that lives here once.
  */
 export function usePluginEnableToggle(plugin: PluginSummary, options: { label?: boolean } = {}): PluginEnableToggle {
+    const { t } = useTranslation('plugins');
     const setEnabled = useSetPluginEnabled();
     const pending = setEnabled.isPending && setEnabled.variables?.id === plugin.id;
     const [trustDialogOpen, setTrustDialogOpen] = useState(false);
@@ -33,8 +35,8 @@ export function usePluginEnableToggle(plugin: PluginSummary, options: { label?: 
                 size="sm"
                 checked={plugin.enabled}
                 disabled={pending}
-                label={showLabel ? (plugin.enabled ? 'Enabled' : 'Disabled') : undefined}
-                aria-label={`Enable ${plugin.name}`}
+                label={showLabel ? (plugin.enabled ? t('enable.enabled') : t('enable.disabled')) : undefined}
+                aria-label={t('enable.ariaLabel', { name: plugin.name })}
                 onChange={event => {
                     if (!event.currentTarget.checked) {
                         setEnabled.mutate({ id: plugin.id, enabled: false });
@@ -67,7 +69,7 @@ export function usePluginEnableToggle(plugin: PluginSummary, options: { label?: 
     const error =
         setEnabled.error && setEnabled.variables?.id === plugin.id ? (
             <Text size="xs" c={severityColor.failure}>
-                {apiErrorMessage(setEnabled.error, 'That change could not be applied.')}
+                {apiErrorMessage(setEnabled.error, t('enable.failed'))}
             </Text>
         ) : undefined;
 

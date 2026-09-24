@@ -15,6 +15,10 @@ export const TRANSLATED = [
     'src/components/onboarding/**',
     'src/components/personas/**',
     'src/components/settings/**',
+    'src/components/plugins/**',
+    'src/components/topics/**',
+    'src/components/catalog/**',
+    'src/components/library/**',
 ];
 
 /**

@@ -1,7 +1,9 @@
 import { SegmentedControl, Stack, Text } from '@mantine/core';
+import { useTranslation } from 'react-i18next';
 import type { GrantDecision, PluginGrant } from '@deadair/sdk';
 
 import { useDecidePluginGrant, usePluginGrants } from '../../api/plugins.queries';
+import { i18n } from '../../i18n/i18n.setup';
 import type { StatusTone } from '../shared/status';
 
 /**
@@ -22,7 +24,15 @@ import type { StatusTone } from '../shared/status';
  */
 export const GRANT_TONES: Record<GrantDecision, StatusTone> = { allowed: 'ok', denied: 'off' };
 
-export const GRANT_WORDS: Record<GrantDecision, string> = { allowed: 'Allowed', denied: 'Denied' };
+/** Getters, so each read is the plugins catalog's word in the console's current language. */
+export const GRANT_WORDS: Record<GrantDecision, string> = {
+    get allowed() {
+        return i18n.t('grants.allowed', { ns: 'plugins' });
+    },
+    get denied() {
+        return i18n.t('grants.denied', { ns: 'plugins' });
+    },
+};
 
 /** Every capability one plugin is asking for, out of the one list the API answers with. */
 export function usePluginGrantsFor(pluginId: string): PluginGrant[] {
@@ -45,6 +55,7 @@ export interface GrantAnswerProps {
  * operator does by clicking Deny, the more honest thing to leave on the record anyway.
  */
 export function GrantAnswer({ grant, size = 'xs' }: GrantAnswerProps) {
+    const { t } = useTranslation('plugins');
     const decide = useDecidePluginGrant();
 
     return (
@@ -53,16 +64,16 @@ export function GrantAnswer({ grant, size = 'xs' }: GrantAnswerProps) {
                 size={size}
                 value={grant.decision}
                 disabled={decide.isPending}
-                aria-label={`${grant.label} for ${grant.pluginName}`}
+                aria-label={t('grants.ariaLabel', { label: grant.label, plugin: grant.pluginName })}
                 onChange={value => decide.mutate({ id: grant.pluginId, capability: grant.capability, decision: value as GrantDecision })}
                 data={[
-                    { value: 'allowed', label: 'Allow' },
-                    { value: 'denied', label: 'Deny' },
+                    { value: 'allowed', label: t('grants.allow') },
+                    { value: 'denied', label: t('grants.deny') },
                 ]}
             />
             {decide.error ? (
                 <Text size="xs" c="red">
-                    That could not be saved.
+                    {t('grants.saveFailed')}
                 </Text>
             ) : undefined}
         </Stack>

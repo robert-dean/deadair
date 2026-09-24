@@ -1,4 +1,5 @@
 import { Badge, Button, Group, Modal, Stack, Text } from '@mantine/core';
+import { useTranslation } from 'react-i18next';
 import type { PluginSummary } from '@deadair/sdk';
 
 export interface PluginTrustDialogProps {
@@ -18,17 +19,13 @@ export interface PluginTrustDialogProps {
  * Disabling needs no such consent, which is why only the enable path is gated.
  */
 export function PluginTrustDialog({ plugin, opened, onCancel, onConfirm }: PluginTrustDialogProps) {
+    const { t } = useTranslation(['plugins', 'common']);
     return (
-        <Modal opened={opened} onClose={onCancel} title={`Enable ${plugin.name}?`} centered>
+        <Modal opened={opened} onClose={onCancel} title={t('trust.title', { name: plugin.name })} centered>
             <Stack gap="md">
-                <Text size="sm">
-                    Plugins are trusted code. {plugin.name} runs inside the deadair server process with the server&apos;s own privileges. It can read
-                    and write your files, open network connections to anywhere, and read the server&apos;s environment, including database and
-                    encryption credentials. The permissions a plugin declares are a description of what it says it needs, not a limit on what it can
-                    do.
-                </Text>
+                <Text size="sm">{t('trust.body', { name: plugin.name })}</Text>
 
-                <Text size="sm">Enable a plugin the same way you would add a dependency to this project: because you trust who wrote it.</Text>
+                <Text size="sm">{t('trust.advice')}</Text>
 
                 <Stack gap="xxs">
                     <Text size="xs" c="dimmed" ff="monospace">
@@ -36,7 +33,7 @@ export function PluginTrustDialog({ plugin, opened, onCancel, onConfirm }: Plugi
                     </Text>
                     <Group gap="xxs">
                         <Text size="xs" c="dimmed">
-                            Declared capabilities:
+                            {t('trust.capabilities')}
                         </Text>
                         {plugin.capabilities.map(capability => (
                             <Badge key={capability} size="sm" variant="light" color="gray" tt="none">
@@ -48,10 +45,10 @@ export function PluginTrustDialog({ plugin, opened, onCancel, onConfirm }: Plugi
 
                 <Group justify="flex-end">
                     <Button variant="default" onClick={onCancel}>
-                        Cancel
+                        {t('common:action.cancel')}
                     </Button>
                     {/* Not styled as destructive: enabling a plugin deliberately is a normal action, not an alarm. */}
-                    <Button onClick={onConfirm}>Enable {plugin.name}</Button>
+                    <Button onClick={onConfirm}>{t('trust.confirm', { name: plugin.name })}</Button>
                 </Group>
 
                 {/* Shown on the FIRST enable alone. `plugin_configs.first_enabled_at` is the record

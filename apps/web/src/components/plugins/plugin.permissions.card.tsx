@@ -1,4 +1,5 @@
 import { Card, Divider, Group, Stack, Text, Title } from '@mantine/core';
+import { useTranslation } from 'react-i18next';
 import type { PluginSummary } from '@deadair/sdk';
 
 import { StatusLamp } from '../shared/status.lamp';
@@ -25,6 +26,7 @@ export interface PluginPermissionsCardProps {
  * to look for a permission that does not exist.
  */
 export function PluginPermissionsCard({ plugin }: PluginPermissionsCardProps) {
+    const { t } = useTranslation('plugins');
     const grants = usePluginGrantsFor(plugin.id);
     if (grants.length === 0) return undefined;
 
@@ -33,11 +35,10 @@ export function PluginPermissionsCard({ plugin }: PluginPermissionsCardProps) {
             <Stack gap="md">
                 <Stack gap="xxs">
                     <Title order={3} size="h5">
-                        What this plugin has asked for
+                        {t('permissions.title')}
                     </Title>
                     <Text size="sm" c="dimmed">
-                        It reaches only the addresses its manifest names and the ones you gave it. These are the things it has asked for on top of
-                        that, and none of them apply until you say so.
+                        {t('permissions.description')}
                     </Text>
                 </Stack>
                 <Divider />

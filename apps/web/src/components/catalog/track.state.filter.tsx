@@ -1,4 +1,5 @@
 import { Card, Chip, Group, Progress, Stack, Text, Tooltip } from '@mantine/core';
+import { Trans, useTranslation } from 'react-i18next';
 import type { TrackStateCounts } from '@deadair/sdk';
 
 import { severityColor, toneColor } from '../shared/status';
@@ -31,41 +32,33 @@ const BENCHED = 'orange';
  * chosen Benched chip drawn in it said the opposite of what it was filtering to — loudest thing on
  * the card, in the colour of a healthy station.
  */
-const FILTERS: { state: TrackStateParam; label: string; help: string; tone: string; count: (counts: TrackStateCounts) => number }[] = [
+const FILTERS: { state: TrackStateParam; tone: string; count: (counts: TrackStateCounts) => number }[] = [
+    // Each chip's label and help are `stateFilter.<state>` in the catalog namespace.
     {
         state: 'cached',
-        label: 'On this machine',
-        help: 'The audio is here, so these can be committed to the running order now.',
         tone: toneColor.ok,
         count: counts => counts.cached,
     },
     {
         state: 'uncached',
-        label: 'Not fetched',
-        help: 'The station has not needed these yet. Ordinary for most of a library rather than a problem.',
         tone: toneColor.off,
         count: counts => counts.total - counts.cached,
     },
     {
         state: 'unmeasured',
-        label: 'Unmeasured',
-        help: 'No trustworthy measurement, so no cue points and no level decided before air. They still play.',
         tone: severityColor.warning,
         count: counts => counts.total - counts.measured,
     },
     {
         state: 'failing',
-        label: 'Failing',
-        help: 'A fetch has failed and is backing off. Four in a row writes the copy off.',
         tone: severityColor.failure,
         count: counts => counts.failing,
     },
     {
         state: 'benched',
-        label: 'Benched',
         // Two causes wearing one word, and only one of them heals. A copy the provider refused is
         // never brought back by a sync, so a chip promising one is a chip an operator waits on.
-        help: 'Every copy written off. A sync brings back the ones the provider still lists; one it refused stays off until you offer it again.',
+        // (That is why its help in the catalog says the refused copy stays off.)
         tone: BENCHED,
         count: counts => counts.benched,
     },
@@ -100,6 +93,7 @@ export interface TrackStateFilterProps {
  * — and a filter list that changed shape as the numbers moved would be unreadable.
  */
 export function TrackStateFilter({ counts, value, onChange }: TrackStateFilterProps) {
+    const { t } = useTranslation('catalog');
     // Nothing to say until the first page has answered. Rendering an empty strip would push the
     // table down and then jump it back up.
     if (counts === undefined) return undefined;
@@ -126,13 +120,15 @@ export function TrackStateFilter({ counts, value, onChange }: TrackStateFilterPr
                     many are cached", it is "how much of my library can go out right now". */}
                 <Group justify="space-between" align="baseline" gap="md" wrap="wrap">
                     <Text size="md">
-                        <span className="da-num" style={{ fontWeight: 600 }}>
-                            {formatCount(counts.cached)}
-                        </span>{' '}
-                        of <span className="da-num">{formatCount(counts.total)}</span> records are ready to air right now.
+                        <Trans
+                            t={t}
+                            i18nKey="stateFilter.ready"
+                            values={{ cached: formatCount(counts.cached), total: formatCount(counts.total) }}
+                            components={{ cached: <span className="da-num" style={{ fontWeight: 600 }} />, total: <span className="da-num" /> }}
+                        />
                     </Text>
                     <Text size="xs" c="dimmed">
-                        The rest are fetched when the station wants them.
+                        {t('stateFilter.rest')}
                     </Text>
                 </Group>
 
@@ -154,10 +150,10 @@ export function TrackStateFilter({ counts, value, onChange }: TrackStateFilterPr
                     colour. The counts stay in the chips below, which is why the bar is out of the
                     accessibility tree rather than labelled twice. */}
                 <Progress.Root size={6} aria-hidden>
-                    <Tooltip label="Fetched and measured: ready to air.">
+                    <Tooltip label={t('stateFilter.bar.ready')}>
                         <Progress.Section value={ready} color={`${toneColor.ok}.4`} />
                     </Tooltip>
-                    <Tooltip label="Here, but with no measurement behind it.">
+                    <Tooltip label={t('stateFilter.bar.unmeasured')}>
                         <Progress.Section value={unmeasured} color={`${severityColor.warning}.4`} />
                     </Tooltip>
                 </Progress.Root>
@@ -172,7 +168,7 @@ export function TrackStateFilter({ counts, value, onChange }: TrackStateFilterPr
                         const chosen = value === filter.state;
                         const empty = count === 0 && !chosen;
                         return (
-                            <Tooltip key={filter.state} label={filter.help} multiline w={260}>
+                            <Tooltip key={filter.state} label={t(`stateFilter.${filter.state}.help`)} multiline w={260}>
                                 <Chip
                                     size="sm"
                                     color={filter.tone}
@@ -212,7 +208,7 @@ export function TrackStateFilter({ counts, value, onChange }: TrackStateFilterPr
                                     <span className="da-num" style={{ fontWeight: 600 }}>
                                         {formatCount(count)}
                                     </span>{' '}
-                                    {filter.label}
+                                    {t(`stateFilter.${filter.state}.label`)}
                                 </Chip>
                             </Tooltip>
                         );

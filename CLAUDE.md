@@ -105,7 +105,8 @@ pointing at something that has never existed:
 
 ```
 apps/api          Koa server, ContractKit routers, dbmate migrations
-apps/web          React console (Vite, TanStack Router, Mantine)
+apps/web          React console (Vite, TanStack Router, Mantine). Its words are i18next catalogs
+                  under src/i18n; the console's language is not the station's broadcast language
 apps/site         the public website at deadair.radio (Docusaurus). Never in the image
 apps/android      Kotlin/Compose listener app (Media3). Its own Gradle build and CI job. Its
                   package.json is a name and a version for changesets, and nothing else

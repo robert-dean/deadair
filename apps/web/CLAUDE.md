@@ -55,6 +55,11 @@ loading frame, and `i18n.types.d.ts` types `t()` against it, so a key that does 
 `tests/setup.ts` installs the same catalog, which is why the suite's `getByText('…')` queries are the
 check that a string survived its move into a catalog. Change the English in the catalog, not the test.
 
+**The console's language is not the station's.** `stream.language` is what the presenter speaks and
+what goes out with the stream; it is a setting, and nothing in these catalogs follows it. The console
+is in whatever language the operator's browser prefers, among the ones there are catalogs for. A
+German station can have an English console and the reverse, and the two must never be wired together.
+
 - **A sentence is one key.** A value in the middle is a `{{placeholder}}`, never fragments joined with
   `+`. A count is `count` with `_one`/`_other` keys, never `n === 1 ? …`. A sentence with a `<Code>`
   or a link inside it is a `<Trans>` with named tags. Do not name a tag `link`, `track` or any other
@@ -65,8 +70,13 @@ check that a string survived its move into a catalog. Change the English in the 
   `i18n.t` from `i18n.setup.ts`, and a table's labels are getters, so they are looked up when drawn
   and not fixed in whichever language the console started in. Spreading such an object copies the
   words once; read the property instead.
+- **A new folder under `src/components` gets its own namespace.** Create `src/i18n/en/<folder>.catalog.ts`
+  as an `as const` object, then register it in `en.catalog.ts`. Nest keys by component, then by meaning.
 - **Another namespace's key** needs both named: `useTranslation(['<ns>', 'common'])`, or `t` rejects
-  `common:…` at the type level. `common.catalog.ts` is for words the shared components own.
+  `common:…` at the type level. `common.catalog.ts` is for words the shared components own, and for
+  words several areas must say the same way (the access words an API key and a connected app share,
+  through `shared/access.words.ts`). Duplicate a word into your own namespace rather than grow `common`
+  with something only one area says.
 - **Text from the API is not copy.** Setting labels and help, plugin descriptions and field text, and
   an error's `details.message` arrive in English and are shown as they come. Localizing those is the
   API's job and was deliberately left out.
@@ -79,3 +89,9 @@ check that a string survived its move into a catalog. Change the English in the 
   `tests/i18n/literal.strings.test.ts` runs the rule and fails on a hit. It sees JSX text and the copy
   attributes listed there. It does not see a string handed to a helper outside JSX (`notifyDone('…')`,
   an `apiErrorMessage` fallback, a default parameter), so a review still has to.
+- **A second language** means a `src/i18n/<lang>/` catalog with the same shape as `en`, its tag added to
+  `SUPPORTED_LOCALES`, and its catalog loaded with a dynamic `import()` and `addResourceBundle`, so
+  English stays the only bundled one and the fallback for any key the translation lacks. It also needs
+  that language's dayjs locale imported, because Mantine's date pickers and the timetable name months
+  and days through dayjs, and dayjs knows only English until then. There is no language picker yet;
+  `ActorPreferences.locale` in the contracts is the place a chosen one would be kept.

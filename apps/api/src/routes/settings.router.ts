@@ -39,7 +39,7 @@ SettingsRouter.put('/settings', requirePolicy({ policy: 'platform.manage' }), bo
 
 /**
  * Asks each identity provider in the sign-in settings for its discovery document, the way a sign-in would, and says which answered
- * from [settings.ck](../../data/contracts/settings/settings.ck#L56)
+ * from [settings.ck](../../data/contracts/settings/settings.ck#L57)
  */
 SettingsRouter.get('/settings/signin/check', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const service = ctx.container.get(SigninProviderCheckService);

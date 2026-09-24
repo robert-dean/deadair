@@ -52,4 +52,16 @@ describe('AuthRecentFactorPolicy', () => {
         expect(result.allowed).toBe(false);
         expect(result.details?.kind).not.toBe('step_up_unavailable');
     });
+
+    it('refuses a connected app as unavailable, however recent the factors it inherited from its approval', async () => {
+        // A grant's session carries the factors of the session it was approved from, with their times.
+        const app: UserActor = {
+            ...actor([factor('authenticator', 'possession')]),
+            grant: { id: 'g-1', clientId: 'dyn_1', grants: new Set(['view', 'manage'] as const) },
+        };
+        const result = outcome(await evaluate(app));
+
+        expect(result.allowed).toBe(false);
+        expect(result.details?.kind).toBe('step_up_unavailable');
+    });
 });

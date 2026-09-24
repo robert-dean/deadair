@@ -1,6 +1,6 @@
 ---
-title: 'Submit onboarding requirement'
-sidebar_label: 'Submit onboarding requirement'
+title: 'Submit Onboarding Requirement'
+sidebar_label: 'Submit Onboarding Requirement'
 sidebar_position: 2
 mdx:
     format: 'md'

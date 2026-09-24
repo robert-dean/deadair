@@ -104,7 +104,7 @@ public struct OAuthAuthorizationRefusal: Codable, Equatable, Sendable {
     }
 }
 
-/// Approving or denying a stashed request
+/// Denying a stashed request
 public struct OAuthAuthorizationDecision: Codable, Equatable, Sendable {
     /// From the context
     public var requestId: String
@@ -126,6 +126,12 @@ public struct OAuthAuthorizationDecision: Codable, Equatable, Sendable {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(self.requestId, forKey: .requestId)
     }
+}
+
+/// What a connected app may do on the station. `view` reads it; `manage` changes it and includes `view`. Never more than the person approving it may do
+public enum OAuthGrantScope: String, Codable, CaseIterable, Sendable {
+    case view = "view"
+    case manage = "manage"
 }
 
 /// Where to send the browser now
@@ -169,7 +175,7 @@ public struct OAuthGrant: Codable, Equatable, Sendable {
     public var clientName: String?
     /// What it can reach
     public var resource: String
-    /// What it asked for
+    /// What it was granted: `mcp`, and the station scopes it may use (`view`, `manage`)
     public var scope: [String]
     /// When it was first approved
     public var createdAt: Date
@@ -239,7 +245,7 @@ public struct OAuthAuthorizationContext: Codable, Equatable, Sendable {
     public var redirectHost: String
     /// Whether every address the app registered is this computer's own, which only an app running on it should use
     public var loopbackOnly: Bool
-    /// What the app asked for. It acts as the person approving it whatever this says
+    /// What the app asked for. The person chooses what it gets when approving, whatever this says
     public var scope: [String]
     /// What the app will be able to reach: the station's MCP endpoint
     public var resource: String
@@ -303,6 +309,36 @@ public struct OAuthAuthorizationContext: Codable, Equatable, Sendable {
         try container.encode(self.loopbackOnly, forKey: .loopbackOnly)
         try container.encode(self.scope, forKey: .scope)
         try container.encode(self.resource, forKey: .resource)
+    }
+}
+
+/// Approving a stashed request, with what the app may do
+public struct OAuthAuthorizationApproval: Codable, Equatable, Sendable {
+    /// From the context
+    public var requestId: String
+    /// What the person lets the app do. At least one; `manage` includes `view`. Replaces whatever the app asked for
+    public var scopes: [OAuthGrantScope]
+
+    public init(requestId: String, scopes: [OAuthGrantScope]) {
+        self.requestId = requestId
+        self.scopes = scopes
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case requestId = "requestId"
+        case scopes = "scopes"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.requestId = try container.decode(String.self, forKey: .requestId)
+        self.scopes = try container.decode([OAuthGrantScope].self, forKey: .scopes)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.requestId, forKey: .requestId)
+        try container.encode(self.scopes, forKey: .scopes)
     }
 }
 

@@ -20,6 +20,7 @@ options {
 operation /auth/factors: {
     get: { # List authentication factors
         name: List factors
+        mcp: exclude
         service: AuthenticationService.listFactors
         response: {
             200: {
@@ -32,6 +33,7 @@ operation /auth/factors: {
 operation /auth/factors/register: {
     post: { # Register an authentication factor
         name: Register factor
+        mcp: exclude
         service: AuthenticationRegistrationService.registerFactor
         request: {
             application/json: AuthenticationFactorRegistration
@@ -62,6 +64,7 @@ operation /auth/factors/verify: {
 operation /auth/factors/start: {
     post: { # Issue a factor verification challenge for a pending MFA round. Authenticated via the short-lived `mfa_challenge_id` in the body, not by session — this is the only /auth/factors/* route that does not require an authenticated session.
         name: Start factor challenge
+        mcp: exclude
         service: AuthenticationService.startFactorChallenge
         security: none
         request: {
@@ -78,6 +81,7 @@ operation /auth/factors/start: {
 operation /auth/mfa/start: {
     post: { # Mint a fresh MFA challenge for the *current* authenticated session so the SPA can satisfy a `step_up_required` denial. Optionally filters eligible factors against an inbound `StepUpRequirement` hint. Returns `enrollment_required` when no enrolled factor matches the requirement so the SPA can route the user into enrollment instead of getting stuck.
         name: Start MFA challenge
+        mcp: exclude
         service: AuthenticationService.startStepUpChallenge
         request: {
             application/json: StepUpStartRequest
@@ -97,6 +101,7 @@ operation /auth/factors/{method}/{methodId}: {
     }
     delete: { # Remove one of the caller's own factors. Answered for `authenticator` and `oidc`, and only after a recent strong-factor verification: the same gate enrolment sits behind once a strong factor exists, so a stolen session cannot quietly switch the second factor off. Removing the last authenticator turns the sign-in challenge off for that account. A linked identity provider that is the account's only way to sign in is refused with 409.
         name: Remove factor
+        mcp: exclude
         service: AuthenticationRegistrationService.removeFactor
         response: {
             204:

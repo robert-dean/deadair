@@ -1,6 +1,6 @@
 ---
-title: 'Revoke oauth client'
-sidebar_label: 'Revoke oauth client'
+title: 'Revoke OAuth client'
+sidebar_label: 'Revoke OAuth client'
 sidebar_position: 6
 mdx:
     format: 'md'

@@ -81,7 +81,7 @@ PersonasRouter.post('/personas/generate', requirePolicy({ policy: 'platform.mana
 
 /**
  * Writes back whichever of the station's own personas this station is missing, touching nothing it already has and putting nothing on air
- * from [personas.ck](../../data/contracts/personas/personas.ck#L79)
+ * from [personas.ck](../../data/contracts/personas/personas.ck#L80)
  */
 PersonasRouter.post('/personas/restore', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const service = ctx.container.get(PersonasService);
@@ -94,7 +94,7 @@ PersonasRouter.post('/personas/restore', requirePolicy({ policy: 'platform.manag
 
 /**
  * Every character this station holds, as one file
- * from [personas.ck](../../data/contracts/personas/personas.ck#L98)
+ * from [personas.ck](../../data/contracts/personas/personas.ck#L99)
  */
 PersonasRouter.get('/personas/export', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const service = ctx.container.get(PersonaExportService);
@@ -108,7 +108,7 @@ PersonasRouter.get('/personas/export', requirePolicy({ policy: 'platform.view' }
 
 /**
  * One character, its sheet and its stories, as a file
- * from [personas.ck](../../data/contracts/personas/personas.ck#L123)
+ * from [personas.ck](../../data/contracts/personas/personas.ck#L124)
  */
 PersonasRouter.get('/personas/:id/export', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const { id } = await parseAndValidate(
@@ -129,7 +129,7 @@ PersonasRouter.get('/personas/:id/export', requirePolicy({ policy: 'platform.vie
 
 /**
  * Reads a file and reports what importing it would create, rewrite and skip. Writes nothing
- * from [personas.ck](../../data/contracts/personas/personas.ck#L154)
+ * from [personas.ck](../../data/contracts/personas/personas.ck#L155)
  */
 PersonasRouter.post('/personas/import/preview', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const body = await parseAndValidate(ctx.parsedBody, PersonaFile);
@@ -144,7 +144,7 @@ PersonasRouter.post('/personas/import/preview', requirePolicy({ policy: 'platfor
 
 /**
  * Writes a file into this station, merging by key, and answers with what it did
- * from [personas.ck](../../data/contracts/personas/personas.ck#L179)
+ * from [personas.ck](../../data/contracts/personas/personas.ck#L180)
  */
 PersonasRouter.post('/personas/import', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const body = await parseAndValidate(ctx.parsedBody, PersonaFile);
@@ -159,7 +159,7 @@ PersonasRouter.post('/personas/import', requirePolicy({ policy: 'platform.manage
 
 /**
  * Rewrites one persona. An edit to the one on air is heard on the next break
- * from [personas.ck](../../data/contracts/personas/personas.ck#L197)
+ * from [personas.ck](../../data/contracts/personas/personas.ck#L198)
  */
 PersonasRouter.put('/personas/:id', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const { id } = await parseAndValidate(
@@ -181,7 +181,7 @@ PersonasRouter.put('/personas/:id', requirePolicy({ policy: 'platform.manage' })
 
 /**
  * Removes a persona, including the one on air, which leaves the station with none
- * from [personas.ck](../../data/contracts/personas/personas.ck#L209)
+ * from [personas.ck](../../data/contracts/personas/personas.ck#L210)
  */
 PersonasRouter.delete('/personas/:id', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { id } = await parseAndValidate(
@@ -201,7 +201,7 @@ PersonasRouter.delete('/personas/:id', requirePolicy({ policy: 'platform.manage'
 
 /**
  * Makes this persona the station's own host, and the previous one no longer is
- * from [personas.ck](../../data/contracts/personas/personas.ck#L227)
+ * from [personas.ck](../../data/contracts/personas/personas.ck#L228)
  */
 PersonasRouter.put('/personas/:id/default-host', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { id } = await parseAndValidate(
@@ -221,7 +221,7 @@ PersonasRouter.put('/personas/:id/default-host', requirePolicy({ policy: 'platfo
 
 /**
  * Everything this character has accumulated, oldest first, in every state
- * from [personas.ck](../../data/contracts/personas/personas.ck#L250)
+ * from [personas.ck](../../data/contracts/personas/personas.ck#L251)
  */
 PersonasRouter.get('/personas/:id/notes', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const { id } = await parseAndValidate(
@@ -241,7 +241,7 @@ PersonasRouter.get('/personas/:id/notes', requirePolicy({ policy: 'platform.view
 
 /**
  * Writes a note by hand. An operator's own note is active from the moment it exists; only the distil pass proposes
- * from [personas.ck](../../data/contracts/personas/personas.ck#L262)
+ * from [personas.ck](../../data/contracts/personas/personas.ck#L263)
  */
 PersonasRouter.post('/personas/:id/notes', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const { id } = await parseAndValidate(
@@ -263,7 +263,7 @@ PersonasRouter.post('/personas/:id/notes', requirePolicy({ policy: 'platform.man
 
 /**
  * Rewrites one note's words, whoever wrote it. Editing what the station proposed is most of the point of the panel
- * from [personas.ck](../../data/contracts/personas/personas.ck#L281)
+ * from [personas.ck](../../data/contracts/personas/personas.ck#L282)
  */
 PersonasRouter.put('/personas/:id/notes/:noteId', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const { id, noteId } = await parseAndValidate(
@@ -286,7 +286,7 @@ PersonasRouter.put('/personas/:id/notes/:noteId', requirePolicy({ policy: 'platf
 
 /**
  * Removes a note outright. Turning down a PROPOSAL is a state rather than this, or the next pass writes it again
- * from [personas.ck](../../data/contracts/personas/personas.ck#L293)
+ * from [personas.ck](../../data/contracts/personas/personas.ck#L294)
  */
 PersonasRouter.delete('/personas/:id/notes/:noteId', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { id, noteId } = await parseAndValidate(
@@ -307,7 +307,7 @@ PersonasRouter.delete('/personas/:id/notes/:noteId', requirePolicy({ policy: 'pl
 
 /**
  * Accepts a proposal, turns one down, or rests an active note. Mirrors the lexicon's own state route
- * from [personas.ck](../../data/contracts/personas/personas.ck#L309)
+ * from [personas.ck](../../data/contracts/personas/personas.ck#L310)
  */
 PersonasRouter.put('/personas/:id/notes/:noteId/state', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const { id, noteId } = await parseAndValidate(
@@ -330,7 +330,7 @@ PersonasRouter.put('/personas/:id/notes/:noteId/state', requirePolicy({ policy: 
 
 /**
  * Every story this character holds, oldest first, in every state
- * from [personas.ck](../../data/contracts/personas/personas.ck#L335)
+ * from [personas.ck](../../data/contracts/personas/personas.ck#L336)
  */
 PersonasRouter.get('/personas/:id/stories', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const { id } = await parseAndValidate(
@@ -350,7 +350,7 @@ PersonasRouter.get('/personas/:id/stories', requirePolicy({ policy: 'platform.vi
 
 /**
  * Writes a story by hand. An operator's own is tellable from the moment it exists; only the enrichment pass proposes
- * from [personas.ck](../../data/contracts/personas/personas.ck#L347)
+ * from [personas.ck](../../data/contracts/personas/personas.ck#L348)
  */
 PersonasRouter.post('/personas/:id/stories', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const { id } = await parseAndValidate(
@@ -372,7 +372,7 @@ PersonasRouter.post('/personas/:id/stories', requirePolicy({ policy: 'platform.m
 
 /**
  * Rewrites one story's handle and telling, whoever wrote it
- * from [personas.ck](../../data/contracts/personas/personas.ck#L366)
+ * from [personas.ck](../../data/contracts/personas/personas.ck#L367)
  */
 PersonasRouter.put('/personas/:id/stories/:storyId', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const { id, storyId } = await parseAndValidate(
@@ -395,7 +395,7 @@ PersonasRouter.put('/personas/:id/stories/:storyId', requirePolicy({ policy: 'pl
 
 /**
  * Removes a story outright, details and all. Turning down a PROPOSAL is a state rather than this, or the next pass writes it again
- * from [personas.ck](../../data/contracts/personas/personas.ck#L378)
+ * from [personas.ck](../../data/contracts/personas/personas.ck#L379)
  */
 PersonasRouter.delete('/personas/:id/stories/:storyId', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { id, storyId } = await parseAndValidate(
@@ -416,7 +416,7 @@ PersonasRouter.delete('/personas/:id/stories/:storyId', requirePolicy({ policy: 
 
 /**
  * Accepts a proposal, turns one down, or takes a story out of the rotation without losing it
- * from [personas.ck](../../data/contracts/personas/personas.ck#L394)
+ * from [personas.ck](../../data/contracts/personas/personas.ck#L395)
  */
 PersonasRouter.put(
     '/personas/:id/stories/:storyId/state',
@@ -444,7 +444,7 @@ PersonasRouter.put(
 
 /**
  * Adds one thing to a story that already exists
- * from [personas.ck](../../data/contracts/personas/personas.ck#L413)
+ * from [personas.ck](../../data/contracts/personas/personas.ck#L414)
  */
 PersonasRouter.post(
     '/personas/:id/stories/:storyId/details',
@@ -472,7 +472,7 @@ PersonasRouter.post(
 
 /**
  * Rewrites one detail's words
- * from [personas.ck](../../data/contracts/personas/personas.ck#L433)
+ * from [personas.ck](../../data/contracts/personas/personas.ck#L434)
  */
 PersonasRouter.put(
     '/personas/:id/stories/:storyId/details/:detailId',
@@ -501,7 +501,7 @@ PersonasRouter.put(
 
 /**
  * Removes one detail, leaving the story it was hung on alone
- * from [personas.ck](../../data/contracts/personas/personas.ck#L445)
+ * from [personas.ck](../../data/contracts/personas/personas.ck#L446)
  */
 PersonasRouter.delete('/personas/:id/stories/:storyId/details/:detailId', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { id, storyId, detailId } = await parseAndValidate(
@@ -523,7 +523,7 @@ PersonasRouter.delete('/personas/:id/stories/:storyId/details/:detailId', requir
 
 /**
  * Accepts a proposed detail or turns it down, which has to outlive the pass that proposed it
- * from [personas.ck](../../data/contracts/personas/personas.ck#L462)
+ * from [personas.ck](../../data/contracts/personas/personas.ck#L463)
  */
 PersonasRouter.put(
     '/personas/:id/stories/:storyId/details/:detailId/state',
@@ -552,7 +552,7 @@ PersonasRouter.put(
 
 /**
  * Writes a talk break under this persona against two fixed invented records, and answers with every writer that was asked
- * from [personas.ck](../../data/contracts/personas/personas.ck#L487)
+ * from [personas.ck](../../data/contracts/personas/personas.ck#L488)
  */
 PersonasRouter.post('/personas/:id/rehearse', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { id } = await parseAndValidate(
@@ -572,7 +572,7 @@ PersonasRouter.post('/personas/:id/rehearse', requirePolicy({ policy: 'platform.
 
 /**
  * Adds one part to an arc. A script rather than a summary: the floor speaks it as it stands
- * from [personas.ck](../../data/contracts/personas/personas.ck#L507)
+ * from [personas.ck](../../data/contracts/personas/personas.ck#L509)
  */
 PersonasRouter.post(
     '/personas/:id/stories/:storyId/beats',
@@ -600,7 +600,7 @@ PersonasRouter.post(
 
 /**
  * Rewrites one part's words, or moves it in the order
- * from [personas.ck](../../data/contracts/personas/personas.ck#L527)
+ * from [personas.ck](../../data/contracts/personas/personas.ck#L529)
  */
 PersonasRouter.put(
     '/personas/:id/stories/:storyId/beats/:beatId',
@@ -629,7 +629,7 @@ PersonasRouter.put(
 
 /**
  * Removes one part outright, leaving the arc standing. Turning down a PROPOSAL is a state instead
- * from [personas.ck](../../data/contracts/personas/personas.ck#L539)
+ * from [personas.ck](../../data/contracts/personas/personas.ck#L541)
  */
 PersonasRouter.delete('/personas/:id/stories/:storyId/beats/:beatId', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { id, storyId, beatId } = await parseAndValidate(
@@ -651,7 +651,7 @@ PersonasRouter.delete('/personas/:id/stories/:storyId/beats/:beatId', requirePol
 
 /**
  * Accepts a proposed part, or turns it down without losing that it was turned down
- * from [personas.ck](../../data/contracts/personas/personas.ck#L556)
+ * from [personas.ck](../../data/contracts/personas/personas.ck#L558)
  */
 PersonasRouter.put(
     '/personas/:id/stories/:storyId/beats/:beatId/state',
@@ -680,7 +680,7 @@ PersonasRouter.put(
 
 /**
  * What this character has told, newest first. The timeline a moment is picked from
- * from [personas.ck](../../data/contracts/personas/personas.ck#L583)
+ * from [personas.ck](../../data/contracts/personas/personas.ck#L585)
  */
 PersonasRouter.get('/personas/:id/memory', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const { id } = await parseAndValidate(
@@ -700,7 +700,7 @@ PersonasRouter.get('/personas/:id/memory', requirePolicy({ policy: 'platform.vie
 
 /**
  * What rolling back to a moment would undo, without undoing it
- * from [personas.ck](../../data/contracts/personas/personas.ck#L601)
+ * from [personas.ck](../../data/contracts/personas/personas.ck#L603)
  */
 PersonasRouter.get('/personas/:id/memory/preview', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const { id } = await parseAndValidate(
@@ -731,7 +731,7 @@ PersonasRouter.get('/personas/:id/memory/preview', requirePolicy({ policy: 'plat
 
 /**
  * Undo it. Everything the station accrued after that moment goes; everything an operator wrote stays
- * from [personas.ck](../../data/contracts/personas/personas.ck#L622)
+ * from [personas.ck](../../data/contracts/personas/personas.ck#L624)
  */
 PersonasRouter.post('/personas/:id/memory/rollback', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const { id } = await parseAndValidate(

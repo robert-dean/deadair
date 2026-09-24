@@ -34,7 +34,7 @@ import { StorageRouter } from './storage.router.js';
 import { OnboardingRouter } from './onboarding.router.js';
 import { OAuthProtocolRouter } from './oauth.protocol.router.js';
 import { OauthRouter } from './oauth.router.js';
-import { McpRouter } from './mcp.router.js';
+import { McpRouter } from '../mcp/mcp.router.js';
 import { MessagingRouter } from './messaging.router.js';
 import { RequestsRouter } from './requests.router.js';
 
@@ -48,7 +48,8 @@ export const routers = [
     // a generated route cannot produce. See the router.
     OAuthProtocolRouter,
     OauthRouter,
-    // Hand-written in the shape ContractKit's `mcp` output will emit; see the router.
+    // Hand-written, and lives with the tools in `src/mcp`: the generated one would not carry the
+    // `oauth.grant` guard. See the router.
     McpRouter,
     // BEFORE `ArtRouter`, and that is load-bearing rather than alphabetical: `/art/breaks` also
     // matches `/art/{id}` and `/art/breaks/{kind}` matches `/art/{id}/{filename}`. Koa matches in

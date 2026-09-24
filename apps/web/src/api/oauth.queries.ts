@@ -1,5 +1,5 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { OAuthClientCreate } from '@deadair/sdk';
+import type { OAuthAuthorizationApproval, OAuthClientCreate } from '@deadair/sdk';
 
 import { sdk } from './client';
 import { queryKeys } from './query.keys';
@@ -26,14 +26,15 @@ export function useAuthorizationRequest(query: string) {
 }
 
 /**
- * Letting the app act as the signed-in person. Answers 403 with a step-up requirement when the
- * account's strong factor is older than the gate allows; the page runs it through `useStepUpGate`.
- * `retry: false`, since a second approval behind the person's back would mint a second code.
+ * Letting the app act as the signed-in person, as far as the scopes chosen allow. Answers 403 with a
+ * step-up requirement when the account's strong factor is older than the gate allows; the page runs
+ * it through `useStepUpGate`. `retry: false`, since a second approval behind the person's back would
+ * mint a second code.
  */
 export function useApproveAuthorization() {
     return useMutation({
         retry: false,
-        mutationFn: (requestId: string) => sdk.oauth.approveAuthorizationRequest({ requestId }),
+        mutationFn: (approval: OAuthAuthorizationApproval) => sdk.oauth.approveAuthorizationRequest(approval),
     });
 }
 

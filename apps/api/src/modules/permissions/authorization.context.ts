@@ -28,6 +28,12 @@ export interface UserActor extends HumanActor {
     // the key was given. The platform policies, `AccessControlService` and the helpers below all
     // narrow by it, and `requireAuthentication` refuses it outright.
     apiKey?: ApiKeyActor;
+    // Present when the request was made by an app the user connected over OAuth (an MCP client),
+    // holding a session minted from their approval. Like a key it acts AS the user and adds a ceiling,
+    // `grants`, resolved once per request from the grant's object in the `oauthgrant` namespace, whose
+    // tuples are derived from the grant's stored scope. Read the ceiling through `delegatedGrants`
+    // rather than either field, so a check cannot narrow one kind and forget the other.
+    grant?: OAuthGrantActor;
 }
 
 export interface ApiKeyActor {
@@ -35,6 +41,19 @@ export interface ApiKeyActor {
     name: string;
     grants: ReadonlySet<ApiKeyGrant>;
 }
+
+export interface OAuthGrantActor {
+    id: string;
+    clientId: string;
+    grants: ReadonlySet<ApiKeyGrant>;
+}
+
+/**
+ * The ceiling on what a user actor may do, or `undefined` for a person who signed in themselves. An
+ * API key and a connected app's grant each carry one; the answer is the same `view`/`manage` set either
+ * way, since both are the station's two platform tiers.
+ */
+export const delegatedGrants = (actor: UserActor): ReadonlySet<ApiKeyGrant> | undefined => actor.apiKey?.grants ?? actor.grant?.grants;
 
 export interface SystemActor {
     kind: 'system';
@@ -83,10 +102,16 @@ export class AuthorizationContext {
     // starting a step-up, and managing keys all begin by calling it. The case that makes it more
     // than tidiness is `POST /auth/factors/verify`, which mints a persisted session from the
     // caller's session token and would otherwise turn a key into a month-long sign-in.
+    //
+    // A connected app is refused for the same reason: it acts as the person, and approving another app
+    // or minting a key from it would hand on more than the person approved.
     requireAuthentication(): { actorId: string; sessionToken: string } {
         if (this.actor.kind === 'user') {
             if (this.actor.apiKey) {
                 throw httpError(403).withDetails({ message: 'an API key cannot manage credentials; sign in to do this' });
+            }
+            if (this.actor.grant) {
+                throw httpError(403).withDetails({ message: 'a connected app cannot manage credentials; sign in to do this' });
             }
             return { actorId: this.actor.actorId, sessionToken: this.actor.sessionToken };
         }
@@ -98,12 +123,13 @@ export class AuthorizationContext {
     // session/login management, etc.) that used to check `kind === 'staff'`.
     //
     // A role check is a check for everything that role allows, which for `admin` is everything, so a
-    // key answers here only when it may manage. Stricter than it needs to be for a check naming
+    // key or a connected app answers here only when it may manage. Stricter than it needs to be for a check naming
     // `listener` alone, and deliberately so: nothing routed asks for one today, and the next caller
     // should not be the one who finds out that a view key passes an admin check.
     hasPlatformRole(...roles: ReadonlyArray<PlatformRoleName>): boolean {
         if (this.actor.kind !== 'user') return false;
-        if (this.actor.apiKey && !this.actor.apiKey.grants.has('manage')) return false;
+        const ceiling = delegatedGrants(this.actor);
+        if (ceiling && !ceiling.has('manage')) return false;
         for (const r of roles) {
             if (this.actor.platformRoles?.has(r)) return true;
         }

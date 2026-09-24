@@ -19,8 +19,8 @@ public final class OauthClient: Sendable {
     }
 
     /// Approve authorization request
-    /// Let the app act as the signed-in person. Once the account has a strong second factor, this needs one verified in the last five minutes
-    public func approveAuthorizationRequest(body: OAuthAuthorizationDecision) async throws -> OAuthAuthorizationOutcome {
+    /// Let the app act as the signed-in person, as far as the chosen scopes allow. Once the account has a strong second factor, this needs one verified in the last five minutes
+    public func approveAuthorizationRequest(body: OAuthAuthorizationApproval) async throws -> OAuthAuthorizationOutcome {
         var request = SdkRequest(method: "POST", path: ["auth", "oauth", "authorize", "approve"])
         try http.setJSONBody(&request, body, contentType: "application/json")
         let response = try await http.execute(request)

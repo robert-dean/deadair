@@ -34,7 +34,7 @@ import { PLATFORM_NAMESPACE, rolesGrant } from '#modules/permissions/platform.ro
 import { ServerPolicyEnvelope } from './policy.envelope.js';
 import { DeadairMfaRequiredPolicy } from '#modules/authentication/mfa.required.policy.js';
 import type { ApiKeyGrant } from '#modules/authentication/api.key.scopes.js';
-import type { UserActor } from '#modules/permissions/authorization.context.js';
+import { delegatedGrants, type UserActor } from '#modules/permissions/authorization.context.js';
 import { OAuthGrantPolicy, type OAuthGrantPolicyContext } from '#modules/oauth/oauth.grant.policy.js';
 
 /**
@@ -49,8 +49,14 @@ export interface RequirePolicyContext {
     session: AuthenticationSession;
 }
 
-/** Whether the request was made with an API key that was not granted `grant`. A signed-in person never lacks one. */
-const keyLacks = (actor: UserActor, grant: ApiKeyGrant): boolean => actor.apiKey !== undefined && !actor.apiKey.grants.has(grant);
+/**
+ * Whether the request was made with an API key, or by a connected app, that was not granted `grant`.
+ * A signed-in person never lacks one.
+ */
+const keyLacks = (actor: UserActor, grant: ApiKeyGrant): boolean => {
+    const ceiling = delegatedGrants(actor);
+    return ceiling !== undefined && !ceiling.has(grant);
+};
 
 /** The two platform gates, which share one way of refusing an API key that was not granted enough. */
 abstract class PlatformPolicy extends Policy<RequirePolicyContext, ServerPolicyEnvelope> {

@@ -5,6 +5,7 @@ import { httpError } from '@maroonedsoftware/errors';
 import {
     AuthenticationSessionService,
     getApiKeyClaim,
+    getOAuthSessionClaim,
     invalidAuthenticationSession,
     type ApiKeySessionClaim,
 } from '@maroonedsoftware/authentication';
@@ -16,7 +17,8 @@ import { APIKEY_NAMESPACE } from '#modules/authentication/repositories/apikey.fa
 import { API_KEY_GRANTS, type ApiKeyGrant } from '#modules/authentication/api.key.scopes.js';
 import { API_KEY_USE_WINDOW } from '#modules/authentication/api.key.options.js';
 import { clearRefreshCookie } from '#modules/authentication/refresh.cookie.js';
-import { AuthorizationContext, type Actor, type UserActor } from '#modules/permissions/authorization.context.js';
+import { AuthorizationContext, type Actor, type OAuthGrantActor, type UserActor } from '#modules/permissions/authorization.context.js';
+import { OAUTHGRANT_NAMESPACE } from '#modules/oauth/oauth.grant.tuples.js';
 import { DeadairPermissionsTupleRepository } from '#modules/permissions/permissions.repository.js';
 import { PermissionsService } from '#modules/permissions/permissions.service.js';
 import { PLATFORM_NAMESPACE, PLATFORM_OBJECT_ID, isPlatformRoleName, type PlatformRoleName } from '#modules/permissions/platform.roles.js';
@@ -53,20 +55,36 @@ const loadPlatformRoles = async (container: ScopedContainer, actorId: string): P
 };
 
 /**
- * What the key may do, asked of the permissions model once per request for the same reason the
- * roles are: the policies read it from the actor, and must not re-walk the tuples on every gated
- * route. Each answer already intersects the owner's roles with the key's scope (`apikey` in
- * `core.perm`), so a key whose owner lost a role loses it here on the very next request.
+ * What a key, or a connected app's grant, may do: asked of the permissions model once per request for
+ * the same reason the roles are, since the policies read it from the actor and must not re-walk the
+ * tuples on every gated route. Each answer already intersects the owner's roles with the scope
+ * (`apikey` and `oauthgrant` in `core.perm`), so one whose owner lost a role loses it here on the very
+ * next request. A grant's tuples are derived from its row rather than stored, which is invisible here.
  */
-const loadApiKeyGrants = async (container: ScopedContainer, keyId: string, actorId: string): Promise<ReadonlySet<ApiKeyGrant>> => {
+const loadDelegatedGrants = async (container: ScopedContainer, namespace: string, id: string, actorId: string): Promise<ReadonlySet<ApiKeyGrant>> => {
     const permissions = container.get(PermissionsService);
     const subject = { kind: 'concrete' as const, namespace: 'user', id: actorId };
     const held = await Promise.all(
-        API_KEY_GRANTS.map(async grant =>
-            (await permissions.checkSubject({ namespace: APIKEY_NAMESPACE, id: keyId }, grant, subject)) ? grant : undefined,
-        ),
+        API_KEY_GRANTS.map(async grant => ((await permissions.checkSubject({ namespace, id }, grant, subject)) ? grant : undefined)),
     );
     return new Set(held.filter((grant): grant is ApiKeyGrant => grant !== undefined));
+};
+
+/**
+ * The ceiling a connected app's session works under, or `undefined` for any other session. Keyed on
+ * the grant's id, which the token endpoint puts in the session's `oauth` claim, so what applies is the
+ * grant as it is stored NOW: approving the app again with less narrows every session it already holds.
+ */
+const loadGrantCeiling = async (
+    container: ScopedContainer,
+    session: Parameters<typeof getOAuthSessionClaim>[0],
+    actorId: string,
+): Promise<OAuthGrantActor | undefined> => {
+    const claim = getOAuthSessionClaim(session);
+    if (claim === undefined) return undefined;
+    // A grant session without a grant id would otherwise act with no ceiling at all.
+    const grants = claim.grantId ? await loadDelegatedGrants(container, OAUTHGRANT_NAMESPACE, claim.grantId, actorId) : new Set<ApiKeyGrant>();
+    return { id: claim.grantId ?? '', clientId: claim.clientId, grants };
 };
 
 /**
@@ -116,7 +134,10 @@ const apiKeyActor = async (
             .withInternalDetails({ message: `api key ${claim.id} names missing or inactive actor ${actorId}` });
     }
 
-    const [platformRoles, grants] = await Promise.all([loadPlatformRoles(container, actorId), loadApiKeyGrants(container, claim.id, actorId)]);
+    const [platformRoles, grants] = await Promise.all([
+        loadPlatformRoles(container, actorId),
+        loadDelegatedGrants(container, APIKEY_NAMESPACE, claim.id, actorId),
+    ]);
     await recordApiKeyUse(container, ctx, claim);
 
     return {
@@ -177,7 +198,9 @@ export const authorizationContextMiddleware: () => ServerKitMiddleware = () => {
                     .withInternalDetails({ message: `session ${sessionToken} names missing or inactive actor ${actorId ?? '(none)'}` });
             }
 
-            const platformRoles: ReadonlySet<PlatformRoleName> = actorId ? await loadPlatformRoles(container, actorId) : new Set();
+            const [platformRoles, grant] = actorId
+                ? await Promise.all([loadPlatformRoles(container, actorId), loadGrantCeiling(container, auth, actorId)])
+                : [new Set<PlatformRoleName>(), undefined];
 
             actor = {
                 kind: 'user',
@@ -185,6 +208,7 @@ export const authorizationContextMiddleware: () => ServerKitMiddleware = () => {
                 actorId,
                 platformRoles,
                 factors: auth.factors,
+                ...(grant ? { grant } : {}),
             };
         } else {
             // Unknown actorType. Classified as an `http`-sourced system actor,

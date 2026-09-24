@@ -20,7 +20,7 @@ contract OAuthAuthorizationContext: { # A valid request, stashed for the signed-
     logoUri?: string # The app's logo, when it gave one
     redirectHost: string # The host the browser is sent back to, which is who actually receives the approval
     loopbackOnly: boolean # Whether every address the app registered is this computer's own, which only an app running on it should use
-    scope: array(string) # What the app asked for. It acts as the person approving it whatever this says
+    scope: array(string) # What the app asked for. The person chooses what it gets when approving, whatever this says
     resource: string # What the app will be able to reach: the station's MCP endpoint
 }
 
@@ -37,8 +37,15 @@ contract OAuthAuthorizationRefusal: { # A request that names no app the station 
 
 contract OAuthAuthorizationContextResult: discriminated(by=kind, OAuthAuthorizationContext | OAuthAuthorizationRedirect | OAuthAuthorizationRefusal)
 
-contract OAuthAuthorizationDecision: { # Approving or denying a stashed request
+contract OAuthAuthorizationDecision: { # Denying a stashed request
     requestId: string(max=200) # From the context
+}
+
+contract OAuthGrantScope: enum(view, manage) # What a connected app may do on the station. `view` reads it; `manage` changes it and includes `view`. Never more than the person approving it may do
+
+contract OAuthAuthorizationApproval: { # Approving a stashed request, with what the app may do
+    requestId: string(max=200) # From the context
+    scopes: array(OAuthGrantScope) # What the person lets the app do. At least one; `manage` includes `view`. Replaces whatever the app asked for
 }
 
 contract OAuthAuthorizationOutcome: { # Where to send the browser now
@@ -78,7 +85,7 @@ contract OAuthGrant: { # An app the signed-in person has let act as them
     clientId: string # The app's client id
     clientName?: string # What the app calls itself, when the station can still find out
     resource: string # What it can reach
-    scope: array(string) # What it asked for
+    scope: array(string) # What it was granted: `mcp`, and the station scopes it may use (`view`, `manage`)
     createdAt: datetime # When it was first approved
     lastUsedAt?: datetime # When it last obtained a token
 }

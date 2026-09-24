@@ -58,6 +58,9 @@ operation /schedule: {
 operation /schedule/current: {
     get: { # Which slot the clock says should be on, and which one the station is actually airing
         name: Read current slot
+        mcp: {
+            description: "Which schedule slot the clock says should be on now, and which one the station is actually airing, when the two differ. Use it for questions like what show is on."
+        }
         service: ScheduleService.current
         security: {
             # A read, like the list above.
@@ -80,6 +83,9 @@ operation /schedule/current: {
 operation /schedule/timetable: {
     get: { # The station's day as blocks, contiguous and gapless, for drawing
         name: Read timetable
+        mcp: {
+            description: "The station's day as contiguous blocks of programmes, for questions like what is on tonight or when a show starts."
+        }
         service: ScheduleService.timetable
         security: {
             # A read, like the list above.

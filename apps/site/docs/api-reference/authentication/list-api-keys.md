@@ -1,6 +1,6 @@
 ---
-title: 'List api keys'
-sidebar_label: 'List api keys'
+title: 'List API keys'
+sidebar_label: 'List API keys'
 sidebar_position: 1
 mdx:
     format: 'md'

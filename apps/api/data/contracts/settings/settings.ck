@@ -35,6 +35,7 @@ operation /settings: {
     }
     put: { # Applies a submitted settings form and answers with the settings as they now stand
         name: Update settings
+        mcp: exclude
         service: SettingsService.writeSubmitted
         security: {
             # Above the file's read floor: these are the operator's own knobs, and some of them
@@ -55,6 +56,7 @@ operation /settings: {
 operation /settings/signin/check: {
     get: { # Asks each identity provider in the sign-in settings for its discovery document, the way a sign-in would, and says which answered
         name: Check sign-in providers
+        mcp: exclude
         service: SigninProviderCheckService.check
         security: {
             # Above the read floor: every call reaches out to each issuer the operator listed, which

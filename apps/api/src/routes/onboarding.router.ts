@@ -22,7 +22,7 @@ OnboardingRouter.get('/onboarding', async ctx => {
 });
 
 /**
- * from [onboarding.ck](../../data/contracts/onboarding/onboarding.ck#L24)
+ * from [onboarding.ck](../../data/contracts/onboarding/onboarding.ck#L25)
  * anonymous access, no security required
  */
 OnboardingRouter.post('/onboarding', bodyParserMiddleware(['json']), async ctx => {

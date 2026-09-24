@@ -1,6 +1,6 @@
 ---
-title: 'List oauth clients'
-sidebar_label: 'List oauth clients'
+title: 'List OAuth clients'
+sidebar_label: 'List OAuth clients'
 sidebar_position: 4
 mdx:
     format: 'md'

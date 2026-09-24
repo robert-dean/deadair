@@ -1,6 +1,6 @@
 ---
-title: 'Start plugin oauth authorization'
-sidebar_label: 'Start plugin oauth authorization'
+title: 'Start plugin OAuth authorization'
+sidebar_label: 'Start plugin OAuth authorization'
 sidebar_position: 18
 mdx:
     format: 'md'

@@ -44,7 +44,7 @@ export const OAuthAuthorizationRefusal = z.strictObject({
 export type OAuthAuthorizationRefusal = z.infer<typeof OAuthAuthorizationRefusal>;
 
 /**
- * Approving or denying a stashed request
+ * Denying a stashed request
  * generated from [OAuthAuthorizationDecision](../../../../data/contracts/oauth/oauth.types.ck#L40)
  */
 export const OAuthAuthorizationDecision = z.strictObject({
@@ -53,8 +53,15 @@ export const OAuthAuthorizationDecision = z.strictObject({
 export type OAuthAuthorizationDecision = z.infer<typeof OAuthAuthorizationDecision>;
 
 /**
+ * What a connected app may do on the station. `view` reads it; `manage` changes it and includes `view`. Never more than the person approving it may do
+ * generated from [OAuthGrantScope](../../../../data/contracts/oauth/oauth.types.ck#L44)
+ */
+export const OAuthGrantScope = z.enum(['view', 'manage']);
+export type OAuthGrantScope = z.infer<typeof OAuthGrantScope>;
+
+/**
  * Where to send the browser now
- * generated from [OAuthAuthorizationOutcome](../../../../data/contracts/oauth/oauth.types.ck#L44)
+ * generated from [OAuthAuthorizationOutcome](../../../../data/contracts/oauth/oauth.types.ck#L51)
  */
 export const OAuthAuthorizationOutcome = z.strictObject({
     redirectUrl: z.string().describe("The app's own address, carrying the code or the refusal"),
@@ -63,21 +70,21 @@ export type OAuthAuthorizationOutcome = z.infer<typeof OAuthAuthorizationOutcome
 
 /**
  * How the app proves itself at the token endpoint. `none` is a public client, which is what apps on somebody's own device are
- * generated from [OAuthClientAuthMethod](../../../../data/contracts/oauth/oauth.types.ck#L48)
+ * generated from [OAuthClientAuthMethod](../../../../data/contracts/oauth/oauth.types.ck#L55)
  */
 export const OAuthClientAuthMethod = z.enum(['none', 'client_secret_post', 'client_secret_basic']);
 export type OAuthClientAuthMethod = z.infer<typeof OAuthClientAuthMethod>;
 
 /**
  * An app the signed-in person has let act as them
- * generated from [OAuthGrant](../../../../data/contracts/oauth/oauth.types.ck#L76)
+ * generated from [OAuthGrant](../../../../data/contracts/oauth/oauth.types.ck#L83)
  */
 export const OAuthGrant = z.strictObject({
     id: z.uuid().describe('For disconnecting it'),
     clientId: z.string().describe("The app's client id"),
     clientName: z.string().optional().describe('What the app calls itself, when the station can still find out'),
     resource: z.string().describe('What it can reach'),
-    scope: z.array(z.string()).describe('What it asked for'),
+    scope: z.array(z.string()).describe('What it was granted: `mcp`, and the station scopes it may use (`view`, `manage`)'),
     createdAt: _ZodDatetime.describe('When it was first approved'),
     lastUsedAt: _ZodDatetime.optional().describe('When it last obtained a token'),
 });
@@ -99,14 +106,26 @@ export const OAuthAuthorizationContext = z.strictObject({
     loopbackOnly: z
         .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
         .describe("Whether every address the app registered is this computer's own, which only an app running on it should use"),
-    scope: z.array(z.string()).describe('What the app asked for. It acts as the person approving it whatever this says'),
+    scope: z.array(z.string()).describe('What the app asked for. The person chooses what it gets when approving, whatever this says'),
     resource: z.string().describe("What the app will be able to reach: the station's MCP endpoint"),
 });
 export type OAuthAuthorizationContext = z.infer<typeof OAuthAuthorizationContext>;
 
 /**
+ * Approving a stashed request, with what the app may do
+ * generated from [OAuthAuthorizationApproval](../../../../data/contracts/oauth/oauth.types.ck#L46)
+ */
+export const OAuthAuthorizationApproval = z.strictObject({
+    requestId: z.string().max(200).describe('From the context'),
+    scopes: z
+        .array(OAuthGrantScope)
+        .describe('What the person lets the app do. At least one; `manage` includes `view`. Replaces whatever the app asked for'),
+});
+export type OAuthAuthorizationApproval = z.infer<typeof OAuthAuthorizationApproval>;
+
+/**
  * An app registered with the station
- * generated from [OAuthClientSummary](../../../../data/contracts/oauth/oauth.types.ck#L50)
+ * generated from [OAuthClientSummary](../../../../data/contracts/oauth/oauth.types.ck#L57)
  */
 export const OAuthClientSummary = z.strictObject({
     clientId: z.string().describe('Its client id'),
@@ -122,7 +141,7 @@ export type OAuthClientSummary = z.infer<typeof OAuthClientSummary>;
 
 /**
  * An app an operator registers by hand, for a client that cannot register itself
- * generated from [OAuthClientCreate](../../../../data/contracts/oauth/oauth.types.ck#L65)
+ * generated from [OAuthClientCreate](../../../../data/contracts/oauth/oauth.types.ck#L72)
  */
 export const OAuthClientCreate = z.strictObject({
     name: z.string().min(1).max(100).describe('What to call it'),
@@ -132,7 +151,7 @@ export const OAuthClientCreate = z.strictObject({
 export type OAuthClientCreate = z.infer<typeof OAuthClientCreate>;
 
 /**
- * generated from [OAuthGrantList](../../../../data/contracts/oauth/oauth.types.ck#L86)
+ * generated from [OAuthGrantList](../../../../data/contracts/oauth/oauth.types.ck#L93)
  */
 export const OAuthGrantList = z.strictObject({
     grants: z.array(OAuthGrant).describe('Most recent first'),
@@ -150,7 +169,7 @@ export const OAuthAuthorizationContextResult = z.discriminatedUnion('kind', [
 export type OAuthAuthorizationContextResult = z.infer<typeof OAuthAuthorizationContextResult>;
 
 /**
- * generated from [OAuthClientList](../../../../data/contracts/oauth/oauth.types.ck#L61)
+ * generated from [OAuthClientList](../../../../data/contracts/oauth/oauth.types.ck#L68)
  */
 export const OAuthClientList = z.strictObject({
     clients: z.array(OAuthClientSummary).describe('Newest first. Apps that describe themselves are not listed: nothing is stored for them'),
@@ -159,7 +178,7 @@ export type OAuthClientList = z.infer<typeof OAuthClientList>;
 
 /**
  * A registered app, with its secret. The only time the secret is ever returned
- * generated from [OAuthClientIssued](../../../../data/contracts/oauth/oauth.types.ck#L71)
+ * generated from [OAuthClientIssued](../../../../data/contracts/oauth/oauth.types.ck#L78)
  */
 export const OAuthClientIssued = z.strictObject({
     client: OAuthClientSummary.describe('The app as it will appear in the list'),

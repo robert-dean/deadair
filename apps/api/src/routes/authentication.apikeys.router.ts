@@ -24,7 +24,7 @@ AuthenticationApikeysRouter.get('/auth/apikeys', requirePolicy({ policy: 'platfo
 
 /**
  * Issue a new API key for the signed-in account. The token is in this response and nowhere else, ever. Once the account has a strong second factor, this needs one verified in the last five minutes
- * from [authentication.apikeys.ck](../../data/contracts/authentication/authentication.apikeys.ck#L28)
+ * from [authentication.apikeys.ck](../../data/contracts/authentication/authentication.apikeys.ck#L29)
  */
 AuthenticationApikeysRouter.post('/auth/apikeys', requirePolicy({ policy: 'platform.view' }), bodyParserMiddleware(['json']), async ctx => {
     const body = await parseAndValidate(ctx.parsedBody, ApiKeyCreate);
@@ -39,7 +39,7 @@ AuthenticationApikeysRouter.post('/auth/apikeys', requirePolicy({ policy: 'platf
 
 /**
  * Give a key a new token, so the old one stops working at once. The key keeps its name, scopes and expiry. Needs the same recent second factor as creating one
- * from [authentication.apikeys.ck](../../data/contracts/authentication/authentication.apikeys.ck#L46)
+ * from [authentication.apikeys.ck](../../data/contracts/authentication/authentication.apikeys.ck#L48)
  */
 AuthenticationApikeysRouter.post('/auth/apikeys/:id/rotate', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const { id } = await parseAndValidate(
@@ -59,7 +59,7 @@ AuthenticationApikeysRouter.post('/auth/apikeys/:id/rotate', requirePolicy({ pol
 
 /**
  * Revoke a key. Every request made with it is refused from the next one on. The key stays in the list, marked revoked
- * from [authentication.apikeys.ck](../../data/contracts/authentication/authentication.apikeys.ck#L61)
+ * from [authentication.apikeys.ck](../../data/contracts/authentication/authentication.apikeys.ck#L64)
  */
 AuthenticationApikeysRouter.delete('/auth/apikeys/:id', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const { id } = await parseAndValidate(

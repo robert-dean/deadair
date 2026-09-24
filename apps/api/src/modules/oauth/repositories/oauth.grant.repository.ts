@@ -11,7 +11,11 @@ import { DataRepository, type DeadairOauthGrants } from '#src/modules/data/data.
  */
 @Injectable()
 export class DeadairOAuthGrantRepository extends DataRepository implements OAuthGrantRepository {
-    /** Approving the same app again reuses the grant, takes the new scope, and un-revokes it. */
+    /**
+     * Approving the same app again reuses the grant, takes the new scope, and un-revokes it. The scope
+     * is what the person chose on the consent page, and what the grant's ceiling is derived from
+     * (`oauth.grant.tuples.ts`), so approving again with less narrows every session the app holds.
+     */
     async upsert(grant: OAuthGrantInput): Promise<OAuthGrant> {
         const row = await this.db
             .insertInto('deadair.oauthGrants')

@@ -1,6 +1,6 @@
 ---
-title: 'Rotate api key'
-sidebar_label: 'Rotate api key'
+title: 'Rotate API key'
+sidebar_label: 'Rotate API key'
 sidebar_position: 3
 mdx:
     format: 'md'

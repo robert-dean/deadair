@@ -15,6 +15,12 @@ const admin = (grants?: ReadonlyArray<'view' | 'manage'>): UserActor => ({
     ...(grants ? { apiKey: { id: 'k-1', name: 'doorbell', grants: new Set(grants) } } : {}),
 });
 
+/** An admin acting through an app they connected over OAuth. */
+const connected = (grants: ReadonlyArray<'view' | 'manage'>): UserActor => ({
+    ...admin(),
+    grant: { id: 'g-1', clientId: 'dyn_1', grants: new Set(grants) },
+});
+
 describe('AuthorizationContext.requireAuthentication', () => {
     it('answers the signed-in person', () => {
         expect(new AuthorizationContext(admin()).requireAuthentication()).toEqual({ actorId: 'u-1', sessionToken: 's-1' });
@@ -24,6 +30,14 @@ describe('AuthorizationContext.requireAuthentication', () => {
         // The seam that keeps a key away from factors, sessions, step-up and other keys, and from
         // `POST /auth/factors/verify` in particular, which would mint it a month-long session.
         expect(() => new AuthorizationContext(admin(['view', 'manage'])).requireAuthentication()).toThrow(
+            expect.objectContaining({ statusCode: 403 }),
+        );
+    });
+});
+
+describe('AuthorizationContext.requireAuthentication for a connected app', () => {
+    it('refuses it, so an app can never approve another app or mint a key', () => {
+        expect(() => new AuthorizationContext(connected(['view', 'manage'])).requireAuthentication()).toThrow(
             expect.objectContaining({ statusCode: 403 }),
         );
     });
@@ -49,5 +63,12 @@ describe('AuthorizationContext.hasPlatformRole', () => {
 
         expect(context.hasPlatformRole('admin')).toBe(false);
         expect(() => context.requirePlatformRole('admin')).toThrow(expect.objectContaining({ statusCode: 403 }));
+    });
+});
+
+describe('AuthorizationContext.hasPlatformRole for a connected app', () => {
+    it('answers the owner’s roles only when the grant may manage', () => {
+        expect(new AuthorizationContext(connected(['view', 'manage'])).hasPlatformRole('admin')).toBe(true);
+        expect(new AuthorizationContext(connected(['view'])).hasPlatformRole('admin')).toBe(false);
     });
 });

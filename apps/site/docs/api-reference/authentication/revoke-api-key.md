@@ -1,6 +1,6 @@
 ---
-title: 'Revoke api key'
-sidebar_label: 'Revoke api key'
+title: 'Revoke API key'
+sidebar_label: 'Revoke API key'
 sidebar_position: 4
 mdx:
     format: 'md'

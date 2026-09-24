@@ -56,18 +56,32 @@ describe('OAuthConsentService', () => {
 
     it('approves as this person, with the claim that makes the session a user and the factors it holds', async () => {
         const h = build();
-        await expect(h.service.approve({ requestId: 'req-1' })).resolves.toEqual({ redirectUrl: 'https://claude.ai/cb?code=c' });
+        await expect(h.service.approve({ requestId: 'req-1', scopes: ['view'] })).resolves.toEqual({ redirectUrl: 'https://claude.ai/cb?code=c' });
         expect(h.gate.assertRecentIfAnyEnrolled).toHaveBeenCalledWith(ACTOR);
         expect(h.server.approve).toHaveBeenCalledWith('req-1', {
             subject: ACTOR,
             claims: { actorType: 'user', loginIp: '10.0.0.2' },
             factors: [FACTOR],
+            scope: ['mcp', 'view'],
         });
+    });
+
+    it('grants what the person chose, whatever the app asked for, with manage bringing view', async () => {
+        const h = build();
+        await h.service.approve({ requestId: 'req-1', scopes: ['manage'] });
+        expect(h.server.approve).toHaveBeenCalledWith('req-1', expect.objectContaining({ scope: ['mcp', 'view', 'manage'] }));
+    });
+
+    it('refuses an approval that grants nothing, before asking for a second factor', async () => {
+        const h = build();
+        expect(await statusOf(h.service.approve({ requestId: 'req-1', scopes: [] }))).toBe(400);
+        expect(h.gate.assertRecentIfAnyEnrolled).not.toHaveBeenCalled();
+        expect(h.server.approve).not.toHaveBeenCalled();
     });
 
     it('does not approve without a recent second factor where one is enrolled', async () => {
         const h = build({ stepUpDenied: true });
-        expect(await statusOf(h.service.approve({ requestId: 'req-1' }))).toBe(403);
+        expect(await statusOf(h.service.approve({ requestId: 'req-1', scopes: ['view'] }))).toBe(403);
         expect(h.server.approve).not.toHaveBeenCalled();
     });
 
@@ -79,7 +93,7 @@ describe('OAuthConsentService', () => {
 
     it('never lets an API key approve an app', async () => {
         const h = build({ apiKey: true });
-        expect(await statusOf(h.service.approve({ requestId: 'req-1' }))).toBe(403);
+        expect(await statusOf(h.service.approve({ requestId: 'req-1', scopes: ['view'] }))).toBe(403);
         expect(h.server.approve).not.toHaveBeenCalled();
     });
 

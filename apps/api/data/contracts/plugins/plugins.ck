@@ -136,6 +136,7 @@ operation /plugins/{id}: {
 
     delete: { # Removes a plugin the operator installed: stops it and deletes its folder. Its settings are kept, so importing it again brings them back. A bundled plugin is refused
         name: Remove plugin
+        mcp: exclude
         service: PluginInstallService.removePlugin
         response: {
             200: {
@@ -153,6 +154,7 @@ operation /plugins/{id}/config: {
     }
     put: { # Validates against the plugin's own config schema, encrypts secrets, persists, and reinitializes
         name: Update plugin configuration
+        mcp: exclude
         service: PluginsService.updatePluginConfig
         request: {
             application/json: PluginConfigInput
@@ -201,6 +203,7 @@ operation /plugins/{id}/grants: {
     }
     put: { # Answers one capability this plugin asked for. Takes effect on the next fetch, with no reload
         name: Decide plugin grant
+        mcp: exclude
         service: PluginsService.decideGrant
         request: {
             application/json: PluginGrantInput
@@ -320,6 +323,7 @@ operation /plugins/{id}/oauth/authorize: {
     }
     get: { # Reports where to send the operator for the provider's consent screen
         name: Start plugin OAuth authorization
+        mcp: exclude
         service: PluginsService.startOAuthAuthorization
         response: {
             200: {
@@ -338,6 +342,7 @@ operation /plugins/{id}/oauth: {
     }
     delete: { # Forgets the plugin's stored OAuth tokens and reinitializes it
         name: Disconnect plugin OAuth
+        mcp: exclude
         service: PluginsService.disconnectOAuth
         response: {
             200: {
@@ -353,6 +358,7 @@ operation /plugins/{id}/oauth/callback: {
     }
     get: { # Completes the flow. Anonymous: the provider redirects the browser here with no session of ours
         name: Complete plugin OAuth authorization
+        mcp: exclude
         service: PluginsService.completeOAuthCallback
         query: PluginOAuthCallbackQuery
         security: none

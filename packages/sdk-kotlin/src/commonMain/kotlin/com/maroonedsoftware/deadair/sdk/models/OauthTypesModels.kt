@@ -60,12 +60,21 @@ data class OAuthAuthorizationRefusal(
     val description: String,
 ) : OAuthAuthorizationContextResult
 
-/** Approving or denying a stashed request */
+/** Denying a stashed request */
 @Serializable
 data class OAuthAuthorizationDecision(
     /** From the context */
     val requestId: String,
 )
+
+/** What a connected app may do on the station. `view` reads it; `manage` changes it and includes `view`. Never more than the person approving it may do */
+@Serializable
+enum class OAuthGrantScope {
+    @SerialName("view")
+    VIEW,
+    @SerialName("manage")
+    MANAGE,
+}
 
 /** Where to send the browser now */
 @Serializable
@@ -96,7 +105,7 @@ data class OAuthGrant(
     val clientName: String? = null,
     /** What it can reach */
     val resource: String,
-    /** What it asked for */
+    /** What it was granted: `mcp`, and the station scopes it may use (`view`, `manage`) */
     val scope: List<String>,
     /** When it was first approved */
     val createdAt: Instant,
@@ -125,11 +134,20 @@ data class OAuthAuthorizationContext(
     val redirectHost: String,
     /** Whether every address the app registered is this computer's own, which only an app running on it should use */
     val loopbackOnly: Boolean,
-    /** What the app asked for. It acts as the person approving it whatever this says */
+    /** What the app asked for. The person chooses what it gets when approving, whatever this says */
     val scope: List<String>,
     /** What the app will be able to reach: the station's MCP endpoint */
     val resource: String,
 ) : OAuthAuthorizationContextResult
+
+/** Approving a stashed request, with what the app may do */
+@Serializable
+data class OAuthAuthorizationApproval(
+    /** From the context */
+    val requestId: String,
+    /** What the person lets the app do. At least one; `manage` includes `view`. Replaces whatever the app asked for */
+    val scopes: List<OAuthGrantScope>,
+)
 
 /** An app registered with the station */
 @Serializable

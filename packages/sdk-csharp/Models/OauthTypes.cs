@@ -61,12 +61,23 @@ public sealed record OAuthAuthorizationRefusal : OAuthAuthorizationContextResult
     public required string Description { get; init; }
 }
 
-/// <summary>Approving or denying a stashed request</summary>
+/// <summary>Denying a stashed request</summary>
 public sealed record OAuthAuthorizationDecision
 {
     /// <summary>From the context</summary>
     [JsonPropertyName("requestId")]
     public required string RequestId { get; init; }
+}
+
+/// <summary>What a connected app may do on the station. `view` reads it; `manage` changes it and includes `view`. Never more than the person approving it may do</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<OAuthGrantScope>))]
+public enum OAuthGrantScope
+{
+    [JsonStringEnumMemberName("view")]
+    View,
+
+    [JsonStringEnumMemberName("manage")]
+    Manage,
 }
 
 /// <summary>Where to send the browser now</summary>
@@ -111,7 +122,7 @@ public sealed record OAuthGrant
     [JsonPropertyName("resource")]
     public required string Resource { get; init; }
 
-    /// <summary>What it asked for</summary>
+    /// <summary>What it was granted: `mcp`, and the station scopes it may use (`view`, `manage`)</summary>
     [JsonPropertyName("scope")]
     public required List<string> Scope { get; init; }
 
@@ -167,13 +178,25 @@ public sealed record OAuthAuthorizationContext : OAuthAuthorizationContextResult
     [JsonPropertyName("loopbackOnly")]
     public required bool LoopbackOnly { get; init; }
 
-    /// <summary>What the app asked for. It acts as the person approving it whatever this says</summary>
+    /// <summary>What the app asked for. The person chooses what it gets when approving, whatever this says</summary>
     [JsonPropertyName("scope")]
     public required List<string> Scope { get; init; }
 
     /// <summary>What the app will be able to reach: the station's MCP endpoint</summary>
     [JsonPropertyName("resource")]
     public required string Resource { get; init; }
+}
+
+/// <summary>Approving a stashed request, with what the app may do</summary>
+public sealed record OAuthAuthorizationApproval
+{
+    /// <summary>From the context</summary>
+    [JsonPropertyName("requestId")]
+    public required string RequestId { get; init; }
+
+    /// <summary>What the person lets the app do. At least one; `manage` includes `view`. Replaces whatever the app asked for</summary>
+    [JsonPropertyName("scopes")]
+    public required List<OAuthGrantScope> Scopes { get; init; }
 }
 
 /// <summary>An app registered with the station</summary>

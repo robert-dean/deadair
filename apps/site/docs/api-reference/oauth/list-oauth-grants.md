@@ -1,6 +1,6 @@
 ---
-title: 'List oauth grants'
-sidebar_label: 'List oauth grants'
+title: 'List OAuth grants'
+sidebar_label: 'List OAuth grants'
 sidebar_position: 7
 mdx:
     format: 'md'

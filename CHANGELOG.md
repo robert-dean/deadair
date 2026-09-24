@@ -9,6 +9,13 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.34.1] — 2026-09-24
+
+- A request whose client hangs up before the answer is ready (Liquidsoap giving up on a slow segment's audio, for one) no longer ends in a logged 500, and any follow-up work it registered still runs once its transaction has committed.
+- A model-written talk break that introduces the record that has just finished as "the next cut", "the next track", "the next song" (and the like) is now refused and replaced by the station's own phrasing, the same as one that said "coming up" about it already was.
+- A phone-in (or any produced programme) more than an hour old is no longer aired. One that missed its audience used to wait for the next listener, so the station could open in the morning with a phone-in made the evening before, its host still talking about "tonight". It is now dropped when it is placed and again at hand-over if it sat in the running order too long, and the activity feed says so.
+- A welcome that opens with the greeting now starts with a capital ("Good afternoon. Thanks for joining us…" rather than "good afternoon."), and a title filed as "Paranoid - 2012 - Remaster" is read as "Paranoid" rather than "Paranoid - 2012".
+
 ## [0.34.0] — 2026-09-24
 
 - A connected app can now run any operation it found with `search_api` through `call_api`, as the person who connected it and with the same checks the operation's own route makes. It can ask for only the fields it needs, and an answer too long to return whole keeps as many whole records as fit and says how many there were. Every call is logged with the app's grant and whether it was refused.
@@ -897,7 +904,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.34.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.34.1...HEAD
+[0.34.1]: https://github.com/robert-dean/deadair/compare/v0.34.0...v0.34.1
 [0.34.0]: https://github.com/robert-dean/deadair/compare/v0.33.1...v0.34.0
 [0.33.1]: https://github.com/robert-dean/deadair/compare/v0.33.0...v0.33.1
 [0.33.0]: https://github.com/robert-dean/deadair/compare/v0.32.1...v0.33.0

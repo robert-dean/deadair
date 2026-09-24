@@ -1478,36 +1478,65 @@ describe('DirectorService at the end of a lineup', () => {
         expect(lineup.all().map(item => item.state)).toEqual(['planned', 'airing']);
     });
 
-    it('stands the station down when the running order says to stop', async () => {
-        // Reached once the last item is with the player rather than at the moment it is prepared:
-        // handing over is what spends it, and the transport is what does that.
-        const { director, rundown, seed } = build({ items: ['a'], mode: 'feature', onEnd: 'stop' });
-        await seed();
+    // Plays one two-record order out: 'a' airs, 'b' is pulled ahead of time (which is the moment
+    // nothing is `planned`), 'b' airs, then the player's reading says 'b' ended with nothing behind it.
+    async function playOut(rundown: Rundown, before?: { handed?: () => void; airing?: () => void }): Promise<void> {
+        const first = await rundown.next();
+        rundown.markAired(first!.item.id);
+        await settle();
 
-        await director.start();
         await rundown.next();
-        await new Promise(resolve => setImmediate(resolve));
+        await settle();
+        before?.handed?.();
+
+        rundown.markAired(rundown.upcoming()[0]!.id);
+        await settle();
+        before?.airing?.();
+
+        rundown.reconcile({ queued: 0, ready: false });
+        await settle();
+    }
+
+    it('stands the station down once the last record has aired, not when the player takes it', async () => {
+        // The order is exhausted the moment the player pulls its last record to prefetch it, which
+        // is a whole record before the listener hears it. Standing down there cut the record on
+        // air and reclaimed the last one unheard.
+        const { director, rundown, lineup, seed } = build({ items: ['a', 'b'], mode: 'feature', onEnd: 'stop' });
+        await seed();
+        await director.start();
+
+        await playOut(rundown, {
+            handed: () => {
+                expect(director.status().active).toBe(true);
+                expect(lineup.all().map(item => item.state)).toEqual(['airing', 'handed']);
+            },
+            airing: () => {
+                expect(director.status().active).toBe(true);
+                expect(lineup.all().map(item => item.state)).toEqual(['played', 'airing']);
+            },
+        });
 
         expect(director.status().active).toBe(false);
         expect(rundown.upcoming()).toHaveLength(0);
+        // Both heard, and neither reclaimed to be offered again.
+        expect(lineup.all().map(item => item.state)).toEqual(['played', 'played']);
     });
 
     it('records that the order ran out rather than being stopped, so the schedule can start the next block', async () => {
         // Issue #276: the two stand-downs were the same row, and the schedule leaves a stopped
         // station alone, so one block ending on Stop kept every block after it off the air.
-        const { director, rundown, airRepository, seed } = build({ items: ['a'], mode: 'feature', onEnd: 'stop' });
+        const { director, rundown, airRepository, seed } = build({ items: ['a', 'b'], mode: 'feature', onEnd: 'stop' });
         await seed();
-
         await director.start();
-        await rundown.next();
-        await new Promise(resolve => setImmediate(resolve));
+
+        await playOut(rundown);
 
         expect(airRepository.standDown).toHaveBeenLastCalledWith('main', true);
         expect(director.ranOut()).toBe(true);
 
         // An operator's Stop afterwards is theirs, and clears it.
         rundown.reset();
-        await new Promise(resolve => setImmediate(resolve));
+        await settle();
 
         expect(airRepository.standDown).toHaveBeenLastCalledWith('main', false);
         expect(director.ranOut()).toBe(false);

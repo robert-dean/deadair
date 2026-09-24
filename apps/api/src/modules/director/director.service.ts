@@ -3115,7 +3115,8 @@ export class DirectorService {
      * decision, recorded on the order itself.
      *
      * Nothing here cuts the listener off: the items already committed keep
-     * playing, and this only decides what is committed after them.
+     * playing, and this only decides what is committed after them. Stop included,
+     * which waits for the last of them to finish before it stands down.
      *
      * None of these branches commits anything itself. They rearrange what is on
      * air and then return, because this runs INSIDE a commit pass. The next pass is
@@ -3140,6 +3141,14 @@ export class DirectorService {
 
             case 'stop':
             default:
+                // Exhausted means nothing is left to COMMIT, and the transport commits ahead of
+                // the listener: the moment the player pulls the last record to prefetch it, nothing
+                // is `planned`. Standing down then cut the record on air and reclaimed the last
+                // one unheard. So the order has ended only once the rundown holds nothing, and the
+                // pass that notices is the one the player's reading sets off when the last record
+                // ends with nothing behind it (`Rundown.reconcile`).
+                if (this.rundown.hasProgramme()) return;
+
                 this.logger.info('director: the running order ended and says to stop; standing down');
                 // Goes through the rundown so the mount is handed back the same way the
                 // operator's own Stop does, and so this class hears its own stand-down. Flagged

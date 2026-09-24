@@ -47,6 +47,8 @@ A record is committed to the running order only once its audio is on this machin
 
 Every record fetched is kept, so a second airing costs no download. "Keep at most" under Settings → Playout caps the space; the least recently played go first, and never one about to air.
 
+Records, cover art and the audio of everything the station has said are each stored as a file with a row in the database pointing at it. A crash between writing the one and the other can leave a file nothing points at, which nothing can reach again. Settings → Storage counts them, and **Delete media files nothing points at** under Settings → Housekeeping (off by default) removes them in a nightly sweep. A file is left alone until it has sat unclaimed for a day (an hour at the least), because a file being written this moment has no row yet either; a file two rows share is kept while either wants it. The activity feed notes each sweep that removes anything, under **Storage**.
+
 ## Playlists and charts
 
 Two ways to put a whole list on air:

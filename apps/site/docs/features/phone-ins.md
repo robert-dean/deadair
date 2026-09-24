@@ -11,9 +11,9 @@ A phone-in is not a break, which is one script in one voice. A call is a short p
 
 ## Callers
 
-A caller is a [character](./characters.md) with a different job. It can never present, and it has no phrasings of its own: phrasings are the station's floor under a break, and a phone-in whose caller was written from a template has nobody on the phone. Two callers ship with the station, each with a voice no host uses, since the two are in one programme talking to each other. Add more with "New caller" on Voice, Characters.
+A caller is a [character](./characters.md) with a different job. It can never present, and it has no phrasings of its own: phrasings are the station's floor under a break, and a phone-in whose caller was written from a template has nobody on the phone. Five callers ship with the station, each with a voice no host uses, since the two are in one programme talking to each other. Add more with "New caller" on Voice, Characters. A caller keeps their own voice on the line: every caller is barred from the host's dialect, because a caller writes each turn with the host's turns in front of them and once came back talking like the host.
 
-Who rings in is a rotation: the caller heard from least recently goes first. A station with no callers makes the programme with the host alone.
+A caller can be tied to the hosts they ring in to, under "Rings in to" when you edit them, which is how one host's regulars stay on that host's show and off the breakfast show. A call casts only the callers tied to whoever is presenting it, plus any caller tied to nobody. Among those, it is a rotation: the caller heard from least recently goes first. Deleting a host unties its callers rather than silencing them. A station with no callers makes the programme with the host alone.
 
 ## Three ways to take a call
 
@@ -21,7 +21,7 @@ Who rings in is a rotation: the caller heard from least recently goes first. A s
 - **A broadcast that takes calls.** "Take calls" under Settings, Breaks (off by default), or "Take calls during this broadcast" on a single block. "Minutes between calls" (thirty by default) counts from when the last call aired. A setlist or a feature never takes calls.
 - **A clock band** naming `callin` on the format clock commissions one ahead of its slot.
 
-All three inherit the show: its brief is the subject and its host presents. Otherwise a call would be about nothing in particular, presented by the station's default host rather than by whoever's programme it interrupts.
+All three inherit the show: its brief is the subject and its host presents. Otherwise a call would be about nothing in particular, presented by the station's default host rather than by whoever's programme it interrupts. Most shows have no brief, and then the call is about why the caller rang: one of the subjects their sheet says they keep coming back to. A subject you type, or a brief, still wins.
 
 ## How a call is shaped
 
@@ -29,7 +29,7 @@ A call runs two to three minutes by default. The host speaks first and last, so 
 
 A short call gets one caller. A second is cast only when there are turns enough for both, and never more than three, because past that a listener meets somebody new every thirty seconds and none of them is a character.
 
-The host puts the caller on air and takes them off: the opening turn introduces somebody holding, the caller's first turn is the one place a greeting belongs, and the last turn closes the call. A caller whose sheet gives them room may be wrong. They say what they think, never about a real named person and never anything shaped like news, and the host's next turn takes it as their view rather than confirming it.
+The host puts the caller on air and takes them off: the opening turn introduces somebody holding, the caller's first turn is the one place a greeting belongs, and the last turn closes the call. A caller whose sheet gives them room may be wrong. They say what they think, never about a real named person and never anything shaped like news, and the host's next turn takes it as their view rather than confirming it. With "polished" passes, the check reads each speaker's own sheet, including the words that speaker must never use, and names them when it sends a turn back to be rewritten.
 
 ## Written, spoken, joined
 
@@ -49,4 +49,4 @@ The same machinery makes longer programmes in one voice. A clock band naming `po
 
 ## In the console
 
-Voice, Productions lists what the station is making and has made: its state (queued, planning it, writing it, checking it, speaking it, joining it up, ready, in the running order), its length, how many turns are written, who is on it, and a Stop button while one can still be stopped. The words are on Voice, What it said. Call spacing is under Settings, Rotation; length, passes and pause under Settings, Voice and audio; which plugin joins the turns up under Settings, Providers.
+Voice, Productions lists what the station is making and has made: its state (queued, planning it, writing it, checking it, speaking it, joining it up, ready, in the running order), its length, how many turns are written, who is on it, and a Stop button while one can still be stopped. The words are on Voice, What it said. Call spacing is under Settings, Breaks; length, passes and pause under Settings, Voice and audio; which plugin joins the turns up under Settings, Providers.

@@ -15,7 +15,9 @@ A block is a named stretch of time on chosen days: breakfast, weekdays, six unti
 
 A schedule need not cover the day. The hours no block claims play the sustaining source: a playlist or a chart, or a brief and a period, with no times attached.
 
-The schedule never interrupts a record: the running order makes each changeover at a record boundary. If you put something on yourself inside a block, yours holds until the next block begins, and the Desk offers to keep it on longer.
+The running order makes each changeover at a record boundary, so by default the record playing when a block starts is left to finish, however long it is: a seventeen-minute record at the top of the hour starts the new show at seventeen past. **Start shows on time** (off by default) sets a limit. A record from the programme that ended that is still playing five minutes into the new block (or however many you choose; zero cuts it at once) is cut the way **Skip** cuts, and the activity feed names the record and the show it was holding up. Only the schedule's own changeovers are affected: a programme you put on by hand always lets the record finish.
+
+If you put something on yourself inside a block, yours holds until the next block begins, and the Desk offers to keep it on longer.
 
 A block set to stop when it runs out goes quiet for the rest of its hours, and the next block still starts on time. Pressing **Stop** yourself is different: the schedule leaves a station you stopped off until you put it back on.
 
@@ -60,4 +62,4 @@ A rule can be about a subject, such as a news category or a weather location. A 
 
 ## In the console
 
-**Programme** has three tabs. **Today** shows what is on now and the format clock. **Timetable** is the week: drag a block to move it, drag an edge to change its times, click an empty hour to add one. **Sustaining** is what plays in the hours no block claims. Ratings are set from the Desk's running order, the Library's pages, and the Like and Dislike keys on a [Stream Deck](./console.md#on-a-stream-deck). Rotation rules, explicit content and a binding brief are under **Settings**, **Rotation**; letting a model choose records is under **Settings**, **Words**. Subjects are under **Voice**, **Subjects**.
+**Programme** has three tabs. **Today** shows what is on now and the format clock. **Timetable** is the week: drag a block to move it, drag an edge to change its times, click an empty hour to add one. **Start shows on time** is under the grid, in **At a boundary**. **Sustaining** is what plays in the hours no block claims. Ratings are set from the Desk's running order, the Library's pages, and the Like and Dislike keys on a [Stream Deck](./console.md#on-a-stream-deck). Rotation rules, explicit content and a binding brief are under **Settings**, **Rotation**; letting a model choose records is under **Settings**, **Words**. Subjects are under **Voice**, **Subjects**.

@@ -69,6 +69,14 @@ code it cannot deliver, so a station with no mail configured signs you in on the
 is deliberate: the alternative is a fresh install asking for a code it cannot send, on the account
 that would have configured the sending.
 
+## The console is blank inside another dashboard
+
+**The console refuses to be framed by any page but the station's own.** It is served with
+`X-Frame-Options: SAMEORIGIN` and a Content-Security-Policy to match, so a page elsewhere cannot
+embed it in a frame and trick somebody into clicking inside it. A home-lab dashboard that showed the
+console in an iframe now shows nothing there: link to the console instead. The stream, the HLS
+playlist and the `/listen.pls` and `/listen.m3u` files are unaffected, and so is the API.
+
 ## You have lost your authenticator
 
 With a mail server configured you do not need this: ask for a sign-in link, or sign in with the

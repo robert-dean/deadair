@@ -254,7 +254,7 @@ function ImportPlan({ plan }: { plan: PlaylistImportPlan }) {
                 {waiting > 0
                     ? `, and ${count(waiting, 'is', 'are')} not: the station looks ${waiting === 1 ? 'it' : 'them'} up once the playlist is made`
                     : ''}
-                .{plan.skipped > 0 ? ` ${count(plan.skipped, 'line', 'lines')} named no record and will be left out.` : ''}
+                .
             </Text>
 
             {plan.notices.length > 0 ? (

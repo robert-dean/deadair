@@ -262,6 +262,7 @@ describe('PlaylistsPage', () => {
         expect(await screen.findByText('Late Night Clone')).toBeInTheDocument();
         expect(screen.getByText("The station's own")).toBeInTheDocument();
         expect(screen.getByText('3 records · 2 in the library')).toBeInTheDocument();
+        expect(screen.getByText("1 of the station's own, 1 from music sources")).toBeInTheDocument();
         expect(await screen.findByText('From Spotify')).toBeInTheDocument();
         expect(screen.getByText('Friday Night')).toBeInTheDocument();
     });

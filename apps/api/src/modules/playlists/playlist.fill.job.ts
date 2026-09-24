@@ -61,7 +61,10 @@ export function describeFill(name: string, summary: PlaylistFillSummary): string
     }
 
     const tried = summary.filled + summary.missed;
-    const found = `${summary.filled} of the ${tried} ${tried === 1 ? 'record' : 'records'} missing from "${name}" ${summary.filled === 1 ? 'was' : 'were'} found and added to the library.`;
+    const found =
+        tried === 1
+            ? `The record missing from "${name}" was ${summary.filled === 1 ? 'found and added to the library' : 'not found at any music source'}.`
+            : `${summary.filled} of the ${tried} records missing from "${name}" ${summary.filled === 1 ? 'was' : 'were'} found and added to the library.`;
     const left = summary.remaining > 0 ? ` ${summary.remaining} more are left for the next look-up.` : '';
     return found + left;
 }

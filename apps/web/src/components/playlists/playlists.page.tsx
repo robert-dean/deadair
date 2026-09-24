@@ -64,6 +64,16 @@ function makers(playlists: CatalogPlaylist[]): string {
     return [...new Set(playlists.map(playlist => playlist.pluginName))].join(' and ');
 }
 
+/**
+ * The header's count. A provider's playlists alone when the station keeps none, which is what it has
+ * always said; both halves once it does, because "0 available" above a playlist the station owns
+ * reads as a page that has lost count.
+ */
+function availability(fromSources: number, own: number): string {
+    if (own === 0) return `${fromSources} available`;
+    return `${own} of the station's own, ${fromSources} from music sources`;
+}
+
 export function PlaylistsPage() {
     const playlists = useQuery(playlistsListOptions);
     const refresh = useRefreshPlaylists();
@@ -89,7 +99,9 @@ export function PlaylistsPage() {
                 title="Playlists"
                 description={
                     <Text c="dimmed" size="sm">
-                        {playlists.data ? `${chosen.length} available` : 'Everything the enabled catalog plugins can offer.'}
+                        {playlists.data
+                            ? availability(chosen.length, station.data?.playlists.length ?? 0)
+                            : 'Everything the enabled catalog plugins can offer.'}
                     </Text>
                 }
                 actions={

@@ -1,8 +1,9 @@
 import { Container, Injectable } from 'injectkit';
 import type { OutgoingMessage } from '@maroonedsoftware/comms';
 import type { InboundMessage } from '@deadair/plugin-sdk';
+import { dedicationOf } from '#modules/requests/request.dedication.js';
 import { RequestDesk, type Requester } from '#modules/requests/request.desk.js';
-import { RequestsRepository, type RequestRow, type RequestableRow } from '#modules/requests/requests.repository.js';
+import { RequestsRepository, type Dedication, type RequestRow, type RequestableRow } from '#modules/requests/requests.repository.js';
 import { inScope } from '#modules/shared/scoped.work.js';
 import { MessagingRepository } from './messaging.repository.js';
 
@@ -30,6 +31,36 @@ export function describeRequest(row: RequestRow): string {
     }
 }
 
+/** How long a dedication waits for its sender to press one of the "which one" buttons. */
+export const CHOICE_TTL_MS = 10 * 60_000;
+
+/** What `/request` was given: what to look for, and a dedication when there was one. */
+export interface RequestArgs {
+    query: string;
+    dedication?: Dedication;
+}
+
+/**
+ * `teardrop for Sam: happy birthday` as a search and a dedication.
+ *
+ * A dedication is recognised only with a colon, because " for " alone is in too many titles
+ * ("Waiting for Tonight"). Before the colon, the LAST " for " splits the record from who it is for,
+ * so a title with "for" in it still works; with no " for " the part before the colon is the record and
+ * the message is for nobody in particular. Exported for the tests.
+ */
+export function parseRequestArgs(args: string): RequestArgs {
+    const colon = args.indexOf(':');
+    if (colon < 0) return { query: args.trim() };
+
+    const head = args.slice(0, colon);
+    const message = args.slice(colon + 1);
+    const at = head.toLowerCase().lastIndexOf(' for ');
+    const query = (at < 0 ? head : head.slice(0, at)).trim();
+    const to = at < 0 ? undefined : head.slice(at + ' for '.length);
+    const dedication = dedicationOf(to, message);
+    return { query, ...(dedication === undefined ? {} : { dedication }) };
+}
+
 /** A match as a button label. */
 const labelOf = (record: RequestableRow): string => `${record.title}, ${record.artist}`;
 
@@ -49,16 +80,30 @@ const labelOf = (record: RequestableRow): string => `${record.title}, ${record.a
  *
  * One clear match (the only one, or one whose title is exactly what was typed) is asked for at once.
  * Several are offered as buttons, each carrying the record's id as its value, and a press asks for
- * that one. What somebody typed is only ever a search: it reaches the catalog as a `LIKE` pattern and
- * nothing else, and it is never repeated back or read out.
+ * that one. What somebody typed to find a record is only ever a search: it reaches the catalog as a
+ * `LIKE` pattern and nothing else.
+ *
+ * ## A dedication
+ *
+ * `/request teardrop for Sam: happy birthday` (see {@link parseRequestArgs}). It rides the request to
+ * the dedication writers, which say the names and put the message in their own words or leave it out;
+ * nothing here repeats it.
  */
 @Injectable()
 export class MessagingRequests {
+    /**
+     * A dedication waiting for its sender to pick which record they meant. In memory and short-lived:
+     * the buttons carry only the record's id, since a platform bounds what a button can carry, and a
+     * restart costs somebody a dedication they can type again.
+     */
+    private readonly choices = new Map<string, { dedication: Dedication; until: number }>();
+
     constructor(private readonly container: Container) {}
 
     /** `/request <what>`. Answers with the message to send back. */
-    async request(pluginId: string, message: InboundMessage, query: string): Promise<OutgoingMessage> {
-        if (query.trim() === '') return { text: 'Tell me what you would like to hear: /request followed by a title, an artist, or both.' };
+    async request(pluginId: string, message: InboundMessage, args: string): Promise<OutgoingMessage> {
+        const { query, dedication } = parseRequestArgs(args);
+        if (query === '') return { text: 'Tell me what you would like to hear: /request followed by a title, an artist, or both.' };
 
         return inScope(this.container, async scope => {
             const matches = await scope.get(RequestsRepository).search(query, MAX_CHOICES + 1);
@@ -66,7 +111,12 @@ export class MessagingRequests {
 
             const exact = matches.find(record => record.title.toLowerCase() === query.trim().toLowerCase());
             const clear = matches.length === 1 ? matches[0] : exact;
-            if (clear !== undefined) return { text: describeRequest(await this.submit(scope, pluginId, message, clear)) };
+            if (clear !== undefined) return { text: describeRequest(await this.submit(scope, pluginId, message, clear, dedication)) };
+
+            const key = choiceKey(pluginId, message);
+            if (dedication === undefined) this.choices.delete(key);
+            else this.choices.set(key, { dedication, until: Date.now() + CHOICE_TTL_MS });
+            this.forgetStale();
 
             return {
                 text: 'Which one did you mean?',
@@ -83,11 +133,30 @@ export class MessagingRequests {
             // the same as no id at all.
             const record = trackId === undefined || !isUuid(trackId) ? undefined : await scope.get(RequestsRepository).findRequestable(trackId);
             if (record === undefined) return { text: 'That one is not available any more. Try /request again.' };
-            return { text: describeRequest(await this.submit(scope, pluginId, message, record)) };
+
+            // The dedication the sender typed with `/request`, if they typed one and it has not gone
+            // stale. Keyed on the sender as well as the chat, so pressing somebody else's button in a
+            // group asks for the record without taking their dedication.
+            const key = choiceKey(pluginId, message);
+            const waiting = this.choices.get(key);
+            this.choices.delete(key);
+            const dedication = waiting !== undefined && waiting.until > Date.now() ? waiting.dedication : undefined;
+            return { text: describeRequest(await this.submit(scope, pluginId, message, record, dedication)) };
         });
     }
 
-    private async submit(scope: Container, pluginId: string, message: InboundMessage, record: RequestableRow): Promise<RequestRow> {
+    private forgetStale(): void {
+        const now = Date.now();
+        for (const [key, choice] of this.choices) if (choice.until <= now) this.choices.delete(key);
+    }
+
+    private async submit(
+        scope: Container,
+        pluginId: string,
+        message: InboundMessage,
+        record: RequestableRow,
+        dedication?: Dedication,
+    ): Promise<RequestRow> {
         const actorId = await scope.get(MessagingRepository).linkedActor(pluginId, message.sender.id);
         const requester: Requester = {
             key: actorId === undefined ? `chat:${pluginId}:${message.sender.id}` : `user:${actorId}`,
@@ -95,9 +164,11 @@ export class MessagingRequests {
             ...(actorId === undefined ? {} : { actorId }),
             chat: { pluginId, chatId: message.chatId, chatKind: message.chatKind, messageId: message.id },
         };
-        return scope.get(RequestDesk).submit(requester, record);
+        return scope.get(RequestDesk).submit(requester, record, dedication);
     }
 }
+
+const choiceKey = (pluginId: string, message: InboundMessage): string => `${pluginId}\u0000${message.chatId}\u0000${message.sender.id}`;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const isUuid = (value: string): boolean => UUID.test(value);

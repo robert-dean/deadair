@@ -3,6 +3,7 @@ import { httpError } from '@maroonedsoftware/errors';
 import { AuthorizationContext } from '#modules/permissions/authorization.context.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
 import { RequestDesk } from './request.desk.js';
+import { dedicationOf } from './request.dedication.js';
 import { RequestsRepository, type RequestRow } from './requests.repository.js';
 import type {
     ListenerRequest,
@@ -30,6 +31,8 @@ export function toListenerRequest(row: RequestRow): ListenerRequest {
         createdAt: row.createdAt,
         ...(row.reason === undefined ? {} : { reason: row.reason }),
         ...(row.airedAt === undefined ? {} : { airedAt: row.airedAt }),
+        ...(row.dedication?.to === undefined ? {} : { dedicateTo: row.dedication.to }),
+        ...(row.dedication?.message === undefined ? {} : { message: row.dedication.message }),
     };
 }
 
@@ -59,7 +62,8 @@ export class RequestsService {
         if (record === undefined) throw httpError(404).withDetails({ message: 'the station has no record it could play by that id' });
 
         const name = body.name?.trim() || UNNAMED_REQUESTER;
-        const row = await this.desk.submit({ key: `user:${actorId}`, name, actorId }, record);
+        const dedication = dedicationOf(body.dedicateTo, body.message);
+        const row = await this.desk.submit({ key: `user:${actorId}`, name, actorId }, record, dedication);
         return toListenerRequest(row);
     }
 

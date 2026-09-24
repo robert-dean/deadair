@@ -30,6 +30,8 @@ contract ListenerRequest: { # A record somebody asked the station to play, and w
     createdAt: datetime # When it was asked for
     reason?: string(max=400) # Why it was declined or expired, in the station's words or an operator's
     airedAt?: datetime # When it aired
+    dedicateTo?: string(max=60) # Who the listener dedicated it to
+    message?: string(max=200) # What the listener asked to have said with it, in their own words
 }
 
 contract ListenerRequestList: { # Requests, newest first
@@ -39,6 +41,8 @@ contract ListenerRequestList: { # Requests, newest first
 contract ListenerRequestCreate: { # Ask the station to play a record
     trackId: uuid # A record from the request search
     name?: string(min=1, max=60) # What the station should call you. Omitted, you are "a listener": your account's email address is never shown or read out
+    dedicateTo?: string(min=1, max=60) # Dedicate it to somebody. The station may say this name on air
+    message?: string(min=1, max=200) # A few words to go with it. The presenter may put them in their own words on air, and leaves out anything unfit to broadcast; the words themselves are never read out
 }
 
 contract ListenerRequestDecline: { # Turn a request down

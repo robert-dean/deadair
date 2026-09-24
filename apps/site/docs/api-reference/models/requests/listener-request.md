@@ -8,7 +8,7 @@ mdx:
 > A record somebody asked the station to play, and what became of it
 
 <details>
-<summary>Attributes (9)</summary>
+<summary>Attributes (11)</summary>
 
 | Attribute       | Type            | Required | Description                                                                                                                                                                                                |
 | --------------- | --------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -21,5 +21,7 @@ mdx:
 | `createdAt`     | `string`        | Yes      | When it was asked for                                                                                                                                                                                      |
 | `reason`        | `string`        | No       | Why it was declined or expired, in the station's words or an operator's                                                                                                                                    |
 | `airedAt`       | `string`        | No       | When it aired                                                                                                                                                                                              |
+| `dedicateTo`    | `string`        | No       | Who the listener dedicated it to                                                                                                                                                                           |
+| `message`       | `string`        | No       | What the listener asked to have said with it, in their own words                                                                                                                                           |
 
 </details>

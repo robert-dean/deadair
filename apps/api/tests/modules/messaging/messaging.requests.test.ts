@@ -7,7 +7,7 @@ import { DateTime } from 'luxon';
 import type { Container } from 'injectkit';
 import type { InboundMessage } from '@deadair/plugin-sdk';
 
-import { MessagingRequests, REQUEST_PICK_ACTION, describeRequest } from '../../../src/modules/messaging/messaging.requests.js';
+import { MessagingRequests, REQUEST_PICK_ACTION, describeRequest, parseRequestArgs } from '../../../src/modules/messaging/messaging.requests.js';
 import { MessagingRepository } from '../../../src/modules/messaging/messaging.repository.js';
 import { RequestDesk } from '../../../src/modules/requests/request.desk.js';
 import { RequestsRepository, type RequestRow, type RequestableRow } from '../../../src/modules/requests/requests.repository.js';
@@ -68,6 +68,7 @@ describe('/request', () => {
                 chat: { pluginId: 'deadair.telegram', chatId: '42', chatKind: 'direct', messageId: 'm-1' },
             },
             teardrop,
+            undefined,
         );
     });
 
@@ -76,7 +77,7 @@ describe('/request', () => {
 
         await requests.request('p', message, 'Teardrop');
 
-        expect(submit).toHaveBeenCalledWith(expect.anything(), teardrop);
+        expect(submit).toHaveBeenCalledWith(expect.anything(), teardrop, undefined);
     });
 
     it('offers several matches as buttons carrying each record’s id', async () => {
@@ -102,7 +103,7 @@ describe('/request', () => {
 
         await requests.request('p', message, 'teardrop');
 
-        expect(submit).toHaveBeenCalledWith(expect.objectContaining({ key: 'user:actor-1', actorId: 'actor-1' }), teardrop);
+        expect(submit).toHaveBeenCalledWith(expect.objectContaining({ key: 'user:actor-1', actorId: 'actor-1' }), teardrop, undefined);
     });
 });
 
@@ -112,7 +113,7 @@ describe('a pick', () => {
 
         await requests.pick('p', message, TRACK_ID);
 
-        expect(submit).toHaveBeenCalledWith(expect.anything(), teardrop);
+        expect(submit).toHaveBeenCalledWith(expect.anything(), teardrop, undefined);
     });
 
     it('treats a value that is not a playable record as no value at all', async () => {
@@ -130,5 +131,45 @@ describe('describeRequest', () => {
         expect(describeRequest(row({ status: 'pending' }))).toBe('Got it: Teardrop by Massive Attack. It will be on in a little while.');
         expect(describeRequest(row({ status: 'waiting' }))).toContain('waiting for the station to say yes');
         expect(describeRequest(row({ status: 'declined', reason: 'The request line is full.' }))).toBe('Sorry: The request line is full.');
+    });
+});
+
+describe('parseRequestArgs', () => {
+    it('is only a search without a colon, however many times it says "for"', () => {
+        expect(parseRequestArgs('waiting for tonight')).toEqual({ query: 'waiting for tonight' });
+    });
+
+    it('splits the record from who it is for at the last "for" before the colon', () => {
+        expect(parseRequestArgs('waiting for tonight for Sam: happy birthday')).toEqual({
+            query: 'waiting for tonight',
+            dedication: { to: 'Sam', message: 'happy birthday' },
+        });
+    });
+
+    it('takes a message for nobody in particular', () => {
+        expect(parseRequestArgs('teardrop: for everybody working late')).toEqual({
+            query: 'teardrop',
+            dedication: { message: 'for everybody working late' },
+        });
+    });
+
+    it('tidies what a listener typed and holds it to a length', () => {
+        const parsed = parseRequestArgs(`teardrop for Sam\u0007: ${'x'.repeat(500)}`);
+        expect(parsed.dedication?.to).toBe('Sam');
+        expect(parsed.dedication?.message).toHaveLength(200);
+    });
+});
+
+describe('a dedication across a choice', () => {
+    it('keeps the dedication for the sender’s pick, and gives it to nobody else’s', async () => {
+        const { requests, submit } = build({ matches: [tearDown, teardrop] });
+        await requests.request('p', message, 'tear for Danielle: happy birthday');
+
+        await requests.pick('p', { ...message, sender: { id: 'someone-else', displayName: 'Other' } }, TRACK_ID);
+        expect(submit).toHaveBeenLastCalledWith(expect.anything(), teardrop, undefined);
+
+        await requests.request('p', message, 'tear for Danielle: happy birthday');
+        await requests.pick('p', message, TRACK_ID);
+        expect(submit).toHaveBeenLastCalledWith(expect.anything(), teardrop, { to: 'Danielle', message: 'happy birthday' });
     });
 });

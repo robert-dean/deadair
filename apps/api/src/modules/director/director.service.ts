@@ -1952,7 +1952,7 @@ export class DirectorService {
                 return { result: lineup.insertTrack(edit.track, edit.atIndex ?? lineup.size()), dropped: [] };
 
             case 'insertRequested':
-                return { result: lineup.insertRequested(edit.track, edit.requestId), dropped: [] };
+                return { result: lineup.insertRequested(edit.track, edit.requestId, edit.dedication), dropped: [] };
         }
     }
 

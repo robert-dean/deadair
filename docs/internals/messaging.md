@@ -149,3 +149,33 @@ name, since the messaging module registers after this one. They are told only th
 (placed after a wait, granted, declined by an operator, aired, lapsed): the command that took the request
 already answered with its outcome.
 
+## Dedications
+
+**A dedication is the listener's words, and every part of the station treats them that way.** Who it is
+for and a short message ride the request (`dedicate_to`, `message`), tidied of control, zero-width and bidi
+characters and held to the contract's lengths (`request.dedication.ts`), shown to the operator as theirs,
+and never put in `reason`, the activity feed, or a listener label: the player's metadata says
+"Dedication", not a name somebody typed.
+
+**The words are planted in front of the record, not requested as a break.** When a dedicated request is
+placed, the desk plans a `dedication` segment and the same `insertRequested` edit puts it directly before
+the record, in the same quiet gap. It is written when its slot comes near like any planted break, and its
+writers name the record after it (`claimsNext`), so the claim check drops the words at hand-over if
+anything ever comes between them. A refused placement writes the planned segment off rather than leaving
+it looking like a break to come. `requests.dedications` off plays the record without the words.
+
+**Two writers, and only one of them touches the message.** `DedicationWriter`, the floor, names who it is
+from and who it is for and never reads the message, because a template cannot judge whether it is fit to
+broadcast. `ModelDedicationWriter` passes the message on in its own words: the names and the message reach
+the prompt fenced between `<<<` and `>>>` (with those characters taken out of the text, so it cannot close
+its own fence), described as what a listener typed and never as instructions, with an instruction to drop
+anything unkind, crude, promotional or unfit. The prompt alone is not trusted: an answer that repeats five
+of the message's words in a row is refused (`quotesListener`) and falls to the floor, so the worst a
+hostile message does is cost itself the paraphrase. For a station that wants a person in the loop,
+`requests.approval` puts every request, and its dedication, in front of an operator first.
+
+**From a chat, `/request <record> for <name>: <message>`.** Only with a colon, since " for " is in too many
+titles; the last " for " before the colon splits the record from the name. A dedication survives a "which
+one did you mean" choice, held in memory for ten minutes against the sender (not the chat), so pressing
+somebody else's button in a group takes the record and not their words.
+

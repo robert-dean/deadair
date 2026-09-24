@@ -11187,6 +11187,14 @@ components:
                     type: string
                     format: date-time
                     description: 'When it aired'
+                dedicateTo:
+                    type: string
+                    maxLength: 60
+                    description: 'Who the listener dedicated it to'
+                message:
+                    type: string
+                    maxLength: 200
+                    description: 'What the listener asked to have said with it, in their own words'
             required: [id, status, title, artist, requesterName, source, createdAt]
             description: 'A record somebody asked the station to play, and what became of it'
         ListenerRequestList:
@@ -11210,6 +11218,16 @@ components:
                     minLength: 1
                     maxLength: 60
                     description: 'What the station should call you. Omitted, you are "a listener": your account''s email address is never shown or read out'
+                dedicateTo:
+                    type: string
+                    minLength: 1
+                    maxLength: 60
+                    description: 'Dedicate it to somebody. The station may say this name on air'
+                message:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                    description: 'A few words to go with it. The presenter may put them in their own words on air, and leaves out anything unfit to broadcast; the words themselves are never read out'
             required: [trackId]
             description: 'Ask the station to play a record'
         ListenerRequestDecline:

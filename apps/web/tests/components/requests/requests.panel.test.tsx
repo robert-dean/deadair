@@ -100,4 +100,11 @@ describe('RequestsPanel', () => {
 
         expect(await screen.findByText(/for the station’s operators/)).toBeInTheDocument();
     });
+
+    it('shows a dedication as the listener wrote it, so an operator can decide on it', async () => {
+        listRequests.mockResolvedValue({ requests: [request({ dedicateTo: 'Danielle', message: 'you still owe me twenty bucks' })] });
+        render(<RequestsPanel />);
+
+        expect(await screen.findByText('For Danielle: “you still owe me twenty bucks”')).toBeInTheDocument();
+    });
 });

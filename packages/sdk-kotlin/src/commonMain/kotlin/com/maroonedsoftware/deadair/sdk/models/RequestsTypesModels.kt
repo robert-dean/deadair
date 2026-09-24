@@ -52,6 +52,10 @@ data class ListenerRequestCreate(
     val trackId: Uuid,
     /** What the station should call you. Omitted, you are "a listener": your account's email address is never shown or read out */
     val name: String? = null,
+    /** Dedicate it to somebody. The station may say this name on air */
+    val dedicateTo: String? = null,
+    /** A few words to go with it. The presenter may put them in their own words on air, and leaves out anything unfit to broadcast; the words themselves are never read out */
+    val message: String? = null,
 )
 
 /** Turn a request down */
@@ -86,6 +90,10 @@ data class ListenerRequest(
     val reason: String? = null,
     /** When it aired */
     val airedAt: Instant? = null,
+    /** Who the listener dedicated it to */
+    val dedicateTo: String? = null,
+    /** What the listener asked to have said with it, in their own words */
+    val message: String? = null,
 )
 
 /** Requests, newest first */

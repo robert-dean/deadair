@@ -802,6 +802,15 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         help: 'Once this many are waiting or in the running order, the next person is told the request line is full. It is what stops a busy night turning into a jukebox.',
     },
     {
+        group: 'rotation',
+        key: REQUESTS_KEYS.dedications,
+        label: 'Read dedications on air',
+        type: 'boolean',
+        default: REQUESTS_DEFAULTS.dedications,
+        dependsOn: REQUESTS_KEYS.enabled,
+        help: 'When somebody dedicates a request, the presenter says who it is from and who it is for just before it plays. A message sent with it is put in the presenter’s own words, and left out if it is not fit to broadcast; it is never read out word for word. Off, the record still plays and you can still read the dedication under Programme, Requests.',
+    },
+    {
         group: 'breaks',
         key: ROTATION_KEYS.breaks,
         label: 'Let the station interrupt itself',

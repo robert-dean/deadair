@@ -66,27 +66,39 @@ public struct ListenerRequestCreate: Codable, Equatable, Sendable {
     public var trackId: UUID
     /// What the station should call you. Omitted, you are "a listener": your account's email address is never shown or read out
     public var name: String?
+    /// Dedicate it to somebody. The station may say this name on air
+    public var dedicateTo: String?
+    /// A few words to go with it. The presenter may put them in their own words on air, and leaves out anything unfit to broadcast; the words themselves are never read out
+    public var message: String?
 
-    public init(trackId: UUID, name: String? = nil) {
+    public init(trackId: UUID, name: String? = nil, dedicateTo: String? = nil, message: String? = nil) {
         self.trackId = trackId
         self.name = name
+        self.dedicateTo = dedicateTo
+        self.message = message
     }
 
     private enum CodingKeys: String, CodingKey {
         case trackId = "trackId"
         case name = "name"
+        case dedicateTo = "dedicateTo"
+        case message = "message"
     }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.trackId = try container.decode(UUID.self, forKey: .trackId)
         self.name = try container.decodeIfPresent(String.self, forKey: .name)
+        self.dedicateTo = try container.decodeIfPresent(String.self, forKey: .dedicateTo)
+        self.message = try container.decodeIfPresent(String.self, forKey: .message)
     }
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(self.trackId, forKey: .trackId)
         try container.encodeIfPresent(self.name, forKey: .name)
+        try container.encodeIfPresent(self.dedicateTo, forKey: .dedicateTo)
+        try container.encodeIfPresent(self.message, forKey: .message)
     }
 }
 
@@ -155,8 +167,12 @@ public struct ListenerRequest: Codable, Equatable, Sendable {
     public var reason: String?
     /// When it aired
     public var airedAt: Date?
+    /// Who the listener dedicated it to
+    public var dedicateTo: String?
+    /// What the listener asked to have said with it, in their own words
+    public var message: String?
 
-    public init(id: UUID, status: RequestStatus, title: String, artist: String, requesterName: String, source: RequestSource, createdAt: Date, reason: String? = nil, airedAt: Date? = nil) {
+    public init(id: UUID, status: RequestStatus, title: String, artist: String, requesterName: String, source: RequestSource, createdAt: Date, reason: String? = nil, airedAt: Date? = nil, dedicateTo: String? = nil, message: String? = nil) {
         self.id = id
         self.status = status
         self.title = title
@@ -166,6 +182,8 @@ public struct ListenerRequest: Codable, Equatable, Sendable {
         self.createdAt = createdAt
         self.reason = reason
         self.airedAt = airedAt
+        self.dedicateTo = dedicateTo
+        self.message = message
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -178,6 +196,8 @@ public struct ListenerRequest: Codable, Equatable, Sendable {
         case createdAt = "createdAt"
         case reason = "reason"
         case airedAt = "airedAt"
+        case dedicateTo = "dedicateTo"
+        case message = "message"
     }
 
     public init(from decoder: Decoder) throws {
@@ -191,6 +211,8 @@ public struct ListenerRequest: Codable, Equatable, Sendable {
         self.createdAt = try container.decode(Date.self, forKey: .createdAt)
         self.reason = try container.decodeIfPresent(String.self, forKey: .reason)
         self.airedAt = try container.decodeIfPresent(Date.self, forKey: .airedAt)
+        self.dedicateTo = try container.decodeIfPresent(String.self, forKey: .dedicateTo)
+        self.message = try container.decodeIfPresent(String.self, forKey: .message)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -204,6 +226,8 @@ public struct ListenerRequest: Codable, Equatable, Sendable {
         try container.encode(self.createdAt, forKey: .createdAt)
         try container.encodeIfPresent(self.reason, forKey: .reason)
         try container.encodeIfPresent(self.airedAt, forKey: .airedAt)
+        try container.encodeIfPresent(self.dedicateTo, forKey: .dedicateTo)
+        try container.encodeIfPresent(self.message, forKey: .message)
     }
 }
 

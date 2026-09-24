@@ -33,7 +33,7 @@ export type RequestSource = z.infer<typeof RequestSource>;
 
 /**
  * Ask the station to play a record
- * generated from [ListenerRequestCreate](../../../../data/contracts/requests/requests.types.ck#L39)
+ * generated from [ListenerRequestCreate](../../../../data/contracts/requests/requests.types.ck#L41)
  */
 export const ListenerRequestCreate = z.strictObject({
     trackId: z.uuid().describe('A record from the request search'),
@@ -43,12 +43,21 @@ export const ListenerRequestCreate = z.strictObject({
         .max(60)
         .optional()
         .describe('What the station should call you. Omitted, you are "a listener": your account\'s email address is never shown or read out'),
+    dedicateTo: z.string().min(1).max(60).optional().describe('Dedicate it to somebody. The station may say this name on air'),
+    message: z
+        .string()
+        .min(1)
+        .max(200)
+        .optional()
+        .describe(
+            'A few words to go with it. The presenter may put them in their own words on air, and leaves out anything unfit to broadcast; the words themselves are never read out',
+        ),
 });
 export type ListenerRequestCreate = z.infer<typeof ListenerRequestCreate>;
 
 /**
  * Turn a request down
- * generated from [ListenerRequestDecline](../../../../data/contracts/requests/requests.types.ck#L44)
+ * generated from [ListenerRequestDecline](../../../../data/contracts/requests/requests.types.ck#L48)
  */
 export const ListenerRequestDecline = z.strictObject({
     reason: z.string().max(400).optional().describe('What to tell the listener. Omit for a plain no'),
@@ -80,12 +89,14 @@ export const ListenerRequest = z.strictObject({
     createdAt: _ZodDatetime.describe('When it was asked for'),
     reason: z.string().max(400).optional().describe("Why it was declined or expired, in the station's words or an operator's"),
     airedAt: _ZodDatetime.optional().describe('When it aired'),
+    dedicateTo: z.string().max(60).optional().describe('Who the listener dedicated it to'),
+    message: z.string().max(200).optional().describe('What the listener asked to have said with it, in their own words'),
 });
 export type ListenerRequest = z.infer<typeof ListenerRequest>;
 
 /**
  * Requests, newest first
- * generated from [ListenerRequestList](../../../../data/contracts/requests/requests.types.ck#L35)
+ * generated from [ListenerRequestList](../../../../data/contracts/requests/requests.types.ck#L37)
  */
 export const ListenerRequestList = z.strictObject({
     requests: z.array(ListenerRequest),

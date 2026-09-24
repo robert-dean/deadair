@@ -108,6 +108,13 @@ function RequestRow({ request }: { request: ListenerRequest }) {
                 <Text size="xs" c="dimmed">
                     {request.artist}
                 </Text>
+                {request.dedicateTo !== undefined || request.message !== undefined ? (
+                    // The listener's own words, shown as theirs so an operator can decide on them before
+                    // the presenter passes them on. Never reached by anything the station says itself.
+                    <Text size="xs" fs="italic">
+                        {`${request.dedicateTo === undefined ? 'Dedicated' : `For ${request.dedicateTo}`}${request.message === undefined ? '' : `: “${request.message}”`}`}
+                    </Text>
+                ) : undefined}
             </Table.Td>
             <Table.Td>
                 <Text size="sm">{request.requesterName}</Text>

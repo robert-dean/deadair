@@ -21,6 +21,8 @@ import { AlmanacBreakWriter } from './almanac.break.writer.js';
 import { ModelAlmanacBreakWriter } from './model.almanac.break.writer.js';
 import { AlmanacSource, SaidLog } from './almanac.source.js';
 import { ModelWelcomeWriter } from './model.welcome.writer.js';
+import { ModelDedicationWriter } from './model.dedication.writer.js';
+import { DedicationWriter } from './dedication.writer.js';
 import { TalkBreakWriter } from './talk.break.writer.js';
 import { WelcomeAnnouncer } from './welcome.announcer.js';
 import { DislikeVeto } from './dislike.veto.js';
@@ -148,6 +150,8 @@ export const DirectorModule: ServerKitModule = {
         registry.register(TalkBreakWriter).useClass(TalkBreakWriter).asScoped();
         registry.register(ModelWelcomeWriter).useClass(ModelWelcomeWriter).asScoped();
         registry.register(WelcomeWriter).useClass(WelcomeWriter).asScoped();
+        registry.register(ModelDedicationWriter).useClass(ModelDedicationWriter).asScoped();
+        registry.register(DedicationWriter).useClass(DedicationWriter).asScoped();
         registry.register(ModelChangeoverWriter).useClass(ModelChangeoverWriter).asScoped();
         registry.register(ChangeoverWriter).useClass(ChangeoverWriter).asScoped();
         registry.register(ModelNewsBreakWriter).useClass(ModelNewsBreakWriter).asScoped();
@@ -210,6 +214,11 @@ export const DirectorModule: ServerKitModule = {
                             container.get(TalkBreakWriter),
                             container.get(ModelWelcomeWriter),
                             container.get(WelcomeWriter),
+                            // A dedication: a listener's words in front of the record they asked for.
+                            // The model passes the message on in its own words and is refused if it
+                            // repeats it; the floor names the two people and never reads the message.
+                            container.get(ModelDedicationWriter),
+                            container.get(DedicationWriter),
                             // The third kind, ranked the same way within itself. It is the one where
                             // the floor is not merely a safety net: reading a published headline
                             // cannot be wrong about the news, and everything a model adds to that is

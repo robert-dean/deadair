@@ -120,7 +120,7 @@ export class MessagingCommands {
         this.command('now', 'what is on air right now', false, async () => describeNowPlaying(this.nowPlaying.getNowPlaying()));
 
         // Answered with a message rather than a line of text, since "which one did you mean" carries buttons.
-        this.summaries.push({ name: 'request', summary: 'TITLE OR ARTIST: ask for a record', operator: false });
+        this.summaries.push({ name: 'request', summary: 'TITLE OR ARTIST, then for NAME: MESSAGE if you like: ask for a record', operator: false });
         this.router.command('request', async (event, reply) =>
             reply.send(await this.requests.request(event.channel, inboundOf(event), event.command?.args ?? '')),
         );

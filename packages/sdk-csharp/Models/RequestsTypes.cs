@@ -77,6 +77,16 @@ public sealed record ListenerRequestCreate
     [JsonPropertyName("name")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Name { get; init; }
+
+    /// <summary>Dedicate it to somebody. The station may say this name on air</summary>
+    [JsonPropertyName("dedicateTo")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? DedicateTo { get; init; }
+
+    /// <summary>A few words to go with it. The presenter may put them in their own words on air, and leaves out anything unfit to broadcast; the words themselves are never read out</summary>
+    [JsonPropertyName("message")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Message { get; init; }
 }
 
 /// <summary>Turn a request down</summary>
@@ -133,6 +143,16 @@ public sealed record ListenerRequest
     [JsonPropertyName("airedAt")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public DateTimeOffset? AiredAt { get; init; }
+
+    /// <summary>Who the listener dedicated it to</summary>
+    [JsonPropertyName("dedicateTo")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? DedicateTo { get; init; }
+
+    /// <summary>What the listener asked to have said with it, in their own words</summary>
+    [JsonPropertyName("message")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Message { get; init; }
 }
 
 /// <summary>Requests, newest first</summary>

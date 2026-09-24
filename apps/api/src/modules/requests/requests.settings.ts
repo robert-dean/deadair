@@ -8,6 +8,7 @@ export const REQUESTS_KEYS = {
     approval: 'requests.approval',
     cooldownMinutes: 'requests.cooldownMinutes',
     maxOpen: 'requests.maxOpen',
+    dedications: 'requests.dedications',
 } as const;
 
 /** Whether a request goes straight in, or waits for an operator to say yes. */
@@ -18,6 +19,7 @@ export const REQUESTS_DEFAULTS = {
     approval: 'auto' as RequestApproval,
     cooldownMinutes: 30,
     maxOpen: 3,
+    dedications: true,
 } as const;
 
 /** The bounds both the resolver and the settings form hold a stored row to. */
@@ -29,6 +31,8 @@ export interface RequestSettings {
     approval: RequestApproval;
     cooldownMs: number;
     maxOpen: number;
+    /** Whether a dedication is said on air before the record. Off, the record still plays and the dedication is kept for the operator to read. */
+    dedications: boolean;
 }
 
 const clamp = (value: number, min: number, max: number): number => Math.min(Math.max(Math.trunc(value), min), max);
@@ -42,5 +46,6 @@ export function requestSettings(config: AppConfig): RequestSettings {
         cooldownMs:
             clamp(numberOr(config, REQUESTS_KEYS.cooldownMinutes, REQUESTS_DEFAULTS.cooldownMinutes), 0, MAX_REQUEST_COOLDOWN_MINUTES) * 60_000,
         maxOpen: clamp(numberOr(config, REQUESTS_KEYS.maxOpen, REQUESTS_DEFAULTS.maxOpen), 1, MAX_OPEN_REQUESTS),
+        dedications: settingIsOn(config, REQUESTS_KEYS.dedications, REQUESTS_DEFAULTS.dedications),
     };
 }

@@ -34,18 +34,22 @@ export type RequestSource = 'app' | 'chat';
 
 /**
  * Ask the station to play a record
- * generated from [ListenerRequestCreate](../../../../../apps/api/data/contracts/requests/requests.types.ck#L39)
+ * generated from [ListenerRequestCreate](../../../../../apps/api/data/contracts/requests/requests.types.ck#L41)
  */
 export interface ListenerRequestCreate {
     /** A record from the request search */
     trackId: string;
     /** What the station should call you. Omitted, you are "a listener": your account's email address is never shown or read out */
     name?: string;
+    /** Dedicate it to somebody. The station may say this name on air */
+    dedicateTo?: string;
+    /** A few words to go with it. The presenter may put them in their own words on air, and leaves out anything unfit to broadcast; the words themselves are never read out */
+    message?: string;
 }
 
 /**
  * Turn a request down
- * generated from [ListenerRequestDecline](../../../../../apps/api/data/contracts/requests/requests.types.ck#L44)
+ * generated from [ListenerRequestDecline](../../../../../apps/api/data/contracts/requests/requests.types.ck#L48)
  */
 export interface ListenerRequestDecline {
     /** What to tell the listener. Omit for a plain no */
@@ -81,6 +85,10 @@ export interface ListenerRequest {
     reason?: string;
     /** When it aired */
     airedAt?: DateTime;
+    /** Who the listener dedicated it to */
+    dedicateTo?: string;
+    /** What the listener asked to have said with it, in their own words */
+    message?: string;
 }
 
 /** Rehydrates every wire-encoded scalar in a ListenerRequest into its runtime type. Mutates and returns `raw`. */
@@ -95,7 +103,7 @@ export function reviveListenerRequest(raw: ListenerRequest): ListenerRequest {
 
 /**
  * Requests, newest first
- * generated from [ListenerRequestList](../../../../../apps/api/data/contracts/requests/requests.types.ck#L35)
+ * generated from [ListenerRequestList](../../../../../apps/api/data/contracts/requests/requests.types.ck#L37)
  */
 export interface ListenerRequestList {
     requests: ListenerRequest[];

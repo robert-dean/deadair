@@ -1393,3 +1393,25 @@ describe('StationLineup requests', () => {
         expect(Math.abs(ids.indexOf('x') - ids.indexOf('r'))).toBeGreaterThan(1);
     });
 });
+
+describe('StationLineup dedications', () => {
+    it('puts a dedication directly in front of the record it goes with', () => {
+        const lineup = lineupWith(['a', 'b', 'c']);
+        hand(lineup, 1);
+
+        lineup.insertRequested(track('r'), 'req-1', { segmentId: 'ded', segmentKind: 'dedication' });
+
+        expect(idsOf(lineup.all())).toEqual(['a', 'b', 'segment:ded', 'r', 'c']);
+        expect(lineup.all()[2]).toMatchObject({ kind: 'segment', state: 'planned', segmentKind: 'dedication' });
+    });
+
+    it('puts neither in when there is no quiet place', () => {
+        const lineup = lineupWith(['a', 'b', 'c']);
+        lineup.insertSegment('one', 1);
+        lineup.insertSegment('two', 3);
+        lineup.insertSegment('three', 5);
+
+        expect(lineup.insertRequested(track('r'), 'req-1', { segmentId: 'ded', segmentKind: 'dedication' }).ok).toBe(false);
+        expect(idsOf(lineup.all())).not.toContain('segment:ded');
+    });
+});

@@ -305,7 +305,9 @@ export interface DeadairListenerRequests {
   chatKind: "direct" | "group" | null;
   createdAt: Generated<DateTime>;
   decidedAt: DateTime | null;
+  dedicateTo: string | null;
   id: Generated<string>;
+  message: string | null;
   messageId: string | null;
   pluginId: string | null;
   reason: string | null;

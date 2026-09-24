@@ -2,6 +2,7 @@ import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
 import { Logger } from '@maroonedsoftware/logger';
+import { DEDICATION_CONTEXT, DEDICATION_KIND, DEDICATION_LABEL } from '#modules/director/dedication.writer.js';
 import { DirectorService } from '#modules/director/director.service.js';
 import { PickResolver } from '#modules/director/pick.resolver.js';
 import { resolveRules, stationRules } from '#modules/director/rotation.rules.js';
@@ -9,10 +10,11 @@ import { StationLineupRepository } from '#modules/director/station.lineup.reposi
 import { NowPlayingService } from '#modules/nowplaying/nowplaying.service.js';
 import { TrackAudioRepository } from '#modules/playout/audio/track.audio.repository.js';
 import { TrackAudioService } from '#modules/playout/audio/track.audio.service.js';
+import { SegmentRepository } from '#modules/render/segment.repository.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
 import { arbitrate } from './request.arbiter.js';
-import { RequestsRepository, type ChatReplyTarget, type RequestRow, type RequestStatus } from './requests.repository.js';
+import { RequestsRepository, type ChatReplyTarget, type Dedication, type RequestRow, type RequestStatus } from './requests.repository.js';
 import { requestSettings } from './requests.settings.js';
 
 /** Who is asking, however they reached the station. */
@@ -81,6 +83,7 @@ export class RequestDesk {
         private readonly audio: TrackAudioRepository,
         private readonly trackAudio: TrackAudioService,
         private readonly director: DirectorService,
+        private readonly segments: SegmentRepository,
         private readonly jobs: PgBossJobBroker,
         private readonly logger: Logger,
     ) {}
@@ -89,7 +92,7 @@ export class RequestDesk {
      * Take a request. Always answers with a row, a refusal included, so whoever asked can be told why
      * in the same breath: a refusal is a `declined` row whose `reason` says it.
      */
-    async submit(requester: Requester, record: { trackId: string; title: string; artist: string }): Promise<RequestRow> {
+    async submit(requester: Requester, record: { trackId: string; title: string; artist: string }, dedication?: Dedication): Promise<RequestRow> {
         const stationKey = this.identity.stationKey;
         const settings = requestSettings(this.config);
         const open = await this.repository.open(stationKey);
@@ -119,6 +122,7 @@ export class RequestDesk {
             artist: record.artist,
             status: decision.ok ? (settings.approval === 'operator' ? 'waiting' : 'pending') : 'declined',
             ...(decision.ok ? {} : { reason: decision.reason }),
+            ...(dedication === undefined ? {} : { dedication }),
         });
         if (created.status !== 'pending') return created;
 
@@ -228,8 +232,21 @@ export class RequestDesk {
                 return 'waiting';
             }
 
-            const result = await this.director.applyEdit({ kind: 'insertRequested', track, requestId: request.id });
-            if (!result.ok) return 'waiting';
+            const dedication = await this.planDedication(request);
+            const result = await this.director.applyEdit({
+                kind: 'insertRequested',
+                track,
+                requestId: request.id,
+                ...(dedication === undefined ? {} : { dedication: { segmentId: dedication, segmentKind: DEDICATION_KIND } }),
+            });
+            if (!result.ok) {
+                // Nothing went in, so the words planned for it have nowhere to be said. Written off
+                // rather than left `planned`, where they would sit in the library looking like a break
+                // still to come. A new one is planned with the next attempt.
+                if (dedication !== undefined)
+                    await this.segments.markFailed(dedication, 'the request it went with could not be placed yet', 'planned');
+                return 'waiting';
+            }
 
             const queued = await this.repository.moveTo(stationKey, request.id, ['pending'], 'queued');
             if (queued !== undefined) say(queued, `Your request is in: ${queued.title} by ${queued.artist}, a few records from now.`);
@@ -240,6 +257,22 @@ export class RequestDesk {
             this.logger.warn(`requests: could not place a request, and will try again (${errorText(error)})`);
             return 'waiting';
         }
+    }
+
+    /**
+     * Plan the words to go in front of a dedicated request, and answer the segment's id, or nothing
+     * when there is no dedication or the station is not saying them. The listener's words ride the
+     * segment's context to the writer, which is the only thing that reads them.
+     */
+    private async planDedication(request: RequestRow): Promise<string | undefined> {
+        if (request.dedication === undefined || !requestSettings(this.config).dedications) return undefined;
+
+        const context: Record<string, string> = { [DEDICATION_CONTEXT.from]: request.requesterName };
+        if (request.dedication.to !== undefined) context[DEDICATION_CONTEXT.to] = request.dedication.to;
+        if (request.dedication.message !== undefined) context[DEDICATION_CONTEXT.message] = request.dedication.message;
+
+        const segment = await this.segments.plan({ kind: DEDICATION_KIND, label: DEDICATION_LABEL, context });
+        return segment.id;
     }
 
     private async refuse(request: RequestRow, reason: string, say: (row: RequestRow, text: string) => void): Promise<void> {

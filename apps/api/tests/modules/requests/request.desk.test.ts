@@ -38,6 +38,7 @@ function memoryTable() {
         rows,
         create: vi.fn(async (request: NewRequest) => {
             const row: RequestRow = {
+                ...(request.dedication === undefined ? {} : { dedication: request.dedication }),
                 id: `r-${next++}`,
                 requesterKey: request.requesterKey,
                 requesterName: request.requesterName,
@@ -73,6 +74,7 @@ function memoryTable() {
 }
 
 interface World {
+    dedications?: string;
     onAir?: boolean;
     approval?: string;
     lineup?: boolean;
@@ -84,13 +86,17 @@ interface World {
 
 function build(world: World = {}) {
     const table = memoryTable();
-    const settings: Record<string, unknown> = { 'requests.approval': world.approval ?? 'auto' };
+    const settings: Record<string, unknown> = {
+        'requests.approval': world.approval ?? 'auto',
+        ...(world.dedications === undefined ? {} : { 'requests.dedications': world.dedications }),
+    };
     const config = {
         get: vi.fn((key: string, fallback: unknown) => settings[key] ?? fallback),
         has: vi.fn((key: string) => key in settings),
     } as unknown as AppConfig;
     const jobs = { send: vi.fn(async (_name: string, _payload: unknown) => 'job') };
-    const director = { applyEdit: vi.fn(async () => world.edit ?? { ok: true }) };
+    const director = { applyEdit: vi.fn(async (_edit: unknown) => world.edit ?? { ok: true }) };
+    const segments = { plan: vi.fn(async () => ({ id: 'seg-1' })), markFailed: vi.fn(async () => undefined) };
     const resolver = { resolve: vi.fn(async () => (world.resolves === false ? [] : [RESOLVED])) };
     const audio = {
         findForBindings: vi.fn(async () =>
@@ -118,11 +124,12 @@ function build(world: World = {}) {
         audio as never,
         { isFetching: () => world.fetching ?? false } as never,
         director as never,
+        segments as never,
         jobs as never,
         logger,
     );
     const told = () => jobs.send.mock.calls.filter(call => call[0] === 'messaging.announce').map(call => (call[1] as { text: string }).text);
-    return { desk, table, jobs, director, resolver, told };
+    return { desk, table, jobs, director, resolver, segments, told };
 }
 
 beforeEach(() => vi.clearAllMocks());
@@ -289,5 +296,54 @@ describe('airing', () => {
         await desk.submit(app(), TEARDROP);
 
         expect(await desk.aired('t-999')).toBe(0);
+    });
+});
+
+describe('a dedication', () => {
+    const dedication = { to: 'Danielle', message: 'you still owe me twenty bucks' };
+
+    it('plans the words in front of the record, carrying the listener’s parts to the writer and nowhere else', async () => {
+        const { desk, director, segments } = build();
+
+        const row = await desk.submit(chat(), TEARDROP, dedication);
+
+        expect(segments.plan).toHaveBeenCalledWith({
+            kind: 'dedication',
+            label: 'Dedication',
+            context: { dedicatedBy: 'Sam', dedicateTo: 'Danielle', message: 'you still owe me twenty bucks' },
+        });
+        expect(director.applyEdit).toHaveBeenCalledWith({
+            kind: 'insertRequested',
+            track: RESOLVED,
+            requestId: row.id,
+            dedication: { segmentId: 'seg-1', segmentKind: 'dedication' },
+        });
+        expect(row.dedication).toEqual(dedication);
+    });
+
+    it('writes the planned words off when the record could not go in, rather than leave them looking like a break to come', async () => {
+        const { desk, segments } = build({ edit: { ok: false, reason: 'no-gap', message: 'no quiet place' } });
+
+        await desk.submit(chat(), TEARDROP, dedication);
+
+        expect(segments.markFailed).toHaveBeenCalledWith('seg-1', expect.any(String), 'planned');
+    });
+
+    it('plays the record without the words when the operator has turned dedications off, and keeps the dedication for them', async () => {
+        const { desk, director, segments } = build({ dedications: 'false' });
+
+        const row = await desk.submit(chat(), TEARDROP, dedication);
+
+        expect(segments.plan).not.toHaveBeenCalled();
+        expect(director.applyEdit).toHaveBeenCalledWith(expect.not.objectContaining({ dedication: expect.anything() }));
+        expect(row.dedication).toEqual(dedication);
+    });
+
+    it('plans nothing for a request with no dedication', async () => {
+        const { desk, segments } = build();
+
+        await desk.submit(app(), TEARDROP);
+
+        expect(segments.plan).not.toHaveBeenCalled();
     });
 });

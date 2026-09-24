@@ -1096,8 +1096,12 @@ export class StationLineup implements LiveOrder {
      * its turn behind the first. Nothing near enough is refused as `no-gap` rather than pushed
      * further down: the caller holds the request and asks again, which is better than a request
      * that airs an hour after anybody remembers asking.
+     *
+     * A `dedication` goes in the same gap, directly in front of the record, so the words said with a
+     * request are the last thing before it. Its writer names the record that follows, and the claim
+     * that stamps drops the dedication at hand-over if anything ever comes between them.
      */
-    insertRequested(track: RundownTrack, requestId: string): EditResult {
+    insertRequested(track: RundownTrack, requestId: string, dedication?: { segmentId: string; segmentKind: string }): EditResult {
         const committed = this.committedThrough();
         let lastRequest = -1;
         this.itemList.forEach((item, index) => {
@@ -1110,7 +1114,11 @@ export class StationLineup implements LiveOrder {
         if (gap === undefined) return refuse('no-gap', 'there is no quiet place near the head of the order for a record just now');
 
         const item: StationLineupTrackItem = { id: randomUUID(), kind: 'track', state: 'planned', track, requestId };
-        this.itemList.splice(gap, 0, item);
+        const lines: StationLineupItem[] =
+            dedication === undefined
+                ? [item]
+                : [{ id: randomUUID(), kind: 'segment', state: 'planned', segmentId: dedication.segmentId, segmentKind: dedication.segmentKind }, item];
+        this.itemList.splice(gap, 0, ...lines);
         return OK;
     }
 

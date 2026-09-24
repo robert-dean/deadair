@@ -38,7 +38,11 @@ describe('RequestsService', () => {
 
         await service.create({ trackId: 't-1', name: '  Robin ' });
 
-        expect(desk.submit).toHaveBeenCalledWith({ key: 'user:a-1', name: 'Robin', actorId: 'a-1' }, expect.objectContaining({ trackId: 't-1' }));
+        expect(desk.submit).toHaveBeenCalledWith(
+            { key: 'user:a-1', name: 'Robin', actorId: 'a-1' },
+            expect.objectContaining({ trackId: 't-1' }),
+            undefined,
+        );
     });
 
     it('calls somebody who gave no name "a listener", never anything from their account', async () => {
@@ -46,7 +50,7 @@ describe('RequestsService', () => {
 
         await service.create({ trackId: 't-1' });
 
-        expect(desk.submit).toHaveBeenCalledWith(expect.objectContaining({ name: UNNAMED_REQUESTER }), expect.anything());
+        expect(desk.submit).toHaveBeenCalledWith(expect.objectContaining({ name: UNNAMED_REQUESTER }), expect.anything(), undefined);
     });
 
     it('answers 404 for a record the station could not play', async () => {
@@ -71,5 +75,13 @@ describe('RequestsService', () => {
     it('says whether a request came from an app or a chat', () => {
         expect(toListenerRequest(row()).source).toBe('app');
         expect(toListenerRequest(row({ requesterKey: 'chat:deadair.telegram:7' })).source).toBe('chat');
+    });
+
+    it('passes a dedication on, tidied', async () => {
+        const { service, desk } = build();
+
+        await service.create({ trackId: 't-1', dedicateTo: ' Danielle ', message: 'happy\nbirthday' });
+
+        expect(desk.submit).toHaveBeenCalledWith(expect.anything(), expect.anything(), { to: 'Danielle', message: 'happy birthday' });
     });
 });

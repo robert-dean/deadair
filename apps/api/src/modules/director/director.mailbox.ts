@@ -67,7 +67,8 @@ export type OrderEdit =
     | { kind: 'insertTrack'; track: RundownTrack; atIndex?: number }
     // A record a listener asked for, already resolved and with its audio already local, placed by
     // the order itself in the first quiet gap near the head. See `StationLineup.insertRequested`.
-    | { kind: 'insertRequested'; track: RundownTrack; requestId: string }
+    // `dedication` is a planned segment to go directly in front of it, when the listener dedicated it.
+    | { kind: 'insertRequested'; track: RundownTrack; requestId: string; dedication?: { segmentId: string; segmentKind: string } }
     // The order half of a skip to one record. Cutting what is on air is the transport's half, done by
     // the caller once this has answered, since the mailbox must not sit waiting out a boundary.
     | { kind: 'skipTo'; itemId: string }

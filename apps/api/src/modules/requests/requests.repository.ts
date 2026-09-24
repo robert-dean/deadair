@@ -32,6 +32,14 @@ export interface RequestRow {
     reason?: string;
     createdAt: DateTime;
     airedAt?: DateTime;
+    /** A dedication: who it is for, and the listener's own words to go with it. Both untrusted. */
+    dedication?: Dedication;
+}
+
+/** Who a request is dedicated to and what the listener wanted said. The listener's words, never the station's. */
+export interface Dedication {
+    to?: string;
+    message?: string;
 }
 
 /** What {@link RequestsRepository.create} is given. */
@@ -46,6 +54,7 @@ export interface NewRequest {
     artist: string;
     status: RequestStatus;
     reason?: string;
+    dedication?: Dedication;
 }
 
 /** A record the request search found. */
@@ -74,6 +83,8 @@ const COLUMNS = [
     'reason',
     'createdAt',
     'airedAt',
+    'dedicateTo',
+    'message',
 ] as const;
 
 /** A row as the module reads it, dropping absent optionals rather than passing nulls on. See `apps/api/CLAUDE.md`. */
@@ -93,6 +104,8 @@ function toRow(row: {
     reason: string | null;
     createdAt: DateTime;
     airedAt: DateTime | null;
+    dedicateTo: string | null;
+    message: string | null;
 }): RequestRow {
     const chat =
         row.pluginId != null && row.chatId != null && row.chatKind != null && row.messageId != null
@@ -111,6 +124,11 @@ function toRow(row: {
         ...(row.reason == null ? {} : { reason: row.reason }),
         createdAt: row.createdAt,
         ...(row.airedAt == null ? {} : { airedAt: row.airedAt }),
+        ...(row.dedicateTo == null && row.message == null
+            ? {}
+            : {
+                  dedication: { ...(row.dedicateTo == null ? {} : { to: row.dedicateTo }), ...(row.message == null ? {} : { message: row.message }) },
+              }),
     };
 }
 
@@ -139,6 +157,8 @@ export class RequestsRepository extends DataRepository {
                 artist: request.artist,
                 status: request.status,
                 reason: request.reason ?? null,
+                dedicateTo: request.dedication?.to ?? null,
+                message: request.dedication?.message ?? null,
                 ...(request.status === 'declined' ? { decidedAt: sql<DateTime>`now()` } : {}),
             })
             .returning(COLUMNS)

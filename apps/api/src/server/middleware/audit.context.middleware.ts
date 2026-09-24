@@ -24,12 +24,20 @@ export const auditContextMiddleware: () => ServerKitMiddleware = () => {
         // the four GUCs set below are read by nothing. See [row-level-security](https://github.com/robert-dean/deadair/discussions/31).
         // The transaction stays because of the two reasons above, and deleting it on the grounds
         // that the RLS story was fiction would break both.
+        // Resolved up front, because the scope may not be there to ask afterwards. ServerKit disposes
+        // it when the response CLOSES, which is when the client hangs up as well as when the body is
+        // flushed, and a client that gives up mid-request (Liquidsoap past its own time limit on a
+        // segment's audio, on 24 September) leaves every later `ctx.container` call throwing
+        // "Cannot resolve from a disposed container". The work registered here is still owed: the
+        // transaction committed whether or not anybody was left to hear the answer.
+        const afterCommit = ctx.container.get(AfterCommit);
+
         if (isTransactionExempt(ctx, DEFAULT_TRANSACTION_EXEMPTIONS)) {
             await next();
             // There was no transaction to wait for, so "after the commit" is here.
             // Running it on this branch too is what keeps `AfterCommit.add` from
             // meaning "never" on a route somebody later exempts.
-            await ctx.container.get(AfterCommit).run();
+            await afterCommit.run();
             return;
         }
 
@@ -78,8 +86,14 @@ export const auditContextMiddleware: () => ServerKitMiddleware = () => {
             // pool. Nothing upstream of here touches the database today, which is the only reason
             // that was invisible instead of a bug, and is exactly what makes it a trap for whoever
             // adds the first one.
-            (ctx.container as ScopedContainer).override(Kysely<DB>, db);
-            (ctx.container as ScopedContainer).override(PgBossConnectionProvider, pooledJobConnections);
+            //
+            // Unless the response has already closed, in which case the scope is disposed and there
+            // is nothing left to point anywhere: overriding it throws, and that throw is what turned a
+            // client hanging up into a logged 500 on a request that had otherwise succeeded.
+            if (!ctx.res?.closed) {
+                (ctx.container as ScopedContainer).override(Kysely<DB>, db);
+                (ctx.container as ScopedContainer).override(PgBossConnectionProvider, pooledJobConnections);
+            }
         }
 
         // Past here the transaction has COMMITTED. It rejects instead when `next()`
@@ -87,6 +101,6 @@ export const auditContextMiddleware: () => ServerKitMiddleware = () => {
         // handler registered, which is the point of registering it rather than doing
         // it inline. The `finally` above does not change that: a throw carries straight
         // past this line.
-        await ctx.container.get(AfterCommit).run();
+        await afterCommit.run();
     };
 };

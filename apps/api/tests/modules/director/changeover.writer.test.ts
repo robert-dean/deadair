@@ -90,7 +90,7 @@ describe('ChangeoverWriter', () => {
         for (let attempt = 0; attempt < 60; attempt++) {
             const written = await build().write(asking({ greeting: morning, changeover: { incomingShow: 'Afternoons' } }));
 
-            if (written!.script.includes('good morning')) expect(written?.claimsTime).toEqual({ from: 1_000, until: 9_000 });
+            if (written!.script.toLowerCase().includes('good morning')) expect(written?.claimsTime).toEqual({ from: 1_000, until: 9_000 });
             else expect(written?.claimsTime).toBeUndefined();
         }
     });

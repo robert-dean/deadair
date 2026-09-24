@@ -64,7 +64,7 @@ describe('WelcomeWriter', () => {
 
     it('claims the greeting window only when the words actually carry it', async () => {
         const greeted = await build().write(asking({ next, greeting: morning }));
-        if (greeted?.script.includes('good morning')) {
+        if (greeted?.script.toLowerCase().includes('good morning')) {
             expect(greeted.claimsTime).toEqual({ from: morning.validFrom, until: morning.validUntil });
         } else {
             // A phrasing whose greeting chunk was dropped promised nothing about the time of day and
@@ -84,6 +84,21 @@ describe('WelcomeWriter', () => {
         // have it back-announce a record to somebody who has just arrived.
         const cleared = await build({ [WELCOME_KEYS.templates]: '   ' }).write(asking({ previous, next, greeting: morning }));
         expect(cleared?.script).not.toContain(previous.title);
+    });
+
+    it('capitalises a greeting that opens the line', async () => {
+        // "good afternoon. Thanks for joining us on Deadair." is how this aired: the greeting is the
+        // station's own lowercase phrase, and the phrasing puts it first.
+        const opening = await build({ [WELCOME_KEYS.templates]: '[[{{greeting}}. ]]Thanks for joining us on {{station.name}}.' }).write(
+            asking({ greeting: morning }),
+        );
+        expect(opening?.script).toBe('Good morning. Thanks for joining us on Deadair.');
+
+        // Mid-sentence it stays as it was written.
+        const within = await build({ [WELCOME_KEYS.templates]: 'And a very {{greeting}} from {{station.name}}.' }).write(
+            asking({ greeting: morning }),
+        );
+        expect(within?.script).toBe('And a very good morning from Deadair.');
     });
 
     it('names the presenter where the station has given itself one', async () => {

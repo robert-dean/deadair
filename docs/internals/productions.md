@@ -196,6 +196,16 @@ And **it is still a GROUP even at one item**, because `groupId` is how `releaseU
 owns, since a kind is free text and a `callin` band could otherwise draw one turn of a past phone-in off the
 shelf and air it alone.
 
+**A production has a shelf life of an hour** (`director/production.shelf.ts`), from when it was made or the
+slot it was scheduled for, whichever is later. A phone-in is written for its moment: the host names the time
+and the part of the day, and none of that can be re-cut. Nothing used to age one out, so a programme that
+missed its audience waited for the next one, and on 24 September the station opened at 07:24 with a phone-in
+made at 17:55 the evening before. It is checked twice because it can go stale in two places. `injectProductions`
+fails one too old to place, including one that has sat half-rendered since yesterday. `toPlayerItems` skips one
+that was placed fresh and then outlived its hour in the order while nobody listened, every member of it, so the
+block fallback never airs half a programme. A reading is exempt: it is carried to its slot, and its words are
+an author's rather than the station's.
+
 ## What it writes down
 
 **A production writes down what it wrote, which is what gives a caller a memory.**

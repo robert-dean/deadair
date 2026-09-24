@@ -15,6 +15,14 @@ export interface StationAir {
      * a station stopped before a restart must not put itself back on air.
      */
     active: boolean;
+    /**
+     * Whether a stand-down was the running order running out and saying to stop, rather than
+     * somebody stopping the station. Only ever true while `active` is false.
+     *
+     * The schedule reads it: a station an operator stopped is left alone, and one whose programme
+     * simply ended is changed over when the next block begins. See migration 0046.
+     */
+    ranOut: boolean;
 }
 
 /**
@@ -34,10 +42,10 @@ export interface StationAir {
 export class StationAirRepository extends DataRepository {
     /** Whether this slot is driving, or `undefined` before the station has ever aired anything. */
     async get(slot = MAIN_SLOT): Promise<StationAir | undefined> {
-        const row = await this.db.selectFrom('deadair.stationAir').select(['slot', 'active']).where('slot', '=', slot).executeTakeFirst();
+        const row = await this.db.selectFrom('deadair.stationAir').select(['slot', 'active', 'ranOut']).where('slot', '=', slot).executeTakeFirst();
         if (!row) return undefined;
 
-        return { slot: row.slot, active: row.active };
+        return { slot: row.slot, active: row.active, ranOut: row.ranOut };
     }
 
     /**
@@ -51,8 +59,8 @@ export class StationAirRepository extends DataRepository {
     async goOnAir(slot = MAIN_SLOT): Promise<void> {
         await this.db
             .insertInto('deadair.stationAir')
-            .values({ slot, active: true })
-            .onConflict(oc => oc.column('slot').doUpdateSet({ active: true }))
+            .values({ slot, active: true, ranOut: false })
+            .onConflict(oc => oc.column('slot').doUpdateSet({ active: true, ranOut: false }))
             .execute();
     }
 
@@ -63,8 +71,11 @@ export class StationAirRepository extends DataRepository {
      * saying where it got to — so the console can still draw what the station stopped
      * part-way through. `active` is the whole difference between stopped and
      * stopped-and-lost.
+     *
+     * @param ranOut - The running order ran out and said to stop, rather than anybody stopping the
+     *   station. Written either way, so an operator's Stop clears what a run-out left behind.
      */
-    async standDown(slot = MAIN_SLOT): Promise<void> {
-        await this.db.updateTable('deadair.stationAir').set({ active: false }).where('slot', '=', slot).execute();
+    async standDown(slot = MAIN_SLOT, ranOut = false): Promise<void> {
+        await this.db.updateTable('deadair.stationAir').set({ active: false, ranOut }).where('slot', '=', slot).execute();
     }
 }

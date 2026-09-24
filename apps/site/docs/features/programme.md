@@ -17,6 +17,8 @@ A schedule need not cover the day. The hours no block claims play the sustaining
 
 The schedule never interrupts a record: the running order makes each changeover at a record boundary. If you put something on yourself inside a block, yours holds until the next block begins, and the Desk offers to keep it on longer.
 
+A block set to stop when it runs out goes quiet for the rest of its hours, and the next block still starts on time. Pressing **Stop** yourself is different: the schedule leaves a station you stopped off until you put it back on.
+
 At each changeover the station says so between the two shows, with the new host thanking the last one. See [When the show changes](./breaks.md#when-the-show-changes).
 
 ## Modes

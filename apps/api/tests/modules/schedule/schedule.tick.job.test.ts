@@ -34,6 +34,8 @@ const slot = (id: string, over: Partial<ScheduleSlot> = {}): ScheduleSlot => ({
 interface Options {
     /** Whether the director says the station is driving. */
     active?: boolean;
+    /** Whether a stand-down was the running order running out, rather than somebody stopping it. */
+    ranOut?: boolean;
     /** What the clock says should be on. */
     inForce?: ScheduleSlot;
     /** What the running order says it already is. */
@@ -66,6 +68,7 @@ function build(options: Options = {}) {
         status: vi.fn(() => ({ active: options.active ?? true, airMode: 'audience' as const, remaining: 0 })),
         order: vi.fn(() => (options.airing === undefined ? { items: [] } : { items: [], slotId: options.airing })),
         holdUntil: vi.fn(() => options.holdUntil),
+        ranOut: vi.fn(() => options.active === false && (options.ranOut ?? false)),
     } as unknown as DirectorService;
 
     const console = {
@@ -115,6 +118,45 @@ describe('ScheduleTickJob', () => {
         expect(console.putOnAir).not.toHaveBeenCalled();
         // It does not even ask, because the answer could not change what it does.
         expect(schedule.inForce).not.toHaveBeenCalled();
+    });
+
+    // Issue #276. A block whose "When it runs out" is Stop stands the station down when its records are
+    // spent, and that stand-down looked exactly like an operator's: every block after it stayed off.
+    describe('a station whose programme ran out', () => {
+        it('starts the next block, because nobody stopped it', async () => {
+            const next = slot('evening', { label: 'Evening' });
+            const { tick, console } = build({ active: false, ranOut: true, inForce: next, airing: 'morning' });
+
+            await tick();
+
+            expect(console.putOnAir).toHaveBeenCalledWith(expect.objectContaining({ name: 'Evening' }), next);
+        });
+
+        it('stays quiet for the rest of the block that ran out, since that is what Stop asked for', async () => {
+            const { tick, console } = build({ active: false, ranOut: true, inForce: slot('morning'), airing: 'morning', overrunCap: 5 });
+
+            await tick();
+
+            expect(console.putOnAir).not.toHaveBeenCalled();
+            // Nothing is on air to have overrun.
+            expect(console.overrunning).not.toHaveBeenCalled();
+        });
+
+        it('hands a gap after it to the sustaining source', async () => {
+            const { tick, console } = build({ active: false, ranOut: true, inForce: undefined, airing: 'morning', sustaining: { brief: 'jazz' } });
+
+            await tick();
+
+            expect(console.putOnAir).toHaveBeenCalledWith(expect.objectContaining({ name: 'Sustaining' }), undefined, true);
+        });
+
+        it('still respects a hold', async () => {
+            const { tick, console } = build({ active: false, ranOut: true, inForce: slot('evening'), airing: 'morning', holdUntil: Infinity });
+
+            await tick();
+
+            expect(console.putOnAir).not.toHaveBeenCalled();
+        });
     });
 
     it('leaves a held station alone, because a takeover expiring silently is what the hold is for', async () => {

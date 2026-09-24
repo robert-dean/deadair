@@ -60,6 +60,13 @@ import { ScheduleService } from './schedule.service.js';
  * it back on.** Stopping is an operator saying out of service, and the audience gate and the
  * dead-man switch already mean the station can be silent for reasons a timer must not overrule.
  *
+ * **Except a station that stood down because its programme ran out**, which nobody stopped. A block
+ * whose "When it runs out" is Stop goes quiet when its records are spent, and that is a fact about
+ * the block: the next one still starts on time. Until `DirectorService.ranOut` said which stand-down
+ * this was, the two looked the same, and one short playlist took every block after it off the air.
+ * Within the block that ran out it stays quiet, since that is what Stop asked for, and the ordinary
+ * comparison below is what says so: the stopped order still carries that block's id.
+ *
  * A station with no schedule is left alone, which is every station before somebody opens the page.
  *
  * And a slot whose playlist has nothing to play is DECLINED rather than aired: what is on stays on.
@@ -83,8 +90,10 @@ export class ScheduleTickJob extends PlainJob {
     }
 
     protected async execute(): Promise<void> {
-        // Off air is not a mismatch to fix. See the note above.
-        if (!this.director.status().active) return;
+        // Off air is not a mismatch to fix, unless it was a programme running out rather than
+        // somebody stopping the station. See the note above.
+        const active = this.director.status().active;
+        if (!active && !this.director.ranOut()) return;
 
         // Resolved ONCE, for now, and carried into the changeover below. Asking twice would open a
         // window across a boundary in which the order is built from one slot's source and stamped
@@ -119,7 +128,8 @@ export class ScheduleTickJob extends PlainJob {
         }
 
         if (airing === slot.id) {
-            await this.boundOverrun(slot);
+            // Nothing is on air to have overrun when the block has already run out.
+            if (active) await this.boundOverrun(slot);
             return;
         }
 

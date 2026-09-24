@@ -112,8 +112,11 @@ export type DirectorCommand =
      * rather than reporting a station on air that is holding nothing.
      */
     | { kind: 'resume' }
-    /** The station is going off air, from the transport or from an order that ended. */
-    | { kind: 'standDown' }
+    /**
+     * The station is going off air, from the transport or from an order that ended. `ranOut` says
+     * which, because the schedule treats them differently: see `DirectorService.ranOut`.
+     */
+    | { kind: 'standDown'; ranOut?: boolean }
     /**
      * Put the station on air with a new running order, built from these records.
      *

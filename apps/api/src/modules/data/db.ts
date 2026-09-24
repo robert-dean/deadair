@@ -830,6 +830,7 @@ export interface DeadairSettings {
 export interface DeadairStationAir {
   active: Generated<boolean>;
   createdAt: Generated<DateTime>;
+  ranOut: Generated<boolean>;
   slot: Generated<string>;
   updatedAt: Generated<DateTime>;
 }

@@ -321,6 +321,20 @@ export class DirectorService {
      */
     private standDownFromActive = false;
     /**
+     * Whether the station is off because its running order ran out and said to stop, rather than
+     * because somebody stopped it. Mirrors `station_air.ran_out` the way {@link active} mirrors
+     * `active`, and is read by the schedule through {@link ranOut}.
+     */
+    private airRanOut = false;
+    /**
+     * Set for exactly the length of {@link finish}'s own `rundown.reset()`.
+     *
+     * The rundown's reset listener is the one place every stand-down arrives, the operator's Stop
+     * and a finished order alike, and it is called synchronously. This is how it tells the two apart
+     * without the transport having to carry a reason it has no business knowing.
+     */
+    private finishingOrder = false;
+    /**
      * Bumped wherever the plan this pass was computed against stops being the plan:
      * a stand-down, a new running order, an edit.
      *
@@ -413,8 +427,9 @@ export class DirectorService {
                 // Cancel first, in this stack frame, then queue the write. See `beginStandDown`:
                 // a command cannot cancel a pass that is already gathering, because it runs after
                 // it.
-                this.beginStandDown();
-                this.send({ kind: 'standDown' });
+                const ranOut = this.finishingOrder;
+                this.beginStandDown(ranOut);
+                this.send({ kind: 'standDown', ranOut });
             }),
         );
 
@@ -505,6 +520,19 @@ export class DirectorService {
      */
     holdUntil(): number | undefined {
         return this.lineup?.holdUntil;
+    }
+
+    /**
+     * Whether the station is off air because its running order ran out and said to stop, rather
+     * than because somebody stopped it.
+     *
+     * The schedule's tick reads it, and it is the whole of what separates the two. It leaves a
+     * station an operator stopped alone, since Stop is somebody saying out of service; a block whose
+     * "When it runs out" is Stop is only its own programme ending, and without this the next block
+     * never started either, because the two stand-downs looked the same.
+     */
+    ranOut(): boolean {
+        return !this.active && this.airRanOut;
     }
 
     /**
@@ -643,6 +671,7 @@ export class DirectorService {
         this.pendingVoice = undefined;
         const air = await this.readAir(true);
         this.active = air?.active ?? false;
+        this.airRanOut = air?.ranOut ?? false;
 
         this.lineup = await inScope(this.container, async scope => scope.get(StationLineupRepository).load());
         if (!this.lineup) return;
@@ -748,7 +777,7 @@ export class DirectorService {
                 return await this.resume();
 
             case 'standDown':
-                await this.standDown();
+                await this.standDown(command.ranOut);
                 return undefined;
 
             case 'putOnAir':
@@ -1327,6 +1356,7 @@ export class DirectorService {
         // still be holding.
         this.extendSentAt = undefined;
         this.active = true;
+        this.airRanOut = false;
 
         this.logger.info('director: put the station on air', { name: binding.name, items: tracks.length, source: binding.source });
         // Voided, like every other event: the recorder never throws, and a broadcast starting must
@@ -1948,6 +1978,7 @@ export class DirectorService {
 
         const air = await this.readAir();
         this.active = air?.active ?? false;
+        this.airRanOut = air?.ranOut ?? false;
         if (!this.active) return;
 
         const lineup = this.lineup;
@@ -3111,8 +3142,16 @@ export class DirectorService {
             default:
                 this.logger.info('director: the running order ended and says to stop; standing down');
                 // Goes through the rundown so the mount is handed back the same way the
-                // operator's own Stop does, and so this class hears its own stand-down.
-                this.rundown.reset();
+                // operator's own Stop does, and so this class hears its own stand-down. Flagged
+                // around the call so the listener records it as the order ending rather than as
+                // somebody stopping the station, which is what lets the schedule start the next
+                // block: see `station_air.ran_out` in migration 0046.
+                this.finishingOrder = true;
+                try {
+                    this.rundown.reset();
+                } finally {
+                    this.finishingOrder = false;
+                }
                 return;
         }
     }
@@ -3252,7 +3291,7 @@ export class DirectorService {
      *
      * So the cancellation is synchronous and the durable write is queued behind it.
      */
-    private beginStandDown(): void {
+    private beginStandDown(ranOut = false): void {
         // The transition, caught at the only moment it is visible. `active` is false a line below
         // and the durable half runs behind the mailbox, by which time nothing on this object still
         // says the station was on air — so a feed reading it there would report a stop every time
@@ -3262,6 +3301,7 @@ export class DirectorService {
         this.epoch.bump();
         this.pendingVoice = undefined;
         this.active = false;
+        this.airRanOut = ranOut;
         this.extendSentAt = undefined;
         this.airReadAt = 0;
         this.standingDown = true;
@@ -3311,14 +3351,19 @@ export class DirectorService {
         return { resumed: true };
     }
 
-    /** Remember that the station is off, so a restart stays off. */
-    private async standDown(): Promise<void> {
+    /**
+     * Remember that the station is off, so a restart stays off.
+     *
+     * @param ranOut - The running order ran out and said to stop, rather than anybody stopping the
+     *   station. Stored beside `active` so a restart answers the schedule the same way.
+     */
+    private async standDown(ranOut = false): Promise<void> {
         // Idempotent, and called directly by the `standDown` command as well as after
         // {@link beginStandDown}. A stand-down reached any other way still has to cancel.
-        this.beginStandDown();
+        this.beginStandDown(ranOut);
 
         try {
-            await inScope(this.container, async scope => scope.get(StationAirRepository).standDown());
+            await inScope(this.container, async scope => scope.get(StationAirRepository).standDown(MAIN_SLOT, ranOut));
             // What the player was holding was retracted with it, and the states saying so are
             // worth keeping: they are what a console draws as the running order this station
             // stopped part-way through.

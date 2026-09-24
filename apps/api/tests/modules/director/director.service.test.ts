@@ -172,6 +172,7 @@ function build(options: Options = {}) {
     let air: StationAir | undefined = {
         slot: 'main',
         active: true,
+        ranOut: false,
         ...options.air,
     };
 
@@ -192,11 +193,11 @@ function build(options: Options = {}) {
 
     const airRepository = {
         get: vi.fn(async () => air),
-        standDown: vi.fn(async () => {
-            air = air ? { ...air, active: false } : air;
+        standDown: vi.fn(async (_slot?: string, ranOut = false) => {
+            air = air ? { ...air, active: false, ranOut } : air;
         }),
         goOnAir: vi.fn(async () => {
-            air = { slot: 'main', active: true };
+            air = { slot: 'main', active: true, ranOut: false };
         }),
     } as unknown as StationAirRepository;
 
@@ -1071,7 +1072,7 @@ describe('DirectorService noticing the row', () => {
         await director.start();
         expect(rundown.upcoming()).toHaveLength(0);
 
-        setAir({ slot: 'main', active: true });
+        setAir({ slot: 'main', active: true, ranOut: false });
         await wake(rundown);
 
         expect(rundown.upcoming().length).toBeGreaterThan(0);
@@ -1084,7 +1085,7 @@ describe('DirectorService noticing the row', () => {
         await director.start();
         expect(rundown.upcoming()).toHaveLength(COMMIT_LEAD);
 
-        setAir({ slot: 'main', active: false });
+        setAir({ slot: 'main', active: false, ranOut: false });
         // Past the throttle, because this station IS on air and a busy director reads the row
         // once every few seconds rather than on every wake.
         vi.setSystemTime(Date.now() + 10_000);
@@ -1285,6 +1286,9 @@ describe('DirectorService standing down', () => {
         await new Promise(resolve => setImmediate(resolve));
 
         expect(airRepository.standDown).toHaveBeenCalled();
+        // Somebody stopped it, so the schedule must leave it alone.
+        expect(airRepository.standDown).toHaveBeenLastCalledWith('main', false);
+        expect(director.ranOut()).toBe(false);
     });
 
     it('tells the activity feed once, on the edge', async () => {
@@ -1486,6 +1490,27 @@ describe('DirectorService at the end of a lineup', () => {
 
         expect(director.status().active).toBe(false);
         expect(rundown.upcoming()).toHaveLength(0);
+    });
+
+    it('records that the order ran out rather than being stopped, so the schedule can start the next block', async () => {
+        // Issue #276: the two stand-downs were the same row, and the schedule leaves a stopped
+        // station alone, so one block ending on Stop kept every block after it off the air.
+        const { director, rundown, airRepository, seed } = build({ items: ['a'], mode: 'feature', onEnd: 'stop' });
+        await seed();
+
+        await director.start();
+        await rundown.next();
+        await new Promise(resolve => setImmediate(resolve));
+
+        expect(airRepository.standDown).toHaveBeenLastCalledWith('main', true);
+        expect(director.ranOut()).toBe(true);
+
+        // An operator's Stop afterwards is theirs, and clears it.
+        rundown.reset();
+        await new Promise(resolve => setImmediate(resolve));
+
+        expect(airRepository.standDown).toHaveBeenLastCalledWith('main', false);
+        expect(director.ranOut()).toBe(false);
     });
 
     // `on_end: 'resume'` and `on_end: 'rotation'` are gone with the library. Both named another

@@ -9,6 +9,11 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.31.1] — 2026-09-24
+
+- A scheduled block set to stop when it runs out no longer keeps every block after it off the air. When its records were spent the station stood down, and the schedule leaves a stood-down station alone because Stop is an operator taking it out of service, so the next block never started and the timetable read as though something had been put on by hand. The station now records whether it stopped because the programme ran out or because somebody pressed Stop: a block that ran out stays quiet until the next one begins, which then starts on time, and a station you stopped yourself is still left alone.
+- A running order that ends on Stop now plays its last records out before standing down. It used to stand down the moment the player fetched the final record ahead of time, which cut off the record on air and never played the last one.
+
 ## [0.31.0] — 2026-09-23
 
 - A `list` config field can declare `presets`: rows the console's Add button offers to start from, each filling the cells it names. An empty row is always offered beside them, and a preset never fills a `secret` column.
@@ -822,7 +827,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.31.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.31.1...HEAD
+[0.31.1]: https://github.com/robert-dean/deadair/compare/v0.31.0...v0.31.1
 [0.31.0]: https://github.com/robert-dean/deadair/compare/v0.30.1...v0.31.0
 [0.30.1]: https://github.com/robert-dean/deadair/compare/v0.30.0...v0.30.1
 [0.30.0]: https://github.com/robert-dean/deadair/compare/v0.29.1...v0.30.0

@@ -1,3 +1,5 @@
+import { i18n } from '../../i18n/i18n.setup';
+
 /**
  * A decision's `kind` in the words the station's own registry gives it, rather than the queue name
  * it is stored under.
@@ -16,28 +18,28 @@
  * since this file was last updated, and both fall through to a sentence built from the raw string
  * rather than a blank cell.
  */
-const JOB_SENTENCES: Record<string, string> = {
-    'catalog.sync': 'Asked a music source what it still has',
-    'catalog.resolve_placeholders': 'Matched a placeholder record to a real one',
-    'catalog.enrich': 'Asked what the providers know about a record',
-    'catalog.extract_facts': 'Read an article for facts to talk about',
-    'catalog.cache_art': 'Fetched cover art',
-    'catalog.analyze': 'Measured a record',
-    'playout.cache_track': "Fetched a record's audio",
-    'playout.sweep_track_cache': 'Threw away cached audio over the cap',
-    'director.extend_lineup': 'Topped up the running order',
-    'director.replan_lineup': 'Threw the running order away and planned it again',
-    'director.write_break': 'Wrote what a host says',
-    'director.produce': 'Drafted a production',
-    'render.stitch_production': 'Joined a production into one file',
-    'render.segment': 'Turned a break into audio',
-    'render.prune_script_history': 'Forgot old scripts',
-    'personas.distil_notes': "Read a persona's recent scripts into notes",
-    'personas.write_stories': "Wrote a persona's own stories",
-    'activity.prune_events': 'Forgot old activity',
-    'schedule.tick': 'Checked whether the schedule changed',
-    'scrobble.flush': 'Reported what aired to a scrobble service',
-};
+const JOB_SENTENCES = {
+    'catalog.sync': 'station:decision.job.catalogSync',
+    'catalog.resolve_placeholders': 'station:decision.job.catalogResolvePlaceholders',
+    'catalog.enrich': 'station:decision.job.catalogEnrich',
+    'catalog.extract_facts': 'station:decision.job.catalogExtractFacts',
+    'catalog.cache_art': 'station:decision.job.catalogCacheArt',
+    'catalog.analyze': 'station:decision.job.catalogAnalyze',
+    'playout.cache_track': 'station:decision.job.playoutCacheTrack',
+    'playout.sweep_track_cache': 'station:decision.job.playoutSweepTrackCache',
+    'director.extend_lineup': 'station:decision.job.directorExtendLineup',
+    'director.replan_lineup': 'station:decision.job.directorReplanLineup',
+    'director.write_break': 'station:decision.job.directorWriteBreak',
+    'director.produce': 'station:decision.job.directorProduce',
+    'render.stitch_production': 'station:decision.job.renderStitchProduction',
+    'render.segment': 'station:decision.job.renderSegment',
+    'render.prune_script_history': 'station:decision.job.renderPruneScriptHistory',
+    'personas.distil_notes': 'station:decision.job.personasDistilNotes',
+    'personas.write_stories': 'station:decision.job.personasWriteStories',
+    'activity.prune_events': 'station:decision.job.activityPruneEvents',
+    'schedule.tick': 'station:decision.job.scheduleTick',
+    'scrobble.flush': 'station:decision.job.scrobbleFlush',
+} as const;
 
 /** A method-and-path minted before routing matched anything — the console's own page loads. */
 const HTTP_METHOD = /^(GET|POST|PUT|PATCH|DELETE) /;
@@ -57,10 +59,12 @@ export interface DecisionReading {
 }
 
 export function describeDecision(kind: string): DecisionReading {
-    const known = JOB_SENTENCES[kind];
-    if (known !== undefined) return { sentence: known, source: 'job' };
+    // Resolved on every call rather than once at import, so the sentence follows the language on
+    // screen. `Object.hasOwn` rather than an index, because `kind` is free text and `constructor` is a
+    // key every object literal answers.
+    if (Object.hasOwn(JOB_SENTENCES, kind)) return { sentence: i18n.t(JOB_SENTENCES[kind as keyof typeof JOB_SENTENCES]), source: 'job' };
 
-    if (HTTP_METHOD.test(kind)) return { sentence: `Request · ${kind}`, source: 'request' };
+    if (HTTP_METHOD.test(kind)) return { sentence: i18n.t('station:decision.request', { kind }), source: 'request' };
 
     // A job this table has not caught up with. `kind` is a dotted queue name by the same convention
     // every entry above follows (`module.verb_noun`), so trading underscores for spaces gets most of

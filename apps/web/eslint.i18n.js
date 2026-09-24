@@ -19,6 +19,10 @@ export const TRANSLATED = [
     'src/components/topics/**',
     'src/components/catalog/**',
     'src/components/library/**',
+    'src/components/schedule/**',
+    'src/components/programme/**',
+    'src/components/station/**',
+    'src/components/charts/**',
 ];
 
 /**

@@ -1,5 +1,6 @@
 import { Button, Card, Group, NumberInput, Stack, Switch, Text } from '@mantine/core';
 import { useForm } from '@mantine/form';
+import { useTranslation } from 'react-i18next';
 
 import { useSettings, useUpdateSettings } from '../../api/settings.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
@@ -39,6 +40,7 @@ interface FormValues {
  * above it and a single sentence long.
  */
 export function OverrunPanel() {
+    const { t } = useTranslation('schedule');
     const settings = useSettings();
     const save = useUpdateSettings();
 
@@ -56,9 +58,9 @@ export function OverrunPanel() {
     return (
         <Card padding="lg">
             <Stack gap="sm">
-                <Eyebrow>At a boundary</Eyebrow>
+                <Eyebrow>{t('overrun.title')}</Eyebrow>
                 {settings.error ? (
-                    <ErrorAlert title="The boundary setting could not be read" error={settings.error} fallback="How a block starts is unavailable." />
+                    <ErrorAlert title={t('overrun.readFailedTitle')} error={settings.error} fallback={t('overrun.readFailedFallback')} />
                 ) : settings.data === undefined ? undefined : (
                     // Keyed on what the server last said, for `SustainingForm`'s reason: `useForm`
                     // reads its initial values once per mount.
@@ -68,7 +70,7 @@ export function OverrunPanel() {
                         onSubmit={submit}
                         saving={save.isPending}
                         succeeded={save.isSuccess}
-                        failure={save.isError ? apiErrorMessage(save.error, 'The boundary setting could not be saved.') : undefined}
+                        failure={save.isError ? apiErrorMessage(save.error, t('overrun.saveFailed')) : undefined}
                     />
                 )}
             </Stack>
@@ -85,22 +87,19 @@ interface OverrunFormProps {
 }
 
 function OverrunForm({ initial, onSubmit, saving, succeeded, failure }: OverrunFormProps) {
+    const { t } = useTranslation('schedule');
     const form = useForm<FormValues>({ initialValues: initial });
 
     return (
         <form onSubmit={form.onSubmit(onSubmit)}>
             <Stack gap="sm">
-                {failure ? <ErrorAlert title="That could not be saved">{failure}</ErrorAlert> : undefined}
+                {failure ? <ErrorAlert title={t('saveFailedTitle')}>{failure}</ErrorAlert> : undefined}
 
-                <Switch
-                    label="Start shows on time"
-                    description="Off, the record playing when a block starts always finishes, however long it is. On, a record from the last programme that is still going this long into the new one is cut, the way Skip cuts it."
-                    {...form.getInputProps('on', { type: 'checkbox' })}
-                />
+                <Switch label={t('overrun.onLabel')} description={t('overrun.onDescription')} {...form.getInputProps('on', { type: 'checkbox' })} />
 
                 <NumberInput
-                    label="Minutes a record may run into the next show"
-                    description="Most records end well inside five minutes, so only the long ones are cut. Zero cuts whatever is playing the moment the block starts."
+                    label={t('overrun.minutesLabel')}
+                    description={t('overrun.minutesDescription')}
                     min={0}
                     max={MAX_MINUTES}
                     allowDecimal={false}
@@ -110,17 +109,17 @@ function OverrunForm({ initial, onSubmit, saving, succeeded, failure }: OverrunF
                 />
 
                 <Text size="xs" c="dimmed">
-                    Only the schedule’s own changeovers are affected. A programme you put on by hand always lets the record finish.
+                    {t('overrun.note')}
                 </Text>
 
                 <Group justify="flex-end" gap="md">
                     {succeeded && !form.isDirty() ? (
                         <Text size="sm" c="dimmed">
-                            Saved.
+                            {t('saved')}
                         </Text>
                     ) : undefined}
                     <Button type="submit" loading={saving}>
-                        Save
+                        {t('action.save')}
                     </Button>
                 </Group>
             </Stack>

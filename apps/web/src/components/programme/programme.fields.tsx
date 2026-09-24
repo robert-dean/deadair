@@ -1,6 +1,7 @@
 import { Group, NumberInput, Select, Text, Textarea, Checkbox } from '@mantine/core';
 import type { GetInputPropsReturnType } from '@mantine/form';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 
 import { chartsListOptions } from '../../api/charts.queries';
 import { playlistsListOptions } from '../../api/playlists.queries';
@@ -125,6 +126,7 @@ export function SourceField({
     stationPlaylists = false,
     ...input
 }: GetInputPropsReturnType & { description?: string; stationPlaylists?: boolean }) {
+    const { t } = useTranslation('programme');
     const playlists = useQuery(playlistsListOptions);
     const charts = useQuery(chartsListOptions);
     const owned = useQuery({ ...stationPlaylistsListOptions, enabled: stationPlaylists });
@@ -132,11 +134,11 @@ export function SourceField({
     const chosen = splitSource(typeof input.value === 'string' ? input.value : undefined);
     const playlistOptions = offerablePlaylists(playlists.data?.playlists ?? [], chosen?.kind === 'playlist' ? chosen : undefined).map(entry => ({
         value: sourceValue(entry.pluginId, entry.id),
-        label: `${entry.name} — ${entry.pluginName}`,
+        label: t('source.option', { name: entry.name, from: entry.pluginName }),
     }));
     const chartOptions = (charts.data?.charts ?? []).map(entry => ({
         value: chartSourceValue(entry.id),
-        label: `${entry.name} — ${entry.pluginId}`,
+        label: t('source.option', { name: entry.name, from: entry.pluginId }),
     }));
 
     const stationOptions = stationPlaylists
@@ -149,21 +151,21 @@ export function SourceField({
         chartOptions.length === 0 && stationOptions.length === 0
             ? playlistOptions
             : [
-                  ...(stationOptions.length === 0 ? [] : [{ group: 'The station’s playlists', items: stationOptions }]),
-                  { group: stationOptions.length === 0 ? 'Playlists' : 'From the providers', items: playlistOptions },
-                  ...(chartOptions.length === 0 ? [] : [{ group: 'Charts', items: chartOptions }]),
+                  ...(stationOptions.length === 0 ? [] : [{ group: t('source.groupStation'), items: stationOptions }]),
+                  { group: stationOptions.length === 0 ? t('source.groupPlaylists') : t('source.groupProviders'), items: playlistOptions },
+                  ...(chartOptions.length === 0 ? [] : [{ group: t('source.groupCharts'), items: chartOptions }]),
               ];
 
     return (
         <Select
-            label="Playing from"
-            description={description ?? 'Leave it empty for a broadcast the station fills itself.'}
+            label={t('source.label')}
+            description={description ?? t('source.description')}
             data={data}
             searchable
             clearable
-            clearButtonProps={{ 'aria-label': 'Play from no playlist or chart' }}
+            clearButtonProps={{ 'aria-label': t('source.clear') }}
             nothingFoundMessage={
-                playlists.isPending || charts.isPending || (stationPlaylists && owned.isPending) ? 'Reading the plugins…' : 'Nothing on offer'
+                playlists.isPending || charts.isPending || (stationPlaylists && owned.isPending) ? t('source.reading') : t('source.nothing')
             }
             {...input}
         />
@@ -178,14 +180,15 @@ export function SourceField({
  * there greyed out under every other kind of source.
  */
 export function ChartOrderField(input: GetInputPropsReturnType) {
+    const { t } = useTranslation('programme');
     return (
         <Select
-            label="Played"
-            description="A countdown ends on number one, which is the shape a chart show has."
+            label={t('chartOrder.label')}
+            description={t('chartOrder.description')}
             data={[
-                { value: 'countdown', label: 'Countdown, ending on number one' },
-                { value: 'ranked', label: 'Number one first' },
-                { value: 'unordered', label: 'No fixed order' },
+                { value: 'countdown', label: t('chartOrder.countdown') },
+                { value: 'ranked', label: t('chartOrder.ranked') },
+                { value: 'unordered', label: t('chartOrder.unordered') },
             ]}
             allowDeselect={false}
             {...input}
@@ -200,6 +203,7 @@ export function ChartOrderField(input: GetInputPropsReturnType) {
  * back to the station's own halfway through a show somebody cast.
  */
 export function HostField({ markOnAir = false, ...input }: GetInputPropsReturnType & { markOnAir?: boolean }) {
+    const { t } = useTranslation('programme');
     const personas = usePersonas();
     // Hosts only: a caller phones in to a production and never presents. See `presents`.
     const options = (personas.data?.personas ?? []).filter(presents).map(persona => ({
@@ -207,25 +211,23 @@ export function HostField({ markOnAir = false, ...input }: GetInputPropsReturnTy
         // Only where a broadcast is being started NOW, because "on air" is a fact about this moment
         // rather than about a slot that comes round on Tuesdays. `presenting` rather than the
         // station's own host, for the same reason: this marks who an operator can hear.
-        label: markOnAir && persona.presenting ? `${persona.label} (on air)` : persona.label,
+        label: markOnAir && persona.presenting ? t('host.onAir', { label: persona.label }) : persona.label,
     }));
 
-    return <Select label="Hosted by" description="Empty means the station’s own host." data={options} clearable {...input} />;
+    return <Select label={t('host.label')} description={t('host.description')} data={options} clearable {...input} />;
 }
 
 /** What it is asked to play, in the operator's own words. */
 export function BriefField({ description, ...input }: GetInputPropsReturnType & { description?: string }) {
+    const { t } = useTranslation('programme');
     return (
         <Textarea
-            label="Asked to play"
-            description={
-                description ??
-                'In your own words, for the model that chooses records. Leave it empty and the station plays its ordinary rotation. The host only presents.'
-            }
+            label={t('brief.label')}
+            description={description ?? t('brief.description')}
             autosize
             minRows={2}
             maxLength={BRIEF_MAX}
-            placeholder="warm and unhurried"
+            placeholder={t('brief.placeholder')}
             {...input}
         />
     );
@@ -248,11 +250,12 @@ export const BRIEF_MAX = 500;
  * a rule.
  */
 export function EraFields({ from, to }: { from: GetInputPropsReturnType; to: GetInputPropsReturnType }) {
+    const { t } = useTranslation('programme');
     return (
         <Group grow>
             <NumberInput
-                label="From year"
-                description="Empty means no lower bound."
+                label={t('era.fromLabel')}
+                description={t('era.fromDescription')}
                 placeholder="1970"
                 min={1900}
                 max={2100}
@@ -262,8 +265,8 @@ export function EraFields({ from, to }: { from: GetInputPropsReturnType; to: Get
                 {...from}
             />
             <NumberInput
-                label="To year"
-                description="Empty means no upper bound."
+                label={t('era.toLabel')}
+                description={t('era.toDescription')}
                 placeholder="1979"
                 min={1900}
                 max={2100}
@@ -278,34 +281,35 @@ export function EraFields({ from, to }: { from: GetInputPropsReturnType; to: Get
 
 /** Why an undated record is not excluded by a period. Read under {@link EraFields} wherever it appears. */
 export function EraNote() {
+    const { t } = useTranslation('programme');
     return (
         <Text size="xs" c="dimmed">
-            A record whose release year the catalogue does not know is played whatever the period. Leaving it out is not evidence of the wrong decade,
-            and demanding one would empty the draw on a library nothing has enriched.
+            {t('era.note')}
         </Text>
     );
 }
 
 /** What a broadcast is, and what happens when it reaches the end of what it holds. */
 export function ShapeFields({ mode, onEnd }: { mode: GetInputPropsReturnType; onEnd: GetInputPropsReturnType }) {
+    const { t } = useTranslation('programme');
     return (
         <Group grow>
             <Select
-                label="Mode"
+                label={t('shape.modeLabel')}
                 data={[
-                    { value: 'rotation', label: 'Rotation' },
-                    { value: 'setlist', label: 'Setlist' },
-                    { value: 'feature', label: 'Feature' },
+                    { value: 'rotation', label: t('shape.mode.rotation') },
+                    { value: 'setlist', label: t('shape.mode.setlist') },
+                    { value: 'feature', label: t('shape.mode.feature') },
                 ]}
                 allowDeselect={false}
                 {...mode}
             />
             <Select
-                label="When it runs out"
+                label={t('shape.onEndLabel')}
                 data={[
-                    { value: 'extend', label: 'Keep going' },
-                    { value: 'repeat', label: 'Start again' },
-                    { value: 'stop', label: 'Stop' },
+                    { value: 'extend', label: t('shape.onEnd.extend') },
+                    { value: 'repeat', label: t('shape.onEnd.repeat') },
+                    { value: 'stop', label: t('shape.onEnd.stop') },
                 ]}
                 allowDeselect={false}
                 {...onEnd}
@@ -319,12 +323,15 @@ export function ShapeFields({ mode, onEnd }: { mode: GetInputPropsReturnType; on
  *
  * The reassurance is the point: an operator who has told the station never to play something needs
  * to know that repeating a block does not reach past that.
+ *
+ * `what` names which of the two things is repeating rather than carrying the noun itself, so each is
+ * a whole sentence in the catalog instead of one word spliced into another language's grammar.
  */
-export function ShapeNote({ what = 'broadcast' }: { what?: string }) {
+export function ShapeNote({ what = 'broadcast' }: { what?: 'broadcast' | 'block' }) {
+    const { t } = useTranslation('programme');
     return (
         <Text size="xs" c="dimmed">
-            Starting again replays what this {what} already aired. It never reaches further than that: a record you disliked stays off the air whether
-            the {what} is running for the first time or the fifth.
+            {t(`shape.note.${what}`)}
         </Text>
     );
 }
@@ -340,13 +347,8 @@ export function ShapeNote({ what = 'broadcast' }: { what?: string }) {
  * says. The third state is reachable in the column when something wants to express it.
  */
 export function CallinsField(input: GetInputPropsReturnType) {
-    return (
-        <Checkbox
-            label="Take calls during this broadcast"
-            description="A phone-in is written and spoken a turn at a time, so it lands minutes after it is asked for. A setlist or a feature takes none whatever this says."
-            {...input}
-        />
-    );
+    const { t } = useTranslation('programme');
+    return <Checkbox label={t('callins.label')} description={t('callins.description')} {...input} />;
 }
 
 /**
@@ -357,11 +359,6 @@ export function CallinsField(input: GetInputPropsReturnType) {
  * since nothing else is ever mixed into.
  */
 export function MixInSimilarField(input: GetInputPropsReturnType) {
-    return (
-        <Checkbox
-            label="Mix in similar records"
-            description="Every few records, one by an artist who sounds like the one just played, found through a similarity plugin. The playlist still plays in full around them. A setlist or a feature never has anything mixed in."
-            {...input}
-        />
-    );
+    const { t } = useTranslation('programme');
+    return <Checkbox label={t('mixInSimilar.label')} description={t('mixInSimilar.description')} {...input} />;
 }

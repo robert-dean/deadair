@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Stack, Text, Title } from '@mantine/core';
 import { DayView, WeekView, type ScheduleEventData } from '@mantine/schedule';
 import type { ScheduleSlot, ScheduleSlotInput, ScheduleTimetable } from '@deadair/sdk';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 
 import { usePersonas } from '../../api/personas.queries';
 import { useCreateSlot, useCurrentSlot, useDeleteSlot, useSchedule, useTimetable, useUpdateSlot } from '../../api/schedule.queries';
@@ -17,6 +19,7 @@ import { blockEdit, minutesOf, type DraggedBlock, type SlotEdit } from './schedu
 import { SlotEditor, type EditorTarget } from './slot.editor';
 import { RequestsPanel } from '../requests/requests.panel';
 import { SustainingPanel } from './sustaining.panel';
+import { i18n } from '../../i18n/i18n.setup';
 
 /**
  * The station's day, drawn as the timetable it is.
@@ -75,16 +78,33 @@ import { SustainingPanel } from './sustaining.panel';
  * the format clock was a settings box for as long as a band was three tokens somebody could hold in
  * their head.
  */
-/** The three questions a programme page answers, in the order they are asked. */
+/**
+ * The three questions a programme page answers, in the order they are asked.
+ *
+ * `label` and `hint` are getters, so the shell's rail and palette, which read this table directly,
+ * get the words in the language on screen when they read them rather than at import.
+ */
 export const PROGRAMME_TABS = [
-    { key: 'today', label: 'Today', hint: 'What is on now, and what the hour is shaped like' },
+    programmeTab('today'),
     // Labelled Timetable rather than Week: `WeekView` draws its own Day/Week switch inside the
     // panel, so a tab called Week containing a control called Week read as two of the same switch.
     // The key stays `week` — `?tab=week` links and `attention.destination.ts` depend on it.
-    { key: 'week', label: 'Timetable', hint: 'The blocks across a week, and what changes them' },
-    { key: 'sustaining', label: 'Sustaining', hint: 'What it plays when nothing is scheduled' },
-    { key: 'requests', label: 'Requests', hint: 'What listeners have asked for, and deciding on it' },
+    programmeTab('week'),
+    programmeTab('sustaining'),
+    programmeTab('requests'),
 ] as const satisfies readonly DestinationTab<string>[];
+
+function programmeTab<TKey extends 'today' | 'week' | 'sustaining' | 'requests'>(key: TKey) {
+    return {
+        key,
+        get label(): string {
+            return i18n.t(`schedule:page.tabs.${key}.label`);
+        },
+        get hint(): string {
+            return i18n.t(`schedule:page.tabs.${key}.hint`);
+        },
+    };
+}
 
 export type ProgrammeTab = (typeof PROGRAMME_TABS)[number]['key'];
 
@@ -99,6 +119,7 @@ export interface SchedulePageProps {
 }
 
 export function SchedulePage({ tab, onSelect }: SchedulePageProps) {
+    const { t } = useTranslation('schedule');
     const schedule = useSchedule();
     const current = useCurrentSlot();
     // For the host's name on the strip. Cached for half a minute and fetched once on mount, which is
@@ -174,7 +195,7 @@ export function SchedulePage({ tab, onSelect }: SchedulePageProps) {
      * view we can only answer wrongly is worse than not offering it.
      */
     const shared = {
-        events: toEvents(timetable.data, airingId),
+        events: toEvents(timetable.data, airingId, t('untitled')),
         view,
         onViewChange: (next: 'day' | 'week' | 'month' | 'year') => {
             if (next === 'day' || next === 'week') setView(next);
@@ -210,27 +231,28 @@ export function SchedulePage({ tab, onSelect }: SchedulePageProps) {
     return (
         <Stack gap="lg">
             <Stack gap="xxs">
-                <Title order={1}>Programme</Title>
+                <Title order={1}>{t('page.title')}</Title>
                 <Text c="dimmed" size="sm" maw={760}>
-                    Two questions on one destination: what the station plays across the day, and what it says inside the hour. Changing a block takes
-                    effect when it next comes round, and the record playing at a boundary always finishes.
+                    {t('page.description')}
                 </Text>
             </Stack>
 
-            <DestinationTabs tabs={PROGRAMME_TABS} active={tab} onSelect={onSelect} label="Programme" />
+            <DestinationTabs tabs={PROGRAMME_TABS} active={tab} onSelect={onSelect} label={t('page.title')} />
 
             {schedule.error ? (
-                <ErrorAlert title="The schedule could not be loaded" error={schedule.error} fallback="The station's day is unavailable." />
+                <ErrorAlert title={t('page.scheduleFailedTitle')} error={schedule.error} fallback={t('page.scheduleFailedFallback')} />
             ) : undefined}
 
             {timetable.error ? (
-                <ErrorAlert title="The timetable could not be drawn" error={timetable.error} fallback="The blocks are unavailable." />
+                <ErrorAlert title={t('page.timetableFailedTitle')} error={timetable.error} fallback={t('page.timetableFailedFallback')} />
             ) : undefined}
 
-            {remove.error ? <ErrorAlert title="That slot could not be deleted" error={remove.error} fallback="Nothing was removed." /> : undefined}
+            {remove.error ? (
+                <ErrorAlert title={t('page.deleteFailedTitle')} error={remove.error} fallback={t('page.deleteFailedFallback')} />
+            ) : undefined}
 
             {update.error ? (
-                <ErrorAlert title="That change could not be saved" error={update.error} fallback="The schedule is as it was." />
+                <ErrorAlert title={t('page.updateFailedTitle')} error={update.error} fallback={t('page.updateFailedFallback')} />
             ) : undefined}
 
             {/* On Today, because "what is on" is the question somebody arrives with and reading it
@@ -242,13 +264,7 @@ export function SchedulePage({ tab, onSelect }: SchedulePageProps) {
 
             {tab === 'week' && (schedule.isPending || timetable.isPending) ? <PageSkeleton variant="card" /> : undefined}
 
-            {tab === 'week' && schedule.data && slots.length === 0 ? (
-                <EmptyState>
-                    This station has no schedule, which is an ordinary state rather than a fault: it keeps playing whatever you put on until you put
-                    something else on. Click any hour below to add a block there. A bulletin or an ident inside the hour is the format clock under
-                    Today, not a block here.
-                </EmptyState>
-            ) : undefined}
+            {tab === 'week' && schedule.data && slots.length === 0 ? <EmptyState>{t('page.empty')}</EmptyState> : undefined}
 
             {tab !== 'week' || from === undefined ? undefined : (
                 <Stack gap="sm">
@@ -274,9 +290,8 @@ export function SchedulePage({ tab, onSelect }: SchedulePageProps) {
                     ) : undefined}
 
                     <Text size="xs" c="dimmed">
-                        {caption(slots.length)} Drag a block to move it, drag an edge to change when it starts or ends, or click an empty hour to add
-                        one.
-                        {airingId === undefined ? '' : ' The block the station is airing now is filled in.'}
+                        {caption(t, slots.length)} {t('page.caption.gestures')}
+                        {airingId === undefined ? '' : ` ${t('page.caption.airing')}`}
                     </Text>
 
                     {/* A fact about every boundary drawn above, so it sits under the grid. */}
@@ -327,10 +342,10 @@ export function SchedulePage({ tab, onSelect }: SchedulePageProps) {
  * The slot ON AIR is drawn filled rather than in a different colour, so it reads as emphasis on a
  * show rather than as a show of a different kind — the colours are identities here, not states.
  */
-function toEvents(timetable: ScheduleTimetable | undefined, airingSlotId: string | undefined): ScheduleEventData[] {
+function toEvents(timetable: ScheduleTimetable | undefined, airingSlotId: string | undefined, untitled: string): ScheduleEventData[] {
     return (timetable?.occurrences ?? []).map(block => ({
         id: `${block.slotId}@${block.start}`,
-        title: block.label || 'Untitled',
+        title: block.label || untitled,
         start: block.start,
         end: block.end,
         color: colorOf(block.slotId),
@@ -361,10 +376,10 @@ function newSlotAt(slotStart: string): EditorTarget {
  * exactly the station that has just made its first slot. Saying so beats leaving somebody to
  * conclude nothing was saved.
  */
-function caption(slotCount: number): string {
-    if (slotCount === 0) return 'Nothing is scheduled, so the station plays the sustaining source set below.';
+function caption(t: TFunction<'schedule'>, slotCount: number): string {
+    if (slotCount === 0) return t('page.caption.none');
 
-    return 'A repeating week: every block runs on the days it is set to, so these dates show the pattern rather than one-off programming. The hours nothing covers play the sustaining source set below.';
+    return t('page.caption.week');
 }
 
 /**

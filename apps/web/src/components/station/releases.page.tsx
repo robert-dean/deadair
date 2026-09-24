@@ -3,6 +3,7 @@ import { Anchor, Badge, Button, Card, Group, Stack, Text, Title } from '@mantine
 import { Link } from '@tanstack/react-router';
 import type { StationRelease, StationReleases } from '@deadair/sdk';
 import { DateTime } from 'luxon';
+import { Trans, useTranslation } from 'react-i18next';
 
 import { useCheckStationReleases, useStationReleases } from '../../api/station.queries';
 import { EmptyState } from '../shared/empty.state';
@@ -12,6 +13,7 @@ import { MarkdownView } from '../shared/markdown.view';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
 import { formatLocale } from '../../i18n/format.locale';
+import { i18n } from '../../i18n/i18n.setup';
 
 /**
  * How many releases are drawn before the rest are asked for.
@@ -31,15 +33,16 @@ export const RELEASES_SHOWN = 5;
  * somebody following the header's notice came here.
  */
 export function ReleasesPage() {
+    const { t } = useTranslation('station');
     const releases = useStationReleases();
     const [showAll, setShowAll] = useState(false);
 
     const header = (
         <PageHeader
-            title="What’s new"
+            title={t('releases.title')}
             description={
                 <Text size="sm" c="dimmed">
-                    What changed in each release this station contains, newest first, from the changelog it was built with.
+                    {t('releases.description')}
                 </Text>
             }
         />
@@ -58,7 +61,7 @@ export function ReleasesPage() {
         return (
             <Stack gap="lg">
                 {header}
-                <ErrorAlert title="Could not load the release notes" error={releases.error} fallback="The release notes could not be fetched." />
+                <ErrorAlert title={t('releases.loadFailedTitle')} error={releases.error} fallback={t('releases.loadFailedFallback')} />
             </Stack>
         );
     }
@@ -75,25 +78,17 @@ export function ReleasesPage() {
 
             {available.length > 0 && (
                 <Stack gap="md">
-                    <Eyebrow>
-                        {available.length === 1
-                            ? 'Out, and not on this station yet'
-                            : `${available.length} releases out, and not on this station yet`}
-                    </Eyebrow>
-                    <Text size="sm">
-                        Upgrading is pulling the new image, the same way the station was installed. It keeps everything it holds across the upgrade.
-                    </Text>
+                    <Eyebrow>{t('releases.available', { count: available.length })}</Eyebrow>
+                    <Text size="sm">{t('releases.upgrading')}</Text>
                     {available.map(release => (
                         <ReleaseCard key={release.version} release={release} state="available" />
                     ))}
-                    <Eyebrow>On this station</Eyebrow>
+                    <Eyebrow>{t('releases.onThisStation')}</Eyebrow>
                 </Stack>
             )}
 
             {notes.length === 0 ? (
-                <EmptyState title="No release notes">
-                    This build carries no changelog, so there is nothing to say about what changed in it.
-                </EmptyState>
+                <EmptyState title={t('releases.noneTitle')}>{t('releases.none')}</EmptyState>
             ) : (
                 <Stack gap="md">
                     {shown.map(release => (
@@ -102,7 +97,7 @@ export function ReleasesPage() {
                     {hidden > 0 && (
                         <Group>
                             <Button variant="subtle" onClick={() => setShowAll(true)}>
-                                {hidden === 1 ? 'Show 1 older release' : `Show ${hidden} older releases`}
+                                {t('releases.showOlder', { count: hidden })}
                             </Button>
                         </Group>
                     )}
@@ -123,16 +118,17 @@ export function ReleasesPage() {
  * the station's own refusal: the console holds no copy of who may do what.
  */
 function CheckLine({ releases }: { releases: StationReleases }) {
+    const { t } = useTranslation('station');
     const check = useCheckStationReleases();
 
     if (!releases.checks) {
         return (
             <Text size="sm" c="dimmed">
-                The station is not checking for newer releases. Turn it on under{' '}
-                <Anchor size="sm" renderRoot={(props: object) => <Link to="/settings/station" {...props} />}>
-                    Settings, Station
-                </Anchor>
-                .
+                <Trans
+                    t={t}
+                    i18nKey="releases.notChecking"
+                    components={{ settings: <Anchor size="sm" renderRoot={(props: object) => <Link to="/settings/station" {...props} />} /> }}
+                />
             </Text>
         );
     }
@@ -142,11 +138,11 @@ function CheckLine({ releases }: { releases: StationReleases }) {
             <Group gap="sm" wrap="wrap">
                 <Text size="sm" c="dimmed">
                     {releases.checkedAt === undefined
-                        ? 'The station checks GitHub for newer releases every few hours, and has not heard back yet.'
-                        : `The station checks GitHub for newer releases every few hours. It last heard back ${releases.checkedAt.toLocaleString(DateTime.DATETIME_MED, { locale: formatLocale() })}.`}
+                        ? t('releases.checksNotHeard')
+                        : t('releases.checksHeard', { when: releases.checkedAt.toLocaleString(DateTime.DATETIME_MED, { locale: formatLocale() }) })}
                 </Text>
                 <Button variant="light" size="compact-sm" loading={check.isPending} onClick={() => check.mutate()}>
-                    Check now
+                    {t('releases.checkNow')}
                 </Button>
             </Group>
             {check.data !== undefined && (
@@ -156,9 +152,9 @@ function CheckLine({ releases }: { releases: StationReleases }) {
             )}
             {check.error && (
                 <ErrorAlert
-                    title="Could not check for new releases"
+                    title={t('releases.checkFailedTitle')}
                     error={check.error}
-                    fallback="The station could not be asked to check."
+                    fallback={t('releases.checkFailedFallback')}
                     onDismiss={check.reset}
                 />
             )}
@@ -183,13 +179,17 @@ const FRESH_ANSWER_MS = 2 * 60_000;
  */
 export function checkOutcome(releases: StationReleases, now: DateTime): string {
     const answered = releases.checkedAt !== undefined && now.toMillis() - releases.checkedAt.toMillis() < FRESH_ANSWER_MS;
-    if (!answered) return 'GitHub did not answer. The station will try again within the hour.';
+    if (!answered) return i18n.t('station:releases.outcome.noAnswer');
 
     const newest = releases.available[0];
-    if (newest === undefined) return releases.current === undefined ? 'Nothing newer is out.' : `Nothing newer than ${releases.current} is out.`;
+    if (newest === undefined) {
+        return releases.current === undefined
+            ? i18n.t('station:releases.outcome.nothingNewer')
+            : i18n.t('station:releases.outcome.nothingNewerThan', { version: releases.current });
+    }
     return releases.available.length === 1
-        ? `deadair ${newest.version} is out.`
-        : `${releases.available.length} newer releases are out, the newest ${newest.version}.`;
+        ? i18n.t('station:releases.outcome.oneNewer', { version: newest.version })
+        : i18n.t('station:releases.outcome.manyNewer', { total: releases.available.length, version: newest.version });
 }
 
 /**
@@ -198,6 +198,7 @@ export function checkOutcome(releases: StationReleases, now: DateTime): string {
  * The SDK reads the day as a local midnight, so Luxon formats it as the same day in every zone.
  */
 function ReleaseCard({ release, state }: { release: StationRelease; state?: 'running' | 'available' }) {
+    const { t } = useTranslation('station');
     return (
         <Card padding="md">
             <Stack gap="sm">
@@ -212,23 +213,23 @@ function ReleaseCard({ release, state }: { release: StationRelease; state?: 'run
                     )}
                     {state === 'running' && (
                         <Badge variant="light" color="teal">
-                            This station
+                            {t('releases.badge.running')}
                         </Badge>
                     )}
                     {state === 'available' && (
                         <Badge variant="light" color="blue">
-                            Not installed
+                            {t('releases.badge.available')}
                         </Badge>
                     )}
                     {release.url !== undefined && (
                         <Anchor size="sm" href={release.url} target="_blank" rel="noreferrer">
-                            Release page
+                            {t('releases.releasePage')}
                         </Anchor>
                     )}
                 </Group>
                 {release.notes === '' ? (
                     <Text size="sm" c="dimmed">
-                        Nothing was recorded for this release.
+                        {t('releases.noNotes')}
                     </Text>
                 ) : (
                     <MarkdownView text={release.notes} />

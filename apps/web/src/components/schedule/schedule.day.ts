@@ -9,6 +9,8 @@
  * Sunday is 0, matching `Date.getDay()` and the API.
  */
 
+import { i18n } from '../../i18n/i18n.setup';
+
 /** The days of the week, Sunday first, in the order the API numbers them. */
 export const DAYS = [0, 1, 2, 3, 4, 5, 6] as const;
 
@@ -88,17 +90,16 @@ function instantOf(stamp: string): number {
  * the minutes stop being information.
  */
 export function formatSpan(minutes: number): string {
-    if (minutes <= 0) return 'ending';
-    if (minutes < 60) return `${minutes} min`;
+    if (minutes <= 0) return i18n.t('schedule:span.ending');
+    if (minutes < 60) return i18n.t('schedule:span.minutes', { minutes });
 
     if (minutes < 24 * 60) {
         const hours = Math.floor(minutes / 60);
         const rest = minutes % 60;
-        return rest === 0 ? `${hours} h` : `${hours} h ${rest} min`;
+        return rest === 0 ? i18n.t('schedule:span.hours', { hours }) : i18n.t('schedule:span.hoursMinutes', { hours, minutes: rest });
     }
 
-    const days = Math.round(minutes / (24 * 60));
-    return days === 1 ? 'a day' : `${days} days`;
+    return i18n.t('schedule:span.days', { count: Math.round(minutes / (24 * 60)) });
 }
 
 /** Which weekday a `YYYY-MM-DD` falls on, Sunday `0`. Same civil-arithmetic argument as {@link addDays}. */

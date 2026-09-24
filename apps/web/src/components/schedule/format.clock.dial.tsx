@@ -1,5 +1,7 @@
 import { Box, Stack, Text } from '@mantine/core';
 import type { ClockBand } from '@deadair/sdk';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 
 export interface FormatClockDialProps {
     bands: readonly ClockBand[];
@@ -33,6 +35,7 @@ const RADIUS = SIZE / 2;
  * either way. Whether it fires this time round is the list's business.
  */
 export function FormatClockDial({ bands, unproducible }: FormatClockDialProps) {
+    const { t } = useTranslation('schedule');
     const marks = bands.filter(band => band.at === 'clock' && band.enabled).map(band => ({ band, minute: band.minute ?? 0 }));
 
     return (
@@ -42,7 +45,10 @@ export function FormatClockDial({ bands, unproducible }: FormatClockDialProps) {
                 h={SIZE}
                 pos="relative"
                 role="img"
-                aria-label={describe(marks.map(mark => mark.band))}
+                aria-label={describe(
+                    t,
+                    marks.map(mark => mark.band),
+                )}
                 style={{
                     borderRadius: '50%',
                     border: '1px solid var(--da-border-strong)',
@@ -74,7 +80,7 @@ export function FormatClockDial({ bands, unproducible }: FormatClockDialProps) {
                 <Box pos="absolute" aria-hidden style={{ inset: 62, borderRadius: '50%', border: '1px solid var(--da-border)' }} display="flex">
                     <Stack gap={0} align="center" justify="center" w="100%">
                         <Text size="xs" c="dimmed" ta="center" px="xs">
-                            {marks.length === 0 ? 'nothing on the hour' : marks.length === 1 ? '1 break an hour' : `${marks.length} breaks an hour`}
+                            {marks.length === 0 ? t('dial.nothingOnHour') : t('dial.breaks', { count: marks.length })}
                         </Text>
                     </Stack>
                 </Box>
@@ -141,8 +147,8 @@ function Label({ minute, text }: { minute: number; text: string }) {
  * A circle of absolutely positioned divs is nothing to a screen reader, so the whole figure carries
  * one label and its parts are hidden. The list below is the real interface either way.
  */
-function describe(bands: readonly ClockBand[]): string {
-    if (bands.length === 0) return 'The format clock has nothing anchored to a time in the hour.';
-    const parts = bands.map(band => `${band.kind} at ${String(band.minute ?? 0).padStart(2, '0')} minutes past`);
-    return `The format clock: ${parts.join(', ')}.`;
+function describe(t: TFunction<'schedule'>, bands: readonly ClockBand[]): string {
+    if (bands.length === 0) return t('dial.describeEmpty');
+    const parts = bands.map(band => t('dial.describePart', { kind: band.kind, minute: String(band.minute ?? 0).padStart(2, '0') }));
+    return t('dial.describe', { parts: parts.join(', ') });
 }

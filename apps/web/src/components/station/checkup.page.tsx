@@ -4,6 +4,8 @@ import { Link } from '@tanstack/react-router';
 import type { PlayoutMount, PluginSummary, StationHeartbeat } from '@deadair/sdk';
 import type { DateTime } from 'luxon';
 import { QRCodeSVG } from 'qrcode.react';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 
 import { usePlayoutStatus } from '../../api/playout.queries';
 import { pluginsListOptions } from '../../api/plugins.queries';
@@ -38,6 +40,7 @@ import { formatCount } from '../../i18n/format.locale';
  * box and the rest of the page still answers.
  */
 export function CheckupPage() {
+    const { t } = useTranslation('station');
     const playout = usePlayoutStatus(true);
     const attention = useStationAttention(true);
     const plugins = useQuery(pluginsListOptions);
@@ -57,16 +60,15 @@ export function CheckupPage() {
     return (
         <Stack gap="lg">
             <PageHeader
-                title="Check-up"
+                title={t('checkup.title')}
                 description={
                     <Text size="sm" c="dimmed">
-                        The machinery, in one place. Nothing here probes the station: every figure is a reading it was already keeping, so looking at
-                        this page changes nothing about it.
+                        {t('checkup.description')}
                     </Text>
                 }
             />
 
-            <Section title="On air" failed={playout.isError} pending={playout.isPending}>
+            <Section title={t('checkup.section.onAir')} failed={playout.isError} pending={playout.isPending}>
                 {playout.data === undefined || reading === undefined ? undefined : (
                     <Stack gap="xs">
                         <Group gap="sm" wrap="wrap">
@@ -88,73 +90,76 @@ export function CheckupPage() {
                             </Text>
                         )}
                         <Group gap="lg" wrap="wrap">
-                            <Fact label="Listeners" value={String(playout.data.listeners)} />
-                            <Fact label="Stream" value={playout.data.streamUp ? 'up' : 'unreachable'} />
-                            <Fact label="Queued" value={String(playout.data.queuedCount)} />
+                            <Fact label={t('checkup.onAir.listeners')} value={String(playout.data.listeners)} />
+                            <Fact
+                                label={t('checkup.onAir.stream')}
+                                value={playout.data.streamUp ? t('checkup.onAir.streamUp') : t('checkup.onAir.streamDown')}
+                            />
+                            <Fact label={t('checkup.onAir.queued')} value={String(playout.data.queuedCount)} />
                         </Group>
                         <Mounts mounts={playout.data.mounts} />
                         {/* A container running config that was replaced is never the CAUSE of a
                             silence, and is the reason the next attempt to go on air will fail. */}
                         {playout.data.staleStreamConfig.map(warning => (
                             <Text key={warning.container} size="xs" c="yellow.4">
-                                {warning.container}: {warning.detail}
+                                {t('checkup.onAir.staleConfig', { container: warning.container, detail: warning.detail })}
                             </Text>
                         ))}
                     </Stack>
                 )}
             </Section>
 
-            <Section title="Needs you" failed={attention.isError} pending={attention.isPending}>
+            <Section title={t('checkup.section.needsYou')} failed={attention.isError} pending={attention.isPending}>
                 {attention.data === undefined ? undefined : attention.data.items.length === 0 ? (
                     <Text size="sm" c="dimmed">
-                        Nothing is waiting on anybody.
+                        {t('checkup.needsYou.nothing')}
                     </Text>
                 ) : (
                     <AttentionList items={attention.data.items} />
                 )}
             </Section>
 
-            <Section title="Loops" failed={checkup.isError} pending={checkup.isPending}>
+            <Section title={t('checkup.section.loops')} failed={checkup.isError} pending={checkup.isPending}>
                 {/* Absent rather than empty means the reader failed, which the service distinguishes
                     on purpose: a station with no loops running is not the same as a station that
                     could not be asked. */}
                 {checkup.data?.heartbeats === undefined ? (
                     <Text size="sm" c="dimmed">
-                        The station could not say what its loops are doing.
+                        {t('checkup.loops.unreadable')}
                     </Text>
                 ) : (
                     <Loops heartbeats={checkup.data.heartbeats} readAt={checkup.data.readAt} phone={phone} />
                 )}
             </Section>
 
-            <Section title="Plugins" failed={plugins.isError} pending={plugins.isPending}>
+            <Section title={t('checkup.section.plugins')} failed={plugins.isError} pending={plugins.isPending}>
                 {plugins.data === undefined ? undefined : <Plugins plugins={plugins.data} />}
             </Section>
 
-            <Section title="Library" failed={checkup.isError} pending={checkup.isPending}>
+            <Section title={t('checkup.section.library')} failed={checkup.isError} pending={checkup.isPending}>
                 {checkup.data?.backlog === undefined ? (
                     <Text size="sm" c="dimmed">
-                        The catalog could not be counted.
+                        {t('checkup.library.uncounted')}
                     </Text>
                 ) : (
                     <Stack gap="xs">
                         <Group gap="lg" wrap="wrap">
-                            <Fact label="Records" value={formatCount(checkup.data.backlog.total)} />
-                            <Fact label="On this machine" value={formatCount(checkup.data.backlog.cached)} />
-                            <Fact label="Measured" value={formatCount(checkup.data.backlog.measured)} />
+                            <Fact label={t('checkup.library.records')} value={formatCount(checkup.data.backlog.total)} />
+                            <Fact label={t('checkup.library.cached')} value={formatCount(checkup.data.backlog.cached)} />
+                            <Fact label={t('checkup.library.measured')} value={formatCount(checkup.data.backlog.measured)} />
                         </Group>
                         {/* The sentence the counts exist for. A bar rather than a percentage,
                             because what an operator reads off it is how far along it is. */}
                         <Progress
                             value={checkup.data.backlog.total === 0 ? 0 : (checkup.data.backlog.measured / checkup.data.backlog.total) * 100}
                             size="sm"
-                            aria-label="How much of the library is measured"
+                            aria-label={t('checkup.library.progressLabel')}
                         />
                     </Stack>
                 )}
             </Section>
 
-            <Section title="Disk" failed={storage.isError} pending={storage.isPending}>
+            <Section title={t('checkup.section.disk')} failed={storage.isError} pending={storage.isPending}>
                 {storage.data === undefined ? undefined : (
                     <Stack gap="xs">
                         {storage.data.stores.map(store => (
@@ -166,19 +171,19 @@ export function CheckupPage() {
                                     {formatBytes(store.bytes)}
                                 </Text>
                                 <Text size="xs" c="dimmed" className="da-num">
-                                    {formatCount(store.files)} files
+                                    {t('checkup.disk.files', { count: store.files, files: formatCount(store.files) })}
                                 </Text>
                                 {/* Files no row claims, and claims whose file is gone. Reported
                                     rather than reconciled, because the two disagree in different
                                     directions and each means something different. */}
                                 {store.orphanFiles === 0 ? undefined : (
                                     <Text size="xs" c="yellow.4" className="da-num">
-                                        {formatCount(store.orphanFiles)} unclaimed
+                                        {t('checkup.disk.unclaimed', { files: formatCount(store.orphanFiles) })}
                                     </Text>
                                 )}
                                 {store.rowsWithNoFile === 0 ? undefined : (
                                     <Text size="xs" c="yellow.4" className="da-num">
-                                        {formatCount(store.rowsWithNoFile)} missing
+                                        {t('checkup.disk.missing', { files: formatCount(store.rowsWithNoFile) })}
                                     </Text>
                                 )}
                             </Group>
@@ -186,13 +191,13 @@ export function CheckupPage() {
                         {/* The store's own reading time, which is on its contract because a disk
                             walk is expensive enough not to be done per request. */}
                         <Text size="xs" c="dimmed">
-                            Read at {formatTimeOfDay(storage.data.readAt)}
+                            {t('checkup.disk.readAt', { time: formatTimeOfDay(storage.data.readAt) })}
                         </Text>
                     </Stack>
                 )}
             </Section>
 
-            <Section title="Build" failed={checkup.isError} pending={checkup.isPending}>
+            <Section title={t('checkup.section.build')} failed={checkup.isError} pending={checkup.isPending}>
                 <Stack gap="xs">
                     <Build revision={checkup.data?.revision} version={checkup.data?.version} />
                     <ReleaseLine />
@@ -220,12 +225,11 @@ export function CheckupPage() {
  * is what they paste back into one.
  */
 function Build({ revision, version }: { revision?: string; version?: string }) {
+    const { t } = useTranslation('station');
     if (revision === undefined) {
         return (
             <Text size="sm" c="dimmed">
-                {version === undefined
-                    ? 'This station was not built from a commit, which is what a development tree and a hand-built image both are.'
-                    : `This station is ${version}, and nothing recorded which commit it was built from.`}
+                {version === undefined ? t('checkup.build.noCommit') : t('checkup.build.noCommitVersion', { version })}
             </Text>
         );
     }
@@ -238,8 +242,8 @@ function Build({ revision, version }: { revision?: string; version?: string }) {
              * Saying "no version" would read as a fault on a station that is working exactly as
              * intended, where saying nothing reads as what it is.
              */}
-            {version !== undefined && <Code title={`Release ${version}`}>{version}</Code>}
-            <Text size="sm">Built from</Text>
+            {version !== undefined && <Code title={t('checkup.build.release', { version })}>{version}</Code>}
+            <Text size="sm">{t('checkup.build.builtFrom')}</Text>
             <Code title={revision}>{revision.slice(0, 7)}</Code>
             <CopyButton value={revision} />
         </Group>
@@ -254,6 +258,7 @@ function Build({ revision, version }: { revision?: string; version?: string }) {
  * the plain link, which is true either way.
  */
 function ReleaseLine() {
+    const { t } = useTranslation('station');
     const releases = useStationReleases();
     const newest = releases.data?.available[0];
     const link = (label: string) => (
@@ -262,12 +267,12 @@ function ReleaseLine() {
         </Anchor>
     );
 
-    if (newest === undefined) return link('What changed in this release');
+    if (newest === undefined) return link(t('checkup.build.whatChanged'));
 
     return (
         <Group gap="xs" wrap="wrap">
-            <Text size="sm">deadair {newest.version} is out.</Text>
-            {link('See what changed')}
+            <Text size="sm">{t('checkup.build.newerOut', { version: newest.version })}</Text>
+            {link(t('checkup.build.seeWhatChanged'))}
         </Group>
     );
 }
@@ -280,17 +285,18 @@ function ReleaseLine() {
  * so the page still answers everything else.
  */
 function Section({ title, failed, pending, children }: { title: string; failed: boolean; pending: boolean; children?: React.ReactNode }) {
+    const { t } = useTranslation('station');
     return (
         <Stack gap="xs">
             <Eyebrow>{title}</Eyebrow>
             <Card padding="md">
                 {failed ? (
                     <Text size="sm" c="red.4">
-                        This could not be read. The rest of the page is unaffected.
+                        {t('checkup.section.failed')}
                     </Text>
                 ) : pending ? (
                     <Text size="sm" c="dimmed">
-                        Reading…
+                        {t('checkup.section.reading')}
                     </Text>
                 ) : (
                     children
@@ -309,8 +315,9 @@ function Section({ title, failed, pending, children }: { title: string; failed: 
  * a number the station deliberately did not.
  */
 function Loops({ heartbeats, readAt, phone }: { heartbeats: StationHeartbeat[]; readAt: DateTime; phone: boolean }) {
+    const { t } = useTranslation('station');
     if (heartbeats.length === 0) {
-        return <EmptyState>Nothing is being watched, which on a running station means the loops have not registered yet.</EmptyState>;
+        return <EmptyState>{t('checkup.loops.none')}</EmptyState>;
     }
 
     const taken = readAt.toMillis();
@@ -330,8 +337,10 @@ function Loops({ heartbeats, readAt, phone }: { heartbeats: StationHeartbeat[]; 
                         }
                         subtitle={
                             <Text size="xs" c="dimmed" className="da-num">
-                                {beat.lastBeat === undefined ? 'no pass yet' : `last pass ${ago(taken, beat.lastBeat)} ago`}
-                                {` · started ${ago(taken, beat.startedAt)} ago`}
+                                {beat.lastBeat === undefined
+                                    ? t('checkup.loops.noPass')
+                                    : t('checkup.loops.lastPass', { ago: ago(t, taken, beat.lastBeat) })}
+                                {t('checkup.loops.started', { ago: ago(t, taken, beat.startedAt) })}
                             </Text>
                         }
                     />
@@ -345,9 +354,9 @@ function Loops({ heartbeats, readAt, phone }: { heartbeats: StationHeartbeat[]; 
             <Table>
                 <Table.Thead>
                     <Table.Tr>
-                        <Table.Th>Loop</Table.Th>
-                        <Table.Th w={140}>Last pass</Table.Th>
-                        <Table.Th w={140}>Started</Table.Th>
+                        <Table.Th>{t('checkup.loops.column.loop')}</Table.Th>
+                        <Table.Th w={140}>{t('checkup.loops.column.lastPass')}</Table.Th>
+                        <Table.Th w={140}>{t('checkup.loops.column.started')}</Table.Th>
                     </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
@@ -363,12 +372,14 @@ function Loops({ heartbeats, readAt, phone }: { heartbeats: StationHeartbeat[]; 
                                 dash, because the two are different facts and `startedAt` beside it
                                 is what tells a slow first pass from a stopped loop. */}
                                 <Text size="sm" c="dimmed" className="da-num">
-                                    {beat.lastBeat === undefined ? 'not yet' : `${ago(taken, beat.lastBeat)} ago`}
+                                    {beat.lastBeat === undefined
+                                        ? t('checkup.loops.notYet')
+                                        : t('checkup.loops.agoValue', { ago: ago(t, taken, beat.lastBeat) })}
                                 </Text>
                             </Table.Td>
                             <Table.Td>
                                 <Text size="xs" c="dimmed" className="da-num">
-                                    {ago(taken, beat.startedAt)} ago
+                                    {t('checkup.loops.agoValue', { ago: ago(t, taken, beat.startedAt) })}
                                 </Text>
                             </Table.Td>
                         </Table.Tr>
@@ -380,12 +391,12 @@ function Loops({ heartbeats, readAt, phone }: { heartbeats: StationHeartbeat[]; 
 }
 
 /** How long between two moments, in the coarsest unit that still says something. */
-function ago(now: number, then: DateTime): string {
+function ago(t: TFunction<'station'>, now: number, then: DateTime): string {
     const seconds = Math.max(0, Math.round((now - then.toMillis()) / 1000));
-    if (seconds < 60) return `${seconds}s`;
-    if (seconds < 3600) return `${Math.round(seconds / 60)}m`;
-    if (seconds < 86_400) return `${Math.round(seconds / 3600)}h`;
-    return `${Math.round(seconds / 86_400)}d`;
+    if (seconds < 60) return t('checkup.ago.seconds', { n: seconds });
+    if (seconds < 3600) return t('checkup.ago.minutes', { n: Math.round(seconds / 60) });
+    if (seconds < 86_400) return t('checkup.ago.hours', { n: Math.round(seconds / 3600) });
+    return t('checkup.ago.days', { n: Math.round(seconds / 86_400) });
 }
 
 /** The wall-clock hour and minute a scheduled probe is due, in the operator's own zone. */
@@ -395,12 +406,13 @@ function clockTime(at: DateTime): string {
 
 /** Which plugins are unhappy, and a count of the ones that are fine. */
 function Plugins({ plugins }: { plugins: PluginSummary[] }) {
+    const { t } = useTranslation('station');
     const unhappy = plugins.filter(plugin => plugin.enabled && plugin.status !== 'active');
 
     return (
         <Stack gap="xs">
             <Text size="sm" c="dimmed">
-                {plugins.filter(plugin => plugin.status === 'active').length} of {plugins.length} running.
+                {t('checkup.plugins.running', { active: plugins.filter(plugin => plugin.status === 'active').length, total: plugins.length })}
             </Text>
             {/* Only the ones with something wrong get a row. A list of ten healthy plugins is the
                 plugins page, and repeating it here would bury the one that is not. */}
@@ -413,7 +425,7 @@ function Plugins({ plugins }: { plugins: PluginSummary[] }) {
                     {plugin.lastError !== undefined && (
                         <Text size="xs" c="dimmed" truncate>
                             {plugin.lastError}
-                            {plugin.nextProbeAt !== undefined ? ` · asked again at ${clockTime(plugin.nextProbeAt)}` : ''}
+                            {plugin.nextProbeAt !== undefined ? t('checkup.plugins.askedAgain', { time: clockTime(plugin.nextProbeAt) }) : ''}
                         </Text>
                     )}
                 </Stack>
@@ -436,9 +448,10 @@ function Plugins({ plugins }: { plugins: PluginSummary[] }) {
  * MP3 is always here and always first, so this is never empty and never needs an empty state.
  */
 function Mounts({ mounts }: { mounts: PlayoutMount[] }) {
+    const { t } = useTranslation('station');
     return (
         <Stack gap="xxs">
-            <Eyebrow>Listen</Eyebrow>
+            <Eyebrow>{t('checkup.listen.title')}</Eyebrow>
             {mounts.map(mount => (
                 <Group key={mount.path} gap="xs">
                     <Text size="xs" fw={600} tt="uppercase" w={38}>
@@ -448,7 +461,7 @@ function Mounts({ mounts }: { mounts: PlayoutMount[] }) {
                     {/* FLAC has no bitrate to report, which is a fact about the format rather than
                         a figure nobody filled in, so it says what it is instead of going blank. */}
                     <Text size="xs" c="dimmed">
-                        {mount.bitrateKbps === undefined ? 'lossless' : `${mount.bitrateKbps} kbps`}
+                        {mount.bitrateKbps === undefined ? t('checkup.listen.lossless') : t('checkup.listen.bitrate', { kbps: mount.bitrateKbps })}
                     </Text>
                     <CopyButton value={`${window.location.origin}${mount.path}`} />
                 </Group>
@@ -469,16 +482,17 @@ function Mounts({ mounts }: { mounts: PlayoutMount[] }) {
  * drawn black on white whatever the theme, because a scanner reads contrast and not intent.
  */
 function AppLink() {
+    const { t } = useTranslation('station');
     const link = `deadair://connect?station=${encodeURIComponent(window.location.origin)}`;
     return (
         <Group gap="sm" wrap="nowrap" mt="xs">
-            <QRCodeSVG value={link} size={88} marginSize={2} bgColor="#ffffff" fgColor="#000000" title="Scan to open this station in the app" />
+            <QRCodeSVG value={link} size={88} marginSize={2} bgColor="#ffffff" fgColor="#000000" title={t('checkup.listen.qrTitle')} />
             <Stack gap={2}>
                 <Anchor size="xs" c="dimmed" w="fit-content" href={link}>
-                    Open in the app
+                    {t('checkup.listen.openInApp')}
                 </Anchor>
                 <Text size="xs" c="dimmed">
-                    Or scan the code with a phone that has it.
+                    {t('checkup.listen.scan')}
                 </Text>
             </Stack>
         </Group>

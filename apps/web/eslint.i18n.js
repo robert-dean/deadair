@@ -6,7 +6,14 @@ import i18next from 'eslint-plugin-i18next';
  * The folders whose copy has been moved into `src/i18n/` catalogs. Each extraction adds its folder
  * here; once every folder is listed the list becomes `src/**`.
  */
-export const TRANSLATED = ['src/components/shared/**'];
+export const TRANSLATED = [
+    'src/components/shared/**',
+    'src/components/shell/**',
+    'src/components/auth/**',
+    'src/components/login.page.tsx',
+    'src/routes/**',
+    'src/components/onboarding/**',
+];
 
 /**
  * Words an operator reads go through `t()`, not into JSX as literals.
@@ -30,6 +37,29 @@ export const literalStrings = {
             {
                 mode: 'jsx-only',
                 'should-validate-template': true,
+                // The rule's own defaults, plus the calls whose string arguments are names rather than
+                // words: `form.getInputProps('email')` inside a spread attribute is a field key.
+                callees: {
+                    exclude: [
+                        'i18n(ext)?',
+                        't',
+                        'require',
+                        'addEventListener',
+                        'removeEventListener',
+                        'postMessage',
+                        'getElementById',
+                        'dispatch',
+                        'commit',
+                        'includes',
+                        'indexOf',
+                        'endsWith',
+                        'startsWith',
+                        'getInputProps',
+                        'setFieldValue',
+                        'insertListItem',
+                        'removeListItem',
+                    ],
+                },
                 'jsx-attributes': {
                     include: [
                         'label',

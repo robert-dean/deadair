@@ -1,9 +1,11 @@
 import { Button, Group, PasswordInput, Stack, Text, TextInput } from '@mantine/core';
 import { useForm } from '@mantine/form';
+import { useTranslation } from 'react-i18next';
 
 import { useSubmitAdminAccount } from '../../../api/onboarding.queries';
 import { isRateLimited, retryAfterMs } from '../../../api/retry.policy';
 import { apiErrorDetails, apiErrorMessage, sdkError } from '../../../api/sdk.error';
+import { i18n } from '../../../i18n/i18n.setup';
 import { ErrorAlert } from '../../shared/error.alert';
 import type { OnboardingStepProps } from '../onboarding.steps';
 
@@ -21,27 +23,26 @@ interface AdminAccountValues {
 function setupError(error: unknown): string | undefined {
     if (isRateLimited(error)) {
         const wait = retryAfterMs(error);
-        return wait === undefined
-            ? 'Too many attempts. Wait a moment and try again.'
-            : `Too many attempts. Try again in ${Math.ceil(wait / 1000)} seconds.`;
+        return wait === undefined ? i18n.t('onboarding:admin.rateLimited') : i18n.t('onboarding:admin.retryIn', { seconds: Math.ceil(wait / 1000) });
     }
     if (apiErrorDetails(error)) {
         return undefined;
     }
-    return apiErrorMessage(error, 'Could not create the administrator account. Try again.');
+    return apiErrorMessage(error, i18n.t('onboarding:admin.fallback'));
 }
 
 /** Creates the first administrator, which is what the `admin.account` requirement is waiting on. */
 export function AdminAccountStep({ requirement, onComplete }: OnboardingStepProps) {
+    const { t } = useTranslation('onboarding');
     const submitAdminAccount = useSubmitAdminAccount();
 
     const form = useForm<AdminAccountValues>({
         mode: 'uncontrolled',
         initialValues: { email: '', password: '', confirmPassword: '' },
         validate: {
-            email: value => (EMAIL_PATTERN.test(value) ? undefined : 'Enter a valid email address'),
-            password: value => (value.length >= MIN_PASSWORD_LENGTH ? undefined : `Use at least ${MIN_PASSWORD_LENGTH} characters`),
-            confirmPassword: (value, values) => (value === values.password ? undefined : 'Passwords do not match'),
+            email: value => (EMAIL_PATTERN.test(value) ? undefined : t('admin.emailInvalid')),
+            password: value => (value.length >= MIN_PASSWORD_LENGTH ? undefined : t('admin.passwordShort', { min: MIN_PASSWORD_LENGTH })),
+            confirmPassword: (value, values) => (value === values.password ? undefined : t('admin.passwordMismatch')),
         },
     });
 
@@ -66,6 +67,12 @@ export function AdminAccountStep({ requirement, onComplete }: OnboardingStepProp
     const failure = submitAdminAccount.error;
     const error = failure && sdkError(failure)?.status !== 409 ? setupError(failure) : undefined;
 
+    // Read before the JSX rather than spread from inside it: the literal-string rule reads a field
+    // name in a spread attribute as copy, and these are form keys, not words.
+    const emailInput = form.getInputProps('email');
+    const passwordInput = form.getInputProps('password');
+    const confirmInput = form.getInputProps('confirmPassword');
+
     return (
         <form
             onSubmit={form.onSubmit(values => {
@@ -74,33 +81,33 @@ export function AdminAccountStep({ requirement, onComplete }: OnboardingStepProp
         >
             <Stack gap="md" mt="xl">
                 {requirement.description ? <Text c="dimmed">{requirement.description}</Text> : undefined}
-                {error ? <ErrorAlert title="Setup failed">{error}</ErrorAlert> : undefined}
+                {error ? <ErrorAlert title={t('admin.failed')}>{error}</ErrorAlert> : undefined}
                 <TextInput
-                    label="Email"
-                    placeholder="you@example.com"
+                    label={t('admin.email')}
+                    placeholder={t('admin.emailPlaceholder')}
                     type="email"
                     autoComplete="username"
                     disabled={submitAdminAccount.isPending}
                     key={form.key('email')}
-                    {...form.getInputProps('email')}
+                    {...emailInput}
                 />
                 <PasswordInput
-                    label="Password"
+                    label={t('admin.password')}
                     autoComplete="new-password"
                     disabled={submitAdminAccount.isPending}
                     key={form.key('password')}
-                    {...form.getInputProps('password')}
+                    {...passwordInput}
                 />
                 <PasswordInput
-                    label="Confirm password"
+                    label={t('admin.confirmPassword')}
                     autoComplete="new-password"
                     disabled={submitAdminAccount.isPending}
                     key={form.key('confirmPassword')}
-                    {...form.getInputProps('confirmPassword')}
+                    {...confirmInput}
                 />
                 <Group justify="flex-end">
                     <Button type="submit" loading={submitAdminAccount.isPending}>
-                        Create administrator
+                        {t('admin.create')}
                     </Button>
                 </Group>
             </Stack>

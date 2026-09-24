@@ -2,12 +2,14 @@ import { useState } from 'react';
 import { Alert, Button, Card, Center, Divider, Group, Image, PasswordInput, Stack, Text, TextInput, Title } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { useNavigate } from '@tanstack/react-router';
+import { useTranslation } from 'react-i18next';
 
 import { useLoginMutation, useMagicLinkMutation, useOidcSignInMutation } from '../api/auth.mutations';
 import { useSigninProviders } from '../api/auth.providers.queries';
 import { isRateLimited, retryAfterMs } from '../api/retry.policy';
 import { apiErrorDetails, apiErrorMessage, isInvalidToken } from '../api/sdk.error';
 import { safeRedirectTarget } from '../auth/redirect.target';
+import { i18n } from '../i18n/i18n.setup';
 import { ChallengePanel } from './auth/challenge.panel';
 import { ErrorAlert } from './shared/error.alert';
 
@@ -24,9 +26,7 @@ export interface LoginPageProps {
 /** The server's own wait, or a flat sentence when it did not say. */
 function rateLimitedMessage(error: unknown): string {
     const wait = retryAfterMs(error);
-    return wait === undefined
-        ? 'Too many attempts. Wait a moment and try again.'
-        : `Too many attempts. Try again in ${Math.ceil(wait / 1000)} seconds.`;
+    return wait === undefined ? i18n.t('auth:rateLimited.wait') : i18n.t('auth:rateLimited.retryIn', { seconds: Math.ceil(wait / 1000) });
 }
 
 /**
@@ -36,7 +36,7 @@ function rateLimitedMessage(error: unknown): string {
  */
 function signInError(error: unknown): string | undefined {
     if (isInvalidToken(error)) {
-        return 'Invalid email or password';
+        return i18n.t('auth:login.invalid');
     }
     if (isRateLimited(error)) {
         return rateLimitedMessage(error);
@@ -44,10 +44,11 @@ function signInError(error: unknown): string | undefined {
     if (apiErrorDetails(error)) {
         return undefined;
     }
-    return apiErrorMessage(error, 'Could not sign you in. Try again.');
+    return apiErrorMessage(error, i18n.t('auth:login.fallback'));
 }
 
 export function LoginPage({ redirect }: LoginPageProps) {
+    const { t } = useTranslation('auth');
     const navigate = useNavigate();
     const login = useLoginMutation();
     const magicLink = useMagicLinkMutation();
@@ -61,8 +62,8 @@ export function LoginPage({ redirect }: LoginPageProps) {
         mode: 'uncontrolled',
         initialValues: { email: '', password: '' },
         validate: {
-            email: value => (value.trim().length > 0 ? undefined : 'Enter your email address'),
-            password: value => (value.length > 0 ? undefined : 'Enter your password'),
+            email: value => (value.trim().length > 0 ? undefined : t('login.emailRequired')),
+            password: value => (value.length > 0 ? undefined : t('login.passwordRequired')),
         },
     });
 
@@ -99,11 +100,16 @@ export function LoginPage({ redirect }: LoginPageProps) {
         setNotice(undefined);
         const email = form.getValues().email.trim();
         if (email.length === 0) {
-            form.setFieldError('email', 'Enter your email address');
+            form.setFieldError('email', t('login.emailRequired'));
             return;
         }
         magicLink.mutate({ email });
     }
+
+    // Read before the JSX rather than spread from inside it: the literal-string rule reads a field
+    // name in a spread attribute as copy, and these are form keys, not words.
+    const emailInput = form.getInputProps('email');
+    const passwordInput = form.getInputProps('password');
 
     return (
         <Center mih="70vh">
@@ -114,13 +120,9 @@ export function LoginPage({ redirect }: LoginPageProps) {
                     <Stack gap="xs" align="center">
                         <Image src="/logo-mark.png" alt="" aria-hidden w={64} h={64} />
                         <Stack gap="xxxs" align="center">
-                            <Title order={2}>{challenge ? 'One more step' : linkSent ? 'Check your inbox' : 'Sign in'}</Title>
+                            <Title order={2}>{challenge ? t('step.title') : linkSent ? t('login.checkInbox') : t('login.signIn')}</Title>
                             <Text c="dimmed" size="sm">
-                                {challenge
-                                    ? 'One more factor, and you are in.'
-                                    : linkSent
-                                      ? 'If that address has an account here, a sign-in link is on its way.'
-                                      : 'Station controls are staff only.'}
+                                {challenge ? t('step.subtitle') : linkSent ? t('login.linkOnItsWay') : t('login.staffOnly')}
                             </Text>
                         </Stack>
                     </Stack>
@@ -130,7 +132,7 @@ export function LoginPage({ redirect }: LoginPageProps) {
                             onComplete={() => navigate({ href: safeRedirectTarget(redirect) })}
                             onExpired={() => {
                                 login.reset();
-                                setNotice('That sign-in timed out. Enter your password again.');
+                                setNotice(t('login.timedOut'));
                             }}
                             onStartOver={() => {
                                 login.reset();
@@ -138,7 +140,7 @@ export function LoginPage({ redirect }: LoginPageProps) {
                         />
                     ) : linkSent ? (
                         <Stack gap="md">
-                            <Text size="sm">Open the link on any device. It works once, and it expires.</Text>
+                            <Text size="sm">{t('login.linkHint')}</Text>
                             <Button
                                 variant="default"
                                 onClick={() => {
@@ -146,7 +148,7 @@ export function LoginPage({ redirect }: LoginPageProps) {
                                 }}
                                 fullWidth
                             >
-                                Use a password instead
+                                {t('login.usePassword')}
                             </Button>
                         </Stack>
                     ) : (
@@ -157,39 +159,35 @@ export function LoginPage({ redirect }: LoginPageProps) {
                         >
                             <Stack gap="md">
                                 {notice ? (
-                                    <Alert color="yellow" title="Start again">
+                                    <Alert color="yellow" title={t('login.startAgain')}>
                                         {notice}
                                     </Alert>
                                 ) : undefined}
-                                {error ? <ErrorAlert title="Sign-in failed">{error}</ErrorAlert> : undefined}
+                                {error ? <ErrorAlert title={t('signInFailed')}>{error}</ErrorAlert> : undefined}
                                 {oidc.error ? (
-                                    <ErrorAlert
-                                        title="Could not start that sign-in"
-                                        error={oidc.error}
-                                        fallback="Could not reach that provider. Try again."
-                                    />
+                                    <ErrorAlert title={t('login.providerFailedTitle')} error={oidc.error} fallback={t('login.providerFailed')} />
                                 ) : undefined}
                                 {magicLink.error ? (
-                                    <ErrorAlert title="No link sent" error={magicLink.error} fallback="Could not send a sign-in link. Try again." />
+                                    <ErrorAlert title={t('login.noLinkSent')} error={magicLink.error} fallback={t('login.linkFailed')} />
                                 ) : undefined}
                                 <TextInput
-                                    label="Email"
-                                    placeholder="you@example.com"
+                                    label={t('login.email')}
+                                    placeholder={t('login.emailPlaceholder')}
                                     type="email"
                                     autoComplete="username"
                                     disabled={login.isPending}
                                     key={form.key('email')}
-                                    {...form.getInputProps('email')}
+                                    {...emailInput}
                                 />
                                 <PasswordInput
-                                    label="Password"
+                                    label={t('login.password')}
                                     autoComplete="current-password"
                                     disabled={login.isPending}
                                     key={form.key('password')}
-                                    {...form.getInputProps('password')}
+                                    {...passwordInput}
                                 />
                                 <Button type="submit" loading={login.isPending} fullWidth>
-                                    Sign in
+                                    {t('login.signIn')}
                                 </Button>
                                 {/* An alternative to the password rather than a step after it, so
                                     it asks for nothing but the address already typed above. */}
@@ -201,7 +199,7 @@ export function LoginPage({ redirect }: LoginPageProps) {
                                         disabled={login.isPending}
                                         onClick={requestLink}
                                     >
-                                        Email me a sign-in link
+                                        {t('login.emailLink')}
                                     </Button>
                                 </Group>
                                 {/* Only when the operator has set one up, so a station without any
@@ -209,7 +207,7 @@ export function LoginPage({ redirect }: LoginPageProps) {
                                     which sends the browser back to /auth/callback. */}
                                 {providers.length > 0 ? (
                                     <Stack gap="xs">
-                                        <Divider label="or" labelPosition="center" />
+                                        <Divider label={t('login.or')} labelPosition="center" />
                                         {providers.map(provider => (
                                             <Button
                                                 key={provider.name}
@@ -222,7 +220,7 @@ export function LoginPage({ redirect }: LoginPageProps) {
                                                     oidc.mutate({ provider: provider.name, redirect: safeRedirectTarget(redirect) });
                                                 }}
                                             >
-                                                Continue with {provider.label}
+                                                {t('login.continueWith', { provider: provider.label })}
                                             </Button>
                                         ))}
                                     </Stack>

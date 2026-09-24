@@ -1,6 +1,7 @@
 import { ActionIcon, Menu } from '@mantine/core';
 import { IconDotsVertical } from '@tabler/icons-react';
 import { Link } from '@tanstack/react-router';
+import { useTranslation } from 'react-i18next';
 
 /**
  * The machinery and the way out, on a phone: the three rows of `nav.footer.tsx`, behind one corner
@@ -14,10 +15,11 @@ import { Link } from '@tanstack/react-router';
  * corner the header's own comment calls "the way to move around".
  */
 export function PhoneMenu({ onLogout, loggingOut }: { onLogout: () => void; loggingOut?: boolean }) {
+    const { t } = useTranslation('shell');
     return (
         <Menu position="bottom-end" withinPortal>
             <Menu.Target>
-                <ActionIcon variant="default" size="lg" aria-label="Check-up, Settings and Logout" hiddenFrom="sm">
+                <ActionIcon variant="default" size="lg" aria-label={t('phoneMenu.label')} hiddenFrom="sm">
                     <IconDotsVertical size={18} stroke={1.8} />
                 </ActionIcon>
             </Menu.Target>
@@ -25,11 +27,11 @@ export function PhoneMenu({ onLogout, loggingOut }: { onLogout: () => void; logg
                 {/* Annotated for the reason every `renderRoot` in this console is: Mantine hands
                     back `any`, and spreading an `any` into a `Link` switches off the check that
                     `to` is a route that exists. */}
-                <Menu.Item renderRoot={(props: object) => <Link to="/checkup" {...props} />}>Check-up</Menu.Item>
-                <Menu.Item renderRoot={(props: object) => <Link to="/settings" {...props} />}>Settings</Menu.Item>
+                <Menu.Item renderRoot={(props: object) => <Link to="/checkup" {...props} />}>{t('destination.checkup')}</Menu.Item>
+                <Menu.Item renderRoot={(props: object) => <Link to="/settings" {...props} />}>{t('destination.settings')}</Menu.Item>
                 <Menu.Divider />
                 <Menu.Item disabled={loggingOut} onClick={onLogout}>
-                    Logout
+                    {t('logout')}
                 </Menu.Item>
             </Menu.Dropdown>
         </Menu>

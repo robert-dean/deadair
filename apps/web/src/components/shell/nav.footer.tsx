@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useRef } from 'react';
 import { Box, NavLink, Stack } from '@mantine/core';
 import { useRouterState } from '@tanstack/react-router';
+import { useTranslation } from 'react-i18next';
 import type { AttentionItem } from '@deadair/sdk';
 
 import { attentionCounts } from './attention.destination';
@@ -49,6 +50,7 @@ export interface NavFooterProps {
 }
 
 export function NavFooter({ attention = [], onLogout, loggingOut }: NavFooterProps) {
+    const { t } = useTranslation('shell');
     const counts = attentionCounts(attention);
     const pathname = usePathname();
     const rows = useRef<HTMLDivElement>(null);
@@ -109,7 +111,7 @@ export function NavFooter({ attention = [], onLogout, loggingOut }: NavFooterPro
                         component="button"
                         type="button"
                         classNames={{ root: classes.item, label: classes.label }}
-                        label="Logout"
+                        label={t('logout')}
                         disabled={loggingOut}
                         onClick={onLogout}
                     />

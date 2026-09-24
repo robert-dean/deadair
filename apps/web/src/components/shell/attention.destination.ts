@@ -4,6 +4,7 @@ import type { AttentionItem } from '@deadair/sdk';
 import { CATALOG_TRACK_DEFAULTS, TRACK_STATES, type TrackStateParam } from '../catalog/catalog.page.params';
 import { PLUGINS_PAGE_DEFAULTS } from '../plugins/plugin.page.params';
 import type { Severity } from '../shared/status';
+import { i18n } from '../../i18n/i18n.setup';
 
 /**
  * Where a row goes, in the router's own props rather than in strings of this file's invention.
@@ -47,12 +48,12 @@ export interface AttentionDestination {
  */
 export function attentionDestinationOf(route: string): AttentionDestination | undefined {
     const plugin = /^\/plugins\/(.+)$/.exec(route);
-    if (plugin?.[1]) return { link: { to: '/plugins/$id', params: { id: plugin[1] } }, label: 'Plugin' };
+    if (plugin?.[1]) return { link: { to: '/plugins/$id', params: { id: plugin[1] } }, label: i18n.t('shell:destination.plugin') };
 
     // One record, which is what a row's EVIDENCE points at rather than the row itself: the row is
     // about a category and each piece under it is about one of the records in it.
     const track = /^\/catalog\/tracks\/([0-9a-f-]{36})$/i.exec(route);
-    if (track?.[1]) return { link: { to: '/catalog/tracks/$trackId', params: { trackId: track[1] } }, label: 'Record' };
+    if (track?.[1]) return { link: { to: '/catalog/tracks/$trackId', params: { trackId: track[1] } }, label: i18n.t('shell:destination.record') };
 
     // The Tracks list narrowed to one state, which is what a row about four records out of eight
     // hundred has to land on to be worth pressing. The station names the state and this decides
@@ -61,7 +62,7 @@ export function attentionDestinationOf(route: string): AttentionDestination | un
     const asked = /^\/catalog\?state=(.+)$/.exec(route)?.[1];
     if (asked !== undefined) {
         const state: TrackStateParam | '' = TRACK_STATES.find(offered => offered === asked) ?? '';
-        return { link: { to: '/catalog/tracks', search: { ...CATALOG_TRACK_DEFAULTS, state } }, label: 'Library' };
+        return { link: { to: '/catalog/tracks', search: { ...CATALOG_TRACK_DEFAULTS, state } }, label: i18n.t('shell:destination.library') };
     }
 
     switch (route) {
@@ -69,23 +70,23 @@ export function attentionDestinationOf(route: string): AttentionDestination | un
         // is answered now, and it is also where this list is drawn — so the row points at the
         // running order further down the same page.
         case '/onair':
-            return { link: { to: '/' }, label: 'Desk' };
+            return { link: { to: '/' }, label: i18n.t('shell:destination.desk') };
         // A persona is a tab on Voice rather than a page. The row lands on the tab that holds it,
         // not on the destination's default, because an operator sent here has a specific complaint.
         case '/personas':
-            return { link: { to: '/voice', search: { tab: 'characters', segment: '', persona: '' } }, label: 'Voice' };
+            return { link: { to: '/voice', search: { tab: 'characters', segment: '', persona: '' } }, label: i18n.t('shell:destination.voice') };
         case '/schedule':
-            return { link: { to: '/schedule', search: { tab: 'today' } }, label: 'Programme' };
+            return { link: { to: '/schedule', search: { tab: 'today' } }, label: i18n.t('shell:destination.programme') };
         // The Library's Tracks tab rather than its Artists one, which is what `/catalog` resolves
         // to as a route. Everything the station reports here is about RECORDS — benched copies,
         // unmeasured audio — and the readiness bar that answers it is on Tracks.
         case '/catalog':
-            return { link: { to: '/catalog/tracks', search: CATALOG_TRACK_DEFAULTS }, label: 'Library' };
+            return { link: { to: '/catalog/tracks', search: CATALOG_TRACK_DEFAULTS }, label: i18n.t('shell:destination.library') };
         case '/plugins':
-            return { link: { to: '/plugins', search: PLUGINS_PAGE_DEFAULTS }, label: 'Plugins' };
+            return { link: { to: '/plugins', search: PLUGINS_PAGE_DEFAULTS }, label: i18n.t('shell:destination.plugins') };
         // Everything below lands on Settings in the nav: plugins are a section of it now.
         case '/settings':
-            return { link: { to: '/settings' }, label: 'Settings' };
+            return { link: { to: '/settings' }, label: i18n.t('shell:destination.settings') };
         default:
             return undefined;
     }

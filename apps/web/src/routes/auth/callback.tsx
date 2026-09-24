@@ -1,6 +1,7 @@
 import { Card, Center, Group, Image, Loader, Stack, Text, Title } from '@mantine/core';
 import { useEffect } from 'react';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { useTranslation } from 'react-i18next';
 
 import { completeAuthCallback, type AuthCallbackOutcome, type AuthCallbackQuery } from '../../api/auth.callback.queries';
 import { AuthCallbackPanel } from '../../components/auth/auth.callback.panel';
@@ -41,16 +42,17 @@ function AuthCallbackRoute() {
 }
 
 function AuthCallbackPending() {
+    const { t } = useTranslation('routes');
     return (
         <Center mih="70vh">
             <Card padding="xl" w="100%" maw={400}>
                 <Stack gap="md" align="center">
                     <Image src="/logo-mark.png" alt="" aria-hidden w={64} h={64} />
-                    <Title order={2}>Signing you in</Title>
+                    <Title order={2}>{t('authCallback.title')}</Title>
                     <Group gap="sm">
                         <Loader size="sm" />
                         <Text c="dimmed" size="sm">
-                            One moment.
+                            {t('authCallback.wait')}
                         </Text>
                     </Group>
                 </Stack>

@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { Alert, Badge, Button, Card, Center, Group, Image, Loader, Stack, Text, Title } from '@mantine/core';
 import { IconAlertTriangle } from '@tabler/icons-react';
-import type { OAuthAuthorizationContext } from '@deadair/sdk';
+import { Trans, useTranslation } from 'react-i18next';
 
 import { useApproveAuthorization, useAuthorizationRequest, useDenyAuthorization } from '../../api/oauth.queries';
 import { isStepUpCancelled, StepUpDialog, useStepUpGate } from '../settings/step.up.dialog';
@@ -13,12 +13,6 @@ export interface OAuthConsentPageProps {
     /** Where the browser goes next. `window.location.assign` in the app; a spy in a test. */
     leave?: (url: string) => void;
 }
-
-const KIND_LABEL: Record<OAuthAuthorizationContext['clientKind'], string> = {
-    preregistered: 'registered here',
-    dynamic: 'registered itself',
-    metadata_document: 'describes itself',
-};
 
 /**
  * Where an app asks to act as the signed-in person, and they say yes or no.
@@ -38,6 +32,7 @@ const KIND_LABEL: Record<OAuthAuthorizationContext['clientKind'], string> = {
  * which only an app running on it should need.
  */
 export function OAuthConsentPage({ query, leave = url => window.location.assign(url) }: OAuthConsentPageProps) {
+    const { t } = useTranslation('auth');
     const request = useAuthorizationRequest(query);
     const approve = useApproveAuthorization();
     const deny = useDenyAuthorization();
@@ -68,25 +63,21 @@ export function OAuthConsentPage({ query, leave = url => window.location.assign(
                         <Group gap="sm" justify="center">
                             <Loader size="sm" />
                             <Text c="dimmed" size="sm">
-                                {result?.kind === 'redirect' ? 'Sending you back to the app.' : 'Reading what the app is asking for.'}
+                                {result?.kind === 'redirect' ? t('consent.sendingBack') : t('consent.reading')}
                             </Text>
                         </Group>
                     ) : undefined}
 
                     {request.error ? (
-                        <ErrorAlert
-                            title="Could not read this request"
-                            error={request.error}
-                            fallback="The station could not read what the app asked for."
-                        />
+                        <ErrorAlert title={t('consent.readFailedTitle')} error={request.error} fallback={t('consent.readFailed')} />
                     ) : undefined}
 
                     {result?.kind === 'refuse' ? (
                         <Stack gap="xs">
-                            <Title order={2}>Not a request this station can answer</Title>
-                            <ErrorAlert title="Refused">{result.description}</ErrorAlert>
+                            <Title order={2}>{t('consent.refusedHeading')}</Title>
+                            <ErrorAlert title={t('consent.refused')}>{result.description}</ErrorAlert>
                             <Text size="sm" c="dimmed">
-                                Nothing has been sent anywhere. If you did not expect to be asked, close this page.
+                                {t('consent.nothingSent')}
                             </Text>
                         </Stack>
                     ) : undefined}
@@ -96,31 +87,34 @@ export function OAuthConsentPage({ query, leave = url => window.location.assign(
                             <Stack gap="xs" align="center">
                                 {result.logoUri ? <Image src={result.logoUri} alt="" w={48} h={48} fit="contain" /> : undefined}
                                 <Title order={2} ta="center">
-                                    {result.clientName ?? 'An app'} wants to connect to this station as you
+                                    {t('consent.wantsToConnect', { client: result.clientName ?? t('consent.anApp') })}
                                 </Title>
                                 <Badge variant="light" color="gray">
-                                    {KIND_LABEL[result.clientKind]}
+                                    {t(`consent.kind.${result.clientKind}`)}
                                 </Badge>
                             </Stack>
 
+                            <Text size="sm">{t('consent.canDo')}</Text>
                             <Text size="sm">
-                                It will be able to do anything you can on this station, until you disconnect it under Settings, Sign-in and security.
-                            </Text>
-                            <Text size="sm">
-                                Your answer is sent to <strong>{result.redirectHost}</strong>.
+                                <Trans
+                                    t={t}
+                                    i18nKey="consent.answerSentTo"
+                                    values={{ host: result.redirectHost }}
+                                    components={{ strong: <strong /> }}
+                                />
                             </Text>
 
                             {result.loopbackOnly ? (
-                                <Alert color="yellow" icon={<IconAlertTriangle size={16} />} title="An app on this computer">
-                                    This app is only ever sent back to this computer. Allow it only if you just started it here yourself.
+                                <Alert color="yellow" icon={<IconAlertTriangle size={16} />} title={t('consent.loopbackTitle')}>
+                                    {t('consent.loopback')}
                                 </Alert>
                             ) : undefined}
 
                             {approve.error ? (
-                                <ErrorAlert title="Not approved" error={approve.error} fallback="The station did not approve it. Try again." />
+                                <ErrorAlert title={t('consent.notApproved')} error={approve.error} fallback={t('consent.notApprovedFallback')} />
                             ) : undefined}
                             {deny.error ? (
-                                <ErrorAlert title="Not sent" error={deny.error} fallback="Could not send your answer. Try again." />
+                                <ErrorAlert title={t('consent.notSent')} error={deny.error} fallback={t('consent.notSentFallback')} />
                             ) : undefined}
 
                             <Group grow>
@@ -130,10 +124,10 @@ export function OAuthConsentPage({ query, leave = url => window.location.assign(
                                     disabled={approve.isPending}
                                     onClick={() => void answer(false, result.requestId)}
                                 >
-                                    Deny
+                                    {t('consent.deny')}
                                 </Button>
                                 <Button loading={approve.isPending} disabled={deny.isPending} onClick={() => void answer(true, result.requestId)}>
-                                    Allow
+                                    {t('consent.allow')}
                                 </Button>
                             </Group>
                         </Stack>

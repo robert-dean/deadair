@@ -11,6 +11,7 @@ import type {
 } from '@deadair/sdk';
 
 import { notifyQueued } from '../components/shared/notify';
+import { i18n } from '../i18n/i18n.setup';
 import { sdk } from './client';
 import { queryKeys } from './query.keys';
 import { apiErrorMessage } from './sdk.error';
@@ -190,7 +191,7 @@ export function useSetPluginEnabled() {
             writePluginDetailPendingReinit(queryClient, detail);
             // The switch moves on its own, so this reports the half the switch cannot: the plugin
             // is reinitializing rather than already in the state the toggle now shows.
-            notifyQueued(`${detail.name} ${enabled ? 'enabled' : 'disabled'}. It reloads on its own.`);
+            notifyQueued(enabled ? i18n.t('api:plugins.enabled', { name: detail.name }) : i18n.t('api:plugins.disabled', { name: detail.name }));
         },
     });
 }
@@ -384,6 +385,6 @@ export async function completePluginOAuth(queryClient: QueryClient, id: string, 
         void queryClient.invalidateQueries({ queryKey: queryKeys.plugins.detail(id) });
         return { result };
     } catch (error) {
-        return { failure: apiErrorMessage(error, 'The authorization could not be completed.') };
+        return { failure: apiErrorMessage(error, i18n.t('api:plugins.oauthFallback')) };
     }
 }

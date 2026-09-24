@@ -1,6 +1,7 @@
 import { useId } from 'react';
 import { Badge, NavLink, Text, Tooltip } from '@mantine/core';
 import { Link, type LinkProps } from '@tanstack/react-router';
+import { useTranslation } from 'react-i18next';
 
 import { severityColor, type Severity } from '../shared/status';
 import classes from './side.nav.module.css';
@@ -90,6 +91,7 @@ export function NavItem({ to, search, label, hint, hintText, attention, nested =
     // For `aria-describedby`. Mantine gives its description element no id of its own, so the id goes
     // on a span inside it, which is what the attribute can then point at.
     const describedBy = useId();
+    const { t } = useTranslation('shell');
 
     const row = (
         <NavLink
@@ -114,11 +116,11 @@ export function NavItem({ to, search, label, hint, hintText, attention, nested =
             }
             aria-label={
                 attention !== undefined
-                    ? `${label}, ${attention.count} ${attention.count === 1 ? 'thing needs' : 'things need'} attention`
+                    ? t('navItem.attention', { label, count: attention.count })
                     : // A nested row's sentence has nowhere else to go: it is a tooltip, which a
                       // screen reader does not reach, so the name carries it.
                       nested && hintText !== undefined
-                      ? `${label}. ${hintText}`
+                      ? t('navItem.withHint', { label, hint: hintText })
                       : // Named explicitly only where there is something to override. A link with
                         // neither a description nor attention keeps the name Mantine gives it, which
                         // is its label and is already right.

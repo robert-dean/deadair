@@ -3,6 +3,7 @@ import { useDebouncedValue } from '@mantine/hooks';
 import { Spotlight, type SpotlightActionGroupData } from '@mantine/spotlight';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
+import { useTranslation } from 'react-i18next';
 
 import { catalogArtistsOptions, catalogTracksOptions } from '../../api/catalog.queries';
 import { usePersonas } from '../../api/personas.queries';
@@ -49,6 +50,7 @@ const RESULT_LIMIT = 6;
  * of this that stays true.
  */
 export function JumpTo() {
+    const { t } = useTranslation('shell');
     const navigate = useNavigate();
     const [query, setQuery] = useState('');
     const [debounced] = useDebouncedValue(query, DEBOUNCE_MS);
@@ -70,22 +72,22 @@ export function JumpTo() {
 
     const pageGroups: SpotlightActionGroupData[] = [
         {
-            group: 'Destinations',
+            group: t('jumpTo.group.destinations'),
             actions: [
                 {
                     id: 'desk',
-                    label: 'Desk',
-                    description: 'What is going out, what needs you, and what is next',
+                    label: t('destination.desk'),
+                    description: t('jumpTo.deskDescription'),
                     onClick: () => void navigate({ to: '/' }),
                 },
             ],
         },
         {
-            group: 'Programme',
+            group: t('destination.programme'),
             actions: PROGRAMME_TABS.map(tab => ({
                 id: `programme:${tab.key}`,
                 label: tab.label,
-                description: 'Programme',
+                description: t('destination.programme'),
                 // No `replace`, unlike the tab strip. A strip replaces because stepping between
                 // three tabs should not become three back-button presses to leave the destination.
                 // A jump from the palette comes from somewhere else entirely, and replacing that
@@ -94,43 +96,43 @@ export function JumpTo() {
             })),
         },
         {
-            group: 'Library',
+            group: t('destination.library'),
             actions: LIBRARY_TABS.map(tab => ({
                 id: `library:${tab.key}`,
                 label: tab.label,
-                description: 'Library',
+                description: t('destination.library'),
                 onClick: () => void navigate({ to: LIBRARY_ROUTES[tab.key] }),
             })),
         },
         {
-            group: 'Voice',
+            group: t('destination.voice'),
             actions: VOICE_TABS.map(tab => ({
                 id: `voice:${tab.key}`,
                 label: tab.label,
-                description: 'Voice',
+                description: t('destination.voice'),
                 // Unnarrowed, like every other jump: the palette is how somebody asks for the whole
                 // of What it said, not for the one break a link happened to leave in the URL.
                 onClick: () => void navigate({ to: '/voice', search: { tab: tab.key, segment: '', persona: '' } }),
             })),
         },
         {
-            group: 'Check-up',
+            group: t('destination.checkup'),
             actions: CHECKUP_TABS.map(tab => ({
                 id: `checkup:${tab.key}`,
                 label: tab.label,
-                description: 'Check-up',
+                description: t('destination.checkup'),
                 onClick: () => void navigate({ to: CHECKUP_ROUTES[tab.key] }),
             })),
         },
         {
-            group: 'Settings',
+            group: t('destination.settings'),
             actions: [
                 // Plugins is one of these rather than an entry appended after them: it is a
                 // section of Settings that happens to have been a route first, and the list says so.
                 ...SETTINGS_SECTIONS.map(section => ({
                     id: `settings:${section.id}`,
                     label: section.label,
-                    description: 'Settings',
+                    description: t('destination.settings'),
                     // A route rather than a hash: these are pages now, so the palette lands on the
                     // section itself instead of scrolling one long page to an anchor on it.
                     onClick: () => void navigate({ to: SETTINGS_ROUTES[section.id] }),
@@ -142,7 +144,7 @@ export function JumpTo() {
     const resultGroups: SpotlightActionGroupData[] = searching
         ? [
               {
-                  group: 'Records',
+                  group: t('jumpTo.group.records'),
                   actions: (tracks.data?.data ?? []).map(track => ({
                       id: `track:${track.id}`,
                       label: track.title,
@@ -151,24 +153,24 @@ export function JumpTo() {
                   })),
               },
               {
-                  group: 'Artists',
+                  group: t('jumpTo.group.artists'),
                   actions: (artists.data?.data ?? []).map(artist => ({
                       id: `artist:${artist.id}`,
                       label: artist.name,
-                      description: 'Artist',
+                      description: t('jumpTo.artist'),
                       onClick: () =>
                           void navigate({ to: '/catalog/artists/$artistId', params: { artistId: artist.id }, search: CATALOG_ALBUM_DEFAULTS }),
                   })),
               },
               {
-                  group: 'Characters',
+                  group: t('jumpTo.group.characters'),
                   actions: (personas.data?.personas ?? [])
                       .filter(persona => persona.label.toLowerCase().includes(debounced.trim().toLowerCase()))
                       .slice(0, RESULT_LIMIT)
                       .map(persona => ({
                           id: `persona:${persona.key}`,
                           label: persona.label,
-                          description: persona.kind === 'caller' ? 'Caller' : 'Host',
+                          description: persona.kind === 'caller' ? t('jumpTo.caller') : t('jumpTo.host'),
                           onClick: () => void navigate({ to: '/voice', search: { tab: 'characters', segment: '', persona: persona.key } }),
                       })),
               },
@@ -181,11 +183,11 @@ export function JumpTo() {
             query={query}
             onQueryChange={setQuery}
             shortcut="mod + K"
-            nothingFound={searching && (tracks.isFetching || artists.isFetching) ? 'Searching…' : 'No page, record or character by that name.'}
+            nothingFound={searching && (tracks.isFetching || artists.isFetching) ? t('jumpTo.searching') : t('jumpTo.nothingFound')}
             highlightQuery
             scrollable
             maxHeight={420}
-            searchProps={{ placeholder: 'Jump to anything' }}
+            searchProps={{ placeholder: t('jumpTo.placeholder') }}
         />
     );
 }

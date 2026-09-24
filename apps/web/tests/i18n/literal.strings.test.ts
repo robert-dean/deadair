@@ -25,5 +25,7 @@ describe('translated folders', () => {
         );
         expect(results.length).toBeGreaterThan(0);
         expect(found).toEqual([]);
-    });
+        // Its own ceiling rather than the suite's 20s: this parses every translated file in the
+        // console, which is seconds alone and more under a full parallel run.
+    }, 120_000);
 });

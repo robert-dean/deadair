@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Alert, Box, Button, Container, Group, LoadingOverlay, Stack, Stepper, Text, Title } from '@mantine/core';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from '@tanstack/react-router';
+import { Trans, useTranslation } from 'react-i18next';
 import type { OnboardingRequirement } from '@deadair/sdk';
 
 import { invalidateOnboardingRequirements } from '../../api/onboarding.queries';
@@ -19,6 +20,7 @@ export interface OnboardingWizardProps {
  * shrinking list decides whether another step appears or the app takes over.
  */
 export function OnboardingWizard({ requirements }: OnboardingWizardProps) {
+    const { t } = useTranslation('onboarding');
     const phone = usePhone();
     const router = useRouter();
     const queryClient = useQueryClient();
@@ -53,14 +55,15 @@ export function OnboardingWizard({ requirements }: OnboardingWizardProps) {
         const step = ONBOARDING_STEPS[requirement.key];
         if (!step) {
             return (
-                <Alert color="gray" title="Not supported in this build" mt="xl">
+                <Alert color="gray" title={t('wizard.unsupportedTitle')} mt="xl">
                     <Stack gap="xs">
                         <Text size="sm">
-                            This build has no screen for{' '}
-                            <Text span ff="monospace">
-                                {requirement.key}
-                            </Text>
-                            . Configure it directly, or skip it if it is optional.
+                            <Trans
+                                t={t}
+                                i18nKey="wizard.unsupported"
+                                values={{ key: requirement.key }}
+                                components={{ code: <Text span ff="monospace" /> }}
+                            />
                         </Text>
                         {requirement.description ? (
                             <Text size="sm" c="dimmed">
@@ -88,11 +91,11 @@ export function OnboardingWizard({ requirements }: OnboardingWizardProps) {
                 <LoadingOverlay visible={rechecking} zIndex={200} />
                 <Stack gap="lg">
                     <Stack gap="xs">
-                        <Title order={2}>Set up deadair</Title>
-                        <Text c="dimmed">A few things need answering before the station can go on air.</Text>
+                        <Title order={2}>{t('wizard.title')}</Title>
+                        <Text c="dimmed">{t('wizard.intro')}</Text>
                     </Stack>
                     {requirements.length === 0 ? (
-                        <Text c="dimmed">Nothing left to configure.</Text>
+                        <Text c="dimmed">{t('wizard.nothingLeft')}</Text>
                     ) : (
                         <Stepper
                             active={activeIndex === -1 ? requirements.length : activeIndex}
@@ -103,14 +106,14 @@ export function OnboardingWizard({ requirements }: OnboardingWizardProps) {
                                 <Stepper.Step
                                     key={requirement.key}
                                     label={ONBOARDING_STEPS[requirement.key]?.label ?? requirement.title}
-                                    description={requirement.optional ? 'Optional' : undefined}
+                                    description={requirement.optional ? t('wizard.optional') : undefined}
                                 >
                                     {renderBody(requirement)}
                                 </Stepper.Step>
                             ))}
                             <Stepper.Completed>
                                 <Text c="dimmed" mt="xl">
-                                    Nothing else to do here.
+                                    {t('wizard.done')}
                                 </Text>
                             </Stepper.Completed>
                         </Stepper>
@@ -118,7 +121,7 @@ export function OnboardingWizard({ requirements }: OnboardingWizardProps) {
                     {active?.optional ? (
                         <Group justify="flex-end">
                             <Button variant="subtle" onClick={handleSkip}>
-                                Skip
+                                {t('wizard.skip')}
                             </Button>
                         </Group>
                     ) : undefined}

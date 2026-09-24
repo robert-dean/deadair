@@ -5,6 +5,7 @@ import { IconSearch } from '@tabler/icons-react';
 import { spotlight } from '@mantine/spotlight';
 import { createRootRouteWithContext, Outlet, redirect, useNavigate } from '@tanstack/react-router';
 import type { QueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import type { OnboardingRequirement } from '@deadair/sdk';
 
 import { useLogoutMutation } from '../api/auth.mutations';
@@ -35,8 +36,6 @@ export interface RouterContext {
     queryClient: QueryClient;
 }
 
-const REVOKE_FAILED = 'You were signed out on this device, but the server did not confirm the session was revoked.';
-
 /**
  * Whether the page is showing anything the operator has to dismiss before they can act on it.
  *
@@ -50,6 +49,7 @@ function noDialogOpen(): boolean {
 }
 
 export function RootLayout() {
+    const { t } = useTranslation('routes');
     const session = useSession();
     // The same predicate the auth gate uses: a token that exists but has expired is not a session,
     // and offering Logout for one would promise something the shell cannot deliver.
@@ -103,7 +103,7 @@ export function RootLayout() {
             // completed sign-out either: the mutation drops local state regardless, and the
             // shortfall is said out loud.
             const detail = apiErrorMessage(caught, '');
-            failure = detail ? `${REVOKE_FAILED} (${detail})` : REVOKE_FAILED;
+            failure = detail ? t('root.revokeFailedWithDetail', { detail }) : t('root.revokeFailed');
         }
         setLogoutError(failure);
         await navigate({ to: '/login' });
@@ -124,7 +124,7 @@ export function RootLayout() {
                 fragment rather than a route, so this is a plain `Anchor` and not a `renderRoot`
                 `Link` — there is no route here for the router's typing to protect. */}
             <Anchor href="#main" className="da-skip">
-                Skip to content
+                {t('root.skipToContent')}
             </Anchor>
 
             <AppShell.Header className="da-scanlines">
@@ -132,7 +132,7 @@ export function RootLayout() {
                     <Group gap="sm" wrap="nowrap" style={{ flexShrink: 0 }}>
                         <StationMark />
                         <Text ff="heading" fw={700} tt="uppercase" style={{ letterSpacing: 'var(--da-tracking-wordmark)' }}>
-                            deadair
+                            {t('root.wordmark')}
                         </Text>
                     </Group>
                     {/* Beside the wordmark rather than out at the right edge: this is what the
@@ -158,11 +158,11 @@ export function RootLayout() {
                                 rightSection={<Kbd size="xs">⌘K</Kbd>}
                                 visibleFrom="sm"
                             >
-                                Jump to anything
+                                {t('root.jumpTo')}
                             </Button>
                             {/* The same door with no keycap on it: a phone has no ⌘K, and a button
                                 reading "Jump to anything" is wider than the header can spare. */}
-                            <ActionIcon variant="default" size="lg" aria-label="Jump to anything" onClick={spotlight.open} hiddenFrom="sm">
+                            <ActionIcon variant="default" size="lg" aria-label={t('root.jumpTo')} onClick={spotlight.open} hiddenFrom="sm">
                                 <IconSearch size={18} stroke={1.8} />
                             </ActionIcon>
                             {/* Not on a phone: the phone's own status bar is already a clock an
@@ -245,7 +245,7 @@ export function RootLayout() {
                     <Box mb="lg">
                         <ErrorAlert
                             tone="warning"
-                            title="Sign-out incomplete"
+                            title={t('root.signOutIncompleteTitle')}
                             onDismiss={() => {
                                 setLogoutError(undefined);
                             }}

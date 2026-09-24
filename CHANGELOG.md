@@ -9,6 +9,17 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.32.0] — 2026-09-24
+
+- The Playlists page shows the station's own playlists first, above the ones from connected music services, and has an Import button. An import shows what the file holds and which of its records the library already has, and nothing is written until you confirm. Each station playlist has its own page listing its records in order. Records the library does not hold yet are marked, and from that page you can export, rename or delete the playlist.
+- The station can hold playlists of its own. Importing one from a playlist file makes a new playlist in the station's library. Every record in the file gets a row in its original position: a record the library already holds can air, and one it does not hold waits as a placeholder until the library gains it. A preview shows which records the library holds before anything is written. Any station playlist can be exported to the same kind of file and imported on another station.
+- After an import, the station looks up the records its library was missing and adds the ones a connected source has. It asks the source a record was copied from, when that source is connected, and otherwise searches every source by title and artist, using the same strict match it uses to find records it chooses to play. A playlist's page has a "Look up missing records" button to try again, and the activity feed reports how many records each look-up found. Nothing is looked up while `rotation.discover` is off.
+- A playlist can be imported from a link: paste a Spotify, YouTube Music or Navidrome playlist address into the Link tab of the import dialog. This works for playlists your connected account does not list, such as one a friend shared. Each playlist page from a connected source also has a "Save as a station playlist" button, which saves a copy the station keeps and can change independently. For plugin authors, the catalog capability gains an optional `playlistIdFromUrl`, a pure parse that claims a link as one of the provider's own playlists.
+- A station playlist can go on air. Each of its records plays from whichever connected source has a copy, and records the library does not hold yet are skipped. Air is on the playlist's card and on its own page, with the same option to mix in similar records that other playlists have. The station refuses a playlist it cannot play anything from, and says why.
+- A playlist can be imported from an M3U file written by a media player, from a CSV written by a playlist exporter (the columns can be in any order and are matched by name), or from a pasted list with one `Artist - Title` per line. Records are matched by name and ISRC. Any line that names no record is counted and shown in the preview, and it is not guessed at.
+- A station that updated to the chat-platform release before the playlist import release can now import playlist-file lines that name a record without a provider's id; the database change that allows them had been skipped. A new install migrates from scratch again instead of stopping at startup.
+- The import preview mentions each line it cannot read once instead of twice. When the station's own playlists are listed, the Playlists header counts them alongside the ones from connected sources, instead of saying "0 available" above a playlist. When a look-up covers a single record, the activity feed now says in a plain sentence whether it was found.
+
 ## [0.31.3] — 2026-09-24
 
 - Listeners can ask for a record from Telegram with `/request` followed by a title, an artist or both. A single clear match is asked for straight away; otherwise the bot offers up to three matches as buttons. The bot says whether the request went in, is waiting, or was turned down and why, and tells them again when it goes in after a wait, when an operator decides on it, and when it plays. A linked chat account shares its station account's request limits.
@@ -845,7 +856,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.31.3...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.32.0...HEAD
+[0.32.0]: https://github.com/robert-dean/deadair/compare/v0.31.3...v0.32.0
 [0.31.3]: https://github.com/robert-dean/deadair/compare/v0.31.2...v0.31.3
 [0.31.2]: https://github.com/robert-dean/deadair/compare/v0.31.1...v0.31.2
 [0.31.1]: https://github.com/robert-dean/deadair/compare/v0.31.0...v0.31.1

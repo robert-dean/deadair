@@ -38,6 +38,7 @@ import type { PersonaNotesForPrompt } from '#modules/personas/persona.note.js';
 import type { PersonaStoryForPrompt } from '#modules/personas/persona.story.js';
 import type { CallSubject, CastMember } from './production.cast.js';
 import type { OutlineBeat, ProductionOutline } from './production.js';
+import { languageName, languageRule } from '#modules/shared/language.name.js';
 
 /** How many words of the previous beat are handed over as the run-in. */
 export const TAIL_WORDS = 40;
@@ -83,6 +84,8 @@ export interface OutlineRequest {
      * ended up reined in on breaks and free on a phone-in it presented.
      */
     cleanLanguage?: boolean;
+    /** The station's language when it is not English. See `PromptSettings.language` in `break.prompt.ts`. */
+    language?: string;
 }
 
 /** What one beat is written from. */
@@ -232,6 +235,8 @@ export interface BeatRequest {
     spent?: readonly string[];
     /** Whether this station is broadcast-clean. See {@link OutlineRequest.cleanLanguage}. */
     cleanLanguage?: boolean;
+    /** The station's language when it is not English. See `PromptSettings.language` in `break.prompt.ts`. */
+    language?: string;
 }
 
 /**
@@ -277,6 +282,9 @@ export function outlinePrompt(request: OutlineRequest): LlmMessage[] {
         ...(request.cleanLanguage
             ? ['- This station is broadcast-clean. No profanity or crude language, and do not quote an explicit lyric or title word for word.']
             : []),
+        // The plan is never read out, so it is not held to the language rule the beats are. What it
+        // needs is to be a programme for that audience, which is a different thing from being in it.
+        ...(request.language === undefined ? [] : [`- The programme goes out in ${languageName(request.language)}. Plan it for that audience.`]),
         '',
         'Answer with JSON only, in this shape:',
         '{"throughline": "...", "runners": ["..."], "beats": [{"title": "...", "angle": "...", "itemIndexes": [0], "setup": "...", "payoff": "..."}]}',
@@ -412,6 +420,9 @@ export function beatPrompt(request: BeatRequest): LlmMessage[] {
             ? ['- This station is broadcast-clean. No profanity or crude language, and do not quote an explicit lyric or title word for word.']
             : []),
         '- Do not end by summarising what you just said.',
+        // Last, for the reason `break.prompt.ts` puts it last: it is the instruction every other one
+        // is subject to, and the end of the system turn is where a model weighs most.
+        ...(request.language === undefined ? [] : ['', languageRule(request.language)]),
     ].join('\n');
 
     const parts: string[] = [`The programme is called "${request.title}".`];

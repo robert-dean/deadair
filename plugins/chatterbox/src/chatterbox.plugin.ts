@@ -30,7 +30,7 @@ import {
     type ResponseFormat,
 } from './chatterbox.manifest.js';
 import { dialsFor, needsServerDefaults } from './chatterbox.delivery.js';
-import { honoursExpressionDials, ModelLifecycle, type ModelInfo } from './chatterbox.lifecycle.js';
+import { honoursExpressionDials, languageFor, ModelLifecycle, type ModelInfo } from './chatterbox.lifecycle.js';
 import { VOICE_ENGINE_COLUMN, VOICES_FIELD, type VoiceMap, type VoiceMapping } from './chatterbox.voices.js';
 
 export { chatterboxManifest };
@@ -297,6 +297,17 @@ export class ChatterboxPlugin extends Plugin implements SpeechPluginInstance {
     }
 
     /**
+     * The languages the loaded build speaks, which on this engine is a property of the MODEL: the
+     * multilingual build lists its own, and the other two list English. Follows the resident model
+     * for {@link listDeliveries}' reason, and answers empty when the server cannot be asked.
+     */
+    async listLanguages(): Promise<readonly string[]> {
+        if (this.lifecycle === undefined) return [];
+
+        return (await this.lifecycle.info())?.languages ?? [];
+    }
+
+    /**
      * What the settings form should offer, out of what the server actually has.
      *
      * The engine's predefined clips, for the voice table's engine cell and for
@@ -374,6 +385,7 @@ export class ChatterboxPlugin extends Plugin implements SpeechPluginInstance {
         const delivery = sendDials ? request.delivery : undefined;
         const server = delivery !== undefined && needsServerDefaults(mapping) ? await lifecycle.generationDefaults() : undefined;
         const dials = sendDials ? dialsFor(mapping, delivery, server) : {};
+        const language = languageFor(model, request.language);
         if (!sendDials && (Object.keys(dialsFor(mapping)).length > 0 || request.delivery !== undefined)) {
             host.logger.debug('chatterbox withheld the expressiveness dials, because the loaded model ignores them', {
                 voice,
@@ -403,6 +415,8 @@ export class ChatterboxPlugin extends Plugin implements SpeechPluginInstance {
                 // Sent anyway, because `DEFAULT_VOICE_ROWS` no longer ships one and the field's help
                 // now says what it costs, so a speed in the table is somebody asking for it.
                 ...(mapping.speed === undefined ? {} : { speed_factor: mapping.speed }),
+                // Only to the build that reads it, and only a code it lists. See `languageFor`.
+                ...(language === undefined ? {} : { language }),
                 // Only to a model that reads them. With no delivery that is what the row set and nothing
                 // more, since an omitted dial takes the SERVER's configured default, which is the
                 // operator's call. With one it is both dials, moved from that same baseline.

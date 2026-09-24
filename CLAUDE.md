@@ -30,7 +30,7 @@ was shipped first and was wrong.
 | `apps/streamdeck/**` | [`apps/streamdeck/CLAUDE.md`](apps/streamdeck/CLAUDE.md) |
 | the running order, briefs, periods, committing, track audio | [`docs/internals/director.md`](docs/internals/director.md) |
 | which records get chosen, ratings, advisory, the search tool | [`docs/internals/programming.md`](docs/internals/programming.md) |
-| what a break says, facts, phrasings, bulletins, the format clock | [`docs/internals/breaks.md`](docs/internals/breaks.md) |
+| what a break says, facts, phrasings, bulletins, the format clock, the station's language | [`docs/internals/breaks.md`](docs/internals/breaks.md) |
 | personas, their notebooks, their stories, latitude, auditions | [`docs/internals/personas.md`](docs/internals/personas.md) |
 | phone-ins, beats, casting, stitching | [`docs/internals/productions.md`](docs/internals/productions.md) |
 | podcasts the station carries, `syndicated` bands, episode fetches | [`docs/internals/podcasts.md`](docs/internals/podcasts.md) |

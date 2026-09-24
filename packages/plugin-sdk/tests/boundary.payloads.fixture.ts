@@ -182,6 +182,7 @@ export const speechRequestFixture: SpeechRequest = {
     voice: 'host',
     format: 'mp3',
     delivery: 'hushed',
+    language: 'de',
 };
 
 export const speechVoiceFixture: SpeechVoice = {

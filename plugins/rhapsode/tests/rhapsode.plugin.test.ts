@@ -234,6 +234,24 @@ describe('speak', () => {
         expect(sentBody(calls)).toMatchObject({ delivery: 'hushed' });
     });
 
+    it('sends the station language as the build spells it, matching a region to its language', async () => {
+        const { plugin, calls } = await started({
+            capabilities: { kokoro: capabilities({ variants: { only: variant({ languages: ['en', 'de', 'fr'] }) } }) },
+        });
+
+        await plugin.speak(say({ text: 'Guten Abend.', language: 'de-at' }));
+
+        expect(sentBody(calls)).toMatchObject({ language: 'de' });
+    });
+
+    it('sends no language the build does not list, because the server refuses one and a refused line is a lost break', async () => {
+        const { plugin, calls } = await started({ capabilities: { kokoro: capabilities({ variants: { only: variant({ languages: ['en'] }) } }) } });
+
+        await plugin.speak(say({ text: 'Guten Abend.', language: 'de' }));
+
+        expect(sentBody(calls)).not.toHaveProperty('language');
+    });
+
     it('leaves a cue where the writer put it, inside the text', async () => {
         const { plugin, calls } = await started();
 
@@ -519,9 +537,31 @@ describe('what this station can be asked for', () => {
         expect(await plugin.listLimits()).toEqual({});
     });
 
+    it('lists only the languages every build in use speaks, so one English-only voice is not hidden', async () => {
+        const { plugin } = await started({
+            capabilities: {
+                kokoro: capabilities({ variants: { only: variant({ languages: ['en', 'de', 'fr'] }) } }),
+                chatterbox: capabilities({
+                    engine: { id: 'chatterbox', displayName: 'Chatterbox', adapterVersion: '0.3.1' },
+                    variants: { turbo: variant({ languages: ['en', 'fr'] }) },
+                }),
+            },
+            config: bothEngines.config,
+        });
+
+        expect(await plugin.listLanguages()).toEqual(['en', 'fr']);
+    });
+
+    it('lists no languages when no build says, which the host reads as not knowing', async () => {
+        const { plugin } = await started(bothEngines);
+
+        expect(await plugin.listLanguages()).toEqual([]);
+    });
+
     it('claims nothing at all when the server cannot be reached', async () => {
         const { plugin } = await started();
 
+        expect(await plugin.listLanguages()).toEqual([]);
         expect(await plugin.listCues()).toEqual([]);
         expect(await plugin.listDeliveries()).toEqual([]);
         expect(await plugin.listLimits()).toEqual({});

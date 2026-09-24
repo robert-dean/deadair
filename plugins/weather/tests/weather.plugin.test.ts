@@ -89,6 +89,35 @@ describe('Open-Meteo, the default', () => {
         expect(reading).toMatchObject({ place: 'Atlanta, Georgia', current: { condition: 'clear', temperatureC: 24.1 } });
     });
 
+    it('asks for the place named in English unless the station broadcasts in something else', async () => {
+        await initialize();
+        queueJson(GEOCODED);
+        queueJson(OPEN_METEO_ANSWER);
+        queueJson({ results: [{ name: 'München', latitude: 48.137, longitude: 11.575, admin1: 'Bayern' }] });
+        queueJson(OPEN_METEO_ANSWER);
+
+        await plugin.getWeather({ place: 'Atlanta' });
+        const reading = await plugin.getWeather({ place: 'Munich', language: 'de-AT' });
+
+        expect(new URL(host.calls[0]!.url).searchParams.get('language')).toBe('en');
+        expect(new URL(host.calls[2]!.url).searchParams.get('language')).toBe('de');
+        // Said on air, which is the whole reason to ask.
+        expect(reading?.place).toBe('München, Bayern');
+    });
+
+    it('keeps a reading per language, since the place in it is named differently', async () => {
+        await initialize();
+        queueJson(GEOCODED);
+        queueJson(OPEN_METEO_ANSWER);
+        queueJson(GEOCODED);
+        queueJson(OPEN_METEO_ANSWER);
+
+        await plugin.getWeather({ place: 'Atlanta' });
+        await plugin.getWeather({ place: 'Atlanta', language: 'fr' });
+
+        expect(host.calls).toHaveLength(4);
+    });
+
     it('asks the geocoder again with the town alone when a comma-qualified name found nothing', async () => {
         // Measured against the live service: `Atlanta, Georgia` resolves and
         // `Chipping Norton, Oxfordshire` resolves to NOTHING, while the town on
@@ -233,6 +262,17 @@ describe('OpenWeatherMap', () => {
 
         expect(host.calls[1]?.url).toContain('units=metric');
         expect(reading?.current.windKph).toBe(36);
+    });
+
+    it('asks for the description in the station language, since the condition is read off the id', async () => {
+        await initialize({ engine: 'openweathermap', apiKey: 'a-key' });
+        queueJson([{ name: 'Atlanta', lat: 33.749, lon: -84.388 }]);
+        queueJson({ dt: 1_800_000_000, timezone: 0, weather: [{ id: 800, description: 'Klarer Himmel' }], main: { temp: 24 } });
+
+        const reading = await plugin.getWeather({ place: 'Atlanta', language: 'de' });
+
+        expect(new URL(host.calls[1]!.url).searchParams.get('lang')).toBe('de');
+        expect(reading?.current.condition).toBe('clear');
     });
 
     it('names the key when the service says 401, which the status alone does not', async () => {

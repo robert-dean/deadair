@@ -20,6 +20,7 @@ import { extensionForMime, SegmentStore, type SegmentExtension } from './segment
 import { SpeechGate, type SpeechGateOptions } from './speech.gate.js';
 import { PronunciationRepository } from './pronunciation.repository.js';
 import { transposeForSpeech } from './speech.transpose.js';
+import { stationLanguage } from '#modules/stream/stream.settings.js';
 import type { VoiceSampleStore } from './voice.sample.store.js';
 
 /**
@@ -104,6 +105,14 @@ export interface SpokenAudio {
  *
  * Scoped, like the repositories it sits beside: called from a job's scope today.
  */
+/**
+ * The engine and language pairs already checked, so the warning in `warnIfUnspoken` is said once.
+ *
+ * Module state because the service is SCOPED and a new one is built for every render, which is the
+ * same reason `defaultPickIsNews` is module state.
+ */
+const warnedUnspoken = new Set<string>();
+
 @Injectable()
 export class SpeechService {
     constructor(
@@ -307,12 +316,66 @@ export class SpeechService {
     private async performable(request: SpeechRequest, plugin: SpeechPlugin): Promise<SpeechRequest> {
         const { delivery, ...rest } = request;
         const text = await this.sayable(request.text, plugin);
-        if (delivery === undefined) return { ...rest, text };
+        // The station's language on every line, when it is not English. A caller that knows the text
+        // is in some other language (a book read out in the language it was written in) has already
+        // said so and is not overruled.
+        const language = request.language ?? stationLanguage(this.config);
+        const said = { ...rest, text, ...(language === undefined ? {} : { language }) };
+        if (language !== undefined) await this.warnIfUnspoken(plugin, language);
+        if (delivery === undefined) return said;
 
-        if ((await this.deliveriesFor(plugin)).includes(delivery)) return { ...rest, text, delivery };
+        if ((await this.deliveriesFor(plugin)).includes(delivery)) return { ...said, delivery };
 
         this.logger.debug('render: dropped a delivery this engine does not perform', { plugin: plugin.record.id, delivery });
-        return { ...rest, text };
+        return said;
+    }
+
+    /**
+     * Say so, once, when the engine lists the languages it speaks and this one is not among them.
+     *
+     * A warning and never a refusal. The line is still sent with its language: an engine that is
+     * wrong about itself, or that can speak a language through a voice it does not list, would
+     * otherwise be silenced by the one thing the station cannot check. What the warning is for is the
+     * operator who set the station to German and left an English-only model loaded, and who would
+     * otherwise find out by listening.
+     *
+     * Once per engine and language for the life of the process, because it is asked on every line.
+     * A primary tag answers for its regions, so an engine listing `de` speaks `de-at`.
+     */
+    private async warnIfUnspoken(plugin: SpeechPlugin, language: string): Promise<void> {
+        const key = `${plugin.record.id}|${language}`;
+        if (!plugin.listsLanguages || warnedUnspoken.has(key)) return;
+
+        let spoken: readonly string[];
+        try {
+            spoken = await this.pluginInvoker.invoke(
+                plugin.record.id,
+                'speech.listLanguages',
+                async () => (await plugin.instance.listLanguages?.()) ?? [],
+            );
+        } catch (error) {
+            this.logger.debug('render: could not ask which languages this engine speaks', { plugin: plugin.record.id, error });
+            return;
+        }
+        // An engine that could not be reached answers empty, which is not a claim that it speaks nothing.
+        if (spoken.length === 0) return;
+
+        const primary = language.split('-')[0]!;
+        const speaks = spoken.some(tag => {
+            const listed = tag.toLowerCase();
+            return listed === language || listed === primary;
+        });
+        warnedUnspoken.add(key);
+        if (!speaks) {
+            this.logger.warn(
+                `render: the station broadcasts in ${language}, and ${plugin.record.id} does not list it among the languages it speaks`,
+                {
+                    plugin: plugin.record.id,
+                    language,
+                    speaks: spoken,
+                },
+            );
+        }
     }
 
     /**
@@ -332,7 +395,13 @@ export class SpeechService {
         // does not own, and one of them (`settle`) already had an opinion about them.
         const performable = withoutCues(text, await this.cuesFor(plugin));
 
-        const spoken = transposeForSpeech(performable, await this.pronunciations.active());
+        // Outside English the respellings the gloss pass mined are left out, because they are English
+        // phonetics ("Shar-day") and a German voice reads them as German. An operator's own entries
+        // stay: somebody wrote those for this station's voice.
+        const language = stationLanguage(this.config);
+        const entries = await this.pronunciations.active(language === undefined ? undefined : ['operator']);
+
+        const spoken = transposeForSpeech(performable, entries, language);
         if (spoken !== text.trim()) this.logger.debug('render: transposed a script for the engine', { written: text, spoken });
 
         return spoken;

@@ -54,10 +54,11 @@ import { NOT_A_HABIT, withoutRecordNames } from './break.prompt.js';
  * bar gets checked against real scripts rather than against this paragraph.
  */
 export function mentionsStory(script: string, shown: StoryShown, guard: AnswerGuard = {}): boolean {
-    const anchors = anchorsOf(shown);
+    const minLength = guard.language === undefined ? MIN_ANCHOR_LENGTH : MIN_FOREIGN_ANCHOR_LENGTH;
+    const anchors = anchorsOf(shown, minLength);
     if (anchors.size === 0) return false;
 
-    const said = new Set(wordsIn(withoutRecordNames(script, guard)));
+    const said = new Set(wordsIn(withoutRecordNames(script, guard), minLength));
 
     let found = 0;
     for (const anchor of anchors) {
@@ -93,11 +94,11 @@ export interface StoryShown {
 const required = (anchors: number): number => Math.min(2, anchors);
 
 /** The distinctive words of the text a break was shown. */
-function anchorsOf(shown: StoryShown): Set<string> {
-    const excluded = new Set((shown.diction ?? []).flatMap(marker => wordsIn(marker)));
+function anchorsOf(shown: StoryShown, minLength: number): Set<string> {
+    const excluded = new Set((shown.diction ?? []).flatMap(marker => wordsIn(marker, minLength)));
     const anchors = new Set<string>();
 
-    for (const word of wordsIn([shown.text, ...(shown.details ?? [])].join(' '))) {
+    for (const word of wordsIn([shown.text, ...(shown.details ?? [])].join(' '), minLength)) {
         if (excluded.has(word)) continue;
         anchors.add(word);
     }
@@ -105,14 +106,14 @@ function anchorsOf(shown: StoryShown): Set<string> {
     return anchors;
 }
 
-/** Lower-cased words of at least {@link MIN_ANCHOR_LENGTH}, with the grammar dropped. */
-function wordsIn(text: string): string[] {
+/** Lower-cased words of at least `minLength` letters, with the grammar dropped. */
+function wordsIn(text: string, minLength: number): string[] {
     return (
         text
             .toLowerCase()
             .replace(/[‘’ʼ′]/g, "'")
-            .match(/[a-z0-9']+/g) ?? []
-    ).filter(word => word.length >= MIN_ANCHOR_LENGTH && !NOT_AN_ANCHOR.has(word));
+            .match(/[\p{L}\p{N}']+/gu) ?? []
+    ).filter(word => word.length >= minLength && !NOT_AN_ANCHOR.has(word));
 }
 
 /**
@@ -124,6 +125,17 @@ function wordsIn(text: string): string[] {
  * by name below rather than by length, which is the same division `NOT_A_HABIT` already makes.
  */
 const MIN_ANCHOR_LENGTH = 4;
+
+/**
+ * The bar outside English, where {@link NOT_AN_ANCHOR} names none of the language's grammar.
+ *
+ * Length stands in for the stop list, crudely: German's `nicht`, `eine` and `sind` and French's
+ * `avec` and `dans` are all shorter than this, and a story and a break share them whatever either is
+ * about. Counted as anchors they mark a story as told when it was not, which moves the arc past a part
+ * nobody heard. What it costs is the short distinctive word (`Hund`), so a story told only through
+ * those is offered again, which is the cheaper of the two mistakes.
+ */
+const MIN_FOREIGN_ANCHOR_LENGTH = 7;
 
 /**
  * Words a sentence needs, which a story and a break will share whatever either of them is about.

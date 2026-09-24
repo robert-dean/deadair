@@ -13,6 +13,7 @@ import {
 } from './break.templates.js';
 import { saysTime } from './clock.words.js';
 import { spoken } from './talk.break.writer.js';
+import { stationLanguage } from '#modules/stream/stream.settings.js';
 
 /**
  * What the station says when the timetable changes the programme.
@@ -136,10 +137,11 @@ export class ChangeoverWriter extends BreakWriter {
         };
 
         // Read per changeover rather than held, so an operator editing them hears it at the next one.
-        const templates = parseTemplates(this.config.get(CHANGEOVER_KEYS.templates, ''), CHANGEOVER_TEMPLATES);
+        const language = stationLanguage(this.config);
+        const templates = parseTemplates(this.config.get(CHANGEOVER_KEYS.templates, ''), CHANGEOVER_TEMPLATES, language);
         this.complainAboutTypos(templates);
 
-        const fits = mostSpecific(usable(templates, inputs, spoken), [inputs.outgoing, inputs.show, inputs.outgoingShow]);
+        const fits = mostSpecific(usable(templates, inputs, spoken, language), [inputs.outgoing, inputs.show, inputs.outgoingShow]);
         // No station name and no show on either side: there is no true sentence to be made of that.
         if (fits.length === 0) return undefined;
 

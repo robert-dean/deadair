@@ -15,6 +15,7 @@ import {
 } from './break.templates.js';
 import { saysTime } from './clock.words.js';
 import { spoken } from './talk.break.writer.js';
+import { stationLanguage } from '#modules/stream/stream.settings.js';
 
 /**
  * The station saying what it is like outside.
@@ -156,10 +157,12 @@ export class WeatherBreakWriter extends BreakWriter {
             ...(request.greeting === undefined ? {} : { greeting: request.greeting.words }),
         };
 
-        const templates = parseTemplates(this.config.get(WEATHER_BREAK_KEYS.templates, ''), WEATHER_TEMPLATES);
+        const language = stationLanguage(this.config);
+
+        const templates = parseTemplates(this.config.get(WEATHER_BREAK_KEYS.templates, ''), WEATHER_TEMPLATES, language);
         this.complainAboutTypos(templates);
 
-        const fits = usable(templates, inputs, spoken);
+        const fits = usable(templates, inputs, spoken, language);
         // An operator whose every phrasing needs something this moment has not got. The reading
         // exists and there is no frame to read it in, which is a slot passed over rather than a bare
         // temperature with no station attached to it.

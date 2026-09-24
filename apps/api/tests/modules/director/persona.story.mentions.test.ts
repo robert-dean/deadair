@@ -80,6 +80,20 @@ describe('the bar itself', () => {
         expect(mentionsStory('There was a thing that was there.', { text: 'It was there.' })).toBe(false);
     });
 
+    it('reads an accented word as one word rather than the pieces either side of the accent', () => {
+        // Split at the ü, "Zürich" was the anchor "rich", which any script about money matched.
+        expect(mentionsStory('Ich war einmal in Zürich.', { text: 'Zürich.' })).toBe(true);
+        expect(mentionsStory('The rich get richer.', { text: 'Zürich.' })).toBe(false);
+    });
+
+    it('outside English, counts only long words, because the grammar it would otherwise share is not on the list', () => {
+        const shown = { text: 'Die Lichter über der Wüste bei Barstow, und die Hunde wollten nicht raus.' };
+
+        // Shares `nicht`, `über` and `wollten` with the story and tells none of it.
+        expect(mentionsStory('Ich wollte das nicht, aber über Musik reden wir später.', shown, { language: 'de' })).toBe(false);
+        expect(mentionsStory('Barstow, die Wüste, diese Lichter. Ich denke oft daran.', shown, { language: 'de' })).toBe(true);
+    });
+
     it('says no for an empty script', () => {
         expect(mentionsStory('', barstow)).toBe(false);
     });

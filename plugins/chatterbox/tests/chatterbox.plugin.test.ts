@@ -171,6 +171,48 @@ describe('ChatterboxPlugin.speak', () => {
         expect(speechRequest(calls).speed_factor).toBe(0.9);
     });
 
+    // The server's multilingual build is the only one that reads a language, and it lists which it
+    // speaks in the model readout. Measured against the upstream server's own `engine.py`: the other
+    // two builds report English alone.
+    describe('the station language', () => {
+        const multilingual = { type: 'multilingual', supported_languages: { en: 'English', de: 'German', fr: 'French' } };
+
+        it('sends a language the multilingual build lists, matching a region to its language', async () => {
+            const { plugin, calls } = await started({ modelInfo: multilingual });
+
+            const handle = await plugin.speak({ text: 'Guten Abend.', language: 'de-at' });
+            await drain(handle.audio);
+
+            expect(speechRequest(calls).language).toBe('de');
+        });
+
+        it('sends none to a build that does not read it', async () => {
+            const { plugin, calls } = await started({ modelInfo: { type: 'turbo', supported_languages: { en: 'English' } } });
+
+            const handle = await plugin.speak({ text: 'Guten Abend.', language: 'de' });
+            await drain(handle.audio);
+
+            expect(speechRequest(calls)).not.toHaveProperty('language');
+        });
+
+        it('sends none the multilingual build does not list, rather than have the line refused', async () => {
+            const { plugin, calls } = await started({ modelInfo: multilingual });
+
+            const handle = await plugin.speak({ text: 'Goedenavond.', language: 'nl' });
+            await drain(handle.audio);
+
+            expect(speechRequest(calls)).not.toHaveProperty('language');
+        });
+
+        it('lists what the resident build speaks', async () => {
+            expect(await (await started({ modelInfo: multilingual })).plugin.listLanguages()).toEqual(['en', 'de', 'fr']);
+            expect(await (await started({ modelInfo: { type: 'turbo', supported_languages: { en: 'English' } } })).plugin.listLanguages()).toEqual([
+                'en',
+            ]);
+            expect(await (await started()).plugin.listLanguages()).toEqual([]);
+        });
+    });
+
     // The dials are a voice's own, and whether they are worth sending is a fact about the model that
     // is resident. The turbo build discards both and logs that it did, and the other two read them.
     // What these pin is that the plugin asks the readout it already has rather than guessing.

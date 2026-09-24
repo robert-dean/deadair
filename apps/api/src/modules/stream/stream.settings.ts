@@ -551,6 +551,26 @@ export function resolveMaxListeners(config: AppConfig): number {
 }
 
 /**
+ * The language the station broadcasts in, when it is not English: `stream.language` as a BCP 47
+ * tag, trimmed and lower-cased, or `undefined` for English.
+ *
+ * `undefined` rather than `'en'` because English is what every writer, check and table in the
+ * tree already assumes. A caller branches on "is there a language to honour" and does nothing
+ * otherwise, so an English station, including one that never set the key, behaves exactly as it
+ * did before this existed. `en-GB`, `en-US` and the rest are all English for that purpose: the
+ * tables are not regional.
+ *
+ * The same key Icecast's `Content-Language` comes from, rather than a second one, because it was
+ * always documented as "the language of what is broadcast" and two settings answering that one
+ * question could only disagree.
+ */
+export function stationLanguage(config: AppConfig): string | undefined {
+    const tag = config.get(STREAM_KEYS.language, '').trim().toLowerCase();
+    if (tag === '' || tag === 'en' || tag.startsWith('en-')) return undefined;
+    return tag;
+}
+
+/**
  * Where the HLS master playlist is. `radio.liq` writes `playlist = "live.m3u8"` as a
  * literal; see `nginx/snippets/hls.conf` for how the edge reaches it.
  */

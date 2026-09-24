@@ -463,7 +463,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         label: 'Language',
         type: 'string',
         default: STREAM_DEFAULTS.language,
-        help: 'The language of what is broadcast, as a BCP 47 tag such as `en` or `en-GB`. Sent to Icecast with the stream.',
+        help: 'The language of what is broadcast, as a BCP 47 tag such as `en`, `de` or `fr-CA`. The presenter writes in it, and it is sent to Icecast with the stream. Empty means English.',
     },
     {
         group: 'stream',

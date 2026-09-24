@@ -195,6 +195,18 @@ export interface SpeechRequest {
      * neighbours when hushed. See {@link SPEECH_DELIVERIES}.
      */
     delivery?: SpeechDelivery;
+
+    /**
+     * The language the text is in, as a BCP 47 tag (`de`, `fr-ca`), or absent for English.
+     *
+     * The station's broadcast language, sent on every line when it is not English. The text has not
+     * been rewritten for any particular engine: numbers, times and symbols arrive as digits and
+     * symbols, for your engine's own normaliser to read in this language. Pass it to an engine that
+     * takes one, and ignore it if yours picks the language from the voice. Unlike a delivery it is
+     * sent whether or not you claimed it through {@link SpeechPluginInstance.listLanguages}, because
+     * dropping it would not make the text any less German.
+     */
+    language?: string;
 }
 
 /** The audio for one {@link SpeechPluginInstance.speak}, and what it is. */
@@ -335,6 +347,19 @@ export interface SpeechPluginInstance extends PluginLifecycle {
      * reading rather than fail to write one.
      */
     listDeliveries?(): Promise<readonly SpeechDelivery[]>;
+
+    /**
+     * The languages this engine can speak RIGHT NOW, as BCP 47 tags.
+     *
+     * Optional, and absent means the host cannot tell, so it says nothing. Answered, it lets the
+     * station warn an operator whose station language is not on the list, once, rather than render a
+     * German script in an English voice without a word. A primary tag (`de`) covers every region of
+     * it (`de-at`).
+     *
+     * {@link listCues}' three rules apply: answer from what the engine currently IS, keep it cheap,
+     * and answer empty rather than throwing when the engine cannot be reached.
+     */
+    listLanguages?(): Promise<readonly string[]>;
 
     /**
      * What one call to this engine can be given. See {@link SpeechLimits}.

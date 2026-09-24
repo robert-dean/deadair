@@ -1,10 +1,10 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
-import { advisoryPolicy, speaksClean } from './advisory.policy.js';
+import { languageGuard, stationPromptSettings } from './prompt.settings.js';
+import { languageName } from '#modules/shared/language.name.js';
 import { LlmService } from '#modules/llm/llm.service.js';
 import { captureWrites } from '#modules/render/script.history.settings.js';
-import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
 import {
     breakPrompt,
     maxWordsFor,
@@ -17,8 +17,7 @@ import {
     type BreakPromptShape,
     type PromptSettings,
 } from './break.prompt.js';
-import { TEMPLATE_KEYS } from './break.templates.js';
-import { timeClaimIn } from './clock.words.js';
+import { timeClaimFor } from './clock.words.js';
 import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBreak, patienceFor } from './break.writer.js';
 import { CHANGEOVER_KIND } from './changeover.writer.js';
 import { BUDGET_MS, MAX_OUTPUT_TOKENS, MODEL_WRITER, MODEL_WRITER_DEFAULT, MODEL_WRITER_KEYS } from './model.talk.break.writer.js';
@@ -51,7 +50,7 @@ export const CHANGEOVER_SHAPE: BreakPromptShape = {
             'the name you were given and no other. When it was you, do not thank anybody: you are carrying on.',
         'This is about the shows, not the records. Do not say what the last show played or what is coming up next.',
     ],
-    opening: request => {
+    opening: (request, settings) => {
         const change = request.changeover;
         const outgoing = change?.outgoing?.djName?.trim();
 
@@ -67,7 +66,9 @@ export const CHANGEOVER_SHAPE: BreakPromptShape = {
             // expiry the station can check, and this one is stamped as a claim and checked at hand-over.
             request.greeting === undefined
                 ? undefined
-                : `You may open with "${request.greeting.words}", in those words and no other way of saying it.`,
+                : settings.language === undefined
+                  ? `You may open with "${request.greeting.words}", in those words and no other way of saying it.`
+                  : `You may open with the ${languageName(settings.language)} for "${request.greeting.words}".`,
         ]
             .filter(Boolean)
             .join(' ');
@@ -110,9 +111,7 @@ export class ModelChangeoverWriter extends BreakWriter {
         // Held rather than passed inline, for `ModelTalkBreakWriter`'s reason: the number the model is
         // told has to be the number the guard refuses at.
         const settings: PromptSettings = {
-            station: this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),
-            dj: request.persona?.djName ?? this.config.get(TEMPLATE_KEYS.djName, ''),
-            cleanLanguage: speaksClean(advisoryPolicy(this.config)),
+            ...stationPromptSettings(this.config, request),
             ...(request.persona === undefined ? {} : { persona: request.persona }),
             ...(request.notebook === undefined ? {} : { notebook: request.notebook }),
             // Passed and declined by the shape, which sets no `allowsCues`, for `ModelWelcomeWriter`'s
@@ -144,6 +143,7 @@ export class ModelChangeoverWriter extends BreakWriter {
             ...(request.recent === undefined ? {} : { recent: request.recent }),
             ...(request.dayPart === undefined ? {} : { dayPart: request.dayPart }),
             ...(request.moment === undefined ? {} : { moment: request.moment }),
+            ...languageGuard(this.config),
             // No record was shown, so no year belongs in the answer but one the prompt itself carried.
             years: permittedYears([], request.moment, shownWithoutRecent(messages, request.recent)),
         };
@@ -174,7 +174,7 @@ export class ModelChangeoverWriter extends BreakWriter {
             this.logger.info(`director: ${trimmed.reason}`, { kept: trimmed.kept, dropped: trimmed.dropped, persona: request.persona?.key });
         }
 
-        const claimsTime = timeClaimIn(script, request.greeting, request.dayPart);
+        const claimsTime = timeClaimFor(script, guard.language, request.greeting, request.dayPart);
 
         return {
             script,

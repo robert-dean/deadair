@@ -8,6 +8,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { beatPrompt, outlinePrompt } from '../../../src/modules/productions/production.prompt.js';
+import { languageRule } from '../../../src/modules/shared/language.name.js';
 import type { CastMember } from '../../../src/modules/productions/production.cast.js';
 import type { Persona } from '../../../src/modules/personas/persona.js';
 
@@ -389,5 +390,24 @@ describe('a programme nobody briefed', () => {
 
         expect(outlineUser({ subject, brief })).not.toContain('why Lonnie rang');
         expect(userOf(turn({ ...base, subject, brief }))).not.toContain('why Lonnie rang');
+    });
+});
+
+describe('a production on a station that does not broadcast in English', () => {
+    it('closes every beat on the language', () => {
+        const system = systemOf(turn({ ...base, speaker: host, language: 'it' }));
+
+        expect(system.trimEnd().endsWith(languageRule('it'))).toBe(true);
+    });
+
+    it('tells the plan who it is for without asking for a plan in that language', () => {
+        const system = String(outlinePrompt({ kind: 'callin', title: 'Phone-in', beats: 3, wordsPerBeat: 70, language: 'it' })[0]?.content);
+
+        expect(system).toContain('The programme goes out in Italian.');
+        expect(system).not.toContain('Write every word you say in');
+    });
+
+    it('says nothing about language on an English station', () => {
+        expect(systemOf(turn({ ...base, speaker: host }))).not.toContain('Write every word you say in');
     });
 });

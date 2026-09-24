@@ -1,12 +1,10 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
-import { advisoryPolicy, speaksClean } from './advisory.policy.js';
+import { stationPromptSettings } from './prompt.settings.js';
 import { LlmService } from '#modules/llm/llm.service.js';
 import { captureWrites } from '#modules/render/script.history.settings.js';
-import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
 import { breakPrompt, readAnswer, writeDecline, writeTrim, type AnswerGuard, type BreakPromptShape } from './break.prompt.js';
-import { TEMPLATE_KEYS } from './break.templates.js';
 import { timeClaimIn } from './clock.words.js';
 import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBreak, patienceFor } from './break.writer.js';
 import { BUDGET_MS, MAX_OUTPUT_TOKENS, MODEL_WRITER, MODEL_WRITER_DEFAULT, MODEL_WRITER_KEYS } from './model.talk.break.writer.js';
@@ -166,10 +164,8 @@ export class ModelNewsBreakWriter extends BreakWriter {
         const messages = breakPrompt(
             request,
             {
-                station: this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),
-                dj: request.persona?.djName ?? this.config.get(TEMPLATE_KEYS.djName, ''),
+                ...stationPromptSettings(this.config, request),
                 maxWords: NEWS_MAX_WORDS,
-                cleanLanguage: speaksClean(advisoryPolicy(this.config)),
                 ...(request.persona === undefined ? {} : { persona: request.persona }),
             },
             NEWS_SHAPE,

@@ -1,10 +1,9 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
-import { advisoryPolicy, speaksClean } from './advisory.policy.js';
+import { stationPromptSettings } from './prompt.settings.js';
 import { LlmService } from '#modules/llm/llm.service.js';
 import { captureWrites } from '#modules/render/script.history.settings.js';
-import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
 import {
     breakPrompt,
     maxWordsFor,
@@ -17,7 +16,6 @@ import {
     type BreakPromptShape,
     type PromptSettings,
 } from './break.prompt.js';
-import { TEMPLATE_KEYS } from './break.templates.js';
 import { timeClaimIn } from './clock.words.js';
 import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBreak, patienceFor } from './break.writer.js';
 import { CHANGEOVER_KIND } from './changeover.writer.js';
@@ -110,9 +108,7 @@ export class ModelChangeoverWriter extends BreakWriter {
         // Held rather than passed inline, for `ModelTalkBreakWriter`'s reason: the number the model is
         // told has to be the number the guard refuses at.
         const settings: PromptSettings = {
-            station: this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),
-            dj: request.persona?.djName ?? this.config.get(TEMPLATE_KEYS.djName, ''),
-            cleanLanguage: speaksClean(advisoryPolicy(this.config)),
+            ...stationPromptSettings(this.config, request),
             ...(request.persona === undefined ? {} : { persona: request.persona }),
             ...(request.notebook === undefined ? {} : { notebook: request.notebook }),
             // Passed and declined by the shape, which sets no `allowsCues`, for `ModelWelcomeWriter`'s

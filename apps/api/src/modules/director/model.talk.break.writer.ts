@@ -1,10 +1,9 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
-import { advisoryPolicy, speaksClean } from './advisory.policy.js';
+import { stationPromptSettings } from './prompt.settings.js';
 import { LlmService } from '#modules/llm/llm.service.js';
 import { captureWrites } from '#modules/render/script.history.settings.js';
-import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
 import {
     breakPrompt,
     liftDelivery,
@@ -21,7 +20,6 @@ import {
     type PromptSettings,
 } from './break.prompt.js';
 import { resolveBreakWords } from './break.words.js';
-import { TEMPLATE_KEYS } from './break.templates.js';
 import { timeClaimIn } from './clock.words.js';
 import { mentionsWeather } from './weather.figures.js';
 import { mentionsStory } from './persona.story.mentions.js';
@@ -166,13 +164,7 @@ export class ModelTalkBreakWriter extends BreakWriter {
         // settings: a persona's latitude decides the word ceiling, and the number the model is told
         // and the number it is refused at have to come from one `maxWordsFor` call over one object.
         const settings: PromptSettings = {
-            station: this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),
-            // The persona's own name where it has one, and the station's behind it. A persona
-            // that is a manner rather than a character has no reason to rename the presenter.
-            dj: request.persona?.djName ?? this.config.get(TEMPLATE_KEYS.djName, ''),
-            // Read per break like every other setting here, so an operator's change lands on
-            // the next one rather than after a restart.
-            cleanLanguage: speaksClean(advisoryPolicy(this.config)),
+            ...stationPromptSettings(this.config, request),
             // The station's own ceiling, read here rather than left to `DEFAULT_MAX_WORDS` — which
             // is now this setting's DEFAULT rather than the number itself, so the two cannot
             // disagree. It reaches the guard below through `maxWordsFor` off this same object, which

@@ -1931,8 +1931,29 @@ const CUE_WINDOW_WORDS = 8;
  */
 const BACK_ANNOUNCE_FRAMES = ['that was', "that's", 'that is', 'those were', 'you just heard', 'we just heard', 'you were listening to'];
 
-/** The ways a script says a record is still to come. Same doctrine as {@link BACK_ANNOUNCE_FRAMES}. */
-const FORWARD_FRAMES = ['coming up', 'next up', 'up next', 'next is', "here's", 'here comes', 'coming your way', 'stay tuned for'];
+/**
+ * The ways a script says a record is still to come. Same doctrine as {@link BACK_ANNOUNCE_FRAMES}.
+ *
+ * The "next cut" family was added after 23 September, segment `Talk break: Laid to Rest into Scourge
+ * of Iron`: "the next cut is Laid to Rest" about the record that had just finished passed, because
+ * "next is" needs the two words touching and a presenter puts a noun between them.
+ */
+const FORWARD_FRAMES = [
+    'coming up',
+    'next up',
+    'up next',
+    'next is',
+    "here's",
+    'here comes',
+    'coming your way',
+    'stay tuned for',
+    'next cut',
+    'next track',
+    'next song',
+    'next record',
+    'next tune',
+    'next spin',
+];
 
 /** The two records a break sits between, so a cue can be judged against the right one. */
 export interface BreakCues {

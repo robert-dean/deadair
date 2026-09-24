@@ -1500,6 +1500,16 @@ describe('readAnswer, against the side of the break a record is on', () => {
         expect(readAnswer('Coming up, Madhouse, and it never did settle down.', { cues: between })).toBeUndefined();
     });
 
+    it('declines a forward cue that puts a noun between "next" and the record', () => {
+        // Aired on 23 September as `Talk break: Laid to Rest into Scourge of Iron`, about the record
+        // that had just finished.
+        const cues = { previous: { title: 'Laid to Rest', artist: 'Lamb of God' }, next: { title: 'Scourge of Iron', artist: 'Cannibal Corpse' } };
+        const script = 'Buckle up, my listeners, the next cut is “Laid to Rest” by Lamb of God from that 2004 Ashes of the Wake album, y’all.';
+
+        expect(readAnswer(script, { cues })).toBeUndefined();
+        expect(readAnswer('The next track is Scourge of Iron, and it does not ask permission.', { cues })).toBeDefined();
+    });
+
     it('declines a back-announce of the record to come, when it is named by its title as it is read', () => {
         const reissues = {
             previous: { title: 'Glycerine - 2014 Remastered', artist: 'Bush' },

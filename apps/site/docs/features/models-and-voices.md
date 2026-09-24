@@ -49,6 +49,20 @@ A character can also have a soundboard, short sounds it may hit mid-sentence. No
 
 Pronunciations are a table. The station fills it from the pronunciation keys printed in Wikipedia articles it already holds. Where it is sure which word a key belongs to it uses the entry; where it is not it proposes one, which is not said until you accept it, and a rejected one stays rejected. Figures are rewritten before an engine sees them, so "$17.1 billion" is read as "17.1 billion dollars", and a price in front of a noun as "a 100 billion dollar spaceport".
 
+## Broadcasting in another language
+
+Set **Language** under Settings → Stream to a language tag such as `de`, `fr` or `es`, and the presenter writes and speaks in it. Leave it empty, or set any English tag, and the station is English as before.
+
+What changes:
+
+- Every break, phone-in and programme is written in that language. Record titles and people's names stay as written. A character written with **Write** gets its sample lines, catchphrases, stories and phrasings in that language; a character you already have keeps what it has, so rewrite its lines in the new language yourself.
+- The station's own English phrasings are switched off, because an English sentence on a French station is worse than none. Your phrasings and your characters' still apply, but the time and the greeting can't be filled in any language but English, so leave them out of those. A break with no model answer and no phrasing to fall back on is left out. A warm-up, a jingle or a dedication plays only if somebody wrote a line for it in the station's language.
+- Numbers, times and symbols go to the voice as written, for the engine to read in its own language, and the pronunciations the station found in English articles are not used. Yours still are.
+- Checks that only understand English words, such as naming the wrong part of the day, are off. When the station can't tell whether a break mentioned the time or the weather, it assumes it did, so a break that runs late is replaced rather than going out stale.
+- The weather names places in the station's language.
+
+The voice has to speak the language too. Rhapsode and Chatterbox's multilingual model are told which language to use. Rhapsode, and Chatterbox for whichever model is loaded, report which languages they speak, and the station writes a warning to its log once if yours isn't among them. With Kokoro, choose voices built for the language. The Wikipedia plugin has its own language setting, since a station may still want its facts from English Wikipedia.
+
 ## In the console
 
 **Settings → Providers** for which plugin writes and which one speaks, beside every other job more than one of your plugins can do; **Settings → Words** for the model per job; the language model plugin's page, under Settings → Plugins, for the providers themselves. **Voice** in the rail, or the V key, holds Voices (with a preview of each), Pronunciations, Soundboard, and What it said: every break written, and every one declined.

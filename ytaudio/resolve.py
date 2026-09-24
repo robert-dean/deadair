@@ -20,6 +20,7 @@ protocol implementation of our own. See discussion #49.
 
 from __future__ import annotations
 
+import math
 import re
 import time
 import urllib.error
@@ -282,6 +283,37 @@ def _pick(info: dict) -> dict:
     raise Unavailable("no audio-only format was offered for this record")
 
 
+#: yt-dlp's `live_status` values that have no finished record behind them. A live
+#: broadcast answers with a manifest that never ends, a premiere has nothing yet,
+#: and a stream that just ended is still being processed into one. `was_live` is
+#: absent on purpose: an archived stream is a finished file of fixed length, and
+#: whether its length suits the station is `rotation.maxTrackSeconds`' call, not
+#: this process's.
+_NOT_A_RECORD = ("is_live", "is_upcoming", "post_live")
+
+
+def _refuse_live(info: dict) -> None:
+    """Refuse a broadcast before any of its formats is probed. Final, so `Unavailable`."""
+    if info.get("is_live") is True or info.get("live_status") in _NOT_A_RECORD:
+        raise Unavailable("a live broadcast is not a record the station can keep")
+
+
+def _duration_ms(info: dict) -> int | None:
+    """The record's length, or `None` when yt-dlp did not report a usable one.
+
+    An unknown length passes, as it does everywhere in the station (see
+    `apps/api/src/modules/director/track.length.ts`), so this never refuses. It
+    only keeps a NaN or an infinity from raising out of `int()`, and a `bool`
+    (which Python counts as an `int`) from reading as one second.
+    """
+    duration = info.get("duration")
+    if isinstance(duration, bool) or not isinstance(duration, (int, float)):
+        return None
+    if not math.isfinite(duration) or duration <= 0:
+        return None
+    return int(duration * 1000)
+
+
 def resolve(video_id: str, *, now: float | None = None) -> Resolved:
     """Where this record's audio is, or why it is not available.
 
@@ -323,6 +355,7 @@ def resolve(video_id: str, *, now: float | None = None) -> Resolved:
     if not info:
         raise Unavailable("the upstream returned nothing for this id")
 
+    _refuse_live(info)
     chosen = _pick(info)
     itag = str(chosen.get("format_id") or "unknown")
     if cooldowns.resting(itag, now=now):
@@ -341,12 +374,11 @@ def resolve(video_id: str, *, now: float | None = None) -> Resolved:
     total = probed.total_bytes or chosen.get("filesize")
     fetchable = whole_range(media_url, int(total)) if total else media_url
 
-    duration = info.get("duration")
     return Resolved(
         url=fetchable,
         expires_at_ms=expiry_of(media_url, now=now),
         mime_type=probed.content_type,
         itag=itag,
-        duration_ms=int(duration * 1000) if isinstance(duration, (int, float)) else None,
+        duration_ms=_duration_ms(info),
         filesize=total or chosen.get("filesize_approx"),
     )

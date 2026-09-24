@@ -11,7 +11,7 @@ import { isIP } from 'node:net';
  *
  * ## What earns an entry
  *
- * Not everything a plugin declares. `permissions.storage`, `oauth` and `trackFetcher` stay plain
+ * Not everything a plugin declares. `permissions.storage`, `oauth`, `trackFetcher` and `sockets` stay plain
  * manifest booleans, because **a declaration is disclosure and a grant is a decision**: the host
  * holds a plugin to what it declared without asking anybody, and only a capability wide enough that
  * a person should weigh it per install belongs here. The line matters in one direction in

@@ -267,6 +267,21 @@ const VALUES: Record<string, Resolver> = {
 /** Which placeholders are read out loud, and so go through {@link spoken}. */
 const SPOKEN_VALUES = new Set(Object.keys(VALUES).filter(key => key.startsWith('previous.') || key.startsWith('next.')));
 
+/**
+ * The inputs a template may be filled from on a station that is not English: everything but the
+ * values the station writes in English itself.
+ *
+ * The time and the greeting are English phrasings ("just after nine", "good morning"), and the
+ * weather report, the almanac report and its date are English sentences the floors build. Dropped
+ * rather than translated, so a German phrasing that names one of them simply does not fit, which is
+ * the renderer's ordinary way of saying a template does not apply. What is left is names, titles,
+ * headlines and the place, which are whatever language they were written in.
+ */
+function withoutEnglishValues(inputs: TemplateInputs): TemplateInputs {
+    const { clock: _clock, greeting: _greeting, weather: _weather, almanac: _almanac, almanacDate: _almanacDate, ...rest } = inputs;
+    return rest;
+}
+
 /** Every placeholder a template may use, for an operator's benefit when one is wrong. */
 export const TEMPLATE_VOCABULARY: readonly string[] = Object.keys(VALUES);
 
@@ -283,10 +298,16 @@ const isComment = (line: string): boolean => line.trimStart().startsWith('#');
  * `fallback` is which set of the station's own to fall back to. A talk break and a welcome are two
  * pools of phrasings for two different moments — one looks back at the record just played and the
  * other greets somebody who missed it — and each has to restore ITS own when the box is cleared.
+ *
+ * `language` is the station's when it is not English, and then there is no fallback at all: the
+ * station's own phrasings are English, and an English sentence on a German station is worse than
+ * the break not happening. The operator's lines, and a persona's, still apply, because whoever wrote
+ * them wrote them for this station. With none, the floor has nothing to say and declines.
  */
-export function parseTemplates(raw: string | undefined, fallback: readonly string[] = DEFAULT_TEMPLATES): readonly string[] {
+export function parseTemplates(raw: string | undefined, fallback: readonly string[] = DEFAULT_TEMPLATES, language?: string): readonly string[] {
     const lines = phrasingLines(raw);
-    return lines.length > 0 ? lines : fallback;
+    if (lines.length > 0) return lines;
+    return language === undefined ? fallback : [];
 }
 
 /**
@@ -302,8 +323,8 @@ export function parseTemplates(raw: string | undefined, fallback: readonly strin
  * close. It falls through only when the persona's are EMPTY, so clearing a character's box restores
  * the station's own five rather than silencing the DJ.
  */
-export function resolveTemplates(persona: string | undefined): readonly string[] {
-    return parseTemplates(persona);
+export function resolveTemplates(persona: string | undefined, language?: string): readonly string[] {
+    return parseTemplates(persona, DEFAULT_TEMPLATES, language);
 }
 
 /**
@@ -586,9 +607,15 @@ export function wasHeard(rendered: RenderedTemplate, recent: readonly string[]):
  * a phrasing whose back-announce is an optional chunk counts as saying it whenever the chunk
  * survives.
  */
-export function usable(templates: readonly string[], inputs: TemplateInputs, spoken: (text: string) => string): RenderedTemplate[] {
+export function usable(
+    templates: readonly string[],
+    inputs: TemplateInputs,
+    spoken: (text: string) => string,
+    language?: string,
+): RenderedTemplate[] {
+    const fillable = language === undefined ? inputs : withoutEnglishValues(inputs);
     const rendered = templates.flatMap(template => {
-        const filled = renderTemplate(template, inputs, spoken);
+        const filled = renderTemplate(template, fillable, spoken);
         return filled === undefined ? [] : [filled];
     });
 

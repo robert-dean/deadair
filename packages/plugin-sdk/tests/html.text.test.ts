@@ -128,6 +128,17 @@ describe('sentencesWithin', () => {
 
         expect(sentencesWithin(text, 15)).toBe('It sat at 3.5 million copies by Aug. 15, 2026, which nobody expected.');
     });
+
+    it('cuts before a sentence that opens on an accented capital', () => {
+        const text = 'Die Platte klingt noch immer gut. Über die Single danach spricht niemand mehr gern.';
+
+        expect(sentencesWithin(text, 10)).toBe('Die Platte klingt noch immer gut.');
+    });
+
+    it('cuts before a sentence that opens on a Spanish question mark or a guillemet', () => {
+        expect(sentencesWithin('Es un disco precioso. ¿Quién lo diría hace veinte años?', 6)).toBe('Es un disco precioso.');
+        expect(sentencesWithin('C’est un disque magnifique. « Personne ne l’attendait », dit-il.', 6)).toBe('C’est un disque magnifique.');
+    });
 });
 
 describe('truncateWords', () => {

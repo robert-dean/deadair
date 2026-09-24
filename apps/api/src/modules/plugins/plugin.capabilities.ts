@@ -583,6 +583,8 @@ export interface MessagingPlugin {
     declarable: boolean;
     /** Whether `announceTargets` is there to ask. Absent means no chat wants announcements. */
     announces: boolean;
+    /** Whether `commands` is there to tell. Absent means the platform keeps no list of them. */
+    listsCommands: boolean;
 }
 
 /** {@link implementsCatalog}'s rule, applied to the `messaging` capability. */
@@ -609,6 +611,7 @@ export const asMessagingPlugin = (record: PluginRecord): MessagingPlugin | undef
         instance,
         declarable: implementsAccepting(instance),
         announces: typeof (instance as unknown as Record<string, unknown>).announceTargets === 'function',
+        listsCommands: typeof (instance as unknown as Record<string, unknown>).commands === 'function',
     };
 };
 
@@ -719,6 +722,8 @@ export interface SpeechPlugin {
     listsCues: boolean;
     /** Whether `listDeliveries` is there to call. {@link listsCues}' rule exactly: about the method, not the engine. */
     listsDeliveries: boolean;
+    /** Whether `listLanguages` is there to call. {@link listsCues}' rule exactly: about the method, not the engine. */
+    listsLanguages: boolean;
     /**
      * Whether `listLimits` is there to call.
      *
@@ -745,6 +750,9 @@ export const implementsCueListing = (instance: unknown): boolean => typeof (inst
 /** Whether this plugin can say which deliveries it performs. Absent means none, the same safe default as cues. */
 export const implementsDeliveryListing = (instance: unknown): boolean => typeof (instance as Record<string, unknown>).listDeliveries === 'function';
 
+/** Whether this plugin can say which languages it speaks. Absent means the host cannot tell, and says nothing. */
+export const implementsLanguageListing = (instance: unknown): boolean => typeof (instance as Record<string, unknown>).listLanguages === 'function';
+
 /** Whether this plugin can say how much text one call takes. Absent means the host's own default, not "no limit". */
 export const implementsLimitListing = (instance: unknown): boolean => typeof (instance as Record<string, unknown>).listLimits === 'function';
 
@@ -768,6 +776,7 @@ export const asSpeechPlugin = (record: PluginRecord): SpeechPlugin | undefined =
         listsVoices: implementsVoiceListing(instance),
         listsCues: implementsCueListing(instance),
         listsDeliveries: implementsDeliveryListing(instance),
+        listsLanguages: implementsLanguageListing(instance),
         listsLimits: implementsLimitListing(instance),
     };
 };

@@ -49,17 +49,24 @@ const DAYS_IN_WEEK = 7;
 /**
  * Where a slot's records come from, or absent for a slot the station fills itself.
  *
- * A union rather than four optional fields, because the two arms are alternatives all the way down:
- * `PutOnAirInput` takes a playlist pair or a chart id and can make no sense of both, and the
- * difference between them is not cosmetic. A playlist names COPIES the station can already fetch; a
- * chart names RECORDS, so a changeover onto one has the station look each entry up and ingest it,
- * and a station with `rotation.discover` off can air almost none of one.
+ * A union rather than optional fields, because the arms are alternatives all the way down:
+ * `PutOnAirInput` takes one of them and can make no sense of two, and the difference between them is
+ * not cosmetic. A provider's playlist names COPIES the station can already fetch, read from the
+ * provider when the block starts; a chart names RECORDS, so a changeover onto one has the station
+ * look each entry up and ingest it, and a station with `rotation.discover` off can air almost none of
+ * one. A playlist the station OWNS names records too, but ones its library already holds, and it is
+ * read from the station's own tables: the one source whose changeover never waits on a provider.
  */
-export type ScheduleSlotSource = { pluginId: string; playlistId: string } | { chartId: string; chartOrder?: ChartOrder };
+export type ScheduleSlotSource =
+    { pluginId: string; playlistId: string } | { chartId: string; chartOrder?: ChartOrder } | { stationPlaylistId: string };
 
 /** Whether a slot's source is a chart, which is the only thing `chartOrder` means anything for. */
 export const isChartSource = (source: ScheduleSlotSource | undefined): source is { chartId: string; chartOrder?: ChartOrder } =>
     source !== undefined && 'chartId' in source;
+
+/** Whether a slot's source is a playlist the station owns rather than a provider's. */
+export const isStationPlaylistSource = (source: ScheduleSlotSource | undefined): source is { stationPlaylistId: string } =>
+    source !== undefined && 'stationPlaylistId' in source;
 
 /**
  * One entry in the schedule: from this time on this day, the station plays this.

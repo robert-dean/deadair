@@ -17,6 +17,7 @@ import {
     roughTime,
     saysTime,
     stationZone,
+    timeClaimFor,
     timeClaimIn,
 } from '../../../src/modules/director/clock.words.js';
 
@@ -580,5 +581,28 @@ describe('namesWrongSky', () => {
     it('asks nothing of a break that was never told when it airs', () => {
         expect(namesWrongSky('Night falls, my listeners.', undefined, NEW_YORK)).toBeUndefined();
         expect(namesWrongSky('Night falls, my listeners.', AUDITION, undefined)).toBeUndefined();
+    });
+});
+
+describe('timeClaimFor', () => {
+    const morning = dayPart(at(9, 30), UTC);
+    const halfPast = roughTime(at(9, 30), UTC);
+
+    it('is timeClaimIn on an English station', () => {
+        expect(timeClaimFor('That one still holds up.', undefined, halfPast, morning)).toBeUndefined();
+    });
+
+    // The English words cannot be searched for in a German script, so the safe answer is that it said
+    // them: a break stamped with the narrow window is dropped when it runs late rather than airing the
+    // wrong time.
+    it('outside English, holds a script to everything it was offered', () => {
+        expect(timeClaimFor('Es ist kurz nach halb zehn.', 'de', halfPast, morning)).toEqual({
+            from: halfPast.validFrom,
+            until: halfPast.validUntil,
+        });
+    });
+
+    it('outside English, still makes no claim when nothing was offered', () => {
+        expect(timeClaimFor('Guten Morgen.', 'de', undefined)).toBeUndefined();
     });
 });

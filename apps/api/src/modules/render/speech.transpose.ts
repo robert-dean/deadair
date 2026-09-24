@@ -53,14 +53,33 @@ import { applyPronunciations, type Pronunciation } from './pronunciation.lexicon
 const SPARE_CUES = new RegExp(`\\[(${[...SPEECH_CUES].sort((left, right) => right.length - left.length).join('|')})\\]|[*_\`^<>{}[\\]=+@#&$%]`, 'gi');
 
 /**
+ * {@link SPARE_CUES} for a station that is not English, which keeps `&`, `$` and `%`.
+ *
+ * In English those three are dropped only because {@link saySymbols} has already turned them into
+ * words. Outside English that pass does not run, so dropping them here would lose the fact: "50%"
+ * would reach the engine as "50". The engine's own normaliser reads them in its language instead.
+ */
+const SPARE_CUES_KEEPING_SYMBOLS = new RegExp(
+    `\\[(${[...SPEECH_CUES].sort((left, right) => right.length - left.length).join('|')})\\]|[*_\`^<>{}[\\]=+@#]`,
+    'gi',
+);
+
+/**
  * One script, as it should be handed to an engine.
  *
  * Answers the original text when the passes leave nothing, which is the same rule `spoken()` applies
  * when a title looked like nothing but furniture: an empty reading means the transposition was wrong,
  * not that the script had nothing in it. A station saying something odd is recoverable; a segment
  * that renders silence is a hole in the hour.
+ *
+ * `language` is the station's when it is not English, and then the three passes that write English
+ * words into the script are skipped: {@link saySymbols}, {@link sayNumbers} and {@link sayInitialisms}.
+ * A German voice handed "nineteen eighty-four" says it in English, which is worse than handing it
+ * `1984` and letting the engine's own normaliser read the number in the language it was built for.
+ * The passes that are about notation rather than words (pads, {@link tidy}, the lexicon,
+ * {@link settle}) run as they always do.
  */
-export function transposeForSpeech(text: string, entries: readonly Pronunciation[] = []): string {
+export function transposeForSpeech(text: string, entries: readonly Pronunciation[] = [], language?: string): string {
     const original = text.trim();
 
     // Pad hits come out FIRST, before any pass has a chance to mangle one into something speakable.
@@ -79,10 +98,12 @@ export function transposeForSpeech(text: string, entries: readonly Pronunciation
 
     const held: string[] = [];
     spoken = applyPronunciations(spoken, entries, said => hold(said, held));
-    spoken = saySymbols(spoken);
-    spoken = sayNumbers(spoken);
-    spoken = sayInitialisms(spoken);
-    spoken = settle(spoken);
+    if (language === undefined) {
+        spoken = saySymbols(spoken);
+        spoken = sayNumbers(spoken);
+        spoken = sayInitialisms(spoken);
+    }
+    spoken = settle(spoken, language === undefined ? SPARE_CUES : SPARE_CUES_KEEPING_SYMBOLS);
     spoken = release(spoken, held);
 
     return spoken.length === 0 ? original : spoken;
@@ -506,7 +527,7 @@ function sayInitialisms(text: string): string {
  * "either/or" into one nonsense word, which is a new mispronunciation introduced by the thing meant
  * to prevent them.
  */
-function settle(text: string): string {
+function settle(text: string, spare: RegExp = SPARE_CUES): string {
     return (
         text
             // One pattern rather than two replaces, so the plural can never be matched as the singular
@@ -528,7 +549,7 @@ function settle(text: string): string {
             // The capture is what says WHICH alternative fired, and testing the match text instead is
             // the trap: a lone `[` is decoration, matches the character class, and starts with the
             // same character a cue does.
-            .replace(SPARE_CUES, (_match, cue: string | undefined) => (cue === undefined ? '' : `[${cue.toLowerCase()}]`))
+            .replace(spare, (_match, cue: string | undefined) => (cue === undefined ? '' : `[${cue.toLowerCase()}]`))
             .replace(/\s+/g, ' ')
             // A space that a removal left in front of its punctuation.
             .replace(/\s+([.,!?;:])/g, '$1')

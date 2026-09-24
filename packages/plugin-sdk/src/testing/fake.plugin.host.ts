@@ -1,6 +1,6 @@
 import { vi } from 'vitest';
 
-import type { HostFetchInit, HostFetchMethod, PluginHost, ProviderStream, ProviderTrack } from '../index.js';
+import type { HostFetchInit, HostFetchMethod, PluginHost, PluginSocket, ProviderStream, ProviderTrack } from '../index.js';
 
 /**
  * Shipped from the SDK rather than copied into each plugin, which three of them
@@ -24,6 +24,26 @@ export interface RecordedFetchCall {
     method: HostFetchMethod | undefined;
     headers: Record<string, string> | undefined;
     body: string | undefined;
+}
+
+/**
+ * One `host.socket` the plugin opened, driven from the test: frames the plugin sent are in `sent`,
+ * and `receive` / `closeFromServer` play the far end.
+ */
+export interface FakePluginSocket extends PluginSocket {
+    readonly url: string;
+    /** Every text frame the plugin sent, in order. */
+    readonly sent: string[];
+    /** Whether either end has closed it. */
+    readonly closed: boolean;
+    /** The frames the plugin sent, each parsed as JSON. */
+    sentJson(): unknown[];
+    /** Deliver one text frame to the plugin's listeners. */
+    receive(text: string): void;
+    /** Deliver `JSON.stringify(value)`. */
+    receiveJson(value: unknown): void;
+    /** Close it from the far end, telling the plugin's close listeners. */
+    closeFromServer(code?: number, reason?: string): void;
 }
 
 /**
@@ -66,6 +86,10 @@ export interface FakePluginHost extends PluginHost {
      * failed and is a different case for a plugin to handle.
      */
     seedFetchedPlaylist(tracks: ProviderTrack[] | Error | undefined): void;
+    /** Every socket `host.socket` opened, in order, closed ones included. */
+    readonly sockets: FakePluginSocket[];
+    /** Make every later `host.socket` reject with `error`; `undefined` lets them open again. */
+    refuseSockets(error: Error | undefined): void;
 }
 
 /**
@@ -118,6 +142,45 @@ export function fakeHostFetchResponse(init: FakeResponseInit = {}): Response {
     return response;
 }
 
+/** A socket that is open until either end closes it. Exported for a test that wants one on its own. */
+export function createFakePluginSocket(url: string): FakePluginSocket {
+    const messageListeners: ((text: string) => void)[] = [];
+    const closeListeners: ((code?: number, reason?: string) => void)[] = [];
+    const sent: string[] = [];
+    let closed = false;
+
+    const shut = (code: number | undefined, reason: string | undefined): void => {
+        if (closed) return;
+        closed = true;
+        for (const listener of closeListeners) listener(code, reason);
+    };
+
+    return {
+        url,
+        sent,
+        get closed() {
+            return closed;
+        },
+        send: vi.fn((text: string) => {
+            if (!closed) sent.push(text);
+        }),
+        close: vi.fn((code?: number, reason?: string) => shut(code ?? 1000, reason)),
+        onMessage: listener => void messageListeners.push(listener),
+        onClose: listener => void closeListeners.push(listener),
+        sentJson: () => sent.map(text => JSON.parse(text) as unknown),
+        receive(text) {
+            if (closed) throw new Error(`fake plugin socket: ${url} is closed`);
+            for (const listener of messageListeners) listener(text);
+        },
+        receiveJson(value) {
+            this.receive(JSON.stringify(value));
+        },
+        closeFromServer(code = 1000, reason = '') {
+            shut(code, reason);
+        },
+    };
+}
+
 export function createFakePluginHost(): FakePluginHost {
     const calls: RecordedFetchCall[] = [];
     const queue: Response[] = [];
@@ -132,6 +195,8 @@ export function createFakePluginHost(): FakePluginHost {
     // Nothing by default: a plugin should ask its own API first, and a test that means to exercise
     // the fetcher says so.
     let fetchedPlaylist: ProviderTrack[] | Error | undefined;
+    const sockets: FakePluginSocket[] = [];
+    let socketRefusal: Error | undefined;
 
     const fetchImpl = vi.fn(async (url: string, init?: HostFetchInit): Promise<Response> => {
         calls.push({ url, method: init?.method, headers: init?.headers, body: init?.body });
@@ -144,6 +209,12 @@ export function createFakePluginHost(): FakePluginHost {
     const host: FakePluginHost = {
         logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
         fetch: fetchImpl,
+        socket: vi.fn(async (url: string) => {
+            if (socketRefusal !== undefined) throw socketRefusal;
+            const socket = createFakePluginSocket(url);
+            sockets.push(socket);
+            return socket;
+        }),
         // Never aborts: these tests are about what a plugin does with a reply,
         // not about being cancelled half way through one.
         signal: new AbortController().signal,
@@ -176,6 +247,10 @@ export function createFakePluginHost(): FakePluginHost {
             }),
         },
         calls,
+        sockets,
+        refuseSockets(error) {
+            socketRefusal = error;
+        },
         seedRemainingMs(ms) {
             remainingMs = ms;
         },

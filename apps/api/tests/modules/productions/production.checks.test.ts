@@ -61,6 +61,10 @@ describe('checkBeat', () => {
             expect(problems.some(problem => /introduces the programme again/i.test(problem))).toBe(true);
         });
 
+        it('stands down outside English, since the openings it knows are English phrases', () => {
+            expect(checkBeat({ text: 'Welcome back to the show. ' + words(200), words: 200, ordinal: 3, language: 'de' })).toEqual([]);
+        });
+
         it('allows it in the first beat, which is where an opening belongs', () => {
             expect(checkBeat({ text: 'Welcome to the show. ' + words(200), words: 200, ordinal: 0 })).toEqual([]);
         });

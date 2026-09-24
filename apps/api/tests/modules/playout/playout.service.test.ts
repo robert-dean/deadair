@@ -11,7 +11,7 @@ import { PlayoutService } from '../../../src/modules/playout/playout.service.js'
 import type { LiquidsoapEndpoint } from '../../../src/modules/playout/liquidsoap.endpoint.js';
 import type { PlayoutControlClient } from '../../../src/modules/playout/liquidsoap.control.js';
 import type { PlayoutPusher } from '../../../src/modules/playout/playout.pusher.js';
-import type { Rundown } from '../../../src/modules/playout/rundown.js';
+import type { Rundown, RundownItem } from '../../../src/modules/playout/rundown.js';
 import type { DirectorConsoleService } from '../../../src/modules/director/director.console.service.js';
 import type { StreamService } from '../../../src/modules/stream/stream.service.js';
 import type { StreamConfigWarning, StreamConfigWatch } from '../../../src/modules/stream/stream.staleness.js';
@@ -420,6 +420,17 @@ describe('PlayoutService.skip and stop', () => {
         const { service } = build({ skipLands: false });
 
         expect(await statusOf(service.skip())).toBe(409);
+    });
+
+    it('aims the skip at the item on air when it was asked for', async () => {
+        // The cut lands after a top-up pass, and a record that ended in the meantime must not take
+        // the one after it down with it.
+        const { service, rundown, pusher } = build();
+        vi.mocked(rundown.nowPlaying).mockReturnValue({ item: { id: 'item-7' } as RundownItem, startedAt: 0 });
+
+        await service.skip();
+
+        expect(pusher.skipCurrent).toHaveBeenCalledWith('item-7');
     });
 
     it('drops the running order on stop', async () => {

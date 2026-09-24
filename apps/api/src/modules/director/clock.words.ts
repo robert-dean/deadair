@@ -86,7 +86,29 @@ export const saysTime = (script: string, time: RoughTime): boolean => script.toL
  * offers are skipped, so a caller can hand over whatever the moment happened to have.
  */
 export function timeClaimIn(script: string, ...offered: readonly (RoughTime | undefined)[]): { from: number; until: number } | undefined {
-    const said = offered.filter((time): time is RoughTime => time !== undefined && saysTime(script, time));
+    return claimOf(offered.filter((time): time is RoughTime => time !== undefined && saysTime(script, time)));
+}
+
+/**
+ * {@link timeClaimIn} for a station in any language: the same answer in English, and outside it
+ * every phrasing the break was offered, as though it had used them all.
+ *
+ * The phrasings are English and the script is not, so there is nothing to search for. Taking every
+ * offer as said is the safe direction for the reason the claim exists at all: a break stamped with a
+ * claim it did not make is dropped or rewritten when it runs late, where a break that stated the time
+ * and was stamped with nothing airs it wrong.
+ */
+export function timeClaimFor(
+    script: string,
+    language: string | undefined,
+    ...offered: readonly (RoughTime | undefined)[]
+): { from: number; until: number } | undefined {
+    if (language === undefined) return timeClaimIn(script, ...offered);
+    return claimOf(offered.filter((time): time is RoughTime => time !== undefined));
+}
+
+/** The window every one of `said` holds true in, or `undefined` for none. */
+function claimOf(said: readonly RoughTime[]): { from: number; until: number } | undefined {
     if (said.length === 0) return undefined;
 
     return {

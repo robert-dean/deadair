@@ -1,10 +1,10 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
-import { advisoryPolicy, speaksClean } from './advisory.policy.js';
+import { languageGuard, stationPromptSettings } from './prompt.settings.js';
+import { languageName } from '#modules/shared/language.name.js';
 import { LlmService } from '#modules/llm/llm.service.js';
 import { captureWrites } from '#modules/render/script.history.settings.js';
-import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
 import {
     breakPrompt,
     maxWordsFor,
@@ -17,8 +17,7 @@ import {
     type BreakPromptShape,
     type PromptSettings,
 } from './break.prompt.js';
-import { TEMPLATE_KEYS } from './break.templates.js';
-import { timeClaimIn } from './clock.words.js';
+import { timeClaimFor } from './clock.words.js';
 import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBreak, patienceFor } from './break.writer.js';
 import { BUDGET_MS, MAX_OUTPUT_TOKENS, MODEL_WRITER, MODEL_WRITER_DEFAULT, MODEL_WRITER_KEYS } from './model.talk.break.writer.js';
 import { WELCOME_KIND } from './welcome.writer.js';
@@ -80,13 +79,19 @@ export const WELCOME_SHAPE: BreakPromptShape = {
             'you have a thought about being on air right now, follow it, and stop when you are finished rather than when you have been ' +
             'brief. What it must not turn into is a list of facts about the record coming up, however long you take.',
     ],
-    opening: request =>
+    opening: (request, settings) =>
         [
             'Somebody has just tuned in. They have not heard anything before this, so tell them what they are listening to.',
             // The greeting words verbatim, for the reason `request.clock` gets the same treatment: an
             // invented phrasing has no expiry the station can check, and this one is stamped as a
             // claim and checked at hand-over.
-            request.greeting === undefined ? undefined : `Open with "${request.greeting.words}", in those words and no other way of saying it.`,
+            request.greeting === undefined
+                ? undefined
+                : settings.language === undefined
+                  ? `Open with "${request.greeting.words}", in those words and no other way of saying it.`
+                  : // Words in English cannot come back verbatim from a break that is not, so the greeting
+                    // is asked for in the station's own language and is not a claim the station can check.
+                    `Open with the ${languageName(settings.language)} for "${request.greeting.words}".`,
         ]
             .filter(Boolean)
             .join(' '),
@@ -125,9 +130,7 @@ export class ModelWelcomeWriter extends BreakWriter {
         // decides the word ceiling now that `WELCOME_SHAPE` offers one, and the number the model is
         // told has to be the number the guard refuses at. One `maxWordsFor` call over one object.
         const settings: PromptSettings = {
-            station: this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),
-            dj: request.persona?.djName ?? this.config.get(TEMPLATE_KEYS.djName, ''),
-            cleanLanguage: speaksClean(advisoryPolicy(this.config)),
+            ...stationPromptSettings(this.config, request),
             ...(request.persona === undefined ? {} : { persona: request.persona }),
             // Carried across like the persona. Note the SHAPE decides what a welcome does with
             // it: `showsPlayed` is off here because an arriving listener heard none of the show,
@@ -175,6 +178,7 @@ export class ModelWelcomeWriter extends BreakWriter {
             // Beside the daypart and off the same instant: the words are what the prompt stated and
             // this is what the clock says, which is the half of the question a stretch cannot answer.
             ...(request.moment === undefined ? {} : { moment: request.moment }),
+            ...languageGuard(this.config),
             // The talk break's own guard, carried over: `WELCOME_SHAPE` never shows a previous
             // record (`showsPrevious: false`), so the only one a greeting is ever handed is
             // `request.next`, and `recent` is stripped out of the prompt before it reaches `shown`
@@ -216,7 +220,7 @@ export class ModelWelcomeWriter extends BreakWriter {
             this.logger.info(`director: ${trimmed.reason}`, { kept: trimmed.kept, dropped: trimmed.dropped, persona: request.persona?.key });
         }
 
-        const claimsTime = timeClaimIn(script, request.greeting, request.dayPart);
+        const claimsTime = timeClaimFor(script, guard.language, request.greeting, request.dayPart);
 
         return {
             script,

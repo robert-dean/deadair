@@ -26,9 +26,11 @@ import {
 import { resolverFor, type ResolverClient } from './ytmusic.resolver.js';
 import { mapPlaylists, mapTracks, ytmusicPlaylistIdFromUrl } from './ytmusic.mapping.js';
 import type { UpstreamItem } from './ytmusic.mapping.js';
+import { PageCursor } from './ytmusic.paging.js';
 
 interface MemoEntry {
-    items: UpstreamItem[];
+    cursor: PageCursor;
+    /** When it was last read, so a walk in progress keeps its place however long the walk takes. */
     at: number;
 }
 
@@ -58,8 +60,10 @@ export class YtMusicPlugin extends Plugin implements MusicProviderPluginInstance
      * The host reads a playlist an OFFSET at a time and YouTube pages by continuation token, so
      * serving an arbitrary offset means walking from the start of the playlist. Without this, a sync
      * over one playlist is quadratic in its length: the same hundred rows re-fetched for every page
-     * after them. In memory rather than in `host.storage` because it is a cache and not a fact, and
-     * a plugin that needs no storage permission should not ask for one.
+     * after them. What is kept is a {@link PageCursor} rather than the finished list, so the first
+     * page is answered without reading the rest (see there for why that matters). In memory rather
+     * than in `host.storage` because it is a cache and not a fact, and a plugin that needs no storage
+     * permission should not ask for one.
      */
     private readonly memo = new Map<string, MemoEntry>();
 
@@ -297,7 +301,8 @@ export class YtMusicPlugin extends Plugin implements MusicProviderPluginInstance
     }
 
     /**
-     * One page of a playlist, served off the memo so a sync's sequential offsets cost one walk.
+     * One page of a playlist, served off the memo so a sync's sequential offsets cost one walk, and
+     * read only as far as this page so no single call pays for the whole of a long playlist.
      *
      * A playlist id the upstream does not know does not raise: it answers an empty playlist, so `[]`
      * is the honest answer here rather than an error invented to fill the silence.
@@ -307,9 +312,9 @@ export class YtMusicPlugin extends Plugin implements MusicProviderPluginInstance
         const offset = options?.offset ?? 0;
         const limit = options?.limit;
 
-        let items: UpstreamItem[];
+        let items: readonly UpstreamItem[];
         try {
-            items = await this.itemsFor(client, playlistId);
+            items = await this.cursorFor(client, playlistId).through(limit === undefined ? undefined : offset + limit);
         } catch (error) {
             throw toPluginError(error, 'authenticated');
         }
@@ -318,13 +323,17 @@ export class YtMusicPlugin extends Plugin implements MusicProviderPluginInstance
         return mapTracks(page);
     }
 
-    private async itemsFor(client: YtMusicClient, playlistId: string): Promise<UpstreamItem[]> {
+    private cursorFor(client: YtMusicClient, playlistId: string): PageCursor {
+        const now = Date.now();
         const cached = this.memo.get(playlistId);
-        if (cached && Date.now() - cached.at < PLAYLIST_MEMO_TTL_MS) return cached.items;
+        if (cached && now - cached.at < PLAYLIST_MEMO_TTL_MS) {
+            cached.at = now;
+            return cached.cursor;
+        }
 
-        const items = await client.playlistItems(playlistId);
-        this.memo.set(playlistId, { items, at: Date.now() });
-        return items;
+        const cursor = new PageCursor(() => client.playlistPage(playlistId));
+        this.memo.set(playlistId, { cursor, at: now });
+        return cursor;
     }
 
     /**

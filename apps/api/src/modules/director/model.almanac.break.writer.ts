@@ -2,10 +2,9 @@ import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import type { AlmanacEntry } from '@deadair/plugin-sdk';
-import { advisoryPolicy, speaksClean } from './advisory.policy.js';
+import { languageGuard, stationPromptSettings } from './prompt.settings.js';
 import { LlmService } from '#modules/llm/llm.service.js';
 import { captureWrites } from '#modules/render/script.history.settings.js';
-import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
 import { ALMANAC_KIND } from '#modules/almanac/almanac.kind.js';
 import { SaidLog } from './almanac.source.js';
@@ -20,8 +19,7 @@ import {
     type AnswerGuard,
     type BreakPromptShape,
 } from './break.prompt.js';
-import { TEMPLATE_KEYS } from './break.templates.js';
-import { timeClaimIn } from './clock.words.js';
+import { timeClaimFor } from './clock.words.js';
 import { BreakWriter, patienceFor, type BreakWriteRequest, type WriteDetail, type WrittenBreak } from './break.writer.js';
 import { BUDGET_MS, MAX_OUTPUT_TOKENS, MODEL_WRITER, MODEL_WRITER_DEFAULT, MODEL_WRITER_KEYS } from './model.talk.break.writer.js';
 
@@ -147,10 +145,8 @@ export class ModelAlmanacBreakWriter extends BreakWriter {
         const messages = breakPrompt(
             request,
             {
-                station: this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),
-                dj: request.persona?.djName ?? this.config.get(TEMPLATE_KEYS.djName, ''),
+                ...stationPromptSettings(this.config, request),
                 maxWords: ALMANAC_MAX_WORDS,
-                cleanLanguage: speaksClean(advisoryPolicy(this.config)),
                 ...(request.persona === undefined ? {} : { persona: request.persona }),
             },
             ALMANAC_SHAPE,
@@ -186,6 +182,7 @@ export class ModelAlmanacBreakWriter extends BreakWriter {
             ...(request.recent === undefined ? {} : { recent: request.recent }),
             ...(request.dayPart === undefined ? {} : { dayPart: request.dayPart }),
             ...(request.moment === undefined ? {} : { moment: request.moment }),
+            ...languageGuard(this.config),
             // The check this kind lives or dies by, and it is the guard's own `invented-year` rather
             // than anything written here: a historical claim's checkable part IS its year, the
             // entries are in the prompt, and `permittedYears` reads every year it was SHOWN. A
@@ -231,7 +228,7 @@ export class ModelAlmanacBreakWriter extends BreakWriter {
         // {@link entriesUsed}.
         for (const entry of entriesUsed(script, almanac.entries)) this.said.keep(entry, almanac.day.date);
 
-        const claimsTime = timeClaimIn(script, request.clock, request.dayPart);
+        const claimsTime = timeClaimFor(script, guard.language, request.clock, request.dayPart);
 
         return {
             script,

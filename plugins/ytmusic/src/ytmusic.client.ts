@@ -6,7 +6,7 @@ import { createHostFetch } from './ytmusic.fetch.js';
 import { isUnavailable } from './ytmusic.errors.js';
 import { LIKED_PLAYLIST_ID } from './ytmusic.manifest.js';
 import type { UpstreamItem } from './ytmusic.mapping.js';
-import { pageOf, rowsOf, walk } from './ytmusic.paging.js';
+import { pageOf, rowsOf, walk, type Page } from './ytmusic.paging.js';
 
 /**
  * The InnerTube session and the four reads this plugin makes of it.
@@ -92,10 +92,12 @@ export class YtMusicClient {
         }
     }
 
-    /** A playlist's rows, all of them: paging is the caller's problem and it wants the whole thing once. */
-    async playlistItems(playlistId: string): Promise<UpstreamItem[]> {
-        const playlist = await this.inner.music.getPlaylist(playlistId);
-        return await walk(pageOf(playlist));
+    /**
+     * A playlist's first upstream page, carrying the way to the next. Walked by `PageCursor` only as
+     * far as somebody has asked, because the whole of a long playlist does not fit in one call.
+     */
+    async playlistPage(playlistId: string): Promise<Page> {
+        return pageOf(await this.inner.music.getPlaylist(playlistId));
     }
 
     /** The "Liked Music" list, which the library listing does not carry. */

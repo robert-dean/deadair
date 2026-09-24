@@ -215,6 +215,9 @@ describe('personaVoiceReminder', () => {
         expect(reminder).not.toContain('Aye for yes');
         expect(reminder).toContain('stating a fact');
     });
+    it('names the station language as the plain register to avoid when it is not English', () => {
+        expect(personaVoiceReminder({ diction: ['Ye for you'] }, 'de')).toContain('Plain German is wrong here');
+    });
 });
 
 describe('matchesDictionMarker', () => {
@@ -230,6 +233,25 @@ describe('matchesDictionMarker', () => {
 
     it('does not match inside a longer contraction', () => {
         expect(matchesDictionMarker('ye', "That's yer lot")).toBe(false);
+    });
+
+    // An accented letter used to be no letter at all to the boundary, so a marker was found inside
+    // any word that happened to carry one just before it.
+    it('takes any short ending outside English, where the English inflections are the wrong list', () => {
+        expect(matchesDictionMarker('schön', 'Einen schönen Abend noch', 'de')).toBe(true);
+        expect(matchesDictionMarker('schön', 'Einen schönen Abend noch')).toBe(false);
+        // Short, so a marker still cannot match the start of any long word.
+        expect(matchesDictionMarker('ja', 'Das ganze Jahrhundert', 'de')).toBe(false);
+    });
+
+    it('finds a marker behind an elided article outside English', () => {
+        expect(matchesDictionMarker('amour', "C'est l'amour, mes amis", 'fr')).toBe(true);
+        expect(matchesDictionMarker('amour', "C'est l'amour, mes amis")).toBe(false);
+    });
+
+    it('treats an accented letter as part of the word it sits in', () => {
+        expect(matchesDictionMarker('ton', 'Au pied du Téton, ce soir')).toBe(false);
+        expect(matchesDictionMarker('schön', 'Das war schön, oder?')).toBe(true);
     });
 
     // Measured: a break under `wisecrack` wrote "ambitiously" where the sheet listed "ambitious",

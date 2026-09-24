@@ -87,6 +87,14 @@ export interface ModelInfo {
     /** `cuda`, `cpu`. Worth saying, because a model that quietly landed on the CPU is a slow break. */
     device?: string;
     /**
+     * The language codes the loaded build speaks, from the server's `supported_languages`.
+     *
+     * The multilingual build lists its twenty-odd and the other two list English alone, so like the
+     * cues this follows the RESIDENT model rather than the server. Empty for a server that does not
+     * say, which is not the same as speaking nothing. See {@link languageFor}.
+     */
+    languages: string[];
+    /**
      * Whether this build performs paralinguistic tags at all.
      *
      * A property of the LOADED model rather than of the server: the turbo build does them and the
@@ -156,6 +164,27 @@ const DIAL_BUILDS: ReadonlySet<string> = new Set(['original', 'multilingual']);
  * A readout with no `type` answers no, which is today's behaviour exactly: nothing sent, and the
  * server's own configured defaults apply.
  */
+/** The codes of a `supported_languages` map, lowercased, or none for anything that is not one. */
+const languageCodes = (value: unknown): string[] =>
+    value !== null && typeof value === 'object' && !Array.isArray(value) ? Object.keys(value).map(code => code.toLowerCase()) : [];
+
+/**
+ * The code to send for a station language on this build, or `undefined` to send none.
+ *
+ * Only to the multilingual build, which is the one that reads it: the other two list English and
+ * nothing else, and asked for German they would speak English anyway. Matched on the whole tag and
+ * then on its primary subtag, so a station set to `de-at` is spoken by a build listing `de`. A code
+ * the build does not list is not sent, because the line is then spoken in the build's own default
+ * rather than refused, and the host has already warned the operator, once, through `listLanguages`.
+ */
+export function languageFor(info: ModelInfo | undefined, language: string | undefined): string | undefined {
+    if (language === undefined || info?.type?.toLowerCase() !== 'multilingual') return undefined;
+
+    const wanted = language.toLowerCase();
+    const primary = wanted.split('-')[0];
+    return info.languages.find(code => code === wanted) ?? info.languages.find(code => code === primary);
+}
+
 export function honoursExpressionDials(info: ModelInfo | undefined): boolean {
     return info?.type !== undefined && DIAL_BUILDS.has(info.type.toLowerCase());
 }
@@ -218,6 +247,9 @@ export class ModelLifecycle {
                 // yes and names nothing performs nothing, so the caller intersects rather than
                 // trusting either alone.
                 supportsCues: body.supports_paralinguistic_tags === true,
+                // A map of code to name (`{"de": "German"}`), of which only the codes are the server's
+                // vocabulary for a request.
+                languages: languageCodes(body.supported_languages),
                 availableTags: namedTags(body.available_paralinguistic_tags),
             };
         } catch {

@@ -272,6 +272,26 @@ hour in silence.
 
 ## How a word is said
 
+**Outside English, a script reaches the engine unrewritten.** `transposeForSpeech` takes the station's
+language and skips `saySymbols`, `sayNumbers` and `sayInitialisms`, the three passes that write English
+words into the text: a German voice handed "nineteen eighty-four" says it in English, where handed `1984` its
+own normaliser reads it in German. `settle` keeps `&`, `$` and `%` in that case, because in English it drops
+them only after `saySymbols` has turned them into words, and dropping them unread turns "50%" into "50". The
+gloss entries are left out too (`PronunciationRepository.active(['operator'])`), since they are English
+respellings and a German voice reads "Shar-day" as German; an operator's own entries still apply. And a short
+lower-case aside in asterisks or brackets (`*lacht*`, `(seufzt)`) is stripped as a stage direction, since the
+English list does not know the word and a title in italics is capitalised.
+
+**The request carries the language, and the engine is asked whether it speaks it.** `SpeechService`
+puts the station's language on every `SpeechRequest` that is not English, keeping one a caller already set.
+A plugin that implements `listLanguages` is asked once per engine and language, and a station language it
+does not list is a WARNING and never a refusal: an engine wrong about itself would otherwise be silenced by
+the one thing the station cannot check. Rhapsode sends the language only to a build that lists it, and
+Chatterbox only to its multilingual build, because both servers refuse or ignore one they do not know and a
+refused line is a lost break. Rhapsode lists the intersection over every build its voice table reaches, the
+opposite of its cues, because a union would hide the one English-only voice the warning is for.
+
+
 **How the station SAYS a word is a row, and most of them were written by somebody else.** The lexicon left
 `render.pronunciations` for `deadair.pronunciations` on the format clock's argument: an entry that arrives
 from somewhere carries the article it came from and the sentence that says so, it can be REJECTED in a way

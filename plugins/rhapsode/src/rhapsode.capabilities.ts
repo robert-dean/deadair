@@ -213,6 +213,30 @@ export const variantNamesOf = (document: Capabilities | undefined): string[] => 
 export const cuesOf = (variant: EffectiveVariant | undefined): SpeechCue[] =>
     (variant?.cues ?? []).filter((cue): cue is SpeechCue => (SPEECH_CUES as readonly string[]).includes(cue));
 
+/** The languages this build speaks, as the server lists them. Absent is none listed, not none spoken. */
+export const languagesOf = (variant: EffectiveVariant | undefined): string[] =>
+    (variant?.languages ?? []).filter((language): language is string => typeof language === 'string' && language.length > 0);
+
+/**
+ * The tag to send for a station language, as this build lists it, or `undefined` to send none.
+ *
+ * Matched on the primary tag as well as the whole, so a station set to `de-at` is spoken by a build
+ * listing `de`, and the build's own spelling is what goes back (the server validates against its
+ * list). Nothing is sent when the build lists no languages, or lists some and not this one: the server
+ * REFUSES a language its build does not list, and a refused line is a break lost, where a line sent
+ * without one is at worst spoken in the build's own default. The host has already warned the operator
+ * about the second case, once, through `listLanguages`.
+ */
+export function languageFor(variant: EffectiveVariant | undefined, language: string | undefined): string | undefined {
+    if (language === undefined) return undefined;
+
+    const wanted = language.toLowerCase();
+    const primary = wanted.split('-')[0];
+    const listed = languagesOf(variant);
+
+    return listed.find(tag => tag.toLowerCase() === wanted) ?? listed.find(tag => tag.toLowerCase() === primary);
+}
+
 /** The deliveries this build performs, on {@link cuesOf}'s rule and for its reason. */
 export const deliveriesOf = (variant: EffectiveVariant | undefined): SpeechDelivery[] => (variant?.deliveries ?? []).filter(isSpeechDelivery);
 

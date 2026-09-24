@@ -13,8 +13,13 @@
  * `after` snowflake). The host stores the cursor durably, so a restart neither
  * replays a command nor loses one.
  *
- * A platform that can only deliver by webhook does not fit this capability yet,
- * and that is a known gap rather than an oversight.
+ * A platform that pushes over a WebSocket (Slack's Socket Mode, the Discord
+ * Gateway) fits the same way: the plugin holds the socket through
+ * `host.socket`, queues what it hears, and `receive` drains the queue, waiting
+ * on it for up to `waitMs`. Such a plugin has no cursor to return.
+ *
+ * A platform that can only deliver to a public URL does not fit this
+ * capability yet, and that is a known gap rather than an oversight.
  *
  * ## The plugin decides which chats count
  *
@@ -178,6 +183,22 @@ export interface MessagingAnnounceTarget {
 }
 
 /**
+ * One command the station answers to, as {@link MessagingProvider.commands} is told it.
+ *
+ * For a platform that lists commands in its own interface (Discord's slash commands, Telegram's
+ * command menu). The station answers the command whether or not the platform lists it: a person
+ * can always type `/now`.
+ */
+export interface MessagingCommand {
+    /** Lower case, without the slash. */
+    name: string;
+    /** One line saying what it does, with any argument in capitals. The platform's own limit is the plugin's to fit. */
+    description: string;
+    /** Whether anything may follow the name, so a platform can offer a field for it. */
+    takesArgs: boolean;
+}
+
+/**
  * Implemented by a `messaging` plugin.
  */
 export interface MessagingProvider {
@@ -213,4 +234,15 @@ export interface MessagingProvider {
      * so a config change takes effect on the next one. Keep it a config read.
      */
     announceTargets?(): Promise<MessagingAnnounceTarget[]>;
+
+    /**
+     * The commands the station answers to, for a platform that lists them.
+     *
+     * Optional, and absent means the platform has no list to keep: people
+     * type the command and the station reads it. Told each time the host
+     * starts listening on this plugin, which includes after every config
+     * save, so an idempotent overwrite is the right implementation. A throw is
+     * logged and never stops the station listening.
+     */
+    commands?(commands: MessagingCommand[]): Promise<void>;
 }

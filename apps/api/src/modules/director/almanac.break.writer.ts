@@ -16,6 +16,7 @@ import {
     type TemplateInputs,
 } from './break.templates.js';
 import { spoken } from './talk.break.writer.js';
+import { stationLanguage } from '#modules/stream/stream.settings.js';
 
 /**
  * The station saying what happened on today's date.
@@ -160,10 +161,12 @@ export class AlmanacBreakWriter extends BreakWriter {
             ...(request.greeting === undefined ? {} : { greeting: request.greeting.words }),
         };
 
-        const templates = parseTemplates(this.config.get(ALMANAC_BREAK_KEYS.templates, ''), ALMANAC_TEMPLATES);
+        const language = stationLanguage(this.config);
+
+        const templates = parseTemplates(this.config.get(ALMANAC_BREAK_KEYS.templates, ''), ALMANAC_TEMPLATES, language);
         this.complainAboutTypos(templates);
 
-        const fits = usable(templates, inputs, spoken);
+        const fits = usable(templates, inputs, spoken, language);
         // An operator whose every phrasing needs something this moment has not got. The entry exists
         // and there is no frame to read it in, which is a slot passed over rather than a bare
         // sentence with no station attached to it.

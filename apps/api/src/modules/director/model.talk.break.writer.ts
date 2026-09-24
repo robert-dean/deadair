@@ -1,10 +1,9 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
-import { advisoryPolicy, speaksClean } from './advisory.policy.js';
+import { languageGuard, stationPromptSettings } from './prompt.settings.js';
 import { LlmService } from '#modules/llm/llm.service.js';
 import { captureWrites } from '#modules/render/script.history.settings.js';
-import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
 import {
     breakPrompt,
     liftDelivery,
@@ -21,8 +20,7 @@ import {
     type PromptSettings,
 } from './break.prompt.js';
 import { resolveBreakWords } from './break.words.js';
-import { TEMPLATE_KEYS } from './break.templates.js';
-import { timeClaimIn } from './clock.words.js';
+import { timeClaimFor } from './clock.words.js';
 import { mentionsWeather } from './weather.figures.js';
 import { mentionsStory } from './persona.story.mentions.js';
 import { SaidLog } from './almanac.source.js';
@@ -166,13 +164,7 @@ export class ModelTalkBreakWriter extends BreakWriter {
         // settings: a persona's latitude decides the word ceiling, and the number the model is told
         // and the number it is refused at have to come from one `maxWordsFor` call over one object.
         const settings: PromptSettings = {
-            station: this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),
-            // The persona's own name where it has one, and the station's behind it. A persona
-            // that is a manner rather than a character has no reason to rename the presenter.
-            dj: request.persona?.djName ?? this.config.get(TEMPLATE_KEYS.djName, ''),
-            // Read per break like every other setting here, so an operator's change lands on
-            // the next one rather than after a restart.
-            cleanLanguage: speaksClean(advisoryPolicy(this.config)),
+            ...stationPromptSettings(this.config, request),
             // The station's own ceiling, read here rather than left to `DEFAULT_MAX_WORDS` — which
             // is now this setting's DEFAULT rather than the number itself, so the two cannot
             // disagree. It reaches the guard below through `maxWordsFor` off this same object, which
@@ -263,6 +255,7 @@ export class ModelTalkBreakWriter extends BreakWriter {
             // Beside the daypart and off the same instant: the words are what the prompt stated and
             // this is what the clock says, which is the half of the question a stretch cannot answer.
             ...(request.moment === undefined ? {} : { moment: request.moment }),
+            ...languageGuard(this.config),
             // Built from `settings` rather than from `request`, so the guard is judging EXACTLY what
             // the prompt offered — the shape's veto included. A guard handed the raw request would
             // keep a pad hit in a kind of break whose shape refused to offer one, which is the same
@@ -376,12 +369,12 @@ export class ModelTalkBreakWriter extends BreakWriter {
             this.logger.info(`director: ${trimmed.reason}`, { kept: trimmed.kept, dropped: trimmed.dropped, persona: request.persona?.key });
         }
 
-        const claimsTime = timeClaimIn(script, request.clock, request.dayPart);
+        const claimsTime = timeClaimFor(script, guard.language, request.clock, request.dayPart);
         // Whether this break actually reported the sky, which is a question the weather break never
         // has to ask. There the reading IS the break; here it was OFFERED, the prompt says outright
         // that most breaks are better without it, and most of them will take that. See
         // `mentionsWeather`.
-        const reported = request.weather !== undefined && mentionsWeather(script, request.weather);
+        const reported = request.weather !== undefined && mentionsWeather(script, request.weather, guard.language);
         // The same question about the other offer, and it is answerable exactly rather than by a
         // vocabulary: an entry is identified by the YEAR the script named, and `AnswerGuard.years`
         // has already refused every year the station did not show. So a link that said "born on this

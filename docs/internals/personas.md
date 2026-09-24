@@ -51,6 +51,13 @@ same character and a break writer's one job is not to be slow.
 And **a sheet that named no markers passes everything**, because an author who filled in fewer boxes made no
 checkable claim and should not have their scripts refused for it.
 
+**On a station that is not English the sheet is written in that language**, and the writer asks for it:
+`personaPrompt` takes the station language and asks for the samples, markers, catchphrases, avoid list,
+stories and templates in it, with the descriptive fields left in English because they are read by the console
+and the next prompt rather than by a listener. It also asks for no `{{clock.rough}}` or `{{greeting}}` in the
+templates, since the station fills those in English and a phrasing that names one is never used. The marker
+check is loosened for the language rather than translated; see `breaks.md` § "The station's language".
+
 ## A pasted character
 
 **A pasted character is not a character**, which is the newest half and the one measured on air: of seventeen

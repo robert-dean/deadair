@@ -1,10 +1,9 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
-import { advisoryPolicy, speaksClean } from './advisory.policy.js';
+import { languageGuard, stationPromptSettings } from './prompt.settings.js';
 import { LlmService } from '#modules/llm/llm.service.js';
 import { captureWrites } from '#modules/render/script.history.settings.js';
-import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
 import {
     breakPrompt,
     maxWordsFor,
@@ -17,8 +16,7 @@ import {
     type PromptSettings,
 } from './break.prompt.js';
 import { resolveStoryWords } from './break.words.js';
-import { TEMPLATE_KEYS } from './break.templates.js';
-import { timeClaimIn } from './clock.words.js';
+import { timeClaimFor } from './clock.words.js';
 import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBreak, patienceFor } from './break.writer.js';
 import { BUDGET_MS, MAX_OUTPUT_TOKENS, MODEL_WRITER, MODEL_WRITER_DEFAULT, MODEL_WRITER_KEYS } from './model.talk.break.writer.js';
 import { STORY_KIND, STORY_SHAPE } from './story.break.writer.js';
@@ -89,10 +87,8 @@ export class ModelStoryBreakWriter extends BreakWriter {
         // pulled `rotation.storyWords` down it does. Held in a `settings` object for that reason,
         // exactly as the talk break holds one.
         const settings: PromptSettings = {
-            station: this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),
-            dj: request.persona?.djName ?? this.config.get(TEMPLATE_KEYS.djName, ''),
+            ...stationPromptSettings(this.config, request),
             maxWords: resolveStoryWords(this.config),
-            cleanLanguage: speaksClean(advisoryPolicy(this.config)),
             ...(request.persona === undefined ? {} : { persona: request.persona }),
             ...(request.notebook === undefined ? {} : { notebook: request.notebook }),
             ...(request.reactions === undefined ? {} : { reactions: request.reactions }),
@@ -133,6 +129,7 @@ export class ModelStoryBreakWriter extends BreakWriter {
             // Beside the daypart and off the same instant: the words are what the prompt stated and
             // this is what the clock says, which is the half of the question a stretch cannot answer.
             ...(request.moment === undefined ? {} : { moment: request.moment }),
+            ...languageGuard(this.config),
             // The talk break's own guard, carried over: `STORY_SHAPE` never shows a previous record
             // (`showsPrevious: false`), so the only one a story is ever handed is `request.next`, and
             // `recent` is stripped out of the prompt before it reaches `shown` for `permittedYears`'
@@ -171,7 +168,7 @@ export class ModelStoryBreakWriter extends BreakWriter {
             this.logger.info(`director: ${trimmed.reason}`, { kept: trimmed.kept, dropped: trimmed.dropped, story: request.story.title });
         }
 
-        const claimsTime = timeClaimIn(script, request.clock, request.dayPart);
+        const claimsTime = timeClaimFor(script, guard.language, request.clock, request.dayPart);
 
         return {
             script,

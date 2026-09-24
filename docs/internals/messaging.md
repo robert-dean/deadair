@@ -68,9 +68,11 @@ seconds, and the host answers when the poller gets to it. So the plugin defers i
 slash command shows "thinking", a button press shows nothing), holds its token against the id
 `receive` hands out, and a `send` replying to that id answers through the token. For a slash command,
 the first reply replaces the placeholder and any later one follows it. The token lasts fifteen minutes,
-and after that a reply is an ordinary message in the channel. One from a channel the station does not
-answer in is turned away with a line only its sender sees, because an unacknowledged interaction reads
-as a broken bot.
+and after that a reply is an ordinary message in the channel. One from a channel the station does
+not answer in is turned away with a line only its sender sees, because an unacknowledged interaction
+reads as a broken bot. Slack needs no deferral, since `SocketModeClient` acknowledges every envelope
+before anything else; the plugin answers a slash command or a press through its `response_url`
+(thirty minutes, five replies), which works in a channel the app was never invited to.
 
 **The command table is told to the platform, where the platform keeps one.** The optional
 `commands()` on the capability is called with `MessagingCommands.list()` each time a worker starts,

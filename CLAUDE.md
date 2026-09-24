@@ -39,7 +39,7 @@ was shipped first and was wrong.
 | the mount, the audience gate, why it is quiet, the activity feed | [`docs/internals/playout.md`](docs/internals/playout.md) |
 | the model, the gate, the tool loop | [`docs/internals/llm.md`](docs/internals/llm.md) |
 | signing in through an identity provider, the allowlist, linked sign-ins, apps connecting over OAuth, the MCP endpoint | [`docs/internals/authentication.md`](docs/internals/authentication.md) |
-| the station on chat platforms (Telegram, Discord and the like), chat commands, the poller, listener requests | [`docs/internals/messaging.md`](docs/internals/messaging.md) |
+| the station on chat platforms (Telegram, Discord, Slack and the like), chat commands, the poller, listener requests | [`docs/internals/messaging.md`](docs/internals/messaging.md) |
 | the Dockerfile, the image variants, CI | [`docs/internals/deployment.md`](docs/internals/deployment.md) |
 
 Each of those is sectioned, so the answer to one question is a heading rather than a file. Several
@@ -135,9 +135,9 @@ plugins/*             bundled plugins: spotify, navidrome, ytmusic (YouTube Musi
                       on today's date), rss, websearch
                       (SearXNG, Brave or Tavily, whichever the operator points it at), weather
                       (Open-Meteo, the US National Weather Service or OpenWeatherMap), podcast (the
-                      shows the station carries, read from their feeds), telegram and discord (the
-                      station on chat platforms: commands answered, what airs announced; discord
-                      over a socket the plugin holds), kokoro, chatterbox and
+                      shows the station carries, read from their feeds), telegram, discord and
+                      slack (the station on chat platforms: commands answered, what airs announced;
+                      the last two over a socket the plugin holds), kokoro, chatterbox and
                       rhapsode (the station's voice; the last of those speaks through a server that
                       holds several engines at once and publishes what each one can do), llm,
                       analyzer (the adapter over the measurement sidecar)

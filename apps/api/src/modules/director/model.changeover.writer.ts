@@ -2,6 +2,7 @@ import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import { stationPromptSettings } from './prompt.settings.js';
+import { languageName } from '#modules/shared/language.name.js';
 import { LlmService } from '#modules/llm/llm.service.js';
 import { captureWrites } from '#modules/render/script.history.settings.js';
 import {
@@ -49,7 +50,7 @@ export const CHANGEOVER_SHAPE: BreakPromptShape = {
             'the name you were given and no other. When it was you, do not thank anybody: you are carrying on.',
         'This is about the shows, not the records. Do not say what the last show played or what is coming up next.',
     ],
-    opening: request => {
+    opening: (request, settings) => {
         const change = request.changeover;
         const outgoing = change?.outgoing?.djName?.trim();
 
@@ -65,7 +66,9 @@ export const CHANGEOVER_SHAPE: BreakPromptShape = {
             // expiry the station can check, and this one is stamped as a claim and checked at hand-over.
             request.greeting === undefined
                 ? undefined
-                : `You may open with "${request.greeting.words}", in those words and no other way of saying it.`,
+                : settings.language === undefined
+                  ? `You may open with "${request.greeting.words}", in those words and no other way of saying it.`
+                  : `You may open with the ${languageName(settings.language)} for "${request.greeting.words}".`,
         ]
             .filter(Boolean)
             .join(' ');

@@ -61,6 +61,7 @@ import type { PersonaNotesForPrompt } from '#modules/personas/persona.note.js';
 import type { PersonaStoryForPrompt } from '#modules/personas/persona.story.js';
 import type { SpokenWeather } from '#modules/weather/weather.words.js';
 import type { AlmanacEntry } from '@deadair/plugin-sdk';
+import { languageName, languageRule } from '#modules/shared/language.name.js';
 import { inventedFigure } from './weather.figures.js';
 import type { BreakStory, BreakTrack, BreakWriteRequest } from './break.writer.js';
 import { contradictsDayPart, namesWrongSky, namesWrongTimeOfDay, type RoughTime } from './clock.words.js';
@@ -109,7 +110,7 @@ export interface BreakPromptShape {
      */
     showsPlayed?: boolean;
     /** What the user turn opens with, before the records. Absent for a break that needs no framing. */
-    opening?: (request: BreakWriteRequest) => string | undefined;
+    opening?: (request: BreakWriteRequest, settings: PromptSettings) => string | undefined;
     /**
      * Rules this kind owes on top of the shared ones, rendered at the end of the same list.
      *
@@ -556,6 +557,16 @@ export interface PromptSettings {
      */
     cleanLanguage?: boolean;
     /**
+     * The language the station broadcasts in, as a BCP 47 tag, when it is not English.
+     *
+     * Absent for English, and then the prompt is exactly what it was before a station could be
+     * anything else. Present, it adds one closing instruction to write in that language and swaps the
+     * few places the prompt names English or hands over English words to be copied. The rest of the
+     * prompt stays in English on purpose: it is instructions to the model rather than words for the
+     * air, and a model reads English instructions best whatever it is asked to write in.
+     */
+    language?: string;
+    /**
      * The things the presenter can do that are not words: a laugh, a sigh.
      *
      * Called REACTIONS here and `SpeechCue` everywhere else, which is the same rename {@link
@@ -921,8 +932,12 @@ function systemPrompt(settings: PromptSettings, shape: BreakPromptShape): string
     // AFTER the rules, and that position is the whole reason it exists. The failure it addresses is
     // caused BY the rules: a host reads seven careful instructions about naming records accurately
     // and answers them in careful, plain English. See `persona.sheet.ts`.
-    const reminder = persona === undefined ? undefined : personaVoiceReminder(persona);
+    const reminder = persona === undefined ? undefined : personaVoiceReminder(persona, settings.language);
     if (reminder !== undefined) lines.push('', reminder);
+
+    // Last of all, after the persona's reminder, because it is the one instruction every other line
+    // is subject to and the end of the prompt is the position a model weighs most. See `languageRule`.
+    if (settings.language !== undefined) lines.push('', languageRule(settings.language));
 
     return lines.join('\n');
 }
@@ -930,7 +945,7 @@ function systemPrompt(settings: PromptSettings, shape: BreakPromptShape): string
 function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape: BreakPromptShape): string {
     const parts: string[] = [];
 
-    const opening = shape.opening?.(request);
+    const opening = shape.opening?.(request, settings);
     if (opening !== undefined) parts.push(opening);
 
     // A kind that does not look backwards never sees the record behind it, rather than seeing it and
@@ -1104,7 +1119,7 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape:
         // that arrived as two.
         parts.push(
             'Read these as news, in the words an anchor would use. Tell each story as you would say it out loud: what happened, to whom, ' +
-                'and where, in a sentence or two of ordinary spoken English. ' +
+                `and where, in a sentence or two of ordinary spoken ${settings.language === undefined ? 'English' : languageName(settings.language)}. ` +
                 'A headline is not one of those sentences — it is written to be seen, and read aloud it sounds like a headline — ' +
                 'so take what happened from it and say that, rather than reading it out and then repeating yourself. ' +
                 'A bulletin that reads out headlines and nothing else has told the listener nothing. ' +
@@ -1312,7 +1327,16 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape:
         );
     }
 
-    if (request.clock) {
+    if (request.clock && settings.language !== undefined) {
+        // The words are English and the break is not, so they cannot come back verbatim. The time is
+        // handed over as the phrase it is and the model says the same rough time in its own language.
+        // The station cannot search the answer for a translation of its own phrase, which is the price
+        // of broadcasting in anything but the language the clock's words are written in.
+        parts.push(
+            `It is ${request.clock.words} (that is the English phrasing). Work the time in, rounded the same way, in ${languageName(settings.language)}. ` +
+                'Do not give an exact time and do not name the minutes.',
+        );
+    } else if (request.clock) {
         // The exact words rather than a time, and an instruction to use them verbatim. A model
         // asked to say what time it is will invent its own phrasing, and the station has no way to
         // tell how long an invented one stays true — whereas these words come with their own expiry

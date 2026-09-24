@@ -2,6 +2,7 @@ import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import { stationPromptSettings } from './prompt.settings.js';
+import { languageName } from '#modules/shared/language.name.js';
 import { LlmService } from '#modules/llm/llm.service.js';
 import { captureWrites } from '#modules/render/script.history.settings.js';
 import {
@@ -78,13 +79,19 @@ export const WELCOME_SHAPE: BreakPromptShape = {
             'you have a thought about being on air right now, follow it, and stop when you are finished rather than when you have been ' +
             'brief. What it must not turn into is a list of facts about the record coming up, however long you take.',
     ],
-    opening: request =>
+    opening: (request, settings) =>
         [
             'Somebody has just tuned in. They have not heard anything before this, so tell them what they are listening to.',
             // The greeting words verbatim, for the reason `request.clock` gets the same treatment: an
             // invented phrasing has no expiry the station can check, and this one is stamped as a
             // claim and checked at hand-over.
-            request.greeting === undefined ? undefined : `Open with "${request.greeting.words}", in those words and no other way of saying it.`,
+            request.greeting === undefined
+                ? undefined
+                : settings.language === undefined
+                  ? `Open with "${request.greeting.words}", in those words and no other way of saying it.`
+                  : // Words in English cannot come back verbatim from a break that is not, so the greeting
+                    // is asked for in the station's own language and is not a claim the station can check.
+                    `Open with the ${languageName(settings.language)} for "${request.greeting.words}".`,
         ]
             .filter(Boolean)
             .join(' '),

@@ -215,6 +215,9 @@ describe('personaVoiceReminder', () => {
         expect(reminder).not.toContain('Aye for yes');
         expect(reminder).toContain('stating a fact');
     });
+    it('names the station language as the plain register to avoid when it is not English', () => {
+        expect(personaVoiceReminder({ diction: ['Ye for you'] }, 'de')).toContain('Plain German is wrong here');
+    });
 });
 
 describe('matchesDictionMarker', () => {

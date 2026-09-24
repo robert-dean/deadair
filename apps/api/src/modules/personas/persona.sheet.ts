@@ -71,6 +71,7 @@
 // rest of it. Shared rather than local because a break, a production and the facts all spread over
 // an id, and three copies of one modulo is three chances to get the empty-list case wrong.
 import { rotateInto } from '#modules/shared/rotation.js';
+import { languageName } from '#modules/shared/language.name.js';
 
 /** How much a character says, below the station's ordinary length. See {@link PersonaSheet.brevity}. */
 export const PERSONA_BREVITIES = ['short', 'one-line'] as const;
@@ -899,12 +900,17 @@ export function personaLines(sheet: PersonaSheet, opts: PersonaLineOptions = {})
  * Undefined for a sheet with no {@link PersonaSheet.diction}, so a prompt without one is unchanged.
  * See the note at the top of this file for why this exists at all when the same clauses are already
  * in the sheet above.
+ *
+ * `language` is the station's when it is not English, and names the plain register the character is
+ * being pulled away from: on a German station the flat default is plain German, and telling the
+ * model "plain English is wrong" there reads as permission for plain German.
  */
-export function personaVoiceReminder(sheet: PersonaSheet): string | undefined {
+export function personaVoiceReminder(sheet: PersonaSheet, language?: string): string | undefined {
     const diction = cleanList(sheet.diction, REMINDER_CLAUSES);
     if (diction.length === 0) return undefined;
 
-    return `Write every sentence in your own speech — ${joinClauses(diction)} Plain English is wrong here, including when you are stating a fact.`;
+    const plain = language === undefined ? 'Plain English' : `Plain ${languageName(language)}`;
+    return `Write every sentence in your own speech — ${joinClauses(diction)} ${plain} is wrong here, including when you are stating a fact.`;
 }
 
 /**

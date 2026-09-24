@@ -25,7 +25,7 @@ import { PadRepository } from '#modules/render/pad.repository.js';
 import { SegmentRepository, type PadHit, type Segment } from '#modules/render/segment.repository.js';
 import { SpeechService } from '#modules/render/speech.service.js';
 import { speakableScript } from '#modules/render/speakable.script.js';
-import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
+import { STREAM_DEFAULTS, STREAM_KEYS, stationLanguage } from '#modules/stream/stream.settings.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { checkBeat, correctionNote } from './production.checks.js';
 import { callSubjectOf, isDialogue, speakerOrder, turnWeights, type CastMember, type ProductionCast } from './production.cast.js';
@@ -279,6 +279,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                         // by a rule in the beat prompt saying it is the morning.
                         dayPart: this.whenItAirs(claimed).words,
                         cleanLanguage: speaksClean(advisoryPolicy(this.config)),
+                        ...this.language(),
                     }),
                     maxOutputTokens: OUTLINE_OUTPUT_TOKENS,
                     // Planning IS the reasoning problem here, unlike a break. Left at the model's own
@@ -426,6 +427,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                 station,
                 dayPart: airs.words,
                 cleanLanguage: speaksClean(advisoryPolicy(this.config)),
+                ...this.language(),
             });
 
             const ask = async () =>
@@ -617,6 +619,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                         dayPart: airs.words,
                         correction: correctionNote(problems),
                         cleanLanguage: speaksClean(advisoryPolicy(this.config)),
+                        ...this.language(),
                     }),
                     maxOutputTokens: BEAT_OUTPUT_TOKENS,
                     reasoningEffort: 'low',
@@ -980,6 +983,15 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
      * Earliest deadline: background while its slot is far off, and on-air work as it approaches. The
      * number is real — somebody chose the slot — which is why this needs no aging rule.
      */
+    /**
+     * The station's language as a request field, or nothing for English, read per call for the reason
+     * `cleanLanguage` is: an operator's change lands on the next beat rather than after a restart.
+     */
+    private language(): { language?: string } {
+        const language = stationLanguage(this.config);
+        return language === undefined ? {} : { language };
+    }
+
     private priorityOf(production: Production) {
         return priorityForSlot(production.scheduledFor, Date.now(), DEADLINE_MS);
     }

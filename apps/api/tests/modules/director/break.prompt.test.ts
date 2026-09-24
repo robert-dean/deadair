@@ -30,6 +30,7 @@ import { NEWS_SHAPE } from '../../../src/modules/director/model.news.break.write
 import { WELCOME_SHAPE } from '../../../src/modules/director/model.welcome.writer.js';
 import { WEATHER_SHAPE } from '../../../src/modules/director/model.weather.break.writer.js';
 import type { SpokenWeather } from '../../../src/modules/weather/weather.words.js';
+import { languageRule } from '../../../src/modules/shared/language.name.js';
 import {
     LATITUDE_INSTRUCTIONS,
     LATITUDE_LICENCE,
@@ -2464,5 +2465,54 @@ describe('a running bit', () => {
         // A rule about a thing that has not happened is a rule about nothing, which is why the notes
         // rule is withheld from a prompt carrying no notes.
         expect(said).not.toMatch(/Do not say any of that again/);
+    });
+});
+
+describe('breakPrompt on a station that does not broadcast in English', () => {
+    const clock = { words: 'just after nine', validFrom: 0, validUntil: 1 };
+
+    it('says nothing about language to an English station', () => {
+        expect(system(prompt({ kind: 'talkbreak', previous }))).not.toContain('Write every word you say in');
+    });
+
+    it('ends the system turn on the language, after everything else', () => {
+        const rules = system(prompt({ kind: 'talkbreak', previous }, { language: 'de' }));
+
+        expect(rules.trimEnd().endsWith(languageRule('de'))).toBe(true);
+    });
+
+    it('puts the language after the persona reminder rather than before it', () => {
+        const persona = { key: 'salt', label: 'Salt', kind: 'host', style: 'a sea captain', diction: ['Aye for yes'], defaultHost: false } as const;
+        const rules = system(prompt({ kind: 'talkbreak', previous }, { language: 'de', persona } as PromptSettings));
+
+        expect(rules).toContain('Plain German is wrong here');
+        expect(rules.indexOf('Plain German')).toBeLessThan(rules.indexOf('Write every word you say in German'));
+    });
+
+    it('hands over the English time as a phrase to say in the language rather than words to copy', () => {
+        const said = user(prompt({ kind: 'talkbreak', previous, clock }, { language: 'fr' }));
+
+        expect(said).toContain('in French');
+        expect(said).not.toContain('using exactly the words');
+    });
+
+    it('still asks an English station for the time word for word', () => {
+        expect(user(prompt({ kind: 'talkbreak', previous, clock }))).toContain('using exactly the words "just after nine"');
+    });
+
+    it('asks a bulletin for the news in the station language', () => {
+        const said = user(breakPrompt({ kind: 'news', stories: [{ headline: 'Bridge reopens.' }] }, { language: 'es' }, NEWS_SHAPE));
+
+        expect(said).toContain('ordinary spoken Spanish');
+        expect(said).not.toContain('ordinary spoken English');
+    });
+
+    it('asks a welcome for the greeting in the language rather than the English words', () => {
+        const greeting = { words: 'good morning', validFrom: 0, validUntil: 1 };
+
+        expect(user(breakPrompt({ kind: 'welcome', greeting }, { language: 'de' }, WELCOME_SHAPE))).toContain(
+            'Open with the German for "good morning".',
+        );
+        expect(user(breakPrompt({ kind: 'welcome', greeting }, {}, WELCOME_SHAPE))).toContain('Open with "good morning", in those words');
     });
 });

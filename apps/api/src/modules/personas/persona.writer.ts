@@ -36,6 +36,7 @@
 import { TEMPLATE_VOCABULARY, unusablePhrasing, unwrapTemplate } from '#modules/director/break.templates.js';
 import { jsonObjects, parseLooseJson, withoutThinking } from '#modules/shared/json.objects.js';
 import type { LlmMessage } from '@deadair/plugin-sdk';
+import { languageName } from '#modules/shared/language.name.js';
 import { DEFAULT_PERSONA_KIND, type PersonaDraft } from './persona.js';
 import type { PersonaStoryDraft } from './persona.story.js';
 import {
@@ -145,7 +146,7 @@ const TEMPLATE_VALUES = TEMPLATE_VOCABULARY.filter(value => !KIND_SPECIFIC_VALUE
  * says yes and no, how it contracts, and what it reaches for as filler. A noun cannot be in any of
  * them, which is the point.
  */
-export function personaPrompt(description: string): LlmMessage[] {
+export function personaPrompt(description: string, language?: string): LlmMessage[] {
     return [
         {
             role: 'system',
@@ -228,6 +229,15 @@ export function personaPrompt(description: string): LlmMessage[] {
                 // whole persona. `parseLooseJson` repairs it; asking is cheaper than repairing.
                 '- Every value is on ONE line. Never break a string across lines, and use plain straight quotes and hyphens.',
                 '- No stage directions, no asterisks, no emoji anywhere.',
+                // Everything that is SAID in this character's voice has to be in the station's
+                // language, because the samples, markers and templates are what every break is
+                // checked against and what airs when no model wrote it. The descriptive fields stay
+                // in English: they are read by the console and by the next prompt, not by a listener.
+                ...(language === undefined
+                    ? []
+                    : [
+                          `- This station broadcasts in ${languageName(language)}. Write "samples", "dictionMarkers", "catchphrases", "avoid", the "stories" and the "templates" in ${languageName(language)}, because they are said on air or checked against what is. Write every other field in English.`,
+                      ]),
             ].join('\n'),
         },
         { role: 'user', content: `Write a presenter from this description:\n\n${description.trim().slice(0, MAX_DESCRIPTION)}` },

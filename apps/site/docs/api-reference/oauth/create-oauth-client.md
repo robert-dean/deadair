@@ -1,6 +1,6 @@
 ---
-title: 'Create oauth client'
-sidebar_label: 'Create oauth client'
+title: 'Create OAuth client'
+sidebar_label: 'Create OAuth client'
 sidebar_position: 5
 mdx:
     format: 'md'

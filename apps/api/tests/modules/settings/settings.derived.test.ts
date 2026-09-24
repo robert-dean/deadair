@@ -6,10 +6,16 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { derivedSettings } from '../../../src/modules/settings/settings.derived.js';
+import { derivedModels, derivedSettings, MODEL_SETTING_KEYS } from '../../../src/modules/settings/settings.derived.js';
 import { STREAM_KEYS } from '../../../src/modules/stream/stream.settings.js';
 import { CLOCK_KEYS } from '../../../src/modules/director/clock.words.js';
 import { oidcRedirectUri, SIGNIN_KEYS } from '../../../src/modules/authentication/signin.settings.js';
+import { MODEL_WRITER_KEYS } from '../../../src/modules/director/model.talk.break.writer.js';
+import { MODEL_GENERATOR_KEYS } from '../../../src/modules/director/model.set.generator.js';
+import { MODEL_FACTS_KEYS } from '../../../src/modules/enrichment/fact.extraction.service.js';
+import { PERSONA_NOTES_KEYS } from '../../../src/modules/personas/persona.distil.service.js';
+import { PERSONA_STORIES_KEYS } from '../../../src/modules/personas/persona.story.pass.service.js';
+import { PERSONA_MODEL_KEY } from '../../../src/modules/personas/persona.writer.js';
 import { settingsConfig } from '../../utils/settings.config.js';
 
 describe('derivedSettings', () => {
@@ -86,5 +92,33 @@ describe('derivedSettings', () => {
         // A path with no origin is not an address anybody can register, and guessing one from the
         // console's own origin would be wrong on exactly the stations reached two ways.
         expect(SIGNIN_KEYS.redirectAddress in derivedSettings(settingsConfig().config)).toBe(false);
+    });
+});
+
+describe('derivedModels', () => {
+    it('finds every model setting in the registry, and nothing that is not one', () => {
+        // Read off the registry by the suggestion list the six share, so this is the check that the
+        // property still picks out exactly them.
+        expect([...MODEL_SETTING_KEYS].sort()).toEqual(
+            [
+                MODEL_WRITER_KEYS.model,
+                MODEL_GENERATOR_KEYS.model,
+                MODEL_FACTS_KEYS.model,
+                PERSONA_NOTES_KEYS.model,
+                PERSONA_STORIES_KEYS.model,
+                PERSONA_MODEL_KEY,
+            ].sort(),
+        );
+    });
+
+    it("puts the plugin's default model under each of them", () => {
+        const derived = derivedModels('ollama:qwen3');
+
+        for (const key of MODEL_SETTING_KEYS) expect(derived[key]).toBe('ollama:qwen3');
+    });
+
+    it('says nothing when the plugin names no default', () => {
+        expect(derivedModels(undefined)).toEqual({});
+        expect(derivedModels('')).toEqual({});
     });
 });

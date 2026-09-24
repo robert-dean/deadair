@@ -528,10 +528,11 @@ export interface ConfigFieldsFormProps {
      *
      * For the settings whose help text says "leave empty to …": the public URL falls back to the
      * address the station was deployed with, the advertised hostname to the public URL's, the
-     * station's timezone to the server's own. Each value is worked out server-side and arrives with
-     * the settings read (`StationSettings.derived`), because none of it is anything a browser can
-     * see — two come from the environment the station was deployed with and one from the server's
-     * clock.
+     * station's timezone to the server's own, and each model setting to the model plugin's own
+     * default. Each value is worked out server-side and arrives with the settings read
+     * (`StationSettings.derived`), because none of it is anything a browser can see: two come from
+     * the environment the station was deployed with, one from the server's clock and the models from
+     * the plugin.
      *
      * A key present here is drawn twice for one reason each: as the empty field's placeholder, so
      * the box shows the address listeners are actually being sent to rather than a hint, and as a

@@ -751,21 +751,6 @@ export class LlmService {
     }
 
     /**
-     * Whether a given model can be given tools.
-     *
-     * Asked per model rather than per plugin because that is where the truth lives: one endpoint
-     * commonly serves both a model that can call tools and one that cannot, so a plugin-level
-     * answer would be wrong for half of them.
-     *
-     * `undefined` for the model means the plugin's own default, and a plugin that says which entry
-     * that is gets asked about that one. Without a marked default there is nothing to resolve
-     * against, so this falls back to requiring EVERY model to support tools — correct, and
-     * increasingly useless the more models a server has, which is why the SDK asks plugins to mark
-     * one. Both readings err the same way: never claiming support that is not there, because the
-     * cost of being wrong is a failed generation and the cost of being cautious is a line written
-     * without facts.
-     */
-    /**
      * Which model a request will actually be answered by. See {@link LlmConversation.model}.
      *
      * The same three-step resolution {@link supportsTools} does, because they are asking about the
@@ -788,6 +773,40 @@ export class LlmService {
         }
     }
 
+    /**
+     * The model a request naming none reaches, or `undefined` when nothing can say.
+     *
+     * For the console, which shows it under every empty model setting. Silent where {@link generator}
+     * logs, because a settings page being drawn is not the station choosing a plugin, and it answers
+     * only the default the plugin itself marked: {@link resolveModel}'s last resort is the plugin's id,
+     * which is a name for the record and not a model anybody could type back in.
+     */
+    async defaultModel(): Promise<string | undefined> {
+        const plugin = selectLlmPlugin(this.generators(), this.configuredGenerator);
+        if (plugin === undefined) return undefined;
+
+        try {
+            return (await this.models(plugin)).find(entry => entry.default === true)?.id;
+        } catch {
+            return undefined;
+        }
+    }
+
+    /**
+     * Whether a given model can be given tools.
+     *
+     * Asked per model rather than per plugin because that is where the truth lives: one endpoint
+     * commonly serves both a model that can call tools and one that cannot, so a plugin-level
+     * answer would be wrong for half of them.
+     *
+     * `undefined` for the model means the plugin's own default, and a plugin that says which entry
+     * that is gets asked about that one. Without a marked default there is nothing to resolve
+     * against, so this falls back to requiring EVERY model to support tools — correct, and
+     * increasingly useless the more models a server has, which is why the SDK asks plugins to mark
+     * one. Both readings err the same way: never claiming support that is not there, because the
+     * cost of being wrong is a failed generation and the cost of being cautious is a line written
+     * without facts.
+     */
     async supportsTools(plugin: LlmPlugin, model: string | undefined): Promise<boolean> {
         const models = await this.models(plugin);
         if (models.length === 0) return false;

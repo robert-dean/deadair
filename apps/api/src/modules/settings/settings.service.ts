@@ -4,14 +4,24 @@ import { EncryptionProvider } from '@maroonedsoftware/encryption';
 import { httpError } from '@maroonedsoftware/errors';
 import { isRowSecretKey } from '@deadair/plugin-sdk';
 import { AfterCommit } from '#modules/data/after.commit.js';
+import { LlmService } from '#modules/llm/llm.service.js';
 import { configuredCells, holdsRowSecrets, splitRowSecrets } from '#modules/shared/config.rows.js';
 import { StreamService } from '#modules/stream/stream.service.js';
 import { isStreamSettingKey } from '#modules/stream/stream.settings.js';
 import { SettingsRepository } from './settings.repository.js';
-import { derivedSettings } from './settings.derived.js';
+import { derivedModels, derivedSettings } from './settings.derived.js';
 import { parseSetting, serializeSetting, type SettingRejection, type SettingValue } from './setting.values.js';
 import { findDescriptor, isSecretField, isValueField, SETTING_DESCRIPTORS, type SettingDescriptor } from './settings.registry.js';
 import type { StationSettings, StationSettingsInput } from './types/settings.types.js';
+
+/**
+ * How long a settings read waits for the model plugin to name its default model.
+ *
+ * The plugin keeps its list for a minute, because it is asked before every conversation, so this is
+ * almost always answered from memory. The wait only bites on a cold list from a slow server, and
+ * what is lost then is a placeholder.
+ */
+const MODEL_DEFAULT_WAIT_MS = 2_000;
 
 /**
  * Station settings, backed by the `deadair.settings` key/value table.
@@ -39,6 +49,9 @@ export class SettingsService {
         // which cannot read the database. Nothing here reads the stream's settings.
         private readonly stream: StreamService,
         private readonly afterCommit: AfterCommit,
+        // For one answer: which model an empty model setting reaches, which only the model plugin
+        // can say. Nothing here generates anything.
+        private readonly llm: LlmService,
     ) {}
 
     /**
@@ -52,9 +65,11 @@ export class SettingsService {
      * what that comes to: see {@link derivedSettings}. Answered here rather than
      * left to the console because the console cannot work any of them out — two
      * come from the environment the station was deployed with and one from the
-     * server's own clock, none of which a browser can see.
+     * server's own clock, none of which a browser can see. The model settings'
+     * come from the model plugin in use, asked for its list of models and
+     * bounded by {@link MODEL_DEFAULT_WAIT_MS}.
      */
-    read(): StationSettings {
+    async read(): Promise<StationSettings> {
         const values: Record<string, SettingValue> = {};
         const configured: Record<string, boolean> = {};
 
@@ -76,7 +91,26 @@ export class SettingsService {
             values[descriptor.key] = parseSetting(descriptor, stored);
         }
 
-        return { descriptors: [...SETTING_DESCRIPTORS], values, configured, derived: derivedSettings(this.config) };
+        const derived = { ...derivedSettings(this.config), ...derivedModels(await this.defaultModel()) };
+        return { descriptors: [...SETTING_DESCRIPTORS], values, configured, derived };
+    }
+
+    /**
+     * The model plugin's default, or nothing if it has not said within {@link MODEL_DEFAULT_WAIT_MS}.
+     *
+     * Bounded because this is a question for somebody's model server, and a settings page that will
+     * not draw while that server is down is a worse failure than an empty box with no placeholder.
+     */
+    private async defaultModel(): Promise<string | undefined> {
+        let timer: NodeJS.Timeout | undefined;
+        const giveUp = new Promise<undefined>(resolve => {
+            timer = setTimeout(() => resolve(undefined), MODEL_DEFAULT_WAIT_MS);
+        });
+        try {
+            return await Promise.race([this.llm.defaultModel(), giveUp]);
+        } finally {
+            clearTimeout(timer);
+        }
     }
 
     /**
@@ -165,7 +199,7 @@ export class SettingsService {
         // Built from the values just written rather than re-read, for the reason `set` explains:
         // the config does not refresh until this request commits, so reading it back here would
         // answer with what the operator has just replaced.
-        return this.readAsWritten(writes);
+        return await this.readAsWritten(writes);
     }
 
     /**
@@ -222,8 +256,8 @@ export class SettingsService {
      * either one alone: the config has everything that was NOT submitted, and the
      * writes have what was.
      */
-    private readAsWritten(writes: readonly { key: string; value: string | null }[]): StationSettings {
-        const model = this.read();
+    private async readAsWritten(writes: readonly { key: string; value: string | null }[]): Promise<StationSettings> {
+        const model = await this.read();
 
         for (const write of writes) {
             const descriptor = findDescriptor(write.key);

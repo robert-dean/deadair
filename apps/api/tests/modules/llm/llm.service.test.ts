@@ -266,3 +266,30 @@ describe('resolveModel', () => {
         await expect(service.resolveModel(service.generator()!, undefined)).resolves.toBe('deadair.llm');
     });
 });
+
+describe('defaultModel', () => {
+    // What the console shows under an empty model setting. Unlike `resolveModel` it has no last
+    // resort, because the plugin's id in a model box reads as a model somebody could type back in.
+    it('answers the model the plugin marks as its default', async () => {
+        const { service } = serviceFor([
+            fakeLlmPlugin({
+                models: [
+                    { id: 'big', tools: true, default: true },
+                    { id: 'small', tools: false },
+                ],
+            }),
+        ]);
+
+        await expect(service.defaultModel()).resolves.toBe('big');
+    });
+
+    it('answers nothing when nothing is marked', async () => {
+        const { service } = serviceFor([fakeLlmPlugin({ models: [{ id: 'big', tools: true }] })]);
+
+        await expect(service.defaultModel()).resolves.toBeUndefined();
+    });
+
+    it('answers nothing when there is no model plugin at all', async () => {
+        await expect(serviceFor([]).service.defaultModel()).resolves.toBeUndefined();
+    });
+});

@@ -88,6 +88,9 @@ operation /playout/chart: {
 operation /playout/skip: {
     post: { # Ends the item on air so the next one starts immediately. The station owns the decoder, so this lands at once rather than waiting out audio already committed to a player
         name: Skip the current item
+        mcp: {
+            description: "Cuts what is on air now for every listener and starts the next item at once. It cannot be undone, so confirm with the person first unless they asked for it in so many words."
+        }
         service: PlayoutService.skip
         security: {
             policy: platform.manage

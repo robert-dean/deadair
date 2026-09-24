@@ -20,8 +20,8 @@ import { registerPluginsMcpCatalog, registerPluginsMcpToolClasses } from './plug
 import { registerPodcastsMcpCatalog, registerPodcastsMcpToolClasses } from './podcasts.mcp.js';
 import { registerProductionsMcpCatalog, registerProductionsMcpToolClasses } from './productions.mcp.js';
 import { registerRenderMcpCatalog, registerRenderMcpToolClasses } from './render.mcp.js';
-import { registerRequestsMcpCatalog, registerRequestsMcpToolClasses } from './requests.mcp.js';
-import { registerScheduleMcpCatalog, registerScheduleMcpToolClasses } from './schedule.mcp.js';
+import { registerRequestsMcpTools, registerRequestsMcpCatalog, registerRequestsMcpToolClasses } from './requests.mcp.js';
+import { registerScheduleMcpTools, registerScheduleMcpCatalog, registerScheduleMcpToolClasses } from './schedule.mcp.js';
 import { registerSettingsMcpCatalog, registerSettingsMcpToolClasses } from './settings.mcp.js';
 import { registerStationMcpCatalog, registerStationMcpToolClasses } from './station.mcp.js';
 import { registerStationPlaylistsMcpCatalog, registerStationPlaylistsMcpToolClasses } from './station.playlists.mcp.js';
@@ -43,6 +43,8 @@ export function registerMcpTools(container: Container): McpToolHandlerMap {
     const map = new McpToolHandlerMap();
     registerNowplayingMcpTools(map, container);
     registerPlayoutMcpTools(map, container);
+    registerRequestsMcpTools(map, container);
+    registerScheduleMcpTools(map, container);
     return map;
 }
 

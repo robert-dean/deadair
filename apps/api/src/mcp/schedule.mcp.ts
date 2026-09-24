@@ -82,7 +82,8 @@ export class CreateScheduleSlotMcpTool implements McpToolHandler {
 export class ReadCurrentSlotMcpTool implements McpToolHandler {
     readonly definition: Tool = {
         name: 'read_current_slot',
-        description: 'Which slot the clock says should be on, and which one the station is actually airing',
+        description:
+            'Which schedule slot the clock says should be on now, and which one the station is actually airing, when the two differ. Use it for questions like what show is on.',
         inputSchema: z.toJSONSchema(ReadCurrentSlotArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
         outputSchema: z.toJSONSchema(ScheduleNow, { unrepresentable: 'any' }) as Tool['outputSchema'],
         annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
@@ -98,13 +99,13 @@ export class ReadCurrentSlotMcpTool implements McpToolHandler {
 }
 
 /**
- * from [schedule.ck](../../data/contracts/schedule/schedule.ck#L81)
+ * from [schedule.ck](../../data/contracts/schedule/schedule.ck#L84)
  */
 @Injectable()
 export class ReadTimetableMcpTool implements McpToolHandler {
     readonly definition: Tool = {
         name: 'read_timetable',
-        description: "The station's day as blocks, contiguous and gapless, for drawing",
+        description: "The station's day as contiguous blocks of programmes, for questions like what is on tonight or when a show starts.",
         inputSchema: z.toJSONSchema(ReadTimetableArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
         outputSchema: z.toJSONSchema(ScheduleTimetable, { unrepresentable: 'any' }) as Tool['outputSchema'],
         annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
@@ -121,7 +122,7 @@ export class ReadTimetableMcpTool implements McpToolHandler {
 }
 
 /**
- * from [schedule.ck](../../data/contracts/schedule/schedule.ck#L101)
+ * from [schedule.ck](../../data/contracts/schedule/schedule.ck#L107)
  */
 @Injectable()
 export class UpdateScheduleSlotMcpTool implements McpToolHandler {
@@ -144,7 +145,7 @@ export class UpdateScheduleSlotMcpTool implements McpToolHandler {
 }
 
 /**
- * from [schedule.ck](../../data/contracts/schedule/schedule.ck#L113)
+ * from [schedule.ck](../../data/contracts/schedule/schedule.ck#L119)
  */
 @Injectable()
 export class DeleteScheduleSlotMcpTool implements McpToolHandler {
@@ -164,6 +165,12 @@ export class DeleteScheduleSlotMcpTool implements McpToolHandler {
         const result = await container.get(ScheduleService).remove(id);
         return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
     }
+}
+
+/** Add this file's tools to the tool map. */
+export function registerScheduleMcpTools(map: McpToolHandlerMap, container: Container): void {
+    map.set('read_current_slot', container.get(ReadCurrentSlotMcpTool));
+    map.set('read_timetable', container.get(ReadTimetableMcpTool));
 }
 
 /** Add a handler for each of this file's operations to the catalog, unlisted in `tools/list`. */

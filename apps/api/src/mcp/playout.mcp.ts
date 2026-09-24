@@ -128,7 +128,7 @@ export class SkipTheCurrentItemMcpTool implements McpToolHandler {
     readonly definition: Tool = {
         name: 'skip_the_current_item',
         description:
-            'Ends the item on air so the next one starts immediately. The station owns the decoder, so this lands at once rather than waiting out audio already committed to a player',
+            'Cuts what is on air now for every listener and starts the next item at once. It cannot be undone, so confirm with the person first unless they asked for it in so many words.',
         inputSchema: z.toJSONSchema(SkipTheCurrentItemArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
         outputSchema: z.toJSONSchema(PlayoutStatus, { unrepresentable: 'any' }) as Tool['outputSchema'],
         annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
@@ -144,7 +144,7 @@ export class SkipTheCurrentItemMcpTool implements McpToolHandler {
 }
 
 /**
- * from [playout.ck](../../data/contracts/playout/playout.ck#L104)
+ * from [playout.ck](../../data/contracts/playout/playout.ck#L107)
  */
 @Injectable()
 export class StartPlayoutMcpTool implements McpToolHandler {
@@ -167,7 +167,7 @@ export class StartPlayoutMcpTool implements McpToolHandler {
 }
 
 /**
- * from [playout.ck](../../data/contracts/playout/playout.ck#L119)
+ * from [playout.ck](../../data/contracts/playout/playout.ck#L122)
  */
 @Injectable()
 export class StopPlayoutMcpTool implements McpToolHandler {
@@ -192,6 +192,7 @@ export class StopPlayoutMcpTool implements McpToolHandler {
 /** Add this file's tools to the tool map. */
 export function registerPlayoutMcpTools(map: McpToolHandlerMap, container: Container): void {
     map.set('get_playout_status', container.get(GetPlayoutStatusMcpTool));
+    map.set('skip_the_current_item', container.get(SkipTheCurrentItemMcpTool));
 }
 
 /** Add a handler for each of this file's operations to the catalog, unlisted in `tools/list`. */

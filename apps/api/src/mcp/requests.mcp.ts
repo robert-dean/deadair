@@ -48,7 +48,8 @@ const DeclineRequestArgs = z.object({ id: z.uuid(), body: ListenerRequestDecline
 export class SearchRequestableRecordsMcpTool implements McpToolHandler {
     readonly definition: Tool = {
         name: 'search_requestable_records',
-        description: 'Records the station could be asked to play, matching a title or an artist',
+        description:
+            'Finds records listeners can ask the station to play, by title, artist or both. Use it before create_request to get the trackId; it answers at most 25.',
         inputSchema: z.toJSONSchema(SearchRequestableRecordsArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
         outputSchema: z.toJSONSchema(RequestableTrackList, { unrepresentable: 'any' }) as Tool['outputSchema'],
         annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
@@ -68,7 +69,7 @@ export class SearchRequestableRecordsMcpTool implements McpToolHandler {
 }
 
 /**
- * from [requests.ck](../../data/contracts/requests/requests.ck#L33)
+ * from [requests.ck](../../data/contracts/requests/requests.ck#L36)
  */
 @Injectable()
 export class ListRequestsMcpTool implements McpToolHandler {
@@ -91,13 +92,14 @@ export class ListRequestsMcpTool implements McpToolHandler {
 }
 
 /**
- * from [requests.ck](../../data/contracts/requests/requests.ck#L48)
+ * from [requests.ck](../../data/contracts/requests/requests.ck#L51)
  */
 @Injectable()
 export class CreateRequestMcpTool implements McpToolHandler {
     readonly definition: Tool = {
         name: 'create_request',
-        description: 'Ask the station to play a record. Answers with the request whatever became of it, so a refusal says why in `reason`',
+        description:
+            'Asks the station to play a record, as a listener would, with an optional name, dedication and message. Get the trackId from search_requestable_records first. It always answers with the request: a refused one says why in reason, and a waiting one plays once an operator lets it through.',
         inputSchema: z.toJSONSchema(CreateRequestArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
         outputSchema: z.toJSONSchema(ListenerRequest, { unrepresentable: 'any' }) as Tool['outputSchema'],
         annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
@@ -114,13 +116,13 @@ export class CreateRequestMcpTool implements McpToolHandler {
 }
 
 /**
- * from [requests.ck](../../data/contracts/requests/requests.ck#L63)
+ * from [requests.ck](../../data/contracts/requests/requests.ck#L69)
  */
 @Injectable()
 export class ListMyRequestsMcpTool implements McpToolHandler {
     readonly definition: Tool = {
         name: 'list_my_requests',
-        description: "The signed-in account's own recent requests",
+        description: "This person's own recent requests and what became of each: waiting, playing, played or refused, with the reason.",
         inputSchema: z.toJSONSchema(ListMyRequestsArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
         outputSchema: z.toJSONSchema(ListenerRequestList, { unrepresentable: 'any' }) as Tool['outputSchema'],
         annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
@@ -136,7 +138,7 @@ export class ListMyRequestsMcpTool implements McpToolHandler {
 }
 
 /**
- * from [requests.ck](../../data/contracts/requests/requests.ck#L78)
+ * from [requests.ck](../../data/contracts/requests/requests.ck#L87)
  */
 @Injectable()
 export class GrantRequestMcpTool implements McpToolHandler {
@@ -159,7 +161,7 @@ export class GrantRequestMcpTool implements McpToolHandler {
 }
 
 /**
- * from [requests.ck](../../data/contracts/requests/requests.ck#L96)
+ * from [requests.ck](../../data/contracts/requests/requests.ck#L105)
  */
 @Injectable()
 export class DeclineRequestMcpTool implements McpToolHandler {
@@ -179,6 +181,13 @@ export class DeclineRequestMcpTool implements McpToolHandler {
         const result = await container.get(RequestsService).decline(id, body);
         return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
     }
+}
+
+/** Add this file's tools to the tool map. */
+export function registerRequestsMcpTools(map: McpToolHandlerMap, container: Container): void {
+    map.set('search_requestable_records', container.get(SearchRequestableRecordsMcpTool));
+    map.set('create_request', container.get(CreateRequestMcpTool));
+    map.set('list_my_requests', container.get(ListMyRequestsMcpTool));
 }
 
 /** Add a handler for each of this file's operations to the catalog, unlisted in `tools/list`. */

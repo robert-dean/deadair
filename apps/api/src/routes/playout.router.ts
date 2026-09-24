@@ -89,7 +89,7 @@ PlayoutRouter.post('/playout/skip', requirePolicy({ policy: 'platform.manage' })
 
 /**
  * Puts the station back on air with the running order it already has, picking it up where Stop left it. Distinct from putting a playlist on air, which builds a new broadcast and throws away what was there. Refused when there is nothing left to resume
- * from [playout.ck](../../data/contracts/playout/playout.ck#L104)
+ * from [playout.ck](../../data/contracts/playout/playout.ck#L107)
  */
 PlayoutRouter.post('/playout/start', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const service = ctx.container.get(PlayoutService);
@@ -102,7 +102,7 @@ PlayoutRouter.post('/playout/start', requirePolicy({ policy: 'platform.manage' }
 
 /**
  * Stands the station down: stops what is on air at once and hands the mount back. The running order is LEFT as it is, so `/playout/start` can pick it up where this stopped it. deadair holds the mount on a lease it renews while it has something to play, so stopping goes quiet rather than falling through to a bed nobody programmed
- * from [playout.ck](../../data/contracts/playout/playout.ck#L119)
+ * from [playout.ck](../../data/contracts/playout/playout.ck#L122)
  */
 PlayoutRouter.post('/playout/stop', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const service = ctx.container.get(PlayoutService);
@@ -115,7 +115,7 @@ PlayoutRouter.post('/playout/stop', requirePolicy({ policy: 'platform.manage' })
 
 /**
  * The station's own copy of one record, by the provider binding it was cached for
- * from [playout.ck](../../data/contracts/playout/playout.ck#L155)
+ * from [playout.ck](../../data/contracts/playout/playout.ck#L158)
  * anonymous access, no security required
  * @internal
  */
@@ -143,7 +143,7 @@ PlayoutRouter.get('/playout/audio/:sourceId', async ctx => {
 
 /**
  * Confirms which rundown item actually started playing. An item is pushed, and downloaded, one item AHEAD of air, so this notify is the only thing that knows what the listener is hearing the moment it changes
- * from [playout.ck](../../data/contracts/playout/playout.ck#L207)
+ * from [playout.ck](../../data/contracts/playout/playout.ck#L210)
  * anonymous access, no security required
  * @internal
  */
@@ -158,7 +158,7 @@ PlayoutRouter.post('/playout/bridge/aired', async ctx => {
 
 /**
  * Reports that the running order stopped producing audio, or started again. The mount has fallen through to the local bed in between, so nothing deadair programmed is being heard
- * from [playout.ck](../../data/contracts/playout/playout.ck#L227)
+ * from [playout.ck](../../data/contracts/playout/playout.ck#L230)
  * anonymous access, no security required
  * @internal
  */

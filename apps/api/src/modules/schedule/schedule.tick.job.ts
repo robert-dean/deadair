@@ -1,5 +1,6 @@
 import { Container, Injectable } from 'injectkit';
 import { JobContext } from '@maroonedsoftware/jobbroker';
+import { IsHttpError } from '@maroonedsoftware/errors';
 import { Logger } from '@maroonedsoftware/logger';
 import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
 import type { ActivitySeverity } from '#modules/activity/station.events.repository.js';
@@ -71,7 +72,8 @@ import { ScheduleService } from './schedule.service.js';
  *
  * And a slot whose playlist has nothing to play is DECLINED rather than aired: what is on stays on.
  * Taking a station off air because a playlist emptied is the worse failure and the same call the
- * audience gate makes in only letting a positive reading close it.
+ * audience gate makes in only letting a positive reading close it. A playlist that could not be READ
+ * is a different case and is not declined: the block starts from its brief instead. See `changeOver`.
  */
 @Injectable()
 export class ScheduleTickJob extends PlainJob {
@@ -256,49 +258,58 @@ export class ScheduleTickJob extends PlainJob {
      * synchronous epoch bump before the same posted command. A job scope carries a trusted system
      * actor, so the permission narrowing on the playlist read passes rather than needing a way
      * round it.
+     *
+     * ## A source that cannot be READ is not a source that is empty
+     *
+     * A 422 is the station's own verdict on a playlist it did read: nothing on it, nothing it may
+     * play, nothing in the library yet. That is declined, and what is on stays on, because airing the
+     * slot anyway would be the station overruling what the operator's playlist says.
+     *
+     * Anything else is the read itself failing — a provider timing out on a long playlist, a plugin
+     * quarantined or switched off, a station playlist deleted — and declining that is how one slow
+     * provider kept a previous block on air through the three after it, each changeover refused
+     * every minute for its whole length. So the block starts WITHOUT its source instead, as a
+     * rotation from its own brief, period and host, which is everything the operator said about
+     * this stretch of the day except where its records come from. It is not retried within the
+     * block: the order is stamped with this slot, so the tick has nothing to reconcile until the
+     * next one, and a retry would need state the tick deliberately does not hold.
      */
     private async changeOver(slot: ScheduleSlot, from: string | undefined): Promise<void> {
+        let withoutSource: unknown;
         try {
-            await this.console.putOnAir(
-                {
-                    name: slot.label,
-                    ...sourceInput(slot.source),
-                    ...(slot.brief === undefined ? {} : { brief: slot.brief }),
-                    // Copied onto the running order beside the brief, for the brief's own reason:
-                    // `onEnd: 'extend'` keeps asking for more, and a period held anywhere but the
-                    // order would last one batch.
-                    ...(slot.era?.from === undefined ? {} : { eraFrom: slot.era.from }),
-                    ...(slot.era?.to === undefined ? {} : { eraTo: slot.era.to }),
-                    ...(slot.personaId === undefined ? {} : { personaId: slot.personaId }),
-                    // Absent leaves the station's own setting standing, which is the same three-way
-                    // `putOnAir` gives an operator briefing by hand. Passing `false` for an unset
-                    // slot would have every scheduled show overrule a station that takes calls.
-                    ...(slot.callins === undefined ? {} : { callins: slot.callins }),
-                    // The same three-way, for the same reason: absent is the station's setting.
-                    ...(slot.mixInSimilar === undefined ? {} : { mixInSimilar: slot.mixInSimilar }),
-                    mode: slot.mode,
-                    onEnd: slot.onEnd,
-                },
-                slot,
-            );
+            await this.console.putOnAir(slotInput(slot), slot);
         } catch (error) {
-            // An empty playlist arrives as the 422 the console would have shown an operator, and a
-            // plugin that is gone or refusing arrives as its own status. All of them mean the same
-            // thing here: this slot cannot be aired, so the station keeps doing what it was doing.
-            this.logger.warn(`schedule: could not change over to "${slot.label}", so the station keeps what it is airing (${errorText(error)})`);
-            // Once per slot rather than once a minute. What caused this is still true on the next
-            // pass, so without the mark a slot whose playlist has emptied would write a row sixty
-            // times an hour until somebody noticed.
-            this.say(`slot:${slot.id}`, {
-                kind: 'schedule.declined',
-                detail: `The schedule asked for ${named(slot)} and it could not be aired, so the station kept what was on.`,
-                data: { slot: slot.id, label: slot.label },
-            });
-            return;
+            if (slot.source === undefined || refusedItsSource(error)) {
+                this.decline(slot, error);
+                return;
+            }
+
+            withoutSource = error;
+            try {
+                await this.console.putOnAir(slotInput(slot, { withoutSource: true }), slot);
+            } catch (fallbackError) {
+                this.decline(slot, fallbackError);
+                return;
+            }
         }
 
         this.notices.settled();
         this.logger.info('schedule: the station changed over', { slot: slot.id, label: slot.label, from });
+
+        if (withoutSource !== undefined) {
+            this.logger.warn(
+                `schedule: could not read the source for "${slot.label}", so it started from its brief instead (${errorText(withoutSource)})`,
+            );
+            void this.activity.record({
+                module: 'director',
+                kind: 'schedule.changeover',
+                severity: 'warn',
+                detail: `The station moved to ${named(slot)} on the schedule, but its playlist could not be read, so the station is choosing the records itself from what the slot asks for.`,
+                data: { slot: slot.id, label: slot.label, withoutSource: true, ...(from === undefined ? {} : { from }) },
+            });
+            return;
+        }
+
         void this.activity.record({
             module: 'director',
             kind: 'schedule.changeover',
@@ -307,6 +318,19 @@ export class ScheduleTickJob extends PlainJob {
             // the clock caused.
             detail: `The station moved to ${named(slot)} on the schedule.`,
             data: { slot: slot.id, label: slot.label, ...(from === undefined ? {} : { from }) },
+        });
+    }
+
+    /** This slot cannot be aired at all, so the station keeps doing what it was doing. */
+    private decline(slot: ScheduleSlot, error: unknown): void {
+        this.logger.warn(`schedule: could not change over to "${slot.label}", so the station keeps what it is airing (${errorText(error)})`);
+        // Once per slot rather than once a minute. What caused this is still true on the next
+        // pass, so without the mark a slot whose playlist has emptied would write a row sixty
+        // times an hour until somebody noticed.
+        this.say(`slot:${slot.id}`, {
+            kind: 'schedule.declined',
+            detail: `The schedule asked for ${named(slot)} and it could not be aired, so the station kept what was on.`,
+            data: { slot: slot.id, label: slot.label },
         });
     }
 
@@ -330,6 +354,49 @@ export class ScheduleTickJob extends PlainJob {
 
 /** What to call a slot in a sentence, for one the operator never labelled. */
 const named = (slot: ScheduleSlot): string => (slot.label.trim().length > 0 ? `"${slot.label.trim()}"` : 'its next slot');
+
+/**
+ * The station's own verdict on a source it read, as opposed to a read that failed.
+ *
+ * A 422 that no plugin is named on: `sourceTracks` answers one for a playlist with nothing on it,
+ * nothing the station may play, or nothing in the library yet. A plugin's own `config` failure is a
+ * 422 too, but `pluginHttpError` names the plugin in its details, and a misconfigured plugin is a
+ * read that failed rather than a verdict on the playlist. Every other status, and anything that is
+ * not an HTTP error at all, is likewise the read failing, which is what
+ * {@link ScheduleTickJob.changeOver} starts the block without its source for.
+ */
+const refusedItsSource = (error: unknown): boolean => IsHttpError(error) && error.statusCode === 422 && error.details?.['plugin'] === undefined;
+
+/**
+ * What going on air as this slot asks for.
+ *
+ * `withoutSource` is the block started from everything but its source. It is always a rotation that
+ * keeps going: a `setlist` or a `feature` with nothing in it is silence, and a block's end is the
+ * schedule's to call rather than the order's. The mix-in goes with the playlist it would have
+ * mixed into.
+ */
+function slotInput(slot: ScheduleSlot, options: { withoutSource?: boolean } = {}): PutOnAirInput {
+    const withoutSource = options.withoutSource === true;
+    return {
+        name: slot.label,
+        ...(withoutSource ? {} : sourceInput(slot.source)),
+        ...(slot.brief === undefined ? {} : { brief: slot.brief }),
+        // Copied onto the running order beside the brief, for the brief's own reason:
+        // `onEnd: 'extend'` keeps asking for more, and a period held anywhere but the
+        // order would last one batch.
+        ...(slot.era?.from === undefined ? {} : { eraFrom: slot.era.from }),
+        ...(slot.era?.to === undefined ? {} : { eraTo: slot.era.to }),
+        ...(slot.personaId === undefined ? {} : { personaId: slot.personaId }),
+        // Absent leaves the station's own setting standing, which is the same three-way
+        // `putOnAir` gives an operator briefing by hand. Passing `false` for an unset
+        // slot would have every scheduled show overrule a station that takes calls.
+        ...(slot.callins === undefined ? {} : { callins: slot.callins }),
+        // The same three-way, for the same reason: absent is the station's setting.
+        ...(slot.mixInSimilar === undefined || withoutSource ? {} : { mixInSimilar: slot.mixInSimilar }),
+        mode: withoutSource ? 'rotation' : slot.mode,
+        onEnd: withoutSource ? 'extend' : slot.onEnd,
+    };
+}
 
 /**
  * A slot's source as the half of `PutOnAirInput` that names one.

@@ -76,10 +76,11 @@ describe('PluginsPage', () => {
         render(<PluginsPage />);
 
         expect(await screen.findByText('Spotify')).toBeInTheDocument();
-        expect(screen.getByText('Navidrome')).toBeInTheDocument();
-        expect(screen.getByText('deadair.spotify · 0.0.1')).toBeInTheDocument();
-        expect(screen.getByText('Active')).toBeInTheDocument();
-        expect(screen.getByText('Misconfigured')).toBeInTheDocument();
+        const cards = screen.getByRole('region', { name: 'Music sources' });
+        expect(within(cards).getByText('Navidrome')).toBeInTheDocument();
+        expect(within(cards).getByText('deadair.spotify · 0.0.1')).toBeInTheDocument();
+        expect(within(cards).getByText('Active')).toBeInTheDocument();
+        expect(within(cards).getByText('Misconfigured')).toBeInTheDocument();
         expect(screen.getByText('2 installed')).toBeInTheDocument();
     });
 
@@ -111,8 +112,9 @@ describe('PluginsPage', () => {
         await waitFor(() => {
             expect(screen.queryByText('Spotify')).not.toBeInTheDocument();
         });
-        expect(screen.getByText('Kokoro')).toBeInTheDocument();
-        expect(screen.getByText('Rhapsode')).toBeInTheDocument();
+        const voice = screen.getByRole('region', { name: 'Voice' });
+        expect(within(voice).getByText('Kokoro')).toBeInTheDocument();
+        expect(within(voice).getByText('Rhapsode')).toBeInTheDocument();
         expect(screen.getByText('All 2')).toBeInTheDocument();
         expect(screen.getByText('Needs attention 1')).toBeInTheDocument();
     });
@@ -127,6 +129,44 @@ describe('PluginsPage', () => {
 
         await setupUser().click(screen.getByRole('button', { name: 'Clear filters' }));
         expect(await screen.findByText('Spotify')).toBeInTheDocument();
+    });
+
+    it('lists what needs attention above the groups, with the reason on the row and the card', async () => {
+        listPlugins.mockResolvedValue([
+            pluginSummary(),
+            pluginSummary({
+                id: 'deadair.kokoro',
+                name: 'Kokoro',
+                capabilities: ['speech'],
+                status: 'failed',
+                lastError: 'connect ECONNREFUSED 10.0.0.2:8880\n    at TCPConnectWrap',
+            }),
+        ]);
+
+        render(<PluginsPage />);
+
+        const strip = await screen.findByRole('alert');
+        expect(within(strip).getByText('1 plugin needs attention')).toBeInTheDocument();
+        expect(within(strip).getByText('Kokoro')).toBeInTheDocument();
+        expect(within(strip).getByText('connect ECONNREFUSED 10.0.0.2:8880')).toBeInTheDocument();
+        expect(within(screen.getByRole('region', { name: 'Voice' })).getByTitle(/ECONNREFUSED/)).toBeInTheDocument();
+    });
+
+    it('draws no attention strip when everything is healthy, or when the cards already are that list', async () => {
+        listPlugins.mockResolvedValue([
+            pluginSummary(),
+            pluginSummary({ id: 'deadair.rss', name: 'RSS', capabilities: ['news'], status: 'misconfigured' }),
+        ]);
+
+        const { unmount } = render(<PluginsPage initial={{ q: '', show: 'attention' }} />);
+        expect(await screen.findByText('RSS')).toBeInTheDocument();
+        expect(screen.queryByText('1 plugin needs attention')).not.toBeInTheDocument();
+        unmount();
+
+        listPlugins.mockResolvedValue([pluginSummary()]);
+        render(<PluginsPage />);
+        expect(await screen.findByText('Spotify')).toBeInTheDocument();
+        expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     });
 
     it('marks a plugin the operator installed, and leaves the bundled ones unmarked', async () => {

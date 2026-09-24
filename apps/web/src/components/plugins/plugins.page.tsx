@@ -11,6 +11,7 @@ import { ErrorAlert } from '../shared/error.alert';
 import { Eyebrow } from '../shared/eyebrow';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
+import { PluginAttentionStrip } from './plugin.attention';
 import { PluginCard } from './plugin.card';
 import { PluginImportModal } from './plugin.import.modal';
 import { matchesSearch, matchesShow, PLUGIN_SHOWS, PLUGINS_PAGE_DEFAULTS, type PluginShow, type PluginsPageParams } from './plugin.page.params';
@@ -124,6 +125,11 @@ export function PluginsPage({ params, onParamsChange }: PluginsPageProps) {
                     enabled.
                 </EmptyState>
             ) : undefined}
+
+            {/* Over the search rather than under it, and blind to it: this is the page saying what is
+                wrong, not a view of what was asked for. Hidden where the cards already are that list,
+                or where the operator asked for the plugins they switched off. */}
+            {plugins.data && (params.show === 'all' || params.show === 'enabled') ? <PluginAttentionStrip plugins={plugins.data} /> : undefined}
 
             {plugins.data && plugins.data.length > 0 ? (
                 <Group gap="sm" align="center">

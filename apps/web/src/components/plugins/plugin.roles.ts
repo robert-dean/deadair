@@ -95,3 +95,11 @@ export function groupByRole<T extends Pick<PluginSummary, 'capabilities' | 'name
 export function needsAttention(plugin: Pick<PluginSummary, 'status'>): boolean {
     return plugin.status === 'failed' || plugin.status === 'misconfigured';
 }
+
+/**
+ * The first line of a failure, which is the part that fits on a row or a card. Anything after it
+ * is usually a stack, and belongs in a title attribute or on the plugin's own page.
+ */
+export function firstLine(text: string): string {
+    return text.split('\n', 1)[0] ?? text;
+}

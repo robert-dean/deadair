@@ -6,7 +6,7 @@ import type { PluginSummary } from '@deadair/sdk';
 import { useSetPluginEnabled } from '../../api/plugins.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
 import { severityColor, toneColor } from '../shared/status';
-import { capabilityLabel } from './plugin.roles';
+import { capabilityLabel, firstLine, needsAttention } from './plugin.roles';
 import { PluginStanding } from './plugin.standing';
 import { PluginOriginBadge, PluginStatusLamp, statusOf } from './plugin.status';
 import { PluginTrustDialog } from './plugin.trust.dialog';
@@ -23,11 +23,11 @@ export function PluginCard({ plugin }: PluginCardProps) {
     const [trustDialogOpen, setTrustDialogOpen] = useState(false);
 
     return (
-        <Card padding="lg" style={{ borderLeft: `2px solid var(--mantine-color-${toneColor[tone]}-5)` }}>
-            <Stack gap="sm" h="100%">
+        <Card padding="md" style={{ borderLeft: `2px solid var(--mantine-color-${toneColor[tone]}-5)` }}>
+            <Stack gap="xs" h="100%">
                 <Group justify="space-between" align="flex-start" wrap="nowrap">
                     <Stack gap="xxxs">
-                        <Text fw={600} size="lg" lh={1.2}>
+                        <Text fw={600} lh={1.2}>
                             {plugin.name}
                         </Text>
                         <Text size="xs" c="dimmed" ff="monospace">
@@ -43,6 +43,14 @@ export function PluginCard({ plugin }: PluginCardProps) {
                 <Text size="sm" c="dimmed" lineClamp={2}>
                     {plugin.description ?? 'No description.'}
                 </Text>
+
+                {/* The first line only: the full text and its history are on the plugin's own page,
+                    and a stack trace here would push the switch off the bottom of the card. */}
+                {needsAttention(plugin) && plugin.lastError !== undefined ? (
+                    <Text size="xs" c={severityColor.failure} lineClamp={1} title={plugin.lastError}>
+                        {firstLine(plugin.lastError)}
+                    </Text>
+                ) : undefined}
 
                 <Group gap="xxs">
                     {plugin.capabilities.map(capability => (

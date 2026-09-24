@@ -31,7 +31,11 @@ than copies, so `stationPlaylistTracks` picks each record's copy with `bindingsF
 policy (the choice `addTrackToOrder` makes for one record), leaves placeholders out, and then refuses on the
 same three grounds a provider's playlist does. It is recorded as an `import` whose `sourcePlaylistId`
 stands with no `sourcePluginId`, which keeps the similar-records mix-in working and needs no new `source`
-value.
+value. A schedule slot can name any of the three
+(`schedule_slots.source_station_playlist_id`, migration 0052), and for a long pool of records the station's
+own playlist is the one to name: a provider's playlist is read in full at the moment the block starts, one
+plugin call per fifty records each on its own deadline, and a read that fails is a block that does not
+start on its playlist.
 
 **It was four bugs before it was one rule.** A `lineups` table tried to be a reusable named list AND
 the broadcast in progress, and every mechanism that reconciled the two was a defect wearing a

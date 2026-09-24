@@ -5,7 +5,7 @@ import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
 import type { ActivitySeverity } from '#modules/activity/station.events.repository.js';
 import { DirectorConsoleService } from '#modules/director/director.console.service.js';
 import { DirectorService } from '#modules/director/director.service.js';
-import { isChartSource, type ScheduleSlot, type ScheduleSlotSource } from '#modules/director/schedule.js';
+import { isChartSource, isStationPlaylistSource, type ScheduleSlot, type ScheduleSlotSource } from '#modules/director/schedule.js';
 import type { PutOnAirInput } from '#modules/director/types/director.types.js';
 import { PlainJob } from '#modules/jobs/plain.job.js';
 import { errorText } from '#modules/shared/error.text.js';
@@ -341,6 +341,7 @@ const named = (slot: ScheduleSlot): string => (slot.label.trim().length > 0 ? `"
 function sourceInput(source: ScheduleSlotSource | undefined): Partial<PutOnAirInput> {
     if (source === undefined) return {};
     if (isChartSource(source)) return { chartId: source.chartId, ...(source.chartOrder === undefined ? {} : { chartOrder: source.chartOrder }) };
+    if (isStationPlaylistSource(source)) return { stationPlaylistId: source.stationPlaylistId };
 
     return { pluginId: source.pluginId, playlistId: source.playlistId };
 }

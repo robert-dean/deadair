@@ -53,6 +53,11 @@ public sealed record ScheduleSlot
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public ScheduleSlotSourceChartOrder? SourceChartOrder { get; init; }
 
+    /// <summary>A playlist the station owns to play instead, read from the station's own library when the block starts rather than from a provider. An ALTERNATIVE to the playlist pair, which it wins over, and to `sourceChartId`, which wins over it</summary>
+    [JsonPropertyName("sourceStationPlaylistId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Guid? SourceStationPlaylistId { get; init; }
+
     /// <summary>Who hosts this stretch of the day. Absent means the station's own active persona</summary>
     [JsonPropertyName("personaId")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -128,6 +133,11 @@ public sealed record ScheduleSlotInput
     [JsonPropertyName("sourceChartOrder")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public ScheduleSlotSourceChartOrder? SourceChartOrder { get; init; }
+
+    /// <summary>A playlist the station owns to play instead, read from the station's own library when the block starts rather than from a provider. An ALTERNATIVE to the playlist pair, which it wins over, and to `sourceChartId`, which wins over it</summary>
+    [JsonPropertyName("sourceStationPlaylistId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Guid? SourceStationPlaylistId { get; init; }
 
     /// <summary>Who hosts this stretch of the day. Absent means the station's own active persona</summary>
     [JsonPropertyName("personaId")]

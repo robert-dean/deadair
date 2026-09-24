@@ -476,6 +476,21 @@ describe('ScheduleTickJob', () => {
         expect(input).not.toHaveProperty('chartOrder');
     });
 
+    it('changes over onto a playlist the station owns, and sends it nothing else', async () => {
+        // The source whose changeover never waits on a provider: its records are read from the
+        // station's own library, so a long pool starts on time however slow the provider that lists it.
+        const { tick, console } = build({ inForce: slot('rock', { source: { stationPlaylistId: '0a0b0c0d-0000-4000-8000-000000000001' } }) });
+
+        await tick();
+
+        const [input] = (console.putOnAir as unknown as { mock: { calls: Record<string, unknown>[][] } }).mock.calls[0]!;
+
+        expect(input).toMatchObject({ stationPlaylistId: '0a0b0c0d-0000-4000-8000-000000000001' });
+        expect(input).not.toHaveProperty('pluginId');
+        expect(input).not.toHaveProperty('playlistId');
+        expect(input).not.toHaveProperty('chartId');
+    });
+
     it('sustains a gap from a chart when the operator named one', async () => {
         const { tick, console } = build({
             inForce: undefined,

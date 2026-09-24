@@ -2,6 +2,8 @@
 
 import { config } from '@repo/config-eslint/react-internal.js';
 
+import { literalStrings } from './eslint.i18n.js';
+
 /** @type {import("eslint").Linter.Config[]} */
 export default [
     ...config,
@@ -33,6 +35,7 @@ export default [
             ],
         },
     },
+    literalStrings,
     {
         // TanStack Router codegen — rewritten wholesale on every dev/build run.
         ignores: ['src/routeTree.gen.ts'],

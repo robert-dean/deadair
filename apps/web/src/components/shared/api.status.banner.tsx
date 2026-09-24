@@ -1,5 +1,6 @@
 import { Box, Button, Group, Text } from '@mantine/core';
 import { IconRefresh } from '@tabler/icons-react';
+import { useTranslation } from 'react-i18next';
 
 import { useApiStatus } from '../../api/api.status';
 import { ErrorAlert } from './error.alert';
@@ -19,6 +20,7 @@ import { severityColor } from './status';
  * operator has to act on, and this one recovers by itself the moment the API answers.
  */
 export function ApiStatusBanner() {
+    const { t } = useTranslation();
     const { reachable, retryInSeconds, checking, retryNow } = useApiStatus();
     if (reachable) {
         return undefined;
@@ -28,13 +30,13 @@ export function ApiStatusBanner() {
     // margin open on the overwhelming majority of renders where this draws nothing.
     return (
         <Box mb="lg">
-            <ErrorAlert tone="warning" title="Can't reach the station">
+            <ErrorAlert tone="warning" title={t('apiStatus.title')}>
                 <Group justify="space-between" wrap="wrap" gap="sm">
                     {/* Polite rather than assertive: the countdown rewrites this node every second,
                         and an assertive region would have a screen reader announce each tick over
                         whatever the operator was actually doing. */}
                     <Text size="sm" role="status" aria-live="polite">
-                        Anything on screen may be out of date. {checking ? 'Trying now…' : `Trying again in ${retryInSeconds}s.`}
+                        {t('apiStatus.stale')} {checking ? t('apiStatus.trying') : t('apiStatus.retryIn', { seconds: retryInSeconds })}
                     </Text>
                     {/* The alert's own tone, read from the same table it is: a button that named
                         its colour inline would be the exact drift `status.ts` exists to prevent. */}
@@ -46,7 +48,7 @@ export function ApiStatusBanner() {
                         loading={checking}
                         onClick={retryNow}
                     >
-                        Try now
+                        {t('action.tryNow')}
                     </Button>
                 </Group>
             </ErrorAlert>

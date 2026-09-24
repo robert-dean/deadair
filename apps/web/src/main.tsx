@@ -54,6 +54,8 @@ import '@mantine/spotlight/styles.css';
 // defines, and the console's own surfaces have to win over the packages'.
 import './tokens.css';
 
+// First among the console's own modules: the catalog has to be installed before anything renders a word.
+import './i18n/i18n.setup';
 import { createQueryClient } from './api/query.client';
 import { PageSkeleton } from './components/shared/page.skeleton';
 import { RouteError } from './components/shared/route.error';

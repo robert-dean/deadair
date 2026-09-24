@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.32.1] — 2026-09-24
+
+- YouTube Music no longer tries to play a live broadcast, a premiere that has not started, or a stream that is still being processed. The audio resolver now reports these as unavailable, so the station skips them and does not retry. A record whose length YouTube reports as not a number is now treated as having an unknown length. Before, the resolver failed on it.
+
 ## [0.32.0] — 2026-09-24
 
 - The Playlists page shows the station's own playlists first, above the ones from connected music services, and has an Import button. An import shows what the file holds and which of its records the library already has, and nothing is written until you confirm. Each station playlist has its own page listing its records in order. Records the library does not hold yet are marked, and from that page you can export, rename or delete the playlist.
@@ -856,7 +860,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.32.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.32.1...HEAD
+[0.32.1]: https://github.com/robert-dean/deadair/compare/v0.32.0...v0.32.1
 [0.32.0]: https://github.com/robert-dean/deadair/compare/v0.31.3...v0.32.0
 [0.31.3]: https://github.com/robert-dean/deadair/compare/v0.31.2...v0.31.3
 [0.31.2]: https://github.com/robert-dean/deadair/compare/v0.31.1...v0.31.2

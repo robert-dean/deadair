@@ -1132,6 +1132,18 @@ describe('DirectorConsoleService editing the running order', () => {
             expect(after.items.map(item => item.state)).toEqual(['airing', 'skipped', 'skipped', 'planned']);
         });
 
+        it('aims the cut at the record that was airing when it was asked', async () => {
+            // If that record ends on its own before the cut goes out, the one now airing may be the
+            // record being skipped to, and an untargeted cut would pass over the operator's choice.
+            const order = onAirWith(4);
+            order.markAiring(order.nextPlanned(1)[0]!.id);
+            const { service, pusher } = build({ order, airing: true });
+
+            await service.skipToOrderItem(order.all()[3]!.id);
+
+            expect(pusher.skipCurrent).toHaveBeenCalledWith('on-air');
+        });
+
         it('cuts nothing when nothing is on air, and the record is simply next', async () => {
             // A station stood down, or one whose audience gate is shut: it starts from the record
             // when it next airs, and a skip sent to an idle player could take the queue's head with it.
@@ -1899,12 +1911,15 @@ describe('DirectorConsoleService vetoing what the station has been forbidden', (
         // queued next, so a cut that landed first could advance it onto another record the same
         // instruction has just forbidden.
         const order = onAirWith(3);
-        order.markAiring(order.nextPlanned(1)[0]!.id);
+        const airing = order.nextPlanned(1)[0]!.id;
+        order.markAiring(airing);
         const { service, pusher, cutAgainst } = build({ order, airing: true, effectiveRatings: { trk_0: -1, trk_1: -1 } });
 
         await service.vetoDisliked('Grateful Dead');
 
-        expect(pusher.skipCurrent).toHaveBeenCalledTimes(1);
+        // By id: the forbidden record may end on its own while the rating query and the edit wait,
+        // and the cut must not land on whatever followed it.
+        expect(pusher.skipCurrent).toHaveBeenCalledWith(airing);
         // The forbidden record still to come was already gone when the cut landed, so the player
         // cannot advance onto it.
         expect(cutAgainst[0]).toEqual(['airing', 'planned']);
@@ -1991,7 +2006,8 @@ describe('DirectorConsoleService and a record left over from the last programme'
         const { service, pusher } = build({ order: scheduled(), airing: true });
 
         expect(await service.cutOverrun('on-air')).toBe(true);
-        expect(pusher.skipCurrent).toHaveBeenCalledTimes(1);
+        // The id goes with the cut, because the check here runs before the transport's own wait.
+        expect(pusher.skipCurrent).toHaveBeenCalledWith('on-air');
     });
 
     // The record may have ended on its own since the tick named it, and a cut then would take the

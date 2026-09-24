@@ -11,7 +11,11 @@ The programme answers two questions: what the station plays across the day, and 
 
 ## The timetable
 
-A block is a named stretch of time on chosen days: breakfast, weekdays, six until ten. It says what to play (a playlist, a chart, or nothing, leaving the station to fill it), who hosts it, a brief in your own words, an optional period, a mode, and what happens when it runs out. A block playing a playlist can also mix similar records in among it, the way **Air with similar records mixed in** does from the library. Two blocks may not overlap.
+A block is a named stretch of time on chosen days: breakfast, weekdays, six until ten. It says what to play (a playlist from a provider, one of [the station's own playlists](./library.md#the-stations-own-playlists), a chart, or nothing, leaving the station to fill it), who hosts it, a brief in your own words, an optional period, a mode, and what happens when it runs out. A block playing a playlist can also mix similar records in among it, the way **Air with similar records mixed in** does from the library. Two blocks may not overlap.
+
+To keep a block to a pool of records (no classical during the rock hours, say), make the pool a playlist and give the block that playlist. The brief steers a model and cannot fence one in, but a playlist is a list of records and nothing else airs from it. For a long pool, import it as one of the station's own playlists and choose that. A provider's playlist is read from the provider at the moment the block starts, and a playlist of thousands of records is slow to read. The station's own playlists are read from its library and start on time however long they are.
+
+If a block's playlist cannot be read when the block starts (the provider timed out, its plugin is switched off, or the playlist was deleted), the block starts anyway: the station chooses records from the block's brief, period and host, and the activity feed says the playlist could not be read. A playlist that was read but has nothing the station may play is different. The block is not aired, the feed says so, and whatever is on carries on.
 
 A schedule need not cover the day. The hours no block claims play the sustaining source: a playlist or a chart, or a brief and a period, with no times attached.
 

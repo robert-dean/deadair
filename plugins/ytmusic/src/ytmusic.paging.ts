@@ -89,3 +89,50 @@ export async function walk(first: Page, limit?: number): Promise<UpstreamItem[]>
 
     return wanted === undefined ? collected : collected.slice(0, wanted);
 }
+
+/**
+ * A walk that stops where the caller stopped asking, and carries on from there next time.
+ *
+ * The host reads a playlist fifty rows at a time and gives each read its own deadline, and YouTube
+ * answers about a hundred rows per upstream page. {@link walk} read the WHOLE playlist on the first
+ * call and served the rest from a memo, so page one cost every upstream page there was: a playlist of
+ * a few thousand records spent the entire call budget before answering anything, and a scheduled
+ * block built on one was refused at every boundary. This reads only as far as the offset asked for,
+ * so every call costs about one upstream page however long the playlist is.
+ *
+ * Calls are serialised, because a sync and a changeover can read the same playlist at once and two
+ * walks advancing one continuation would each skip the other's page.
+ */
+export class PageCursor {
+    private readonly rows: UpstreamItem[] = [];
+    private next?: () => Promise<Page>;
+    private started = false;
+    private queue: Promise<unknown> = Promise.resolve();
+
+    constructor(private readonly first: () => Promise<Page>) {}
+
+    /**
+     * The rows from the start up to `end`, or every row there is when `end` is absent, fetching only
+     * what has not been fetched yet. At most {@link MAX_PAGES} upstream pages per call, so a caller
+     * that jumps far ahead is answered short rather than timed out, and asks again.
+     */
+    through(end?: number): Promise<readonly UpstreamItem[]> {
+        const run = this.queue.then(() => this.extend(end));
+        // A failed read must not poison the next call: it tries again from where this one got to.
+        this.queue = run.catch(() => undefined);
+        return run;
+    }
+
+    private async extend(end: number | undefined): Promise<readonly UpstreamItem[]> {
+        for (let fetched = 0; fetched < MAX_PAGES; fetched++) {
+            if (end !== undefined && this.rows.length >= end) break;
+            if (this.started && !this.next) break;
+
+            const page = this.started ? await this.next!() : await this.first();
+            this.started = true;
+            this.next = page.items.length === 0 ? undefined : page.next;
+            this.rows.push(...page.items);
+        }
+        return this.rows;
+    }
+}

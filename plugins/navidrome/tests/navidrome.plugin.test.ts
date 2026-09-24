@@ -173,6 +173,29 @@ describe('getPlaylistTracks', () => {
         expect(tracks.map(track => track.id)).toEqual(['b']);
     });
 
+    it('fetches the playlist once per walk rather than once per page', async () => {
+        // getPlaylist answers every entry every time, so without this a walk over a long playlist was
+        // one full fetch per fifty entries, and a scheduled block built on it ran out of time.
+        const { host, plugin } = await build();
+        host.queueResponse(ok({ playlist: { entry: [song('a'), song('b'), song('c')] } }));
+
+        const first = await plugin.getPlaylistTracks('pl-1', { limit: 2, offset: 0 });
+        const second = await plugin.getPlaylistTracks('pl-1', { limit: 2, offset: 2 });
+
+        expect(host.calls).toHaveLength(1);
+        expect([...first, ...second].map(track => track.id)).toEqual(['a', 'b', 'c']);
+    });
+
+    it('does not remember a failed fetch', async () => {
+        const { host, plugin } = await build();
+        host.queueResponse(failed(0, 'server is busy'));
+        host.queueResponse(ok({ playlist: { entry: [song('a')] } }));
+
+        await expect(plugin.getPlaylistTracks('pl-1', { limit: 1, offset: 0 })).rejects.toThrow();
+        await expect(plugin.getPlaylistTracks('pl-1', { limit: 1, offset: 0 })).resolves.toHaveLength(1);
+        expect(host.calls).toHaveLength(2);
+    });
+
     it('walks the whole library for the virtual playlist, through an empty-query search', async () => {
         const { host, plugin } = await build();
         host.queueResponse(ok({ searchResult3: { song: [song('song-1')] } }));

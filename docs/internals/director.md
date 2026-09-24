@@ -31,7 +31,11 @@ than copies, so `stationPlaylistTracks` picks each record's copy with `bindingsF
 policy (the choice `addTrackToOrder` makes for one record), leaves placeholders out, and then refuses on the
 same three grounds a provider's playlist does. It is recorded as an `import` whose `sourcePlaylistId`
 stands with no `sourcePluginId`, which keeps the similar-records mix-in working and needs no new `source`
-value.
+value. A schedule slot can name any of the three
+(`schedule_slots.source_station_playlist_id`, migration 0052), and for a long pool of records the station's
+own playlist is the one to name: a provider's playlist is read in full at the moment the block starts, one
+plugin call per fifty records each on its own deadline, and a read that fails is a block that does not
+start on its playlist.
 
 **It was four bugs before it was one rule.** A `lineups` table tried to be a reusable named list AND
 the broadcast in progress, and every mechanism that reconciled the two was a defect wearing a
@@ -114,6 +118,16 @@ player has already fetched and puts the mount on the bed while it downloads agai
 the mailbox, because the cut waits out a boundary and the mailbox must not. It cuts nothing when nothing is
 airing, and a cut the stream refuses is logged rather than answered as a 409: the order has already moved
 and been written down, so the record is next either way.
+
+**Every cut names the item it is for.** `skipCurrent` sends its cut only after the transport guard is free
+and a top-up pass has run, and that pass resolves and pushes, so seconds can pass between the ask and the
+cut. A record that ends on its own inside them leaves the next one airing, and an untargeted cut takes THAT
+off: the operator's Skip lands on the record after the one they saw, a skip-to can cut the very record it was
+aiming for, and an overrun cut takes the new programme's first record. So each caller reads the id airing
+when it was asked (the operator's Skip, `skipToOrderItem`, `vetoDisliked`, `cutOverrun`), and `skipCurrent`
+cuts nothing when the pass it waited for shows that item gone, answering as though the cut had landed,
+since the item is off air either way. The id also goes to the player as `X-Skip-Item`, and `radio.liq`
+makes the same check where no boundary can overtake it, because Liquidsoap runs one handler at a time.
 
 ## What the order is asked for
 

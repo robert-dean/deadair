@@ -17,6 +17,7 @@ import {
     SourceField,
     sourceValue,
     splitSource,
+    stationSourceValue,
 } from '../programme/programme.fields';
 import { ErrorAlert } from '../shared/error.alert';
 import { DAY_LABELS, minutesToClock, clockToMinutes } from './schedule.day';
@@ -89,7 +90,9 @@ export function SlotEditor({ target, onClose, onSubmit, onDelete, saving, deleti
                 ? {}
                 : source.kind === 'chart'
                   ? { sourceChartId: source.chartId, sourceChartOrder: values.chartOrder }
-                  : { sourcePluginId: source.pluginId, sourcePlaylistId: source.playlistId }),
+                  : source.kind === 'station'
+                    ? { sourceStationPlaylistId: source.stationPlaylistId }
+                    : { sourcePluginId: source.pluginId, sourcePlaylistId: source.playlistId }),
             ...(values.personaId ? { personaId: values.personaId } : {}),
             ...(values.brief.trim() ? { brief: values.brief.trim() } : {}),
             // An empty box is no bound rather than a zero, and the two ends are independent: a lower
@@ -99,8 +102,9 @@ export function SlotEditor({ target, onClose, onSubmit, onDelete, saving, deleti
             // Sent only when it is ON, so an unticked box leaves the station's own setting standing
             // rather than saying this slot takes no calls. The same three-way `putOnAir` has.
             ...(values.callins ? { callins: true } : {}),
-            // The same three-way, and only beside a playlist: nothing else is ever mixed into.
-            ...(values.mixInSimilar && source?.kind === 'playlist' ? { mixInSimilar: true } : {}),
+            // The same three-way, and only beside a playlist, the station's own or a provider's:
+            // nothing else is ever mixed into.
+            ...(values.mixInSimilar && mixesInto(source) ? { mixInSimilar: true } : {}),
             mode: values.mode,
             onEnd: values.onEnd,
         });
@@ -162,7 +166,11 @@ export function SlotEditor({ target, onClose, onSubmit, onDelete, saving, deleti
                         both ends is a full day. The hours no block covers play whatever the station is set to sustain on.
                     </Text>
 
-                    <SourceField description="Leave it empty for a slot the station fills itself." {...form.getInputProps('source')} />
+                    <SourceField
+                        description="Leave it empty for a slot the station fills itself. A playlist the station keeps starts on time however long it is, because it is not read from a provider when the block begins."
+                        stationPlaylists
+                        {...form.getInputProps('source')}
+                    />
 
                     {/* Only under a chart, because it means nothing under anything else. A row that
                         sat there greyed out for every playlist would be a control explaining its own
@@ -183,7 +191,7 @@ export function SlotEditor({ target, onClose, onSubmit, onDelete, saving, deleti
 
                     <CallinsField {...form.getInputProps('callins', { type: 'checkbox' })} />
 
-                    {splitSource(form.values.source)?.kind === 'playlist' ? (
+                    {mixesInto(splitSource(form.values.source)) ? (
                         <MixInSimilarField {...form.getInputProps('mixInSimilar', { type: 'checkbox' })} />
                     ) : undefined}
 
@@ -294,9 +302,11 @@ function valuesOf(target?: EditorTarget): FormValues {
         days: (slot?.days ?? prefill?.days ?? []).map(String),
         source: slot?.sourceChartId
             ? chartSourceValue(slot.sourceChartId)
-            : slot?.sourcePluginId && slot.sourcePlaylistId
-              ? sourceValue(slot.sourcePluginId, slot.sourcePlaylistId)
-              : '',
+            : slot?.sourceStationPlaylistId
+              ? stationSourceValue(slot.sourceStationPlaylistId)
+              : slot?.sourcePluginId && slot.sourcePlaylistId
+                ? sourceValue(slot.sourcePluginId, slot.sourcePlaylistId)
+                : '',
         // Only ever sent alongside a chart, so a slot that has never been one still carries the
         // default the API would have applied anyway.
         chartOrder: slot?.sourceChartOrder ?? 'countdown',
@@ -310,3 +320,6 @@ function valuesOf(target?: EditorTarget): FormValues {
         onEnd: slot?.onEnd ?? 'extend',
     };
 }
+
+/** Whether records that sound like this source can be mixed into it: a playlist of either kind, and nothing else. */
+const mixesInto = (source: ReturnType<typeof splitSource>): boolean => source?.kind === 'playlist' || source?.kind === 'station';

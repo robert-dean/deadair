@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import type { UpstreamItem } from '../src/ytmusic.mapping.js';
-import { pageOf, rowsOf, walk } from '../src/ytmusic.paging.js';
+import { PageCursor, pageOf, rowsOf, walk, type Page } from '../src/ytmusic.paging.js';
 
 const song = (id: string): UpstreamItem => ({ id, item_type: 'song', title: id });
 const songs = (n: number, prefix: string) => Array.from({ length: n }, (_, i) => song(`${prefix}${i}`));
@@ -90,5 +90,71 @@ describe('walk', () => {
         const rows = await walk(pageOf(endless()));
 
         expect(rows.length).toBeLessThanOrEqual(40);
+    });
+});
+
+describe('PageCursor', () => {
+    /** Pages of `size` rows, `count` of them, counting how many were fetched. */
+    const pages = (size: number, count: number) => {
+        let fetched = 0;
+        const at = (index: number): Page => {
+            fetched++;
+            return { items: songs(size, `p${index}_`), ...(index + 1 < count ? { next: async () => at(index + 1) } : {}) };
+        };
+        return { first: async () => at(0), fetched: () => fetched };
+    };
+
+    it('fetches only as far as it is asked', async () => {
+        const source = pages(100, 10);
+        const cursor = new PageCursor(source.first);
+
+        expect((await cursor.through(50)).length).toBeGreaterThanOrEqual(50);
+        expect(source.fetched()).toBe(1);
+
+        await cursor.through(250);
+        expect(source.fetched()).toBe(3);
+    });
+
+    it('reads to the end when no end is given, and stops there', async () => {
+        const source = pages(10, 3);
+        const cursor = new PageCursor(source.first);
+
+        expect(await cursor.through()).toHaveLength(30);
+        expect(await cursor.through(1_000)).toHaveLength(30);
+        expect(source.fetched()).toBe(3);
+    });
+
+    it('serialises reads, so two callers at once do not each advance the continuation', async () => {
+        const source = pages(10, 5);
+        const cursor = new PageCursor(source.first);
+
+        const [a, b] = await Promise.all([cursor.through(20), cursor.through(20)]);
+        expect(a).toHaveLength(20);
+        expect(b).toHaveLength(20);
+        expect(source.fetched()).toBe(2);
+    });
+
+    it('carries on from where it got to after a failed read', async () => {
+        let fail = true;
+        const cursor = new PageCursor(async () => ({
+            items: songs(10, 'a'),
+            next: async () => {
+                if (fail) {
+                    fail = false;
+                    throw new Error('upstream hiccup');
+                }
+                return { items: songs(10, 'b') };
+            },
+        }));
+
+        await expect(cursor.through(20)).rejects.toThrow('upstream hiccup');
+        expect(await cursor.through(20)).toHaveLength(20);
+    });
+
+    it('bounds one call, so a caller that jumps far ahead is answered short rather than timed out', async () => {
+        const endless = (): Page => ({ items: songs(1, 'e'), next: async () => endless() });
+        const cursor = new PageCursor(async () => endless());
+
+        expect((await cursor.through(10_000)).length).toBeLessThanOrEqual(40);
     });
 });

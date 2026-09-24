@@ -272,7 +272,7 @@ function summaryOf(stored: FormValues, catalog: readonly CatalogPlaylist[], char
         // The order goes in the line too, because "the top forty" and "the top forty counting down"
         // are two different hours and the picker is behind a fold.
         parts.push(`${known?.name ?? source.chartId}${stored.chartOrder === 'countdown' ? ', counting down' : ''}`);
-    } else if (source !== undefined) {
+    } else if (source?.kind === 'playlist') {
         const known = catalog.find(entry => entry.pluginId === source.pluginId && entry.id === source.playlistId);
         parts.push(known ? `${known.name} — ${known.pluginName}` : source.playlistId);
     }

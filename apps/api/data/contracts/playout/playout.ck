@@ -20,6 +20,9 @@ operation /playout/status: {
         security: {
             policy: platform.view
         }
+        mcp: {
+            description: "What the station is playing and the records queued behind it, in running order. Use this when asked what is coming up; get_now_playing is enough for what is on air."
+        }
         response: {
             200: {
                 application/json: PlayoutStatus

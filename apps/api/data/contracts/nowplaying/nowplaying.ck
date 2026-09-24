@@ -21,6 +21,9 @@ operation /nowplaying: {
         name: Get now playing
         service: NowPlayingService.getNowPlaying
         security: none
+        mcp: {
+            description: "What is on air right now: the record, its artist and album, and when it started. Answers onAir: false when the station is quiet, which is an answer rather than an error. Use this when asked what is playing; use get_playout_status for what is queued behind it."
+        }
         response: {
             200: {
                 application/json: NowPlaying

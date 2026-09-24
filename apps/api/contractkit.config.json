@@ -14,6 +14,16 @@
                 },
                 "servicePathTemplate": "#modules/{module}/{module}.service.js"
             },
+            "mcp": {
+                "baseDir": "apps/api/",
+                "output": {
+                    "tools": "src/mcp/{filename}.mcp.ts",
+                    "index": "src/mcp/mcp.tools.ts"
+                },
+                "emitRouter": false,
+                "resolve": "perCall",
+                "servicePathTemplate": "#modules/{module}/{module}.service.js"
+            },
             "sdk": {
                 "baseDir": "packages/sdk/",
                 "name": "deadair",

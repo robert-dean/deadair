@@ -157,6 +157,33 @@ withdrawing any client ends every grant of it and every session held through the
 `tests/modules/oauth/oauth.module.test.ts` builds the module with a scoped stand-in so the captive
 dependency fails the suite rather than the boot.
 
+## What a connected app can do: the MCP tools
+
+**Everything on the MCP surface lives in `apps/api/src/mcp`**: the route, the tools ContractKit
+generates from operations a contract flags `mcp: { description: ... }`, and the few written by hand
+(`whoami`). `modules/mcp/mcp.module.ts` is only their wiring. The route stays hand-written
+(`emitRouter: false`), because the generated one guards the mount with a bare session check and this
+one must keep `oauth.grant`.
+
+**Every tool acts as the caller, and that is not the default.** The tools are singletons built at
+boot, when the scoped `AuthorizationContext` holds the startup actor, so a tool that
+constructor-injected its service and `PolicyService` would refuse every `platform.*` check and
+answer every `requireUser()` with a 403. `resolve: "perCall"` in `contractkit.config.json` makes each
+generated tool resolve both from the request's container on every call, and the route hands that
+container over (`container: ctx.container`). A hand-written tool does the same: `whoami` resolves
+`AuthorizationContext` per call. `tests/mcp/mcp.router.test.ts` builds the tools once and serves two
+callers, which is what fails if either half is dropped.
+
+**A refusal is a tool result, not a protocol error.** Every tool is wrapped by `explainToolErrors`,
+so a 403 reaches the model as "this caller is not allowed to do that" and a validation failure as
+the list of fields to ask for, instead of a JSON-RPC error that ends the call. Only an error that is
+not an `HttpError` still fails the protocol.
+
+**A description is written for the model**, in the operation's `mcp` block rather than its `#`
+comment: what the tool answers, and when to use it rather than its neighbour. The hints come from
+the HTTP method unless the block says otherwise (a `GET` is read-only and idempotent, a `DELETE`
+destructive), so an operation whose method misdescribes it has to say so.
+
 ## Working on it locally
 
 `docker compose --profile sso up -d oidc` starts `navikt/mock-oauth2-server` on port 3080. Add a

@@ -31,7 +31,7 @@ PlayoutRouter.get('/playout/status', requirePolicy({ policy: 'platform.view' }),
 
 /**
  * Loads a plugin playlist into the running order and starts handing it to the player. Replaces whatever was queued; what is on air finishes rather than being cut off
- * from [playout.ck](../../data/contracts/playout/playout.ck#L32)
+ * from [playout.ck](../../data/contracts/playout/playout.ck#L35)
  */
 PlayoutRouter.post('/playout/playlist', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const body = await parseAndValidate(ctx.parsedBody, PlayoutPlaylistInput);
@@ -46,7 +46,7 @@ PlayoutRouter.post('/playout/playlist', requirePolicy({ policy: 'platform.manage
 
 /**
  * Loads a playlist the station owns into the running order and starts handing it to the player. The same replacement a plugin playlist makes, from records the library already holds
- * from [playout.ck](../../data/contracts/playout/playout.ck#L50)
+ * from [playout.ck](../../data/contracts/playout/playout.ck#L53)
  */
 PlayoutRouter.post('/playout/station-playlist', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const body = await parseAndValidate(ctx.parsedBody, PlayoutStationPlaylistInput);
@@ -61,7 +61,7 @@ PlayoutRouter.post('/playout/station-playlist', requirePolicy({ policy: 'platfor
 
 /**
  * Builds the running order from a published chart and starts handing it to the player. The same replacement a playlist makes, from a document somebody else ranked
- * from [playout.ck](../../data/contracts/playout/playout.ck#L68)
+ * from [playout.ck](../../data/contracts/playout/playout.ck#L71)
  */
 PlayoutRouter.post('/playout/chart', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const body = await parseAndValidate(ctx.parsedBody, PlayoutChartInput);
@@ -76,7 +76,7 @@ PlayoutRouter.post('/playout/chart', requirePolicy({ policy: 'platform.manage' }
 
 /**
  * Ends the item on air so the next one starts immediately. The station owns the decoder, so this lands at once rather than waiting out audio already committed to a player
- * from [playout.ck](../../data/contracts/playout/playout.ck#L86)
+ * from [playout.ck](../../data/contracts/playout/playout.ck#L89)
  */
 PlayoutRouter.post('/playout/skip', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const service = ctx.container.get(PlayoutService);
@@ -89,7 +89,7 @@ PlayoutRouter.post('/playout/skip', requirePolicy({ policy: 'platform.manage' })
 
 /**
  * Puts the station back on air with the running order it already has, picking it up where Stop left it. Distinct from putting a playlist on air, which builds a new broadcast and throws away what was there. Refused when there is nothing left to resume
- * from [playout.ck](../../data/contracts/playout/playout.ck#L101)
+ * from [playout.ck](../../data/contracts/playout/playout.ck#L104)
  */
 PlayoutRouter.post('/playout/start', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const service = ctx.container.get(PlayoutService);
@@ -102,7 +102,7 @@ PlayoutRouter.post('/playout/start', requirePolicy({ policy: 'platform.manage' }
 
 /**
  * Stands the station down: stops what is on air at once and hands the mount back. The running order is LEFT as it is, so `/playout/start` can pick it up where this stopped it. deadair holds the mount on a lease it renews while it has something to play, so stopping goes quiet rather than falling through to a bed nobody programmed
- * from [playout.ck](../../data/contracts/playout/playout.ck#L116)
+ * from [playout.ck](../../data/contracts/playout/playout.ck#L119)
  */
 PlayoutRouter.post('/playout/stop', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const service = ctx.container.get(PlayoutService);
@@ -115,7 +115,7 @@ PlayoutRouter.post('/playout/stop', requirePolicy({ policy: 'platform.manage' })
 
 /**
  * The station's own copy of one record, by the provider binding it was cached for
- * from [playout.ck](../../data/contracts/playout/playout.ck#L152)
+ * from [playout.ck](../../data/contracts/playout/playout.ck#L155)
  * anonymous access, no security required
  * @internal
  */
@@ -143,7 +143,7 @@ PlayoutRouter.get('/playout/audio/:sourceId', async ctx => {
 
 /**
  * Confirms which rundown item actually started playing. An item is pushed, and downloaded, one item AHEAD of air, so this notify is the only thing that knows what the listener is hearing the moment it changes
- * from [playout.ck](../../data/contracts/playout/playout.ck#L204)
+ * from [playout.ck](../../data/contracts/playout/playout.ck#L207)
  * anonymous access, no security required
  * @internal
  */
@@ -158,7 +158,7 @@ PlayoutRouter.post('/playout/bridge/aired', async ctx => {
 
 /**
  * Reports that the running order stopped producing audio, or started again. The mount has fallen through to the local bed in between, so nothing deadair programmed is being heard
- * from [playout.ck](../../data/contracts/playout/playout.ck#L224)
+ * from [playout.ck](../../data/contracts/playout/playout.ck#L227)
  * anonymous access, no security required
  * @internal
  */

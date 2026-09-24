@@ -12,6 +12,7 @@ import {
 } from '@maroonedsoftware/mcp';
 import { buildVersion } from '#modules/shared/build.revision.js';
 import { McpToolCatalog, registerMcpCatalog, registerMcpToolClasses, registerMcpTools } from '#src/mcp/mcp.tools.js';
+import { CALL_API_TOOL, CallApiTool } from '#src/mcp/call.api.tool.js';
 import { SEARCH_API_TOOL, SearchApiTool } from '#src/mcp/search.api.tool.js';
 import { WHOAMI_TOOL, WhoAmITool } from '#src/mcp/whoami.tool.js';
 
@@ -19,8 +20,8 @@ import { WHOAMI_TOOL, WhoAmITool } from '#src/mcp/whoami.tool.js';
 export const MCP_SERVER_NAME = 'deadair';
 
 /**
- * The tools `tools/list` reports: every operation a contract flags `mcp`, `whoami`, and `search_api`,
- * which reaches the rest.
+ * The tools `tools/list` reports: every operation a contract flags `mcp`, `whoami`, and the two that
+ * reach the rest, `search_api` to find an operation and `call_api` to run it.
  *
  * Every one is wrapped by `explainToolErrors`, so a refusal or a bad argument reaches the model as a
  * tool result it can act on ("not allowed", "these fields are missing") rather than as a JSON-RPC
@@ -30,6 +31,7 @@ export function buildMcpTools(container: Container): McpToolHandlerMap {
     const tools = registerMcpTools(container);
     tools.set(WHOAMI_TOOL, container.get(WhoAmITool));
     tools.set(SEARCH_API_TOOL, container.get(SearchApiTool));
+    tools.set(CALL_API_TOOL, container.get(CallApiTool));
     return explainToolErrors(tools);
 }
 
@@ -74,6 +76,7 @@ export const McpModule: ServerKitModule = {
         registry.register(WhoAmITool).useClass(WhoAmITool).asSingleton();
         registry.register(McpToolCatalog).useFactory(buildMcpCatalog).asSingleton();
         registry.register(SearchApiTool).useClass(SearchApiTool).asSingleton();
+        registry.register(CallApiTool).useClass(CallApiTool).asSingleton();
         registry.register(McpToolHandlerMap).useFactory(buildMcpTools).asSingleton();
         // Empty, and registered anyway: the server factory takes both maps, and advertises only what
         // a non-empty one backs.

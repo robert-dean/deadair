@@ -218,6 +218,19 @@ and fetcher sign-in and configuration, station settings (which hold sign-in prov
 (which can hold the bridge secret), and the two long model calls, which run outside the request
 transaction over HTTP and would hold a pooled connection for minutes here.
 
+**`call_api` runs what `search_api` found, through the same handler a listed tool would be.** It
+looks the name up in `McpToolCatalog` and calls the generated handler with the caller's context, so
+the operation's policy, validation and service run exactly as they do for a listed tool, and the
+catalog is wrapped by `explainToolErrors` too, so a view grant asking to skip gets "it needs the
+`manage` scope" rather than a protocol error. What it adds is the shape of the answer: `fields` keeps
+only those keys of each record, and an answer over 12,000 characters keeps as many whole records as
+fit and says how many there were (`truncated: { shown, of }`), rather than cutting a record in half or
+handing a model a whole table. It says it is destructive, since what it runs may be, and its
+description tells the model to confirm before an operation whose index entry is. Every call is logged
+once at `info` (`mcp: call_api`, with the operation, the grant, `ok` or `refused`, and the time), which
+is what the listed set is meant to be grown from: an operation called through here often enough
+deserves an `mcp` block of its own.
+
 **A description is written for the model**, in the operation's `mcp` block rather than its `#`
 comment: what the tool answers, and when to use it rather than its neighbour. The hints come from
 the HTTP method unless the block says otherwise (a `GET` is read-only and idempotent, a `DELETE`

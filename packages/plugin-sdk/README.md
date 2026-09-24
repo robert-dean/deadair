@@ -1059,6 +1059,16 @@ const hushed = { speed: (voice.speed ?? 1) * 0.9 };
 The numbers belong to you and live in your config beside the voice they tune.
 The host never sees them, which is why the station's side of this is a word.
 
+### Language
+
+A station broadcasting in something other than English sends its language on
+every line as `SpeechRequest.language`, a BCP 47 tag. The text in that case has
+not been rewritten into English words: `1984`, `21:30` and `50%` arrive as
+written, for your engine's own normaliser to read. Hand the tag to an engine
+that takes one; an engine that picks its language from the voice can ignore it.
+Implement `listLanguages()` to say which languages the engine can speak right
+now, and the station warns the operator once when theirs is not among them.
+
 ## Producing words
 
 

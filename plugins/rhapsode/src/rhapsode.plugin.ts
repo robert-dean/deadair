@@ -25,6 +25,8 @@ import {
     effectiveVariant,
     encodableFormat,
     EngineCapabilities,
+    languageFor,
+    languagesOf,
     maxCharactersOf,
     speedDialOf,
     speedWithin,
@@ -266,7 +268,9 @@ export class RhapsodePlugin extends Plugin implements SpeechPluginInstance {
         // server was built without an encoder for, and a dial this build does not have.
         const document = capabilities === undefined ? undefined : await capabilities.of(asked.engine);
         const format = encodableFormat(document, isResponseFormat(request.format) ? request.format : this.format, host.logger);
-        const params = speedParams(effectiveVariant(document, asked.variant), host.logger, asked);
+        const variant = effectiveVariant(document, asked.variant);
+        const params = speedParams(variant, host.logger, asked);
+        const language = languageFor(variant, request.language);
 
         // Typed as the server's own request shape, so a field this plugin spells wrong is a build
         // failure here rather than a 400 on air. The text goes through untouched: a cue rides inside
@@ -281,6 +285,7 @@ export class RhapsodePlugin extends Plugin implements SpeechPluginInstance {
             ...(asked.voice === undefined ? {} : { voice: asked.voice }),
             ...(asked.variant === undefined ? {} : { variant: asked.variant }),
             ...(request.delivery === undefined ? {} : { delivery: request.delivery }),
+            ...(language === undefined ? {} : { language }),
             ...(params === undefined ? {} : { params }),
             ...(this.keepAliveSeconds === undefined ? {} : { keepAliveSeconds: this.keepAliveSeconds }),
         };
@@ -305,6 +310,7 @@ export class RhapsodePlugin extends Plugin implements SpeechPluginInstance {
             format,
             chars: text.length,
             ...(request.delivery === undefined ? {} : { delivery: request.delivery }),
+            ...(language === undefined ? {} : { language }),
             ...(params === undefined ? {} : params),
         });
 
@@ -375,6 +381,24 @@ export class RhapsodePlugin extends Plugin implements SpeechPluginInstance {
         const claimed = new Set((await this.buildsInUse()).flatMap(deliveriesOf));
 
         return SPEECH_DELIVERIES.filter(delivery => claimed.has(delivery));
+    }
+
+    /**
+     * The languages EVERY build in use speaks, which is the intersection and for {@link listLimits}'
+     * kind of reason rather than {@link listCues}'.
+     *
+     * The host asks so it can warn an operator whose station language one of these voices cannot
+     * speak, and a union would hide exactly that: a German station with one row on an English-only
+     * build would be told all is well because some other row speaks German. A build that lists no
+     * languages is left out rather than read as speaking none, and nothing at all comes back when no
+     * build lists any, which the host reads as "cannot tell".
+     */
+    async listLanguages(): Promise<readonly string[]> {
+        const listed = (await this.buildsInUse()).map(languagesOf).filter(languages => languages.length > 0);
+        if (listed.length === 0) return [];
+
+        const [first, ...rest] = listed;
+        return first!.filter(language => rest.every(other => other.some(tag => tag.toLowerCase() === language.toLowerCase())));
     }
 
     /**

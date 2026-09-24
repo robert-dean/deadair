@@ -997,9 +997,9 @@ export function matchesDictionMarker(marker: string, text: string): boolean {
     // boundary: preceded by letters, followed by a non-letter. A marker that already carries one is
     // a suffix rule of its own and takes no inflection on top.
     const pattern = needle.endsWith("'")
-        ? `[a-z]${escaped}(?![a-z])`
-        : `(?<![a-z'])${escaped}(?:${MARKER_INFLECTIONS.join('|')})?${POSSESSIVE}?(?![a-z'])`;
-    return new RegExp(pattern).test(asTyped(text.toLowerCase()));
+        ? `\\p{L}${escaped}(?!\\p{L})`
+        : `(?<![\\p{L}'])${escaped}(?:${MARKER_INFLECTIONS.join('|')})?${POSSESSIVE}?(?![\\p{L}'])`;
+    return new RegExp(pattern, 'u').test(asTyped(text.toLowerCase()));
 }
 
 /**
@@ -1091,7 +1091,7 @@ function containsPhrase(phrase: string, text: string): boolean {
     if (needle.length === 0) return false;
 
     const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
-    return new RegExp(`(?<![a-z'])${escaped}(?![a-z'])`).test(asTyped(text.toLowerCase()));
+    return new RegExp(`(?<![\\p{L}'])${escaped}(?![\\p{L}'])`, 'u').test(asTyped(text.toLowerCase()));
 }
 
 /**
@@ -1362,7 +1362,7 @@ export function characterFault(sheet: PersonaSheet, script: string, context: Cha
 /** A text as bare lower-case words, so two of them can be compared as speech rather than as text. */
 function wordsOf(text: string): string[] {
     return straightenApostrophes(text.toLowerCase())
-        .replace(/[^a-z0-9']+/g, ' ')
+        .replace(/[^\p{L}\p{N}']+/gu, ' ')
         .trim()
         .split(/\s+/)
         .filter(Boolean);

@@ -111,7 +111,7 @@ function wordsIn(text: string): string[] {
         text
             .toLowerCase()
             .replace(/[‘’ʼ′]/g, "'")
-            .match(/[a-z0-9']+/g) ?? []
+            .match(/[\p{L}\p{N}']+/gu) ?? []
     ).filter(word => word.length >= MIN_ANCHOR_LENGTH && !NOT_AN_ANCHOR.has(word));
 }
 

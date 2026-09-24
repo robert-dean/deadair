@@ -2020,7 +2020,7 @@ const bareWords = (text: string): string =>
     withoutPads(withoutCues(text))
         .toLowerCase()
         .replace(/[‘’ʼ′]/g, "'")
-        .replace(/[^a-z0-9']+/g, ' ')
+        .replace(/[^\p{L}\p{N}']+/gu, ' ')
         .trim();
 
 /** What a model's answer has to survive to become a script. */
@@ -2415,7 +2415,7 @@ export const withoutRecordNames = (script: string, guard: AnswerGuard): string =
     const text = withoutPads(withoutCues(script))
         .toLowerCase()
         .replace(/[‘’ʼ′]/g, "'");
-    const words = [...text.matchAll(/[a-z0-9']+/g)];
+    const words = [...text.matchAll(/[\p{L}\p{N}']+/gu)];
 
     let spoken = text;
     for (const candidate of records.flatMap(identifiersOf)) {

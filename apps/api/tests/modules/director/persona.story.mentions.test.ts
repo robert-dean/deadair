@@ -80,6 +80,12 @@ describe('the bar itself', () => {
         expect(mentionsStory('There was a thing that was there.', { text: 'It was there.' })).toBe(false);
     });
 
+    it('reads an accented word as one word rather than the pieces either side of the accent', () => {
+        // Split at the ü, "Zürich" was the anchor "rich", which any script about money matched.
+        expect(mentionsStory('Ich war einmal in Zürich.', { text: 'Zürich.' })).toBe(true);
+        expect(mentionsStory('The rich get richer.', { text: 'Zürich.' })).toBe(false);
+    });
+
     it('says no for an empty script', () => {
         expect(mentionsStory('', barstow)).toBe(false);
     });

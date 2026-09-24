@@ -11,11 +11,21 @@ import { ErrorAlert } from '../shared/error.alert';
 import { Eyebrow } from '../shared/eyebrow';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
+import { usePhone } from '../shared/use.phone';
 import { PluginAttentionStrip } from './plugin.attention';
 import { PluginCard } from './plugin.card';
 import { PluginImportModal } from './plugin.import.modal';
-import { matchesSearch, matchesShow, PLUGIN_SHOWS, PLUGINS_PAGE_DEFAULTS, type PluginShow, type PluginsPageParams } from './plugin.page.params';
+import {
+    matchesSearch,
+    matchesShow,
+    PLUGIN_SHOWS,
+    PLUGIN_VIEWS,
+    PLUGINS_PAGE_DEFAULTS,
+    type PluginShow,
+    type PluginsPageParams,
+} from './plugin.page.params';
 import { groupByRole } from './plugin.roles';
+import { PluginTable } from './plugin.table';
 
 /** What a rescan refusal means, in the operator's terms rather than the transport's. */
 function rescanError(error: unknown): string {
@@ -67,6 +77,7 @@ export function PluginsPage({ params, onParamsChange }: PluginsPageProps) {
     // The search box reads its value once and owns it from then on, so clearing the filters from
     // outside it is done by giving it a fresh mount rather than by writing into it.
     const [searchKey, setSearchKey] = useState(0);
+    const phone = usePhone();
 
     const searched = (plugins.data ?? []).filter(plugin => matchesSearch(plugin, params.q));
     const shown = searched.filter(plugin => matchesShow(plugin, params.show));
@@ -148,6 +159,23 @@ export function PluginsPage({ params, onParamsChange }: PluginsPageProps) {
                             onParamsChange({ show });
                         }}
                     />
+                    {/* No table on a phone, so no choice of one: it would be a row of five columns
+                        scrolled sideways, which the cards already say better. */}
+                    {phone ? undefined : (
+                        <SegmentedControl
+                            size="xs"
+                            ml="auto"
+                            aria-label="Plugin layout"
+                            value={params.view}
+                            onChange={next => {
+                                onParamsChange({ view: PLUGIN_VIEWS.find(known => known === next) ?? 'cards' });
+                            }}
+                            data={[
+                                { value: 'cards', label: 'Cards' },
+                                { value: 'table', label: 'Table' },
+                            ]}
+                        />
+                    )}
                 </Group>
             ) : undefined}
 
@@ -160,7 +188,9 @@ export function PluginsPage({ params, onParamsChange }: PluginsPageProps) {
                             size="compact-sm"
                             onClick={() => {
                                 setSearchKey(key => key + 1);
-                                onParamsChange(PLUGINS_PAGE_DEFAULTS);
+                                // The filters, not the layout: somebody reading the table wants the
+                                // table back with everything in it.
+                                onParamsChange({ q: PLUGINS_PAGE_DEFAULTS.q, show: PLUGINS_PAGE_DEFAULTS.show });
                             }}
                         >
                             Clear filters
@@ -171,7 +201,9 @@ export function PluginsPage({ params, onParamsChange }: PluginsPageProps) {
                 </EmptyState>
             ) : undefined}
 
-            {shown.length > 0
+            {shown.length > 0 && params.view === 'table' && !phone ? <PluginTable groups={groupByRole(shown)} /> : undefined}
+
+            {shown.length > 0 && (params.view === 'cards' || phone)
                 ? groupByRole(shown).map(({ role, plugins: members }) => (
                       <Stack key={role.key} gap="xs" component="section" aria-label={role.title}>
                           <Eyebrow>

@@ -4,13 +4,13 @@ import { matchesSearch, matchesShow, validatePluginsPage } from '../../../src/co
 import { pluginSummary } from '../../utils/plugin.fixture';
 
 describe('validatePluginsPage', () => {
-    it('keeps a term and a filter it recognises', () => {
-        expect(validatePluginsPage({ q: 'voice', show: 'attention' })).toEqual({ q: 'voice', show: 'attention' });
+    it('keeps a term, a filter and a layout it recognises', () => {
+        expect(validatePluginsPage({ q: 'voice', show: 'attention', view: 'table' })).toEqual({ q: 'voice', show: 'attention', view: 'table' });
     });
 
     it('falls back on anything it does not, rather than throwing', () => {
-        expect(validatePluginsPage({ q: 42, show: 'broken' })).toEqual({ q: '', show: 'all' });
-        expect(validatePluginsPage({})).toEqual({ q: '', show: 'all' });
+        expect(validatePluginsPage({ q: 42, show: 'broken', view: 'grid' })).toEqual({ q: '', show: 'all', view: 'cards' });
+        expect(validatePluginsPage({})).toEqual({ q: '', show: 'all', view: 'cards' });
     });
 });
 

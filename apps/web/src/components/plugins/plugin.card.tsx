@@ -1,15 +1,12 @@
-import { useState } from 'react';
-import { Anchor, Badge, Card, Divider, Group, Stack, Switch, Text } from '@mantine/core';
+import { Anchor, Badge, Card, Divider, Group, Stack, Text } from '@mantine/core';
 import { Link } from '@tanstack/react-router';
 import type { PluginSummary } from '@deadair/sdk';
 
-import { useSetPluginEnabled } from '../../api/plugins.queries';
-import { apiErrorMessage } from '../../api/sdk.error';
 import { severityColor, toneColor } from '../shared/status';
+import { usePluginEnableToggle } from './plugin.enable.toggle';
 import { capabilityLabel, firstLine, needsAttention } from './plugin.roles';
 import { PluginStanding } from './plugin.standing';
 import { PluginOriginBadge, PluginStatusLamp, statusOf } from './plugin.status';
-import { PluginTrustDialog } from './plugin.trust.dialog';
 
 export interface PluginCardProps {
     plugin: PluginSummary;
@@ -17,10 +14,8 @@ export interface PluginCardProps {
 
 /** One plugin in the catalogue: what it is, whether it is running, and a way in. */
 export function PluginCard({ plugin }: PluginCardProps) {
-    const setEnabled = useSetPluginEnabled();
     const { tone } = statusOf(plugin.status);
-    const pending = setEnabled.isPending && setEnabled.variables?.id === plugin.id;
-    const [trustDialogOpen, setTrustDialogOpen] = useState(false);
+    const toggle = usePluginEnableToggle(plugin);
 
     return (
         <Card padding="md" style={{ borderLeft: `2px solid var(--mantine-color-${toneColor[tone]}-5)` }}>
@@ -65,54 +60,18 @@ export function PluginCard({ plugin }: PluginCardProps) {
                     only this plugin can do. */}
                 <PluginStanding pluginId={plugin.id} />
 
-                {setEnabled.error && setEnabled.variables?.id === plugin.id ? (
-                    <Text size="xs" c={severityColor.failure}>
-                        {apiErrorMessage(setEnabled.error, 'That change could not be applied.')}
-                    </Text>
-                ) : undefined}
+                {toggle.error}
 
                 <Divider mt="auto" />
 
                 <Group justify="space-between">
-                    <Switch
-                        size="sm"
-                        checked={plugin.enabled}
-                        disabled={pending}
-                        label={plugin.enabled ? 'Enabled' : 'Disabled'}
-                        aria-label={`Enable ${plugin.name}`}
-                        onChange={event => {
-                            if (!event.currentTarget.checked) {
-                                setEnabled.mutate({ id: plugin.id, enabled: false });
-                                return;
-                            }
-
-                            // Asked once, on the enable that actually extends the trust. A plugin
-                            // the operator has turned on before has already answered this, and
-                            // asking again on every toggle says the answer was never recorded.
-                            if (plugin.firstEnabledAt === undefined) {
-                                setTrustDialogOpen(true);
-                                return;
-                            }
-
-                            setEnabled.mutate({ id: plugin.id, enabled: true });
-                        }}
-                    />
+                    {toggle.control}
                     {/* `renderRoot` rather than `component={Link}`: the polymorphic form erases the
                         router's own types, and with them the check that `params` matches the path. */}
                     <Anchor renderRoot={(props: object) => <Link to="/plugins/$id" params={{ id: plugin.id }} {...props} />} size="sm">
                         Configure
                     </Anchor>
                 </Group>
-
-                <PluginTrustDialog
-                    plugin={plugin}
-                    opened={trustDialogOpen}
-                    onCancel={() => setTrustDialogOpen(false)}
-                    onConfirm={() => {
-                        setTrustDialogOpen(false);
-                        setEnabled.mutate({ id: plugin.id, enabled: true });
-                    }}
-                />
             </Stack>
         </Card>
     );

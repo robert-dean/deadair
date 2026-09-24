@@ -122,7 +122,7 @@ describe('PluginsPage', () => {
     it('shows only what needs attention, and offers a way back when nothing matches', async () => {
         listPlugins.mockResolvedValue([pluginSummary()]);
 
-        render(<PluginsPage initial={{ q: '', show: 'attention' }} />);
+        render(<PluginsPage initial={{ q: '', show: 'attention', view: 'cards' }} />);
 
         expect(await screen.findByText('No plugins match')).toBeInTheDocument();
         expect(screen.queryByText('Spotify')).not.toBeInTheDocument();
@@ -158,7 +158,7 @@ describe('PluginsPage', () => {
             pluginSummary({ id: 'deadair.rss', name: 'RSS', capabilities: ['news'], status: 'misconfigured' }),
         ]);
 
-        const { unmount } = render(<PluginsPage initial={{ q: '', show: 'attention' }} />);
+        const { unmount } = render(<PluginsPage initial={{ q: '', show: 'attention', view: 'cards' }} />);
         expect(await screen.findByText('RSS')).toBeInTheDocument();
         expect(screen.queryByText('1 plugin needs attention')).not.toBeInTheDocument();
         unmount();
@@ -167,6 +167,41 @@ describe('PluginsPage', () => {
         render(<PluginsPage />);
         expect(await screen.findByText('Spotify')).toBeInTheDocument();
         expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    });
+
+    it('draws the same groups as a table, with a working switch on every row', async () => {
+        listPlugins.mockResolvedValue([
+            pluginSummary(),
+            pluginSummary({ id: 'deadair.kokoro', name: 'Kokoro', capabilities: ['speech'], status: 'failed', lastError: 'connect ECONNREFUSED' }),
+        ]);
+        disablePlugin.mockResolvedValue({ ...pluginSummary({ enabled: false, status: 'disabled' }), config: {} });
+
+        render(<PluginsPage initial={{ q: '', show: 'all', view: 'table' }} />);
+
+        const table = await screen.findByRole('table');
+        expect(within(table).getByRole('columnheader', { name: 'Status' })).toBeInTheDocument();
+        const voice = within(table)
+            .getAllByRole('rowgroup')
+            .find(group => group.getAttribute('aria-label') === 'Voice');
+        expect(voice && within(voice).getByText('Kokoro')).toBeInTheDocument();
+        expect(within(table).getByTitle('connect ECONNREFUSED')).toBeInTheDocument();
+        expect(within(table).getByText('Library')).toBeInTheDocument();
+
+        await setupUser().click(within(table).getByLabelText('Enable Spotify'));
+        await waitFor(() => {
+            expect(disablePlugin).toHaveBeenCalledWith('deadair.spotify');
+        });
+    });
+
+    it('switches between cards and the table from the toolbar', async () => {
+        listPlugins.mockResolvedValue([pluginSummary()]);
+
+        render(<PluginsPage />);
+        expect(await screen.findByText('Spotify')).toBeInTheDocument();
+        expect(screen.queryByRole('table')).not.toBeInTheDocument();
+
+        await setupUser().click(screen.getByText('Table'));
+        expect(await screen.findByRole('table')).toBeInTheDocument();
     });
 
     it('marks a plugin the operator installed, and leaves the bundled ones unmarked', async () => {

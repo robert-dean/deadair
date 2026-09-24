@@ -1,5 +1,6 @@
 import { ActionIcon, Button, Group, Menu, Tooltip } from '@mantine/core';
 import { IconChevronDown } from '@tabler/icons-react';
+import { useTranslation } from 'react-i18next';
 
 import { usePlayPlaylist, usePlayStationPlaylist } from '../../api/playout.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
@@ -77,16 +78,17 @@ interface AirButtonProps {
 }
 
 function AirButton({ onAir, pending, error, size, variant }: AirButtonProps) {
+    const { t } = useTranslation('playout');
     // The failure is kept on the button rather than raised as a page-level alert:
     // it belongs to this action, and the transport bar reports the station's own
     // state independently of whether this request landed.
-    const failure = error === undefined ? undefined : apiErrorMessage(error, 'That playlist could not be aired.');
+    const failure = error === undefined ? undefined : apiErrorMessage(error, t('playlist.failed'));
 
     return (
         <Tooltip label={failure} disabled={!failure} color="red" multiline maw={320}>
             <Group gap={2} wrap="nowrap">
                 <Button size={size} variant={variant} color={failure ? 'red' : undefined} loading={pending} onClick={() => onAir()}>
-                    {failure ? 'Failed' : 'Air this playlist'}
+                    {failure ? t('playlist.failedLabel') : t('playlist.air')}
                 </Button>
                 <Menu position="bottom-end" withinPortal>
                     <Menu.Target>
@@ -95,15 +97,15 @@ function AirButton({ onAir, pending, error, size, variant }: AirButtonProps) {
                             variant={variant}
                             color={failure ? 'red' : undefined}
                             disabled={pending}
-                            aria-label="More ways to air this playlist"
+                            aria-label={t('playlist.more')}
                         >
                             <IconChevronDown size={14} stroke={1.8} />
                         </ActionIcon>
                     </Menu.Target>
                     <Menu.Dropdown>
-                        <Menu.Item onClick={() => onAir(true)}>Air with similar records mixed in</Menu.Item>
+                        <Menu.Item onClick={() => onAir(true)}>{t('playlist.mixIn')}</Menu.Item>
                         <Menu.Label maw={260} style={{ whiteSpace: 'normal' }}>
-                            A record by an artist who sounds like one of its own, every few records. Needs a similarity plugin.
+                            {t('playlist.mixInHint')}
                         </Menu.Label>
                     </Menu.Dropdown>
                 </Menu>

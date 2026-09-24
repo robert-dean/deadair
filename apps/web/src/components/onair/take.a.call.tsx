@@ -1,5 +1,6 @@
 import { Button, Group, Popover, Stack, Text, TextInput, Tooltip } from '@mantine/core';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { useRequestProduction } from '../../api/productions.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
@@ -36,11 +37,12 @@ export interface TakeACallProps {
 }
 
 export function TakeACall({ brief, personaId, disabled = false }: TakeACallProps) {
+    const { t } = useTranslation(['onair', 'common']);
     const [open, setOpen] = useState(false);
     const [about, setAbout] = useState(brief);
     const request = useRequestProduction();
 
-    const failure = request.isError ? apiErrorMessage(request.error, 'Nobody could be put on the phone.') : undefined;
+    const failure = request.isError ? apiErrorMessage(request.error, t('call.failed')) : undefined;
 
     const send = () => {
         const subject = about.trim();
@@ -59,14 +61,7 @@ export function TakeACall({ brief, personaId, disabled = false }: TakeACallProps
     return (
         <Popover opened={open} onChange={setOpen} position="bottom-start" width={380} withArrow shadow="md" trapFocus>
             <Popover.Target>
-                <Tooltip
-                    label={
-                        failure ?? 'Puts somebody on the phone. It is written over a few minutes and drops into the running order when it is ready.'
-                    }
-                    color={failure ? 'red' : undefined}
-                    multiline
-                    maw={320}
-                >
+                <Tooltip label={failure ?? t('call.hint')} color={failure ? 'red' : undefined} multiline maw={320}>
                     <Button
                         variant="light"
                         color={failure ? 'red' : undefined}
@@ -74,19 +69,16 @@ export function TakeACall({ brief, personaId, disabled = false }: TakeACallProps
                         disabled={disabled}
                         onClick={() => setOpen(current => !current)}
                     >
-                        Take a call
+                        {t('call.take')}
                     </Button>
                 </Tooltip>
             </Popover.Target>
             <Popover.Dropdown>
                 <Stack gap="sm">
-                    <Text size="sm">
-                        A listener rings in and your host takes it: a few short turns, each in its own voice. Who calls is whichever of your callers
-                        has been heard from least recently.
-                    </Text>
+                    <Text size="sm">{t('call.intro')}</Text>
                     <TextInput
-                        label="What they are ringing about"
-                        placeholder="a record everybody else got wrong"
+                        label={t('call.aboutLabel')}
+                        placeholder={t('call.aboutPlaceholder')}
                         value={about}
                         maxLength={4000}
                         onChange={event => setAbout(event.currentTarget.value)}
@@ -95,17 +87,16 @@ export function TakeACall({ brief, personaId, disabled = false }: TakeACallProps
                         }}
                     />
                     <Text size="xs" c="dimmed">
-                        Seeded with what this broadcast is playing. Empty it and the call is about whatever the station makes of the hour.
+                        {t('call.seeded')}
                     </Text>
                     <Group justify="flex-end">
                         <Button variant="subtle" color="gray" onClick={() => setOpen(false)}>
-                            Cancel
+                            {t('common:action.cancel')}
                         </Button>
-                        <Button onClick={send}>Take a call</Button>
+                        <Button onClick={send}>{t('call.take')}</Button>
                     </Group>
                     <Text size="xs" c="dimmed">
-                        Nothing airs while you wait. The turns are written and spoken one at a time, and the whole call goes in together — so it lands
-                        in a few minutes rather than at the next boundary. It shows up on Productions while it is being made.
+                        {t('call.wait')}
                     </Text>
                 </Stack>
             </Popover.Dropdown>

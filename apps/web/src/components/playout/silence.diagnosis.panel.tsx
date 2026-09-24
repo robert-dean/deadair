@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Alert, Badge, Button, Code, Collapse, Group, List, Stack, Text } from '@mantine/core';
 import { IconChevronDown, IconChevronUp } from '@tabler/icons-react';
-import type { SilenceCause, SilenceCheck, StationSilence } from '@deadair/sdk';
+import { useTranslation } from 'react-i18next';
+import type { SilenceCheck, StationSilence } from '@deadair/sdk';
 
 import { CopyButton } from '../shared/copy.button';
 
@@ -24,6 +25,7 @@ export interface SilenceDiagnosisProps {
  * problem the field was added to fix.
  */
 export function SilenceDiagnosisPanel({ silence }: SilenceDiagnosisProps) {
+    const { t } = useTranslation('playout');
     const blocking = silence.checks.find(check => check.code === silence.cause);
     // Faults the station is not blaming: `configNotAdopted` is the only one today, and
     // it is deliberately never a cause, because a station can air perfectly well to
@@ -32,7 +34,7 @@ export function SilenceDiagnosisPanel({ silence }: SilenceDiagnosisProps) {
 
     if (silence.audible && otherFaults.length === 0) {
         return (
-            <Alert color="green" title="The station is on air">
+            <Alert color="green" title={t('silence.onAirTitle')}>
                 <Text size="sm">{silence.detail}</Text>
                 {/* Shut, and only here. Every gate reporting `ok` is eleven lines answering a
                     question nobody asked while the station is audible, and on this page it pushed
@@ -47,7 +49,7 @@ export function SilenceDiagnosisPanel({ silence }: SilenceDiagnosisProps) {
     return (
         <Stack gap="sm">
             {blocking ? (
-                <Alert color={blocking.state === 'waiting' ? 'blue' : 'yellow'} title={TITLES[silence.cause]}>
+                <Alert color={blocking.state === 'waiting' ? 'blue' : 'yellow'} title={t(`silence.title.${silence.cause}`)}>
                     <Stack gap="xs">
                         <Text size="sm">{silence.detail}</Text>
                         {silence.remedy ? <Remedy remedy={silence.remedy} /> : undefined}
@@ -57,7 +59,7 @@ export function SilenceDiagnosisPanel({ silence }: SilenceDiagnosisProps) {
             ) : undefined}
 
             {otherFaults.map(fault => (
-                <Alert key={fault.code} color="red" title={TITLES[fault.code]}>
+                <Alert key={fault.code} color="red" title={t(`silence.title.${fault.code}`)}>
                     <Stack gap="xs">
                         <Text size="xs">{fault.detail}</Text>
                         {fault.remedy ? <Remedy remedy={fault.remedy} /> : undefined}
@@ -76,6 +78,7 @@ export function SilenceDiagnosisPanel({ silence }: SilenceDiagnosisProps) {
  * to look is most of that decision.
  */
 function RuledOut({ checks, collapsible = false }: { checks: SilenceCheck[]; collapsible?: boolean }) {
+    const { t } = useTranslation('playout');
     const [open, setOpen] = useState(false);
     const ok = checks.filter(check => check.state === 'ok');
     if (ok.length === 0) return undefined;
@@ -92,11 +95,11 @@ function RuledOut({ checks, collapsible = false }: { checks: SilenceCheck[]; col
                     rightSection={open ? <IconChevronUp size={13} stroke={1.8} /> : <IconChevronDown size={13} stroke={1.8} />}
                     onClick={() => setOpen(shown => !shown)}
                 >
-                    Ruled out ({ok.length})
+                    {t('silence.ruledOutCount', { count: ok.length })}
                 </Button>
             ) : (
                 <Text size="xs" c="dimmed">
-                    Ruled out
+                    {t('silence.ruledOut')}
                 </Text>
             )}
             <Collapse expanded={open || !collapsible}>
@@ -105,7 +108,7 @@ function RuledOut({ checks, collapsible = false }: { checks: SilenceCheck[]; col
                         <List.Item key={check.code}>
                             <Group gap="xxs" wrap="nowrap">
                                 <Badge size="xs" variant="light" color="gray" tt="none">
-                                    {TITLES[check.code]}
+                                    {t(`silence.title.${check.code}`)}
                                 </Badge>
                                 <Text size="xs" c="dimmed">
                                     {check.detail}
@@ -144,18 +147,5 @@ function Remedy({ remedy }: { remedy: string }) {
     );
 }
 
-/** A heading per gate. The station supplies the sentence; this is only what to call it. */
-const TITLES: Record<SilenceCause, string> = {
-    airing: 'On air',
-    transportStalled: 'The transport loop has stopped',
-    controlDenied: 'The stream is refusing the bridge secret',
-    streamUnreachable: 'The stream is not reachable',
-    configNotAdopted: 'A container is running config that was replaced',
-    stoodDown: 'The station was stood down',
-    noProgramme: 'There is nothing left to air',
-    warmingUp: 'The station is fetching its first records',
-    waitingOnAudio: 'The records are not here, and nothing is fetching them',
-    noAudience: 'Waiting for a listener',
-    notDriving: 'The mount is not being held',
-    starved: 'The mount is airing the local bed',
-};
+// A heading per gate lives in the catalog as `playout:silence.title`. The station supplies the
+// sentence; that is only what to call it.

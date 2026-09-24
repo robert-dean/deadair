@@ -12,6 +12,7 @@ import {
     IconTrash,
     IconX,
 } from '@tabler/icons-react';
+import { Trans, useTranslation } from 'react-i18next';
 import type { Pad, PadSet } from '@deadair/sdk';
 
 import {
@@ -26,7 +27,7 @@ import {
     useUpdatePadSet,
 } from '../../api/pads.queries';
 import { useVoicePreview } from '../voices/voice.preview';
-import { PadUploadCard } from './pad.upload.card';
+import { PadUploadCard, sfxToken } from './pad.upload.card';
 import { ConfirmModal } from '../shared/confirm.modal';
 import { FeedMoment } from '../shared/dated.feed';
 import { EmptyState } from '../shared/empty.state';
@@ -62,6 +63,7 @@ import { PageSkeleton } from '../shared/page.skeleton';
  * can the late show reach" and a tick box answers it in one glance where two lists do not.
  */
 export function PadsPage() {
+    const { t } = useTranslation('pads');
     const rack = usePads();
     const scan = useScanPads();
     const setState = useSetPadState();
@@ -77,7 +79,7 @@ export function PadsPage() {
     const [deleting, setDeleting] = useState<Pad | undefined>(undefined);
 
     if (rack.isPending) return <PageSkeleton variant="rows" count={6} />;
-    if (rack.isError) return <ErrorAlert title="The soundboard could not be read" error={rack.error} />;
+    if (rack.isError) return <ErrorAlert title={t('page.loadFailed')} error={rack.error} />;
 
     const pads = rack.data?.pads ?? [];
     const sets = rack.data?.sets ?? [];
@@ -95,9 +97,9 @@ export function PadsPage() {
     return (
         <Stack gap="lg">
             <PageHeader
-                eyebrow="Station"
-                title="Soundboard"
-                description="The sounds a presenter reaches for, and the sets that decide who reaches which. Drop audio in below, or into the pad library on disk and re-scan; a persona points at a set by name."
+                eyebrow={t('page.eyebrow')}
+                title={t('page.title')}
+                description={t('page.description')}
                 actions={
                     <Button
                         leftSection={<IconRefresh size={16} />}
@@ -105,13 +107,13 @@ export function PadsPage() {
                         loading={scan.isPending}
                         onClick={() => void scan.mutateAsync()}
                     >
-                        Re-scan the library
+                        {t('page.rescan')}
                     </Button>
                 }
             />
 
-            {scan.isError ? <ErrorAlert title="The pad library could not be read" error={scan.error} /> : undefined}
-            {membership.isError ? <ErrorAlert title="That sound could not go on that set" error={membership.error} /> : undefined}
+            {scan.isError ? <ErrorAlert title={t('page.scanFailed')} error={scan.error} /> : undefined}
+            {membership.isError ? <ErrorAlert title={t('page.membershipFailed')} error={membership.error} /> : undefined}
             {scan.isSuccess ? <ScanResult result={scan.data} /> : undefined}
 
             <PadUploadCard sets={sets} />
@@ -119,14 +121,13 @@ export function PadsPage() {
             <SetList sets={sets} value={newSet} onChange={setNewSet} onAdd={addSet} adding={createSet.isPending} />
 
             {active.length === 0 ? (
-                <EmptyState title="Nothing on the rack">
-                    Drop an mp3 or a wav above, or put one in the pad library on disk and re-scan. The name becomes what a script writes, so{' '}
-                    <code>airhorn.mp3</code> is <code>[sfx:airhorn]</code>, and the board becomes a set a persona can point at.
+                <EmptyState title={t('page.emptyTitle')}>
+                    <Trans t={t} i18nKey="page.empty" components={{ code: <code /> }} />
                 </EmptyState>
             ) : (
                 <Card withBorder padding="md">
                     <Stack gap="sm">
-                        <Eyebrow>The library</Eyebrow>
+                        <Eyebrow>{t('page.library')}</Eyebrow>
                         <PadTable
                             pads={active}
                             sets={sets}
@@ -142,10 +143,9 @@ export function PadsPage() {
             {rejected.length > 0 ? (
                 <Card withBorder padding="md">
                     <Stack gap="sm">
-                        <Eyebrow>Turned down</Eyebrow>
+                        <Eyebrow>{t('page.turnedDown')}</Eyebrow>
                         <Text size="xs" c="dimmed">
-                            Kept rather than deleted, because the scan re-reads the library: a row that was removed would be back on the next pass. A
-                            turned-down sound stays on its sets and reserves nothing — put it back and it is reachable again.
+                            {t('page.turnedDownHint')}
                         </Text>
                         <PadTable
                             pads={rejected}
@@ -160,16 +160,15 @@ export function PadsPage() {
 
             <ConfirmModal
                 opened={deleting !== undefined}
-                title={`Delete ${deleting?.label ?? ''}?`}
-                confirmLabel="Delete the sound"
+                title={t('page.deleteTitle', { label: deleting?.label ?? '' })}
+                confirmLabel={t('page.deleteConfirm')}
                 onConfirm={async () => {
                     if (deleting !== undefined) await remove.mutateAsync(deleting.id);
                     setDeleting(undefined);
                 }}
                 onClose={() => setDeleting(undefined)}
             >
-                The file this console wrote for it goes too, so the next scan does not read it back in. Any script already written naming{' '}
-                <code>[sfx:{deleting?.name}]</code> will simply find nothing and be spoken without it.
+                <Trans t={t} i18nKey="page.deleteBody" values={{ name: deleting?.name ?? '' }} components={{ code: <code /> }} />
             </ConfirmModal>
         </Stack>
     );
@@ -196,6 +195,7 @@ function SetList({
     onAdd: () => void;
     adding: boolean;
 }) {
+    const { t } = useTranslation(['pads', 'common']);
     const update = useUpdatePadSet();
     const remove = useDeletePadSet();
     const [editing, setEditing] = useState<{ id: string; key: string } | undefined>(undefined);
@@ -211,10 +211,9 @@ function SetList({
     return (
         <Card withBorder padding="md">
             <Stack gap="sm">
-                <Eyebrow>Sets</Eyebrow>
+                <Eyebrow>{t('sets.eyebrow')}</Eyebrow>
                 <Text size="xs" c="dimmed">
-                    A persona points at one of these by name. A folder in the library makes one automatically; these are for cutting that library a
-                    different way.
+                    {t('sets.hint')}
                 </Text>
 
                 {sets.length === 0 ? undefined : (
@@ -239,22 +238,26 @@ function SetList({
                                         </Table.Td>
                                         <Table.Td className="da-num">
                                             <Text size="sm" c="dimmed">
-                                                {set.pads} {set.pads === 1 ? 'sound' : 'sounds'}
+                                                {t('sets.sounds', { count: set.pads })}
                                             </Text>
                                         </Table.Td>
                                         <Table.Td>
                                             <Text size="xs" c={set.personas.length === 0 ? 'dimmed' : undefined}>
-                                                {set.personas.length === 0 ? 'nobody is pointed at it' : set.personas.join(', ')}
+                                                {set.personas.length === 0 ? t('sets.nobody') : set.personas.join(', ')}
                                             </Text>
                                         </Table.Td>
                                         <Table.Td>
                                             <Group gap="xs" justify="flex-end" wrap="nowrap">
                                                 {editing?.id === set.id ? (
                                                     <>
-                                                        <ActionIcon variant="subtle" aria-label="Save" onClick={() => void save()}>
+                                                        <ActionIcon variant="subtle" aria-label={t('sets.save')} onClick={() => void save()}>
                                                             <IconCheck size={16} />
                                                         </ActionIcon>
-                                                        <ActionIcon variant="subtle" aria-label="Cancel" onClick={() => setEditing(undefined)}>
+                                                        <ActionIcon
+                                                            variant="subtle"
+                                                            aria-label={t('common:action.cancel')}
+                                                            onClick={() => setEditing(undefined)}
+                                                        >
                                                             <IconX size={16} />
                                                         </ActionIcon>
                                                     </>
@@ -263,23 +266,23 @@ function SetList({
                                                         <Tooltip
                                                             label={
                                                                 set.personas.length === 0
-                                                                    ? 'Rename this set'
-                                                                    : `Renaming unpoints ${set.personas.join(', ')} — a persona names a set by its name`
+                                                                    ? t('sets.rename')
+                                                                    : t('sets.renameUnpoints', { personas: set.personas.join(', ') })
                                                             }
                                                         >
                                                             <ActionIcon
                                                                 variant="subtle"
-                                                                aria-label={`Rename ${set.key}`}
+                                                                aria-label={t('sets.renameSet', { key: set.key })}
                                                                 onClick={() => setEditing({ id: set.id, key: set.key })}
                                                             >
                                                                 <IconPencil size={16} />
                                                             </ActionIcon>
                                                         </Tooltip>
-                                                        <Tooltip label="Remove the set. Every sound on it stays in the library.">
+                                                        <Tooltip label={t('sets.removeHint')}>
                                                             <ActionIcon
                                                                 variant="subtle"
                                                                 color="red"
-                                                                aria-label={`Delete ${set.key}`}
+                                                                aria-label={t('sets.deleteSet', { key: set.key })}
                                                                 onClick={() => setDeleting(set)}
                                                             >
                                                                 <IconTrash size={16} />
@@ -299,30 +302,30 @@ function SetList({
                 <Group gap="xs">
                     <TextInput
                         size="xs"
-                        placeholder="a name a persona can point at"
+                        placeholder={t('sets.newPlaceholder')}
                         value={value}
                         onChange={event => onChange(event.currentTarget.value)}
                         onKeyDown={event => (event.key === 'Enter' ? onAdd() : undefined)}
                     />
                     <Button size="xs" variant="default" leftSection={<IconPlus size={14} />} loading={adding} onClick={onAdd}>
-                        Add a set
+                        {t('sets.add')}
                     </Button>
                 </Group>
 
                 <ConfirmModal
                     opened={deleting !== undefined}
-                    title={`Delete the ${deleting?.key ?? ''} set?`}
-                    confirmLabel="Delete the set"
+                    title={t('sets.deleteTitle', { key: deleting?.key ?? '' })}
+                    confirmLabel={t('sets.deleteConfirm')}
                     onConfirm={async () => {
                         if (deleting !== undefined) await remove.mutateAsync(deleting.id);
                         setDeleting(undefined);
                     }}
                     onClose={() => setDeleting(undefined)}
                 >
-                    Every sound on it stays in the library and on any other set.{' '}
+                    {t('sets.deleteBody')}{' '}
                     {deleting !== undefined && deleting.personas.length > 0
-                        ? `${deleting.personas.join(', ')} will be left with nothing to reach for.`
-                        : 'Nobody is pointed at it.'}
+                        ? t('sets.leftWithNothing', { personas: deleting.personas.join(', ') })
+                        : t('sets.nobodyPointed')}
                 </ConfirmModal>
             </Stack>
         </Card>
@@ -340,16 +343,17 @@ interface PadTableProps {
 }
 
 function PadTable({ pads, sets, preview, onToggle, onReject, onRestore, onDelete }: PadTableProps) {
+    const { t } = useTranslation('pads');
     return (
         <Table.ScrollContainer minWidth={700}>
             <Table verticalSpacing="xs" highlightOnHover>
                 <Table.Thead>
                     <Table.Tr>
-                        <Table.Th>What a script writes</Table.Th>
-                        <Table.Th>Name</Table.Th>
-                        <Table.Th className="da-num">Length</Table.Th>
-                        <Table.Th className="da-num">Loudness</Table.Th>
-                        <Table.Th>Last hit</Table.Th>
+                        <Table.Th>{t('table.token')}</Table.Th>
+                        <Table.Th>{t('table.name')}</Table.Th>
+                        <Table.Th className="da-num">{t('table.length')}</Table.Th>
+                        <Table.Th className="da-num">{t('table.loudness')}</Table.Th>
+                        <Table.Th>{t('table.lastHit')}</Table.Th>
                         {sets.map(set => (
                             <Table.Th key={set.id} style={{ textAlign: 'center' }}>
                                 <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
@@ -374,7 +378,7 @@ function PadTable({ pads, sets, preview, onToggle, onReject, onRestore, onDelete
                                     // that is lower-case is the one thing this cell must not do.
                                     styles={{ label: { fontFamily: 'var(--mantine-font-family-monospace)', textTransform: 'none' } }}
                                 >
-                                    [sfx:{pad.name}]
+                                    {sfxToken(pad.name)}
                                 </Badge>
                             </Table.Td>
                             <Table.Td>
@@ -385,16 +389,18 @@ function PadTable({ pads, sets, preview, onToggle, onReject, onRestore, onDelete
                                     </Text>
                                 ) : undefined}
                             </Table.Td>
-                            <Table.Td className="da-num">{pad.durationMs === undefined ? '—' : `${(pad.durationMs / 1000).toFixed(1)}s`}</Table.Td>
+                            <Table.Td className="da-num">
+                                {pad.durationMs === undefined ? '—' : t('table.seconds', { seconds: (pad.durationMs / 1000).toFixed(1) })}
+                            </Table.Td>
                             <Table.Td className="da-num">
                                 {pad.loudnessLufs === undefined ? (
-                                    <Tooltip label="Nothing measured it. A sound under about half a second produces no loudness reading at all, which is most drops.">
+                                    <Tooltip label={t('table.unmeasured')}>
                                         <Text size="sm" c="dimmed">
                                             —
                                         </Text>
                                     </Tooltip>
                                 ) : (
-                                    `${pad.loudnessLufs.toFixed(1)} LUFS`
+                                    t('table.lufs', { value: pad.loudnessLufs.toFixed(1) })
                                 )}
                             </Table.Td>
                             <Table.Td>
@@ -403,7 +409,7 @@ function PadTable({ pads, sets, preview, onToggle, onReject, onRestore, onDelete
                                 as a value the station failed to record. */}
                                 {pad.lastUsedAt === undefined ? (
                                     <Text size="xs" c="dimmed">
-                                        never
+                                        {t('table.never')}
                                     </Text>
                                 ) : (
                                     <FeedMoment at={pad.lastUsedAt} />
@@ -414,34 +420,38 @@ function PadTable({ pads, sets, preview, onToggle, onReject, onRestore, onDelete
                                     <Checkbox
                                         size="xs"
                                         checked={pad.sets.includes(set.key)}
-                                        aria-label={`${pad.name} on ${set.key}`}
+                                        aria-label={t('table.onSet', { pad: pad.name, set: set.key })}
                                         onChange={event => onToggle?.(set.id, pad.id, event.currentTarget.checked)}
                                     />
                                 </Table.Td>
                             ))}
                             <Table.Td>
                                 <Group gap="xs" justify="flex-end" wrap="nowrap">
-                                    <Tooltip label="Hear it">
+                                    <Tooltip label={t('table.hear')}>
                                         <ActionIcon
                                             variant="subtle"
-                                            aria-label={`Play ${pad.label}`}
+                                            aria-label={t('table.play', { label: pad.label })}
                                             loading={preview.isLoading(pad.id)}
-                                            onClick={() => preview.play(pad.id, () => fetchPadAudio(pad.id), 'That pad would not play.')}
+                                            onClick={() => preview.play(pad.id, () => fetchPadAudio(pad.id), t('table.playFailed'))}
                                         >
                                             {preview.isPlaying(pad.id) ? <IconPlayerPauseFilled size={16} /> : <IconPlayerPlay size={16} />}
                                         </ActionIcon>
                                     </Tooltip>
-                                    <Tooltip label="Download the file">
-                                        <ActionIcon variant="subtle" aria-label={`Download ${pad.label}`} onClick={() => void download(pad)}>
+                                    <Tooltip label={t('table.download')}>
+                                        <ActionIcon
+                                            variant="subtle"
+                                            aria-label={t('table.downloadLabel', { label: pad.label })}
+                                            onClick={() => void download(pad)}
+                                        >
                                             <IconDownload size={16} />
                                         </ActionIcon>
                                     </Tooltip>
                                     {onReject ? (
-                                        <Tooltip label="Take it out of use. Kept, so the next scan does not put it back.">
+                                        <Tooltip label={t('table.reject')}>
                                             <ActionIcon
                                                 variant="subtle"
                                                 color="red"
-                                                aria-label={`Reject ${pad.label}`}
+                                                aria-label={t('table.rejectLabel', { label: pad.label })}
                                                 onClick={() => onReject(pad.id)}
                                             >
                                                 <IconX size={16} />
@@ -449,8 +459,12 @@ function PadTable({ pads, sets, preview, onToggle, onReject, onRestore, onDelete
                                         </Tooltip>
                                     ) : undefined}
                                     {onRestore ? (
-                                        <Tooltip label="Put it back in use">
-                                            <ActionIcon variant="subtle" aria-label={`Restore ${pad.label}`} onClick={() => onRestore(pad.id)}>
+                                        <Tooltip label={t('table.restore')}>
+                                            <ActionIcon
+                                                variant="subtle"
+                                                aria-label={t('table.restoreLabel', { label: pad.label })}
+                                                onClick={() => onRestore(pad.id)}
+                                            >
                                                 <IconRotate size={16} />
                                             </ActionIcon>
                                         </Tooltip>
@@ -459,8 +473,13 @@ function PadTable({ pads, sets, preview, onToggle, onReject, onRestore, onDelete
                                     themselves is theirs, and deleting the row would only bring it
                                     back on the next scan; the reject above is the answer there. */}
                                     {onDelete && pad.source !== 'library' ? (
-                                        <Tooltip label="Delete it, and the file that was written for it">
-                                            <ActionIcon variant="subtle" color="red" aria-label={`Delete ${pad.label}`} onClick={() => onDelete(pad)}>
+                                        <Tooltip label={t('table.delete')}>
+                                            <ActionIcon
+                                                variant="subtle"
+                                                color="red"
+                                                aria-label={t('table.deleteLabel', { label: pad.label })}
+                                                onClick={() => onDelete(pad)}
+                                            >
                                                 <IconTrash size={16} />
                                             </ActionIcon>
                                         </Tooltip>
@@ -510,23 +529,22 @@ async function download(pad: Pad): Promise<void> {
  * can reach it until somebody says where it goes.
  */
 function ScanResult({ result }: { result: { scanned: number; imported: number; replaced: number; contested: number; skipped: number } }) {
+    const { t } = useTranslation('pads');
     return (
         <Card withBorder padding="sm">
             <Text size="sm">
-                Read {result.scanned} {result.scanned === 1 ? 'file' : 'files'}: {result.imported} new,{' '}
-                {result.replaced > 0 ? (
-                    <Text span fw={600}>
-                        {result.replaced} replaced
-                    </Text>
-                ) : (
-                    '0 replaced'
-                )}
-                , {result.skipped} passed over.
+                {/* The replaced count is bold only when something was, so the tag is drawn as nothing at 0. */}
+                <Trans
+                    t={t}
+                    i18nKey="scan.summary"
+                    count={result.scanned}
+                    values={{ imported: result.imported, replaced: result.replaced, skipped: result.skipped }}
+                    components={{ b: result.replaced > 0 ? <Text span fw={600} /> : <></> }}
+                />
                 {result.contested > 0 ? (
                     <Text span fw={600}>
                         {' '}
-                        {result.contested} could not go on their set, because it already had a sound under that name — they are in the library and
-                        nothing can reach them yet.
+                        {t('scan.contested', { count: result.contested })}
                     </Text>
                 ) : undefined}
             </Text>

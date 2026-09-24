@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Button, Divider, Group, Modal, SegmentedControl, Stack, Text, Tooltip } from '@mantine/core';
 import { useForm } from '@mantine/form';
+import { useTranslation } from 'react-i18next';
 import type { StationMode, StationOnEnd, StationOrder } from '@deadair/sdk';
 
 import { usePutStationOnAir, useReplanOrder } from '../../api/director.queries';
@@ -53,6 +54,7 @@ export interface PlanTheStationProps {
 type Scope = 'keep' | 'new';
 
 export function PlanTheStation({ order, disabled = false }: PlanTheStationProps) {
+    const { t } = useTranslation(['onair', 'common']);
     const [opened, setOpened] = useState(false);
     // Safe side first. It is also the commoner want: most of the time an operator does not like what
     // is coming, not what is on.
@@ -69,9 +71,9 @@ export function PlanTheStation({ order, disabled = false }: PlanTheStationProps)
     const keeping = scope === 'keep' && !nothingOn;
 
     const failure = replan.isError
-        ? apiErrorMessage(replan.error, 'The running order could not be replanned.')
+        ? apiErrorMessage(replan.error, t('plan.replanFailed'))
         : onAir.isError
-          ? apiErrorMessage(onAir.error, 'The station could not be put on air.')
+          ? apiErrorMessage(onAir.error, t('plan.onAirFailed'))
           : undefined;
 
     // Seeded HERE rather than through `initialValues`, which `useForm` reads once per mount. This
@@ -128,13 +130,13 @@ export function PlanTheStation({ order, disabled = false }: PlanTheStationProps)
 
     return (
         <>
-            <Tooltip label="Change what the station plays, either from here on or as a new show." multiline maw={320}>
+            <Tooltip label={t('plan.hint')} multiline maw={320}>
                 <Button variant="light" size="compact-md" disabled={disabled} onClick={open}>
-                    Plan
+                    {t('plan.button')}
                 </Button>
             </Tooltip>
 
-            <Modal opened={opened} onClose={close} title="Plan" size="lg">
+            <Modal opened={opened} onClose={close} title={t('plan.title')} size="lg">
                 <Stack gap="md">
                     {failure ? <ErrorAlert>{failure}</ErrorAlert> : undefined}
 
@@ -144,45 +146,28 @@ export function PlanTheStation({ order, disabled = false }: PlanTheStationProps)
                             value={scope}
                             onChange={value => setScope(value as Scope)}
                             data={[
-                                { value: 'keep', label: 'Keep this show' },
-                                { value: 'new', label: 'Start a new show' },
+                                { value: 'keep', label: t('plan.scope.keep') },
+                                { value: 'new', label: t('plan.scope.new') },
                             ]}
                         />
                     )}
 
-                    {keeping ? (
-                        <Text size="sm">
-                            Everything still to come is dropped and the station programmes that stretch again. What is playing, and what the player is
-                            already holding, keeps going.
-                        </Text>
-                    ) : (
-                        <Text size="sm">
-                            The station programmes itself against this, from your own library first and from your providers when the library cannot
-                            fill it. A record it does not own yet is fetched and kept. What you like and dislike is taken into account either way.
-                        </Text>
-                    )}
+                    {keeping ? <Text size="sm">{t('plan.keepIntro')}</Text> : <Text size="sm">{t('plan.newIntro')}</Text>}
 
                     {!keeping && !nothingOn ? (
                         <Text size="sm" c="orange.4">
-                            This starts a new broadcast: everything still to come is dropped, and what is playing stops.
+                            {t('plan.newWarning')}
                         </Text>
                     ) : undefined}
 
-                    <BriefField
-                        description={
-                            keeping
-                                ? 'This steers every refill for the rest of the broadcast, not just these records. Empty it and the station goes back to its ordinary rotation.'
-                                : 'In your own words, for the model that chooses records. It keeps steering every refill until the station is put on air again.'
-                        }
-                        {...form.getInputProps('brief')}
-                    />
+                    <BriefField description={keeping ? t('plan.keepBrief') : t('plan.newBrief')} {...form.getInputProps('brief')} />
 
                     {keeping ? (
                         // Absent rather than disabled. A replan carries a brief and nothing else:
                         // the host, the period and the shape are bound to the broadcast, and the
                         // command that could change them is the one that ends it.
                         <Text size="xs" c="dimmed">
-                            The host, the period and the shape belong to this show and keep running with it. Changing any of them starts a new one.
+                            {t('plan.keepBound')}
                         </Text>
                     ) : (
                         <>
@@ -201,19 +186,17 @@ export function PlanTheStation({ order, disabled = false }: PlanTheStationProps)
                     )}
 
                     <Text size="xs" c="dimmed">
-                        {keeping
-                            ? 'The records are chosen before the old ones are dropped, so nothing goes quiet. They can take a minute to appear.'
-                            : 'Choosing records against your words needs a model configured to programme with. Without one the station plays its own rotation, which is the designed answer rather than a failure.'}
+                        {keeping ? t('plan.keepFooter') : t('plan.newFooter')}
                     </Text>
 
                     <Divider />
 
                     <Group justify="flex-end" gap="xs">
                         <Button variant="default" onClick={close}>
-                            Cancel
+                            {t('common:action.cancel')}
                         </Button>
                         <Button loading={busy} disabled={!keeping && form.values.brief.trim().length === 0} onClick={send}>
-                            {keeping ? 'Replan' : 'Go on air'}
+                            {keeping ? t('plan.replan') : t('plan.goOnAir')}
                         </Button>
                     </Group>
                 </Stack>

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Anchor, Badge, Box, Button, Card, Collapse, Group, Progress, SegmentedControl, Stack, Text, Tooltip } from '@mantine/core';
 import { IconChevronDown, IconChevronUp } from '@tabler/icons-react';
+import type { TFunction } from 'i18next';
+import { useTranslation } from 'react-i18next';
 import type { PlayoutStatus, StationOrder } from '@deadair/sdk';
 
 import { useHoldAgainstSchedule, useSetAirMode } from '../../api/director.queries';
@@ -118,6 +120,7 @@ function useArmedStop(fire: () => void) {
  * Start puts a station back on air, and neither is a press worth a second thought.
  */
 export function OnAirNow({ status, order, standingDown, airMode, airSource, held = false, holdUntil }: OnAirNowProps) {
+    const { t } = useTranslation('desk');
     const hold = useHoldAgainstSchedule();
     const [why, setWhy] = useState(false);
     const skip = useSkipCurrent();
@@ -135,9 +138,9 @@ export function OnAirNow({ status, order, standingDown, airMode, airSource, held
     // asked for it: a tooltip is hover-only, so a failure on the console's landing page would be
     // invisible to somebody looking straight at it.
     const failures = [
-        skip.isError ? apiErrorMessage(skip.error, 'That track could not be skipped.') : undefined,
-        stop.isError ? apiErrorMessage(stop.error, 'The station could not be stopped.') : undefined,
-        start.isError ? apiErrorMessage(start.error, 'The station could not be put back on air.') : undefined,
+        skip.isError ? apiErrorMessage(skip.error, t('onAir.skipFailed')) : undefined,
+        stop.isError ? apiErrorMessage(stop.error, t('onAir.stopFailed')) : undefined,
+        start.isError ? apiErrorMessage(start.error, t('onAir.startFailed')) : undefined,
     ].filter((message): message is string => message !== undefined);
 
     return (
@@ -171,7 +174,7 @@ export function OnAirNow({ status, order, standingDown, airMode, airSource, held
                                 style={{ letterSpacing: 'var(--da-tracking-eyebrow)', whiteSpace: 'nowrap' }}
                                 className={reading.live ? 'da-lamp-pulse' : undefined}
                             >
-                                {reading.live ? 'On air now' : reading.label}
+                                {reading.live ? t('onAir.onAirNow') : reading.label}
                             </Text>
                             {order ? (
                                 <Group gap="xxs" wrap="nowrap" style={{ minWidth: 0 }}>
@@ -200,7 +203,7 @@ export function OnAirNow({ status, order, standingDown, airMode, airSource, held
                             so "the clock is driving" and "you are" can each be true for an hour at
                             a time with nothing on the screen distinguishing them. */}
                         {airSource && airSource !== 'off' ? (
-                            <Tooltip multiline maw={360} label={drivingLabel(airSource)}>
+                            <Tooltip multiline maw={360} label={drivingLabel(t, airSource)}>
                                 <Badge
                                     size="sm"
                                     variant="light"
@@ -208,7 +211,7 @@ export function OnAirNow({ status, order, standingDown, airMode, airSource, held
                                     tt="none"
                                     style={{ alignSelf: 'flex-start' }}
                                 >
-                                    {drivingWord(airSource)}
+                                    {drivingWord(t, airSource)}
                                 </Badge>
                             </Tooltip>
                         ) : undefined}
@@ -222,7 +225,7 @@ export function OnAirNow({ status, order, standingDown, airMode, airSource, held
                                 {!held ? (
                                     <>
                                         <Text size="xs" c="dimmed">
-                                            The schedule takes this back at the next block.
+                                            {t('onAir.takesBack')}
                                         </Text>
                                         {/* Each says what it does to the sentence above it rather
                                             than naming the mechanism. "Hold it" and "Hold two hours"
@@ -231,7 +234,7 @@ export function OnAirNow({ status, order, standingDown, airMode, airSource, held
                                             holding something else entirely — the record, the stream,
                                             the whole desk. */}
                                         <Anchor component="button" type="button" size="xs" disabled={hold.isPending} onClick={() => hold.mutate({})}>
-                                            Keep it on past the next block
+                                            {t('onAir.keepPastBlock')}
                                         </Anchor>
                                         <Anchor
                                             component="button"
@@ -240,15 +243,15 @@ export function OnAirNow({ status, order, standingDown, airMode, airSource, held
                                             disabled={hold.isPending}
                                             onClick={() => hold.mutate({ minutes: 120 })}
                                         >
-                                            Keep it on for two hours
+                                            {t('onAir.keepTwoHours')}
                                         </Anchor>
                                     </>
                                 ) : (
                                     <>
                                         <Text size="xs" c="dimmed">
                                             {holdUntil === undefined
-                                                ? 'Held until you release it. The schedule will not take this back.'
-                                                : `Held until about ${formatClock(new Date(holdUntil))}.`}
+                                                ? t('onAir.heldUntilRelease')
+                                                : t('onAir.heldUntil', { time: formatClock(new Date(holdUntil)) })}
                                         </Text>
                                         <Anchor
                                             component="button"
@@ -257,7 +260,7 @@ export function OnAirNow({ status, order, standingDown, airMode, airSource, held
                                             disabled={hold.isPending}
                                             onClick={() => hold.mutate(undefined)}
                                         >
-                                            Release
+                                            {t('onAir.release')}
                                         </Anchor>
                                     </>
                                 )}
@@ -265,13 +268,9 @@ export function OnAirNow({ status, order, standingDown, airMode, airSource, held
                         ) : undefined}
 
                         {order?.brief ? (
-                            <Tooltip
-                                multiline
-                                maw={360}
-                                label="Every refill of this broadcast is programmed against this until the station is put on air again."
-                            >
+                            <Tooltip multiline maw={360} label={t('onAir.briefHint')}>
                                 <Badge size="sm" variant="light" color="grape" tt="none" style={{ alignSelf: 'flex-start', maxWidth: '100%' }}>
-                                    asked for: {order.brief}
+                                    {t('onAir.brief', { brief: order.brief })}
                                 </Badge>
                             </Tooltip>
                         ) : undefined}
@@ -288,7 +287,7 @@ export function OnAirNow({ status, order, standingDown, airMode, airSource, held
                                 </Text>
                             </Group>
                         ) : (
-                            <Text c="dimmed">{silence.audible ? 'Starting…' : silence.detail}</Text>
+                            <Text c="dimmed">{silence.audible ? t('onAir.starting') : silence.detail}</Text>
                         )}
 
                         {playhead ? (
@@ -296,7 +295,7 @@ export function OnAirNow({ status, order, standingDown, airMode, airSource, held
                                 <Text size="xs" c="dimmed" className="da-num">
                                     {formatDuration(playhead.elapsedMs)}
                                 </Text>
-                                <Progress value={playhead.percent} size={6} radius="xl" style={{ flex: 1 }} aria-label="Track progress" />
+                                <Progress value={playhead.percent} size={6} radius="xl" style={{ flex: 1 }} aria-label={t('onAir.progress')} />
                                 <Text size="xs" c="dimmed" className="da-num">
                                     -{formatDuration(playhead.remainingMs)}
                                 </Text>
@@ -306,7 +305,7 @@ export function OnAirNow({ status, order, standingDown, airMode, airSource, held
                         {upNext.length > 0 ? (
                             <Group gap="xs" wrap="wrap">
                                 <Text size="sm" c="dimmed">
-                                    Up next
+                                    {t('onAir.upNext')}
                                 </Text>
                                 {upNext.slice(0, 3).map((item, index) => (
                                     <Group key={item.id} gap="xs" wrap="nowrap">
@@ -318,7 +317,7 @@ export function OnAirNow({ status, order, standingDown, airMode, airSource, held
                                 ))}
                                 {queuedCount > 3 ? (
                                     <Text size="sm" c="dimmed">
-                                        · {queuedCount - 3} to come
+                                        {t('onAir.toCome', { count: queuedCount - 3 })}
                                     </Text>
                                 ) : undefined}
                             </Group>
@@ -333,7 +332,7 @@ export function OnAirNow({ status, order, standingDown, airMode, airSource, held
                         which is the one moment on this page when nothing may move. */}
                     <Stack gap="xs" w={phone ? '100%' : 214} style={{ flexShrink: 0 }}>
                         <Group gap="xs" wrap="nowrap">
-                            <Tooltip label="Ends the track on air. The next one starts immediately.">
+                            <Tooltip label={t('onAir.skipHint')}>
                                 <Button
                                     variant="default"
                                     h={44}
@@ -343,15 +342,11 @@ export function OnAirNow({ status, order, standingDown, airMode, airSource, held
                                     disabled={!status.streamUp || !nowPlaying}
                                     onClick={() => skip.mutate()}
                                 >
-                                    Skip
+                                    {t('onAir.skip')}
                                 </Button>
                             </Tooltip>
                             {standingDown ? (
-                                <Tooltip
-                                    label="Puts the station back on air on the running order it was stopped on. Nothing is rebuilt."
-                                    multiline
-                                    maw={320}
-                                >
+                                <Tooltip label={t('onAir.startHint')} multiline maw={320}>
                                     <Button
                                         h={44}
                                         w={phone ? undefined : 124}
@@ -359,19 +354,11 @@ export function OnAirNow({ status, order, standingDown, airMode, airSource, held
                                         loading={start.isPending}
                                         onClick={() => start.mutate()}
                                     >
-                                        Start
+                                        {t('onAir.start')}
                                     </Button>
                                 </Tooltip>
                             ) : (
-                                <Tooltip
-                                    label={
-                                        stopping.armed
-                                            ? 'Press again to take the station off air. It forgets on its own in a few seconds.'
-                                            : 'Ends the broadcast. What is playing stops too, and the mount goes quiet rather than falling back to a bed.'
-                                    }
-                                    multiline
-                                    maw={320}
-                                >
+                                <Tooltip label={stopping.armed ? t('onAir.stopArmedHint') : t('onAir.stopHint')} multiline maw={320}>
                                     {/* Filled once armed rather than outlined, so the state is
                                         legible across the room and not only in the word. */}
                                     {/* On a phone both halves are `flex: 1`, which keeps the two
@@ -388,7 +375,7 @@ export function OnAirNow({ status, order, standingDown, airMode, airSource, held
                                         loading={stop.isPending}
                                         onClick={stopping.press}
                                     >
-                                        {stopping.armed ? 'Confirm stop' : 'Stop'}
+                                        {stopping.armed ? t('onAir.confirmStop') : t('onAir.stop')}
                                     </Button>
                                 </Tooltip>
                             )}
@@ -405,7 +392,7 @@ export function OnAirNow({ status, order, standingDown, airMode, airSource, held
                                 headed "Waiting for a listener" and the eyebrow above it says READY,
                                 so a button asking why it is ON air contradicted both of them and the
                                 two words either side of itself. */}
-                            {reading.live ? 'Why is it on air?' : 'Why is it not on air?'}
+                            {reading.live ? t('onAir.whyOnAir') : t('onAir.whyNotOnAir')}
                         </Button>
                     </Stack>
                 </Group>
@@ -441,7 +428,7 @@ export function OnAirNow({ status, order, standingDown, airMode, airSource, held
                     {airMode ? (
                         <Group gap="sm" wrap="nowrap">
                             <Text size="sm" c="dimmed" style={{ flexShrink: 0 }}>
-                                On air
+                                {t('onAir.airModeLabel')}
                             </Text>
                             <SegmentedControl
                                 size="xs"
@@ -449,10 +436,10 @@ export function OnAirNow({ status, order, standingDown, airMode, airSource, held
                                 disabled={setAirMode.isPending}
                                 onChange={value => setAirMode.mutate({ airMode: value as 'audience' | 'always' })}
                                 data={[
-                                    { value: 'audience', label: 'when somebody is listening' },
-                                    { value: 'always', label: 'always' },
+                                    { value: 'audience', label: t('onAir.airMode.audience') },
+                                    { value: 'always', label: t('onAir.airMode.always') },
                                 ]}
-                                aria-label="What puts the station on air"
+                                aria-label={t('onAir.airModeAria')}
                             />
                         </Group>
                     ) : undefined}
@@ -473,9 +460,8 @@ export function OnAirNow({ status, order, standingDown, airMode, airSource, held
  * something is playing and they want to know who chose it. So each of these answers that question in
  * the words the answer is actually in.
  */
-function drivingWord(source: 'schedule' | 'sustaining' | 'operator'): string {
-    if (source === 'operator') return 'You put this on';
-    return source === 'sustaining' ? 'Between blocks' : 'The schedule put this on';
+function drivingWord(t: TFunction<'desk'>, source: 'schedule' | 'sustaining' | 'operator'): string {
+    return t(`onAir.driving.word.${source}`);
 }
 
 /**
@@ -485,9 +471,6 @@ function drivingWord(source: 'schedule' | 'sustaining' | 'operator'): string {
  * whichever slot is in force, so it holds until the NEXT block begins and is then replaced. That is
  * correct and it is invisible, which is the combination worth saying out loud.
  */
-function drivingLabel(source: 'schedule' | 'sustaining' | 'operator'): string {
-    if (source === 'operator') return 'You put this on. It holds until the next scheduled block begins, and the schedule takes over then.';
-    if (source === 'sustaining') return 'Nothing is scheduled right now, so the station is playing what it fills the gaps with.';
-
-    return 'The clock changed the station over to this block. It runs until the block ends.';
+function drivingLabel(t: TFunction<'desk'>, source: 'schedule' | 'sustaining' | 'operator'): string {
+    return t(`onAir.driving.label.${source}`);
 }

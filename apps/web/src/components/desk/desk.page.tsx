@@ -2,6 +2,8 @@ import { useCallback, useMemo } from 'react';
 import { Button, Group, Stack, Text, Title, Tooltip } from '@mantine/core';
 import { Link } from '@tanstack/react-router';
 import { Anchor } from '@mantine/core';
+import { Trans, useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import type { Rating, StationOrderItem } from '@deadair/sdk';
 
 import { useRateTrack } from '../../api/catalog.queries';
@@ -62,6 +64,7 @@ import { OnAirNow } from './on.air.now';
 export function DeskPage() {
     // Every one of these shares a query key with the shell's own polling, so the desk is one more
     // reader of one reading rather than a second request per panel.
+    const { t } = useTranslation('desk');
     const playout = usePlayoutStatus(true);
     const attention = useStationAttention(true);
     const air = useStationAir();
@@ -106,14 +109,14 @@ export function DeskPage() {
             removeOrderItem(item.id, {
                 onSuccess: () => {
                     if (trackId === undefined) return;
-                    notifyUndoable(`Dropped “${item.title}”.`, {
-                        label: 'Put it back',
+                    notifyUndoable(t('page.dropped', { title: item.title }), {
+                        label: t('page.putBack'),
                         onUndo: () => addOrderTrack({ trackId, ...(atIndex < 0 ? {} : { atIndex }) }),
                     });
                 },
             });
         },
-        [removeOrderItem, addOrderTrack, items],
+        [removeOrderItem, addOrderTrack, items, t],
     );
     // The only way to reorder the hour that is not Shuffle, which reorders all of it. The table
     // decides the index, because what is legal is a fact about the rows it is holding rather than
@@ -139,17 +142,17 @@ export function DeskPage() {
     const standingDown = air.data?.active === false;
 
     const failures = [
-        shuffle.isError ? apiErrorMessage(shuffle.error, 'The running order could not be shuffled.') : undefined,
-        extend.isError ? apiErrorMessage(extend.error, 'A refill could not be queued.') : undefined,
-        removeItem.isError ? apiErrorMessage(removeItem.error, 'That item could not be dropped.') : undefined,
+        shuffle.isError ? apiErrorMessage(shuffle.error, t('page.shuffleFailed')) : undefined,
+        extend.isError ? apiErrorMessage(extend.error, t('page.extendFailed')) : undefined,
+        removeItem.isError ? apiErrorMessage(removeItem.error, t('page.dropFailed')) : undefined,
         // Named rather than left silent, because the interesting failure here is a race an operator
         // cannot see coming: the player takes the front of the order while the page is being read,
         // and the position that was legal when the row was drawn is refused by the time it is
         // clicked. The API's own sentence says which, so it is worth showing.
-        moveItem.isError ? apiErrorMessage(moveItem.error, 'That item could not be moved.') : undefined,
+        moveItem.isError ? apiErrorMessage(moveItem.error, t('page.moveFailed')) : undefined,
         // The same race as a move's: the record can reach the air, or pass it, between the row
         // being drawn and the click.
-        skipTo.isError ? apiErrorMessage(skipTo.error, 'The station could not be skipped to that record.') : undefined,
+        skipTo.isError ? apiErrorMessage(skipTo.error, t('page.skipToFailed')) : undefined,
     ].filter((message): message is string => message !== undefined);
 
     return (
@@ -170,9 +173,9 @@ export function DeskPage() {
 
             <Stack gap="sm">
                 <Group gap="sm" align="baseline">
-                    <Title order={2}>Needs you</Title>
+                    <Title order={2}>{t('page.needsYou')}</Title>
                     <Text size="sm" c="dimmed">
-                        {needsYouBlurb(attention.data?.items.length)}
+                        {needsYouBlurb(t, attention.data?.items.length)}
                     </Text>
                 </Group>
 
@@ -181,11 +184,7 @@ export function DeskPage() {
                 {/* The list failing is not the station failing, and saying which is the difference
                     between a console an operator trusts and one they second-guess. */}
                 {attention.error ? (
-                    <ErrorAlert
-                        title="The station could not be asked what needs you"
-                        error={attention.error}
-                        fallback="Nothing is known to be wrong; this list is what is unavailable."
-                    />
+                    <ErrorAlert title={t('page.attentionFailed')} error={attention.error} fallback={t('page.attentionFailedFallback')} />
                 ) : undefined}
 
                 {/* `here` because this page is what `/onair` resolves to: without it every row
@@ -197,9 +196,9 @@ export function DeskPage() {
             <Stack gap="sm">
                 <Group justify="space-between" align="baseline" gap="md" wrap="wrap">
                     <Group gap="sm" align="baseline">
-                        <Title order={2}>Running order</Title>
+                        <Title order={2}>{t('page.runningOrder')}</Title>
                         <Text size="sm" c="dimmed">
-                            What the station will play, and what it will say over it.
+                            {t('page.runningOrderHint')}
                         </Text>
                     </Group>
                     {/* Drawn whenever the order has LOADED rather than whenever it has items, which
@@ -209,11 +208,7 @@ export function DeskPage() {
                         disable themselves instead, because neither means anything with nothing on. */}
                     {loaded ? (
                         <Group gap="xs" wrap="wrap">
-                            <Tooltip
-                                label="Shuffles everything the player is not already holding. With smart shuffle on, one artist stays off its own heels and anything aired lately goes toward the back."
-                                multiline
-                                maw={320}
-                            >
+                            <Tooltip label={t('page.shuffleHint')} multiline maw={320}>
                                 <Button
                                     variant="default"
                                     size="compact-md"
@@ -221,7 +216,7 @@ export function DeskPage() {
                                     disabled={planned < 2}
                                     onClick={() => shuffle.mutate()}
                                 >
-                                    Shuffle
+                                    {t('page.shuffle')}
                                 </Button>
                             </Tooltip>
                             {/* Beside Shuffle because they answer the same complaint differently: a
@@ -240,9 +235,7 @@ export function DeskPage() {
                     ) : undefined}
                 </Group>
 
-                {order.error ? (
-                    <ErrorAlert title="The running order could not be read" error={order.error} fallback="The station is not answering." />
-                ) : undefined}
+                {order.error ? <ErrorAlert title={t('page.orderFailed')} error={order.error} fallback={t('page.orderFailedFallback')} /> : undefined}
 
                 {failures.map(message => (
                     <ErrorAlert key={message}>{message}</ErrorAlert>
@@ -256,12 +249,11 @@ export function DeskPage() {
                             /* `renderRoot` rather than `component={Link}`: the polymorphic form
                                erases the router's own types, and with them the check on `params`. */
                             <Anchor renderRoot={(props: object) => <Link to="/playlists" {...props} />} size="sm">
-                                Browse playlists
+                                {t('page.browsePlaylists')}
                             </Anchor>
                         }
                     >
-                        Or start from a playlist. It is READ at the moment the station goes on air rather than copied, so there is nothing to prepare
-                        first and nothing of yours is written into.
+                        {t('page.empty')}
                     </EmptyState>
                 ) : undefined}
 
@@ -286,7 +278,8 @@ export function DeskPage() {
                     Hedged with "about" because it is: a skip, a drop or a refill moves it. */}
                 {dryAt && loaded ? (
                     <Text size="sm" c="dimmed">
-                        The order runs dry at about <span className="da-num">{dryAt}</span>. {whatHappensThen(loaded.onEnd)}{' '}
+                        <Trans t={t} i18nKey="page.runsDry" values={{ time: dryAt }} components={{ num: <span className="da-num" /> }} />{' '}
+                        {whatHappensThen(loaded.onEnd)}{' '}
                         {/* Extend lives HERE rather than in the row of buttons above, because this
                             sentence is what makes anybody want it. On a default station it is also
                             mostly redundant — the order tops itself up once it drops below eight —
@@ -298,11 +291,9 @@ export function DeskPage() {
                             type="button"
                             size="sm"
                             disabled={extend.isPending}
-                            onClick={() =>
-                                extend.mutate({}, { onSuccess: () => notifyQueued('Refill asked for. The records land in a few seconds.') })
-                            }
+                            onClick={() => extend.mutate({}, { onSuccess: () => notifyQueued(t('page.refillQueued')) })}
                         >
-                            Extend now
+                            {t('page.extend')}
                         </Anchor>
                     </Text>
                 ) : undefined}
@@ -317,8 +308,8 @@ export function DeskPage() {
  * The reassurance is the point of the wording: nothing in this list takes the station off air, and
  * an operator who has learned that reads it without their stomach dropping.
  */
-function needsYouBlurb(count: number | undefined): string {
+function needsYouBlurb(t: TFunction<'desk'>, count: number | undefined): string {
     if (count === undefined) return '';
-    if (count === 0) return 'Nothing is waiting on you.';
-    return `${count === 1 ? '1 thing' : `${count} things`}, worst first. Nothing here is urgent enough to take the station off air.`;
+    if (count === 0) return t('page.nothingWaiting');
+    return t('page.waiting', { count });
 }

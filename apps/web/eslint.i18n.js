@@ -23,6 +23,11 @@ export const TRANSLATED = [
     'src/components/programme/**',
     'src/components/station/**',
     'src/components/charts/**',
+    'src/components/onair/**',
+    'src/components/desk/**',
+    'src/components/playout/**',
+    'src/components/playlists/**',
+    'src/components/pads/**',
 ];
 
 /**

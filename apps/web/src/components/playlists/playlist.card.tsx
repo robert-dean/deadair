@@ -1,6 +1,7 @@
 import { ActionIcon, Anchor, Badge, Card, Divider, Group, Menu, Stack, Text, Tooltip } from '@mantine/core';
 import { IconDots } from '@tabler/icons-react';
 import { Link } from '@tanstack/react-router';
+import { useTranslation } from 'react-i18next';
 import type { CatalogPlaylist } from '@deadair/sdk';
 
 import { useRefreshPlaylist, useSetPlaylistHidden } from '../../api/playlists.queries';
@@ -25,14 +26,15 @@ export interface PlaylistCardProps {
  * hidden, and not when the source has said the account may not read it.
  */
 function PlaylistMenu({ playlist }: { playlist: CatalogPlaylist }) {
+    const { t } = useTranslation('playlists');
     const change = useSetPlaylistHidden();
     const refresh = useRefreshPlaylist();
     const hidden = playlist.hidden === true;
     const refreshable = !hidden && canReadTracks(playlist);
     const failure = change.isError
-        ? apiErrorMessage(change.error, hidden ? 'It could not be shown again.' : 'It could not be hidden.')
+        ? apiErrorMessage(change.error, hidden ? t('card.showFailed') : t('card.hideFailed'))
         : refresh.isError
-          ? apiErrorMessage(refresh.error, 'It could not be read again.')
+          ? apiErrorMessage(refresh.error, t('card.refreshFailed'))
           : undefined;
 
     return (
@@ -43,7 +45,7 @@ function PlaylistMenu({ playlist }: { playlist: CatalogPlaylist }) {
                         variant="subtle"
                         color={failure ? 'red' : 'gray'}
                         loading={change.isPending || refresh.isPending}
-                        aria-label={`More about ${playlist.name}`}
+                        aria-label={t('card.more', { name: playlist.name })}
                     >
                         <IconDots size={16} />
                     </ActionIcon>
@@ -55,20 +57,18 @@ function PlaylistMenu({ playlist }: { playlist: CatalogPlaylist }) {
                         onClick={() =>
                             refresh.mutate(
                                 { pluginId: playlist.pluginId, playlistId: playlist.id },
-                                { onSuccess: () => notifyQueued(`The station is reading ${playlist.name} again.`) },
+                                { onSuccess: () => notifyQueued(t('card.refreshQueued', { name: playlist.name })) },
                             )
                         }
                     >
-                        Refresh this playlist
+                        {t('card.refresh')}
                     </Menu.Item>
                 ) : undefined}
                 <Menu.Item onClick={() => change.mutate({ pluginId: playlist.pluginId, playlistId: playlist.id, hidden: !hidden })}>
-                    {hidden ? 'Show again' : 'Hide'}
+                    {hidden ? t('card.show') : t('card.hide')}
                 </Menu.Item>
                 <Menu.Label maw={260} style={{ whiteSpace: 'normal' }}>
-                    {hidden
-                        ? 'Offered in the pickers again, and read by the library sync.'
-                        : 'Left out of every picker and the library sync. Nothing is deleted.'}
+                    {hidden ? t('card.showHint') : t('card.hideHint')}
                 </Menu.Label>
             </Menu.Dropdown>
         </Menu>
@@ -77,6 +77,7 @@ function PlaylistMenu({ playlist }: { playlist: CatalogPlaylist }) {
 
 /** One importable playlist: what it is, which plugin offers it, and a way in. */
 export function PlaylistCard({ playlist }: PlaylistCardProps) {
+    const { t } = useTranslation('playlists');
     return (
         <Card padding="lg">
             <Stack gap="sm" h="100%">
@@ -93,12 +94,12 @@ export function PlaylistCard({ playlist }: PlaylistCardProps) {
                 </Group>
 
                 <Text size="sm" c="dimmed" lineClamp={2}>
-                    {playlist.description ?? 'No description.'}
+                    {playlist.description ?? t('card.noDescription')}
                 </Text>
 
                 {playlist.trackCount !== undefined ? (
                     <Text size="xs" c="dimmed">
-                        {playlist.trackCount} tracks
+                        {t('card.trackCount', { count: playlist.trackCount })}
                     </Text>
                 ) : undefined}
 
@@ -118,7 +119,7 @@ export function PlaylistCard({ playlist }: PlaylistCardProps) {
                             )}
                             size="sm"
                         >
-                            View tracks
+                            {t('card.viewTracks')}
                         </Anchor>
                         {/* Gated on the same permission as the link: a playlist whose tracks the
                             source will not hand over cannot be aired either. */}
@@ -129,7 +130,7 @@ export function PlaylistCard({ playlist }: PlaylistCardProps) {
                        less confusing than one whose only affordance quietly does
                        nothing, and less confusing than the playlist vanishing. */
                     <Text size="sm" c="dimmed">
-                        {playlist.pluginName} won&apos;t share this playlist&apos;s tracks.
+                        {t('card.refused', { plugin: playlist.pluginName })}
                     </Text>
                 )}
             </Stack>

@@ -1,4 +1,5 @@
 import { Alert, Badge, Code, Group, Stack, Text, Tooltip } from '@mantine/core';
+import { useTranslation } from 'react-i18next';
 import type { StreamConfigWarning } from '@deadair/sdk';
 
 import { CopyButton } from '../shared/copy.button';
@@ -26,18 +27,20 @@ export interface StaleConfigProps {
 
 /** The compact form, for the strip that sits under every page. */
 export function StaleConfigBadge({ warnings }: StaleConfigProps) {
+    const { t } = useTranslation('playout');
     if (warnings.length === 0) return undefined;
 
     return (
         <Tooltip
             multiline
             w={340}
-            label={`${warnings.map(warning => warning.container).join(' and ')} ${
-                warnings.length > 1 ? 'are' : 'is'
-            } running config that has been replaced. Open the transport for the restart command.`}
+            label={t('staleConfig.tooltip', {
+                count: warnings.length,
+                containers: warnings.map(warning => warning.container).join(t('staleConfig.and')),
+            })}
         >
             <Badge variant="filled" color="red">
-                config not adopted
+                {t('staleConfig.badge')}
             </Badge>
         </Tooltip>
     );
@@ -45,10 +48,11 @@ export function StaleConfigBadge({ warnings }: StaleConfigProps) {
 
 /** The full form, with the sentence and the command, for the expanded panel. */
 export function StaleConfigAlert({ warnings }: StaleConfigProps) {
+    const { t } = useTranslation('playout');
     if (warnings.length === 0) return undefined;
 
     return (
-        <Alert color="red" title="A stream container is running config that has been replaced">
+        <Alert color="red" title={t('staleConfig.title')}>
             <Stack gap="xs">
                 {warnings.map(warning => (
                     <Stack gap="xxs" key={warning.container}>

@@ -1,4 +1,5 @@
 import { Stack } from '@mantine/core';
+import { useTranslation } from 'react-i18next';
 
 import { SettingsGroupPage } from '../settings/settings.page';
 import { PageHeader } from '../shared/page.header';
@@ -25,13 +26,11 @@ import { PageHeader } from '../shared/page.header';
  * hiding it, which is the right way round: a box that vanishes gives no hint where its switch is.
  */
 export function PhrasingsPage() {
+    const { t } = useTranslation('phrasings');
     return (
         <Stack gap="lg">
-            <PageHeader
-                title="Phrasings"
-                description="What the station says around the things it reads out, whenever no model writes the words. Each box is a set to pick between, one per line. What a character says between records is on its own sheet, under Characters."
-            />
-            <SettingsGroupPage group="phrasings" label="Phrasings" />
+            <PageHeader title={t('title')} description={t('description')} />
+            <SettingsGroupPage group="phrasings" label={t('title')} />
         </Stack>
     );
 }

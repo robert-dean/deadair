@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Anchor, Badge, Box, Code, Collapse, Group, SegmentedControl, Stack, Text, UnstyledButton } from '@mantine/core';
 import { Link } from '@tanstack/react-router';
 import type { ScriptAttempt, ScriptOutcome } from '@deadair/sdk';
+import type { TFunction } from 'i18next';
+import { Trans, useTranslation } from 'react-i18next';
 
 import { apiErrorMessage } from '../../api/sdk.error';
 import { useRateScript, useScriptHistory } from '../../api/scripts.queries';
@@ -13,12 +15,7 @@ import { PageHeader } from '../shared/page.header';
 import { StatusLamp } from '../shared/status.lamp';
 import type { StatusTone } from '../shared/status';
 
-const OUTCOMES: { value: ScriptOutcome | 'all'; label: string }[] = [
-    { value: 'all', label: 'Everything' },
-    { value: 'written', label: 'Written' },
-    { value: 'declined', label: 'Declined' },
-    { value: 'failed', label: 'Failed' },
-];
+const OUTCOMES = ['all', 'written', 'declined', 'failed'] as const satisfies readonly (ScriptOutcome | 'all')[];
 
 /**
  * The two writers the station currently has, by their own `BreakWriter.name`.
@@ -27,11 +24,7 @@ const OUTCOMES: { value: ScriptOutcome | 'all'; label: string }[] = [
  * change. These are the two that exist, so the filter offers them rather than deriving a list from
  * whichever rows happen to be loaded, which would offer fewer options the further back you read.
  */
-const WRITERS: { value: string; label: string }[] = [
-    { value: 'all', label: 'Any writer' },
-    { value: 'model', label: 'Model' },
-    { value: 'deterministic', label: 'Floor' },
-];
+const WRITERS = ['all', 'model', 'deterministic'] as const;
 
 /**
  * How an attempt reads, in the console's one status vocabulary.
@@ -53,18 +46,18 @@ const OUTCOME_TONE: Record<ScriptOutcome, StatusTone> = {
  * The two narrowings do not compose in practice — nothing links to one break of one character — but
  * the break wins if they ever do, because it is the narrower of the two.
  */
-function title(segmentId: string | undefined, personaKey: string | undefined): string {
-    if (segmentId !== undefined) return 'One break';
-    if (personaKey !== undefined) return `Everything ${personaKey} has said`;
-    return 'Scripts';
+function title(t: TFunction<'scripts'>, segmentId: string | undefined, personaKey: string | undefined): string {
+    if (segmentId !== undefined) return t('title.segment');
+    if (personaKey !== undefined) return t('title.persona', { persona: personaKey });
+    return t('title.all');
 }
 
-function describe(segmentId: string | undefined, personaKey: string | undefined): string {
-    if (segmentId !== undefined) return 'Every attempt at writing this one break, newest first, including the ones that came to nothing.';
+function describe(t: TFunction<'scripts'>, segmentId: string | undefined, personaKey: string | undefined): string {
+    if (segmentId !== undefined) return t('description.segment');
     if (personaKey !== undefined) {
-        return 'Every attempt this character has made, newest first. A run of declines with the floor writing underneath is what a sheet nothing can satisfy looks like.';
+        return t('description.persona');
     }
-    return 'Everything the station has written, newest first, one entry per attempt. A model that declined and the line that went out instead are both here.';
+    return t('description.all');
 }
 
 export interface ScriptsPageProps {
@@ -103,6 +96,7 @@ export interface ScriptsPageProps {
  * them still means what it says.
  */
 export function ScriptsPage({ segmentId, personaKey }: ScriptsPageProps = {}) {
+    const { t } = useTranslation('scripts');
     const [outcome, setOutcome] = useState<ScriptOutcome | 'all'>('all');
     const [writer, setWriter] = useState<string>('all');
 
@@ -116,7 +110,7 @@ export function ScriptsPage({ segmentId, personaKey }: ScriptsPageProps = {}) {
         true,
     );
 
-    const failure = history.isError ? apiErrorMessage(history.error, 'The script history could not be read.') : undefined;
+    const failure = history.isError ? apiErrorMessage(history.error, t('failure')) : undefined;
 
     return (
         <FeedPage
@@ -128,23 +122,23 @@ export function ScriptsPage({ segmentId, personaKey }: ScriptsPageProps = {}) {
                    planted and nothing has been asked to write it yet. Reading that as "nothing
                    matches that filter" would send an operator looking for a filter to clear. */
                 segmentId !== undefined && outcome === 'all' && writer === 'all'
-                    ? 'Nothing has been written for this break yet. The station asks for the words as the slot comes near, not when the break is planted.'
+                    ? t('empty.segment')
                     : /* A character with no attempts has never been on air, which is a different
                          answer again from a filter matching nothing: there is nothing to clear and
                          nothing went wrong. */
                       personaKey !== undefined && outcome === 'all' && writer === 'all'
-                      ? 'This character has not written anything yet. A row lands here on every attempt it makes, including the ones it declines.'
+                      ? t('empty.persona')
                       : outcome === 'all' && writer === 'all'
-                        ? 'Nothing yet. The station writes here every time it makes a break, whether or not the words made it to air.'
-                        : 'Nothing matches that filter.'
+                        ? t('empty.all')
+                        : t('empty.filtered')
             }
             renderRow={attempt => <AttemptRow attempt={attempt} />}
         >
             <PageHeader
-                title={title(segmentId, personaKey)}
+                title={title(t, segmentId, personaKey)}
                 description={
                     <Text size="sm" c="dimmed">
-                        {describe(segmentId, personaKey)}
+                        {describe(t, segmentId, personaKey)}
                     </Text>
                 }
             />
@@ -158,7 +152,7 @@ export function ScriptsPage({ segmentId, personaKey }: ScriptsPageProps = {}) {
                         renderRoot={(props: object) => <Link to="/voice" search={{ tab: 'said', segment: '', persona: '' }} {...props} />}
                         size="sm"
                     >
-                        Read everything the station has written
+                        {t('widen')}
                     </Anchor>
                 </Group>
             )}
@@ -166,13 +160,18 @@ export function ScriptsPage({ segmentId, personaKey }: ScriptsPageProps = {}) {
             <Group gap="md" wrap="wrap">
                 <SegmentedControl
                     size="xs"
-                    data={OUTCOMES}
+                    data={OUTCOMES.map(value => ({ value, label: t(`outcome.${value}`) }))}
                     value={outcome}
                     onChange={value => {
                         setOutcome(value as ScriptOutcome | 'all');
                     }}
                 />
-                <SegmentedControl size="xs" data={WRITERS} value={writer} onChange={setWriter} />
+                <SegmentedControl
+                    size="xs"
+                    data={WRITERS.map(value => ({ value, label: t(`writer.${value}`) }))}
+                    value={writer}
+                    onChange={setWriter}
+                />
             </Group>
         </FeedPage>
     );
@@ -265,33 +264,36 @@ function AttemptRow({ attempt }: AttemptRowProps) {
 
 /** Everything about one attempt that is not the sentence it produced. */
 function AttemptDetail({ attempt }: { attempt: ScriptAttempt }) {
+    const { t } = useTranslation('scripts');
     const tokens = attempt.usage?.totalTokens ?? attempt.usage?.outputTokens;
 
     return (
         <Stack gap="sm" px="md" pt="xs" pb="md" style={{ background: 'var(--da-raised)' }}>
             <Group gap="lg" wrap="wrap">
-                <Fact label="Kind" value={attempt.kind} />
+                <Fact label={t('detail.kind')} value={attempt.kind} />
                 {/* Absent means nobody was presenting, which is an ordinary state rather than a gap. */}
-                {attempt.personaKey === undefined ? undefined : <Fact label="Host" value={attempt.personaKey} />}
-                {attempt.model === undefined ? undefined : <Fact label="Model" value={attempt.model} />}
-                {attempt.source === undefined ? undefined : <Fact label="From" value={attempt.source} />}
-                {attempt.durationMs === undefined ? undefined : <Fact label="Took" value={`${(attempt.durationMs / 1000).toFixed(1)}s`} numeric />}
-                {tokens === undefined ? undefined : <Fact label="Tokens" value={String(tokens)} numeric />}
+                {attempt.personaKey === undefined ? undefined : <Fact label={t('detail.host')} value={attempt.personaKey} />}
+                {attempt.model === undefined ? undefined : <Fact label={t('detail.model')} value={attempt.model} />}
+                {attempt.source === undefined ? undefined : <Fact label={t('detail.from')} value={attempt.source} />}
+                {attempt.durationMs === undefined ? undefined : (
+                    <Fact label={t('detail.took')} value={`${(attempt.durationMs / 1000).toFixed(1)}s`} numeric />
+                )}
+                {tokens === undefined ? undefined : <Fact label={t('detail.tokens')} value={String(tokens)} numeric />}
             </Group>
 
             {attempt.previous !== undefined || attempt.next !== undefined ? (
                 <Group gap="lg" wrap="wrap" align="flex-start">
-                    {attempt.previous === undefined ? undefined : <Neighbour label="After" track={attempt.previous} />}
-                    {attempt.next === undefined ? undefined : <Neighbour label="Before" track={attempt.next} />}
+                    {attempt.previous === undefined ? undefined : <Neighbour label={t('detail.after')} track={attempt.previous} />}
+                    {attempt.next === undefined ? undefined : <Neighbour label={t('detail.before')} track={attempt.next} />}
                 </Group>
             ) : undefined}
 
             {/* Shown for a written attempt too: a model that produced words and a reason produced both. */}
-            {attempt.reason !== undefined && attempt.script !== undefined ? <Fact label="Note" value={attempt.reason} /> : undefined}
+            {attempt.reason !== undefined && attempt.script !== undefined ? <Fact label={t('detail.note')} value={attempt.reason} /> : undefined}
 
             {attempt.raw === undefined ? undefined : (
                 <Stack gap="xxs">
-                    <Eyebrow>Answer, before anything read it</Eyebrow>
+                    <Eyebrow>{t('detail.raw')}</Eyebrow>
                     <Code block style={WRAP}>
                         {attempt.raw}
                     </Code>
@@ -300,11 +302,11 @@ function AttemptDetail({ attempt }: { attempt: ScriptAttempt }) {
 
             {attempt.prompt === undefined ? (
                 <Text size="xs" c="dimmed">
-                    The prompt was not kept. Turn on <Code>llm.captureWrites</Code> to keep it for the attempts after this one.
+                    <Trans t={t} i18nKey="detail.promptNotKept" components={{ code: <Code /> }} />
                 </Text>
             ) : (
                 <Stack gap="xxs">
-                    <Eyebrow>What it was sent</Eyebrow>
+                    <Eyebrow>{t('detail.prompt')}</Eyebrow>
                     {attempt.prompt.map((message, index) => (
                         <Stack key={index} gap="xxxs">
                             <Text size="xs" c="dimmed" tt="uppercase">

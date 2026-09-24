@@ -2,6 +2,7 @@ import { SegmentedControl, Tooltip } from '@mantine/core';
 import { IconMinus, IconThumbDown, IconThumbUp } from '@tabler/icons-react';
 import type { ReactNode } from 'react';
 import type { ScriptRating } from '@deadair/sdk';
+import { useTranslation } from 'react-i18next';
 
 export interface ScriptRatingControlProps {
     /**
@@ -32,6 +33,7 @@ export interface ScriptRatingControlProps {
  * own so withdrawing an opinion is visible rather than a second click on the active side.
  */
 export function ScriptRatingControl({ rating, onChange, busy = false }: ScriptRatingControlProps) {
+    const { t } = useTranslation('scripts');
     return (
         <SegmentedControl
             size="xs"
@@ -45,15 +47,15 @@ export function ScriptRatingControl({ rating, onChange, busy = false }: ScriptRa
             data={[
                 {
                     value: 'disliked',
-                    label: <Segment glyph={<IconThumbDown size={GLYPH} stroke={1.7} />} hint="The station should not say things like this" />,
+                    label: <Segment glyph={<IconThumbDown size={GLYPH} stroke={1.7} />} hint={t('rating.disliked')} />,
                 },
                 {
                     value: 'neutral',
-                    label: <Segment glyph={<IconMinus size={GLYPH} stroke={1.7} />} hint="Heard it, no opinion" />,
+                    label: <Segment glyph={<IconMinus size={GLYPH} stroke={1.7} />} hint={t('rating.neutral')} />,
                 },
                 {
                     value: 'liked',
-                    label: <Segment glyph={<IconThumbUp size={GLYPH} stroke={1.7} />} hint="More like this" />,
+                    label: <Segment glyph={<IconThumbUp size={GLYPH} stroke={1.7} />} hint={t('rating.liked')} />,
                 },
             ]}
         />

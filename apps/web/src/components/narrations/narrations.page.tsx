@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Badge, Button, Card, Group, Select, Stack, Text } from '@mantine/core';
 import type { StationPiece } from '@deadair/sdk';
+import { Trans, useTranslation } from 'react-i18next';
 
 import { useNarrationPieces, useNarrationSeries, useRefreshNarrations, useRenderPiece } from '../../api/narration.queries';
 import { EmptyState } from '../shared/empty.state';
@@ -12,6 +13,7 @@ import { PageSkeleton } from '../shared/page.skeleton';
 import { type StatusTone } from '../shared/status';
 import { StatusLamp } from '../shared/status.lamp';
 import { formatCount } from '../../i18n/format.locale';
+import { i18n } from '../../i18n/i18n.setup';
 
 /** The series filter at rest. */
 const EVERY_SERIES = 'all';
@@ -39,6 +41,7 @@ const READING_FOR_MS = 60 * 60_000;
  * the slow half of the page; the pieces are the station's own table and answer at once.
  */
 export function NarrationsPage() {
+    const { t } = useTranslation('narrations');
     const series = useNarrationSeries();
     const [seriesId, setSeriesId] = useState<string>(EVERY_SERIES);
     const pieces = useNarrationPieces(seriesId === EVERY_SERIES ? undefined : seriesId);
@@ -51,12 +54,10 @@ export function NarrationsPage() {
     return (
         <Stack gap="lg">
             <PageHeader
-                title="Readings"
+                title={t('title')}
                 description={
                     <Text size="sm" c="dimmed">
-                        Books, columns and anything else the station reads out in its presenter&apos;s voice. A <code>narration</code> band on the
-                        format clock reads the next piece at its time: the next chapter of a book, or the newest issue of a column. The station speaks
-                        it a few hours beforehand.
+                        <Trans t={t} i18nKey="description" components={{ code: <code /> }} />
                     </Text>
                 }
                 actions={
@@ -66,38 +67,30 @@ export function NarrationsPage() {
                         loading={refresh.isPending}
                         onClick={() =>
                             refresh.mutate(undefined, {
-                                onSuccess: () =>
-                                    notifyQueued('The station is reading every series again. New pieces appear here in a minute or two.'),
+                                onSuccess: () => notifyQueued(t('refresh.queued')),
                             })
                         }
                     >
-                        Look for new pieces
+                        {t('refresh.action')}
                     </Button>
                 }
             />
 
-            {series.error ? (
-                <ErrorAlert title="The series could not be read" error={series.error} fallback="No narration plugin answered." />
-            ) : undefined}
-            {pieces.error ? <ErrorAlert title="The pieces could not be read" error={pieces.error} /> : undefined}
-            {refresh.error ? <ErrorAlert title="The series could not be read again" error={refresh.error} /> : undefined}
-            {renderPiece.error ? <ErrorAlert title="That piece could not be asked for" error={renderPiece.error} /> : undefined}
+            {series.error ? <ErrorAlert title={t('error.series')} error={series.error} fallback={t('error.seriesFallback')} /> : undefined}
+            {pieces.error ? <ErrorAlert title={t('error.pieces')} error={pieces.error} /> : undefined}
+            {refresh.error ? <ErrorAlert title={t('error.refresh')} error={refresh.error} /> : undefined}
+            {renderPiece.error ? <ErrorAlert title={t('error.render')} error={renderPiece.error} /> : undefined}
 
             {pieces.isPending ? <PageSkeleton variant="rows" count={4} /> : undefined}
 
-            {series.data && offered.length === 0 ? (
-                <EmptyState title="The station has nothing to read yet">
-                    Install a narration plugin and point it at a book or a feed on its own settings page. What it offers arrives here once the station
-                    has looked.
-                </EmptyState>
-            ) : undefined}
+            {series.data && offered.length === 0 ? <EmptyState title={t('empty.series.title')}>{t('empty.series.body')}</EmptyState> : undefined}
 
             {offered.length > 0 ? (
                 <Select
                     size="xs"
                     w={{ base: '100%', sm: 320 }}
-                    label="Series"
-                    data={[{ value: EVERY_SERIES, label: 'Every series' }, ...offered.map(one => ({ value: one.id, label: one.title }))]}
+                    label={t('filter.label')}
+                    data={[{ value: EVERY_SERIES, label: t('filter.every') }, ...offered.map(one => ({ value: one.id, label: one.title }))]}
                     value={seriesId}
                     allowDeselect={false}
                     onChange={next => {
@@ -106,9 +99,7 @@ export function NarrationsPage() {
                 />
             ) : undefined}
 
-            {pieces.data && offered.length > 0 && listed.length === 0 ? (
-                <EmptyState>The station has found no pieces yet. It looks twice an hour; look now to see what there is.</EmptyState>
-            ) : undefined}
+            {pieces.data && offered.length > 0 && listed.length === 0 ? <EmptyState>{t('empty.pieces')}</EmptyState> : undefined}
 
             {listed.length > 0 ? (
                 <Stack gap="xs">
@@ -119,7 +110,7 @@ export function NarrationsPage() {
                             asking={renderPiece.isPending && renderPiece.variables === piece.id}
                             onRender={() =>
                                 renderPiece.mutate(piece.id, {
-                                    onSuccess: () => notifyQueued(`Reading ${piece.title}. It is ready to air once the station has spoken it.`),
+                                    onSuccess: () => notifyQueued(t('piece.queued', { title: piece.title })),
                                 })
                             }
                         />
@@ -146,22 +137,32 @@ export function NarrationsPage() {
  * because that is true whatever the plugin says now.
  */
 export function pieceState(piece: StationPiece, now = Date.now()): { label: string; tone: StatusTone } {
-    if (piece.airedAt !== undefined) return { label: 'Read', tone: 'off' };
-    if (piece.withdrawnAt !== undefined) return { label: 'Withdrawn', tone: 'off' };
-    if (piece.rendered) return { label: 'Ready to air', tone: 'ok' };
-    if (piece.rendering) return { label: 'Reading', tone: 'standby' };
+    const { state, tone } = pieceStateKey(piece, now);
+    return { label: i18n.t(`narrations:state.${state}`), tone };
+}
+
+type PieceStateKey = 'read' | 'withdrawn' | 'ready' | 'reading' | 'failed' | 'unread';
+
+/** {@link pieceState} before it is put into words, so a caller can ask which state it is without comparing copy. */
+function pieceStateKey(piece: StationPiece, now = Date.now()): { state: PieceStateKey; tone: StatusTone } {
+    if (piece.airedAt !== undefined) return { state: 'read', tone: 'off' };
+    if (piece.withdrawnAt !== undefined) return { state: 'withdrawn', tone: 'off' };
+    if (piece.rendered) return { state: 'ready', tone: 'ok' };
+    if (piece.rendering) return { state: 'reading', tone: 'standby' };
 
     const asked = piece.renderRequestedAt === undefined ? undefined : Date.parse(piece.renderRequestedAt);
-    if (asked !== undefined && now - asked < READING_FOR_MS) return { label: 'Reading', tone: 'standby' };
-    if (piece.renderError !== undefined) return { label: 'Could not read', tone: 'fault' };
+    if (asked !== undefined && now - asked < READING_FOR_MS) return { state: 'reading', tone: 'standby' };
+    if (piece.renderError !== undefined) return { state: 'failed', tone: 'fault' };
 
-    return { label: 'Not read yet', tone: 'off' };
+    return { state: 'unread', tone: 'off' };
 }
 
 /** One piece, with what the station has done with it and a way to ask for it to be spoken. */
 function Piece({ piece, asking, onRender }: { piece: StationPiece; asking: boolean; onRender: () => void }) {
-    const state = pieceState(piece);
-    const canRender = !piece.rendered && piece.withdrawnAt === undefined && state.label !== 'Reading';
+    const { t } = useTranslation('narrations');
+    const { state: key, tone } = pieceStateKey(piece);
+    const state = { label: t(`state.${key}`), tone };
+    const canRender = !piece.rendered && piece.withdrawnAt === undefined && key !== 'reading';
 
     return (
         <Card padding="md">
@@ -186,7 +187,7 @@ function Piece({ piece, asking, onRender }: { piece: StationPiece; asking: boole
                         )}
                         {piece.wordCount === undefined ? undefined : (
                             <Text size="xs" c="dimmed" className="da-num">
-                                {formatCount(piece.wordCount)} words
+                                {t('piece.words', { count: piece.wordCount, total: formatCount(piece.wordCount) })}
                             </Text>
                         )}
                     </Group>
@@ -203,15 +204,14 @@ function Piece({ piece, asking, onRender }: { piece: StationPiece; asking: boole
 
                     {piece.airedAt !== undefined ? (
                         <Text size="xs" c="dimmed">
-                            Read {formatMomentMinute(piece.airedAt, { weekday: true })}.
+                            {t('piece.readAt', { when: formatMomentMinute(piece.airedAt, { weekday: true }) })}
                         </Text>
                     ) : undefined}
 
                     {/* Why it will not be read: the station's own answer to "why did it skip chapter seven". */}
                     {piece.airedAt === undefined && piece.withdrawnAt !== undefined ? (
                         <Text size="xs" c="dimmed">
-                            Withdrawn {formatMomentMinute(piece.withdrawnAt, { weekday: true })}: its source no longer lists it, so the station will
-                            not read it.
+                            {t('piece.withdrawnAt', { when: formatMomentMinute(piece.withdrawnAt, { weekday: true }) })}
                         </Text>
                     ) : undefined}
 
@@ -226,7 +226,7 @@ function Piece({ piece, asking, onRender }: { piece: StationPiece; asking: boole
 
                 {canRender ? (
                     <Button size="xs" variant="default" loading={asking} onClick={onRender}>
-                        Read it now
+                        {t('piece.render')}
                     </Button>
                 ) : undefined}
             </Group>

@@ -3,6 +3,8 @@ import { IconPlayerPauseFilled, IconPlayerPlayFilled } from '@tabler/icons-react
 import { Link } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 import type { Persona } from '@deadair/sdk';
+import type { TFunction } from 'i18next';
+import { Trans, useTranslation } from 'react-i18next';
 
 import { usePersonas } from '../../api/personas.queries';
 import { fetchVoiceSample, voicesOptions } from '../../api/voices.queries';
@@ -47,6 +49,7 @@ const NEWSREADER = 'newsreader';
  * every page carrying a transport bar.
  */
 export function VoicesPage() {
+    const { t } = useTranslation('voices');
     const voices = useQuery(voicesOptions);
     const personas = usePersonas();
     const preview = useVoicePreview();
@@ -56,35 +59,36 @@ export function VoicesPage() {
     return (
         <Stack gap="lg">
             <PageHeader
-                title="Voices"
+                title={t('title')}
                 description={
                     pluginId ? (
                         <Text c="dimmed" size="sm">
-                            Spoken by{' '}
                             {/* `renderRoot` rather than `component={Link}`: the polymorphic form
                                 erases the router's own types, and with them the check that `params`
                                 matches the path. */}
-                            <Anchor renderRoot={(props: object) => <Link to="/plugins/$id" params={{ id: pluginId }} {...props} />}>
-                                {pluginId}
-                            </Anchor>
-                            , where what each of these maps to is set.
+                            <Trans
+                                t={t}
+                                i18nKey="spokenBy"
+                                values={{ plugin: pluginId }}
+                                components={{
+                                    anchor: <Anchor renderRoot={(props: object) => <Link to="/plugins/$id" params={{ id: pluginId }} {...props} />} />,
+                                }}
+                            />
                         </Text>
                     ) : (
                         <Text c="dimmed" size="sm">
-                            What the station can sound like.
+                            {t('description')}
                         </Text>
                     )
                 }
             />
 
-            {voices.error ? (
-                <ErrorAlert title="Voices could not be loaded" error={voices.error} fallback="The voice list is unavailable." />
-            ) : undefined}
+            {voices.error ? <ErrorAlert title={t('error.title')} error={voices.error} fallback={t('error.fallback')} /> : undefined}
 
             {/* Not an error: a station with no TTS plugin plays records, which is a state rather
                 than a fault. The API says which of the three ways it got here. */}
             {voices.data && voices.data.voices.length === 0 ? (
-                <EmptyState title="The station has no voice yet">{voices.data.reason ?? 'No plugin is available to speak.'}</EmptyState>
+                <EmptyState title={t('empty.title')}>{voices.data.reason ?? t('empty.fallback')}</EmptyState>
             ) : undefined}
 
             {voices.isPending ? <PageSkeleton variant="table" /> : undefined}
@@ -97,7 +101,7 @@ export function VoicesPage() {
                                 <Group gap="xs" wrap="nowrap">
                                     <Text fw={500}>{voice.label}</Text>
                                     <Text size="xs" c="dimmed">
-                                        {spokenBy(voice.id, personas.data?.personas)}
+                                        {spokenBy(t, voice.id, personas.data?.personas)}
                                     </Text>
                                 </Group>
                                 {/* The wait is explained where it happens rather than in a footnote
@@ -105,7 +109,7 @@ export function VoicesPage() {
                                     after the moment it describes. */}
                                 {preview.isLoading(voice.id) ? (
                                     <Text c="dimmed" size="xs">
-                                        Speaking it for the first time, which takes a moment. After that it is cached.
+                                        {t('row.firstTime')}
                                     </Text>
                                 ) : voice.description ? (
                                     <Text c="dimmed" size="xs">
@@ -117,8 +121,10 @@ export function VoicesPage() {
                                 variant="default"
                                 size="lg"
                                 loading={preview.isLoading(voice.id)}
-                                aria-label={preview.isPlaying(voice.id) ? `Pause the sample of ${voice.label}` : `Play a sample of ${voice.label}`}
-                                onClick={() => preview.play(voice.id, () => fetchVoiceSample(voice.id), 'That voice could not be previewed.')}
+                                aria-label={
+                                    preview.isPlaying(voice.id) ? t('row.pause', { label: voice.label }) : t('row.play', { label: voice.label })
+                                }
+                                onClick={() => preview.play(voice.id, () => fetchVoiceSample(voice.id), t('row.playFailed'))}
                             >
                                 {preview.isPlaying(voice.id) ? <IconPlayerPauseFilled size={14} /> : <IconPlayerPlayFilled size={14} />}
                             </ActionIcon>
@@ -135,11 +141,16 @@ export function VoicesPage() {
 
             {pluginId && (voices.data?.voices.length ?? 0) > 0 ? (
                 <Text c="dimmed" size="xs">
-                    A voice that sounds wrong is a mapping to change:{' '}
-                    <Anchor size="xs" renderRoot={(props: object) => <Link to="/plugins/$id" params={{ id: pluginId }} {...props} />}>
-                        edit the voice table in {pluginId}&apos;s settings
-                    </Anchor>
-                    .
+                    <Trans
+                        t={t}
+                        i18nKey="wrongVoice"
+                        values={{ plugin: pluginId }}
+                        components={{
+                            anchor: (
+                                <Anchor size="xs" renderRoot={(props: object) => <Link to="/plugins/$id" params={{ id: pluginId }} {...props} />} />
+                            ),
+                        }}
+                    />
                 </Text>
             ) : undefined}
         </Stack>
@@ -153,8 +164,8 @@ export function VoicesPage() {
  * a row that exists is already the operator saying they want it available. Naming it as spare would
  * read as something to tidy up.
  */
-function spokenBy(voiceId: string, personas: Persona[] | undefined): string {
-    if (voiceId === NEWSREADER) return 'the news';
+function spokenBy(t: TFunction<'voices'>, voiceId: string, personas: Persona[] | undefined): string {
+    if (voiceId === NEWSREADER) return t('row.news');
     if (voiceId.length === 0 || personas === undefined) return '';
 
     const speakers = personas.filter(persona => persona.voice === voiceId).map(persona => persona.label);

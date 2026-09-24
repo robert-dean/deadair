@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Anchor, Badge, Button, Card, Group, Select, Stack, Text, TextInput } from '@mantine/core';
 import type { StationDirectoryEntry, StationEpisode } from '@deadair/sdk';
+import { Trans, useTranslation } from 'react-i18next';
 
 import {
     useFetchEpisode,
@@ -10,6 +11,7 @@ import {
     useRefreshPodcasts,
     useSubscribePodcast,
 } from '../../api/podcast.queries';
+import { i18n } from '../../i18n/i18n.setup';
 import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
 import { formatDuration } from '../shared/format.duration';
@@ -44,6 +46,7 @@ const FETCHING_FOR_MS = 20 * 60_000;
  * half of the page; the episodes are the station's own table and answer at once.
  */
 export function PodcastsPage() {
+    const { t } = useTranslation('podcasts');
     const shows = usePodcastShows();
     const [showId, setShowId] = useState<string>(EVERY_SHOW);
     const episodes = usePodcastEpisodes(showId === EVERY_SHOW ? undefined : showId);
@@ -56,11 +59,10 @@ export function PodcastsPage() {
     return (
         <Stack gap="lg">
             <PageHeader
-                title="Podcasts"
+                title={t('title')}
                 description={
                     <Text size="sm" c="dimmed">
-                        Somebody else&apos;s programmes the station can carry, newest first. A <code>syndicated</code> band on the format clock airs a
-                        show&apos;s newest episode at its time; the station fetches the audio a few hours before.
+                        <Trans t={t} i18nKey="description" components={{ code: <code /> }} />
                     </Text>
                 }
                 actions={
@@ -70,36 +72,30 @@ export function PodcastsPage() {
                         loading={refresh.isPending}
                         onClick={() =>
                             refresh.mutate(undefined, {
-                                onSuccess: () =>
-                                    notifyQueued('The station is reading every feed again. New episodes appear here in a minute or two.'),
+                                onSuccess: () => notifyQueued(t('refresh.queued')),
                             })
                         }
                     >
-                        Read the feeds now
+                        {t('refresh.action')}
                     </Button>
                 }
             />
 
-            {shows.error ? <ErrorAlert title="The shows could not be read" error={shows.error} fallback="No podcast plugin answered." /> : undefined}
-            {episodes.error ? <ErrorAlert title="The episodes could not be read" error={episodes.error} /> : undefined}
-            {refresh.error ? <ErrorAlert title="The feeds could not be read again" error={refresh.error} /> : undefined}
-            {fetchEpisode.error ? <ErrorAlert title="That episode could not be asked for" error={fetchEpisode.error} /> : undefined}
+            {shows.error ? <ErrorAlert title={t('error.shows')} error={shows.error} fallback={t('error.showsFallback')} /> : undefined}
+            {episodes.error ? <ErrorAlert title={t('error.episodes')} error={episodes.error} /> : undefined}
+            {refresh.error ? <ErrorAlert title={t('error.refresh')} error={refresh.error} /> : undefined}
+            {fetchEpisode.error ? <ErrorAlert title={t('error.fetch')} error={fetchEpisode.error} /> : undefined}
 
             {episodes.isPending ? <PageSkeleton variant="rows" count={4} /> : undefined}
 
-            {shows.data && carried.length === 0 ? (
-                <EmptyState title="The station carries no shows yet">
-                    Look one up below and subscribe, or add a feed address on the Podcasts plugin&apos;s settings page. A show&apos;s episodes arrive
-                    here once its feed has been read.
-                </EmptyState>
-            ) : undefined}
+            {shows.data && carried.length === 0 ? <EmptyState title={t('empty.shows.title')}>{t('empty.shows.body')}</EmptyState> : undefined}
 
             {carried.length > 0 ? (
                 <Select
                     size="xs"
                     w={{ base: '100%', sm: 320 }}
-                    label="Show"
-                    data={[{ value: EVERY_SHOW, label: 'Every show' }, ...carried.map(show => ({ value: show.id, label: show.title }))]}
+                    label={t('filter.label')}
+                    data={[{ value: EVERY_SHOW, label: t('filter.every') }, ...carried.map(show => ({ value: show.id, label: show.title }))]}
                     value={showId}
                     allowDeselect={false}
                     onChange={next => {
@@ -108,11 +104,7 @@ export function PodcastsPage() {
                 />
             ) : undefined}
 
-            {episodes.data && carried.length > 0 && listed.length === 0 ? (
-                <EmptyState>
-                    The station has read no episodes yet. The feeds are read every half hour; read them now to see what they carry.
-                </EmptyState>
-            ) : undefined}
+            {episodes.data && carried.length > 0 && listed.length === 0 ? <EmptyState>{t('empty.episodes')}</EmptyState> : undefined}
 
             {listed.length > 0 ? (
                 <Stack gap="xs">
@@ -123,7 +115,7 @@ export function PodcastsPage() {
                             asking={fetchEpisode.isPending && fetchEpisode.variables === episode.id}
                             onFetch={() =>
                                 fetchEpisode.mutate(episode.id, {
-                                    onSuccess: () => notifyQueued(`Fetching ${episode.title}. It is ready to air once it arrives.`),
+                                    onSuccess: () => notifyQueued(t('episode.queued', { title: episode.title })),
                                 })
                             }
                         />
@@ -143,20 +135,30 @@ export function PodcastsPage() {
  * desk red is the transmitter. Waiting on a fetch is `standby`, the tone for waiting.
  */
 export function episodeState(episode: StationEpisode, now = Date.now()): { label: string; tone: StatusTone } {
-    if (episode.airedAt !== undefined) return { label: 'Aired', tone: 'off' };
-    if (episode.fetched) return { label: 'Ready to air', tone: 'ok' };
+    const { state, tone } = episodeStateKey(episode, now);
+    return { label: i18n.t(`podcasts:state.${state}`), tone };
+}
+
+type EpisodeStateKey = 'aired' | 'ready' | 'fetching' | 'failed' | 'unfetched';
+
+/** {@link episodeState} before it is put into words, so a caller can ask which state it is without comparing copy. */
+function episodeStateKey(episode: StationEpisode, now = Date.now()): { state: EpisodeStateKey; tone: StatusTone } {
+    if (episode.airedAt !== undefined) return { state: 'aired', tone: 'off' };
+    if (episode.fetched) return { state: 'ready', tone: 'ok' };
 
     const asked = episode.fetchRequestedAt === undefined ? undefined : Date.parse(episode.fetchRequestedAt);
-    if (asked !== undefined && now - asked < FETCHING_FOR_MS) return { label: 'Fetching', tone: 'standby' };
-    if (episode.fetchError !== undefined) return { label: 'Could not fetch', tone: 'fault' };
+    if (asked !== undefined && now - asked < FETCHING_FOR_MS) return { state: 'fetching', tone: 'standby' };
+    if (episode.fetchError !== undefined) return { state: 'failed', tone: 'fault' };
 
-    return { label: 'Not fetched', tone: 'off' };
+    return { state: 'unfetched', tone: 'off' };
 }
 
 /** One episode, with what the station has done with it and a way to ask for its audio. */
 function Episode({ episode, asking, onFetch }: { episode: StationEpisode; asking: boolean; onFetch: () => void }) {
-    const state = episodeState(episode);
-    const canFetch = !episode.fetched && state.label !== 'Fetching';
+    const { t } = useTranslation(['podcasts', 'common']);
+    const { state: key, tone } = episodeStateKey(episode);
+    const state = { label: t(`state.${key}`), tone };
+    const canFetch = !episode.fetched && key !== 'fetching';
 
     return (
         <Card padding="md">
@@ -169,7 +171,7 @@ function Episode({ episode, asking, onFetch }: { episode: StationEpisode; asking
                         <StatusLamp tone={state.tone} label={state.label} />
                         {episode.explicit === true ? (
                             <Badge size="xs" variant="outline" color="gray" tt="none">
-                                Explicit
+                                {t('episode.explicit')}
                             </Badge>
                         ) : undefined}
                         {episode.publishedAt === undefined ? undefined : (
@@ -196,30 +198,30 @@ function Episode({ episode, asking, onFetch }: { episode: StationEpisode; asking
 
                     {episode.airedAt !== undefined ? (
                         <Text size="xs" c="dimmed">
-                            Aired {formatMomentMinute(episode.airedAt, { weekday: true })}.
+                            {t('episode.airedAt', { when: formatMomentMinute(episode.airedAt, { weekday: true }) })}
                         </Text>
                     ) : episode.scheduledFor !== undefined ? (
                         <Text size="xs" c="dimmed">
-                            Wanted for {formatMomentMinute(episode.scheduledFor, { weekday: true })}.
+                            {t('episode.wantedFor', { when: formatMomentMinute(episode.scheduledFor, { weekday: true }) })}
                         </Text>
                     ) : undefined}
 
                     {episode.fetchError !== undefined && !episode.fetched ? (
                         <Text size="xs" c={severityColor.warning}>
-                            The last attempt failed: {episode.fetchError}.
+                            {t('episode.failed', { error: episode.fetchError })}
                         </Text>
                     ) : undefined}
 
                     {episode.url === undefined ? undefined : (
                         <Anchor href={episode.url} target="_blank" rel="noreferrer noopener" size="xs">
-                            The episode&apos;s page
+                            {t('episode.page')}
                         </Anchor>
                     )}
                 </Stack>
 
                 {canFetch ? (
                     <Button size="xs" variant="default" loading={asking} onClick={onFetch} style={{ flexShrink: 0 }}>
-                        {episode.fetchError === undefined ? 'Fetch now' : 'Try again'}
+                        {episode.fetchError === undefined ? t('episode.fetch') : t('common:action.tryAgain')}
                     </Button>
                 ) : undefined}
             </Group>
@@ -234,6 +236,7 @@ function Episode({ episode, asking, onFetch }: { episode: StationEpisode; asking
  * A result the station already carries says so instead of offering to subscribe again.
  */
 function Directory({ carried }: { carried: ReadonlySet<string> }) {
+    const { t } = useTranslation('podcasts');
     const [typed, setTyped] = useState('');
     const [searched, setSearched] = useState('');
     const directory = usePodcastDirectory(searched);
@@ -248,29 +251,27 @@ function Directory({ carried }: { carried: ReadonlySet<string> }) {
 
     return (
         <Stack gap="sm">
-            <Text fw={600}>Find a show</Text>
+            <Text fw={600}>{t('directory.title')}</Text>
             <form onSubmit={submit}>
                 <Group gap="xs" align="flex-end" wrap="wrap">
                     <TextInput
                         size="xs"
                         w={{ base: '100%', sm: 320 }}
-                        label="Show, publisher or subject"
-                        description="Searched in the directory the Podcasts plugin uses. What you type is sent to it."
+                        label={t('directory.label')}
+                        description={t('directory.description')}
                         value={typed}
                         onChange={event => setTyped(event.currentTarget.value)}
                     />
                     <Button size="xs" type="submit" variant="default" loading={directory.isFetching} disabled={typed.trim().length === 0}>
-                        Search
+                        {t('directory.search')}
                     </Button>
                 </Group>
             </form>
 
-            {directory.error ? <ErrorAlert title="The directory could not be searched" error={directory.error} /> : undefined}
-            {subscribe.error ? <ErrorAlert title="That show could not be subscribed to" error={subscribe.error} /> : undefined}
+            {directory.error ? <ErrorAlert title={t('directory.error')} error={directory.error} /> : undefined}
+            {subscribe.error ? <ErrorAlert title={t('directory.subscribeError')} error={subscribe.error} /> : undefined}
 
-            {directory.data && results.length === 0 ? (
-                <EmptyState>Nothing in the directory matches that. A show&apos;s exact name usually finds it.</EmptyState>
-            ) : undefined}
+            {directory.data && results.length === 0 ? <EmptyState>{t('directory.empty')}</EmptyState> : undefined}
 
             {results.length > 0 ? (
                 <Stack gap="xs">
@@ -282,8 +283,7 @@ function Directory({ carried }: { carried: ReadonlySet<string> }) {
                             subscribing={subscribe.isPending && subscribe.variables?.feedUrl === entry.feedUrl}
                             onSubscribe={() =>
                                 subscribe.mutate(entry, {
-                                    onSuccess: () =>
-                                        notifyQueued(`Subscribed to ${entry.title}. Its episodes appear here once its feed has been read.`),
+                                    onSuccess: () => notifyQueued(t('directory.subscribed', { title: entry.title })),
                                 })
                             }
                         />
@@ -305,6 +305,7 @@ function DirectoryResult({
     subscribing: boolean;
     onSubscribe: () => void;
 }) {
+    const { t } = useTranslation('podcasts');
     return (
         <Card padding="sm">
             <Group justify="space-between" align="center" wrap="nowrap" gap="md">
@@ -322,10 +323,10 @@ function DirectoryResult({
                     </Text>
                 </Stack>
                 {subscribed ? (
-                    <StatusLamp tone="ok" label="Subscribed" />
+                    <StatusLamp tone="ok" label={t('directory.subscribedLamp')} />
                 ) : (
                     <Button size="xs" variant="default" loading={subscribing} onClick={onSubscribe} style={{ flexShrink: 0 }}>
-                        Subscribe
+                        {t('directory.subscribe')}
                     </Button>
                 )}
             </Group>

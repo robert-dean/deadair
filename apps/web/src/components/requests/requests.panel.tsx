@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Button, Group, SegmentedControl, Stack, Table, Text, TextInput } from '@mantine/core';
 import type { ListenerRequest, RequestStatus } from '@deadair/sdk';
+import type { TFunction } from 'i18next';
+import { useTranslation } from 'react-i18next';
 
 import { useDeclineRequest, useGrantRequest, useRequests } from '../../api/requests.queries';
 import { sdkError } from '../../api/sdk.error';
@@ -13,14 +15,14 @@ import { PageSkeleton } from '../shared/page.skeleton';
 import type { StatusTone } from '../shared/status';
 import { StatusLamp } from '../shared/status.lamp';
 
-/** A state in the station's words, and the tone it is drawn in. */
-const STATUS: Record<RequestStatus, { label: string; tone: StatusTone }> = {
-    waiting: { label: 'Needs a decision', tone: 'fault' },
-    pending: { label: 'On its way', tone: 'standby' },
-    queued: { label: 'In the running order', tone: 'ok' },
-    aired: { label: 'Played', tone: 'off' },
-    declined: { label: 'Declined', tone: 'off' },
-    expired: { label: 'Lapsed', tone: 'off' },
+/** The tone a state is drawn in. Its words are `requests:status.<state>`. */
+const STATUS_TONE: Record<RequestStatus, StatusTone> = {
+    waiting: 'fault',
+    pending: 'standby',
+    queued: 'ok',
+    aired: 'off',
+    declined: 'off',
+    expired: 'off',
 };
 
 const OPEN: readonly RequestStatus[] = ['waiting', 'pending', 'queued'];
@@ -40,11 +42,12 @@ type Filter = 'open' | 'all';
  * Rotation. An operator's list: somebody without the role sees a sentence rather than an error.
  */
 export function RequestsPanel() {
+    const { t } = useTranslation('requests');
     const requests = useRequests();
     const [filter, setFilter] = useState<Filter>('open');
 
     if (sdkError(requests.error)?.status === 403) {
-        return <EmptyState>Listener requests are for the station’s operators to decide on.</EmptyState>;
+        return <EmptyState>{t('forbidden')}</EmptyState>;
     }
     if (requests.isPending) return <PageSkeleton variant="rows" count={4} />;
 
@@ -53,32 +56,30 @@ export function RequestsPanel() {
 
     return (
         <Stack gap="md">
-            {requests.error ? (
-                <ErrorAlert title="Requests unavailable" error={requests.error} fallback="The station could not list its requests." />
-            ) : undefined}
+            {requests.error ? <ErrorAlert title={t('error.title')} error={requests.error} fallback={t('error.fallback')} /> : undefined}
             <Group justify="space-between">
                 <Text size="sm" c="dimmed">
-                    Records listeners asked for, from an app or a chat. Who may ask and how often is under Settings, Rotation.
+                    {t('description')}
                 </Text>
                 <SegmentedControl
                     size="xs"
                     value={filter}
                     onChange={value => setFilter(value as Filter)}
                     data={[
-                        { value: 'open', label: 'Open' },
-                        { value: 'all', label: 'Recent' },
+                        { value: 'open', label: t('filter.open') },
+                        { value: 'all', label: t('filter.all') },
                     ]}
                 />
             </Group>
             {shown.length === 0 ? (
-                <EmptyState>{filter === 'open' ? 'Nobody is waiting on a request.' : 'Nobody has asked for anything lately.'}</EmptyState>
+                <EmptyState>{filter === 'open' ? t('empty.open') : t('empty.all')}</EmptyState>
             ) : (
                 <Table>
                     <Table.Thead>
                         <Table.Tr>
-                            <Table.Th>Record</Table.Th>
-                            <Table.Th>Asked by</Table.Th>
-                            <Table.Th>State</Table.Th>
+                            <Table.Th>{t('column.record')}</Table.Th>
+                            <Table.Th>{t('column.askedBy')}</Table.Th>
+                            <Table.Th>{t('column.state')}</Table.Th>
                             <Table.Th />
                         </Table.Tr>
                     </Table.Thead>
@@ -94,12 +95,12 @@ export function RequestsPanel() {
 }
 
 function RequestRow({ request }: { request: ListenerRequest }) {
+    const { t } = useTranslation('requests');
     const grant = useGrantRequest();
     const decline = useDeclineRequest();
     const [declining, setDeclining] = useState(false);
     const [reason, setReason] = useState('');
-    const status = STATUS[request.status];
-    const record = `${request.title} by ${request.artist}`;
+    const record = t('row.record', { title: request.title, artist: request.artist });
 
     return (
         <Table.Tr>
@@ -112,22 +113,24 @@ function RequestRow({ request }: { request: ListenerRequest }) {
                     // The listener's own words, shown as theirs so an operator can decide on them before
                     // the presenter passes them on. Never reached by anything the station says itself.
                     <Text size="xs" fs="italic">
-                        {`${request.dedicateTo === undefined ? 'Dedicated' : `For ${request.dedicateTo}`}${request.message === undefined ? '' : `: “${request.message}”`}`}
+                        {dedication(request, t)}
                     </Text>
                 ) : undefined}
             </Table.Td>
             <Table.Td>
                 <Text size="sm">{request.requesterName}</Text>
-                <Text size="xs" c="dimmed">{`${request.source === 'chat' ? 'From a chat' : 'From an app'}, ${formatDate(request.createdAt)}`}</Text>
+                <Text size="xs" c="dimmed">
+                    {t(request.source === 'chat' ? 'row.fromChat' : 'row.fromApp', { date: formatDate(request.createdAt) })}
+                </Text>
             </Table.Td>
             <Table.Td>
-                <StatusLamp tone={status.tone} label={status.label} />
+                <StatusLamp tone={STATUS_TONE[request.status]} label={t(`status.${request.status}`)} />
                 {request.reason ? (
                     <Text size="xs" c="dimmed">
                         {request.reason}
                     </Text>
                 ) : undefined}
-                {grant.error ? <ErrorAlert title="Not granted" error={grant.error} fallback="The request is as it was." /> : undefined}
+                {grant.error ? <ErrorAlert title={t('grant.error')} error={grant.error} fallback={t('unchanged')} /> : undefined}
             </Table.Td>
             <Table.Td>
                 <Group gap="xs" justify="flex-end" wrap="nowrap">
@@ -136,14 +139,14 @@ function RequestRow({ request }: { request: ListenerRequest }) {
                             size="compact-sm"
                             variant="light"
                             loading={grant.isPending}
-                            onClick={() => void grant.mutateAsync(request.id).then(() => notifyDone(`${record} is on its way.`))}
+                            onClick={() => void grant.mutateAsync(request.id).then(() => notifyDone(t('grant.done', { record })))}
                         >
-                            Grant
+                            {t('grant.action')}
                         </Button>
                     ) : undefined}
                     {request.status === 'waiting' || request.status === 'pending' ? (
                         <Button size="compact-sm" variant="subtle" color="red" onClick={() => setDeclining(true)}>
-                            Decline
+                            {t('decline.action')}
                         </Button>
                     ) : undefined}
                 </Group>
@@ -153,21 +156,21 @@ function RequestRow({ request }: { request: ListenerRequest }) {
                     onConfirm={() =>
                         void decline.mutateAsync({ id: request.id, reason }).then(() => {
                             setDeclining(false);
-                            notifyDone(`${record} declined.`);
+                            notifyDone(t('decline.done', { record }));
                         })
                     }
-                    title={`Decline ${record}?`}
-                    confirmLabel="Decline"
+                    title={t('decline.title', { record })}
+                    confirmLabel={t('decline.action')}
                     confirming={decline.isPending}
                     error={decline.error}
-                    errorTitle="Not declined"
-                    errorFallback="The request is as it was."
+                    errorTitle={t('decline.error')}
+                    errorFallback={t('unchanged')}
                 >
                     <Stack gap="xs">
-                        <Text size="sm">{`${request.requesterName} is told it will not be played${request.source === 'chat' ? ', in the chat they asked from' : ''}.`}</Text>
+                        <Text size="sm">{t(request.source === 'chat' ? 'decline.toldInChat' : 'decline.told', { name: request.requesterName })}</Text>
                         <TextInput
-                            label="What to tell them"
-                            placeholder="Not tonight."
+                            label={t('decline.reason.label')}
+                            placeholder={t('decline.reason.placeholder')}
                             value={reason}
                             onChange={event => setReason(event.currentTarget.value)}
                             maxLength={400}
@@ -177,4 +180,14 @@ function RequestRow({ request }: { request: ListenerRequest }) {
             </Table.Td>
         </Table.Tr>
     );
+}
+
+/** The listener's dedication and message, in one sentence however much of it they filled in. */
+function dedication(request: ListenerRequest, t: TFunction<'requests'>): string {
+    if (request.dedicateTo === undefined) {
+        return request.message === undefined ? t('dedication.plain') : t('dedication.message', { message: request.message });
+    }
+    return request.message === undefined
+        ? t('dedication.to', { name: request.dedicateTo })
+        : t('dedication.toWithMessage', { name: request.dedicateTo, message: request.message });
 }

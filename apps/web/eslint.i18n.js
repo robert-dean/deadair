@@ -28,6 +28,18 @@ export const TRANSLATED = [
     'src/components/playout/**',
     'src/components/playlists/**',
     'src/components/pads/**',
+    'src/components/activity/**',
+    'src/components/narrations/**',
+    'src/components/news/**',
+    'src/components/phrasings/**',
+    'src/components/podcasts/**',
+    'src/components/productions/**',
+    'src/components/pronunciations/**',
+    'src/components/requests/**',
+    'src/components/scripts/**',
+    'src/components/segments/**',
+    'src/components/voice/**',
+    'src/components/voices/**',
 ];
 
 /**

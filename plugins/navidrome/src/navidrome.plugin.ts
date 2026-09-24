@@ -31,6 +31,7 @@ import {
     EVERYTHING_PLAYLIST_ID,
     EVERYTHING_PLAYLIST_NAME,
     MAX_PAGE_SIZE,
+    PLAYLIST_MEMO_TTL_MS,
     type NavidromeConfig,
 } from './navidrome.manifest.js';
 import { selectSong } from './navidrome.match.js';
@@ -89,6 +90,11 @@ const MIME_TYPES: Record<string, string> = { mp3: 'audio/mpeg', opus: 'audio/ogg
 export class NavidromePlugin extends Plugin implements MusicProviderPluginInstance {
     private client?: SubsonicClient;
     private config?: NavidromeConfig;
+    /**
+     * One playlist's entries, fetched once per walk. A promise rather than the list, so a sync and a
+     * changeover reading the same playlist at once share one fetch. See `PLAYLIST_MEMO_TTL_MS`.
+     */
+    private readonly memo = new Map<string, { entries: Promise<SubsonicChild[]>; at: number }>();
 
     protected async onLoad(): Promise<void> {
         const config = configSchema.parse(await this.host.config.get()) as NavidromeConfig;
@@ -97,6 +103,7 @@ export class NavidromePlugin extends Plugin implements MusicProviderPluginInstan
 
         this.config = config;
         this.client = new SubsonicClient(this.host, config.baseUrl, new SubsonicAuth(config.username, password));
+        this.register(() => this.memo.clear());
         this.host.logger.info('navidrome ready', { server: config.baseUrl, user: config.username });
     }
 
@@ -201,15 +208,34 @@ export class NavidromePlugin extends Plugin implements MusicProviderPluginInstan
     async getPlaylistTracks(playlistId: string, options?: GetPlaylistTracksOptions): Promise<ProviderTrack[]> {
         if (playlistId === EVERYTHING_PLAYLIST_ID) return this.everything(options);
 
-        const body = await this.require().get<PlaylistResponse>('getPlaylist.view', { id: playlistId });
-
         // `getPlaylist` has no offset or count of its own: it returns every entry,
         // however long the playlist is. The page the caller asked for is taken from
-        // what came back rather than pretended at.
-        const entries = body.playlist?.entry ?? [];
+        // what came back rather than pretended at, and what came back is kept for the
+        // pages after it.
+        const entries = await this.entriesOf(playlistId);
         const offset = options?.offset ?? 0;
         const limit = clampCount(options?.limit);
         return this.toTracks(limit === undefined ? entries.slice(offset) : entries.slice(offset, offset + limit));
+    }
+
+    /** A playlist's entries, from the memo while a walk over it is still reading. */
+    private async entriesOf(playlistId: string): Promise<SubsonicChild[]> {
+        const now = Date.now();
+        const cached = this.memo.get(playlistId);
+        if (cached && now - cached.at < PLAYLIST_MEMO_TTL_MS) {
+            cached.at = now;
+            return await cached.entries;
+        }
+
+        const entries = this.require()
+            .get<PlaylistResponse>('getPlaylist.view', { id: playlistId })
+            .then(body => body.playlist?.entry ?? []);
+        this.memo.set(playlistId, { entries, at: now });
+        // A failed fetch is not remembered: the next page asks the server again.
+        entries.catch(() => {
+            if (this.memo.get(playlistId)?.entries === entries) this.memo.delete(playlistId);
+        });
+        return await entries;
     }
 
     /**

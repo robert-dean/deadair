@@ -20,12 +20,14 @@
  * of its six lines has a typo in it. The generator already reports this for what a MODEL writes; all
  * this does is give an operator writing their own the same courtesy.
  *
+ * It imports nothing, and that is load-bearing: the API's test imports this file to hold the two
+ * copies together, so anything it pulled in (the console's catalog included) would have to resolve in
+ * the API's build too. It says WHICH fault a line has, and the editor puts that into words.
+ *
  * Nothing here refuses a save. The API accepts any text and the check is advisory by design: a
  * console that blocked on its own copy of a vocabulary would be a console that stops working the day
  * the station learns a new placeholder.
  */
-
-import { i18n } from '../../i18n/i18n.setup';
 
 /**
  * Every placeholder the station can fill in, in the order `break.templates.ts` declares them.
@@ -89,6 +91,9 @@ export function hasStrayBracket(template: string): boolean {
     return /[[\]]/.test(template.replace(/\[\[.*?\]\]/gs, ''));
 }
 
+/** What is wrong with a phrasing, as the editor names it. */
+export type TemplateFault = { kind: 'unknown'; placeholders: string[] } | { kind: 'strayBracket' } | { kind: 'noPlaceholder' };
+
 /**
  * What is wrong with one phrasing, or nothing.
  *
@@ -96,14 +101,12 @@ export function hasStrayBracket(template: string): boolean {
  * operator typed is held to the same standard. A phrasing with NO placeholder at all is included,
  * because a fixed sentence said on every break is the one failure here a listener notices.
  */
-export function faultInTemplate(template: string): string | undefined {
+export function faultInTemplate(template: string): TemplateFault | undefined {
     const unknown = unknownPlaceholders(template);
-    if (unknown.length > 0) {
-        return i18n.t('personas:template.unknown', { placeholders: unknown.map(name => `{{${name}}}`).join(', ') });
-    }
+    if (unknown.length > 0) return { kind: 'unknown', placeholders: unknown };
 
-    if (hasStrayBracket(template)) return i18n.t('personas:template.strayBracket');
-    if (!template.includes('{{')) return i18n.t('personas:template.noPlaceholder');
+    if (hasStrayBracket(template)) return { kind: 'strayBracket' };
+    if (!template.includes('{{')) return { kind: 'noPlaceholder' };
 
     return undefined;
 }

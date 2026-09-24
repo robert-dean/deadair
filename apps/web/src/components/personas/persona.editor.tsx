@@ -33,7 +33,7 @@ import { useVoicePreview } from '../voices/voice.preview';
 import { suggestAirName } from './air.names';
 import { personaKeyFor } from './persona.key';
 import { PersonaRehearsalPanel } from './persona.rehearsal';
-import { faultInTemplate, templateLines } from './template.vocabulary';
+import { faultInTemplate, templateLines, type TemplateFault } from './template.vocabulary';
 import { ConfirmModal } from '../shared/confirm.modal';
 import { ErrorAlert } from '../shared/error.alert';
 import { Eyebrow } from '../shared/eyebrow';
@@ -844,6 +844,18 @@ function Section({ title, blurb }: { title: string; blurb: string }) {
     );
 }
 
+/** A template fault in the operator's words. `template.vocabulary.ts` only names the kind. */
+function faultWords(t: TFunction<'personas'>, fault: TemplateFault): string {
+    switch (fault.kind) {
+        case 'unknown':
+            return t('template.unknown', { placeholders: fault.placeholders.map(name => `{{${name}}}`).join(', ') });
+        case 'strayBracket':
+            return t('template.strayBracket');
+        case 'noPlaceholder':
+            return t('template.noPlaceholder');
+    }
+}
+
 /**
  * What the station could not use in the phrasings box, line by line.
  *
@@ -859,7 +871,8 @@ function TemplateFaults({ raw }: { raw: string }) {
     const { t } = useTranslation('personas');
     const faults = templateLines(raw)
         .map(line => ({ line, fault: faultInTemplate(line) }))
-        .filter((entry): entry is { line: string; fault: string } => entry.fault !== undefined);
+        .filter((entry): entry is { line: string; fault: TemplateFault } => entry.fault !== undefined)
+        .map(({ line, fault }) => ({ line, fault: faultWords(t, fault) }));
 
     if (faults.length === 0) return undefined;
 

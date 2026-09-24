@@ -70,6 +70,10 @@ German station can have an English console and the reverse, and the two must nev
   `i18n.t` from `i18n.setup.ts`, and a table's labels are getters, so they are looked up when drawn
   and not fixed in whichever language the console started in. Spreading such an object copies the
   words once; read the property instead.
+- **A file another package imports takes no catalog.** `personas/template.vocabulary.ts` is imported by
+  the API's own test, which holds its copy of the placeholder list against the station's, so it must
+  import nothing: pulling in `i18n.setup.ts` broke the API's typecheck. It returns which fault a line
+  has, and the editor words it.
 - **A new folder under `src/components` gets its own namespace.** Create `src/i18n/en/<folder>.catalog.ts`
   as an `as const` object, then register it in `en.catalog.ts`. Nest keys by component, then by meaning.
 - **Another namespace's key** needs both named: `useTranslation(['<ns>', 'common'])`, or `t` rejects

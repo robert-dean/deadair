@@ -34,7 +34,7 @@ const trx = { getExecutor: () => executor };
  * records every `override` so the test can see what the scope was pointing at when the
  * after-commit tasks ran, which is the part that would otherwise fail silently.
  */
-function request(options: { rollback?: boolean; exempt?: boolean } = {}) {
+function request(options: { rollback?: boolean; exempt?: boolean; hangUp?: boolean } = {}) {
     const afterCommit = new AfterCommit();
     const pooled = { id: 'root-provider' } as unknown as PgBossConnectionProvider;
     const db = {
@@ -47,13 +47,25 @@ function request(options: { rollback?: boolean; exempt?: boolean } = {}) {
     } as unknown as Kysely<DB>;
 
     const overrides: [unknown, unknown][] = [];
+    // Stands for ServerKit's scope, which it disposes when the response closes. `hangUp` closes it
+    // part-way through the handler, the way a client giving up does.
+    const res = { closed: false };
+    let disposed = false;
     const container = {
         get: (token: unknown) => {
+            if (disposed) throw new Error('Cannot resolve from a disposed container');
             if (token === AfterCommit) return afterCommit;
             if (token === PgBossConnectionProvider) return pooled;
             return db;
         },
-        override: (token: unknown, value: unknown) => overrides.push([token, value]),
+        override: (token: unknown, value: unknown) => {
+            if (disposed) throw new Error('Cannot override a registration in a disposed container');
+            overrides.push([token, value]);
+        },
+        hangUp: () => {
+            res.closed = true;
+            disposed = true;
+        },
     };
 
     return {
@@ -63,6 +75,7 @@ function request(options: { rollback?: boolean; exempt?: boolean } = {}) {
             requestId: 'req-1',
             ipAddress: '127.0.0.1',
             container,
+            res,
         },
         afterCommit,
         overrides,
@@ -73,6 +86,41 @@ function request(options: { rollback?: boolean; exempt?: boolean } = {}) {
 
 const run = async (harness: ReturnType<typeof request>, handler: () => Promise<void> = async () => {}) =>
     auditContextMiddleware()(harness.ctx as never, handler);
+
+describe('auditContextMiddleware when the client hangs up mid-request', () => {
+    // On 24 September Liquidsoap gave up on a segment's audio past its own time limit. ServerKit
+    // disposed the request's scope when the socket closed, and the `finally` below the handler then
+    // threw pointing a disposed scope back at the pool: a logged 500 on a request that had worked.
+    it('does not fail the request over a scope that is already gone', async () => {
+        const harness = request();
+
+        await expect(run(harness, async () => harness.ctx.container.hangUp())).resolves.toBeUndefined();
+    });
+
+    it('still runs the work registered before the hang-up, since the transaction committed', async () => {
+        const harness = request();
+        const task = vi.fn(async () => {});
+
+        await run(harness, async () => {
+            harness.afterCommit.add(task);
+            harness.ctx.container.hangUp();
+        });
+
+        expect(task).toHaveBeenCalledTimes(1);
+    });
+
+    it('does the same on a route with no transaction', async () => {
+        const harness = request({ exempt: true });
+        const task = vi.fn(async () => {});
+
+        await run(harness, async () => {
+            harness.afterCommit.add(task);
+            harness.ctx.container.hangUp();
+        });
+
+        expect(task).toHaveBeenCalledTimes(1);
+    });
+});
 
 describe('auditContextMiddleware after-commit work', () => {
     it('runs a registered task once the transaction has committed', async () => {

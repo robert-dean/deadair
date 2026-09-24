@@ -374,6 +374,8 @@ describe('spoken', () => {
         // A reissue series, as the conspiracy host's audition read it out.
         ['Tornado Of Souls - 2004 Remix', 'Tornado Of Souls'],
         ['Hangar 18 (2004 Remix)', 'Hangar 18'],
+        // The year hung off a dash of its own, which aired as "Paranoid - 2012".
+        ['Paranoid - 2012 - Remaster', 'Paranoid'],
     ])('drops catalogue furniture from %s', (filed, read) => {
         expect(spoken(filed)).toBe(read);
     });
@@ -383,6 +385,8 @@ describe('spoken', () => {
         ["(Don't Fear) The Reaper", "(Don't Fear) The Reaper"],
         ['Empire State of Mind (feat. Alicia Keys)', 'Empire State of Mind (feat. Alicia Keys)'],
         ['Sgt. Pepper - Reprise', 'Sgt. Pepper - Reprise'],
+        // A year that is not in front of catalogue furniture is left where it is.
+        ['Summer - 1969 - Live Edit', 'Summer - 1969 - Live Edit'],
         // A different recording, and the remixer is the reason it was picked.
         ['Bizarre Love Triangle (Shep Pettibone Remix)', 'Bizarre Love Triangle (Shep Pettibone Remix)'],
         ['Marquee Moon', 'Marquee Moon'],

@@ -16,6 +16,7 @@ import { Rundown, type RundownItem, type RundownTrack } from '#modules/playout/r
 import { PersonaRepository } from '#modules/personas/persona.repository.js';
 import type { Persona } from '#modules/personas/persona.js';
 import { ProductionRepository } from '#modules/productions/production.repository.js';
+import type { Production } from '#modules/productions/production.js';
 import { ProductionScheduler } from '#modules/productions/production.scheduler.js';
 import { NarrationPieceRepository } from '#modules/narrations/narration.piece.repository.js';
 import { PersonaTellingRepository } from '#modules/personas/persona.telling.repository.js';
@@ -32,6 +33,7 @@ import { inScope } from '#modules/shared/scoped.work.js';
 import { ScrobbleService } from '#modules/scrobble/scrobble.service.js';
 import type { ScrobblePlay } from '@deadair/plugin-sdk';
 import { brokenClaim } from './break.claims.js';
+import { PRODUCTION_SHELF_LIFE_MS, productionExpired } from './production.shelf.js';
 import { BreakPlanner, expiryFor, type AirClock } from './break.planner.js';
 import { isRenderedFirst, type BreakRequest, type BreakRequestResult, type StoredBreakRequest } from './break.request.js';
 import { BreakRequestRepository } from './break.request.repository.js';
@@ -232,6 +234,9 @@ function onAirName(persona?: Persona): string | undefined {
  * before its caller is answered, because the response says it happened.
  */
 const PERSIST_THROTTLE_MS = 2_000;
+
+/** What a production the shelf life retired carries as its error. See `production.shelf.ts`. */
+const EXPIRED_PRODUCTION = 'it was made too long ago to air: what it says about the time of day is no longer true';
 
 /**
  * The music director: the actor that keeps the station's running order full,
@@ -1039,6 +1044,16 @@ export class DirectorService {
                 let placed = 0;
 
                 for (const production of waiting) {
+                    // Too old to air, whatever state it reached. A programme that missed its hour
+                    // says things about the time of day that are no longer true, and one that has
+                    // sat unfinished since yesterday was never going to be the right thing to put on.
+                    // A reading is exempt: it is carried to the slot an operator gave it, and its
+                    // words are an author's, not the station's. See `production.shelf.ts`.
+                    if (!isNarrationKind(production.kind) && productionExpired(production, Date.now())) {
+                        if (await productions.fail(production.id, EXPIRED_PRODUCTION)) this.reportExpiredProduction(production.id, production.title);
+                        continue;
+                    }
+
                     const beats = await segments.beatsOf(production.id);
                     if (beats.length === 0) continue;
 
@@ -1782,6 +1797,17 @@ export class DirectorService {
         void this.reopenPromises(dropped.map(item => item.id));
         await this.commit();
         return result;
+    }
+
+    /** Say that a produced programme was too old to air. The one sentence both halves of the shelf life share. */
+    private reportExpiredProduction(productionId: string, title: string): void {
+        this.logger.info('director: a production is too old to air, so it will not be', { production: productionId, title });
+        void this.activity.record({
+            module: 'director',
+            kind: 'production.expired',
+            detail: `"${title}" was not aired: it was made more than ${PRODUCTION_SHELF_LIFE_MS / 60_000} minutes ago, and what it says about the time of day is no longer true.`,
+            data: { productionId },
+        });
     }
 
     /**
@@ -2739,6 +2765,20 @@ export class DirectorService {
                 ? new Set<string>()
                 : new Set((await inScope(this.container, async scope => scope.get(CandidatesRepository).bindingsFor(catalogued))).keys());
 
+        // The productions any of these beats belong to, for their age. See `production.shelf.ts`: a
+        // programme placed in the order can sit there for as long as nobody is listening, and the
+        // placement check cannot see that. Asked once for the batch, and an empty answer on failure,
+        // which costs the check and never the programme.
+        const groups = [...new Set(items.flatMap(item => (item.kind === 'segment' && item.groupId !== undefined ? [item.groupId] : [])))];
+        const productions =
+            groups.length === 0
+                ? new Map<string, Production>()
+                : await inScope(this.container, async scope => scope.get(ProductionRepository).findByIds(groups)).catch(error => {
+                      this.logger.warn(`director: could not read the productions in this batch (${errorText(error)})`);
+                      return new Map<string, Production>();
+                  });
+        const expired = new Set<string>();
+
         // The cover each record should be shown with, as the station itself can serve it.
         const artwork = await this.stationArtwork(items);
         // And the picture each KIND of break wears, resolved on the same pass and for the same
@@ -2821,6 +2861,19 @@ export class DirectorService {
                     detail: `A break was passed over at its slot because it is ${segment?.state ?? 'no longer in the library'}.`,
                     data: { segmentId: item.segmentId, state: segment?.state ?? 'gone' },
                 });
+                skipped.push(item.id);
+                continue;
+            }
+
+            // A programme that has outlived its hour in the order, which is the half of the shelf life
+            // the placement check cannot see: it was placed fresh, and nobody tuned in for thirteen
+            // hours. Every member of it goes, so the block fallback never airs half a phone-in.
+            const production = item.groupId === undefined ? undefined : productions.get(item.groupId);
+            if (production !== undefined && productionExpired(production, Date.now())) {
+                if (!expired.has(production.id)) {
+                    expired.add(production.id);
+                    this.reportExpiredProduction(production.id, production.title);
+                }
                 skipped.push(item.id);
                 continue;
             }

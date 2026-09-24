@@ -152,7 +152,7 @@ interface Options {
      * Empty by default, so the commit pass's injection step is a no-op unless a test says
      * otherwise.
      */
-    productions?: { id: string; kind: string; title: string; state: string }[];
+    productions?: { id: string; kind: string; title: string; state: string; createdAt?: number }[];
     /** Their beats, as `SegmentRepository.beatsOf` answers them, keyed by production id. */
     beats?: Record<string, { id: string; state: string }[]>;
     /** Which productions have been joined into one row, keyed by production id. */
@@ -218,8 +218,15 @@ function build(options: Options = {}) {
     // partial index over the states that are not settled. Without that, one commit pass places an
     // episode and the next one places it again.
     const aired = new Set<string>();
+    // Made just now unless a test says otherwise, so the shelf life (`production.shelf.ts`) is
+    // something a test opts into rather than something every placement test has to step around.
+    const made = (options.productions ?? []).map(production => ({ ...production, createdAt: production.createdAt ?? Date.now() }));
     const productions = {
-        unfinished: vi.fn(async () => (options.productions ?? []).filter(production => !aired.has(production.id))),
+        unfinished: vi.fn(async () => made.filter(production => !aired.has(production.id))),
+        findByIds: vi.fn(
+            async (ids: readonly string[]) =>
+                new Map(made.filter(production => ids.includes(production.id)).map(production => [production.id, production])),
+        ),
         moveTo: vi.fn(async (id: string, to: string) => {
             if (to === 'aired') aired.add(id);
             return true;
@@ -2468,6 +2475,99 @@ describe('DirectorService placing a finished production', () => {
         await settle();
 
         expect(productions.fail).toHaveBeenCalledWith('prod-1', expect.stringContaining('could not be spoken'));
+    });
+});
+
+// On 24 September the station went on air at 07:24 with a phone-in made at 17:55 the evening
+// before, and followed it with one made at 02:02 that opened "Callin Thursday evening". Nothing aged
+// a production out, so one that missed its audience waited, in the order or in the queue, for the
+// next one. See `production.shelf.ts`.
+describe('DirectorService and a production past its shelf life', () => {
+    const READY_BEATS = { 'prod-1': [{ id: 'beat-1', state: 'ready' }] };
+    const TWO_HOURS_AGO = () => Date.now() - 2 * 60 * 60_000;
+
+    it('fails one that is too old to place, rather than putting it in the order', async () => {
+        const { director, lineup, productions, activity, seed } = build({
+            productions: [{ id: 'prod-1', kind: 'callin', title: 'Late line', state: 'ready', createdAt: TWO_HOURS_AGO() }],
+            beats: READY_BEATS,
+            joined: { 'prod-1': { id: 'joined-1' } },
+        });
+        await seed();
+        await director.start();
+        await settle();
+
+        expect(productions.fail).toHaveBeenCalledWith('prod-1', expect.stringContaining('too long ago to air'));
+        expect(lineup.all().some(item => item.kind === 'segment' && item.groupId === 'prod-1')).toBe(false);
+        expect(activity.record).toHaveBeenCalledWith(expect.objectContaining({ kind: 'production.expired', data: { productionId: 'prod-1' } }));
+    });
+
+    it('fails one that has sat unfinished past its hour, instead of waiting on it forever', async () => {
+        const { director, productions, jobs, seed } = build({
+            productions: [{ id: 'prod-1', kind: 'callin', title: 'Late line', state: 'rendering', createdAt: TWO_HOURS_AGO() }],
+            beats: READY_BEATS,
+        });
+        await seed();
+        await director.start();
+        await settle();
+
+        expect(productions.fail).toHaveBeenCalledWith('prod-1', expect.stringContaining('too long ago to air'));
+        expect(jobs.send).not.toHaveBeenCalledWith('render.stitch_production', { productionId: 'prod-1' });
+    });
+
+    it('still places one made within the hour', async () => {
+        const { director, lineup, productions, seed } = build({
+            productions: [{ id: 'prod-1', kind: 'callin', title: 'Late line', state: 'ready', createdAt: Date.now() - 20 * 60_000 }],
+            beats: READY_BEATS,
+            joined: { 'prod-1': { id: 'joined-1' } },
+        });
+        await seed();
+        await director.start();
+        await settle();
+
+        expect(productions.fail).not.toHaveBeenCalled();
+        expect(lineup.all().some(item => item.kind === 'segment' && item.groupId === 'prod-1')).toBe(true);
+    });
+
+    it('does not hand the player one that was placed fresh and outlived its hour in the order', async () => {
+        // The half the placement check cannot see, and the one that aired: placed within minutes of
+        // being made, then nobody listened until the next morning.
+        const harness = build({
+            items: ['a', 'b'],
+            segments: [],
+            productions: [{ id: 'prod-1', kind: 'callin', title: 'Late line', state: 'aired', createdAt: TWO_HOURS_AGO() }],
+        });
+        await harness.seed();
+        harness.lineup.insertGroup('prod-1', [{ segmentId: 'joined-1' }], 1, 'callin');
+        const segment = { id: 'joined-1', kind: 'callin', state: 'ready', label: 'Late line', source: 'render' };
+        harness.segmentStub.findByIds = vi.fn(async (ids: readonly string[]) =>
+            ids.includes('joined-1') ? new Map([['joined-1', segment as never]]) : new Map(),
+        );
+
+        await harness.director.start();
+        await settle();
+
+        expect(harness.rundown.upcoming().every(item => item.externalId !== 'joined-1')).toBe(true);
+        expect(harness.rundown.upcoming().map(item => item.externalId)).toEqual(['a']);
+        expect(harness.activity.record).toHaveBeenCalledWith(expect.objectContaining({ kind: 'production.expired' }));
+    });
+
+    it('hands the player one still inside its hour', async () => {
+        const harness = build({
+            items: ['a', 'b'],
+            segments: [],
+            productions: [{ id: 'prod-1', kind: 'callin', title: 'Late line', state: 'aired' }],
+        });
+        await harness.seed();
+        harness.lineup.insertGroup('prod-1', [{ segmentId: 'joined-1' }], 1, 'callin');
+        const segment = { id: 'joined-1', kind: 'callin', state: 'ready', label: 'Late line', source: 'render' };
+        harness.segmentStub.findByIds = vi.fn(async (ids: readonly string[]) =>
+            ids.includes('joined-1') ? new Map([['joined-1', segment as never]]) : new Map(),
+        );
+
+        await harness.director.start();
+        await settle();
+
+        expect(harness.rundown.upcoming().some(item => item.externalId === 'joined-1')).toBe(true);
     });
 });
 

@@ -264,6 +264,17 @@ const VALUES: Record<string, Resolver> = {
     'show.name': inputs => inputs.show,
 };
 
+/**
+ * The placeholders the station fills with its OWN words, which arrive lowercase.
+ *
+ * "good morning" and "just after nine" are phrases, written to sit mid-sentence, and the phrasings
+ * that open with one ("[[{{greeting}}. ]]Thanks for joining us") aired "good afternoon. Thanks for
+ * joining us" in lowercase for as long as the welcome existed. So these, and only these, are given a
+ * capital where they open a sentence. A title or a credit is never touched: "k.d. lang" opening a
+ * line is how she spells it.
+ */
+const PHRASE_VALUES: readonly string[] = ['greeting', 'clock.rough'];
+
 /** Which placeholders are read out loud, and so go through {@link spoken}. */
 const SPOKEN_VALUES = new Set(Object.keys(VALUES).filter(key => key.startsWith('previous.') || key.startsWith('next.')));
 
@@ -488,7 +499,7 @@ export function renderTemplate(template: string, inputs: TemplateInputs, spoken:
         return '';
     });
 
-    const script = (fill(withChunks, false) ?? '').replace(/\s{2,}/g, ' ').trim();
+    const script = sentenceCase((fill(withChunks, false) ?? '').replace(/\s{2,}/g, ' ').trim(), inputs);
     // Empty is refused, and so is a script with nothing in it but punctuation — which is not the
     // same check and is reachable in one obvious way: a phrasing whose every part is optional. Drop
     // all of its chunks and what is left is the joinery, so `[[{{station.name}}]] — [[{{next.title}}]].`
@@ -502,6 +513,23 @@ export function renderTemplate(template: string, inputs: TemplateInputs, spoken:
     const refrain = opening.length > 0 ? undefined : refrainOf(template);
 
     return { template, script, opening, ...(refrain === undefined ? {} : { refrain }), saysPrevious, saysNext };
+}
+
+/**
+ * Capitalise each of the station's own phrases where it opens a sentence. See {@link PHRASE_VALUES}.
+ *
+ * Done on the finished script rather than while filling, because whether a value opens a sentence
+ * depends on what the chunks before it came to, which is not known until they have all been filled.
+ */
+function sentenceCase(script: string, inputs: TemplateInputs): string {
+    return PHRASE_VALUES.reduce((text, name) => {
+        const phrase = VALUES[name]?.(inputs)?.trim();
+        if (phrase === undefined || phrase.length === 0) return text;
+
+        const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const capital = phrase.charAt(0).toUpperCase() + phrase.slice(1);
+        return text.replace(new RegExp(`(^|[.?!…]\\s+)${escaped}`, 'g'), (_, lead: string) => lead + capital);
+    }, script);
 }
 
 /**

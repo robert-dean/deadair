@@ -85,6 +85,18 @@ export class ProductionRepository extends DataRepository {
         return row === undefined ? undefined : toProduction(row);
     }
 
+    /** Several productions at once, by id, for a caller holding a batch of them. Missing ids are simply absent. */
+    async findByIds(ids: readonly string[]): Promise<Map<string, Production>> {
+        if (ids.length === 0) return new Map();
+
+        const rows = await this.db
+            .selectFrom('deadair.productions')
+            .selectAll()
+            .where('id', 'in', [...ids])
+            .execute();
+        return new Map(rows.map(row => [String(row.id), toProduction(row)]));
+    }
+
     /**
      * Take this production for a pass, or answer nothing.
      *

@@ -230,8 +230,10 @@ export function spoken(text: string): string {
     let cleaned = text
         // "Title (2011 Remaster)" and "Title [Deluxe Edition]".
         .replace(/[([][^()[\]]*[)\]]/g, match => (furniture.test(match) ? '' : match))
-        // "Title - 2011 Remaster", where the marker is hung off a dash instead.
-        .replace(/\s[-–—]\s[^-–—]*$/, match => (furniture.test(match) ? '' : match))
+        // "Title - 2011 Remaster", where the marker is hung off a dash instead, and "Paranoid - 2012 -
+        // Remaster", where the year is a dash of its own. Cutting only the last dash left that one
+        // on air as "Paranoid - 2012", so a bare year in front of the marker goes with it.
+        .replace(/(\s[-–—]\s\d{4})?\s[-–—]\s[^-–—]*$/, match => (furniture.test(match) ? '' : match))
         .replace(/\s{2,}/g, ' ')
         .trim();
 

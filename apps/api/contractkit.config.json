@@ -22,6 +22,7 @@
                 },
                 "emitRouter": false,
                 "resolve": "perCall",
+                "catalog": true,
                 "servicePathTemplate": "#modules/{module}/{module}.service.js"
             },
             "sdk": {

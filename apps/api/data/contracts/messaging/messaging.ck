@@ -29,6 +29,7 @@ operation /messaging/links: {
 operation /messaging/links/code: {
     post: { # A new one-time code for linking a chat account. It replaces any earlier code and stops working after ten minutes
         name: Create messaging link code
+        mcp: exclude
         service: MessagingLinksService.createCode
         response: {
             201: {

@@ -173,8 +173,8 @@ importers:
         specifier: ^0.1.8
         version: 0.1.8
       '@contractkit/plugin-typescript':
-        specifier: ^0.39.0
-        version: 0.39.0
+        specifier: ^0.39.1
+        version: 0.39.1
       '@deadair/plugin-musicbrainz':
         specifier: workspace:*
         version: link:../../plugins/musicbrainz
@@ -1740,8 +1740,8 @@ packages:
   '@contractkit/plugin-swift@0.1.8':
     resolution: {integrity: sha512-/VZ8QNrKlyMoNCR+QJP6yGEb0jUXRp69Irrp0JrrUZzJW1aHpX3C/PjRt++hNwv02Ee45X3WwpOQKQSOtpQcog==}
 
-  '@contractkit/plugin-typescript@0.39.0':
-    resolution: {integrity: sha512-O8MfmLqoiTZO/OiOp7fI0q9vSwcLrAT4UfxQDefIYvB1RB75n7n7Shmh9IZaB9BS1U6haGwlDgYymQtGb3TKHg==}
+  '@contractkit/plugin-typescript@0.39.1':
+    resolution: {integrity: sha512-wtk7+FSUhauCqWwZMaTvd8SyxIXcT0P4mzyPMP5YWPuMQoGsLaYwFR+yceVc7m+8Eb238Qz0s6PpTGrx8VIWWA==}
 
   '@contractkit/prettier-plugin@0.14.12':
     resolution: {integrity: sha512-3y9GOFftk5P5Dzdz1NZifDj5R+qcjVKFUWoGlWmTI6frGgUvkVJKD1Et/GBx/Ey0Rjwx1AzwdnWj0BmvHHWhKQ==}
@@ -11276,7 +11276,7 @@ snapshots:
     dependencies:
       '@contractkit/core': 0.32.0
 
-  '@contractkit/plugin-typescript@0.39.0':
+  '@contractkit/plugin-typescript@0.39.1':
     dependencies:
       '@contractkit/core': 0.32.0
 

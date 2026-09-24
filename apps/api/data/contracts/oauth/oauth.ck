@@ -20,6 +20,7 @@ options {
 operation /auth/oauth/authorize/context: {
     post: { # Validate an app's authorization request for the consent page, and stash it for the signed-in person. A POST because it stashes: what is approved is exactly what was validated here
         name: Describe authorization request
+        mcp: exclude
         service: OAuthConsentService.describe
         request: {
             application/json: OAuthAuthorizationQuery
@@ -35,6 +36,7 @@ operation /auth/oauth/authorize/context: {
 operation /auth/oauth/authorize/approve: {
     post: { # Let the app act as the signed-in person, as far as the chosen scopes allow. Once the account has a strong second factor, this needs one verified in the last five minutes
         name: Approve authorization request
+        mcp: exclude
         service: OAuthConsentService.approve
         request: {
             application/json: OAuthAuthorizationApproval
@@ -50,6 +52,7 @@ operation /auth/oauth/authorize/approve: {
 operation /auth/oauth/authorize/deny: {
     post: { # Turn the app away. It is told the person said no
         name: Deny authorization request
+        mcp: exclude
         service: OAuthConsentService.deny
         request: {
             application/json: OAuthAuthorizationDecision
@@ -65,6 +68,7 @@ operation /auth/oauth/authorize/deny: {
 operation /auth/oauth/clients: {
     get: { # Every app registered with the station, by an operator or by itself
         name: List OAuth clients
+        mcp: exclude
         service: OAuthClientsService.list
         security: {
             policy: platform.manage
@@ -77,6 +81,7 @@ operation /auth/oauth/clients: {
     }
     post: { # Register an app by hand. The secret, for an app that keeps one, is in this response and nowhere else
         name: Create OAuth client
+        mcp: exclude
         service: OAuthClientsService.create
         security: {
             policy: platform.manage
@@ -98,6 +103,7 @@ operation /auth/oauth/clients/{clientId}: {
     }
     delete: { # Withdraw an app. Every person's approval of it ends, and so does every token it holds
         name: Revoke OAuth client
+        mcp: exclude
         service: OAuthClientsService.revoke
         security: {
             policy: platform.manage
@@ -111,6 +117,7 @@ operation /auth/oauth/clients/{clientId}: {
 operation /auth/oauth/grants: {
     get: { # The apps the signed-in person has let act as them
         name: List OAuth grants
+        mcp: exclude
         service: OAuthGrantsService.list
         response: {
             200: {
@@ -126,6 +133,7 @@ operation /auth/oauth/grants/{id}: {
     }
     delete: { # Disconnect an app. Every token it holds for this person stops working at once
         name: Revoke OAuth grant
+        mcp: exclude
         service: OAuthGrantsService.revoke
         response: {
             204:

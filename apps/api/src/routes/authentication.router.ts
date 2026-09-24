@@ -38,7 +38,7 @@ AuthenticationRouter.post('/auth/token', bodyParserMiddleware(['urlencoded', 'js
 
 /**
  * Register a new login
- * from [authentication.ck](../../data/contracts/authentication/authentication.ck#L36)
+ * from [authentication.ck](../../data/contracts/authentication/authentication.ck#L37)
  * anonymous access, no security required
  */
 AuthenticationRouter.post('/auth/login/register', bodyParserMiddleware(['json']), async ctx => {
@@ -54,7 +54,7 @@ AuthenticationRouter.post('/auth/login/register', bodyParserMiddleware(['json'])
 
 /**
  * Verify a login registration
- * from [authentication.ck](../../data/contracts/authentication/authentication.ck#L51)
+ * from [authentication.ck](../../data/contracts/authentication/authentication.ck#L53)
  * anonymous access, no security required
  */
 AuthenticationRouter.post('/auth/login/verify', bodyParserMiddleware(['json']), async ctx => {
@@ -70,7 +70,7 @@ AuthenticationRouter.post('/auth/login/verify', bodyParserMiddleware(['json']), 
 
 /**
  * Start a password-less login process
- * from [authentication.ck](../../data/contracts/authentication/authentication.ck#L66)
+ * from [authentication.ck](../../data/contracts/authentication/authentication.ck#L68)
  * anonymous access, no security required
  */
 AuthenticationRouter.post('/auth/login/start', bodyParserMiddleware(['json']), async ctx => {
@@ -86,7 +86,7 @@ AuthenticationRouter.post('/auth/login/start', bodyParserMiddleware(['json']), a
 
 /**
  * The identity providers the sign-in page offers beside a password, in the order the operator listed them. Empty when none is set up
- * from [authentication.ck](../../data/contracts/authentication/authentication.ck#L81)
+ * from [authentication.ck](../../data/contracts/authentication/authentication.ck#L84)
  * anonymous access, no security required
  */
 AuthenticationRouter.get('/auth/login/oidc/providers', async ctx => {
@@ -100,7 +100,7 @@ AuthenticationRouter.get('/auth/login/oidc/providers', async ctx => {
 
 /**
  * OIDC callback endpoint. The IdP redirects the user-agent here with `code` and `state`. Server completes the authorization, issues a session, and returns an HTML page that hands the token back to the SPA.
- * from [authentication.ck](../../data/contracts/authentication/authentication.ck#L93)
+ * from [authentication.ck](../../data/contracts/authentication/authentication.ck#L97)
  * anonymous access, no security required
  * @internal
  */

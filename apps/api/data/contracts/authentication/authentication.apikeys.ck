@@ -18,6 +18,7 @@ options {
 operation /auth/apikeys: {
     get: { # The signed-in account's API keys, newest first, including revoked and expired ones so the list says what was withdrawn and when
         name: List API keys
+        mcp: exclude
         service: ApiKeysService.list
         response: {
             200: {
@@ -27,6 +28,7 @@ operation /auth/apikeys: {
     }
     post: { # Issue a new API key for the signed-in account. The token is in this response and nowhere else, ever. Once the account has a strong second factor, this needs one verified in the last five minutes
         name: Create API key
+        mcp: exclude
         service: ApiKeysService.create
         request: {
             application/json: ApiKeyCreate
@@ -45,6 +47,7 @@ operation /auth/apikeys/{id}/rotate: {
     }
     post: { # Give a key a new token, so the old one stops working at once. The key keeps its name, scopes and expiry. Needs the same recent second factor as creating one
         name: Rotate API key
+        mcp: exclude
         service: ApiKeysService.rotate
         response: {
             200: {
@@ -60,6 +63,7 @@ operation /auth/apikeys/{id}: {
     }
     delete: { # Revoke a key. Every request made with it is refused from the next one on. The key stays in the list, marked revoked
         name: Revoke API key
+        mcp: exclude
         service: ApiKeysService.revoke
         response: {
             204:

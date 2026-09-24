@@ -11,14 +11,16 @@ import {
     McpToolHandlerMap,
 } from '@maroonedsoftware/mcp';
 import { buildVersion } from '#modules/shared/build.revision.js';
-import { registerMcpToolClasses, registerMcpTools } from '#src/mcp/mcp.tools.js';
+import { McpToolCatalog, registerMcpCatalog, registerMcpToolClasses, registerMcpTools } from '#src/mcp/mcp.tools.js';
+import { SEARCH_API_TOOL, SearchApiTool } from '#src/mcp/search.api.tool.js';
 import { WHOAMI_TOOL, WhoAmITool } from '#src/mcp/whoami.tool.js';
 
 /** What an MCP client sees as `serverInfo.name` during `initialize`. */
 export const MCP_SERVER_NAME = 'deadair';
 
 /**
- * The tools `tools/list` reports: every operation a contract flags `mcp`, and `whoami`.
+ * The tools `tools/list` reports: every operation a contract flags `mcp`, `whoami`, and `search_api`,
+ * which reaches the rest.
  *
  * Every one is wrapped by `explainToolErrors`, so a refusal or a bad argument reaches the model as a
  * tool result it can act on ("not allowed", "these fields are missing") rather than as a JSON-RPC
@@ -27,7 +29,19 @@ export const MCP_SERVER_NAME = 'deadair';
 export function buildMcpTools(container: Container): McpToolHandlerMap {
     const tools = registerMcpTools(container);
     tools.set(WHOAMI_TOOL, container.get(WhoAmITool));
+    tools.set(SEARCH_API_TOOL, container.get(SearchApiTool));
     return explainToolErrors(tools);
+}
+
+/**
+ * Every operation a tool can serve, listed or not, for `search_api` to find: a handler per operation,
+ * generated with `catalog: true` and never reported by `tools/list`. Explained like the listed tools,
+ * so an operation reached through the catalog fails the same way one reached directly does.
+ */
+export function buildMcpCatalog(container: Container): McpToolCatalog {
+    const catalog = new McpToolCatalog();
+    for (const [name, handler] of explainToolErrors(registerMcpCatalog(container))) catalog.set(name, handler);
+    return catalog;
 }
 
 /**
@@ -58,6 +72,8 @@ export const McpModule: ServerKitModule = {
             .asSingleton();
         registerMcpToolClasses(registry);
         registry.register(WhoAmITool).useClass(WhoAmITool).asSingleton();
+        registry.register(McpToolCatalog).useFactory(buildMcpCatalog).asSingleton();
+        registry.register(SearchApiTool).useClass(SearchApiTool).asSingleton();
         registry.register(McpToolHandlerMap).useFactory(buildMcpTools).asSingleton();
         // Empty, and registered anyway: the server factory takes both maps, and advertises only what
         // a non-empty one backs.

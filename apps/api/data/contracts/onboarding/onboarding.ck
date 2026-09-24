@@ -14,6 +14,7 @@ options {
 operation /onboarding: {
     get: {
         name: Get Onboarding Requirements
+        mcp: exclude
         service: OnboardingService.getOnboardingRequirements
         response: {
             200: {
@@ -23,6 +24,7 @@ operation /onboarding: {
     }
     post: {
         name: Submit Onboarding Requirement
+        mcp: exclude
         service: OnboardingService.submitOnboardingRequirement
         request: {
             application/json: OnboardingRequirement

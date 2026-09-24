@@ -38,7 +38,7 @@ OauthRouter.post('/auth/oauth/authorize/context', requirePolicy({ policy: 'platf
 
 /**
  * Let the app act as the signed-in person, as far as the chosen scopes allow. Once the account has a strong second factor, this needs one verified in the last five minutes
- * from [oauth.ck](../../data/contracts/oauth/oauth.ck#L36)
+ * from [oauth.ck](../../data/contracts/oauth/oauth.ck#L37)
  */
 OauthRouter.post('/auth/oauth/authorize/approve', requirePolicy({ policy: 'platform.view' }), bodyParserMiddleware(['json']), async ctx => {
     const body = await parseAndValidate(ctx.parsedBody, OAuthAuthorizationApproval);
@@ -53,7 +53,7 @@ OauthRouter.post('/auth/oauth/authorize/approve', requirePolicy({ policy: 'platf
 
 /**
  * Turn the app away. It is told the person said no
- * from [oauth.ck](../../data/contracts/oauth/oauth.ck#L51)
+ * from [oauth.ck](../../data/contracts/oauth/oauth.ck#L53)
  */
 OauthRouter.post('/auth/oauth/authorize/deny', requirePolicy({ policy: 'platform.view' }), bodyParserMiddleware(['json']), async ctx => {
     const body = await parseAndValidate(ctx.parsedBody, OAuthAuthorizationDecision);
@@ -68,7 +68,7 @@ OauthRouter.post('/auth/oauth/authorize/deny', requirePolicy({ policy: 'platform
 
 /**
  * Every app registered with the station, by an operator or by itself
- * from [oauth.ck](../../data/contracts/oauth/oauth.ck#L66)
+ * from [oauth.ck](../../data/contracts/oauth/oauth.ck#L69)
  */
 OauthRouter.get('/auth/oauth/clients', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const service = ctx.container.get(OAuthClientsService);
@@ -81,7 +81,7 @@ OauthRouter.get('/auth/oauth/clients', requirePolicy({ policy: 'platform.manage'
 
 /**
  * Register an app by hand. The secret, for an app that keeps one, is in this response and nowhere else
- * from [oauth.ck](../../data/contracts/oauth/oauth.ck#L78)
+ * from [oauth.ck](../../data/contracts/oauth/oauth.ck#L82)
  */
 OauthRouter.post('/auth/oauth/clients', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const body = await parseAndValidate(ctx.parsedBody, OAuthClientCreate);
@@ -96,7 +96,7 @@ OauthRouter.post('/auth/oauth/clients', requirePolicy({ policy: 'platform.manage
 
 /**
  * Withdraw an app. Every person's approval of it ends, and so does every token it holds
- * from [oauth.ck](../../data/contracts/oauth/oauth.ck#L99)
+ * from [oauth.ck](../../data/contracts/oauth/oauth.ck#L104)
  */
 OauthRouter.delete('/auth/oauth/clients/:clientId', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { clientId } = await parseAndValidate(
@@ -114,7 +114,7 @@ OauthRouter.delete('/auth/oauth/clients/:clientId', requirePolicy({ policy: 'pla
 
 /**
  * The apps the signed-in person has let act as them
- * from [oauth.ck](../../data/contracts/oauth/oauth.ck#L112)
+ * from [oauth.ck](../../data/contracts/oauth/oauth.ck#L118)
  */
 OauthRouter.get('/auth/oauth/grants', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const service = ctx.container.get(OAuthGrantsService);
@@ -127,7 +127,7 @@ OauthRouter.get('/auth/oauth/grants', requirePolicy({ policy: 'platform.view' })
 
 /**
  * Disconnect an app. Every token it holds for this person stops working at once
- * from [oauth.ck](../../data/contracts/oauth/oauth.ck#L127)
+ * from [oauth.ck](../../data/contracts/oauth/oauth.ck#L134)
  */
 OauthRouter.delete('/auth/oauth/grants/:id', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const { id } = await parseAndValidate(

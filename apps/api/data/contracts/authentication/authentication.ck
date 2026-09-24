@@ -19,6 +19,7 @@ options {
 operation /auth/token: {
     post: { # Request authenticated token
         name: Request token
+        mcp: exclude
         service: AuthenticationService.requestToken
         request: {
             application/x-www-form-urlencoded: AuthenticationRequest
@@ -35,6 +36,7 @@ operation /auth/token: {
 operation /auth/login/register: {
     post: { # Register a new login
         name: Register login
+        mcp: exclude
         service: AuthenticationRegistrationService.registerLogin
         request: {
             application/json: AuthenticationRegistration
@@ -65,6 +67,7 @@ operation /auth/login/verify: {
 operation /auth/login/start: {
     post: { # Start a password-less login process
         name: Start login
+        mcp: exclude
         service: AuthenticationService.startLogin
         request: {
             application/json: AuthenticationLoginStart
@@ -80,6 +83,7 @@ operation /auth/login/start: {
 operation /auth/login/oidc/providers: {
     get: { # The identity providers the sign-in page offers beside a password, in the order the operator listed them. Empty when none is set up
         name: List sign-in providers
+        mcp: exclude
         service: AuthenticationService.listOidcProviders
         response: {
             200: {

@@ -202,6 +202,22 @@ so a 403 reaches the model as "this caller is not allowed to do that" and a vali
 the list of fields to ask for, instead of a JSON-RPC error that ends the call. Only an error that is
 not an `HttpError` still fails the protocol.
 
+**Every other operation is one search away, not one listing away.** About two hundred operations
+would cost every conversation the whole API in `tools/list` before it asked anything, so only a
+handful are listed. `catalog: true` generates a handler for every operation a tool can serve, held
+apart from the listed ones as `McpToolCatalog`, and `search_api` reaches them in two modes: a query
+answers a compact index of at most 25 (the name, one sentence, whether it reads or changes something,
+and the tier it needs), and a name answers that one operation in full with its argument schema. The
+index is filtered to what the caller may actually use, their role AND their grant (`mayUse` in
+`src/mcp/api.catalog.ts`), so a view grant is never offered something it would be refused. Everything
+it says comes from the generated definitions themselves: the description, the hints, and the policy
+under `_meta['contractkit/security']`, which is also why a test fails if any operation ever falls back
+to the MFA default a contract with no security gets. An operation is kept out with `mcp: exclude` in
+its contract: signing in and credentials, connected apps and their consent, first-run setup, plugin
+and fetcher sign-in and configuration, station settings (which hold sign-in providers), log files
+(which can hold the bridge secret), and the two long model calls, which run outside the request
+transaction over HTTP and would hold a pooled connection for minutes here.
+
 **A description is written for the model**, in the operation's `mcp` block rather than its `#`
 comment: what the tool answers, and when to use it rather than its neighbour. The hints come from
 the HTTP method unless the block says otherwise (a `GET` is read-only and idempotent, a `DELETE`

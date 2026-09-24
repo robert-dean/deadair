@@ -85,7 +85,7 @@
         "@contractkit/plugin-docs": "^0.5.1",
         "@contractkit/plugin-kotlin": "^0.1.8",
         "@contractkit/plugin-swift": "^0.1.8",
-        "@contractkit/plugin-typescript": "^0.39.0",
+        "@contractkit/plugin-typescript": "^0.39.1",
         "@deadair/plugin-musicbrainz": "workspace:*",
         "@deadair/plugin-spotify": "workspace:*",
         "@maroonedsoftware/permissions-dsl": "^0.5.7",

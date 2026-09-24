@@ -109,6 +109,7 @@ operation /listen.m3u: {
 operation /stream/authorization: {
     get: { # What the track fetcher holds by way of a Spotify login, and whether an authorization is already waiting to be finished
         name: Read fetcher authorization
+        mcp: exclude
         service: StreamService.readAuthorization
         response: {
             200: {
@@ -118,6 +119,7 @@ operation /stream/authorization: {
     }
     post: { # Starts the fetcher's one-time authorization and answers with the URL to open. Starting another replaces whichever was pending
         name: Start fetcher authorization
+        mcp: exclude
         service: StreamService.startAuthorization
         response: {
             201: {
@@ -130,6 +132,7 @@ operation /stream/authorization: {
 operation /stream/authorization/complete: {
     post: { # Finishes an authorization from the address the operator's browser ended up at
         name: Finish fetcher authorization
+        mcp: exclude
         service: StreamService.finishAuthorization
         request: {
             application/json: FetcherAuthorizationInput

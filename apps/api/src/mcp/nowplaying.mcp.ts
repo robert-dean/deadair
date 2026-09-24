@@ -44,6 +44,11 @@ export function registerNowplayingMcpTools(map: McpToolHandlerMap, container: Co
     map.set('get_now_playing', container.get(GetNowPlayingMcpTool));
 }
 
+/** Add a handler for each of this file's operations to the catalog, unlisted in `tools/list`. */
+export function registerNowplayingMcpCatalog(map: McpToolHandlerMap, container: Container): void {
+    map.set('get_now_playing', container.get(GetNowPlayingMcpTool));
+}
+
 /** Register this file's tool classes on the registry, so the tool maps can resolve them. */
 export function registerNowplayingMcpToolClasses(registry: Registry): void {
     registry.register(GetNowPlayingMcpTool).useClass(GetNowPlayingMcpTool).asSingleton();

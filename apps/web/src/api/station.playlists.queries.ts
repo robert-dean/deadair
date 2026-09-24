@@ -32,6 +32,20 @@ export const usePreviewPlaylistImport = () =>
         mutationFn: (input: PlaylistImportInput) => sdk.playlists.previewPlaylistImport(input),
     });
 
+/**
+ * What cloning one of a music source's playlists would do, as a query: the preview of a source there
+ * is nothing to choose about. Never cached past the dialog that asked, since the provider's list and
+ * the library can both move between one opening and the next.
+ */
+export function providerPlaylistPreviewOptions(pluginId: string, playlistId: string) {
+    return queryOptions({
+        queryKey: [...queryKeys.stationPlaylists.all(), 'preview', pluginId, playlistId] as const,
+        queryFn: () => sdk.playlists.previewPlaylistImport({ providerPlaylist: { pluginId, playlistId } }),
+        staleTime: 0,
+        gcTime: 0,
+    });
+}
+
 export function useImportPlaylist() {
     const queryClient = useQueryClient();
     return useMutation<PlaylistImportResult, Error, PlaylistImportInput>({

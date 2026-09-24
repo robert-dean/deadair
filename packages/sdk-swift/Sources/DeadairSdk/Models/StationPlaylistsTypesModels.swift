@@ -223,6 +223,34 @@ public struct PlaylistFileOrigin: Codable, Equatable, Sendable {
     }
 }
 
+/// A playlist one of the station's music sources holds, named the way the playlists listing names it
+public struct PlaylistProviderRef: Codable, Equatable, Sendable {
+    public var pluginId: String
+    public var playlistId: String
+
+    public init(pluginId: String, playlistId: String) {
+        self.pluginId = pluginId
+        self.playlistId = playlistId
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case pluginId = "pluginId"
+        case playlistId = "playlistId"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.pluginId = try container.decode(String.self, forKey: .pluginId)
+        self.playlistId = try container.decode(String.self, forKey: .playlistId)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.pluginId, forKey: .pluginId)
+        try container.encode(self.playlistId, forKey: .playlistId)
+    }
+}
+
 /// What importing one record would do here
 public struct PlaylistImportEntry: Codable, Equatable, Sendable {
     public var position: Int
@@ -631,14 +659,20 @@ public struct PlaylistImportInput: Codable, Equatable, Sendable {
     public var format: PlaylistImportInputFormat?
     /// The name of the file `text` came from, which names the playlist when the text does not
     public var fileName: String?
+    /// A link to a playlist at one of the station's music sources, as a browser or an app shows it
+    public var url: String?
+    /// A playlist a music source lists here, by its plugin and its id
+    public var providerPlaylist: PlaylistProviderRef?
     /// What to call the new playlist. Absent keeps the name the source gives it
     public var name: String?
 
-    public init(file: PlaylistFile? = nil, text: String? = nil, format: PlaylistImportInputFormat? = nil, fileName: String? = nil, name: String? = nil) {
+    public init(file: PlaylistFile? = nil, text: String? = nil, format: PlaylistImportInputFormat? = nil, fileName: String? = nil, url: String? = nil, providerPlaylist: PlaylistProviderRef? = nil, name: String? = nil) {
         self.file = file
         self.text = text
         self.format = format
         self.fileName = fileName
+        self.url = url
+        self.providerPlaylist = providerPlaylist
         self.name = name
     }
 
@@ -647,6 +681,8 @@ public struct PlaylistImportInput: Codable, Equatable, Sendable {
         case text = "text"
         case format = "format"
         case fileName = "fileName"
+        case url = "url"
+        case providerPlaylist = "providerPlaylist"
         case name = "name"
     }
 
@@ -656,6 +692,8 @@ public struct PlaylistImportInput: Codable, Equatable, Sendable {
         self.text = try container.decodeIfPresent(String.self, forKey: .text)
         self.format = try container.decodeIfPresent(PlaylistImportInputFormat.self, forKey: .format)
         self.fileName = try container.decodeIfPresent(String.self, forKey: .fileName)
+        self.url = try container.decodeIfPresent(String.self, forKey: .url)
+        self.providerPlaylist = try container.decodeIfPresent(PlaylistProviderRef.self, forKey: .providerPlaylist)
         self.name = try container.decodeIfPresent(String.self, forKey: .name)
     }
 
@@ -665,6 +703,8 @@ public struct PlaylistImportInput: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.text, forKey: .text)
         try container.encodeIfPresent(self.format, forKey: .format)
         try container.encodeIfPresent(self.fileName, forKey: .fileName)
+        try container.encodeIfPresent(self.url, forKey: .url)
+        try container.encodeIfPresent(self.providerPlaylist, forKey: .providerPlaylist)
         try container.encodeIfPresent(self.name, forKey: .name)
     }
 }

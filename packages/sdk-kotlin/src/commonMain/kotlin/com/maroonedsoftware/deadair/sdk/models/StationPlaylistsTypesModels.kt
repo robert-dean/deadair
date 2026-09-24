@@ -72,6 +72,13 @@ data class PlaylistFileOrigin(
     val externalId: String,
 )
 
+/** A playlist one of the station's music sources holds, named the way the playlists listing names it */
+@Serializable
+data class PlaylistProviderRef(
+    val pluginId: String,
+    val playlistId: String,
+)
+
 /** What importing one record would do here */
 @Serializable
 data class PlaylistImportEntry(
@@ -185,6 +192,10 @@ data class PlaylistImportInput(
     val format: PlaylistImportInputFormat? = null,
     /** The name of the file `text` came from, which names the playlist when the text does not */
     val fileName: String? = null,
+    /** A link to a playlist at one of the station's music sources, as a browser or an app shows it */
+    val url: String? = null,
+    /** A playlist a music source lists here, by its plugin and its id */
+    val providerPlaylist: PlaylistProviderRef? = null,
     /** What to call the new playlist. Absent keeps the name the source gives it */
     val name: String? = null,
 )

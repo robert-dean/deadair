@@ -355,4 +355,19 @@ describe('PlaylistsPage', () => {
         await waitFor(() => expect(previewPlaylistImport).toHaveBeenCalledWith({ text: 'Massive Attack - Teardrop' }));
         expect(await screen.findByRole('button', { name: 'Import 1 record' })).toBeEnabled();
     });
+
+    it('previews a pasted link', async () => {
+        listImportablePlaylists.mockResolvedValue(catalogPlaylistPage({ playlists: [catalogPlaylist()] }));
+        previewPlaylistImport.mockResolvedValue({ name: 'From Spotify', matched: 0, toAdd: 1, toLookUp: 0, skipped: 0, notices: [], entries: [] });
+        const user = setupUser();
+
+        render(<PlaylistsPage />);
+        await user.click(await screen.findByRole('button', { name: 'Import' }));
+        await user.click(await screen.findByRole('tab', { name: 'Link' }));
+        await user.type(screen.getByLabelText(/Playlist link/), ' https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M ');
+        await user.click(screen.getByRole('button', { name: 'Preview' }));
+
+        await waitFor(() => expect(previewPlaylistImport).toHaveBeenCalledWith({ url: 'https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M' }));
+        expect(await screen.findByDisplayValue('From Spotify')).toBeInTheDocument();
+    });
 });

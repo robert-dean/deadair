@@ -24,7 +24,7 @@ import {
 import { SubsonicAuth } from './navidrome.auth.js';
 import { SubsonicClient, isNotFound } from './navidrome.client.js';
 import { mapAlbumEnrichment, mapArtistEnrichment, mapTrackEnrichment } from './navidrome.enrichment.js';
-import { mapPlaylist, mapTrack, mapTracks } from './navidrome.mapping.js';
+import { mapPlaylist, mapTrack, mapTracks, navidromePlaylistIdFromUrl } from './navidrome.mapping.js';
 import {
     configSchema,
     ENRICHMENT_CANDIDATES,
@@ -156,6 +156,11 @@ export class NavidromePlugin extends Plugin implements MusicProviderPluginInstan
             if (isNotFound(error)) return undefined;
             throw error;
         }
+    }
+
+    /** A pasted link into this server's web app, as the playlist id it names. */
+    playlistIdFromUrl(url: string): string | undefined {
+        return navidromePlaylistIdFromUrl(url, this.config?.baseUrl);
     }
 
     /**

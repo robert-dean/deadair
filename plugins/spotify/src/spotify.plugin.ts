@@ -29,6 +29,7 @@ import {
     mapPlaylist,
     mapTrack,
     SEARCH_OFFSET_MAX,
+    spotifyPlaylistIdFromUrl,
     type SpotifyPlaylistedItem,
 } from './spotify.mapping.js';
 
@@ -216,6 +217,11 @@ export class SpotifyPlugin extends Plugin implements MusicProviderPluginInstance
             if (error instanceof SpotifyRequestError && error.status === 404) return undefined;
             throw error;
         }
+    }
+
+    /** A pasted `open.spotify.com` link or `spotify:` URI, as the playlist id it names. */
+    playlistIdFromUrl(url: string): string | undefined {
+        return spotifyPlaylistIdFromUrl(url);
     }
 
     async listPlaylists(options?: ListPlaylistsOptions): Promise<ProviderPlaylist[]> {

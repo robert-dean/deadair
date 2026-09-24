@@ -113,3 +113,27 @@ export function mapPlaylist(playlist: SubsonicPlaylist, artworkUrl?: string): Pr
         ...(artworkUrl ? { artworkUrl } : {}),
     };
 }
+
+/**
+ * The playlist a link into THIS server's web app names: `<baseUrl>/app/#/playlist/<id>/show`, which
+ * is what the address bar shows on a playlist's page. Only a link to the server this plugin is
+ * configured for is ours: another Navidrome's playlist id means nothing here.
+ */
+export function navidromePlaylistIdFromUrl(url: string, baseUrl: string | undefined): string | undefined {
+    if (baseUrl === undefined) return undefined;
+
+    let parsed: URL;
+    let base: URL;
+    try {
+        parsed = new URL(url.trim());
+        base = new URL(baseUrl);
+    } catch {
+        return undefined;
+    }
+    if (parsed.origin !== base.origin) return undefined;
+    const root = base.pathname.replace(/\/+$/, '');
+    if (!parsed.pathname.startsWith(`${root}/app`)) return undefined;
+
+    const match = /^#\/playlist\/([A-Za-z0-9-]+)(?:\/show)?\/?$/.exec(parsed.hash);
+    return match?.[1];
+}

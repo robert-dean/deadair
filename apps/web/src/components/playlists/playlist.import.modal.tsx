@@ -1,15 +1,22 @@
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Badge, Button, FileButton, Group, List, Modal, ScrollArea, Stack, Table, Tabs, Text, TextInput, Textarea } from '@mantine/core';
 import { useNavigate } from '@tanstack/react-router';
 import type { PlaylistFile, PlaylistImportInput, PlaylistImportPlan } from '@deadair/sdk';
 
-import { useImportPlaylist, usePreviewPlaylistImport } from '../../api/station.playlists.queries';
+import { providerPlaylistPreviewOptions, useImportPlaylist, usePreviewPlaylistImport } from '../../api/station.playlists.queries';
 import { ErrorAlert } from '../shared/error.alert';
+import { PageSkeleton } from '../shared/page.skeleton';
 import { usePhone } from '../shared/use.phone';
 
 export interface PlaylistImportModalProps {
     opened: boolean;
     onClose: () => void;
+    /**
+     * A playlist a music source lists here, to clone rather than choosing a source: the provider
+     * playlist page's "Save as a station playlist". The dialog opens straight onto its preview.
+     */
+    from?: { pluginId: string; playlistId: string; name: string };
 }
 
 /** The files a playlist arrives in: deadair's own JSON, and the text other software writes. */
@@ -26,22 +33,37 @@ const ACCEPTED = '.json,.m3u,.m3u8,.csv,.tsv,.txt,application/json,text/csv,text
  * sentence rather than a 400 from a schema that never ran. Anything else is sent as text, and the
  * API reads it as an M3U, a CSV or a list of `Artist - Title` lines.
  */
-export function PlaylistImportModal({ opened, onClose }: PlaylistImportModalProps) {
+export function PlaylistImportModal({ opened, onClose, from }: PlaylistImportModalProps) {
     const phone = usePhone();
     const navigate = useNavigate();
     const preview = usePreviewPlaylistImport();
     const write = useImportPlaylist();
+    // A playlist named by the page that opened this has nothing to choose, so its preview is a READ
+    // of that playlist rather than a step the operator takes: a query, run while the dialog is open.
+    const fromPreview = useQuery({
+        ...providerPlaylistPreviewOptions(from?.pluginId ?? '', from?.playlistId ?? ''),
+        enabled: opened && from !== undefined,
+    });
 
     // The source as it was previewed, so Import sends exactly that rather than re-reading a file the
     // operator may have replaced on disk in between, or a paste they have since edited.
-    const [source, setSource] = useState<PlaylistImportInput | undefined>(undefined);
+    const [chosen, setChosen] = useState<PlaylistImportInput | undefined>(undefined);
     const [fileName, setFileName] = useState<string | undefined>(undefined);
     const [pasted, setPasted] = useState('');
-    const [name, setName] = useState('');
+    const [link, setLink] = useState('');
+    // Only what the operator typed. Until they type, the name is whatever the source gave it.
+    const [edited, setEdited] = useState<string | undefined>(undefined);
     const [unreadable, setUnreadable] = useState<string | undefined>(undefined);
 
+    const source: PlaylistImportInput | undefined =
+        from === undefined ? chosen : { providerPlaylist: { pluginId: from.pluginId, playlistId: from.playlistId } };
+    const plan = from === undefined ? preview.data : fromPreview.data;
+    const previewError = from === undefined ? preview.error : fromPreview.error;
+    const name = edited ?? from?.name ?? plan?.name ?? '';
+
     const restart = () => {
-        setSource(undefined);
+        setChosen(undefined);
+        setEdited(undefined);
         setUnreadable(undefined);
         preview.reset();
         write.reset();
@@ -51,13 +73,13 @@ export function PlaylistImportModal({ opened, onClose }: PlaylistImportModalProp
         restart();
         setFileName(undefined);
         setPasted('');
-        setName('');
+        setLink('');
         onClose();
     };
 
     const read = (input: PlaylistImportInput) => {
-        setSource(input);
-        preview.mutate(input, { onSuccess: plan => setName(plan.name) });
+        setChosen(input);
+        preview.mutate(input);
     };
 
     const choose = async (chosen: File | null) => {
@@ -82,7 +104,6 @@ export function PlaylistImportModal({ opened, onClose }: PlaylistImportModalProp
         read({ file });
     };
 
-    const plan = preview.data;
     const trimmed = name.trim();
 
     const submit = () => {
@@ -106,65 +127,94 @@ export function PlaylistImportModal({ opened, onClose }: PlaylistImportModalProp
                     keeps its place, and the station looks it up at its music sources straight after the import.
                 </Text>
 
-                <Tabs defaultValue="file" onChange={restart}>
-                    <Tabs.List>
-                        <Tabs.Tab value="file">File</Tabs.Tab>
-                        <Tabs.Tab value="paste">Paste a list</Tabs.Tab>
-                    </Tabs.List>
+                {from === undefined ? (
+                    <Tabs defaultValue="file" onChange={restart}>
+                        <Tabs.List>
+                            <Tabs.Tab value="file">File</Tabs.Tab>
+                            <Tabs.Tab value="paste">Paste a list</Tabs.Tab>
+                            <Tabs.Tab value="link">Link</Tabs.Tab>
+                        </Tabs.List>
 
-                    <Tabs.Panel value="file" pt="md">
-                        <Stack gap="xs">
-                            <Text size="xs" c="dimmed">
-                                A playlist file another station exported, an M3U from a media player, or a CSV from a playlist exporter.
-                            </Text>
-                            <Group gap="sm">
-                                <FileButton onChange={file => void choose(file)} accept={ACCEPTED}>
-                                    {props => (
-                                        <Button {...props} variant="default" loading={preview.isPending && source?.text === undefined}>
-                                            {fileName === undefined ? 'Choose a file' : 'Choose another file'}
-                                        </Button>
+                        <Tabs.Panel value="file" pt="md">
+                            <Stack gap="xs">
+                                <Text size="xs" c="dimmed">
+                                    A playlist file another station exported, an M3U from a media player, or a CSV from a playlist exporter.
+                                </Text>
+                                <Group gap="sm">
+                                    <FileButton onChange={file => void choose(file)} accept={ACCEPTED}>
+                                        {props => (
+                                            <Button {...props} variant="default" loading={preview.isPending && source?.text === undefined}>
+                                                {fileName === undefined ? 'Choose a file' : 'Choose another file'}
+                                            </Button>
+                                        )}
+                                    </FileButton>
+                                    {fileName === undefined ? undefined : (
+                                        <Text size="sm" c="dimmed">
+                                            {fileName}
+                                        </Text>
                                     )}
-                                </FileButton>
-                                {fileName === undefined ? undefined : (
-                                    <Text size="sm" c="dimmed">
-                                        {fileName}
-                                    </Text>
-                                )}
-                            </Group>
-                        </Stack>
-                    </Tabs.Panel>
+                                </Group>
+                            </Stack>
+                        </Tabs.Panel>
 
-                    <Tabs.Panel value="paste" pt="md">
-                        <Stack gap="xs">
-                            <Textarea
-                                label="One record per line"
-                                description="As Artist - Title. Numbered lines are fine."
-                                placeholder={'Massive Attack - Teardrop\nPortishead - Roads'}
-                                value={pasted}
-                                onChange={event => setPasted(event.currentTarget.value)}
-                                autosize
-                                minRows={4}
-                                maxRows={12}
-                            />
-                            <Group justify="flex-end">
-                                <Button
-                                    variant="default"
-                                    disabled={pasted.trim().length === 0}
-                                    loading={preview.isPending}
-                                    onClick={() => read({ text: pasted })}
-                                >
-                                    Preview
-                                </Button>
-                            </Group>
-                        </Stack>
-                    </Tabs.Panel>
-                </Tabs>
+                        <Tabs.Panel value="paste" pt="md">
+                            <Stack gap="xs">
+                                <Textarea
+                                    label="One record per line"
+                                    description="As Artist - Title. Numbered lines are fine."
+                                    placeholder={'Massive Attack - Teardrop\nPortishead - Roads'}
+                                    value={pasted}
+                                    onChange={event => setPasted(event.currentTarget.value)}
+                                    autosize
+                                    minRows={4}
+                                    maxRows={12}
+                                />
+                                <Group justify="flex-end">
+                                    <Button
+                                        variant="default"
+                                        disabled={pasted.trim().length === 0}
+                                        loading={preview.isPending}
+                                        onClick={() => read({ text: pasted })}
+                                    >
+                                        Preview
+                                    </Button>
+                                </Group>
+                            </Stack>
+                        </Tabs.Panel>
+
+                        <Tabs.Panel value="link" pt="md">
+                            <Stack gap="xs">
+                                <TextInput
+                                    label="Playlist link"
+                                    description="Copied from Spotify, YouTube Music or your Navidrome, as the browser or the app shows it."
+                                    placeholder="https://open.spotify.com/playlist/…"
+                                    value={link}
+                                    onChange={event => setLink(event.currentTarget.value)}
+                                />
+                                <Group justify="flex-end">
+                                    <Button
+                                        variant="default"
+                                        disabled={link.trim().length === 0}
+                                        loading={preview.isPending}
+                                        onClick={() => read({ url: link.trim() })}
+                                    >
+                                        Preview
+                                    </Button>
+                                </Group>
+                            </Stack>
+                        </Tabs.Panel>
+                    </Tabs>
+                ) : (
+                    <Text size="sm">{`Saving ${from.name} as a playlist of the station's own.`}</Text>
+                )}
 
                 {unreadable ? <ErrorAlert tone="warning">{unreadable}</ErrorAlert> : undefined}
 
-                {preview.error ? (
-                    <ErrorAlert title="That could not be read" error={preview.error} fallback="It is not a playlist this station recognises." />
+                {previewError ? (
+                    <ErrorAlert title="That could not be read" error={previewError} fallback="It is not a playlist this station recognises." />
                 ) : undefined}
+
+                {from !== undefined && fromPreview.isPending ? <PageSkeleton variant="table" /> : undefined}
 
                 {write.error ? (
                     <ErrorAlert
@@ -176,7 +226,7 @@ export function PlaylistImportModal({ opened, onClose }: PlaylistImportModalProp
 
                 {plan ? (
                     <>
-                        <TextInput label="Name" value={name} onChange={event => setName(event.currentTarget.value)} maxLength={200} />
+                        <TextInput label="Name" value={name} onChange={event => setEdited(event.currentTarget.value)} maxLength={200} />
                         <ImportPlan plan={plan} />
                         <Group justify="flex-end">
                             <Button variant="subtle" onClick={close}>

@@ -395,3 +395,32 @@ export function clampSearchTotal(limit: number | undefined): number {
     if (limit === undefined) return SEARCH_LIMIT_MAX;
     return Math.min(SEARCH_TOTAL_MAX, Math.max(1, Math.trunc(limit)));
 }
+
+/** A Spotify playlist id: 22 characters of base62. */
+const SPOTIFY_ID = /^[A-Za-z0-9]{22}$/;
+
+/**
+ * The playlist a Spotify link names: `https://open.spotify.com/playlist/<id>` as the share button
+ * writes it (with or without an `intl-xx` segment and a `si` query), an embed link, or a
+ * `spotify:playlist:<id>` URI. Anything else is not ours.
+ */
+export function spotifyPlaylistIdFromUrl(url: string): string | undefined {
+    const text = url.trim();
+    if (text.startsWith('spotify:playlist:')) {
+        const id = text.slice('spotify:playlist:'.length);
+        return SPOTIFY_ID.test(id) ? id : undefined;
+    }
+
+    let parsed: URL;
+    try {
+        parsed = new URL(text);
+    } catch {
+        return undefined;
+    }
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return undefined;
+    if (parsed.hostname !== 'open.spotify.com' && parsed.hostname !== 'play.spotify.com') return undefined;
+
+    const match = /^\/(?:intl-[a-z]{2}(?:-[a-z]{2})?\/)?(?:embed\/)?playlist\/([^/]+)\/?$/i.exec(parsed.pathname);
+    const id = match?.[1];
+    return id !== undefined && SPOTIFY_ID.test(id) ? id : undefined;
+}

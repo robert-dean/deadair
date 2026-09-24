@@ -199,6 +199,23 @@ export interface MusicProviderCatalog {
     listPlaylists(options?: ListPlaylistsOptions): Promise<ProviderPlaylist[]>;
 
     getPlaylistTracks(playlistId: string, options?: GetPlaylistTracksOptions): Promise<ProviderTrack[]>;
+
+    /**
+     * The playlist id a link names, when it is a link to one of YOUR playlists, else `undefined`.
+     *
+     * How an operator imports a playlist the account does not list: they paste the address their
+     * browser or app shows, the host asks every catalog provider whose it is, and the first to answer
+     * is asked for its tracks through {@link getPlaylistTracks} with the id returned here. So the id
+     * must be one that method accepts.
+     *
+     * A PURE parse: no network, no host, nothing awaited. The host asks every provider about every
+     * link, so a provider that is slow or unreachable must not make a link it does not own wait on
+     * it, and the answer depends on nothing but the text. Answer `undefined` for anything you are not
+     * sure is yours, because the first provider to claim a link wins it.
+     *
+     * Optional: a provider that leaves it out simply cannot be imported from by link.
+     */
+    playlistIdFromUrl?(url: string): string | undefined;
 }
 
 /**

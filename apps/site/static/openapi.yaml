@@ -9427,6 +9427,19 @@ components:
                         '$ref': '#/components/schemas/PlaylistFileTrack'
             required: [format, takenAt, name, tracks]
             description: 'A playlist as a file: everything somebody would need to rebuild it on another station'
+        PlaylistProviderRef:
+            type: object
+            properties:
+                pluginId:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                playlistId:
+                    type: string
+                    minLength: 1
+                    maxLength: 400
+            required: [pluginId, playlistId]
+            description: "A playlist one of the station's music sources holds, named the way the playlists listing names it"
         PlaylistImportInput:
             type: object
             properties:
@@ -9446,6 +9459,14 @@ components:
                     type: string
                     maxLength: 400
                     description: 'The name of the file `text` came from, which names the playlist when the text does not'
+                url:
+                    type: string
+                    minLength: 1
+                    maxLength: 2000
+                    description: "A link to a playlist at one of the station's music sources, as a browser or an app shows it"
+                providerPlaylist:
+                    '$ref': '#/components/schemas/PlaylistProviderRef'
+                    description: 'A playlist a music source lists here, by its plugin and its id'
                 name:
                     type: string
                     minLength: 1

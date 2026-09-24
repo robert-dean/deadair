@@ -24,7 +24,7 @@ import {
     type YtMusicConfig,
 } from './ytmusic.manifest.js';
 import { resolverFor, type ResolverClient } from './ytmusic.resolver.js';
-import { mapPlaylists, mapTracks } from './ytmusic.mapping.js';
+import { mapPlaylists, mapTracks, ytmusicPlaylistIdFromUrl } from './ytmusic.mapping.js';
 import type { UpstreamItem } from './ytmusic.mapping.js';
 
 interface MemoEntry {
@@ -250,6 +250,11 @@ export class YtMusicPlugin extends Plugin implements MusicProviderPluginInstance
     }
 
     // --- catalog, continued -----------------------------------------------------
+
+    /** A pasted YouTube Music or YouTube playlist link, as the playlist id it names. */
+    playlistIdFromUrl(url: string): string | undefined {
+        return ytmusicPlaylistIdFromUrl(url);
+    }
 
     /**
      * The account's playlists, with "Liked Music" in front when it has anything in it.

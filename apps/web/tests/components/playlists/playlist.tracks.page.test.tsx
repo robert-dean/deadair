@@ -6,12 +6,18 @@ import { PlaylistTracksPage } from '../../../src/components/playlists/playlist.t
 import { queryKeys } from '../../../src/api/query.keys';
 import { stubPhoneMedia } from '../../utils/phone';
 import { catalogPlaylistPage, catalogTrack } from '../../utils/playlist.fixture';
-import { createTestQueryClient, render, screen } from '../../utils/render';
+import { createTestQueryClient, render, screen, setupUser, waitFor } from '../../utils/render';
 
 const getPlaylistTracks = vi.fn();
+const previewPlaylistImport = vi.fn();
 
 vi.mock('../../../src/api/client', () => ({
-    sdk: { playlists: { getPlaylistTracks: (pluginId: string, playlistId: string) => getPlaylistTracks(pluginId, playlistId) } },
+    sdk: {
+        playlists: {
+            getPlaylistTracks: (pluginId: string, playlistId: string) => getPlaylistTracks(pluginId, playlistId),
+            previewPlaylistImport: (input: unknown) => previewPlaylistImport(input),
+        },
+    },
 }));
 
 vi.mock('@tanstack/react-router', () => ({
@@ -26,6 +32,7 @@ vi.mock('@tanstack/react-router', () => ({
 
 afterEach(() => {
     getPlaylistTracks.mockReset();
+    previewPlaylistImport.mockReset();
 });
 
 describe('PlaylistTracksPage', () => {
@@ -135,5 +142,27 @@ describe('PlaylistTracksPage', () => {
 
         expect(await screen.findByText('Tracks could not be loaded')).toBeInTheDocument();
         expect(screen.getByText('The catalog service is down.')).toBeInTheDocument();
+    });
+
+    it('saves the playlist as one of the station own, previewing it the moment the dialog opens', async () => {
+        getPlaylistTracks.mockResolvedValue({ pluginId: 'deadair.spotify', playlistId: 'playlist-1', tracks: [catalogTrack()] });
+        previewPlaylistImport.mockResolvedValue({
+            name: 'From Spotify',
+            matched: 1,
+            toAdd: 0,
+            toLookUp: 0,
+            skipped: 0,
+            notices: [],
+            entries: [{ position: 0, title: 'Good Times', artists: ['Chic'], outcome: 'matched', trackId: 't1' }],
+        });
+        const user = setupUser();
+
+        render(<PlaylistTracksPage pluginId="deadair.spotify" playlistId="playlist-1" />);
+        await user.click(await screen.findByRole('button', { name: 'Save as a station playlist' }));
+
+        await waitFor(() =>
+            expect(previewPlaylistImport).toHaveBeenCalledWith({ providerPlaylist: { pluginId: 'deadair.spotify', playlistId: 'playlist-1' } }),
+        );
+        expect(await screen.findByRole('button', { name: 'Import 1 record' })).toBeEnabled();
     });
 });

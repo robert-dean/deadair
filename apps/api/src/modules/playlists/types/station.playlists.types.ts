@@ -83,8 +83,18 @@ export const PlaylistFileOrigin = z.strictObject({
 export type PlaylistFileOrigin = z.infer<typeof PlaylistFileOrigin>;
 
 /**
+ * A playlist one of the station's music sources holds, named the way the playlists listing names it
+ * generated from [PlaylistProviderRef](../../../../data/contracts/playlists/station.playlists.types.ck#L77)
+ */
+export const PlaylistProviderRef = z.strictObject({
+    pluginId: z.string().min(1).max(200),
+    playlistId: z.string().min(1).max(400),
+});
+export type PlaylistProviderRef = z.infer<typeof PlaylistProviderRef>;
+
+/**
  * What importing one record would do here
- * generated from [PlaylistImportEntry](../../../../data/contracts/playlists/station.playlists.types.ck#L86)
+ * generated from [PlaylistImportEntry](../../../../data/contracts/playlists/station.playlists.types.ck#L94)
  */
 export const PlaylistImportEntry = z.strictObject({
     position: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)),
@@ -142,7 +152,7 @@ export type PlaylistFileTrack = z.infer<typeof PlaylistFileTrack>;
 
 /**
  * What an import WOULD do, written nowhere
- * generated from [PlaylistImportPlan](../../../../data/contracts/playlists/station.playlists.types.ck#L99)
+ * generated from [PlaylistImportPlan](../../../../data/contracts/playlists/station.playlists.types.ck#L107)
  */
 export const PlaylistImportPlan = z.strictObject({
     name: z.string().min(1).max(200),
@@ -172,7 +182,7 @@ export const PlaylistFile = z.strictObject({
 export type PlaylistFile = z.infer<typeof PlaylistFile>;
 
 /**
- * generated from [PlaylistImportResult](../../../../data/contracts/playlists/station.playlists.types.ck#L109)
+ * generated from [PlaylistImportResult](../../../../data/contracts/playlists/station.playlists.types.ck#L117)
  */
 export const PlaylistImportResult = z.strictObject({
     plan: PlaylistImportPlan,
@@ -188,7 +198,7 @@ export type PlaylistImportResultInput = z.infer<typeof PlaylistImportResultInput
 
 /**
  * Something to import a playlist from. Exactly one source
- * generated from [PlaylistImportInput](../../../../data/contracts/playlists/station.playlists.types.ck#L77)
+ * generated from [PlaylistImportInput](../../../../data/contracts/playlists/station.playlists.types.ck#L83)
  */
 export const PlaylistImportInput = z.strictObject({
     file: PlaylistFile.optional().describe('A playlist exported from a deadair station'),
@@ -200,6 +210,13 @@ export const PlaylistImportInput = z.strictObject({
         .describe('A playlist another program wrote, as its text: an M3U, a CSV with a header row, or one `Artist - Title` per line'),
     format: z.enum(['m3u', 'csv', 'text']).optional().describe('Which of those `text` is. Absent works it out from the text'),
     fileName: z.string().max(400).optional().describe('The name of the file `text` came from, which names the playlist when the text does not'),
+    url: z
+        .string()
+        .min(1)
+        .max(2000)
+        .optional()
+        .describe("A link to a playlist at one of the station's music sources, as a browser or an app shows it"),
+    providerPlaylist: PlaylistProviderRef.optional().describe('A playlist a music source lists here, by its plugin and its id'),
     name: z.string().min(1).max(200).optional().describe('What to call the new playlist. Absent keeps the name the source gives it'),
 });
 export type PlaylistImportInput = z.infer<typeof PlaylistImportInput>;

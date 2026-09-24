@@ -4,6 +4,11 @@ import { JobBroker } from '@maroonedsoftware/jobbroker';
 import { Logger } from '@maroonedsoftware/logger';
 import { entriesOfFile } from './playlist.file.js';
 import { parsePlaylistText } from './playlist.text.parser.js';
+import { asCatalogPlugin } from '#modules/plugins/plugin.capabilities.js';
+import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
+import { pluginsWith } from '#modules/plugins/plugin.selection.js';
+import { errorText } from '#modules/shared/error.text.js';
+import { PlaylistsService } from './playlists.service.js';
 import { PlaylistImportPlanner, type PlaylistImportEntrySource } from './playlist.import.planner.js';
 import { StationPlaylistsRepository } from './station.playlists.repository.js';
 import { toStationPlaylist } from './station.playlists.service.js';
@@ -32,6 +37,10 @@ export class PlaylistImportService {
     constructor(
         private readonly planner: PlaylistImportPlanner,
         private readonly playlists: StationPlaylistsRepository,
+        // For a source a music provider holds: its tracks are read through the same narrowing the
+        // console's own listing applies, so an actor who cannot see a plugin cannot import from it.
+        private readonly providerPlaylists: PlaylistsService,
+        private readonly registry: PluginRegistry,
         // Scoped, so the fill is enqueued in the request's transaction and exists only once the
         // playlist it fills does.
         private readonly jobs: JobBroker,
@@ -40,7 +49,7 @@ export class PlaylistImportService {
 
     /** What this source would become here. Writes nothing. */
     async preview(input: PlaylistImportInput): Promise<PlaylistImportPlan> {
-        const { plan } = await this.planner.plan(this.sourceOf(input), input.name);
+        const { plan } = await this.planner.plan(await this.sourceOf(input), input.name);
         return plan;
     }
 
@@ -51,7 +60,7 @@ export class PlaylistImportService {
      * agreed to, and a playlist that landed half way is the one outcome nothing described.
      */
     async import(input: PlaylistImportInput): Promise<PlaylistImportResult> {
-        const source = this.sourceOf(input);
+        const source = await this.sourceOf(input);
         const { plan, rows } = await this.planner.plan(source, input.name);
 
         const id = await this.playlists.create(
@@ -80,14 +89,74 @@ export class PlaylistImportService {
      * The one source this input names, as entries.
      *
      * @throws 400 when it names none, or more than one. The schema cannot say "exactly one of", so
-     *   this does.
+     *   this does. 422 for a link no music source here claims.
      */
-    private sourceOf(input: PlaylistImportInput): PlaylistImportEntrySource {
-        const named = [input.file, input.text].filter(source => source !== undefined).length;
-        if (named > 1) throw httpError(400).withDetails({ message: 'import one thing at a time: a playlist file or a text list, not both' });
+    private async sourceOf(input: PlaylistImportInput): Promise<PlaylistImportEntrySource> {
+        const named = [input.file, input.text, input.url, input.providerPlaylist].filter(source => source !== undefined).length;
+        if (named > 1) throw httpError(400).withDetails({ message: 'import one thing at a time: a file, a list, a link or a playlist' });
 
         if (input.file !== undefined) return entriesOfFile(input.file);
         if (input.text !== undefined) return parsePlaylistText(input.text, input.format, input.fileName);
-        throw httpError(400).withDetails({ message: 'say what to import: a playlist file or a text list' });
+        if (input.providerPlaylist !== undefined) return await this.fromProvider(input.providerPlaylist.pluginId, input.providerPlaylist.playlistId);
+        if (input.url !== undefined) {
+            const claimed = this.claim(input.url);
+            if (claimed === undefined) {
+                throw httpError(422).withDetails({ message: 'none of the station’s music sources recognises that link as one of its playlists' });
+            }
+            return await this.fromProvider(claimed.pluginId, claimed.playlistId);
+        }
+        throw httpError(400).withDetails({ message: 'say what to import: a file, a list, a link or a playlist' });
+    }
+
+    /**
+     * Which catalog provider a link belongs to, and the playlist it names there.
+     *
+     * Asked of every provider that can be browsed right now, in id order so the answer is the same
+     * every time, and the first to claim it wins, which is why the SDK asks a provider to claim only
+     * what it is sure of. A pure parse, so it is called directly rather than through the invoker: a
+     * provider that throws here has a bug in a string function, which costs it the link and should
+     * not count against it the way a failed upstream call does.
+     */
+    private claim(url: string): { pluginId: string; playlistId: string } | undefined {
+        const providers = pluginsWith(this.registry.list(), asCatalogPlugin).sort((left, right) => left.record.id.localeCompare(right.record.id));
+        for (const provider of providers) {
+            const parse = provider.instance.playlistIdFromUrl;
+            if (typeof parse !== 'function') continue;
+            try {
+                const playlistId = parse.call(provider.instance, url);
+                if (playlistId !== undefined && playlistId.length > 0) return { pluginId: provider.record.id, playlistId };
+            } catch (error) {
+                this.logger.warn(`playlists: ${provider.record.id} could not read a pasted link (${errorText(error)})`);
+            }
+        }
+        return undefined;
+    }
+
+    /**
+     * A provider's playlist as entries, each carrying the copy it was read from so the planner can
+     * match it by binding and a placeholder can be filled from exactly that copy.
+     *
+     * The name is the provider's rather than the playlist's, because the catalog contract has no
+     * call that answers one playlist's name; the preview offers it for the operator to change.
+     */
+    private async fromProvider(pluginId: string, playlistId: string): Promise<PlaylistImportEntrySource> {
+        const { tracks } = await this.providerPlaylists.getPlaylistTracks(pluginId, playlistId);
+        const provider = this.registry.get(pluginId)?.manifest?.name ?? pluginId;
+
+        return {
+            name: `From ${provider}`,
+            prompt: '',
+            entries: tracks.map(track => ({
+                title: track.title,
+                artists: track.artists,
+                ...(track.album === undefined ? {} : { album: track.album }),
+                ...(track.durationMs === undefined ? {} : { durationMs: track.durationMs }),
+                ...(track.isrc === undefined ? {} : { isrc: track.isrc }),
+                origin: { pluginId, externalId: track.id },
+            })),
+            skipped: 0,
+            notices: [],
+            originPluginId: pluginId,
+        };
     }
 }

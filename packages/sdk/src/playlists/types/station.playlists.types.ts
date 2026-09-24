@@ -83,8 +83,17 @@ export interface PlaylistFileOrigin {
 }
 
 /**
+ * A playlist one of the station's music sources holds, named the way the playlists listing names it
+ * generated from [PlaylistProviderRef](../../../../../apps/api/data/contracts/playlists/station.playlists.types.ck#L77)
+ */
+export interface PlaylistProviderRef {
+    pluginId: string;
+    playlistId: string;
+}
+
+/**
  * What importing one record would do here
- * generated from [PlaylistImportEntry](../../../../../apps/api/data/contracts/playlists/station.playlists.types.ck#L86)
+ * generated from [PlaylistImportEntry](../../../../../apps/api/data/contracts/playlists/station.playlists.types.ck#L94)
  */
 export interface PlaylistImportEntry {
     position: number;
@@ -153,7 +162,7 @@ export interface PlaylistFileTrack {
 
 /**
  * What an import WOULD do, written nowhere
- * generated from [PlaylistImportPlan](../../../../../apps/api/data/contracts/playlists/station.playlists.types.ck#L99)
+ * generated from [PlaylistImportPlan](../../../../../apps/api/data/contracts/playlists/station.playlists.types.ck#L107)
  */
 export interface PlaylistImportPlan {
     name: string;
@@ -184,7 +193,7 @@ export interface PlaylistFile {
 }
 
 /**
- * generated from [PlaylistImportResult](../../../../../apps/api/data/contracts/playlists/station.playlists.types.ck#L109)
+ * generated from [PlaylistImportResult](../../../../../apps/api/data/contracts/playlists/station.playlists.types.ck#L117)
  */
 export interface PlaylistImportResult {
     plan: PlaylistImportPlan;
@@ -205,7 +214,7 @@ export function revivePlaylistImportResult(raw: PlaylistImportResult): PlaylistI
 
 /**
  * Something to import a playlist from. Exactly one source
- * generated from [PlaylistImportInput](../../../../../apps/api/data/contracts/playlists/station.playlists.types.ck#L77)
+ * generated from [PlaylistImportInput](../../../../../apps/api/data/contracts/playlists/station.playlists.types.ck#L83)
  */
 export interface PlaylistImportInput {
     /** A playlist exported from a deadair station */
@@ -216,6 +225,10 @@ export interface PlaylistImportInput {
     format?: 'm3u' | 'csv' | 'text';
     /** The name of the file `text` came from, which names the playlist when the text does not */
     fileName?: string;
+    /** A link to a playlist at one of the station's music sources, as a browser or an app shows it */
+    url?: string;
+    /** A playlist a music source lists here, by its plugin and its id */
+    providerPlaylist?: PlaylistProviderRef;
     /** What to call the new playlist. Absent keeps the name the source gives it */
     name?: string;
 }

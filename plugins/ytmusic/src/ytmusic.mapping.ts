@@ -169,3 +169,27 @@ export function mapPlaylist(item: UpstreamItem | undefined): ProviderPlaylist | 
 /** Every row that is a playlist, in the order the provider gave them. */
 export const mapPlaylists = (items: readonly (UpstreamItem | undefined)[] | undefined): ProviderPlaylist[] =>
     (items ?? []).map(mapPlaylist).filter((playlist): playlist is ProviderPlaylist => playlist !== undefined);
+
+/** The hosts a YouTube Music or YouTube playlist link is written on. */
+const YOUTUBE_HOSTS = new Set(['music.youtube.com', 'www.youtube.com', 'youtube.com', 'm.youtube.com']);
+
+/**
+ * The playlist a YouTube Music link names: the `list` parameter of a `/playlist` page, or of a
+ * `/watch` page opened from inside one. YouTube's own site carries the same playlists, so its links
+ * are taken too. The id goes back as written: the client reads one with or without the `VL` prefix
+ * the browse endpoints put on it (see `sameList`).
+ */
+export function ytmusicPlaylistIdFromUrl(url: string): string | undefined {
+    let parsed: URL;
+    try {
+        parsed = new URL(url.trim());
+    } catch {
+        return undefined;
+    }
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return undefined;
+    if (!YOUTUBE_HOSTS.has(parsed.hostname)) return undefined;
+    if (parsed.pathname !== '/playlist' && parsed.pathname !== '/watch') return undefined;
+
+    const list = parsed.searchParams.get('list') ?? undefined;
+    return list !== undefined && /^[A-Za-z0-9_-]{2,}$/.test(list) ? list : undefined;
+}

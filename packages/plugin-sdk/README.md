@@ -831,6 +831,13 @@ ones it implements in `manifest.capabilities`:
     account do, `madeByProvider` for a playlist the service made itself, such as
     an editorial list or Discover Weekly) and the host decides what to show.
 
+    `playlistIdFromUrl` is optional, and it is how an operator imports a playlist
+    the account does not list: they paste a link, the host asks every catalog
+    provider whose it is, and the first to claim it is asked for its tracks with
+    the id it answered. Keep it a pure parse of the text, with no network and no
+    host, and answer `undefined` for anything you are not sure is yours, because
+    the first claim wins.
+
 - **`stream`** — `resolveStreamUrl`: hand back a complete URL the audio consumer
   can fetch directly, carrying its own authentication, because it is fetched
   with no headers from us. A provider that cannot answer it plays its own audio

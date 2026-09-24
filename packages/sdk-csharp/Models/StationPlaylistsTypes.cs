@@ -130,6 +130,16 @@ public sealed record PlaylistFileOrigin
     public required string ExternalId { get; init; }
 }
 
+/// <summary>A playlist one of the station's music sources holds, named the way the playlists listing names it</summary>
+public sealed record PlaylistProviderRef
+{
+    [JsonPropertyName("pluginId")]
+    public required string PluginId { get; init; }
+
+    [JsonPropertyName("playlistId")]
+    public required string PlaylistId { get; init; }
+}
+
 /// <summary>What importing one record would do here</summary>
 public sealed record PlaylistImportEntry
 {
@@ -336,6 +346,16 @@ public sealed record PlaylistImportInput
     [JsonPropertyName("fileName")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? FileName { get; init; }
+
+    /// <summary>A link to a playlist at one of the station's music sources, as a browser or an app shows it</summary>
+    [JsonPropertyName("url")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Url { get; init; }
+
+    /// <summary>A playlist a music source lists here, by its plugin and its id</summary>
+    [JsonPropertyName("providerPlaylist")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PlaylistProviderRef? ProviderPlaylist { get; init; }
 
     /// <summary>What to call the new playlist. Absent keeps the name the source gives it</summary>
     [JsonPropertyName("name")]

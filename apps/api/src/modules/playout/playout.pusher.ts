@@ -271,7 +271,8 @@ export class PlayoutPusher {
      * that ends on its own inside that wait leaves the NEXT one on air, and an untargeted cut then takes
      * off a record nobody asked to lose: the operator's Skip lands on the track after the one they
      * saw, and an overrun cut lands on the new programme's first record. So the id is checked against
-     * what the pass just read, and a record that has already gone is not cut at all.
+     * what the pass just read, and a record that has already gone is not cut at all. The id also goes
+     * to the player, which makes the same check where no boundary can overtake it.
      *
      * `itemId` is optional only for the operator's Skip with nothing known on air, where the old
      * behaviour, cut whatever is playing, is still the right answer: an item from a previous process
@@ -288,10 +289,14 @@ export class PlayoutPusher {
             const before = this.rundown.nowPlaying()?.item.id;
             if (itemId !== undefined && before !== itemId) return true;
 
-            const reading = await this.control.skip();
+            // Aimed at the player too, which closes the round trip this check cannot: the item may
+            // still end between here and the handler. A cut the player declined answers with a
+            // reading that names some other item, and there is no boundary of ours to wait for.
+            const reading = await this.control.skip(itemId);
             if (!reading) return false;
 
             this.rundown.reconcile(reading);
+            if (itemId !== undefined && reading.onAir !== itemId) return true;
             await this.confirmBoundary(before);
             return true;
         });

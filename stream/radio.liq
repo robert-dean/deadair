@@ -776,7 +776,7 @@ playout_bed =
 #   GET  /control/status → the reading            what the app reconciles against; also its probe
 #   POST /control/push   → {"rid": n, …reading}   body is the annotate: uri
 #   POST /control/flush  → the reading            drop everything queued; what is on air finishes
-#   POST /control/skip   → the reading            END what is on air; the queue advances at once
+#   POST /control/skip   → the reading            END what is on air (or only the item named); the queue advances
 #   POST /control/onair  → the reading            "deadair is driving", good for CONTROL_TTL_S
 #   POST /control/offair → the reading            hand the lease back now: off air, queue dropped
 def control_authorized(req) =
@@ -1024,9 +1024,22 @@ end
 # Skipping with nothing queued behind it is legal and simply makes this source unavailable for a
 # moment, so the mount falls through to the local bed; the app pushes the lead item first to avoid
 # exactly that (see PlayoutPusher.skipCurrent).
+#
+# The cut can be AIMED, and the app aims every one it sends. Between the app deciding to cut an item
+# and this handler running there is a round trip at the least, and a record that ends on its own
+# inside it leaves the next one airing: an unaimed skip would take that one off, which nobody asked
+# for. So when the request names an item and it is not what is airing, nothing is cut, and the
+# reading says what is on air instead. This is the only place the check can be exact: Liquidsoap
+# runs one handler at a time, so the comparison and the skip see the same boundary.
+#
+#   x-skip-item  optional. The item the cut is for, as it appears in `onAir`. Absent, the item on
+#                air is cut whatever it is, which is what an item the app cannot name needs.
 def control_skip(req) =
   if control_authorized(req) then
-    playout_queue.skip()
+    item = string.trim(list.assoc(default="", "x-skip-item", req.headers))
+    if item == "" or (playout_queue.is_ready() and item == on_air_item()) then
+      playout_queue.skip()
+    end
     control_json('{' ^ playout_reading() ^ '}')
   else
     control_denied()

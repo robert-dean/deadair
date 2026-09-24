@@ -417,9 +417,13 @@ export class PlayoutControlClient {
      * advances in Liquidsoap's streaming loop, not in the request that asked for
      * it, so the boundary can land after the response is built. Confirming it is
      * {@link PlayoutPusher.skipCurrent}'s job.
+     *
+     * With `itemId`, the cut is AIMED: `radio.liq` cuts only when that item is the one airing, and
+     * otherwise answers with a reading naming whatever is. The check has to happen there, where the
+     * decoder is, because anything this side of the round trip can be overtaken by a boundary.
      */
-    async skip(): Promise<QueueStatus | undefined> {
-        return this.read(await this.call('POST', '/control/skip'));
+    async skip(itemId?: string): Promise<QueueStatus | undefined> {
+        return this.read(await this.call('POST', '/control/skip', undefined, itemId === undefined ? undefined : { 'X-Skip-Item': itemId }));
     }
 
     /**

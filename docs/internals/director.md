@@ -122,7 +122,8 @@ off: the operator's Skip lands on the record after the one they saw, a skip-to c
 aiming for, and an overrun cut takes the new programme's first record. So each caller reads the id airing
 when it was asked (the operator's Skip, `skipToOrderItem`, `vetoDisliked`, `cutOverrun`), and `skipCurrent`
 cuts nothing when the pass it waited for shows that item gone, answering as though the cut had landed,
-since the item is off air either way.
+since the item is off air either way. The id also goes to the player as `X-Skip-Item`, and `radio.liq`
+makes the same check where no boundary can overtake it, because Liquidsoap runs one handler at a time.
 
 ## What the order is asked for
 

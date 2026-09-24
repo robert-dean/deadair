@@ -652,10 +652,22 @@ describe('PlayoutPusher.skipCurrent aimed at an item', () => {
             await vi.advanceTimersByTimeAsync(3_000);
 
             expect(await skipped).toBe(true);
-            expect(control.skip).toHaveBeenCalledTimes(1);
+            expect(control.skip).toHaveBeenCalledExactlyOnceWith(first);
         } finally {
             vi.useRealTimers();
         }
+    });
+
+    it('takes a cut the player declined as the item already gone, and does not wait for a boundary', async () => {
+        // The record ended in the round trip: the pass still saw it, the player did not. radio.liq
+        // cut nothing and answered with what IS airing, and there is no boundary of ours to confirm.
+        const { pusher, control, first, second } = await onAirStation(['a', 'b', 'c']);
+        control.reading = { queued: 1, ready: true, onAir: first };
+        control.skip.mockImplementationOnce(async () => ({ queued: 0, ready: true, onAir: second }));
+        const readsBefore = control.status.mock.calls.length;
+
+        expect(await pusher.skipCurrent(first)).toBe(true);
+        expect(control.status.mock.calls.length).toBe(readsBefore);
     });
 
     it('leaves alone the record that started after the one it was asked to cut', async () => {

@@ -292,6 +292,23 @@ describe('PlayoutControlClient mutations', () => {
         return new PlayoutControlClient(pinnedEndpoint, staleness, logger);
     };
 
+    it('aims a skip at the item it names, and leaves an unaimed one unaimed', async () => {
+        // radio.liq cuts only when the named item is the one airing, which is the one place that
+        // check cannot be overtaken by a boundary. An unaimed cut sends no header at all.
+        const headers: (string | null)[] = [];
+        const client = clientWith(async (_url, init) => {
+            headers.push(new Headers(init?.headers).get('X-Skip-Item'));
+            return new Response(JSON.stringify({ queued: 0, ready: true, onAir: 'item-2' }), { status: 200 });
+        });
+        try {
+            await client.skip('item-2');
+            await client.skip();
+            expect(headers).toEqual(['item-2', null]);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
     it('answers a skip with the reading the command produced', async () => {
         const client = clientWith(
             async () => new Response(JSON.stringify({ queued: 0, ready: true, onAir: 'item-2', remainingMs: 1000 }), { status: 200 }),

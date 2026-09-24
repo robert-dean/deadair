@@ -407,7 +407,7 @@ an `X-Playout-Secret` header:
 | `GET /control/status`    | the reading (below) — also the app's reachability probe                          |
 | `POST /control/push`     | body is an `annotate:` uri; queues it, returns `{"rid": n, …reading}`            |
 | `POST /control/flush`    | drops everything queued; what is on air finishes                                 |
-| `POST /control/skip`     | ends what is on air; the queue advances to the next item at once                 |
+| `POST /control/skip`     | ends what is on air; with `X-Skip-Item`, only when that item is the one airing   |
 | `POST /control/onair`    | renews deadair's lease on the mount for `CONTROL_TTL_S`                          |
 | `POST /control/offair`   | hands the lease back now: off air at once, queue dropped                         |
 | `POST /control/metadata` | line one is the finished label, line two (optional) the artwork URL; puts both into the stream at the current position |

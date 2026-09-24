@@ -12,10 +12,10 @@ const root = resolve(import.meta.dirname, '../..');
  * The literal-string lint rule, run as a test.
  *
  * `eslint.config.js` carries the rule, but the shared config turns every rule into a warning and
- * nothing in CI runs lint, so on its own it refuses nothing. This lints the folders whose copy is in
- * a catalog with the console's own config and fails on the first literal that crept back.
+ * nothing in CI runs lint, so on its own it refuses nothing. This lints the console with its own
+ * config and fails on the first literal that crept back.
  */
-describe('translated folders', () => {
+describe('the console', () => {
     it('put no literal copy in JSX', async () => {
         const results = await new ESLint({ cwd: root }).lintFiles(TRANSLATED);
         const found = results.flatMap(result =>

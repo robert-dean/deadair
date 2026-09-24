@@ -3,44 +3,10 @@
 import i18next from 'eslint-plugin-i18next';
 
 /**
- * The folders whose copy has been moved into `src/i18n/` catalogs. Each extraction adds its folder
- * here; once every folder is listed the list becomes `src/**`.
+ * Where copy has to come from a catalog: all of the console. It was a list of folders while the
+ * strings were moved out one area at a time, and the list ended when the last one was.
  */
-export const TRANSLATED = [
-    'src/components/shared/**',
-    'src/components/shell/**',
-    'src/components/auth/**',
-    'src/components/login.page.tsx',
-    'src/routes/**',
-    'src/components/onboarding/**',
-    'src/components/personas/**',
-    'src/components/settings/**',
-    'src/components/plugins/**',
-    'src/components/topics/**',
-    'src/components/catalog/**',
-    'src/components/library/**',
-    'src/components/schedule/**',
-    'src/components/programme/**',
-    'src/components/station/**',
-    'src/components/charts/**',
-    'src/components/onair/**',
-    'src/components/desk/**',
-    'src/components/playout/**',
-    'src/components/playlists/**',
-    'src/components/pads/**',
-    'src/components/activity/**',
-    'src/components/narrations/**',
-    'src/components/news/**',
-    'src/components/phrasings/**',
-    'src/components/podcasts/**',
-    'src/components/productions/**',
-    'src/components/pronunciations/**',
-    'src/components/requests/**',
-    'src/components/scripts/**',
-    'src/components/segments/**',
-    'src/components/voice/**',
-    'src/components/voices/**',
-];
+export const TRANSLATED = ['src/**'];
 
 /**
  * Words an operator reads go through `t()`, not into JSX as literals.

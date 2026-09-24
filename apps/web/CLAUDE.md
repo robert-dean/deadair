@@ -44,3 +44,38 @@ on the back-links, which `stripSearchParams` takes straight back out of the URL.
 applies to any `{...rest}` of an `any`; if a link's props come from a variable, type it
 (`Pick<LinkProps, 'to' | 'params' | 'search'>` is what `attention.destination.ts` uses) rather than
 as a `Record<string, string>`.
+
+## Words
+
+**No copy is written into a component.** Every word an operator reads comes from an i18next catalog
+under `src/i18n/en/`, one namespace per folder under `src/components` (plus `common` for the shared
+components, `routes` and `api`), read with `useTranslation('<ns>')`. English is the only locale and
+the source language: it is bundled and installed synchronously in `i18n.setup.ts`, so there is no
+loading frame, and `i18n.types.d.ts` types `t()` against it, so a key that does not exist fails `tsc`.
+`tests/setup.ts` installs the same catalog, which is why the suite's `getByText('…')` queries are the
+check that a string survived its move into a catalog. Change the English in the catalog, not the test.
+
+- **A sentence is one key.** A value in the middle is a `{{placeholder}}`, never fragments joined with
+  `+`. A count is `count` with `_one`/`_other` keys, never `n === 1 ? …`. A sentence with a `<Code>`
+  or a link inside it is a `<Trans>` with named tags. Do not name a tag `link`, `track` or any other
+  HTML void element: the parser closes it on the spot and the link renders empty
+  (`tests/i18n/catalog.tags.test.ts` refuses them). Where the operator's own text goes inside markup,
+  pass it as the tag's child rather than as a value, so a `<` in a name is not read as a tag.
+- **Words outside React** (a `describeX()` a test calls directly, a table built at import) read
+  `i18n.t` from `i18n.setup.ts`, and a table's labels are getters, so they are looked up when drawn
+  and not fixed in whichever language the console started in. Spreading such an object copies the
+  words once; read the property instead.
+- **Another namespace's key** needs both named: `useTranslation(['<ns>', 'common'])`, or `t` rejects
+  `common:…` at the type level. `common.catalog.ts` is for words the shared components own.
+- **Text from the API is not copy.** Setting labels and help, plugin descriptions and field text, and
+  an error's `details.message` arrive in English and are shown as they come. Localizing those is the
+  API's job and was deliberately left out.
+- **Dates, times and numbers** go through `src/i18n/format.locale.ts`. The format locale is the
+  browser's own tag in the language on screen (`en-GB`, not `en`), so a British operator still reads
+  British dates. A station time is `formatClock` (24-hour whatever the locale), never `'en-GB'`, which
+  settles the language as well as the clock.
+- **The guard is a test, not the linter.** `eslint.i18n.js` holds a literal-string rule over `src/**`,
+  but the shared lint config only warns and CI does not run lint, so
+  `tests/i18n/literal.strings.test.ts` runs the rule and fails on a hit. It sees JSX text and the copy
+  attributes listed there. It does not see a string handed to a helper outside JSX (`notifyDone('…')`,
+  an `apiErrorMessage` fallback, a default parameter), so a review still has to.

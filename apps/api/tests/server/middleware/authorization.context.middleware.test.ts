@@ -152,6 +152,57 @@ describe('authorizationContextMiddleware', () => {
         expect((h.overrides.get(AuthorizationContext) as AuthorizationContext).actor.kind).toBe('system');
     });
 
+    describe('a request made by a connected app', () => {
+        const OAUTH = { clientId: 'dyn_1', resource: 'https://radio.example.com/api/mcp', scope: ['mcp'] };
+        const grantSession = (oauth: Record<string, unknown> = { ...OAUTH, grantId: 'grant-1' }) => ({
+            sessionToken: 'grant-session',
+            subject: ACTOR_ID,
+            claims: { actorType: 'user', oauth },
+            factors: [],
+        });
+
+        it('acts as the person who approved it, narrowed to what the grant allows now', async () => {
+            const h = harness({ relations: ['admin'], keyGrants: ['view'] });
+            h.ctx.authenticationSession = grantSession();
+
+            await authorizationContextMiddleware()(h.ctx, h.next);
+
+            const actor = (h.overrides.get(AuthorizationContext) as AuthorizationContext).actor;
+            expect(actor.kind === 'user' && actor.apiKey).toBeUndefined();
+            expect(actor.kind === 'user' && actor.grant && { ...actor.grant, grants: [...actor.grant.grants] }).toEqual({
+                id: 'grant-1',
+                clientId: 'dyn_1',
+                grants: ['view'],
+            });
+            // Asked of the grant's own object, whose tuples come from its stored row.
+            expect(h.checkSubject).toHaveBeenCalledWith({ namespace: 'oauthgrant', id: 'grant-1' }, 'manage', {
+                kind: 'concrete',
+                namespace: 'user',
+                id: ACTOR_ID,
+            });
+        });
+
+        it('gives a grant session without a grant id a ceiling of nothing, rather than none', async () => {
+            const h = harness({ relations: ['admin'], keyGrants: ['view', 'manage'] });
+            h.ctx.authenticationSession = grantSession(OAUTH);
+
+            await authorizationContextMiddleware()(h.ctx, h.next);
+
+            const actor = (h.overrides.get(AuthorizationContext) as AuthorizationContext).actor;
+            expect(actor.kind === 'user' && actor.grant && [...actor.grant.grants]).toEqual([]);
+            expect(h.checkSubject).not.toHaveBeenCalled();
+        });
+
+        it('puts no ceiling on a person signed in to the console', async () => {
+            const h = harness({ relations: ['admin'] });
+
+            await authorizationContextMiddleware()(h.ctx, h.next);
+
+            const actor = (h.overrides.get(AuthorizationContext) as AuthorizationContext).actor;
+            expect(actor.kind === 'user' && actor.grant).toBeUndefined();
+        });
+    });
+
     describe('a request made with an API key', () => {
         it('acts as the key’s owner, with the owner’s roles and what the key was granted', async () => {
             const h = harness({ relations: ['admin'], keyGrants: ['view'] });

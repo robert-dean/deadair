@@ -1,6 +1,6 @@
 ---
-title: 'Revoke oauth grant'
-sidebar_label: 'Revoke oauth grant'
+title: 'Revoke OAuth grant'
+sidebar_label: 'Revoke OAuth grant'
 sidebar_position: 8
 mdx:
     format: 'md'

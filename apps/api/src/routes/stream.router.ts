@@ -85,7 +85,7 @@ StreamRouter.get('/stream/authorization', requirePolicy({ policy: 'platform.mana
 
 /**
  * Starts the fetcher's one-time authorization and answers with the URL to open. Starting another replaces whichever was pending
- * from [stream.ck](../../data/contracts/stream/stream.ck#L119)
+ * from [stream.ck](../../data/contracts/stream/stream.ck#L120)
  */
 StreamRouter.post('/stream/authorization', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const service = ctx.container.get(StreamService);
@@ -98,7 +98,7 @@ StreamRouter.post('/stream/authorization', requirePolicy({ policy: 'platform.man
 
 /**
  * Finishes an authorization from the address the operator's browser ended up at
- * from [stream.ck](../../data/contracts/stream/stream.ck#L131)
+ * from [stream.ck](../../data/contracts/stream/stream.ck#L133)
  */
 StreamRouter.post('/stream/authorization/complete', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const body = await parseAndValidate(ctx.parsedBody, FetcherAuthorizationInput);

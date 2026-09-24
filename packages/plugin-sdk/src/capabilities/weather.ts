@@ -91,6 +91,14 @@ export interface WeatherQuery {
      * being optimistic, not a caller being wrong.
      */
     days?: number;
+    /**
+     * The language the station broadcasts in, as a BCP 47 tag, or absent for English.
+     *
+     * Worth honouring for the PLACE above everything else: {@link WeatherReading.place} is said out
+     * loud, and a German station should say "München" rather than "Munich". Ask your service for
+     * names in this language where it can give them, and ignore it where it cannot.
+     */
+    language?: string;
 }
 
 /**

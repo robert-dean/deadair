@@ -195,3 +195,18 @@ describe('as comms events', () => {
         expect(help.indexOf('/request')).toBeLessThan(help.indexOf('Station operators'));
     });
 });
+
+describe('the list a platform is told', () => {
+    it('is /help in order, saying which commands take something after them', () => {
+        expect(commands().list()).toEqual([
+            { name: 'now', description: 'what is on air right now', takesArgs: false },
+            { name: 'request', description: expect.stringContaining('ask for a record'), takesArgs: true },
+            { name: 'help', description: 'what you can ask', takesArgs: false },
+            { name: 'link', description: expect.stringContaining('CODE'), takesArgs: true },
+            { name: 'unlink', description: 'undo /link', takesArgs: false },
+            { name: 'skip', description: 'skip what is playing', takesArgs: false },
+            { name: 'offair', description: 'take the station off the air', takesArgs: false },
+            { name: 'onair', description: 'put it back on the air where it stopped', takesArgs: false },
+        ]);
+    });
+});

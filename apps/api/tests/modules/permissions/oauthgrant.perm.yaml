@@ -1,0 +1,58 @@
+# The `oauthgrant` namespace in core.perm, exercised against the real platform namespace beside it.
+# These tuples are what `grantTuples` derives from a grant row (`oauth.grant.tuples.ts`); the test
+# beside that file checks the derivation, and this one checks the rule the derivation feeds.
+#
+#   admin      holds platform:main.admin and three grants: manage, view, and one naming no station
+#              scope at all.
+#   listener   holds platform:main.listener and a manage grant, which must still only view.
+#   nobody     holds no platform role and a manage grant, which must do nothing.
+schemaFile: ../../../data/permissions/core.perm
+
+relationships: |-
+    platform:main.admin@user:admin
+    platform:main.listener@user:listener
+
+    oauthgrant:admin_manage.owner@user:admin
+    oauthgrant:admin_manage.station@platform:main
+    oauthgrant:admin_manage.scoped_view@user:admin
+    oauthgrant:admin_manage.scoped_manage@user:admin
+
+    oauthgrant:admin_view.owner@user:admin
+    oauthgrant:admin_view.station@platform:main
+    oauthgrant:admin_view.scoped_view@user:admin
+
+    oauthgrant:admin_bare.owner@user:admin
+    oauthgrant:admin_bare.station@platform:main
+
+    oauthgrant:listener_manage.owner@user:listener
+    oauthgrant:listener_manage.station@platform:main
+    oauthgrant:listener_manage.scoped_view@user:listener
+    oauthgrant:listener_manage.scoped_manage@user:listener
+
+    oauthgrant:nobody_manage.owner@user:nobody
+    oauthgrant:nobody_manage.station@platform:main
+    oauthgrant:nobody_manage.scoped_view@user:nobody
+    oauthgrant:nobody_manage.scoped_manage@user:nobody
+
+assertions:
+    assertTrue:
+        # An admin's manage grant does everything its owner does.
+        - oauthgrant:admin_manage.view@user:admin
+        - oauthgrant:admin_manage.manage@user:admin
+        # An admin's view grant reads.
+        - oauthgrant:admin_view.view@user:admin
+        # A listener's manage grant still reads, because its owner may.
+        - oauthgrant:listener_manage.view@user:listener
+    assertFalse:
+        # A view grant does not manage, however much its owner may.
+        - oauthgrant:admin_view.manage@user:admin
+        # A grant with no station scope does nothing.
+        - oauthgrant:admin_bare.view@user:admin
+        - oauthgrant:admin_bare.manage@user:admin
+        # A grant never exceeds its owner: a listener's manage grant cannot manage.
+        - oauthgrant:listener_manage.manage@user:listener
+        # An owner with no role on the station has a grant to nothing.
+        - oauthgrant:nobody_manage.view@user:nobody
+        - oauthgrant:nobody_manage.manage@user:nobody
+        # Nobody but the owner holds a grant's rights, admins included.
+        - oauthgrant:listener_manage.view@user:admin

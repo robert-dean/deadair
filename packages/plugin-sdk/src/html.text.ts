@@ -93,8 +93,15 @@ export function truncateWords(value: string, maxChars: number): string {
  * full stop followed by a digit or a lowercase letter is an abbreviation or a
  * decimal, not an ending. Measured on a real wire story — "Saturday, Aug. 15,
  * 2026" was being read as a complete sentence and a bulletin said it out loud.
+ *
+ * Any capital letter starts a sentence, not only an ASCII one, and so do the
+ * guillemets (with the space French typesetting puts inside them) and the
+ * Spanish opening marks. With `[A-Z]` a German sentence
+ * opening on "Über" or "Ärger" and a Spanish one opening on "¿" had no boundary
+ * in front of them, so a passage in either language ran on as one sentence and
+ * a cut to a word count found nowhere to stop.
  */
-const SENTENCE_END = /[.!?]["'”’)\]]*\s+(?=["'“‘(]?[A-Z0-9])/g;
+const SENTENCE_END = /[.!?]["'”’»)\]]*\s+(?=(?:["'“‘„¿¡(]|«\s?)?[\p{Lu}0-9])/gu;
 
 /**
  * The abbreviations the lookahead cannot catch, because a name follows them and

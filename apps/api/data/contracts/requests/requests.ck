@@ -16,6 +16,9 @@ options {
 operation /requests/search: {
     get: { # Records the station could be asked to play, matching a title or an artist
         name: Search requestable records
+        mcp: {
+            description: "Finds records listeners can ask the station to play, by title, artist or both. Use it before create_request to get the trackId; it answers at most 25."
+        }
         service: RequestsService.search
         query: {
             q: string(min=1, max=200) # What to look for: a title, an artist, or both
@@ -47,6 +50,9 @@ operation /requests: {
     }
     post: { # Ask the station to play a record. Answers with the request whatever became of it, so a refusal says why in `reason`
         name: Create request
+        mcp: {
+            description: "Asks the station to play a record, as a listener would, with an optional name, dedication and message. Get the trackId from search_requestable_records first. It always answers with the request: a refused one says why in reason, and a waiting one plays once an operator lets it through."
+        }
         service: RequestsService.create
         request: {
             application/json: ListenerRequestCreate
@@ -62,6 +68,9 @@ operation /requests: {
 operation /requests/mine: {
     get: { # The signed-in account's own recent requests
         name: List my requests
+        mcp: {
+            description: "This person's own recent requests and what became of each: waiting, playing, played or refused, with the reason."
+        }
         service: RequestsService.mine
         response: {
             200: {

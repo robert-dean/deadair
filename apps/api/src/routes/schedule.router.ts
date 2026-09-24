@@ -58,7 +58,7 @@ ScheduleRouter.get('/schedule/current', requirePolicy({ policy: 'platform.view' 
 
 /**
  * The station's day as blocks, contiguous and gapless, for drawing
- * from [schedule.ck](../../data/contracts/schedule/schedule.ck#L81)
+ * from [schedule.ck](../../data/contracts/schedule/schedule.ck#L84)
  */
 ScheduleRouter.get('/schedule/timetable', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const query = await parseAndValidate(ctx.query, ScheduleTimetableQuery.strict());
@@ -73,7 +73,7 @@ ScheduleRouter.get('/schedule/timetable', requirePolicy({ policy: 'platform.view
 
 /**
  * Rewrites a slot. Takes effect at its next boundary rather than immediately
- * from [schedule.ck](../../data/contracts/schedule/schedule.ck#L101)
+ * from [schedule.ck](../../data/contracts/schedule/schedule.ck#L107)
  */
 ScheduleRouter.put('/schedule/:id', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const { id } = await parseAndValidate(
@@ -95,7 +95,7 @@ ScheduleRouter.put('/schedule/:id', requirePolicy({ policy: 'platform.manage' })
 
 /**
  * Removes a slot. Whatever is on air stays on until the next slot begins
- * from [schedule.ck](../../data/contracts/schedule/schedule.ck#L113)
+ * from [schedule.ck](../../data/contracts/schedule/schedule.ck#L119)
  */
 ScheduleRouter.delete('/schedule/:id', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { id } = await parseAndValidate(

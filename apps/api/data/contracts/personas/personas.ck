@@ -63,6 +63,7 @@ operation /personas: {
 operation /personas/generate: {
     post: { # Turns a description of a character into a whole persona, checked against its own sample lines and handed back unsaved
         name: Generate persona
+        mcp: exclude
         service: PersonasService.generate
         request: {
             application/json: PersonaRequest
@@ -486,6 +487,7 @@ operation /personas/{id}/rehearse: {
     }
     post: { # Writes a talk break under this persona against two fixed invented records, and answers with every writer that was asked
         name: Rehearse persona
+        mcp: exclude
         service: PersonaRehearsalService.rehearse
         response: {
             200: {

@@ -67,7 +67,21 @@ describe('OAuthConsentPage', () => {
         await setupUser().click(await screen.findByRole('button', { name: 'Allow' }));
 
         await waitFor(() => expect(leave).toHaveBeenCalledWith('https://claude.ai/api/mcp/auth_callback?code=c&state=abc'));
-        expect(approveAuthorizationRequest).toHaveBeenCalledWith({ requestId: 'req-1' });
+        // Read only unless the person chooses otherwise: most apps need no more.
+        expect(approveAuthorizationRequest).toHaveBeenCalledWith({ requestId: 'req-1', scopes: ['view'] });
+    });
+
+    it('lets the person allow the app to manage the station too', async () => {
+        const user = setupUser();
+        describeAuthorizationRequest.mockResolvedValue(CONTEXT);
+        approveAuthorizationRequest.mockResolvedValue({ redirectUrl: 'https://claude.ai/api/mcp/auth_callback?code=c' });
+        render(<OAuthConsentPage query={QUERY} leave={vi.fn()} />);
+
+        await user.click(await screen.findByText('Read and manage'));
+        expect(screen.getByText(/It can also change the station/)).toBeInTheDocument();
+        await user.click(screen.getByRole('button', { name: 'Allow' }));
+
+        await waitFor(() => expect(approveAuthorizationRequest).toHaveBeenCalledWith({ requestId: 'req-1', scopes: ['manage'] }));
     });
 
     it('denying sends the browser to the app with the refusal', async () => {

@@ -24,7 +24,7 @@ LogsRouter.get('/logs', requirePolicy({ policy: 'platform.manage' }), async ctx 
 
 /**
  * A tail of one log, newest first
- * from [logs.ck](../../data/contracts/station/logs.ck#L57)
+ * from [logs.ck](../../data/contracts/station/logs.ck#L58)
  */
 LogsRouter.get('/logs/:id', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { id } = await parseAndValidate(
@@ -46,7 +46,7 @@ LogsRouter.get('/logs/:id', requirePolicy({ policy: 'platform.manage' }), async 
 
 /**
  * The retained log as a plain-text attachment, oldest first, as the file is written
- * from [logs.ck](../../data/contracts/station/logs.ck#L74)
+ * from [logs.ck](../../data/contracts/station/logs.ck#L76)
  */
 LogsRouter.get('/logs/:id/download', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { id } = await parseAndValidate(

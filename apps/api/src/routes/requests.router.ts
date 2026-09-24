@@ -42,7 +42,7 @@ RequestsRouter.get('/requests/search', requirePolicy({ policy: 'platform.view' }
 
 /**
  * Every recent request, for the operator deciding on them
- * from [requests.ck](../../data/contracts/requests/requests.ck#L33)
+ * from [requests.ck](../../data/contracts/requests/requests.ck#L36)
  */
 RequestsRouter.get('/requests', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const query = await parseAndValidate(
@@ -62,7 +62,7 @@ RequestsRouter.get('/requests', requirePolicy({ policy: 'platform.manage' }), as
 
 /**
  * Ask the station to play a record. Answers with the request whatever became of it, so a refusal says why in `reason`
- * from [requests.ck](../../data/contracts/requests/requests.ck#L48)
+ * from [requests.ck](../../data/contracts/requests/requests.ck#L51)
  */
 RequestsRouter.post('/requests', requirePolicy({ policy: 'platform.view' }), bodyParserMiddleware(['json']), async ctx => {
     const body = await parseAndValidate(ctx.parsedBody, ListenerRequestCreate);
@@ -77,7 +77,7 @@ RequestsRouter.post('/requests', requirePolicy({ policy: 'platform.view' }), bod
 
 /**
  * The signed-in account's own recent requests
- * from [requests.ck](../../data/contracts/requests/requests.ck#L63)
+ * from [requests.ck](../../data/contracts/requests/requests.ck#L69)
  */
 RequestsRouter.get('/requests/mine', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const service = ctx.container.get(RequestsService);
@@ -90,7 +90,7 @@ RequestsRouter.get('/requests/mine', requirePolicy({ policy: 'platform.view' }),
 
 /**
  * Let a waiting request through. It goes into the running order once its audio is here
- * from [requests.ck](../../data/contracts/requests/requests.ck#L78)
+ * from [requests.ck](../../data/contracts/requests/requests.ck#L87)
  */
 RequestsRouter.post('/requests/:id/grant', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { id } = await parseAndValidate(
@@ -110,7 +110,7 @@ RequestsRouter.post('/requests/:id/grant', requirePolicy({ policy: 'platform.man
 
 /**
  * Turn a request down. One already in the running order is left there; take it out of the order instead
- * from [requests.ck](../../data/contracts/requests/requests.ck#L96)
+ * from [requests.ck](../../data/contracts/requests/requests.ck#L105)
  */
 RequestsRouter.post('/requests/:id/decline', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const { id } = await parseAndValidate(

@@ -37,7 +37,7 @@ MessagingRouter.post('/messaging/links/code', requirePolicy({ policy: 'platform.
 
 /**
  * Unlink a chat account. Its operator commands are refused from the next one on
- * from [messaging.ck](../../data/contracts/messaging/messaging.ck#L46)
+ * from [messaging.ck](../../data/contracts/messaging/messaging.ck#L47)
  */
 MessagingRouter.delete('/messaging/links/:pluginId/:platformUserId', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { pluginId, platformUserId } = await parseAndValidate(

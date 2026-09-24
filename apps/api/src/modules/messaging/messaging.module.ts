@@ -11,7 +11,7 @@ import { MessagingRepository } from './messaging.repository.js';
 import { MessagingService } from './messaging.service.js';
 
 /**
- * The station on chat platforms: Telegram, and whatever else a `messaging` plugin connects.
+ * The station on chat platforms: Telegram, Discord, Slack, and whatever else a `messaging` plugin connects.
  *
  * After `PluginsModule`, whose registry it reads, and after `NowPlayingModule` and `DirectorModule`,
  * which is what people on a chat platform ask about and, through commands, act on. Late in the list

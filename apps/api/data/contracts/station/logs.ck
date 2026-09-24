@@ -41,6 +41,7 @@ options {
 operation /logs: {
     get: { # Every log this install has, present or not, with its size and when it was last written
         name: List logs
+        mcp: exclude
         service: LogsService.listSources
         response: {
             200: {
@@ -56,6 +57,7 @@ operation /logs/{id}: {
     }
     get: { # A tail of one log, newest first
         name: Read log
+        mcp: exclude
         service: LogsService.readLog
         query: LogQuery
         response: {

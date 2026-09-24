@@ -38,7 +38,7 @@ AuthenticationFactorRouter.get('/auth/factors', requirePolicy({ policy: false })
 
 /**
  * Register an authentication factor
- * from [authentication.factor.ck](../../data/contracts/authentication/authentication.factor.ck#L33)
+ * from [authentication.factor.ck](../../data/contracts/authentication/authentication.factor.ck#L34)
  */
 AuthenticationFactorRouter.post('/auth/factors/register', requirePolicy({ policy: false }), bodyParserMiddleware(['json']), async ctx => {
     const body = await parseAndValidate(ctx.parsedBody, AuthenticationFactorRegistration);
@@ -53,7 +53,7 @@ AuthenticationFactorRouter.post('/auth/factors/register', requirePolicy({ policy
 
 /**
  * Verify an authentication factor registration
- * from [authentication.factor.ck](../../data/contracts/authentication/authentication.factor.ck#L48)
+ * from [authentication.factor.ck](../../data/contracts/authentication/authentication.factor.ck#L50)
  */
 AuthenticationFactorRouter.post('/auth/factors/verify', requirePolicy({ policy: false }), bodyParserMiddleware(['json']), async ctx => {
     const body = await parseAndValidate(ctx.parsedBody, AuthenticationFactorRegistrationVerification);
@@ -68,7 +68,7 @@ AuthenticationFactorRouter.post('/auth/factors/verify', requirePolicy({ policy: 
 
 /**
  * Issue a factor verification challenge for a pending MFA round. Authenticated via the short-lived `mfa_challenge_id` in the body, not by session — this is the only /auth/factors/* route that does not require an authenticated session.
- * from [authentication.factor.ck](../../data/contracts/authentication/authentication.factor.ck#L63)
+ * from [authentication.factor.ck](../../data/contracts/authentication/authentication.factor.ck#L65)
  * anonymous access, no security required
  */
 AuthenticationFactorRouter.post('/auth/factors/start', bodyParserMiddleware(['json']), async ctx => {
@@ -84,7 +84,7 @@ AuthenticationFactorRouter.post('/auth/factors/start', bodyParserMiddleware(['js
 
 /**
  * Mint a fresh MFA challenge for the *current* authenticated session so the SPA can satisfy a `step_up_required` denial. Optionally filters eligible factors against an inbound `StepUpRequirement` hint. Returns `enrollment_required` when no enrolled factor matches the requirement so the SPA can route the user into enrollment instead of getting stuck.
- * from [authentication.factor.ck](../../data/contracts/authentication/authentication.factor.ck#L79)
+ * from [authentication.factor.ck](../../data/contracts/authentication/authentication.factor.ck#L82)
  */
 AuthenticationFactorRouter.post('/auth/mfa/start', requirePolicy({ policy: false }), bodyParserMiddleware(['json']), async ctx => {
     const body = await parseAndValidate(ctx.parsedBody, StepUpStartRequest);
@@ -99,7 +99,7 @@ AuthenticationFactorRouter.post('/auth/mfa/start', requirePolicy({ policy: false
 
 /**
  * Remove one of the caller's own factors. Answered for `authenticator` and `oidc`, and only after a recent strong-factor verification: the same gate enrolment sits behind once a strong factor exists, so a stolen session cannot quietly switch the second factor off. Removing the last authenticator turns the sign-in challenge off for that account. A linked identity provider that is the account's only way to sign in is refused with 409.
- * from [authentication.factor.ck](../../data/contracts/authentication/authentication.factor.ck#L98)
+ * from [authentication.factor.ck](../../data/contracts/authentication/authentication.factor.ck#L102)
  */
 AuthenticationFactorRouter.delete('/auth/factors/:method/:methodId', requirePolicy({ policy: false }), async ctx => {
     const { method, methodId } = await parseAndValidate(

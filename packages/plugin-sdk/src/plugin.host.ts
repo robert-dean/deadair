@@ -52,6 +52,47 @@ export interface HostFetchInit {
     signal?: AbortSignal;
 }
 
+/** What {@link PluginHost.socket} may be told. */
+export interface PluginSocketOptions {
+    /**
+     * How long to wait for the socket to open, in ms. Clamped to the host's own
+     * ceiling; asking for more buys nothing.
+     */
+    connectTimeoutMs?: number;
+}
+
+/**
+ * An open outbound WebSocket, from {@link PluginHost.socket}.
+ *
+ * Text frames only, and the shape `@maroonedsoftware/slack/socketmode` and
+ * `@maroonedsoftware/discord/gateway` call `SocketLike`, so either client takes
+ * one as it is. There is no `onOpen`: the promise that handed it over resolved
+ * when it opened.
+ */
+export interface PluginSocket {
+    /**
+     * Send one text frame.
+     *
+     * Does nothing once the socket has closed, rather than throwing: a
+     * heartbeat timer racing a close would otherwise throw from a timer, where
+     * nothing can catch it.
+     */
+    send(text: string): void;
+    /**
+     * Close it. `code` must be 1000 or in 3000–4999, the only ones a client may
+     * send; anything else closes with 1000.
+     */
+    close(code?: number, reason?: string): void;
+    /** Called with every inbound text frame. A listener that throws is logged, never propagated. */
+    onMessage(listener: (text: string) => void): void;
+    /**
+     * Called once when the socket closes, for any reason but one: a socket the
+     * host closes because the plugin is being disposed tells nobody, since there
+     * is nobody left to reconnect.
+     */
+    onClose(listener: (code?: number, reason?: string) => void): void;
+}
+
 /**
  * Namespaced key/value store, private to this plugin. Values must be
  * JSON-serialisable. Requires the `storage` permission.
@@ -224,6 +265,24 @@ export interface PluginHost {
      * actually sent.
      */
     fetch(url: string, init?: HostFetchInit): Promise<Response>;
+
+    /**
+     * Open an outbound WebSocket, for a platform that delivers over one (Slack
+     * Socket Mode, the Discord Gateway). Requires the `sockets` permission.
+     *
+     * The same policy as {@link fetch}: `wss:` only, the hostname must be in
+     * `permissions.network`, a host reached through `network.open` must not
+     * resolve to a private address, and the connect costs one token from the
+     * matching rate bucket. Resolves once the socket is open; rejects with a
+     * `PluginError` when it is refused or never opens.
+     *
+     * NOT tied to the call that opened it: a socket is meant to outlive it. The
+     * host bounds it instead: a frame over its size limit closes it, a plugin
+     * may hold only a few at once, and disposing the plugin closes every one it
+     * still has. Close your own in a `register` disposer all the same; the host's
+     * is the backstop, not the plan.
+     */
+    socket(url: string, options?: PluginSocketOptions): Promise<PluginSocket>;
 
     /**
      * Aborts when the host gives up on the call you are currently inside.

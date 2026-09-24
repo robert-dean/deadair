@@ -1,10 +1,11 @@
-import { useEffect } from 'react';
-import { Alert, Badge, Button, Card, Center, Group, Image, Loader, Stack, Text, Title } from '@mantine/core';
+import { useEffect, useState } from 'react';
+import { Alert, Badge, Button, Card, Center, Group, Image, Loader, SegmentedControl, Stack, Text, Title } from '@mantine/core';
 import { IconAlertTriangle } from '@tabler/icons-react';
 import { Trans, useTranslation } from 'react-i18next';
 
 import { useApproveAuthorization, useAuthorizationRequest, useDenyAuthorization } from '../../api/oauth.queries';
 import { isStepUpCancelled, StepUpDialog, useStepUpGate } from '../settings/step.up.dialog';
+import { ACCESS_CHOICES, type AccessScope } from '../shared/access.words';
 import { ErrorAlert } from '../shared/error.alert';
 
 export interface OAuthConsentPageProps {
@@ -26,10 +27,11 @@ export interface OAuthConsentPageProps {
  * app the station does not know, or an address the app did not register, is shown here and never
  * followed, because following it is how an authorization server becomes an open redirect.
  *
- * What the app can do is what the person can do: the page says so plainly rather than listing scopes
- * nothing checks. The address it will be sent back to is shown, because that is who actually
- * receives the approval, and a warning when every address it registered is this computer's own,
- * which only an app running on it should need.
+ * The person chooses what the app may do, in the words an API key uses: read only, which is the
+ * default because it is what most apps need, or read and manage. What they choose replaces whatever
+ * the app asked for, and it is a ceiling under their own role, never above it. The address it will be
+ * sent back to is shown, because that is who actually receives the approval, and a warning when every
+ * address it registered is this computer's own, which only an app running on it should need.
  */
 export function OAuthConsentPage({ query, leave = url => window.location.assign(url) }: OAuthConsentPageProps) {
     const { t } = useTranslation('auth');
@@ -37,6 +39,7 @@ export function OAuthConsentPage({ query, leave = url => window.location.assign(
     const approve = useApproveAuthorization();
     const deny = useDenyAuthorization();
     const gate = useStepUpGate();
+    const [access, setAccess] = useState<AccessScope>('view');
 
     const result = request.data;
 
@@ -47,7 +50,7 @@ export function OAuthConsentPage({ query, leave = url => window.location.assign(
 
     async function answer(allow: boolean, requestId: string): Promise<void> {
         try {
-            const outcome = allow ? await gate.run(() => approve.mutateAsync(requestId)) : await deny.mutateAsync(requestId);
+            const outcome = allow ? await gate.run(() => approve.mutateAsync({ requestId, scopes: [access] })) : await deny.mutateAsync(requestId);
             leave(outcome.redirectUrl);
         } catch (caught) {
             // The re-verify dialog was closed without a code: nothing was approved, and the page stays.
@@ -94,7 +97,20 @@ export function OAuthConsentPage({ query, leave = url => window.location.assign(
                                 </Badge>
                             </Stack>
 
-                            <Text size="sm">{t('consent.canDo')}</Text>
+                            <Stack gap={4}>
+                                <Text size="sm" fw={500}>
+                                    {t('consent.mayDo')}
+                                </Text>
+                                <SegmentedControl
+                                    aria-label={t('consent.mayDo')}
+                                    value={access}
+                                    onChange={value => setAccess(value as AccessScope)}
+                                    data={ACCESS_CHOICES.map(choice => ({ value: choice.value, label: choice.label }))}
+                                />
+                                <Text size="sm" c="dimmed">
+                                    {access === 'view' ? t('consent.mayView') : t('consent.mayManage')} {t('consent.untilDisconnected')}
+                                </Text>
+                            </Stack>
                             <Text size="sm">
                                 <Trans
                                     t={t}

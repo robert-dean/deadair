@@ -291,3 +291,17 @@ describe('the self-check', () => {
         }
     });
 });
+
+describe('personaPrompt on a station that does not broadcast in English', () => {
+    it('asks for what is said on air in the station language and the rest in English', () => {
+        const system = personaPrompt('a harbour-side night presenter', 'nl')[0]!.content;
+
+        expect(system).toContain('This station broadcasts in Dutch.');
+        expect(system).toContain('Write every other field in English.');
+        expect(system).toContain('Do not use {{clock.rough}} or {{greeting}}');
+    });
+
+    it('says nothing about language on an English station', () => {
+        expect(personaPrompt('anything')[0]!.content).not.toContain('This station broadcasts in');
+    });
+});

@@ -52,6 +52,13 @@ export interface SpeakableOptions {
     /** How many pad hits to keep. Defaults to {@link MAX_PADS}. */
     maxPads?: number;
     /**
+     * The station's language when it is not English, which widens what counts as a stage direction.
+     * The list {@link isStageDirection} reads is English, so outside it a run of one or two words
+     * written entirely in lower case is taken as a direction as well: `*lacht*`, `(seufzt)`,
+     * `*rit doucement*`. Lower case is what separates it from a title, which is capitalised.
+     */
+    language?: string;
+    /**
      * The pads this writer was offered, by name, which are the only `[sfx:…]` runs that survive.
      *
      * Required in the same sense `perform` is and defaulted to none rather than to the whole rack:
@@ -84,6 +91,7 @@ export const afterThinking = (text: string): string => text.replace(/^[\s\S]*<\/
  * did not happen.
  */
 export function speakableScript(text: string, options: SpeakableOptions): string | undefined {
+    const directs = (run: string): boolean => isStageDirection(run) || (options.language !== undefined && isLowerCaseAside(run));
     const kept = new Set<string>(options.perform.map(cue => cue.toLowerCase()));
     const ceiling = options.maxReactions ?? MAX_REACTIONS;
     const pads = options.pads ?? [];
@@ -119,10 +127,10 @@ export function speakableScript(text: string, options: SpeakableOptions): string
         // other two were a stressed word. So the station aired "Next up, by The Verve Pipe" with the
         // title gone, and refused "that was *Tornado Of Souls*" for naming neither record it was
         // shown. Bold (`**x**`) is the same shape with more marks and is read the same way.
-        .replace(/(\*{1,3})([^*]+?)\1/g, (_run, _marks: string, words: string) => (isStageDirection(words) ? ' ' : words))
+        .replace(/(\*{1,3})([^*]+?)\1/g, (_run, _marks: string, words: string) => (directs(words) ? ' ' : words))
         // Parentheses are deliberately NOT stripped wholesale: "(Don't Fear) The Reaper" is a title,
         // and a parenthetical inside a sentence is ordinary speech.
-        .replace(/\([^()]*\)/g, run => (isStageDirection(run) ? ' ' : run));
+        .replace(/\([^()]*\)/g, run => (directs(run.slice(1, -1)) ? ' ' : run));
 
     // Quotation marks around the WHOLE thing, which is a model quoting itself rather than a script
     // containing a quote. Only when they wrap everything, so a quoted lyric inside a line survives.
@@ -145,6 +153,15 @@ export function speakableScript(text: string, options: SpeakableOptions): string
  * first 1,433 plays, against every italicised title on the station before this list was consulted.
  */
 const isStageDirection = (run: string): boolean => /\b(?:laugh|sigh|pause|beat|music|sfx|voice|warmly|softly|upbeat|chuckl)\w*/i.test(run);
+
+/**
+ * Whether a run is one or two words in lower case, which outside English is what a stage direction
+ * looks like when the word for it is not on the English list. See `SpeakableOptions.language`.
+ */
+const isLowerCaseAside = (run: string): boolean => {
+    const words = run.trim().split(/\s+/).filter(Boolean);
+    return words.length > 0 && words.length <= 2 && words.every(word => /^\p{Ll}+[.!…]*$/u.test(word));
+};
 
 /**
  * Whether a bracketed run is a pad hit that {@link keepPads} has already approved.

@@ -71,7 +71,7 @@ function harness(
 
     const service = new SpeechService(registry, invoker, config, store, gate, lexicon, logger as never);
 
-    return { service, plugin, asked, lexicon, logger, listDeliveries, listLimits };
+    return { service, plugin, asked, lexicon, logger, listDeliveries, listLimits, config };
 }
 
 describe('SpeechService.speakWith', () => {
@@ -103,6 +103,52 @@ describe('SpeechService.speakWith', () => {
         await service.speakWith(plugin, { text: 'The news at 9:00.', voice: 'newsreader' });
 
         expect(asked[0]).toMatchObject({ voice: 'newsreader', text: "The news at nine o'clock." });
+    });
+
+    it('hands a non-English script over without English words, and without the mined respellings', async () => {
+        const { service, plugin, asked, lexicon, config } = harness();
+        vi.mocked(config.get).mockImplementation(((key: string, fallback: string) => (key === 'stream.language' ? 'de' : fallback)) as never);
+
+        await service.speakWith(plugin, { text: 'Das war Simon & Garfunkel, von 1968.' });
+
+        expect(asked[0]?.text).toBe('Das war Simon & Garfunkel, von 1968.');
+        expect(asked[0]?.language).toBe('de');
+        expect(lexicon.active).toHaveBeenCalledWith(['operator']);
+    });
+
+    it('sends no language on an English station', async () => {
+        const { service, plugin, asked } = harness();
+
+        await service.speakWith(plugin, { text: 'Good evening.' });
+
+        expect(asked[0]).not.toHaveProperty('language');
+    });
+
+    it('warns once, and still speaks, when the engine lists languages and the station language is not one', async () => {
+        const { service, plugin, asked, config, logger } = harness();
+        vi.mocked(config.get).mockImplementation(((key: string, fallback: string) => (key === 'stream.language' ? 'nl' : fallback)) as never);
+        const listLanguages = vi.fn(async () => ['en', 'de']);
+        Object.assign(plugin, { listsLanguages: true });
+        Object.assign(plugin.instance, { listLanguages });
+
+        await service.speakWith(plugin, { text: 'Goedenavond.' });
+        await service.speakWith(plugin, { text: 'Nog een keer.' });
+
+        expect(asked.map(request => request.language)).toEqual(['nl', 'nl']);
+        expect(logger.warn).toHaveBeenCalledTimes(1);
+        expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('does not list it'), expect.objectContaining({ language: 'nl' }));
+        expect(listLanguages).toHaveBeenCalledTimes(1);
+    });
+
+    it('says nothing when the engine speaks the language through its primary tag', async () => {
+        const { service, plugin, config, logger } = harness();
+        vi.mocked(config.get).mockImplementation(((key: string, fallback: string) => (key === 'stream.language' ? 'pt-br' : fallback)) as never);
+        Object.assign(plugin, { listsLanguages: true });
+        Object.assign(plugin.instance, { listLanguages: vi.fn(async () => ['pt']) });
+
+        await service.speakWith(plugin, { text: 'Boa noite.' });
+
+        expect(logger.warn).not.toHaveBeenCalled();
     });
 
     it('reads the lexicon on every render, so an edit is heard on the next break', async () => {

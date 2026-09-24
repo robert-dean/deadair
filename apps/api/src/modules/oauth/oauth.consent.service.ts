@@ -6,7 +6,9 @@ import { AuthorizationContext } from '#modules/permissions/authorization.context
 import { SessionActivityService } from '#modules/authentication/session.activity.service.js';
 import { StrongFactorGate } from '#modules/authentication/strong.factor.gate.js';
 import { oauthIsEnabled } from './oauth.settings.js';
+import { OAUTH_GRANT_SCOPES, type OAuthGrantScope } from './oauth.grant.tuples.js';
 import type {
+    OAuthAuthorizationApproval,
     OAuthAuthorizationContextResult,
     OAuthAuthorizationDecision,
     OAuthAuthorizationOutcome,
@@ -42,9 +44,10 @@ export class OAuthConsentService {
         return toContract(await this.server.describeAuthorizationRequest(parseQuery(request.query), actorId));
     }
 
-    async approve(decision: OAuthAuthorizationDecision): Promise<OAuthAuthorizationOutcome> {
+    async approve(approval: OAuthAuthorizationApproval): Promise<OAuthAuthorizationOutcome> {
         const { actorId } = this.authz.requireAuthentication();
         this.assertEnabled();
+        const scope = grantedScope(approval.scopes);
         await this.strongFactorGate.assertRecentIfAnyEnrolled(actorId);
 
         // The grant is a session of this person's own, so it carries what a sign-in would: the
@@ -52,10 +55,13 @@ export class OAuthConsentService {
         // the factors this session holds.
         const actor = this.authz.actor;
         const factors = actor.kind === 'user' ? [...actor.factors] : [];
-        return await this.server.approve(decision.requestId, {
+        // `scope` replaces whatever the app asked for, in the grant, the session and the token
+        // response alike: what the person chose here is what the grant's ceiling is read from.
+        return await this.server.approve(approval.requestId, {
             subject: actorId,
             claims: { actorType: 'user', ...this.sessionActivity.buildLoginContextClaims() },
             factors,
+            scope,
         });
     }
 
@@ -105,4 +111,15 @@ function toContract(result: AuthorizationContextResult): OAuthAuthorizationConte
         case 'refuse':
             return { kind: 'refuse', error: result.error, description: result.description };
     }
+}
+
+/**
+ * The scope a grant is issued with: `mcp`, the resource itself, and the station scopes the person
+ * chose, in `core.perm`'s order. At least one is required, since a grant that may do nothing is a
+ * consent page answered by mistake. `manage` brings `view` with it, as it does for a key.
+ */
+export function grantedScope(chosen: ReadonlyArray<OAuthGrantScope>): string[] {
+    if (chosen.length === 0) throw httpError(400).withDetails({ scopes: 'choose at least one of view or manage' });
+    const held = new Set<OAuthGrantScope>(chosen.includes('manage') ? ['view', 'manage'] : chosen);
+    return ['mcp', ...OAUTH_GRANT_SCOPES.filter(scope => held.has(scope))];
 }

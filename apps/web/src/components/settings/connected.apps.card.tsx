@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import type { OAuthGrant } from '@deadair/sdk';
 
 import { useOAuthGrants, useRevokeOAuthGrant } from '../../api/oauth.queries';
+import { accessWord } from '../shared/access.words';
 import { ConfirmModal } from '../shared/confirm.modal';
 import { ErrorAlert } from '../shared/error.alert';
 import { formatDate } from '../shared/format.date';
@@ -67,8 +68,12 @@ function GrantRow({ grant }: { grant: OAuthGrant }) {
                 <Text size="sm">{name}</Text>
                 <Text size="xs" c="dimmed">
                     {grant.lastUsedAt
-                        ? t('connectedApps.grant.connectedUsed', { date: formatDate(grant.createdAt), used: formatDate(grant.lastUsedAt) })
-                        : t('connectedApps.grant.connected', { date: formatDate(grant.createdAt) })}
+                        ? t('connectedApps.grant.connectedUsed', {
+                              access: accessWord(grant.scope),
+                              date: formatDate(grant.createdAt),
+                              used: formatDate(grant.lastUsedAt),
+                          })
+                        : t('connectedApps.grant.connected', { access: accessWord(grant.scope), date: formatDate(grant.createdAt) })}
                 </Text>
             </Stack>
             <Button variant="subtle" color="red" size="compact-sm" onClick={() => setConfirming(true)}>

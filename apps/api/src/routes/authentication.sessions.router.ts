@@ -21,7 +21,7 @@ AuthenticationSessionsRouter.post('/auth/logout', async ctx => {
 
 /**
  * Who the caller is and which platform roles they hold
- * from [authentication.sessions.ck](../../data/contracts/authentication/authentication.sessions.ck#L31)
+ * from [authentication.sessions.ck](../../data/contracts/authentication/authentication.sessions.ck#L32)
  */
 AuthenticationSessionsRouter.get('/auth/session', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const service = ctx.container.get(SessionsService);

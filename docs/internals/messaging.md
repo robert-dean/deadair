@@ -1,6 +1,6 @@
 # Internals: the station on chat platforms
 
-How people reach the station from Telegram, Slack, Discord and the like: the `messaging`
+How people reach the station from Telegram, Discord, Slack and the like: the `messaging`
 capability, the poller that listens, and the commands it answers. The capability's contract is
 `packages/plugin-sdk/src/capabilities/messaging.ts`; this is the host side of it.
 
@@ -10,15 +10,17 @@ ones covering whatever you are about to change. The always-loaded index is
 [#54](https://github.com/robert-dean/deadair/discussions/54) (requests through a chat bot) and
 [#76](https://github.com/robert-dean/deadair/discussions/76) (arbitrating them).
 
-## The station pulls, because a plugin cannot push
+## The station pulls, because a plugin cannot be called
 
 **A plugin has no inbound HTTP and no way to call into the station**, so incoming messages are
 pulled. `MessagingPoller` (`apps/api/src/modules/messaging/messaging.poller.ts`) runs one worker per
 active `messaging` plugin, each asking `receive({ cursor, waitMs })` in a loop, one call at a time.
-The plugin turns that into whatever its platform has: Telegram's `getUpdates` offset, a Slack
-timestamp, a Discord snowflake. A platform that can only deliver by webhook (WhatsApp's Cloud API)
+The plugin turns that into whatever its platform has: Telegram's `getUpdates` offset, or a queue it
+fills from a socket (below). A platform that can only deliver to a public URL (WhatsApp's Cloud API)
 does not fit yet; it would need a host-owned route under a prefix middleware in the shape of
-`bridge.secret.middleware.ts` and a plugin method to verify the platform's signature.
+`bridge.secret.middleware.ts` and a plugin method to verify the platform's signature. WhatsApp also
+cannot say anything unprompted outside a 24-hour window without paid templates, so "now playing"
+would not work there even with the route.
 
 **A loop and not a pg-boss cron**, which is the usual home for work nobody waits on, because here
 somebody is waiting: a person who typed `/now` expects an answer in seconds and the broker's cron
@@ -40,6 +42,43 @@ breaker the worker backs off from five seconds to five minutes.
 abandoned rather than awaited when the poller stops, or every shutdown would be that much longer.
 The plugin's own disposal cancels what it still has open. The module sits late in `modules.ts` for the
 same reason: it tears down before the director and long before the plugins it polls.
+
+## Platforms that push, over a socket
+
+**Slack and Discord deliver slash commands and button presses only to a public URL or over a
+WebSocket the bot holds open**, and a station behind a home router has no public URL. So the plugin
+holds the socket, through `host.socket` (the fetch policy applied to a `wss:` URL; see
+`packages/plugin-sdk/CLAUDE.md` § "Trust and egress"), with ServerKit's clients doing the protocol:
+`GatewayClient` from `@maroonedsoftware/discord/gateway`, and `SocketModeClient` from
+`@maroonedsoftware/slack/socketmode`. Polling their REST APIs instead was the obvious alternative and
+the wrong one: it hears typed messages and nothing else, so the `/request` picker's buttons would do
+nothing, and Slack refuses to send a message starting with an unknown `/` at all.
+
+**The poller is unchanged, and a socket plugin's `receive` drains a queue.** What the socket hears
+goes into an in-memory queue, and `receive` returns it, or waits on it for up to `waitMs`. There is
+no cursor, which is the capability's own "from now". The queue is not stored: what arrives while the
+station is down is gone, and a missed `/now` is not worth a table. The session starts on the first
+`receive` rather than in `onLoad`, so a failure to connect is the poll's failure, which the breaker
+counts and the plugin page shows. A close the platform says is final (Discord's 4014, the Message
+Content intent not granted; its 4004, a bad token) makes every later poll throw `config` or `auth`
+until the operator saves the plugin again.
+
+**An interaction is acknowledged by the plugin, the moment it arrives.** Discord gives one three
+seconds, and the host answers when the poller gets to it. So the plugin defers it on receipt (a
+slash command shows "thinking", a button press shows nothing), holds its token against the id
+`receive` hands out, and a `send` replying to that id answers through the token. For a slash command,
+the first reply replaces the placeholder and any later one follows it. The token lasts fifteen minutes,
+and after that a reply is an ordinary message in the channel. One from a channel the station does
+not answer in is turned away with a line only its sender sees, because an unacknowledged interaction
+reads as a broken bot. Slack needs no deferral, since `SocketModeClient` acknowledges every envelope
+before anything else; the plugin answers a slash command or a press through its `response_url`
+(thirty minutes, five replies), which works in a channel the app was never invited to.
+
+**The command table is told to the platform, where the platform keeps one.** The optional
+`commands()` on the capability is called with `MessagingCommands.list()` each time a worker starts,
+which is after every config save, and the Discord plugin overwrites its global slash commands with it.
+A command the platform does not list still works when typed, so a failure here is logged and nothing
+more.
 
 ## Announcing what airs
 

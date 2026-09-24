@@ -14,6 +14,7 @@ import {
     type TemplateInputs,
 } from './break.templates.js';
 import { spoken } from './talk.break.writer.js';
+import { stationLanguage } from '#modules/stream/stream.settings.js';
 
 /**
  * The station's own jingle: a few seconds between two records that says whose station this is.
@@ -126,10 +127,12 @@ export class JingleWriter extends BreakWriter {
             ...(dj.length === 0 ? {} : { dj }),
         };
 
-        const templates = parseTemplates(this.config.get(JINGLE_KEYS.templates, ''), JINGLE_TEMPLATES);
+        const language = stationLanguage(this.config);
+
+        const templates = parseTemplates(this.config.get(JINGLE_KEYS.templates, ''), JINGLE_TEMPLATES, language);
         this.complainAboutTypos(templates);
 
-        const fits = usable(templates, inputs, spoken);
+        const fits = usable(templates, inputs, spoken, language);
         // Only reachable with no station name and every phrasing needing one. The slot is skipped,
         // which is what a station with nothing to say between two records already does.
         if (fits.length === 0) return undefined;

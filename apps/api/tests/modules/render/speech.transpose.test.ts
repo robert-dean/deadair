@@ -324,3 +324,19 @@ describe('transposeForSpeech: performance cues', () => {
         expect(say('Here we go [laugh]\nAnd we are back.')).toBe('Here we go [laugh]. And we are back.');
     });
 });
+
+// Outside English the passes that write English words stand down, and the engine reads the digits
+// and symbols in the language it was built for.
+describe('transposeForSpeech: a station that does not broadcast in English', () => {
+    it('leaves numbers, symbols and initialisms for the engine', () => {
+        expect(transposeForSpeech('Um 21:30 Uhr, 1984, 50% mehr, feat. Die Toten Hosen, die USA.', [], 'de')).toBe(
+            'Um 21:30 Uhr, 1984, 50% mehr, feat. Die Toten Hosen, die USA.',
+        );
+    });
+
+    it('still applies the lexicon and still tidies the notation', () => {
+        const entries: Pronunciation[] = [{ written: 'Sade', spoken: 'Schah-deh' }];
+
+        expect(transposeForSpeech('Hier ist Sade — wunderbar…', entries, 'de')).toBe(transposeForSpeech('Hier ist Schah-deh — wunderbar…', [], 'de'));
+    });
+});

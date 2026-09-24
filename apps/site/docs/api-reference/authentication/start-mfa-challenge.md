@@ -1,6 +1,6 @@
 ---
-title: 'Start mfa challenge'
-sidebar_label: 'Start mfa challenge'
+title: 'Start MFA challenge'
+sidebar_label: 'Start MFA challenge'
 sidebar_position: 14
 mdx:
     format: 'md'

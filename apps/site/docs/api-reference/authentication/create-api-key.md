@@ -1,6 +1,6 @@
 ---
-title: 'Create api key'
-sidebar_label: 'Create api key'
+title: 'Create API key'
+sidebar_label: 'Create API key'
 sidebar_position: 2
 mdx:
     format: 'md'

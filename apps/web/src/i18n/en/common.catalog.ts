@@ -25,6 +25,12 @@ export const common = {
     notify: {
         saved: '{{what}} saved.',
     },
+    // What an API key or a connected app may do. See `access.words.ts`.
+    access: {
+        view: 'Read only',
+        manage: 'Read and manage',
+        nothing: 'Nothing',
+    },
     statusLamp: {
         label: 'Status: {{label}}',
     },

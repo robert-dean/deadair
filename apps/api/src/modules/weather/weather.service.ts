@@ -9,6 +9,7 @@ import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { parseUnits, WEATHER_KEYS, type StationUnits } from './weather.keys.js';
 import { spoken, type SpokenWeather } from './weather.words.js';
+import { stationLanguage } from '#modules/stream/stream.settings.js';
 
 /**
  * What it is like outside, out of whatever weather plugins are installed.
@@ -51,6 +52,15 @@ export class WeatherService {
         private readonly config: AppConfig,
         private readonly logger: Logger,
     ) {}
+
+    /**
+     * The station's language as a query field, or nothing for English, so the place a presenter says
+     * out loud comes back named the way the station's listeners name it.
+     */
+    private language(): { language?: string } {
+        const language = stationLanguage(this.config);
+        return language === undefined ? {} : { language };
+    }
 
     /** Whether anything can answer at all, for a caller deciding whether to offer the feature. */
     hasWeather(): boolean {
@@ -124,7 +134,7 @@ export class WeatherService {
     private async ask(plugin: WeatherPlugin, place: string, days: number): Promise<WeatherReading | undefined> {
         try {
             const reading = await this.pluginInvoker.invoke(plugin.record.id, 'weather.getWeather', async () =>
-                plugin.instance.getWeather({ place, ...(days > 0 ? { days } : {}) }),
+                plugin.instance.getWeather({ place, ...(days > 0 ? { days } : {}), ...this.language() }),
             );
 
             if (reading === undefined) return undefined;

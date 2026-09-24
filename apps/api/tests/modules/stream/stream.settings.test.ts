@@ -14,6 +14,7 @@ import {
     MAX_LISTENERS_RANGE,
     resolveMaxListeners,
     resolveStreamSettings,
+    stationLanguage,
     STREAM_KEYS,
     STREAM_SECRET_KEYS,
     streamMounts,
@@ -259,5 +260,28 @@ describe('streamMounts', () => {
         const { config } = settingsConfig({ 'stream.mount': '/wbcn.mp3', [STREAM_KEYS.aacEnabled]: 'true' });
 
         expect(streamMounts(resolveStreamSettings(config, encryption)).map(mount => mount.path)).toEqual(['/live.mp3', '/live.aac']);
+    });
+});
+
+describe('stationLanguage', () => {
+    it('answers nothing for a station that never set one, which is English', () => {
+        expect(stationLanguage(settingsConfig().config)).toBeUndefined();
+        expect(stationLanguage(settingsConfig({ [STREAM_KEYS.language]: '' }).config)).toBeUndefined();
+    });
+
+    it('treats every English tag as English, because the tables are not regional', () => {
+        for (const tag of ['en', 'en-GB', 'EN-us', ' en-AU ']) {
+            expect(stationLanguage(settingsConfig({ [STREAM_KEYS.language]: tag }).config)).toBeUndefined();
+        }
+    });
+
+    it('answers any other tag trimmed and lower-cased', () => {
+        expect(stationLanguage(settingsConfig({ [STREAM_KEYS.language]: ' de ' }).config)).toBe('de');
+        expect(stationLanguage(settingsConfig({ [STREAM_KEYS.language]: 'fr-CA' }).config)).toBe('fr-ca');
+    });
+
+    it('does not mistake a language whose tag starts with the letters e and n', () => {
+        // `enm` is Middle English and not the station's tables; only `en` and `en-*` are.
+        expect(stationLanguage(settingsConfig({ [STREAM_KEYS.language]: 'enm' }).config)).toBe('enm');
     });
 });

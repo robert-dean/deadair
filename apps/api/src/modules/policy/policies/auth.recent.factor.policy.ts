@@ -35,6 +35,15 @@ export class AuthRecentFactorPolicy extends Policy<AuthRecentFactorPolicyContext
                 actorKind: 'apikey',
             });
         }
+        // A connected app's session carries the factors of the session its owner approved it from, with
+        // their original times, so for a while after approving it would pass a step-up the person never
+        // made. A step-up is somebody proving they are at the keyboard, which an app never is.
+        if (envelope.actor.grant) {
+            return this.deny('step-up is only meaningful for a session a person signed in to', {
+                kind: 'step_up_unavailable',
+                actorKind: 'oauth_grant',
+            });
+        }
         // Belt to the braces above, for any path that ever builds an actor from a key's factors
         // without the `apiKey` field.
         const excludeMethods: ReadonlyArray<AuthenticationFactorMethod> = [...(context.excludeMethods ?? []), 'apikey'];

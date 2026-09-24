@@ -1,6 +1,6 @@
 import { Injectable } from 'injectkit';
 import { ChannelRouter, type IncomingEvent, type Reply } from '@maroonedsoftware/comms';
-import type { InboundMessage } from '@deadair/plugin-sdk';
+import type { InboundMessage, MessagingCommand } from '@deadair/plugin-sdk';
 import { NowPlayingService } from '#modules/nowplaying/nowplaying.service.js';
 import { MessagingOperator } from './messaging.operator.js';
 import { MessagingRequests, REQUEST_PICK_ACTION } from './messaging.requests.js';
@@ -110,17 +110,22 @@ export function toIncomingEvent(pluginId: string, message: InboundMessage): Inco
 export class MessagingCommands {
     /** The router every message is dispatched through. Public so a later handler (a request's buttons) can register on it. */
     readonly router = new ChannelRouter();
-    private readonly summaries: Array<{ name: string; summary: string; operator: boolean }> = [];
+    private readonly summaries: Array<{ name: string; summary: string; operator: boolean; takesArgs: boolean }> = [];
 
     constructor(
         private readonly nowPlaying: NowPlayingService,
         private readonly operator: MessagingOperator,
         private readonly requests: MessagingRequests,
     ) {
-        this.command('now', 'what is on air right now', false, async () => describeNowPlaying(this.nowPlaying.getNowPlaying()));
+        this.command('now', 'what is on air right now', {}, async () => describeNowPlaying(this.nowPlaying.getNowPlaying()));
 
         // Answered with a message rather than a line of text, since "which one did you mean" carries buttons.
-        this.summaries.push({ name: 'request', summary: 'TITLE OR ARTIST, then for NAME: MESSAGE if you like: ask for a record', operator: false });
+        this.summaries.push({
+            name: 'request',
+            summary: 'TITLE OR ARTIST, then for NAME: MESSAGE if you like: ask for a record',
+            operator: false,
+            takesArgs: true,
+        });
         this.router.command('request', async (event, reply) =>
             reply.send(await this.requests.request(event.channel, inboundOf(event), event.command?.args ?? '')),
         );
@@ -128,12 +133,16 @@ export class MessagingCommands {
             reply.send(await this.requests.pick(event.channel, inboundOf(event), event.action?.value)),
         );
 
-        this.command('help', 'what you can ask', false, async () => this.help());
-        this.command('link', 'CODE: link this account to your station account', true, async c => this.operator.link(c.pluginId, c.message, c.args));
-        this.command('unlink', 'undo /link', true, async c => this.operator.unlink(c.pluginId, c.message));
-        this.command('skip', 'skip what is playing', true, async c => this.operator.operate(c.pluginId, c.message, 'skip'));
-        this.command('offair', 'take the station off the air', true, async c => this.operator.operate(c.pluginId, c.message, 'offair'));
-        this.command('onair', 'put it back on the air where it stopped', true, async c => this.operator.operate(c.pluginId, c.message, 'onair'));
+        this.command('help', 'what you can ask', {}, async () => this.help());
+        this.command('link', 'CODE: link this account to your station account', { operator: true, takesArgs: true }, async c =>
+            this.operator.link(c.pluginId, c.message, c.args),
+        );
+        this.command('unlink', 'undo /link', { operator: true }, async c => this.operator.unlink(c.pluginId, c.message));
+        this.command('skip', 'skip what is playing', { operator: true }, async c => this.operator.operate(c.pluginId, c.message, 'skip'));
+        this.command('offair', 'take the station off the air', { operator: true }, async c => this.operator.operate(c.pluginId, c.message, 'offair'));
+        this.command('onair', 'put it back on the air where it stopped', { operator: true }, async c =>
+            this.operator.operate(c.pluginId, c.message, 'onair'),
+        );
 
         // Telegram sends `/start` the first time anybody opens a chat with a bot, so it is answered as
         // a greeting rather than as a command nobody typed. Not listed in `/help`.
@@ -158,9 +167,22 @@ export class MessagingCommands {
         await this.router.dispatch(toIncomingEvent(pluginId, message), reply);
     }
 
+    /**
+     * Every command the station answers to, in `/help`'s order, for a platform that lists them.
+     * `/start` is not among them, for the reason it is not in `/help`.
+     */
+    list(): MessagingCommand[] {
+        return this.summaries.map(({ name, summary, takesArgs }) => ({ name, description: summary, takesArgs }));
+    }
+
     /** Register a command that answers with text, and list it in `/help`. */
-    private command(name: string, summary: string, operator: boolean, run: (context: CommandContext) => Promise<string>): void {
-        this.summaries.push({ name, summary, operator });
+    private command(
+        name: string,
+        summary: string,
+        kind: { operator?: boolean; takesArgs?: boolean },
+        run: (context: CommandContext) => Promise<string>,
+    ): void {
+        this.summaries.push({ name, summary, operator: kind.operator === true, takesArgs: kind.takesArgs === true });
         this.router.command(name, async (event, reply) => {
             const text = await run({ pluginId: event.channel, message: inboundOf(event), args: event.command?.args ?? '' });
             await reply.send({ text });

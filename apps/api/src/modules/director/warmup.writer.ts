@@ -4,6 +4,7 @@ import { Logger } from '@maroonedsoftware/logger';
 import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBreak } from './break.writer.js';
 import { parseTemplates, unknownPlaceholders, usable, wasHeard, type RenderedTemplate, type TemplateInputs } from './break.templates.js';
 import { spoken } from './talk.break.writer.js';
+import { stationLanguage } from '#modules/stream/stream.settings.js';
 
 /**
  * What the station says to somebody who tuned in before it had any music.
@@ -102,10 +103,12 @@ export class WarmUpWriter extends BreakWriter {
             ...(request.greeting === undefined ? {} : { greeting: request.greeting.words }),
         };
 
-        const templates = parseTemplates(this.config.get(WARMUP_KEYS.templates, ''), WARMUP_TEMPLATES);
+        const language = stationLanguage(this.config);
+
+        const templates = parseTemplates(this.config.get(WARMUP_KEYS.templates, ''), WARMUP_TEMPLATES, language);
         this.complainAboutTypos(templates);
 
-        const fits = usable(templates, inputs, spoken);
+        const fits = usable(templates, inputs, spoken, language);
         // Only reachable if an operator has replaced every phrasing with one that needs something
         // this cannot fill. The station stays quiet, which is where it was before any of this.
         if (fits.length === 0) return undefined;

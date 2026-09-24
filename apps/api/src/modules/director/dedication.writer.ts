@@ -1,4 +1,6 @@
 import { Injectable } from 'injectkit';
+import { AppConfig } from '@maroonedsoftware/appconfig';
+import { stationLanguage } from '#modules/stream/stream.settings.js';
 import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBreak } from './break.writer.js';
 import { spoken } from './talk.break.writer.js';
 
@@ -83,6 +85,10 @@ export class DedicationWriter extends BreakWriter {
     readonly kind = DEDICATION_KIND;
     readonly name = DEDICATION_WRITER;
 
+    constructor(private readonly config: AppConfig) {
+        super();
+    }
+
     detailOfLastWrite(): WriteDetail | undefined {
         return undefined;
     }
@@ -90,6 +96,9 @@ export class DedicationWriter extends BreakWriter {
     async write(request: BreakWriteRequest): Promise<WrittenBreak | undefined> {
         const parts = dedicationOf(request);
         if (parts === undefined) return undefined;
+        // The lines below are English and there is no box to write others in, so a station that is
+        // not English has no floor here: a dedication the model declined is not read out in English.
+        if (stationLanguage(this.config) !== undefined) return undefined;
 
         const lines = dedicationLines(parts, request.next);
         // The first that was not said lately, since a busy night can carry several: judged on the

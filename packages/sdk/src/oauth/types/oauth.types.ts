@@ -48,7 +48,7 @@ export interface OAuthAuthorizationRefusal {
 }
 
 /**
- * Approving or denying a stashed request
+ * Denying a stashed request
  * generated from [OAuthAuthorizationDecision](../../../../../apps/api/data/contracts/oauth/oauth.types.ck#L40)
  */
 export interface OAuthAuthorizationDecision {
@@ -57,8 +57,14 @@ export interface OAuthAuthorizationDecision {
 }
 
 /**
+ * What a connected app may do on the station. `view` reads it; `manage` changes it and includes `view`. Never more than the person approving it may do
+ * generated from [OAuthGrantScope](../../../../../apps/api/data/contracts/oauth/oauth.types.ck#L44)
+ */
+export type OAuthGrantScope = 'view' | 'manage';
+
+/**
  * Where to send the browser now
- * generated from [OAuthAuthorizationOutcome](../../../../../apps/api/data/contracts/oauth/oauth.types.ck#L44)
+ * generated from [OAuthAuthorizationOutcome](../../../../../apps/api/data/contracts/oauth/oauth.types.ck#L51)
  */
 export interface OAuthAuthorizationOutcome {
     /** The app's own address, carrying the code or the refusal */
@@ -67,13 +73,13 @@ export interface OAuthAuthorizationOutcome {
 
 /**
  * How the app proves itself at the token endpoint. `none` is a public client, which is what apps on somebody's own device are
- * generated from [OAuthClientAuthMethod](../../../../../apps/api/data/contracts/oauth/oauth.types.ck#L48)
+ * generated from [OAuthClientAuthMethod](../../../../../apps/api/data/contracts/oauth/oauth.types.ck#L55)
  */
 export type OAuthClientAuthMethod = 'none' | 'client_secret_post' | 'client_secret_basic';
 
 /**
  * An app the signed-in person has let act as them
- * generated from [OAuthGrant](../../../../../apps/api/data/contracts/oauth/oauth.types.ck#L76)
+ * generated from [OAuthGrant](../../../../../apps/api/data/contracts/oauth/oauth.types.ck#L83)
  */
 export interface OAuthGrant {
     /** For disconnecting it */
@@ -84,7 +90,7 @@ export interface OAuthGrant {
     clientName?: string;
     /** What it can reach */
     resource: string;
-    /** What it asked for */
+    /** What it was granted: `mcp`, and the station scopes it may use (`view`, `manage`) */
     scope: string[];
     /** When it was first approved */
     createdAt: DateTime;
@@ -125,15 +131,26 @@ export interface OAuthAuthorizationContext {
     redirectHost: string;
     /** Whether every address the app registered is this computer's own, which only an app running on it should use */
     loopbackOnly: boolean;
-    /** What the app asked for. It acts as the person approving it whatever this says */
+    /** What the app asked for. The person chooses what it gets when approving, whatever this says */
     scope: string[];
     /** What the app will be able to reach: the station's MCP endpoint */
     resource: string;
 }
 
 /**
+ * Approving a stashed request, with what the app may do
+ * generated from [OAuthAuthorizationApproval](../../../../../apps/api/data/contracts/oauth/oauth.types.ck#L46)
+ */
+export interface OAuthAuthorizationApproval {
+    /** From the context */
+    requestId: string;
+    /** What the person lets the app do. At least one; `manage` includes `view`. Replaces whatever the app asked for */
+    scopes: OAuthGrantScope[];
+}
+
+/**
  * An app registered with the station
- * generated from [OAuthClientSummary](../../../../../apps/api/data/contracts/oauth/oauth.types.ck#L50)
+ * generated from [OAuthClientSummary](../../../../../apps/api/data/contracts/oauth/oauth.types.ck#L57)
  */
 export interface OAuthClientSummary {
     /** Its client id */
@@ -169,7 +186,7 @@ export function reviveOAuthClientSummary(raw: OAuthClientSummary): OAuthClientSu
 
 /**
  * An app an operator registers by hand, for a client that cannot register itself
- * generated from [OAuthClientCreate](../../../../../apps/api/data/contracts/oauth/oauth.types.ck#L65)
+ * generated from [OAuthClientCreate](../../../../../apps/api/data/contracts/oauth/oauth.types.ck#L72)
  */
 export interface OAuthClientCreate {
     /** What to call it */
@@ -181,7 +198,7 @@ export interface OAuthClientCreate {
 }
 
 /**
- * generated from [OAuthGrantList](../../../../../apps/api/data/contracts/oauth/oauth.types.ck#L86)
+ * generated from [OAuthGrantList](../../../../../apps/api/data/contracts/oauth/oauth.types.ck#L93)
  */
 export interface OAuthGrantList {
     /** Most recent first */
@@ -206,7 +223,7 @@ export function reviveOAuthGrantList(raw: OAuthGrantList): OAuthGrantList {
 export type OAuthAuthorizationContextResult = OAuthAuthorizationContext | OAuthAuthorizationRedirect | OAuthAuthorizationRefusal;
 
 /**
- * generated from [OAuthClientList](../../../../../apps/api/data/contracts/oauth/oauth.types.ck#L61)
+ * generated from [OAuthClientList](../../../../../apps/api/data/contracts/oauth/oauth.types.ck#L68)
  */
 export interface OAuthClientList {
     /** Newest first. Apps that describe themselves are not listed: nothing is stored for them */
@@ -227,7 +244,7 @@ export function reviveOAuthClientList(raw: OAuthClientList): OAuthClientList {
 
 /**
  * A registered app, with its secret. The only time the secret is ever returned
- * generated from [OAuthClientIssued](../../../../../apps/api/data/contracts/oauth/oauth.types.ck#L71)
+ * generated from [OAuthClientIssued](../../../../../apps/api/data/contracts/oauth/oauth.types.ck#L78)
  */
 export interface OAuthClientIssued {
     /** The app as it will appear in the list */

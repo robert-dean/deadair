@@ -5,17 +5,28 @@ import { McpDispatcher, createMcpRequestContext } from '@maroonedsoftware/mcp';
 /**
  * The MCP endpoint, `POST /api/mcp`, over Streamable HTTP in stateless mode.
  *
- * Hand-written for now in the shape ContractKit's `mcp` output emits, and replaced by that file when
- * the first operation is flagged `mcp: true`. The one thing it must keep is the guard: `oauth.grant`,
- * a session an app was granted through OAuth for this resource. Without a token the policy throws a
- * 401, and `oauth.challenge.middleware` adds the `resource_metadata` an MCP client needs to find out
- * how to get one.
+ * Hand-written, and it stays so: ContractKit's `mcp` output generates the tools beside it
+ * (`emitRouter: false` in `contractkit.config.json`), not this route. The generated one would guard
+ * the mount with a bare session check, and the one thing this route must keep is its own guard:
+ * `oauth.grant`, a session an app was granted through OAuth for this resource. Without a token the
+ * policy throws a 401, and `oauth.challenge.middleware` adds the `resource_metadata` an MCP client
+ * needs to find out how to get one.
+ *
+ * It hands the request's scoped container to the tools, which is what lets a tool built once at
+ * boot act as whoever called it: each one resolves its service and `PolicyService` from
+ * `context.container` per call (`resolve: "perCall"`), and so reads this request's actor rather than
+ * the startup one.
  */
 export const McpRouter = ServerKitRouter();
 
 McpRouter.post('/mcp', requirePolicy({ policy: 'oauth.grant' }), bodyParserMiddleware(['json']), async ctx => {
     const dispatcher = ctx.container.get(McpDispatcher);
-    const context = createMcpRequestContext({ requestId: ctx.requestId, logger: ctx.logger, authenticationSession: ctx.authenticationSession });
+    const context = createMcpRequestContext({
+        requestId: ctx.requestId,
+        logger: ctx.logger,
+        authenticationSession: ctx.authenticationSession,
+        container: ctx.container,
+    });
     const response = await dispatcher.dispatch(ctx.parsedBody as JSONRPCMessage, context);
     if (response === undefined) {
         // A notification: nothing to answer, as the transport says. An empty body set explicitly,

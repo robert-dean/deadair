@@ -67,24 +67,33 @@ export function parseOpenWeatherGeocoding(data: unknown): GeoPoint | undefined {
 }
 
 /** What it is like, in one request for now and one more for the outlook. */
-export async function openWeatherRead(service: Service, apiKey: string, point: GeoPoint, days: number): Promise<WeatherReading | undefined> {
-    const now = parseOpenWeatherCurrent(await ask(service, apiKey, 'weather', point), point.name);
+export async function openWeatherRead(
+    service: Service,
+    apiKey: string,
+    point: GeoPoint,
+    days: number,
+    language = 'en',
+): Promise<WeatherReading | undefined> {
+    const now = parseOpenWeatherCurrent(await ask(service, apiKey, 'weather', point, language), point.name);
     if (now === undefined) return undefined;
 
     const wanted = Math.min(Math.max(0, Math.trunc(days)), MAX_FORECAST_DAYS);
     if (wanted === 0) return now;
 
-    const forecast = parseOpenWeatherForecast(await ask(service, apiKey, 'forecast', point), wanted);
+    const forecast = parseOpenWeatherForecast(await ask(service, apiKey, 'forecast', point, language), wanted);
     return { ...now, ...(forecast.length === 0 ? {} : { days: forecast }) };
 }
 
-async function ask(service: Service, apiKey: string, endpoint: 'weather' | 'forecast', point: GeoPoint): Promise<unknown> {
+async function ask(service: Service, apiKey: string, endpoint: 'weather' | 'forecast', point: GeoPoint, language: string): Promise<unknown> {
     const url = new URL(`https://${OPENWEATHERMAP_HOST}/data/2.5/${endpoint}`);
     url.searchParams.set('lat', String(point.latitude));
     url.searchParams.set('lon', String(point.longitude));
     // Celsius. The wind that comes with it is metres per second, which is
     // converted on the way out rather than left as a trap for the next reader.
     url.searchParams.set('units', 'metric');
+    // The `description` in the station's language. Safe to ask for, because the condition is read off
+    // the numeric `id` and never off the words.
+    url.searchParams.set('lang', language.split('-')[0]!.toLowerCase());
     url.searchParams.set('appid', apiKey);
 
     return await fetchJson(service, url.toString(), { name: 'OpenWeatherMap', timeoutMs: REQUEST_TIMEOUT_MS, hint: wrongKey });

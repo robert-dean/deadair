@@ -46,10 +46,10 @@ function config(overrides: Partial<PluginConfigRecord> = {}): PluginConfigRecord
  * collaborators are inert; the invoker is real enough to pass a `dispose`
  * through, which the disappearance path needs.
  *
- * The host factory stub carries `cancelOpenBodies` because disposal calls it for
- * every plugin, whether or not one ever fetched anything: a response body
- * outlives the invocation that fetched it, so this is the only thing that lets
- * go of a socket held by an instance being dropped.
+ * The host factory stub carries `cancelOpenBodies` and `closeOpenSockets` because
+ * disposal calls both for every plugin, whether or not one ever fetched anything
+ * or opened a socket: each outlives the invocation that opened it, so these are
+ * the only things that let go of one held by an instance being dropped.
  */
 function makeManager(registry: PluginRegistry, discovered: PluginRecord[], configs: PluginConfigRecord[]) {
     const pluginLoader = { discover: vi.fn().mockResolvedValue(discovered) } as unknown as PluginLoader;
@@ -58,7 +58,7 @@ function makeManager(registry: PluginRegistry, discovered: PluginRecord[], confi
         invoke: vi.fn(async (_id: string, _operation: string, work: () => Promise<unknown>) => work()),
         reset: vi.fn(),
     } as unknown as PluginInvoker;
-    const pluginHostFactory = { cancelOpenBodies: vi.fn() } as unknown as PluginHostFactory;
+    const pluginHostFactory = { cancelOpenBodies: vi.fn(), closeOpenSockets: vi.fn() } as unknown as PluginHostFactory;
 
     // The two scoped collaborators arrive through a container, because the
     // manager opens a scope per read rather than holding either of them.

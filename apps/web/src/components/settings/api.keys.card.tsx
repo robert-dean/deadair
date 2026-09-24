@@ -6,9 +6,9 @@ import type { ApiKey, ApiKeyIssued, ApiKeyScope } from '@deadair/sdk';
 
 import { useApiKeys, useCreateApiKey, useRevokeApiKey, useRotateApiKey } from '../../api/auth.apikeys.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
-import { i18n } from '../../i18n/i18n.setup';
 import { ConfirmModal } from '../shared/confirm.modal';
 import { CopyButton } from '../shared/copy.button';
+import { ACCESS_CHOICES, accessWord } from '../shared/access.words';
 import { ErrorAlert } from '../shared/error.alert';
 import { formatDate } from '../shared/format.date';
 import { notifyDone } from '../shared/notify';
@@ -21,19 +21,8 @@ import { isStepUpCancelled, StepUpDialog, useStepUpGate } from './step.up.dialog
 
 type Gate = ReturnType<typeof useStepUpGate>;
 
-/** The two grants a key can be given, as the operator reads them. `manage` includes `view` on the API. */
-const ACCESS_CHOICES: readonly ApiKeyScope[] = ['view', 'manage'];
-
 /** How long a new key lives. Days, or never; the API has no ceiling of its own. */
 const EXPIRY_CHOICES = ['never', '30', '90', '365'] as const;
-
-function accessWord(key: ApiKey): string {
-    return key.scopes.includes('manage')
-        ? i18n.t('settings:apiKeys.access.manage')
-        : key.scopes.includes('view')
-          ? i18n.t('settings:apiKeys.access.view')
-          : i18n.t('settings:apiKeys.access.nothing');
-}
 
 type KeyState = 'active' | 'expired' | 'revoked';
 
@@ -197,7 +186,7 @@ function KeyRow({ apiKey, state, gate, onRotated }: KeyProps) {
                 </Stack>
             </Table.Td>
             <Table.Td>
-                <Text size="sm">{accessWord(apiKey)}</Text>
+                <Text size="sm">{accessWord(apiKey.scopes)}</Text>
             </Table.Td>
             <Table.Td>
                 <Text size="sm" className="da-num">
@@ -233,8 +222,8 @@ function KeyPhoneCard({ apiKey, state, gate, onRotated }: KeyProps) {
             subtitle={
                 <Text size="xs" c="dimmed" truncate>
                     {apiKey.lastUsedAt
-                        ? t('apiKeys.phone.used', { access: accessWord(apiKey), date: formatDate(apiKey.lastUsedAt) })
-                        : t('apiKeys.phone.neverUsed', { access: accessWord(apiKey) })}
+                        ? t('apiKeys.phone.used', { access: accessWord(apiKey.scopes), date: formatDate(apiKey.lastUsedAt) })
+                        : t('apiKeys.phone.neverUsed', { access: accessWord(apiKey.scopes) })}
                 </Text>
             }
             figure={<StatusLamp tone={STATE_TONES[state]} label={t(`apiKeys.state.${state}`)} />}
@@ -382,7 +371,7 @@ function NewKeyForm({ gate, onIssued }: { gate: Gate; onIssued: (issued: ApiKeyI
                             aria-label={t('apiKeys.column.access')}
                             value={access}
                             onChange={value => setAccess(value as ApiKeyScope)}
-                            data={ACCESS_CHOICES.map(choice => ({ value: choice, label: t(`apiKeys.access.${choice}`) }))}
+                            data={ACCESS_CHOICES.map(choice => ({ value: choice.value, label: choice.label }))}
                         />
                     </Stack>
                     <Select

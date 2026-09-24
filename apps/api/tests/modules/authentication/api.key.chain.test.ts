@@ -27,7 +27,9 @@ const chainWith = (keyResult: AuthenticationSession, jwtResult: AuthenticationSe
     const jwt: AuthenticationHandler = { authenticate: vi.fn().mockResolvedValue(jwtResult) };
     const options = new ApiKeyServiceOptions(API_KEY_PREFIX, 32, undefined, undefined, API_KEY_USE_WINDOW);
     const keyHandler = new ApiKeyAuthenticationHandler(options, service as unknown as ApiKeyService);
-    const chain = new ChainedAuthenticationHandler([keyHandler, jwt] as never);
+    // The chain logs once when no handler accepts a credential.
+    const logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+    const chain = new ChainedAuthenticationHandler([keyHandler, jwt] as never, logger as never);
     return { chain, service, jwt };
 };
 

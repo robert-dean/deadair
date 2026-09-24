@@ -100,6 +100,15 @@ describe('where the station is', () => {
         expect(answer?.place).toBe('Atlanta, Georgia');
     });
 
+    it('asks in the station language when it is not English, so the place comes back named for its listeners', async () => {
+        const asked = vi.fn(async () => reading('München'));
+        const service = build([record(ALPHA, asked)], { [WEATHER_KEYS.location]: 'Munich', 'stream.language': 'de' });
+
+        await service.read();
+
+        expect(asked).toHaveBeenCalledWith({ place: 'Munich', language: 'de' });
+    });
+
     it('asks about somewhere else when a caller names one', async () => {
         const asked = vi.fn(async () => reading('Chipping Norton'));
         const service = build([record(ALPHA, asked)], { [WEATHER_KEYS.location]: 'Atlanta' });

@@ -23,6 +23,7 @@ import { SEED_CALLERS } from './caller.defaults.js';
 import { SEED_PERSONA_STORIES } from './persona.story.defaults.js';
 import { PersonaStoriesRepository } from './persona.stories.repository.js';
 import { BUDGET_MS, MAX_OUTPUT_TOKENS, MAX_WAIT_MS, PERSONA_MODEL_KEY, personaPrompt, readPersona } from './persona.writer.js';
+import { stationLanguage } from '#modules/stream/stream.settings.js';
 
 /**
  * Everybody a fresh station starts with: the hosts, then the people who ring in.
@@ -271,7 +272,7 @@ export class PersonasService {
         const model = this.config.get(PERSONA_MODEL_KEY, '').trim();
         const result = await this.llm.converse(
             {
-                messages: personaPrompt(body.description),
+                messages: personaPrompt(body.description, stationLanguage(this.config)),
                 ...(model.length === 0 ? {} : { model }),
                 maxOutputTokens: MAX_OUTPUT_TOKENS,
                 // The same call the break writer makes, and for a sharper reason. Inventing a

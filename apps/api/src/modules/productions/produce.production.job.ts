@@ -25,7 +25,7 @@ import { PadRepository } from '#modules/render/pad.repository.js';
 import { SegmentRepository, type PadHit, type Segment } from '#modules/render/segment.repository.js';
 import { SpeechService } from '#modules/render/speech.service.js';
 import { speakableScript } from '#modules/render/speakable.script.js';
-import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
+import { STREAM_DEFAULTS, STREAM_KEYS, stationLanguage } from '#modules/stream/stream.settings.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { checkBeat, correctionNote } from './production.checks.js';
 import { callSubjectOf, isDialogue, speakerOrder, turnWeights, type CastMember, type ProductionCast } from './production.cast.js';
@@ -279,6 +279,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                         // by a rule in the beat prompt saying it is the morning.
                         dayPart: this.whenItAirs(claimed).words,
                         cleanLanguage: speaksClean(advisoryPolicy(this.config)),
+                        ...this.language(),
                     }),
                     maxOutputTokens: OUTLINE_OUTPUT_TOKENS,
                     // Planning IS the reasoning problem here, unlike a break. Left at the model's own
@@ -426,6 +427,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                 station,
                 dayPart: airs.words,
                 cleanLanguage: speaksClean(advisoryPolicy(this.config)),
+                ...this.language(),
             });
 
             const ask = async () =>
@@ -450,7 +452,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                 // stage direction is a word in the audio — the first live call-in aired an album
                 // title with the asterisks still round it. The strip spares exactly the cues this
                 // speaker was offered.
-                answer => speakable(answer.text, reactions, board.names),
+                answer => speakable(answer.text, reactions, board.names, this.language().language),
                 {
                     onEmpty: () =>
                         this.logger.info('productions: a beat came back empty, so it is being asked again', {
@@ -571,6 +573,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                 // `scheduledFor` exactly as `whenItAirs` is, so the two cannot describe different
                 // afternoons.
                 moment: { at: claimed.scheduledFor ?? Date.now(), zone: stationZone(this.config) },
+                ...this.language(),
             });
             if (problems.length === 0) continue;
 
@@ -617,6 +620,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                         dayPart: airs.words,
                         correction: correctionNote(problems),
                         cleanLanguage: speaksClean(advisoryPolicy(this.config)),
+                        ...this.language(),
                     }),
                     maxOutputTokens: BEAT_OUTPUT_TOKENS,
                     reasoningEffort: 'low',
@@ -628,6 +632,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                 answer.text,
                 reactions,
                 beat.pads.map(hit => hit.name),
+                this.language().language,
             );
             // A re-draft that came back empty leaves the original in place. The first attempt passed
             // enough to be spoken, and a beat with problems is better than no beat at all — which is
@@ -980,6 +985,15 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
      * Earliest deadline: background while its slot is far off, and on-air work as it approaches. The
      * number is real — somebody chose the slot — which is why this needs no aging rule.
      */
+    /**
+     * The station's language as a request field, or nothing for English, read per call for the reason
+     * `cleanLanguage` is: an operator's change lands on the next beat rather than after a restart.
+     */
+    private language(): { language?: string } {
+        const language = stationLanguage(this.config);
+        return language === undefined ? {} : { language };
+    }
+
     private priorityOf(production: Production) {
         return priorityForSlot(production.scheduledFor, Date.now(), DEADLINE_MS);
     }
@@ -1017,8 +1031,8 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
  * drop between the model answering and the row being written — silently, with the cue gone before
  * anything could resolve it.
  */
-const speakable = (text: string, reactions: readonly SpeechCue[], pads: readonly string[] = []): string =>
-    speakableScript(text, { perform: reactions, pads }) ?? '';
+const speakable = (text: string, reactions: readonly SpeechCue[], pads: readonly string[] = [], language?: string): string =>
+    speakableScript(text, { perform: reactions, pads, ...(language === undefined ? {} : { language }) }) ?? '';
 
 /**
  * Which of this character's signatures the rest of the programme has already used.

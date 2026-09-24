@@ -51,11 +51,11 @@ export interface GeoPoint {
  * the returned {@link GeoPoint.name} is what tells an operator it guessed
  * differently from them.
  */
-export async function geocode(service: Service, place: string): Promise<GeoPoint | undefined> {
+export async function geocode(service: Service, place: string, language = 'en'): Promise<GeoPoint | undefined> {
     const asked = place.trim();
     if (asked.length === 0) return undefined;
 
-    const whole = parseGeocoding(await search(service, asked, 1));
+    const whole = parseGeocoding(await search(service, asked, 1, language));
     if (whole !== undefined) return whole;
 
     const [head, ...rest] = asked.split(',');
@@ -65,15 +65,17 @@ export async function geocode(service: Service, place: string): Promise<GeoPoint
 
     // Ten rather than one, because the whole point of the second ask is that
     // there are several places of this name and the operator has said which.
-    return parseGeocoding(await search(service, town, 10), qualifier);
+    return parseGeocoding(await search(service, town, 10, language), qualifier);
 }
 
-async function search(service: Service, name: string, count: number): Promise<unknown> {
+async function search(service: Service, name: string, count: number, language: string): Promise<unknown> {
     const url = new URL(`https://${OPEN_METEO_GEOCODING_HOST}/v1/search`);
     url.searchParams.set('name', name);
     url.searchParams.set('count', String(count));
     url.searchParams.set('format', 'json');
-    url.searchParams.set('language', 'en');
+    // The language the answer's NAME comes back in, which is the name the presenter says. The service
+    // takes a bare two-letter code, so a regional tag is asked for as its language.
+    url.searchParams.set('language', language.split('-')[0]!.toLowerCase());
 
     return await fetchJson(service, url.toString(), { name: 'the Open-Meteo geocoder', timeoutMs: REQUEST_TIMEOUT_MS });
 }

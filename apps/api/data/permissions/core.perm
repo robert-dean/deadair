@@ -61,3 +61,23 @@ namespace apikey {
   permission manage = owner & scoped_manage & station->manage
   permission revoke = owner
 }
+
+// An app a person connected over OAuth (an MCP client such as a Claude connector), acting as them.
+// The same shape as `apikey` and for the same reasons: an object owned by a user, hanging off the
+// station, narrowed by `scoped_*` relations, and never more than its owner through `station->view`.
+//
+// **These tuples are never stored.** A grant's scope already lives in `oauth_grants.scope`, which the
+// OAuth library writes when the app exchanges its code and rewrites when the person approves it again.
+// A second copy here would have to be kept in step with that one on every approval, so
+// `DeadairPermissionsTupleRepository` DERIVES this namespace's tuples from the grant row when a check
+// asks for them (`oauth.grant.tuples.ts`): the owner, the station, one `scoped_<word>` per scope word
+// the row holds, and nothing at all once it is revoked. Writing to it is refused.
+namespace oauthgrant {
+  relation owner:         user
+  relation station:       platform
+  relation scoped_view:   user
+  relation scoped_manage: user
+
+  permission view   = owner & (scoped_view | scoped_manage) & station->view
+  permission manage = owner & scoped_manage & station->manage
+}

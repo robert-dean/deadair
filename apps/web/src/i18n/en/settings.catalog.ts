@@ -18,11 +18,6 @@ export const settings = {
             lastUsed: 'Last used',
             expires: 'Expires',
         },
-        access: {
-            view: 'Read only',
-            manage: 'Read and manage',
-            nothing: 'Nothing',
-        },
         expiry: {
             never: 'Never',
             '30': '30 days',
@@ -109,7 +104,7 @@ export const settings = {
     },
     chatAccounts: {
         title: 'Chat accounts',
-        intro: 'Link your account on a chat platform, such as Telegram, to skip a record or take the station off the air from a chat. It can do only what you can.',
+        intro: 'Link your account on a chat platform, such as Telegram, Discord or Slack, to skip a record or take the station off the air from a chat. It can do only what you can.',
         unavailable: {
             title: 'Chat accounts unavailable',
             fallback: 'The station could not list your chat accounts.',
@@ -137,14 +132,14 @@ export const settings = {
     },
     connectedApps: {
         title: 'Connected apps',
-        intro: 'Apps you have let act as you on this station, such as a Claude connector. Each can do what you can.',
+        intro: 'Apps you have let act as you on this station, such as a Claude connector, and what each may do. To change that, disconnect it and connect it again.',
         unavailable: {
             title: 'Apps unavailable',
             fallback: 'The station could not list your connected apps.',
         },
         grant: {
-            connected: 'Connected {{date}}',
-            connectedUsed: 'Connected {{date}} · last used {{used}}',
+            connected: '{{access}} · connected {{date}}',
+            connectedUsed: '{{access}} · connected {{date}} · last used {{used}}',
         },
         disconnect: {
             action: 'Disconnect',

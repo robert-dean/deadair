@@ -135,6 +135,29 @@ route is the second lock: it reads the grant, and refuses everything while the s
 session lasts seven days (`OAUTH_SESSION_LIFETIME`); the app refreshes it, and a refresh is refused
 for a revoked grant or the wrong client.
 
+**A grant has a ceiling, the one an API key has, and its tuples are never stored.** The session acts
+as the person, and `UserActor.grant` narrows it to the station scopes the grant holds (`view`,
+`manage`), read through `delegatedGrants` by every check that narrows a key: the platform policies,
+`AccessControlService`, `hasPlatformRole`. `requireAuthentication` refuses a grant outright, as it
+refuses a key, so an app can never approve another app or mint a key, and the step-up policy refuses
+one too, because a grant's session carries the factors of the session it was approved from, with their
+original times, and would otherwise pass a step-up for a while after approval. The ceiling comes from
+the `oauthgrant` namespace in `core.perm`, a copy of `apikey`, so a grant can never exceed its owner.
+Its tuples are DERIVED from the grant row's `scope` column by `DeadairPermissionsTupleRepository`
+(`oauth.grant.tuples.ts`) rather than written, because the OAuth library already writes that column at
+every code exchange and rewrites it on every re-approval, and a stored copy would have to be kept in
+step with it. The middleware reads it by `claims.oauth.grantId` on each request, so approving an app
+again with less narrows every session it already holds. Writing a tuple in that namespace throws.
+
+**The person chooses the scope on the consent page, whatever the app asked for.** Read only is the
+default, read and manage the other choice, in the words an API key uses (`shared/access.words.ts`).
+`OAuthConsentService.approve` requires at least one, adds `view` to `manage`, and hands the library
+`['mcp', ...chosen]` as `AuthorizationConsent.scope`, which replaces the requested scope in the grant,
+the session's `oauth` claim and the token response alike (RFC 6749 §3.3 lets the server issue a scope
+other than the one requested on the resource owner's instructions). Every grant from before there was
+a choice was approved as the whole account, and migration 0053 gave it both scopes, which is what it
+already meant. To change what an app may do, the person disconnects it and approves it again.
+
 **The RFC endpoints are hand-written** (`routes/oauth.protocol.router.ts`), because their status
 codes and error bodies are the RFCs' and a generated route cannot produce them. The console's half
 (consent, registered apps, connected apps) is generated from `data/contracts/oauth`. Consent takes the
@@ -156,6 +179,62 @@ withdrawing any client ends every grant of it and every session held through the
 **Nothing in the cache-holding pieces may be a singleton**: the Redis cache is scoped, and
 `tests/modules/oauth/oauth.module.test.ts` builds the module with a scoped stand-in so the captive
 dependency fails the suite rather than the boot.
+
+## What a connected app can do: the MCP tools
+
+**Everything on the MCP surface lives in `apps/api/src/mcp`**: the route, the tools ContractKit
+generates from operations a contract flags `mcp: { description: ... }`, and the few written by hand
+(`whoami`). `modules/mcp/mcp.module.ts` is only their wiring. The route stays hand-written
+(`emitRouter: false`), because the generated one guards the mount with a bare session check and this
+one must keep `oauth.grant`.
+
+**Every tool acts as the caller, and that is not the default.** The tools are singletons built at
+boot, when the scoped `AuthorizationContext` holds the startup actor, so a tool that
+constructor-injected its service and `PolicyService` would refuse every `platform.*` check and
+answer every `requireUser()` with a 403. `resolve: "perCall"` in `contractkit.config.json` makes each
+generated tool resolve both from the request's container on every call, and the route hands that
+container over (`container: ctx.container`). A hand-written tool does the same: `whoami` resolves
+`AuthorizationContext` per call. `tests/mcp/mcp.router.test.ts` builds the tools once and serves two
+callers, which is what fails if either half is dropped.
+
+**A refusal is a tool result, not a protocol error.** Every tool is wrapped by `explainToolErrors`,
+so a 403 reaches the model as "this caller is not allowed to do that" and a validation failure as
+the list of fields to ask for, instead of a JSON-RPC error that ends the call. Only an error that is
+not an `HttpError` still fails the protocol.
+
+**Every other operation is one search away, not one listing away.** About two hundred operations
+would cost every conversation the whole API in `tools/list` before it asked anything, so only a
+handful are listed. `catalog: true` generates a handler for every operation a tool can serve, held
+apart from the listed ones as `McpToolCatalog`, and `search_api` reaches them in two modes: a query
+answers a compact index of at most 25 (the name, one sentence, whether it reads or changes something,
+and the tier it needs), and a name answers that one operation in full with its argument schema. The
+index is filtered to what the caller may actually use, their role AND their grant (`mayUse` in
+`src/mcp/api.catalog.ts`), so a view grant is never offered something it would be refused. Everything
+it says comes from the generated definitions themselves: the description, the hints, and the policy
+under `_meta['contractkit/security']`, which is also why a test fails if any operation ever falls back
+to the MFA default a contract with no security gets. An operation is kept out with `mcp: exclude` in
+its contract: signing in and credentials, connected apps and their consent, first-run setup, plugin
+and fetcher sign-in and configuration, station settings (which hold sign-in providers), log files
+(which can hold the bridge secret), and the two long model calls, which run outside the request
+transaction over HTTP and would hold a pooled connection for minutes here.
+
+**`call_api` runs what `search_api` found, through the same handler a listed tool would be.** It
+looks the name up in `McpToolCatalog` and calls the generated handler with the caller's context, so
+the operation's policy, validation and service run exactly as they do for a listed tool, and the
+catalog is wrapped by `explainToolErrors` too, so a view grant asking to skip gets "it needs the
+`manage` scope" rather than a protocol error. What it adds is the shape of the answer: `fields` keeps
+only those keys of each record, and an answer over 12,000 characters keeps as many whole records as
+fit and says how many there were (`truncated: { shown, of }`), rather than cutting a record in half or
+handing a model a whole table. It says it is destructive, since what it runs may be, and its
+description tells the model to confirm before an operation whose index entry is. Every call is logged
+once at `info` (`mcp: call_api`, with the operation, the grant, `ok` or `refused`, and the time), which
+is what the listed set is meant to be grown from: an operation called through here often enough
+deserves an `mcp` block of its own.
+
+**A description is written for the model**, in the operation's `mcp` block rather than its `#`
+comment: what the tool answers, and when to use it rather than its neighbour. The hints come from
+the HTTP method unless the block says otherwise (a `GET` is read-only and idempotent, a `DELETE`
+destructive), so an operation whose method misdescribes it has to say so.
 
 ## Working on it locally
 

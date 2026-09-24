@@ -21,7 +21,7 @@ mdx:
 | `logoUri`      | `string`          | No       | The app's logo, when it gave one                                                                            |
 | `redirectHost` | `string`          | Yes      | The host the browser is sent back to, which is who actually receives the approval                           |
 | `loopbackOnly` | `boolean`         | Yes      | Whether every address the app registered is this computer's own, which only an app running on it should use |
-| `scope`        | `string[]`        | Yes      | What the app asked for. It acts as the person approving it whatever this says                               |
+| `scope`        | `string[]`        | Yes      | What the app asked for. The person chooses what it gets when approving, whatever this says                  |
 | `resource`     | `string`          | Yes      | What the app will be able to reach: the station's MCP endpoint                                              |
 
 </details>

@@ -118,3 +118,22 @@ describe('mentionsWeather', () => {
         expect(mentionsWeather('You can see your breath out there tonight.', SUNNY)).toBe(false);
     });
 });
+
+describe('on a station that does not broadcast in English', () => {
+    it('reads a decimal comma as one figure and a date or a continental time as no figure', () => {
+        const script = 'Am 29. August um 21.30 Uhr, oder 21h30, sind es 17,2 Grad und bis zu 24 Grad.';
+
+        expect(inventedFigure(script, READING, 'de')).toBeUndefined();
+        // The same sentence read as English finds a figure nobody measured in every one of those.
+        expect(inventedFigure(script, READING)).toBeDefined();
+    });
+
+    it('still names a figure the reading never had', () => {
+        expect(inventedFigure('Es sind 31,5 Grad.', READING, 'de')).toBe('31,5');
+    });
+
+    it('takes a break offered a reading to have reported it, because the vocabulary is English', () => {
+        expect(mentionsWeather('Ein wunderschöner Abend, bleiben Sie dran.', READING, 'de')).toBe(true);
+        expect(mentionsWeather('A lovely evening, stay with us.', SUNNY)).toBe(false);
+    });
+});

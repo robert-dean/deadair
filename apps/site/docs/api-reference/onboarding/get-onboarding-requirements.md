@@ -1,6 +1,6 @@
 ---
-title: 'Get onboarding requirements'
-sidebar_label: 'Get onboarding requirements'
+title: 'Get Onboarding Requirements'
+sidebar_label: 'Get Onboarding Requirements'
 sidebar_position: 1
 mdx:
     format: 'md'

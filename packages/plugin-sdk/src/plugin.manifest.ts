@@ -195,6 +195,13 @@ export const PLUGIN_CAPABILITY_ALMANAC = 'almanac';
 
 export const PLUGIN_CAPABILITY_SCROBBLE = 'scrobble';
 
+/**
+ * Connects the station to a chat platform: people write to it there, and it
+ * answers and announces there. The host pulls messages rather than the plugin
+ * pushing them; `capabilities/messaging.ts` says why.
+ */
+export const PLUGIN_CAPABILITY_MESSAGING = 'messaging';
+
 export const KNOWN_PLUGIN_CAPABILITIES = [
     PLUGIN_CAPABILITY_CATALOG,
     PLUGIN_CAPABILITY_STREAM,
@@ -214,6 +221,7 @@ export const KNOWN_PLUGIN_CAPABILITIES = [
     PLUGIN_CAPABILITY_WEATHER,
     PLUGIN_CAPABILITY_ALMANAC,
     PLUGIN_CAPABILITY_SCROBBLE,
+    PLUGIN_CAPABILITY_MESSAGING,
 ] as const;
 
 export type KnownPluginCapability = (typeof KNOWN_PLUGIN_CAPABILITIES)[number];

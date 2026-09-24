@@ -4,6 +4,7 @@ export * from './capabilities/analysis.js';
 export * from './capabilities/charts.js';
 export * from './capabilities/enrichment.js';
 export * from './capabilities/llm.js';
+export * from './capabilities/messaging.js';
 export * from './capabilities/mixer.js';
 export * from './capabilities/music.provider.js';
 export * from './capabilities/narration.js';

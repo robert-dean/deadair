@@ -25,6 +25,7 @@ A plugin extends deadair by declaring capabilities:
 | `weather`    | say what it is like outside: a place in, measurements out       |
 | `almanac`    | say what happened on a date: a month and a day in, entries out |
 | `scrobble`   | report what the station played to somebody else's service      |
+| `messaging`  | talk to people on a chat platform: messages in, messages out   |
 | `oauth`      | hold operator tokens, obtained through the host's redirect     |
 
 There is no second axis. `capabilities` is the whole declaration, and the host
@@ -798,6 +799,53 @@ look like it is about nothing in particular.
 service that is down and a date with nothing on it are one outcome to the caller.
 A day that has events and no births is NOT one of those and is answered — whether
 that is enough to say anything is the station's decision.
+
+## Talking on a chat platform
+
+A `messaging` plugin connects the station to Telegram, Slack, Discord or
+anything else people chat on. It has two methods and two optional ones:
+
+```ts
+async receive(query: MessagingReceiveQuery): Promise<MessagingReceiveResult> {
+    const updates = await this.poll(query.cursor, query.waitMs);   // your platform's long poll
+    return {
+        messages: updates.filter(u => this.listensIn(u.chat)).map(toInboundMessage),
+        cursor: updates.length > 0 ? String(updates.at(-1).id + 1) : undefined,
+    };
+}
+
+async send(message: OutboundMessage): Promise<MessagingSendResult> {
+    const answer = await this.post(message.chatId, escapeFor(this.platform, message.text));
+    return answer.ok ? { delivered: true } : { delivered: false, reason: answer.summary, retryable: answer.status >= 500 };
+}
+```
+
+Four things about it are easy to get wrong.
+
+**The host asks, and you never push.** A plugin has no inbound HTTP and no way
+to call the station, so the host calls `receive` in a loop of its own, one call
+at a time, and stores the cursor you return. Hold the call open for up to
+`waitMs` where your platform has a long poll. Advance the cursor past everything
+the platform delivered, including what you filtered out, or the same messages
+come back forever. No cursor at all means "from now", never "replay everything".
+
+**Which chats count is yours to decide.** Chat ids are your platform's
+vocabulary, so the list of chats the station listens in is your configuration,
+and anything you return from `receive` is something the host acts on. Drop
+messages from bots, including your own.
+
+**What people write is untrusted.** Pass `text` through verbatim and let the
+host treat it as data. Never reshape it into something that reads like the
+station's own words.
+
+**Outbound text is plain, and escaping is yours.** Only you know which
+characters your platform treats as formatting. Classify refusals on
+`retryable` exactly as a scrobble plugin does: a rate limit or a 5xx is worth
+another go, a chat the bot was removed from is not, and when unsure say no.
+
+`announceTargets()` says which chats want which announcements (today only
+`nowPlaying`); leave it out and the station only ever answers when spoken to.
+`accepting()` is the operator's off switch, as it is for scrobbling.
 
 ## Music providers
 

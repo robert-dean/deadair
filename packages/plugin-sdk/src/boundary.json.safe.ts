@@ -57,6 +57,15 @@ import type {
     PodcastEpisodesQuery,
     PodcastShow,
 } from './capabilities/podcast.js';
+import type {
+    InboundMessage,
+    MessagingAnnounceTarget,
+    MessagingReceiveQuery,
+    MessagingReceiveResult,
+    MessagingSendResult,
+    MessagingSender,
+    OutboundMessage,
+} from './capabilities/messaging.js';
 import type { ScrobblePlay, ScrobbleRejection, ScrobbleResult } from './capabilities/scrobble.js';
 import type { SearchQuery, SearchResult } from './capabilities/search.js';
 import type { ArtistTrack, SimilarArtist } from './capabilities/similarity.js';
@@ -233,6 +242,13 @@ export type AssertAllBoundaryPayloadsAreJsonSafe = AssertAllTrue<{
     ScrobblePlay: IsJsonSafe<ScrobblePlay>;
     ScrobbleRejection: IsJsonSafe<ScrobbleRejection>;
     ScrobbleResult: IsJsonSafe<ScrobbleResult>;
+    MessagingSender: IsJsonSafe<MessagingSender>;
+    InboundMessage: IsJsonSafe<InboundMessage>;
+    MessagingReceiveQuery: IsJsonSafe<MessagingReceiveQuery>;
+    MessagingReceiveResult: IsJsonSafe<MessagingReceiveResult>;
+    OutboundMessage: IsJsonSafe<OutboundMessage>;
+    MessagingSendResult: IsJsonSafe<MessagingSendResult>;
+    MessagingAnnounceTarget: IsJsonSafe<MessagingAnnounceTarget>;
     SpeechLimits: IsJsonSafe<SpeechLimits>;
 }>;
 
@@ -320,6 +336,13 @@ export const JSON_SAFE_PAYLOAD_TYPES = [
     'ScrobblePlay',
     'ScrobbleRejection',
     'ScrobbleResult',
+    'MessagingSender',
+    'InboundMessage',
+    'MessagingReceiveQuery',
+    'MessagingReceiveResult',
+    'OutboundMessage',
+    'MessagingSendResult',
+    'MessagingAnnounceTarget',
     'SpeechLimits',
 ] as const;
 
@@ -361,6 +384,7 @@ export const BOUNDARY_METHOD_TYPES = [
     'WeatherProvider',
     'AlmanacProvider',
     'ScrobbleProvider',
+    'MessagingProvider',
 ] as const;
 
 /**

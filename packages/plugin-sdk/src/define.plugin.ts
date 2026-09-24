@@ -1,6 +1,7 @@
 import type { AlmanacProvider } from './capabilities/almanac.js';
 import type { ChartsProvider } from './capabilities/charts.js';
 import type { EnrichmentProvider } from './capabilities/enrichment.js';
+import type { MessagingProvider } from './capabilities/messaging.js';
 import type { MusicProviderCatalog, MusicProviderOAuth, MusicProviderSteer, MusicProviderStream } from './capabilities/music.provider.js';
 import type { NarrationProvider } from './capabilities/narration.js';
 import type { NewsProvider } from './capabilities/news.js';
@@ -70,6 +71,9 @@ export type AlmanacPluginInstance = PluginLifecycle & AlmanacProvider;
 
 /** Instance shape for a `scrobble` plugin. */
 export type ScrobblePluginInstance = PluginLifecycle & ScrobbleProvider;
+
+/** Instance shape for a `messaging` plugin. */
+export type MessagingPluginInstance = PluginLifecycle & MessagingProvider;
 
 /**
  * Pairs a manifest with its factory and returns the object a plugin package

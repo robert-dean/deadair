@@ -155,7 +155,7 @@ default, read and manage the other choice, in the words an API key uses (`shared
 `['mcp', ...chosen]` as `AuthorizationConsent.scope`, which replaces the requested scope in the grant,
 the session's `oauth` claim and the token response alike (RFC 6749 §3.3 lets the server issue a scope
 other than the one requested on the resource owner's instructions). Every grant from before there was
-a choice was approved as the whole account, and migration 0052 gave it both scopes, which is what it
+a choice was approved as the whole account, and migration 0053 gave it both scopes, which is what it
 already meant. To change what an app may do, the person disconnects it and approves it again.
 
 **The RFC endpoints are hand-written** (`routes/oauth.protocol.router.ts`), because their status

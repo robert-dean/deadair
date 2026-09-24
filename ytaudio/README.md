@@ -69,7 +69,7 @@ working is the first thing to check when every record fails.
 | `cooling` | 503 | that format is resting; try again later |
 | `upstream` | 502 | retry on the usual backoff |
 
-## Six behaviours that are ours regardless of the library
+## Seven behaviours that are ours regardless of the library
 
 Each is a bug the station would otherwise ship and diagnose from a listener's
 ears, and writing them down here is what makes them survive yt-dlp being swapped
@@ -86,6 +86,14 @@ Opus in WebM, and the store refuses `audio/webm`: a resolve that fetched perfect
 was then refused at download, four times, and benched, for every record. The
 accepted list is mirrored here by hand across a language boundary, and a test
 reads `track.store.ts` so the mirror cannot drift.
+
+**Only a finished record.** A live broadcast, a premiere and a stream still being
+processed are written off as `unavailable` before any format is probed: none of
+them is a file of fixed length the station can keep. An archived stream
+(`was_live`) is a finished file and passes; whether its length suits the station
+is `rotation.maxTrackSeconds`' call. A length yt-dlp reports as missing, NaN or
+infinite comes back as `durationMs: null`, which the station treats as unknown,
+never as a refusal.
 
 **Probe before serving.** One `bytes=0-0` range, content type checked, `text`,
 `json` and `xml` refused. An upstream that answers a refusal with a 200 and a

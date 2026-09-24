@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Utils } from 'youtubei.js';
 
 import type { UpstreamItem } from '../src/ytmusic.mapping.js';
+import type { Page } from '../src/ytmusic.paging.js';
 
 /**
  * The client is stubbed rather than the wire, because what these tests are about is the plugin's
@@ -13,7 +14,7 @@ import type { UpstreamItem } from '../src/ytmusic.mapping.js';
 const client = {
     assertSignedIn: vi.fn<() => Promise<string | undefined>>(),
     libraryPlaylists: vi.fn<() => Promise<UpstreamItem[]>>(),
-    playlistItems: vi.fn<(id: string) => Promise<UpstreamItem[]>>(),
+    playlistPage: vi.fn<(id: string) => Promise<Page>>(),
     likedPlaylist: vi.fn<() => Promise<{ name?: string; items: UpstreamItem[] } | undefined>>(),
     searchSongs: vi.fn<(query: string, limit?: number) => Promise<UpstreamItem[]>>(),
     track: vi.fn<(id: string) => Promise<UpstreamItem | undefined>>(),
@@ -50,7 +51,7 @@ beforeEach(() => {
     client.assertSignedIn.mockResolvedValue('Robert Dean');
     client.libraryPlaylists.mockResolvedValue([]);
     client.likedPlaylist.mockResolvedValue(undefined);
-    client.playlistItems.mockResolvedValue([]);
+    client.playlistPage.mockResolvedValue({ items: [] });
     client.searchSongs.mockResolvedValue([]);
     client.track.mockResolvedValue(undefined);
 });
@@ -327,23 +328,66 @@ describe('listPlaylists', () => {
 describe('getPlaylistTracks', () => {
     it('serves a later offset from the memo rather than walking the playlist again', async () => {
         const { plugin } = await build();
-        client.playlistItems.mockResolvedValue([song('a', 'A'), song('b', 'B'), song('c', 'C')]);
+        client.playlistPage.mockResolvedValue({ items: [song('a', 'A'), song('b', 'B'), song('c', 'C')] });
 
         const first = await plugin.getPlaylistTracks('VLPLabc', { limit: 2, offset: 0 });
         const second = await plugin.getPlaylistTracks('VLPLabc', { limit: 2, offset: 2 });
 
         // YouTube pages by continuation token, so honouring an arbitrary offset means walking from
         // the start. Without the memo a sync over one playlist is quadratic in its length.
-        expect(client.playlistItems).toHaveBeenCalledTimes(1);
+        expect(client.playlistPage).toHaveBeenCalledTimes(1);
         expect(first.map(t => t.id)).toEqual(['a', 'b']);
         expect(second.map(t => t.id)).toEqual(['c']);
     });
 
     it('answers an empty page past the end rather than erroring', async () => {
         const { plugin } = await build();
-        client.playlistItems.mockResolvedValue([song('a', 'A')]);
+        client.playlistPage.mockResolvedValue({ items: [song('a', 'A')] });
 
         await expect(plugin.getPlaylistTracks('VLPLabc', { offset: 50 })).resolves.toEqual([]);
+    });
+
+    it('answers the first page without reading the rest of a long playlist', async () => {
+        // The failure this guards: page one used to walk every continuation before answering, so a
+        // playlist of a few thousand records ran past the host's per-call deadline, and a scheduled
+        // block built on it was refused at every boundary.
+        const { plugin } = await build();
+        const continuations = vi.fn();
+        const upstream = (from: number): Page => ({
+            items: Array.from({ length: 100 }, (_, i) => song(`s${from + i}`, `S${from + i}`)),
+            next: async () => {
+                continuations();
+                return upstream(from + 100);
+            },
+        });
+        client.playlistPage.mockResolvedValue(upstream(0));
+
+        const first = await plugin.getPlaylistTracks('VLPLabc', { limit: 50, offset: 0 });
+        expect(first).toHaveLength(50);
+        expect(continuations).not.toHaveBeenCalled();
+
+        // And each later page costs what it needs and nothing more: rows 100-149 are one more page.
+        const third = await plugin.getPlaylistTracks('VLPLabc', { limit: 50, offset: 100 });
+        expect(third[0]?.id).toBe('s100');
+        expect(continuations).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps its place in a walk that outlasts the memo, as long as it keeps reading', async () => {
+        vi.useFakeTimers();
+        try {
+            const { plugin } = await build();
+            client.playlistPage.mockResolvedValue({ items: [song('a', 'A'), song('b', 'B'), song('c', 'C')] });
+
+            await plugin.getPlaylistTracks('VLPLabc', { limit: 1, offset: 0 });
+            vi.advanceTimersByTime(45_000);
+            await plugin.getPlaylistTracks('VLPLabc', { limit: 1, offset: 1 });
+            vi.advanceTimersByTime(45_000);
+            await plugin.getPlaylistTracks('VLPLabc', { limit: 1, offset: 2 });
+
+            expect(client.playlistPage).toHaveBeenCalledTimes(1);
+        } finally {
+            vi.useRealTimers();
+        }
     });
 });
 

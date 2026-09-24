@@ -2,7 +2,7 @@ import { Injectable } from 'injectkit';
 import { Kysely, sql } from 'kysely';
 import { DataRepository, type DB } from '#modules/data/data.repository.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
-import { isChartSource, type ScheduleSlot } from '#modules/director/schedule.js';
+import { isChartSource, isStationPlaylistSource, type ScheduleSlot, type ScheduleSlotSource } from '#modules/director/schedule.js';
 
 /**
  * The slots an operator has written.
@@ -96,12 +96,13 @@ function columnsOf(draft: ScheduleSlotDraft) {
         startsAtMinutes: draft.startsAtMinutes,
         endsAtMinutes: draft.endsAtMinutes,
         days: sql<string>`${JSON.stringify([...draft.days])}::jsonb`,
-        // One arm or the other, never both: a source that named a playlist AND a chart would be a
-        // row `toSlot` has to pick a winner from, which is a decision nobody made.
-        sourcePluginId: isChartSource(draft.source) ? null : (draft.source?.pluginId ?? null),
-        sourcePlaylistId: isChartSource(draft.source) ? null : (draft.source?.playlistId ?? null),
+        // One arm only, never two: a source that named a playlist AND a chart would be a row
+        // `toSlot` has to pick a winner from, which is a decision nobody made.
+        sourcePluginId: providerPlaylistOf(draft.source)?.pluginId ?? null,
+        sourcePlaylistId: providerPlaylistOf(draft.source)?.playlistId ?? null,
         sourceChartId: isChartSource(draft.source) ? draft.source.chartId : null,
         sourceChartOrder: isChartSource(draft.source) ? (draft.source.chartOrder ?? null) : null,
+        sourceStationPlaylistId: isStationPlaylistSource(draft.source) ? draft.source.stationPlaylistId : null,
         personaId: draft.personaId ?? null,
         brief: draft.brief ?? '',
         eraFrom: draft.era?.from ?? null,
@@ -111,6 +112,11 @@ function columnsOf(draft: ScheduleSlotDraft) {
         mode: draft.mode,
         onEnd: draft.onEnd,
     };
+}
+
+/** The provider-playlist arm of a source, when that is the arm it is. */
+function providerPlaylistOf(source: ScheduleSlotSource | undefined): { pluginId: string; playlistId: string } | undefined {
+    return source === undefined || isChartSource(source) || isStationPlaylistSource(source) ? undefined : source;
 }
 
 /** The weekdays a stored value actually names. Anything else is an empty list, which means every day. */
@@ -131,6 +137,7 @@ function toSlot(row: {
     sourcePlaylistId: string | null;
     sourceChartId: string | null;
     sourceChartOrder: 'countdown' | 'ranked' | 'unordered' | null;
+    sourceStationPlaylistId: string | null;
     personaId: string | null;
     brief: string;
     eraFrom: number | null;
@@ -150,14 +157,16 @@ function toSlot(row: {
         // something the writer above can produce, and reading it as the chart is the answer that
         // needs no second rule about which half of a contradiction to believe.
         //
-        // Otherwise both halves or neither. One without the other is not a source anything could
-        // read, and the resolver's caller treats a slot with no source as one the station fills
-        // itself.
+        // Then the station's own playlist, and then the provider's pair, both halves or neither. One
+        // without the other is not a source anything could read, and the resolver's caller treats a
+        // slot with no source as one the station fills itself. The same order `draftOf` writes with.
         ...(row.sourceChartId != null
             ? { source: { chartId: row.sourceChartId, ...(row.sourceChartOrder == null ? {} : { chartOrder: row.sourceChartOrder }) } }
-            : row.sourcePluginId == null || row.sourcePlaylistId == null
-              ? {}
-              : { source: { pluginId: row.sourcePluginId, playlistId: row.sourcePlaylistId } }),
+            : row.sourceStationPlaylistId != null
+              ? { source: { stationPlaylistId: row.sourceStationPlaylistId } }
+              : row.sourcePluginId == null || row.sourcePlaylistId == null
+                ? {}
+                : { source: { pluginId: row.sourcePluginId, playlistId: row.sourcePlaylistId } }),
         ...(row.personaId == null ? {} : { personaId: row.personaId }),
         ...(row.brief.trim().length === 0 ? {} : { brief: row.brief }),
         // Absent entirely when neither end is set, so a slot with no period and one that was never

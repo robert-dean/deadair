@@ -21,7 +21,9 @@ export const REQUEST_TIMEOUT_MS = 10_000;
  * `getPlaylistTracks(id, { limit, offset })`), and YouTube pages by CONTINUATION TOKEN rather than
  * by offset, so serving an arbitrary offset means walking from the start. Short enough that an
  * operator who edits a playlist and re-syncs sees the change, long enough that one sync's sequential
- * offsets are one walk rather than one walk each.
+ * offsets are one walk rather than one walk each. Counted from the LAST read rather than the first,
+ * because a walk that is read a page at a time can take longer than this, and a memo that expired
+ * mid-walk would make the next page walk from the start again inside one call.
  */
 export const PLAYLIST_MEMO_TTL_MS = 60_000;
 

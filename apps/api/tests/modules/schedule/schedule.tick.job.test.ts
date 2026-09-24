@@ -5,6 +5,7 @@
 // reason.
 
 import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { httpError } from '@maroonedsoftware/errors';
 import type { Logger } from '@maroonedsoftware/logger';
 import type { Container } from 'injectkit';
 import type { JobContext } from '@maroonedsoftware/jobbroker';
@@ -427,7 +428,7 @@ describe('ScheduleTickJob', () => {
             inForce: slot('morning', { label: 'Breakfast' }),
             airing: 'overnight',
             putOnAir: async () => {
-                throw new Error('that playlist has no tracks to play');
+                throw httpError(422).withDetails({ message: 'that playlist has no tracks to play' });
             },
         });
 
@@ -435,6 +436,88 @@ describe('ScheduleTickJob', () => {
 
         expect(activity.record).toHaveBeenCalledWith(expect.objectContaining({ kind: 'schedule.declined' }));
         expect(activity.record).not.toHaveBeenCalledWith(expect.objectContaining({ kind: 'schedule.changeover' }));
+    });
+
+    it('starts the block from its brief when its playlist cannot be read, rather than keeping the last one on', async () => {
+        // The failure that kept one show on air through the three after it: a long provider playlist
+        // timed out at every boundary, and every changeover was declined for the block's whole length.
+        let calls = 0;
+        const { tick, console, activity } = build({
+            inForce: slot('rock', {
+                label: 'Rock Hours',
+                brief: 'guitars, loud',
+                personaId: 'p1',
+                mode: 'setlist',
+                onEnd: 'stop',
+                mixInSimilar: true,
+            }),
+            airing: 'classical',
+            putOnAir: async () => {
+                if (calls++ === 0) throw httpError(504).withDetails({ message: 'the plugin took too long' });
+                return {};
+            },
+        });
+
+        await tick();
+
+        const retry = (console.putOnAir as unknown as { mock: { calls: Record<string, unknown>[][] } }).mock.calls[1]!;
+        expect(retry[0]).toMatchObject({ name: 'Rock Hours', brief: 'guitars, loud', personaId: 'p1', mode: 'rotation', onEnd: 'extend' });
+        expect(retry[0]).not.toHaveProperty('pluginId');
+        expect(retry[0]).not.toHaveProperty('playlistId');
+        expect(retry[0]).not.toHaveProperty('mixInSimilar');
+        // Still this slot's changeover, stamped with it, so the tick leaves it alone until the next one.
+        expect(retry[1]).toMatchObject({ id: 'rock' });
+        expect(activity.record).toHaveBeenCalledWith(
+            expect.objectContaining({ kind: 'schedule.changeover', severity: 'warn', data: expect.objectContaining({ withoutSource: true }) }),
+        );
+        expect(activity.record).not.toHaveBeenCalledWith(expect.objectContaining({ kind: 'schedule.declined' }));
+    });
+
+    it('reads a misconfigured plugin as a failed read, though it arrives as a 422 too', async () => {
+        let calls = 0;
+        const { tick, console } = build({
+            inForce: slot('rock'),
+            airing: 'classical',
+            putOnAir: async () => {
+                if (calls++ === 0)
+                    throw httpError(422).withDetails({ code: 'PLUGIN_MISCONFIGURED', message: 'no password', plugin: 'deadair.navidrome' });
+                return {};
+            },
+        });
+
+        await tick();
+
+        expect(console.putOnAir).toHaveBeenCalledTimes(2);
+    });
+
+    it('declines a slot with no source that cannot be aired, since there is nothing to go without', async () => {
+        const { tick, console, activity } = build({
+            inForce: slot('morning', { source: undefined }),
+            airing: 'overnight',
+            putOnAir: async () => {
+                throw new Error('the database is down');
+            },
+        });
+
+        await tick();
+
+        expect(console.putOnAir).toHaveBeenCalledTimes(1);
+        expect(activity.record).toHaveBeenCalledWith(expect.objectContaining({ kind: 'schedule.declined' }));
+    });
+
+    it('declines when even the block without its source cannot be aired', async () => {
+        const { tick, console, activity } = build({
+            inForce: slot('morning'),
+            airing: 'overnight',
+            putOnAir: async () => {
+                throw new Error('the provider is down');
+            },
+        });
+
+        await tick();
+
+        expect(console.putOnAir).toHaveBeenCalledTimes(2);
+        expect(activity.record).toHaveBeenCalledWith(expect.objectContaining({ kind: 'schedule.declined' }));
     });
 
     it('does not rethrow a failed changeover, so the cron is the retry', async () => {
@@ -474,6 +557,21 @@ describe('ScheduleTickJob', () => {
         // Absent rather than defaulted here: `putOnAir` owns what an unset order means, so a slot
         // that never chose one gets the same broadcast a hand-pressed button does.
         expect(input).not.toHaveProperty('chartOrder');
+    });
+
+    it('changes over onto a playlist the station owns, and sends it nothing else', async () => {
+        // The source whose changeover never waits on a provider: its records are read from the
+        // station's own library, so a long pool starts on time however slow the provider that lists it.
+        const { tick, console } = build({ inForce: slot('rock', { source: { stationPlaylistId: '0a0b0c0d-0000-4000-8000-000000000001' } }) });
+
+        await tick();
+
+        const [input] = (console.putOnAir as unknown as { mock: { calls: Record<string, unknown>[][] } }).mock.calls[0]!;
+
+        expect(input).toMatchObject({ stationPlaylistId: '0a0b0c0d-0000-4000-8000-000000000001' });
+        expect(input).not.toHaveProperty('pluginId');
+        expect(input).not.toHaveProperty('playlistId');
+        expect(input).not.toHaveProperty('chartId');
     });
 
     it('sustains a gap from a chart when the operator named one', async () => {

@@ -9,6 +9,19 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.33.0] — 2026-09-24
+
+- A scheduled block can play one of the station's own playlists. Choose it under "Playing from" when editing a slot; the station's playlists are listed first. Because the station reads these from its own library rather than asking a music provider when the block begins, a long pool of records starts on time however slow the provider is. Import a provider's playlist on the Playlists page to use it this way. Moving a block on the timetable also no longer clears its chart, its call-ins or its mix-in setting.
+- A long Navidrome playlist is fetched once per read instead of once for every fifty records on it. Navidrome hands back a whole playlist at a time, so reading one of a few thousand records used to fetch all of it again for every page, which made syncing it slow and could leave a scheduled block built on it unable to start.
+- A scheduled block now starts on time even when its playlist can't be read. If the music provider times out, is switched off, or the playlist has been deleted, the station starts the block anyway and chooses records itself from the block's brief, period and host. The activity feed says so. Previously the station refused the change and kept playing the previous block, sometimes through several blocks after it. A playlist that was read but has nothing the station can play is still refused as before, and whatever is on carries on.
+- The audio chain now checks a skip against what is actually playing. The app sends the id of the record it means to cut, and the audio chain cuts only if that record is still the one on air. That closes the last gap, where a record could end during the moment the skip was travelling to the audio chain.
+- A skip no longer cuts the wrong record. When a record ended on its own just as Skip was pressed, the cut used to land on the record after it. The same could happen when skipping to a record further down the order, when taking off a record the station was told not to play, and when a scheduled programme cut a record that had overrun. Each of these now cuts only the record that was on air when it was asked for, and cuts nothing if that record has already ended.
+- A long YouTube Music playlist can be read again. The first page of a playlist used to read every record on it before answering, so a playlist of a few thousand records ran out of time before it answered anything: it would not sync, would not import, and a scheduled block built on it never started, leaving the block before it on air. Each page now reads only as far as it needs, and a playlist longer than about four thousand records is no longer cut off at that point.
+
+## [0.32.1] — 2026-09-24
+
+- YouTube Music no longer tries to play a live broadcast, a premiere that has not started, or a stream that is still being processed. The audio resolver now reports these as unavailable, so the station skips them and does not retry. A record whose length YouTube reports as not a number is now treated as having an unknown length. Before, the resolver failed on it.
+
 ## [0.32.0] — 2026-09-24
 
 - The Playlists page shows the station's own playlists first, above the ones from connected music services, and has an Import button. An import shows what the file holds and which of its records the library already has, and nothing is written until you confirm. Each station playlist has its own page listing its records in order. Records the library does not hold yet are marked, and from that page you can export, rename or delete the playlist.
@@ -856,7 +869,9 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.32.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.33.0...HEAD
+[0.33.0]: https://github.com/robert-dean/deadair/compare/v0.32.1...v0.33.0
+[0.32.1]: https://github.com/robert-dean/deadair/compare/v0.32.0...v0.32.1
 [0.32.0]: https://github.com/robert-dean/deadair/compare/v0.31.3...v0.32.0
 [0.31.3]: https://github.com/robert-dean/deadair/compare/v0.31.2...v0.31.3
 [0.31.2]: https://github.com/robert-dean/deadair/compare/v0.31.1...v0.31.2

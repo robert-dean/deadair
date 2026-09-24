@@ -19,6 +19,8 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
     public var sourceChartId: String?
     /// Which way round that chart is played. Absent is `countdown`, which ends on number one. Ignored without `sourceChartId`
     public var sourceChartOrder: ScheduleSlotSourceChartOrder?
+    /// A playlist the station owns to play instead, read from the station's own library when the block starts rather than from a provider. An ALTERNATIVE to the playlist pair, which it wins over, and to `sourceChartId`, which wins over it
+    public var sourceStationPlaylistId: UUID?
     /// Who hosts this stretch of the day. Absent means the station's own active persona
     public var personaId: String?
     /// What this stretch of the day is asked to play, in the operator's own words. The same ceiling `PutOnAirInput.brief` has, because a changeover builds one of those from this and the two boxes are one field set on the console
@@ -34,7 +36,7 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
     public var mode: ScheduleSlotMode
     public var onEnd: ScheduleSlotOnEnd
 
-    public init(id: String, label: String, startsAtMinutes: Int, endsAtMinutes: Int, days: [Int]? = nil, sourcePluginId: String? = nil, sourcePlaylistId: String? = nil, sourceChartId: String? = nil, sourceChartOrder: ScheduleSlotSourceChartOrder? = nil, personaId: String? = nil, brief: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, mode: ScheduleSlotMode, onEnd: ScheduleSlotOnEnd) {
+    public init(id: String, label: String, startsAtMinutes: Int, endsAtMinutes: Int, days: [Int]? = nil, sourcePluginId: String? = nil, sourcePlaylistId: String? = nil, sourceChartId: String? = nil, sourceChartOrder: ScheduleSlotSourceChartOrder? = nil, sourceStationPlaylistId: UUID? = nil, personaId: String? = nil, brief: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, mode: ScheduleSlotMode, onEnd: ScheduleSlotOnEnd) {
         self.id = id
         self.label = label
         self.startsAtMinutes = startsAtMinutes
@@ -44,6 +46,7 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
         self.sourcePlaylistId = sourcePlaylistId
         self.sourceChartId = sourceChartId
         self.sourceChartOrder = sourceChartOrder
+        self.sourceStationPlaylistId = sourceStationPlaylistId
         self.personaId = personaId
         self.brief = brief
         self.eraFrom = eraFrom
@@ -64,6 +67,7 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
         case sourcePlaylistId = "sourcePlaylistId"
         case sourceChartId = "sourceChartId"
         case sourceChartOrder = "sourceChartOrder"
+        case sourceStationPlaylistId = "sourceStationPlaylistId"
         case personaId = "personaId"
         case brief = "brief"
         case eraFrom = "eraFrom"
@@ -85,6 +89,7 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
         self.sourcePlaylistId = try container.decodeIfPresent(String.self, forKey: .sourcePlaylistId)
         self.sourceChartId = try container.decodeIfPresent(String.self, forKey: .sourceChartId)
         self.sourceChartOrder = try container.decodeIfPresent(ScheduleSlotSourceChartOrder.self, forKey: .sourceChartOrder)
+        self.sourceStationPlaylistId = try container.decodeIfPresent(UUID.self, forKey: .sourceStationPlaylistId)
         self.personaId = try container.decodeIfPresent(String.self, forKey: .personaId)
         self.brief = try container.decodeIfPresent(String.self, forKey: .brief)
         self.eraFrom = try container.decodeIfPresent(Int.self, forKey: .eraFrom)
@@ -106,6 +111,7 @@ public struct ScheduleSlot: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.sourcePlaylistId, forKey: .sourcePlaylistId)
         try container.encodeIfPresent(self.sourceChartId, forKey: .sourceChartId)
         try container.encodeIfPresent(self.sourceChartOrder, forKey: .sourceChartOrder)
+        try container.encodeIfPresent(self.sourceStationPlaylistId, forKey: .sourceStationPlaylistId)
         try container.encodeIfPresent(self.personaId, forKey: .personaId)
         try container.encodeIfPresent(self.brief, forKey: .brief)
         try container.encodeIfPresent(self.eraFrom, forKey: .eraFrom)
@@ -134,6 +140,8 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
     public var sourceChartId: String?
     /// Which way round that chart is played. Absent is `countdown`, which ends on number one. Ignored without `sourceChartId`
     public var sourceChartOrder: ScheduleSlotSourceChartOrder?
+    /// A playlist the station owns to play instead, read from the station's own library when the block starts rather than from a provider. An ALTERNATIVE to the playlist pair, which it wins over, and to `sourceChartId`, which wins over it
+    public var sourceStationPlaylistId: UUID?
     /// Who hosts this stretch of the day. Absent means the station's own active persona
     public var personaId: String?
     /// What this stretch of the day is asked to play, in the operator's own words. The same ceiling `PutOnAirInput.brief` has, because a changeover builds one of those from this and the two boxes are one field set on the console
@@ -149,7 +157,7 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
     public var mode: ScheduleSlotMode
     public var onEnd: ScheduleSlotOnEnd
 
-    public init(label: String, startsAtMinutes: Int, endsAtMinutes: Int, days: [Int]? = nil, sourcePluginId: String? = nil, sourcePlaylistId: String? = nil, sourceChartId: String? = nil, sourceChartOrder: ScheduleSlotSourceChartOrder? = nil, personaId: String? = nil, brief: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, mode: ScheduleSlotMode, onEnd: ScheduleSlotOnEnd) {
+    public init(label: String, startsAtMinutes: Int, endsAtMinutes: Int, days: [Int]? = nil, sourcePluginId: String? = nil, sourcePlaylistId: String? = nil, sourceChartId: String? = nil, sourceChartOrder: ScheduleSlotSourceChartOrder? = nil, sourceStationPlaylistId: UUID? = nil, personaId: String? = nil, brief: String? = nil, eraFrom: Int? = nil, eraTo: Int? = nil, callins: Bool? = nil, mixInSimilar: Bool? = nil, mode: ScheduleSlotMode, onEnd: ScheduleSlotOnEnd) {
         self.label = label
         self.startsAtMinutes = startsAtMinutes
         self.endsAtMinutes = endsAtMinutes
@@ -158,6 +166,7 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
         self.sourcePlaylistId = sourcePlaylistId
         self.sourceChartId = sourceChartId
         self.sourceChartOrder = sourceChartOrder
+        self.sourceStationPlaylistId = sourceStationPlaylistId
         self.personaId = personaId
         self.brief = brief
         self.eraFrom = eraFrom
@@ -177,6 +186,7 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
         case sourcePlaylistId = "sourcePlaylistId"
         case sourceChartId = "sourceChartId"
         case sourceChartOrder = "sourceChartOrder"
+        case sourceStationPlaylistId = "sourceStationPlaylistId"
         case personaId = "personaId"
         case brief = "brief"
         case eraFrom = "eraFrom"
@@ -197,6 +207,7 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
         self.sourcePlaylistId = try container.decodeIfPresent(String.self, forKey: .sourcePlaylistId)
         self.sourceChartId = try container.decodeIfPresent(String.self, forKey: .sourceChartId)
         self.sourceChartOrder = try container.decodeIfPresent(ScheduleSlotSourceChartOrder.self, forKey: .sourceChartOrder)
+        self.sourceStationPlaylistId = try container.decodeIfPresent(UUID.self, forKey: .sourceStationPlaylistId)
         self.personaId = try container.decodeIfPresent(String.self, forKey: .personaId)
         self.brief = try container.decodeIfPresent(String.self, forKey: .brief)
         self.eraFrom = try container.decodeIfPresent(Int.self, forKey: .eraFrom)
@@ -217,6 +228,7 @@ public struct ScheduleSlotInput: Codable, Equatable, Sendable {
         try container.encodeIfPresent(self.sourcePlaylistId, forKey: .sourcePlaylistId)
         try container.encodeIfPresent(self.sourceChartId, forKey: .sourceChartId)
         try container.encodeIfPresent(self.sourceChartOrder, forKey: .sourceChartOrder)
+        try container.encodeIfPresent(self.sourceStationPlaylistId, forKey: .sourceStationPlaylistId)
         try container.encodeIfPresent(self.personaId, forKey: .personaId)
         try container.encodeIfPresent(self.brief, forKey: .brief)
         try container.encodeIfPresent(self.eraFrom, forKey: .eraFrom)

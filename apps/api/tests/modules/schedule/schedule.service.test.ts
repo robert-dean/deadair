@@ -30,9 +30,13 @@ const slot = (id: string, startsAtMinutes: number, endsAtMinutes: number, days: 
 function build(options: { slots?: ScheduleSlot[]; airing?: string; settings?: Record<string, string> } = {}) {
     const slots = {
         list: vi.fn(async () => options.slots ?? []),
+        // Written back into the list, so what `update` answers is the saved slot read back.
         update: vi.fn(async (id: string, draft: Partial<ScheduleSlot>) => {
-            const existing = (options.slots ?? []).find(candidate => candidate.id === id);
-            return existing === undefined ? undefined : { ...existing, ...draft };
+            const list = options.slots ?? [];
+            const index = list.findIndex(candidate => candidate.id === id);
+            if (index < 0) return undefined;
+            list[index] = { id, ...draft } as ScheduleSlot;
+            return list[index];
         }),
     } as unknown as ScheduleRepository;
     const director = {
@@ -216,6 +220,23 @@ describe('ScheduleService.update', () => {
         expect(logger.info).toHaveBeenCalledWith('schedule: the edited slot is on air; the change applies at its next occurrence', {
             slot: 'evening',
         });
+    });
+
+    it('stores a playlist the station owns as its own arm, and hands it back the same way', async () => {
+        const service = build({ slots: [slot('rock', 18 * 60, 22 * 60)] });
+        const id = '0a0b0c0d-0000-4000-8000-000000000001';
+
+        const { slots } = await service.update(
+            'rock',
+            body({ sourceStationPlaylistId: id, sourcePluginId: 'deadair.navidrome', sourcePlaylistId: 'pl-1' }),
+        );
+        const saved = slots[0];
+
+        // Named beside a provider pair, the station's own playlist wins, which is the order the
+        // repository reads a row back in, so a write and its read-back cannot disagree.
+        expect(saved).toMatchObject({ sourceStationPlaylistId: id });
+        expect(saved).not.toHaveProperty('sourcePluginId');
+        expect(saved).not.toHaveProperty('sourcePlaylistId');
     });
 
     it('says nothing about being on air for a slot that is not the one airing', async () => {

@@ -11765,6 +11765,10 @@ components:
                     type: string
                     enum: [countdown, ranked, unordered]
                     description: 'Which way round that chart is played. Absent is `countdown`, which ends on number one. Ignored without `sourceChartId`'
+                sourceStationPlaylistId:
+                    type: string
+                    format: uuid
+                    description: "A playlist the station owns to play instead, read from the station's own library when the block starts rather than from a provider. An ALTERNATIVE to the playlist pair, which it wins over, and to `sourceChartId`, which wins over it"
                 personaId:
                     type: string
                     maxLength: 100

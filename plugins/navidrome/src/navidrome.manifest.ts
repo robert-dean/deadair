@@ -37,6 +37,17 @@ export const REQUEST_TIMEOUT_MS = 10_000;
 export const MAX_PAGE_SIZE = 500;
 
 /**
+ * How long one playlist's entries are kept between reads of it.
+ *
+ * `getPlaylist` has no offset, so every page the host asks for fetched the whole playlist again: a
+ * walk over five thousand entries was a hundred full fetches of it, and a sync, an import and a
+ * scheduled changeover all walk. Kept this long past the LAST read rather than the first, so a walk
+ * in progress keeps it however long it takes, and short enough that an edit to the playlist is seen
+ * by the next walk.
+ */
+export const PLAYLIST_MEMO_TTL_MS = 60_000;
+
+/**
  * The id of the virtual playlist that is the whole library.
  *
  * A Subsonic server's only enumeration path through the SDK's catalog interface

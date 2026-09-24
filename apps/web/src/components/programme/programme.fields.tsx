@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { chartsListOptions } from '../../api/charts.queries';
 import { playlistsListOptions } from '../../api/playlists.queries';
+import { stationPlaylistsListOptions } from '../../api/station.playlists.queries';
 import { usePersonas } from '../../api/personas.queries';
 import { offerablePlaylists } from '../playlists/playlist.offerable';
 import { presents } from '../personas/persona.kind';
@@ -36,12 +37,13 @@ import { presents } from '../personas/persona.kind';
 /**
  * What a picker's one string can name.
  *
- * A discriminated union rather than a second optional field, because the two are alternatives all
- * the way down: `PutOnAirInput` takes a playlist pair or a chart id and refuses to make sense of
- * both, and a slot stores one or the other. A shape that could hold neither-or-both would push that
- * decision into every caller.
+ * A discriminated union rather than a second optional field, because the arms are alternatives all
+ * the way down: `PutOnAirInput` takes a playlist pair, a chart id or a station playlist and refuses to
+ * make sense of two, and a slot stores one of them. A shape that could hold none-or-several would
+ * push that decision into every caller.
  */
-export type ProgrammeSource = { kind: 'playlist'; pluginId: string; playlistId: string } | { kind: 'chart'; chartId: string };
+export type ProgrammeSource =
+    { kind: 'playlist'; pluginId: string; playlistId: string } | { kind: 'chart'; chartId: string } | { kind: 'station'; stationPlaylistId: string };
 
 /**
  * The tag every encoded value carries, and why it is there at all.
@@ -62,6 +64,9 @@ export const sourceValue = (pluginId: string, playlistId: string): string => `pl
 /** A qualified chart id as the same. */
 export const chartSourceValue = (chartId: string): string => `chart${SEPARATOR}${chartId}`;
 
+/** A playlist the station owns as the same. */
+export const stationSourceValue = (stationPlaylistId: string): string => `station${SEPARATOR}${stationPlaylistId}`;
+
 /**
  * A picker's value back out.
  *
@@ -79,6 +84,7 @@ export function splitSource(value: string | null | undefined): ProgrammeSource |
     if (rest.length === 0) return undefined;
 
     if (tag === 'chart') return { kind: 'chart', chartId: rest };
+    if (tag === 'station') return { kind: 'station', stationPlaylistId: rest };
     if (tag !== 'playlist') return undefined;
 
     // At the FIRST separator rather than every one. A plugin id has no spaces, but a playlist id is
@@ -108,10 +114,20 @@ export function splitSource(value: string | null | undefined): ProgrammeSource |
  * They differ in one way worth knowing before choosing: a playlist names copies the station can
  * already fetch, and a chart names records, so airing a chart has the station look each one up and
  * ingest it. A station with `rotation.discover` off can play almost none of one.
+ *
+ * `stationPlaylists` adds the playlists the station OWNS, first, for the callers whose write can store
+ * one. They are read from the station's own library rather than from a provider, which is what makes
+ * them the right pool for a scheduled block: a long provider playlist has to be read in full at the
+ * moment the block starts.
  */
-export function SourceField({ description, ...input }: GetInputPropsReturnType & { description?: string }) {
+export function SourceField({
+    description,
+    stationPlaylists = false,
+    ...input
+}: GetInputPropsReturnType & { description?: string; stationPlaylists?: boolean }) {
     const playlists = useQuery(playlistsListOptions);
     const charts = useQuery(chartsListOptions);
+    const owned = useQuery({ ...stationPlaylistsListOptions, enabled: stationPlaylists });
 
     const chosen = splitSource(typeof input.value === 'string' ? input.value : undefined);
     const playlistOptions = offerablePlaylists(playlists.data?.playlists ?? [], chosen?.kind === 'playlist' ? chosen : undefined).map(entry => ({
@@ -123,14 +139,19 @@ export function SourceField({ description, ...input }: GetInputPropsReturnType &
         label: `${entry.name} — ${entry.pluginId}`,
     }));
 
-    // Groups only where there is something to group. A station with no chart plugin should see the
-    // list it has always seen rather than a heading over it explaining an absence.
+    const stationOptions = stationPlaylists
+        ? (owned.data?.playlists ?? []).map(entry => ({ value: stationSourceValue(entry.id), label: entry.name }))
+        : [];
+
+    // Groups only where there is something to group. A station with no chart plugin and no playlists
+    // of its own should see the list it has always seen rather than headings explaining an absence.
     const data =
-        chartOptions.length === 0
+        chartOptions.length === 0 && stationOptions.length === 0
             ? playlistOptions
             : [
-                  { group: 'Playlists', items: playlistOptions },
-                  { group: 'Charts', items: chartOptions },
+                  ...(stationOptions.length === 0 ? [] : [{ group: 'The station’s playlists', items: stationOptions }]),
+                  { group: stationOptions.length === 0 ? 'Playlists' : 'From the providers', items: playlistOptions },
+                  ...(chartOptions.length === 0 ? [] : [{ group: 'Charts', items: chartOptions }]),
               ];
 
     return (
@@ -141,7 +162,9 @@ export function SourceField({ description, ...input }: GetInputPropsReturnType &
             searchable
             clearable
             clearButtonProps={{ 'aria-label': 'Play from no playlist or chart' }}
-            nothingFoundMessage={playlists.isPending || charts.isPending ? 'Reading the plugins…' : 'Nothing on offer'}
+            nothingFoundMessage={
+                playlists.isPending || charts.isPending || (stationPlaylists && owned.isPending) ? 'Reading the plugins…' : 'Nothing on offer'
+            }
             {...input}
         />
     );

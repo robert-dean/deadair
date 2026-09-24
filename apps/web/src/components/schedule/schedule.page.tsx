@@ -15,6 +15,7 @@ import { OverrunPanel } from './overrun.panel';
 import { colorOf, weekdayOf } from './schedule.day';
 import { blockEdit, minutesOf, type DraggedBlock, type SlotEdit } from './schedule.edits';
 import { SlotEditor, type EditorTarget } from './slot.editor';
+import { RequestsPanel } from '../requests/requests.panel';
 import { SustainingPanel } from './sustaining.panel';
 
 /**
@@ -82,6 +83,7 @@ export const PROGRAMME_TABS = [
     // The key stays `week` — `?tab=week` links and `attention.destination.ts` depend on it.
     { key: 'week', label: 'Timetable', hint: 'The blocks across a week, and what changes them' },
     { key: 'sustaining', label: 'Sustaining', hint: 'What it plays when nothing is scheduled' },
+    { key: 'requests', label: 'Requests', hint: 'What listeners have asked for, and deciding on it' },
 ] as const satisfies readonly DestinationTab<string>[];
 
 export type ProgrammeTab = (typeof PROGRAMME_TABS)[number]['key'];
@@ -286,6 +288,10 @@ export function SchedulePage({ tab, onSelect }: SchedulePageProps) {
                 is a whole answer with fields of its own — a playlist or a chart, or a brief and a period —
                 and it was competing for attention with the week it applies to. */}
             {tab === 'sustaining' ? <SustainingPanel /> : undefined}
+
+            {/* A request is a record the station will play a few records from now, which is this
+                destination's question. See the panel. */}
+            {tab === 'requests' ? <RequestsPanel /> : undefined}
 
             {/* The other half of "what happens when", and the reason Today is a tab rather than the
                 day grid: a band is a rule about every hour and has no place on a week. */}

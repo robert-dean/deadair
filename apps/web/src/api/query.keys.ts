@@ -19,6 +19,10 @@ export const queryKeys = {
         /** The identity providers the sign-in page offers. Public: asked before anybody is signed in. */
         providers: () => ['auth', 'providers'] as const,
     },
+    /** Listener requests, for the operator deciding on them. Granting or declining one answers in terms of the whole list again. */
+    requests: {
+        list: () => ['requests', 'list'] as const,
+    },
     /** Chat accounts linked to the signed-in account, so they can run operator commands from a chat. */
     messaging: {
         links: () => ['messaging', 'links'] as const,

@@ -11,6 +11,7 @@ import { PageSkeleton } from '../shared/page.skeleton';
 import { PluginConfigForm } from './plugin.config.form';
 import { PluginLogsCard } from './plugin.logs.card';
 import { PluginOAuthCard } from './plugin.oauth.card';
+import { PLUGINS_PAGE_DEFAULTS } from './plugin.page.params';
 import { PluginPermissionsCard } from './plugin.permissions.card';
 import { PluginRemoveCard } from './plugin.remove.card';
 import { PluginStanding } from './plugin.standing';
@@ -39,7 +40,7 @@ export function PluginDetailPage({ id }: PluginDetailPageProps) {
         return (
             <Stack gap="md" align="flex-start">
                 <ErrorAlert title="Plugin unavailable" error={plugin.error} fallback={`No plugin with the id "${id}" answered.`} />
-                <Anchor renderRoot={(props: object) => <Link to="/plugins" {...props} />} size="sm">
+                <Anchor renderRoot={(props: object) => <Link to="/plugins" search={PLUGINS_PAGE_DEFAULTS} {...props} />} size="sm">
                     Back to plugins
                 </Anchor>
             </Stack>
@@ -53,7 +54,7 @@ export function PluginDetailPage({ id }: PluginDetailPageProps) {
         <Stack gap="lg">
             {/* `renderRoot` rather than `component={Link}`: the polymorphic form erases the
                 router's own types, and with them the check that this route still exists. */}
-            <Anchor renderRoot={(props: object) => <Link to="/plugins" {...props} />} size="sm">
+            <Anchor renderRoot={(props: object) => <Link to="/plugins" search={PLUGINS_PAGE_DEFAULTS} {...props} />} size="sm">
                 <Group gap="xxs" wrap="nowrap">
                     <IconArrowLeft size={14} stroke={1.8} />
                     Plugins

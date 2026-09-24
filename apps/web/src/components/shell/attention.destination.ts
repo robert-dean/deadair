@@ -2,6 +2,7 @@ import type { LinkProps } from '@tanstack/react-router';
 import type { AttentionItem } from '@deadair/sdk';
 
 import { CATALOG_TRACK_DEFAULTS, TRACK_STATES, type TrackStateParam } from '../catalog/catalog.page.params';
+import { PLUGINS_PAGE_DEFAULTS } from '../plugins/plugin.page.params';
 import type { Severity } from '../shared/status';
 
 /**
@@ -81,7 +82,7 @@ export function attentionDestinationOf(route: string): AttentionDestination | un
         case '/catalog':
             return { link: { to: '/catalog/tracks', search: CATALOG_TRACK_DEFAULTS }, label: 'Library' };
         case '/plugins':
-            return { link: { to: '/plugins' }, label: 'Plugins' };
+            return { link: { to: '/plugins', search: PLUGINS_PAGE_DEFAULTS }, label: 'Plugins' };
         // Everything below lands on Settings in the nav: plugins are a section of it now.
         case '/settings':
             return { link: { to: '/settings' }, label: 'Settings' };

@@ -1,9 +1,10 @@
-import type { ReactNode } from 'react';
+import { type ReactNode, useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DateTime } from 'luxon';
 import { SdkError } from '@deadair/sdk';
 
-import { PluginsPage } from '../../../src/components/plugins/plugins.page';
+import { PLUGINS_PAGE_DEFAULTS, type PluginsPageParams } from '../../../src/components/plugins/plugin.page.params';
+import { PluginsPage as Page } from '../../../src/components/plugins/plugins.page';
 import { pluginSummary } from '../../utils/plugin.fixture';
 import { render, screen, setupUser, waitFor, within } from '../../utils/render';
 
@@ -47,6 +48,12 @@ afterEach(() => {
     listPluginGrants.mockReset();
 });
 
+/** The page with its params held the way the route holds them, so filtering can be driven end to end. */
+function PluginsPage({ initial = PLUGINS_PAGE_DEFAULTS }: { initial?: PluginsPageParams }) {
+    const [params, setParams] = useState(initial);
+    return <Page params={params} onParamsChange={next => setParams(previous => ({ ...previous, ...next }))} />;
+}
+
 /** A tarball as the browser hands one over. Its bytes are the server's business. */
 const tarball = () => new File([new Uint8Array([0x1f, 0x8b, 0x08])], 'apple-music-charts-0.1.0.tgz', { type: 'application/gzip' });
 
@@ -89,6 +96,37 @@ describe('PluginsPage', () => {
         const groups = screen.getAllByRole('region').map(region => region.getAttribute('aria-label'));
         expect(groups).toEqual(['Music sources', 'Voice', 'News & programmes']);
         expect(within(screen.getByRole('region', { name: 'Voice' })).getByText('Kokoro')).toBeInTheDocument();
+    });
+
+    it('narrows the cards to a search, and counts each filter against it', async () => {
+        listPlugins.mockResolvedValue([
+            pluginSummary(),
+            pluginSummary({ id: 'deadair.kokoro', name: 'Kokoro', capabilities: ['speech'] }),
+            pluginSummary({ id: 'deadair.rhapsode', name: 'Rhapsode', capabilities: ['speech'], status: 'failed' }),
+        ]);
+
+        render(<PluginsPage />);
+        await setupUser().type(await screen.findByLabelText('Search plugins'), 'voice');
+
+        await waitFor(() => {
+            expect(screen.queryByText('Spotify')).not.toBeInTheDocument();
+        });
+        expect(screen.getByText('Kokoro')).toBeInTheDocument();
+        expect(screen.getByText('Rhapsode')).toBeInTheDocument();
+        expect(screen.getByText('All 2')).toBeInTheDocument();
+        expect(screen.getByText('Needs attention 1')).toBeInTheDocument();
+    });
+
+    it('shows only what needs attention, and offers a way back when nothing matches', async () => {
+        listPlugins.mockResolvedValue([pluginSummary()]);
+
+        render(<PluginsPage initial={{ q: '', show: 'attention' }} />);
+
+        expect(await screen.findByText('No plugins match')).toBeInTheDocument();
+        expect(screen.queryByText('Spotify')).not.toBeInTheDocument();
+
+        await setupUser().click(screen.getByRole('button', { name: 'Clear filters' }));
+        expect(await screen.findByText('Spotify')).toBeInTheDocument();
     });
 
     it('marks a plugin the operator installed, and leaves the bundled ones unmarked', async () => {

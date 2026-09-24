@@ -7,6 +7,7 @@ import { useRemovePlugin } from '../../api/plugins.queries';
 import { apiErrorMessage, sdkError } from '../../api/sdk.error';
 import { ErrorAlert } from '../shared/error.alert';
 import { notifyDone } from '../shared/notify';
+import { PLUGINS_PAGE_DEFAULTS } from './plugin.page.params';
 
 export interface PluginRemoveCardProps {
     plugin: Pick<PluginDetail, 'id' | 'name'>;
@@ -37,7 +38,7 @@ export function PluginRemoveCard({ plugin }: PluginRemoveCardProps) {
         );
         if (!done) return;
         notifyDone(`${plugin.name} removed.`);
-        void navigate({ to: '/plugins' });
+        void navigate({ to: '/plugins', search: PLUGINS_PAGE_DEFAULTS });
     };
 
     return (

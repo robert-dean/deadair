@@ -1,11 +1,14 @@
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, stripSearchParams, useNavigate } from '@tanstack/react-router';
 
 import { pluginsListOptions } from '../../api/plugins.queries';
+import { PLUGINS_PAGE_DEFAULTS, validatePluginsPage } from '../../components/plugins/plugin.page.params';
 import { PluginsPage } from '../../components/plugins/plugins.page';
 import { SettingsShell } from '../../components/settings/settings.shell';
 
 export const Route = createFileRoute('/plugins/')({
     component: PluginsRoute,
+    validateSearch: validatePluginsPage,
+    search: { middlewares: [stripSearchParams(PLUGINS_PAGE_DEFAULTS)] },
     // Warms the same cache the page's hook reads from, so the loader and the render are one
     // request rather than two. The rejection is swallowed on purpose: the failure stays in the
     // query cache for the page's own "plugin catalogue is unavailable" alert to render, which
@@ -25,9 +28,17 @@ export const Route = createFileRoute('/plugins/')({
  * navigating, without pretending a whole page is a card.
  */
 function PluginsRoute() {
+    const params = Route.useSearch();
+    const navigate = useNavigate({ from: Route.fullPath });
+
     return (
         <SettingsShell active="plugins">
-            <PluginsPage />
+            <PluginsPage
+                params={params}
+                onParamsChange={next => {
+                    void navigate({ search: previous => ({ ...previous, ...next }) });
+                }}
+            />
         </SettingsShell>
     );
 }

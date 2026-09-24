@@ -27,6 +27,8 @@ vi.mock('../../src/api/client', () => ({
 // so the loaders can be called directly, without standing up the generated route tree.
 vi.mock('@tanstack/react-router', () => ({
     createFileRoute: () => (options: unknown) => options,
+    stripSearchParams: () => (search: unknown) => search,
+    useNavigate: () => () => undefined,
 }));
 
 const { Route: ListRoute } = await import('../../src/routes/plugins/index');

@@ -64,7 +64,7 @@ describe('receiving', () => {
 
         expect(result.messages).toHaveLength(1);
         expect(result.cursor).toBe('6');
-        expect(bodyOf(1)).toEqual({ timeout: 25, allowed_updates: ['message'] });
+        expect(bodyOf(1)).toEqual({ timeout: 25, allowed_updates: ['message', 'callback_query'] });
     });
 
     it('asks from the cursor it is handed, waiting as long as it is allowed', async () => {
@@ -73,7 +73,7 @@ describe('receiving', () => {
 
         await plugin.receive({ cursor: '77', waitMs: 25_000 });
 
-        expect(bodyOf(0)).toEqual({ offset: 77, timeout: 25, allowed_updates: ['message'] });
+        expect(bodyOf(0)).toEqual({ offset: 77, timeout: 25, allowed_updates: ['message', 'callback_query'] });
         expect(host.calls[0]?.url).toBe(`https://${TELEGRAM_HOST}/bot${TOKEN}/getUpdates`);
     });
 
@@ -290,5 +290,111 @@ describe('the transport', () => {
         queue({ ok: false, error_code: 409, description: "Conflict: can't use getUpdates method while webhook is active" }, 409);
 
         await expect(plugin.receive({ cursor: '1', waitMs: 1_000 })).rejects.toMatchObject({ code: 'config' });
+    });
+});
+
+describe('buttons', () => {
+    it('sends buttons as an inline keyboard, the id and value carried in callback_data', async () => {
+        await initialize();
+        queue({ ok: true, result: {} });
+
+        await plugin.send({
+            chatId: '42',
+            text: 'A request',
+            buttons: [
+                { id: 'request.grant', label: 'Play it', value: '6f1c2c1e-6c55-4e8e-9d51-7a3b0b2c9e11' },
+                { id: 'request.decline', label: 'Not now', value: '6f1c2c1e-6c55-4e8e-9d51-7a3b0b2c9e11' },
+            ],
+        });
+
+        expect(bodyOf(0).reply_markup).toEqual({
+            inline_keyboard: [
+                [
+                    { text: 'Play it', callback_data: 'request.grant|6f1c2c1e-6c55-4e8e-9d51-7a3b0b2c9e11' },
+                    { text: 'Not now', callback_data: 'request.decline|6f1c2c1e-6c55-4e8e-9d51-7a3b0b2c9e11' },
+                ],
+            ],
+        });
+    });
+
+    it('leaves off a button too long for Telegram rather than cutting its value short', async () => {
+        await initialize();
+        queue({ ok: true, result: {} });
+
+        await plugin.send({ chatId: '42', text: 'x', buttons: [{ id: 'a', label: 'A', value: 'v'.repeat(80) }] });
+
+        expect(bodyOf(0).reply_markup).toBeUndefined();
+    });
+
+    it('hands a press back as an action on the message it was on, and acknowledges it', async () => {
+        await initialize();
+        queue({
+            ok: true,
+            result: [
+                {
+                    update_id: 30,
+                    callback_query: {
+                        id: 'cb-1',
+                        from: { id: 7, first_name: 'Robin' },
+                        message: { message_id: 555, chat: { id: 42, type: 'private' }, date: 1 },
+                        data: 'request.grant|abc',
+                    },
+                },
+            ],
+        });
+        queue({ ok: true, result: true });
+
+        const { messages, cursor } = await plugin.receive({ cursor: '30', waitMs: 1_000 });
+
+        expect(messages).toEqual([
+            expect.objectContaining({
+                id: '555',
+                chatId: '42',
+                text: '',
+                sender: { id: '7', displayName: 'Robin' },
+                action: { id: 'request.grant', value: 'abc' },
+            }),
+        ]);
+        expect(cursor).toBe('31');
+        expect(host.calls[1]?.url).toContain('/answerCallbackQuery');
+        expect(bodyOf(1)).toEqual({ callback_query_id: 'cb-1' });
+    });
+
+    it('ignores a press in a group nobody allowed, but still acknowledges it', async () => {
+        await initialize();
+        queue({
+            ok: true,
+            result: [
+                {
+                    update_id: 31,
+                    callback_query: { id: 'cb-2', from: { id: 7 }, message: { message_id: 1, chat: { id: -5, type: 'group' }, date: 1 }, data: 'x' },
+                },
+            ],
+        });
+        queue({ ok: true, result: true });
+
+        expect((await plugin.receive({ cursor: '31', waitMs: 1_000 })).messages).toEqual([]);
+        expect(host.calls).toHaveLength(2);
+    });
+
+    it('keeps polling when a press cannot be acknowledged', async () => {
+        await initialize();
+        queue({
+            ok: true,
+            result: [
+                {
+                    update_id: 32,
+                    callback_query: {
+                        id: 'cb-3',
+                        from: { id: 7 },
+                        message: { message_id: 1, chat: { id: 42, type: 'private' }, date: 1 },
+                        data: 'x',
+                    },
+                },
+            ],
+        });
+        queue({ ok: false, error_code: 400, description: 'Bad Request: query is too old' }, 400);
+
+        expect((await plugin.receive({ cursor: '32', waitMs: 1_000 })).messages).toHaveLength(1);
     });
 });

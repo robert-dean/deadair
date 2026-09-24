@@ -1,4 +1,4 @@
-import type { InboundMessage } from '@deadair/plugin-sdk';
+import type { InboundMessage, MessagingAction, MessagingButton } from '@deadair/plugin-sdk';
 
 /**
  * The parts of the Telegram Bot API this plugin reads, and the mapping from them to the capability.
@@ -29,9 +29,19 @@ export interface TelegramMessage {
     text?: string;
 }
 
+/** A button pressed on one of the bot's messages. */
+export interface TelegramCallbackQuery {
+    id: string;
+    from: TelegramUser;
+    /** The message the button was on. Absent for a message too old for Telegram to say. */
+    message?: TelegramMessage;
+    data?: string;
+}
+
 export interface TelegramUpdate {
     update_id: number;
     message?: TelegramMessage;
+    callback_query?: TelegramCallbackQuery;
 }
 
 /**
@@ -73,27 +83,90 @@ export interface ChatPolicy {
  * cursor still moves past all of them: see {@link nextOffset}.
  */
 export function toInboundMessage(update: TelegramUpdate, policy: ChatPolicy): InboundMessage | undefined {
+    if (update.callback_query !== undefined) return fromCallbackQuery(update.callback_query, policy);
+
     const message = update.message;
     if (message === undefined || typeof message.text !== 'string' || message.text.trim() === '') return undefined;
 
     const from = message.from;
     if (from === undefined || from.is_bot === true) return undefined;
 
-    const chatId = String(message.chat.id);
-    const chatKind =
-        message.chat.type === 'private' ? 'direct' : message.chat.type === 'group' || message.chat.type === 'supergroup' ? 'group' : undefined;
-    if (chatKind === undefined) return undefined;
-    if (chatKind === 'direct' && !policy.directMessages) return undefined;
-    if (chatKind === 'group' && !policy.groupChats.has(chatId)) return undefined;
+    const chat = allowedChat(message.chat, policy);
+    if (chat === undefined) return undefined;
 
     return {
         id: String(message.message_id),
-        chatId,
-        chatKind,
+        chatId: chat.chatId,
+        chatKind: chat.chatKind,
         sender: { id: String(from.id), displayName: displayName(from) },
         text: message.text,
         sentAt: new Date(message.date * 1000).toISOString(),
     };
+}
+
+/** A button press, as the message it was on with the button's action attached. */
+function fromCallbackQuery(query: TelegramCallbackQuery, policy: ChatPolicy): InboundMessage | undefined {
+    if (query.from.is_bot === true || query.message === undefined || typeof query.data !== 'string') return undefined;
+
+    const chat = allowedChat(query.message.chat, policy);
+    if (chat === undefined) return undefined;
+
+    return {
+        id: String(query.message.message_id),
+        chatId: chat.chatId,
+        chatKind: chat.chatKind,
+        sender: { id: String(query.from.id), displayName: displayName(query.from) },
+        text: '',
+        action: decodeAction(query.data),
+        sentAt: new Date().toISOString(),
+    };
+}
+
+/** The chat's id and kind, when the operator has allowed it. */
+function allowedChat(chat: TelegramChat, policy: ChatPolicy): { chatId: string; chatKind: 'direct' | 'group' } | undefined {
+    const chatId = String(chat.id);
+    const chatKind = chat.type === 'private' ? 'direct' : chat.type === 'group' || chat.type === 'supergroup' ? 'group' : undefined;
+    if (chatKind === undefined) return undefined;
+    if (chatKind === 'direct' && !policy.directMessages) return undefined;
+    if (chatKind === 'group' && !policy.groupChats.has(chatId)) return undefined;
+    return { chatId, chatKind };
+}
+
+/** Telegram's limit on `callback_data`, in bytes. */
+export const MAX_CALLBACK_DATA_BYTES = 64;
+
+/** What separates a button's id from its value in `callback_data`. An id never contains it. */
+const ACTION_SEPARATOR = '|';
+
+/** A button's id and value as one `callback_data` string, or nothing when they do not fit. */
+export function encodeAction(button: MessagingButton): string | undefined {
+    if (button.id.includes(ACTION_SEPARATOR)) return undefined;
+    const data = button.value === undefined ? button.id : `${button.id}${ACTION_SEPARATOR}${button.value}`;
+    return Buffer.byteLength(data, 'utf8') <= MAX_CALLBACK_DATA_BYTES ? data : undefined;
+}
+
+/** `callback_data` back into the id and value it was made from. */
+export function decodeAction(data: string): MessagingAction {
+    const at = data.indexOf(ACTION_SEPARATOR);
+    return at < 0 ? { id: data } : { id: data.slice(0, at), value: data.slice(at + 1) };
+}
+
+/**
+ * Buttons as an inline keyboard, up to five to a row as ServerKit's own Telegram adapter lays them
+ * out. A button whose id and value do not fit in `callback_data` is left off rather than cut short,
+ * since a truncated value would come back naming something else.
+ */
+export function inlineKeyboard(buttons: readonly MessagingButton[]): {
+    keyboard: Array<Array<{ text: string; callback_data: string }>>;
+    dropped: number;
+} {
+    const fitting = buttons.flatMap(button => {
+        const data = encodeAction(button);
+        return data === undefined ? [] : [{ text: button.label, callback_data: data }];
+    });
+    const keyboard = [];
+    for (let index = 0; index < fitting.length; index += 5) keyboard.push(fitting.slice(index, index + 5));
+    return { keyboard, dropped: buttons.length - fitting.length };
 }
 
 /** A multi-line config field as its non-empty lines. Commas separate too, since that is what people paste. */

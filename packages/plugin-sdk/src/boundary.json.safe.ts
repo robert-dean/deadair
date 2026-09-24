@@ -59,7 +59,9 @@ import type {
 } from './capabilities/podcast.js';
 import type {
     InboundMessage,
+    MessagingAction,
     MessagingAnnounceTarget,
+    MessagingButton,
     MessagingReceiveQuery,
     MessagingReceiveResult,
     MessagingSendResult,
@@ -243,6 +245,8 @@ export type AssertAllBoundaryPayloadsAreJsonSafe = AssertAllTrue<{
     ScrobbleRejection: IsJsonSafe<ScrobbleRejection>;
     ScrobbleResult: IsJsonSafe<ScrobbleResult>;
     MessagingSender: IsJsonSafe<MessagingSender>;
+    MessagingAction: IsJsonSafe<MessagingAction>;
+    MessagingButton: IsJsonSafe<MessagingButton>;
     InboundMessage: IsJsonSafe<InboundMessage>;
     MessagingReceiveQuery: IsJsonSafe<MessagingReceiveQuery>;
     MessagingReceiveResult: IsJsonSafe<MessagingReceiveResult>;
@@ -337,6 +341,8 @@ export const JSON_SAFE_PAYLOAD_TYPES = [
     'ScrobbleRejection',
     'ScrobbleResult',
     'MessagingSender',
+    'MessagingAction',
+    'MessagingButton',
     'InboundMessage',
     'MessagingReceiveQuery',
     'MessagingReceiveResult',

@@ -29,11 +29,20 @@
  * data wherever it goes, and a plugin must not pre-process it into anything that
  * looks like the station's own words.
  *
- * ## Text only, and plain
+ * ## Plain text, and buttons
  *
  * {@link OutboundMessage.text} is plain text. A platform that parses markup is
  * the plugin's to escape for, since the host cannot know which characters a
  * given platform treats as formatting.
+ *
+ * A message may carry {@link MessagingButton}s. Pressing one comes back from
+ * {@link MessagingProvider.receive} as an {@link InboundMessage} with an
+ * {@link InboundMessage.action}, carrying the button's `id` and `value` exactly
+ * as they were sent. How the two travel through the platform (Telegram's
+ * `callback_data`, a Slack `action_id`) is the plugin's business; the shapes
+ * match `@maroonedsoftware/comms`' `OutgoingButton` and `IncomingEvent.action`,
+ * which is what the host routes them with. A platform with no buttons renders
+ * them as text or drops them.
  *
  * Every shape here is JSON-safe.
  */
@@ -63,10 +72,34 @@ export interface InboundMessage {
     chatId: string;
     chatKind: MessagingChatKind;
     sender: MessagingSender;
-    /** What they wrote, verbatim. Untrusted. */
+    /** What they wrote, verbatim. Untrusted. Empty when this is a button press. */
     text: string;
+    /**
+     * Present when this is somebody pressing a button rather than writing: the
+     * button's `id` and `value` exactly as {@link OutboundMessage.buttons} sent
+     * them. The message's own {@link id} is then the message the button was on,
+     * so a reply threads under it. Untrusted like the text: a
+     * platform lets a client send any value it likes.
+     */
+    action?: MessagingAction;
     /** When it was sent, as an ISO-8601 string. */
     sentAt: string;
+}
+
+/** A button pressed, as it came back. */
+export interface MessagingAction {
+    id: string;
+    value?: string;
+}
+
+/** A button on an outgoing message. The shape of `@maroonedsoftware/comms`' `OutgoingButton`. */
+export interface MessagingButton {
+    /** What the press is routed by. Short: platforms bound it (Telegram allows 64 bytes for id and value together). */
+    id: string;
+    /** What the button says. */
+    label: string;
+    /** Carried back with the press, for a button about one thing among several. */
+    value?: string;
 }
 
 /** What {@link MessagingProvider.receive} is asked. */
@@ -111,6 +144,8 @@ export interface OutboundMessage {
     text: string;
     /** Answer this message in particular, where the platform threads replies. */
     replyToId?: string;
+    /** Buttons under the message. See the module doc. */
+    buttons?: MessagingButton[];
 }
 
 /** What became of one {@link MessagingProvider.send}. */

@@ -843,6 +843,12 @@ characters your platform treats as formatting. Classify refusals on
 `retryable` exactly as a scrobble plugin does: a rate limit or a 5xx is worth
 another go, a chat the bot was removed from is not, and when unsure say no.
 
+**Buttons come back as actions.** An `OutboundMessage` may carry `buttons`
+(`{ id, label, value? }`). A press comes back from `receive` as a message with
+`action: { id, value }` and empty `text`, exactly as they were sent; how they
+travel through your platform is yours to encode and decode. A platform with no
+buttons renders them as text or drops them.
+
 `announceTargets()` says which chats want which announcements (today only
 `nowPlaying`); leave it out and the station only ever answers when spoken to.
 `accepting()` is the operator's off switch, as it is for scrobbling.

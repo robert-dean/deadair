@@ -16,6 +16,7 @@ import { IsTelegramError, TelegramClient, type TelegramConfig } from '@marooneds
 import {
     configFlag,
     configLines,
+    inlineKeyboard,
     isRetryableStatus,
     nextOffset,
     toInboundMessage,
@@ -142,7 +143,7 @@ export class TelegramPlugin extends Plugin implements MessagingPluginInstance {
             const updates = (await client.getUpdates({
                 ...(query.cursor === undefined ? {} : { offset: Number(query.cursor) }),
                 timeout: Math.max(0, Math.floor(query.waitMs / 1000)),
-                allowed_updates: ['message'],
+                allowed_updates: ['message', 'callback_query'],
             })) as TelegramUpdate[];
 
             const messages = [];
@@ -150,6 +151,16 @@ export class TelegramPlugin extends Plugin implements MessagingPluginInstance {
                 const message = toInboundMessage(update, this.policy);
                 if (message !== undefined) messages.push(message);
                 else this.noteUnlistedGroup(host, update);
+
+                // Every press is acknowledged, allowed or not, or the button spins on the person's screen.
+                // Nothing rides on it, so a failure is only logged.
+                if (update.callback_query !== undefined) {
+                    await client
+                        .answerCallbackQuery({ callback_query_id: update.callback_query.id })
+                        .catch((error: unknown) =>
+                            host.logger.debug('telegram: could not acknowledge a button press', { reason: this.refusal(error).description }),
+                        );
+                }
             }
 
             const cursor = nextOffset(updates);
@@ -165,12 +176,16 @@ export class TelegramPlugin extends Plugin implements MessagingPluginInstance {
         if (this.token === '') return { delivered: false, reason: 'no bot token set', retryable: false };
 
         const text = message.text.length > MAX_MESSAGE_LENGTH ? `${message.text.slice(0, MAX_MESSAGE_LENGTH - 1)}…` : message.text;
+        const buttons = message.buttons === undefined || message.buttons.length === 0 ? undefined : inlineKeyboard(message.buttons);
+        if (buttons !== undefined && buttons.dropped > 0)
+            host.logger.warn('telegram: left off buttons too long for Telegram', { dropped: buttons.dropped });
         try {
             // No `parse_mode`, so Telegram reads the text as plain text and nothing in it needs escaping.
             await this.client(host).sendMessage({
                 chat_id: message.chatId,
                 text,
                 link_preview_options: { is_disabled: true },
+                ...(buttons === undefined || buttons.keyboard.length === 0 ? {} : { reply_markup: { inline_keyboard: buttons.keyboard } }),
                 ...(message.replyToId === undefined
                     ? {}
                     : { reply_parameters: { message_id: Number(message.replyToId), allow_sending_without_reply: true } }),
@@ -233,7 +248,7 @@ export class TelegramPlugin extends Plugin implements MessagingPluginInstance {
 
     /** Log a group's id the first time somebody there speaks, so the operator can add it to the list. */
     private noteUnlistedGroup(host: PluginHost, update: TelegramUpdate): void {
-        const message = update.message;
+        const message = update.message ?? update.callback_query?.message;
         if (message === undefined || (message.chat.type !== 'group' && message.chat.type !== 'supergroup')) return;
         const chatId = String(message.chat.id);
         if (this.policy.groupChats.has(chatId) || this.unlistedGroups.has(chatId)) return;

@@ -11,6 +11,7 @@ import { Eyebrow } from '../shared/eyebrow';
 import { MarkdownView } from '../shared/markdown.view';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
+import { formatLocale } from '../../i18n/format.locale';
 
 /**
  * How many releases are drawn before the rest are asked for.
@@ -142,7 +143,7 @@ function CheckLine({ releases }: { releases: StationReleases }) {
                 <Text size="sm" c="dimmed">
                     {releases.checkedAt === undefined
                         ? 'The station checks GitHub for newer releases every few hours, and has not heard back yet.'
-                        : `The station checks GitHub for newer releases every few hours. It last heard back ${releases.checkedAt.toLocaleString(DateTime.DATETIME_MED)}.`}
+                        : `The station checks GitHub for newer releases every few hours. It last heard back ${releases.checkedAt.toLocaleString(DateTime.DATETIME_MED, { locale: formatLocale() })}.`}
                 </Text>
                 <Button variant="light" size="compact-sm" loading={check.isPending} onClick={() => check.mutate()}>
                     Check now
@@ -206,7 +207,7 @@ function ReleaseCard({ release, state }: { release: StationRelease; state?: 'run
                     </Title>
                     {release.date !== undefined && (
                         <Text size="sm" c="dimmed">
-                            {release.date.toLocaleString(DateTime.DATE_MED)}
+                            {release.date.toLocaleString(DateTime.DATE_MED, { locale: formatLocale() })}
                         </Text>
                     )}
                     {state === 'running' && (

@@ -2,7 +2,8 @@ import { Box, Card, Group, Progress, SimpleGrid, Stack, Text } from '@mantine/co
 import type { Persona, ScheduleNow, ScheduleOccurrence, ScheduleSlot } from '@deadair/sdk';
 
 import { Eyebrow } from '../shared/eyebrow';
-import { colorOf, DAY_LABELS, formatSpan, minutesBetween, weekdayOf } from './schedule.day';
+import { colorOf, formatSpan, minutesBetween, weekdayOf } from './schedule.day';
+import { weekdayShort } from '../../i18n/format.locale';
 
 /**
  * What is on, what is next, and what is after that.
@@ -201,7 +202,7 @@ function BlockName({ block, slot, personas }: { block: ScheduleOccurrence; slot?
  * running keeps its own start time, which is what "since 22:00" means on a late show.
  */
 function when(block: ScheduleOccurrence): string {
-    return `${DAY_LABELS[weekdayOf(block.start.slice(0, 10))]} ${block.start.slice(11, 16)}–${block.end.slice(11, 16)}`;
+    return `${weekdayShort(weekdayOf(block.start.slice(0, 10)))} ${block.start.slice(11, 16)}–${block.end.slice(11, 16)}`;
 }
 
 /** The stored slot a drawn block came from, for the facts an occurrence does not carry. */

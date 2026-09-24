@@ -1,6 +1,7 @@
 import { Group, Pagination, Select, Text } from '@mantine/core';
 
 import { PAGE_SIZES } from './catalog.page.params';
+import { formatCount } from '../../i18n/format.locale';
 
 export interface CatalogPaginationProps {
     total: number;
@@ -29,7 +30,7 @@ export function CatalogPagination({ total, pageSize, page, onChange, onPageSizeC
     return (
         <Group justify="space-between">
             <Text size="sm" c="dimmed">
-                {total === 1 ? '1 result' : `${total.toLocaleString()} results`}
+                {total === 1 ? '1 result' : `${formatCount(total)} results`}
             </Text>
             {/* Allowed to wrap: at phone width a pager past a handful of pages is wider than the
                 row, and the size control dropping under it beats the page scrolling sideways. */}

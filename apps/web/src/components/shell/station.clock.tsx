@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Text } from '@mantine/core';
+import { formatClock } from '../../i18n/format.locale';
 
 /** Seconds, because the thing an operator counts against a skip or a break is seconds. */
 function readClock(): string {
-    return new Date().toLocaleTimeString('en-GB', { hour12: false });
+    return formatClock(new Date(), { seconds: true });
 }
 
 /**

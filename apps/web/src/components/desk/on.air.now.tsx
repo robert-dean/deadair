@@ -16,6 +16,7 @@ import { ErrorAlert } from '../shared/error.alert';
 import { formatDuration } from '../shared/format.duration';
 import { usePhone } from '../shared/use.phone';
 import { HostOnAir } from '../onair/host.on.air';
+import { formatClock } from '../../i18n/format.locale';
 
 export interface OnAirNowProps {
     status: PlayoutStatus;
@@ -247,7 +248,7 @@ export function OnAirNow({ status, order, standingDown, airMode, airSource, held
                                         <Text size="xs" c="dimmed">
                                             {holdUntil === undefined
                                                 ? 'Held until you release it. The schedule will not take this back.'
-                                                : `Held until about ${new Date(holdUntil).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false })}.`}
+                                                : `Held until about ${formatClock(new Date(holdUntil))}.`}
                                         </Text>
                                         <Anchor
                                             component="button"

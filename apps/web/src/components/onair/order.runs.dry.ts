@@ -1,4 +1,5 @@
 import type { StationOnEnd, StationOrderItem } from '@deadair/sdk';
+import { formatClock } from '../../i18n/format.locale';
 
 /**
  * When the running order runs out, and what happens when it does.
@@ -54,7 +55,7 @@ export function runsDryAt(items: StationOrderItem[], remainingMs: number | undef
     const left = msUntilDry(items, remainingMs);
     if (left === undefined) return undefined;
 
-    return new Date(now.getTime() + left).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
+    return formatClock(new Date(now.getTime() + left));
 }
 
 /**

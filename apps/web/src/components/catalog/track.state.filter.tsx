@@ -3,6 +3,7 @@ import type { TrackStateCounts } from '@deadair/sdk';
 
 import { severityColor, toneColor } from '../shared/status';
 import type { TrackStateParam } from './catalog.page.params';
+import { formatCount } from '../../i18n/format.locale';
 
 /**
  * The one deliberate half-step in the status set, which the status vocabulary has no tone for.
@@ -126,9 +127,9 @@ export function TrackStateFilter({ counts, value, onChange }: TrackStateFilterPr
                 <Group justify="space-between" align="baseline" gap="md" wrap="wrap">
                     <Text size="md">
                         <span className="da-num" style={{ fontWeight: 600 }}>
-                            {counts.cached.toLocaleString()}
+                            {formatCount(counts.cached)}
                         </span>{' '}
-                        of <span className="da-num">{counts.total.toLocaleString()}</span> records are ready to air right now.
+                        of <span className="da-num">{formatCount(counts.total)}</span> records are ready to air right now.
                     </Text>
                     <Text size="xs" c="dimmed">
                         The rest are fetched when the station wants them.
@@ -209,7 +210,7 @@ export function TrackStateFilter({ counts, value, onChange }: TrackStateFilterPr
                                     }}
                                 >
                                     <span className="da-num" style={{ fontWeight: 600 }}>
-                                        {count.toLocaleString()}
+                                        {formatCount(count)}
                                     </span>{' '}
                                     {filter.label}
                                 </Chip>

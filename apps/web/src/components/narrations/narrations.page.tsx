@@ -11,6 +11,7 @@ import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
 import { type StatusTone } from '../shared/status';
 import { StatusLamp } from '../shared/status.lamp';
+import { formatCount } from '../../i18n/format.locale';
 
 /** The series filter at rest. */
 const EVERY_SERIES = 'all';
@@ -185,7 +186,7 @@ function Piece({ piece, asking, onRender }: { piece: StationPiece; asking: boole
                         )}
                         {piece.wordCount === undefined ? undefined : (
                             <Text size="xs" c="dimmed" className="da-num">
-                                {piece.wordCount.toLocaleString()} words
+                                {formatCount(piece.wordCount)} words
                             </Text>
                         )}
                     </Group>

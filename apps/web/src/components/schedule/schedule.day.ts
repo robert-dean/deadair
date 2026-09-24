@@ -9,7 +9,8 @@
  * Sunday is 0, matching `Date.getDay()` and the API.
  */
 
-export const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
+/** The days of the week, Sunday first, in the order the API numbers them. */
+export const DAYS = [0, 1, 2, 3, 4, 5, 6] as const;
 
 /** `360` to `06:00`. Always two digits, so a column of these lines up under `.da-num`. */
 export function minutesToClock(minutes: number): string {

@@ -20,7 +20,8 @@ import {
     stationSourceValue,
 } from '../programme/programme.fields';
 import { ErrorAlert } from '../shared/error.alert';
-import { DAY_LABELS, minutesToClock, clockToMinutes } from './schedule.day';
+import { DAYS, minutesToClock, clockToMinutes } from './schedule.day';
+import { weekdayShort } from '../../i18n/format.locale';
 
 /**
  * Writing one slot of the station's day.
@@ -150,9 +151,9 @@ export function SlotEditor({ target, onClose, onSubmit, onDelete, saving, deleti
                                 cannot. */}
                             <Chip.Group multiple value={form.values.days} onChange={days => form.setFieldValue('days', days)}>
                                 <Group gap={4} wrap="wrap">
-                                    {DAY_LABELS.map((label, day) => (
-                                        <Chip key={label} value={String(day)} size="sm" radius="sm">
-                                            {label}
+                                    {DAYS.map(day => (
+                                        <Chip key={day} value={String(day)} size="sm" radius="sm">
+                                            {weekdayShort(day)}
                                         </Chip>
                                     ))}
                                 </Group>

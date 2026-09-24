@@ -1,5 +1,7 @@
 import type { DateTime } from 'luxon';
 
+import { perLocale } from '../../i18n/format.locale';
+
 /**
  * A moment as this console receives it: an ISO string off a plugin payload, or the Luxon
  * `DateTime` the SDK revives a contract `datetime` into. Both are accepted so a helper reads the
@@ -7,24 +9,24 @@ import type { DateTime } from 'luxon';
  */
 export type Moment = string | DateTime;
 
-const STAMP = new Intl.DateTimeFormat(undefined, {
+const STAMP = perLocale(locale => new Intl.DateTimeFormat(locale, {
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
     hour12: true,
-});
-const FULL = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'medium' });
-const MINUTE = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-const MINUTE_WITH_WEEKDAY = new Intl.DateTimeFormat(undefined, {
+}));
+const FULL = perLocale(locale => new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'medium' }));
+const MINUTE = perLocale(locale => new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }));
+const MINUTE_WITH_WEEKDAY = perLocale(locale => new Intl.DateTimeFormat(locale, {
     weekday: 'short',
     day: 'numeric',
     month: 'short',
     hour: '2-digit',
     minute: '2-digit',
-});
-const TIME_OF_DAY = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}));
+const TIME_OF_DAY = perLocale(locale => new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
 
 /**
  * When something happened: the date and the wall-clock time to the second, in the operator's own
@@ -49,13 +51,13 @@ const TIME_OF_DAY = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute
  */
 export function formatMomentStamp(iso: Moment | undefined): string {
     const date = parse(iso);
-    return date === undefined ? '' : STAMP.format(date);
+    return date === undefined ? '' : STAMP().format(date);
 }
 
 /** The same moment in full, for the tooltip: the column abbreviates the month and drops the year. */
 export function formatMomentFull(iso: Moment | undefined): string {
     const date = parse(iso);
-    return date === undefined ? '' : FULL.format(date);
+    return date === undefined ? '' : FULL().format(date);
 }
 
 /**
@@ -74,7 +76,7 @@ export function formatMomentMinute(iso: Moment | undefined, options?: { weekday?
     const date = parse(iso);
     if (date === undefined) return options?.fallback ?? '';
 
-    return options?.weekday === true ? MINUTE_WITH_WEEKDAY.format(date) : MINUTE.format(date);
+    return options?.weekday === true ? MINUTE_WITH_WEEKDAY().format(date) : MINUTE().format(date);
 }
 
 /**
@@ -82,7 +84,7 @@ export function formatMomentMinute(iso: Moment | undefined, options?: { weekday?
  */
 export function formatTimeOfDay(iso: Moment | undefined, fallback = ''): string {
     const date = parse(iso);
-    return date === undefined ? fallback : TIME_OF_DAY.format(date);
+    return date === undefined ? fallback : TIME_OF_DAY().format(date);
 }
 
 function parse(iso: Moment | undefined): Date | undefined {

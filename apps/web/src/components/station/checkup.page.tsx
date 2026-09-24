@@ -20,6 +20,7 @@ import { PhoneCard } from '../shared/phone.card';
 import { readSilence } from '../playout/silence.reading';
 import { StatusLamp } from '../shared/status.lamp';
 import { usePhone } from '../shared/use.phone';
+import { formatCount } from '../../i18n/format.locale';
 
 /**
  * Everything an operator would otherwise visit five pages to read.
@@ -138,9 +139,9 @@ export function CheckupPage() {
                 ) : (
                     <Stack gap="xs">
                         <Group gap="lg" wrap="wrap">
-                            <Fact label="Records" value={checkup.data.backlog.total.toLocaleString()} />
-                            <Fact label="On this machine" value={checkup.data.backlog.cached.toLocaleString()} />
-                            <Fact label="Measured" value={checkup.data.backlog.measured.toLocaleString()} />
+                            <Fact label="Records" value={formatCount(checkup.data.backlog.total)} />
+                            <Fact label="On this machine" value={formatCount(checkup.data.backlog.cached)} />
+                            <Fact label="Measured" value={formatCount(checkup.data.backlog.measured)} />
                         </Group>
                         {/* The sentence the counts exist for. A bar rather than a percentage,
                             because what an operator reads off it is how far along it is. */}
@@ -165,19 +166,19 @@ export function CheckupPage() {
                                     {formatBytes(store.bytes)}
                                 </Text>
                                 <Text size="xs" c="dimmed" className="da-num">
-                                    {store.files.toLocaleString()} files
+                                    {formatCount(store.files)} files
                                 </Text>
                                 {/* Files no row claims, and claims whose file is gone. Reported
                                     rather than reconciled, because the two disagree in different
                                     directions and each means something different. */}
                                 {store.orphanFiles === 0 ? undefined : (
                                     <Text size="xs" c="yellow.4" className="da-num">
-                                        {store.orphanFiles.toLocaleString()} unclaimed
+                                        {formatCount(store.orphanFiles)} unclaimed
                                     </Text>
                                 )}
                                 {store.rowsWithNoFile === 0 ? undefined : (
                                     <Text size="xs" c="yellow.4" className="da-num">
-                                        {store.rowsWithNoFile.toLocaleString()} missing
+                                        {formatCount(store.rowsWithNoFile)} missing
                                     </Text>
                                 )}
                             </Group>

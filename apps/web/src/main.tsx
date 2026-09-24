@@ -1,10 +1,12 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { MantineProvider } from '@mantine/core';
+import { DatesProvider } from '@mantine/dates';
 import { Notifications } from '@mantine/notifications';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { createRouter, RouterProvider } from '@tanstack/react-router';
+import { useTranslation } from 'react-i18next';
 
 // Self-hosted rather than fetched: the console is expected to run on a LAN beside the station,
 // where a request to a font CDN is a request that may simply not complete.
@@ -101,6 +103,7 @@ if (!rootElement) {
  */
 function Console() {
     const chosen = useTheme();
+    const { i18n } = useTranslation();
 
     return (
         <MantineProvider theme={chosen.mantine} cssVariablesResolver={chosen.resolver} forceColorScheme={chosen.scheme}>
@@ -110,7 +113,12 @@ function Console() {
                 this corner is still the one where a stack of toasts cannot cover the state of
                 the station to tell you a setting saved. */}
             <Notifications position="top-right" limit={3} />
-            <RouterProvider router={router} />
+            {/* The timetable and the date pickers name their months and days through dayjs, which
+                knows only English until a locale's module is imported. A second catalog brings its
+                dayjs locale with it; until then this is `en` and says so. */}
+            <DatesProvider settings={{ locale: i18n.resolvedLanguage }}>
+                <RouterProvider router={router} />
+            </DatesProvider>
         </MantineProvider>
     );
 }

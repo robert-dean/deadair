@@ -51,4 +51,5 @@ export const bundledPluginDirs: string[] = [
     resolveBundledPluginDir('plugins/weather'),
     resolveBundledPluginDir('plugins/podcast'),
     resolveBundledPluginDir('plugins/telegram'),
+    resolveBundledPluginDir('plugins/discord'),
 ];

@@ -6,10 +6,12 @@ import { pluginsListOptions, useRescanPlugins } from '../../api/plugins.queries'
 import { apiErrorMessage, sdkError } from '../../api/sdk.error';
 import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
+import { Eyebrow } from '../shared/eyebrow';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
 import { PluginCard } from './plugin.card';
 import { PluginImportModal } from './plugin.import.modal';
+import { groupByRole } from './plugin.roles';
 
 /** What a rescan refusal means, in the operator's terms rather than the transport's. */
 function rescanError(error: unknown): string {
@@ -79,13 +81,20 @@ export function PluginsPage() {
                 </EmptyState>
             ) : undefined}
 
-            {plugins.data && plugins.data.length > 0 ? (
-                <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
-                    {plugins.data.map(plugin => (
-                        <PluginCard key={plugin.id} plugin={plugin} />
-                    ))}
-                </SimpleGrid>
-            ) : undefined}
+            {plugins.data && plugins.data.length > 0
+                ? groupByRole(plugins.data).map(({ role, plugins: members }) => (
+                      <Stack key={role.key} gap="xs" component="section" aria-label={role.title}>
+                          <Eyebrow>
+                              {role.title} · {members.length}
+                          </Eyebrow>
+                          <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
+                              {members.map(plugin => (
+                                  <PluginCard key={plugin.id} plugin={plugin} />
+                              ))}
+                          </SimpleGrid>
+                      </Stack>
+                  ))
+                : undefined}
         </Stack>
     );
 }

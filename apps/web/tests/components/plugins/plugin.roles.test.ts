@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { capabilityLabel, needsAttention, OTHER_ROLE, roleOf } from '../../../src/components/plugins/plugin.roles';
+import { capabilityLabel, groupByRole, needsAttention, OTHER_ROLE, roleOf } from '../../../src/components/plugins/plugin.roles';
 import { pluginSummary } from '../../utils/plugin.fixture';
 
 describe('capabilityLabel', () => {
@@ -27,6 +27,24 @@ describe('roleOf', () => {
     it('puts a plugin nobody claims under Other rather than nowhere', () => {
         expect(roleOf(pluginSummary({ capabilities: ['lyrics'] }))).toBe(OTHER_ROLE);
         expect(roleOf(pluginSummary({ capabilities: [] }))).toBe(OTHER_ROLE);
+    });
+});
+
+describe('groupByRole', () => {
+    it('draws groups in role order, sorted by name within each, and leaves empty groups out', () => {
+        const groups = groupByRole([
+            pluginSummary({ id: 'x.rss', name: 'RSS', capabilities: ['news'] }),
+            pluginSummary({ id: 'x.spotify', name: 'Spotify', capabilities: ['catalog', 'stream'] }),
+            pluginSummary({ id: 'x.lyrics', name: 'Lyrics', capabilities: ['lyrics'] }),
+            pluginSummary({ id: 'x.navidrome', name: 'Navidrome', capabilities: ['catalog', 'stream'] }),
+        ]);
+
+        expect(groups.map(group => group.role.key)).toEqual(['music', 'programmes', 'other']);
+        expect(groups[0]?.plugins.map(plugin => plugin.name)).toEqual(['Navidrome', 'Spotify']);
+    });
+
+    it('answers nothing for nothing', () => {
+        expect(groupByRole([])).toEqual([]);
     });
 });
 

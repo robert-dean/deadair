@@ -64,6 +64,28 @@ export function roleOf(plugin: Pick<PluginSummary, 'capabilities'>): PluginRole 
     return PLUGIN_ROLES.find(role => role.capabilities.some(capability => plugin.capabilities.includes(capability))) ?? OTHER_ROLE;
 }
 
+export interface PluginGroup<T extends Pick<PluginSummary, 'capabilities' | 'name'>> {
+    role: PluginRole;
+    plugins: T[];
+}
+
+/**
+ * The plugins filed under their roles: groups in `PLUGIN_ROLES` order with `Other` last, each
+ * sorted by name, and a group with nobody in it left out rather than drawn as an empty heading.
+ *
+ * By name rather than by status on purpose. A card that moved every time its plugin was toggled
+ * would jump out from under the switch that moved it; what is broken is surfaced above the groups
+ * instead, where it does not reorder anything.
+ */
+export function groupByRole<T extends Pick<PluginSummary, 'capabilities' | 'name'>>(plugins: readonly T[]): PluginGroup<T>[] {
+    return [...PLUGIN_ROLES, OTHER_ROLE]
+        .map(role => ({
+            role,
+            plugins: plugins.filter(plugin => roleOf(plugin) === role).sort((a, b) => a.name.localeCompare(b.name)),
+        }))
+        .filter(group => group.plugins.length > 0);
+}
+
 /**
  * Whether a plugin is in a state the operator has to do something about.
  *

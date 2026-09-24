@@ -76,6 +76,21 @@ describe('PluginsPage', () => {
         expect(screen.getByText('2 installed')).toBeInTheDocument();
     });
 
+    it('files the cards under what each plugin does, in role order', async () => {
+        listPlugins.mockResolvedValue([
+            pluginSummary({ id: 'deadair.rss', name: 'RSS', capabilities: ['news'] }),
+            pluginSummary({ id: 'deadair.kokoro', name: 'Kokoro', capabilities: ['speech'] }),
+            pluginSummary(),
+        ]);
+
+        render(<PluginsPage />);
+
+        expect(await screen.findByText('Kokoro')).toBeInTheDocument();
+        const groups = screen.getAllByRole('region').map(region => region.getAttribute('aria-label'));
+        expect(groups).toEqual(['Music sources', 'Voice', 'News & programmes']);
+        expect(within(screen.getByRole('region', { name: 'Voice' })).getByText('Kokoro')).toBeInTheDocument();
+    });
+
     it('marks a plugin the operator installed, and leaves the bundled ones unmarked', async () => {
         listPlugins.mockResolvedValue([
             pluginSummary(),

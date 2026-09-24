@@ -3,6 +3,7 @@ import { OnPostgresError } from '@maroonedsoftware/errors';
 import { OnKyselyError } from '@maroonedsoftware/kysely';
 import { ObjectRef, PermissionsTupleRepository, RelationTuple, SubjectRef } from '@maroonedsoftware/permissions';
 import { DataRepository } from '#modules/data/data.repository.js';
+import { grantTuples, OAUTHGRANT_NAMESPACE } from '#modules/oauth/oauth.grant.tuples.js';
 import { PLATFORM_NAMESPACE, PLATFORM_OBJECT_ID } from './platform.roles.js';
 import { sql } from 'kysely';
 
@@ -44,12 +45,24 @@ const rowToTuple = (r: TupleRow): RelationTuple => {
 // Exported so unit tests can round-trip without the repository.
 export const __testing = { tupleToRow, rowToTuple };
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** A subject matches a derived tuple's the way a stored one matches: exactly, or through a wildcard. */
+const sameSubject = (tuple: RelationTuple, subject: SubjectRef): boolean => {
+    const held = tuple.subject;
+    if (held.namespace !== subject.namespace) return false;
+    if (subject.kind === 'wildcard') return held.kind === 'wildcard';
+    if (subject.kind === 'userset') return held.kind === 'userset' && held.id === subject.id && held.relation === subject.relation;
+    return held.kind === 'concrete' && held.id === subject.id;
+};
+
 @Injectable()
 @OnPostgresError()
 @OnKyselyError()
 export class DeadairPermissionsTupleRepository extends DataRepository implements PermissionsTupleRepository {
     async write(tuples: RelationTuple[], createdBy?: string): Promise<void> {
         if (tuples.length === 0) return;
+        refuseDerived(tuples);
         const rows = tuples.map(t => ({ ...tupleToRow(t), createdBy: createdBy ?? null }));
         await this.db
             .insertInto('deadair.permissionsRelationTuples')
@@ -60,6 +73,7 @@ export class DeadairPermissionsTupleRepository extends DataRepository implements
 
     async delete(tuples: RelationTuple[]): Promise<void> {
         if (tuples.length === 0) return;
+        refuseDerived(tuples);
         for (const t of tuples) {
             const row = tupleToRow(t);
             await this.db
@@ -75,6 +89,7 @@ export class DeadairPermissionsTupleRepository extends DataRepository implements
     }
 
     async listByObjectRelation(namespace: string, objectId: string, relation: string): Promise<RelationTuple[]> {
+        if (namespace === OAUTHGRANT_NAMESPACE) return (await this.grantTuples(objectId)).filter(tuple => tuple.relation === relation);
         const rows = await this.db
             .selectFrom('deadair.permissionsRelationTuples')
             .where('objectNamespace', '=', namespace)
@@ -125,6 +140,10 @@ export class DeadairPermissionsTupleRepository extends DataRepository implements
     // Used to enumerate a user's platform roles in one query — far cheaper than
     // probing each candidate relation with checkSubject.
     async listRelationsForSubjectOnObject(object: ObjectRef, subject: SubjectRef): Promise<string[]> {
+        if (object.namespace === OAUTHGRANT_NAMESPACE) {
+            const tuples = await this.grantTuples(object.id);
+            return [...new Set(tuples.filter(tuple => sameSubject(tuple, subject)).map(tuple => tuple.relation))];
+        }
         const subjectRelation = subject.kind === 'userset' ? subject.relation : '';
         let q = this.db
             .selectFrom('deadair.permissionsRelationTuples')
@@ -160,6 +179,24 @@ export class DeadairPermissionsTupleRepository extends DataRepository implements
         return rows.map(r => ({ id: r.objectId }));
     }
 
+    /**
+     * A connected app's grant, as tuples derived from its `oauth_grants` row (see `oauth.grant.tuples.ts`
+     * and the `oauthgrant` namespace in `core.perm`). Only the two reads a check makes answer for it: a
+     * reverse lookup (`listObjectsForSubject`, `listChildrenByParent`) finds no grants, and nothing
+     * asks one of those about a grant. An id that is not a uuid is no grant rather than a Postgres
+     * error, since it came from a token's claims.
+     */
+    private async grantTuples(grantId: string): Promise<RelationTuple[]> {
+        if (!UUID.test(grantId)) return [];
+        const row = await this.db
+            .selectFrom('deadair.oauthGrants')
+            .where('id', '=', grantId)
+            .select(['id', 'actorId', 'scope', 'revokedAt'])
+            .executeTakeFirst();
+        if (!row) return [];
+        return grantTuples({ id: row.id, actorId: row.actorId, scope: row.scope, revoked: row.revokedAt != null });
+    }
+
     async adminExists(): Promise<boolean> {
         const row = await this.db
             .selectFrom('deadair.permissionsRelationTuples')
@@ -173,5 +210,12 @@ export class DeadairPermissionsTupleRepository extends DataRepository implements
             .limit(1)
             .executeTakeFirst();
         return row !== undefined;
+    }
+}
+
+/** A grant's tuples are derived from its row, so writing or deleting one is a modelling bug, not a no-op. */
+function refuseDerived(tuples: ReadonlyArray<RelationTuple>): void {
+    if (tuples.some(tuple => tuple.object.namespace === OAUTHGRANT_NAMESPACE)) {
+        throw new Error(`${OAUTHGRANT_NAMESPACE} tuples are derived from oauth_grants and cannot be written or deleted`);
     }
 }

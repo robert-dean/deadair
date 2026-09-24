@@ -135,6 +135,22 @@ route is the second lock: it reads the grant, and refuses everything while the s
 session lasts seven days (`OAUTH_SESSION_LIFETIME`); the app refreshes it, and a refresh is refused
 for a revoked grant or the wrong client.
 
+**A grant has a ceiling, the one an API key has, and its tuples are never stored.** The session acts
+as the person, and `UserActor.grant` narrows it to the station scopes the grant holds (`view`,
+`manage`), read through `delegatedGrants` by every check that narrows a key: the platform policies,
+`AccessControlService`, `hasPlatformRole`. `requireAuthentication` refuses a grant outright, as it
+refuses a key, so an app can never approve another app or mint a key, and the step-up policy refuses
+one too, because a grant's session carries the factors of the session it was approved from, with their
+original times, and would otherwise pass a step-up for a while after approval. The ceiling comes from
+the `oauthgrant` namespace in `core.perm`, a copy of `apikey`, so a grant can never exceed its owner.
+Its tuples are DERIVED from the grant row's `scope` column by `DeadairPermissionsTupleRepository`
+(`oauth.grant.tuples.ts`) rather than written, because the OAuth library already writes that column at
+every code exchange and rewrites it on every re-approval, and a stored copy would have to be kept in
+step with it. The middleware reads it by `claims.oauth.grantId` on each request, so approving an app
+again with less narrows every session it already holds. Writing a tuple in that namespace throws. A
+grant naming no station scope (every app asking only for `mcp`, and every grant from before the
+ceiling, which migration 0052 backfilled) is stored with both, which is what a grant meant before.
+
 **The RFC endpoints are hand-written** (`routes/oauth.protocol.router.ts`), because their status
 codes and error bodies are the RFCs' and a generated route cannot produce them. The console's half
 (consent, registered apps, connected apps) is generated from `data/contracts/oauth`. Consent takes the

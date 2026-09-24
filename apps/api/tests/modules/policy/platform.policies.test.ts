@@ -25,6 +25,12 @@ const key = (roles: ReadonlyArray<'admin' | 'listener'>, grants: ReadonlyArray<G
     apiKey: { id: 'k-1', name: 'doorbell', grants: new Set(grants) },
 });
 
+/** A connected app, narrowed the same way a key is. */
+const app = (roles: ReadonlyArray<'admin' | 'listener'>, grants: ReadonlyArray<Grant>): UserActor => ({
+    ...person(roles),
+    grant: { id: 'g-1', clientId: 'dyn_1', grants: new Set(grants) },
+});
+
 const evaluate = async (policy: PlatformManagePolicy | PlatformViewPolicy, actor: UserActor): Promise<PolicyResult> =>
     policy.evaluate({} as RequirePolicyContext, { actor, now: DateTime.utc() } as ServerPolicyEnvelope);
 
@@ -82,5 +88,19 @@ describe('platform.manage', () => {
     it('refuses a listener’s key as the listener is refused, not as a scope problem', async () => {
         // The key cannot exceed its owner, and the answer says so: the owner may not manage at all.
         expect(reason(await evaluate(policy, key(['listener'], ['view', 'manage'])))).toBe('platform_manage_required');
+    });
+});
+
+describe('a connected app', () => {
+    it('views and manages when its grant says so', async () => {
+        expect(allowed(await evaluate(new PlatformViewPolicy(), app(['admin'], ['view'])))).toBe(true);
+        expect(allowed(await evaluate(new PlatformManagePolicy(), app(['admin'], ['view', 'manage'])))).toBe(true);
+    });
+
+    it('is refused manage with the challenge naming it when its grant only views', async () => {
+        const result = await evaluate(new PlatformManagePolicy(), app(['admin'], ['view']));
+
+        expect(reason(result)).toBe('insufficient_scope');
+        expect(headers(result)).toEqual({ 'WWW-Authenticate': 'Bearer error="insufficient_scope", scope="manage"' });
     });
 });

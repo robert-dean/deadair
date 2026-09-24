@@ -1,7 +1,7 @@
 import { Injectable } from 'injectkit';
 import { httpError } from '@maroonedsoftware/errors';
 import { PermissionsService } from './permissions.service.js';
-import { AuthorizationContext } from './authorization.context.js';
+import { AuthorizationContext, delegatedGrants } from './authorization.context.js';
 import { model as authorizationModel } from './generated/index.js';
 import { permissionsGrantedByRoles, rolesGrant, rolesGrantingPermission } from './platform.roles.js';
 import type { ObjectRef, SubjectRef } from '@maroonedsoftware/permissions';
@@ -35,10 +35,12 @@ const isTrustedSystemActor = (actor: Actor): boolean => actor.kind === 'system' 
 
 // An API key's ceiling on an object-level check. The `plugin:*` walks below take the OWNER as their
 // subject, so the `apikey` namespace never sees them and cannot narrow them itself: a key needs the
-// `view` grant to read and `manage` to change anything, the platform's own split. A signed-in
-// person has no ceiling.
-const keyAllows = (actor: UserActor, permission: string): boolean =>
-    actor.apiKey === undefined || actor.apiKey.grants.has(grantForPermission(permission));
+// `view` grant to read and `manage` to change anything, the platform's own split. A connected app's
+// grant narrows the same way. A signed-in person has no ceiling.
+const keyAllows = (actor: UserActor, permission: string): boolean => {
+    const ceiling = delegatedGrants(actor);
+    return ceiling === undefined || ceiling.has(grantForPermission(permission));
+};
 
 const denied = (object: ObjectRef, permission: string): never => {
     throw httpError(403).withDetails({

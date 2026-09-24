@@ -3,6 +3,7 @@ import { DateTime } from 'luxon';
 import { Selectable } from 'kysely';
 import { OAuthGrantRepository, type OAuthGrant, type OAuthGrantInput } from '@maroonedsoftware/authentication';
 import { DataRepository, type DeadairOauthGrants } from '#src/modules/data/data.repository.js';
+import { withStationScopes } from '../oauth.grant.tuples.js';
 
 /**
  * One operator's approval of one app for one resource. `OAuthGrantRepository` for the library, which
@@ -11,12 +12,17 @@ import { DataRepository, type DeadairOauthGrants } from '#src/modules/data/data.
  */
 @Injectable()
 export class DeadairOAuthGrantRepository extends DataRepository implements OAuthGrantRepository {
-    /** Approving the same app again reuses the grant, takes the new scope, and un-revokes it. */
+    /**
+     * Approving the same app again reuses the grant, takes the new scope, and un-revokes it. The scope
+     * is what the grant's ceiling is derived from (`oauth.grant.tuples.ts`), so a grant naming no
+     * station scope is stored with all of them, which is what a grant meant before there was a ceiling.
+     */
     async upsert(grant: OAuthGrantInput): Promise<OAuthGrant> {
+        const scope = withStationScopes(grant.scope);
         const row = await this.db
             .insertInto('deadair.oauthGrants')
-            .values({ clientId: grant.clientId, actorId: grant.subject, resource: grant.resource, scope: grant.scope })
-            .onConflict(conflict => conflict.columns(['clientId', 'actorId', 'resource']).doUpdateSet({ scope: grant.scope, revokedAt: null }))
+            .values({ clientId: grant.clientId, actorId: grant.subject, resource: grant.resource, scope })
+            .onConflict(conflict => conflict.columns(['clientId', 'actorId', 'resource']).doUpdateSet({ scope, revokedAt: null }))
             .returningAll()
             .executeTakeFirstOrThrow();
         return toGrant(row);

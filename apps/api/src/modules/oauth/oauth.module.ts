@@ -20,6 +20,7 @@ import {
     OAuthTokenEndpoint,
 } from '@maroonedsoftware/authentication';
 import { OAuthOptions } from './oauth.options.js';
+import { OAUTH_GRANT_SCOPES } from './oauth.grant.tuples.js';
 import { OAuthConsentService } from './oauth.consent.service.js';
 import { OAuthClientsService } from './oauth.clients.service.js';
 import { OAuthGrantsService } from './oauth.grants.service.js';
@@ -27,8 +28,12 @@ import { clientMetadataHostAllowed, dynamicRegistrationIsOn } from './oauth.sett
 import { DeadairOAuthClientRepository } from './repositories/oauth.client.repository.js';
 import { DeadairOAuthGrantRepository } from './repositories/oauth.grant.repository.js';
 
-/** The scope an MCP client is offered. Nothing authorizes on it: a grant is the whole user session. */
-export const OAUTH_SCOPES: readonly string[] = ['mcp'];
+/**
+ * The scopes an MCP client is offered: `mcp`, the resource itself, and the station scopes a grant is
+ * narrowed by (`view`, `manage`, from the `oauthgrant` namespace in `core.perm`). The station scopes
+ * are what the ceiling is read from; `mcp` authorizes nothing on its own.
+ */
+export const OAUTH_SCOPES: readonly string[] = ['mcp', ...OAUTH_GRANT_SCOPES];
 
 /**
  * How long a token an app holds lasts before it has to be refreshed, and so how long a grant's

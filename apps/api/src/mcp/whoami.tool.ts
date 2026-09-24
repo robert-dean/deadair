@@ -50,7 +50,9 @@ export class WhoAmITool implements McpToolHandler {
             actorId: actor.actorId,
             roles: [...actor.platformRoles].sort(),
             app: grant ? { clientId: grant.clientId, name: grant.clientName } : undefined,
-            scopes: grant?.scope ?? [],
+            // What the grant allows now, read from its stored row by the authorization middleware, not
+            // the scope the app asked for when it connected.
+            scopes: [...(actor.grant?.grants ?? [])],
             station: { timezone, localTime: DateTime.now().setZone(timezone).toISO() ?? '' },
         };
         return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: { ...result } };

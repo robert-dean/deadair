@@ -107,7 +107,14 @@ async function serve(session: AuthenticationSession, enabled = 'true'): Promise<
         // One container per request, holding this caller's actor: what `serverKitContextMiddleware`
         // and the authorization middleware give every real request.
         const roles = ROLES[session.subject] ?? [];
-        const authorization = { requireUser: () => ({ kind: 'user', actorId: session.subject, platformRoles: new Set(roles) }) };
+        const authorization = {
+            requireUser: () => ({
+                kind: 'user',
+                actorId: session.subject,
+                platformRoles: new Set(roles),
+                grant: { id: 'g1', clientId: 'dyn_1', grants: new Set(['view']) },
+            }),
+        };
         const scoped = new Map<unknown, unknown>([
             [ServerKitBodyParser, bodyParser],
             [McpDispatcher, dispatcher],
@@ -212,7 +219,7 @@ describe('POST /mcp', () => {
             actorId: 'listener',
             roles: ['listener'],
             app: { clientId: 'dyn_1', name: 'Claude' },
-            scopes: ['mcp'],
+            scopes: ['view'],
             station: { timezone: 'Europe/London' },
         });
     });

@@ -18,7 +18,7 @@ A reading is the station's own speech, so it gets everything the presenter gets:
 
 A narration plugin hands the station pieces of text. It names the series it holds and, for each piece, the words themselves. It never makes audio: the station has one speech engine and the presenter has it.
 
-**Nothing bundled provides one.** The capability is there and the console has a page for it, but none of the sixteen plugins in the image offers anything to read. You install a plugin somebody wrote, or write one: [Writing plugins](../plugin-development/index.md) covers it, and `narration` is one of the capabilities in [the contract](../plugin-development/contract.md).
+**Nothing bundled provides one.** The capability is there and the console has a page for it, but none of the seventeen plugins in the image offers anything to read. You install a plugin somebody wrote, or write one: [Writing plugins](../plugin-development/index.md) covers it, and `narration` is one of the capabilities in [the contract](../plugin-development/contract.md).
 
 The line between a narration source and a [news](./library.md) source is not what it publishes but what its words are for. A headline is something to talk about, and what airs is a sentence a model wrote. A chapter is meant to be heard as it stands. A source whose text would need summarising is a news source even if it publishes books.
 

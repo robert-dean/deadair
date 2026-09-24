@@ -59,4 +59,4 @@ What the station does is hold a well-behaved plugin to what it said. It reaches 
 6. [The contract](./contract.md) is the reference: every capability, the host, permissions and settings, in detail.
 7. [Listing your plugin](./listing.md) puts it in the [community directory](/community/plugins), where operators will find it.
 
-The SDK is `@deadair/plugin-sdk` on npm. Its source, the example, and the sixteen bundled plugins are all in [the repository](https://github.com/robert-dean/deadair), and the bundled plugins are the best examples of each capability there are. Working against a checkout of the station instead of a released image is [setting up a checkout](../develop/setup.md), which ends with how to link a plugin you are writing into one.
+The SDK is `@deadair/plugin-sdk` on npm. Its source, the example, and the seventeen bundled plugins are all in [the repository](https://github.com/robert-dean/deadair), and the bundled plugins are the best examples of each capability there are. Working against a checkout of the station instead of a released image is [setting up a checkout](../develop/setup.md), which ends with how to link a plugin you are writing into one.

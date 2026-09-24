@@ -1,7 +1,7 @@
 ---
 title: Plugins
 sidebar_position: 9
-description: The sixteen bundled plugins that bring the station its music, facts, voice, words and measurements, and how trust and permissions work.
+description: The seventeen bundled plugins that bring the station its music, facts, voice, words and measurements, and how trust and permissions work.
 ---
 
 Almost everything the station reaches outside itself is a plugin: where the music comes from, what it knows about a record, how it speaks, which model writes its words, and the program that measures its audio. Sixteen are bundled in the image, and each is switched on and configured from its own page. A plugin somebody else wrote is installed by importing it from the console, or by copying it into the plugins folder on the station's data volume, and is then held to exactly the same rules.
@@ -13,7 +13,7 @@ Almost everything the station reaches outside itself is a plugin: where the musi
 
 With no model the station writes its own breaks from its phrasings. With no voice it plays records. With no analyzer every record plays, unmeasured. The one it cannot do without is a music provider: there is nothing to programme until there are records.
 
-## The bundled sixteen
+## The bundled seventeen
 
 **Music**
 
@@ -42,13 +42,17 @@ With no model the station writes its own breaks from its phrasings. With no voic
 - **Rhapsode.** A speech server that holds several engines at once and says what each of them can do: which performance cues it can perform, which builds it can load, how much text it takes in one go. The station asks rather than assuming, and the server decides which model is on the card.
 - **Language model.** As many providers at once as you add: OpenAI-compatible servers, Anthropic and Gemini. See [models and voices](./models-and-voices.md).
 
+**Chat**
+
+- **Telegram.** People message your station's bot and it tells them what is on air, in direct messages and in the groups you list. It can also post each record to a channel or a group as it goes to air. It needs a bot token from Telegram's @BotFather and no public address: the station asks Telegram for messages rather than waiting to be called.
+
 **Measurement**
 
 - **Audio analyzer.** Measures each record's cue points and loudness, and joins several pieces of audio into one, so a [phone-in](./phone-ins.md) airs as a single item.
 
 ## One capability nothing bundled fills
 
-A **narration** plugin hands the station text to read out whole: a chapter, an issue, a long read. The station reads it in its presenter's voice, and there is a page in the console for what it has read, but none of the sixteen above offers anything to read. That one waits on a plugin somebody else wrote, or one you write. See [readings](./narrations.md).
+A **narration** plugin hands the station text to read out whole: a chapter, an issue, a long read. The station reads it in its presenter's voice, and there is a page in the console for what it has read, but none of the seventeen above offers anything to read. That one waits on a plugin somebody else wrote, or one you write. See [readings](./narrations.md).
 
 ## Plugins are trusted code
 

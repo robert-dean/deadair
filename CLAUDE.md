@@ -135,7 +135,8 @@ plugins/*             bundled plugins: spotify, navidrome, ytmusic (YouTube Musi
                       on today's date), rss, websearch
                       (SearXNG, Brave or Tavily, whichever the operator points it at), weather
                       (Open-Meteo, the US National Weather Service or OpenWeatherMap), podcast (the
-                      shows the station carries, read from their feeds), kokoro, chatterbox and
+                      shows the station carries, read from their feeds), telegram (the station on
+                      a chat platform: commands answered, what airs announced), kokoro, chatterbox and
                       rhapsode (the station's voice; the last of those speaks through a server that
                       holds several engines at once and publishes what each one can do), llm,
                       analyzer (the adapter over the measurement sidecar)

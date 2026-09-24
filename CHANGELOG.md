@@ -9,6 +9,19 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.31.3] — 2026-09-24
+
+- Listeners can ask for a record from Telegram with `/request` followed by a title, an artist or both. A single clear match is asked for straight away; otherwise the bot offers up to three matches as buttons. The bot says whether the request went in, is waiting, or was turned down and why, and tells them again when it goes in after a wait, when an operator decides on it, and when it plays. A linked chat account shares its station account's request limits.
+- Listeners can ask the station for a record. A listener app searches what the station could play, asks for one, and follows what became of it; an operator can list requests and grant or decline them, and under Settings, Rotation can turn requests off, require an operator's approval, and set the cooldown and how many may wait at once. Each person has one request open at a time, a request still has to pass the station's own rules, and it goes in a few records from now, never next to a break, once its audio is on hand. Nobody's email address is ever shown: a listener picks what the station calls them.
+- The station can post each record to a chat as it goes to air. In the Telegram plugin, list a channel's @name or a group's id under Chats to announce in, and every record is announced there with its artist and album. An announcement that cannot be delivered is retried for as long as the record is still playing and dropped after that, so a chat never reads "now playing" about something that has already finished.
+- Messaging plugins can put buttons under a message, and a press comes back to the station as an action carrying the button's id and value. The Telegram plugin sends them as an inline keyboard and acknowledges every press so the button stops spinning.
+- Plugins can declare a new `messaging` capability, for connecting the station to a chat platform such as Telegram, Slack or Discord. The station asks the plugin for new messages with a cursor it keeps itself, rather than the plugin pushing them, and sends plain-text replies and announcements through it. Nothing in the station uses it yet.
+- A station operator can link their Telegram account and run the station from a chat. Under Settings, Sign-in and security, Chat accounts, ask for a code and send `/link CODE` to the station's bot in a direct message; that chat account can then send `/skip`, `/offair` and `/onair`, with exactly the permissions your station account has, checked again on every command. Unlink from the same card, or send `/unlink`. A code lasts ten minutes, works once, and stops working the moment it is sent to a group.
+- The station can now be reached on chat platforms. When a messaging plugin is installed, the station listens on it and answers `/now` with what is on air and `/help` with what it can be asked, remembering where it has read up to so a restart neither answers a command twice nor misses one. No messaging plugin ships yet.
+- A request can be dedicated. From an app, add who it is for and a few words; from Telegram, `/request teardrop for Sam: happy birthday`. Just before the record plays, the presenter says who asked for it and who it is for, and puts the message in their own words, leaving it out if it is not fit to broadcast. The message is never read out word for word. The Requests tab shows each dedication as the listener wrote it, and Settings, Rotation, Read dedications on air turns the spoken part off.
+- Programme has a Requests tab listing what listeners have asked for: who asked, from an app or a chat, and what became of it. A request waiting for a decision can be granted in one click or declined with a message for the listener.
+- A bundled Telegram plugin puts the station on Telegram. Give it a bot token from @BotFather and anybody who messages the bot can ask it what is on air; list a group's id and it answers there too, and the first time somebody in an unlisted group speaks to the bot, the group's id is written to the plugin's log so you can find it. It needs no public address, since the station asks Telegram for messages rather than waiting to be called.
+
 ## [0.31.2] — 2026-09-24
 
 - The Plugins page is easier to read now that the station ships sixteen plugins. Plugins are grouped by what they do for the station (music sources, voice, writing, audio, knowledge, and news and programmes) and sorted by name within each group. A search box and a filter (all, enabled, needs attention, disabled) narrow the list. The page opens on the plugins that need attention when any do, and on the enabled ones otherwise (or on everything, if nothing is switched on yet). A Cards/Table switch puts the whole station on one screen as a table, in the same groups, with a working enable switch on every row. The search, the filter and the layout are all kept in the address, so a filtered view can be linked to and reloaded. Any plugin that has failed or is waiting on its settings is listed at the top with the reason, and its card shows the same first line. Capability badges now say what a plugin does ("Library", "Voice", "Record details") in place of the manifest's ids, which are still in the tooltip.
@@ -832,7 +845,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.31.2...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.31.3...HEAD
+[0.31.3]: https://github.com/robert-dean/deadair/compare/v0.31.2...v0.31.3
 [0.31.2]: https://github.com/robert-dean/deadair/compare/v0.31.1...v0.31.2
 [0.31.1]: https://github.com/robert-dean/deadair/compare/v0.31.0...v0.31.1
 [0.31.0]: https://github.com/robert-dean/deadair/compare/v0.30.1...v0.31.0

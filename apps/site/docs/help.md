@@ -46,6 +46,20 @@ The page Spotify sends your browser to will not load, and that is expected rathe
 failing: it is an address on the station itself. Copy it out of the address bar and paste it back
 into the console, which finishes the job.
 
+## A block did not start, and the last show kept playing
+
+Look at the activity feed around the time the block should have begun.
+
+**"It could not be aired, so the station kept what was on"** means the block's playlist was read and
+has nothing the station may play: it is empty, everything on it is disliked or outside the block's
+period, or none of it is in the library yet. The last case is a playlist added since its provider
+was last walked; **Refresh this playlist** on the Playlists page fixes it.
+
+**"Its playlist could not be read"** means the block started without it and is choosing records from
+its brief. A long playlist on a slow provider is the usual cause. Import it as one of the
+[station's own playlists](./features/library.md#the-stations-own-playlists) and give the block that
+instead: those are read from the library, so they never wait on the provider.
+
 ## The listener count is wrong
 
 Behind a reverse proxy or a tunnel, every listener arrives from the proxy's address unless the

@@ -5,7 +5,7 @@ mdx:
     format: 'md'
 ---
 
-> Approving or denying a stashed request
+> Denying a stashed request
 
 <details>
 <summary>Attributes (1)</summary>

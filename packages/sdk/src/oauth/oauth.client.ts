@@ -1,6 +1,7 @@
 import type { SdkFetch } from '../sdk-options.js';
 import { bigIntReplacer, parseJson } from '../sdk-options.js';
 import type {
+    OAuthAuthorizationApproval,
     OAuthAuthorizationContextResult,
     OAuthAuthorizationDecision,
     OAuthAuthorizationOutcome,
@@ -30,9 +31,9 @@ export class OauthClient {
 
     /**
      * @name Approve authorization request
-     * @description Let the app act as the signed-in person. Once the account has a strong second factor, this needs one verified in the last five minutes
+     * @description Let the app act as the signed-in person, as far as the chosen scopes allow. Once the account has a strong second factor, this needs one verified in the last five minutes
      */
-    async approveAuthorizationRequest(body: OAuthAuthorizationDecision): Promise<OAuthAuthorizationOutcome> {
+    async approveAuthorizationRequest(body: OAuthAuthorizationApproval): Promise<OAuthAuthorizationOutcome> {
         const result = await this.fetch(`/auth/oauth/authorize/approve`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

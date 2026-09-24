@@ -1,6 +1,6 @@
 ---
 title: 'OAuthClientList'
-sidebar_position: 11
+sidebar_position: 13
 mdx:
     format: 'md'
 ---

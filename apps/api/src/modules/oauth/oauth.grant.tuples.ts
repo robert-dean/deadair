@@ -59,12 +59,3 @@ export const grantTuples = (grant: GrantTupleSource): RelationTuple[] => {
         ...grant.scope.filter(isOAuthGrantScope).map(scope => ({ object, relation: `${SCOPE_PREFIX}${scope}`, subject: owner })),
     ];
 };
-
-/**
- * A grant's scope as it is stored. Until the consent page lets a person choose, a grant that names no
- * station scope (an app asking only for `mcp`, as every app connected before scopes existed did) is
- * given all of them, which is what a grant meant before there was a ceiling. An app that asks for
- * `view` by name gets `view`.
- */
-export const withStationScopes = (scope: ReadonlyArray<string>): string[] =>
-    scope.some(isOAuthGrantScope) ? [...scope] : [...scope, ...OAUTH_GRANT_SCOPES];

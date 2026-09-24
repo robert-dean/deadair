@@ -4,6 +4,7 @@ import { OAuthClientsService } from '#src/modules/oauth/oauth.clients.service.js
 import { OAuthConsentService } from '#src/modules/oauth/oauth.consent.service.js';
 import { OAuthGrantsService } from '#src/modules/oauth/oauth.grants.service.js';
 import {
+    OAuthAuthorizationApproval,
     OAuthAuthorizationContextResult,
     OAuthAuthorizationDecision,
     OAuthAuthorizationOutcome,
@@ -36,11 +37,11 @@ OauthRouter.post('/auth/oauth/authorize/context', requirePolicy({ policy: 'platf
 });
 
 /**
- * Let the app act as the signed-in person. Once the account has a strong second factor, this needs one verified in the last five minutes
+ * Let the app act as the signed-in person, as far as the chosen scopes allow. Once the account has a strong second factor, this needs one verified in the last five minutes
  * from [oauth.ck](../../data/contracts/oauth/oauth.ck#L36)
  */
 OauthRouter.post('/auth/oauth/authorize/approve', requirePolicy({ policy: 'platform.view' }), bodyParserMiddleware(['json']), async ctx => {
-    const body = await parseAndValidate(ctx.parsedBody, OAuthAuthorizationDecision);
+    const body = await parseAndValidate(ctx.parsedBody, OAuthAuthorizationApproval);
 
     const service = ctx.container.get(OAuthConsentService);
     const result: OAuthAuthorizationOutcome = await service.approve(body);

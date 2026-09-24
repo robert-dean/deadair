@@ -36,9 +36,9 @@ public sealed class OauthClient(SdkHttp http)
 
     /// <summary>
     /// Approve authorization request
-    /// Let the app act as the signed-in person. Once the account has a strong second factor, this needs one verified in the last five minutes
+    /// Let the app act as the signed-in person, as far as the chosen scopes allow. Once the account has a strong second factor, this needs one verified in the last five minutes
     /// </summary>
-    public async Task<OAuthAuthorizationOutcome> ApproveAuthorizationRequestAsync(OAuthAuthorizationDecision body, CancellationToken cancellationToken = default)
+    public async Task<OAuthAuthorizationOutcome> ApproveAuthorizationRequestAsync(OAuthAuthorizationApproval body, CancellationToken cancellationToken = default)
     {
         var response = await http.ExecuteAsync(
             HttpMethod.Post,

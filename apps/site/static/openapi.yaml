@@ -1396,13 +1396,13 @@ paths:
         post:
             operationId: approve
             summary: 'Approve authorization request'
-            description: 'Let the app act as the signed-in person. Once the account has a strong second factor, this needs one verified in the last five minutes'
+            description: 'Let the app act as the signed-in person, as far as the chosen scopes allow. Once the account has a strong second factor, this needs one verified in the last five minutes'
             requestBody:
                 required: true
                 content:
                     'application/json':
                         schema:
-                            '$ref': '#/components/schemas/OAuthAuthorizationDecision'
+                            '$ref': '#/components/schemas/OAuthAuthorizationApproval'
             responses:
                 '200':
                     description: 'Successful response'
@@ -7934,7 +7934,7 @@ components:
                     type: array
                     items:
                         type: string
-                    description: 'What the app asked for. It acts as the person approving it whatever this says'
+                    description: 'What the app asked for. The person chooses what it gets when approving, whatever this says'
                 resource:
                     type: string
                     description: "What the app will be able to reach: the station's MCP endpoint"
@@ -7992,7 +7992,25 @@ components:
                     maxLength: 200
                     description: 'From the context'
             required: [requestId]
-            description: 'Approving or denying a stashed request'
+            description: 'Denying a stashed request'
+        OAuthGrantScope:
+            type: string
+            enum: [view, manage]
+            description: 'What a connected app may do on the station. `view` reads it; `manage` changes it and includes `view`. Never more than the person approving it may do'
+        OAuthAuthorizationApproval:
+            type: object
+            properties:
+                requestId:
+                    type: string
+                    maxLength: 200
+                    description: 'From the context'
+                scopes:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/OAuthGrantScope'
+                    description: 'What the person lets the app do. At least one; `manage` includes `view`. Replaces whatever the app asked for'
+            required: [requestId, scopes]
+            description: 'Approving a stashed request, with what the app may do'
         OAuthAuthorizationOutcome:
             type: object
             properties:
@@ -8099,7 +8117,7 @@ components:
                     type: array
                     items:
                         type: string
-                    description: 'What it asked for'
+                    description: 'What it was granted: `mcp`, and the station scopes it may use (`view`, `manage`)'
                 createdAt:
                     type: string
                     format: date-time

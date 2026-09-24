@@ -3,6 +3,7 @@
 
 package com.maroonedsoftware.deadair.sdk.clients
 
+import com.maroonedsoftware.deadair.sdk.models.OAuthAuthorizationApproval
 import com.maroonedsoftware.deadair.sdk.models.OAuthAuthorizationContextResult
 import com.maroonedsoftware.deadair.sdk.models.OAuthAuthorizationDecision
 import com.maroonedsoftware.deadair.sdk.models.OAuthAuthorizationOutcome
@@ -32,9 +33,9 @@ class OauthClient(private val http: SdkHttp) {
 
     /**
      * Approve authorization request
-     * Let the app act as the signed-in person. Once the account has a strong second factor, this needs one verified in the last five minutes
+     * Let the app act as the signed-in person, as far as the chosen scopes allow. Once the account has a strong second factor, this needs one verified in the last five minutes
      */
-    suspend fun approveAuthorizationRequest(body: OAuthAuthorizationDecision): OAuthAuthorizationOutcome {
+    suspend fun approveAuthorizationRequest(body: OAuthAuthorizationApproval): OAuthAuthorizationOutcome {
         val response = http.execute(HttpMethod.Post) {
             path("auth", "oauth", "authorize", "approve")
             jsonBody(body, "application/json")

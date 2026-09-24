@@ -33,11 +33,11 @@ operation /auth/oauth/authorize/context: {
 }
 
 operation /auth/oauth/authorize/approve: {
-    post: { # Let the app act as the signed-in person. Once the account has a strong second factor, this needs one verified in the last five minutes
+    post: { # Let the app act as the signed-in person, as far as the chosen scopes allow. Once the account has a strong second factor, this needs one verified in the last five minutes
         name: Approve authorization request
         service: OAuthConsentService.approve
         request: {
-            application/json: OAuthAuthorizationDecision
+            application/json: OAuthAuthorizationApproval
         }
         response: {
             200: {

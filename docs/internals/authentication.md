@@ -147,9 +147,16 @@ Its tuples are DERIVED from the grant row's `scope` column by `DeadairPermission
 (`oauth.grant.tuples.ts`) rather than written, because the OAuth library already writes that column at
 every code exchange and rewrites it on every re-approval, and a stored copy would have to be kept in
 step with it. The middleware reads it by `claims.oauth.grantId` on each request, so approving an app
-again with less narrows every session it already holds. Writing a tuple in that namespace throws. A
-grant naming no station scope (every app asking only for `mcp`, and every grant from before the
-ceiling, which migration 0052 backfilled) is stored with both, which is what a grant meant before.
+again with less narrows every session it already holds. Writing a tuple in that namespace throws.
+
+**The person chooses the scope on the consent page, whatever the app asked for.** Read only is the
+default, read and manage the other choice, in the words an API key uses (`shared/access.words.ts`).
+`OAuthConsentService.approve` requires at least one, adds `view` to `manage`, and hands the library
+`['mcp', ...chosen]` as `AuthorizationConsent.scope`, which replaces the requested scope in the grant,
+the session's `oauth` claim and the token response alike (RFC 6749 §3.3 lets the server issue a scope
+other than the one requested on the resource owner's instructions). Every grant from before there was
+a choice was approved as the whole account, and migration 0052 gave it both scopes, which is what it
+already meant. To change what an app may do, the person disconnects it and approves it again.
 
 **The RFC endpoints are hand-written** (`routes/oauth.protocol.router.ts`), because their status
 codes and error bodies are the RFCs' and a generated route cannot produce them. The console's half

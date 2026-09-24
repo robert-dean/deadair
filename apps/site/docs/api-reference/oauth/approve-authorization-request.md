@@ -6,7 +6,7 @@ mdx:
     format: 'md'
 ---
 
-Let the app act as the signed-in person. Once the account has a strong second factor, this needs one verified in the last five minutes
+Let the app act as the signed-in person, as far as the chosen scopes allow. Once the account has a strong second factor, this needs one verified in the last five minutes
 
 **`POST`** `/auth/oauth/authorize/approve`
 
@@ -17,7 +17,7 @@ Security: authenticated (policy: platform.view)
 
 ## Request body (`application/json`)
 
-Accepts a [OAuthAuthorizationDecision](../models/oauth/oauth-authorization-decision.md) object.
+Accepts a [OAuthAuthorizationApproval](../models/oauth/oauth-authorization-approval.md) object.
 
 ## Response
 

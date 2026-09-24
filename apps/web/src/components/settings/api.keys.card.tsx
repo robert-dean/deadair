@@ -7,6 +7,7 @@ import { useApiKeys, useCreateApiKey, useRevokeApiKey, useRotateApiKey } from '.
 import { apiErrorMessage } from '../../api/sdk.error';
 import { ConfirmModal } from '../shared/confirm.modal';
 import { CopyButton } from '../shared/copy.button';
+import { ACCESS_CHOICES, accessWord } from '../shared/access.words';
 import { ErrorAlert } from '../shared/error.alert';
 import { formatDate } from '../shared/format.date';
 import { notifyDone } from '../shared/notify';
@@ -19,12 +20,6 @@ import { isStepUpCancelled, StepUpDialog, useStepUpGate } from './step.up.dialog
 
 type Gate = ReturnType<typeof useStepUpGate>;
 
-/** The two grants a key can be given, as the operator reads them. `manage` includes `view` on the API. */
-const ACCESS_CHOICES: ReadonlyArray<{ value: ApiKeyScope; label: string }> = [
-    { value: 'view', label: 'Read only' },
-    { value: 'manage', label: 'Read and manage' },
-];
-
 /** How long a new key lives. Days, or never; the API has no ceiling of its own. */
 const EXPIRY_CHOICES: ReadonlyArray<{ value: string; label: string }> = [
     { value: 'never', label: 'Never' },
@@ -32,10 +27,6 @@ const EXPIRY_CHOICES: ReadonlyArray<{ value: string; label: string }> = [
     { value: '90', label: '90 days' },
     { value: '365', label: '1 year' },
 ];
-
-function accessWord(key: ApiKey): string {
-    return key.scopes.includes('manage') ? 'Read and manage' : key.scopes.includes('view') ? 'Read only' : 'Nothing';
-}
 
 type KeyState = 'active' | 'expired' | 'revoked';
 
@@ -201,7 +192,7 @@ function KeyRow({ apiKey, state, gate, onRotated }: KeyProps) {
                 </Stack>
             </Table.Td>
             <Table.Td>
-                <Text size="sm">{accessWord(apiKey)}</Text>
+                <Text size="sm">{accessWord(apiKey.scopes)}</Text>
             </Table.Td>
             <Table.Td>
                 <Text size="sm" className="da-num">
@@ -235,7 +226,7 @@ function KeyPhoneCard({ apiKey, state, gate, onRotated }: KeyProps) {
             }
             subtitle={
                 <Text size="xs" c="dimmed" truncate>
-                    {`${accessWord(apiKey)} · ${apiKey.lastUsedAt ? `used ${formatDate(apiKey.lastUsedAt)}` : 'never used'}`}
+                    {`${accessWord(apiKey.scopes)} · ${apiKey.lastUsedAt ? `used ${formatDate(apiKey.lastUsedAt)}` : 'never used'}`}
                 </Text>
             }
             figure={<StatusLamp tone={STATE_TONES[state]} label={state} />}

@@ -6,8 +6,9 @@
 import { describe, expect, it } from 'vitest';
 import { check } from '@maroonedsoftware/permissions';
 
-import { grantTuples, OAUTH_GRANT_SCOPES, OAUTHGRANT_NAMESPACE, withStationScopes } from '../../../src/modules/oauth/oauth.grant.tuples.js';
+import { grantTuples, OAUTH_GRANT_SCOPES, OAUTHGRANT_NAMESPACE } from '../../../src/modules/oauth/oauth.grant.tuples.js';
 import { OAUTH_SCOPES } from '../../../src/modules/oauth/oauth.module.js';
+import { OAuthGrantScope } from '../../../src/modules/oauth/types/oauth.types.js';
 import { model } from '../../../src/modules/permissions/generated/index.js';
 import { DeadairPermissionsTupleRepository } from '../../../src/modules/permissions/permissions.repository.js';
 
@@ -18,6 +19,10 @@ describe('the station scopes', () => {
     it('are the scoped_* relations of the oauthgrant namespace, offered beside mcp', () => {
         expect(OAUTH_GRANT_SCOPES).toEqual(['view', 'manage']);
         expect(OAUTH_SCOPES).toEqual(['mcp', 'view', 'manage']);
+    });
+
+    it('are what the consent contract offers, which ContractKit generates apart from core.perm', () => {
+        expect(OAuthGrantScope.options).toEqual([...OAUTH_GRANT_SCOPES]);
     });
 });
 
@@ -35,17 +40,6 @@ describe('grantTuples', () => {
 
     it('derives nothing for a revoked grant', () => {
         expect(grantTuples({ id: GRANT, actorId: OWNER, scope: ['view', 'manage'], revoked: true })).toEqual([]);
-    });
-});
-
-describe('withStationScopes', () => {
-    it('gives a grant naming no station scope all of them, as a grant meant before there was a ceiling', () => {
-        expect(withStationScopes(['mcp'])).toEqual(['mcp', 'view', 'manage']);
-        expect(withStationScopes([])).toEqual(['view', 'manage']);
-    });
-
-    it('leaves a grant that names one as it asked', () => {
-        expect(withStationScopes(['mcp', 'view'])).toEqual(['mcp', 'view']);
     });
 });
 

@@ -3,6 +3,7 @@ import { Button, Card, Group, Stack, Text, Title } from '@mantine/core';
 import type { OAuthGrant } from '@deadair/sdk';
 
 import { useOAuthGrants, useRevokeOAuthGrant } from '../../api/oauth.queries';
+import { accessWord } from '../shared/access.words';
 import { ConfirmModal } from '../shared/confirm.modal';
 import { ErrorAlert } from '../shared/error.alert';
 import { formatDate } from '../shared/format.date';
@@ -31,7 +32,8 @@ export function ConnectedAppsCard() {
                         Connected apps
                     </Title>
                     <Text size="sm" c="dimmed">
-                        Apps you have let act as you on this station, such as a Claude connector. Each can do what you can.
+                        Apps you have let act as you on this station, such as a Claude connector, and what each may do. To change that, disconnect it
+                        and connect it again.
                     </Text>
                 </Stack>
                 {grants.error ? (
@@ -59,7 +61,7 @@ function GrantRow({ grant }: { grant: OAuthGrant }) {
             <Stack gap={2}>
                 <Text size="sm">{name}</Text>
                 <Text size="xs" c="dimmed">
-                    {`Connected ${formatDate(grant.createdAt)}`}
+                    {`${accessWord(grant.scope)} · connected ${formatDate(grant.createdAt)}`}
                     {grant.lastUsedAt ? ` · last used ${formatDate(grant.lastUsedAt)}` : ''}
                 </Text>
             </Stack>

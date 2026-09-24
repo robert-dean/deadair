@@ -766,6 +766,7 @@ export interface DeadairScheduleSlots {
   sourceChartOrder: "countdown" | "ranked" | "unordered" | null;
   sourcePlaylistId: string | null;
   sourcePluginId: string | null;
+  sourceStationPlaylistId: string | null;
   startsAtMinutes: number;
   stationKey: Generated<string>;
   updatedAt: Generated<DateTime>;

@@ -6,7 +6,7 @@ import { readClock } from '#modules/director/clock.bands.js';
 import { stationZone } from '#modules/director/clock.words.js';
 import { DirectorService } from '#modules/director/director.service.js';
 import type { ChartOrder } from '#modules/director/chart.picks.js';
-import { isChartSource, minutesIntoSlot, overlap, resolveSlot, type ScheduleSlot } from '#modules/director/schedule.js';
+import { isChartSource, isStationPlaylistSource, minutesIntoSlot, overlap, resolveSlot, type ScheduleSlot } from '#modules/director/schedule.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
 import { CAP_OVERRUN_KEY, DEFAULT_CAP_OVERRUN, OVERRUN_MINUTES_KEY, resolveOverrunMinutes } from './changeover.overrun.js';
 import type { ScheduleNow, ScheduleSlotInput, ScheduleSlotList, ScheduleTimetable, ScheduleTimetableQuery } from './types/schedule.types.js';
@@ -394,8 +394,8 @@ export class ScheduleService {
 /**
  * A request body as a draft.
  *
- * A source is both halves or neither, because one without the other names nothing a playlist reader
- * could be asked for. Sending one alone is treated as sending none rather than refused: what it
+ * A provider's playlist is both halves or neither, because one without the other names nothing a
+ * playlist reader could be asked for. Sending one alone is treated as sending none rather than refused: what it
  * produces is a slot the station fills itself, which is a coherent slot.
  */
 function draftOf(body: ScheduleSlotInput): ScheduleSlotDraft {
@@ -404,14 +404,17 @@ function draftOf(body: ScheduleSlotInput): ScheduleSlotDraft {
         startsAtMinutes: body.startsAtMinutes,
         endsAtMinutes: body.endsAtMinutes,
         days: body.days ?? [],
-        // A chart wins over the pair, which is the same precedence `ScheduleRepository` reads a row
-        // back with. A body naming both is a caller sending a contradiction, and answering it the
-        // same way in both directions is what stops a write and its read-back disagreeing.
+        // A chart wins over the station's own playlist, which wins over the pair: the same
+        // precedence `ScheduleRepository` reads a row back with. A body naming two is a caller
+        // sending a contradiction, and answering it the same way in both directions is what stops a
+        // write and its read-back disagreeing.
         ...(body.sourceChartId !== undefined
             ? { source: { chartId: body.sourceChartId, ...(body.sourceChartOrder === undefined ? {} : { chartOrder: body.sourceChartOrder }) } }
-            : body.sourcePluginId === undefined || body.sourcePlaylistId === undefined
-              ? {}
-              : { source: { pluginId: body.sourcePluginId, playlistId: body.sourcePlaylistId } }),
+            : body.sourceStationPlaylistId !== undefined
+              ? { source: { stationPlaylistId: body.sourceStationPlaylistId } }
+              : body.sourcePluginId === undefined || body.sourcePlaylistId === undefined
+                ? {}
+                : { source: { pluginId: body.sourcePluginId, playlistId: body.sourcePlaylistId } }),
         ...(body.personaId?.trim() ? { personaId: body.personaId.trim() } : {}),
         ...(body.brief?.trim() ? { brief: body.brief.trim() } : {}),
         ...(body.eraFrom === undefined && body.eraTo === undefined
@@ -426,7 +429,7 @@ function draftOf(body: ScheduleSlotInput): ScheduleSlotDraft {
     };
 }
 
-/** The stored shape flattened back to the wire's, where a source is two optional fields rather than one object. */
+/** The stored shape flattened back to the wire's, where a source is optional fields rather than one object. */
 function forTheWire(slot: ScheduleSlot): ScheduleSlotList['slots'][number] {
     return {
         id: slot.id,
@@ -438,7 +441,9 @@ function forTheWire(slot: ScheduleSlot): ScheduleSlotList['slots'][number] {
             ? {}
             : isChartSource(slot.source)
               ? { sourceChartId: slot.source.chartId, ...(slot.source.chartOrder === undefined ? {} : { sourceChartOrder: slot.source.chartOrder }) }
-              : { sourcePluginId: slot.source.pluginId, sourcePlaylistId: slot.source.playlistId }),
+              : isStationPlaylistSource(slot.source)
+                ? { sourceStationPlaylistId: slot.source.stationPlaylistId }
+                : { sourcePluginId: slot.source.pluginId, sourcePlaylistId: slot.source.playlistId }),
         ...(slot.personaId === undefined ? {} : { personaId: slot.personaId }),
         ...(slot.brief === undefined ? {} : { brief: slot.brief }),
         ...(slot.era?.from === undefined ? {} : { eraFrom: slot.era.from }),

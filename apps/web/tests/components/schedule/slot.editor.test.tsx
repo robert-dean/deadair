@@ -18,10 +18,11 @@ import { render, screen, setupUser, waitFor } from '../../utils/render';
 const listImportablePlaylists = vi.fn();
 const listPersonas = vi.fn();
 const listCharts = vi.fn();
+const listStationPlaylists = vi.fn(async () => ({ playlists: [] as unknown[] }));
 
 vi.mock('../../../src/api/client', () => ({
     sdk: {
-        playlists: { listImportablePlaylists: () => listImportablePlaylists() },
+        playlists: { listImportablePlaylists: () => listImportablePlaylists(), listStationPlaylists: () => listStationPlaylists() },
         personas: { listPersonas: () => listPersonas() },
         charts: { listCharts: () => listCharts() },
     },
@@ -284,5 +285,32 @@ describe('SlotEditor', () => {
         expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ sourceChartId: 'deadair.lastfm:top-100', sourceChartOrder: 'countdown' }));
         expect(onSubmit.mock.calls[0]![0]).not.toHaveProperty('sourcePluginId');
         expect(onSubmit.mock.calls[0]![0]).not.toHaveProperty('sourcePlaylistId');
+    });
+
+    it("opens a slot that plays one of the station's own playlists on it, and sends it back alone", async () => {
+        listImportablePlaylists.mockResolvedValue(PLAYLISTS);
+        listPersonas.mockResolvedValue(PERSONAS);
+        listCharts.mockResolvedValue({ charts: [] });
+        listStationPlaylists.mockResolvedValue({
+            playlists: [{ id: 'owned-1', name: 'Rock hours', prompt: '', trackCount: 3000, resolvedCount: 3000 }],
+        });
+        const onSubmit = vi.fn();
+        render(
+            <SlotEditor
+                target={{ kind: 'edit', slot: slot({ sourceStationPlaylistId: 'owned-1' }) }}
+                onClose={noop}
+                onSubmit={onSubmit}
+                onDelete={noop}
+                saving={false}
+                deleting={false}
+            />,
+        );
+        expect(await screen.findByDisplayValue('Rock hours')).toBeInTheDocument();
+
+        await setupUser().click(screen.getByRole('button', { name: 'Save' }));
+
+        expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ sourceStationPlaylistId: 'owned-1' }));
+        expect(onSubmit.mock.calls[0]![0]).not.toHaveProperty('sourcePluginId');
+        expect(onSubmit.mock.calls[0]![0]).not.toHaveProperty('sourceChartId');
     });
 });

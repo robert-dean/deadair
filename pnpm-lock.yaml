@@ -770,6 +770,10 @@ importers:
         version: 4.5.4
 
   plugins/telegram:
+    dependencies:
+      '@maroonedsoftware/telegram':
+        specifier: ^2.1.0
+        version: 2.1.0(@maroonedsoftware/cache@0.5.0(ioredis@6.0.0))
     devDependencies:
       '@deadair/plugin-sdk':
         specifier: workspace:*
@@ -3147,6 +3151,18 @@ packages:
       '@maroonedsoftware/logger': 1.1.9
     peerDependenciesMeta:
       '@maroonedsoftware/logger':
+        optional: true
+
+  '@maroonedsoftware/telegram@2.1.0':
+    resolution: {integrity: sha512-LG6c/7yFi0QN6Js4tcy3dQVauz03+/fQtJsBCzD3ZtAOgDJ3quTHalc0WT/6CsqMbyfo112S6kGECtXLDHZBLw==}
+    engines: {node: '>=22'}
+    peerDependencies:
+      '@maroonedsoftware/cache': 0.5.0
+      '@maroonedsoftware/comms': 0.2.11
+    peerDependenciesMeta:
+      '@maroonedsoftware/cache':
+        optional: true
+      '@maroonedsoftware/comms':
         optional: true
 
   '@maroonedsoftware/utilities@1.11.5':
@@ -13642,6 +13658,15 @@ snapshots:
       luxon: 3.7.2
     optionalDependencies:
       '@maroonedsoftware/logger': 1.1.9
+
+  '@maroonedsoftware/telegram@2.1.0(@maroonedsoftware/cache@0.5.0(ioredis@6.0.0))':
+    dependencies:
+      '@maroonedsoftware/errors': 1.9.1
+      '@maroonedsoftware/logger': 1.1.9
+      '@maroonedsoftware/policies': 0.6.9
+      injectkit: 1.7.1
+    optionalDependencies:
+      '@maroonedsoftware/cache': 0.5.0(ioredis@6.0.0)
 
   '@maroonedsoftware/utilities@1.11.5': {}
 

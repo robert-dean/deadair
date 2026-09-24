@@ -8,8 +8,10 @@ import {
     type MessagingSendResult,
     type OutboundMessage,
     type PluginConnectionResult,
+    type PluginErrorCode,
     type PluginHost,
 } from '@deadair/plugin-sdk';
+import { IsTelegramError, TelegramClient, type TelegramConfig } from '@maroonedsoftware/telegram';
 
 import {
     configFlag,
@@ -18,8 +20,6 @@ import {
     nextOffset,
     toInboundMessage,
     type ChatPolicy,
-    type TelegramEnvelope,
-    type TelegramMessage,
     type TelegramUpdate,
     type TelegramUser,
 } from './telegram.api.js';
@@ -27,24 +27,29 @@ import { MAX_MESSAGE_LENGTH, REQUEST_TIMEOUT_MS, TELEGRAM_HOST } from './telegra
 
 export { telegramManifest } from './telegram.manifest.js';
 
-/** What one call to the Bot API came back with: the envelope, and the HTTP status it arrived under. */
-interface Answer<T> {
-    status: number;
-    envelope: TelegramEnvelope<T>;
+/** What a failed Bot API call said, read off a `TelegramError`'s internal details. */
+interface Refusal {
+    /** The HTTP status, or absent when the call never reached Telegram. */
+    status?: number;
+    /** Telegram's own summary, or the transport's (with the token already redacted). */
+    description: string;
 }
 
 /**
  * The station on Telegram.
  *
  * Thin, like every plugin: the host owns the loop that polls, the cursor, the commands and every word
- * the station says. What is here is the Bot API: `getUpdates` as `receive`, `sendMessage` as `send`,
- * and the filtering only this side can do, because chat ids are Telegram's.
+ * the station says. What is here is `getUpdates` as `receive`, `sendMessage` as `send`, and the
+ * filtering only this side can do, because chat ids are Telegram's.
  *
- * ## The token is in every URL, so no URL leaves this file
+ * ## ServerKit's client, over the host's fetch
  *
- * The Bot API authenticates by putting the token in the path, and the host's own errors about a
- * response body quote the URL it came from. Every call is wrapped so that anything thrown has the
- * token replaced before it reaches the host's logs or an operator's screen.
+ * The Bot API is spoken by `@maroonedsoftware/telegram`'s `TelegramClient`, handed the host's `fetch`
+ * as its transport, so every call is still held to this plugin's allowlist, rate bucket and deadline.
+ * The client supplies the deadline as an `AbortSignal`; the host is given whatever is left of the
+ * current call as its own ceiling, which it enforces anyway. The client also redacts the bot token
+ * (which the Bot API carries in every URL) from anything it throws, and this file scrubs once more
+ * before an error leaves it, because a message the host reaches the operator with must never hold it.
  *
  * ## "From now", on the first poll
  *
@@ -55,7 +60,8 @@ interface Answer<T> {
  * ## The host is captured before the first await
  *
  * For `plugins/weather`'s reason: a config save reinitializes the plugin under a call in flight, and
- * a long poll is in flight nearly all the time.
+ * a long poll is in flight nearly all the time. A client is built per call over the captured host for
+ * the same reason, rather than held on the instance.
  */
 export class TelegramPlugin extends Plugin implements MessagingPluginInstance {
     private token = '';
@@ -102,51 +108,56 @@ export class TelegramPlugin extends Plugin implements MessagingPluginInstance {
         const host = this.host;
         if (this.token === '') return { ok: false, message: 'No bot token set.' };
 
+        const client = this.client(host);
         try {
-            const me = await this.call<TelegramUser>(host, 'getMe', {}, REQUEST_TIMEOUT_MS);
-            if (!me.envelope.ok || me.envelope.result === undefined) return { ok: false, message: this.refusal(me) };
+            const me = (await client.getMe()) as TelegramUser;
 
             // A webhook set on the bot takes its updates, and Telegram refuses a poll while one is.
-            const hook = await this.call<{ url?: string }>(host, 'getWebhookInfo', {}, REQUEST_TIMEOUT_MS);
-            if (hook.envelope.ok && typeof hook.envelope.result?.url === 'string' && hook.envelope.result.url !== '') {
+            const hook = (await client.getWebhookInfo()) as { url?: string };
+            if (typeof hook.url === 'string' && hook.url !== '') {
                 return { ok: false, message: 'This bot has a webhook set, which stops the station hearing it. Remove it with deleteWebhook.' };
             }
 
-            const name = typeof me.envelope.result.username === 'string' ? `@${me.envelope.result.username}` : 'the bot';
+            const name = typeof me.username === 'string' ? `@${me.username}` : 'the bot';
             return { ok: true, message: `Connected as ${name}.` };
         } catch (error) {
-            return { ok: false, message: error instanceof Error ? error.message : String(error) };
+            return { ok: false, message: this.explain(this.refusal(error)) };
         }
     }
 
     async receive(query: MessagingReceiveQuery): Promise<MessagingReceiveResult> {
         const host = this.host;
         if (this.token === '') throw new PluginError('No bot token set.').withCode('config');
+        const client = this.client(host);
 
-        if (query.cursor === undefined) {
-            // Only the newest, and without waiting: this is finding out where "now" is.
-            const newest = await this.updates(host, { offset: -1, timeout: 0 }, REQUEST_TIMEOUT_MS);
-            const cursor = nextOffset(newest);
-            if (cursor !== undefined) return { messages: [], cursor };
-            // Nothing held at all, so anything that arrives from here on is new.
+        try {
+            if (query.cursor === undefined) {
+                // Only the newest, and without waiting: this is finding out where "now" is.
+                const newest = (await client.getUpdates({ offset: -1, timeout: 0 })) as TelegramUpdate[];
+                const cursor = nextOffset(newest);
+                if (cursor !== undefined) return { messages: [], cursor };
+                // Nothing held at all, so anything that arrives from here on is new.
+            }
+
+            const updates = (await client.getUpdates({
+                ...(query.cursor === undefined ? {} : { offset: Number(query.cursor) }),
+                timeout: Math.max(0, Math.floor(query.waitMs / 1000)),
+                allowed_updates: ['message'],
+            })) as TelegramUpdate[];
+
+            const messages = [];
+            for (const update of updates) {
+                const message = toInboundMessage(update, this.policy);
+                if (message !== undefined) messages.push(message);
+                else this.noteUnlistedGroup(host, update);
+            }
+
+            const cursor = nextOffset(updates);
+            return { messages, ...(cursor === undefined ? {} : { cursor }) };
+        } catch (error) {
+            const refusal = this.refusal(error);
+            throw new PluginError(this.explain(refusal)).withCode(codeFor(refusal));
         }
-
-        const waitSeconds = Math.max(0, Math.floor(query.waitMs / 1000));
-        const updates = await this.updates(
-            host,
-            { ...(query.cursor === undefined ? {} : { offset: Number(query.cursor) }), timeout: waitSeconds },
-            query.waitMs + REQUEST_TIMEOUT_MS,
-        );
-
-        const messages = [];
-        for (const update of updates) {
-            const message = toInboundMessage(update, this.policy);
-            if (message !== undefined) messages.push(message);
-            else this.noteUnlistedGroup(host, update.message);
-        }
-
-        const cursor = nextOffset(updates);
-        return { messages, ...(cursor === undefined ? {} : { cursor }) };
     }
 
     async send(message: OutboundMessage): Promise<MessagingSendResult> {
@@ -154,60 +165,75 @@ export class TelegramPlugin extends Plugin implements MessagingPluginInstance {
         if (this.token === '') return { delivered: false, reason: 'no bot token set', retryable: false };
 
         const text = message.text.length > MAX_MESSAGE_LENGTH ? `${message.text.slice(0, MAX_MESSAGE_LENGTH - 1)}…` : message.text;
-        // No `parse_mode`, so Telegram reads the text as plain text and nothing in it needs escaping.
-        const body = {
-            chat_id: message.chatId,
-            text,
-            link_preview_options: { is_disabled: true },
-            ...(message.replyToId === undefined
-                ? {}
-                : { reply_parameters: { message_id: Number(message.replyToId), allow_sending_without_reply: true } }),
-        };
-
-        const answer = await this.call<TelegramMessage>(host, 'sendMessage', body, REQUEST_TIMEOUT_MS);
-        if (answer.envelope.ok) return { delivered: true };
-        return { delivered: false, reason: this.refusal(answer), retryable: isRetryableStatus(answer.status) };
-    }
-
-    /** `getUpdates`, for text messages only, answered as the list or thrown as the refusal. */
-    private async updates(host: PluginHost, params: { offset?: number; timeout: number }, timeoutMs: number): Promise<TelegramUpdate[]> {
-        const answer = await this.call<TelegramUpdate[]>(host, 'getUpdates', { ...params, allowed_updates: ['message'] }, timeoutMs);
-        if (!answer.envelope.ok) {
-            const code = answer.status === 401 || answer.status === 404 ? 'auth' : answer.status === 409 ? 'config' : 'upstream';
-            throw new PluginError(this.refusal(answer)).withCode(code);
-        }
-        return Array.isArray(answer.envelope.result) ? answer.envelope.result : [];
-    }
-
-    /**
-     * One Bot API call. Throws only when Telegram could not be reached or did not answer in JSON, and
-     * never with the token in the message.
-     */
-    private async call<T>(host: PluginHost, method: string, body: object, timeoutMs: number): Promise<Answer<T>> {
-        const token = this.token;
         try {
-            const response = await host.fetch(`https://${TELEGRAM_HOST}/bot${token}/${method}`, {
-                method: 'POST',
-                headers: { 'content-type': 'application/json' },
-                body: JSON.stringify(body),
-                timeoutMs,
+            // No `parse_mode`, so Telegram reads the text as plain text and nothing in it needs escaping.
+            await this.client(host).sendMessage({
+                chat_id: message.chatId,
+                text,
+                link_preview_options: { is_disabled: true },
+                ...(message.replyToId === undefined
+                    ? {}
+                    : { reply_parameters: { message_id: Number(message.replyToId), allow_sending_without_reply: true } }),
             });
-            const envelope = (await response.json()) as TelegramEnvelope<T>;
-            return { status: response.status, envelope };
+            return { delivered: true };
         } catch (error) {
-            throw scrubbed(error, token);
+            const refusal = this.refusal(error);
+            // A call that never reached Telegram is worth another go, as the SDK says a throw would be.
+            return { delivered: false, reason: this.explain(refusal), retryable: refusal.status === undefined || isRetryableStatus(refusal.status) };
         }
     }
 
-    /** What Telegram said, for a log line or the settings page. Its own `description` is already a summary. */
-    private refusal(answer: Answer<unknown>): string {
-        const description = typeof answer.envelope.description === 'string' ? answer.envelope.description : `HTTP ${answer.status}`;
-        if (answer.status === 401 || answer.status === 404) return `Telegram did not accept the bot token (${description}).`;
-        return `Telegram refused: ${description}`;
+    /** A Bot API client for one call, speaking through the host's fetch. */
+    private client(host: PluginHost): TelegramClient {
+        const config: TelegramConfig = {
+            botToken: this.token,
+            apiBaseUrl: `https://${TELEGRAM_HOST}`,
+            requestTimeoutMs: REQUEST_TIMEOUT_MS,
+            fetch: (url, init) =>
+                host.fetch(url, {
+                    method: init.method,
+                    headers: init.headers,
+                    body: init.body,
+                    signal: init.signal,
+                    // The client's signal carries the real deadline; this is only the host's ceiling.
+                    timeoutMs: host.remainingMs(),
+                }),
+        };
+        return new TelegramClient(config, {
+            error: (message: unknown, ...rest: unknown[]) => host.logger.error(String(message), meta(rest)),
+            warn: (message: unknown, ...rest: unknown[]) => host.logger.warn(String(message), meta(rest)),
+            info: (message: unknown, ...rest: unknown[]) => host.logger.info(String(message), meta(rest)),
+            debug: (message: unknown, ...rest: unknown[]) => host.logger.debug(String(message), meta(rest)),
+            trace: (message: unknown, ...rest: unknown[]) => host.logger.debug(String(message), meta(rest)),
+        });
+    }
+
+    /** What went wrong, from a `TelegramError` or anything else, with the token scrubbed. */
+    private refusal(error: unknown): Refusal {
+        if (IsTelegramError(error)) {
+            const details = (error.internalDetails ?? {}) as { status?: unknown; description?: unknown; reason?: unknown };
+            const described =
+                typeof details.description === 'string' ? details.description : typeof details.reason === 'string' ? details.reason : error.message;
+            return { ...(typeof details.status === 'number' ? { status: details.status } : {}), description: this.scrub(described) };
+        }
+        return { description: this.scrub(error instanceof Error ? error.message : String(error)) };
+    }
+
+    /** A refusal in words an operator can act on. */
+    private explain(refusal: Refusal): string {
+        if (refusal.status === 401 || refusal.status === 404) return `Telegram did not accept the bot token (${refusal.description}).`;
+        if (refusal.status === undefined) return `Could not reach Telegram: ${refusal.description}`;
+        return `Telegram refused: ${refusal.description}`;
+    }
+
+    /** `text` with the token replaced, for the last line of defence before anything leaves this file. */
+    private scrub(text: string): string {
+        return this.token === '' ? text : text.split(this.token).join('<token>');
     }
 
     /** Log a group's id the first time somebody there speaks, so the operator can add it to the list. */
-    private noteUnlistedGroup(host: PluginHost, message: TelegramMessage | undefined): void {
+    private noteUnlistedGroup(host: PluginHost, update: TelegramUpdate): void {
+        const message = update.message;
         if (message === undefined || (message.chat.type !== 'group' && message.chat.type !== 'supergroup')) return;
         const chatId = String(message.chat.id);
         if (this.policy.groupChats.has(chatId) || this.unlistedGroups.has(chatId)) return;
@@ -220,10 +246,16 @@ export class TelegramPlugin extends Plugin implements MessagingPluginInstance {
     }
 }
 
-/** `error`, with every occurrence of the token replaced, and its code kept where it had one. */
-export function scrubbed(error: unknown, token: string): PluginError {
-    const text = error instanceof Error ? error.message : String(error);
-    const message = token === '' ? text : text.split(token).join('<token>');
-    const code = error instanceof PluginError ? error.code : 'upstream';
-    return new PluginError(message).withCode(code);
+/** The host's vocabulary for a refused poll: the token, a webhook in the way, or anything else upstream. */
+function codeFor(refusal: Refusal): PluginErrorCode {
+    if (refusal.status === 401 || refusal.status === 404) return 'auth';
+    if (refusal.status === 409) return 'config';
+    if (refusal.status === 429) return 'rate_limited';
+    return refusal.status === undefined ? 'unavailable' : 'upstream';
+}
+
+/** A logger's trailing arguments as the one metadata object the plugin logger takes. */
+function meta(rest: unknown[]): Record<string, unknown> | undefined {
+    const first = rest[0];
+    return first !== null && typeof first === 'object' && !Array.isArray(first) ? (first as Record<string, unknown>) : undefined;
 }

@@ -3,10 +3,9 @@
 // group nobody allowed, and the bot token turning up in an error message.
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { PluginError } from '@deadair/plugin-sdk';
 import { createFakePluginHost, type FakePluginHost } from '@deadair/plugin-sdk/testing';
 
-import { TelegramPlugin, scrubbed } from '../src/telegram.plugin.js';
+import { TelegramPlugin } from '../src/telegram.plugin.js';
 import { TELEGRAM_HOST, telegramManifest } from '../src/telegram.manifest.js';
 
 const TOKEN = '123456:SECRET-token';
@@ -232,16 +231,6 @@ describe('testing the connection', () => {
 });
 
 describe('keeping the token out of errors', () => {
-    it('replaces the token wherever an error quotes it', () => {
-        const error = new PluginError(`response body from https://${TELEGRAM_HOST}/bot${TOKEN}/getUpdates failed`).withCode('timeout');
-
-        const clean = scrubbed(error, TOKEN);
-
-        expect(clean.message).not.toContain(TOKEN);
-        expect(clean.message).toContain('/bot<token>/getUpdates');
-        expect(clean.code).toBe('timeout');
-    });
-
     it('scrubs what a failed fetch throws', async () => {
         await initialize();
         host.setFetchImpl(async url => {
@@ -251,5 +240,55 @@ describe('keeping the token out of errors', () => {
         const failure = await plugin.receive({ cursor: '1', waitMs: 1_000 }).catch((error: unknown) => error as Error);
 
         expect(failure.message).not.toContain(TOKEN);
+    });
+
+    it('says a send that never reached Telegram is worth retrying, without the token', async () => {
+        await initialize();
+        host.setFetchImpl(async url => {
+            throw new Error(`socket hang up at ${url}`);
+        });
+
+        const result = await plugin.send({ chatId: '42', text: 'hi' });
+
+        expect(result).toMatchObject({ delivered: false, retryable: true });
+        expect(result.reason).not.toContain(TOKEN);
+    });
+
+    it('keeps the token out of the connection test too', async () => {
+        await initialize();
+        host.setFetchImpl(async url => {
+            throw new Error(`refused ${url}`);
+        });
+
+        const result = await plugin.testConnection();
+
+        expect(result.ok).toBe(false);
+        expect(result.message).not.toContain(TOKEN);
+    });
+});
+
+describe('the transport', () => {
+    it('goes through the host, never around it', async () => {
+        await initialize();
+        queue({ ok: true, result: [] });
+
+        await plugin.receive({ cursor: '1', waitMs: 25_000 });
+
+        expect(host.calls).toHaveLength(1);
+        expect(host.calls[0]?.method).toBe('POST');
+    });
+
+    it('calls a rate limit a rate limit, so the host backs off rather than blaming the token', async () => {
+        await initialize();
+        queue({ ok: false, error_code: 429, description: 'Too Many Requests: retry after 3', parameters: { retry_after: 3 } }, 429);
+
+        await expect(plugin.receive({ cursor: '1', waitMs: 1_000 })).rejects.toMatchObject({ code: 'rate_limited' });
+    });
+
+    it('calls a webhook in the way a configuration problem', async () => {
+        await initialize();
+        queue({ ok: false, error_code: 409, description: "Conflict: can't use getUpdates method while webhook is active" }, 409);
+
+        await expect(plugin.receive({ cursor: '1', waitMs: 1_000 })).rejects.toMatchObject({ code: 'config' });
     });
 });

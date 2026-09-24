@@ -20,6 +20,9 @@
         "format": "prettier --write . --ignore-path ../../.prettierignore",
         "test": "vitest run"
     },
+    "dependencies": {
+        "@maroonedsoftware/telegram": "^2.1.0"
+    },
     "peerDependencies": {
         "@deadair/plugin-sdk": "workspace:*",
         "zod": "^4.0.0"

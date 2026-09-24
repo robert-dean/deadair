@@ -34,15 +34,6 @@ export interface TelegramUpdate {
     message?: TelegramMessage;
 }
 
-/** Telegram's envelope. `ok: false` carries the error in `description` and `error_code`. */
-export interface TelegramEnvelope<T> {
-    ok: boolean;
-    result?: T;
-    error_code?: number;
-    description?: string;
-    parameters?: { retry_after?: number };
-}
-
 /**
  * The cursor after a batch of updates: one past the highest `update_id` seen.
  *

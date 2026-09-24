@@ -41,6 +41,25 @@ abandoned rather than awaited when the poller stops, or every shutdown would be 
 The plugin's own disposal cancels what it still has open. The module sits late in `modules.ts` for the
 same reason: it tears down before the director and long before the plugins it polls.
 
+## Announcing what airs
+
+**Off the transport's aired edge, not the director's.** `MessagingAnnouncer` subscribes to
+`Rundown.onAired`, which fires once per item at the moment it is heard, the same edge play history
+and the scrobble hang off. The director calling forward into this module would be the dependency
+`modules.ts` exists to rule out, since messaging registers after it; the rundown is in `playout`,
+before both. Records only: a break is the station talking, and a programme names itself.
+
+**A pg-boss job per chat, not a table and a cron.** The scrobble queue is a table because a play
+sent a day late is still a play. An announcement is the opposite: "now playing" posted after the
+record has finished is false, not late. So `messaging.announce` carries a `notAfter` (the record's
+end, or four minutes when its length is unknown, never less than one), drops itself once past it,
+and otherwise leaves retries to the broker (three, from fifteen seconds, with backoff). A refusal the
+plugin calls permanent is logged and dropped; one it calls retryable throws, which is the retry. One
+job per chat, so a channel that removed the bot costs no other chat its message.
+
+**Which chats is the plugin's answer**, through `announceTargets()`, asked on every record so a
+config change takes effect on the next one.
+
 ## Commands, and nothing a model reads
 
 **The station acts only on commands**: a leading `/`, a name from a closed table, and whatever

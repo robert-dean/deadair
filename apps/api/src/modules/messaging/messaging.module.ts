@@ -1,6 +1,7 @@
 import { Container, Registry } from 'injectkit';
 import { ServerKitModule } from '@maroonedsoftware/koa';
 import { AppConfig } from '@maroonedsoftware/appconfig';
+import { MessagingAnnouncer } from './messaging.announcer.js';
 import { MessagingCommands } from './messaging.commands.js';
 import { MessagingPoller } from './messaging.poller.js';
 import { MessagingRepository } from './messaging.repository.js';
@@ -14,7 +15,8 @@ import { MessagingService } from './messaging.service.js';
  * so it tears down EARLY: the poller lets go of every platform before the director flushes the running
  * order and long before the plugins it polls are disposed.
  *
- * It owns one loop, the poller, started in `ready` because nobody's first request depends on it.
+ * It owns one loop, the poller, and one listener, the announcer on the rundown's aired edge. Both
+ * start in `ready`, because nobody's first request depends on either.
  */
 export const MessagingModule: ServerKitModule = {
     name: 'Messaging',
@@ -24,15 +26,19 @@ export const MessagingModule: ServerKitModule = {
         registry.register(MessagingService).useClass(MessagingService).asSingleton();
         registry.register(MessagingCommands).useClass(MessagingCommands).asSingleton();
         registry.register(MessagingPoller).useClass(MessagingPoller).asSingleton();
+        registry.register(MessagingAnnouncer).useClass(MessagingAnnouncer).asSingleton();
+        // `MessagingAnnounceJob` is registered by `JobsModule`, which walks `JobMappings`, like every job.
         registry.register(MessagingRepository).useClass(MessagingRepository).asScoped();
     },
 
     ready: async (container: Container, signal: AbortSignal) => {
         if (signal.aborted) return;
         container.get(MessagingPoller).start();
+        container.get(MessagingAnnouncer).start();
     },
 
     shutdown: async (container: Container) => {
+        container.get(MessagingAnnouncer).stop();
         await container.get(MessagingPoller).stop();
     },
 };

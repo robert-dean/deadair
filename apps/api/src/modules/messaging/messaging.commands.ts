@@ -68,9 +68,14 @@ export function describeNowPlaying(nowPlaying: NowPlaying): string {
     const programme = show === undefined ? '' : show.host === undefined ? `\n${show.name}` : `\n${show.name}, with ${show.host}`;
     if (track.kind === 'break') return `${station} is talking right now: ${track.title}${programme}`;
 
-    const artist = track.artist.trim() === '' ? '' : ` by ${track.artist}`;
-    const album = track.album === undefined || track.album.trim() === '' ? '' : ` (${track.album})`;
-    return `Now playing on ${station}: ${track.title}${artist}${album}${programme}`;
+    return `${describeRecord(station, track)}${programme}`;
+}
+
+/** One record, as the station announces it: `Now playing on Dead Air: Teardrop by Massive Attack (Mezzanine)`. */
+export function describeRecord(station: string, record: { title: string; artist: string; album?: string }): string {
+    const artist = record.artist.trim() === '' ? '' : ` by ${record.artist}`;
+    const album = record.album === undefined || record.album.trim() === '' ? '' : ` (${record.album})`;
+    return `Now playing on ${station}: ${record.title}${artist}${album}`;
 }
 
 @Injectable()

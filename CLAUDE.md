@@ -39,6 +39,7 @@ was shipped first and was wrong.
 | the mount, the audience gate, why it is quiet, the activity feed | [`docs/internals/playout.md`](docs/internals/playout.md) |
 | the model, the gate, the tool loop | [`docs/internals/llm.md`](docs/internals/llm.md) |
 | signing in through an identity provider, the allowlist, linked sign-ins, apps connecting over OAuth, the MCP endpoint | [`docs/internals/authentication.md`](docs/internals/authentication.md) |
+| the station on chat platforms (Telegram and the like), chat commands, the poller | [`docs/internals/messaging.md`](docs/internals/messaging.md) |
 | the Dockerfile, the image variants, CI | [`docs/internals/deployment.md`](docs/internals/deployment.md) |
 
 Each of those is sectioned, so the answer to one question is a heading rather than a file. Several
@@ -152,7 +153,7 @@ deploy/, unraid/                  how somebody else installs it
 `plugins`, `jobs`, `playlists`, `charts`, `similarity`, `news`, `search`, `weather`, `almanac`,
 `podcasts`, `narrations`, `topics`, `scrobble`, `llm`, `personas`, `schedule`, `render`, `playout`,
 `nowplaying`, `analysis`, `director`, `storage`, `activity`, `history`, `enrichment`, `productions`,
-`station`. **`src/modules/modules.ts` is the source of
+`station`, `messaging`. **`src/modules/modules.ts` is the source of
 truth and the order is load-bearing** — see [`apps/api/CLAUDE.md`](apps/api/CLAUDE.md). Check it
 before assuming a subsystem exists.
 

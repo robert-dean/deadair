@@ -5,6 +5,7 @@ import {
     PLUGIN_CAPABILITY_CHARTS,
     PLUGIN_CAPABILITY_ENRICHMENT,
     PLUGIN_CAPABILITY_LLM,
+    PLUGIN_CAPABILITY_MESSAGING,
     PLUGIN_CAPABILITY_MIXER,
     PLUGIN_CAPABILITY_NARRATION,
     PLUGIN_CAPABILITY_NEWS,
@@ -22,6 +23,7 @@ import {
     type SimilarityPluginInstance,
     type EnrichmentPluginInstance,
     type LlmPluginInstance,
+    type MessagingPluginInstance,
     type MixerProvider,
     type MusicProviderPluginInstance,
     type NarrationPluginInstance,
@@ -566,6 +568,47 @@ export const asScrobblePlugin = (record: PluginRecord): ScrobblePlugin | undefin
         saysNowPlaying: implementsNowPlaying(instance),
         declarable: implementsAccepting(instance),
         maxBatchSize: scrobbleBatchSize(instance),
+    };
+};
+
+/** The methods that earn the `messaging` capability: hearing, and answering. */
+export const MESSAGING_METHODS = ['receive', 'send'] as const satisfies ReadonlyArray<keyof MessagingPluginInstance>;
+
+/** A plugin narrowed to "can hear and answer people on a chat platform, right now". */
+export interface MessagingPlugin {
+    record: PluginRecord;
+    manifest: PluginManifest;
+    instance: MessagingPluginInstance;
+    /** Whether `accepting` is there to ask. Absent means yes, per the SDK. */
+    declarable: boolean;
+    /** Whether `announceTargets` is there to ask. Absent means no chat wants announcements. */
+    announces: boolean;
+}
+
+/** {@link implementsCatalog}'s rule, applied to the `messaging` capability. */
+export const implementsMessaging = (manifest: PluginManifest | undefined, instance: unknown): boolean => {
+    if (!manifest?.capabilities.includes(PLUGIN_CAPABILITY_MESSAGING)) return false;
+    return MESSAGING_METHODS.every(method => typeof (instance as Record<string, unknown>)[method] === 'function');
+};
+
+/**
+ * The messaging-capable view of a record, or `undefined` when it is not one.
+ *
+ * No choosing between them, for {@link asScrobblePlugin}'s reason: two chat
+ * platforms are two places people reach the station, not two answers to one
+ * question, so every one of them is listened to.
+ */
+export const asMessagingPlugin = (record: PluginRecord): MessagingPlugin | undefined => {
+    if (record.status !== 'active' || !record.manifest || !record.instance) return undefined;
+    if (!implementsMessaging(record.manifest, record.instance)) return undefined;
+
+    const instance = record.instance as MessagingPluginInstance;
+    return {
+        record,
+        manifest: record.manifest,
+        instance,
+        declarable: implementsAccepting(instance),
+        announces: typeof (instance as unknown as Record<string, unknown>).announceTargets === 'function',
     };
 };
 

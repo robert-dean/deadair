@@ -59,6 +59,12 @@ describe('the module list', () => {
         expect(tearsDownBefore('Mcp', 'Station')).toBe(true);
     });
 
+    it('stops listening on chat platforms before the plugins and the director it reaches tear down', () => {
+        expect(tearsDownBefore('Messaging', 'Plugins')).toBe(true);
+        expect(tearsDownBefore('Messaging', 'Director')).toBe(true);
+        expect(tearsDownBefore('Messaging', 'NowPlaying')).toBe(true);
+    });
+
     it('registers OAuth after the authentication and policies it builds on', () => {
         expect(tearsDownBefore('OAuth', 'Authentication')).toBe(true);
         expect(tearsDownBefore('OAuth', 'Policy')).toBe(true);

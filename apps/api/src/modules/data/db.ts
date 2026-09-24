@@ -321,6 +321,12 @@ export interface DeadairLoginFailureCounters {
   lastSeenAt: Generated<DateTime>;
 }
 
+export interface DeadairMessagingCursors {
+  cursor: string;
+  pluginId: string;
+  updatedAt: Generated<DateTime>;
+}
+
 export interface DeadairNarrationPieces {
   airedAt: DateTime | null;
   artworkUrl: string | null;
@@ -1002,6 +1008,7 @@ export interface DB {
   "deadair.hiddenPlaylists": DeadairHiddenPlaylists;
   "deadair.loginEvents": DeadairLoginEvents;
   "deadair.loginFailureCounters": DeadairLoginFailureCounters;
+  "deadair.messagingCursors": DeadairMessagingCursors;
   "deadair.narrationPieces": DeadairNarrationPieces;
   "deadair.oauthClients": DeadairOauthClients;
   "deadair.oauthGrants": DeadairOauthGrants;

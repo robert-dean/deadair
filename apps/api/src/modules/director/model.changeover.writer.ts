@@ -1,7 +1,7 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
-import { stationPromptSettings } from './prompt.settings.js';
+import { languageGuard, stationPromptSettings } from './prompt.settings.js';
 import { languageName } from '#modules/shared/language.name.js';
 import { LlmService } from '#modules/llm/llm.service.js';
 import { captureWrites } from '#modules/render/script.history.settings.js';
@@ -17,7 +17,7 @@ import {
     type BreakPromptShape,
     type PromptSettings,
 } from './break.prompt.js';
-import { timeClaimIn } from './clock.words.js';
+import { timeClaimFor } from './clock.words.js';
 import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBreak, patienceFor } from './break.writer.js';
 import { CHANGEOVER_KIND } from './changeover.writer.js';
 import { BUDGET_MS, MAX_OUTPUT_TOKENS, MODEL_WRITER, MODEL_WRITER_DEFAULT, MODEL_WRITER_KEYS } from './model.talk.break.writer.js';
@@ -143,6 +143,7 @@ export class ModelChangeoverWriter extends BreakWriter {
             ...(request.recent === undefined ? {} : { recent: request.recent }),
             ...(request.dayPart === undefined ? {} : { dayPart: request.dayPart }),
             ...(request.moment === undefined ? {} : { moment: request.moment }),
+            ...languageGuard(this.config),
             // No record was shown, so no year belongs in the answer but one the prompt itself carried.
             years: permittedYears([], request.moment, shownWithoutRecent(messages, request.recent)),
         };
@@ -173,7 +174,7 @@ export class ModelChangeoverWriter extends BreakWriter {
             this.logger.info(`director: ${trimmed.reason}`, { kept: trimmed.kept, dropped: trimmed.dropped, persona: request.persona?.key });
         }
 
-        const claimsTime = timeClaimIn(script, request.greeting, request.dayPart);
+        const claimsTime = timeClaimFor(script, guard.language, request.greeting, request.dayPart);
 
         return {
             script,

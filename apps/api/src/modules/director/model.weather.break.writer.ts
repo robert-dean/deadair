@@ -1,13 +1,13 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
-import { stationPromptSettings } from './prompt.settings.js';
+import { languageGuard, stationPromptSettings } from './prompt.settings.js';
 import { LlmService } from '#modules/llm/llm.service.js';
 import { captureWrites } from '#modules/render/script.history.settings.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
 import { WEATHER_KIND } from '#modules/weather/weather.kind.js';
 import { breakPrompt, readAnswer, writeDecline, writeTrim, type AnswerGuard, type BreakPromptShape } from './break.prompt.js';
-import { timeClaimIn } from './clock.words.js';
+import { timeClaimFor } from './clock.words.js';
 import { BreakWriter, patienceFor, type BreakWriteRequest, type WriteDetail, type WrittenBreak } from './break.writer.js';
 import { BUDGET_MS, MAX_OUTPUT_TOKENS, MODEL_WRITER, MODEL_WRITER_DEFAULT, MODEL_WRITER_KEYS } from './model.talk.break.writer.js';
 
@@ -165,6 +165,7 @@ export class ModelWeatherBreakWriter extends BreakWriter {
             ...(request.recent === undefined ? {} : { recent: request.recent }),
             ...(request.dayPart === undefined ? {} : { dayPart: request.dayPart }),
             ...(request.moment === undefined ? {} : { moment: request.moment }),
+            ...languageGuard(this.config),
             // The figures this break may say. It used to be checked below, after the answer had
             // already been judged, which was fine while this was the only kind that could be handed
             // a reading; the talk break being offered one made that two copies of the same question.
@@ -205,7 +206,7 @@ export class ModelWeatherBreakWriter extends BreakWriter {
             this.logger.info(`director: ${trimmed.reason}`, { kept: trimmed.kept, dropped: trimmed.dropped, place: weather.place });
         }
 
-        const claimsTime = timeClaimIn(script, request.clock, request.dayPart);
+        const claimsTime = timeClaimFor(script, guard.language, request.clock, request.dayPart);
 
         return {
             script,

@@ -1,7 +1,7 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
-import { stationPromptSettings } from './prompt.settings.js';
+import { languageGuard, stationPromptSettings } from './prompt.settings.js';
 import { LlmService } from '#modules/llm/llm.service.js';
 import { captureWrites } from '#modules/render/script.history.settings.js';
 import {
@@ -152,6 +152,7 @@ export class ModelDedicationWriter extends BreakWriter {
             ...(request.recent === undefined ? {} : { recent: request.recent }),
             ...(request.dayPart === undefined ? {} : { dayPart: request.dayPart }),
             ...(request.moment === undefined ? {} : { moment: request.moment }),
+            ...languageGuard(this.config),
             years: permittedYears(request.next === undefined ? [] : [request.next], request.moment, shownWithoutRecent(messages, request.recent)),
         };
         const script = readAnswer(result.text, guard);

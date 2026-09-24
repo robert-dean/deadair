@@ -86,6 +86,14 @@ describe('the bar itself', () => {
         expect(mentionsStory('The rich get richer.', { text: 'Zürich.' })).toBe(false);
     });
 
+    it('outside English, counts only long words, because the grammar it would otherwise share is not on the list', () => {
+        const shown = { text: 'Die Lichter über der Wüste bei Barstow, und die Hunde wollten nicht raus.' };
+
+        // Shares `nicht`, `über` and `wollten` with the story and tells none of it.
+        expect(mentionsStory('Ich wollte das nicht, aber über Musik reden wir später.', shown, { language: 'de' })).toBe(false);
+        expect(mentionsStory('Barstow, die Wüste, diese Lichter. Ich denke oft daran.', shown, { language: 'de' })).toBe(true);
+    });
+
     it('says no for an empty script', () => {
         expect(mentionsStory('', barstow)).toBe(false);
     });

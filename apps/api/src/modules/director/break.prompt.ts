@@ -1279,7 +1279,9 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape:
         // the sheet genuinely does want its vocabulary in the answer, and a check that declined over
         // this would be refusing the character for being itself. Naming the habit is the whole
         // intervention — it is the same bargain the spent signatures are on, and that one lands.
-        const worn = overusedWords(request.recent);
+        // English only, because the stop list that keeps "the" and "and" out of it is English. On a
+        // German station it would name "nicht" and "eine" as habits.
+        const worn = settings.language === undefined ? overusedWords(request.recent) : [];
         if (worn.length > 0) {
             parts.push(
                 `You have leaned on ${worn.map(word => `"${word}"`).join(', ')} in nearly every recent break. Reach past ${worn.length === 1 ? 'it' : 'them'} ` +
@@ -1891,10 +1893,11 @@ const hasFacts = (previous: BreakTrack | undefined, next: BreakTrack | undefined
  * taken off, or the artist's name. Compared as bare words for {@link echoedSample}'s reason: a curly
  * apostrophe, a capital and a comma are not the difference between naming a record and not.
  */
-export function namedRecordIn(script: string, records: readonly (BreakTrack | undefined)[]): BreakTrack | undefined {
+export function namedRecordIn(script: string, records: readonly (BreakTrack | undefined)[], language?: string): BreakTrack | undefined {
     const spoken = ` ${bareWords(script)} `;
+    const says = language === undefined ? saysName : saysNameInflected;
 
-    return records.find(record => record !== undefined && identifiersOf(record).some(candidate => saysName(spoken, candidate)));
+    return records.find(record => record !== undefined && identifiersOf(record).some(candidate => says(spoken, candidate)));
 }
 
 /**
@@ -1917,6 +1920,15 @@ export function namedRecordIn(script: string, records: readonly (BreakTrack | un
  */
 const saysName = (spoken: string, candidate: string): boolean =>
     spoken.includes(` ${candidate} `) || spoken.includes(` ${candidate}'s `) || spoken.includes(` ${candidate}' `);
+
+/**
+ * {@link saysName} for a station that is not English, where a name takes endings English does not
+ * give it: the German genitive writes "Metallicas neues Album" with no apostrophe at all. So the name
+ * counts followed by any short ending, which is looser than English needs and only as loose as the
+ * question is: this is asking whether a break named a record at all, not whether it spelled it.
+ */
+const saysNameInflected = (spoken: string, candidate: string): boolean =>
+    new RegExp(`(?:^|\\s)${candidate.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:\\p{L}{0,2}|'s|')(?=\\s|$)`, 'u').test(spoken);
 
 /**
  * The words that identify one record in a script: its title, its title with any aside taken off,
@@ -2177,6 +2189,18 @@ export interface AnswerGuard {
      * cannot invent one from it.
      */
     weather?: SpokenWeather;
+    /**
+     * The station's language when it is not English. Absent, every check reads the script as it
+     * always has.
+     *
+     * Present, the checks built on English words stand down rather than refuse: the cue frames, the
+     * three clock checks and spoken years would never fire on a German script, and saying so here is
+     * what makes that a decision rather than an accident. The checks that WOULD fire on one, and
+     * refuse good breaks for it, are loosened instead: a record named in the German genitive, a
+     * marker inflected or elided, a date or a decimal comma read as an invented figure. See
+     * `docs/internals/breaks.md` § "The station's language".
+     */
+    language?: string;
 }
 
 /**
@@ -2340,11 +2364,14 @@ const wordsIn = (script: string): number => withoutCues(script).split(/\s+/).fil
  */
 const namesNothing = (script: string, guard: AnswerGuard): boolean => {
     const offered = (guard.names ?? []).filter(record => record !== undefined);
-    return offered.length > 0 && namedRecordIn(script, offered) === undefined;
+    return offered.length > 0 && namedRecordIn(script, offered, guard.language) === undefined;
 };
 
 /** Whether a script cued one of its records on the wrong side. See {@link misCuedIn}. */
-const cuesWrongly = (script: string, guard: AnswerGuard): boolean => guard.cues !== undefined && misCuedIn(script, guard.cues);
+const cuesWrongly = (script: string, guard: AnswerGuard): boolean =>
+    // The frames `misCuedIn` reads are English phrases ("that was", "up next"), so outside English it
+    // could only ever answer no. Standing down says that out loud.
+    guard.language === undefined && guard.cues !== undefined && misCuedIn(script, guard.cues);
 
 /**
  * Whether a script named a half of the day that cannot be the one it was told.
@@ -2381,6 +2408,10 @@ const cuesWrongly = (script: string, guard: AnswerGuard): boolean => guard.cues 
  * splits the fault by word with no change of its own: it groups on the reason string.
  */
 const wrongDayPartIn = (script: string, guard: AnswerGuard): string | undefined => {
+    // All three read English words for the time of day and the sky, so outside English they stand
+    // down. The prompt still tells the model the part of the day; only the check on the answer goes.
+    if (guard.language !== undefined) return undefined;
+
     const spoken = withoutRecordNames(script, guard);
 
     return (
@@ -2576,10 +2607,14 @@ function spokenYearsIn(words: readonly string[]): number[] {
 }
 
 /** Every year a text states, in digits and in words, which is what both sides of the check read. */
-export function yearsIn(text: string): number[] {
-    const words = bareWords(text).toLowerCase().split(/\s+/).filter(Boolean);
+export function yearsIn(text: string, language?: string): number[] {
+    const digits = [...text.matchAll(DIGIT_YEAR)].map(match => Number(match[0]));
+    // Spoken years are read in English ("nineteen eighty-four"), so outside English only the digits
+    // are checked. A year spelled out in another language goes by unread.
+    if (language !== undefined) return digits;
 
-    return [...[...text.matchAll(DIGIT_YEAR)].map(match => Number(match[0])), ...spokenYearsIn(words)];
+    const words = bareWords(text).toLowerCase().split(/\s+/).filter(Boolean);
+    return [...digits, ...spokenYearsIn(words)];
 }
 
 /**
@@ -2694,7 +2729,7 @@ export function permittedYears(
  * and a break that back-announced one has said nothing about a temperature.
  */
 const inventedFigureIn = (script: string, guard: AnswerGuard): string | undefined =>
-    guard.weather === undefined ? undefined : inventedFigure(withoutRecordNames(script, guard), guard.weather);
+    guard.weather === undefined ? undefined : inventedFigure(withoutRecordNames(script, guard), guard.weather, guard.language);
 
 const inventedYearIn = (script: string, guard: AnswerGuard): string | undefined => {
     if (guard.years === undefined) return undefined;
@@ -2706,7 +2741,7 @@ const inventedYearIn = (script: string, guard: AnswerGuard): string | undefined 
     // because the two answer different questions for whoever reads the row: a digit year is the text
     // to search the capture for, and "nineteen sixty-five" is three tokens that were never adjacent
     // in the original. `scripts/break.declines.ts` groups on the reason, so both stay one fault.
-    for (const year of yearsIn(spoken)) if (!permitted.has(year)) return String(year);
+    for (const year of yearsIn(spoken, guard.language)) if (!permitted.has(year)) return String(year);
 
     return undefined;
 };
@@ -2725,6 +2760,7 @@ export function faultIn(script: string, guard: AnswerGuard): CharacterFault | un
         ...(guard.recent === undefined ? {} : { recent: guard.recent }),
         ...(guard.told === undefined ? {} : { told: guard.told }),
         ...(guard.dialect === undefined ? {} : { dialect: guard.dialect }),
+        ...(guard.language === undefined ? {} : { language: guard.language }),
         withoutRecordNames: withoutRecordNames(script, guard),
     });
 }
@@ -2868,7 +2904,7 @@ export function writeDecline(text: string, guard: AnswerGuard): { fault: WriteFa
     // Named for the daypart's reason: "two subjects" does not say which two, and the pair is what an
     // operator reads a capture for.
     if (fault === 'mixed-subjects' && guard.persona !== undefined) {
-        return reasoned(fault, subjectsVisited(guard.persona, withoutRecordNames(speakable, guard)).join('" and "'));
+        return reasoned(fault, subjectsVisited(guard.persona, withoutRecordNames(speakable, guard), guard.language).join('" and "'));
     }
 
     return reasoned(fault);

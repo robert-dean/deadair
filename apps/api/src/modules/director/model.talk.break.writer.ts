@@ -1,7 +1,7 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
-import { stationPromptSettings } from './prompt.settings.js';
+import { languageGuard, stationPromptSettings } from './prompt.settings.js';
 import { LlmService } from '#modules/llm/llm.service.js';
 import { captureWrites } from '#modules/render/script.history.settings.js';
 import {
@@ -20,7 +20,7 @@ import {
     type PromptSettings,
 } from './break.prompt.js';
 import { resolveBreakWords } from './break.words.js';
-import { timeClaimIn } from './clock.words.js';
+import { timeClaimFor } from './clock.words.js';
 import { mentionsWeather } from './weather.figures.js';
 import { mentionsStory } from './persona.story.mentions.js';
 import { SaidLog } from './almanac.source.js';
@@ -255,6 +255,7 @@ export class ModelTalkBreakWriter extends BreakWriter {
             // Beside the daypart and off the same instant: the words are what the prompt stated and
             // this is what the clock says, which is the half of the question a stretch cannot answer.
             ...(request.moment === undefined ? {} : { moment: request.moment }),
+            ...languageGuard(this.config),
             // Built from `settings` rather than from `request`, so the guard is judging EXACTLY what
             // the prompt offered — the shape's veto included. A guard handed the raw request would
             // keep a pad hit in a kind of break whose shape refused to offer one, which is the same
@@ -368,12 +369,12 @@ export class ModelTalkBreakWriter extends BreakWriter {
             this.logger.info(`director: ${trimmed.reason}`, { kept: trimmed.kept, dropped: trimmed.dropped, persona: request.persona?.key });
         }
 
-        const claimsTime = timeClaimIn(script, request.clock, request.dayPart);
+        const claimsTime = timeClaimFor(script, guard.language, request.clock, request.dayPart);
         // Whether this break actually reported the sky, which is a question the weather break never
         // has to ask. There the reading IS the break; here it was OFFERED, the prompt says outright
         // that most breaks are better without it, and most of them will take that. See
         // `mentionsWeather`.
-        const reported = request.weather !== undefined && mentionsWeather(script, request.weather);
+        const reported = request.weather !== undefined && mentionsWeather(script, request.weather, guard.language);
         // The same question about the other offer, and it is answerable exactly rather than by a
         // vocabulary: an entry is identified by the YEAR the script named, and `AnswerGuard.years`
         // has already refused every year the station did not show. So a link that said "born on this

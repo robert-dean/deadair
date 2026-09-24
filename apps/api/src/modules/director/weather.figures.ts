@@ -54,15 +54,18 @@ import type { SpokenWeather } from '#modules/weather/weather.words.js';
  * colon or a date-shaped run is left alone. The station's other guards already own what a script may
  * claim about the time.
  */
-export function inventedFigure(script: string, weather: SpokenWeather): string | undefined {
+export function inventedFigure(script: string, weather: SpokenWeather, language?: string): string | undefined {
     const measured = measuredFigures(weather);
 
     // A clock time, a date and a year are removed before anything is read as a measurement. The
     // station's other guards own what a script may claim about the time; this one owns the figures.
-    const figures = withoutTimes(script);
+    const figures = withoutTimes(script, language);
 
-    for (const match of figures.matchAll(/-?\d+(?:\.\d+)?/g)) {
-        const said = Math.round(Number(match[0]));
+    // Outside English a decimal is as likely to be written with a comma as a point: "17,5 Grad" is
+    // one figure, and read as two it is a 5 nobody measured.
+    const number = language === undefined ? /-?\d+(?:\.\d+)?/g : /-?\d+(?:[.,]\d+)?/g;
+    for (const match of figures.matchAll(number)) {
+        const said = Math.round(Number(match[0].replace(',', '.')));
         if (!Number.isFinite(said) || measured.has(said)) continue;
         return match[0];
     }
@@ -111,7 +114,12 @@ export function inventedFigure(script: string, weather: SpokenWeather): string |
  * floor: the alternative is asking a model to tell us what it just did, which is the check that
  * approves its own work.
  */
-export function mentionsWeather(script: string, weather: SpokenWeather): boolean {
+export function mentionsWeather(script: string, weather: SpokenWeather, language?: string): boolean {
+    // The vocabulary below is English, so outside English a break offered a reading is taken to have
+    // reported it. That is the false yes above, chosen on purpose: it costs a break that said nothing
+    // about the sky a claim it did not make, where the false no would air a stale reading.
+    if (language !== undefined) return true;
+
     const said = script.toLowerCase();
 
     // The place first, because it is the cheapest and the most certain: a talk break has no other
@@ -168,11 +176,17 @@ function measuredFigures(weather: SpokenWeather): Set<number> {
  * Shared by both questions above so they cannot disagree about which runs of digits are figures at
  * all. See {@link inventedFigure}'s third note.
  */
-const withoutTimes = (script: string): string =>
-    script
+const withoutTimes = (script: string, language?: string): string => {
+    const english = script
         .replace(/\d{1,2}:\d{2}/g, ' ')
         .replace(/\b\d{1,2}(?:st|nd|rd|th)\b/gi, ' ')
         .replace(/\b(?:19|20)\d{2}\b/g, ' ');
+    if (language === undefined) return english;
+
+    // The other ways a time and a date are written: `21.30` and `21h30`, and the ordinal that is a
+    // number and a full stop, `am 24. September`. Each of them was a figure the reading never had.
+    return english.replace(/\b\d{1,2}[.h]\d{2}\b/g, ' ').replace(/\b\d{1,2}\.(?=\s)/g, ' ');
+};
 
 /** Every word that would count as reporting this reading's sky, across the conditions it names. */
 function conditionVocabulary(weather: SpokenWeather): string[] {

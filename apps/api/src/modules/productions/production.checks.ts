@@ -133,6 +133,11 @@ export interface BeatCheckInput {
      * run-in is compared against the OPENING specifically.
      */
     runIn?: string;
+    /**
+     * The station's language when it is not English. The three checks that read English words, the
+     * two about the time of day and the one about a programme introducing itself twice, stand down.
+     */
+    language?: string;
 }
 
 /** A beat that opens a programme, so the check knows an opening is only wrong out of place. */
@@ -157,7 +162,9 @@ export function checkBeat(input: BeatCheckInput): string[] {
 
     // First of the problems that change what the beat SAYS, and so ahead of every length complaint:
     // a beat that told the listener it was the wrong half of the day is wrong at any length.
-    const named = contradictsDayPart(text, input.dayPart);
+    const english = input.language === undefined;
+
+    const named = english ? contradictsDayPart(text, input.dayPart) : undefined;
     if (named !== undefined) {
         problems.push(
             `This beat calls it "${named}" when it goes out ${input.dayPart!.words}. Say nothing about the part of the day except that one, ` +
@@ -168,7 +175,7 @@ export function checkBeat(input: BeatCheckInput): string[] {
     // The same complaint about a word a daypart cannot judge, and phrased about the CLOCK rather
     // than about the stretch, because that is what makes it wrong: the beat may well have the half
     // of the day right.
-    const hour = namesWrongTimeOfDay(text, input.moment?.at, input.moment?.zone);
+    const hour = english ? namesWrongTimeOfDay(text, input.moment?.at, input.moment?.zone) : undefined;
     if (hour !== undefined) {
         problems.push(
             `This beat says "${hour}", which is hours from when it goes out. Say nothing about the time of day except what you were told, ` +
@@ -201,7 +208,7 @@ export function checkBeat(input: BeatCheckInput): string[] {
     // several short programmes played back to back rather than one. A caller arriving is excused:
     // being put on air mid-programme is exactly when a greeting belongs, and the prompt asked for
     // one.
-    if (input.ordinal > 0 && !(input.role === 'caller' && input.firstTurn === true) && OPENING.test(text)) {
+    if (english && input.ordinal > 0 && !(input.role === 'caller' && input.firstTurn === true) && OPENING.test(text)) {
         problems.push('This beat is mid-programme but it introduces the programme again. Cut the greeting and pick it up in progress.');
     }
 

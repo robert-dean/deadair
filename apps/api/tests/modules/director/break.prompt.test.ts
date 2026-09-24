@@ -2516,3 +2516,42 @@ describe('breakPrompt on a station that does not broadcast in English', () => {
         expect(user(breakPrompt({ kind: 'welcome', greeting }, {}, WELCOME_SHAPE))).toContain('Open with "good morning", in those words');
     });
 });
+
+// Outside English the checks built on English words stand down, and the ones that would refuse a
+// good break for being in another language are loosened. Each case pairs the two stations, so the
+// English behaviour is pinned beside the change.
+describe('readAnswer on a station that does not broadcast in English', () => {
+    const metallica = { title: 'Enter Sandman', artist: 'Metallica' };
+
+    it('counts a record named in the German genitive, which takes no apostrophe', () => {
+        const script = 'Metallicas bekanntester Song, und er klingt immer noch wie ein Güterzug.';
+
+        expect(readAnswer(script, { names: [metallica] })).toBeUndefined();
+        expect(readAnswer(script, { names: [metallica], language: 'de' })).toBe(script);
+    });
+
+    it('still refuses a break that names no record at all', () => {
+        expect(readAnswer('Ein langer Abend, und die Nacht ist noch jung.', { names: [metallica], language: 'de' })).toBeUndefined();
+    });
+
+    it('stands the cue check down, since its frames are English phrases', () => {
+        const between = { previous: { title: 'Madhouse', artist: 'Anthrax' }, next: { title: 'Run to the Hills', artist: 'Iron Maiden' } };
+        const script = 'That was Run to the Hills, sagte man früher.';
+
+        expect(readAnswer(script, { cues: between })).toBeUndefined();
+        expect(readAnswer(script, { cues: between, language: 'de' })).toBe(script);
+    });
+
+    it('stands the daypart checks down, since they read English words', () => {
+        const afternoon = dayPart(Date.UTC(2026, 7, 13, 14, 30), 'UTC');
+        const script = 'Tonight we are back to back, heute ohne Pause.';
+
+        expect(readAnswer(script, { dayPart: afternoon })).toBeUndefined();
+        expect(readAnswer(script, { dayPart: afternoon, language: 'de' })).toBe(script);
+    });
+
+    it('checks digit years and leaves spoken ones alone', () => {
+        expect(yearsIn('Neunzehnhundertvierundachtzig, oder 1984 und nineteen ninety', 'de')).toEqual([1984]);
+        expect(yearsIn('1984, and then nineteen ninety')).toEqual([1984, 1990]);
+    });
+});

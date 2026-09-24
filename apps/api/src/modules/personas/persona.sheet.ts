@@ -985,6 +985,23 @@ const MARKER_INFLECTIONS = ['ing', 'es', 'ed', 'ly', 'er', 's', 'd'] as const;
 const POSSESSIVE = "(?:'s|')";
 
 /**
+ * What a marker may carry on the end in a language other than English, where {@link MARKER_INFLECTIONS}
+ * is the wrong list: German `schön` is said `schöne`, `schönen` and `schönem`, and Spanish `chévere`
+ * is said `chéveres`. Up to three letters of any kind, which covers the inflectional endings of every
+ * language a station has asked for without a table per language, and stops short of letting a short
+ * marker match the start of any long word.
+ */
+const ANY_INFLECTION = '\\p{L}{0,3}';
+
+/**
+ * The elided article a marker may carry on the front in a language other than English: French
+ * `l'amour` and `d'accord`, Italian `l'anima`. The boundary below treats the apostrophe as part of a
+ * word, which in English is what stops "you" matching inside "you're" and elsewhere stops a marker
+ * ever being found after an article.
+ */
+const ELIDED = "(?:\\p{L}{1,2}')";
+
+/**
  * Whether a marker appears in `text`, case-insensitively.
  *
  * A marker ending in an apostrophe ("in'") matches as a word SUFFIX, so every dropped-g verb counts
@@ -994,7 +1011,7 @@ const POSSESSIVE = "(?:'s|')";
  *
  * Both sides are straightened first, because a curly apostrophe is the same word said the same way.
  */
-export function matchesDictionMarker(marker: string, text: string): boolean {
+export function matchesDictionMarker(marker: string, text: string, language?: string): boolean {
     const needle = asTyped(marker.trim().toLowerCase());
     if (needle.length === 0) return false;
 
@@ -1004,7 +1021,9 @@ export function matchesDictionMarker(marker: string, text: string): boolean {
     // a suffix rule of its own and takes no inflection on top.
     const pattern = needle.endsWith("'")
         ? `\\p{L}${escaped}(?!\\p{L})`
-        : `(?<![\\p{L}'])${escaped}(?:${MARKER_INFLECTIONS.join('|')})?${POSSESSIVE}?(?![\\p{L}'])`;
+        : language === undefined
+          ? `(?<![\\p{L}'])${escaped}(?:${MARKER_INFLECTIONS.join('|')})?${POSSESSIVE}?(?![\\p{L}'])`
+          : `(?<![\\p{L}'])${ELIDED}?${escaped}${ANY_INFLECTION}${POSSESSIVE}?(?![\\p{L}'])`;
     return new RegExp(pattern, 'u').test(asTyped(text.toLowerCase()));
 }
 
@@ -1021,8 +1040,8 @@ export function catchphrasesIn(catchphrases: readonly string[] | undefined, scri
 }
 
 /** The distinct markers a script carries. Its length is what a caller judges. */
-export function dictionMarkersIn(markers: readonly string[] | undefined, script: string): string[] {
-    return cleanList(markers, PERSONA_SHEET_LIMITS.dictionMarkers).filter(marker => matchesDictionMarker(marker, script));
+export function dictionMarkersIn(markers: readonly string[] | undefined, script: string, language?: string): string[] {
+    return cleanList(markers, PERSONA_SHEET_LIMITS.dictionMarkers).filter(marker => matchesDictionMarker(marker, script, language));
 }
 
 /**
@@ -1076,11 +1095,11 @@ export function unearnedMarkers(markers: readonly string[] | undefined, samples:
  * carrying catchphrases and no markers has still made no checkable claim, and a script that used no
  * catchphrase has done exactly what it was told.
  */
-export function keepsCharacter(sheet: PersonaSheet, script: string): boolean {
+export function keepsCharacter(sheet: PersonaSheet, script: string, language?: string): boolean {
     const markers = cleanList(sheet.dictionMarkers, PERSONA_SHEET_LIMITS.dictionMarkers);
     if (markers.length === 0) return true;
 
-    const evidence = dictionMarkersIn(markers, script).length + catchphrasesIn(sheet.catchphrases, script).length;
+    const evidence = dictionMarkersIn(markers, script, language).length + catchphrasesIn(sheet.catchphrases, script).length;
     return evidence >= MIN_DICTION_MARKERS;
 }
 
@@ -1143,9 +1162,9 @@ export function subjectsOf(sheet: PersonaSheet): string[][] {
  * pass the script with those names taken out, because a record called "Aliens Exist" is not the
  * presenter bringing up aliens.
  */
-export function subjectsVisited(sheet: PersonaSheet, script: string): string[] {
+export function subjectsVisited(sheet: PersonaSheet, script: string, language?: string): string[] {
     return subjectsOf(sheet)
-        .filter(words => words.some(word => matchesDictionMarker(word, script)))
+        .filter(words => words.some(word => matchesDictionMarker(word, script, language)))
         .map(words => words[0]!);
 }
 
@@ -1314,6 +1333,11 @@ export interface CharacterContext {
      * not the presenter bringing up the moon landing. Absent, the check reads the script as it is.
      */
     withoutRecordNames?: string;
+    /**
+     * The station's language when it is not English, which loosens how a marker is matched: any short
+     * ending and an elided article instead of English's inflections. See `ANY_INFLECTION`.
+     */
+    language?: string;
 }
 
 /**
@@ -1352,7 +1376,7 @@ export function characterFault(sheet: PersonaSheet, script: string, context: Cha
     // Excused with the dialect: a bulletin's subjects are its headlines, and a news day that carries
     // two of them is the data, not the presenter wandering. Ahead of the repeat check because it is
     // the narrower reason.
-    if (subjectsVisited(sheet, context.withoutRecordNames ?? script).length > 1) return 'mixed-subjects';
+    if (subjectsVisited(sheet, context.withoutRecordNames ?? script, context.language).length > 1) return 'mixed-subjects';
 
     // Excused with the dialect, and for a measured reason rather than by association: the kinds
     // that pass `optional` are the bulletins (news, weather, almanac), and every repeat they made
@@ -1362,7 +1386,7 @@ export function characterFault(sheet: PersonaSheet, script: string, context: Cha
     // `MAX_RECENT_ECHO_WORDS`.
     if (context.recent !== undefined && repeatOf(context.recent, script) !== undefined) return 'repeated-itself';
 
-    return keepsCharacter(sheet, script) ? undefined : 'out-of-character';
+    return keepsCharacter(sheet, script, context.language) ? undefined : 'out-of-character';
 }
 
 /** A text as bare lower-case words, so two of them can be compared as speech rather than as text. */

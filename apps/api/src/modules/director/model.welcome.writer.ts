@@ -1,7 +1,7 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
-import { stationPromptSettings } from './prompt.settings.js';
+import { languageGuard, stationPromptSettings } from './prompt.settings.js';
 import { languageName } from '#modules/shared/language.name.js';
 import { LlmService } from '#modules/llm/llm.service.js';
 import { captureWrites } from '#modules/render/script.history.settings.js';
@@ -17,7 +17,7 @@ import {
     type BreakPromptShape,
     type PromptSettings,
 } from './break.prompt.js';
-import { timeClaimIn } from './clock.words.js';
+import { timeClaimFor } from './clock.words.js';
 import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBreak, patienceFor } from './break.writer.js';
 import { BUDGET_MS, MAX_OUTPUT_TOKENS, MODEL_WRITER, MODEL_WRITER_DEFAULT, MODEL_WRITER_KEYS } from './model.talk.break.writer.js';
 import { WELCOME_KIND } from './welcome.writer.js';
@@ -178,6 +178,7 @@ export class ModelWelcomeWriter extends BreakWriter {
             // Beside the daypart and off the same instant: the words are what the prompt stated and
             // this is what the clock says, which is the half of the question a stretch cannot answer.
             ...(request.moment === undefined ? {} : { moment: request.moment }),
+            ...languageGuard(this.config),
             // The talk break's own guard, carried over: `WELCOME_SHAPE` never shows a previous
             // record (`showsPrevious: false`), so the only one a greeting is ever handed is
             // `request.next`, and `recent` is stripped out of the prompt before it reaches `shown`
@@ -219,7 +220,7 @@ export class ModelWelcomeWriter extends BreakWriter {
             this.logger.info(`director: ${trimmed.reason}`, { kept: trimmed.kept, dropped: trimmed.dropped, persona: request.persona?.key });
         }
 
-        const claimsTime = timeClaimIn(script, request.greeting, request.dayPart);
+        const claimsTime = timeClaimFor(script, guard.language, request.greeting, request.dayPart);
 
         return {
             script,

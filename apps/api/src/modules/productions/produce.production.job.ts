@@ -573,6 +573,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                 // `scheduledFor` exactly as `whenItAirs` is, so the two cannot describe different
                 // afternoons.
                 moment: { at: claimed.scheduledFor ?? Date.now(), zone: stationZone(this.config) },
+                ...this.language(),
             });
             if (problems.length === 0) continue;
 

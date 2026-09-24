@@ -162,6 +162,11 @@ export class MessagingPoller {
         let cursor = await this.readCursor(pluginId, signal);
         let failures = 0;
 
+        // Once per worker, which is once per init: a config save reinitializes the plugin and ends
+        // this worker, and the next one tells the new instance.
+        const listing = this.messaging.platform(pluginId);
+        if (listing !== undefined && !signal.aborted) await this.messaging.listCommands(listing, this.commands.list());
+
         while (!signal.aborted) {
             const platform = this.messaging.platform(pluginId);
             if (platform === undefined) return;

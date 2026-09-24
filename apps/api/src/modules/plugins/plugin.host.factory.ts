@@ -14,6 +14,8 @@ import type {
     PluginOAuth,
     PluginPermissions,
     PluginSecrets,
+    PluginSocket,
+    PluginSocketOptions,
     PluginStorage,
     PluginTrackFetcher,
     ProviderTrack,
@@ -104,6 +106,53 @@ export const PLUGIN_BODY_LIFETIME_MS = 5 * 60_000;
 export const PLUGIN_RESPONSE_MAX_BYTES = 64 * 1024 * 1024;
 
 /**
+ * The longest `host.socket` waits for a socket to open. Plugins may ask for less.
+ *
+ * Not the invocation's deadline, because a socket is usually opened from a plugin's own background
+ * start rather than inside a call the host is waiting on, and when it is inside one the plugin is
+ * choosing to spend that call's time.
+ */
+export const PLUGIN_SOCKET_CONNECT_TIMEOUT_MS = 10_000;
+
+/**
+ * The most one inbound text frame may carry before the socket is closed.
+ *
+ * Sized above the largest frame either chat platform sends a bot in one ordinary server: Discord's
+ * `GUILD_CREATE` lists every channel and role, and is the frame that grows with the server. A frame
+ * over it is closed on rather than truncated, for the body guard's reason: bytes a plugin gets are
+ * bytes the server sent.
+ */
+export const PLUGIN_SOCKET_MAX_FRAME_BYTES = 4 * 1024 * 1024;
+
+/**
+ * How many sockets one plugin may hold open at once.
+ *
+ * A platform connection is one socket and a reconnect briefly two; this is room for that and a
+ * mistake, not for a plugin that opens one per chat.
+ */
+export const PLUGIN_SOCKET_MAX_OPEN = 4;
+
+/**
+ * The part of the platform `WebSocket` the host drives, so tests can hand it a double.
+ *
+ * `addEventListener` only, with the four events a client socket has, and text frames: a binary frame
+ * is dropped before a plugin sees it.
+ */
+export interface HostWebSocket {
+    send(data: string): void;
+    close(code?: number, reason?: string): void;
+    addEventListener(
+        type: 'open' | 'message' | 'close' | 'error',
+        listener: (event: { data?: unknown; code?: number; reason?: string }) => void,
+    ): void;
+}
+
+/** Opens a {@link HostWebSocket}. The platform's own unless a test says otherwise. */
+export type HostWebSocketOpener = (url: string) => HostWebSocket;
+
+const platformWebSocket: HostWebSocketOpener = url => new WebSocket(url) as unknown as HostWebSocket;
+
+/**
  * Where the host's own OAuth redirect endpoint lives. Constructor-injected
  * exactly like the loader's options so the factory never touches `AppConfig`.
  */
@@ -117,7 +166,21 @@ export class PluginHostFactoryOptions {
          * otherwise; see {@link privateAddressBehind}.
          */
         readonly resolveAddresses: AddressResolver = systemResolver,
+        /** How `host.socket` opens a WebSocket once the URL has passed the policy. */
+        readonly openWebSocket: HostWebSocketOpener = platformWebSocket,
     ) {}
+}
+
+/**
+ * One plugin instance's open sockets, and whether it may open more.
+ *
+ * `closed` is set when the plugin is disposed, and is what stops a client that was never stopped
+ * from reconnecting through a host whose plugin is gone.
+ */
+interface SocketRegistry {
+    closed: boolean;
+    /** Each open socket's way of being closed by the host. */
+    sockets: Set<() => void>;
 }
 
 const sleep = (ms: number): Promise<void> => new Promise(resolve => setTimeout(resolve, ms));
@@ -723,6 +786,9 @@ export class PluginHostFactory {
      */
     private readonly openBodies = new Map<string, Set<BodyRelease>>();
 
+    /** Every socket any plugin still has open, by plugin id, for {@link closeOpenSockets}'s reason. */
+    private readonly openSockets = new Map<string, SocketRegistry>();
+
     /**
      * The (plugin, hostname) pairs already reported as reached off the
      * allowlist.
@@ -764,9 +830,15 @@ export class PluginHostFactory {
         const bodies = new Set<BodyRelease>();
         this.openBodies.set(manifest.id, bodies);
 
+        // Per instance for the same reason, and marked closed rather than dropped on dispose, so a
+        // socket asked for through a host that outlived its plugin is refused.
+        const sockets: SocketRegistry = { closed: false, sockets: new Set() };
+        this.openSockets.set(manifest.id, sockets);
+
         return {
             logger,
             fetch: (url, init) => this.hostFetch(manifest, entries, buckets, logger, bodies, url, init),
+            socket: (url, options) => this.hostSocket(manifest, entries, buckets, logger, sockets, url, options),
             // A getter, not a captured value: the host object outlives every
             // invocation made through it, so it has to read the ambient one at
             // the moment the plugin asks rather than whichever was running when
@@ -1161,6 +1233,209 @@ export class PluginHostFactory {
         const disposed = new PluginError(`plugin "${pluginId}" was disposed while a response body was still open`).withCode('unavailable');
         // A copy, because releasing a body removes it from this very set.
         for (const release of [...bodies]) release(disposed);
+    }
+
+    /**
+     * Closes every socket a plugin still has open, and refuses it any more.
+     *
+     * The socket twin of {@link cancelOpenBodies}, called beside it once a plugin is disposed. The
+     * plugin's close listeners are NOT told: a client told its socket closed reconnects, and there
+     * is nothing left to reconnect for.
+     *
+     * Safe to call for a plugin that never opened one, and safe to call twice.
+     */
+    closeOpenSockets(pluginId: string): void {
+        const registry = this.openSockets.get(pluginId);
+        this.openSockets.delete(pluginId);
+        if (registry === undefined) return;
+
+        registry.closed = true;
+        for (const close of [...registry.sockets]) close();
+    }
+
+    /**
+     * `host.socket`: the fetch policy applied to a WebSocket.
+     *
+     * The URL goes through {@link assertAllowed} as the `https:` URL it upgrades from, so the one
+     * allowlist governs both, and through {@link assertPublicAddress} when it was reached through
+     * `network.open`. The connect costs one token from the matching bucket. What differs from fetch
+     * is time: a socket outlives the call that opened it, so it is bounded by the frame cap, the count
+     * cap and disposal rather than by an invocation's deadline.
+     *
+     * Everything a plugin's listener throws is caught and logged here. The platform's `WebSocket`
+     * dispatches from its own event loop turn, where a throw would be an uncaught exception in the
+     * API server rather than a failure of the plugin.
+     */
+    private async hostSocket(
+        manifest: PluginManifest,
+        networkEntries: () => Promise<NetworkEntry[]>,
+        buckets: Map<string, RateBucket>,
+        logger: PluginLogger,
+        registry: SocketRegistry,
+        url: string,
+        options: PluginSocketOptions | undefined,
+    ): Promise<PluginSocket> {
+        // `internal` for the storage guard's reason.
+        if (!manifest.permissions.sockets) {
+            throw new PluginError(`plugin "${manifest.id}" does not declare the "sockets" permission`).withCode('internal');
+        }
+
+        let upgrade: URL;
+        try {
+            upgrade = new URL(url);
+        } catch {
+            throw new PluginError(`plugin "${manifest.id}" asked for a socket to an unparseable URL`).withCode('config');
+        }
+        if (upgrade.protocol !== 'wss:') {
+            throw new PluginError(`plugin "${manifest.id}" may only open wss: sockets, got "${upgrade.protocol}"`).withCode('config');
+        }
+
+        const refuseClosed = (): never => {
+            throw new PluginError(`plugin "${manifest.id}" was disposed; it may not open a socket`).withCode('unavailable');
+        };
+        if (registry.closed) refuseClosed();
+        if (registry.sockets.size >= PLUGIN_SOCKET_MAX_OPEN) {
+            throw new PluginError(`plugin "${manifest.id}" already holds ${PLUGIN_SOCKET_MAX_OPEN} open sockets, the most it may`).withCode(
+                'internal',
+            );
+        }
+
+        const policed = new URL(upgrade);
+        policed.protocol = 'https:';
+        const entries = await networkEntries();
+        const { entry, open } = this.assertAllowed(manifest, entries, logger, policed.toString());
+        if (open) await this.assertPublicAddress(manifest, logger, policed);
+
+        const timeoutMs = Math.min(options?.connectTimeoutMs ?? PLUGIN_SOCKET_CONNECT_TIMEOUT_MS, PLUGIN_SOCKET_CONNECT_TIMEOUT_MS);
+        const deadlineAt = Date.now() + timeoutMs;
+        await this.consumeRateLimit(manifest, buckets, entry, deadlineAt);
+        if (registry.closed) refuseClosed();
+
+        const hostname = upgrade.hostname.toLowerCase();
+        let raw: HostWebSocket;
+        try {
+            raw = this.options.openWebSocket(upgrade.toString());
+        } catch (error) {
+            throw new PluginError(`plugin "${manifest.id}" could not open a socket to "${hostname}": ${errorText(error)}`).withCode('upstream');
+        }
+
+        return new Promise<PluginSocket>((resolve, reject) => {
+            const messageListeners: ((text: string) => void)[] = [];
+            const closeListeners: ((code?: number, reason?: string) => void)[] = [];
+            let state: 'connecting' | 'open' | 'closed' = 'connecting';
+            let closedWith: { code?: number; reason?: string } | undefined;
+            let muted = false;
+
+            const safely = (what: string, fn: () => void): void => {
+                try {
+                    fn();
+                } catch (error) {
+                    logger.warn(`plugin socket ${what} listener threw`, { hostname, error: errorText(error) });
+                }
+            };
+
+            const forceClose = (code: number, reason: string): void => {
+                try {
+                    raw.close(code, reason);
+                } catch {
+                    // Already closing, or closed; either way it is going.
+                }
+            };
+
+            const release = (): void => {
+                muted = true;
+                forceClose(1000, 'plugin disposed');
+                settleClosed(1000, 'plugin disposed');
+            };
+
+            const settleClosed = (code?: number, reason?: string): void => {
+                if (state === 'closed') return;
+                const wasConnecting = state === 'connecting';
+                state = 'closed';
+                closedWith = { ...(code === undefined ? {} : { code }), ...(reason === undefined || reason === '' ? {} : { reason }) };
+                clearTimeout(timer);
+                registry.sockets.delete(release);
+                if (wasConnecting) {
+                    reject(
+                        new PluginError(
+                            `plugin "${manifest.id}" socket to "${hostname}" closed before it opened${code === undefined ? '' : ` (${code})`}`,
+                        ).withCode('upstream'),
+                    );
+                    return;
+                }
+                if (muted) return;
+                for (const listener of closeListeners) safely('close', () => listener(closedWith?.code, closedWith?.reason));
+            };
+
+            const timer = setTimeout(() => {
+                if (state !== 'connecting') return;
+                forceClose(1000, 'connect timeout');
+                state = 'closed';
+                registry.sockets.delete(release);
+                reject(new PluginError(`plugin "${manifest.id}" socket to "${hostname}" did not open within ${timeoutMs}ms`).withCode('timeout'));
+            }, timeoutMs);
+
+            const socket: PluginSocket = {
+                send: text => {
+                    if (state !== 'open') {
+                        logger.debug('plugin socket send after close ignored', { hostname });
+                        return;
+                    }
+                    try {
+                        raw.send(text);
+                    } catch (error) {
+                        logger.debug('plugin socket send failed', { hostname, error: errorText(error) });
+                    }
+                },
+                close: (code, reason) => {
+                    // A client may only send 1000 or 3000–4999, and the platform throws on anything else.
+                    const allowed = code === undefined || code === 1000 || (code >= 3000 && code <= 4999) ? (code ?? 1000) : 1000;
+                    forceClose(allowed, reason ?? '');
+                },
+                onMessage: listener => void messageListeners.push(listener),
+                onClose: listener => {
+                    closeListeners.push(listener);
+                    // Registered after it closed: told on the next turn, so no listener waits forever.
+                    if (state === 'closed' && !muted) {
+                        const { code, reason } = closedWith ?? {};
+                        queueMicrotask(() => safely('close', () => listener(code, reason)));
+                    }
+                },
+            };
+
+            registry.sockets.add(release);
+
+            raw.addEventListener('open', () => {
+                if (state !== 'connecting') return;
+                if (registry.closed) {
+                    release();
+                    return;
+                }
+                state = 'open';
+                clearTimeout(timer);
+                resolve(socket);
+            });
+
+            raw.addEventListener('message', event => {
+                if (state !== 'open') return;
+                if (typeof event.data !== 'string') {
+                    logger.debug('plugin socket binary frame dropped', { hostname });
+                    return;
+                }
+                const text = event.data;
+                if (Buffer.byteLength(text, 'utf8') > PLUGIN_SOCKET_MAX_FRAME_BYTES) {
+                    logger.warn('plugin socket closed: a frame was over the size limit', { hostname, limit: PLUGIN_SOCKET_MAX_FRAME_BYTES });
+                    forceClose(3009, 'frame too large');
+                    settleClosed(3009, 'frame too large');
+                    return;
+                }
+                for (const listener of messageListeners) safely('message', () => listener(text));
+            });
+
+            raw.addEventListener('close', event => settleClosed(event.code, event.reason));
+            // An error is always followed by a close, which is where it is reported.
+            raw.addEventListener('error', () => logger.debug('plugin socket error', { hostname }));
+        });
     }
 
     /**

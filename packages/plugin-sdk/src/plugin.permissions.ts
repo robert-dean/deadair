@@ -172,6 +172,16 @@ export interface PluginPermissions {
     trackFetcher?: boolean;
 
     /**
+     * Whether the plugin may use `host.socket` (an outbound WebSocket, held to
+     * the same {@link network} allowlist as `host.fetch`).
+     *
+     * Optional for `trackFetcher`'s reason: only a plugin whose platform delivers
+     * over a socket wants one. A disclosure rather than a grant, because the
+     * hosts it may reach are already the ones listed above.
+     */
+    sockets?: boolean;
+
+    /**
      * Capabilities this plugin is ASKING for, each with the reason an operator
      * reads before deciding. See {@link PluginGrantRequest}.
      *
@@ -212,5 +222,6 @@ export const pluginPermissionsSchema = z.object({
     storage: z.boolean(),
     oauth: z.boolean(),
     trackFetcher: z.boolean().optional(),
+    sockets: z.boolean().optional(),
     grants: z.array(grantRequestSchema).optional(),
 });

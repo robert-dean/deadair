@@ -421,6 +421,35 @@ it, including the time `host.fetch` parks waiting for rate-limit headroom, and
 `host.fetch` caps its own timeout by it. Read a small number as advice to wrap
 up, not as permission to run that long.
 
+## When your platform talks over a socket
+
+Some platforms only deliver over a WebSocket you hold open: Slack's Socket Mode
+and the Discord Gateway, where button presses and slash commands arrive and
+nowhere else does without a public URL. `host.socket` opens one, under the same
+policy as `host.fetch`:
+
+```ts
+const socket = await host.socket(url);               // wss: only, host in permissions.network
+socket.onMessage(text => this.handle(JSON.parse(text)));
+socket.onClose(code => this.reconnectLater(code));
+socket.send(JSON.stringify({ op: 1, d: null }));
+```
+
+Requires the `sockets` permission, and the socket's host must be in
+`permissions.network` like any other upstream. A connect costs one token from that
+host's rate bucket. Text frames only; a binary frame is dropped.
+
+The socket outlives the call that opened it, so no invocation deadline applies to
+it. The host bounds it instead: a frame over a few MiB closes it, a plugin may hold
+only a handful at once, and disposing the plugin closes every one it still has,
+**without** calling your close listeners (there is nobody left to reconnect). Stop
+your own client in a `register` disposer anyway; the host's close is the backstop.
+
+`send` after a close does nothing rather than throwing, since the likeliest sender
+is a heartbeat timer, and a listener that throws is logged rather than allowed to
+reach the event loop. The socket is the shape ServerKit's Socket Mode and Gateway
+clients call `SocketLike`, so `connect: url => host.socket(url)` is all either needs.
+
 ## When your audio needs a helper to fetch it
 
 Almost every provider answers `resolveStreamUrl` out of its own head: it knows a
@@ -829,6 +858,15 @@ at a time, and stores the cursor you return. Hold the call open for up to
 the platform delivered, including what you filtered out, or the same messages
 come back forever. No cursor at all means "from now", never "replay everything".
 
+**A platform that pushes holds a socket instead.** Where messages, slash
+commands and button presses arrive over a WebSocket (Discord's Gateway, Slack's
+Socket Mode), open it with [`host.socket`](#when-your-platform-talks-over-a-socket),
+queue what it hears, and have `receive` drain the queue, waiting on it for up to
+`waitMs`. Return no cursor. Start the session on the first `receive` rather than
+in `onLoad`, so a failure to connect is the poll's failure and shows on your
+plugin's page. `plugins/discord` is the worked example, including acknowledging
+an interaction the moment it arrives, since the host answers when its turn comes.
+
 **Which chats count is yours to decide.** Chat ids are your platform's
 vocabulary, so the list of chats the station listens in is your configuration,
 and anything you return from `receive` is something the host acts on. Drop
@@ -852,6 +890,10 @@ buttons renders them as text or drops them.
 `announceTargets()` says which chats want which announcements (today only
 `nowPlaying`); leave it out and the station only ever answers when spoken to.
 `accepting()` is the operator's off switch, as it is for scrobbling.
+`commands(list)` is told the station's commands (`{ name, description,
+takesArgs }`) each time the host starts listening on your plugin, for a platform
+that lists commands in its own interface; overwrite, don't append. Leave it out
+and people type the commands as they always could.
 
 ## Music providers
 

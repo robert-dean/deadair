@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Container } from 'injectkit';
 import { TemplateRegistry, type Reply } from '@maroonedsoftware/comms';
 import type { Logger } from '@maroonedsoftware/logger';
-import type { InboundMessage, MessagingReceiveQuery, MessagingReceiveResult, PluginManifest } from '@deadair/plugin-sdk';
+import type { InboundMessage, MessagingCommand, MessagingReceiveQuery, MessagingReceiveResult, PluginManifest } from '@deadair/plugin-sdk';
 
 import {
     MESSAGING_BACKOFF_FIRST_MS,
@@ -54,7 +54,10 @@ const message = (id: string, text = '/now'): InboundMessage => ({
  * A platform whose polls are scripted: each entry answers one `receive`, and once the script runs
  * out every poll hangs the way a quiet long poll does, until the poller lets go of it.
  */
-function build(script: Array<MessagingReceiveResult | Error>, options: { savedCursor?: string } = {}) {
+function build(
+    script: Array<MessagingReceiveResult | Error>,
+    options: { savedCursor?: string; listCommands?: (commands: MessagingCommand[]) => Promise<void> } = {},
+) {
     const queries: MessagingReceiveQuery[] = [];
     const receive = vi.fn(async (query: MessagingReceiveQuery) => {
         queries.push(query);
@@ -71,7 +74,7 @@ function build(script: Array<MessagingReceiveResult | Error>, options: { savedCu
         origin: 'bundled',
         status: 'active',
         manifest: manifest(TELEGRAM),
-        instance: { init: vi.fn(), receive, send } as never,
+        instance: { init: vi.fn(), receive, send, ...(options.listCommands === undefined ? {} : { commands: options.listCommands }) } as never,
     };
     const registry = new PluginRegistry();
     registry.setAll([record]);
@@ -96,13 +99,22 @@ function build(script: Array<MessagingReceiveResult | Error>, options: { savedCu
     const answer = vi.fn(async (_: string, inbound: InboundMessage, reply: Reply) => {
         if (inbound.text === '/now') await reply.send({ text: 'Teardrop' });
     });
-    const commands = { dispatch: answer, router: { templates: new TemplateRegistry() } } as unknown as MessagingCommands;
+    const commands = {
+        dispatch: answer,
+        list: () => TABLE,
+        router: { templates: new TemplateRegistry() },
+    } as unknown as MessagingCommands;
 
     const messaging = new MessagingService(registry, new PluginInvoker(registry, stubPluginLog().log), stubLogger());
     const poller = new MessagingPoller(container, messaging, commands, stubLogger());
 
     return { poller, receive, send, queries, saved, answer };
 }
+
+const TABLE: MessagingCommand[] = [
+    { name: 'now', description: 'what is on air right now', takesArgs: false },
+    { name: 'request', description: 'TITLE OR ARTIST: ask for a record', takesArgs: true },
+];
 
 let running: MessagingPoller | undefined;
 
@@ -188,6 +200,30 @@ describe('listening', () => {
         poller.start();
 
         await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(1));
+    });
+});
+
+describe('the list of commands', () => {
+    it('tells a platform that keeps one, once, before it first listens', async () => {
+        const listCommands = vi.fn(async () => undefined);
+        const { poller, queries } = build([{ messages: [] }], { listCommands });
+        running = poller;
+        poller.start();
+
+        await vi.waitFor(() => expect(queries).toHaveLength(2));
+        expect(listCommands).toHaveBeenCalledTimes(1);
+        expect(listCommands).toHaveBeenCalledWith(TABLE);
+    });
+
+    it('listens anyway when the platform could not take it', async () => {
+        const listCommands = vi.fn(async () => {
+            throw new Error('refused');
+        });
+        const { poller, queries } = build([], { listCommands });
+        running = poller;
+        poller.start();
+
+        await vi.waitFor(() => expect(queries).toHaveLength(1));
     });
 });
 

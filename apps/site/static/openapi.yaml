@@ -2624,6 +2624,23 @@ paths:
                     description: 'No content'
                 '404':
                     description: 'Not found'
+    '/station-playlists/{id}/fill':
+        post:
+            operationId: requestFill
+            summary: 'Fill station playlist'
+            description: 'Looks up the records this playlist names and the library does not hold, in the background, and adds the ones a provider has. The activity feed says how it went'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            responses:
+                '202':
+                    description: 'Response 202'
+                '404':
+                    description: 'Not found'
     '/station-playlists/{id}/export':
         get:
             operationId: export

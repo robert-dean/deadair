@@ -76,6 +76,19 @@ public sealed class StationPlaylistsClient(SdkHttp http)
     }
 
     /// <summary>
+    /// Fill station playlist
+    /// Looks up the records this playlist names and the library does not hold, in the background, and adds the ones a provider has. The activity feed says how it went
+    /// </summary>
+    /// <exception cref="SdkException">On 404.</exception>
+    public async Task FillStationPlaylistAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        await http.ExecuteAsync(
+            HttpMethod.Post,
+            http.Path("station-playlists", http.Segment(id), "fill"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
     /// Export station playlist
     /// One station playlist as a file another station can import
     /// </summary>

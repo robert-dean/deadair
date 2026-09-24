@@ -93,8 +93,26 @@ StationPlaylistsRouter.delete('/station-playlists/:id', requirePolicy({ policy: 
 });
 
 /**
- * One station playlist as a file another station can import
+ * Looks up the records this playlist names and the library does not hold, in the background, and adds the ones a provider has. The activity feed says how it went
  * from [station.playlists.ck](../../data/contracts/playlists/station.playlists.ck#L75)
+ */
+StationPlaylistsRouter.post('/station-playlists/:id/fill', requirePolicy({ policy: 'platform.manage' }), async ctx => {
+    const { id } = await parseAndValidate(
+        ctx.params,
+        z.strictObject({
+            id: z.uuid(),
+        }),
+    );
+
+    const service = ctx.container.get(StationPlaylistsService);
+    await service.requestFill(id);
+
+    ctx.status = 202;
+});
+
+/**
+ * One station playlist as a file another station can import
+ * from [station.playlists.ck](../../data/contracts/playlists/station.playlists.ck#L89)
  */
 StationPlaylistsRouter.get('/station-playlists/:id/export', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const { id } = await parseAndValidate(
@@ -115,7 +133,7 @@ StationPlaylistsRouter.get('/station-playlists/:id/export', requirePolicy({ poli
 
 /**
  * Reads a source and reports which of its records the library holds and which it would have to find. Writes nothing
- * from [station.playlists.ck](../../data/contracts/playlists/station.playlists.ck#L96)
+ * from [station.playlists.ck](../../data/contracts/playlists/station.playlists.ck#L110)
  */
 StationPlaylistsRouter.post(
     '/station-playlists/import/preview',
@@ -135,7 +153,7 @@ StationPlaylistsRouter.post(
 
 /**
  * Makes a new station playlist from a source and answers with what it did
- * from [station.playlists.ck](../../data/contracts/playlists/station.playlists.ck#L113)
+ * from [station.playlists.ck](../../data/contracts/playlists/station.playlists.ck#L127)
  */
 StationPlaylistsRouter.post('/station-playlists/import', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const body = await parseAndValidate(ctx.parsedBody, PlaylistImportInput);

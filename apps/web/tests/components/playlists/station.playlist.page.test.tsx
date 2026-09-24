@@ -9,12 +9,14 @@ const getStationPlaylist = vi.fn();
 const deleteStationPlaylist = vi.fn();
 const navigate = vi.fn();
 const playAStationPlaylist = vi.fn();
+const fillStationPlaylist = vi.fn();
 
 vi.mock('../../../src/api/client', () => ({
     sdk: {
         playlists: {
             getStationPlaylist: (id: string) => getStationPlaylist(id),
             deleteStationPlaylist: (id: string) => deleteStationPlaylist(id),
+            fillStationPlaylist: (id: string) => fillStationPlaylist(id),
         },
         playout: { playAStationPlaylist: (body: unknown) => playAStationPlaylist(body) },
         plugins: { listPlugins: () => Promise.resolve([{ id: 'deadair.spotify', name: 'Spotify' }]) },
@@ -90,5 +92,25 @@ describe('StationPlaylistPage', () => {
 
         expect(await screen.findByText('Teardrop')).toBeInTheDocument();
         expect(screen.queryByRole('button', { name: 'Air this playlist' })).not.toBeInTheDocument();
+    });
+
+    it('asks for the missing records to be looked up', async () => {
+        getStationPlaylist.mockResolvedValue(detail());
+        fillStationPlaylist.mockResolvedValue(undefined);
+        const user = setupUser();
+
+        render(<StationPlaylistPage id="station-playlist-1" />);
+        await user.click(await screen.findByRole('button', { name: 'Look up missing records' }));
+
+        await waitFor(() => expect(fillStationPlaylist).toHaveBeenCalledWith('station-playlist-1'));
+    });
+
+    it('offers no look-up when every record is in the library', async () => {
+        getStationPlaylist.mockResolvedValue({ ...detail(), resolvedCount: 2, tracks: [detail().tracks[0]!] });
+
+        render(<StationPlaylistPage id="station-playlist-1" />);
+
+        expect(await screen.findByText('Teardrop')).toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Look up missing records' })).not.toBeInTheDocument();
     });
 });

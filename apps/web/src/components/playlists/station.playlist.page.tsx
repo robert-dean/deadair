@@ -8,6 +8,7 @@ import {
     exportStationPlaylist,
     stationPlaylistOptions,
     useDeleteStationPlaylist,
+    useFillStationPlaylist,
     useUpdateStationPlaylist,
 } from '../../api/station.playlists.queries';
 import { PlayStationPlaylistButton } from '../playout/play.playlist.button';
@@ -16,6 +17,7 @@ import { ConfirmModal } from '../shared/confirm.modal';
 import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
 import { formatDuration } from '../shared/format.duration';
+import { notifyQueued } from '../shared/notify';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
 import { PhoneCard } from '../shared/phone.card';
@@ -35,6 +37,7 @@ export function StationPlaylistPage({ id }: { id: string }) {
     const phone = usePhone();
     const navigate = useNavigate();
     const remove = useDeleteStationPlaylist();
+    const fill = useFillStationPlaylist();
     const [editing, setEditing] = useState(false);
     const [deleting, setDeleting] = useState(false);
     const [exporting, setExporting] = useState(false);
@@ -78,6 +81,23 @@ export function StationPlaylistPage({ id }: { id: string }) {
                                     placeholders is refused with a 422, so offering the button first
                                     invites it. */}
                                 {data.resolvedCount > 0 ? <PlayStationPlaylistButton stationPlaylistId={id} size="xs" /> : undefined}
+                                {data.resolvedCount < data.trackCount ? (
+                                    <Button
+                                        size="xs"
+                                        variant="default"
+                                        loading={fill.isPending}
+                                        onClick={() =>
+                                            fill.mutate(id, {
+                                                onSuccess: () =>
+                                                    notifyQueued(
+                                                        `The station is looking up the records missing from ${data.name}. The activity feed says how many it found.`,
+                                                    ),
+                                            })
+                                        }
+                                    >
+                                        Look up missing records
+                                    </Button>
+                                ) : undefined}
                                 <Button size="xs" variant="default" loading={exporting} onClick={() => void save()}>
                                     Export
                                 </Button>
@@ -94,6 +114,8 @@ export function StationPlaylistPage({ id }: { id: string }) {
             </Stack>
 
             {exportFailure ? <ErrorAlert title="The playlist could not be exported" error={exportFailure} /> : undefined}
+
+            {fill.error ? <ErrorAlert title="The missing records could not be looked up" error={fill.error} /> : undefined}
 
             {playlist.error ? (
                 <ErrorAlert title="This playlist could not be loaded" error={playlist.error} fallback="It may have been deleted." />

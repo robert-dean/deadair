@@ -1,6 +1,7 @@
 export type JobNames =
     | 'catalog.sync'
     | 'catalog.resolve_placeholders'
+    | 'playlists.fill'
     | 'catalog.enrich'
     | 'catalog.extract_facts'
     | 'catalog.cache_art'

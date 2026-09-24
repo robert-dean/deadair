@@ -300,7 +300,9 @@ describe('PlaylistsPage', () => {
         const input = document.querySelector('input[type="file"]') as HTMLInputElement;
         await user.upload(input, file);
 
-        expect(await screen.findByText('1 record is in the library, and 1 waits for the library to gain it.')).toBeInTheDocument();
+        expect(
+            await screen.findByText('1 record is in the library, and 1 is not: the station looks it up once the playlist is made.'),
+        ).toBeInTheDocument();
         expect(previewPlaylistImport).toHaveBeenCalledWith({ file: expect.objectContaining({ name: 'Late night' }) });
         expect(screen.getByRole('button', { name: 'Import 2 records' })).toBeEnabled();
     });

@@ -5,6 +5,7 @@ import { Job } from '@maroonedsoftware/jobbroker';
 import type { PgBossJobRegistration } from '@maroonedsoftware/jobbroker/pgboss';
 import { CatalogPlaceholderJob } from '#modules/catalog/ingest/catalog.placeholder.job.js';
 import { CatalogSyncJob } from '#modules/catalog/ingest/catalog.sync.job.js';
+import { PlaylistFillJob } from '#modules/playlists/playlist.fill.job.js';
 import { EnrichmentJob } from '#modules/enrichment/enrichment.job.js';
 import { FactExtractionJob } from '#modules/enrichment/fact.extraction.job.js';
 import { ArtCacheJob } from '#modules/art/art.cache.job.js';
@@ -80,6 +81,14 @@ export const JobMappings: Record<JobNames, JobMapping> = {
     'catalog.resolve_placeholders': {
         job: CatalogPlaceholderJob,
         policy: { retryLimit: 2, expiresIn: Duration.fromObject({ minutes: 10 }) },
+    },
+
+    // No cron: sent after an import that left placeholders, and when an operator asks. One retry,
+    // because a run that failed outright is almost always a database blip, and anything a provider
+    // refused is a miss the operator can ask about again rather than something to hammer.
+    'playlists.fill': {
+        job: PlaylistFillJob,
+        policy: { retryLimit: 1, retryDelay: Duration.fromObject({ minutes: 1 }), expiresIn: Duration.fromObject({ minutes: 30 }) },
     },
 
     // Every quarter hour, and also sent by the sync whenever it added tracks, so

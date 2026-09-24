@@ -46,6 +46,14 @@ export interface StationPlaylistRowTrack {
     originExternalId?: string;
 }
 
+/** A placeholder as a fill reads it: the copy it was cloned from, if any, and what it describes. */
+export interface PlaylistPlaceholderRow {
+    id: string;
+    position: number;
+    origin?: { pluginId: string; externalId: string };
+    snapshot?: PlaylistSnapshot;
+}
+
 /** One row to write: a record the library holds, or a placeholder for one it does not. */
 export type NewPlaylistRow =
     { trackId: string } | { trackId?: undefined; snapshot: PlaylistSnapshot; origin?: { pluginId: string; externalId: string } };
@@ -188,6 +196,34 @@ export class StationPlaylistsRepository extends DataRepository {
         }
 
         return id;
+    }
+
+    /**
+     * One playlist's placeholders, in order: the rows a fill has something to do for.
+     *
+     * The snapshot is validated here, on {@link readSnapshot}'s terms, so a caller holds either a
+     * description it can search by or nothing at all.
+     */
+    async placeholders(playlistId: string): Promise<PlaylistPlaceholderRow[]> {
+        const rows = await this.db
+            .selectFrom('deadair.playlistTracks')
+            .select(['id', 'position', 'originPluginId', 'originExternalId', 'originSnapshot'])
+            .where('playlistId', '=', playlistId)
+            .where('trackId', 'is', null)
+            .orderBy('position', 'asc')
+            .execute();
+
+        return rows.map(row => {
+            const snapshot = readSnapshot(row.originSnapshot);
+            return {
+                id: row.id,
+                position: row.position,
+                ...(row.originPluginId == null || row.originExternalId == null
+                    ? {}
+                    : { origin: { pluginId: row.originPluginId, externalId: row.originExternalId } }),
+                ...(snapshot === undefined ? {} : { snapshot }),
+            };
+        });
     }
 
     /** Rewrites the name or the prompt, whichever is given. */

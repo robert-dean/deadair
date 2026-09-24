@@ -1,5 +1,6 @@
 import { Injectable } from 'injectkit';
 import { httpError } from '@maroonedsoftware/errors';
+import { JobBroker } from '@maroonedsoftware/jobbroker';
 import { DateTime } from 'luxon';
 import { StationIdentity } from '#modules/shared/station.identity.js';
 import { fileTrackOf, PLAYLIST_FILE_FORMAT } from './playlist.file.js';
@@ -22,6 +23,8 @@ export class StationPlaylistsService {
     constructor(
         private readonly playlists: StationPlaylistsRepository,
         private readonly station: StationIdentity,
+        // Scoped, so a fill is enqueued in the request's transaction.
+        private readonly jobs: JobBroker,
     ) {}
 
     async list(): Promise<StationPlaylistList> {
@@ -44,6 +47,18 @@ export class StationPlaylistsService {
     /** @throws 404 for an id this station does not hold, so a second delete is not reported as a first. */
     async delete(id: string): Promise<void> {
         if (!(await this.playlists.delete(id))) throw notFound(id);
+    }
+
+    /**
+     * Look up the records this playlist names and the library does not hold, in the background. It
+     * answers when the request is taken rather than when the look-up is done, and the finished run
+     * is announced on the activity feed.
+     *
+     * @throws 404 for an id this station does not hold.
+     */
+    async requestFill(id: string): Promise<void> {
+        await this.require(id);
+        await this.jobs.send('playlists.fill', { playlistId: id });
     }
 
     /**

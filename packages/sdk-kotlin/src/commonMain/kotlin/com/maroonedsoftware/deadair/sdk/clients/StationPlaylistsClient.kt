@@ -66,6 +66,17 @@ class StationPlaylistsClient(private val http: SdkHttp) {
     }
 
     /**
+     * Fill station playlist
+     * Looks up the records this playlist names and the library does not hold, in the background, and adds the ones a provider has. The activity feed says how it went
+     * @throws SdkError on 404
+     */
+    suspend fun fillStationPlaylist(id: Uuid) {
+        http.execute(HttpMethod.Post) {
+            path("station-playlists", segment(id), "fill")
+        }
+    }
+
+    /**
      * Export station playlist
      * One station playlist as a file another station can import
      * @throws SdkError on 404

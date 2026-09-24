@@ -88,7 +88,8 @@ export function PlaylistImportModal({ opened, onClose }: PlaylistImportModalProp
             <Stack gap="md">
                 <Text size="sm" c="dimmed">
                     A playlist file saved by this station or somebody else&apos;s. It becomes a new playlist of the station&apos;s own: importing the
-                    same file twice makes two. A record the library does not hold keeps its place and waits for the library to gain it.
+                    same file twice makes two. A record the library does not hold keeps its place, and the station looks it up at its music sources
+                    straight after the import.
                 </Text>
 
                 <Group gap="sm">
@@ -151,8 +152,10 @@ function ImportPlan({ plan }: { plan: PlaylistImportPlan }) {
         <Stack gap="sm">
             <Text size="sm">
                 {count(plan.matched, 'record is', 'records are')} in the library
-                {waiting > 0 ? `, and ${count(waiting, 'waits', 'wait')} for the library to gain ${waiting === 1 ? 'it' : 'them'}` : ''}.
-                {plan.skipped > 0 ? ` ${count(plan.skipped, 'line', 'lines')} named no record and will be left out.` : ''}
+                {waiting > 0
+                    ? `, and ${count(waiting, 'is', 'are')} not: the station looks ${waiting === 1 ? 'it' : 'them'} up once the playlist is made`
+                    : ''}
+                .{plan.skipped > 0 ? ` ${count(plan.skipped, 'line', 'lines')} named no record and will be left out.` : ''}
             </Text>
 
             {plan.notices.length > 0 ? (
@@ -194,7 +197,7 @@ function ImportPlan({ plan }: { plan: PlaylistImportPlan }) {
                                             </Badge>
                                         ) : (
                                             <Badge size="sm" variant="light" color="gray">
-                                                Waiting
+                                                To look up
                                             </Badge>
                                         )}
                                     </Table.Td>

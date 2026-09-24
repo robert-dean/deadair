@@ -44,6 +44,14 @@ public final class StationPlaylistsClient: Sendable {
         _ = try await http.execute(request)
     }
 
+    /// Fill station playlist
+    /// Looks up the records this playlist names and the library does not hold, in the background, and adds the ones a provider has. The activity feed says how it went
+    /// - Throws: `SdkError` on 404
+    public func fillStationPlaylist(id: UUID) async throws {
+        let request = try SdkRequest(method: "POST", path: ["station-playlists", http.segment(id), "fill"])
+        _ = try await http.execute(request)
+    }
+
     /// Export station playlist
     /// One station playlist as a file another station can import
     /// - Throws: `SdkError` on 404

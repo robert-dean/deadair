@@ -60,6 +60,15 @@ export function useDeleteStationPlaylist() {
 }
 
 /**
+ * Ask for the records a station playlist names and the library lacks to be looked up now. It
+ * resolves when the request is taken rather than when the look-up is done, and touches no cache: the
+ * finished run is announced on the activity feed, and the page reads the rows again on its timer.
+ */
+export function useFillStationPlaylist() {
+    return useMutation<void, Error, string>({ mutationFn: (id: string) => sdk.playlists.fillStationPlaylist(id) });
+}
+
+/**
  * Save one station playlist as a file. A plain function rather than a mutation, on the persona
  * export's rule: the result is a file rather than state this app holds, and the filename comes off
  * the response's own `Content-Disposition`.

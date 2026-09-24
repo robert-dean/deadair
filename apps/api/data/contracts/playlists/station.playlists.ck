@@ -68,6 +68,20 @@ operation /station-playlists/{id}: {
     }
 }
 
+operation /station-playlists/{id}/fill: {
+    params: {
+        id: uuid
+    }
+    post: { # Looks up the records this playlist names and the library does not hold, in the background, and adds the ones a provider has. The activity feed says how it went
+        name: Fill station playlist
+        service: StationPlaylistsService.requestFill
+        response: {
+            202:
+            404:
+        }
+    }
+}
+
 operation /station-playlists/{id}/export: {
     params: {
         id: uuid

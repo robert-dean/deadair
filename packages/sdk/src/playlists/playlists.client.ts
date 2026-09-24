@@ -111,6 +111,14 @@ export class PlaylistsClient {
     }
 
     /**
+     * @name Fill station playlist
+     * @description Looks up the records this playlist names and the library does not hold, in the background, and adds the ones a provider has. The activity feed says how it went
+     */
+    async fillStationPlaylist(id: string): Promise<void> {
+        await this.fetch(`/station-playlists/${encodeURIComponent(id)}/fill`, { method: 'POST' });
+    }
+
+    /**
      * @name Export station playlist
      * @description One station playlist as a file another station can import
      */

@@ -1,5 +1,6 @@
 import { Injectable } from 'injectkit';
 import { httpError } from '@maroonedsoftware/errors';
+import { JobBroker } from '@maroonedsoftware/jobbroker';
 import { Logger } from '@maroonedsoftware/logger';
 import { entriesOfFile } from './playlist.file.js';
 import { PlaylistImportPlanner, type PlaylistImportEntrySource } from './playlist.import.planner.js';
@@ -30,6 +31,9 @@ export class PlaylistImportService {
     constructor(
         private readonly planner: PlaylistImportPlanner,
         private readonly playlists: StationPlaylistsRepository,
+        // Scoped, so the fill is enqueued in the request's transaction and exists only once the
+        // playlist it fills does.
+        private readonly jobs: JobBroker,
         private readonly logger: Logger,
     ) {}
 
@@ -53,6 +57,10 @@ export class PlaylistImportService {
             { name: plan.name, prompt: source.prompt, ...(source.originPluginId === undefined ? {} : { originPluginId: source.originPluginId }) },
             rows,
         );
+        // Whatever the library did not hold is looked up in the background at once, rather than
+        // waiting for an operator to ask: an import is somebody saying they want these records.
+        if (plan.toAdd + plan.toLookUp > 0) await this.jobs.send('playlists.fill', { playlistId: id });
+
         const playlist = await this.playlists.find(id);
         if (playlist === undefined) throw httpError(500).withDetails({ message: 'the playlist was written and could not be read back' });
 

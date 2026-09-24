@@ -4,6 +4,7 @@ import { AppConfig } from '@maroonedsoftware/appconfig';
 import { PlaylistsService } from './playlists.service.js';
 import { PlaylistImportPlanner } from './playlist.import.planner.js';
 import { PlaylistImportService } from './playlist.import.service.js';
+import { PlaylistFillService } from './playlist.fill.service.js';
 import { StationPlaylistsRepository } from './station.playlists.repository.js';
 import { StationPlaylistsService } from './station.playlists.service.js';
 
@@ -18,5 +19,6 @@ export const PlaylistsModule: ServerKitModule = {
         registry.register(PlaylistImportPlanner).useClass(PlaylistImportPlanner).asScoped();
         registry.register(StationPlaylistsService).useClass(StationPlaylistsService).asScoped();
         registry.register(PlaylistImportService).useClass(PlaylistImportService).asScoped();
+        registry.register(PlaylistFillService).useClass(PlaylistFillService).asScoped();
     },
 };

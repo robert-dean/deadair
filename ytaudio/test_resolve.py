@@ -2,7 +2,21 @@ import urllib.error
 
 import pytest
 
-from resolve import COOLDOWN_S, FORMAT, STORABLE_TYPES, ResolveError, Unavailable, _pick, _total_of, cooldowns, expiry_of, probe, whole_range
+from resolve import (
+    COOLDOWN_S,
+    FORMAT,
+    STORABLE_TYPES,
+    ResolveError,
+    Unavailable,
+    _duration_ms,
+    _pick,
+    _refuse_live,
+    _total_of,
+    cooldowns,
+    expiry_of,
+    probe,
+    whole_range,
+)
 
 
 class _Response:
@@ -113,6 +127,62 @@ class TestPick:
     def test_refuses_a_format_with_no_url(self):
         with pytest.raises(Unavailable):
             _pick({"requested_downloads": [{"vcodec": "none", "acodec": "opus"}]})
+
+
+class TestOnlyAFinishedRecord:
+    @pytest.mark.parametrize(
+        "info",
+        [
+            {"is_live": True},
+            {"live_status": "is_live"},
+            {"live_status": "is_upcoming"},
+            {"live_status": "post_live"},
+        ],
+    )
+    def test_a_broadcast_is_written_off(self, info):
+        with pytest.raises(Unavailable):
+            _refuse_live(info)
+
+    @pytest.mark.parametrize("info", [{}, {"live_status": "not_live"}, {"live_status": "was_live"}, {"is_live": False}])
+    def test_a_finished_file_passes(self, info):
+        # `was_live` included: an archived stream has a fixed length, and whether
+        # that length suits the station is the operator's setting to judge.
+        _refuse_live(info)
+
+    def test_a_broadcast_is_refused_before_any_format_is_probed(self, monkeypatch):
+        import resolve as module
+
+        class _FakeYDL:
+            def __init__(self, *_args, **_kwargs):
+                pass
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_):
+                return False
+
+            def extract_info(self, *_args, **_kwargs):
+                return {"live_status": "is_live", "requested_downloads": [{"url": "https://x", "vcodec": "none", "acodec": "mp4a"}]}
+
+        def _no_probe(_url):
+            pytest.fail("a live broadcast must not reach the probe")
+
+        monkeypatch.setattr(module.yt_dlp, "YoutubeDL", _FakeYDL)
+        monkeypatch.setattr(module, "probe", _no_probe)
+        with pytest.raises(Unavailable):
+            module.resolve("x")
+
+
+class TestDuration:
+    def test_a_length_is_reported_in_milliseconds(self):
+        assert _duration_ms({"duration": 212.5}) == 212500
+
+    @pytest.mark.parametrize("duration", [None, "212", float("nan"), float("inf"), True, 0, -3])
+    def test_an_unusable_length_is_unknown_rather_than_a_failure(self, duration):
+        # An unknown length passes everywhere in the station, so this answers None
+        # rather than refusing. NaN and infinity used to raise out of int().
+        assert _duration_ms({"duration": duration}) is None
 
 
 class TestCooldowns:

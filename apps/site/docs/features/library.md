@@ -56,6 +56,20 @@ Two ways to put a whole list on air:
 
 Either can also be what the station plays when nothing is scheduled. See [the programme](./programme.md).
 
+## The station's own playlists
+
+A playlist from a provider is read live every time it airs, and it changes whenever its owner changes it. The station can also keep playlists of its own. They are listed first under Library → Playlists, and **Import** there makes one from any of these:
+
+- **A file**: a playlist another deadair station exported, an M3U from a media player, or a CSV from a playlist exporter such as Exportify. A CSV's columns are found by name, so their order does not matter.
+- **A pasted list**, one `Artist - Title` per line. Numbered lines are fine.
+- **A link** to a Spotify, YouTube Music or Navidrome playlist, including one your account does not list, such as a playlist a friend shared.
+
+**Save as a station playlist** on any provider playlist's page makes one the same way. Every import is previewed first: which records the library already holds, which it will look up, and any line that named no record. Nothing is written until you press Import. Importing the same thing twice makes two playlists, and neither is tied to where it came from.
+
+A record the library does not hold keeps its place in the order, drawn dimmed on the playlist's page, and the station looks it up at your music sources straight after the import. It asks the source the record was copied from first, when that source is connected, and otherwise searches every source on the same strict title-and-artist match it uses for any record it finds for itself. Records it finds join the library marked "found", and the activity feed says how many were found. **Look up missing records** on the playlist's page tries again. Records that are still missing fill in by themselves as the library grows. Nothing is looked up while **Play records the station does not own yet** is off.
+
+**Air this playlist** works as it does for a provider's playlist, similar records included, and each record plays from whichever source has a copy. Records the library does not hold yet are left out. **Export** saves a playlist as a file another station can import: records are named by title, artist and ISRC, never by this station's own ids, so they match up on the other side.
+
 ## In the console
 
 **Library** in the rail, or the L key: Tracks, Artists, Playlists, Charts, News, [Podcasts](./podcasts.md) and [Readings](./narrations.md). A record's page opens from any list, or from its name typed into Jump to anything. A provider's connection, Spotify's playback authorization and YouTube Music's cookie are on its page under Settings → Plugins. Measurement has its own section in Settings.

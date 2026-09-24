@@ -24,6 +24,15 @@ through before its caller is answered, everything the transport does rides a thr
 graceful shutdown flushes. `station_air` says only whether the station is driving. Every writer
 posts a command to `DirectorService`; nothing else may write it.
 
+**A broadcast starts from one of three sources, and only the third chooses its copies.** A provider's
+playlist and a chart are read at the moment of going on air, as `sourceTracks` says. A playlist the station
+OWNS (`PutOnAirInput.stationPlaylistId`, `POST /playout/station-playlist`) names library records rather
+than copies, so `stationPlaylistTracks` picks each record's copy with `bindingsFor` under the advisory
+policy (the choice `addTrackToOrder` makes for one record), leaves placeholders out, and then refuses on the
+same three grounds a provider's playlist does. It is recorded as an `import` whose `sourcePlaylistId`
+stands with no `sourcePluginId`, which keeps the similar-records mix-in working and needs no new `source`
+value.
+
 **It was four bugs before it was one rule.** A `lineups` table tried to be a reusable named list AND
 the broadcast in progress, and every mechanism that reconciled the two was a defect wearing a
 feature's name: the CURSOR, an integer position that could disagree with what had actually aired; the

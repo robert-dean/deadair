@@ -78,6 +78,38 @@ refuse every time and warn the operator about a walk that did nothing wrong. A r
 playlist stays until the next whole walk judges it. A hidden playlist is refused, 409 at the route and
 `hidden` in the walk, on the rule that hiding one takes it out of the library.
 
+**A station playlist is a clone, and every way in is one list of entries.** `deadair.playlists` sat empty from
+0005 until import existed; now a file (`playlist.file.ts`, keyed by words and ISRC and never by this
+station's ids, per [backup-and-restore](https://github.com/robert-dean/deadair/discussions/6)), a text list
+(`playlist.text.parser.ts`: M3U by its `#EXTINF` lines, CSV by header name, `Artist - Title` lines), a pasted
+link and a provider playlist the station lists all become the same entries, and `PlaylistImportPlanner` is
+the one thing that decides what they would be here. The preview and the import both run it, so the preview is
+the decision rather than a forecast of it. It only LOOKS: `findTrackSource` for an entry that names a
+provider's copy, then `findTrack` on the resolver's own keys, and nothing is searched or ingested while an
+operator waits on a preview. Every entry becomes a row, in its place: a match, or a placeholder carrying its
+snapshot, and since 0047 a placeholder may be a snapshot with no provider id at all, because a line from a
+file names a record and no copy of it. Refusing that row would lose the record and its position, which is
+the lossy import 0005 was written against.
+
+**Filling a placeholder is discovery, run as a job rather than in the request.** `playlists.fill` is sent
+after an import that left placeholders and by the page's button, and `PlaylistFillService` walks a ladder
+that is cheapest and most exact first: the library again, then the provider copy the row was cloned from,
+asked for by id (the only way a file from another station's Spotify lands on the same recording here), and
+then `ProviderTrackLookup.find`, the strict search `PickResolver.discover` already trusts. A hit is ingested
+as `discovered`, for the reason the paragraph above gives. It is gated on `rotation.discover`, because that
+switch is the station's one answer to "may it add records to its own library", and it is bounded per run
+(`MAX_FILL_LOOKUPS`) because every miss searches every provider one after another. It is a `PlainJob`
+because it talks to providers between writes. What it misses stays a placeholder, and
+`catalog.resolve_placeholders` matches it whenever a sync grows the library.
+
+**A link is claimed by the provider it belongs to.** `MusicProviderCatalog.playlistIdFromUrl` is an
+optional PURE parse; the import asks every catalog provider in id order and the first to claim a link wins,
+which is why a provider claims only what it is sure of (Navidrome only a link into its own configured server).
+It is called directly rather than through the invoker, since a throw there is a bug in a string function
+and must not count toward quarantine the way a failed upstream call does. The tracks are then read through
+`PlaylistsService.getPlaylistTracks`, so the access narrowing and Spotify's refused-playlist fallback both
+apply exactly as they do when the console lists one.
+
 ## The station's opinion, and the policy over it
 
 **An opinion is held at three levels and inherits DOWNWARD in both directions.** `artists`, `albums` and `tracks` each carry a `rating` of `-1 / 0 / 1`, written from the console through `PUT /catalog/{artists,albums,tracks}/{id}/rating` (`platform.manage`; the wire spells it `liked / neutral / disliked` and `catalog/rating.ts` is the only place that meets the column, because the ORDERING is what the SQL below needs and nothing outside the database reads it as a number). `CandidatesRepository.effectiveRating` is the one expression that collapses the three into one, and it is **not** a `least()`: a dislike anywhere wins outright, because a dislike is an instruction no lineup may turn off, and otherwise the strongest LIKE carries, because liking an artist means play more of them and liking one song means play that song more. It was a plain `least()` for as long as it existed, which got the veto right and silently swallowed the other half — a liked song on an unrated record by an unrated artist came out `0`, so `weightOf` doubled nothing an operator could produce without rating all three levels identically, and liking a record did nothing whatsoever. Both `sample` and `ratingsFor` go through it so the draw and the resolver cannot disagree. Nothing unit-tests it, since it is SQL: `apps/api/scripts/rating.smoke.ts` is what covers it, against the real database.

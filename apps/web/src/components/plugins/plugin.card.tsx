@@ -6,6 +6,7 @@ import type { PluginSummary } from '@deadair/sdk';
 import { useSetPluginEnabled } from '../../api/plugins.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
 import { severityColor, toneColor } from '../shared/status';
+import { capabilityLabel } from './plugin.roles';
 import { PluginStanding } from './plugin.standing';
 import { PluginOriginBadge, PluginStatusLamp, statusOf } from './plugin.status';
 import { PluginTrustDialog } from './plugin.trust.dialog';
@@ -45,8 +46,8 @@ export function PluginCard({ plugin }: PluginCardProps) {
 
                 <Group gap="xxs">
                     {plugin.capabilities.map(capability => (
-                        <Badge key={capability} size="sm" variant="light" color="gray" tt="none">
-                            {capability}
+                        <Badge key={capability} size="sm" variant="light" color="gray" tt="none" title={capability}>
+                            {capabilityLabel(capability)}
                         </Badge>
                     ))}
                 </Group>

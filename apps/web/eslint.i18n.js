@@ -13,6 +13,7 @@ export const TRANSLATED = [
     'src/components/login.page.tsx',
     'src/routes/**',
     'src/components/onboarding/**',
+    'src/components/personas/**',
 ];
 
 /**

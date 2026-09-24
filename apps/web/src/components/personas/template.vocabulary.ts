@@ -25,6 +25,8 @@
  * the station learns a new placeholder.
  */
 
+import { i18n } from '../../i18n/i18n.setup';
+
 /**
  * Every placeholder the station can fill in, in the order `break.templates.ts` declares them.
  *
@@ -97,11 +99,11 @@ export function hasStrayBracket(template: string): boolean {
 export function faultInTemplate(template: string): string | undefined {
     const unknown = unknownPlaceholders(template);
     if (unknown.length > 0) {
-        return `names ${unknown.map(name => `{{${name}}}`).join(', ')}, which the station cannot fill in`;
+        return i18n.t('personas:template.unknown', { placeholders: unknown.map(name => `{{${name}}}`).join(', ') });
     }
 
-    if (hasStrayBracket(template)) return 'has a single bracket, which is read out rather than treated as an optional part';
-    if (!template.includes('{{')) return 'names no record, so it would say the same thing after every one';
+    if (hasStrayBracket(template)) return i18n.t('personas:template.strayBracket');
+    if (!template.includes('{{')) return i18n.t('personas:template.noPlaceholder');
 
     return undefined;
 }

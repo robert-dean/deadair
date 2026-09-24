@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ActionIcon, Badge, Button, Card, Group, Select, Stack, Text, TextInput, Tooltip } from '@mantine/core';
 import type { PersonaNote } from '@deadair/sdk';
+import { useTranslation } from 'react-i18next';
 
 import { useDeletePersonaNote, usePersonaNotes, useSetPersonaNoteState, useUpdatePersonaNote, useWritePersonaNote } from '../../api/personas.queries';
 import { EmptyState } from '../shared/empty.state';
@@ -39,6 +40,7 @@ export function PersonaNotesPanel({ personaId }: { personaId: string }) {
     const update = useUpdatePersonaNote();
     const remove = useDeletePersonaNote();
     const setState = useSetPersonaNoteState();
+    const { t } = useTranslation('personas');
 
     const all = notes.data?.notes ?? [];
     const suggested = all.filter(note => note.state === 'suggested');
@@ -51,21 +53,19 @@ export function PersonaNotesPanel({ personaId }: { personaId: string }) {
         <Card withBorder mt="sm" padding="sm">
             <Stack gap="sm">
                 <Group justify="space-between" gap="xs" wrap="nowrap">
-                    <Eyebrow>Notebook</Eyebrow>
+                    <Eyebrow>{t('notes.eyebrow')}</Eyebrow>
                     <Text size="xs" c="dimmed" ta="right">
-                        what this character has settled into, and what it has said before
+                        {t('notes.subtitle')}
                     </Text>
                 </Group>
 
-                {notes.error ? (
-                    <ErrorAlert title="The notebook could not be loaded" error={notes.error} fallback="Nothing about this character has changed." />
-                ) : undefined}
+                {notes.error ? <ErrorAlert title={t('notes.loadError')} error={notes.error} fallback={t('shared.unchanged')} /> : undefined}
 
                 {(write.error ?? update.error ?? remove.error ?? setState.error) ? (
                     <ErrorAlert
-                        title="That note could not be saved"
+                        title={t('notes.saveError.title')}
                         error={write.error ?? update.error ?? remove.error ?? setState.error!}
-                        fallback="The notebook is as it was."
+                        fallback={t('notes.saveError.fallback')}
                     />
                 ) : undefined}
 
@@ -73,7 +73,7 @@ export function PersonaNotesPanel({ personaId }: { personaId: string }) {
 
                 {suggested.length > 0 ? (
                     <Stack gap="xs">
-                        <Eyebrow c="grape">Proposed</Eyebrow>
+                        <Eyebrow c="grape">{t('shared.proposed')}</Eyebrow>
                         {suggested.map(note => (
                             <NoteRow
                                 key={note.id}
@@ -87,7 +87,7 @@ export function PersonaNotesPanel({ personaId }: { personaId: string }) {
                                             disabled={busy}
                                             onClick={() => setState.mutate({ id: personaId, noteId: note.id, state: 'active' })}
                                         >
-                                            Accept
+                                            {t('shared.accept')}
                                         </Button>
                                         {/* Not a delete. A deleted proposal comes back on the next
                                             pass over the same scripts, forever. */}
@@ -97,7 +97,7 @@ export function PersonaNotesPanel({ personaId }: { personaId: string }) {
                                             disabled={busy}
                                             onClick={() => setState.mutate({ id: personaId, noteId: note.id, state: 'rejected' })}
                                         >
-                                            Reject
+                                            {t('shared.reject')}
                                         </Button>
                                     </>
                                 }
@@ -108,7 +108,7 @@ export function PersonaNotesPanel({ personaId }: { personaId: string }) {
                 ) : undefined}
 
                 <Stack gap="xs">
-                    <Eyebrow>In use</Eyebrow>
+                    <Eyebrow>{t('notes.inUse')}</Eyebrow>
                     {active.map(note => (
                         <NoteRow
                             key={note.id}
@@ -122,25 +122,19 @@ export function PersonaNotesPanel({ personaId }: { personaId: string }) {
                                     disabled={busy}
                                     onClick={() => remove.mutate({ id: personaId, noteId: note.id })}
                                 >
-                                    Delete
+                                    {t('shared.delete')}
                                 </Button>
                             }
                             onSave={value => update.mutate({ id: personaId, noteId: note.id, body: { kind: note.kind, note: value } })}
                         />
                     ))}
 
-                    {active.length === 0 && !notes.isPending ? (
-                        <EmptyState>
-                            This character has accumulated nothing yet, which is an ordinary state: its breaks are written from its sheet alone,
-                            exactly as they were before there was a notebook. Write a note, or let the station propose one from what it has already
-                            said.
-                        </EmptyState>
-                    ) : undefined}
+                    {active.length === 0 && !notes.isPending ? <EmptyState>{t('notes.empty')}</EmptyState> : undefined}
                 </Stack>
 
                 {rejected.length > 0 ? (
                     <Stack gap="xs">
-                        <Eyebrow>Turned down</Eyebrow>
+                        <Eyebrow>{t('shared.turnedDown')}</Eyebrow>
                         {rejected.map(note => (
                             <NoteRow
                                 key={note.id}
@@ -153,13 +147,13 @@ export function PersonaNotesPanel({ personaId }: { personaId: string }) {
                                         disabled={busy}
                                         onClick={() => setState.mutate({ id: personaId, noteId: note.id, state: 'active' })}
                                     >
-                                        Use anyway
+                                        {t('notes.useAnyway')}
                                     </Button>
                                 }
                             />
                         ))}
                         <Text size="xs" c="dimmed">
-                            Kept rather than deleted, so the station does not propose them again.
+                            {t('shared.keptNotProposed')}
                         </Text>
                     </Stack>
                 ) : undefined}
@@ -181,6 +175,7 @@ export function PersonaNotesPanel({ personaId }: { personaId: string }) {
  * rejects it, and the observation is lost with the wording.
  */
 function NoteRow({ note, actions, busy, onSave }: { note: PersonaNote; actions: React.ReactNode; busy: boolean; onSave?: (value: string) => void }) {
+    const { t } = useTranslation('personas');
     const [draft, setDraft] = useState<string | undefined>(undefined);
     const editing = draft !== undefined;
 
@@ -190,10 +185,10 @@ function NoteRow({ note, actions, busy, onSave }: { note: PersonaNote; actions: 
                 {/* `off` for both, because nothing in a notebook is a state of the station: an active
                     note is not the station working and a rejected one is not it broken. The kind is
                     the fact worth seeing, and it is what decides which turn of the prompt it lands in. */}
-                <StatusLamp tone="off" label={note.kind === 'trait' ? 'settled into' : 'said before'} />
+                <StatusLamp tone="off" label={note.kind === 'trait' ? t('notes.kind.trait') : t('notes.kind.said')} />
                 {note.origin === 'model' ? (
                     <Badge size="xs" variant="light" color="grape" tt="none">
-                        the station&apos;s
+                        {t('shared.stationsOwn')}
                     </Badge>
                 ) : undefined}
                 <Group gap="xxs" ml="auto" wrap="nowrap">
@@ -208,15 +203,15 @@ function NoteRow({ note, actions, busy, onSave }: { note: PersonaNote; actions: 
                                     setDraft(undefined);
                                 }}
                             >
-                                Save
+                                {t('shared.save')}
                             </Button>
-                            <ActionIcon variant="subtle" size="sm" onClick={() => setDraft(undefined)} aria-label="Stop editing">
+                            <ActionIcon variant="subtle" size="sm" onClick={() => setDraft(undefined)} aria-label={t('shared.stopEditing')}>
                                 ×
                             </ActionIcon>
                         </>
                     ) : (
                         <Button variant="subtle" size="compact-xs" disabled={busy} onClick={() => setDraft(note.note)}>
-                            Edit
+                            {t('shared.edit')}
                         </Button>
                     )}
                     {editing ? undefined : actions}
@@ -232,7 +227,7 @@ function NoteRow({ note, actions, busy, onSave }: { note: PersonaNote; actions: 
             {/* What the decision is actually made on. Only a note the station wrote has one, and only
                 the words matter — the attempt it came from is swept nightly and the quote is not. */}
             {note.sourceQuote ? (
-                <Tooltip label="What the station actually said, which is what this note was drawn from" withArrow>
+                <Tooltip label={t('notes.quoteTooltip')} withArrow>
                     <Text size="xs" c="dimmed" fs="italic">
                         &ldquo;{note.sourceQuote}&rdquo;
                     </Text>
@@ -244,6 +239,7 @@ function NoteRow({ note, actions, busy, onSave }: { note: PersonaNote; actions: 
 
 /** The one an operator writes by hand. Active from the moment it exists; only the pass proposes. */
 function NoteComposer({ busy, onWrite }: { busy: boolean; onWrite: (kind: 'said' | 'trait', note: string) => void }) {
+    const { t } = useTranslation('personas');
     const [kind, setKind] = useState<'said' | 'trait'>('trait');
     const [note, setNote] = useState('');
 
@@ -258,10 +254,10 @@ function NoteComposer({ busy, onWrite }: { busy: boolean; onWrite: (kind: 'said'
             <Select
                 size="xs"
                 w={{ base: '100%', sm: 150 }}
-                label="Kind"
+                label={t('notes.composer.kind')}
                 data={[
-                    { value: 'trait', label: 'Settled into' },
-                    { value: 'said', label: 'Said before' },
+                    { value: 'trait', label: t('notes.composer.trait') },
+                    { value: 'said', label: t('notes.composer.said') },
                 ]}
                 value={kind}
                 onChange={value => setKind(value === 'said' ? 'said' : 'trait')}
@@ -270,8 +266,8 @@ function NoteComposer({ busy, onWrite }: { busy: boolean; onWrite: (kind: 'said'
             <TextInput
                 size="xs"
                 style={{ flex: 1 }}
-                label="A note"
-                placeholder="calls the listener a shipmate"
+                label={t('notes.composer.label')}
+                placeholder={t('notes.composer.placeholder')}
                 maxLength={500}
                 value={note}
                 onChange={event => setNote(event.currentTarget.value)}
@@ -280,7 +276,7 @@ function NoteComposer({ busy, onWrite }: { busy: boolean; onWrite: (kind: 'said'
                 }}
             />
             <Button size="compact-sm" disabled={busy || note.trim().length === 0} onClick={submit}>
-                Add
+                {t('shared.add')}
             </Button>
         </Group>
     );

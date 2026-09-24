@@ -1,6 +1,7 @@
 import { ActionIcon, Card, Group, Stack, Text } from '@mantine/core';
 import { IconPlayerPauseFilled, IconPlayerPlayFilled } from '@tabler/icons-react';
 import type { PersonaRehearsal, PersonaRehearsalAttempt } from '@deadair/sdk';
+import { useTranslation } from 'react-i18next';
 
 import { fetchSpeechPreview } from '../../api/voices.queries';
 import { useVoicePreview } from '../voices/voice.preview';
@@ -29,6 +30,7 @@ import { type StatusTone } from '../shared/status';
  */
 export function PersonaRehearsalPanel({ rehearsal, voice }: { rehearsal: PersonaRehearsal; voice?: string }) {
     const preview = useVoicePreview();
+    const { t } = useTranslation('personas');
     const spoken = rehearsal.script;
 
     return (
@@ -36,7 +38,7 @@ export function PersonaRehearsalPanel({ rehearsal, voice }: { rehearsal: Persona
             <Stack gap="sm">
                 <Group justify="space-between" gap="xs" wrap="nowrap">
                     <Group gap="xs" wrap="nowrap">
-                        <Eyebrow>Rehearsal</Eyebrow>
+                        <Eyebrow>{t('rehearsal.eyebrow')}</Eyebrow>
                         {/* Only what actually won: the attempts below include the ones that came to
                             nothing, and an empty script has nothing to say out loud. */}
                         {spoken ? (
@@ -44,15 +46,15 @@ export function PersonaRehearsalPanel({ rehearsal, voice }: { rehearsal: Persona
                                 variant="subtle"
                                 size="sm"
                                 loading={preview.isLoading(spoken)}
-                                aria-label="Hear this break"
-                                onClick={() => preview.play(spoken, () => fetchSpeechPreview(spoken, voice), 'That break could not be spoken.')}
+                                aria-label={t('rehearsal.hear')}
+                                onClick={() => preview.play(spoken, () => fetchSpeechPreview(spoken, voice), t('shared.breakSpeakFailed'))}
                             >
                                 {preview.isPlaying(spoken) ? <IconPlayerPauseFilled size={14} /> : <IconPlayerPlayFilled size={14} />}
                             </ActionIcon>
                         ) : undefined}
                     </Group>
                     <Text size="xs" c="dimmed" ta="right">
-                        between {rehearsal.previous} and {rehearsal.next}
+                        {t('shared.between', { previous: rehearsal.previous, next: rehearsal.next })}
                     </Text>
                 </Group>
 
@@ -68,13 +70,13 @@ export function PersonaRehearsalPanel({ rehearsal, voice }: { rehearsal: Persona
 
                 {rehearsal.attempts.length === 0 ? (
                     <Text size="sm" c="dimmed">
-                        Nothing writes a talk break on this station.
+                        {t('rehearsal.nothingWrites')}
                     </Text>
                 ) : undefined}
 
                 {rehearsal.script === undefined && rehearsal.reason !== undefined ? (
                     <Text size="sm" c="dimmed">
-                        {rehearsal.reason} — on air this break would be skipped, and the station would go straight to the next record.
+                        {t('shared.skipped', { reason: rehearsal.reason })}
                     </Text>
                 ) : undefined}
             </Stack>
@@ -90,19 +92,20 @@ export function PersonaRehearsalPanel({ rehearsal, voice }: { rehearsal: Persona
  * a decline looks like.
  */
 export function Attempt({ attempt }: { attempt: PersonaRehearsalAttempt }) {
+    const { t } = useTranslation('personas');
     return (
         <Stack gap="xxs">
             <Group gap="xs" wrap="nowrap">
                 <StatusLamp tone={toneFor(attempt.outcome)} label={attempt.writer} />
                 <Text size="xs" c="dimmed" className="da-num">
-                    {Math.round(attempt.durationMs)}ms
+                    {t('rehearsal.duration', { ms: Math.round(attempt.durationMs) })}
                 </Text>
             </Group>
             {attempt.script ? (
                 <Text size="sm">{attempt.script}</Text>
             ) : (
                 <Text size="sm" c="dimmed">
-                    {attempt.reason ?? 'nothing to say'}
+                    {attempt.reason ?? t('rehearsal.nothingToSay')}
                 </Text>
             )}
         </Stack>

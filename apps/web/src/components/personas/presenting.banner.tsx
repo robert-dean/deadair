@@ -1,4 +1,5 @@
 import { Button, Card, Group, Stack, Text } from '@mantine/core';
+import { Trans, useTranslation } from 'react-i18next';
 
 import { useRecastStation, useStationOrder } from '../../api/director.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
@@ -30,6 +31,7 @@ import { Eyebrow } from '../shared/eyebrow';
 export function PresentingBanner() {
     const order = useStationOrder();
     const recast = useRecastStation();
+    const { t } = useTranslation('personas');
 
     const personaLabel = order.data?.personaLabel;
     // The broadcast having named somebody is the fact worth drawing, and the label is only how it is
@@ -37,17 +39,21 @@ export function PresentingBanner() {
     // is still a discrepancy an operator wants told about.
     if (order.data?.personaId === undefined) return undefined;
 
-    const failure = recast.isError ? apiErrorMessage(recast.error, 'The show kept the host it had.') : undefined;
+    const failure = recast.isError ? apiErrorMessage(recast.error, t('presenting.failure')) : undefined;
 
     return (
         <Card withBorder>
             <Stack gap="xs">
-                <Eyebrow c="grape">Presenting now</Eyebrow>
+                <Eyebrow c="grape">{t('presenting.eyebrow')}</Eyebrow>
                 <Group justify="space-between" align="flex-start" gap="md" wrap="nowrap">
                     <Text size="sm">
-                        The show on air is presented by <strong>{personaLabel ?? 'a character this station no longer has'}</strong>, which the
-                        broadcast named for itself. Putting a persona on air below changes the station&apos;s own host, which takes over when this
-                        show ends.
+                        {/* The name goes in as the element's own child rather than as a value, so a name
+                            with a `<` in it is never parsed as markup. */}
+                        <Trans
+                            t={t}
+                            i18nKey="presenting.body"
+                            components={{ strong: <strong>{personaLabel ?? t('presenting.unknownHost')}</strong> }}
+                        />
                     </Text>
                     <Button
                         variant="default"
@@ -56,7 +62,7 @@ export function PresentingBanner() {
                         style={{ flexShrink: 0 }}
                         onClick={() => recast.mutate({})}
                     >
-                        Hand it back
+                        {t('presenting.handBack')}
                     </Button>
                 </Group>
 
@@ -66,7 +72,7 @@ export function PresentingBanner() {
                     </Text>
                 ) : (
                     <Text size="xs" c="dimmed">
-                        Handing it back re-writes the breaks already written for this show and not yet aired, in whoever&apos;s character it lands in.
+                        {t('presenting.note')}
                     </Text>
                 )}
             </Stack>

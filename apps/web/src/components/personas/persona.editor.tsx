@@ -21,6 +21,8 @@ import type { SelectProps } from '@mantine/core';
 import { IconDice5, IconPlayerPauseFilled, IconPlayerPlayFilled } from '@tabler/icons-react';
 import { useForm } from '@mantine/form';
 import type { Persona, PersonaDraftView, PersonaInput } from '@deadair/sdk';
+import type { TFunction } from 'i18next';
+import { Trans, useTranslation } from 'react-i18next';
 
 import { useGeneratePersona, usePersonas, useRehearsePersona } from '../../api/personas.queries';
 import { usePads } from '../../api/pads.queries';
@@ -81,6 +83,7 @@ import { Eyebrow } from '../shared/eyebrow';
  */
 export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving, error }: Props) {
     const phone = usePhone();
+    const { t } = useTranslation('personas');
     // Fixed for the life of the form rather than a field. What a character is FOR decides which
     // half of the roster it lands in and whether it can ever present, and flipping it under a
     // character an operator has already cast would be a quieter change than it looks.
@@ -109,9 +112,9 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
         // form surviving a close is a form holding a persona nobody is looking at any more.
         enhanceGetInputProps: () => ({}),
         validate: {
-            key: value => (value.trim().length === 0 ? 'A persona needs a key' : undefined),
-            label: value => (value.trim().length === 0 ? 'A persona needs a name' : undefined),
-            style: value => (value.trim().length === 0 ? 'Say who this character is' : undefined),
+            key: value => (value.trim().length === 0 ? t('editor.validate.key') : undefined),
+            label: value => (value.trim().length === 0 ? t('editor.validate.label') : undefined),
+            style: value => (value.trim().length === 0 ? t('editor.validate.style') : undefined),
         },
     });
 
@@ -189,7 +192,7 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
         <Drawer
             opened={opened}
             onClose={requestClose}
-            title={titleFor(persona, caller)}
+            title={titleFor(persona, caller, t)}
             position="right"
             size={phone ? '100%' : 620}
             styles={{
@@ -208,14 +211,10 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                     {persona === undefined ? (
                         <Card withBorder padding="sm">
                             <Stack gap="xs">
-                                <Eyebrow>Start from a description</Eyebrow>
+                                <Eyebrow>{t('editor.generate.eyebrow')}</Eyebrow>
                                 <Textarea
-                                    placeholder={
-                                        caller
-                                            ? 'a taxi driver who rings in every week to argue about the charts'
-                                            : 'a 1970s northern soul DJ who broadcasts from the back of a chip shop'
-                                    }
-                                    description="Fills in the fields below. Nothing is saved until you press Save, and you can change any of it first."
+                                    placeholder={caller ? t('editor.generate.placeholderCaller') : t('editor.generate.placeholderHost')}
+                                    description={t('editor.generate.description')}
                                     autosize
                                     minRows={2}
                                     maxRows={8}
@@ -227,9 +226,9 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                                     undefined renders the alert on every success. */}
                                 {generate.error ? (
                                     <ErrorAlert
-                                        title="Nothing was written"
+                                        title={t('editor.generate.errorTitle')}
                                         error={generate.error}
-                                        fallback="The station could not write a persona. Your own fields are untouched."
+                                        fallback={t('editor.generate.errorFallback')}
                                     />
                                 ) : undefined}
                                 {generate.data ? <GenerationNotes generated={generate.data} /> : undefined}
@@ -255,23 +254,23 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                                             })
                                         }
                                     >
-                                        Write me one
+                                        {t('editor.generate.button')}
                                     </Button>
                                 </Group>
                             </Stack>
                         </Card>
                     ) : undefined}
 
-                    <Section title="Who they are" blurb='The half of a character the model is told about. Everything here completes "You are …".' />
+                    <Section title={t('editor.section.who.title')} blurb={t('editor.section.who.blurb')} />
 
                     {/* Both halves carry a description, which is not padding: one field had one and
                         the other did not, so the two inputs sat eighteen pixels apart on a row that
                         is meant to read as one. */}
                     <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
                         <TextInput
-                            label="Name"
-                            description="What the roster calls them."
-                            placeholder="Late-night companion"
+                            label={t('editor.field.name.label')}
+                            description={t('editor.field.name.description')}
+                            placeholder={t('editor.field.name.placeholder')}
                             {...form.getInputProps('label')}
                             // The key follows the name until somebody says otherwise, which is what
                             // makes the field beside this one something to skip rather than something
@@ -285,12 +284,8 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                             }}
                         />
                         <TextInput
-                            label="Key"
-                            description={
-                                ownKey
-                                    ? 'A short slug, unique to this station.'
-                                    : 'A short slug, unique to this station. Follows the name until you write your own.'
-                            }
+                            label={t('editor.field.key.label')}
+                            description={ownKey ? t('editor.field.key.descriptionOwn') : t('editor.field.key.descriptionDerived')}
                             {...form.getInputProps('key')}
                             onChange={event => {
                                 setOwnKey(true);
@@ -300,9 +295,9 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                     </SimpleGrid>
 
                     <Textarea
-                        label="Who they are"
-                        description='Completes "You are …". Who they ARE; how they talk is below.'
-                        placeholder="a quiet late-night host sitting close to the mic"
+                        label={t('editor.field.style.label')}
+                        description={t('editor.field.style.description')}
+                        placeholder={t('editor.field.style.placeholder')}
                         autosize
                         minRows={2}
                         maxRows={8}
@@ -310,8 +305,8 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                     />
 
                     <TextInput
-                        label="On-air name"
-                        description="Overrides the station's presenter name while this persona is on air. Leave empty to keep it."
+                        label={t('editor.field.djName.label')}
+                        description={t('editor.field.djName.description')}
                         {...form.getInputProps('djName')}
                         // Inside the field rather than beside it, so the suggestion lands where the
                         // operator is already looking. A button rather than a pre-filled value:
@@ -321,8 +316,8 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                             <ActionIcon
                                 variant="subtle"
                                 color="gray"
-                                aria-label="Suggest an on-air name"
-                                title="Suggest an on-air name"
+                                aria-label={t('editor.field.djName.suggest')}
+                                title={t('editor.field.djName.suggest')}
                                 onClick={() => {
                                     form.setFieldValue('djName', suggestAirName(form.getValues().djName));
                                 }}
@@ -333,8 +328,8 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                     />
 
                     <Textarea
-                        label="True about them"
-                        description="A couple of grounded facts they may mention about themselves."
+                        label={t('editor.field.background.label')}
+                        description={t('editor.field.background.description')}
                         autosize
                         minRows={2}
                         maxRows={8}
@@ -346,13 +341,10 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                         programme, and one with none rings in to anybody's. */}
                     {caller ? (
                         <>
-                            <Section
-                                title="Who they ring"
-                                blurb="A phone-in is cast from the callers who ring whoever is presenting it. Among them, whoever rang longest ago goes first."
-                            />
+                            <Section title={t('editor.section.ring.title')} blurb={t('editor.section.ring.blurb')} />
                             <MultiSelect
-                                label="Rings in to"
-                                description="Leave it empty and they ring in to whoever is presenting."
+                                label={t('editor.field.hosts.label')}
+                                description={t('editor.field.hosts.description')}
                                 data={hostOptions}
                                 searchable
                                 clearable
@@ -363,7 +355,7 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                                     <Pill
                                         withRemoveButton={!disabled}
                                         onRemove={onRemove}
-                                        removeButtonProps={{ 'aria-label': `Remove ${hostLabel(value)}` }}
+                                        removeButtonProps={{ 'aria-label': t('editor.field.hosts.remove', { label: hostLabel(value) }) }}
                                     >
                                         {hostLabel(value)}
                                     </Pill>
@@ -373,15 +365,12 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                         </>
                     ) : undefined}
 
-                    <Section
-                        title="How they talk"
-                        blurb="The dialect, and the words that prove a break came back in character. A break carrying none of them is rewritten from the phrasings below."
-                    />
+                    <Section title={t('editor.section.talk.title')} blurb={t('editor.section.talk.blurb')} />
 
                     <Textarea
-                        label="How they speak"
-                        description="The dialect, one rule per line. This applies to EVERY sentence, including the ones stating a plain fact."
-                        placeholder={'Always contract: "you\'re", "that\'s"\nSpeak to one person, not a crowd'}
+                        label={t('editor.field.diction.label')}
+                        description={t('editor.field.diction.description')}
+                        placeholder={t('editor.field.diction.placeholder')}
                         autosize
                         minRows={5}
                         maxRows={14}
@@ -389,9 +378,9 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                     />
 
                     <Textarea
-                        label="Words that prove it"
-                        description="One per line. A break that comes back carrying none of these is treated as out of character and the phrasings below write it instead. An entry ending in an apostrophe matches as a suffix, so in' catches every dropped g. Leave empty to check nothing."
-                        placeholder={"ye\naye\nmatey\nin'"}
+                        label={t('editor.field.markers.label')}
+                        description={t('editor.field.markers.description')}
+                        placeholder={t('editor.field.markers.placeholder')}
                         autosize
                         minRows={4}
                         maxRows={12}
@@ -399,8 +388,8 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                     />
 
                     <Textarea
-                        label="In character"
-                        description="What they always and never do on air, one per line."
+                        label={t('editor.field.quirks.label')}
+                        description={t('editor.field.quirks.description')}
                         autosize
                         minRows={4}
                         maxRows={12}
@@ -409,20 +398,27 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
 
                     <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
                         <Textarea
-                            label="Signature phrases"
-                            description="One per line. Asked for sparingly: at most one, and not every break."
+                            label={t('editor.field.catchphrases.label')}
+                            description={t('editor.field.catchphrases.description')}
                             autosize
                             minRows={3}
                             maxRows={10}
                             {...form.getInputProps('catchphrases')}
                         />
-                        <Textarea label="Never say" description="One per line." autosize minRows={3} maxRows={10} {...form.getInputProps('avoid')} />
+                        <Textarea
+                            label={t('editor.field.avoid.label')}
+                            description={t('editor.field.avoid.description')}
+                            autosize
+                            minRows={3}
+                            maxRows={10}
+                            {...form.getInputProps('avoid')}
+                        />
                     </SimpleGrid>
 
                     <Textarea
-                        label="Never in the same break"
-                        description="One subject per line, written as the words that mean it, separated by commas. A break that brings up words from two lines is refused and written again; a word inside a record's title does not count. Leave empty to keep nothing apart."
-                        placeholder={'bigfoot, sasquatch, yeti\nchemtrail, contrail'}
+                        label={t('editor.field.exclusive.label')}
+                        description={t('editor.field.exclusive.description')}
+                        placeholder={t('editor.field.exclusive.placeholder')}
                         autosize
                         minRows={3}
                         maxRows={10}
@@ -435,15 +431,13 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                         rather than drawn and ignored. */}
                     {caller ? undefined : (
                         <>
-                            <Section
-                                title="What they fall back on"
-                                blurb="Most breaks are not written by a model. These are the words the station uses when it declines — a character with none falls back to plain English."
-                            />
+                            <Section title={t('editor.section.fallback.title')} blurb={t('editor.section.fallback.blurb')} />
 
                             <Textarea
-                                label="Their own phrasings"
-                                description="One per line. Fill a record in with {{previous.title}}, {{next.artist}} and the like, wrap a part in [[double brackets]] to have it dropped when there is nothing to put in it, and start a line with # to turn it off. These are what the station says when the model declines, which is most breaks, so a character with none falls back to plain English."
-                                placeholder="That was {{previous.title}}, from {{previous.artist}}.[[ Next up, {{next.title}}.]]"
+                                label={t('editor.field.templates.label')}
+                                // The station's own placeholders, shown as text rather than filled in.
+                                description={t('editor.field.templates.description', TEMPLATE_EXAMPLES)}
+                                placeholder={t('editor.field.templates.placeholder', TEMPLATE_EXAMPLES)}
                                 autosize
                                 minRows={6}
                                 maxRows={16}
@@ -455,24 +449,21 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                     )}
 
                     <Textarea
-                        label="Lines in their voice"
-                        description="One per line. Used as examples for the model, which is asked to reuse the grammar and never the sentences."
+                        label={t('editor.field.samples.label')}
+                        description={t('editor.field.samples.description')}
                         autosize
                         minRows={3}
                         maxRows={10}
                         {...form.getInputProps('samples')}
                     />
 
-                    <Section
-                        title="How far they go"
-                        blurb="Dials with real consequences on air. They change what the station ASKS its presenter for — how long a break is, how much room it gets, and how often one happens. None of them can loosen what the station always sends: every refusal, and your explicit-content setting, hold whatever is set here."
-                    />
+                    <Section title={t('editor.section.dials.title')} blurb={t('editor.section.dials.blurb')} />
 
                     <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
                         {voiceOptions.length > 0 ? (
                             <Select
-                                label="Voice"
-                                description="Leave empty for whatever the speech plugin uses by default."
+                                label={t('editor.field.voice.label')}
+                                description={t('editor.field.voice.description')}
                                 data={voiceOptions}
                                 clearable
                                 searchable
@@ -485,12 +476,12 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                                             variant="subtle"
                                             size="sm"
                                             loading={preview.isLoading(form.values.voice)}
-                                            aria-label="Play a sample of this voice"
+                                            aria-label={t('editor.field.voice.play')}
                                             onClick={() =>
                                                 preview.play(
                                                     form.values.voice,
                                                     () => fetchVoiceSample(form.values.voice),
-                                                    'That voice could not be previewed.',
+                                                    t('shared.voicePreviewFailed'),
                                                 )
                                             }
                                         >
@@ -506,8 +497,8 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                             />
                         ) : (
                             <TextInput
-                                label="Voice"
-                                description="No speech plugin is answering, so this is the id as your engine will map it."
+                                label={t('editor.field.voice.label')}
+                                description={t('editor.field.voice.descriptionUnmapped')}
                                 {...form.getInputProps('voice')}
                             />
                         )}
@@ -518,8 +509,8 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                             nothing — deliberately, because both are a presenter with nothing to
                             reach for. */}
                         <Autocomplete
-                            label="Soundboard"
-                            description="The set of sounds this character can reach for. Leave empty for a presenter who works without one."
+                            label={t('editor.field.soundboard.label')}
+                            description={t('editor.field.soundboard.description')}
                             data={boardOptions}
                             {...form.getInputProps('soundboard')}
                         />
@@ -535,72 +526,72 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                     <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md" verticalSpacing="md">
                         <Select
                             {...DIAL}
-                            label="How much they say"
-                            description="Only shorter than the station's usual, because the length of a break is set by where the model stops rather than by the ceiling. It asks for less; nothing refuses a break for running past it."
+                            label={t('editor.dial.brevity.label')}
+                            description={t('editor.dial.brevity.description')}
                             data={[
-                                { value: '', label: "The station's usual" },
-                                { value: 'short', label: 'Says less — a sentence or two' },
-                                { value: 'one-line', label: 'Says almost nothing — one line' },
+                                { value: '', label: t('editor.dial.brevity.usual') },
+                                { value: 'short', label: t('editor.dial.brevity.short') },
+                                { value: 'one-line', label: t('editor.dial.brevity.oneLine') },
                             ]}
                             {...form.getInputProps('brevity')}
                         />
 
                         <Select
                             {...DIAL}
-                            label="How much rope they get"
-                            description="Room to follow a thought instead of making one point, with a longer break to do it in. On links, welcomes and the character's own stories, never the news or the weather. The station's explicit-content setting still outranks it, and a break that names neither record or drops the character is still refused."
+                            label={t('editor.dial.latitude.label')}
+                            description={t('editor.dial.latitude.description')}
                             data={[
-                                { value: '', label: "The station's usual discipline" },
-                                { value: 'loose', label: 'Room — follows a thought where it goes' },
-                                { value: 'unleashed', label: 'Off the leash — and says it however they like' },
+                                { value: '', label: t('editor.dial.latitude.usual') },
+                                { value: 'loose', label: t('editor.dial.latitude.loose') },
+                                { value: 'unleashed', label: t('editor.dial.latitude.unleashed') },
                             ]}
                             {...form.getInputProps('latitude')}
                         />
 
                         <Select
                             {...DIAL}
-                            label="How much they lean on what the station knows"
-                            description="What the station has learned about a record: who made it, where it came from, what happened to it. Keen presenters are handed more of it, a note about the album and the artist as well as the track, and are asked to build each link out of the story, with a longer break to tell it in. Links only. They can still only say what a note says."
+                            label={t('editor.dial.trivia.label')}
+                            description={t('editor.dial.trivia.description')}
                             data={[
-                                { value: '', label: "The station's usual — a note now and then" },
-                                { value: 'keen', label: 'Keen — the story behind every record' },
+                                { value: '', label: t('editor.dial.trivia.usual') },
+                                { value: 'keen', label: t('editor.dial.trivia.keen') },
                             ]}
                             {...form.getInputProps('trivia')}
                         />
 
                         <Select
                             {...DIAL}
-                            label="How often they bring up their own past"
-                            description="Their stories are kept on this character's own shelf, and at most one ever reaches a break. This is only about ordinary talk breaks: a story band on your clock asks for one whatever this says."
+                            label={t('editor.dial.storytelling.label')}
+                            description={t('editor.dial.storytelling.description')}
                             data={[
-                                { value: '', label: 'Occasionally — when nothing is known about the records' },
-                                { value: 'often', label: 'Often — most breaks' },
-                                { value: 'never', label: 'Never in a link' },
+                                { value: '', label: t('editor.dial.storytelling.occasionally') },
+                                { value: 'often', label: t('editor.dial.storytelling.often') },
+                                { value: 'never', label: t('editor.dial.storytelling.never') },
                             ]}
                             {...form.getInputProps('storytelling')}
                         />
 
                         <Select
                             {...DIAL}
-                            label="Whether they develop on their own"
-                            description="What the nightly passes do with material they write for this character: hold it for you to accept, or put it straight into use. Self-directed characters change between one week and the next without being asked. Everything they accrue can be rolled back from the Memory panel."
+                            label={t('editor.dial.growth.label')}
+                            description={t('editor.dial.growth.description')}
                             data={[
-                                { value: '', label: 'Proposes — you approve anything new' },
-                                { value: 'self-directed', label: 'Self-directed — it keeps what it writes' },
+                                { value: '', label: t('editor.dial.growth.proposes') },
+                                { value: 'self-directed', label: t('editor.dial.growth.selfDirected') },
                             ]}
                             {...form.getInputProps('growth')}
                         />
 
                         <Select
                             {...DIAL}
-                            label="How often they talk"
-                            description="Scales the gap your station leaves between its own breaks. It does not touch anything on your clock: a band asking for news at nine is you asking in as many words. There is no silent setting — turning breaks off is a station setting, and two switches for one thing would disagree."
+                            label={t('editor.dial.chattiness.label')}
+                            description={t('editor.dial.chattiness.description')}
                             data={[
-                                { value: '', label: "Ordinary — the station's own interval" },
-                                { value: 'relentless', label: 'Relentless — twice as often' },
-                                { value: 'chatty', label: 'Chatty — a little more often' },
-                                { value: 'sparing', label: 'Sparing — a little less often' },
-                                { value: 'reserved', label: 'Reserved — half as often' },
+                                { value: '', label: t('editor.dial.chattiness.ordinary') },
+                                { value: 'relentless', label: t('editor.dial.chattiness.relentless') },
+                                { value: 'chatty', label: t('editor.dial.chattiness.chatty') },
+                                { value: 'sparing', label: t('editor.dial.chattiness.sparing') },
+                                { value: 'reserved', label: t('editor.dial.chattiness.reserved') },
                             ]}
                             {...form.getInputProps('chattiness')}
                         />
@@ -617,13 +608,14 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                             form.values.storytelling,
                             form.values.chattiness,
                             form.values.trivia,
+                            t,
                         )}
                     </Text>
 
                     <Textarea
-                        label="What they keep coming back to"
-                        description="One subject per line. Only ONE of these reaches any break, chosen in turn, so a longer list is more variety rather than more to say at once. These are subjects; the rules about how they behave belong above."
-                        placeholder={'the pressing plant\nthe session that booked four hours\nthe running order of this station'}
+                        label={t('editor.field.preoccupations.label')}
+                        description={t('editor.field.preoccupations.description')}
+                        placeholder={t('editor.field.preoccupations.placeholder')}
                         autosize
                         minRows={4}
                         maxRows={12}
@@ -644,7 +636,7 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                         reported exactly there, so the one save that fails for a reason worth reading
                         was the one that looked like a button doing nothing. */}
                     {error === undefined ? undefined : (
-                        <ErrorAlert title="That could not be saved" error={error} fallback="The persona could not be saved." />
+                        <ErrorAlert title={t('editor.saveError.title')} error={error} fallback={t('editor.saveError.fallback')} />
                     )}
 
                     {/* The rehearsal is pinned to the footer so the effect of an edit is audible from
@@ -664,16 +656,16 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                                 onClick={() => rehearse.mutate(persona.id)}
                                 style={{ flexShrink: 0 }}
                             >
-                                Hear a rehearsal
+                                {t('editor.rehearse.button')}
                             </Button>
                             <Text size="xs" c="dimmed">
-                                Speaks this character as it was last SAVED. Save first to hear an edit.
+                                {t('editor.rehearse.note')}
                             </Text>
                         </Group>
                     ) : undefined}
 
                     {rehearse.error ? (
-                        <ErrorAlert title="Nothing was spoken" error={rehearse.error} fallback="The station could not rehearse this character." />
+                        <ErrorAlert title={t('editor.rehearse.errorTitle')} error={rehearse.error} fallback={t('editor.rehearse.errorFallback')} />
                     ) : undefined}
 
                     {rehearse.data ? (
@@ -682,16 +674,14 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
 
                     <Group justify="space-between" align="flex-end" wrap="nowrap">
                         <Text c="dimmed" size="xs">
-                            Nothing here can loosen the rules the station always sends: never name a record it was not given, and be certain or say
-                            nothing. Saving is heard on the next break the station writes — one already written or being spoken keeps the words it
-                            has.
+                            {t('editor.rules')}
                         </Text>
                         <Group wrap="nowrap">
                             <Button variant="subtle" onClick={requestClose}>
-                                Cancel
+                                {t('action.cancel', { ns: 'common' })}
                             </Button>
                             <Button type="submit" loading={saving}>
-                                Save
+                                {t('shared.save')}
                             </Button>
                         </Group>
                     </Group>
@@ -706,16 +696,28 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                 opened={discarding}
                 onClose={() => setDiscarding(false)}
                 onConfirm={discard}
-                title={persona === undefined ? 'Throw this character away?' : `Throw away your changes to ${persona.label}?`}
-                confirmLabel="Discard"
+                title={persona === undefined ? t('editor.discard.titleNew') : t('editor.discard.titleEdit', { label: persona.label })}
+                confirmLabel={t('editor.discard.confirm')}
             >
-                {persona === undefined
-                    ? 'Nothing here has been saved, so closing now leaves the station with no such character. Keep writing to come back to it.'
-                    : 'Nothing here has been saved. The character stays exactly as it was, and everything you have typed since opening this goes.'}
+                {persona === undefined ? t('editor.discard.bodyNew') : t('editor.discard.bodyEdit')}
             </ConfirmModal>
         </Drawer>
     );
 }
+
+/**
+ * The station's own placeholders as the phrasings field's help shows them.
+ *
+ * Handed in as values rather than written into the catalog, because `{{…}}` there is i18next's own
+ * syntax and would be read as a variable. They are the station's vocabulary, not English, so no
+ * translation should touch them.
+ */
+const TEMPLATE_EXAMPLES = {
+    previousTitle: '{{previous.title}}',
+    previousArtist: '{{previous.artist}}',
+    nextTitle: '{{next.title}}',
+    nextArtist: '{{next.artist}}',
+};
 
 /**
  * What every dial in "How far they go" has in common.
@@ -744,36 +746,36 @@ const DIAL = {
  * with what gets measured on air, and a number repeated here would be a second claim about them that
  * nothing keeps true.
  */
-function voiceReadout(brevity: string, latitude: string, storytelling: string, chattiness: string, trivia: string): string {
+function voiceReadout(brevity: string, latitude: string, storytelling: string, chattiness: string, trivia: string, t: TFunction<'personas'>): string {
     const length =
         brevity === 'one-line'
-            ? 'one line'
+            ? t('editor.readout.length.oneLine')
             : brevity === 'short'
-              ? 'a sentence or two'
+              ? t('editor.readout.length.short')
               : latitude === '' && trivia === ''
-                ? "the station's usual length"
-                : 'as long as it takes';
+                ? t('editor.readout.length.usual')
+                : t('editor.readout.length.long');
 
     const manner =
         latitude === 'unleashed'
-            ? 'Says what it likes, however it likes'
+            ? t('editor.readout.manner.unleashed')
             : latitude === 'loose'
-              ? 'Follows a thought where it goes'
-              : 'Makes one point';
+              ? t('editor.readout.manner.loose')
+              : t('editor.readout.manner.usual');
 
     // The third field is about MATERIAL rather than manner, so it is a sentence of its own rather
     // than another clause: what it changes is whether there is anything of the character's own life
     // in the prompt, which is a different question from how the character talks.
     const stories =
         storytelling === 'never'
-            ? ' It keeps its stories to itself in a link.'
+            ? t('editor.readout.stories.never')
             : storytelling === 'often'
-              ? ' It works one of its own stories into most breaks.'
-              : ' It reaches for one of its own stories when the station knows nothing about the records.';
+              ? t('editor.readout.stories.often')
+              : t('editor.readout.stories.occasionally');
 
     // Material again, but the station's rather than the character's own: what it knows about the
     // records. A sentence of its own for the stories' reason.
-    const lore = trivia === 'keen' ? ' It builds each link out of the story behind the record, from what the station knows about it.' : '';
+    const lore = trivia === 'keen' ? t('editor.readout.lore') : '';
 
     // Frequency is the one of the four that is not about a break at all — it is about how many
     // there are — so it leads with "and" rather than joining the sentence about how one sounds.
@@ -781,14 +783,14 @@ function voiceReadout(brevity: string, latitude: string, storytelling: string, c
         chattiness === '' || chattiness === 'ordinary'
             ? ''
             : chattiness === 'relentless'
-              ? ' It talks twice as often as the station would on its own.'
+              ? t('editor.readout.often.relentless')
               : chattiness === 'chatty'
-                ? ' It talks a little more often than the station would on its own.'
+                ? t('editor.readout.often.chatty')
                 : chattiness === 'sparing'
-                  ? ' It talks a little less often than the station would on its own.'
-                  : ' It talks half as often as the station would on its own.';
+                  ? t('editor.readout.often.sparing')
+                  : t('editor.readout.often.reserved');
 
-    return `${manner}, in ${length}. The station's content rules and its refusals are unchanged either way.${lore}${stories}${often}`;
+    return t('editor.readout.sentence', { manner, length, lore, stories, often });
 }
 
 /**
@@ -800,22 +802,17 @@ function voiceReadout(brevity: string, latitude: string, storytelling: string, c
  * they look like a model that is switched off and a phrasing the station never happens to choose.
  */
 function GenerationNotes({ generated }: { generated: { droppedMarkers: string[]; droppedTemplates: string[] } }) {
+    const { t } = useTranslation('personas');
     if (generated.droppedMarkers.length === 0 && generated.droppedTemplates.length === 0) return undefined;
 
     return (
-        <ErrorAlert tone="warning" title="Some of it was dropped">
+        <ErrorAlert tone="warning" title={t('editor.dropped.title')}>
             <Stack gap="xxs">
                 {generated.droppedMarkers.length === 0 ? undefined : (
-                    <Text size="sm">
-                        The model called these words its own and then never used them, so they were left out: {generated.droppedMarkers.join(', ')}. A
-                        word the character does not actually say would refuse every break it writes.
-                    </Text>
+                    <Text size="sm">{t('editor.dropped.markers', { markers: generated.droppedMarkers.join(', ') })}</Text>
                 )}
                 {generated.droppedTemplates.length === 0 ? undefined : (
-                    <Text size="sm">
-                        {generated.droppedTemplates.length} phrasing{generated.droppedTemplates.length === 1 ? '' : 's'} named something the station
-                        cannot fill in, so {generated.droppedTemplates.length === 1 ? 'it was' : 'they were'} left out.
-                    </Text>
+                    <Text size="sm">{t('editor.dropped.templates', { count: generated.droppedTemplates.length })}</Text>
                 )}
             </Stack>
         </ErrorAlert>
@@ -859,6 +856,7 @@ function Section({ title, blurb }: { title: string; blurb: string }) {
  * a line an operator typed was the only one nothing looked at.
  */
 function TemplateFaults({ raw }: { raw: string }) {
+    const { t } = useTranslation('personas');
     const faults = templateLines(raw)
         .map(line => ({ line, fault: faultInTemplate(line) }))
         .filter((entry): entry is { line: string; fault: string } => entry.fault !== undefined);
@@ -866,11 +864,18 @@ function TemplateFaults({ raw }: { raw: string }) {
     if (faults.length === 0) return undefined;
 
     return (
-        <ErrorAlert tone="warning" title={`The station would never pick ${faults.length === 1 ? 'one of these' : `${faults.length} of these`}`}>
+        <ErrorAlert tone="warning" title={t('editor.faults.title', { count: faults.length })}>
             <Stack gap="xxs">
                 {faults.map(({ line, fault }) => (
                     <Text key={line} size="sm">
-                        <Code>{line.length > 80 ? `${line.slice(0, 80)}…` : line}</Code> {fault}.
+                        {/* The line goes in as the element's own children rather than as a value, so
+                            whatever an operator typed (a stray `<` included) is never parsed as markup. */}
+                        <Trans
+                            t={t}
+                            i18nKey="editor.faults.line"
+                            values={{ fault }}
+                            components={{ code: <Code>{line.length > 80 ? `${line.slice(0, 80)}…` : line}</Code> }}
+                        />
                     </Text>
                 ))}
             </Stack>
@@ -888,6 +893,7 @@ function TemplateFaults({ raw }: { raw: string }) {
  * claim either way, which is why nothing is said then.
  */
 function UnusedMarkers({ markers, samples }: { markers: string; samples: string }) {
+    const { t } = useTranslation('personas');
     const written = samples.trim().toLowerCase();
     if (written.length === 0) return undefined;
 
@@ -904,8 +910,7 @@ function UnusedMarkers({ markers, samples }: { markers: string; samples: string 
 
     return (
         <Text size="xs" c="dimmed">
-            Nothing in the lines above uses {unused.join(', ')}. A break is refused for carrying none of these words, so it is worth showing the model
-            at least one of them in use.
+            {t('editor.unusedMarkers', { markers: unused.join(', ') })}
         </Text>
     );
 }
@@ -970,8 +975,8 @@ const VALIDATED = ['label', 'key', 'style'] as const;
 const linesOf = (values: string[] | undefined): string => (values ?? []).join('\n');
 
 /** What the modal is called: which kind is being written, or which character is being edited. */
-const titleFor = (persona: Persona | undefined, caller: boolean): string =>
-    persona === undefined ? (caller ? 'New caller' : 'New host') : `Edit ${persona.label}`;
+const titleFor = (persona: Persona | undefined, caller: boolean, t: TFunction<'personas'>): string =>
+    persona === undefined ? (caller ? t('editor.title.newCaller') : t('editor.title.newHost')) : t('editor.title.edit', { label: persona.label });
 
 /**
  * A saved persona or a generated draft, as the form's values.

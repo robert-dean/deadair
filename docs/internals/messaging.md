@@ -105,3 +105,41 @@ same code cannot both win. A code sent to a group has been read by everybody the
 on the spot and the sender is told to get another. Minting a code refuses an API key, for
 `ApiKeysService`'s reason: a key must not hand a chat account its owner's powers.
 
+## Requests
+
+**A request is an API first and a chat command second.** `apps/api/data/contracts/requests/requests.ck`
+is what a listener app calls (`platform.view`: search, ask, follow your own) and what the console decides
+with (`platform.manage`: list, grant, decline), so the Android, iOS and desktop SDKs have it without any of
+this module knowing they exist. A chat's `/request` reaches the same `RequestDesk.submit`, so one person
+cannot get round the rules by asking from the other side.
+
+**The arbitration is a pure function**, `request.arbiter.ts`, because it is the part that is policy:
+[#76](https://github.com/robert-dean/deadair/discussions/76) says the design problem is arbitration, not
+intake. One open request per person (the key is the account, or the platform's user id), a cooldown after
+one is let through (a refusal does not count against anybody), a cap on how many are open at once, and
+never the same record twice. Every refusal is a sentence the station says to the person asking, and a
+refusal is still a row (`declined`, with its `reason`), so an app is answered in the same breath.
+
+**The station's own rules still hold.** A request goes through `PickResolver` with the broadcast's rules,
+as a mixed-in record does, so a dislike, the repeat window, the period and the advisory policy apply to it.
+The search a listener picks from stands on the same floor as the model's (playable, not disliked).
+
+**Placed by the director, and only with its bytes here.** `insertRequested` puts the record in the first
+quiet gap near the head (see `director.md`), never beside another request. A record whose audio is not local
+is fetched (`playout.cache_track`) and the request waits `pending`; so does one that found no gap. The
+`requests.tick` cron offers pending requests again every minute and lets go of any not placed within the
+hour, or placed and not heard within three. The aired edge (`RequestAiredWatch`, on `Rundown.onAired`)
+marks a request heard by its RECORD, since the rundown's items do not carry the request id.
+
+**An operator may approve every request** (`requests.approval`), in which case each waits as `waiting`
+until granted or declined through the routes. A declined request's `reason` is the station's words or the
+operator's, never the listener's.
+
+**Nobody's email address is shown or read out.** An app request carries the name the listener chose, or
+"a listener"; a chat one, the name the platform shows.
+
+**Somebody who asked from a chat is told what became of it** through the `messaging.announce` job, by
+name, since the messaging module registers after this one. They are told only things that happen LATER
+(placed after a wait, granted, declined by an operator, aired, lapsed): the command that took the request
+already answered with its outcome.
+

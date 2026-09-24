@@ -143,6 +143,7 @@ import {
 // middleware. Putting it there would bounce Liquidsoap to change a list the app alone consults.
 import { HLS_REFUSE_DEFAULT, HLS_REFUSE_KEY } from '#modules/stream/hls.refusal.js';
 import { ACTIVITY_DEFAULTS, ACTIVITY_KEYS } from '#modules/activity/activity.settings.js';
+import { MAX_OPEN_REQUESTS, MAX_REQUEST_COOLDOWN_MINUTES, REQUESTS_DEFAULTS, REQUESTS_KEYS } from '#modules/requests/requests.settings.js';
 import { DEFAULT_SWEEP_MAX_PERCENT, SWEEP_MAX_PERCENT_KEY } from '#modules/catalog/ingest/catalog.sweep.guard.js';
 import { CATALOG_SYNC_DEFAULTS, CATALOG_SYNC_KEYS, MAX_SYNC_EVERY_HOURS } from '#modules/catalog/ingest/catalog.sync.schedule.js';
 
@@ -756,6 +757,49 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         min: MIX_IN_EVERY_RANGE.min,
         max: MIX_IN_EVERY_RANGE.max,
         help: "How many of the playlist's own records play between one mixed-in record and the next. Four is roughly one in five of what a listener hears. A mixed-in record never goes next to a break, so the spacing can stretch by a record where one is in the way.",
+    },
+    {
+        group: 'rotation',
+        key: REQUESTS_KEYS.enabled,
+        label: 'Take listener requests',
+        type: 'boolean',
+        default: REQUESTS_DEFAULTS.enabled,
+        help: 'Let people ask for a record from a listener app, or from a chat platform the station is connected to. A request goes in a few records from now, never next to a break, and still has to pass the station’s own rules: a record it has played lately, or one you have told it not to play, is turned down with a reason.',
+    },
+    {
+        group: 'rotation',
+        key: REQUESTS_KEYS.approval,
+        label: 'Who lets a request through',
+        type: 'select',
+        default: REQUESTS_DEFAULTS.approval,
+        dependsOn: REQUESTS_KEYS.enabled,
+        options: [
+            { value: 'auto', label: 'The station, by its rules' },
+            { value: 'operator', label: 'An operator, one at a time' },
+        ],
+        help: 'With an operator, every request waits until somebody grants or declines it. One nobody decides on within the hour lapses.',
+    },
+    {
+        group: 'rotation',
+        key: REQUESTS_KEYS.cooldownMinutes,
+        label: 'Minutes between one person’s requests',
+        type: 'number',
+        default: REQUESTS_DEFAULTS.cooldownMinutes,
+        dependsOn: REQUESTS_KEYS.enabled,
+        min: 0,
+        max: MAX_REQUEST_COOLDOWN_MINUTES,
+        help: 'How long somebody waits after a request of theirs is let through before they can ask again. A turned-down request does not count. Everybody may have only one request waiting at a time whatever this says.',
+    },
+    {
+        group: 'rotation',
+        key: REQUESTS_KEYS.maxOpen,
+        label: 'Most requests waiting at once',
+        type: 'number',
+        default: REQUESTS_DEFAULTS.maxOpen,
+        dependsOn: REQUESTS_KEYS.enabled,
+        min: 1,
+        max: MAX_OPEN_REQUESTS,
+        help: 'Once this many are waiting or in the running order, the next person is told the request line is full. It is what stops a busy night turning into a jukebox.',
     },
     {
         group: 'breaks',

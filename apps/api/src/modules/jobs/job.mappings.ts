@@ -31,6 +31,7 @@ import { SweepTrackCacheJob } from '#modules/playout/audio/sweep.track.cache.job
 import { SweepOrphansJob } from '#modules/storage/sweep.orphans.job.js';
 import { ScrobbleFlushJob } from '#modules/scrobble/scrobble.flush.job.js';
 import { MessagingAnnounceJob } from '#modules/messaging/messaging.announce.job.js';
+import { RequestsTickJob } from '#modules/requests/requests.tick.job.js';
 import { RefreshNarrationsJob } from '#modules/narrations/refresh.narrations.job.js';
 import { RenderPieceJob } from '#modules/narrations/render.piece.job.js';
 import { RefreshPodcastsJob } from '#modules/podcasts/refresh.podcasts.job.js';
@@ -554,5 +555,14 @@ export const JobMappings: Record<JobNames, JobMapping> = {
             retryBackoff: true,
             expiresIn: Duration.fromObject({ minutes: 1 }),
         },
+    },
+
+    // Every minute: a request waiting on its audio or on a quiet place near the head of the order is
+    // waiting on something measured in minutes, and this is its retry. No job-level retry, for the
+    // prune jobs' reason: the next minute is the retry. `expiresIn` sits under the interval.
+    'requests.tick': {
+        job: RequestsTickJob,
+        cron: '* * * * *',
+        policy: { retryLimit: 0, expiresIn: Duration.fromObject({ seconds: 50 }) },
     },
 };

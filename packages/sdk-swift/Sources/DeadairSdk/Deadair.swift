@@ -32,6 +32,7 @@ public final class Deadair: Sendable {
     public let podcasts: PodcastsClient
     public let productions: ProductionsClient
     public let render: RenderClient
+    public let requests: RequestsClient
     public let schedule: ScheduleClient
     public let settings: SettingsClient
     public let logs: LogsClient
@@ -70,6 +71,7 @@ public final class Deadair: Sendable {
         self.podcasts = PodcastsClient(http: http)
         self.productions = ProductionsClient(http: http)
         self.render = RenderClient(http: http)
+        self.requests = RequestsClient(http: http)
         self.schedule = ScheduleClient(http: http)
         self.settings = SettingsClient(http: http)
         self.logs = LogsClient(http: http)

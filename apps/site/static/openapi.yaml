@@ -3955,6 +3955,124 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/PadList'
+    '/requests/search':
+        get:
+            operationId: search
+            summary: 'Search requestable records'
+            description: 'Records the station could be asked to play, matching a title or an artist'
+            parameters:
+                - name: q
+                  in: query
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 1
+                      maxLength: 200
+                - name: limit
+                  in: query
+                  required: false
+                  schema:
+                      type: integer
+                      minimum: 1
+                      maximum: 25
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/RequestableTrackList'
+    '/requests':
+        get:
+            operationId: list
+            summary: 'List requests'
+            description: 'Every recent request, for the operator deciding on them'
+            parameters:
+                - name: status
+                  in: query
+                  required: false
+                  schema:
+                      '$ref': '#/components/schemas/RequestStatus'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/ListenerRequestList'
+        post:
+            operationId: create
+            summary: 'Create request'
+            description: 'Ask the station to play a record. Answers with the request whatever became of it, so a refusal says why in `reason`'
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/ListenerRequestCreate'
+            responses:
+                '201':
+                    description: Created
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/ListenerRequest'
+    '/requests/mine':
+        get:
+            operationId: mine
+            summary: 'List my requests'
+            description: "The signed-in account's own recent requests"
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/ListenerRequestList'
+    '/requests/{id}/grant':
+        post:
+            operationId: grant
+            summary: 'Grant request'
+            description: 'Let a waiting request through. It goes into the running order once its audio is here'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/ListenerRequest'
+    '/requests/{id}/decline':
+        post:
+            operationId: decline
+            summary: 'Decline request'
+            description: 'Turn a request down. One already in the running order is left there; take it out of the order instead'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/ListenerRequestDecline'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/ListenerRequest'
     '/schedule':
         get:
             operationId: list
@@ -10998,6 +11116,110 @@ components:
                     description: 'Files passed over: not audio, unreadable, or named something no script could write'
             required: [scanned, imported, replaced, contested, skipped]
             description: 'What one pass over the pad library did'
+        RequestableTrack:
+            type: object
+            properties:
+                trackId:
+                    type: string
+                    format: uuid
+                    description: 'What to send as `trackId` to make the request'
+                title:
+                    type: string
+                    maxLength: 400
+                artist:
+                    type: string
+                    maxLength: 400
+                    description: 'The lead artist'
+                album:
+                    type: string
+                    maxLength: 400
+                year:
+                    type: integer
+            required: [trackId, title, artist]
+            description: 'A record the station holds and could be asked for'
+        RequestableTrackList:
+            type: object
+            properties:
+                tracks:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/RequestableTrack'
+            required: [tracks]
+            description: 'Records matching a search, best matches first'
+        RequestStatus:
+            type: string
+            enum: [waiting, pending, queued, aired, declined, expired]
+        RequestSource:
+            type: string
+            enum: [app, chat]
+        ListenerRequest:
+            type: object
+            properties:
+                id:
+                    type: string
+                    format: uuid
+                status:
+                    '$ref': '#/components/schemas/RequestStatus'
+                    description: '`waiting` for an operator to approve it, `pending` while its audio is fetched or a place is found for it, `queued` in the running order, `aired` once heard, `declined` or `expired` when it never will be'
+                title:
+                    type: string
+                    maxLength: 400
+                    description: 'The record, as it was called when it was asked for'
+                artist:
+                    type: string
+                    maxLength: 400
+                requesterName:
+                    type: string
+                    maxLength: 200
+                    description: 'Who asked, by the name their account or chat platform gave'
+                source:
+                    '$ref': '#/components/schemas/RequestSource'
+                    description: 'Whether it came from an app or a chat platform'
+                createdAt:
+                    type: string
+                    format: date-time
+                    description: 'When it was asked for'
+                reason:
+                    type: string
+                    maxLength: 400
+                    description: "Why it was declined or expired, in the station's words or an operator's"
+                airedAt:
+                    type: string
+                    format: date-time
+                    description: 'When it aired'
+            required: [id, status, title, artist, requesterName, source, createdAt]
+            description: 'A record somebody asked the station to play, and what became of it'
+        ListenerRequestList:
+            type: object
+            properties:
+                requests:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/ListenerRequest'
+            required: [requests]
+            description: 'Requests, newest first'
+        ListenerRequestCreate:
+            type: object
+            properties:
+                trackId:
+                    type: string
+                    format: uuid
+                    description: 'A record from the request search'
+                name:
+                    type: string
+                    minLength: 1
+                    maxLength: 60
+                    description: 'What the station should call you. Omitted, you are "a listener": your account''s email address is never shown or read out'
+            required: [trackId]
+            description: 'Ask the station to play a record'
+        ListenerRequestDecline:
+            type: object
+            properties:
+                reason:
+                    type: string
+                    maxLength: 400
+                    description: 'What to tell the listener. Omit for a plain no'
+            description: 'Turn a request down'
         ScheduleSlot:
             type: object
             properties:

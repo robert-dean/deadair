@@ -297,6 +297,27 @@ export interface DeadairHiddenPlaylists {
   stationKey: Generated<string>;
 }
 
+export interface DeadairListenerRequests {
+  actorId: string | null;
+  airedAt: DateTime | null;
+  artist: string;
+  chatId: string | null;
+  chatKind: "direct" | "group" | null;
+  createdAt: Generated<DateTime>;
+  decidedAt: DateTime | null;
+  id: Generated<string>;
+  messageId: string | null;
+  pluginId: string | null;
+  reason: string | null;
+  requesterKey: string;
+  requesterName: string;
+  stationKey: Generated<string>;
+  status: Generated<"waiting" | "pending" | "queued" | "aired" | "declined" | "expired">;
+  title: string;
+  trackId: string;
+  updatedAt: Generated<DateTime>;
+}
+
 export interface DeadairLoginEvents {
   actorId: string;
   factorId: string | null;
@@ -1021,6 +1042,7 @@ export interface DB {
   "deadair.factExtractions": DeadairFactExtractions;
   "deadair.facts": DeadairFacts;
   "deadair.hiddenPlaylists": DeadairHiddenPlaylists;
+  "deadair.listenerRequests": DeadairListenerRequests;
   "deadair.loginEvents": DeadairLoginEvents;
   "deadair.loginFailureCounters": DeadairLoginFailureCounters;
   "deadair.messagingCursors": DeadairMessagingCursors;

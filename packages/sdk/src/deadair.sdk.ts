@@ -20,6 +20,7 @@ import { PluginsClient } from './plugins/plugins.client.js';
 import { PodcastsClient } from './podcasts/podcasts.client.js';
 import { ProductionsClient } from './productions/productions.client.js';
 import { RenderClient } from './render/render.client.js';
+import { RequestsClient } from './requests/requests.client.js';
 import { ScheduleClient } from './schedule/schedule.client.js';
 import { SettingsClient } from './settings/settings.client.js';
 import { StationClient } from './station/station.client.js';
@@ -48,6 +49,7 @@ export class DeadairSdk {
     readonly podcasts: PodcastsClient;
     readonly productions: ProductionsClient;
     readonly render: RenderClient;
+    readonly requests: RequestsClient;
     readonly schedule: ScheduleClient;
     readonly settings: SettingsClient;
     readonly station: StationClient;
@@ -77,6 +79,7 @@ export class DeadairSdk {
         this.podcasts = new PodcastsClient(sdkFetch);
         this.productions = new ProductionsClient(sdkFetch);
         this.render = new RenderClient(sdkFetch);
+        this.requests = new RequestsClient(sdkFetch);
         this.schedule = new ScheduleClient(sdkFetch);
         this.settings = new SettingsClient(sdkFetch);
         this.station = new StationClient(sdkFetch);

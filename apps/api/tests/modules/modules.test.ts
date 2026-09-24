@@ -65,6 +65,12 @@ describe('the module list', () => {
         expect(tearsDownBefore('Messaging', 'NowPlaying')).toBe(true);
     });
 
+    it('registers requests after the director that places them and before the chat commands that make them', () => {
+        expect(tearsDownBefore('Requests', 'Director')).toBe(true);
+        expect(tearsDownBefore('Requests', 'Playout')).toBe(true);
+        expect(tearsDownBefore('Messaging', 'Requests')).toBe(true);
+    });
+
     it('registers OAuth after the authentication and policies it builds on', () => {
         expect(tearsDownBefore('OAuth', 'Authentication')).toBe(true);
         expect(tearsDownBefore('OAuth', 'Policy')).toBe(true);

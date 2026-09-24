@@ -43,6 +43,7 @@ import { withBoundedShutdown } from './shared/shutdown.guard.js';
 import { OAuthModule } from './oauth/oauth.module.js';
 import { McpModule } from './mcp/mcp.module.js';
 import { MessagingModule } from './messaging/messaging.module.js';
+import { RequestsModule } from './requests/requests.module.js';
 
 // Registered in dependency order: infrastructure (data, shared, messaging,
 // events) first, then the single-actor identity/auth foundation. IdentityModule
@@ -272,6 +273,9 @@ const ordered: ServerKitModule[] = [
     // composes them and owns nothing, so nothing resolves it back — which is what makes the bottom
     // of the list a free position rather than a compromise.
     StationModule,
+    // After the director, which places a request, and the transport, which says when one is heard.
+    // Before Messaging, whose `/request` command calls the desk here.
+    RequestsModule,
     // After the plugins it polls and everything a chat command reaches (now playing, the director),
     // so its poller lets go of every platform before any of those tear down. Nothing resolves it.
     MessagingModule,

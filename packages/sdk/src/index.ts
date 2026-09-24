@@ -43,6 +43,8 @@ export * from './productions/productions.client.js';
 export * from './productions/types/index.js';
 export * from './render/render.client.js';
 export * from './render/types/index.js';
+export * from './requests/requests.client.js';
+export * from './requests/types/index.js';
 export * from './schedule/schedule.client.js';
 export * from './schedule/types/index.js';
 export * from './sdk-options.js';

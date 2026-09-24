@@ -29,4 +29,5 @@ export type JobNames =
     | 'podcasts.fetch'
     | 'narrations.refresh'
     | 'narrations.render'
-    | 'messaging.announce';
+    | 'messaging.announce'
+    | 'requests.tick';

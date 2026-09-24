@@ -16,6 +16,7 @@ import { PluginAttentionStrip } from './plugin.attention';
 import { PluginCard } from './plugin.card';
 import { PluginImportModal } from './plugin.import.modal';
 import {
+    defaultShow,
     matchesSearch,
     matchesShow,
     PLUGIN_SHOWS,
@@ -79,8 +80,11 @@ export function PluginsPage({ params, onParamsChange }: PluginsPageProps) {
     const [searchKey, setSearchKey] = useState(0);
     const phone = usePhone();
 
+    // Decided over every plugin rather than the searched ones: the search is what the operator is
+    // looking for, and the default is about the state of the station.
+    const show = params.show ?? defaultShow(plugins.data ?? []);
     const searched = (plugins.data ?? []).filter(plugin => matchesSearch(plugin, params.q));
-    const shown = searched.filter(plugin => matchesShow(plugin, params.show));
+    const shown = searched.filter(plugin => matchesShow(plugin, show));
 
     return (
         <Stack gap="lg">
@@ -140,7 +144,7 @@ export function PluginsPage({ params, onParamsChange }: PluginsPageProps) {
             {/* Over the search rather than under it, and blind to it: this is the page saying what is
                 wrong, not a view of what was asked for. Hidden where the cards already are that list,
                 or where the operator asked for the plugins they switched off. */}
-            {plugins.data && (params.show === 'all' || params.show === 'enabled') ? <PluginAttentionStrip plugins={plugins.data} /> : undefined}
+            {plugins.data && (show === 'all' || show === 'enabled') ? <PluginAttentionStrip plugins={plugins.data} /> : undefined}
 
             {plugins.data && plugins.data.length > 0 ? (
                 <Group gap="sm" align="center">
@@ -154,7 +158,7 @@ export function PluginsPage({ params, onParamsChange }: PluginsPageProps) {
                     />
                     <ShowFilter
                         plugins={searched}
-                        value={params.show}
+                        value={show}
                         onChange={show => {
                             onParamsChange({ show });
                         }}
@@ -190,7 +194,7 @@ export function PluginsPage({ params, onParamsChange }: PluginsPageProps) {
                                 setSearchKey(key => key + 1);
                                 // The filters, not the layout: somebody reading the table wants the
                                 // table back with everything in it.
-                                onParamsChange({ q: PLUGINS_PAGE_DEFAULTS.q, show: PLUGINS_PAGE_DEFAULTS.show });
+                                onParamsChange({ q: PLUGINS_PAGE_DEFAULTS.q, show: 'all' });
                             }}
                         >
                             Clear filters

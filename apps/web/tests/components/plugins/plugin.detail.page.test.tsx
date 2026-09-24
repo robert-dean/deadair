@@ -167,7 +167,7 @@ describe('PluginDetailPage', () => {
         await user.click(screen.getByRole('button', { name: 'Remove Charts' }));
 
         await vi.waitFor(() => {
-            expect(navigate).toHaveBeenCalledWith({ to: '/plugins', search: { q: '', show: 'all', view: 'cards' } });
+            expect(navigate).toHaveBeenCalledWith({ to: '/plugins', search: { q: '', view: 'cards' } });
         });
         expect(removePlugin).toHaveBeenCalledWith('example.charts');
     });

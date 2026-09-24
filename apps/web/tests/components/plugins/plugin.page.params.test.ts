@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { matchesSearch, matchesShow, validatePluginsPage } from '../../../src/components/plugins/plugin.page.params';
+import { defaultShow, matchesSearch, matchesShow, validatePluginsPage } from '../../../src/components/plugins/plugin.page.params';
 import { pluginSummary } from '../../utils/plugin.fixture';
 
 describe('validatePluginsPage', () => {
@@ -9,8 +9,24 @@ describe('validatePluginsPage', () => {
     });
 
     it('falls back on anything it does not, rather than throwing', () => {
-        expect(validatePluginsPage({ q: 42, show: 'broken', view: 'grid' })).toEqual({ q: '', show: 'all', view: 'cards' });
-        expect(validatePluginsPage({})).toEqual({ q: '', show: 'all', view: 'cards' });
+        // No filter is "not chosen", which the page decides from the plugins, rather than "All".
+        expect(validatePluginsPage({ q: 42, show: 'broken', view: 'grid' })).toStrictEqual({ q: '', show: undefined, view: 'cards' });
+        expect(validatePluginsPage({})).toStrictEqual({ q: '', show: undefined, view: 'cards' });
+    });
+});
+
+describe('defaultShow', () => {
+    it('opens on what needs attention when anything does, switched on or not', () => {
+        expect(defaultShow([pluginSummary(), pluginSummary({ status: 'misconfigured', enabled: false })])).toBe('attention');
+    });
+
+    it('opens on what is switched on when nothing needs attention', () => {
+        expect(defaultShow([pluginSummary(), pluginSummary({ enabled: false, status: 'disabled' })])).toBe('enabled');
+    });
+
+    it('opens on everything when nothing is switched on, which is a fresh install', () => {
+        expect(defaultShow([pluginSummary({ enabled: false, status: 'discovered' })])).toBe('all');
+        expect(defaultShow([])).toBe('all');
     });
 });
 

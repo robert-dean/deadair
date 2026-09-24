@@ -73,7 +73,7 @@ describe('PluginsPage', () => {
             pluginSummary({ id: 'deadair.navidrome', name: 'Navidrome', status: 'misconfigured', enabled: false }),
         ]);
 
-        render(<PluginsPage />);
+        render(<PluginsPage initial={{ q: '', show: 'all', view: 'cards' }} />);
 
         expect(await screen.findByText('Spotify')).toBeInTheDocument();
         const cards = screen.getByRole('region', { name: 'Music sources' });
@@ -106,7 +106,7 @@ describe('PluginsPage', () => {
             pluginSummary({ id: 'deadair.rhapsode', name: 'Rhapsode', capabilities: ['speech'], status: 'failed' }),
         ]);
 
-        render(<PluginsPage />);
+        render(<PluginsPage initial={{ q: '', show: 'all', view: 'cards' }} />);
         await setupUser().type(await screen.findByLabelText('Search plugins'), 'voice');
 
         await waitFor(() => {
@@ -143,7 +143,7 @@ describe('PluginsPage', () => {
             }),
         ]);
 
-        render(<PluginsPage />);
+        render(<PluginsPage initial={{ q: '', show: 'all', view: 'cards' }} />);
 
         const strip = await screen.findByRole('alert');
         expect(within(strip).getByText('1 plugin needs attention')).toBeInTheDocument();
@@ -202,6 +202,29 @@ describe('PluginsPage', () => {
 
         await setupUser().click(screen.getByText('Table'));
         expect(await screen.findByRole('table')).toBeInTheDocument();
+    });
+
+    it('opens on what needs attention when anything does', async () => {
+        listPlugins.mockResolvedValue([pluginSummary(), pluginSummary({ id: 'deadair.rss', name: 'RSS', capabilities: ['news'], status: 'failed' })]);
+
+        render(<PluginsPage />);
+
+        expect(await screen.findByText('RSS')).toBeInTheDocument();
+        expect(screen.queryByText('Spotify')).not.toBeInTheDocument();
+        expect(screen.getByRole('radio', { name: 'Needs attention 1' })).toBeChecked();
+    });
+
+    it('opens on what is switched on when nothing needs attention', async () => {
+        listPlugins.mockResolvedValue([
+            pluginSummary(),
+            pluginSummary({ id: 'deadair.rss', name: 'RSS', capabilities: ['news'], enabled: false, status: 'disabled' }),
+        ]);
+
+        render(<PluginsPage />);
+
+        expect(await screen.findByText('Spotify')).toBeInTheDocument();
+        expect(screen.queryByText('RSS')).not.toBeInTheDocument();
+        expect(screen.getByRole('radio', { name: 'Enabled 1' })).toBeChecked();
     });
 
     it('marks a plugin the operator installed, and leaves the bundled ones unmarked', async () => {
@@ -286,7 +309,7 @@ describe('PluginsPage', () => {
         listPlugins.mockResolvedValue([pluginSummary()]);
         importPlugin.mockResolvedValue({ pluginId: imported.id, restartRequired: false, plugins: [pluginSummary(), imported] });
 
-        render(<PluginsPage />);
+        render(<PluginsPage initial={{ q: '', show: 'all', view: 'cards' }} />);
         await importTarball();
 
         expect(await screen.findByText('Apple Music charts')).toBeInTheDocument();

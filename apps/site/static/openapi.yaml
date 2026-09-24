@@ -2549,6 +2549,142 @@ paths:
                       type: string
                       minLength: 1
                       maxLength: 400
+    '/station-playlists':
+        get:
+            operationId: list
+            summary: 'List station playlists'
+            description: 'Every playlist the station owns, newest first'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/StationPlaylistList'
+    '/station-playlists/{id}':
+        get:
+            operationId: get
+            summary: 'Get station playlist'
+            description: 'One station playlist with its records in order, placeholders included'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/StationPlaylistDetail'
+                '404':
+                    description: 'Not found'
+        patch:
+            operationId: update
+            summary: 'Update station playlist'
+            description: 'Renames a station playlist, or rewrites what it is for'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/StationPlaylistUpdate'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/StationPlaylist'
+                '404':
+                    description: 'Not found'
+        delete:
+            operationId: delete
+            summary: 'Delete station playlist'
+            description: 'Deletes a station playlist. The records it named stay in the library'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            responses:
+                '204':
+                    description: 'No content'
+                '404':
+                    description: 'Not found'
+    '/station-playlists/{id}/export':
+        get:
+            operationId: export
+            summary: 'Export station playlist'
+            description: 'One station playlist as a file another station can import'
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      format: uuid
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/PlaylistFile'
+                    headers:
+                        Content-Disposition:
+                            schema:
+                                type: string
+                '404':
+                    description: 'Not found'
+    '/station-playlists/import/preview':
+        post:
+            operationId: preview
+            summary: 'Preview playlist import'
+            description: 'Reads a source and reports which of its records the library holds and which it would have to find. Writes nothing'
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/PlaylistImportInput'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/PlaylistImportPlan'
+    '/station-playlists/import':
+        post:
+            operationId: import
+            summary: 'Import playlist'
+            description: 'Makes a new station playlist from a source and answers with what it did'
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/PlaylistImportInput'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/PlaylistImportResult'
     '/playout/status':
         get:
             operationId: getStatus
@@ -9067,6 +9203,268 @@ components:
                     items:
                         '$ref': '#/components/schemas/CatalogTrack'
             required: [pluginId, playlistId, tracks]
+        StationPlaylist:
+            type: object
+            properties:
+                id:
+                    type: string
+                    minLength: 1
+                    maxLength: 100
+                    readOnly: true
+                name:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                prompt:
+                    type: string
+                    maxLength: 4000
+                    description: "What this playlist is for, in the operator's own words. Empty when nobody said"
+                originPluginId:
+                    type: string
+                    maxLength: 200
+                    readOnly: true
+                    description: 'The plugin this was cloned from, for a badge and nothing else. Absent for one read from a file or made here'
+                trackCount:
+                    type: integer
+                    minimum: 0
+                    readOnly: true
+                    description: 'Every row, placeholders included'
+                resolvedCount:
+                    type: integer
+                    minimum: 0
+                    readOnly: true
+                    description: 'The rows that name a record in the library, which are the ones that can air'
+                createdAt:
+                    type: string
+                    format: date-time
+                    readOnly: true
+                updatedAt:
+                    type: string
+                    format: date-time
+                    readOnly: true
+            required: [id, name, prompt, trackCount, resolvedCount, createdAt, updatedAt]
+            description: "A playlist the station owns: records it holds in its own library, in an order somebody chose, cloned\nfrom somewhere else and free to differ from it afterwards"
+        StationPlaylistList:
+            type: object
+            properties:
+                playlists:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/StationPlaylist'
+            required: [playlists]
+        StationPlaylistTrack:
+            type: object
+            properties:
+                id:
+                    type: string
+                    minLength: 1
+                    maxLength: 100
+                    description: "The row's own id, not the record's"
+                position:
+                    type: integer
+                    minimum: 0
+                title:
+                    type: string
+                    minLength: 1
+                    maxLength: 400
+                artists:
+                    type: array
+                    items:
+                        type: string
+                        minLength: 1
+                        maxLength: 200
+                    description: 'Ordered, primary artist first'
+                album:
+                    type: string
+                    maxLength: 400
+                durationMs:
+                    type: integer
+                    minimum: 0
+                trackId:
+                    type: string
+                    maxLength: 100
+                    description: 'The library record this row plays. Absent on a placeholder'
+                artistId:
+                    type: string
+                    maxLength: 100
+                albumId:
+                    type: string
+                    maxLength: 100
+                originPluginId:
+                    type: string
+                    maxLength: 200
+                    description: 'On a placeholder, the plugin whose copy it was cloned from. Absent on one read from a file, which names a record and no copy of it'
+            required: [id, position, title, artists]
+            description: 'One row of a station playlist: a record in the library, or a placeholder for one it does not hold yet'
+        StationPlaylistDetail:
+            allOf:
+                - '$ref': '#/components/schemas/StationPlaylist'
+                - type: object
+                  properties:
+                      tracks:
+                          type: array
+                          items:
+                              '$ref': '#/components/schemas/StationPlaylistTrack'
+                  required: [tracks]
+        StationPlaylistUpdate:
+            type: object
+            properties:
+                name:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                prompt:
+                    type: string
+                    maxLength: 4000
+            description: 'What may change about a station playlist after it exists. Absent fields are left alone'
+        PlaylistFileOrigin:
+            type: object
+            properties:
+                pluginId:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                externalId:
+                    type: string
+                    minLength: 1
+                    maxLength: 400
+            required: [pluginId, externalId]
+            description: "Where a record in a file came from, when it came from a provider's copy. Carried so a record the\nreceiving library does not hold can still be matched by that copy later"
+        PlaylistFileTrack:
+            type: object
+            properties:
+                title:
+                    type: string
+                    minLength: 1
+                    maxLength: 400
+                artists:
+                    type: array
+                    items:
+                        type: string
+                        minLength: 1
+                        maxLength: 200
+                    description: 'Ordered, primary artist first'
+                album:
+                    type: string
+                    maxLength: 400
+                durationMs:
+                    type: integer
+                    minimum: 0
+                isrc:
+                    type: string
+                    maxLength: 100
+                origin:
+                    '$ref': '#/components/schemas/PlaylistFileOrigin'
+            required: [title, artists]
+            description: "One record as a playlist file names it. By its words and its ISRC, never by an id of this station's:\nids are minted afresh by every library, so a file keyed by them would restore onto nothing"
+        PlaylistFile:
+            type: object
+            properties:
+                format:
+                    type: string
+                    minLength: 1
+                    maxLength: 50
+                    description: 'What shape this is, so a file from a later build says so rather than being read wrongly'
+                takenAt:
+                    type: string
+                    minLength: 1
+                    maxLength: 40
+                    description: 'When it was exported, ISO-8601'
+                station:
+                    type: string
+                    maxLength: 100
+                    description: 'The station it was taken from. Provenance only'
+                name:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                prompt:
+                    type: string
+                    maxLength: 4000
+                tracks:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/PlaylistFileTrack'
+            required: [format, takenAt, name, tracks]
+            description: 'A playlist as a file: everything somebody would need to rebuild it on another station'
+        PlaylistImportInput:
+            type: object
+            properties:
+                file:
+                    '$ref': '#/components/schemas/PlaylistFile'
+                    description: 'A playlist exported from a deadair station'
+                name:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                    description: 'What to call the new playlist. Absent keeps the name the source gives it'
+            description: 'Something to import a playlist from. Exactly one source'
+        PlaylistImportEntry:
+            type: object
+            properties:
+                position:
+                    type: integer
+                    minimum: 0
+                title:
+                    type: string
+                    minLength: 1
+                    maxLength: 400
+                artists:
+                    type: array
+                    items:
+                        type: string
+                        minLength: 1
+                        maxLength: 200
+                outcome:
+                    type: string
+                    enum: [matched, toAdd, toLookUp]
+                    description: "`matched`: the library holds it. `toAdd`: it names a provider's copy, which the station can add to its library. `toLookUp`: it names only a record, which the station has to search its providers for"
+                trackId:
+                    type: string
+                    maxLength: 100
+                    description: 'The library record a `matched` row plays'
+            required: [position, title, artists, outcome]
+            description: 'What importing one record would do here'
+        PlaylistImportPlan:
+            type: object
+            properties:
+                name:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                matched:
+                    type: integer
+                    minimum: 0
+                toAdd:
+                    type: integer
+                    minimum: 0
+                toLookUp:
+                    type: integer
+                    minimum: 0
+                skipped:
+                    type: integer
+                    minimum: 0
+                    description: 'Lines of the source that named no record the station could read'
+                entries:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/PlaylistImportEntry'
+                notices:
+                    type: array
+                    items:
+                        type: string
+                        maxLength: 1000
+                    description: 'Anything about the source as a whole an operator should know before importing it'
+            required: [name, matched, toAdd, toLookUp, skipped, entries, notices]
+            description: 'What an import WOULD do, written nowhere'
+        PlaylistImportResult:
+            type: object
+            properties:
+                plan:
+                    '$ref': '#/components/schemas/PlaylistImportPlan'
+                playlist:
+                    '$ref': '#/components/schemas/StationPlaylist'
+            required: [plan, playlist]
         PlayoutPlaylistInput:
             type: object
             properties:

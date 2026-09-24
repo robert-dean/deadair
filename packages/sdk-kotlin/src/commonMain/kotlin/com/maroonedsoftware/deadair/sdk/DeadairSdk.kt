@@ -21,6 +21,7 @@ import com.maroonedsoftware.deadair.sdk.clients.OnboardingClient
 import com.maroonedsoftware.deadair.sdk.clients.PersonasAuditionsClient
 import com.maroonedsoftware.deadair.sdk.clients.PersonasClient
 import com.maroonedsoftware.deadair.sdk.clients.PlaylistsClient
+import com.maroonedsoftware.deadair.sdk.clients.StationPlaylistsClient
 import com.maroonedsoftware.deadair.sdk.clients.PlayoutClient
 import com.maroonedsoftware.deadair.sdk.clients.PluginsClient
 import com.maroonedsoftware.deadair.sdk.clients.PodcastsClient
@@ -65,6 +66,7 @@ class DeadairSdk(config: SdkConfig) : AutoCloseable {
     val personasAuditions: PersonasAuditionsClient = PersonasAuditionsClient(http)
     val personas: PersonasClient = PersonasClient(http)
     val playlists: PlaylistsClient = PlaylistsClient(http)
+    val stationPlaylists: StationPlaylistsClient = StationPlaylistsClient(http)
     val playout: PlayoutClient = PlayoutClient(http)
     val plugins: PluginsClient = PluginsClient(http)
     val podcasts: PodcastsClient = PodcastsClient(http)

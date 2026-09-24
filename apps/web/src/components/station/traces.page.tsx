@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Badge, Code, Drawer, Group, SegmentedControl, Stack, Table, Text, Tooltip } from '@mantine/core';
 import { IconArrowUpRight } from '@tabler/icons-react';
 import type { TraceDecision, TraceSpan } from '@deadair/sdk';
+import { Trans, useTranslation } from 'react-i18next';
 
 import { useTrace, useTraces } from '../../api/station.queries';
 import { describeDecision } from './decision.words';
@@ -51,6 +52,7 @@ function formatSpent(ms: number): string {
  * change, so a timer would re-read the whole window to learn what it already knows.
  */
 export function TracesPage() {
+    const { t } = useTranslation('station');
     const [failedOnly, setFailedOnly] = useState(false);
     const [open, setOpen] = useState<string | undefined>(undefined);
 
@@ -63,8 +65,7 @@ export function TracesPage() {
     const traces = useTraces({ ...(failedOnly ? { failedOnly: true } : {}) });
 
     if (traces.isPending) return <PageSkeleton variant="table" />;
-    if (traces.isError)
-        return <ErrorAlert title="Could not read what the station did" error={traces.error} fallback="The span files could not be read." />;
+    if (traces.isError) return <ErrorAlert title={t('traces.loadFailedTitle')} error={traces.error} fallback={t('traces.loadFailedFallback')} />;
 
     const { decisions, total, spans } = traces.data;
 
@@ -72,31 +73,28 @@ export function TracesPage() {
         <Stack gap="md">
             <Group justify="space-between" align="flex-end">
                 <Text size="sm" c="dimmed" maw={640}>
-                    Every call the station made, filed under the decision that made it. Written as each call ended, so a plugin that timed out and one
-                    that was abandoned mid-answer are both here with what they cost.
+                    {t('traces.description')}
                 </Text>
                 <SegmentedControl
                     size="xs"
                     value={failedOnly ? 'failed' : 'all'}
                     onChange={value => setFailedOnly(value === 'failed')}
                     data={[
-                        { value: 'all', label: 'Everything' },
-                        { value: 'failed', label: 'Only failures' },
+                        { value: 'all', label: t('traces.filter.all') },
+                        { value: 'failed', label: t('traces.filter.failed') },
                     ]}
                 />
             </Group>
 
             {decisions.length === 0 ? (
-                <EmptyState title={failedOnly ? 'Nothing has failed' : 'Nothing kept yet'}>
-                    {failedOnly
-                        ? 'No decision in the kept window made a call that did not answer.'
-                        : 'The station keeps a few days of these and writes one as each call ends. There will be rows here once it has done something.'}
+                <EmptyState title={failedOnly ? t('traces.noFailuresTitle') : t('traces.emptyTitle')}>
+                    {failedOnly ? t('traces.noFailures') : t('traces.empty')}
                 </EmptyState>
             ) : (
                 <>
                     <DecisionTable decisions={decisions} phone={phone} onOpen={setOpen} />
                     <Text size="xs" c="dimmed">
-                        Showing {decisions.length} of {total} decisions, read from {spans} recorded calls.
+                        {t('traces.showing', { shown: decisions.length, count: total, calls: t('traces.recordedCalls', { count: spans }) })}
                     </Text>
                 </>
             )}
@@ -108,6 +106,7 @@ export function TracesPage() {
 
 /** The forest: roots by what they last did, and whatever each one caused indented beneath it. */
 function DecisionTable({ decisions, phone, onOpen }: { decisions: TraceDecision[]; phone: boolean; onOpen: (id: string) => void }) {
+    const { t } = useTranslation('station');
     const byId = new Map(decisions.map(decision => [decision.id, decision]));
     const childrenOf = new Map<string, TraceDecision[]>();
     for (const decision of decisions) {
@@ -138,7 +137,7 @@ function DecisionTable({ decisions, phone, onOpen }: { decisions: TraceDecision[
                         key={decision.id}
                         depth={depth}
                         onClick={() => onOpen(decision.id)}
-                        aria-label={`Open ${describeDecision(decision.kind).sentence}`}
+                        aria-label={t('traces.open', { decision: describeDecision(decision.kind).sentence })}
                         leading={<FeedMoment at={decision.at} />}
                         title={
                             <>
@@ -158,7 +157,7 @@ function DecisionTable({ decisions, phone, onOpen }: { decisions: TraceDecision[
                         subtitle={
                             <>
                                 <Text size="xs" c="dimmed" className="da-num">
-                                    {decision.calls} calls
+                                    {t('traces.calls', { count: decision.calls })}
                                 </Text>
                                 {decision.failed > 0 ? (
                                     <Badge size="sm" color={severityColor.failure} variant="light" className="da-num" style={{ flexShrink: 0 }}>
@@ -183,11 +182,11 @@ function DecisionTable({ decisions, phone, onOpen }: { decisions: TraceDecision[
             <Table highlightOnHover verticalSpacing="xs">
                 <Table.Thead>
                     <Table.Tr>
-                        <Table.Th w={120}>When</Table.Th>
-                        <Table.Th>Decision</Table.Th>
-                        <Table.Th w={90}>Spent</Table.Th>
-                        <Table.Th w={80}>Calls</Table.Th>
-                        <Table.Th w={90}>Failed</Table.Th>
+                        <Table.Th w={120}>{t('traces.column.when')}</Table.Th>
+                        <Table.Th>{t('traces.column.decision')}</Table.Th>
+                        <Table.Th w={90}>{t('traces.column.spent')}</Table.Th>
+                        <Table.Th w={80}>{t('traces.column.calls')}</Table.Th>
+                        <Table.Th w={90}>{t('traces.column.failed')}</Table.Th>
                         <Table.Th w={50} />
                     </Table.Tr>
                 </Table.Thead>
@@ -205,7 +204,7 @@ function DecisionTable({ decisions, phone, onOpen }: { decisions: TraceDecision[
                                 not have to measure whitespace to know one thing caused another. */}
                                     <Group gap="xs" wrap="nowrap" style={{ paddingLeft: depth * 20 }}>
                                         {depth > 0 ? (
-                                            <Tooltip label="Enqueued by the decision above it">
+                                            <Tooltip label={t('traces.enqueuedBy')}>
                                                 <IconArrowUpRight size={13} stroke={1.8} style={{ transform: 'rotate(90deg)', opacity: 0.5 }} />
                                             </Tooltip>
                                         ) : undefined}
@@ -258,6 +257,7 @@ function DecisionTable({ decisions, phone, onOpen }: { decisions: TraceDecision[
 
 /** One decision, opened: its calls in order, and the decisions on either side of it. */
 function TraceDrawer({ id, onClose }: { id: string | undefined; onClose: () => void }) {
+    const { t } = useTranslation('station');
     const trace = useTrace(id);
     const phone = usePhone();
 
@@ -269,7 +269,7 @@ function TraceDrawer({ id, onClose }: { id: string | undefined; onClose: () => v
             size={phone ? '100%' : 'xl'}
             title={
                 trace.data === undefined
-                    ? 'Decision'
+                    ? t('traces.drawerTitle')
                     : (() => {
                           const reading = describeDecision(trace.data.decision.kind);
                           return (
@@ -287,7 +287,7 @@ function TraceDrawer({ id, onClose }: { id: string | undefined; onClose: () => v
         >
             {trace.isPending ? <PageSkeleton variant="rows" count={6} /> : undefined}
             {trace.isError ? (
-                <ErrorAlert title="Could not read that decision" error={trace.error} fallback="It may have rotated out of the kept window." />
+                <ErrorAlert title={t('traces.drawerFailedTitle')} error={trace.error} fallback={t('traces.drawerFailedFallback')} />
             ) : undefined}
             {trace.data ? (
                 <Stack gap="md">
@@ -297,17 +297,17 @@ function TraceDrawer({ id, onClose }: { id: string | undefined; onClose: () => v
                         </Text>
                         {trace.data.parent ? (
                             <Text size="sm" c="dimmed">
-                                Caused by <Code>{trace.data.parent.kind}</Code>
+                                <Trans t={t} i18nKey="traces.causedBy" values={{ kind: trace.data.parent.kind }} components={{ code: <Code /> }} />
                             </Text>
                         ) : undefined}
                         {trace.data.decision.parent !== undefined && trace.data.parent === undefined ? (
                             <Text size="sm" c="dimmed">
-                                Caused by a decision the station no longer keeps.
+                                {t('traces.causedByGone')}
                             </Text>
                         ) : undefined}
                         {trace.data.caused.length > 0 ? (
                             <Text size="sm" c="dimmed">
-                                Went on to enqueue {trace.data.caused.map(child => child.kind).join(', ')}.
+                                {t('traces.enqueued', { kinds: trace.data.caused.map(child => child.kind).join(', ') })}
                             </Text>
                         ) : undefined}
                     </Stack>
@@ -321,12 +321,13 @@ function TraceDrawer({ id, onClose }: { id: string | undefined; onClose: () => v
 
 /** Every call, in the order it happened. */
 function SpanList({ spans }: { spans: TraceSpan[] }) {
+    const { t } = useTranslation('station');
     return (
         <Table verticalSpacing="xs">
             <Table.Thead>
                 <Table.Tr>
-                    <Table.Th w={90}>Spent</Table.Th>
-                    <Table.Th>Call</Table.Th>
+                    <Table.Th w={90}>{t('traces.column.spent')}</Table.Th>
+                    <Table.Th>{t('traces.column.call')}</Table.Th>
                 </Table.Tr>
             </Table.Thead>
             <Table.Tbody>

@@ -1,5 +1,6 @@
 import { Button, Group, Select, Stack, Text, Tooltip } from '@mantine/core';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { PlayoutChartInput } from '@deadair/sdk';
 
 import { usePlayChart } from '../../api/playout.queries';
@@ -22,11 +23,7 @@ export interface PlayChartButtonProps {
  * asked for the published document, and one who wants none of it is asking for the station's
  * ordinary sequencing over the chart's records.
  */
-const ORDERS: { value: ChartOrder; label: string }[] = [
-    { value: 'countdown', label: 'Countdown, ending on number one' },
-    { value: 'ranked', label: 'Number one first' },
-    { value: 'unordered', label: 'No fixed order' },
-];
+const ORDERS: ChartOrder[] = ['countdown', 'ranked', 'unordered'];
 
 /**
  * Puts the station on air with a published chart's records.
@@ -56,6 +53,7 @@ const ORDERS: { value: ChartOrder; label: string }[] = [
  * is deliberately NOT faked into a button state that would have to lie about when it knew.
  */
 export function PlayChartButton({ chartId, playable = true }: PlayChartButtonProps) {
+    const { t } = useTranslation('playout');
     const play = usePlayChart();
     // Local, and deliberately not a setting: it is a property of the broadcast somebody is about to
     // start rather than of the station, in the same way a brief is.
@@ -68,14 +66,14 @@ export function PlayChartButton({ chartId, playable = true }: PlayChartButtonPro
     // Kept on the button rather than raised as a page-level alert, as the playlist one is: the
     // failure belongs to this action, and the transport bar reports the station's own state
     // whether or not this request landed.
-    const failure = play.isError ? apiErrorMessage(play.error, 'That chart could not be aired.') : undefined;
+    const failure = play.isError ? apiErrorMessage(play.error, t('chart.failed')) : undefined;
 
     return (
         <Stack gap={4}>
             <Group gap="xs" align="flex-end" wrap="nowrap">
                 <Select
-                    aria-label="Which way round to play the chart"
-                    data={ORDERS}
+                    aria-label={t('chart.orderLabel')}
+                    data={ORDERS.map(value => ({ value, label: t(`chart.order.${value}`) }))}
                     value={order}
                     onChange={value => setOrder((value as ChartOrder | null) ?? 'countdown')}
                     allowDeselect={false}
@@ -89,13 +87,12 @@ export function PlayChartButton({ chartId, playable = true }: PlayChartButtonPro
                         loading={play.isPending}
                         onClick={() => play.mutate({ chartId, chartOrder: order })}
                     >
-                        {failure ? 'Failed' : 'Air this chart'}
+                        {failure ? t('chart.failedLabel') : t('chart.air')}
                     </Button>
                 </Tooltip>
             </Group>
             <Text size="xs" c="dimmed">
-                Records the library has never held are fetched as they are needed, and air untrimmed until they have been measured. Looking a whole
-                chart up takes a few minutes, so the station changes over once it has, and the feed says how it went.
+                {t('chart.hint')}
             </Text>
         </Stack>
     );

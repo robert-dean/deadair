@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Button, Group, Modal, Stack, Text } from '@mantine/core';
 import { useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 
 import { invalidateCatalogLists, useClearTrack, type TrackClear } from '../../api/catalog.queries';
 import type { TrackStateParam } from './catalog.page.params';
@@ -32,23 +33,10 @@ import type { TrackStateParam } from './catalog.page.params';
  * state: the page is what the operator is looking at, and a button that quietly reached past it
  * would be acting on records they have not seen.
  */
-const ACTIONS: Record<'benched' | 'failing', { what: TrackClear; verb: string; title: string; consequence: string; confirm: string }> = {
-    benched: {
-        what: 'offer',
-        verb: 'Offer these again',
-        title: 'Offer these copies again?',
-        consequence:
-            'Puts back on offer every copy a provider refused, and clears the backoff on the rest. A refused copy is one the provider answered about — it said it holds no audio and never will — so nothing in the station brings it back on its own, and this overrides that. If the provider still means it, they are refused again the next time the station asks.',
-        confirm: 'Offer them again',
-    },
-    failing: {
-        what: 'retry',
-        verb: 'Try these again',
-        title: 'Try these records again?',
-        consequence:
-            'Clears the backoff and un-benches every copy, so the station may try each of them straight away rather than waiting out its gate. This is what to press once an upstream that was failing is working again.',
-        confirm: 'Try again',
-    },
+// Each action's button, title, consequence and confirm are `stateAction.<state>` in the catalog namespace.
+const ACTIONS: Record<'benched' | 'failing', TrackClear> = {
+    benched: 'offer',
+    failing: 'retry',
 };
 
 export interface TrackStateActionProps {
@@ -64,18 +52,19 @@ interface Outcome {
 }
 
 export function TrackStateAction({ state, trackIds }: TrackStateActionProps) {
+    const { t } = useTranslation(['catalog', 'common']);
     const [asking, setAsking] = useState(false);
     const [outcome, setOutcome] = useState<Outcome>();
     const [running, setRunning] = useState(false);
     const clear = useClearTrack();
     const queryClient = useQueryClient();
 
-    const action = state === 'benched' || state === 'failing' ? ACTIONS[state] : undefined;
+    const faulted = state === 'benched' || state === 'failing' ? state : undefined;
     // An outcome outlives the rows it was about, deliberately. A press that WORKS empties the list it
     // was pressed on, so a component that vanished with the last row would take the answer away at
     // exactly the moment there was one — leaving an operator looking at an empty page with no idea
     // whether anything happened.
-    if (action === undefined || (trackIds.length === 0 && outcome === undefined)) return undefined;
+    if (faulted === undefined || (trackIds.length === 0 && outcome === undefined)) return undefined;
 
     const run = async () => {
         setRunning(true);
@@ -87,7 +76,7 @@ export function TrackStateAction({ state, trackIds }: TrackStateActionProps) {
         // backoff these are clearing exists to prevent.
         for (const id of trackIds) {
             try {
-                await clear.mutateAsync({ id, what: action.what });
+                await clear.mutateAsync({ id, what: ACTIONS[faulted] });
                 done += 1;
             } catch {
                 // Counted rather than thrown: one record the station will not act on must not stop
@@ -117,30 +106,31 @@ export function TrackStateAction({ state, trackIds }: TrackStateActionProps) {
                             setAsking(true);
                         }}
                     >
-                        {action.verb} ({trackIds.length})
+                        {t(`stateAction.${faulted}.button`, { count: trackIds.length })}
                     </Button>
                 ) : undefined}
                 {outcome ? (
                     <Text size="xs" c="dimmed">
-                        {outcome.done} {outcome.done === 1 ? 'record' : 'records'} reopened
-                        {outcome.failed === 0 ? '' : `, ${outcome.failed} the station would not act on`}.
+                        {outcome.failed === 0
+                            ? t('stateAction.outcome.reopened', { count: outcome.done })
+                            : t('stateAction.outcome.reopenedSomeRefused', { count: outcome.done, failed: outcome.failed })}
                     </Text>
                 ) : undefined}
             </Group>
 
-            <Modal opened={asking} onClose={() => setAsking(false)} title={action.title} centered>
+            <Modal opened={asking} onClose={() => setAsking(false)} title={t(`stateAction.${faulted}.title`)} centered>
                 <Stack gap="md">
-                    <Text size="sm">{action.consequence}</Text>
+                    <Text size="sm">{t(`stateAction.${faulted}.consequence`)}</Text>
                     <Text size="sm" c="dimmed">
-                        This acts on the {trackIds.length} {trackIds.length === 1 ? 'record' : 'records'} on this page.
+                        {t('stateAction.scope', { count: trackIds.length })}
                     </Text>
 
                     <Group justify="flex-end">
                         <Button variant="default" onClick={() => setAsking(false)} disabled={running}>
-                            Cancel
+                            {t('common:action.cancel')}
                         </Button>
                         <Button color="red" loading={running} onClick={() => void run()}>
-                            {action.confirm}
+                            {t(`stateAction.${faulted}.confirm`)}
                         </Button>
                     </Group>
                 </Stack>

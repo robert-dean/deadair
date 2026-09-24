@@ -1,5 +1,6 @@
 import type { CSSVariablesResolver, MantineThemeOverride } from '@mantine/core';
 
+import { i18n } from './i18n/i18n.setup';
 import { consoleTheme, cssVariablesResolver, theme } from './theme';
 
 /** The consoles this console can be. */
@@ -234,8 +235,14 @@ const neon = consoleTheme(
 export const THEMES: Record<ThemeId, ThemeDefinition> = {
     carbon: {
         id: 'carbon',
-        name: 'Carbon',
-        blurb: 'The studio at night. Phosphor green on carbon.',
+        // Getters, so the Appearance section reads the name in whatever language is on screen now
+        // rather than the one this module was imported in.
+        get name() {
+            return i18n.t('shell:theme.carbon.name');
+        },
+        get blurb() {
+            return i18n.t('shell:theme.carbon.blurb');
+        },
         typeLabel: 'Chakra Petch / IBM Plex',
         displayFont: '"Chakra Petch", sans-serif',
         swatches: ['#0c0e0d', '#191d1b', '#2fd98c', '#ff4b4b'],
@@ -245,8 +252,12 @@ export const THEMES: Record<ThemeId, ThemeDefinition> = {
     },
     white: {
         id: 'white',
-        name: 'Studio White',
-        blurb: 'Daylight and paper. Rules instead of fills.',
+        get name() {
+            return i18n.t('shell:theme.white.name');
+        },
+        get blurb() {
+            return i18n.t('shell:theme.white.blurb');
+        },
         typeLabel: 'Newsreader / Public Sans',
         displayFont: 'Newsreader, Georgia, serif',
         swatches: ['#f4f1ea', '#ddd6c8', '#0e7247', '#c81f22'],
@@ -256,8 +267,12 @@ export const THEMES: Record<ThemeId, ThemeDefinition> = {
     },
     neon: {
         id: 'neon',
-        name: 'Neon Transmitter',
-        blurb: 'Neon yellow on teal-black, lit cyan and magenta. Loudest of the three.',
+        get name() {
+            return i18n.t('shell:theme.neon.name');
+        },
+        get blurb() {
+            return i18n.t('shell:theme.neon.blurb');
+        },
         typeLabel: 'Chakra Petch / Archivo',
         displayFont: '"Chakra Petch", sans-serif',
         swatches: ['#060a0c', '#141c20', '#fcee0a', '#ff1e46'],

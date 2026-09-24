@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Alert } from '@mantine/core';
+import { useTranslation } from 'react-i18next';
 
 import { apiErrorMessage } from '../../api/sdk.error';
 import { severityColor, type Severity } from './status';
@@ -42,8 +43,15 @@ export interface ErrorAlertProps {
  * lines by the same question and used to answer it with a ternary naming `red` and `yellow` inline.
  */
 export function ErrorAlert({ title, error, fallback, tone = 'failure', onDismiss, children }: ErrorAlertProps) {
+    const { t } = useTranslation();
     return (
-        <Alert color={severityColor[tone]} title={title} withCloseButton={onDismiss !== undefined} closeButtonLabel="Dismiss" onClose={onDismiss}>
+        <Alert
+            color={severityColor[tone]}
+            title={title}
+            withCloseButton={onDismiss !== undefined}
+            closeButtonLabel={t('action.dismiss')}
+            onClose={onDismiss}
+        >
             {children ?? apiErrorMessage(error, fallback ?? '')}
         </Alert>
     );

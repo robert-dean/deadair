@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Button, Group, Modal, Stack, Text } from '@mantine/core';
 import { Dropzone } from '@mantine/dropzone';
 import { IconPackage, IconUpload, IconX } from '@tabler/icons-react';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import type { PluginImportResult } from '@deadair/sdk';
 
 import { useImportPlugin } from '../../api/plugins.queries';
@@ -25,6 +27,7 @@ export interface PluginImportModalProps {
  * dialog asks the first time they do.
  */
 export function PluginImportModal({ opened, onClose }: PluginImportModalProps) {
+    const { t } = useTranslation(['plugins', 'common']);
     const importPlugin = useImportPlugin();
     const [file, setFile] = useState<File | undefined>(undefined);
     const [needsRestart, setNeedsRestart] = useState<string | undefined>(undefined);
@@ -52,24 +55,20 @@ export function PluginImportModal({ opened, onClose }: PluginImportModalProps) {
             setNeedsRestart(name);
             return;
         }
-        notifyDone(`${name} imported. It stays off until you enable it.`);
+        notifyDone(t('import.done', { name }));
         close();
     };
 
     return (
-        <Modal opened={opened} onClose={close} title="Import a plugin" centered size="lg">
+        <Modal opened={opened} onClose={close} title={t('import.title')} centered size="lg">
             <Stack gap="md">
-                <Text size="sm">
-                    Only import a plugin from somebody you trust: the station reads what it is by loading its code, as a rescan does. It arrives
-                    switched off, and nothing about the station changes until you enable it.
-                </Text>
+                <Text size="sm">{t('import.warning')}</Text>
 
-                {importPlugin.isError ? <ErrorAlert title="That plugin was not imported">{importError(importPlugin.error)}</ErrorAlert> : undefined}
+                {importPlugin.isError ? <ErrorAlert title={t('import.error.title')}>{importError(importPlugin.error, t)}</ErrorAlert> : undefined}
 
                 {needsRestart === undefined ? undefined : (
-                    <ErrorAlert tone="warning" title="Restart the station to run the new build">
-                        This version of {needsRestart} was already loaded, so the station keeps running the build it had until it restarts. To load a
-                        new build without a restart, give it a new version number.
+                    <ErrorAlert tone="warning" title={t('import.restart.title')}>
+                        {t('import.restart.body', { name: needsRestart })}
                     </ErrorAlert>
                 )}
 
@@ -83,7 +82,7 @@ export function PluginImportModal({ opened, onClose }: PluginImportModalProps) {
                     multiple={false}
                     maxSize={MAX_BYTES}
                     loading={importPlugin.isPending}
-                    inputProps={{ 'aria-label': 'Plugin tarball' }}
+                    inputProps={{ 'aria-label': t('import.dropzoneLabel') }}
                 >
                     <Group justify="center" gap="md" mih={90} style={{ pointerEvents: 'none' }}>
                         <Dropzone.Accept>
@@ -96,10 +95,9 @@ export function PluginImportModal({ opened, onClose }: PluginImportModalProps) {
                             <IconPackage size={32} />
                         </Dropzone.Idle>
                         <Stack gap={2}>
-                            <Text size="sm">{file === undefined ? 'Drop a plugin here, or click to choose' : file.name}</Text>
+                            <Text size="sm">{file === undefined ? t('import.dropzonePrompt') : file.name}</Text>
                             <Text size="xs" c="dimmed">
-                                The .tgz that npm pack writes, up to 64 MB. A newer version of a plugin you already have replaces it and keeps its
-                                settings.
+                                {t('import.dropzoneHint')}
                             </Text>
                         </Stack>
                     </Group>
@@ -107,7 +105,7 @@ export function PluginImportModal({ opened, onClose }: PluginImportModalProps) {
 
                 <Group justify="flex-end">
                     <Button variant="default" onClick={close} disabled={importPlugin.isPending}>
-                        {needsRestart === undefined ? 'Cancel' : 'Done'}
+                        {needsRestart === undefined ? t('common:action.cancel') : t('import.close')}
                     </Button>
                     <Button
                         leftSection={<IconUpload size={16} />}
@@ -115,7 +113,7 @@ export function PluginImportModal({ opened, onClose }: PluginImportModalProps) {
                         disabled={file === undefined}
                         onClick={() => void send()}
                     >
-                        Import
+                        {t('import.submit')}
                     </Button>
                 </Group>
             </Stack>
@@ -124,9 +122,9 @@ export function PluginImportModal({ opened, onClose }: PluginImportModalProps) {
 }
 
 /** What an import refusal means, in the operator's terms. The loader's own reason reaches them verbatim. */
-function importError(error: unknown): string {
-    if (sdkError(error)?.status === 403) return 'Importing a plugin is an administrator action.';
-    return apiErrorMessage(error, 'The plugin could not be imported.');
+function importError(error: unknown, t: TFunction<'plugins'>): string {
+    if (sdkError(error)?.status === 403) return t('import.error.forbidden');
+    return apiErrorMessage(error, t('import.error.fallback'));
 }
 
 /** The imported plugin's name as the catalogue now has it, or its id when it is somehow not listed. */

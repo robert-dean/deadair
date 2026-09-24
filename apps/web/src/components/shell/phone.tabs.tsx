@@ -1,5 +1,6 @@
 import { Group, Text } from '@mantine/core';
 import { Link } from '@tanstack/react-router';
+import { useTranslation } from 'react-i18next';
 import type { NavItemProps } from './nav.item';
 
 /**
@@ -10,11 +11,11 @@ import type { NavItemProps } from './nav.item';
  * Check-up is what you open when something is wrong and you are sitting down, and Settings is not a
  * thing anybody configures on a phone. Both are still reachable, from the rows that link to them.
  */
-const PHONE_TABS: Pick<NavItemProps, 'to' | 'label'>[] = [
-    { to: '/', label: 'Desk' },
-    { to: '/schedule', label: 'Programme' },
-    { to: '/catalog/tracks', label: 'Library' },
-    { to: '/voice', label: 'Voice' },
+const PHONE_TABS: (Pick<NavItemProps, 'to'> & { labelKey: 'desk' | 'programme' | 'library' | 'voice' })[] = [
+    { to: '/', labelKey: 'desk' },
+    { to: '/schedule', labelKey: 'programme' },
+    { to: '/catalog/tracks', labelKey: 'library' },
+    { to: '/voice', labelKey: 'voice' },
 ];
 
 /**
@@ -31,10 +32,11 @@ const PHONE_TABS: Pick<NavItemProps, 'to' | 'label'>[] = [
  * and two navs disagreeing about whether a destination has an icon is worse than neither having one.
  */
 export function PhoneTabs() {
+    const { t } = useTranslation('shell');
     return (
         <Group
             component="nav"
-            aria-label="Destinations"
+            aria-label={t('phoneTabs.label')}
             gap={0}
             h="100%"
             wrap="nowrap"
@@ -42,7 +44,7 @@ export function PhoneTabs() {
         >
             {PHONE_TABS.map(tab => (
                 <Link
-                    key={tab.label}
+                    key={tab.labelKey}
                     to={tab.to}
                     // 64px tall and a quarter of the width: comfortably past the 44px the
                     // design asks for, in both directions, because this is the control an
@@ -65,7 +67,7 @@ export function PhoneTabs() {
                     activeOptions={{ exact: tab.to === '/' }}
                 >
                     <Text component="span" size="xs" truncate>
-                        {tab.label}
+                        {t(`destination.${tab.labelKey}`)}
                     </Text>
                 </Link>
             ))}

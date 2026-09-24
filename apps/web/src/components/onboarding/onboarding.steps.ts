@@ -1,6 +1,7 @@
 import type { ComponentType } from 'react';
 import type { OnboardingRequirement } from '@deadair/sdk';
 
+import { i18n } from '../../i18n/i18n.setup';
 import { AdminAccountStep } from './steps/admin.account.step';
 
 export interface OnboardingStepProps {
@@ -17,7 +18,17 @@ export interface OnboardingStep {
     component: ComponentType<OnboardingStepProps>;
 }
 
-/** Requirement key to the UI that satisfies it. Unknown keys are rendered as unsupported. */
+/**
+ * Requirement key to the UI that satisfies it. Unknown keys are rendered as unsupported.
+ *
+ * The label is a getter, read when the stepper draws, so it follows the language on screen rather
+ * than the one this module was imported in.
+ */
 export const ONBOARDING_STEPS: Record<string, OnboardingStep> = {
-    'admin.account': { label: 'Administrator', component: AdminAccountStep },
+    'admin.account': {
+        get label() {
+            return i18n.t('onboarding:steps.adminAccount');
+        },
+        component: AdminAccountStep,
+    },
 };

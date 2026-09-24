@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Alert, Badge, Button, Divider, FileButton, Group, List, Modal, Stack, Table, Text } from '@mantine/core';
 import type { PersonaFile, PersonaImportNotice, PersonaImportPlan, PersonaImportResult } from '@deadair/sdk';
+import type { TFunction } from 'i18next';
+import { Trans, useTranslation } from 'react-i18next';
 
 import { useImportPersonas, usePreviewPersonaImport } from '../../api/personas.queries';
 import { usePhone } from '../shared/use.phone';
@@ -36,6 +38,7 @@ export interface PersonaImportModalProps {
  */
 export function PersonaImportModal({ opened, onClose }: PersonaImportModalProps) {
     const phone = usePhone();
+    const { t } = useTranslation('personas');
     const preview = usePreviewPersonaImport();
     const write = useImportPersonas();
 
@@ -68,7 +71,7 @@ export function PersonaImportModal({ opened, onClose }: PersonaImportModalProps)
             parsed = JSON.parse(await chosen.text()) as PersonaFile;
         } catch {
             setFile(undefined);
-            setUnreadable(`"${chosen.name}" is not a file this can read. A persona file is the JSON one of these pages saved.`);
+            setUnreadable(t('import.unreadable', { name: chosen.name }));
             return;
         }
 
@@ -80,18 +83,17 @@ export function PersonaImportModal({ opened, onClose }: PersonaImportModalProps)
     const plan = result?.plan ?? preview.data;
 
     return (
-        <Modal opened={opened} onClose={close} title="Import personas" size="lg" fullScreen={phone}>
+        <Modal opened={opened} onClose={close} title={t('import.title')} size="lg" fullScreen={phone}>
             <Stack gap="md">
                 <Text size="sm" c="dimmed">
-                    A file saved by this page, or by somebody else&apos;s station. Characters are matched by their key: one this station already has
-                    is rewritten and its stories are added to, and one it does not is created. Nothing is ever deleted, and nobody is put on air.
+                    {t('import.intro')}
                 </Text>
 
                 <Group gap="sm">
                     <FileButton onChange={file => void choose(file)} accept="application/json,.json">
                         {props => (
                             <Button {...props} variant="default" loading={preview.isPending}>
-                                {name === undefined ? 'Choose a file' : 'Choose another file'}
+                                {name === undefined ? t('import.choose') : t('import.chooseAnother')}
                             </Button>
                         )}
                     </FileButton>
@@ -105,19 +107,11 @@ export function PersonaImportModal({ opened, onClose }: PersonaImportModalProps)
                 {unreadable ? <ErrorAlert tone="warning">{unreadable}</ErrorAlert> : undefined}
 
                 {preview.error ? (
-                    <ErrorAlert
-                        title="That file could not be read"
-                        error={preview.error}
-                        fallback="It is JSON, but not a persona file this station recognises."
-                    />
+                    <ErrorAlert title={t('import.previewError.title')} error={preview.error} fallback={t('import.previewError.fallback')} />
                 ) : undefined}
 
                 {write.error ? (
-                    <ErrorAlert
-                        title="Nothing was imported"
-                        error={write.error}
-                        fallback="The station is exactly as it was: an import that fails part-way is undone in full."
-                    />
+                    <ErrorAlert title={t('import.writeError.title')} error={write.error} fallback={t('import.writeError.fallback')} />
                 ) : undefined}
 
                 {result ? <ImportResult result={result} /> : undefined}
@@ -127,17 +121,17 @@ export function PersonaImportModal({ opened, onClose }: PersonaImportModalProps)
                 {plan && result === undefined ? (
                     <Group justify="flex-end">
                         <Button variant="subtle" onClick={close}>
-                            Cancel
+                            {t('action.cancel', { ns: 'common' })}
                         </Button>
                         <Button loading={write.isPending} disabled={plan.personas.length === 0} onClick={() => file && write.mutate(file)}>
-                            {importLabel(plan)}
+                            {importLabel(plan, t)}
                         </Button>
                     </Group>
                 ) : undefined}
 
                 {result ? (
                     <Group justify="flex-end">
-                        <Button onClick={close}>Done</Button>
+                        <Button onClick={close}>{t('import.done')}</Button>
                     </Group>
                 ) : undefined}
             </Stack>
@@ -147,14 +141,19 @@ export function PersonaImportModal({ opened, onClose }: PersonaImportModalProps)
 
 /** What landed, said in numbers, because the plan above already said which characters. */
 function ImportResult({ result }: { result: PersonaImportResult }) {
+    const { t } = useTranslation('personas');
     return (
-        <Alert color="green" title="Imported">
+        <Alert color="green" title={t('import.result.title')}>
             <Text size="sm">
-                {count(result.created, 'character', 'characters')} written, {count(result.updated, 'sheet', 'sheets')} rewritten,{' '}
-                {count(result.storiesWritten, 'story', 'stories')} and {count(result.detailsWritten, 'detail', 'details')} added.
+                {t('import.result.summary', {
+                    characters: t('import.characters', { count: result.created }),
+                    sheets: t('import.sheets', { count: result.updated }),
+                    stories: t('import.stories', { count: result.storiesWritten }),
+                    details: t('import.details', { count: result.detailsWritten }),
+                })}
             </Text>
             <Text size="sm" mt="xs">
-                Nobody was put on air. Use <strong>Make station host</strong> on a character&apos;s card when you want it presenting.
+                <Trans t={t} i18nKey="import.result.onAir" components={{ strong: <strong /> }} />
             </Text>
         </Alert>
     );
@@ -162,6 +161,7 @@ function ImportResult({ result }: { result: PersonaImportResult }) {
 
 /** Every character in the file, what would become of it, and what this station cannot honour. */
 function ImportPlan({ plan }: { plan: PersonaImportPlan }) {
+    const { t } = useTranslation('personas');
     return (
         <Stack gap="sm">
             {plan.notices.length > 0 ? <Notices notices={plan.notices} /> : undefined}
@@ -172,9 +172,9 @@ function ImportPlan({ plan }: { plan: PersonaImportPlan }) {
                 <Table verticalSpacing="xs">
                     <Table.Thead>
                         <Table.Tr>
-                            <Table.Th>Character</Table.Th>
-                            <Table.Th w={90}>Lands as</Table.Th>
-                            <Table.Th w={140}>Stories</Table.Th>
+                            <Table.Th>{t('import.column.character')}</Table.Th>
+                            <Table.Th w={90}>{t('import.column.landsAs')}</Table.Th>
+                            <Table.Th w={140}>{t('import.column.stories')}</Table.Th>
                         </Table.Tr>
                     </Table.Thead>
                     <Table.Tbody>
@@ -186,7 +186,7 @@ function ImportPlan({ plan }: { plan: PersonaImportPlan }) {
                                             <Text size="sm">{entry.label}</Text>
                                             {entry.kind === 'caller' ? (
                                                 <Badge size="xs" variant="outline" color="gray">
-                                                    Caller
+                                                    {t('import.caller')}
                                                 </Badge>
                                             ) : undefined}
                                         </Group>
@@ -195,12 +195,12 @@ function ImportPlan({ plan }: { plan: PersonaImportPlan }) {
                                 </Table.Td>
                                 <Table.Td>
                                     <Badge size="sm" variant="light" color={entry.outcome === 'create' ? 'teal' : 'blue'}>
-                                        {entry.outcome === 'create' ? 'New' : 'Rewrite'}
+                                        {entry.outcome === 'create' ? t('import.outcome.create') : t('import.outcome.update')}
                                     </Badge>
                                 </Table.Td>
                                 <Table.Td>
                                     <Text size="xs" c="dimmed" className="da-num">
-                                        {storyLine(entry.storiesNew, entry.storiesHeld)}
+                                        {storyLine(entry.storiesNew, entry.storiesHeld, t)}
                                     </Text>
                                 </Table.Td>
                             </Table.Tr>
@@ -235,23 +235,21 @@ function Notices({ notices }: { notices: readonly PersonaImportNotice[] }) {
 }
 
 /** What the button is about to do, so it is not the same word as the dialog's title. */
-function importLabel(plan: PersonaImportPlan): string {
+function importLabel(plan: PersonaImportPlan, t: TFunction<'personas'>): string {
     const creates = plan.personas.filter(entry => entry.outcome === 'create').length;
     const updates = plan.personas.length - creates;
 
-    if (updates === 0) return `Import ${count(creates, 'character', 'characters')}`;
-    if (creates === 0) return `Rewrite ${count(updates, 'character', 'characters')}`;
+    if (updates === 0) return t('import.button.create', { characters: t('import.characters', { count: creates }) });
+    if (creates === 0) return t('import.button.update', { characters: t('import.characters', { count: updates }) });
 
-    return `Import ${creates}, rewrite ${updates}`;
+    return t('import.button.both', { creates, updates });
 }
 
 /** A character's shelf as one line, saying nothing at all when there is nothing to say. */
-function storyLine(added: number, held: number): string {
+function storyLine(added: number, held: number, t: TFunction<'personas'>): string {
     if (added === 0 && held === 0) return '—';
-    if (held === 0) return `${added} new`;
-    if (added === 0) return `${held} already here`;
+    if (held === 0) return t('import.storyLine.added', { added });
+    if (added === 0) return t('import.storyLine.held', { held });
 
-    return `${added} new · ${held} already here`;
+    return t('import.storyLine.both', { added, held });
 }
-
-const count = (many: number, one: string, several: string): string => `${many} ${many === 1 ? one : several}`;

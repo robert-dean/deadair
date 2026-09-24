@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Button, Group, Modal, Select, Stack, Text } from '@mantine/core';
+import { useTranslation } from 'react-i18next';
 import type { MfaRequiredResponseOutput } from '@deadair/sdk';
 
 import { authenticatorFactors, useMfaCodeMutation, useStartStepUp } from '../../api/auth.factors.queries';
 import { isRateLimited, retryAfterMs } from '../../api/retry.policy';
 import { apiErrorMessage, isInvalidToken, stepUpRequirement } from '../../api/sdk.error';
+import { i18n } from '../../i18n/i18n.setup';
 import { ErrorAlert } from '../shared/error.alert';
 import { ONE_TIME_CODE_LENGTH, OneTimeCodeInput } from '../shared/one.time.code.input';
 
@@ -74,14 +76,12 @@ export function useStepUpGate(): StepUpGate {
 
 /** What to tell the operator about a refused code, in the dialog's own words. */
 function codeError(error: unknown): string {
-    if (isInvalidToken(error)) return 'That code was not accepted. Wait for the next one and try again.';
+    if (isInvalidToken(error)) return i18n.t('settings:code.invalid');
     if (isRateLimited(error)) {
         const wait = retryAfterMs(error);
-        return wait === undefined
-            ? 'Too many attempts. Wait a moment and try again.'
-            : `Too many attempts. Try again in ${Math.ceil(wait / 1000)} seconds.`;
+        return wait === undefined ? i18n.t('settings:code.rateLimited') : i18n.t('settings:code.rateLimitedFor', { count: Math.ceil(wait / 1000) });
     }
-    return apiErrorMessage(error, 'Could not check that code. Try again.');
+    return apiErrorMessage(error, i18n.t('settings:code.fallback'));
 }
 
 /**
@@ -96,14 +96,16 @@ function codeError(error: unknown): string {
  * empty field, and no error left over from last time.
  */
 export function StepUpDialog({ gate }: { gate: StepUpGate }) {
+    const { t } = useTranslation('settings');
     return (
-        <Modal opened={gate.opened} onClose={() => gate.settle('cancelled')} title="Confirm it is you" centered>
+        <Modal opened={gate.opened} onClose={() => gate.settle('cancelled')} title={t('stepUp.title')} centered>
             {gate.opened ? <StepUpBody gate={gate} /> : undefined}
         </Modal>
     );
 }
 
 function StepUpBody({ gate }: { gate: StepUpGate }) {
+    const { t } = useTranslation(['settings', 'common']);
     const start = useStartStepUp();
     const submit = useMfaCodeMutation();
     const [code, setCode] = useState('');
@@ -147,22 +149,22 @@ function StepUpBody({ gate }: { gate: StepUpGate }) {
             }}
         >
             <Stack gap="md">
-                <Text size="sm">Enter the code from your authenticator app to make this change.</Text>
+                <Text size="sm">{t('stepUp.intro')}</Text>
 
                 {start.error ? (
-                    <ErrorAlert title="Could not start" error={start.error} fallback="The station could not issue a challenge." />
+                    <ErrorAlert title={t('stepUp.startFailed.title')} error={start.error} fallback={t('stepUp.startFailed.fallback')} />
                 ) : undefined}
                 {nothingToVerifyWith ? (
-                    <Alert color="yellow" title="Nothing to verify with">
-                        This account has no authenticator this console can ask for.
+                    <Alert color="yellow" title={t('stepUp.nothing.title')}>
+                        {t('stepUp.nothing.body')}
                     </Alert>
                 ) : undefined}
-                {submit.error ? <ErrorAlert title="Not verified">{codeError(submit.error)}</ErrorAlert> : undefined}
+                {submit.error ? <ErrorAlert title={t('stepUp.notVerified')}>{codeError(submit.error)}</ErrorAlert> : undefined}
 
                 {factors.length > 1 ? (
                     <Select
-                        label="Which authenticator"
-                        data={factors.map(factor => ({ value: factor.method_id, label: factor.label ?? 'Authenticator' }))}
+                        label={t('stepUp.which')}
+                        data={factors.map(factor => ({ value: factor.method_id, label: factor.label ?? t('stepUp.authenticator') }))}
                         value={methodId}
                         onChange={value => setMethodId(value ?? undefined)}
                         allowDeselect={false}
@@ -171,7 +173,7 @@ function StepUpBody({ gate }: { gate: StepUpGate }) {
                 ) : undefined}
 
                 <OneTimeCodeInput
-                    label="Authenticator code"
+                    label={t('stepUp.code')}
                     value={code}
                     onChange={setCode}
                     onComplete={value => void verify(value)}
@@ -180,10 +182,10 @@ function StepUpBody({ gate }: { gate: StepUpGate }) {
 
                 <Group justify="flex-end">
                     <Button variant="default" onClick={() => gate.settle('cancelled')} disabled={submit.isPending}>
-                        Cancel
+                        {t('common:action.cancel')}
                     </Button>
                     <Button type="submit" loading={submit.isPending} disabled={!challenge || code.length !== ONE_TIME_CODE_LENGTH}>
-                        Verify
+                        {t('stepUp.verify')}
                     </Button>
                 </Group>
             </Stack>

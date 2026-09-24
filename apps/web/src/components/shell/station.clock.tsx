@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Text } from '@mantine/core';
+import { useTranslation } from 'react-i18next';
+import { formatClock } from '../../i18n/format.locale';
 
 /** Seconds, because the thing an operator counts against a skip or a break is seconds. */
 function readClock(): string {
-    return new Date().toLocaleTimeString('en-GB', { hour12: false });
+    return formatClock(new Date(), { seconds: true });
 }
 
 /**
@@ -16,6 +18,7 @@ function readClock(): string {
  * disagreed with the room would be worse than no clock.
  */
 export function StationClock() {
+    const { t } = useTranslation('shell');
     const [now, setNow] = useState(readClock);
 
     useEffect(() => {
@@ -30,7 +33,7 @@ export function StationClock() {
     }, []);
 
     return (
-        <Text size="sm" c="dimmed" aria-label="Station clock" className="da-num">
+        <Text size="sm" c="dimmed" aria-label={t('clock.label')} className="da-num">
             {now}
         </Text>
     );

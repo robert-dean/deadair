@@ -1,5 +1,6 @@
 import { ActionIcon, Group, Select } from '@mantine/core';
 import { IconSortAscending, IconSortDescending } from '@tabler/icons-react';
+import { useTranslation } from 'react-i18next';
 import type { TrackSort } from '@deadair/sdk';
 
 import { TRACK_SORTS, type TrackListOrder } from './catalog.page.params';
@@ -10,15 +11,7 @@ export interface TrackSortSelectProps {
     onOrderChange: (order: TrackListOrder) => void;
 }
 
-/** How each key reads as a menu entry rather than as a column heading. */
-const SORT_LABEL: Record<TrackSort, string> = {
-    title: 'Title',
-    artist: 'Artist',
-    album: 'Album',
-    year: 'Year',
-    duration: 'Duration',
-    rating: 'Rating',
-};
+// How each key reads as a menu entry rather than as a column heading is `sort.<key>` in the catalog namespace.
 
 /**
  * The sort, where there are no column headings to click.
@@ -32,13 +25,14 @@ const SORT_LABEL: Record<TrackSort, string> = {
  * turned around" is one thought and twelve options is a list to re-read.
  */
 export function TrackSortSelect({ order, onOrderChange }: TrackSortSelectProps) {
+    const { t } = useTranslation('catalog');
     return (
         <Group gap="xs" wrap="nowrap" align="flex-end">
             <Select
                 size="xs"
-                label="Sort by"
+                label={t('sort.label')}
                 style={{ flex: 1 }}
-                data={TRACK_SORTS.map(sortBy => ({ value: sortBy, label: SORT_LABEL[sortBy] }))}
+                data={TRACK_SORTS.map(sortBy => ({ value: sortBy, label: t(`sort.${sortBy}`) }))}
                 value={order.sortBy}
                 allowDeselect={false}
                 onChange={next => {
@@ -52,7 +46,7 @@ export function TrackSortSelect({ order, onOrderChange }: TrackSortSelectProps) 
                 // 44 wide for a thumb, 30 tall to sit flush with the xs input beside it.
                 w={44}
                 h={30}
-                aria-label={order.sort === 'asc' ? 'Ascending. Turn the sort around' : 'Descending. Turn the sort around'}
+                aria-label={order.sort === 'asc' ? t('sort.ascending') : t('sort.descending')}
                 onClick={() => onOrderChange({ ...order, sort: order.sort === 'asc' ? 'desc' : 'asc' })}
             >
                 {order.sort === 'asc' ? <IconSortAscending size={16} stroke={1.8} /> : <IconSortDescending size={16} stroke={1.8} />}

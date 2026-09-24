@@ -2,8 +2,10 @@ import { memo, useCallback, useEffect, useRef, useState, type KeyboardEvent, typ
 import { ActionIcon, Badge, Box, Button, Group, Stack, Table, Text, Tooltip } from '@mantine/core';
 import { IconArrowBarToUp, IconChevronDown, IconChevronsUp, IconPlayerTrackNext, IconX } from '@tabler/icons-react';
 import { useVirtualizer, type Virtualizer } from '@tanstack/react-virtual';
+import { useTranslation } from 'react-i18next';
 import type { Rating, StationItemState, StationOrderItem } from '@deadair/sdk';
 
+import { i18n } from '../../i18n/i18n.setup';
 import { RatingControl } from '../catalog/rating.control';
 import { Artwork } from '../shared/artwork';
 import { AlbumLink, ArtistLink, ScriptLink, TrackLink } from '../shared/catalog.links';
@@ -115,10 +117,9 @@ function opacityFor(item: StationOrderItem): number {
  * has never heard of. The two it does know are named; anything else is shown as it comes.
  */
 function writerHint(writer: string): string {
-    if (writer === 'model') return 'A model wrote these words.';
-    if (writer === 'deterministic')
-        return 'The station wrote these words itself, from its own phrasings. That is the floor: it is also what you hear when a model is off, missing, or too slow.';
-    return `Written by ${writer}.`;
+    if (writer === 'model') return i18n.t('onair:order.writer.model');
+    if (writer === 'deterministic') return i18n.t('onair:order.writer.deterministic');
+    return i18n.t('onair:order.writer.other', { writer });
 }
 
 /**
@@ -138,17 +139,17 @@ export function skipReading(item: StationOrderItem): { label: string; colour: st
 
     if (item.segmentState === 'planned' || item.segmentState === 'writing') {
         return {
-            label: 'not written yet',
+            label: i18n.t('onair:order.skip.notWritten'),
             colour: 'gray',
-            hint: 'The station writes a break when it comes round, not when it plants it. Nothing has gone wrong and nothing is being skipped.',
+            hint: i18n.t('onair:order.skip.notWrittenHint'),
         };
     }
 
     if (item.segmentState === 'written' || item.segmentState === 'rendering') {
         return {
-            label: 'no audio yet',
+            label: i18n.t('onair:order.skip.noAudio'),
             colour: 'gray',
-            hint: 'The words are written and are being spoken now. It is heard if the audio arrives before the boundary does, and skipped if it does not.',
+            hint: i18n.t('onair:order.skip.noAudioHint'),
         };
     }
 
@@ -156,9 +157,10 @@ export function skipReading(item: StationOrderItem): { label: string; colour: st
     // one: a break that could not be written and a DJ that simply talks less look identical without
     // it, and the difference is a sentence already on the segment.
     return {
-        label: 'will skip',
+        label: i18n.t('onair:order.skip.willSkip'),
         colour: 'yellow',
-        hint: item.segmentError ?? `This will be skipped: the segment is ${item.segmentState ?? 'unavailable'}.`,
+        // The state is the API's own word for it, carried rather than translated.
+        hint: item.segmentError ?? i18n.t('onair:order.skip.willSkipHint', { state: item.segmentState ?? 'unavailable' }),
     };
 }
 
@@ -170,36 +172,29 @@ export function skipReading(item: StationOrderItem): { label: string; colour: st
  * from being heard, and a console that called it "playing" would be a track ahead of the stream.
  * That mistake is the one this whole shape exists to make unrepresentable.
  */
-const STATE_LABEL: Record<StationItemState, { label: string; colour: string; hint: string } | undefined> = {
-    planned: undefined,
-    handed: {
-        label: 'handed over',
-        colour: 'gray',
-        hint: 'The player is holding this one. It can no longer be moved or removed, and it has not aired yet.',
-    },
-    airing: { label: 'on air', colour: 'red', hint: 'The player says a listener is hearing this now.' },
-    played: { label: 'played', colour: 'gray', hint: 'Heard, and behind us.' },
-    skipped: {
-        label: 'skipped',
-        colour: 'yellow',
-        hint: 'The station passed over this one: a segment with no audio, or an item the player never started.',
-    },
+const STATE_COLOUR: Record<Exclude<StationItemState, 'planned'>, string> = {
+    handed: 'gray',
+    airing: 'red',
+    played: 'gray',
+    skipped: 'yellow',
     // Split out of `skipped` because it is the only one of these an operator can act on. A skip is
     // the station making a decision it was designed to make; this is a record it could not get hold
     // of, which means a copy that would not serve — and the fix is out there, not in here.
-    unavailable: {
-        label: 'unavailable',
-        colour: 'orange',
-        hint: 'The station could not get the audio for this record, so it was passed over. Its copy is benched until a sync sees it again — check the record in the catalog to see which provider is refusing it.',
-    },
+    unavailable: 'orange',
     // Its own state rather than a shade of `skipped`, because it is the opposite fact: nothing
     // went wrong here. Grey rather than yellow for the same reason.
-    removed: {
-        label: 'removed',
-        colour: 'gray',
-        hint: 'You took this out. It stays in the order marked like this rather than disappearing, which is what stops the station planting another break into the same slot a minute later.',
-    },
+    removed: 'gray',
 };
+
+/** A state's legend, colour and tooltip, or nothing for a row that is simply still to come. The words are `onair:order.state`. */
+function stateReading(state: StationItemState): { label: string; colour: string; hint: string } | undefined {
+    if (state === 'planned') return undefined;
+    return {
+        label: i18n.t(`onair:order.state.${state}.label`),
+        colour: STATE_COLOUR[state],
+        hint: i18n.t(`onair:order.state.${state}.hint`),
+    };
+}
 
 /**
  * What a row is called, pointing at whichever page can say more about it.
@@ -241,13 +236,15 @@ function anchorOf(items: StationOrderItem[]): StationOrderItem | undefined {
  * the desk is a zero an operator has to read and discard. Each clause appears when there is one.
  */
 function historyLabel(played: number, passed: number): string {
-    const clauses: string[] = [];
-    if (played > 0) clauses.push(played === 1 ? '1 played earlier' : `${played} played earlier`);
-    if (passed > 0) clauses.push(passed === 1 ? '1 skipped' : `${passed} skipped`);
+    const playedClause = played > 0 ? i18n.t('onair:order.history.played', { count: played }) : undefined;
+    const passedClause = passed > 0 ? i18n.t('onair:order.history.skipped', { count: passed }) : undefined;
     // Neither, and yet there are rows behind the anchor: they are removals and hand-overs, which
     // are the two states that are neither played nor passed over. Naming the count is honest where
     // naming a state would not be.
-    return clauses.length > 0 ? clauses.join(', ') : 'Earlier in this broadcast';
+    if (playedClause !== undefined && passedClause !== undefined) {
+        return i18n.t('onair:order.history.both', { played: playedClause, skipped: passedClause });
+    }
+    return playedClause ?? passedClause ?? i18n.t('onair:order.history.earlier');
 }
 
 /**
@@ -432,6 +429,7 @@ export function StationOrderTable({
     ratingTrackId,
     collapseHistory = false,
 }: StationOrderTableProps) {
+    const { t } = useTranslation('onair');
     const editable = onRemove !== undefined || onMove !== undefined || onSkipTo !== undefined;
     const nextUp = firstPlannedIndex(items);
     const anchor = anchorOf(items);
@@ -550,7 +548,7 @@ export function StationOrderTable({
                 // what the region is before reading an hour of it.
                 tabIndex={0}
                 role="region"
-                aria-label="Running order. Use arrow keys to move within a row."
+                aria-label={t('order.region')}
                 {...handlers}
             >
                 {/* `layout="fixed"` because only a window of rows is mounted: under the default
@@ -569,11 +567,11 @@ export function StationOrderTable({
                     <Table.Thead>
                         <Table.Tr>
                             <Table.Th w={40}>#</Table.Th>
-                            <Table.Th w="36%">Title</Table.Th>
-                            <Table.Th w="24%">Artists</Table.Th>
-                            <Table.Th visibleFrom="xl">Album</Table.Th>
-                            <Table.Th w={90}>Duration</Table.Th>
-                            {onRate ? <Table.Th w={112}>Rating</Table.Th> : undefined}
+                            <Table.Th w="36%">{t('order.column.title')}</Table.Th>
+                            <Table.Th w="24%">{t('order.column.artists')}</Table.Th>
+                            <Table.Th visibleFrom="xl">{t('order.column.album')}</Table.Th>
+                            <Table.Th w={90}>{t('order.column.duration')}</Table.Th>
+                            {onRate ? <Table.Th w={112}>{t('order.column.rating')}</Table.Th> : undefined}
                             {editable ? <Table.Th w={60 + (onMove ? 36 : 0) + (onSkipTo ? 32 : 0)} /> : undefined}
                         </Table.Tr>
                     </Table.Thead>
@@ -638,7 +636,7 @@ export function StationOrderTable({
                     onClick={() => pin('smooth')}
                     style={{ position: 'absolute', top: 4, right: 'var(--mantine-spacing-md)', zIndex: 5 }}
                 >
-                    Back to what is on air
+                    {t('order.backToAir')}
                 </Button>
             ) : undefined}
         </Box>
@@ -740,7 +738,8 @@ const OrderRow = memo(function OrderRow({
     'data-index': dataIndex,
     ref,
 }: OrderRowProps) {
-    const state = STATE_LABEL[item.state];
+    const { t } = useTranslation('onair');
+    const state = stateReading(item.state);
     const skipping = skipReading(item);
     // A segment is the station's own words, and a record the catalog has never seen
     // has no row to hold an opinion — a station can air one it never ingested.
@@ -834,7 +833,7 @@ const OrderRow = memo(function OrderRow({
                                             out from an empty artist column. */}
                     {item.kind === 'segment' ? (
                         <Badge size="xs" variant="light" color="grape" style={{ flexShrink: 0 }}>
-                            segment
+                            {t('order.segment')}
                         </Badge>
                     ) : undefined}
                     {/* A talk-over never becomes something the player is handed: it
@@ -842,20 +841,16 @@ const OrderRow = memo(function OrderRow({
                                             ducked under it. */}
                     {item.overAtMs === undefined ? undefined : (
                         <Badge size="xs" variant="light" color="grape" style={{ flexShrink: 0 }}>
-                            over the next record
+                            {t('order.over')}
                         </Badge>
                     )}
                     {/* A record the station chose to sound like the playlist around it, rather
                                             than one the playlist named. Grape, because that is the
                                             palette's colour for what the station authored. */}
                     {item.mixedIn ? (
-                        <Tooltip
-                            label="The station mixed this in because it sounds like the record before it. The playlist did not name it."
-                            multiline
-                            maw={320}
-                        >
+                        <Tooltip label={t('order.mixedInHint')} multiline maw={320}>
                             <Badge size="xs" variant="light" color="grape" style={{ flexShrink: 0 }}>
-                                mixed in
+                                {t('order.mixedIn')}
                             </Badge>
                         </Tooltip>
                     ) : undefined}
@@ -950,16 +945,12 @@ const OrderRow = memo(function OrderRow({
                                                 holding and cuts what is on air, so it is the one
                                                 control here a listener hears at once. */}
                         {onSkipTo && canSkipTo(item) ? (
-                            <Tooltip
-                                label="Skips straight to this record: everything in front of it is passed over and what is on air is cut."
-                                multiline
-                                maw={320}
-                            >
+                            <Tooltip label={t('order.skipToHint')} multiline maw={320}>
                                 <ActionIcon
                                     ref={skipToRef}
                                     variant="subtle"
                                     color="gray"
-                                    aria-label={`Skip to ${item.title}`}
+                                    aria-label={t('order.skipTo', { title: item.title })}
                                     tabIndex={-1}
                                     loading={skippingTo}
                                     onClick={() => onSkipTo(item)}
@@ -974,16 +965,12 @@ const OrderRow = memo(function OrderRow({
                                                 row does nothing, which is the same argument the
                                                 spent rows below are drawn bare on. */}
                         {onMove && item.state === 'planned' && position !== nextUp ? (
-                            <Tooltip
-                                label="Moves this in front of everything the player is not already holding. Not necessarily the next thing heard: whatever has been handed over plays first."
-                                multiline
-                                maw={340}
-                            >
+                            <Tooltip label={t('order.playNextHint')} multiline maw={340}>
                                 <ActionIcon
                                     ref={playNextRef}
                                     variant="subtle"
                                     color="gray"
-                                    aria-label={`Play ${item.title} next`}
+                                    aria-label={t('order.playNext', { title: item.title })}
                                     // Reachable through the row's own arrow-key roving rather than
                                     // Tab: see the note on {@link OrderRow} for why the row itself
                                     // is the stop.
@@ -1000,12 +987,12 @@ const OrderRow = memo(function OrderRow({
                                             affordance that could only ever answer 422 is worse than no
                                             affordance. */}
                         {onRemove && !isSpent(item.state) ? (
-                            <Tooltip label="Drop this item">
+                            <Tooltip label={t('order.dropHint')}>
                                 <ActionIcon
                                     ref={dropRef}
                                     variant="subtle"
                                     color="red"
-                                    aria-label={`Drop ${item.title}`}
+                                    aria-label={t('order.drop', { title: item.title })}
                                     tabIndex={-1}
                                     loading={removing}
                                     onClick={() => onRemove(item)}
@@ -1046,7 +1033,8 @@ const PhoneRow = memo(function PhoneRow({
     onSkipTo?: (item: StationOrderItem) => void;
     skippingTo: boolean;
 }) {
-    const state = STATE_LABEL[item.state];
+    const { t } = useTranslation('onair');
+    const state = stateReading(item.state);
     const airing = item.state === 'airing';
 
     return (
@@ -1059,7 +1047,7 @@ const PhoneRow = memo(function PhoneRow({
                     </Text>
                     {item.kind === 'segment' ? (
                         <Badge size="xs" variant="light" color="grape" style={{ flexShrink: 0 }}>
-                            segment
+                            {t('order.segment')}
                         </Badge>
                     ) : undefined}
                 </>
@@ -1099,7 +1087,7 @@ const PhoneRow = memo(function PhoneRow({
                                 color="gray"
                                 w={44}
                                 h={44}
-                                aria-label={`Skip to ${item.title}`}
+                                aria-label={t('order.skipTo', { title: item.title })}
                                 loading={skippingTo}
                                 onClick={() => onSkipTo(item)}
                             >
@@ -1112,7 +1100,7 @@ const PhoneRow = memo(function PhoneRow({
                                 color="red"
                                 w={44}
                                 h={44}
-                                aria-label={`Drop ${item.title}`}
+                                aria-label={t('order.drop', { title: item.title })}
                                 loading={removing}
                                 onClick={() => onRemove(item)}
                             >

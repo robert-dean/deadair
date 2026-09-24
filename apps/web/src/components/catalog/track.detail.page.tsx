@@ -1,6 +1,8 @@
 import { Anchor, Badge, Card, Group, Stack, Table, Text, Title, Tooltip } from '@mantine/core';
 import { Link } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import type { TrackBinding, TrackDetail } from '@deadair/sdk';
 
 import { catalogTrackEnrichmentOptions, catalogTrackOptions, useRateTrack } from '../../api/catalog.queries';
@@ -32,43 +34,43 @@ const moment = (iso: Moment | undefined): string => formatMomentMinute(iso, { fa
  * than a lookup: a benched copy is benched whatever its cache row says, and a copy backing off after
  * failures is a different problem from one nothing has ever tried.
  */
-function bindingStatus(binding: TrackBinding): { tone: StatusTone; label: string; detail: string } {
+function bindingStatus(binding: TrackBinding, t: TFunction<'catalog'>): { tone: StatusTone; label: string; detail: string } {
     // `off` rather than `fault` for the two below, and the distinction is the one `status.ts` exists
     // for: the station stood this copy down on purpose and is not currently trying, which is not the
     // same as something going wrong right now.
     if (binding.missingAt !== undefined) {
         return {
             tone: 'off',
-            label: 'Benched',
-            detail: `The station gave up on this copy ${moment(binding.missingAt)}. The next sync that still sees it puts it back.`,
+            label: t('track.binding.benched.label'),
+            detail: t('track.binding.benched.detail', { when: moment(binding.missingAt) }),
         };
     }
     if (!binding.playable) {
-        return { tone: 'off', label: 'Not offered', detail: 'The provider knows this record but will not serve this copy here.' };
+        return { tone: 'off', label: t('track.binding.notOffered.label'), detail: t('track.binding.notOffered.detail') };
     }
     if (binding.lastError !== undefined && binding.byteSize === undefined) {
         return {
             tone: 'fault',
-            label: `Failing (${binding.attempts})`,
-            detail: `${binding.lastError}. Next attempt ${moment(binding.nextAttemptAt)}.`,
+            label: t('track.binding.failing.label', { attempts: binding.attempts }),
+            detail: t('track.binding.failing.detail', { error: binding.lastError, when: moment(binding.nextAttemptAt) }),
         };
     }
     // `byteSize` rather than `fetchedAt`, and the difference is a record whose bytes have been
     // evicted: the sweep clears the file columns and keeps the row, so a copy that was fetched once
     // and dropped since is not on this machine however recently it arrived.
     if (binding.byteSize !== undefined) {
-        return { tone: 'ok', label: 'On this machine', detail: `Fetched ${moment(binding.fetchedAt)}.` };
+        return { tone: 'ok', label: t('track.binding.cached.label'), detail: t('track.binding.cached.detail', { when: moment(binding.fetchedAt) }) };
     }
     if (binding.lastServedAt !== undefined) {
         return {
             tone: 'standby',
-            label: 'Dropped',
-            detail: `Played ${moment(binding.lastServedAt)} and since dropped to stay under the cache limit. The station fetches it again when it comes round.`,
+            label: t('track.binding.dropped.label'),
+            detail: t('track.binding.dropped.detail', { when: moment(binding.lastServedAt) }),
         };
     }
     // Waiting rather than broken: the station fetches a record a few boundaries before its slot, so
     // a copy nothing has needed yet is the ordinary state of most of the library.
-    return { tone: 'standby', label: 'Not fetched', detail: 'Nothing has needed this copy yet. The station fetches it before its first slot.' };
+    return { tone: 'standby', label: t('track.binding.uncached.label'), detail: t('track.binding.uncached.detail') };
 }
 
 /**
@@ -85,6 +87,7 @@ function bindingStatus(binding: TrackBinding): { tone: StatusTone; label: string
  * resolved.
  */
 export function TrackDetailPage({ trackId }: { trackId: string }) {
+    const { t } = useTranslation('catalog');
     const track = useQuery(catalogTrackOptions(trackId));
     const enrichment = useQuery(catalogTrackEnrichmentOptions(trackId));
     const rate = useRateTrack();
@@ -93,7 +96,7 @@ export function TrackDetailPage({ trackId }: { trackId: string }) {
     if (track.isPending) return <PageSkeleton variant="table" />;
 
     if (track.error || !track.data) {
-        return <ErrorAlert title="This record could not be loaded" error={track.error} fallback="No track with that id is in the catalog." />;
+        return <ErrorAlert title={t('track.loadFailedTitle')} error={track.error} fallback={t('track.loadFailedFallback')} />;
     }
 
     const detail = track.data;
@@ -109,7 +112,7 @@ export function TrackDetailPage({ trackId }: { trackId: string }) {
                     {/* `renderRoot` rather than `component={Link}`: the polymorphic form erases the
                         router's own types, and with them the check that `params` matches the path. */}
                     <Anchor renderRoot={(props: object) => <Link to="/catalog/tracks" search={CATALOG_TRACK_DEFAULTS} {...props} />} size="sm">
-                        Back to tracks
+                        {t('track.back')}
                     </Anchor>
                     <PageHeader
                         title={detail.title}
@@ -128,7 +131,7 @@ export function TrackDetailPage({ trackId }: { trackId: string }) {
                                 {detail.year === undefined ? undefined : (
                                     <>
                                         {' • '}
-                                        <Tooltip label="The year on the file itself. This is what the station's own period filter reads.">
+                                        <Tooltip label={t('track.yearTooltip')}>
                                             <span>{detail.year}</span>
                                         </Tooltip>
                                     </>
@@ -162,7 +165,7 @@ export function TrackDetailPage({ trackId }: { trackId: string }) {
                 claims={enrichment.data?.claims}
                 isPending={enrichment.isPending}
                 error={enrichment.error}
-                emptyMessage="No provider has been asked about this record yet. The enrichment pass picks up what it has not seen, oldest first."
+                emptyMessage={t('track.enrichmentEmpty')}
             />
         </Stack>
     );
@@ -170,20 +173,19 @@ export function TrackDetailPage({ trackId }: { trackId: string }) {
 
 /** Which providers hold a copy, and what the station has of each. The answer to "why will this not play". */
 function BindingsCard({ detail, phone }: { detail: TrackDetail; phone: boolean }) {
+    const { t } = useTranslation('catalog');
     return (
         <Card padding="lg">
             <Stack gap="md">
                 <Stack gap="xxs">
-                    <Eyebrow>Copies</Eyebrow>
+                    <Eyebrow>{t('track.bindings.eyebrow')}</Eyebrow>
                     <Title order={2} size="h5">
-                        Where this record comes from
+                        {t('track.bindings.title')}
                     </Title>
                 </Stack>
 
                 {detail.bindings.length === 0 ? (
-                    <EmptyState>
-                        No provider holds a copy of this record, so nothing can play it. That is usually an import whose lookup never resolved.
-                    </EmptyState>
+                    <EmptyState>{t('track.bindings.empty')}</EmptyState>
                 ) : phone ? (
                     // A `Table.ScrollContainer` at `minWidth={600}` inside a 500px-wide page left
                     // Held and Last played from permanently off-screen with nothing telling the
@@ -192,7 +194,7 @@ function BindingsCard({ detail, phone }: { detail: TrackDetail; phone: boolean }
                     // held bytes and last played from.
                     <Stack gap="xxs">
                         {detail.bindings.map(binding => {
-                            const status = bindingStatus(binding);
+                            const status = bindingStatus(binding, t);
                             return (
                                 <PhoneCard
                                     key={binding.sourceId}
@@ -202,9 +204,9 @@ function BindingsCard({ detail, phone }: { detail: TrackDetail; phone: boolean }
                                                 {binding.pluginId}
                                             </Text>
                                             {binding.origin === 'discovered' ? (
-                                                <Tooltip label="Looked up by name when something chose this record, rather than seen in a playlist.">
+                                                <Tooltip label={t('track.found.tooltip')}>
                                                     <Badge size="xs" variant="light" color="grape">
-                                                        found
+                                                        {t('track.found.badge')}
                                                     </Badge>
                                                 </Tooltip>
                                             ) : undefined}
@@ -217,8 +219,12 @@ function BindingsCard({ detail, phone }: { detail: TrackDetail; phone: boolean }
                                     }
                                     subtitle={
                                         <Text size="xs" c="dimmed">
-                                            {binding.format ?? '—'}
-                                            {binding.bitrate === undefined ? '' : ` • ${Math.round(binding.bitrate / 1000)}k`}
+                                            {binding.bitrate === undefined
+                                                ? (binding.format ?? '—')
+                                                : t('track.bindings.formatBitrate', {
+                                                      format: binding.format ?? '—',
+                                                      kbps: Math.round(binding.bitrate / 1000),
+                                                  })}
                                         </Text>
                                     }
                                     figure={
@@ -231,10 +237,10 @@ function BindingsCard({ detail, phone }: { detail: TrackDetail; phone: boolean }
                                     below={
                                         <Group justify="space-between" pt="xxs">
                                             <Text size="xs" c="dimmed" className="da-num">
-                                                Held {formatBytes(binding.byteSize)}
+                                                {t('track.bindings.held', { size: formatBytes(binding.byteSize) })}
                                             </Text>
                                             <Text size="xs" c="dimmed" className="da-num">
-                                                Last played {moment(binding.lastServedAt)}
+                                                {t('track.bindings.lastPlayed', { when: moment(binding.lastServedAt) })}
                                             </Text>
                                         </Group>
                                     }
@@ -247,16 +253,16 @@ function BindingsCard({ detail, phone }: { detail: TrackDetail; phone: boolean }
                         <Table verticalSpacing="xs" horizontalSpacing="sm">
                             <Table.Thead>
                                 <Table.Tr>
-                                    <Table.Th>Provider</Table.Th>
-                                    <Table.Th>State</Table.Th>
-                                    <Table.Th>Format</Table.Th>
-                                    <Table.Th ta="right">Held</Table.Th>
-                                    <Table.Th ta="right">Last played from</Table.Th>
+                                    <Table.Th>{t('track.bindings.columns.provider')}</Table.Th>
+                                    <Table.Th>{t('columns.state')}</Table.Th>
+                                    <Table.Th>{t('track.bindings.columns.format')}</Table.Th>
+                                    <Table.Th ta="right">{t('track.bindings.columns.held')}</Table.Th>
+                                    <Table.Th ta="right">{t('track.bindings.columns.lastPlayed')}</Table.Th>
                                 </Table.Tr>
                             </Table.Thead>
                             <Table.Tbody>
                                 {detail.bindings.map(binding => {
-                                    const status = bindingStatus(binding);
+                                    const status = bindingStatus(binding, t);
                                     return (
                                         <Table.Tr key={binding.sourceId}>
                                             <Table.Td>
@@ -267,9 +273,9 @@ function BindingsCard({ detail, phone }: { detail: TrackDetail; phone: boolean }
                                                         sync's sweep may not judge it. Worth saying on a page
                                                         about why a record behaves as it does. */}
                                                         {binding.origin === 'discovered' ? (
-                                                            <Tooltip label="Looked up by name when something chose this record, rather than seen in a playlist.">
+                                                            <Tooltip label={t('track.found.tooltip')}>
                                                                 <Badge size="xs" variant="light" color="grape">
-                                                                    found
+                                                                    {t('track.found.badge')}
                                                                 </Badge>
                                                             </Tooltip>
                                                         ) : undefined}
@@ -288,8 +294,12 @@ function BindingsCard({ detail, phone }: { detail: TrackDetail; phone: boolean }
                                             </Table.Td>
                                             <Table.Td>
                                                 <Text size="sm" c="dimmed">
-                                                    {binding.format ?? '—'}
-                                                    {binding.bitrate === undefined ? '' : ` • ${Math.round(binding.bitrate / 1000)}k`}
+                                                    {binding.bitrate === undefined
+                                                        ? (binding.format ?? '—')
+                                                        : t('track.bindings.formatBitrate', {
+                                                              format: binding.format ?? '—',
+                                                              kbps: Math.round(binding.bitrate / 1000),
+                                                          })}
                                                 </Text>
                                             </Table.Td>
                                             <Table.Td ta="right" className="da-num">
@@ -318,40 +328,46 @@ function BindingsCard({ detail, phone }: { detail: TrackDetail; phone: boolean }
  * measurement of.
  */
 function MeasurementCard({ detail }: { detail: TrackDetail }) {
+    const { t } = useTranslation('catalog');
     const analysis = detail.analysis;
 
     return (
         <Card padding="lg">
             <Stack gap="md">
                 <Stack gap="xxs">
-                    <Eyebrow>Measurement</Eyebrow>
+                    <Eyebrow>{t('track.measurement.eyebrow')}</Eyebrow>
                     <Title order={2} size="h5">
-                        Cue points and loudness
+                        {t('track.measurement.title')}
                     </Title>
                 </Stack>
 
                 {analysis === undefined ? (
-                    <EmptyState>
-                        Nothing has measured this record yet. It plays perfectly well unmeasured — without the measurement the station cannot trim the
-                        silence off either end or set the level before air.
-                    </EmptyState>
+                    <EmptyState>{t('track.measurement.empty')}</EmptyState>
                 ) : (
                     <Group gap="xl" wrap="wrap">
-                        <Figure label="State">
+                        <Figure label={t('columns.state')}>
                             {/* `complete` decides the tone rather than `analyzedAt`, because a
                                 measurement of a truncated download carries a date and is wrong. */}
                             <StatusLamp
                                 tone={analysis.failedAt !== undefined ? 'fault' : analysis.complete ? 'ok' : 'off'}
-                                label={analysis.failedAt !== undefined ? 'Failed' : analysis.complete ? 'Measured' : 'Incomplete'}
+                                label={
+                                    analysis.failedAt !== undefined
+                                        ? t('track.measurement.failed')
+                                        : analysis.complete
+                                          ? t('track.measurement.measured')
+                                          : t('track.measurement.incomplete')
+                                }
                             />
                         </Figure>
                         {/* "Last measured" rather than "Measured", which is what the lamp beside it
                             already says — one word meaning both a state and a date is how a page
                             starts being read wrong. */}
-                        <Figure label="Last measured">{moment(analysis.analyzedAt)}</Figure>
-                        <Figure label="By">{analysis.analyzer ?? analysis.analyzerPluginId ?? '—'}</Figure>
-                        <Figure label="Schema">{analysis.schemaVersion}</Figure>
-                        {analysis.failureReason === undefined ? undefined : <Figure label="Why it failed">{analysis.failureReason}</Figure>}
+                        <Figure label={t('track.measurement.lastMeasured')}>{moment(analysis.analyzedAt)}</Figure>
+                        <Figure label={t('track.measurement.by')}>{analysis.analyzer ?? analysis.analyzerPluginId ?? '—'}</Figure>
+                        <Figure label={t('track.measurement.schema')}>{analysis.schemaVersion}</Figure>
+                        {analysis.failureReason === undefined ? undefined : (
+                            <Figure label={t('track.measurement.whyFailed')}>{analysis.failureReason}</Figure>
+                        )}
                     </Group>
                 )}
             </Stack>
@@ -361,23 +377,24 @@ function MeasurementCard({ detail }: { detail: TrackDetail }) {
 
 /** When this record has been on. The head of it, with the true total, since the feed is the log. */
 function AiringsCard({ detail }: { detail: TrackDetail }) {
+    const { t } = useTranslation('catalog');
     return (
         <Card padding="lg">
             <Stack gap="md">
                 <Group justify="space-between" align="flex-end">
                     <Stack gap="xxs">
-                        <Eyebrow>On air</Eyebrow>
+                        <Eyebrow>{t('track.airings.eyebrow')}</Eyebrow>
                         <Title order={2} size="h5">
-                            When this has played
+                            {t('track.airings.title')}
                         </Title>
                     </Stack>
                     <Text size="sm" c="dimmed" className="da-num">
-                        {detail.playCount} in all
+                        {t('track.airings.total', { plays: detail.playCount })}
                     </Text>
                 </Group>
 
                 {detail.plays.length === 0 ? (
-                    <EmptyState>This record has not been on air yet.</EmptyState>
+                    <EmptyState>{t('track.airings.empty')}</EmptyState>
                 ) : (
                     <Stack gap="xxs">
                         {detail.plays.map(play => (

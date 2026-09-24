@@ -1,6 +1,7 @@
 import { Button } from '@mantine/core';
 import { IconArrowUpCircle } from '@tabler/icons-react';
 import { Link } from '@tanstack/react-router';
+import { Trans, useTranslation } from 'react-i18next';
 
 import { useStationReleasesPoll } from '../../api/station.queries';
 
@@ -16,6 +17,7 @@ import { useStationReleasesPoll } from '../../api/station.queries';
  * all.
  */
 export function UpdateNotice({ enabled }: { enabled: boolean }) {
+    const { t } = useTranslation('shell');
     const releases = useStationReleasesPoll(enabled);
     const newest = releases.data?.available[0];
     if (newest === undefined) return undefined;
@@ -30,9 +32,9 @@ export function UpdateNotice({ enabled }: { enabled: boolean }) {
             visibleFrom="sm"
             leftSection={<IconArrowUpCircle size={16} stroke={1.8} />}
             renderRoot={(props: object) => <Link to="/releases" {...props} />}
-            title={`deadair ${newest.version} is out. See what changed.`}
+            title={t('update.title', { version: newest.version })}
         >
-            <span className="da-num">{newest.version}</span>&nbsp;is out
+            <Trans t={t} i18nKey="update.isOut" values={{ version: newest.version }} components={{ version: <span className="da-num" /> }} />
         </Button>
     );
 }

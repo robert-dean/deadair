@@ -3,6 +3,10 @@ import { cleanup, configure } from '@testing-library/react';
 
 import '@testing-library/jest-dom/vitest';
 
+// The console's catalog, installed the way `main.tsx` installs it. The English copy the tests query
+// for is the English catalog, so a string that changed on its way into a catalog fails here.
+import '../src/i18n/i18n.setup';
+
 // Testing Library only self-registers cleanup when vitest runs with `globals: true`,
 // which this package does not, so renders would otherwise pile up in one document.
 afterEach(cleanup);

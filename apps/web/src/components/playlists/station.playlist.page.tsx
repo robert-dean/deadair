@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Anchor, Badge, Button, Group, Modal, Stack, Table, Text, TextInput, Textarea } from '@mantine/core';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import type { StationPlaylistDetail, StationPlaylistTrack } from '@deadair/sdk';
 
 import {
@@ -32,6 +33,7 @@ import { holdingLine, usePluginName } from './station.playlist.card';
  * as a shorter playlist than the one that was imported.
  */
 export function StationPlaylistPage({ id }: { id: string }) {
+    const { t } = useTranslation('playlists');
     const playlist = useQuery(stationPlaylistOptions(id));
     const origin = usePluginName(playlist.data?.originPluginId);
     const phone = usePhone();
@@ -62,15 +64,15 @@ export function StationPlaylistPage({ id }: { id: string }) {
         <Stack gap="lg">
             <Stack gap="xxs">
                 <Anchor renderRoot={(props: object) => <Link to="/playlists" {...props} />} size="sm">
-                    Back to playlists
+                    {t('station.back')}
                 </Anchor>
                 <PageHeader
-                    title={data?.name ?? 'Playlist'}
+                    title={data?.name ?? t('station.fallbackTitle')}
                     description={
                         data ? (
                             <Text c="dimmed" size="sm">
-                                {origin === undefined ? 'The station’s own' : `The station’s own, cloned from ${origin}`}
-                                {` • ${holdingLine(data)}`}
+                                {origin === undefined ? t('station.own') : t('station.ownClonedFrom', { origin })}
+                                {t('station.holding', { holding: holdingLine(data) })}
                             </Text>
                         ) : undefined
                     }
@@ -88,24 +90,21 @@ export function StationPlaylistPage({ id }: { id: string }) {
                                         loading={fill.isPending}
                                         onClick={() =>
                                             fill.mutate(id, {
-                                                onSuccess: () =>
-                                                    notifyQueued(
-                                                        `The station is looking up the records missing from ${data.name}. The activity feed says how many it found.`,
-                                                    ),
+                                                onSuccess: () => notifyQueued(t('station.fillQueued', { name: data.name })),
                                             })
                                         }
                                     >
-                                        Look up missing records
+                                        {t('station.fill')}
                                     </Button>
                                 ) : undefined}
                                 <Button size="xs" variant="default" loading={exporting} onClick={() => void save()}>
-                                    Export
+                                    {t('station.export')}
                                 </Button>
                                 <Button size="xs" variant="default" onClick={() => setEditing(true)}>
-                                    Rename
+                                    {t('station.rename')}
                                 </Button>
                                 <Button size="xs" variant="subtle" color="red" onClick={() => setDeleting(true)}>
-                                    Delete
+                                    {t('station.delete')}
                                 </Button>
                             </Group>
                         ) : undefined
@@ -113,12 +112,12 @@ export function StationPlaylistPage({ id }: { id: string }) {
                 />
             </Stack>
 
-            {exportFailure ? <ErrorAlert title="The playlist could not be exported" error={exportFailure} /> : undefined}
+            {exportFailure ? <ErrorAlert title={t('station.exportFailed')} error={exportFailure} /> : undefined}
 
-            {fill.error ? <ErrorAlert title="The missing records could not be looked up" error={fill.error} /> : undefined}
+            {fill.error ? <ErrorAlert title={t('station.fillFailed')} error={fill.error} /> : undefined}
 
             {playlist.error ? (
-                <ErrorAlert title="This playlist could not be loaded" error={playlist.error} fallback="It may have been deleted." />
+                <ErrorAlert title={t('station.loadFailed')} error={playlist.error} fallback={t('station.loadFailedFallback')} />
             ) : undefined}
 
             {playlist.isPending ? <PageSkeleton variant="table" /> : undefined}
@@ -129,7 +128,7 @@ export function StationPlaylistPage({ id }: { id: string }) {
                 </Text>
             ) : undefined}
 
-            {data && tracks.length === 0 ? <EmptyState>This playlist names no records.</EmptyState> : undefined}
+            {data && tracks.length === 0 ? <EmptyState>{t('station.empty')}</EmptyState> : undefined}
 
             {phone && tracks.length > 0 ? (
                 <Stack gap="xxs">
@@ -158,10 +157,10 @@ export function StationPlaylistPage({ id }: { id: string }) {
                         <Table.Thead>
                             <Table.Tr>
                                 <Table.Th w={48}>#</Table.Th>
-                                <Table.Th>Title</Table.Th>
-                                <Table.Th>Artists</Table.Th>
-                                <Table.Th>Album</Table.Th>
-                                <Table.Th>Duration</Table.Th>
+                                <Table.Th>{t('column.title')}</Table.Th>
+                                <Table.Th>{t('column.artists')}</Table.Th>
+                                <Table.Th>{t('column.album')}</Table.Th>
+                                <Table.Th>{t('column.duration')}</Table.Th>
                             </Table.Tr>
                         </Table.Thead>
                         <Table.Tbody>
@@ -197,13 +196,13 @@ export function StationPlaylistPage({ id }: { id: string }) {
                     remove.reset();
                 }}
                 onConfirm={() => remove.mutate(id, { onSuccess: () => void navigate({ to: '/playlists' }) })}
-                title={`Delete ${data?.name ?? 'this playlist'}?`}
-                confirmLabel="Delete"
+                title={data === undefined ? t('station.deleteThis') : t('station.deleteTitle', { name: data.name })}
+                confirmLabel={t('station.delete')}
                 confirming={remove.isPending}
                 error={remove.error}
-                errorTitle="The playlist could not be deleted"
+                errorTitle={t('station.deleteFailed')}
             >
-                The playlist goes. The records it named stay in the library.
+                {t('station.deleteBody')}
             </ConfirmModal>
         </Stack>
     );
@@ -213,15 +212,17 @@ export function StationPlaylistPage({ id }: { id: string }) {
 const held = (track: StationPlaylistTrack): boolean => track.trackId !== undefined;
 
 function Waiting() {
+    const { t } = useTranslation('playlists');
     return (
         <Badge size="xs" variant="outline" color="gray" tt="none">
-            Not in the library
+            {t('station.notInLibrary')}
         </Badge>
     );
 }
 
 /** The name and what the playlist is for, the two things about it that are the operator's to change. */
 function RenameModal({ playlist, opened, onClose }: { playlist: StationPlaylistDetail; opened: boolean; onClose: () => void }) {
+    const { t } = useTranslation(['playlists', 'common']);
     const update = useUpdateStationPlaylist();
     const [name, setName] = useState(playlist.name);
     const [prompt, setPrompt] = useState(playlist.prompt);
@@ -232,22 +233,22 @@ function RenameModal({ playlist, opened, onClose }: { playlist: StationPlaylistD
     };
 
     return (
-        <Modal opened={opened} onClose={close} title="Rename playlist" centered>
+        <Modal opened={opened} onClose={close} title={t('station.renameTitle')} centered>
             <Stack gap="md">
-                <TextInput label="Name" value={name} onChange={event => setName(event.currentTarget.value)} maxLength={200} />
+                <TextInput label={t('station.name')} value={name} onChange={event => setName(event.currentTarget.value)} maxLength={200} />
                 <Textarea
-                    label="What it is for"
-                    description="In your own words. Optional."
+                    label={t('station.purpose')}
+                    description={t('station.purposeHint')}
                     value={prompt}
                     onChange={event => setPrompt(event.currentTarget.value)}
                     maxLength={4000}
                     autosize
                     minRows={2}
                 />
-                {update.error ? <ErrorAlert title="Nothing was changed" error={update.error} /> : undefined}
+                {update.error ? <ErrorAlert title={t('station.renameFailed')} error={update.error} /> : undefined}
                 <Group justify="flex-end">
                     <Button variant="subtle" onClick={close}>
-                        Cancel
+                        {t('common:action.cancel')}
                     </Button>
                     <Button
                         loading={update.isPending}
@@ -256,7 +257,7 @@ function RenameModal({ playlist, opened, onClose }: { playlist: StationPlaylistD
                             update.mutate({ id: playlist.id, changes: { name: name.trim(), prompt: prompt.trim() } }, { onSuccess: close })
                         }
                     >
-                        Save
+                        {t('station.save')}
                     </Button>
                 </Group>
             </Stack>

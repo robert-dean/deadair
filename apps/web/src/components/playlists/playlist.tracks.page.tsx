@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Anchor, Button, Group, Stack, Table, Text } from '@mantine/core';
 import { Link } from '@tanstack/react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import type { CatalogPlaylist, CatalogTrack } from '@deadair/sdk';
 
 import { playlistTracksOptions } from '../../api/playlists.queries';
@@ -28,6 +29,7 @@ function formatArtists(artists: string[]): string {
 }
 
 export function PlaylistTracksPage({ pluginId, playlistId }: PlaylistTracksPageProps) {
+    const { t } = useTranslation('playlists');
     const tracks = useQuery(playlistTracksOptions(pluginId, playlistId));
     const queryClient = useQueryClient();
     const phone = usePhone();
@@ -46,14 +48,15 @@ export function PlaylistTracksPage({ pluginId, playlistId }: PlaylistTracksPageP
                 {/* `renderRoot` rather than `component={Link}`: the polymorphic form erases the
                     router's own types, and with them the check that `params` matches the path. */}
                 <Anchor renderRoot={(props: object) => <Link to="/playlists" {...props} />} size="sm">
-                    Back to playlists
+                    {t('tracks.back')}
                 </Anchor>
                 <PageHeader
                     title={heading}
                     description={
                         <Text c="dimmed" size="sm">
-                            {`From ${pluginId}`}
-                            {tracks.data ? ` • ${tracks.data.tracks.length} tracks` : ''}
+                            {tracks.data
+                                ? t('tracks.fromWithCount', { plugin: pluginId, count: tracks.data.tracks.length })
+                                : t('tracks.from', { plugin: pluginId })}
                         </Text>
                     }
                     actions={
@@ -68,7 +71,7 @@ export function PlaylistTracksPage({ pluginId, playlistId }: PlaylistTracksPageP
                                 <PlayPlaylistButton pluginId={pluginId} playlistId={playlistId} />
                                 {/* A clone the station keeps, free to differ from the provider's list afterwards. */}
                                 <Button variant="default" onClick={() => setSaving(true)}>
-                                    Save as a station playlist
+                                    {t('tracks.saveAsStation')}
                                 </Button>
                             </Group>
                         ) : undefined
@@ -78,13 +81,11 @@ export function PlaylistTracksPage({ pluginId, playlistId }: PlaylistTracksPageP
 
             <PlaylistImportModal opened={saving} onClose={() => setSaving(false)} from={{ pluginId, playlistId, name: heading }} />
 
-            {tracks.error ? (
-                <ErrorAlert title="Tracks could not be loaded" error={tracks.error} fallback="This playlist is unavailable." />
-            ) : undefined}
+            {tracks.error ? <ErrorAlert title={t('tracks.loadFailed')} error={tracks.error} fallback={t('tracks.loadFailedFallback')} /> : undefined}
 
             {tracks.isPending ? <PageSkeleton variant="table" /> : undefined}
 
-            {tracks.data?.tracks.length === 0 ? <EmptyState>This playlist has no tracks.</EmptyState> : undefined}
+            {tracks.data?.tracks.length === 0 ? <EmptyState>{t('tracks.empty')}</EmptyState> : undefined}
 
             {/* The phone gets cards rather than a table that scrolls sideways. What survives 375px
                 is a different selection: title, credit and duration, with the album as the dropped
@@ -120,10 +121,10 @@ export function PlaylistTracksPage({ pluginId, playlistId }: PlaylistTracksPageP
                     <Table>
                         <Table.Thead>
                             <Table.Tr>
-                                <Table.Th>Title</Table.Th>
-                                <Table.Th>Artists</Table.Th>
-                                <Table.Th>Album</Table.Th>
-                                <Table.Th>Duration</Table.Th>
+                                <Table.Th>{t('column.title')}</Table.Th>
+                                <Table.Th>{t('column.artists')}</Table.Th>
+                                <Table.Th>{t('column.album')}</Table.Th>
+                                <Table.Th>{t('column.duration')}</Table.Th>
                             </Table.Tr>
                         </Table.Thead>
                         <Table.Tbody>

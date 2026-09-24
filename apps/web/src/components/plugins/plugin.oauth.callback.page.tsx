@@ -1,5 +1,6 @@
 import { Anchor, Card, Stack, Text, Title } from '@mantine/core';
 import { Link } from '@tanstack/react-router';
+import { useTranslation } from 'react-i18next';
 
 import type { PluginOAuthOutcome } from '../../api/plugins.queries';
 import { ErrorAlert } from '../shared/error.alert';
@@ -17,26 +18,27 @@ export interface PluginOAuthCallbackPageProps {
  * code — so it is repeated rather than interpreted.
  */
 export function PluginOAuthCallbackPage({ id, outcome }: PluginOAuthCallbackPageProps) {
+    const { t } = useTranslation('plugins');
     const { result, failure } = outcome;
-    const message = failure ?? (result?.ok ? undefined : (result?.message ?? 'The authorization could not be completed.'));
+    const message = failure ?? (result?.ok ? undefined : (result?.message ?? t('oauthCallback.failed')));
 
     return (
         <Card padding="xl" maw={560}>
             <Stack gap="md">
                 <Title order={2} size="h4">
-                    Authorization
+                    {t('oauthCallback.title')}
                 </Title>
 
                 {message === undefined ? (
-                    <Text c="teal">Connected. The plugin has stored its tokens.</Text>
+                    <Text c="teal">{t('oauthCallback.connected')}</Text>
                 ) : (
-                    <ErrorAlert title="Not connected">{message}</ErrorAlert>
+                    <ErrorAlert title={t('oauthCallback.notConnected')}>{message}</ErrorAlert>
                 )}
 
                 {/* `renderRoot` rather than `component={Link}`: the polymorphic form erases the
                     router's own types, and with them the check that `params` matches the path. */}
                 <Anchor renderRoot={(props: object) => <Link to="/plugins/$id" params={{ id }} {...props} />} size="sm">
-                    Back to the plugin
+                    {t('oauthCallback.back')}
                 </Anchor>
             </Stack>
         </Card>

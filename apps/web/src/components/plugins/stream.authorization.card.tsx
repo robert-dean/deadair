@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { Alert, Anchor, Button, Card, Code, Group, List, Stack, Text, TextInput, Title } from '@mantine/core';
+import { Trans, useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import type { PluginDetail } from '@deadair/sdk';
 
 import { useFetcherAuthorization, useFinishFetcherAuthorization, useStartFetcherAuthorization } from '../../api/stream.queries';
@@ -8,23 +10,22 @@ import { ErrorAlert } from '../shared/error.alert';
 import { StatusLamp } from '../shared/status.lamp';
 
 /** The failure an operator can act on, rather than the status code that produced it. */
-function startError(error: unknown): string {
+function startError(error: unknown, t: TFunction<'plugins'>): string {
     const status = sdkError(error)?.status;
-    if (status === 403) return 'Authorizing playback is not something your account is allowed to do.';
-    if (status === 503)
-        return 'The track fetcher is not answering, so there is nothing to authorize yet. Check that the stream half of this install is running.';
-    return apiErrorMessage(error, 'The authorization could not be started.');
+    if (status === 403) return t('stream.startError.forbidden');
+    if (status === 503) return t('stream.startError.notAnswering');
+    return apiErrorMessage(error, t('stream.startError.fallback'));
 }
 
 /** The failure an operator can act on, rather than the status code that produced it. */
-function finishError(error: unknown): string {
+function finishError(error: unknown, t: TFunction<'plugins'>): string {
     const status = sdkError(error)?.status;
     if (status === 400) {
-        return apiErrorMessage(error, 'That address could not be used.') + ' Start the authorization again and use the new link.';
+        return t('stream.finishError.badAddress', { message: apiErrorMessage(error, t('stream.finishError.badAddressFallback')) });
     }
-    if (status === 502) return apiErrorMessage(error, 'Spotify refused the exchange. This is worth trying again in a moment.');
-    if (status === 503) return 'The track fetcher is not answering, so the authorization could not be finished.';
-    return apiErrorMessage(error, 'The authorization could not be finished.');
+    if (status === 502) return apiErrorMessage(error, t('stream.finishError.refused'));
+    if (status === 503) return t('stream.finishError.notAnswering');
+    return apiErrorMessage(error, t('stream.finishError.fallback'));
 }
 
 export interface StreamAuthorizationCardProps {
@@ -56,6 +57,7 @@ export interface StreamAuthorizationCardProps {
  * rather than leaving an operator to read it as the failure it looks exactly like.
  */
 export function StreamAuthorizationCard({ plugin }: StreamAuthorizationCardProps) {
+    const { t } = useTranslation('plugins');
     const authorization = useFetcherAuthorization(plugin.enabled);
     const start = useStartFetcherAuthorization();
     const finish = useFinishFetcherAuthorization();
@@ -80,82 +82,84 @@ export function StreamAuthorizationCard({ plugin }: StreamAuthorizationCardProps
                 <Stack gap="xxs">
                     <Group justify="space-between" wrap="nowrap">
                         <Title order={3} size="h5">
-                            Playback authorization
+                            {t('stream.title')}
                         </Title>
-                        {state ? <StatusLamp {...lampFor(state)} /> : undefined}
+                        {state ? <StatusLamp {...lampFor(state, t)} /> : undefined}
                     </Group>
                     <Text size="sm" c="dimmed">
-                        Separate from the connection above, and needed as well as it. That one lets {plugin.name} read your library; this one lets the
-                        station fetch the audio. You do this once.
+                        {t('stream.description', { name: plugin.name })}
                     </Text>
                 </Stack>
 
                 {!plugin.enabled ? (
                     <Text size="sm" c="dimmed">
-                        Enable {plugin.name} to see whether the station can fetch its audio.
+                        {t('stream.enableFirst', { name: plugin.name })}
                     </Text>
                 ) : undefined}
 
                 {state?.configured === false ? (
-                    <Alert color="gray" title="No track fetcher on this install">
-                        The stream half of this install has not been set up, so there is nothing here to authorize yet.
+                    <Alert color="gray" title={t('stream.notConfigured.title')}>
+                        {t('stream.notConfigured.body')}
                     </Alert>
                 ) : undefined}
 
                 {state && state.configured && !state.reachable ? (
-                    <Alert color="yellow" title="The track fetcher is not answering">
-                        Nothing can be authorized until it is running. This is not the same as the station never having been authorized, so nothing
-                        below has been lost.
+                    <Alert color="yellow" title={t('stream.unreachable.title')}>
+                        {t('stream.unreachable.body')}
                     </Alert>
                 ) : undefined}
 
-                {state?.reachable && state.authorized ? (
-                    <Text size="sm">
-                        The station holds its own Spotify authorization. Redo it only if the fetcher has started refusing logins, or to move the
-                        station to a different Spotify account.
-                    </Text>
-                ) : undefined}
+                {state?.reachable && state.authorized ? <Text size="sm">{t('stream.authorized')}</Text> : undefined}
 
                 {state?.reachable && !state.authorized ? (
-                    <Alert color="yellow" title="The station cannot fetch any audio yet">
-                        Without this, every record is dropped from the running order for want of audio, however healthy the connection above looks.
+                    <Alert color="yellow" title={t('stream.unauthorized.title')}>
+                        {t('stream.unauthorized.body')}
                     </Alert>
                 ) : undefined}
 
                 {state?.loginError ? (
                     <Stack gap="xxs">
                         <Text size="sm" fw={500}>
-                            Last login failure
+                            {t('stream.lastLoginFailure')}
                         </Text>
                         <Code style={{ overflowWrap: 'anywhere' }}>{state.loginError}</Code>
                     </Stack>
                 ) : undefined}
 
-                {start.error ? <ErrorAlert title="Could not start the authorization">{startError(start.error)}</ErrorAlert> : undefined}
+                {start.error ? <ErrorAlert title={t('stream.startError.title')}>{startError(start.error, t)}</ErrorAlert> : undefined}
 
                 {authorizeUrl ? (
                     <Stack gap="sm">
-                        <Alert color="blue" title="The page you land on will not load. That is expected">
+                        <Alert color="blue" title={t('stream.steps.title')}>
                             <List size="sm" spacing="xs" type="ordered">
                                 <List.Item>
-                                    <Anchor href={authorizeUrl} target="_blank" rel="noreferrer">
-                                        Open the Spotify approval page
-                                    </Anchor>{' '}
-                                    and approve.
+                                    <Trans
+                                        t={t}
+                                        i18nKey="stream.steps.approve"
+                                        components={{ anchor: <Anchor href={authorizeUrl} target="_blank" rel="noreferrer" /> }}
+                                    />
                                 </List.Item>
                                 <List.Item>
-                                    Your browser is then sent to {state?.callbackUrl ? <Code>{state.callbackUrl}</Code> : 'an address on the station'}
-                                    , which is only reachable from the station itself. Expect an error page.
+                                    {state?.callbackUrl ? (
+                                        <Trans
+                                            t={t}
+                                            i18nKey="stream.steps.sentTo"
+                                            values={{ url: state.callbackUrl }}
+                                            components={{ code: <Code /> }}
+                                        />
+                                    ) : (
+                                        t('stream.steps.sentToStation')
+                                    )}
                                 </List.Item>
-                                <List.Item>Copy that whole address out of the address bar and paste it below.</List.Item>
+                                <List.Item>{t('stream.steps.paste')}</List.Item>
                             </List>
                         </Alert>
 
-                        {finish.error ? <ErrorAlert title="Could not finish the authorization">{finishError(finish.error)}</ErrorAlert> : undefined}
+                        {finish.error ? <ErrorAlert title={t('stream.finishError.title')}>{finishError(finish.error, t)}</ErrorAlert> : undefined}
 
                         <TextInput
-                            label="The address you were sent to"
-                            placeholder="http://127.0.0.1:3679/login?code=…&state=…"
+                            label={t('stream.pasteLabel')}
+                            placeholder={t('stream.pastePlaceholder')}
                             value={pasted}
                             onChange={event => {
                                 setPasted(event.currentTarget.value);
@@ -169,7 +173,7 @@ export function StreamAuthorizationCard({ plugin }: StreamAuthorizationCardProps
                                     void finishFromPasted();
                                 }}
                             >
-                                Finish
+                                {t('stream.finish')}
                             </Button>
                         </Group>
                     </Stack>
@@ -177,7 +181,7 @@ export function StreamAuthorizationCard({ plugin }: StreamAuthorizationCardProps
 
                 {finish.data ? (
                     <Text size="sm" c="teal">
-                        The station now fetches as {finish.data.username}.
+                        {t('stream.fetchesAs', { username: finish.data.username })}
                     </Text>
                 ) : undefined}
 
@@ -192,7 +196,7 @@ export function StreamAuthorizationCard({ plugin }: StreamAuthorizationCardProps
                             start.mutate();
                         }}
                     >
-                        {authorizeUrl ? 'Start again' : state?.authorized ? 'Re-authorize' : 'Authorize'}
+                        {authorizeUrl ? t('stream.startAgain') : state?.authorized ? t('stream.reauthorize') : t('stream.authorize')}
                     </Button>
                 </Group>
             </Stack>
@@ -206,11 +210,14 @@ export function StreamAuthorizationCard({ plugin }: StreamAuthorizationCardProps
  * `fault` rather than `live` for an unauthorized fetcher: this is something broken that wants
  * fixing, not the station doing its job, and those two must never be drawn alike.
  */
-function lampFor(state: { reachable: boolean; configured: boolean; authorized: boolean }): {
+function lampFor(
+    state: { reachable: boolean; configured: boolean; authorized: boolean },
+    t: TFunction<'plugins'>,
+): {
     tone: 'ok' | 'fault' | 'standby' | 'off';
     label: string;
 } {
-    if (!state.configured) return { tone: 'off', label: 'Not set up' };
-    if (!state.reachable) return { tone: 'standby', label: 'Not answering' };
-    return state.authorized ? { tone: 'ok', label: 'Authorized' } : { tone: 'fault', label: 'Not authorized' };
+    if (!state.configured) return { tone: 'off', label: t('stream.lamp.notSetUp') };
+    if (!state.reachable) return { tone: 'standby', label: t('stream.lamp.notAnswering') };
+    return state.authorized ? { tone: 'ok', label: t('stream.lamp.authorized') } : { tone: 'fault', label: t('stream.lamp.notAuthorized') };
 }

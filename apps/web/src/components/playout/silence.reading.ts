@@ -1,5 +1,6 @@
 import type { SilenceCause, StationSilence } from '@deadair/sdk';
 
+import { i18n } from '../../i18n/i18n.setup';
 import type { StatusTone } from '../shared/status';
 
 /**
@@ -25,38 +26,26 @@ export interface SilenceReading {
 
 export function readSilence(silence: StationSilence): SilenceReading {
     if (silence.audible) {
-        return { tone: 'live', label: 'on air', detail: silence.detail, live: true };
+        return { tone: 'live', label: i18n.t('playout:silence.label.airing'), detail: silence.detail, live: true };
     }
 
     const blocking = silence.checks.find(check => check.code === silence.cause);
     const tone: StatusTone = blocking?.state === 'waiting' ? (WAITING_TONES[silence.cause] ?? 'standby') : 'fault';
 
-    return { tone, label: LABELS[silence.cause], detail: silence.detail, live: false };
+    return { tone, label: i18n.t(`playout:silence.label.${silence.cause}`), detail: silence.detail, live: false };
 }
 
-/**
- * Two words per gate, for a reading that sits under every page.
+/*
+ * Two words per gate, for a reading that sits under every page: `playout:silence.label` in the
+ * catalog, one per cause.
  *
  * The SENTENCE comes from the station rather than from here, and this is only its label — which is
  * why there is no wording in this file that could disagree with what the detail says.
+ *
+ * "warming up" and not "fetching records", which is the sentence next door: this one is the
+ * station getting ready and the one below it is the station stuck, and the tally is the surface
+ * with the least room to explain which.
  */
-const LABELS: Record<SilenceCause, string> = {
-    airing: 'on air',
-    transportStalled: 'transport stalled',
-    controlDenied: 'stream refusing us',
-    streamUnreachable: 'stream unreachable',
-    configNotAdopted: 'config not adopted',
-    stoodDown: 'off air',
-    noProgramme: 'nothing to air',
-    // "warming up" and not "fetching records", which is the sentence next door: this one is the
-    // station getting ready and the one below it is the station stuck, and the tally is the surface
-    // with the least room to explain which.
-    warmingUp: 'warming up',
-    waitingOnAudio: 'records not here',
-    noAudience: 'ready',
-    notDriving: 'not driving',
-    starved: 'off the running order',
-};
 
 /**
  * Overrides for the states that are not faults and must not be drawn as one.
@@ -79,6 +68,6 @@ const WAITING_TONES: Partial<Record<SilenceCause, StatusTone>> = {
  * leaving the building; this says whether anyone caught it.
  */
 export function listenerLabel(listeners: number): string {
-    if (listeners === 0) return 'nobody listening';
-    return listeners === 1 ? '1 listening' : `${listeners} listening`;
+    if (listeners === 0) return i18n.t('playout:silence.nobodyListening');
+    return i18n.t('playout:silence.listening', { count: listeners });
 }

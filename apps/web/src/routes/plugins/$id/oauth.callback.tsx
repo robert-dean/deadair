@@ -1,5 +1,6 @@
 import { Card, Group, Loader, Stack, Text, Title } from '@mantine/core';
 import { createFileRoute } from '@tanstack/react-router';
+import { useTranslation } from 'react-i18next';
 import type { PluginOAuthCallbackQuery } from '@deadair/sdk';
 
 import { completePluginOAuth } from '../../../api/plugins.queries';
@@ -28,15 +29,16 @@ function PluginOAuthCallbackRoute() {
 }
 
 function PluginOAuthCallbackPending() {
+    const { t } = useTranslation('routes');
     return (
         <Card withBorder padding="xl" radius="sm" maw={560}>
             <Stack gap="md">
                 <Title order={2} size="h4">
-                    Authorization
+                    {t('pluginOAuth.title')}
                 </Title>
                 <Group gap="sm">
                     <Loader size="sm" />
-                    <Text c="dimmed">Completing the connection…</Text>
+                    <Text c="dimmed">{t('pluginOAuth.completing')}</Text>
                 </Group>
             </Stack>
         </Card>

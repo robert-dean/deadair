@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Autocomplete, Button, Divider, Group, Modal, NumberInput, Select, Stack, Switch, Text, TextInput } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import type { ClockBand, ClockBandInput } from '@deadair/sdk';
+import { useTranslation } from 'react-i18next';
 
 import { useTopics } from '../../api/topics.queries';
 import { ErrorAlert } from '../shared/error.alert';
@@ -44,6 +45,7 @@ import { clockToMinutes, minutesToClock } from './schedule.day';
  * makes editing this safe while the station is on air.
  */
 export function BandEditor({ target, kinds, onClose, onSubmit, onDelete, saving, deleting, error }: Props) {
+    const { t } = useTranslation(['schedule', 'common']);
     const phone = usePhone();
     const opened = target !== undefined;
     const band = target?.kind === 'edit' ? target.band : undefined;
@@ -55,8 +57,8 @@ export function BandEditor({ target, kinds, onClose, onSubmit, onDelete, saving,
         initialValues: valuesOf(target),
         enhanceGetInputProps: () => ({}),
         validate: {
-            kind: value => (value.trim().length === 0 ? 'A band needs a sort of break' : undefined),
-            time: (value, values) => (values.when === 'daily' && clockToMinutes(value) === undefined ? 'A time, as 24-hour HH:MM' : undefined),
+            kind: value => (value.trim().length === 0 ? t('band.kindRequired') : undefined),
+            time: (value, values) => (values.when === 'daily' && clockToMinutes(value) === undefined ? t('validation.time') : undefined),
         },
     });
 
@@ -84,26 +86,26 @@ export function BandEditor({ target, kinds, onClose, onSubmit, onDelete, saving,
     });
 
     return (
-        <Modal opened={opened} onClose={onClose} title={band ? 'Edit band' : 'New band'} size="lg" fullScreen={phone}>
+        <Modal opened={opened} onClose={onClose} title={band ? t('band.editTitle') : t('band.newTitle')} size="lg" fullScreen={phone}>
             <form onSubmit={submit}>
                 <Stack gap="md">
-                    {error ? <ErrorAlert title="That band could not be saved" error={error} fallback="Nothing was written." /> : undefined}
+                    {error ? <ErrorAlert title={t('band.saveFailedTitle')} error={error} fallback={t('nothingWritten')} /> : undefined}
 
                     <Group gap="xs" align="flex-start" wrap="wrap">
-                        <Word>Say a</Word>
+                        <Word>{t('band.sayA')}</Word>
                         <Autocomplete
-                            aria-label="Sort of break"
+                            aria-label={t('band.kindLabel')}
                             data={kinds.filter(kind => kind !== WELCOME_KIND)}
-                            placeholder="news"
+                            placeholder={t('band.kindPlaceholder')}
                             w={160}
                             {...form.getInputProps('kind')}
                         />
                         <Select
-                            aria-label="How often"
+                            aria-label={t('band.howOften')}
                             data={[
-                                { value: 'hourly', label: 'every hour at' },
-                                { value: 'daily', label: 'once a day at' },
-                                { value: 'interval', label: 'every' },
+                                { value: 'hourly', label: t('band.when.hourly') },
+                                { value: 'daily', label: t('band.when.daily') },
+                                { value: 'interval', label: t('band.when.interval') },
                             ]}
                             allowDeselect={false}
                             w={150}
@@ -113,7 +115,7 @@ export function BandEditor({ target, kinds, onClose, onSubmit, onDelete, saving,
                             <Group gap={4} align="flex-start">
                                 <Word>:</Word>
                                 <NumberInput
-                                    aria-label="Minutes past the hour"
+                                    aria-label={t('band.minutePastLabel')}
                                     min={0}
                                     max={59}
                                     clampBehavior="strict"
@@ -124,12 +126,18 @@ export function BandEditor({ target, kinds, onClose, onSubmit, onDelete, saving,
                             </Group>
                         ) : undefined}
                         {form.values.when === 'daily' ? (
-                            <TextInput aria-label="Time of day" placeholder="09:00" w={90} className="da-num" {...form.getInputProps('time')} />
+                            <TextInput
+                                aria-label={t('band.timeOfDayLabel')}
+                                placeholder="09:00"
+                                w={90}
+                                className="da-num"
+                                {...form.getInputProps('time')}
+                            />
                         ) : undefined}
                         {form.values.when === 'interval' ? (
                             <Group gap="xs" align="flex-start">
                                 <NumberInput
-                                    aria-label="Minutes apart"
+                                    aria-label={t('band.minutesApartLabel')}
                                     min={1}
                                     max={720}
                                     clampBehavior="strict"
@@ -137,15 +145,15 @@ export function BandEditor({ target, kinds, onClose, onSubmit, onDelete, saving,
                                     className="da-num"
                                     {...form.getInputProps('everyMinutes')}
                                 />
-                                <Word>minutes</Word>
+                                <Word>{t('band.minutes')}</Word>
                             </Group>
                         ) : undefined}
                     </Group>
 
                     {subjects.length > 0 ? (
                         <Select
-                            label="About"
-                            description={`Only what belongs to this subject. Leave it empty and the break covers whatever it finds.`}
+                            label={t('band.aboutLabel')}
+                            description={t('band.aboutDescription')}
                             data={subjects.map(topic => ({ value: topic.id, label: topic.label }))}
                             clearable
                             {...form.getInputProps('topicId')}
@@ -153,20 +161,18 @@ export function BandEditor({ target, kinds, onClose, onSubmit, onDelete, saving,
                     ) : undefined}
 
                     <Text size="xs" c="dimmed">
-                        Times are on the station&apos;s own clock. A band takes the first boundary at or after its time, so a bulletin at half past is
-                        read when the record playing then finishes — never before it. The sort of break is free text: write anything you have
-                        recordings of and the station will play them.
+                        {t('band.note')}
                     </Text>
 
                     <Switch
-                        label="In force"
-                        description="Switched off keeps the rule without the station acting on it."
+                        label={t('band.inForceLabel')}
+                        description={t('band.inForceDescription')}
                         checked={form.values.enabled}
                         onChange={event => form.setFieldValue('enabled', event.currentTarget.checked)}
                     />
 
                     <Text size="xs" c="dimmed">
-                        Saving changes nothing already planned. The band claims its next boundary on the station&apos;s next pass.
+                        {t('band.savingNote')}
                     </Text>
 
                     <Divider />
@@ -174,17 +180,17 @@ export function BandEditor({ target, kinds, onClose, onSubmit, onDelete, saving,
                     <Group justify="space-between">
                         {band ? (
                             <Button variant="subtle" color="red" loading={deleting} onClick={() => onDelete(band.id)}>
-                                Delete
+                                {t('action.delete')}
                             </Button>
                         ) : (
                             <span />
                         )}
                         <Group gap="xs">
                             <Button variant="default" onClick={onClose}>
-                                Cancel
+                                {t('common:action.cancel')}
                             </Button>
                             <Button type="submit" loading={saving}>
-                                Save
+                                {t('action.save')}
                             </Button>
                         </Group>
                     </Group>

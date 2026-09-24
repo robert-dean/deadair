@@ -1,5 +1,12 @@
 /** The units a station's own volume is ever described in. Nothing here holds a terabyte in one store. */
+import { perLocale } from '../../i18n/format.locale';
+
 const UNITS = ['B', 'KB', 'MB', 'GB', 'TB'] as const;
+
+// Fixed places, as `toFixed` gave, with the operator's own decimal mark. Nothing below terabytes
+// reaches four digits, so the grouping only ever shows on a figure past the last unit.
+const WHOLE = perLocale(locale => new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }));
+const ONE_PLACE = perLocale(locale => new Intl.NumberFormat(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 }));
 
 /**
  * A byte count as a person would say it.
@@ -19,5 +26,5 @@ export function formatBytes(bytes: number | undefined): string {
     const step = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), UNITS.length - 1);
     const value = bytes / 1024 ** step;
 
-    return `${value.toFixed(step >= 2 ? 1 : 0)} ${UNITS[step]}`;
+    return `${(step >= 2 ? ONE_PLACE : WHOLE)().format(value)} ${UNITS[step]}`;
 }

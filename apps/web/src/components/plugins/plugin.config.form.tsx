@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import type { PluginDetail } from '@deadair/sdk';
 
 import { usePluginConfigSuggestions, useUpdatePluginConfig } from '../../api/plugins.queries';
@@ -25,6 +26,7 @@ export interface PluginConfigFormProps {
  * a field that cannot be filled before the address is saved, that is a loop with no way in.
  */
 export function PluginConfigForm({ plugin }: PluginConfigFormProps) {
+    const { t } = useTranslation('plugins');
     const save = useUpdatePluginConfig(plugin.id);
     const suggestions = usePluginConfigSuggestions(plugin.id);
 
@@ -40,9 +42,9 @@ export function PluginConfigForm({ plugin }: PluginConfigFormProps) {
             pending={save.isPending}
             succeeded={save.isSuccess}
             error={save.error}
-            submitLabel="Save configuration"
-            failureTitle="Save failed"
-            failureMessage="The configuration could not be saved."
+            submitLabel={t('config.submit')}
+            failureTitle={t('config.failureTitle')}
+            failureMessage={t('config.failureMessage')}
             suggestions={suggestions.data?.fields}
             // A request that failed outright still means the plugin might have something to say, so
             // the refresh stays offered. Only a plugin that answered "I do not do this" hides it.

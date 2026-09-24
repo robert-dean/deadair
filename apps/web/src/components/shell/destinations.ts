@@ -1,5 +1,7 @@
 import type { LinkProps } from '@tanstack/react-router';
 
+import { i18n } from '../../i18n/i18n.setup';
+
 import { CHECKUP_ROUTES, CHECKUP_TABS } from '../station/checkup.shell';
 import { LIBRARY_ROUTES, LIBRARY_TABS } from '../library/library.shell';
 import { PROGRAMME_TABS } from '../schedule/schedule.page';
@@ -43,6 +45,10 @@ import { VOICE_TABS } from '../voice/voice.page';
  */
 export type NavLink = Pick<LinkProps, 'to' | 'search'>;
 
+// Every label below is a GETTER, read when the rail draws rather than when this module loads. The
+// table is built once at import, and a label copied into it then would keep the language the console
+// happened to start in. A section reads its tab table's label at the same moment, for the same reason.
+
 export interface NavSection extends NavLink {
     label: string;
     /** What is behind it, drawn as the row's tooltip. Straight off the tab table. */
@@ -65,22 +71,50 @@ export interface NavDestination extends NavLink {
 export const NAV_DESTINATIONS: NavDestination[] = [
     // Home and On air were two links and one question. The landing page was a masthead and a list of
     // faults, and the operator's next click was always the running order.
-    { to: '/', label: 'Desk', hint: 'D', sections: [] },
+    {
+        to: '/',
+        get label() {
+            return i18n.t('shell:destination.desk');
+        },
+        hint: 'D',
+        sections: [],
+    },
     // Beside the desk: both answer "what is the station playing", one now and one later.
     {
         to: '/schedule',
-        label: 'Programme',
+        get label() {
+            return i18n.t('shell:destination.programme');
+        },
         hint: 'P',
-        sections: PROGRAMME_TABS.map(tab => ({ to: '/schedule', search: { tab: tab.key }, label: tab.label, hintText: tab.hint })),
+        sections: PROGRAMME_TABS.map(tab => ({
+            to: '/schedule',
+            search: { tab: tab.key },
+            get label() {
+                return tab.label;
+            },
+            get hintText() {
+                return tab.hint;
+            },
+        })),
     },
     // Four links became one destination. They are all answers to "what can this station put on", and
     // an operator arriving with that question had to already know whether the answer was a record, a
     // playlist, a chart or a story.
     {
         to: '/catalog/tracks',
-        label: 'Library',
+        get label() {
+            return i18n.t('shell:destination.library');
+        },
         hint: 'L',
-        sections: LIBRARY_TABS.map(tab => ({ to: LIBRARY_ROUTES[tab.key], label: tab.label, hintText: tab.hint })),
+        sections: LIBRARY_TABS.map(tab => ({
+            to: LIBRARY_ROUTES[tab.key],
+            get label() {
+                return tab.label;
+            },
+            get hintText() {
+                return tab.hint;
+            },
+        })),
     },
     // Eight links became one destination, and eight tabs are what stopped fitting. An operator does
     // not arrive wanting "the pronunciations page", they arrive because the station said a name
@@ -91,13 +125,19 @@ export const NAV_DESTINATIONS: NavDestination[] = [
     // one break a link happened to leave in the URL.
     {
         to: '/voice',
-        label: 'Voice',
+        get label() {
+            return i18n.t('shell:destination.voice');
+        },
         hint: 'V',
         sections: VOICE_TABS.map(tab => ({
             to: '/voice',
             search: { tab: tab.key, segment: '', persona: '' },
-            label: tab.label,
-            hintText: tab.hint,
+            get label() {
+                return tab.label;
+            },
+            get hintText() {
+                return tab.hint;
+            },
         })),
     },
 ];
@@ -112,13 +152,33 @@ export const NAV_DESTINATIONS: NavDestination[] = [
 export const NAV_FOOTER_DESTINATIONS: NavDestination[] = [
     {
         to: '/checkup',
-        label: 'Check-up',
-        sections: CHECKUP_TABS.map(tab => ({ to: CHECKUP_ROUTES[tab.key], label: tab.label, hintText: tab.hint })),
+        get label() {
+            return i18n.t('shell:destination.checkup');
+        },
+        sections: CHECKUP_TABS.map(tab => ({
+            to: CHECKUP_ROUTES[tab.key],
+            get label() {
+                return tab.label;
+            },
+            get hintText() {
+                return tab.hint;
+            },
+        })),
     },
     {
         to: '/settings',
-        label: 'Settings',
-        sections: SETTINGS_SECTIONS.map(section => ({ to: SETTINGS_ROUTES[section.id], label: section.label, hintText: section.hint })),
+        get label() {
+            return i18n.t('shell:destination.settings');
+        },
+        sections: SETTINGS_SECTIONS.map(section => ({
+            to: SETTINGS_ROUTES[section.id],
+            get label() {
+                return section.label;
+            },
+            get hintText() {
+                return section.hint;
+            },
+        })),
     },
 ];
 

@@ -1,8 +1,10 @@
 import { Box, Card, Group, Progress, SimpleGrid, Stack, Text } from '@mantine/core';
 import type { Persona, ScheduleNow, ScheduleOccurrence, ScheduleSlot } from '@deadair/sdk';
+import { useTranslation } from 'react-i18next';
 
 import { Eyebrow } from '../shared/eyebrow';
-import { colorOf, DAY_LABELS, formatSpan, minutesBetween, weekdayOf } from './schedule.day';
+import { colorOf, formatSpan, minutesBetween, weekdayOf } from './schedule.day';
+import { weekdayShort } from '../../i18n/format.locale';
 
 /**
  * What is on, what is next, and what is after that.
@@ -33,6 +35,7 @@ import { colorOf, DAY_LABELS, formatSpan, minutesBetween, weekdayOf } from './sc
  * else.
  */
 export function OnNowStrip({ current, slots, personas }: Props) {
+    const { t } = useTranslation('schedule');
     const blocks = current.upcoming;
 
     // Covering `now` is what makes the first block the one ON now rather than the next one. Comparing
@@ -61,7 +64,7 @@ export function OnNowStrip({ current, slots, personas }: Props) {
                         now={current.now}
                         slot={slotOf(slots, block)}
                         personas={personas}
-                        eyebrow={index === 0 ? 'Up next' : 'After that'}
+                        eyebrow={index === 0 ? t('onNow.upNext') : t('onNow.afterThat')}
                     />
                 ))}
             </SimpleGrid>
@@ -83,6 +86,7 @@ function Live({
     personas: readonly Persona[];
     takenOver: boolean;
 }) {
+    const { t } = useTranslation('schedule');
     const total = minutesBetween(block.start, block.end);
     const gone = minutesBetween(block.start, now);
     const left = total - gone;
@@ -93,9 +97,9 @@ function Live({
                 {/* "Due now" rather than "On air" when the station is doing something else. The word
                     is the whole correction: this is what the schedule wants, and the line underneath
                     says why it is not what you are hearing. */}
-                <Eyebrow>{takenOver ? 'Due now' : 'On air'}</Eyebrow>
+                <Eyebrow>{takenOver ? t('onNow.dueNow') : t('onNow.onAir')}</Eyebrow>
                 <Text size="xs" c="dimmed" className="da-num">
-                    {formatSpan(left)} left
+                    {t('onNow.left', { span: formatSpan(left) })}
                 </Text>
             </Group>
 
@@ -105,8 +109,7 @@ function Live({
 
             {takenOver ? (
                 <Text size="xs" c="dimmed">
-                    The station is airing something else, which is what happens when it was put on by hand. It moves back to the schedule when the
-                    next block begins.
+                    {t('onNow.takenOver')}
                 </Text>
             ) : undefined}
         </Stack>
@@ -127,12 +130,13 @@ function Ahead({
     personas: readonly Persona[];
     eyebrow: string;
 }) {
+    const { t } = useTranslation('schedule');
     return (
         <Stack gap="xxs">
             <Group justify="space-between" wrap="nowrap" gap="xs">
                 <Eyebrow>{eyebrow}</Eyebrow>
                 <Text size="xs" c="dimmed" className="da-num">
-                    in {formatSpan(minutesBetween(now, block.start))}
+                    {t('onNow.in', { span: formatSpan(minutesBetween(now, block.start)) })}
                 </Text>
             </Group>
 
@@ -150,14 +154,13 @@ function Ahead({
  * need no link.
  */
 function Sustaining({ next, now }: { next?: ScheduleOccurrence; now: string }) {
+    const { t } = useTranslation('schedule');
     return (
         <Stack gap="xxs">
-            <Eyebrow>Between blocks</Eyebrow>
-            <Text fw={600}>Nothing scheduled</Text>
+            <Eyebrow>{t('onNow.betweenBlocks')}</Eyebrow>
+            <Text fw={600}>{t('onNow.nothingScheduled')}</Text>
             <Text size="xs" c="dimmed">
-                {next === undefined
-                    ? 'No block is due from here on, so the station stays on whatever it is set to sustain on.'
-                    : `The station is on its sustaining source for the next ${formatSpan(minutesBetween(now, next.start))}.`}
+                {next === undefined ? t('onNow.noBlockDue') : t('onNow.sustainingFor', { span: formatSpan(minutesBetween(now, next.start)) })}
             </Text>
         </Stack>
     );
@@ -165,6 +168,7 @@ function Sustaining({ next, now }: { next?: ScheduleOccurrence; now: string }) {
 
 /** A block's name, its hours, and who is on it. */
 function BlockName({ block, slot, personas }: { block: ScheduleOccurrence; slot?: ScheduleSlot; personas: readonly Persona[] }) {
+    const { t } = useTranslation('schedule');
     const host = personas.find(persona => persona.id === slot?.personaId);
 
     return (
@@ -175,7 +179,7 @@ function BlockName({ block, slot, personas }: { block: ScheduleOccurrence; slot?
                     vocabulary in `status.ts` is about whether a thing is working. */}
                 <Box w={8} h={8} bg={`${colorOf(block.slotId)}.5`} style={{ borderRadius: '50%', flexShrink: 0 }} />
                 <Text fw={600} truncate>
-                    {block.label || 'Untitled'}
+                    {block.label || t('untitled')}
                 </Text>
             </Group>
 
@@ -201,7 +205,7 @@ function BlockName({ block, slot, personas }: { block: ScheduleOccurrence; slot?
  * running keeps its own start time, which is what "since 22:00" means on a late show.
  */
 function when(block: ScheduleOccurrence): string {
-    return `${DAY_LABELS[weekdayOf(block.start.slice(0, 10))]} ${block.start.slice(11, 16)}–${block.end.slice(11, 16)}`;
+    return `${weekdayShort(weekdayOf(block.start.slice(0, 10)))} ${block.start.slice(11, 16)}–${block.end.slice(11, 16)}`;
 }
 
 /** The stored slot a drawn block came from, for the facts an occurrence does not carry. */

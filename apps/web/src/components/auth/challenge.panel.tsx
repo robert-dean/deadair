@@ -1,19 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Button, Group, Select, Stack, Text } from '@mantine/core';
+import { useTranslation } from 'react-i18next';
 import type { MfaChallengeFactorOutput, MfaRequiredResponseOutput } from '@deadair/sdk';
 
 import { presentableFactors, startEmailChallenge, useEmailCodeMutation, useMfaCodeMutation } from '../../api/auth.factors.queries';
 import { isRateLimited, retryAfterMs } from '../../api/retry.policy';
 import { apiErrorMessage, authChallenge, isInvalidToken } from '../../api/sdk.error';
+import { i18n } from '../../i18n/i18n.setup';
 import { ErrorAlert } from '../shared/error.alert';
 import { ONE_TIME_CODE_LENGTH, OneTimeCodeInput } from '../shared/one.time.code.input';
 
 /** The server's own wait, or a flat sentence when it did not say. */
 function rateLimitedMessage(error: unknown): string {
     const wait = retryAfterMs(error);
-    return wait === undefined
-        ? 'Too many attempts. Wait a moment and try again.'
-        : `Too many attempts. Try again in ${Math.ceil(wait / 1000)} seconds.`;
+    return wait === undefined ? i18n.t('auth:rateLimited.wait') : i18n.t('auth:rateLimited.retryIn', { count: Math.ceil(wait / 1000) });
 }
 
 /**
@@ -22,12 +22,12 @@ function rateLimitedMessage(error: unknown): string {
  */
 export function codeError(error: unknown): string {
     if (isInvalidToken(error)) {
-        return 'That code was not accepted. Wait for the next one and try again.';
+        return i18n.t('auth:challenge.codeRefused');
     }
     if (isRateLimited(error)) {
         return rateLimitedMessage(error);
     }
-    return apiErrorMessage(error, 'Could not check that code. Try again.');
+    return apiErrorMessage(error, i18n.t('auth:challenge.codeFallback'));
 }
 
 /** Whether the API said the challenge itself is gone, rather than the code being wrong. */
@@ -37,8 +37,8 @@ export function challengeExpired(error: unknown): boolean {
 
 /** What the panel calls a factor in a picker and in its own copy. */
 function factorLabel(factor: MfaChallengeFactorOutput): string {
-    if (factor.method === 'email') return factor.label ?? 'Email';
-    return factor.label ?? 'Authenticator';
+    if (factor.method === 'email') return factor.label ?? i18n.t('auth:challenge.factor.email');
+    return factor.label ?? i18n.t('auth:challenge.factor.authenticator');
 }
 
 export interface ChallengePanelProps {
@@ -65,7 +65,9 @@ export interface ChallengePanelProps {
  * carries the id of the challenge the API minted when it sent the message. Hence two mutations
  * behind one field.
  */
-export function ChallengePanel({ challenge, onComplete, onExpired, onStartOver, startOverLabel = 'Start over' }: ChallengePanelProps) {
+export function ChallengePanel({ challenge, onComplete, onExpired, onStartOver, startOverLabel }: ChallengePanelProps) {
+    const { t } = useTranslation('auth');
+    const startOver = startOverLabel ?? t('challenge.startOver');
     const factors = presentableFactors({ challengeId: challenge.challenge_id, factors: challenge.factors });
     const submitAuthenticatorCode = useMfaCodeMutation();
     const submitEmailCode = useEmailCodeMutation();
@@ -138,12 +140,11 @@ export function ChallengePanel({ challenge, onComplete, onExpired, onStartOver, 
     if (factors.length === 0) {
         return (
             <Stack gap="md">
-                <Alert color="yellow" title="Second factor required">
-                    This account needs a second factor that this console cannot present. Sign in with the factor you enrolled, or ask whoever runs the
-                    station to reset it.
+                <Alert color="yellow" title={t('challenge.unsupportedTitle')}>
+                    {t('challenge.unsupported')}
                 </Alert>
                 <Button variant="default" onClick={onStartOver} fullWidth>
-                    {startOverLabel}
+                    {startOver}
                 </Button>
             </Stack>
         );
@@ -153,10 +154,9 @@ export function ChallengePanel({ challenge, onComplete, onExpired, onStartOver, 
     const failure = submitError && !challengeExpired(submitError) ? codeError(submitError) : undefined;
     // The station could not send the code at all — an unconfigured mail server, or one that
     // refused. Reported as its own thing rather than as a bad code, because no code was typed.
-    const sendFailure = sendFailed ? apiErrorMessage(sendFailed, 'Could not send a code to your email. Try again.') : undefined;
+    const sendFailure = sendFailed ? apiErrorMessage(sendFailed, t('challenge.sendFallback')) : undefined;
     const response = submitEmailCode.data ?? submitAuthenticatorCode.data;
-    const anotherFactor =
-        response?.result === 'mfa_required' ? 'The station asked for yet another factor, which this console cannot present.' : undefined;
+    const anotherFactor = response?.result === 'mfa_required' ? t('challenge.anotherFactor') : undefined;
 
     const codeReady = !isEmail || emailChallengeId !== undefined;
 
@@ -168,11 +168,11 @@ export function ChallengePanel({ challenge, onComplete, onExpired, onStartOver, 
             }}
         >
             <Stack gap="md">
-                {(failure ?? anotherFactor) ? <ErrorAlert title="Not signed in">{failure ?? anotherFactor}</ErrorAlert> : undefined}
-                {sendFailure ? <ErrorAlert title="No code sent">{sendFailure}</ErrorAlert> : undefined}
+                {(failure ?? anotherFactor) ? <ErrorAlert title={t('notSignedIn')}>{failure ?? anotherFactor}</ErrorAlert> : undefined}
+                {sendFailure ? <ErrorAlert title={t('challenge.noCodeSent')}>{sendFailure}</ErrorAlert> : undefined}
                 {factors.length > 1 ? (
                     <Select
-                        label="Verify with"
+                        label={t('challenge.verifyWith')}
                         data={factors.map(factor => ({ value: factor.method_id, label: factorLabel(factor) }))}
                         value={methodId}
                         onChange={value => {
@@ -185,27 +185,27 @@ export function ChallengePanel({ challenge, onComplete, onExpired, onStartOver, 
                 ) : undefined}
                 {isEmail && emailChallengeId !== undefined ? (
                     <Text c="dimmed" size="sm">
-                        {`We sent a code to ${selected?.label ?? 'your email'}.`}
+                        {t('challenge.sentTo', { target: selected?.label ?? t('challenge.yourEmail') })}
                     </Text>
                 ) : undefined}
                 <OneTimeCodeInput
-                    label={isEmail ? 'Emailed code' : 'Authenticator code'}
+                    label={isEmail ? t('challenge.emailedCode') : t('challenge.authenticatorCode')}
                     value={code}
                     onChange={setCode}
                     onComplete={value => void verify(value)}
                     disabled={pending || sendingCode || !codeReady}
                 />
                 <Button type="submit" loading={pending} disabled={code.length !== ONE_TIME_CODE_LENGTH || !codeReady} fullWidth>
-                    Verify
+                    {t('challenge.verify')}
                 </Button>
                 <Group justify="center" gap="xs">
                     {isEmail ? (
                         <Button variant="subtle" size="compact-sm" loading={sendingCode} disabled={pending} onClick={() => void sendCode()}>
-                            Send it again
+                            {t('challenge.sendAgain')}
                         </Button>
                     ) : undefined}
                     <Button variant="subtle" size="compact-sm" onClick={onStartOver} disabled={pending}>
-                        {startOverLabel}
+                        {startOver}
                     </Button>
                 </Group>
             </Stack>

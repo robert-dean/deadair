@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { Anchor, Badge, Button, Card, Code, Group, Image, Stack, Text, TextInput, Title } from '@mantine/core';
 import { Link } from '@tanstack/react-router';
+import { useTranslation } from 'react-i18next';
 import type { AuthenticationFactor } from '@deadair/sdk';
 
 import {
@@ -15,6 +16,7 @@ import {
 } from '../../api/auth.factors.queries';
 import { isRateLimited, retryAfterMs } from '../../api/retry.policy';
 import { apiErrorMessage, isInvalidToken, sdkError } from '../../api/sdk.error';
+import { i18n } from '../../i18n/i18n.setup';
 import { ConfirmModal } from '../shared/confirm.modal';
 import { CopyButton } from '../shared/copy.button';
 import { ErrorAlert } from '../shared/error.alert';
@@ -28,17 +30,19 @@ import { isStepUpCancelled, StepUpDialog, useStepUpGate } from './step.up.dialog
 function factorName(factor: AuthenticationFactor): string {
     switch (factor.method) {
         case 'authenticator':
-            return factor.label ?? 'Authenticator';
+            return factor.label ?? i18n.t('settings:security.factor.authenticator');
         case 'password':
-            return 'Password';
+            return i18n.t('settings:security.factor.password');
         case 'email':
-            return factor.label ? `Email, ${factor.label}` : 'Email';
+            return factor.label
+                ? i18n.t('settings:security.factor.emailLabelled', { label: factor.label })
+                : i18n.t('settings:security.factor.email');
         case 'fido':
-            return factor.label ?? 'Passkey';
+            return factor.label ?? i18n.t('settings:security.factor.passkey');
         case 'phone':
-            return factor.label ?? 'Phone';
+            return factor.label ?? i18n.t('settings:security.factor.phone');
         case 'oidc':
-            return factor.label ? `${factor.label} sign-in` : 'Single sign-on';
+            return factor.label ? i18n.t('settings:security.factor.oidcLabelled', { label: factor.label }) : i18n.t('settings:security.factor.oidc');
     }
 }
 
@@ -58,6 +62,7 @@ function factorName(factor: AuthenticationFactor): string {
  * outside the console.
  */
 export function SecurityCard() {
+    const { t } = useTranslation('settings');
     const factors = useFactors();
     const gate = useStepUpGate();
 
@@ -71,21 +76,16 @@ export function SecurityCard() {
                 <Stack gap="md">
                     <Stack gap="xxs">
                         <Title order={2} size="h4">
-                            How you sign in
+                            {t('security.title')}
                         </Title>
                         <Text size="sm" c="dimmed">
-                            With an authenticator enrolled, every sign-in to this account asks for its code after the password. Lose the phone and the
-                            README says how to get back in from the box.
+                            {t('security.intro')}
                         </Text>
                     </Stack>
 
                     {factors.isPending ? <PageSkeleton variant="rows" count={2} /> : undefined}
                     {factors.error ? (
-                        <ErrorAlert
-                            title="Sign-in methods unavailable"
-                            error={factors.error}
-                            fallback="The station could not read how you sign in."
-                        />
+                        <ErrorAlert title={t('security.unavailable.title')} error={factors.error} fallback={t('security.unavailable.fallback')} />
                     ) : undefined}
 
                     {factors.data ? (
@@ -98,7 +98,7 @@ export function SecurityCard() {
                             ))}
                             {authenticators.length === 0 ? (
                                 <Text size="sm" c="dimmed">
-                                    No authenticator yet. Sign-in is the password alone.
+                                    {t('security.noAuthenticator')}
                                 </Text>
                             ) : undefined}
                         </Stack>
@@ -127,6 +127,7 @@ function FactorRow({ factor }: { factor: AuthenticationFactor }) {
 }
 
 function AuthenticatorRow({ factor, gate }: { factor: AuthenticationFactor; gate: ReturnType<typeof useStepUpGate> }) {
+    const { t } = useTranslation('settings');
     const remove = useRemoveFactor();
     const [confirming, setConfirming] = useState(false);
     const [failure, setFailure] = useState<unknown>();
@@ -136,7 +137,7 @@ function AuthenticatorRow({ factor, gate }: { factor: AuthenticationFactor; gate
         try {
             await gate.run(() => remove.mutateAsync({ method: 'authenticator', methodId: factor.methodId }));
             setConfirming(false);
-            notifyDone(`${factorName(factor)} removed.`);
+            notifyDone(t('security.remove.done', { name: factorName(factor) }));
         } catch (caught) {
             // The dialog was closed without a code; the row is exactly as it was.
             if (isStepUpCancelled(caught)) return;
@@ -149,11 +150,11 @@ function AuthenticatorRow({ factor, gate }: { factor: AuthenticationFactor; gate
             <Group gap="xs">
                 <Text size="sm">{factorName(factor)}</Text>
                 <Badge variant="light" color="teal">
-                    authenticator
+                    {t('security.authenticatorBadge')}
                 </Badge>
             </Group>
             <Button variant="subtle" color="red" size="compact-sm" onClick={() => setConfirming(true)}>
-                Remove
+                {t('security.remove.action')}
             </Button>
             <ConfirmModal
                 opened={confirming}
@@ -162,16 +163,14 @@ function AuthenticatorRow({ factor, gate }: { factor: AuthenticationFactor; gate
                     setFailure(undefined);
                 }}
                 onConfirm={() => void confirmRemove()}
-                title={`Remove ${factorName(factor)}?`}
-                confirmLabel="Remove"
+                title={t('security.remove.title', { name: factorName(factor) })}
+                confirmLabel={t('security.remove.action')}
                 confirming={remove.isPending}
                 error={failure}
-                errorTitle="Not removed"
-                errorFallback="The authenticator is still enrolled."
+                errorTitle={t('security.remove.errorTitle')}
+                errorFallback={t('security.remove.errorFallback')}
             >
-                {`Codes from this app will stop being accepted. ${
-                    remove.isPending ? '' : 'If it is the last authenticator on the account, sign-in goes back to the password alone.'
-                }`}
+                {remove.isPending ? t('security.remove.bodyPending') : t('security.remove.body')}
             </ConfirmModal>
         </Group>
     );
@@ -179,14 +178,12 @@ function AuthenticatorRow({ factor, gate }: { factor: AuthenticationFactor; gate
 
 /** What to tell the operator about a refused code. */
 function codeError(error: unknown): string {
-    if (isInvalidToken(error)) return 'That code was not accepted. Wait for the next one and try again.';
+    if (isInvalidToken(error)) return i18n.t('settings:code.invalid');
     if (isRateLimited(error)) {
         const wait = retryAfterMs(error);
-        return wait === undefined
-            ? 'Too many attempts. Wait a moment and try again.'
-            : `Too many attempts. Try again in ${Math.ceil(wait / 1000)} seconds.`;
+        return wait === undefined ? i18n.t('settings:code.rateLimited') : i18n.t('settings:code.rateLimitedFor', { count: Math.ceil(wait / 1000) });
     }
-    return apiErrorMessage(error, 'Could not check that code. Try again.');
+    return apiErrorMessage(error, i18n.t('settings:code.fallback'));
 }
 
 /**
@@ -198,6 +195,7 @@ function codeError(error: unknown): string {
  * runs through the gate.
  */
 function EnrolAuthenticatorCard({ gate }: { gate: ReturnType<typeof useStepUpGate> }) {
+    const { t } = useTranslation(['settings', 'common']);
     const register = useRegisterAuthenticator();
     const verify = useVerifyAuthenticator();
     const [label, setLabel] = useState('');
@@ -221,7 +219,7 @@ function EnrolAuthenticatorCard({ gate }: { gate: ReturnType<typeof useStepUpGat
         setFailure(undefined);
         try {
             await verify.mutateAsync({ registrationId: registration.registrationId, code: value, codeVerifier: registration.codeVerifier });
-            notifySaved('Authenticator');
+            notifySaved(t('security.authenticator.saved'));
             setRegistration(undefined);
             setCode('');
             setLabel('');
@@ -238,17 +236,16 @@ function EnrolAuthenticatorCard({ gate }: { gate: ReturnType<typeof useStepUpGat
             <Stack gap="md">
                 <Stack gap="xxs">
                     <Title order={2} size="h4">
-                        Add an authenticator
+                        {t('security.authenticator.title')}
                     </Title>
                     <Text size="sm" c="dimmed">
-                        Any app that shows six-digit codes: Google Authenticator, 1Password, Aegis. Scan the code, then enter the first number it
-                        shows.
+                        {t('security.authenticator.intro')}
                     </Text>
                 </Stack>
 
                 {failure ? (
-                    <ErrorAlert title={registration ? 'Not enrolled' : 'Could not start'}>
-                        {registration ? codeError(failure) : apiErrorMessage(failure, 'The station could not start an enrolment.')}
+                    <ErrorAlert title={registration ? t('security.notEnrolled') : t('security.authenticator.startFailed')}>
+                        {registration ? codeError(failure) : apiErrorMessage(failure, t('security.authenticator.startFallback'))}
                     </ErrorAlert>
                 ) : undefined}
 
@@ -261,17 +258,17 @@ function EnrolAuthenticatorCard({ gate }: { gate: ReturnType<typeof useStepUpGat
                     >
                         <Stack gap="md">
                             <Group justify="center">
-                                <Image src={registration.qrCode} alt="Authenticator QR code" w={200} h={200} fit="contain" />
+                                <Image src={registration.qrCode} alt={t('security.authenticator.qrAlt')} w={200} h={200} fit="contain" />
                             </Group>
                             <Stack gap="xxs">
-                                <Text size="sm">Or enter this key by hand:</Text>
+                                <Text size="sm">{t('security.authenticator.byHand')}</Text>
                                 <Group gap="xs" wrap="nowrap">
                                     <Code style={{ overflowWrap: 'anywhere' }}>{registration.secret}</Code>
                                     <CopyButton value={registration.secret} />
                                 </Group>
                             </Stack>
                             <OneTimeCodeInput
-                                label="First code"
+                                label={t('security.authenticator.firstCode')}
                                 value={code}
                                 onChange={setCode}
                                 onComplete={value => void finish(value)}
@@ -287,10 +284,10 @@ function EnrolAuthenticatorCard({ gate }: { gate: ReturnType<typeof useStepUpGat
                                     }}
                                     disabled={verify.isPending}
                                 >
-                                    Cancel
+                                    {t('common:action.cancel')}
                                 </Button>
                                 <Button type="submit" loading={verify.isPending} disabled={code.length !== ONE_TIME_CODE_LENGTH}>
-                                    Verify and enrol
+                                    {t('security.authenticator.verify')}
                                 </Button>
                             </Group>
                         </Stack>
@@ -298,15 +295,15 @@ function EnrolAuthenticatorCard({ gate }: { gate: ReturnType<typeof useStepUpGat
                 ) : (
                     <Group align="flex-end" wrap="nowrap">
                         <TextInput
-                            label="Label"
-                            description="So you can tell this one apart later"
-                            placeholder="Phone"
+                            label={t('security.authenticator.label.label')}
+                            description={t('security.authenticator.label.description')}
+                            placeholder={t('security.authenticator.label.placeholder')}
                             value={label}
                             onChange={event => setLabel(event.currentTarget.value)}
                             style={{ flex: 1 }}
                         />
                         <Button onClick={() => void start()} loading={register.isPending}>
-                            Show QR code
+                            {t('security.authenticator.showQr')}
                         </Button>
                     </Group>
                 )}
@@ -335,6 +332,7 @@ function EnrolAuthenticatorCard({ gate }: { gate: ReturnType<typeof useStepUpGat
  * sentence is the person who can act on it.
  */
 function EnrolEmailCard({ gate }: { gate: ReturnType<typeof useStepUpGate> }) {
+    const { t } = useTranslation(['settings', 'common']);
     const register = useRegisterEmail();
     const verify = useVerifyEmail();
     const [address, setAddress] = useState('');
@@ -363,7 +361,7 @@ function EnrolEmailCard({ gate }: { gate: ReturnType<typeof useStepUpGate> }) {
         setFailure(undefined);
         try {
             await verify.mutateAsync({ registrationId: registration.registrationId, code: value, codeVerifier: registration.codeVerifier });
-            notifySaved('Email address');
+            notifySaved(t('security.email.saved'));
             setRegistration(undefined);
             setCode('');
             setAddress('');
@@ -390,23 +388,20 @@ function EnrolEmailCard({ gate }: { gate: ReturnType<typeof useStepUpGate> }) {
             <Stack gap="md">
                 <Stack gap="xxs">
                     <Title order={2} size="h4">
-                        Add an email address
+                        {t('security.email.title')}
                     </Title>
                     <Text size="sm" c="dimmed">
-                        An address the station can reach you at: it can send a code or a sign-in link there, and offer it as the second step after
-                        your password. The station emails a code to prove the address is yours before anything is saved.
+                        {t('security.email.intro')}
                     </Text>
                 </Stack>
 
                 {failure ? (
-                    <ErrorAlert title={registration ? 'Not enrolled' : 'No code sent'}>
+                    <ErrorAlert title={registration ? t('security.notEnrolled') : t('security.email.sendFailed')}>
                         <Stack gap="xxs">
-                            <Text size="sm">
-                                {registration ? codeError(failure) : apiErrorMessage(failure, 'The station could not send a code to that address.')}
-                            </Text>
+                            <Text size="sm">{registration ? codeError(failure) : apiErrorMessage(failure, t('security.email.sendFallback'))}</Text>
                             {noMailServer ? (
                                 <Anchor size="sm" renderRoot={(props: object) => <Link to="/settings/mail" {...props} />}>
-                                    Open mail settings
+                                    {t('security.email.openMail')}
                                 </Anchor>
                             ) : undefined}
                         </Stack>
@@ -422,10 +417,10 @@ function EnrolEmailCard({ gate }: { gate: ReturnType<typeof useStepUpGate> }) {
                     >
                         <Stack gap="md">
                             <Text size="sm" c="dimmed">
-                                {`We sent a code to ${registration.value}.`}
+                                {t('security.email.sent', { address: registration.value })}
                             </Text>
                             <OneTimeCodeInput
-                                label="Emailed code"
+                                label={t('security.email.code')}
                                 value={code}
                                 onChange={setCode}
                                 onComplete={value => void finish(value)}
@@ -439,14 +434,14 @@ function EnrolEmailCard({ gate }: { gate: ReturnType<typeof useStepUpGate> }) {
                                     disabled={verify.isPending}
                                     onClick={() => void send()}
                                 >
-                                    Send it again
+                                    {t('security.email.resend')}
                                 </Button>
                                 <Group gap="xs">
                                     <Button variant="default" onClick={cancel} disabled={verify.isPending}>
-                                        Cancel
+                                        {t('common:action.cancel')}
                                     </Button>
                                     <Button type="submit" loading={verify.isPending} disabled={code.length !== ONE_TIME_CODE_LENGTH}>
-                                        Verify and add
+                                        {t('security.email.verify')}
                                     </Button>
                                 </Group>
                             </Group>
@@ -461,16 +456,16 @@ function EnrolEmailCard({ gate }: { gate: ReturnType<typeof useStepUpGate> }) {
                     >
                         <Group align="flex-end" wrap="nowrap">
                             <TextInput
-                                label="Email address"
-                                description="Where the station sends codes and sign-in links"
-                                placeholder="you@example.com"
+                                label={t('security.email.address.label')}
+                                description={t('security.email.address.description')}
+                                placeholder={t('security.email.address.placeholder')}
                                 type="email"
                                 value={address}
                                 onChange={event => setAddress(event.currentTarget.value)}
                                 style={{ flex: 1 }}
                             />
                             <Button type="submit" loading={register.isPending} disabled={address.trim().length === 0}>
-                                Send code
+                                {t('security.email.send')}
                             </Button>
                         </Group>
                     </form>

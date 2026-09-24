@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button, Popover, Stack, Text, TextInput } from '@mantine/core';
+import { useTranslation } from 'react-i18next';
 
 import { copyText } from './clipboard';
 import { severityColor, toneColor } from './status';
@@ -43,6 +44,7 @@ const COPIED_MS = 1000;
  * thing that failed while everything around it kept working.
  */
 export function CopyButton({ value }: CopyButtonProps) {
+    const { t } = useTranslation();
     const [state, setState] = useState<CopyState>('idle');
     const timer = useRef<number | undefined>(undefined);
 
@@ -75,15 +77,15 @@ export function CopyButton({ value }: CopyButtonProps) {
         >
             <Popover.Target>
                 <Button size="compact-xs" variant="subtle" color={color} onClick={() => void copy()}>
-                    {state === 'copied' ? 'Copied' : state === 'failed' ? 'Copy failed' : 'Copy'}
+                    {state === 'copied' ? t('copy.copied') : state === 'failed' ? t('copy.failed') : t('copy.copy')}
                 </Button>
             </Popover.Target>
             <Popover.Dropdown>
                 <Stack gap="xs">
-                    <Text size="xs">This browser would not copy it. It is selected below, so copy it with your keyboard instead.</Text>
+                    <Text size="xs">{t('copy.failedHint')}</Text>
                     <TextInput
                         size="xs"
-                        aria-label="Text to copy"
+                        aria-label={t('copy.textToCopy')}
                         readOnly
                         value={value}
                         data-autofocus

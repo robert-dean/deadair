@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { CloseButton, TextInput } from '@mantine/core';
 import { useDebouncedCallback } from '@mantine/hooks';
+import { useTranslation } from 'react-i18next';
 
 /** Long enough that typing a title is one request rather than a dozen, short enough to feel immediate. */
 const DEBOUNCE_MS = 250;
@@ -24,6 +25,7 @@ export interface CatalogSearchProps {
  * fight the user's typing whenever a request landed mid-word.
  */
 export function CatalogSearch({ value, onChange, placeholder }: CatalogSearchProps) {
+    const { t } = useTranslation('catalog');
     const [typed, setTyped] = useState(value);
     const commit = useDebouncedCallback(onChange, DEBOUNCE_MS);
 
@@ -45,7 +47,7 @@ export function CatalogSearch({ value, onChange, placeholder }: CatalogSearchPro
                 typed === '' ? undefined : (
                     <CloseButton
                         size="sm"
-                        aria-label="Clear search"
+                        aria-label={t('search.clear')}
                         onClick={() => {
                             update('');
                         }}

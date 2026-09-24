@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Button, Chip, Divider, Group, Modal, Stack, Text, TextInput } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import type { ScheduleSlot, ScheduleSlotInput } from '@deadair/sdk';
+import { useTranslation } from 'react-i18next';
 
 import {
     BriefField,
@@ -20,7 +21,8 @@ import {
     stationSourceValue,
 } from '../programme/programme.fields';
 import { ErrorAlert } from '../shared/error.alert';
-import { DAY_LABELS, minutesToClock, clockToMinutes } from './schedule.day';
+import { DAYS, minutesToClock, clockToMinutes } from './schedule.day';
+import { weekdayShort } from '../../i18n/format.locale';
 
 /**
  * Writing one slot of the station's day.
@@ -54,6 +56,7 @@ import { DAY_LABELS, minutesToClock, clockToMinutes } from './schedule.day';
  * rather than a limitation of the page, and the page says so where an operator will read it.
  */
 export function SlotEditor({ target, onClose, onSubmit, onDelete, saving, deleting, error, airing }: Props) {
+    const { t } = useTranslation(['schedule', 'common']);
     const opened = target !== undefined;
     const slot = target?.kind === 'edit' ? target.slot : undefined;
 
@@ -68,9 +71,9 @@ export function SlotEditor({ target, onClose, onSubmit, onDelete, saving, deleti
             // nothing about a block they are looking at to decide something. The API permits it —
             // the column has no minimum — so this is the console refusing to produce one rather than
             // a constraint being enforced twice.
-            label: value => (value.trim().length === 0 ? 'A slot needs a name' : undefined),
-            startsAt: value => (clockToMinutes(value) === undefined ? 'A time, as 24-hour HH:MM' : undefined),
-            endsAt: value => (clockToMinutes(value) === undefined ? 'A time, as 24-hour HH:MM' : undefined),
+            label: value => (value.trim().length === 0 ? t('slot.nameRequired') : undefined),
+            startsAt: value => (clockToMinutes(value) === undefined ? t('validation.time') : undefined),
+            endsAt: value => (clockToMinutes(value) === undefined ? t('validation.time') : undefined),
         },
     });
 
@@ -111,18 +114,16 @@ export function SlotEditor({ target, onClose, onSubmit, onDelete, saving, deleti
     });
 
     return (
-        <Modal opened={opened} onClose={onClose} title={slot ? 'Edit slot' : 'New slot'} size="lg">
+        <Modal opened={opened} onClose={onClose} title={slot ? t('slot.editTitle') : t('slot.newTitle')} size="lg">
             <form onSubmit={submit}>
                 <Stack gap="md">
-                    {error ? <ErrorAlert title="That slot could not be saved" error={error} fallback="Nothing was written." /> : undefined}
+                    {error ? <ErrorAlert title={t('slot.saveFailedTitle')} error={error} fallback={t('nothingWritten')} /> : undefined}
 
                     {/* The slot the running order belongs to right now: saving it is real, but the
                         station does not hear it until this block comes round again. Told here,
                         beside the form it is about, rather than left for the caption at the
                         bottom of the modal to cover on its own. */}
-                    {slot && airing ? (
-                        <ErrorAlert tone="notice">This slot is on air. Changes apply the next time it comes round.</ErrorAlert>
-                    ) : undefined}
+                    {slot && airing ? <ErrorAlert tone="notice">{t('slot.onAir')}</ErrorAlert> : undefined}
 
                     {/* The when-half as one sentence. Four fields that only make sense together read
                         as four fields when they are stacked and as one statement when they are not,
@@ -131,28 +132,45 @@ export function SlotEditor({ target, onClose, onSubmit, onDelete, saving, deleti
                         it genuinely is a list of separate choices. */}
                     <Stack gap="xs">
                         <Group gap="xs" align="flex-start" wrap="wrap">
-                            <Word>Put</Word>
-                            <TextInput aria-label="Name" placeholder="Breakfast" w={200} {...form.getInputProps('label')} />
-                            <Word>from</Word>
-                            <TextInput aria-label="Starts at" placeholder="06:00" w={84} className="da-num" {...form.getInputProps('startsAt')} />
-                            <Word>until</Word>
-                            <TextInput aria-label="Ends at" placeholder="10:00" w={84} className="da-num" {...form.getInputProps('endsAt')} />
+                            <Word>{t('slot.sentence.put')}</Word>
+                            <TextInput
+                                aria-label={t('slot.nameLabel')}
+                                placeholder={t('slot.namePlaceholder')}
+                                w={200}
+                                {...form.getInputProps('label')}
+                            />
+                            <Word>{t('slot.sentence.from')}</Word>
+                            <TextInput
+                                aria-label={t('slot.startsAtLabel')}
+                                placeholder="06:00"
+                                w={84}
+                                className="da-num"
+                                {...form.getInputProps('startsAt')}
+                            />
+                            <Word>{t('slot.sentence.until')}</Word>
+                            <TextInput
+                                aria-label={t('slot.endsAtLabel')}
+                                placeholder="10:00"
+                                w={84}
+                                className="da-num"
+                                {...form.getInputProps('endsAt')}
+                            />
                         </Group>
 
                         {/* Broken here on purpose rather than left to wrap. The days are the one part
                             that cannot shrink, so a single row would fold at whatever width the modal
                             happened to be and the sentence would read as fragments. */}
                         <Group gap="xs" align="center" wrap="wrap">
-                            <Word>on</Word>
+                            <Word>{t('slot.sentence.on')}</Word>
                             {/* Chips rather than checkboxes: seven boxes in a row is a form control
                                 that happens to be about days, and seven toggles is the week. Nothing
                                 selected is every day, which the line below says because an empty row
                                 cannot. */}
                             <Chip.Group multiple value={form.values.days} onChange={days => form.setFieldValue('days', days)}>
                                 <Group gap={4} wrap="wrap">
-                                    {DAY_LABELS.map((label, day) => (
-                                        <Chip key={label} value={String(day)} size="sm" radius="sm">
-                                            {label}
+                                    {DAYS.map(day => (
+                                        <Chip key={day} value={String(day)} size="sm" radius="sm">
+                                            {weekdayShort(day)}
                                         </Chip>
                                     ))}
                                 </Group>
@@ -161,16 +179,11 @@ export function SlotEditor({ target, onClose, onSubmit, onDelete, saving, deleti
                     </Stack>
 
                     <Text size="xs" c="dimmed">
-                        {form.values.days.length === 0 ? 'No day chosen means every day, which is the ordinary case. ' : ''}
-                        Times are 24-hour, on the station&apos;s own clock. An end before the start runs the block past midnight; the same time at
-                        both ends is a full day. The hours no block covers play whatever the station is set to sustain on.
+                        {form.values.days.length === 0 ? `${t('slot.everyDay')} ` : ''}
+                        {t('slot.times')}
                     </Text>
 
-                    <SourceField
-                        description="Leave it empty for a slot the station fills itself. A playlist the station keeps starts on time however long it is, because it is not read from a provider when the block begins."
-                        stationPlaylists
-                        {...form.getInputProps('source')}
-                    />
+                    <SourceField description={t('slot.sourceDescription')} stationPlaylists {...form.getInputProps('source')} />
 
                     {/* Only under a chart, because it means nothing under anything else. A row that
                         sat there greyed out for every playlist would be a control explaining its own
@@ -196,7 +209,7 @@ export function SlotEditor({ target, onClose, onSubmit, onDelete, saving, deleti
                     ) : undefined}
 
                     <Text size="xs" c="dimmed">
-                        Saving changes nothing that is on air now. The station moves when this slot next begins.
+                        {t('slot.savingNote')}
                     </Text>
 
                     <Divider />
@@ -208,17 +221,17 @@ export function SlotEditor({ target, onClose, onSubmit, onDelete, saving, deleti
                             playing what it has until the next slot begins. */}
                         {slot ? (
                             <Button variant="subtle" color="red" loading={deleting} onClick={() => onDelete(slot.id)}>
-                                Delete
+                                {t('action.delete')}
                             </Button>
                         ) : (
                             <span />
                         )}
                         <Group gap="xs">
                             <Button variant="default" onClick={onClose}>
-                                Cancel
+                                {t('common:action.cancel')}
                             </Button>
                             <Button type="submit" loading={saving}>
-                                Save
+                                {t('action.save')}
                             </Button>
                         </Group>
                     </Group>

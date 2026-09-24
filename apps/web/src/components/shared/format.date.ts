@@ -1,6 +1,7 @@
+import { perLocale } from '../../i18n/format.locale';
 import type { Moment } from './feed.moment';
 
-const FORMAT = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+const FORMAT = perLocale(locale => new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', year: 'numeric' }));
 
 /**
  * A timestamp as a date the operator can read, in their own locale.
@@ -14,8 +15,8 @@ const FORMAT = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'shor
  */
 export function formatDate(iso: Moment | undefined): string {
     if (iso === undefined || iso === '') return '';
-    if (typeof iso !== 'string') return iso.isValid ? FORMAT.format(iso.toJSDate()) : '';
+    if (typeof iso !== 'string') return iso.isValid ? FORMAT().format(iso.toJSDate()) : '';
 
     const date = new Date(iso);
-    return Number.isNaN(date.getTime()) ? '' : FORMAT.format(date);
+    return Number.isNaN(date.getTime()) ? '' : FORMAT().format(date);
 }

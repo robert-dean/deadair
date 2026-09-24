@@ -2,6 +2,7 @@ import { Fragment } from 'react';
 import { Anchor, Group, Stack, Table, Text } from '@mantine/core';
 import { Link } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 
 import { catalogAlbumEnrichmentOptions, catalogAlbumOptions, catalogAlbumTracksOptions, useRateAlbum, useRateTrack } from '../../api/catalog.queries';
 import { formatDuration } from '../shared/format.duration';
@@ -26,6 +27,7 @@ export interface AlbumDetailPageProps {
 }
 
 export function AlbumDetailPage({ albumId, page, order, onPageChange }: AlbumDetailPageProps) {
+    const { t } = useTranslation('catalog');
     const album = useQuery(catalogAlbumOptions(albumId));
     const tracks = useQuery(catalogAlbumTracksOptions(albumId, { page, ...order }));
     const enrichment = useQuery(catalogAlbumEnrichmentOptions(albumId));
@@ -43,15 +45,15 @@ export function AlbumDetailPage({ albumId, page, order, onPageChange }: AlbumDet
                         router's own types, and with them the check that `params` matches the path. */}
                     {album.data ? (
                         <ArtistLink id={album.data.artistId} size="sm">
-                            {`Back to ${album.data.artistName}`}
+                            {t('album.backToArtist', { name: album.data.artistName })}
                         </ArtistLink>
                     ) : (
                         <Anchor renderRoot={(props: object) => <Link to="/catalog" search={CATALOG_SEARCH_DEFAULTS} {...props} />} size="sm">
-                            Back to catalog
+                            {t('backToCatalog')}
                         </Anchor>
                     )}
                     <PageHeader
-                        title={album.data?.name ?? 'Album'}
+                        title={album.data?.name ?? t('album.fallbackTitle')}
                         description={
                             album.data ? (
                                 <Text c="dimmed" size="sm">
@@ -80,12 +82,10 @@ export function AlbumDetailPage({ albumId, page, order, onPageChange }: AlbumDet
                 </Stack>
             </Group>
 
-            {album.error ? (
-                <ErrorAlert title="This album could not be loaded" error={album.error} fallback="No album with that id is in the catalog." />
-            ) : undefined}
+            {album.error ? <ErrorAlert title={t('album.loadFailedTitle')} error={album.error} fallback={t('album.loadFailedFallback')} /> : undefined}
 
             {tracks.error && !album.error ? (
-                <ErrorAlert title="The tracks could not be loaded" error={tracks.error} fallback="The catalog is unavailable." />
+                <ErrorAlert title={t('tracks.loadFailedTitle')} error={tracks.error} fallback={t('tracks.loadFailedFallback')} />
             ) : undefined}
 
             {/* Suppressed while the album itself is failing: one alert about a record that is not
@@ -97,13 +97,13 @@ export function AlbumDetailPage({ albumId, page, order, onPageChange }: AlbumDet
                     claims={enrichment.data?.claims}
                     isPending={enrichment.isPending}
                     error={enrichment.error}
-                    emptyMessage="No provider has been asked about this record yet. The enrichment pass picks up what it has not seen, oldest first."
+                    emptyMessage={t('track.enrichmentEmpty')}
                 />
             )}
 
             {tracks.isPending && !album.error ? <PageSkeleton variant="table" /> : undefined}
 
-            {tracks.data && rows.length === 0 ? <EmptyState>This album has no tracks in the catalog.</EmptyState> : undefined}
+            {tracks.data && rows.length === 0 ? <EmptyState>{t('album.empty')}</EmptyState> : undefined}
 
             {tracks.data && rows.length > 0 ? (
                 <>
@@ -112,10 +112,10 @@ export function AlbumDetailPage({ albumId, page, order, onPageChange }: AlbumDet
                             <Table.Thead>
                                 <Table.Tr>
                                     <Table.Th w={44} />
-                                    <Table.Th>Title</Table.Th>
-                                    <Table.Th>Credit</Table.Th>
-                                    <Table.Th w={120}>Duration</Table.Th>
-                                    <Table.Th w={150}>Rating</Table.Th>
+                                    <Table.Th>{t('columns.title')}</Table.Th>
+                                    <Table.Th>{t('album.credit')}</Table.Th>
+                                    <Table.Th w={120}>{t('columns.duration')}</Table.Th>
+                                    <Table.Th w={150}>{t('columns.rating')}</Table.Th>
                                 </Table.Tr>
                             </Table.Thead>
                             <Table.Tbody>

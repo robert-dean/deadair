@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Anchor, Badge, Group, Select, Stack, Table, Text } from '@mantine/core';
 import { Link } from '@tanstack/react-router';
+import { Trans, useTranslation } from 'react-i18next';
 import type { StationChart } from '@deadair/sdk';
 
 import { useChart, useCharts } from '../../api/charts.queries';
@@ -34,6 +35,7 @@ import { CATALOG_TRACK_DEFAULTS } from '../catalog/catalog.page.params';
  * this console already has.
  */
 export function ChartsPage() {
+    const { t } = useTranslation('charts');
     const charts = useCharts();
     const phone = usePhone();
     const [chosen, setChosen] = useState<string | undefined>(undefined);
@@ -47,11 +49,10 @@ export function ChartsPage() {
     return (
         <Stack gap="lg">
             <PageHeader
-                title="Charts"
+                title={t('page.title')}
                 description={
                     <Text size="sm" c="dimmed">
-                        What the rest of the world is playing, as the installed plugins report it. Airing one puts the station on those records for a
-                        broadcast; when they run out it programmes itself again as usual.
+                        {t('page.description')}
                     </Text>
                 }
                 actions={
@@ -64,16 +65,13 @@ export function ChartsPage() {
                 }
             />
 
-            {charts.error ? (
-                <ErrorAlert title="The charts could not be read" error={charts.error} fallback="No plugin answered with a chart." />
-            ) : undefined}
+            {charts.error ? <ErrorAlert title={t('page.readFailedTitle')} error={charts.error} fallback={t('page.readFailedFallback')} /> : undefined}
 
             {charts.isPending ? <PageSkeleton variant="table" /> : undefined}
 
             {charts.data && offered.length === 0 ? (
-                <EmptyState title="No plugin offers a chart">
-                    A chart arrives with a plugin that publishes one. Enable one that declares the <code>charts</code> capability and its charts
-                    appear here.
+                <EmptyState title={t('page.noneTitle')}>
+                    <Trans t={t} i18nKey="page.none" components={{ code: <code /> }} />
                 </EmptyState>
             ) : undefined}
 
@@ -83,7 +81,7 @@ export function ChartsPage() {
                         <Select
                             size="xs"
                             w={{ base: '100%', sm: 320 }}
-                            label="Chart"
+                            label={t('page.pickerLabel')}
                             data={offered.map(one => ({ value: one.id, label: labelFor(one) }))}
                             value={showing.id}
                             allowDeselect={false}
@@ -104,7 +102,7 @@ export function ChartsPage() {
                     </Group>
 
                     {chart.error ? (
-                        <ErrorAlert title="That chart could not be read" error={chart.error} fallback="The plugin did not answer." />
+                        <ErrorAlert title={t('page.chartFailedTitle')} error={chart.error} fallback={t('page.chartFailedFallback')} />
                     ) : undefined}
 
                     {chart.isPending ? <PageSkeleton variant="table" /> : undefined}
@@ -113,9 +111,7 @@ export function ChartsPage() {
                         chart is something to look at and never something the station needs to air,
                         so a source that had nothing today is an ordinary answer. */}
                     {chart.data && chart.data.records.length === 0 ? (
-                        <EmptyState title="Nothing in this edition">
-                            The plugin answered with no records. That is an ordinary state for a chart that has not published yet today.
-                        </EmptyState>
+                        <EmptyState title={t('page.emptyTitle')}>{t('page.empty')}</EmptyState>
                     ) : undefined}
 
                     {/* The phone gets cards rather than a table that scrolls sideways. The rank
@@ -140,7 +136,7 @@ export function ChartsPage() {
                                             </Text>
                                             {record.featuring === undefined || record.featuring.length === 0 ? undefined : (
                                                 <Text size="xs" c="dimmed" truncate>
-                                                    feat. {record.featuring.join(', ')}
+                                                    {t('record.featuring', { names: record.featuring.join(', ') })}
                                                 </Text>
                                             )}
                                         </>
@@ -153,8 +149,8 @@ export function ChartsPage() {
                                             {record.peak !== undefined || record.weeksOn !== undefined ? (
                                                 <Text size="xs" c="dimmed" className="da-num" style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
                                                     {[
-                                                        record.peak !== undefined ? `peak ${record.peak}` : undefined,
-                                                        record.weeksOn !== undefined ? `${record.weeksOn} wks` : undefined,
+                                                        record.peak !== undefined ? t('record.peak', { peak: record.peak }) : undefined,
+                                                        record.weeksOn !== undefined ? t('record.weeks', { count: record.weeksOn }) : undefined,
                                                     ]
                                                         .filter(part => part !== undefined)
                                                         .join(' · ')}
@@ -169,7 +165,7 @@ export function ChartsPage() {
                                             )}
                                             size="xs"
                                         >
-                                            Find in catalog
+                                            {t('record.findInCatalog')}
                                         </Anchor>
                                     }
                                 />
@@ -183,11 +179,11 @@ export function ChartsPage() {
                                 <Table.Thead>
                                     <Table.Tr>
                                         <Table.Th w={60}>#</Table.Th>
-                                        <Table.Th>Title</Table.Th>
-                                        <Table.Th>Artist</Table.Th>
-                                        <Table.Th visibleFrom="lg">Album</Table.Th>
-                                        <Table.Th w={80}>Peak</Table.Th>
-                                        <Table.Th w={90}>Weeks</Table.Th>
+                                        <Table.Th>{t('column.title')}</Table.Th>
+                                        <Table.Th>{t('column.artist')}</Table.Th>
+                                        <Table.Th visibleFrom="lg">{t('column.album')}</Table.Th>
+                                        <Table.Th w={80}>{t('column.peak')}</Table.Th>
+                                        <Table.Th w={90}>{t('column.weeks')}</Table.Th>
                                         <Table.Th w={130} />
                                     </Table.Tr>
                                 </Table.Thead>
@@ -205,7 +201,7 @@ export function ChartsPage() {
                                                 one name the catalog would never match. */}
                                                 {record.featuring === undefined || record.featuring.length === 0 ? undefined : (
                                                     <Text size="xs" c="dimmed">
-                                                        feat. {record.featuring.join(', ')}
+                                                        {t('record.featuring', { names: record.featuring.join(', ') })}
                                                     </Text>
                                                 )}
                                             </Table.Td>
@@ -238,7 +234,7 @@ export function ChartsPage() {
                                                     )}
                                                     size="xs"
                                                 >
-                                                    Find in catalog
+                                                    {t('record.findInCatalog')}
                                                 </Anchor>
                                             </Table.Td>
                                         </Table.Tr>

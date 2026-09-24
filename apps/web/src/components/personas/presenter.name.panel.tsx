@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { Button, Card, Collapse, Group, Stack, Text, TextInput } from '@mantine/core';
 import { useForm } from '@mantine/form';
+import { useTranslation } from 'react-i18next';
 import type { Persona } from '@deadair/sdk';
 
 import { useSettings, useUpdateSettings } from '../../api/settings.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
+import { i18n } from '../../i18n/i18n.setup';
 import { ErrorAlert } from '../shared/error.alert';
 import { Eyebrow } from '../shared/eyebrow';
 
@@ -35,6 +37,7 @@ const KEY = 'station.djName';
 export function PresenterNamePanel({ hosts }: PresenterNamePanelProps) {
     const settings = useSettings();
     const save = useUpdateSettings();
+    const { t } = useTranslation('personas');
     const [opened, setOpened] = useState(false);
 
     const stored = storedName(settings.data?.values ?? {});
@@ -45,7 +48,7 @@ export function PresenterNamePanel({ hosts }: PresenterNamePanelProps) {
             <Stack gap="sm">
                 <Group justify="space-between" align="flex-start" wrap="nowrap">
                     <Stack gap={2}>
-                        <Eyebrow>Presenter name</Eyebrow>
+                        <Eyebrow>{t('presenterName.eyebrow')}</Eyebrow>
                         {/* Nothing is claimed until the settings have answered: an unanswered read
                             and a station with no name set are the same empty map. */}
                         <Text size="sm" c="dimmed" maw={620}>
@@ -53,16 +56,12 @@ export function PresenterNamePanel({ hosts }: PresenterNamePanelProps) {
                         </Text>
                     </Stack>
                     <Button size="xs" variant="light" onClick={() => setOpened(open => !open)}>
-                        {opened ? 'Done' : 'Change'}
+                        {opened ? t('shared.done') : t('shared.change')}
                     </Button>
                 </Group>
 
                 {settings.error ? (
-                    <ErrorAlert
-                        title="The presenter name could not be read"
-                        error={settings.error}
-                        fallback="The station settings are unavailable."
-                    />
+                    <ErrorAlert title={t('presenterName.readError')} error={settings.error} fallback={t('shared.settingsUnavailable')} />
                 ) : undefined}
 
                 <Collapse expanded={opened}>
@@ -76,7 +75,7 @@ export function PresenterNamePanel({ hosts }: PresenterNamePanelProps) {
                         onSubmit={name => save.mutate({ [KEY]: name.trim() === '' ? null : name.trim() })}
                         saving={save.isPending}
                         succeeded={save.isSuccess}
-                        failure={save.isError ? apiErrorMessage(save.error, 'The presenter name could not be saved.') : undefined}
+                        failure={save.isError ? apiErrorMessage(save.error, t('presenterName.saveFallback')) : undefined}
                     />
                 </Collapse>
             </Stack>
@@ -98,28 +97,24 @@ interface PresenterNameFormProps {
 }
 
 function PresenterNameForm({ initial, onSubmit, saving, succeeded, failure }: PresenterNameFormProps) {
+    const { t } = useTranslation('personas');
     const form = useForm<{ name: string }>({ initialValues: { name: initial } });
 
     return (
         <form onSubmit={form.onSubmit(values => onSubmit(values.name))}>
             <Stack gap="md" pt="sm">
-                {failure ? <ErrorAlert title="That could not be saved">{failure}</ErrorAlert> : undefined}
+                {failure ? <ErrorAlert title={t('shared.saveFailedTitle')}>{failure}</ErrorAlert> : undefined}
 
-                <TextInput
-                    label="Presenter name"
-                    description="Used by any host without a name of its own, and while nobody is on air. It fills the phrasings that ask for a name and tells the model what it is called. Leave it empty and neither happens."
-                    maw={360}
-                    {...form.getInputProps('name')}
-                />
+                <TextInput label={t('presenterName.label')} description={t('presenterName.description')} maw={360} {...form.getInputProps('name')} />
 
                 <Group justify="flex-end" gap="md">
                     {succeeded && !form.isDirty() ? (
                         <Text size="sm" c="dimmed">
-                            Saved.
+                            {t('shared.saved')}
                         </Text>
                     ) : undefined}
                     <Button type="submit" loading={saving}>
-                        Save
+                        {t('shared.save')}
                     </Button>
                 </Group>
             </Stack>
@@ -141,13 +136,13 @@ function storedName(values: Record<string, unknown>): string {
  */
 export function summaryOf(name: string, unnamed: readonly Persona[]): string {
     const who = unnamed.map(host => host.label).join(', ');
-    const one = unnamed.length === 1;
+    const count = unnamed.length;
 
     if (name !== '') {
-        if (unnamed.length === 0) return `Every host here has a name of its own, so ${name} is heard only while nobody is on air.`;
-        return `${who} ${one ? 'goes' : 'go'} by ${name} on air, having no name of ${one ? 'its' : 'their'} own.`;
+        if (count === 0) return i18n.t('personas:presenterName.summary.namedAllOwn', { name });
+        return i18n.t('personas:presenterName.summary.namedFor', { count, who, name });
     }
 
-    if (unnamed.length === 0) return 'Every host here has a name of its own.';
-    return `${who} ${one ? 'has' : 'have'} no name on air, so the phrasings that ask for one are skipped. Set one here, or give ${one ? 'it one in its' : 'them one in their'} own editor.`;
+    if (count === 0) return i18n.t('personas:presenterName.summary.allOwn');
+    return i18n.t('personas:presenterName.summary.unnamed', { count, who });
 }

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ActionIcon, Anchor, Badge, Button, Card, Group, Stack, Table, Text, TextInput } from '@mantine/core';
 import { IconCheck, IconPencil, IconTrash, IconX } from '@tabler/icons-react';
 import type { Pronunciation } from '@deadair/sdk';
+import { useTranslation } from 'react-i18next';
 
 import {
     useCreatePronunciation,
@@ -36,6 +37,7 @@ import { PageSkeleton } from '../shared/page.skeleton';
  * proposal that was deleted would come back, and come back again.
  */
 export function PronunciationsPage() {
+    const { t } = useTranslation(['pronunciations', 'common']);
     const lexicon = usePronunciations();
     const create = useCreatePronunciation();
     const update = useUpdatePronunciation();
@@ -73,27 +75,19 @@ export function PronunciationsPage() {
     return (
         <Stack gap="lg">
             <PageHeader
-                title="Pronunciations"
+                title={t('title')}
                 description={
                     <Text c="dimmed" size="sm">
-                        The names the station would otherwise read wrongly. Whatever is on the right is handed to the speech engine untouched, so
-                        write it however that engine reads best — and leave it empty to drop the words entirely, which is the honest answer for a
-                        marker that got into a title and is not a word.
+                        {t('description')}
                     </Text>
                 }
             />
 
-            {lexicon.error ? (
-                <ErrorAlert
-                    title="The lexicon could not be loaded"
-                    error={lexicon.error}
-                    fallback="What the station says differently is unavailable."
-                />
-            ) : undefined}
+            {lexicon.error ? <ErrorAlert title={t('error.load')} error={lexicon.error} fallback={t('error.loadFallback')} /> : undefined}
 
-            {create.error ? <ErrorAlert title="That could not be added" error={create.error} fallback="Nothing was written." /> : undefined}
-            {update.error ? <ErrorAlert title="That could not be saved" error={update.error} fallback="Nothing was changed." /> : undefined}
-            {remove.error ? <ErrorAlert title="That could not be removed" error={remove.error} fallback="Nothing was removed." /> : undefined}
+            {create.error ? <ErrorAlert title={t('error.add')} error={create.error} fallback={t('error.addFallback')} /> : undefined}
+            {update.error ? <ErrorAlert title={t('error.save')} error={update.error} fallback={t('error.saveFallback')} /> : undefined}
+            {remove.error ? <ErrorAlert title={t('error.remove')} error={remove.error} fallback={t('error.removeFallback')} /> : undefined}
 
             {lexicon.isPending ? <PageSkeleton variant="card" /> : undefined}
 
@@ -101,11 +95,9 @@ export function PronunciationsPage() {
                 <Card padding="lg">
                     <Stack gap="sm">
                         <Stack gap={2}>
-                            <Eyebrow>Proposed</Eyebrow>
+                            <Eyebrow>{t('proposed.title')}</Eyebrow>
                             <Text size="sm" c="dimmed" maw={720}>
-                                Pronunciation keys the station found printed in the articles it already holds. None of these is said until it is
-                                accepted, because an article&rsquo;s key is often about one word of a name and sometimes about a different name
-                                entirely.
+                                {t('proposed.description')}
                             </Text>
                         </Stack>
 
@@ -126,7 +118,7 @@ export function PronunciationsPage() {
                                                         size="sm"
                                                         variant="subtle"
                                                         color="teal"
-                                                        aria-label={`Say ${entry.written} this way`}
+                                                        aria-label={t('proposed.accept', { written: entry.written })}
                                                         loading={setState.isPending}
                                                         onClick={() => setState.mutate({ id: entry.id, body: { state: 'active' } })}
                                                     >
@@ -136,7 +128,7 @@ export function PronunciationsPage() {
                                                         size="sm"
                                                         variant="subtle"
                                                         color="gray"
-                                                        aria-label={`Turn down ${entry.written}`}
+                                                        aria-label={t('proposed.reject', { written: entry.written })}
                                                         loading={setState.isPending}
                                                         onClick={() => setState.mutate({ id: entry.id, body: { state: 'rejected' } })}
                                                     >
@@ -155,12 +147,10 @@ export function PronunciationsPage() {
 
             <Card padding="lg">
                 <Stack gap="sm">
-                    <Eyebrow>Said this way</Eyebrow>
+                    <Eyebrow>{t('active.title')}</Eyebrow>
 
                     {lexicon.data && active.length === 0 ? (
-                        <EmptyState title="The station says everything as it is written">
-                            Nothing here yet. Add a name whose letters are not its sounds, and the station says it your way from the next break on.
-                        </EmptyState>
+                        <EmptyState title={t('active.empty.title')}>{t('active.empty.body')}</EmptyState>
                     ) : (
                         <Table.ScrollContainer minWidth={600}>
                             <Table verticalSpacing="xs" highlightOnHover>
@@ -173,25 +163,25 @@ export function PronunciationsPage() {
                                                         <TextInput
                                                             size="xs"
                                                             w={200}
-                                                            aria-label="Written"
+                                                            aria-label={t('field.written')}
                                                             value={editing.written}
                                                             onChange={event => setEditing({ ...editing, written: event.currentTarget.value })}
                                                         />
                                                         <Text size="xs" c="dimmed">
-                                                            is said
+                                                            {t('active.isSaid')}
                                                         </Text>
                                                         <TextInput
                                                             size="xs"
                                                             flex={1}
-                                                            aria-label="Spoken"
+                                                            aria-label={t('field.spoken')}
                                                             value={editing.spoken}
                                                             onChange={event => setEditing({ ...editing, spoken: event.currentTarget.value })}
                                                         />
                                                         <Button size="xs" variant="light" loading={update.isPending} onClick={save}>
-                                                            Save
+                                                            {t('active.save')}
                                                         </Button>
                                                         <Button size="xs" variant="subtle" color="gray" onClick={() => setEditing(undefined)}>
-                                                            Cancel
+                                                            {t('common:action.cancel')}
                                                         </Button>
                                                     </Group>
                                                 </Table.Td>
@@ -208,7 +198,7 @@ export function PronunciationsPage() {
                                                             <ActionIcon
                                                                 size="sm"
                                                                 variant="subtle"
-                                                                aria-label={`Edit ${entry.written}`}
+                                                                aria-label={t('active.edit', { written: entry.written })}
                                                                 onClick={() =>
                                                                     setEditing({ id: entry.id, written: entry.written, spoken: entry.spoken })
                                                                 }
@@ -219,7 +209,7 @@ export function PronunciationsPage() {
                                                                 size="sm"
                                                                 variant="subtle"
                                                                 color="red"
-                                                                aria-label={`Delete ${entry.written}`}
+                                                                aria-label={t('active.delete', { written: entry.written })}
                                                                 loading={remove.isPending}
                                                                 onClick={() => setDeleting(entry)}
                                                             >
@@ -240,16 +230,16 @@ export function PronunciationsPage() {
                         <TextInput
                             size="xs"
                             w={{ base: '100%', sm: 200 }}
-                            label="Written"
-                            placeholder="Röyksopp"
+                            label={t('field.written')}
+                            placeholder={t('add.writtenPlaceholder')}
                             value={written}
                             onChange={event => setWritten(event.currentTarget.value)}
                         />
                         <TextInput
                             size="xs"
                             flex={1}
-                            label="Said"
-                            placeholder="royk-sop"
+                            label={t('field.said')}
+                            placeholder={t('add.saidPlaceholder')}
                             value={spoken}
                             onChange={event => setSpoken(event.currentTarget.value)}
                             onKeyDown={event => {
@@ -257,7 +247,7 @@ export function PronunciationsPage() {
                             }}
                         />
                         <Button size="xs" variant="light" loading={create.isPending} disabled={written.trim().length === 0} onClick={add}>
-                            Add
+                            {t('add.action')}
                         </Button>
                     </Group>
                 </Stack>
@@ -267,9 +257,9 @@ export function PronunciationsPage() {
                 <Card padding="lg">
                     <Stack gap="sm">
                         <Stack gap={2}>
-                            <Eyebrow>Turned down</Eyebrow>
+                            <Eyebrow>{t('rejected.title')}</Eyebrow>
                             <Text size="sm" c="dimmed" maw={720}>
-                                Kept rather than deleted, so the same article does not propose them again.
+                                {t('rejected.description')}
                             </Text>
                         </Stack>
 
@@ -292,7 +282,7 @@ export function PronunciationsPage() {
                                                         loading={setState.isPending}
                                                         onClick={() => setState.mutate({ id: entry.id, body: { state: 'active' } })}
                                                     >
-                                                        Say it
+                                                        {t('rejected.restore')}
                                                     </Button>
                                                 </Group>
                                             </Table.Td>
@@ -312,14 +302,14 @@ export function PronunciationsPage() {
                     if (deleting === undefined) return;
                     remove.mutate(deleting.id, { onSuccess: () => setDeleting(undefined) });
                 }}
-                title={deleting ? `Stop saying ${deleting.written} that way?` : 'Delete this entry?'}
-                confirmLabel="Delete"
+                title={deleting ? t('delete.title', { written: deleting.written }) : t('delete.titleFallback')}
+                confirmLabel={t('delete.confirm')}
                 confirming={remove.isPending}
                 error={remove.error}
-                errorTitle="That entry could not be deleted"
-                errorFallback="Nothing was removed."
+                errorTitle={t('delete.errorTitle')}
+                errorFallback={t('error.removeFallback')}
             >
-                {deleting ? `The station reads it as "${deleting.spoken}" today, and will say it however the engine does once this is gone.` : ''}
+                {deleting ? t('delete.body', { spoken: deleting.spoken }) : ''}
             </ConfirmModal>
         </Stack>
     );
@@ -327,6 +317,7 @@ export function PronunciationsPage() {
 
 /** One entry as a sentence: what is written, and what comes out of the engine instead. */
 function Said({ entry, dimmed = false }: { entry: Pronunciation; dimmed?: boolean }) {
+    const { t } = useTranslation('pronunciations');
     return (
         <Group gap="xs" wrap="nowrap">
             <Text size="sm" fw={500} c={dimmed ? 'dimmed' : undefined}>
@@ -337,7 +328,7 @@ function Said({ entry, dimmed = false }: { entry: Pronunciation; dimmed?: boolea
             </Text>
             {entry.spoken.length === 0 ? (
                 <Badge size="xs" variant="light" color="gray">
-                    not said
+                    {t('notSaid')}
                 </Badge>
             ) : (
                 <Text size="sm" c={dimmed ? 'dimmed' : undefined}>
@@ -355,6 +346,7 @@ function Said({ entry, dimmed = false }: { entry: Pronunciation; dimmed?: boolea
  * to say "Madonna" needs the sentence it was lifted out of, and no summary of it will do.
  */
 function Evidence({ entry }: { entry: Pronunciation }) {
+    const { t } = useTranslation('pronunciations');
     if (entry.origin === 'operator' || entry.sourceQuote === undefined) return undefined;
 
     return (
@@ -364,7 +356,7 @@ function Evidence({ entry }: { entry: Pronunciation }) {
             </Text>
             {entry.sourceUrl === undefined ? undefined : (
                 <Anchor size="xs" c="dimmed" href={entry.sourceUrl} target="_blank" rel="noreferrer noopener">
-                    the article
+                    {t('source')}
                 </Anchor>
             )}
         </Stack>

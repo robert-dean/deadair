@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Badge, Button, Card, Group, Stack, Text } from '@mantine/core';
 import type { Production } from '@deadair/sdk';
+import type { TFunction } from 'i18next';
+import { Trans, useTranslation } from 'react-i18next';
 
 import { useCancelProduction, useProductions, useRequestProduction } from '../../api/productions.queries';
 import { EmptyState } from '../shared/empty.state';
@@ -24,6 +26,7 @@ import { ProductionForm } from './production.form';
  * polls, which is the honest shape for information that changes this slowly.
  */
 export function ProductionsPage() {
+    const { t } = useTranslation('productions');
     const productions = useProductions();
     const request = useRequestProduction();
     const cancel = useCancelProduction();
@@ -38,12 +41,12 @@ export function ProductionsPage() {
     return (
         <Stack gap="lg">
             <PageHeader
-                title="Productions"
-                description="Programmes the station writes for itself: several beats of speech, made over minutes and aired as one block. Asking for one queues it — nothing is made while you wait, and it goes into the running order once every beat has been spoken."
+                title={t('title')}
+                description={t('description')}
                 actions={
                     !asking && (
                         <Button onClick={() => setAsking(true)} disabled={productions.isLoading}>
-                            Ask for one
+                            {t('ask')}
                         </Button>
                     )
                 }
@@ -58,14 +61,14 @@ export function ProductionsPage() {
                 />
             )}
 
-            {productions.isError && <ErrorAlert title="Could not read what the station is making" error={productions.error} />}
-            {cancel.isError && <ErrorAlert title="Could not stop that production" error={cancel.error} />}
+            {productions.isError && <ErrorAlert title={t('error.list')} error={productions.error} />}
+            {cancel.isError && <ErrorAlert title={t('error.cancel')} error={cancel.error} />}
 
             {productions.isLoading && <PageSkeleton variant="rows" />}
 
             {productions.data?.productions.length === 0 && !asking && (
-                <EmptyState title="The station has not made anything yet">
-                    Ask for one above, or put a line like <code>21:00 podcast</code> on the station clock and one is commissioned ahead of every slot.
+                <EmptyState title={t('empty.title')}>
+                    <Trans t={t} i18nKey="empty.body" components={{ code: <code /> }} />
                 </EmptyState>
             )}
 
@@ -90,15 +93,18 @@ export function ProductionsPage() {
  * before callers and saying "presented by" on all of them is a line that reads the same on every
  * card. A member with no name is one whose station is presenting as nobody in particular.
  */
-function cast(production: Production): string {
+function cast(production: Production, t: TFunction<'productions'>): string {
     const named = (role: 'host' | 'caller'): string[] =>
         production.cast.filter(member => member.role === role).flatMap(member => (member.name === undefined ? [] : [member.name]));
 
     const callers = named('caller');
     const host = named('host')[0];
 
-    const parts = [...(host === undefined ? [] : [`presented by ${host}`]), ...(callers.length === 0 ? [] : [`with ${callers.join(' and ')}`])];
-    return parts.length === 0 ? `${production.cast.length} voices` : parts.join(', ');
+    const names = callers.join(t('cast.joiner'));
+    if (host !== undefined && callers.length > 0) return t('cast.hostWithCallers', { host, callers: names });
+    if (host !== undefined) return t('cast.host', { host });
+    if (callers.length > 0) return t('cast.callers', { callers: names });
+    return t('cast.voices', { count: production.cast.length });
 }
 
 /**
@@ -109,6 +115,7 @@ const moment = (iso: Moment): string => formatMomentMinute(iso, { weekday: true,
 
 /** One production, and how far along it is. */
 function ProductionCard({ production, stopping, onCancel }: { production: Production; stopping: boolean; onCancel: () => void }) {
+    const { t } = useTranslation('productions');
     return (
         <Card>
             <Group justify="space-between" align="flex-start" wrap="nowrap">
@@ -116,7 +123,7 @@ function ProductionCard({ production, stopping, onCancel }: { production: Produc
                     <Group gap="xs">
                         <Text fw={600}>{production.title}</Text>
                         <Badge color={toneColor[toneOf(production.state)]} variant="light">
-                            {labelOf(production)}
+                            {t(`state.${production.state}`)}
                         </Badge>
                         <Badge variant="default">{production.kind}</Badge>
                     </Group>
@@ -128,7 +135,7 @@ function ProductionCard({ production, stopping, onCancel }: { production: Produc
                     )}
 
                     <Text size="sm" c="dimmed">
-                        {describe(production)}
+                        {describe(production, t)}
                     </Text>
 
                     {/* Who is on it, which is the answer to "why was there somebody else in that
@@ -136,7 +143,7 @@ function ProductionCard({ production, stopping, onCancel }: { production: Produc
                         because the character may have been edited since it was written. */}
                     {production.cast.length > 1 && (
                         <Text size="xs" c="dimmed">
-                            {cast(production)}
+                            {cast(production, t)}
                         </Text>
                     )}
 
@@ -149,7 +156,7 @@ function ProductionCard({ production, stopping, onCancel }: { production: Produc
 
                 {canStop(production.state) && (
                     <Button variant="subtle" color="red" onClick={onCancel} loading={stopping}>
-                        Stop
+                        {t('stop')}
                     </Button>
                 )}
             </Group>
@@ -181,43 +188,20 @@ function toneOf(state: Production['state']): StatusTone {
     return 'live';
 }
 
-/** What the badge says. Plain words rather than the state name, which is the machine's vocabulary. */
-function labelOf(production: Production): string {
-    switch (production.state) {
-        case 'planned':
-            return 'queued';
-        case 'outlining':
-            return 'planning it';
-        case 'drafting':
-            return 'writing it';
-        case 'checking':
-            return 'checking it';
-        case 'rendering':
-            return 'speaking it';
-        case 'stitching':
-            return 'joining it up';
-        case 'ready':
-            return 'ready';
-        case 'aired':
-            return 'in the running order';
-        case 'failed':
-            return 'failed';
-        case 'cancelled':
-            return 'stopped';
-    }
-}
-
 /**
  * The line under the title: how long it will run, how much of it exists, and when it is due.
  *
  * The beat count is the honest progress indicator, and the only one there is — a pass does not
  * report a percentage and inventing one would be a bar that moves at random.
  */
-function describe(production: Production): string {
-    const parts = [`about ${Math.round(production.targetMs / 60_000)} minutes`, `${production.writingMode} write`];
+function describe(production: Production, t: TFunction<'productions'>): string {
+    const parts: string[] = [
+        t('describe.minutes', { count: Math.round(production.targetMs / 60_000) }),
+        t('describe.mode', { mode: production.writingMode }),
+    ];
 
-    if (production.beats > 0) parts.push(`${production.beats} ${production.beats === 1 ? 'beat' : 'beats'} written`);
-    if (production.scheduledFor !== undefined) parts.push(`due ${moment(production.scheduledFor)}`);
+    if (production.beats > 0) parts.push(t('describe.beats', { count: production.beats }));
+    if (production.scheduledFor !== undefined) parts.push(t('describe.due', { when: moment(production.scheduledFor) }));
 
     return parts.join(' · ');
 }

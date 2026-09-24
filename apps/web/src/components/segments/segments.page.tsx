@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ActionIcon, Button, Card, Group, Select, Stack, Table, Text, Textarea, TextInput, Tooltip } from '@mantine/core';
 import { IconPlayerPauseFilled, IconPlayerPlayFilled, IconTrash } from '@tabler/icons-react';
 import type { Segment } from '@deadair/sdk';
+import { useTranslation } from 'react-i18next';
 
 import { fetchSegmentAudio, useCreateSegment, useDeleteSegment, useScanSegments, useSegments } from '../../api/segments.queries';
 import { SegmentUploadCard } from './segment.upload.card';
@@ -52,6 +53,7 @@ const DEFAULT_KIND = 'talkbreak';
  * re-creating the row, which is a different thing wearing the same button.
  */
 export function SegmentsPage() {
+    const { t } = useTranslation('segments');
     const segments = useSegments();
     const scan = useScanSegments();
     const [composing, setComposing] = useState(false);
@@ -65,16 +67,15 @@ export function SegmentsPage() {
     return (
         <Stack gap="lg">
             <PageHeader
-                title="Segments"
+                title={t('title')}
                 description={
                     <Text size="sm" c="dimmed">
-                        Everything the station can play that is not a record. A segment is only playable once it is ready; the station skips anything
-                        else rather than waiting for it.
+                        {t('description')}
                     </Text>
                 }
                 actions={
                     <Group gap="xs">
-                        <Tooltip label="Reads the inbox folder and imports any audio it does not already hold" openDelay={400}>
+                        <Tooltip label={t('scan.tooltip')} openDelay={400}>
                             <Button
                                 variant="default"
                                 loading={scan.isPending}
@@ -83,13 +84,13 @@ export function SegmentsPage() {
                                         onSuccess: result =>
                                             notifyDone(
                                                 result.imported === 0
-                                                    ? `Nothing new in the inbox (${result.scanned} scanned).`
-                                                    : `Imported ${result.imported} of ${result.scanned} scanned.`,
+                                                    ? t('scan.nothing', { scanned: result.scanned })
+                                                    : t('scan.imported', { imported: result.imported, scanned: result.scanned }),
                                             ),
                                     });
                                 }}
                             >
-                                Scan the inbox
+                                {t('scan.action')}
                             </Button>
                         </Tooltip>
                         <Button
@@ -98,24 +99,22 @@ export function SegmentsPage() {
                                 setUploading(open => !open);
                             }}
                         >
-                            Upload
+                            {t('upload')}
                         </Button>
                         <Button
                             onClick={() => {
                                 setComposing(open => !open);
                             }}
                         >
-                            Write one
+                            {t('compose.open')}
                         </Button>
                     </Group>
                 }
             />
 
-            {segments.error ? (
-                <ErrorAlert title="The segment library could not be read" error={segments.error} fallback="The library is unavailable." />
-            ) : undefined}
+            {segments.error ? <ErrorAlert title={t('error.list')} error={segments.error} fallback={t('error.listFallback')} /> : undefined}
 
-            {scan.error ? <ErrorAlert title="The inbox could not be scanned" error={scan.error} fallback="The scan did not finish." /> : undefined}
+            {scan.error ? <ErrorAlert title={t('error.scan')} error={scan.error} fallback={t('error.scanFallback')} /> : undefined}
 
             {uploading ? <SegmentUploadCard kinds={kinds} onDone={() => setUploading(false)} /> : undefined}
 
@@ -129,12 +128,7 @@ export function SegmentsPage() {
 
             {segments.isPending ? <PageSkeleton variant="table" /> : undefined}
 
-            {segments.data && rows.length === 0 ? (
-                <EmptyState title="The station has no segments">
-                    Upload a recording above, write one for the station to say, or drop audio into the inbox folder and scan it. The station plays
-                    what it has; without a segment it plays records back to back.
-                </EmptyState>
-            ) : undefined}
+            {segments.data && rows.length === 0 ? <EmptyState title={t('empty.title')}>{t('empty.body')}</EmptyState> : undefined}
 
             {/* Grouped by kind rather than listed flat, because the kinds are what an operator
                 arrives looking for: an ident and a talk break are different jobs, and a library with
@@ -148,16 +142,15 @@ export function SegmentsPage() {
 
             <ConfirmModal
                 opened={deleting !== undefined}
-                title={`Delete ${deleting?.label ?? ''}?`}
-                confirmLabel="Delete the recording"
+                title={t('delete.title', { label: deleting?.label ?? '' })}
+                confirmLabel={t('delete.confirm')}
                 onConfirm={async () => {
                     if (deleting !== undefined) await remove.mutateAsync(deleting.id);
                     setDeleting(undefined);
                 }}
                 onClose={() => setDeleting(undefined)}
             >
-                The inbox file goes too, so the next scan does not read it back in. Anything the station has already aired stays in the activity feed
-                either way.
+                {t('delete.body')}
             </ConfirmModal>
         </Stack>
     );
@@ -165,6 +158,7 @@ export function SegmentsPage() {
 
 /** One kind's segments, with the state each is in and a way to hear the ones that have audio. */
 function SegmentTable({ segments, onDelete }: { segments: Segment[]; onDelete?: (segment: Segment) => void }) {
+    const { t } = useTranslation('segments');
     const preview = useVoicePreview();
 
     return (
@@ -176,11 +170,11 @@ function SegmentTable({ segments, onDelete }: { segments: Segment[]; onDelete?: 
                         {/* Wide enough for a real label. Left to share the row with the script, a
                         generated one like "Open line: the last word (7/7)" wraps to five lines and
                         makes every row four times as tall as the sentence beside it. */}
-                        <Table.Th w={220}>Label</Table.Th>
-                        <Table.Th>Script</Table.Th>
-                        <Table.Th w={130}>State</Table.Th>
-                        <Table.Th w={110}>Voice</Table.Th>
-                        <Table.Th w={90}>Length</Table.Th>
+                        <Table.Th w={220}>{t('column.label')}</Table.Th>
+                        <Table.Th>{t('column.script')}</Table.Th>
+                        <Table.Th w={130}>{t('column.state')}</Table.Th>
+                        <Table.Th w={110}>{t('column.voice')}</Table.Th>
+                        <Table.Th w={90}>{t('column.length')}</Table.Th>
                         <Table.Th w={44} />
                     </Table.Tr>
                 </Table.Thead>
@@ -198,10 +192,10 @@ function SegmentTable({ segments, onDelete }: { segments: Segment[]; onDelete?: 
                                         <ActionIcon
                                             variant="subtle"
                                             size="sm"
-                                            aria-label={`Play ${segment.label}`}
+                                            aria-label={t('row.play', { label: segment.label })}
                                             loading={preview.isLoading(segment.id)}
                                             onClick={() => {
-                                                preview.play(segment.id, () => fetchSegmentAudio(segment.id), 'That segment would not play.');
+                                                preview.play(segment.id, () => fetchSegmentAudio(segment.id), t('row.playFailed'));
                                             }}
                                         >
                                             {preview.isPlaying(segment.id) ? <IconPlayerPauseFilled size={14} /> : <IconPlayerPlayFilled size={14} />}
@@ -237,7 +231,7 @@ function SegmentTable({ segments, onDelete }: { segments: Segment[]; onDelete?: 
                                 </Table.Td>
                                 <Table.Td>
                                     <Text size="xs" c="dimmed">
-                                        {segment.voice ?? 'default'}
+                                        {segment.voice ?? t('row.defaultVoice')}
                                     </Text>
                                     {/* How the words were read, when the writer chose a reading at all.
                                     Beside the voice because it is the other half of how this row
@@ -256,12 +250,12 @@ function SegmentTable({ segments, onDelete }: { segments: Segment[]; onDelete?: 
                                     the script history, and the way to have it again is a re-render
                                     rather than a re-upload — so there is nothing here to take back. */}
                                     {segment.source === 'library' ? (
-                                        <Tooltip label="Remove it, and the inbox file behind it">
+                                        <Tooltip label={t('row.deleteTooltip')}>
                                             <ActionIcon
                                                 variant="subtle"
                                                 size="sm"
                                                 color="red"
-                                                aria-label={`Delete ${segment.label}`}
+                                                aria-label={t('row.delete', { label: segment.label })}
                                                 onClick={() => onDelete?.(segment)}
                                             >
                                                 <IconTrash size={14} />
@@ -286,6 +280,7 @@ function SegmentTable({ segments, onDelete }: { segments: Segment[]; onDelete?: 
  * something that has not happened yet.
  */
 function ComposeSegment({ onDone }: { onDone: () => void }) {
+    const { t } = useTranslation(['segments', 'common']);
     const create = useCreateSegment();
     const voices = useVoices(true);
 
@@ -300,16 +295,16 @@ function ComposeSegment({ onDone }: { onDone: () => void }) {
         <Card padding="md">
             <Stack gap="sm">
                 <TextInput
-                    label="Label"
-                    description="What the console calls it, and the mount label while it airs"
+                    label={t('compose.label.label')}
+                    description={t('compose.label.description')}
                     value={label}
                     onChange={event => {
                         setLabel(event.currentTarget.value);
                     }}
                 />
                 <Textarea
-                    label="Script"
-                    description="What the station says. The pronunciation list is applied when it is spoken."
+                    label={t('compose.script.label')}
+                    description={t('compose.script.description')}
                     autosize
                     minRows={3}
                     value={script}
@@ -319,18 +314,18 @@ function ComposeSegment({ onDone }: { onDone: () => void }) {
                 />
                 <Group gap="md" wrap="wrap">
                     <TextInput
-                        label="Kind"
+                        label={t('compose.kind.label')}
                         w={{ base: '100%', sm: 200 }}
-                        description="ident, stinger, talkbreak"
+                        description={t('compose.kind.description')}
                         value={kind}
                         onChange={event => {
                             setKind(event.currentTarget.value);
                         }}
                     />
                     <Select
-                        label="Voice"
+                        label={t('compose.voice.label')}
                         w={{ base: '100%', sm: 220 }}
-                        description="Leave empty for the plugin's own default"
+                        description={t('compose.voice.description')}
                         clearable
                         // The plugin's own default answers to the empty string, which Mantine cannot hold as
                         // an option value and which this Select already expresses by being cleared. So the
@@ -343,9 +338,7 @@ function ComposeSegment({ onDone }: { onDone: () => void }) {
                     />
                 </Group>
 
-                {create.error ? (
-                    <ErrorAlert title="That segment could not be planned" error={create.error} fallback="The station did not take it." />
-                ) : undefined}
+                {create.error ? <ErrorAlert title={t('compose.error')} error={create.error} fallback={t('compose.errorFallback')} /> : undefined}
 
                 <Group gap="xs">
                     <Button
@@ -361,17 +354,17 @@ function ComposeSegment({ onDone }: { onDone: () => void }) {
                                 },
                                 {
                                     onSuccess: () => {
-                                        notifyDone('Planned. The station is speaking it now.');
+                                        notifyDone(t('compose.done'));
                                         onDone();
                                     },
                                 },
                             );
                         }}
                     >
-                        Plan it
+                        {t('compose.submit')}
                     </Button>
                     <Button variant="default" onClick={onDone}>
-                        Cancel
+                        {t('common:action.cancel')}
                     </Button>
                 </Group>
             </Stack>

@@ -1,6 +1,7 @@
 import { Fragment } from 'react';
 import { Badge, Group, Stack, Table, Text, Tooltip } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 
 import { catalogTracksOptions, useRateTrack } from '../../api/catalog.queries';
 import { formatDuration } from '../shared/format.duration';
@@ -36,14 +37,8 @@ export interface CatalogTracksPageProps {
     onOrderChange: (order: TrackListOrder) => void;
 }
 
-/** How each state reads when nothing is in it, in the operator's terms rather than the column's. */
-const NOTHING_IN_STATE: Record<TrackStateParam, string> = {
-    cached: 'Nothing is on this machine yet. The station fetches a record a few boundaries before its slot.',
-    uncached: 'Every record is already on this machine.',
-    unmeasured: 'Every record has been measured, so the station has cue points and a level for all of them.',
-    failing: 'No fetch is failing.',
-    benched: 'No record has had all its copies written off.',
-};
+// How each state reads when nothing is in it, in the operator's terms rather than the column's, is
+// `tracks.nothingInState.<state>` in the catalog namespace.
 
 /**
  * Why a list has nothing in it, which is three different facts.
@@ -59,19 +54,20 @@ const NOTHING_IN_STATE: Record<TrackStateParam, string> = {
  * `total` is trustworthy as the library's size by the time the state is asked about.
  */
 function NothingHere({ search, state, total }: { search: string; state: TrackStateParam | ''; total: number }) {
+    const { t } = useTranslation('catalog');
     if (search !== '') {
-        return <EmptyState title={`Nothing matches “${search}”`}>Try a shorter term, or part of the title rather than all of it.</EmptyState>;
+        return <EmptyState title={t('tracks.noMatch.title', { search })}>{t('tracks.noMatch.body')}</EmptyState>;
     }
 
     if (total === 0) {
-        return <EmptyState title="The catalog is empty">The catalog fills as enabled plugins are scanned. Nothing has been ingested yet.</EmptyState>;
+        return <EmptyState title={t('tracks.empty.title')}>{t('tracks.empty.body')}</EmptyState>;
     }
 
-    if (state !== '') return <EmptyState title="Nothing is in this state">{NOTHING_IN_STATE[state]}</EmptyState>;
+    if (state !== '') return <EmptyState title={t('tracks.nothingInState.title')}>{t(`tracks.nothingInState.${state}`)}</EmptyState>;
 
     // Unreachable in practice: an unfiltered list of a non-empty catalog has rows. Answered rather
     // than left blank, because a page drawing nothing at all reads as broken.
-    return <EmptyState title="Nothing to show">This page of the catalog has no records on it.</EmptyState>;
+    return <EmptyState title={t('tracks.nothingToShow.title')}>{t('tracks.nothingToShow.body')}</EmptyState>;
 }
 
 /**
@@ -82,13 +78,14 @@ function NothingHere({ search, state, total }: { search: string; state: TrackSta
  * The absence of a badge already says "not yet" without a placeholder to parse. The tooltip still
  * carries the full sentence.
  */
-function StateMark({ on, label, text }: { on: boolean; label: string; text: string }) {
+function StateMark({ on, kind }: { on: boolean; kind: 'audio' | 'measured' | 'described' }) {
+    const { t } = useTranslation('catalog');
     if (!on) return null;
 
     return (
-        <Tooltip label={`Has ${label}`}>
-            <Badge size="xs" variant="light" aria-label={label}>
-                {text}
+        <Tooltip label={t(`tracks.stateMark.${kind}.tooltip`)}>
+            <Badge size="xs" variant="light" aria-label={t(`tracks.stateMark.${kind}.label`)}>
+                {t(`tracks.stateMark.${kind}.text`)}
             </Badge>
         </Tooltip>
     );
@@ -110,6 +107,7 @@ export function CatalogTracksPage({
     onStateChange,
     onOrderChange,
 }: CatalogTracksPageProps) {
+    const { t } = useTranslation('catalog');
     const tracks = useQuery(catalogTracksOptions({ page, search, state, ...order }));
     const rows = tracks.data?.data ?? [];
     const expansion = useTrackExpansion();
@@ -129,15 +127,15 @@ export function CatalogTracksPage({
                 Tracks and Artists, and a hand-written link beside it duplicated the strip under
                 the wrong name — `/catalog` is the Artists tab, not "catalog". */}
             <PageHeader
-                title="Tracks"
+                title={t('tracks.title')}
                 description={
                     <Text c="dimmed" size="sm">
-                        Every track the station has ingested.
+                        {t('tracks.description')}
                     </Text>
                 }
             />
 
-            <CatalogSearch value={search} placeholder="Search tracks" onChange={onSearchChange} />
+            <CatalogSearch value={search} placeholder={t('tracks.search')} onChange={onSearchChange} />
 
             {/* Under the search rather than over it: the counts describe whatever the search has
                 narrowed to, and reading them above the box they answer to would be backwards. */}
@@ -149,7 +147,7 @@ export function CatalogTracksPage({
             <TrackStateAction state={state} trackIds={rows.map(track => track.id)} />
 
             {tracks.error ? (
-                <ErrorAlert title="The tracks could not be loaded" error={tracks.error} fallback="The catalog is unavailable." />
+                <ErrorAlert title={t('tracks.loadFailedTitle')} error={tracks.error} fallback={t('tracks.loadFailedFallback')} />
             ) : undefined}
 
             {tracks.isPending ? <PageSkeleton variant="table" /> : undefined}
@@ -210,9 +208,9 @@ export function CatalogTracksPage({
                                         so a fresh, empty-of-facts row doesn't reserve a blank line for it. */}
                                         {track.hasAudio || track.measured || track.enriched ? (
                                             <Group gap="xxs" wrap="wrap">
-                                                <StateMark on={track.hasAudio} label="audio on this machine" text="audio" />
-                                                <StateMark on={track.measured} label="measured" text="measured" />
-                                                <StateMark on={track.enriched} label="described by a provider" text="described" />
+                                                <StateMark on={track.hasAudio} kind="audio" />
+                                                <StateMark on={track.measured} kind="measured" />
+                                                <StateMark on={track.enriched} kind="described" />
                                             </Group>
                                         ) : undefined}
                                         <RatingControl
@@ -249,24 +247,24 @@ export function CatalogTracksPage({
                                     <Table.Th w={52} />
                                     <Table.Th w={44} />
                                     <SortableTh sortBy="title" {...sorting}>
-                                        Title
+                                        {t('columns.title')}
                                     </SortableTh>
                                     <SortableTh sortBy="artist" {...sorting}>
-                                        Artist
+                                        {t('columns.artist')}
                                     </SortableTh>
                                     <SortableTh sortBy="album" {...sorting}>
-                                        Album
+                                        {t('columns.album')}
                                     </SortableTh>
                                     <SortableTh sortBy="duration" w={120} {...sorting}>
-                                        Duration
+                                        {t('columns.duration')}
                                     </SortableTh>
                                     {/* Not sortable, and the contract says why: a state is three
                                     independent booleans, so there is no order of it an operator
                                     would agree with. Wide enough for up to three badges, since only
                                     the facts that are true are drawn. */}
-                                    <Table.Th w={220}>State</Table.Th>
+                                    <Table.Th w={220}>{t('columns.state')}</Table.Th>
                                     <SortableTh sortBy="rating" w={150} {...sorting}>
-                                        Rating
+                                        {t('columns.rating')}
                                     </SortableTh>
                                 </Table.Tr>
                             </Table.Thead>
@@ -311,9 +309,9 @@ export function CatalogTracksPage({
                                             draw at all — an absent badge already reads as "not yet". */}
                                             <Table.Td>
                                                 <Group gap="xxs" wrap="wrap">
-                                                    <StateMark on={track.hasAudio} label="audio on this machine" text="audio" />
-                                                    <StateMark on={track.measured} label="measured" text="measured" />
-                                                    <StateMark on={track.enriched} label="described by a provider" text="described" />
+                                                    <StateMark on={track.hasAudio} kind="audio" />
+                                                    <StateMark on={track.measured} kind="measured" />
+                                                    <StateMark on={track.enriched} kind="described" />
                                                 </Group>
                                             </Table.Td>
                                             <Table.Td>

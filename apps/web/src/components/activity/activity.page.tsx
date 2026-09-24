@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Badge, Group, SegmentedControl, Text } from '@mantine/core';
+import { useTranslation } from 'react-i18next';
 import type { ActivityEntry, ActivityModule, ActivitySeverity } from '@deadair/sdk';
 
 import { useActivity } from '../../api/activity.queries';
@@ -11,21 +12,9 @@ import { PageHeader } from '../shared/page.header';
 import { severityColor } from '../shared/status';
 
 /** The filter chips, and the order an operator meets them: what airs first, what makes it after. */
-const MODULES: { value: ActivityModule | 'all'; label: string }[] = [
-    { value: 'all', label: 'Everything' },
-    { value: 'playout', label: 'Playout' },
-    { value: 'director', label: 'Programming' },
-    { value: 'render', label: 'Breaks' },
-    { value: 'catalog', label: 'Catalog' },
-    { value: 'plugins', label: 'Plugins' },
-    { value: 'storage', label: 'Storage' },
-];
+const MODULES = ['all', 'playout', 'director', 'render', 'catalog', 'plugins', 'storage'] as const satisfies readonly (ActivityModule | 'all')[];
 
-const SEVERITIES: { value: ActivitySeverity | 'all'; label: string }[] = [
-    { value: 'all', label: 'All' },
-    { value: 'warn', label: 'Warnings' },
-    { value: 'fault', label: 'Faults' },
-];
+const SEVERITIES = ['all', 'warn', 'fault'] as const satisfies readonly (ActivitySeverity | 'all')[];
 
 /**
  * How a line is painted, which is the one colour on this page that is not decorative.
@@ -63,30 +52,27 @@ const MODULE_COLOR: Record<ActivityModule, string> = {
  * makes them worth looking for.
  */
 export function ActivityPage() {
+    const { t } = useTranslation('activity');
     const [module, setModule] = useState<ActivityModule | 'all'>('all');
     const [severity, setSeverity] = useState<ActivitySeverity | 'all'>('all');
 
     const feed = useActivity({ ...(module === 'all' ? {} : { module }), ...(severity === 'all' ? {} : { minSeverity: severity }) }, true);
 
-    const failure = feed.isError ? apiErrorMessage(feed.error, 'The activity feed could not be read.') : undefined;
+    const failure = feed.isError ? apiErrorMessage(feed.error, t('failure')) : undefined;
 
     return (
         <FeedPage
             query={feed}
             itemsFrom={page => page.entries}
             failure={failure}
-            emptyMessage={
-                module === 'all' && severity === 'all'
-                    ? 'Nothing yet. The station writes here as it airs records, makes breaks and changes what it is doing.'
-                    : 'Nothing matches that filter.'
-            }
+            emptyMessage={module === 'all' && severity === 'all' ? t('empty.all') : t('empty.filtered')}
             renderRow={entry => <ActivityLine entry={entry} />}
         >
             <PageHeader
-                title="Activity"
+                title={t('title')}
                 description={
                     <Text size="sm" c="dimmed">
-                        What the station has done, newest first: what aired, what it wrote and spoke, and every moment a gate opened or closed on it.
+                        {t('description')}
                     </Text>
                 }
             />
@@ -94,7 +80,7 @@ export function ActivityPage() {
             <Group gap="md" wrap="wrap">
                 <SegmentedControl
                     size="xs"
-                    data={MODULES}
+                    data={MODULES.map(value => ({ value, label: t(`module.${value}`) }))}
                     value={module}
                     onChange={value => {
                         setModule(value as ActivityModule | 'all');
@@ -102,7 +88,7 @@ export function ActivityPage() {
                 />
                 <SegmentedControl
                     size="xs"
-                    data={SEVERITIES}
+                    data={SEVERITIES.map(value => ({ value, label: t(`severity.${value}`) }))}
                     value={severity}
                     onChange={value => {
                         setSeverity(value as ActivitySeverity | 'all');
@@ -121,6 +107,7 @@ export function ActivityPage() {
  * carries neither, which is most of the feed — a gate opening is about the station itself.
  */
 function ActivityLine({ entry }: { entry: ActivityEntry }) {
+    const { t } = useTranslation('activity');
     return (
         <Group gap="sm" wrap="nowrap" align="flex-start" px="md" py="xs">
             <FeedMoment at={entry.at} />
@@ -137,12 +124,12 @@ function ActivityLine({ entry }: { entry: ActivityEntry }) {
                 an operator reading the feed wants from that line is the words. */}
             {entry.segmentId === undefined ? undefined : (
                 <ScriptLink id={entry.segmentId} size="xs" style={{ flexShrink: 0, whiteSpace: 'nowrap' }}>
-                    what was said
+                    {t('line.script')}
                 </ScriptLink>
             )}
             {entry.trackId === undefined ? undefined : (
                 <TrackLink id={entry.trackId} size="xs" style={{ flexShrink: 0, whiteSpace: 'nowrap' }}>
-                    the record
+                    {t('line.track')}
                 </TrackLink>
             )}
         </Group>

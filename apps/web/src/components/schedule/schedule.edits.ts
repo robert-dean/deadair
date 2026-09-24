@@ -1,5 +1,7 @@
 import type { ScheduleSlot } from '@deadair/sdk';
 
+import { i18n } from '../../i18n/i18n.setup';
+
 import { weekdayOf } from './schedule.day';
 
 /**
@@ -55,9 +57,6 @@ const dateOf = (stamp: string): string => stamp.slice(0, 10);
  */
 const beginsItsSlot = (block: DraggedBlock, slot: ScheduleSlot): boolean => minutesOf(block.start) === slot.startsAtMinutes;
 
-const CARRIED_OVER =
-    'That is the tail of a block that started the night before, so its top is the start of the day rather than the start of the block. Drag it on the day it begins.';
-
 /**
  * A gesture that moved either end of a block, or the whole thing.
  *
@@ -66,8 +65,8 @@ const CARRIED_OVER =
  */
 export function blockEdit(block: DraggedBlock, newStart: string, newEnd: string, slots: readonly ScheduleSlot[]): SlotEdit {
     const slot = slots.find(candidate => candidate.id === block.slotId);
-    if (slot === undefined) return { kind: 'refused', reason: 'That slot is no longer in the schedule.' };
-    if (!beginsItsSlot(block, slot)) return { kind: 'refused', reason: CARRIED_OVER };
+    if (slot === undefined) return { kind: 'refused', reason: i18n.t('schedule:edits.gone') };
+    if (!beginsItsSlot(block, slot)) return { kind: 'refused', reason: i18n.t('schedule:edits.carriedOver') };
 
     const wasOn = weekdayOf(dateOf(block.start));
     const nowOn = weekdayOf(dateOf(newStart));

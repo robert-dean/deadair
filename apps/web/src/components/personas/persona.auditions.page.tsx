@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Button, Group, NumberInput, Select, Stack, Text } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 
 import { usePersonas } from '../../api/personas.queries';
 import { playlistsListOptions } from '../../api/playlists.queries';
@@ -37,6 +38,7 @@ const DEFAULT_BREAKS = 10;
 export function PersonaAuditionsPage({ persona }: { persona?: string }) {
     const personas = usePersonas();
     const playlists = useQuery(playlistsListOptions);
+    const { t } = useTranslation('personas');
 
     // Hosts only. A caller is cast into a production and never presents, so auditioning one over a
     // playlist would be measuring something the station will not ask it to do.
@@ -69,8 +71,8 @@ export function PersonaAuditionsPage({ persona }: { persona?: string }) {
             <Stack gap="xs">
                 <Group gap="sm" align="flex-end" wrap="wrap">
                     <Select
-                        label="Character"
-                        data={hosts.map(one => ({ value: one.id, label: one.presenting ? `${one.label} (on air)` : one.label }))}
+                        label={t('auditions.character')}
+                        data={hosts.map(one => ({ value: one.id, label: one.presenting ? t('auditions.onAir', { label: one.label }) : one.label }))}
                         value={personaId === '' ? null : personaId}
                         onChange={value => {
                             setChosen(value ?? undefined);
@@ -81,8 +83,8 @@ export function PersonaAuditionsPage({ persona }: { persona?: string }) {
                         w={240}
                     />
                     <Select
-                        label="Playlist"
-                        description="Read once, when you press Start."
+                        label={t('auditions.playlist')}
+                        description={t('auditions.playlistDescription')}
                         data={offerablePlaylists(playlists.data?.playlists ?? [], playlist).map(one => ({
                             value: sourceValue(one.pluginId, one.id),
                             label: `${one.name} — ${one.pluginName}`,
@@ -95,7 +97,7 @@ export function PersonaAuditionsPage({ persona }: { persona?: string }) {
                         w={320}
                     />
                     <NumberInput
-                        label="Breaks"
+                        label={t('auditions.breaks')}
                         value={breaks}
                         onChange={value => setBreaks(typeof value === 'number' ? value : DEFAULT_BREAKS)}
                         min={1}
@@ -116,29 +118,28 @@ export function PersonaAuditionsPage({ persona }: { persona?: string }) {
                             });
                         }}
                     >
-                        Start
+                        {t('auditions.start')}
                     </Button>
                 </Group>
 
                 <Text size="xs" c="dimmed">
-                    Nothing here airs, and nothing is spent: the character&apos;s notebook and stories are read for each break and left where they
-                    are. Each break waits for the model behind everything the station is doing for itself, so a run fills in over minutes.
+                    {t('auditions.note')}
                 </Text>
             </Stack>
 
-            {personas.isError ? <ErrorAlert title="Could not read the roster" error={personas.error} /> : undefined}
-            {playlists.isError ? <ErrorAlert title="Could not read the playlists" error={playlists.error} /> : undefined}
+            {personas.isError ? <ErrorAlert title={t('auditions.rosterError')} error={personas.error} /> : undefined}
+            {playlists.isError ? <ErrorAlert title={t('auditions.playlistsError')} error={playlists.error} /> : undefined}
             {start.isError ? (
-                <ErrorAlert title="Nothing was started" error={start.error} fallback="That audition could not be started." />
+                <ErrorAlert title={t('auditions.startError.title')} error={start.error} fallback={t('auditions.startError.fallback')} />
             ) : undefined}
-            {cancel.isError ? <ErrorAlert title="Could not stop that audition" error={cancel.error} /> : undefined}
-            {runs.isError ? <ErrorAlert title="Could not read this character’s auditions" error={runs.error} /> : undefined}
+            {cancel.isError ? <ErrorAlert title={t('auditions.cancelError')} error={cancel.error} /> : undefined}
+            {runs.isError ? <ErrorAlert title={t('auditions.runsError')} error={runs.error} /> : undefined}
 
             {runs.isLoading ? <PageSkeleton variant="rows" /> : undefined}
 
             {runs.data?.auditions.length === 0 ? (
-                <EmptyState title={`${host?.label ?? 'This character'} has not been auditioned yet`}>
-                    Pick a playlist above and press Start. Ten breaks is about an hour of radio, and you can read them as they land.
+                <EmptyState title={host === undefined ? t('auditions.empty.titleUnknown') : t('auditions.empty.title', { label: host.label })}>
+                    {t('auditions.empty.body')}
                 </EmptyState>
             ) : undefined}
 

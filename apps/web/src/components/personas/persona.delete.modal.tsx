@@ -1,7 +1,9 @@
 import { Stack, Text } from '@mantine/core';
 import type { Persona } from '@deadair/sdk';
+import { useTranslation } from 'react-i18next';
 
 import { usePersonaNotes } from '../../api/personas.queries';
+import { i18n } from '../../i18n/i18n.setup';
 import { ConfirmModal } from '../shared/confirm.modal';
 
 /**
@@ -26,6 +28,7 @@ export function PersonaDeleteModal({ persona, opened, onClose, onConfirm, deleti
     // Only while the dialog is open, and only for this one. `usePersonaNotes` is already keyed per
     // persona with the list's own staleness, so an operator who had the notebook open pays nothing.
     const notes = usePersonaNotes(opened ? persona?.id : undefined);
+    const { t } = useTranslation('personas');
 
     if (persona === undefined) return undefined;
 
@@ -34,21 +37,18 @@ export function PersonaDeleteModal({ persona, opened, onClose, onConfirm, deleti
             opened={opened}
             onClose={onClose}
             onConfirm={onConfirm}
-            title={`Delete ${persona.label}?`}
-            confirmLabel="Delete"
+            title={t('deleteModal.title', { label: persona.label })}
+            confirmLabel={t('deleteModal.confirm')}
             confirming={deleting}
             error={error}
-            errorTitle="That persona could not be deleted"
-            errorFallback="Nothing was removed."
+            errorTitle={t('deleteModal.errorTitle')}
+            errorFallback={t('deleteModal.errorFallback')}
         >
             <Stack gap="md">
-                <Text size="sm">
-                    Its sheet goes, and so do its own phrasings{notebookClause(notes.data?.notes.length)}. Anything it has already written and
-                    rendered keeps the words it has; nothing on air changes.
-                </Text>
+                <Text size="sm">{t('deleteModal.body', { notebook: notebookClause(notes.data?.notes.length) })}</Text>
 
                 <Text size="sm" c="dimmed">
-                    The station&apos;s own characters can be written back with Restore built-ins. One you wrote yourself cannot.
+                    {t('deleteModal.restorable')}
                 </Text>
             </Stack>
         </ConfirmModal>
@@ -64,7 +64,7 @@ export function PersonaDeleteModal({ persona, opened, onClose, onConfirm, deleti
  */
 function notebookClause(count: number | undefined): string {
     if (count === undefined || count === 0) return '';
-    return `, and the ${count} note${count === 1 ? '' : 's'} in its notebook`;
+    return i18n.t('personas:deleteModal.notebook', { count });
 }
 
 interface Props {

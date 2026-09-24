@@ -3,6 +3,7 @@ import type { AuthenticationTokenResponseOutput, MfaRequiredResponseOutput } fro
 import { sdk } from './client';
 import { apiErrorMessage, sdkError } from './sdk.error';
 import { setSession } from '../auth/session.store';
+import { i18n } from '../i18n/i18n.setup';
 
 /**
  * What the console found in the URL it was sent back to.
@@ -52,16 +53,16 @@ export async function completeAuthCallback(query: AuthCallbackQuery): Promise<Au
     // The IdP's own refusal, handed back by the API rather than raised here. It arrives instead of
     // a token, so it is checked first.
     if (query.error) {
-        return { kind: 'failed', message: query.error_description ?? 'That sign-in was refused.', spent: false };
+        return { kind: 'failed', message: query.error_description ?? i18n.t('api:authCallback.refused'), spent: false };
     }
     if (!query.token) {
-        return { kind: 'failed', message: 'That link is missing the part that proves who you are. Ask for a new one.', spent: false };
+        return { kind: 'failed', message: i18n.t('api:authCallback.missingToken'), spent: false };
     }
 
     const oidcExchangeId = /^oidc:(.+)$/.exec(query.token)?.[1];
 
     if (oidcExchangeId === undefined && query.challenge_id === undefined) {
-        return { kind: 'failed', message: 'That link is missing its challenge id. Ask for a new one.', spent: false };
+        return { kind: 'failed', message: i18n.t('api:authCallback.missingChallenge'), spent: false };
     }
 
     try {
@@ -83,9 +84,7 @@ export async function completeAuthCallback(query: AuthCallbackQuery): Promise<Au
     } catch (caught) {
         return {
             kind: 'failed',
-            message: isSpent(caught)
-                ? 'That link has already been used, or it has expired. Ask for a new one.'
-                : apiErrorMessage(caught, 'Could not finish signing you in. Try again.'),
+            message: isSpent(caught) ? i18n.t('api:authCallback.spent') : apiErrorMessage(caught, i18n.t('api:authCallback.fallback')),
             spent: isSpent(caught),
         };
     }

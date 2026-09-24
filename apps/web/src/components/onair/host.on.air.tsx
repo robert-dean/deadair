@@ -1,4 +1,5 @@
 import { Badge, Group, Menu, Text } from '@mantine/core';
+import { useTranslation } from 'react-i18next';
 
 import { useRecastStation } from '../../api/director.queries';
 import { usePersonas } from '../../api/personas.queries';
@@ -40,6 +41,7 @@ export interface HostOnAirProps {
 }
 
 export function HostOnAir({ personaId, personaLabel }: HostOnAirProps) {
+    const { t } = useTranslation('onair');
     const personas = usePersonas();
     const recast = useRecastStation();
 
@@ -51,7 +53,7 @@ export function HostOnAir({ personaId, personaLabel }: HostOnAirProps) {
     // order in the same request and so cannot be a stale roster.
     const stationsOwn = personas.data?.personas.find(persona => persona.defaultHost);
     const hosting = personaLabel ?? personas.data?.personas.find(persona => persona.presenting)?.label;
-    const failure = recast.isError ? apiErrorMessage(recast.error, 'The host could not be changed.') : undefined;
+    const failure = recast.isError ? apiErrorMessage(recast.error, t('host.failed')) : undefined;
 
     return (
         <Menu position="bottom-start" withinPortal>
@@ -68,16 +70,13 @@ export function HostOnAir({ personaId, personaLabel }: HostOnAirProps) {
                     {/* A phrase rather than a field. "hosted by:" is a label with a value stuck on
                         the end of it, and it sat in a row of three badges each doing the same thing,
                         which read as a debug line rather than as the desk saying who is on. */}
-                    Presented by {hosting ?? 'nobody'}
+                    {t('host.presentedBy', { host: hosting ?? t('host.nobody') })}
                 </Badge>
             </Menu.Target>
             {/* Bounded and scrolling, because this list is as long as the operator has made it: a
                 station with twenty characters ran the dropdown off the bottom of the page. */}
             <Menu.Dropdown maw={320} mah={420} style={{ overflowY: 'auto' }}>
-                <Menu.Label>
-                    Who presents this show. Changing it re-writes the breaks already written for it, and one that is not ready when its slot comes
-                    round is skipped.
-                </Menu.Label>
+                <Menu.Label>{t('host.hint')}</Menu.Label>
                 {failure ? (
                     <Text size="xs" c="red.4" px="sm" pb="xs">
                         {failure}
@@ -85,7 +84,7 @@ export function HostOnAir({ personaId, personaLabel }: HostOnAirProps) {
                 ) : undefined}
                 <Menu.Item disabled={personaId === undefined} onClick={() => recast.mutate({})}>
                     <Group gap="xs" wrap="nowrap">
-                        <Text size="sm">The station’s host</Text>
+                        <Text size="sm">{t('host.stationsHost')}</Text>
                         {stationsOwn ? (
                             <Text size="xs" c="dimmed">
                                 {stationsOwn.label}

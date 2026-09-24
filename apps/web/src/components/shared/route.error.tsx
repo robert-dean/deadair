@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Anchor, Button, Card, Code, Group, Stack, Text, Title } from '@mantine/core';
 import { IconArrowLeft, IconRefresh } from '@tabler/icons-react';
 import { Link, useRouter, type ErrorComponentProps } from '@tanstack/react-router';
+import { useTranslation } from 'react-i18next';
 
 import { isConnectivityError } from '../../api/api.status';
 import { apiErrorMessage } from '../../api/sdk.error';
@@ -22,6 +23,7 @@ import { useDisclosureIds } from './disclosure';
  * than throwing, so there is no case where this draws without chrome around it.
  */
 export function RouteError({ error, reset }: ErrorComponentProps) {
+    const { t } = useTranslation();
     const router = useRouter();
     const [showDetail, setShowDetail] = useState(false);
     const { trigger: detailTrigger, panelId: detailPanelId } = useDisclosureIds(showDetail);
@@ -41,24 +43,22 @@ export function RouteError({ error, reset }: ErrorComponentProps) {
             <Stack gap="md">
                 <Stack gap="xxs">
                     <Title order={2} size="h4">
-                        {offline ? 'This page could not be loaded' : 'This page did not load'}
+                        {offline ? t('routeError.offlineTitle') : t('routeError.title')}
                     </Title>
                     <Text c="dimmed" size="sm">
-                        {offline
-                            ? 'The station is not answering. It may be restarting — the console is already trying again.'
-                            : apiErrorMessage(error, 'Something in this page failed while it was loading.')}
+                        {offline ? t('routeError.offline') : apiErrorMessage(error, t('routeError.fallback'))}
                     </Text>
                 </Stack>
 
                 <Group gap="sm">
                     <Button leftSection={<IconRefresh size={16} />} onClick={retry}>
-                        Try again
+                        {t('action.tryAgain')}
                     </Button>
                     {/* `renderRoot` with the parameter annotated, never `component={Link}` — see
                         `apps/web/CLAUDE.md`: the polymorphic form spreads an `any` and silently
                         turns off route checking on the link. */}
                     <Button variant="subtle" leftSection={<IconArrowLeft size={16} />} renderRoot={(props: object) => <Link to="/" {...props} />}>
-                        Back to the desk
+                        {t('action.backToDesk')}
                     </Button>
                 </Group>
 
@@ -78,7 +78,7 @@ export function RouteError({ error, reset }: ErrorComponentProps) {
                     in the tree while it is shut. */}
                 <Stack gap="xxs">
                     <Anchor component="button" type="button" size="sm" onClick={() => setShowDetail(current => !current)} {...detailTrigger}>
-                        {showDetail ? 'Hide technical detail' : 'Show technical detail'}
+                        {showDetail ? t('routeError.hideDetail') : t('routeError.showDetail')}
                     </Anchor>
                     {showDetail ? (
                         <Code id={detailPanelId} block style={{ whiteSpace: 'pre-wrap' }}>

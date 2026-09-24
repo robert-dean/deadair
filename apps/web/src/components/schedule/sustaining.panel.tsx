@@ -3,6 +3,8 @@ import { Button, Card, Collapse, Group, Stack, Text } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { useQuery } from '@tanstack/react-query';
 import type { CatalogPlaylist, StationChart } from '@deadair/sdk';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 
 import { chartsListOptions } from '../../api/charts.queries';
 import { playlistsListOptions } from '../../api/playlists.queries';
@@ -73,6 +75,7 @@ interface FormValues {
  * saved now is what the NEXT gap plays.
  */
 export function SustainingPanel() {
+    const { t } = useTranslation('schedule');
     const settings = useSettings();
     const save = useUpdateSettings();
     const playlists = useQuery(playlistsListOptions);
@@ -111,25 +114,21 @@ export function SustainingPanel() {
             <Stack gap="sm">
                 <Group justify="space-between" align="flex-start" wrap="nowrap">
                     <Stack gap={2}>
-                        <Eyebrow>Sustaining</Eyebrow>
+                        <Eyebrow>{t('sustaining.title')}</Eyebrow>
                         {/* Nothing is claimed until the settings have answered. An unanswered read
                             and a station with nothing set are the same empty map, and only one of
                             them is worth a sentence. */}
                         <Text size="sm" c="dimmed" maw={620}>
-                            {settings.data === undefined ? ' ' : summaryOf(stored, catalog, chartMenu)}
+                            {settings.data === undefined ? ' ' : summaryOf(t, stored, catalog, chartMenu)}
                         </Text>
                     </Stack>
                     <Button size="xs" variant="light" onClick={() => setOpened(open => !open)}>
-                        {opened ? 'Done' : 'Change'}
+                        {opened ? t('action.done') : t('action.change')}
                     </Button>
                 </Group>
 
                 {settings.error ? (
-                    <ErrorAlert
-                        title="The sustaining source could not be read"
-                        error={settings.error}
-                        fallback="What plays between blocks is unavailable."
-                    />
+                    <ErrorAlert title={t('sustaining.readFailedTitle')} error={settings.error} fallback={t('sustaining.readFailedFallback')} />
                 ) : undefined}
 
                 <Collapse expanded={opened}>
@@ -144,7 +143,7 @@ export function SustainingPanel() {
                         onSubmit={submit}
                         saving={save.isPending}
                         succeeded={save.isSuccess}
-                        failure={save.isError ? apiErrorMessage(save.error, 'The sustaining source could not be saved.') : undefined}
+                        failure={save.isError ? apiErrorMessage(save.error, t('sustaining.saveFailed')) : undefined}
                     />
                 </Collapse>
             </Stack>
@@ -167,24 +166,19 @@ interface SustainingFormProps {
  * the card above is already reading for its summary line, so it is one request either way.
  */
 function SustainingForm({ initial, onSubmit, saving, succeeded, failure }: SustainingFormProps) {
+    const { t } = useTranslation('schedule');
     const form = useForm<FormValues>({ initialValues: initial });
 
     return (
         <form onSubmit={form.onSubmit(onSubmit)}>
             <Stack gap="md" pt="sm">
-                {failure ? <ErrorAlert title="That could not be saved">{failure}</ErrorAlert> : undefined}
+                {failure ? <ErrorAlert title={t('saveFailedTitle')}>{failure}</ErrorAlert> : undefined}
 
-                <SourceField
-                    description="Leave it empty and the station programmes the gap itself, from the words below."
-                    {...form.getInputProps('source')}
-                />
+                <SourceField description={t('sustaining.sourceDescription')} {...form.getInputProps('source')} />
 
                 {splitSource(form.values.source)?.kind === 'chart' ? <ChartOrderField {...form.getInputProps('chartOrder')} /> : undefined}
 
-                <BriefField
-                    description="In your own words, for the model that chooses records, exactly as a block's own brief works."
-                    {...form.getInputProps('brief')}
-                />
+                <BriefField description={t('sustaining.briefDescription')} {...form.getInputProps('brief')} />
 
                 {/* Beside the words rather than inside them, as on a block: a period is the one part
                     of an instruction that can be a number, and a number reaches the record DRAW as
@@ -192,19 +186,17 @@ function SustainingForm({ initial, onSubmit, saving, succeeded, failure }: Susta
                 <EraFields from={form.getInputProps('eraFrom')} to={form.getInputProps('eraTo')} />
 
                 <Text size="xs" c="dimmed">
-                    A gap never falls silent: it plays this, or the station keeps whatever the last block left on. Saving changes nothing that is on
-                    air now — the station moves at the first boundary after a block ends. A record whose release year the catalogue does not know is
-                    played whatever the period.
+                    {t('sustaining.note')}
                 </Text>
 
                 <Group justify="flex-end" gap="md">
                     {succeeded && !form.isDirty() ? (
                         <Text size="sm" c="dimmed">
-                            Saved.
+                            {t('saved')}
                         </Text>
                     ) : undefined}
                     <Button type="submit" loading={saving}>
-                        Save
+                        {t('action.save')}
                     </Button>
                 </Group>
             </Stack>
@@ -263,7 +255,7 @@ function storedValues(values: Record<string, unknown>): FormValues {
  * station keeps what was on. That is a working station rather than a fault, so it is not phrased as
  * one.
  */
-function summaryOf(stored: FormValues, catalog: readonly CatalogPlaylist[], charts: readonly StationChart[]): string {
+function summaryOf(t: TFunction<'schedule'>, stored: FormValues, catalog: readonly CatalogPlaylist[], charts: readonly StationChart[]): string {
     const parts: string[] = [];
 
     const source = splitSource(stored.source);
@@ -271,29 +263,30 @@ function summaryOf(stored: FormValues, catalog: readonly CatalogPlaylist[], char
         const known = charts.find(entry => entry.id === source.chartId);
         // The order goes in the line too, because "the top forty" and "the top forty counting down"
         // are two different hours and the picker is behind a fold.
-        parts.push(`${known?.name ?? source.chartId}${stored.chartOrder === 'countdown' ? ', counting down' : ''}`);
+        const name = known?.name ?? source.chartId;
+        parts.push(stored.chartOrder === 'countdown' ? t('sustaining.summary.countingDown', { name }) : name);
     } else if (source?.kind === 'playlist') {
         const known = catalog.find(entry => entry.pluginId === source.pluginId && entry.id === source.playlistId);
-        parts.push(known ? `${known.name} — ${known.pluginName}` : source.playlistId);
+        parts.push(known ? t('sustaining.summary.playlist', { name: known.name, from: known.pluginName }) : source.playlistId);
     }
-    if (stored.brief.trim() !== '') parts.push(`“${stored.brief.trim()}”`);
+    if (stored.brief.trim() !== '') parts.push(t('sustaining.summary.brief', { brief: stored.brief.trim() }));
 
-    const period = periodOf(stored.eraFrom, stored.eraTo);
+    const period = periodOf(t, stored.eraFrom, stored.eraTo);
     if (period !== undefined) parts.push(period);
 
-    if (parts.length === 0) return 'Nothing is set to play between blocks, so a gap keeps whatever the last block left on.';
+    if (parts.length === 0) return t('sustaining.summary.nothingSet');
 
-    return `Between blocks: ${parts.join(' · ')}`;
+    return t('sustaining.summary.between', { parts: parts.join(' · ') });
 }
 
 /** A period as an operator would say it, where either end may stand alone. */
-function periodOf(from: number | string, to: number | string): string | undefined {
+function periodOf(t: TFunction<'schedule'>, from: number | string, to: number | string): string | undefined {
     const start = typeof from === 'number' ? from : undefined;
     const end = typeof to === 'number' ? to : undefined;
 
-    if (start !== undefined && end !== undefined) return `${start}–${end}`;
-    if (start !== undefined) return `${start} onwards`;
-    if (end !== undefined) return `up to ${end}`;
+    if (start !== undefined && end !== undefined) return t('sustaining.period.range', { from: start, to: end });
+    if (start !== undefined) return t('sustaining.period.onwards', { from: start });
+    if (end !== undefined) return t('sustaining.period.upTo', { to: end });
 
     return undefined;
 }

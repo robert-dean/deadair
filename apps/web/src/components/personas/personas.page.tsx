@@ -3,6 +3,8 @@ import { ActionIcon, Anchor, Badge, Button, Card, CloseButton, Group, Menu, Stac
 import { IconDots, IconPlayerPauseFilled, IconPlayerPlayFilled } from '@tabler/icons-react';
 import { Link } from '@tanstack/react-router';
 import type { Persona, PersonaInput, ScriptHistorySummaryRow, Voice } from '@deadair/sdk';
+import type { TFunction } from 'i18next';
+import { useTranslation } from 'react-i18next';
 
 import {
     exportPersonas,
@@ -52,6 +54,7 @@ import { PresentingBanner } from './presenting.banner';
  */
 export function PersonasPage() {
     const phone = usePhone();
+    const { t } = useTranslation('personas');
     const personas = usePersonas();
     const create = useCreatePersona();
     const update = useUpdatePersona();
@@ -137,12 +140,10 @@ export function PersonasPage() {
     return (
         <Stack gap="lg">
             <PageHeader
-                title="Personas"
+                title={t('page.title')}
                 description={
                     <Text c="dimmed" size="sm">
-                        Who the station is when it talks. The one on air decides how a break is written, what it says when nothing wrote it and which
-                        voice reads it; a change is heard on the next break. Callers are the other half of the roster: they never present, and they
-                        are cast into a production when one wants somebody on the phone.
+                        {t('page.description')}
                     </Text>
                 }
                 actions={
@@ -158,18 +159,18 @@ export function PersonasPage() {
                                 void save();
                             }}
                         >
-                            Export all
+                            {t('page.exportAll')}
                         </Button>
                         {/* The other half of Export, and the reason either exists: a character in a
                             file is the thing somebody would actually send somebody else. */}
                         <Button variant="default" onClick={() => setImporting(true)}>
-                            Import
+                            {t('page.import')}
                         </Button>
                         {/* Safe to press twice: it writes only what is missing, overwrites nothing an
                             operator has rewritten, and puts nothing on air. That is what keeps it a
                             plain button rather than something behind a confirmation. */}
                         <Button variant="default" loading={restore.isPending} onClick={() => restore.mutate(undefined)}>
-                            Restore built-ins
+                            {t('page.restore')}
                         </Button>
                         {/* Two buttons rather than a field in the form, because what a character is
                             FOR is not a property somebody edits afterwards: a host presents and a
@@ -181,7 +182,7 @@ export function PersonasPage() {
                                 setEditing(null);
                             }}
                         >
-                            New caller
+                            {t('page.newCaller')}
                         </Button>
                         <Button
                             onClick={() => {
@@ -189,14 +190,14 @@ export function PersonasPage() {
                                 setEditing(null);
                             }}
                         >
-                            New host
+                            {t('page.newHost')}
                         </Button>
                     </>
                 }
             />
 
             {personas.error ? (
-                <ErrorAlert title="Personas could not be loaded" error={personas.error} fallback="The persona list is unavailable." />
+                <ErrorAlert title={t('page.loadError.title')} error={personas.error} fallback={t('page.loadError.fallback')} />
             ) : undefined}
 
             {/* Draws itself only when the show on air named a host of its own, which is the one
@@ -215,13 +216,13 @@ export function PersonasPage() {
                 here and it is about the list rather than about any row in it. Putting one on air,
                 rehearsing one and deleting one all report on the card that asked. */}
             {restore.error ? (
-                <ErrorAlert title="The station personas could not be restored" error={restore.error} fallback="Nothing was written." />
+                <ErrorAlert title={t('page.restoreError.title')} error={restore.error} fallback={t('page.restoreError.fallback')} />
             ) : undefined}
 
             {/* Page-level for the same reason, and only for the ROSTER export: the button that asked
                 is up here. A single character's failure lands on its own card. */}
             {exportFailure?.of === ROSTER ? (
-                <ErrorAlert title="The personas could not be exported" error={exportFailure.error} fallback="Nothing was saved." />
+                <ErrorAlert title={t('page.exportError.title')} error={exportFailure.error} fallback={t('page.exportError.fallback')} />
             ) : undefined}
 
             {personas.isPending ? (
@@ -231,12 +232,7 @@ export function PersonasPage() {
                 </Stack>
             ) : undefined}
 
-            {personas.data?.personas.length === 0 ? (
-                <EmptyState>
-                    This station has no personas, which is an ordinary state rather than a fault: it writes its breaks from the station&apos;s own
-                    phrasings and speaks them in the plugin&apos;s default voice. Write one to give it a character.
-                </EmptyState>
-            ) : undefined}
+            {personas.data?.personas.length === 0 ? <EmptyState>{t('page.empty')}</EmptyState> : undefined}
 
             {/* Only once the roster is long enough to be worth sieving. A search box over six cards
                 is a control that costs more attention than it saves. */}
@@ -244,18 +240,16 @@ export function PersonasPage() {
                 <TextInput
                     value={filter}
                     onChange={event => setFilter(event.currentTarget.value)}
-                    placeholder="Find a character"
-                    aria-label="Find a character"
+                    placeholder={t('page.filter.placeholder')}
+                    aria-label={t('page.filter.placeholder')}
                     maw={360}
                     rightSection={
-                        filter.length > 0 ? <CloseButton size="sm" onClick={() => setFilter('')} aria-label="Clear the filter" /> : undefined
+                        filter.length > 0 ? <CloseButton size="sm" onClick={() => setFilter('')} aria-label={t('page.filter.clear')} /> : undefined
                     }
                 />
             ) : undefined}
 
-            {all.length > 0 && shown.length === 0 ? (
-                <EmptyState>No character here matches that. Clear the box to see the whole roster again.</EmptyState>
-            ) : undefined}
+            {all.length > 0 && shown.length === 0 ? <EmptyState>{t('page.noMatch')}</EmptyState> : undefined}
 
             <Stack gap="sm">
                 {shown.map((persona, index) => (
@@ -266,7 +260,7 @@ export function PersonasPage() {
                             so one comparison with the card above is the whole of it — and a filter
                             that matches only callers correctly draws only that heading. */}
                         {index === 0 || kindOf(shown[index - 1]!) !== kindOf(persona) ? (
-                            <Eyebrow>{kindOf(persona) === 'caller' ? 'Callers' : 'Hosts'}</Eyebrow>
+                            <Eyebrow>{kindOf(persona) === 'caller' ? t('page.heading.callers') : t('page.heading.hosts')}</Eyebrow>
                         ) : undefined}
                         <Card>
                             {/* Wraps on a phone rather than holding its intrinsic width: at 500px the
@@ -286,12 +280,12 @@ export function PersonasPage() {
                                         somebody is looking at this page. */}
                                         {persona.presenting ? (
                                             <Badge color="green" variant="light">
-                                                On air now
+                                                {t('card.onAirNow')}
                                             </Badge>
                                         ) : undefined}
                                         {persona.defaultHost && !persona.presenting ? (
                                             <Badge color="gray" variant="light">
-                                                Station’s own
+                                                {t('card.stationsOwn')}
                                             </Badge>
                                         ) : undefined}
                                         {persona.djName ? (
@@ -317,18 +311,18 @@ export function PersonasPage() {
                                                 part saying anything about the sound. A station with
                                                 no speech plugin gets the slot alone, which is all
                                                 anything knows then. */}
-                                                speaks as {describeVoice(persona.voice, voices.data?.voices)}
+                                                {t('card.speaksAs', { voice: describeVoice(persona.voice, voices.data?.voices, t) })}
                                             </Text>
                                             <ActionIcon
                                                 variant="subtle"
                                                 size="xs"
                                                 loading={preview.isLoading(persona.voice)}
-                                                aria-label={`Play a sample of the voice ${persona.label} speaks in`}
+                                                aria-label={t('card.playVoice', { label: persona.label })}
                                                 onClick={() =>
                                                     preview.play(
                                                         persona.voice!,
                                                         () => fetchVoiceSample(persona.voice!),
-                                                        'That voice could not be previewed.',
+                                                        t('shared.voicePreviewFailed'),
                                                     )
                                                 }
                                             >
@@ -355,7 +349,7 @@ export function PersonasPage() {
                                                 <Link to="/voice" search={{ tab: 'said', segment: '', persona: persona.key }} {...props} />
                                             )}
                                         >
-                                            What they&apos;ve said
+                                            {t('card.said')}
                                         </Anchor>
                                     </Group>
 
@@ -365,7 +359,7 @@ export function PersonasPage() {
                                         </Text>
                                     ) : undefined}
                                 </Stack>
-                                <Group gap="xs" wrap="nowrap" {...(phone ? { w: '100%', justify: 'flex-end' } : {})}>
+                                <Group gap="xs" wrap="nowrap" {...(phone ? PHONE_ACTIONS : {})}>
                                     {/* Not offered for a caller at all, rather than offered and refused:
                                     somebody who phones in cannot present the station, and the API
                                     and the database both say so. A button that always fails is a
@@ -384,11 +378,11 @@ export function PersonasPage() {
                                                     // happened, because this is the station's own
                                                     // host rather than the show's: a broadcast that
                                                     // named its own keeps it until that show ends.
-                                                    onSuccess: () => notifyDone(`${persona.label} is the station\u2019s host now.`),
+                                                    onSuccess: () => notifyDone(t('card.madeHost', { label: persona.label })),
                                                 })
                                             }
                                         >
-                                            Make station host
+                                            {t('card.makeHost')}
                                         </Button>
                                     )}
                                     {/* Spends a generation and changes nothing, so it is a plain button
@@ -401,10 +395,10 @@ export function PersonasPage() {
                                         disabled={rehearse.isPending}
                                         onClick={() => rehearse.mutate(persona.id)}
                                     >
-                                        Rehearse
+                                        {t('card.rehearse')}
                                     </Button>
                                     <Button variant="subtle" size="compact-sm" onClick={() => setEditing(persona)}>
-                                        Edit
+                                        {t('shared.edit')}
                                     </Button>
                                     {/* Notebook, Stories, Export and Delete behind one control: six
                                     equal-weight buttons put Delete at the same visual weight as Put
@@ -419,7 +413,7 @@ export function PersonasPage() {
                                             <ActionIcon
                                                 variant="subtle"
                                                 loading={remove.isPending && remove.variables === persona.id}
-                                                aria-label={`More about ${persona.label}`}
+                                                aria-label={t('card.more', { label: persona.label })}
                                             >
                                                 <IconDots size={16} />
                                             </ActionIcon>
@@ -428,13 +422,13 @@ export function PersonasPage() {
                                             {/* One at a time: the panel fetches per character, and
                                             every open notebook is a request nobody asked for. */}
                                             <Menu.Item onClick={() => setNotebook(current => (current === persona.id ? undefined : persona.id))}>
-                                                {notebook === persona.id ? 'Hide notebook' : 'Notebook'}
+                                                {notebook === persona.id ? t('card.menu.hideNotebook') : t('card.menu.notebook')}
                                             </Menu.Item>
                                             <Menu.Item onClick={() => setShelf(current => (current === persona.id ? undefined : persona.id))}>
-                                                {shelf === persona.id ? 'Hide stories' : 'Stories'}
+                                                {shelf === persona.id ? t('card.menu.hideStories') : t('card.menu.stories')}
                                             </Menu.Item>
                                             <Menu.Item onClick={() => setMemory(current => (current === persona.id ? undefined : persona.id))}>
-                                                {memory === persona.id ? 'Hide memory' : 'Memory'}
+                                                {memory === persona.id ? t('card.menu.hideMemory') : t('card.menu.memory')}
                                             </Menu.Item>
                                             <Menu.Item
                                                 disabled={exporting === persona.id}
@@ -442,14 +436,14 @@ export function PersonasPage() {
                                                     void save(persona.id);
                                                 }}
                                             >
-                                                {exporting === persona.id ? 'Saving…' : 'Export'}
+                                                {exporting === persona.id ? t('card.menu.exporting') : t('card.menu.export')}
                                             </Menu.Item>
                                             <Menu.Divider />
                                             {/* The one action here that loses something an operator
                                             wrote, so it is the one that asks first and says what
                                             goes with it — and the one kept last and in red. */}
                                             <Menu.Item color="red" onClick={() => setDeleting(persona)}>
-                                                Delete
+                                                {t('shared.delete')}
                                             </Menu.Item>
                                         </Menu.Dropdown>
                                     </Menu>
@@ -460,14 +454,16 @@ export function PersonasPage() {
                             for a per-card button puts the reason at the top of a list of fourteen,
                             where an operator working on the ninth will not see it. */}
                             {setStationHost.error && setStationHost.variables === persona.id ? (
-                                <CardFailure error={setStationHost.error} fallback="The station is still in the character it was." />
+                                <CardFailure error={setStationHost.error} fallback={t('card.failure.host')} />
                             ) : undefined}
 
                             {rehearse.error && rehearse.variables === persona.id ? (
-                                <CardFailure error={rehearse.error} fallback="Nothing was changed: a rehearsal writes no row and cannot air." />
+                                <CardFailure error={rehearse.error} fallback={t('card.failure.rehearse')} />
                             ) : undefined}
 
-                            {exportFailure?.of === persona.id ? <CardFailure error={exportFailure.error} fallback="Nothing was saved." /> : undefined}
+                            {exportFailure?.of === persona.id ? (
+                                <CardFailure error={exportFailure.error} fallback={t('card.failure.export')} />
+                            ) : undefined}
 
                             {/* Keyed on the persona it was actually run for rather than simply rendered
                             under whichever card is last: one result is held at a time, and a panel
@@ -533,20 +529,21 @@ function countsFor(key: string, rows: ScriptHistorySummaryRow[] | undefined): Sc
  * which the row's own absence already says, and three zeroes read as a fault that has not happened.
  */
 function PersonaRecord({ counts }: { counts?: ScriptHistorySummaryRow }) {
+    const { t } = useTranslation('personas');
     if (counts === undefined) return undefined;
 
     return (
         <Group gap="xxs" wrap="nowrap">
             <Text size="xs" c="dimmed" className="da-num">
-                {counts.written} written · {counts.declined} declined
+                {t('card.record.counts', { written: counts.written, declined: counts.declined })}
             </Text>
             {counts.failed > 0 ? (
                 <Text size="xs" c={toneColor.fault} className="da-num">
-                    · {counts.failed} failed
+                    {t('card.record.failed', { failed: counts.failed })}
                 </Text>
             ) : undefined}
             <Text size="xs" c="dimmed">
-                in {SUMMARY_HOURS}h
+                {t('card.record.window', { count: SUMMARY_HOURS })}
             </Text>
         </Group>
     );
@@ -554,7 +551,8 @@ function PersonaRecord({ counts }: { counts?: ScriptHistorySummaryRow }) {
 
 /** What a character is missing, or nothing at all when it is missing nothing. */
 function PersonaSummary({ persona }: { persona: Persona }) {
-    const summary = summarise(persona);
+    const { t } = useTranslation('personas');
+    const summary = summarise(persona, t);
     if (summary === undefined) return undefined;
 
     return (
@@ -572,6 +570,7 @@ function PersonaSummary({ persona }: { persona: Persona }) {
  * roster does not hold is skipped: the tie went with its host, and the list is a moment behind.
  */
 function RingsIn({ persona, roster }: { persona: Persona; roster: readonly Persona[] }) {
+    const { t } = useTranslation('personas');
     const names = (persona.hosts ?? []).flatMap(id => {
         const host = roster.find(row => row.id === id);
         return host === undefined ? [] : [host.label];
@@ -580,7 +579,7 @@ function RingsIn({ persona, roster }: { persona: Persona; roster: readonly Perso
 
     return (
         <Text size="xs" c="dimmed">
-            Rings in to {names.join(', ')}
+            {t('card.ringsIn', { names: names.join(', ') })}
         </Text>
     );
 }
@@ -601,10 +600,13 @@ function CardFailure({ error, fallback }: { error: unknown; fallback: string }) 
  * it says nothing about the sound. The plugin's description is what does — and it is absent exactly
  * when nothing can speak, which is when the key is all there is.
  */
-function describeVoice(voiceId: string, voices: Voice[] | undefined): string {
+function describeVoice(voiceId: string, voices: Voice[] | undefined, t: TFunction<'personas'>): string {
     const voice = voices?.find(candidate => candidate.id === voiceId);
-    return voice?.description === undefined ? voiceId : `${voiceId}, ${voice.description}`;
+    return voice?.description === undefined ? voiceId : t('card.voiceWithDescription', { voice: voiceId, description: voice.description });
 }
+
+/** A card's action row on a phone: its own full-width line under the text, pushed to the right. */
+const PHONE_ACTIONS = { w: '100%', justify: 'flex-end' } as const;
 
 /** Below this many characters, a filter box is a control that costs more attention than it saves. */
 const FILTER_FROM = 6;
@@ -665,19 +667,19 @@ function matching(personas: Persona[], filter: string): Persona[] {
  * markers is simply not checked. What they have in common is that each is a thing an operator
  * would otherwise discover by putting the character on air.
  */
-function summarise(persona: Persona): string | undefined {
+function summarise(persona: Persona, t: TFunction<'personas'>): string | undefined {
     const parts: string[] = [];
 
     // A caller is deliberately not asked about phrasings: they are the station's floor under a
     // break, and a caller writes no breaks. Saying one has none would report the design as a gap.
     const phrasings = (persona.templates ?? '').split('\n').filter(line => line.trim().length > 0).length;
     if (phrasings === 0 && kindOf(persona) !== 'caller') {
-        parts.push("no phrasings of its own, so it falls back to the station's when the model declines");
+        parts.push(t('card.summary.noPhrasings'));
     }
 
-    if ((persona.dictionMarkers?.length ?? 0) === 0) parts.push('not checked for staying in character');
+    if ((persona.dictionMarkers?.length ?? 0) === 0) parts.push(t('card.summary.unchecked'));
 
-    if (!persona.voice) parts.push("speaks in the plugin's default voice");
+    if (!persona.voice) parts.push(t('card.summary.defaultVoice'));
 
     return parts.length === 0 ? undefined : parts.join(' · ');
 }

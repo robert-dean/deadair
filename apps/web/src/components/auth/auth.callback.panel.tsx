@@ -1,5 +1,6 @@
 import { Button, Card, Center, Image, Stack, Text, Title } from '@mantine/core';
 import { Link, useNavigate } from '@tanstack/react-router';
+import { useTranslation } from 'react-i18next';
 
 import type { AuthCallbackOutcome } from '../../api/auth.callback.queries';
 import { ErrorAlert } from '../shared/error.alert';
@@ -22,6 +23,7 @@ export interface AuthCallbackPanelProps {
  * both land here. Said in those words rather than as a status code.
  */
 export function AuthCallbackPanel({ outcome, redirect = '/' }: AuthCallbackPanelProps) {
+    const { t } = useTranslation('auth');
     const navigate = useNavigate();
 
     return (
@@ -31,9 +33,9 @@ export function AuthCallbackPanel({ outcome, redirect = '/' }: AuthCallbackPanel
                     <Stack gap="xs" align="center">
                         <Image src="/logo-mark.png" alt="" aria-hidden w={64} h={64} />
                         <Stack gap="xxxs" align="center">
-                            <Title order={2}>{outcome.kind === 'challenge' ? 'One more step' : 'Not signed in'}</Title>
+                            <Title order={2}>{outcome.kind === 'challenge' ? t('step.title') : t('notSignedIn')}</Title>
                             <Text c="dimmed" size="sm">
-                                {outcome.kind === 'challenge' ? 'One more factor, and you are in.' : 'That did not get you in.'}
+                                {outcome.kind === 'challenge' ? t('step.subtitle') : t('callback.failedSubtitle')}
                             </Text>
                         </Stack>
                     </Stack>
@@ -43,15 +45,15 @@ export function AuthCallbackPanel({ outcome, redirect = '/' }: AuthCallbackPanel
                             onComplete={() => navigate({ href: redirect })}
                             onExpired={() => navigate({ to: '/login' })}
                             onStartOver={() => navigate({ to: '/login' })}
-                            startOverLabel="Sign in another way"
+                            startOverLabel={t('callback.startOver')}
                         />
                     ) : (
                         <Stack gap="md">
-                            <ErrorAlert title={outcome.spent ? 'Link already used' : 'Sign-in failed'} tone={outcome.spent ? 'warning' : 'failure'}>
+                            <ErrorAlert title={outcome.spent ? t('callback.spent') : t('signInFailed')} tone={outcome.spent ? 'warning' : 'failure'}>
                                 {outcome.message}
                             </ErrorAlert>
                             <Button renderRoot={(props: object) => <Link to="/login" {...props} />} fullWidth>
-                                Back to sign in
+                                {t('callback.backToSignIn')}
                             </Button>
                         </Stack>
                     )}

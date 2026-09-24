@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Button, Group, Stack } from '@mantine/core';
+import { useTranslation } from 'react-i18next';
 
 import { DatedFeed, type DatedFeedItem } from './dated.feed';
 import { EmptyState } from './empty.state';
@@ -66,13 +67,14 @@ export function FeedPage<TPage, TItem extends DatedFeedItem>({
     renderRow,
     children,
 }: FeedPageProps<TPage, TItem>) {
+    const { t } = useTranslation();
     const items = query.data?.pages.flatMap(itemsFrom) ?? [];
 
     return (
         <Stack gap="lg">
             {children}
 
-            {failure ? <ErrorAlert title="Nothing to show">{failure}</ErrorAlert> : undefined}
+            {failure ? <ErrorAlert title={t('feed.failedTitle')}>{failure}</ErrorAlert> : undefined}
 
             {query.isPending ? <PageSkeleton variant="rows" count={3} /> : undefined}
 
@@ -86,7 +88,7 @@ export function FeedPage<TPage, TItem extends DatedFeedItem>({
             {query.hasNextPage ? (
                 <Group justify="center">
                     <Button variant="default" loading={query.isFetchingNextPage} onClick={() => void query.fetchNextPage()}>
-                        Load older
+                        {t('action.loadOlder')}
                     </Button>
                 </Group>
             ) : undefined}

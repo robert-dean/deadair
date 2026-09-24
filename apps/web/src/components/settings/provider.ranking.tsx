@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Badge, Button, Group, Stack, Table, Text } from '@mantine/core';
+import { useTranslation } from 'react-i18next';
 import type { ProviderCapabilityState } from '@deadair/sdk';
 
 import { useUpdateSettings } from '../../api/settings.queries';
@@ -37,6 +38,7 @@ import { RowControls } from './config.fields.form';
  * controls are `RowControls`, shared with the generic field, labelled with the plugin's name.
  */
 export function ProviderRanking({ state }: { state: ProviderCapabilityState }) {
+    const { t } = useTranslation('settings');
     const update = useUpdateSettings();
 
     // Only the plugins that can currently answer are orderable: the rest are not in any asking
@@ -78,7 +80,7 @@ export function ProviderRanking({ state }: { state: ProviderCapabilityState }) {
     const save = () => {
         update.mutate(
             { [state.settingKey]: JSON.stringify(order.map(source => ({ source }))) },
-            { onSuccess: () => notifySaved('The order') },
+            { onSuccess: () => notifySaved(t('providerRanking.saved')) },
         );
     };
 
@@ -86,18 +88,18 @@ export function ProviderRanking({ state }: { state: ProviderCapabilityState }) {
         // `null` clears the row rather than storing an empty list, so the station falls back to
         // the order it had before anybody set one. An empty list would mean the same thing today
         // and reads as a decision rather than the absence of one.
-        update.mutate({ [state.settingKey]: null }, { onSuccess: () => notifySaved('The order') });
+        update.mutate({ [state.settingKey]: null }, { onSuccess: () => notifySaved(t('providerRanking.saved')) });
     };
 
     return (
         <Stack gap="sm">
             <Group gap="xs">
                 <Badge size="sm" variant="light" color={theirs ? 'teal' : 'gray'} tt="none">
-                    {theirs ? 'Your order' : 'Default order'}
+                    {theirs ? t('providerRanking.theirs') : t('providerRanking.default')}
                 </Badge>
                 {state.stale.length > 0 && (
                     <Badge size="sm" variant="light" color="yellow" tt="none">
-                        {state.stale.length === 1 ? '1 listed plugin is not running' : `${state.stale.length} listed plugins are not running`}
+                        {t('providerRanking.staleCount', { count: state.stale.length })}
                     </Badge>
                 )}
             </Group>
@@ -140,7 +142,7 @@ export function ProviderRanking({ state }: { state: ProviderCapabilityState }) {
                             </Text>
                             <StatusLamp tone={statusOf(candidate.status).tone} label={statusOf(candidate.status).label} />
                             <Text size="xs" c="dimmed">
-                                {candidate.enabled ? 'switched on and not answering, so it is not asked' : 'not switched on, so it is not asked'}
+                                {candidate.enabled ? t('providerRanking.idle.enabled') : t('providerRanking.idle.disabled')}
                             </Text>
                         </Group>
                     ))}
@@ -152,18 +154,17 @@ export function ProviderRanking({ state }: { state: ProviderCapabilityState }) {
                 // they have to be said. A line in a saved order that does nothing is one an
                 // operator cannot tell from one that works.
                 <Text size="xs" c="dimmed">
-                    Your saved order also names {state.stale.join(', ')}, which nothing installed answers to. It is ignored. Saving this list again
-                    drops it.
+                    {t('providerRanking.staleNames', { names: state.stale.join(', ') })}
                 </Text>
             )}
 
             <Group gap="xs">
                 <Button size="xs" onClick={save} loading={update.isPending} disabled={!dirty}>
-                    Save order
+                    {t('providerRanking.save')}
                 </Button>
                 {theirs && (
                     <Button size="xs" variant="subtle" color="gray" onClick={reset} disabled={update.isPending}>
-                        Reset to default
+                        {t('providerRanking.reset')}
                     </Button>
                 )}
             </Group>

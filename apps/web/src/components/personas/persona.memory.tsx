@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Badge, Button, Card, Checkbox, Group, Modal, Stack, Text, Tooltip } from '@mantine/core';
 import type { PersonaMemoryChange, PersonaTelling } from '@deadair/sdk';
+import { useTranslation } from 'react-i18next';
 
 import { usePersonaMemory, usePreviewPersonaRollback, useRollbackPersonaMemory } from '../../api/personas.queries';
 import { EmptyState } from '../shared/empty.state';
@@ -37,6 +38,7 @@ export function PersonaMemoryPanel({ personaId, label }: { personaId: string; la
     const memory = usePersonaMemory(personaId);
     const preview = usePreviewPersonaRollback();
     const rollback = useRollbackPersonaMemory();
+    const { t } = useTranslation('personas');
 
     // Which row an operator is asking about, or `reset` for all of it. Held rather than derived,
     // because the dialog has to keep naming what it is about to do after the preview lands.
@@ -71,26 +73,22 @@ export function PersonaMemoryPanel({ personaId, label }: { personaId: string; la
         <Card withBorder mt="sm" padding="sm">
             <Stack gap="sm">
                 <Group justify="space-between" gap="xs" wrap="nowrap">
-                    <Eyebrow>Memory</Eyebrow>
+                    <Eyebrow>{t('memory.eyebrow')}</Eyebrow>
                     <Text size="xs" c="dimmed" ta="right">
-                        what this character has told, and how far back to undo it
+                        {t('memory.subtitle')}
                     </Text>
                 </Group>
 
-                {memory.error ? (
-                    <ErrorAlert title="The timeline could not be loaded" error={memory.error} fallback="Nothing about this character has changed." />
-                ) : undefined}
+                {memory.error ? <ErrorAlert title={t('memory.loadError')} error={memory.error} fallback={t('shared.unchanged')} /> : undefined}
 
                 {rollback.error ? (
-                    <ErrorAlert title="Nothing was rolled back" error={rollback.error} fallback="This character is exactly as it was." />
+                    <ErrorAlert title={t('memory.rollbackError.title')} error={rollback.error} fallback={t('memory.rollbackError.fallback')} />
                 ) : undefined}
 
                 {memory.isPending ? <PageSkeleton variant="card" /> : undefined}
 
                 {!memory.isPending && tellings.length === 0 ? (
-                    <EmptyState title="This character has not told anything yet">
-                        A story goes on the timeline when a break carries it. Until then there is nothing to undo.
-                    </EmptyState>
+                    <EmptyState title={t('memory.empty.title')}>{t('memory.empty.body')}</EmptyState>
                 ) : undefined}
 
                 {tellings.map(telling => (
@@ -99,9 +97,9 @@ export function PersonaMemoryPanel({ personaId, label }: { personaId: string; la
 
                 {tellings.length > 0 ? (
                     <Group justify="flex-end">
-                        <Tooltip label="Clears everything this character accumulated on its own. What you wrote by hand stays." withArrow>
+                        <Tooltip label={t('memory.clearTooltip')} withArrow>
                             <Button variant="subtle" color="red" size="compact-xs" disabled={rollback.isPending} onClick={() => ask('reset')}>
-                                Clear all of it
+                                {t('memory.clearAll')}
                             </Button>
                         </Tooltip>
                     </Group>
@@ -111,20 +109,24 @@ export function PersonaMemoryPanel({ personaId, label }: { personaId: string; la
             <Modal
                 opened={asking !== undefined}
                 onClose={() => setAsking(undefined)}
-                title={asking === 'reset' ? `Clear everything ${label} has accumulated?` : `Roll ${label} back to before this?`}
+                title={asking === 'reset' ? t('memory.confirm.titleReset', { label }) : t('memory.confirm.titleRollback', { label })}
                 centered
             >
                 <Stack gap="sm">
                     {asking !== undefined && asking !== 'reset' ? (
                         <Text size="sm" c="dimmed">
-                            Everything after {formatMomentFull(asking.at)} goes. That telling itself stays.
+                            {t('memory.confirm.after', { moment: formatMomentFull(asking.at) })}
                         </Text>
                     ) : undefined}
 
                     {preview.isPending ? <PageSkeleton variant="card" /> : undefined}
 
                     {preview.error ? (
-                        <ErrorAlert title="That could not be worked out" error={preview.error} fallback="Nothing has been changed." />
+                        <ErrorAlert
+                            title={t('memory.confirm.previewErrorTitle')}
+                            error={preview.error}
+                            fallback={t('memory.confirm.previewErrorFallback')}
+                        />
                     ) : undefined}
 
                     {preview.data !== undefined ? <RollbackSummary change={preview.data} /> : undefined}
@@ -132,13 +134,13 @@ export function PersonaMemoryPanel({ personaId, label }: { personaId: string; la
                     <Checkbox
                         checked={relearn}
                         onChange={event => setRelearn(event.currentTarget.checked)}
-                        label="Read those broadcasts again tonight"
-                        description="Leave this off to undo what the station concluded. Turn it on to have it work through the same scripts from scratch, which is what you want when you are testing."
+                        label={t('memory.confirm.relearn')}
+                        description={t('memory.confirm.relearnDescription')}
                     />
 
                     <Group justify="flex-end" gap="xs">
                         <Button variant="subtle" size="compact-sm" onClick={() => setAsking(undefined)}>
-                            Leave it
+                            {t('memory.confirm.leave')}
                         </Button>
                         <Button
                             color="red"
@@ -147,7 +149,7 @@ export function PersonaMemoryPanel({ personaId, label }: { personaId: string; la
                             disabled={preview.isPending || preview.data === undefined}
                             onClick={confirm}
                         >
-                            {asking === 'reset' ? 'Clear it' : 'Roll back'}
+                            {asking === 'reset' ? t('memory.confirm.clear') : t('memory.confirm.rollBack')}
                         </Button>
                     </Group>
                 </Stack>
@@ -158,40 +160,37 @@ export function PersonaMemoryPanel({ personaId, label }: { personaId: string; la
 
 /** What is about to go, and the two things about it an operator might not expect. */
 function RollbackSummary({ change }: { change: PersonaMemoryChange }) {
+    const { t } = useTranslation('personas');
     const nothing = change.tellings + change.notes + change.stories + change.details === 0;
 
     if (nothing)
         return (
             <Text size="sm" c="dimmed">
-                There is nothing after that moment to undo.
+                {t('memory.summary.nothing')}
             </Text>
         );
 
     return (
         <Stack gap={6}>
             <Group gap="xs">
-                <Count label="tellings forgotten" value={change.tellings} />
-                <Count label="notes" value={change.notes} />
-                <Count label="stories" value={change.stories} />
-                <Count label="details" value={change.details} />
+                <Count label={t('memory.summary.tellings')} value={change.tellings} />
+                <Count label={t('memory.summary.notes')} value={change.notes} />
+                <Count label={t('memory.summary.stories')} value={change.stories} />
+                <Count label={t('memory.summary.details')} value={change.details} />
             </Group>
             <Text size="xs" c="dimmed">
-                Only what the station wrote itself. Anything you typed stays exactly where it is.
+                {t('memory.summary.stationOnly')}
             </Text>
             {/* The two ways this costs something an operator did not ask for. Stated here rather
                 than discovered afterwards. */}
             {change.rejected > 0 ? (
                 <Text size="xs" c="orange">
-                    {change.rejected === 1
-                        ? 'One of them was a proposal you turned down'
-                        : `${change.rejected} of them were proposals you turned down`}
-                    , so the nightly pass may offer it again.
+                    {t('memory.summary.rejected', { count: change.rejected })}
                 </Text>
             ) : undefined}
             {change.touched > 0 ? (
                 <Text size="xs" c="orange">
-                    {change.touched === 1 ? 'One of them you had accepted or edited' : `${change.touched} of them you had accepted or edited`}, and it
-                    still goes.
+                    {t('memory.summary.touched', { count: change.touched })}
                 </Text>
             ) : undefined}
         </Stack>
@@ -216,6 +215,7 @@ function Count({ label, value }: { label: string; value: number }) {
  * yet aired is marked too, since that is exactly the state a beat is still owed in.
  */
 function TellingRow({ telling, busy, onRollBack }: { telling: PersonaTelling; busy: boolean; onRollBack: () => void }) {
+    const { t } = useTranslation('personas');
     return (
         <Card withBorder padding="xs" radius="sm">
             <Group justify="space-between" gap="xs" wrap="nowrap" align="flex-start">
@@ -225,16 +225,16 @@ function TellingRow({ telling, busy, onRollBack }: { telling: PersonaTelling; bu
                             {telling.title}
                         </Text>
                         {telling.told ? undefined : (
-                            <Tooltip label="It was offered and the writer did not use it" withArrow>
+                            <Tooltip label={t('memory.telling.passedOverTooltip')} withArrow>
                                 <Badge variant="light" color="gray" size="xs">
-                                    passed over
+                                    {t('memory.telling.passedOver')}
                                 </Badge>
                             </Tooltip>
                         )}
                         {telling.airedAt === undefined ? (
-                            <Tooltip label="Written, but no listener has heard it yet" withArrow>
+                            <Tooltip label={t('memory.telling.notAiredTooltip')} withArrow>
                                 <Badge variant="light" color="yellow" size="xs">
-                                    not aired
+                                    {t('memory.telling.notAired')}
                                 </Badge>
                             </Tooltip>
                         ) : undefined}
@@ -248,9 +248,9 @@ function TellingRow({ telling, busy, onRollBack }: { telling: PersonaTelling; bu
                         {formatMomentFull(telling.airedAt ?? telling.at)}
                     </Text>
                 </Stack>
-                <Tooltip label="Undo everything after this" withArrow>
+                <Tooltip label={t('memory.telling.rollBackTooltip')} withArrow>
                     <Button variant="subtle" size="compact-xs" disabled={busy} onClick={onRollBack}>
-                        Roll back to here
+                        {t('memory.telling.rollBack')}
                     </Button>
                 </Tooltip>
             </Group>

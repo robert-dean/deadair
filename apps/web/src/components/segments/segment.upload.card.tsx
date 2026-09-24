@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ActionIcon, Alert, Autocomplete, Button, Card, Group, Stack, Table, Text, TextInput, Tooltip } from '@mantine/core';
 import { Dropzone } from '@mantine/dropzone';
 import { IconInfoCircle, IconTrash, IconUpload, IconVolume, IconX } from '@tabler/icons-react';
+import { Trans, useTranslation } from 'react-i18next';
 
 import { useUploadSegment } from '../../api/segments.queries';
 import { ErrorAlert } from '../shared/error.alert';
@@ -25,6 +26,7 @@ import { Eyebrow } from '../shared/eyebrow';
  * segment airs, so it reaches a listener's car stereo. Derived from the filename and editable.
  */
 export function SegmentUploadCard({ kinds, onDone }: { kinds: string[]; onDone: () => void }) {
+    const { t } = useTranslation('segments');
     const upload = useUploadSegment();
     const [kind, setKind] = useState(DEFAULT_KIND);
     const [staged, setStaged] = useState<Staged[]>([]);
@@ -57,14 +59,14 @@ export function SegmentUploadCard({ kinds, onDone }: { kinds: string[]; onDone: 
     return (
         <Card withBorder padding="md">
             <Stack gap="sm">
-                <Eyebrow>Upload a recording</Eyebrow>
+                <Eyebrow>{t('uploadCard.title')}</Eyebrow>
 
-                {upload.isError ? <ErrorAlert title="That recording did not go into the library" error={upload.error} /> : undefined}
+                {upload.isError ? <ErrorAlert title={t('uploadCard.error')} error={upload.error} /> : undefined}
 
                 <Group align="flex-start" gap="sm">
                     <Autocomplete
-                        label="Kind"
-                        description="What sort of element it is. It is also the folder the file is filed under."
+                        label={t('uploadCard.kind.label')}
+                        description={t('uploadCard.kind.description')}
                         data={offered}
                         value={kind}
                         onChange={setKind}
@@ -72,8 +74,7 @@ export function SegmentUploadCard({ kinds, onDone }: { kinds: string[]; onDone: 
                     />
                     {unfamiliar ? (
                         <Alert variant="light" color="yellow" icon={<IconInfoCircle size={16} />} style={{ flex: 1 }}>
-                            The station holds nothing of this kind yet, so <strong>{kind.trim()}</strong> will appear in the format clock as an hour
-                            you can schedule around once this is ready.
+                            <Trans t={t} i18nKey="uploadCard.kind.unfamiliar" values={{ kind: kind.trim() }} components={{ strong: <strong /> }} />
                         </Alert>
                     ) : undefined}
                 </Group>
@@ -90,10 +91,9 @@ export function SegmentUploadCard({ kinds, onDone }: { kinds: string[]; onDone: 
                             <IconVolume size={32} />
                         </Dropzone.Idle>
                         <Stack gap={2}>
-                            <Text size="sm">Drop audio here, or click to choose</Text>
+                            <Text size="sm">{t('uploadCard.drop')}</Text>
                             <Text size="xs" c="dimmed">
-                                mp3, wav, ogg, flac or m4a, up to 50 MB each. The file is written into the inbox folder, so a backup carries it and a
-                                re-scan leaves it alone.
+                                {t('uploadCard.dropHint')}
                             </Text>
                         </Stack>
                     </Group>
@@ -105,8 +105,8 @@ export function SegmentUploadCard({ kinds, onDone }: { kinds: string[]; onDone: 
                             <Table verticalSpacing="xs">
                                 <Table.Thead>
                                     <Table.Tr>
-                                        <Table.Th>File</Table.Th>
-                                        <Table.Th>What it is called on air</Table.Th>
+                                        <Table.Th>{t('uploadCard.column.file')}</Table.Th>
+                                        <Table.Th>{t('uploadCard.column.label')}</Table.Th>
                                         <Table.Th />
                                     </Table.Tr>
                                 </Table.Thead>
@@ -121,7 +121,7 @@ export function SegmentUploadCard({ kinds, onDone }: { kinds: string[]; onDone: 
                                             <Table.Td>
                                                 <TextInput
                                                     size="xs"
-                                                    aria-label={`Label for ${one.file.name}`}
+                                                    aria-label={t('uploadCard.labelFor', { name: one.file.name })}
                                                     value={one.label}
                                                     onChange={event =>
                                                         setStaged(held =>
@@ -133,11 +133,11 @@ export function SegmentUploadCard({ kinds, onDone }: { kinds: string[]; onDone: 
                                                 />
                                             </Table.Td>
                                             <Table.Td>
-                                                <Tooltip label="Take it off the list">
+                                                <Tooltip label={t('uploadCard.discardTooltip')}>
                                                     <ActionIcon
                                                         variant="subtle"
                                                         color="red"
-                                                        aria-label={`Discard ${one.file.name}`}
+                                                        aria-label={t('uploadCard.discard', { name: one.file.name })}
                                                         onClick={() => setStaged(held => held.filter((_, at) => at !== index))}
                                                     >
                                                         <IconTrash size={16} />
@@ -152,7 +152,7 @@ export function SegmentUploadCard({ kinds, onDone }: { kinds: string[]; onDone: 
 
                         <Group justify="flex-end">
                             <Button variant="default" onClick={() => setStaged([])} disabled={upload.isPending}>
-                                Clear
+                                {t('uploadCard.clear')}
                             </Button>
                             <Button
                                 leftSection={<IconUpload size={16} />}
@@ -160,7 +160,7 @@ export function SegmentUploadCard({ kinds, onDone }: { kinds: string[]; onDone: 
                                 disabled={kind.trim() === '' || staged.some(one => one.label.trim() === '')}
                                 onClick={() => void send()}
                             >
-                                Put {staged.length === 1 ? 'it' : `all ${staged.length}`} in the library
+                                {t('uploadCard.send', { count: staged.length })}
                             </Button>
                         </Group>
                     </>

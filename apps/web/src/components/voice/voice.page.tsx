@@ -1,4 +1,8 @@
 import { Stack, Title } from '@mantine/core';
+import { useTranslation } from 'react-i18next';
+
+import { i18n } from '../../i18n/i18n.setup';
+import type { voice } from '../../i18n/en/voice.catalog';
 
 import { PadsPage } from '../pads/pads.page';
 import { PersonasPage } from '../personas/personas.page';
@@ -13,18 +17,36 @@ import { VoicesPage } from '../voices/voices.page';
 import { DestinationTabs, type DestinationTab } from '../shared/destination.tabs';
 import { EmbeddedPage } from '../shared/page.header';
 
+/**
+ * One tab, whose label and hint are read from the catalog when they are read rather than when this
+ * module loads: the shell's rail and the palette import this table, and a language change should
+ * reach them as it reaches the strip.
+ */
+function voiceTab<TKey extends keyof typeof voice.tab>(key: TKey) {
+    const at: keyof typeof voice.tab = key;
+    return {
+        key,
+        get label(): string {
+            return i18n.t(`voice:tab.${at}.label`);
+        },
+        get hint(): string {
+            return i18n.t(`voice:tab.${at}.hint`);
+        },
+    };
+}
+
 /** The tabs, in the order an operator meets them: who is talking, then everything they need to talk. */
 export const VOICE_TABS = [
-    { key: 'characters', label: 'Characters', hint: 'Who the station is when it talks' },
-    { key: 'auditions', label: 'Auditions', hint: 'A character over an hour of records, before it goes on air' },
-    { key: 'voices', label: 'Voices', hint: 'Which voice reads which character' },
-    { key: 'segments', label: 'Segments', hint: 'Recordings it plays rather than speaks' },
-    { key: 'pronunciations', label: 'Pronunciations', hint: 'Names it was getting wrong' },
-    { key: 'soundboard', label: 'Soundboard', hint: 'Beds, stings and what plays under a break' },
-    { key: 'phrasings', label: 'Phrasings', hint: 'Its words around a greeting, a jingle or a bulletin' },
-    { key: 'subjects', label: 'Subjects', hint: 'What it is allowed to talk about' },
-    { key: 'productions', label: 'Productions', hint: 'Phone-ins and anything with more than one voice' },
-    { key: 'said', label: 'What it said', hint: 'Every break it has written, and every one it declined' },
+    voiceTab('characters'),
+    voiceTab('auditions'),
+    voiceTab('voices'),
+    voiceTab('segments'),
+    voiceTab('pronunciations'),
+    voiceTab('soundboard'),
+    voiceTab('phrasings'),
+    voiceTab('subjects'),
+    voiceTab('productions'),
+    voiceTab('said'),
 ] as const satisfies readonly DestinationTab<string>[];
 
 export type VoiceTab = (typeof VOICE_TABS)[number]['key'];
@@ -67,13 +89,14 @@ export interface VoicePageProps {
  * exactly who needs it.
  */
 export function VoicePage({ tab, segment, persona, onSelect }: VoicePageProps) {
+    const { t } = useTranslation('voice');
     return (
         <Stack gap="lg">
             {/* Name only: each tab opens with its own description, and the rail says what every
                 section is. See `library.shell.tsx`. */}
-            <Title order={1}>Voice</Title>
+            <Title order={1}>{t('title')}</Title>
 
-            <DestinationTabs tabs={VOICE_TABS} active={tab} onSelect={onSelect} label="Voice" />
+            <DestinationTabs tabs={VOICE_TABS} active={tab} onSelect={onSelect} label={t('title')} />
 
             <EmbeddedPage>{body(tab, segment, persona)}</EmbeddedPage>
         </Stack>

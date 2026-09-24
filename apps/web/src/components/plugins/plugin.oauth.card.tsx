@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { Button, Card, Code, Group, Modal, Stack, Text, Title } from '@mantine/core';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import type { PluginDetail } from '@deadair/sdk';
 
 import { useDisconnectPluginOAuth, useStartPluginOAuth } from '../../api/plugins.queries';
@@ -13,20 +15,20 @@ export function consoleCallbackUrl(pluginId: string): string {
 }
 
 /** The failure an operator can act on, rather than the status code that produced it. */
-function connectError(error: unknown): string {
+function connectError(error: unknown, t: TFunction<'plugins'>): string {
     const status = sdkError(error)?.status;
-    if (status === 403) return 'Connecting this plugin is not something your account is allowed to do.';
-    if (status === 503) return 'The plugin is not running, so it cannot start an authorization. Check its configuration and status first.';
-    if (status === 501) return 'This plugin declares OAuth but does not implement it.';
-    return apiErrorMessage(error, 'The authorization could not be started.');
+    if (status === 403) return t('oauth.connectError.forbidden');
+    if (status === 503) return t('oauth.connectError.notRunning');
+    if (status === 501) return t('oauth.notImplemented');
+    return apiErrorMessage(error, t('oauth.connectError.fallback'));
 }
 
 /** The failure an operator can act on, rather than the status code that produced it. */
-function disconnectError(error: unknown): string {
+function disconnectError(error: unknown, t: TFunction<'plugins'>): string {
     const status = sdkError(error)?.status;
-    if (status === 403) return 'Disconnecting this plugin is not something your account is allowed to do.';
-    if (status === 501) return 'This plugin declares OAuth but does not implement it.';
-    return apiErrorMessage(error, 'The connection could not be removed.');
+    if (status === 403) return t('oauth.disconnectError.forbidden');
+    if (status === 501) return t('oauth.notImplemented');
+    return apiErrorMessage(error, t('oauth.disconnectError.fallback'));
 }
 
 export interface PluginOAuthCardProps {
@@ -41,6 +43,7 @@ export interface PluginOAuthCardProps {
  * where the session lives.
  */
 export function PluginOAuthCard({ plugin }: PluginOAuthCardProps) {
+    const { t } = useTranslation(['plugins', 'common']);
     const start = useStartPluginOAuth(plugin.id);
     const disconnect = useDisconnectPluginOAuth(plugin.id);
     const [confirmOpen, setConfirmOpen] = useState(false);
@@ -80,33 +83,33 @@ export function PluginOAuthCard({ plugin }: PluginOAuthCardProps) {
             <Stack gap="md">
                 <Stack gap="xxs">
                     <Title order={3} size="h5">
-                        Connection
+                        {t('oauth.title')}
                     </Title>
                     <Text size="sm" c="dimmed">
-                        This plugin signs in to its provider on your behalf. The tokens it receives are stored encrypted and never shown here.
+                        {t('oauth.description')}
                     </Text>
                 </Stack>
 
                 <Stack gap="xxs">
                     <Text size="sm" fw={500}>
-                        Console callback URL
+                        {t('oauth.callbackUrl')}
                     </Text>
                     <Group gap="xs" wrap="nowrap">
                         <Code style={{ overflowWrap: 'anywhere' }}>{callbackUrl}</Code>
                         <CopyButton value={callbackUrl} />
                     </Group>
                     <Text size="xs" c="dimmed">
-                        Register this with the provider, character for character, and enter it in the plugin&apos;s redirect URI setting above.
+                        {t('oauth.callbackHint')}
                     </Text>
                 </Stack>
 
                 {connected ? (
                     <Text size="sm" fw={500} c="teal">
-                        Connected
+                        {t('oauth.connected')}
                     </Text>
                 ) : undefined}
 
-                {start.error ? <ErrorAlert title="Could not start the authorization">{connectError(start.error)}</ErrorAlert> : undefined}
+                {start.error ? <ErrorAlert title={t('oauth.connectError.title')}>{connectError(start.error, t)}</ErrorAlert> : undefined}
 
                 <Group justify="flex-end">
                     {connected ? (
@@ -117,7 +120,7 @@ export function PluginOAuthCard({ plugin }: PluginOAuthCardProps) {
                                 setConfirmOpen(true);
                             }}
                         >
-                            Disconnect
+                            {t('oauth.disconnect')}
                         </Button>
                     ) : undefined}
                     <Button
@@ -127,22 +130,21 @@ export function PluginOAuthCard({ plugin }: PluginOAuthCardProps) {
                             void connect();
                         }}
                     >
-                        {connected ? 'Reconnect' : 'Connect'}
+                        {connected ? t('oauth.reconnect') : t('oauth.connect')}
                     </Button>
                 </Group>
             </Stack>
 
             {connected ? (
-                <Modal opened={confirmOpen} onClose={closeConfirm} title={`Disconnect ${plugin.name}?`} centered>
+                <Modal opened={confirmOpen} onClose={closeConfirm} title={t('oauth.confirm.title', { name: plugin.name })} centered>
                     <Stack gap="md">
-                        <Text size="sm">
-                            {plugin.name} will lose access to its provider until it is connected again. Anything it does that depends on that
-                            connection will stop working until then.
-                        </Text>
-                        {disconnect.error ? <ErrorAlert title="Could not disconnect">{disconnectError(disconnect.error)}</ErrorAlert> : undefined}
+                        <Text size="sm">{t('oauth.confirm.body', { name: plugin.name })}</Text>
+                        {disconnect.error ? (
+                            <ErrorAlert title={t('oauth.disconnectError.title')}>{disconnectError(disconnect.error, t)}</ErrorAlert>
+                        ) : undefined}
                         <Group justify="flex-end">
                             <Button variant="default" onClick={closeConfirm}>
-                                Cancel
+                                {t('common:action.cancel')}
                             </Button>
                             <Button
                                 color="red"
@@ -151,7 +153,7 @@ export function PluginOAuthCard({ plugin }: PluginOAuthCardProps) {
                                     void disconnectConfirmed();
                                 }}
                             >
-                                Disconnect
+                                {t('oauth.disconnect')}
                             </Button>
                         </Group>
                     </Stack>

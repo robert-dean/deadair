@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Anchor, Box, Button, Card, Collapse, Divider, Group, Stack, Text } from '@mantine/core';
 import { Link, type LinkProps } from '@tanstack/react-router';
 import type { AttentionEvidence, AttentionItem } from '@deadair/sdk';
+import { useTranslation } from 'react-i18next';
 
 import { attentionDestinationOf } from '../shell/attention.destination';
 import { useDisclosureIds } from '../shared/disclosure';
@@ -51,13 +52,9 @@ export interface AttentionListProps {
 }
 
 export function AttentionList({ items, here }: AttentionListProps) {
+    const { t } = useTranslation('station');
     if (items.length === 0) {
-        return (
-            <EmptyState>
-                Nothing needs you. The station is airing, its plugins are up, and every record in front of it can be fetched. Anything that changes
-                shows up here.
-            </EmptyState>
-        );
+        return <EmptyState>{t('attention.empty')}</EmptyState>;
     }
 
     return (
@@ -135,6 +132,7 @@ function Row({ item, here }: { item: AttentionItem; here?: LinkProps['to'] }) {
  * silence, a plugin that will not start.
  */
 function Evidence({ item }: { item: AttentionItem }) {
+    const { t } = useTranslation('station');
     const [open, setOpen] = useState(false);
     const { trigger, panelId } = useDisclosureIds(open);
     const evidence = item.evidence ?? [];
@@ -148,7 +146,7 @@ function Evidence({ item }: { item: AttentionItem }) {
     return (
         <Box pt={4}>
             <Anchor component="button" type="button" size="xs" onClick={() => setOpen(current => !current)} {...trigger}>
-                {open ? 'Hide what failed' : 'Show what failed'}
+                {open ? t('attention.hideEvidence') : t('attention.showEvidence')}
             </Anchor>
             {/* Mounted only while open, the way `track.expansion.tsx` mounts its panel: a closed
                 row costs nothing, and a reason nobody has asked for is not in the document to be
@@ -161,7 +159,7 @@ function Evidence({ item }: { item: AttentionItem }) {
                         ))}
                         {more > 0 ? (
                             <Text size="xs" c="dimmed">
-                                … and {more} more
+                                {t('attention.more', { more })}
                             </Text>
                         ) : undefined}
                     </Stack>

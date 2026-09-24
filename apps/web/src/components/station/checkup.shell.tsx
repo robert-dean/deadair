@@ -1,17 +1,38 @@
 import type { ReactNode } from 'react';
 import { Stack, Title } from '@mantine/core';
 import { useNavigate } from '@tanstack/react-router';
+import { useTranslation } from 'react-i18next';
 
 import { DestinationTabs, type DestinationTab } from '../shared/destination.tabs';
 import { EmbeddedPage } from '../shared/page.header';
+import { i18n } from '../../i18n/i18n.setup';
 
+/**
+ * The tabs, and the sentence behind each.
+ *
+ * `label` and `hint` are getters rather than strings, so the shell's rail and the palette, which read
+ * this table directly, get the words in the language on screen at the moment they read them rather
+ * than whatever was on screen when this module was imported.
+ */
 export const CHECKUP_TABS = [
-    { key: 'machinery', label: 'Machinery', hint: 'What every part of it is doing now' },
-    { key: 'history', label: 'What it has been doing', hint: 'Everything that aired, wrote or failed' },
-    { key: 'cost', label: 'What it cost', hint: 'Every call it made, and what it spent' },
-    { key: 'logs', label: 'Logs', hint: 'The station’s own log, and the audio chain’s' },
-    { key: 'releases', label: 'What’s new', hint: 'What changed in each release' },
+    tab('machinery'),
+    tab('history'),
+    tab('cost'),
+    tab('logs'),
+    tab('releases'),
 ] as const satisfies readonly DestinationTab<string>[];
+
+function tab<TKey extends 'machinery' | 'history' | 'cost' | 'logs' | 'releases'>(key: TKey) {
+    return {
+        key,
+        get label(): string {
+            return i18n.t(`station:shell.tabs.${key}.label`);
+        },
+        get hint(): string {
+            return i18n.t(`station:shell.tabs.${key}.hint`);
+        },
+    };
+}
 
 export type CheckupTab = (typeof CHECKUP_TABS)[number]['key'];
 
@@ -51,6 +72,7 @@ export interface CheckupShellProps {
  * The tab strip navigates between them.
  */
 export function CheckupShell({ active, children }: CheckupShellProps) {
+    const { t } = useTranslation('station');
     const navigate = useNavigate();
 
     return (
@@ -58,12 +80,12 @@ export function CheckupShell({ active, children }: CheckupShellProps) {
             {/* Name only: each tab opens with its own description, and the rail says what every
                 section is. This one used to carry the Machinery tab's opening line almost word for
                 word, drawn directly above it. See `library.shell.tsx`. */}
-            <Title order={1}>Check-up</Title>
+            <Title order={1}>{t('shell.title')}</Title>
 
             <DestinationTabs
                 tabs={CHECKUP_TABS}
                 active={active}
-                label="Check-up"
+                label={t('shell.title')}
                 onSelect={key => {
                     void navigate({ to: CHECKUP_ROUTES[key] });
                 }}

@@ -2,6 +2,8 @@ import { Badge, Button, Card, Collapse, Group, Stack, Text } from '@mantine/core
 import { ActionIcon } from '@mantine/core';
 import { IconPlayerPauseFilled, IconPlayerPlayFilled } from '@tabler/icons-react';
 import type { PersonaAuditionBreak, PersonaAuditionSummary } from '@deadair/sdk';
+import type { TFunction } from 'i18next';
+import { useTranslation } from 'react-i18next';
 
 import { usePersonaAudition } from '../../api/persona.auditions.queries';
 import { fetchSpeechPreview } from '../../api/voices.queries';
@@ -43,6 +45,7 @@ export function PersonaAuditionCard({
     stopping: boolean;
 }) {
     const detail = usePersonaAudition(personaId, open ? run.id : '');
+    const { t } = useTranslation('personas');
     const unsettled = run.state === 'queued' || run.state === 'running';
 
     return (
@@ -51,7 +54,7 @@ export function PersonaAuditionCard({
                 <Group justify="space-between" gap="xs" wrap="nowrap" align="flex-start">
                     <Stack gap="xxs">
                         <Group gap="xs" wrap="nowrap">
-                            <StatusLamp tone={toneFor(run.state)} label={labelFor(run.state)} />
+                            <StatusLamp tone={toneFor(run.state)} label={labelFor(run.state, t)} />
                             <Text size="sm" className="da-num">
                                 {run.written} / {run.transitions}
                             </Text>
@@ -64,11 +67,11 @@ export function PersonaAuditionCard({
 
                     <Group gap="xs" wrap="nowrap">
                         <Button variant="subtle" size="compact-sm" onClick={onToggle} disabled={run.written === 0}>
-                            {open ? 'Hide' : 'Read'}
+                            {open ? t('audition.hide') : t('audition.read')}
                         </Button>
                         {unsettled ? (
                             <Button variant="subtle" size="compact-sm" color="red" loading={stopping} onClick={onCancel}>
-                                Stop
+                                {t('audition.stop')}
                             </Button>
                         ) : undefined}
                     </Group>
@@ -84,12 +87,12 @@ export function PersonaAuditionCard({
 
                 {run.written === 0 && unsettled ? (
                     <Text size="sm" c="dimmed">
-                        Queued. Each break waits for the model behind everything the station is doing for itself, so this fills in slowly.
+                        {t('audition.queued')}
                     </Text>
                 ) : undefined}
 
                 <Collapse expanded={open}>
-                    {detail.isError ? <ErrorAlert title="Could not read this audition" error={detail.error} /> : undefined}
+                    {detail.isError ? <ErrorAlert title={t('audition.readError')} error={detail.error} /> : undefined}
                     <Stack gap="md" mt="xs">
                         {(detail.data?.breaks ?? []).map(written => (
                             <Transition key={written.ordinal} written={written} {...(voice === undefined ? {} : { voice })} />
@@ -111,6 +114,7 @@ export function PersonaAuditionCard({
  */
 function Transition({ written, voice }: { written: PersonaAuditionBreak; voice?: string }) {
     const preview = useVoicePreview();
+    const { t } = useTranslation('personas');
     const spoken = written.script;
 
     return (
@@ -120,15 +124,15 @@ function Transition({ written, voice }: { written: PersonaAuditionBreak; voice?:
                     {written.ordinal + 1}
                 </Text>
                 <Text size="xs" c="dimmed">
-                    between {written.previous.title} and {written.next.title}
+                    {t('shared.between', { previous: written.previous.title, next: written.next.title })}
                 </Text>
                 {spoken ? (
                     <ActionIcon
                         variant="subtle"
                         size="sm"
                         loading={preview.isLoading(spoken)}
-                        aria-label={`Hear break ${written.ordinal + 1}`}
-                        onClick={() => preview.play(spoken, () => fetchSpeechPreview(spoken, voice), 'That break could not be spoken.')}
+                        aria-label={t('audition.hear', { number: written.ordinal + 1 })}
+                        onClick={() => preview.play(spoken, () => fetchSpeechPreview(spoken, voice), t('shared.breakSpeakFailed'))}
                     >
                         {preview.isPlaying(spoken) ? <IconPlayerPauseFilled size={14} /> : <IconPlayerPlayFilled size={14} />}
                     </ActionIcon>
@@ -147,7 +151,7 @@ function Transition({ written, voice }: { written: PersonaAuditionBreak; voice?:
 
             {written.script === undefined && written.reason !== undefined ? (
                 <Text size="sm" c="dimmed">
-                    {written.reason} — on air this break would be skipped, and the station would go straight to the next record.
+                    {t('shared.skipped', { reason: written.reason })}
                 </Text>
             ) : undefined}
         </Stack>
@@ -164,6 +168,7 @@ function Transition({ written, voice }: { written: PersonaAuditionBreak; voice?:
  * Drawn only when the breaks have been read, since it is counted from them rather than stored.
  */
 function Tally({ breaks }: { breaks: readonly PersonaAuditionBreak[] }) {
+    const { t } = useTranslation('personas');
     if (breaks.length === 0) return undefined;
 
     const model = breaks.filter(written => written.writer === 'model').length;
@@ -173,16 +178,16 @@ function Tally({ breaks }: { breaks: readonly PersonaAuditionBreak[] }) {
     return (
         <Group gap="xxs" wrap="nowrap">
             <Badge size="xs" variant="light" color="teal">
-                {model} by the model
+                {t('audition.tally.model', { model })}
             </Badge>
             {declined > 0 ? (
                 <Badge size="xs" variant="light" color="yellow">
-                    {declined} declined
+                    {t('audition.tally.declined', { declined })}
                 </Badge>
             ) : undefined}
             {failed > 0 ? (
                 <Badge size="xs" variant="light" color="red">
-                    {failed} failed
+                    {t('audition.tally.failed', { failed })}
                 </Badge>
             ) : undefined}
         </Group>
@@ -204,10 +209,10 @@ function toneFor(state: string): StatusTone {
 }
 
 /** What each state is called on the card, which is not always what the column holds. */
-function labelFor(state: string): string {
-    if (state === 'queued') return 'Waiting for the model';
-    if (state === 'running') return 'Writing';
-    if (state === 'done') return 'Finished';
-    if (state === 'failed') return 'Stopped by a fault';
-    return 'Stopped';
+function labelFor(state: string, t: TFunction<'personas'>): string {
+    if (state === 'queued') return t('audition.state.queued');
+    if (state === 'running') return t('audition.state.running');
+    if (state === 'done') return t('audition.state.done');
+    if (state === 'failed') return t('audition.state.failed');
+    return t('audition.state.stopped');
 }

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Alert, Badge, Button, Card, Code, Group, Select, Stack, Text, Textarea, TextInput, Title } from '@mantine/core';
+import { useTranslation } from 'react-i18next';
 import type { OAuthClientAuthMethod, OAuthClientIssued, OAuthClientSummary } from '@deadair/sdk';
 
 import { useCreateOAuthClient, useOAuthClients, useRevokeOAuthClient } from '../../api/oauth.queries';
@@ -14,11 +15,7 @@ import { isStepUpCancelled, StepUpDialog, useStepUpGate } from './step.up.dialog
 
 type Gate = ReturnType<typeof useStepUpGate>;
 
-const METHODS: ReadonlyArray<{ value: OAuthClientAuthMethod; label: string }> = [
-    { value: 'none', label: 'No secret (an app on somebody’s own device)' },
-    { value: 'client_secret_post', label: 'Keeps a secret, sent in the request' },
-    { value: 'client_secret_basic', label: 'Keeps a secret, sent as HTTP Basic' },
-];
+const METHODS: readonly OAuthClientAuthMethod[] = ['none', 'client_secret_post', 'client_secret_basic'];
 
 /**
  * The apps registered with the station, below the settings that let them connect.
@@ -30,6 +27,7 @@ const METHODS: ReadonlyArray<{ value: OAuthClientAuthMethod; label: string }> = 
  * rather than an error they can do nothing about.
  */
 export function OAuthClientsCard() {
+    const { t } = useTranslation('settings');
     const clients = useOAuthClients();
     const gate = useStepUpGate();
     const [issued, setIssued] = useState<OAuthClientIssued>();
@@ -41,17 +39,17 @@ export function OAuthClientsCard() {
             <Stack gap="md">
                 <Stack gap="xxs">
                     <Title order={2} size="h4">
-                        Registered apps
+                        {t('oauthClients.title')}
                     </Title>
                     <Text size="sm" c="dimmed">
-                        Apps allowed to ask somebody here for access. Registering one gives it nothing until a person approves it.
+                        {t('oauthClients.intro')}
                     </Text>
                 </Stack>
 
                 {issued ? <IssuedPanel issued={issued} onDone={() => setIssued(undefined)} /> : undefined}
                 {clients.isPending ? <PageSkeleton variant="rows" count={2} /> : undefined}
                 {clients.error ? (
-                    <ErrorAlert title="Apps unavailable" error={clients.error} fallback="The station could not list its apps." />
+                    <ErrorAlert title={t('oauthClients.unavailable.title')} error={clients.error} fallback={t('oauthClients.unavailable.fallback')} />
                 ) : undefined}
 
                 {clients.data ? (
@@ -61,7 +59,7 @@ export function OAuthClientsCard() {
                         ))}
                         {clients.data.clients.length === 0 ? (
                             <Text size="sm" c="dimmed">
-                                None yet.
+                                {t('oauthClients.none')}
                             </Text>
                         ) : undefined}
                     </Stack>
@@ -75,17 +73,18 @@ export function OAuthClientsCard() {
 }
 
 function IssuedPanel({ issued, onDone }: { issued: OAuthClientIssued; onDone: () => void }) {
+    const { t } = useTranslation('settings');
     return (
-        <Alert color="yellow" variant="light" title={`${issued.client.name ?? issued.client.clientId}: registered`}>
+        <Alert color="yellow" variant="light" title={t('oauthClients.issued.title', { name: issued.client.name ?? issued.client.clientId })}>
             <Stack gap="xs">
-                <Text size="sm">Client id</Text>
+                <Text size="sm">{t('oauthClients.issued.clientId')}</Text>
                 <Group gap="xs" wrap="nowrap">
                     <Code style={{ overflowWrap: 'anywhere', flex: 1 }}>{issued.client.clientId}</Code>
                     <CopyButton value={issued.client.clientId} />
                 </Group>
                 {issued.clientSecret ? (
                     <>
-                        <Text size="sm">Client secret. This is the only time it is shown: copy it now.</Text>
+                        <Text size="sm">{t('oauthClients.issued.clientSecret')}</Text>
                         <Group gap="xs" wrap="nowrap">
                             <Code style={{ overflowWrap: 'anywhere', flex: 1 }}>{issued.clientSecret}</Code>
                             <CopyButton value={issued.clientSecret} />
@@ -93,7 +92,7 @@ function IssuedPanel({ issued, onDone }: { issued: OAuthClientIssued; onDone: ()
                     </>
                 ) : undefined}
                 <Button variant="default" size="compact-sm" w="fit-content" onClick={onDone}>
-                    Done
+                    {t('oauthClients.issued.done')}
                 </Button>
             </Stack>
         </Alert>
@@ -101,6 +100,7 @@ function IssuedPanel({ issued, onDone }: { issued: OAuthClientIssued; onDone: ()
 }
 
 function ClientRow({ client }: { client: OAuthClientSummary }) {
+    const { t } = useTranslation('settings');
     const revoke = useRevokeOAuthClient();
     const [confirming, setConfirming] = useState(false);
     const name = client.name ?? client.clientId;
@@ -111,16 +111,16 @@ function ClientRow({ client }: { client: OAuthClientSummary }) {
                 <Group gap="xs">
                     <Text size="sm">{name}</Text>
                     <Badge variant="light" color="gray">
-                        {client.kind === 'dynamic' ? 'registered itself' : 'registered here'}
+                        {client.kind === 'dynamic' ? t('oauthClients.kind.dynamic') : t('oauthClients.kind.manual')}
                     </Badge>
                 </Group>
                 <Text size="xs" c="dimmed">
-                    {client.lastUsedAt ? `Last used ${formatDate(client.lastUsedAt)}` : 'Never used'}
-                    {client.expiresAt ? ` · lapses ${formatDate(client.expiresAt)} unless used again` : ''}
+                    {client.lastUsedAt ? t('oauthClients.lastUsed', { date: formatDate(client.lastUsedAt) }) : t('oauthClients.neverUsed')}
+                    {client.expiresAt ? t('oauthClients.lapses', { date: formatDate(client.expiresAt) }) : ''}
                 </Text>
             </Stack>
             <Button variant="subtle" color="red" size="compact-sm" onClick={() => setConfirming(true)}>
-                Withdraw
+                {t('oauthClients.withdraw.action')}
             </Button>
             <ConfirmModal
                 opened={confirming}
@@ -128,23 +128,24 @@ function ClientRow({ client }: { client: OAuthClientSummary }) {
                 onConfirm={() =>
                     void revoke.mutateAsync(client.clientId).then(() => {
                         setConfirming(false);
-                        notifyDone(`${name} withdrawn.`);
+                        notifyDone(t('oauthClients.withdraw.done', { name }));
                     })
                 }
-                title={`Withdraw ${name}?`}
-                confirmLabel="Withdraw"
+                title={t('oauthClients.withdraw.title', { name })}
+                confirmLabel={t('oauthClients.withdraw.action')}
                 confirming={revoke.isPending}
                 error={revoke.error}
-                errorTitle="Not withdrawn"
-                errorFallback="The app is still registered."
+                errorTitle={t('oauthClients.withdraw.errorTitle')}
+                errorFallback={t('oauthClients.withdraw.errorFallback')}
             >
-                {`Everybody who approved ${name} is disconnected from it, and every token it holds stops working. An app that registers itself can register again, and somebody will have to approve it again.`}
+                {t('oauthClients.withdraw.body', { name })}
             </ConfirmModal>
         </Group>
     );
 }
 
 function NewClientForm({ gate, onIssued }: { gate: Gate; onIssued: (issued: OAuthClientIssued) => void }) {
+    const { t } = useTranslation('settings');
     const create = useCreateOAuthClient();
     const [name, setName] = useState('');
     const [redirects, setRedirects] = useState('');
@@ -170,21 +171,23 @@ function NewClientForm({ gate, onIssued }: { gate: Gate; onIssued: (issued: OAut
     return (
         <Stack gap="xs">
             <Text size="sm" fw={600}>
-                Register an app by hand
+                {t('oauthClients.create.heading')}
             </Text>
-            {create.error ? <ErrorAlert title="Not registered" error={create.error} fallback="The station did not register it." /> : undefined}
-            <TextInput label="Name" value={name} onChange={event => setName(event.currentTarget.value)} maxLength={100} />
+            {create.error ? (
+                <ErrorAlert title={t('oauthClients.create.errorTitle')} error={create.error} fallback={t('oauthClients.create.errorFallback')} />
+            ) : undefined}
+            <TextInput label={t('oauthClients.create.name')} value={name} onChange={event => setName(event.currentTarget.value)} maxLength={100} />
             <Textarea
-                label="Where it may be sent back to"
-                description="One address per line: https, or this computer's own (http://127.0.0.1/…)."
+                label={t('oauthClients.create.redirects.label')}
+                description={t('oauthClients.create.redirects.description')}
                 value={redirects}
                 onChange={event => setRedirects(event.currentTarget.value)}
                 autosize
                 minRows={2}
             />
             <Select
-                label="Secret"
-                data={[...METHODS]}
+                label={t('oauthClients.create.secret')}
+                data={METHODS.map(value => ({ value, label: t(`oauthClients.method.${value}`) }))}
                 value={method}
                 onChange={value => setMethod((value ?? 'none') as OAuthClientAuthMethod)}
                 allowDeselect={false}
@@ -195,7 +198,7 @@ function NewClientForm({ gate, onIssued }: { gate: Gate; onIssued: (issued: OAut
                 disabled={name.trim().length === 0 || redirects.trim().length === 0}
                 onClick={() => void submit()}
             >
-                Register
+                {t('oauthClients.create.action')}
             </Button>
         </Stack>
     );

@@ -1,4 +1,5 @@
 import { Card, Group, Progress, Stack, Table, Text, Title, Tooltip } from '@mantine/core';
+import { useTranslation } from 'react-i18next';
 import type { StorageStore } from '@deadair/sdk';
 
 import { useStorage } from '../../api/storage.queries';
@@ -28,6 +29,7 @@ import { usePhone } from '../shared/use.phone';
  * noise on the one page an operator scans for a number.
  */
 export function StorageCard() {
+    const { t } = useTranslation('settings');
     const storage = useStorage();
     const phone = usePhone();
 
@@ -36,16 +38,15 @@ export function StorageCard() {
             <Stack gap="md">
                 <Stack gap="xxs">
                     <Title order={2} size="h4">
-                        Disk
+                        {t('storage.title')}
                     </Title>
                     <Text size="sm" c="dimmed">
-                        What the station is keeping, and where. Records are the only one with a limit; the rest grow with the library and with how
-                        much the station has said.
+                        {t('storage.intro')}
                     </Text>
                 </Stack>
 
                 {storage.error ? (
-                    <ErrorAlert title="Disk figures unavailable" error={storage.error} fallback="The station could not read what is on disk." />
+                    <ErrorAlert title={t('storage.unavailable.title')} error={storage.error} fallback={t('storage.unavailable.fallback')} />
                 ) : undefined}
 
                 {phone && storage.data ? (
@@ -58,10 +59,10 @@ export function StorageCard() {
                             on one line because that is all the table's foot ever carried. */}
                         <Group justify="space-between" wrap="nowrap" px="xs" pt="xxs">
                             <Text size="sm" fw={500}>
-                                Everything
+                                {t('storage.everything')}
                             </Text>
                             <Text size="sm" className="da-num">
-                                {formatBytes(storage.data.totalBytes)} · {storage.data.totalFiles} files
+                                {t('storage.totals', { bytes: formatBytes(storage.data.totalBytes), count: storage.data.totalFiles })}
                             </Text>
                         </Group>
                     </Stack>
@@ -72,10 +73,10 @@ export function StorageCard() {
                         <Table verticalSpacing="xs" horizontalSpacing="sm">
                             <Table.Thead>
                                 <Table.Tr>
-                                    <Table.Th>Store</Table.Th>
-                                    <Table.Th ta="right">On disk</Table.Th>
-                                    <Table.Th ta="right">Files</Table.Th>
-                                    <Table.Th ta="right">Unclaimed</Table.Th>
+                                    <Table.Th>{t('storage.column.store')}</Table.Th>
+                                    <Table.Th ta="right">{t('storage.column.onDisk')}</Table.Th>
+                                    <Table.Th ta="right">{t('storage.column.files')}</Table.Th>
+                                    <Table.Th ta="right">{t('storage.column.unclaimed')}</Table.Th>
                                 </Table.Tr>
                             </Table.Thead>
                             <Table.Tbody>
@@ -85,7 +86,7 @@ export function StorageCard() {
                             </Table.Tbody>
                             <Table.Tfoot>
                                 <Table.Tr>
-                                    <Table.Th>Everything</Table.Th>
+                                    <Table.Th>{t('storage.everything')}</Table.Th>
                                     <Table.Th ta="right" className="da-num">
                                         {formatBytes(storage.data.totalBytes)}
                                     </Table.Th>
@@ -101,9 +102,7 @@ export function StorageCard() {
 
                 {storage.data ? (
                     <Text size="xs" c="dimmed">
-                        Read {formatTimeOfDay(storage.data.readAt)}. Walking the directories is real work, so this is a reading rather than a live
-                        figure. Nothing here is deleted automatically: a file no row claims and a record whose file has gone are both reported and
-                        left alone.
+                        {t('storage.footnote', { time: formatTimeOfDay(storage.data.readAt) })}
                     </Text>
                 ) : undefined}
             </Stack>
@@ -126,6 +125,7 @@ function capShare(store: StorageStore): { used: number; cap: number } | undefine
 }
 
 function StoreRow({ store }: { store: StorageStore }) {
+    const { t } = useTranslation('settings');
     const share = capShare(store);
 
     return (
@@ -143,10 +143,10 @@ function StoreRow({ store }: { store: StorageStore }) {
                                 w={120}
                                 size="sm"
                                 color={share.used >= 100 ? 'yellow' : 'teal'}
-                                aria-label="Share of the limit in use"
+                                aria-label={t('storage.share.label')}
                             />
                             <Text size="xs" c="dimmed" className="da-num">
-                                {share.used}% of {formatBytes(share.cap)}
+                                {t('storage.share.of', { used: share.used, cap: formatBytes(share.cap) })}
                             </Text>
                         </Group>
                     ) : undefined}
@@ -158,16 +158,16 @@ function StoreRow({ store }: { store: StorageStore }) {
             <Table.Td ta="right" className="da-num">
                 {store.files}
                 {store.rowsWithNoFile > 0 ? (
-                    <Tooltip label="Rows pointing at a file that is not there. The station fetches or renders these again when it needs them.">
+                    <Tooltip label={t('storage.missing.tooltip')}>
                         <Text span size="xs" c="yellow" ml="xxs">
-                            {store.rowsWithNoFile} missing
+                            {t('storage.missing.count', { rows: store.rowsWithNoFile })}
                         </Text>
                     </Tooltip>
                 ) : undefined}
             </Table.Td>
             <Table.Td ta="right" className="da-num">
                 {store.orphanFiles > 0 ? (
-                    <Tooltip label="Files no row claims — usually left by a write that was interrupted. Nothing deletes them.">
+                    <Tooltip label={t('storage.unclaimed.tooltip')}>
                         <Text span size="sm" c="dimmed">
                             {formatBytes(store.orphanBytes)}
                         </Text>
@@ -192,6 +192,7 @@ function StoreRow({ store }: { store: StorageStore }) {
  * meaning here, and the card's footnote carries the rest.
  */
 function StoreCard({ store }: { store: StorageStore }) {
+    const { t } = useTranslation('settings');
     const share = capShare(store);
 
     return (
@@ -215,16 +216,16 @@ function StoreCard({ store }: { store: StorageStore }) {
                 <Stack gap="xxs" mt="xxs">
                     <Group gap="xs" wrap="wrap">
                         <Text size="xs" c="dimmed" className="da-num">
-                            {store.files} files
+                            {t('storage.files', { count: store.files })}
                         </Text>
                         {store.rowsWithNoFile > 0 ? (
                             <Text size="xs" c="yellow" className="da-num">
-                                {store.rowsWithNoFile} missing
+                                {t('storage.missing.count', { rows: store.rowsWithNoFile })}
                             </Text>
                         ) : undefined}
                         {store.orphanFiles > 0 ? (
                             <Text size="xs" c="dimmed" className="da-num">
-                                {formatBytes(store.orphanBytes)} unclaimed
+                                {t('storage.unclaimed.amount', { bytes: formatBytes(store.orphanBytes) })}
                             </Text>
                         ) : undefined}
                     </Group>
@@ -235,10 +236,10 @@ function StoreCard({ store }: { store: StorageStore }) {
                                 flex={1}
                                 size="sm"
                                 color={share.used >= 100 ? 'yellow' : 'teal'}
-                                aria-label="Share of the limit in use"
+                                aria-label={t('storage.share.label')}
                             />
                             <Text size="xs" c="dimmed" className="da-num">
-                                {share.used}% of {formatBytes(share.cap)}
+                                {t('storage.share.of', { used: share.used, cap: formatBytes(share.cap) })}
                             </Text>
                         </Group>
                     ) : undefined}

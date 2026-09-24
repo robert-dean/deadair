@@ -36,10 +36,12 @@
         "@tanstack/react-router": "^1.170.18",
         "@tanstack/react-virtual": "^3.14.10",
         "dayjs": "^1.11.23",
+        "i18next": "^26.4.2",
         "luxon": "^3.7.2",
         "qrcode.react": "^4.2.0",
         "react": "^19.2.8",
-        "react-dom": "^19.2.8"
+        "react-dom": "^19.2.8",
+        "react-i18next": "^17.0.15"
     },
     "devDependencies": {
         "@repo/config-eslint": "workspace:*",
@@ -54,6 +56,7 @@
         "@types/react": "^19.2.18",
         "@types/react-dom": "^19.2.4",
         "@vitejs/plugin-react": "^6.0.5",
+        "eslint-plugin-i18next": "^6.1.5",
         "jsdom": "^30.0.1",
         "postcss": "^8.5.25",
         "postcss-preset-mantine": "^1.18.0",

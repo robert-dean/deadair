@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Button, Card, Group, ScrollArea, Select, Stack, Text } from '@mantine/core';
 import type { LogLevel, LogSource } from '@deadair/sdk';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 
 import { sdk } from '../../api/client';
 import { useLog, useLogSources } from '../../api/station.queries';
@@ -26,13 +28,8 @@ const LOG_LEVEL_COLOR: Record<LogLevel, string> = {
     error: 'red',
 };
 
-const LEVEL_FILTER_DATA: { value: LogLevel; label: string }[] = [
-    { value: 'trace', label: 'Trace' },
-    { value: 'debug', label: 'Debug' },
-    { value: 'info', label: 'Info' },
-    { value: 'warn', label: 'Warn' },
-    { value: 'error', label: 'Error' },
-];
+/** The levels the filter offers, least severe first. Labelled at render, in the language on screen. */
+const LEVELS: readonly LogLevel[] = ['trace', 'debug', 'info', 'warn', 'error'];
 
 /**
  * Every log this install writes to disk, read without a shell on the box.
@@ -58,6 +55,7 @@ const LEVEL_FILTER_DATA: { value: LogLevel; label: string }[] = [
  * would be a control that appeared to work. It is not rendered for them at all.
  */
 export function LogsPage() {
+    const { t } = useTranslation('station');
     const sources = useLogSources();
     const [chosenId, setChosenId] = useState<string | undefined>(undefined);
     const [level, setLevel] = useState<LogLevel | undefined>(undefined);
@@ -85,16 +83,16 @@ export function LogsPage() {
             const { data, headers } = await sdk.station.downloadLog(source.id);
             saveDownload(data, downloadFilename(headers.contentDisposition, `deadair-${source.id}.log`), 'text/plain');
         } catch (error) {
-            setDownloadError(apiErrorMessage(error, 'The log could not be downloaded.'));
+            setDownloadError(apiErrorMessage(error, t('logs.downloadFailed')));
         } finally {
             setDownloading(false);
         }
     }
 
     if (sources.isPending) return <PageSkeleton variant="rows" />;
-    if (sources.error) return <ErrorAlert title="Could not load the logs" error={sources.error} fallback="The list of logs could not be fetched." />;
+    if (sources.error) return <ErrorAlert title={t('logs.loadFailedTitle')} error={sources.error} fallback={t('logs.loadFailedFallback')} />;
     if (source === undefined) {
-        return <EmptyState title="No logs">This install writes nothing to disk that this console knows how to read.</EmptyState>;
+        return <EmptyState title={t('logs.noneTitle')}>{t('logs.none')}</EmptyState>;
     }
 
     const lines = log.data?.lines ?? [];
@@ -104,11 +102,13 @@ export function LogsPage() {
             <Stack gap="md">
                 <Group justify="space-between" align="flex-end" wrap="wrap">
                     <Select
-                        label="Log"
+                        label={t('logs.sourceLabel')}
                         description={source.description}
                         data={available.map(entry => ({
                             value: entry.id,
-                            label: entry.present ? `${entry.label} (${formatBytes(entry.bytes)})` : `${entry.label} — nothing written yet`,
+                            label: entry.present
+                                ? t('logs.sourcePresent', { label: entry.label, size: formatBytes(entry.bytes) })
+                                : t('logs.sourceAbsent', { label: entry.label }),
                         }))}
                         value={source.id}
                         onChange={value => {
@@ -121,11 +121,11 @@ export function LogsPage() {
                     <Group gap="sm" align="flex-end">
                         {source.levels ? (
                             <Select
-                                label="Show"
-                                description="Filters this tail. Changes nothing on disk."
-                                placeholder="All levels"
+                                label={t('logs.levelLabel')}
+                                description={t('logs.levelDescription')}
+                                placeholder={t('logs.levelPlaceholder')}
                                 clearable
-                                data={LEVEL_FILTER_DATA}
+                                data={LEVELS.map(value => ({ value, label: t(`logs.level.${value}`) }))}
                                 value={level ?? null}
                                 onChange={value => {
                                     setLevel((value as LogLevel | null) ?? undefined);
@@ -142,10 +142,10 @@ export function LogsPage() {
                                 void log.refetch();
                             }}
                         >
-                            Refresh
+                            {t('logs.refresh')}
                         </Button>
                         <Button variant="default" size="compact-sm" loading={downloading} disabled={!source.present} onClick={() => void download()}>
-                            Download
+                            {t('logs.download')}
                         </Button>
                     </Group>
                 </Group>
@@ -153,28 +153,28 @@ export function LogsPage() {
                 <Group gap="xs">
                     {source.lastWriteAt ? (
                         <Text size="xs" c="dimmed" title={formatMomentFull(source.lastWriteAt)}>
-                            Last written {formatMomentStamp(source.lastWriteAt)}
+                            {t('logs.lastWritten', { moment: formatMomentStamp(source.lastWriteAt) })}
                         </Text>
                     ) : undefined}
                     {log.data?.truncated ? (
                         // The two stream logs are rotated by nothing, so the read is bounded by
                         // bytes. An operator must not read the oldest line here as the file's first.
                         <Text size="xs" c="dimmed">
-                            Showing the end of a longer file. Older lines are on disk but not here.
+                            {t('logs.truncated')}
                         </Text>
                     ) : undefined}
                 </Group>
 
-                {downloadError ? <ErrorAlert title="Download failed">{downloadError}</ErrorAlert> : undefined}
+                {downloadError ? <ErrorAlert title={t('logs.downloadFailedTitle')}>{downloadError}</ErrorAlert> : undefined}
 
-                {log.error ? <ErrorAlert title="Could not load the log" error={log.error} fallback="The tail could not be fetched." /> : undefined}
+                {log.error ? <ErrorAlert title={t('logs.tailFailedTitle')} error={log.error} fallback={t('logs.tailFailedFallback')} /> : undefined}
 
                 <ScrollArea h={480} type="auto" bg="dark.8" style={{ borderRadius: 'var(--mantine-radius-sm)' }} p="xs">
                     {log.isPending ? (
                         <PageSkeleton variant="rows" />
                     ) : lines.length === 0 ? (
                         <Text size="sm" c="dimmed" p="xs">
-                            {source.present ? 'Nothing here at this level.' : `Nothing has been written to this log. ${absentBecause(source.id)}`}
+                            {source.present ? t('logs.emptyAtLevel') : t('logs.nothingWritten', { because: absentBecause(t, source.id) })}
                         </Text>
                     ) : (
                         <Stack gap="xxxs">
@@ -212,9 +212,9 @@ export function LogsPage() {
  * is not one. The two stream answers are different: one process has never run, the other only exists
  * on an install that fetches its records that way.
  */
-function absentBecause(id: string): string {
-    if (id === 'liquidsoap') return 'The audio chain writes it once it starts, and it is not visible to the console outside the station container.';
-    if (id === 'shim') return 'The track shim writes it, and only an install that fetches records through one has it at all.';
+function absentBecause(t: TFunction<'station'>, id: string): string {
+    if (id === 'liquidsoap') return t('logs.absent.liquidsoap');
+    if (id === 'shim') return t('logs.absent.shim');
 
-    return 'The station writes it from its first line, so an empty one means this process has only just started.';
+    return t('logs.absent.station');
 }

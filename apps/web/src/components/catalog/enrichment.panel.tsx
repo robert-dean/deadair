@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { Anchor, Badge, Button, Card, Code, Collapse, Group, List, SimpleGrid, Spoiler, Stack, Text } from '@mantine/core';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 
 import { formatDate } from '../shared/format.date';
 import type { Moment } from '../shared/feed.moment';
@@ -74,12 +76,13 @@ export interface EnrichmentPanelProps {
  * not be reached, and they are opposite facts: the first is settled and the second is the walk
  * still owing this record an answer. Only one of them is worth an operator's attention.
  */
-const sourceState = (source: EnrichmentProvenance): string => {
+const sourceState = (source: EnrichmentProvenance, t: TFunction<'catalog'>): string => {
     // A source can be both: what it said in May is still the best answer there is, and the walk
     // still could not reach it today. Showing only the date would hide the second half, and showing
     // only the failure would suggest the panel above it came from nowhere.
-    if (source.failed) return source.found ? `${formatDate(source.fetchedAt)} • could not re-ask` : 'could not ask';
-    return source.found ? formatDate(source.fetchedAt) : 'nothing found';
+    if (source.failed)
+        return source.found ? t('enrichment.source.couldNotReask', { date: formatDate(source.fetchedAt) }) : t('enrichment.source.couldNotAsk');
+    return source.found ? formatDate(source.fetchedAt) : t('enrichment.source.nothingFound');
 };
 
 const badgeColor = (source: EnrichmentProvenance): string | undefined => {
@@ -88,7 +91,7 @@ const badgeColor = (source: EnrichmentProvenance): string | undefined => {
 };
 
 /** The scalar fields, in the order they are worth reading, dropping the ones nobody resolved. */
-function detailPairs(merged: EnrichmentFacts): [string, string][] {
+function detailPairs(merged: EnrichmentFacts, t: TFunction<'catalog'>): [string, string][] {
     const pairs: [string, string][] = [];
     const push = (label: string, value: string | number | undefined) => {
         if (value !== undefined && value !== '') pairs.push([label, String(value)]);
@@ -98,11 +101,11 @@ function detailPairs(merged: EnrichmentFacts): [string, string][] {
     // as the providers' own claim because a track page also shows `deadair.tracks.year`, the raw
     // tag off the ingested file, and the two disagree often enough that "Released" alone reads as
     // one fact rather than the two unreconciled ones it actually is.
-    push('Providers say released', merged.releaseDate !== undefined && merged.releaseDate.length > 4 ? merged.releaseDate : merged.year);
-    push('Label', merged.label);
-    push('BPM', merged.bpm);
-    push('Key', merged.musicalKey);
-    push('ISRC', merged.isrc);
+    push(t('enrichment.pairs.released'), merged.releaseDate !== undefined && merged.releaseDate.length > 4 ? merged.releaseDate : merged.year);
+    push(t('enrichment.pairs.label'), merged.label);
+    push(t('enrichment.pairs.bpm'), merged.bpm);
+    push(t('enrichment.pairs.key'), merged.musicalKey);
+    push(t('enrichment.pairs.isrc'), merged.isrc);
 
     return pairs;
 }
@@ -128,6 +131,7 @@ function detailPairs(merged: EnrichmentFacts): [string, string][] {
  * something an operator reads while looking at a record.
  */
 function UnmappedFields({ extra }: { extra: Record<string, unknown> }) {
+    const { t } = useTranslation('catalog');
     const [open, setOpen] = useState(false);
     const count = Object.keys(extra).length;
 
@@ -140,7 +144,7 @@ function UnmappedFields({ extra }: { extra: Record<string, unknown> }) {
                     setOpen(current => !current);
                 }}
             >
-                {open ? 'Hide' : `Show ${count} unmapped field${count === 1 ? '' : 's'}`}
+                {open ? t('enrichment.unmapped.hide') : t('enrichment.unmapped.show', { count })}
             </Button>
             <Collapse expanded={open}>
                 {/* Wrapped for the reason scripts.page.tsx wraps its prompts: a long value is one
@@ -167,6 +171,7 @@ function UnmappedFields({ extra }: { extra: Record<string, unknown> }) {
  * model's reading of one, checked but not certain.
  */
 function Claims({ claims }: { claims: EnrichmentClaim[] }) {
+    const { t } = useTranslation('catalog');
     return (
         <Stack gap="sm">
             {claims.map(claim => (
@@ -180,10 +185,10 @@ function Claims({ claims }: { claims: EnrichmentClaim[] }) {
                         </Badge>
                         <Text size="sm">{claim.claim}</Text>
                     </Group>
-                    <Spoiler maxHeight={0} showLabel="Show the source" hideLabel="Hide the source">
+                    <Spoiler maxHeight={0} showLabel={t('enrichment.claims.showSource')} hideLabel={t('enrichment.claims.hideSource')}>
                         <Stack gap="xxxs" pt="xxs">
                             <Text size="xs" c="dimmed" fs="italic">
-                                {`“${claim.sourceQuote}”`}
+                                {t('enrichment.claims.quote', { quote: claim.sourceQuote })}
                             </Text>
                             {/* Where an operator goes when something sounds wrong on air, which is
                                 the entire reason a claim is worth anything. */}
@@ -199,16 +204,17 @@ function Claims({ claims }: { claims: EnrichmentClaim[] }) {
 }
 
 export function EnrichmentPanel({ merged, sources, claims, isPending, error, emptyMessage }: EnrichmentPanelProps) {
+    const { t } = useTranslation('catalog');
     if (isPending) return <PageSkeleton variant="card" />;
 
     if (error) {
-        return <ErrorAlert title="The enrichment could not be loaded" error={error} fallback="The catalog is unavailable." />;
+        return <ErrorAlert title={t('enrichment.loadFailedTitle')} error={error} fallback={t('tracks.loadFailedFallback')} />;
     }
 
     const facts = merged ?? {};
     const rows = sources ?? [];
     const beliefs = claims ?? [];
-    const pairs = detailPairs(facts);
+    const pairs = detailPairs(facts, t);
     const tags = [...(facts.genres ?? []), ...(facts.moods ?? [])];
     const extraKeys = Object.keys(facts.extra ?? {});
 
@@ -261,7 +267,7 @@ export function EnrichmentPanel({ merged, sources, claims, isPending, error, emp
                 ) : undefined}
 
                 {facts.biography ? (
-                    <Spoiler maxHeight={72} showLabel="Read more" hideLabel="Show less">
+                    <Spoiler maxHeight={72} showLabel={t('enrichment.readMore')} hideLabel={t('enrichment.showLess')}>
                         <Text size="sm">{facts.biography}</Text>
                     </Spoiler>
                 ) : undefined}
@@ -293,7 +299,10 @@ export function EnrichmentPanel({ merged, sources, claims, isPending, error, emp
                 <Group gap="xs">
                     {rows.map(source => (
                         <Badge key={source.provider} variant="outline" color={badgeColor(source)}>
-                            {`${source.provider} • ${sourceState(source)}${source.stale ? ' • due again' : ''}`}
+                            {t(source.stale ? 'enrichment.source.badgeDue' : 'enrichment.source.badge', {
+                                provider: source.provider,
+                                state: sourceState(source, t),
+                            })}
                         </Badge>
                     ))}
                 </Group>

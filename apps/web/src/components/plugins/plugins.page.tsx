@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { Button, Group, SegmentedControl, SimpleGrid, Stack, Text } from '@mantine/core';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import type { PluginSummary } from '@deadair/sdk';
 import { useQuery } from '@tanstack/react-query';
 
@@ -29,19 +31,12 @@ import { groupByRole } from './plugin.roles';
 import { PluginTable } from './plugin.table';
 
 /** What a rescan refusal means, in the operator's terms rather than the transport's. */
-function rescanError(error: unknown): string {
+function rescanError(error: unknown, t: TFunction<'plugins'>): string {
     if (sdkError(error)?.status === 403) {
-        return 'Rescanning the plugin directory is an administrator action.';
+        return t('page.rescanError.forbidden');
     }
-    return apiErrorMessage(error, 'The plugin directory could not be rescanned.');
+    return apiErrorMessage(error, t('page.rescanError.fallback'));
 }
-
-const SHOW_LABEL: Record<PluginShow, string> = {
-    all: 'All',
-    enabled: 'Enabled',
-    attention: 'Needs attention',
-    disabled: 'Disabled',
-};
 
 /**
  * The status filter, each choice labelled with how many it would show.
@@ -50,17 +45,18 @@ const SHOW_LABEL: Record<PluginShow, string> = {
  * see if I clicked this" rather than all but the chosen one reading as zero.
  */
 function ShowFilter({ plugins, value, onChange }: { plugins: PluginSummary[]; value: PluginShow; onChange: (show: PluginShow) => void }) {
+    const { t } = useTranslation('plugins');
     return (
         <SegmentedControl
             size="xs"
-            aria-label="Show plugins"
+            aria-label={t('page.show.ariaLabel')}
             value={value}
             onChange={next => {
                 onChange(PLUGIN_SHOWS.find(known => known === next) ?? 'all');
             }}
             data={PLUGIN_SHOWS.map(show => ({
                 value: show,
-                label: `${SHOW_LABEL[show]} ${plugins.filter(plugin => matchesShow(plugin, show)).length}`,
+                label: t(`page.show.${show}`, { count: plugins.filter(plugin => matchesShow(plugin, show)).length }),
             }))}
         />
     );
@@ -72,6 +68,7 @@ export interface PluginsPageProps {
 }
 
 export function PluginsPage({ params, onParamsChange }: PluginsPageProps) {
+    const { t } = useTranslation('plugins');
     const plugins = useQuery(pluginsListOptions);
     const rescan = useRescanPlugins();
     const [importing, setImporting] = useState(false);
@@ -89,16 +86,16 @@ export function PluginsPage({ params, onParamsChange }: PluginsPageProps) {
     return (
         <Stack gap="lg">
             <PageHeader
-                title="Plugins"
+                title={t('page.title')}
                 description={
                     <Text c="dimmed" size="sm">
-                        {plugins.data ? `${plugins.data.length} installed` : 'Everything the host has mounted.'}
+                        {plugins.data ? t('page.installed', { count: plugins.data.length }) : t('page.description')}
                     </Text>
                 }
                 actions={
                     <Group gap="xs">
                         <Button variant="default" size="compact-sm" onClick={() => setImporting(true)}>
-                            Import
+                            {t('page.import')}
                         </Button>
                         <Button
                             variant="default"
@@ -108,7 +105,7 @@ export function PluginsPage({ params, onParamsChange }: PluginsPageProps) {
                                 rescan.mutate();
                             }}
                         >
-                            Rescan
+                            {t('page.rescan')}
                         </Button>
                     </Group>
                 }
@@ -117,13 +114,13 @@ export function PluginsPage({ params, onParamsChange }: PluginsPageProps) {
             <PluginImportModal opened={importing} onClose={() => setImporting(false)} />
 
             {rescan.error ? (
-                <ErrorAlert tone="warning" title="Rescan failed">
-                    {rescanError(rescan.error)}
+                <ErrorAlert tone="warning" title={t('page.rescanError.title')}>
+                    {rescanError(rescan.error, t)}
                 </ErrorAlert>
             ) : undefined}
 
             {plugins.error ? (
-                <ErrorAlert title="Plugins could not be loaded" error={plugins.error} fallback="The plugin catalogue is unavailable." />
+                <ErrorAlert title={t('page.loadFailedTitle')} error={plugins.error} fallback={t('page.loadFailedFallback')} />
             ) : undefined}
 
             {plugins.isPending ? (
@@ -134,12 +131,7 @@ export function PluginsPage({ params, onParamsChange }: PluginsPageProps) {
                 </SimpleGrid>
             ) : undefined}
 
-            {plugins.data?.length === 0 ? (
-                <EmptyState title="No plugins are mounted">
-                    Import a plugin, or drop one into the host&apos;s plugin directory and rescan. Nothing about the station changes until one is
-                    enabled.
-                </EmptyState>
-            ) : undefined}
+            {plugins.data?.length === 0 ? <EmptyState title={t('page.empty.title')}>{t('page.empty.body')}</EmptyState> : undefined}
 
             {/* Over the search rather than under it, and blind to it: this is the page saying what is
                 wrong, not a view of what was asked for. Hidden where the cards already are that list,
@@ -151,7 +143,7 @@ export function PluginsPage({ params, onParamsChange }: PluginsPageProps) {
                     <CatalogSearch
                         key={searchKey}
                         value={params.q}
-                        placeholder="Search plugins"
+                        placeholder={t('page.search')}
                         onChange={q => {
                             onParamsChange({ q });
                         }}
@@ -169,14 +161,14 @@ export function PluginsPage({ params, onParamsChange }: PluginsPageProps) {
                         <SegmentedControl
                             size="xs"
                             ml="auto"
-                            aria-label="Plugin layout"
+                            aria-label={t('page.view.ariaLabel')}
                             value={params.view}
                             onChange={next => {
                                 onParamsChange({ view: PLUGIN_VIEWS.find(known => known === next) ?? 'cards' });
                             }}
                             data={[
-                                { value: 'cards', label: 'Cards' },
-                                { value: 'table', label: 'Table' },
+                                { value: 'cards', label: t('page.view.cards') },
+                                { value: 'table', label: t('page.view.table') },
                             ]}
                         />
                     )}
@@ -185,7 +177,7 @@ export function PluginsPage({ params, onParamsChange }: PluginsPageProps) {
 
             {plugins.data && plugins.data.length > 0 && shown.length === 0 ? (
                 <EmptyState
-                    title="No plugins match"
+                    title={t('page.noMatch.title')}
                     action={
                         <Button
                             variant="default"
@@ -197,11 +189,11 @@ export function PluginsPage({ params, onParamsChange }: PluginsPageProps) {
                                 onParamsChange({ q: PLUGINS_PAGE_DEFAULTS.q, show: 'all' });
                             }}
                         >
-                            Clear filters
+                            {t('page.noMatch.clear')}
                         </Button>
                     }
                 >
-                    Nothing installed answers to that search and filter together.
+                    {t('page.noMatch.body')}
                 </EmptyState>
             ) : undefined}
 

@@ -31,6 +31,7 @@ import {
 } from '@mantine/core';
 import { useForm, type GetInputPropsReturnType } from '@mantine/form';
 import { IconArrowDown, IconArrowUp, IconChevronDown, IconPlus, IconTrash } from '@tabler/icons-react';
+import { useTranslation } from 'react-i18next';
 import type { ConfigFieldColumn, ConfigFieldDescriptor, ConfigFieldOption, ConfigFieldPreset } from '@deadair/sdk';
 
 import { apiErrorDetails, apiErrorMessage } from '../../api/sdk.error';
@@ -614,6 +615,7 @@ export function ConfigFieldsForm({
     suggestionsPending = false,
     onDirtyChange,
 }: ConfigFieldsFormProps) {
+    const { t } = useTranslation('settings');
     const [cleared, setCleared] = useState<ReadonlySet<string>>(new Set());
 
     // Read here rather than inside `RowsField`, so one answer serves every rows field in a form.
@@ -707,7 +709,7 @@ export function ConfigFieldsForm({
                 // A stored secret satisfies `required` without being retyped; one being cleared
                 // does not, since after the save there would be nothing there.
                 if (field.type === 'secret' && secretsConfigured[field.key] && !cleared.has(field.key)) return;
-                if (!isAnswered(values[nameOf(index)])) errors[nameOf(index)] = 'This is required';
+                if (!isAnswered(values[nameOf(index)])) errors[nameOf(index)] = t('form.required');
             });
             return errors;
         },
@@ -812,7 +814,7 @@ export function ConfigFieldsForm({
 
         return (
             <Text size="xs" c="dimmed">
-                Using {value} while this is empty.
+                {t('form.derived', { value })}
             </Text>
         );
     }
@@ -987,7 +989,11 @@ export function ConfigFieldsForm({
                             // the keyboard path. It is still the only way a kind is dropped with a
                             // mouse, and unlabelled it is one of a row of identical buttons.
                             renderPill={({ value: tag, onRemove, disabled }) => (
-                                <Pill withRemoveButton={!disabled} onRemove={onRemove} removeButtonProps={{ 'aria-label': `Remove ${tag}` }}>
+                                <Pill
+                                    withRemoveButton={!disabled}
+                                    onRemove={onRemove}
+                                    removeButtonProps={{ 'aria-label': t('form.removeTag', { tag: tag ?? '' }) }}
+                                >
                                     {tag}
                                 </Pill>
                             )}
@@ -1082,7 +1088,7 @@ export function ConfigFieldsForm({
                     {suggestionsSupported && onRefreshSuggestions ? (
                         <Group gap="xs">
                             <Button variant="subtle" size="compact-sm" onClick={onRefreshSuggestions} disabled={suggestionsPending}>
-                                Refresh options
+                                {t('form.refresh')}
                             </Button>
                             {suggestionsPending ? <Loader size="xs" /> : undefined}
                         </Group>
@@ -1093,7 +1099,7 @@ export function ConfigFieldsForm({
                     <Group justify="flex-end" gap="md">
                         {succeeded && !dirty ? (
                             <Text size="sm" c="dimmed">
-                                Saved.
+                                {t('form.saved')}
                             </Text>
                         ) : undefined}
                         <Button type="submit" loading={pending}>
@@ -1215,6 +1221,7 @@ function RowsField({
     onRemove,
     onMove,
 }: RowsFieldProps) {
+    const { t } = useTranslation('settings');
     const columns = columnsOf(field);
     const widths = columnWidths(columns);
 
@@ -1223,14 +1230,14 @@ function RowsField({
             <Stack gap="xs" mt={field.help === undefined ? 'xxs' : 'xs'}>
                 {rows.length === 0 ? (
                     <Text size="sm" c="dimmed">
-                        {field.placeholder ?? 'Nothing here yet.'}
+                        {field.placeholder ?? t('form.rows.empty')}
                     </Text>
                 ) : phone ? (
                     <Stack gap="xs">
                         {rows.map((row, index) => (
                             <PhoneCard
                                 key={cellKey(`${name}.${index}`)}
-                                title={<Eyebrow>Row {index + 1}</Eyebrow>}
+                                title={<Eyebrow>{t('form.rows.row', { number: index + 1 })}</Eyebrow>}
                                 action={<RowControls index={index} last={rows.length - 1} disabled={disabled} onRemove={onRemove} onMove={onMove} />}
                                 below={
                                     <Stack gap="xs" mt="xs">
@@ -1292,7 +1299,7 @@ function RowsField({
                                                         size="sm"
                                                         c="dimmed"
                                                         ta="center"
-                                                        aria-label={`${column.label} does not apply to row ${index + 1}`}
+                                                        aria-label={t('form.rows.notApplicable', { column: column.label, number: index + 1 })}
                                                     >
                                                         —
                                                     </Text>
@@ -1340,10 +1347,11 @@ function AddRowButton({
     disabled: boolean;
     onAdd: (preset?: ConfigFieldPreset) => void;
 }) {
+    const { t } = useTranslation('settings');
     if (presets.length === 0) {
         return (
             <Button variant="light" size="compact-sm" leftSection={<IconPlus size={14} />} disabled={disabled} onClick={() => onAdd()}>
-                Add
+                {t('form.rows.add')}
             </Button>
         );
     }
@@ -1358,7 +1366,7 @@ function AddRowButton({
                     rightSection={<IconChevronDown size={14} />}
                     disabled={disabled}
                 >
-                    Add
+                    {t('form.rows.add')}
                 </Button>
             </Menu.Target>
             <Menu.Dropdown>
@@ -1368,7 +1376,7 @@ function AddRowButton({
                     </Menu.Item>
                 ))}
                 <Menu.Divider />
-                <Menu.Item onClick={() => onAdd()}>Something else</Menu.Item>
+                <Menu.Item onClick={() => onAdd()}>{t('form.rows.somethingElse')}</Menu.Item>
             </Menu.Dropdown>
         </Menu>
     );
@@ -1619,6 +1627,7 @@ interface BytesFieldProps {
  * is the default one.
  */
 function BytesField({ field, inputProps, common }: BytesFieldProps) {
+    const { t } = useTranslation('settings');
     const { value, onChange, ...rest } = inputProps;
     const bytes = typeof value === 'number' ? value : Number.parseFloat(String(value ?? ''));
 
@@ -1634,7 +1643,7 @@ function BytesField({ field, inputProps, common }: BytesFieldProps) {
             max={field.max === undefined ? undefined : field.max / BYTES_PER_GB}
             step={1}
             decimalScale={2}
-            placeholder={field.placeholder ?? 'No limit'}
+            placeholder={field.placeholder ?? t('form.bytes.noLimit')}
             value={Number.isFinite(bytes) && bytes > 0 ? bytes / BYTES_PER_GB : ''}
             onChange={next => {
                 const gigabytes = typeof next === 'number' ? next : Number.parseFloat(next);
@@ -1659,6 +1668,7 @@ interface SecretFieldProps {
  * sent: the API reports one as a boolean and no more.
  */
 function SecretField({ field, inputProps, stored, cleared, disabled, onToggleCleared }: SecretFieldProps) {
+    const { t } = useTranslation('settings');
     return (
         <Stack gap="xxs">
             <PasswordInput
@@ -1674,10 +1684,10 @@ function SecretField({ field, inputProps, stored, cleared, disabled, onToggleCle
                 // description, which the field's own help text already has a claim on.
                 <Group justify="space-between" gap="sm" wrap="nowrap">
                     <Text size="xs" c={cleared ? 'red' : 'dimmed'}>
-                        {cleared ? 'Will be removed when you save.' : 'Stored — leave blank to keep it.'}
+                        {cleared ? t('form.secret.willBeRemoved') : t('form.secret.stored')}
                     </Text>
                     <Anchor component="button" type="button" size="xs" c={cleared ? undefined : 'red'} onClick={onToggleCleared}>
-                        {cleared ? 'Keep the stored value' : 'Clear the stored value'}
+                        {cleared ? t('form.secret.keep') : t('form.secret.clear')}
                     </Anchor>
                 </Group>
             ) : undefined}
@@ -1717,6 +1727,7 @@ interface RowCellProps {
  * is a `url` column losing its keyboard on the surface where the keyboard is the whole point.
  */
 function RowCell({ column, labelled, choices, disabled, cell, secret }: RowCellProps) {
+    const { t } = useTranslation('settings');
     const common = {
         label: labelled ? column.label : undefined,
         'aria-label': column.label,
@@ -1750,9 +1761,13 @@ function RowCell({ column, labelled, choices, disabled, cell, secret }: RowCellP
                         ta="left"
                         c={cleared ? undefined : 'red'}
                         onClick={secret?.onToggleCleared}
-                        aria-label={`${cleared ? 'Keep' : 'Clear'} the stored ${column.label.toLowerCase()}`}
+                        aria-label={
+                            cleared
+                                ? t('form.cellSecret.keepLabel', { column: column.label.toLowerCase() })
+                                : t('form.cellSecret.clearLabel', { column: column.label.toLowerCase() })
+                        }
                     >
-                        {cleared ? 'Will be removed — keep it instead' : 'Stored — clear it'}
+                        {cleared ? t('form.cellSecret.willBeRemoved') : t('form.cellSecret.stored')}
                     </Anchor>
                 ) : undefined}
             </Stack>
@@ -1763,8 +1778,11 @@ function RowCell({ column, labelled, choices, disabled, cell, secret }: RowCellP
         return <Autocomplete {...common} {...suggestionsAsValues(choices)} limit={Infinity} {...cell} />;
     }
 
-    return <TextInput {...common} {...(column.type === 'url' ? { inputMode: 'url' as const } : {})} {...cell} />;
+    return <TextInput {...common} {...(column.type === 'url' ? URL_INPUT : {})} {...cell} />;
 }
+
+/** A `url` cell's keyboard, as the `url` field's is. */
+const URL_INPUT = { inputMode: 'url' } as const;
 
 /**
  * Take a row away.
@@ -1804,14 +1822,15 @@ export function RowControls({
     onRemove?: (index: number) => void;
     onMove: (index: number, by: -1 | 1) => void;
 }) {
-    const what = name ?? `row ${index + 1}`;
+    const { t } = useTranslation('settings');
+    const what = name ?? t('form.rows.rowName', { number: index + 1 });
 
     return (
         <Group gap={2} wrap="nowrap" justify="flex-end">
             <ActionIcon
                 variant="subtle"
                 color="gray"
-                aria-label={`Move ${what} up`}
+                aria-label={t('form.rows.moveUp', { name: what })}
                 disabled={disabled || index === 0}
                 onClick={() => {
                     onMove(index, -1);
@@ -1822,7 +1841,7 @@ export function RowControls({
             <ActionIcon
                 variant="subtle"
                 color="gray"
-                aria-label={`Move ${what} down`}
+                aria-label={t('form.rows.moveDown', { name: what })}
                 disabled={disabled || index === last}
                 onClick={() => {
                     onMove(index, 1);
@@ -1836,11 +1855,12 @@ export function RowControls({
 }
 
 function RemoveRow({ index, disabled, name, onRemove }: { index: number; disabled: boolean; name?: string; onRemove: (index: number) => void }) {
+    const { t } = useTranslation('settings');
     return (
         <ActionIcon
             variant="subtle"
             color="red"
-            aria-label={`Remove ${name ?? `row ${index + 1}`}`}
+            aria-label={t('form.rows.remove', { name: name ?? t('form.rows.rowName', { number: index + 1 }) })}
             disabled={disabled}
             onClick={() => {
                 onRemove(index);

@@ -1,4 +1,5 @@
 import { TextInput } from '@mantine/core';
+import { useTranslation } from 'react-i18next';
 
 /** How many digits an authenticator app shows. The API accepts up to ten; every app here shows six. */
 export const ONE_TIME_CODE_LENGTH = 6;
@@ -22,10 +23,11 @@ export interface OneTimeCodeInputProps {
  * it, depending on the browser. `autoComplete="one-time-code"` is what lets a phone offer the code
  * it just received; `inputMode="numeric"` is what brings up the right keyboard for it.
  */
-export function OneTimeCodeInput({ value, onChange, onComplete, label = 'Code', error, disabled, autoFocus = true }: OneTimeCodeInputProps) {
+export function OneTimeCodeInput({ value, onChange, onComplete, label, error, disabled, autoFocus = true }: OneTimeCodeInputProps) {
+    const { t } = useTranslation();
     return (
         <TextInput
-            label={label}
+            label={label ?? t('oneTimeCode.label')}
             value={value}
             error={error}
             disabled={disabled}
@@ -33,7 +35,7 @@ export function OneTimeCodeInput({ value, onChange, onComplete, label = 'Code', 
             inputMode="numeric"
             autoComplete="one-time-code"
             maxLength={ONE_TIME_CODE_LENGTH}
-            placeholder="123456"
+            placeholder={t('oneTimeCode.placeholder')}
             styles={{ input: { fontFamily: 'var(--mantine-font-family-monospace)', fontSize: 18, letterSpacing: 6 } }}
             onChange={event => {
                 const next = event.currentTarget.value.replace(/\D/g, '').slice(0, ONE_TIME_CODE_LENGTH);

@@ -1,6 +1,7 @@
 import { Button, Card, Group, NumberInput, Select, SimpleGrid, Stack, Textarea, TextInput } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import type { ProductionRequest } from '@deadair/sdk';
+import { useTranslation } from 'react-i18next';
 
 import { usePersonas } from '../../api/personas.queries';
 import { presents } from '../personas/persona.kind';
@@ -26,11 +27,7 @@ export interface ProductionFormProps {
 }
 
 /** The modes, said the way the settings page says them, so an operator meets one vocabulary. */
-const MODES = [
-    { value: 'quick', label: 'Quick — one draft per beat' },
-    { value: 'outlined', label: 'Outlined — plan it, then write it' },
-    { value: 'polished', label: 'Polished — plan, write, then check and fix' },
-];
+const MODES = ['quick', 'outlined', 'polished'] as const;
 
 /** The six boxes as the form holds them, before the empty ones are dropped on the way out. */
 interface FormValues {
@@ -43,6 +40,7 @@ interface FormValues {
 }
 
 export function ProductionForm({ pending, error, onSubmit, onCancel }: ProductionFormProps) {
+    const { t } = useTranslation(['productions', 'common']);
     const personas = usePersonas();
 
     const form = useForm<FormValues>({
@@ -53,7 +51,7 @@ export function ProductionForm({ pending, error, onSubmit, onCancel }: Productio
         // The one thing that is actually required. It used to be enforced by a disabled button and a
         // silent `return`, which says nothing at all about why: a form that will not submit and will
         // not say why is the same failure as a line an operator mistyped.
-        validate: values => (values.title.trim().length === 0 ? { title: 'Give it a name' } : {}),
+        validate: values => (values.title.trim().length === 0 ? { title: t('form.title.required') } : {}),
     });
 
     const submit = (values: FormValues) => {
@@ -73,12 +71,12 @@ export function ProductionForm({ pending, error, onSubmit, onCancel }: Productio
                 nothing — the shortcut every other form in the console already has. */}
             <form onSubmit={form.onSubmit(submit)}>
                 <Stack gap="md">
-                    {error !== null && error !== undefined && <ErrorAlert title="Could not ask for that production" error={error} />}
+                    {error !== null && error !== undefined && <ErrorAlert title={t('form.error')} error={error} />}
 
                     <TextInput
-                        label="Called"
-                        description="What this one is, for the console and for its beats' own labels."
-                        placeholder="The machine nobody wanted"
+                        label={t('form.title.label')}
+                        description={t('form.title.description')}
+                        placeholder={t('form.title.placeholder')}
                         // `withAsterisk` rather than `required`, which is the settings form's
                         // choice and not a cosmetic one: the native attribute makes the BROWSER
                         // refuse the submit before the form's own validation runs, so the operator
@@ -90,19 +88,19 @@ export function ProductionForm({ pending, error, onSubmit, onCancel }: Productio
                     />
 
                     <Textarea
-                        label="What it should be about"
-                        description="In your own words. This is what the planning pass actually works from, and it matters far more than the title does."
-                        placeholder="The history of the TR-808: why it flopped, who rescued it, and what it did to pop music."
+                        label={t('form.brief.label')}
+                        description={t('form.brief.description')}
+                        placeholder={t('form.brief.placeholder')}
                         autosize
                         minRows={3}
                         {...form.getInputProps('brief')}
                     />
 
                     <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
-                        <TextInput label="Kind" description="Free text, and what a clock band names." {...form.getInputProps('kind')} />
+                        <TextInput label={t('form.kind.label')} description={t('form.kind.description')} {...form.getInputProps('kind')} />
                         <NumberInput
-                            label="Minutes"
-                            description="Leave empty for the station's default. This decides how many beats it has."
+                            label={t('form.minutes.label')}
+                            description={t('form.minutes.description')}
                             min={1}
                             {...form.getInputProps('minutes')}
                         />
@@ -110,17 +108,17 @@ export function ProductionForm({ pending, error, onSubmit, onCancel }: Productio
 
                     <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
                         <Select
-                            label="How much to write it"
-                            description="Leave empty for the station's default."
-                            data={MODES}
+                            label={t('form.mode.label')}
+                            description={t('form.mode.description')}
+                            data={MODES.map(value => ({ value, label: t(`form.mode.option.${value}`) }))}
                             clearable
                             {...form.getInputProps('mode')}
                         />
                         {/* Who PRESENTS it, so hosts only: the callers a production casts are chosen per
                             beat and are not offered here. See `presents`. */}
                         <Select
-                            label="Presenter"
-                            description="Leave empty and whoever is on air when a pass runs presents it."
+                            label={t('form.presenter.label')}
+                            description={t('form.presenter.description')}
                             data={(personas.data?.personas ?? []).filter(presents).map(persona => ({ value: persona.id, label: persona.label }))}
                             clearable
                             searchable
@@ -130,10 +128,10 @@ export function ProductionForm({ pending, error, onSubmit, onCancel }: Productio
 
                     <Group justify="flex-end">
                         <Button variant="subtle" onClick={onCancel} disabled={pending}>
-                            Cancel
+                            {t('common:action.cancel')}
                         </Button>
                         <Button type="submit" loading={pending}>
-                            Ask for it
+                            {t('form.submit')}
                         </Button>
                     </Group>
                 </Stack>

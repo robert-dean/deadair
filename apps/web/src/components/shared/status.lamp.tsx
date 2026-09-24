@@ -1,4 +1,5 @@
 import { Badge, Box, Group, Text } from '@mantine/core';
+import { useTranslation } from 'react-i18next';
 
 import { type StatusTone, toneColor } from './status';
 
@@ -25,6 +26,7 @@ export interface StatusLampProps {
  * third answer.
  */
 export function StatusLamp({ tone, label, emphasis = 'lamp', size = 'sm', pulse = false }: StatusLampProps) {
+    const { t } = useTranslation();
     const color = toneColor[tone];
 
     if (emphasis === 'chip') {
@@ -37,7 +39,7 @@ export function StatusLamp({ tone, label, emphasis = 'lamp', size = 'sm', pulse 
 
     const dot = size === 'md' ? 10 : 8;
     return (
-        <Group gap="xxs" wrap="nowrap" aria-label={`Status: ${label}`}>
+        <Group gap="xxs" wrap="nowrap" aria-label={t('statusLamp.label', { label })}>
             <Box w={dot} h={dot} bg={`${color}.5`} className={pulse ? 'da-lamp-pulse' : undefined} style={{ borderRadius: '50%', flexShrink: 0 }} />
             <Text size={size === 'md' ? 'sm' : 'xs'} fw={600} tt="uppercase" style={{ letterSpacing: 'var(--da-tracking-eyebrow)' }}>
                 {label}

@@ -1,5 +1,6 @@
 import { Anchor, Group, Stack, Text } from '@mantine/core';
 import { Link } from '@tanstack/react-router';
+import { useTranslation } from 'react-i18next';
 import type { PluginSummary } from '@deadair/sdk';
 
 import { ErrorAlert } from '../shared/error.alert';
@@ -20,10 +21,11 @@ import { PluginStatusLamp, statusOf } from './plugin.status';
  * Amber rather than red: the page works, and the station is still on air without the plugin.
  */
 export function PluginAttentionStrip({ plugins }: { plugins: PluginSummary[] }) {
+    const { t } = useTranslation('plugins');
     const troubled = plugins.filter(needsAttention).sort((a, b) => a.name.localeCompare(b.name));
     if (troubled.length === 0) return undefined;
 
-    const title = troubled.length === 1 ? '1 plugin needs attention' : `${troubled.length} plugins need attention`;
+    const title = t('attention.title', { count: troubled.length });
 
     return (
         <ErrorAlert tone="warning" title={title}>

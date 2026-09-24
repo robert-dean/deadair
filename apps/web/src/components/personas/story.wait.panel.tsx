@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { Button, Card, Collapse, Group, NumberInput, Stack, Text } from '@mantine/core';
 import { useForm } from '@mantine/form';
+import { useTranslation } from 'react-i18next';
 
 import { useSettings, useUpdateSettings } from '../../api/settings.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
+import { i18n } from '../../i18n/i18n.setup';
 import { ErrorAlert } from '../shared/error.alert';
 import { Eyebrow } from '../shared/eyebrow';
 
@@ -44,6 +46,7 @@ export const MAX_MINUTES = 1_440;
 export function StoryWaitPanel() {
     const settings = useSettings();
     const save = useUpdateSettings();
+    const { t } = useTranslation('personas');
     const [opened, setOpened] = useState(false);
 
     const stored = storedMinutes(settings.data?.values ?? {});
@@ -53,7 +56,7 @@ export function StoryWaitPanel() {
             <Stack gap="sm">
                 <Group justify="space-between" align="flex-start" wrap="nowrap">
                     <Stack gap={2}>
-                        <Eyebrow>Returning to a story</Eyebrow>
+                        <Eyebrow>{t('storyWait.eyebrow')}</Eyebrow>
                         {/* Nothing is claimed until the settings have answered, for the presenter
                             name's reason: an unanswered read looks like a station that set nothing. */}
                         <Text size="sm" c="dimmed" maw={620}>
@@ -61,12 +64,12 @@ export function StoryWaitPanel() {
                         </Text>
                     </Stack>
                     <Button size="xs" variant="light" onClick={() => setOpened(open => !open)}>
-                        {opened ? 'Done' : 'Change'}
+                        {opened ? t('shared.done') : t('shared.change')}
                     </Button>
                 </Group>
 
                 {settings.error ? (
-                    <ErrorAlert title="The story wait could not be read" error={settings.error} fallback="The station settings are unavailable." />
+                    <ErrorAlert title={t('storyWait.readError')} error={settings.error} fallback={t('shared.settingsUnavailable')} />
                 ) : undefined}
 
                 <Collapse expanded={opened}>
@@ -80,7 +83,7 @@ export function StoryWaitPanel() {
                         onSubmit={minutes => save.mutate({ [KEY]: typeof minutes === 'number' ? minutes : null })}
                         saving={save.isPending}
                         succeeded={save.isSuccess}
-                        failure={save.isError ? apiErrorMessage(save.error, 'The story wait could not be saved.') : undefined}
+                        failure={save.isError ? apiErrorMessage(save.error, t('storyWait.saveFallback')) : undefined}
                     />
                 </Collapse>
             </Stack>
@@ -98,16 +101,17 @@ interface StoryWaitFormProps {
 }
 
 function StoryWaitForm({ initial, onSubmit, saving, succeeded, failure }: StoryWaitFormProps) {
+    const { t } = useTranslation('personas');
     const form = useForm<{ minutes: number | string }>({ initialValues: { minutes: initial } });
 
     return (
         <form onSubmit={form.onSubmit(values => onSubmit(values.minutes))}>
             <Stack gap="md" pt="sm">
-                {failure ? <ErrorAlert title="That could not be saved">{failure}</ErrorAlert> : undefined}
+                {failure ? <ErrorAlert title={t('shared.saveFailedTitle')}>{failure}</ErrorAlert> : undefined}
 
                 <NumberInput
-                    label="Wait before returning to a story (minutes)"
-                    description={`How long a presenter leaves a story in parts, or a running joke, before coming back to it. Long enough that a listener hears the character return to something rather than dwell on it. ${MIN_MINUTES} is a floor rather than a suggestion: breaks are written several records ahead, and below it two of them can be handed the same part.`}
+                    label={t('storyWait.label')}
+                    description={t('storyWait.description', { min: MIN_MINUTES })}
                     min={MIN_MINUTES}
                     max={MAX_MINUTES}
                     step={5}
@@ -119,11 +123,11 @@ function StoryWaitForm({ initial, onSubmit, saving, succeeded, failure }: StoryW
                 <Group justify="flex-end" gap="md">
                     {succeeded && !form.isDirty() ? (
                         <Text size="sm" c="dimmed">
-                            Saved.
+                            {t('shared.saved')}
                         </Text>
                     ) : undefined}
                     <Button type="submit" loading={saving}>
-                        Save
+                        {t('shared.save')}
                     </Button>
                 </Group>
             </Stack>
@@ -140,11 +144,11 @@ function storedMinutes(values: Record<string, unknown>): number {
 
 /** What the wait is now, as one line. Hours past sixty minutes, because "180 minutes" is a sum. */
 export function summaryOf(minutes: number): string {
-    return `A presenter leaves ${durationOf(minutes)} before returning to a story in parts or a running joke.`;
+    return i18n.t('personas:storyWait.summary', { duration: durationOf(minutes) });
 }
 
 function durationOf(minutes: number): string {
-    if (minutes < 60 || minutes % 60 !== 0) return `${minutes} minutes`;
+    if (minutes < 60 || minutes % 60 !== 0) return i18n.t('personas:storyWait.minutes', { count: minutes });
     const hours = minutes / 60;
-    return hours === 1 ? 'an hour' : `${hours} hours`;
+    return hours === 1 ? i18n.t('personas:storyWait.anHour') : i18n.t('personas:storyWait.hours', { count: hours });
 }

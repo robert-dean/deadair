@@ -1,7 +1,9 @@
 import type { ReactNode } from 'react';
 import { Stack, Title } from '@mantine/core';
 import { useNavigate } from '@tanstack/react-router';
+import { useTranslation } from 'react-i18next';
 
+import { i18n } from '../../i18n/i18n.setup';
 import { DestinationTabs, type DestinationTab } from '../shared/destination.tabs';
 import { EmbeddedPage } from '../shared/page.header';
 
@@ -16,14 +18,30 @@ import { EmbeddedPage } from '../shared/page.header';
  * underneath are still pages.
  */
 export const LIBRARY_TABS = [
-    { key: 'tracks', label: 'Tracks', hint: 'Every record the station has ingested' },
-    { key: 'artists', label: 'Artists', hint: 'Who the records are by' },
-    { key: 'playlists', label: 'Playlists', hint: 'What a music plugin can offer it' },
-    { key: 'charts', label: 'Charts', hint: 'What is doing well elsewhere' },
-    { key: 'news', label: 'News', hint: 'The stories a bulletin is written from' },
-    { key: 'podcasts', label: 'Podcasts', hint: "Somebody else's programmes the station can carry" },
-    { key: 'narrations', label: 'Readings', hint: 'Books and columns the station reads out itself' },
+    libraryTab('tracks'),
+    libraryTab('artists'),
+    libraryTab('playlists'),
+    libraryTab('charts'),
+    libraryTab('news'),
+    libraryTab('podcasts'),
+    libraryTab('narrations'),
 ] as const satisfies readonly DestinationTab<string>[];
+
+/**
+ * One tab, with its words read from the library catalog through getters, so the strip, the rail and
+ * the command palette get them in the language on screen when they read them rather than at import.
+ */
+function libraryTab<TKey extends 'tracks' | 'artists' | 'playlists' | 'charts' | 'news' | 'podcasts' | 'narrations'>(key: TKey) {
+    return {
+        key,
+        get label(): string {
+            return i18n.t(`library:tabs.${key}.label`);
+        },
+        get hint(): string {
+            return i18n.t(`library:tabs.${key}.hint`);
+        },
+    };
+}
 
 export type LibraryTab = (typeof LIBRARY_TABS)[number]['key'];
 
@@ -46,6 +64,7 @@ export interface LibraryShellProps {
  * leading to a list that does not exist would be worse than the gap.
  */
 export function LibraryShell({ active, children }: LibraryShellProps) {
+    const { t } = useTranslation('library');
     const navigate = useNavigate();
 
     return (
@@ -54,12 +73,12 @@ export function LibraryShell({ active, children }: LibraryShellProps) {
                 `PageHeader` description saying what THAT page is, so the two were drawn one above
                 the other and the reader's first two paragraphs were both preamble. The sentence
                 each section is worth is on its row in the rail now. */}
-            <Title order={1}>Library</Title>
+            <Title order={1}>{t('title')}</Title>
 
             <DestinationTabs
                 tabs={LIBRARY_TABS}
                 active={active}
-                label="Library"
+                label={t('title')}
                 onSelect={key => {
                     // Each tab is its own route, so this is a real navigation rather than a state
                     // change: the back button steps between them and every page keeps the loader

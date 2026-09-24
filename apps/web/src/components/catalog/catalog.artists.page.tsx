@@ -1,6 +1,7 @@
 import { Anchor, Stack, Table, Text } from '@mantine/core';
 import { Link } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 
 import { catalogArtistsOptions, useRateArtist } from '../../api/catalog.queries';
 import { Artwork } from '../shared/artwork';
@@ -27,6 +28,7 @@ export interface CatalogArtistsPageProps {
 }
 
 export function CatalogArtistsPage({ page, search, order, onPageChange, onSearchChange, onOrderChange }: CatalogArtistsPageProps) {
+    const { t } = useTranslation('catalog');
     const artists = useQuery(catalogArtistsOptions({ page, search, ...order }));
     const rows = artists.data?.data ?? [];
     const rate = useRateArtist();
@@ -41,29 +43,27 @@ export function CatalogArtistsPage({ page, search, order, onPageChange, onSearch
     return (
         <Stack gap="lg">
             <PageHeader
-                title="Artists"
+                title={t('artists.title')}
                 description={
                     <Text c="dimmed" size="sm">
-                        Every artist the station has ingested.
+                        {t('artists.description')}
                     </Text>
                 }
             />
 
             {/* No "browse all tracks" link here: the Library's tab strip is the way to the flat
                 list now, and a hand-written link beside the search duplicated it. */}
-            <CatalogSearch value={search} placeholder="Search artists" onChange={onSearchChange} />
+            <CatalogSearch value={search} placeholder={t('artists.search')} onChange={onSearchChange} />
 
             {artists.error ? (
-                <ErrorAlert title="The catalog could not be loaded" error={artists.error} fallback="The catalog is unavailable." />
+                <ErrorAlert title={t('artists.loadFailedTitle')} error={artists.error} fallback={t('tracks.loadFailedFallback')} />
             ) : undefined}
 
             {artists.isPending ? <PageSkeleton variant="table" /> : undefined}
 
             {artists.data && rows.length === 0 ? (
-                <EmptyState title={search === '' ? 'The catalog is empty' : `Nothing matches “${search}”`}>
-                    {search === ''
-                        ? 'The catalog fills as enabled plugins are scanned. Nothing has been ingested yet.'
-                        : 'Try a shorter term, or part of the name rather than all of it.'}
+                <EmptyState title={search === '' ? t('tracks.empty.title') : t('tracks.noMatch.title', { search })}>
+                    {search === '' ? t('tracks.empty.body') : t('artists.noMatch')}
                 </EmptyState>
             ) : undefined}
 
@@ -75,16 +75,16 @@ export function CatalogArtistsPage({ page, search, order, onPageChange, onSearch
                                 <Table.Tr>
                                     <Table.Th w={56} />
                                     <SortableTh sortBy="name" {...sorting}>
-                                        Artist
+                                        {t('columns.artist')}
                                     </SortableTh>
                                     <SortableTh sortBy="albums" w={120} {...sorting}>
-                                        Albums
+                                        {t('columns.albums')}
                                     </SortableTh>
                                     <SortableTh sortBy="tracks" w={120} {...sorting}>
-                                        Tracks
+                                        {t('columns.tracks')}
                                     </SortableTh>
                                     <SortableTh sortBy="rating" w={150} {...sorting}>
-                                        Rating
+                                        {t('columns.rating')}
                                     </SortableTh>
                                 </Table.Tr>
                             </Table.Thead>

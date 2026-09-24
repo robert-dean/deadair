@@ -1,10 +1,12 @@
 import { Button, Group, List, SimpleGrid, Stack, Text, Title } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import type { CatalogPlaylist } from '@deadair/sdk';
 
 import { playlistsListOptions, useRefreshPlaylists } from '../../api/playlists.queries';
 import { stationPlaylistsListOptions } from '../../api/station.playlists.queries';
+import { i18n } from '../../i18n/i18n.setup';
 import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
 import { notifyQueued } from '../shared/notify';
@@ -35,7 +37,7 @@ function PlaylistGrid({ playlists }: { playlists: CatalogPlaylist[] }) {
  * playlists nobody asked to see. "Collapse" rather than "Hide" to close it, because hiding is a
  * different thing a card can have done to it, and it persists.
  */
-function FoldedPlaylists({ playlists, what }: { playlists: CatalogPlaylist[]; what: string }) {
+function FoldedPlaylists({ playlists, show, collapse }: { playlists: CatalogPlaylist[]; show: string; collapse: string }) {
     const [open, setOpen] = useState(false);
 
     if (playlists.length === 0) {
@@ -52,7 +54,7 @@ function FoldedPlaylists({ playlists, what }: { playlists: CatalogPlaylist[]; wh
                     setOpen(current => !current);
                 }}
             >
-                {open ? `Collapse the ${playlists.length} ${what}` : `Show ${playlists.length} ${what}`}
+                {open ? collapse : show}
             </Button>
             {open ? <PlaylistGrid playlists={playlists} /> : undefined}
         </Stack>
@@ -61,7 +63,7 @@ function FoldedPlaylists({ playlists, what }: { playlists: CatalogPlaylist[]; wh
 
 /** "Spotify", or "Spotify and Tidal": whoever made the playlists in a group, for its button. */
 function makers(playlists: CatalogPlaylist[]): string {
-    return [...new Set(playlists.map(playlist => playlist.pluginName))].join(' and ');
+    return [...new Set(playlists.map(playlist => playlist.pluginName))].join(i18n.t('playlists:page.makersJoin'));
 }
 
 /**
@@ -70,11 +72,12 @@ function makers(playlists: CatalogPlaylist[]): string {
  * reads as a page that has lost count.
  */
 function availability(fromSources: number, own: number): string {
-    if (own === 0) return `${fromSources} available`;
-    return `${own} of the station's own, ${fromSources} from music sources`;
+    if (own === 0) return i18n.t('playlists:page.available', { count: fromSources });
+    return i18n.t('playlists:page.availableWithOwn', { own, count: fromSources });
 }
 
 export function PlaylistsPage() {
+    const { t } = useTranslation('playlists');
     const playlists = useQuery(playlistsListOptions);
     const refresh = useRefreshPlaylists();
     const station = useQuery(stationPlaylistsListOptions);
@@ -96,18 +99,16 @@ export function PlaylistsPage() {
     return (
         <Stack gap="lg">
             <PageHeader
-                title="Playlists"
+                title={t('page.title')}
                 description={
                     <Text c="dimmed" size="sm">
-                        {playlists.data
-                            ? availability(chosen.length, station.data?.playlists.length ?? 0)
-                            : 'Everything the enabled catalog plugins can offer.'}
+                        {playlists.data ? availability(chosen.length, station.data?.playlists.length ?? 0) : t('page.loading')}
                     </Text>
                 }
                 actions={
                     <Group gap="xs">
                         <Button size="xs" variant="default" onClick={() => setImporting(true)}>
-                            Import
+                            {t('page.import')}
                         </Button>
                         <Button
                             size="xs"
@@ -115,14 +116,11 @@ export function PlaylistsPage() {
                             loading={refresh.isPending}
                             onClick={() =>
                                 refresh.mutate(undefined, {
-                                    onSuccess: () =>
-                                        notifyQueued(
-                                            'The station is reading every playlist again. New records reach the library in a few minutes, and the activity feed says when it is done.',
-                                        ),
+                                    onSuccess: () => notifyQueued(t('page.refreshQueued')),
                                 })
                             }
                         >
-                            Refresh now
+                            {t('page.refresh')}
                         </Button>
                     </Group>
                 }
@@ -130,7 +128,7 @@ export function PlaylistsPage() {
 
             <PlaylistImportModal opened={importing} onClose={() => setImporting(false)} />
 
-            {station.error ? <ErrorAlert title="The station's own playlists could not be loaded" error={station.error} /> : undefined}
+            {station.error ? <ErrorAlert title={t('page.stationFailed')} error={station.error} /> : undefined}
 
             {/* The station's own come first, since they are the ones it holds rather than borrows. The
                 heading exists only when there is something under it: a fresh install has none, and an
@@ -138,7 +136,7 @@ export function PlaylistsPage() {
             {station.data && station.data.playlists.length > 0 ? (
                 <Stack gap="sm">
                     <Title order={2} size="h4">
-                        The station&apos;s own
+                        {t('page.stationOwn')}
                     </Title>
                     <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
                         {station.data.playlists.map(playlist => (
@@ -146,24 +144,22 @@ export function PlaylistsPage() {
                         ))}
                     </SimpleGrid>
                     <Title order={2} size="h4" mt="sm">
-                        From the music sources
+                        {t('page.fromSources')}
                     </Title>
                 </Stack>
             ) : undefined}
 
-            {refresh.error ? <ErrorAlert title="The playlists could not be read again" error={refresh.error} /> : undefined}
+            {refresh.error ? <ErrorAlert title={t('page.refreshFailed')} error={refresh.error} /> : undefined}
 
             {playlists.error ? (
-                <ErrorAlert title="Playlists could not be loaded" error={playlists.error} fallback="The playlist catalogue is unavailable." />
+                <ErrorAlert title={t('page.loadFailed')} error={playlists.error} fallback={t('page.loadFailedFallback')} />
             ) : undefined}
 
             {sourceErrors.length > 0 ? (
-                <ErrorAlert tone="warning" title="Some plugins could not be listed">
+                <ErrorAlert tone="warning" title={t('page.sourceErrors')}>
                     <List size="sm">
                         {sourceErrors.map(error => (
-                            <List.Item key={error.pluginId}>
-                                {error.pluginName}: {error.message}
-                            </List.Item>
+                            <List.Item key={error.pluginId}>{t('page.sourceError', { plugin: error.pluginName, message: error.message })}</List.Item>
                         ))}
                     </List>
                 </ErrorAlert>
@@ -178,29 +174,31 @@ export function PlaylistsPage() {
             ) : undefined}
 
             {playlists.data && all.length === 0 ? (
-                <EmptyState title="No playlists are available">
+                <EmptyState title={t('page.emptyTitle')}>
                     {/* Never both stories at once. Telling an operator to enable a plugin
                         directly under a warning that their enabled plugin has failed sends
                         them to the wrong screen; the alert above already says what to do. */}
                     {sourceErrors.length > 0 ? (
-                        'The plugins that could offer playlists are listed above, with why each one could not be.'
+                        t('page.emptyWithErrors')
                     ) : (
-                        <>
-                            Enable a plugin with the{' '}
-                            <Text span ff="monospace">
-                                catalog
-                            </Text>{' '}
-                            capability to see its playlists here.
-                        </>
+                        <Trans t={t} i18nKey="page.emptyEnable" components={{ code: <Text span ff="monospace" /> }} />
                     )}
                 </EmptyState>
             ) : undefined}
 
             {chosen.length > 0 ? <PlaylistGrid playlists={chosen} /> : undefined}
 
-            <FoldedPlaylists playlists={providerMade} what={`made by ${makers(providerMade)}`} />
+            <FoldedPlaylists
+                playlists={providerMade}
+                show={t('page.madeBy.show', { count: providerMade.length, makers: makers(providerMade) })}
+                collapse={t('page.madeBy.collapse', { count: providerMade.length, makers: makers(providerMade) })}
+            />
 
-            <FoldedPlaylists playlists={hidden} what="hidden" />
+            <FoldedPlaylists
+                playlists={hidden}
+                show={t('page.hidden.show', { count: hidden.length })}
+                collapse={t('page.hidden.collapse', { count: hidden.length })}
+            />
         </Stack>
     );
 }

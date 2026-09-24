@@ -28,6 +28,6 @@ describe('formatBytes', () => {
 
     // Beyond the units it knows, so a wrong number cannot come out as a wrong UNIT.
     it('stays in terabytes rather than inventing a bigger name', () => {
-        expect(formatBytes(1024 ** 6)).toBe('1048576.0 TB');
+        expect(formatBytes(1024 ** 6)).toBe('1,048,576.0 TB');
     });
 });

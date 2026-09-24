@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Anchor, Badge, Card, Group, Select, Stack, Text } from '@mantine/core';
 import type { NewsStory } from '@deadair/sdk';
+import { Trans, useTranslation } from 'react-i18next';
 
 import { useNews, useNewsFeeds } from '../../api/news.queries';
 import { EmptyState } from '../shared/empty.state';
@@ -31,6 +32,7 @@ const EVERYTHING = 'all';
  * console does not already hold.
  */
 export function NewsPage() {
+    const { t } = useTranslation('news');
     const feeds = useNewsFeeds();
     const [feedId, setFeedId] = useState<string>(EVERYTHING);
     const [category, setCategory] = useState<string>(EVERYTHING);
@@ -51,23 +53,21 @@ export function NewsPage() {
     return (
         <Stack gap="lg">
             <PageHeader
-                title="News"
+                title={t('title')}
                 description={
                     <Text size="sm" c="dimmed">
-                        What the station has to talk about, newest first. These are the stories a bulletin is written from; what it actually said is
-                        on the scripts page.
+                        {t('description')}
                     </Text>
                 }
             />
 
-            {failure ? <ErrorAlert title="The news could not be read" error={failure} fallback="No plugin answered with a feed." /> : undefined}
+            {failure ? <ErrorAlert title={t('error.title')} error={failure} fallback={t('error.fallback')} /> : undefined}
 
             {feeds.isPending || news.isPending ? <PageSkeleton variant="rows" count={4} /> : undefined}
 
             {feeds.data && known.length === 0 ? (
-                <EmptyState title="No plugin offers a feed">
-                    News arrives with a plugin that reads one. Enable one that declares the <code>news</code> capability and add a feed to its
-                    settings.
+                <EmptyState title={t('empty.feeds.title')}>
+                    <Trans t={t} i18nKey="empty.feeds.body" components={{ code: <code /> }} />
                 </EmptyState>
             ) : undefined}
 
@@ -76,8 +76,8 @@ export function NewsPage() {
                     <Select
                         size="xs"
                         w={{ base: '100%', sm: 280 }}
-                        label="Feed"
-                        data={[{ value: EVERYTHING, label: 'Every feed' }, ...known.map(feed => ({ value: feed.id, label: feed.name }))]}
+                        label={t('filter.feed.label')}
+                        data={[{ value: EVERYTHING, label: t('filter.feed.every') }, ...known.map(feed => ({ value: feed.id, label: feed.name }))]}
                         value={feedId}
                         allowDeselect={false}
                         onChange={next => {
@@ -90,9 +90,9 @@ export function NewsPage() {
                         <Select
                             size="xs"
                             w={{ base: '100%', sm: 220 }}
-                            label="Category"
-                            description="What the operator called the feed"
-                            data={[{ value: EVERYTHING, label: 'Every category' }, ...categories.map(one => ({ value: one, label: one }))]}
+                            label={t('filter.category.label')}
+                            description={t('filter.category.description')}
+                            data={[{ value: EVERYTHING, label: t('filter.category.every') }, ...categories.map(one => ({ value: one, label: one }))]}
                             value={category}
                             allowDeselect={false}
                             onChange={next => {
@@ -104,11 +104,7 @@ export function NewsPage() {
             ) : undefined}
 
             {news.data && known.length > 0 && stories.length === 0 ? (
-                <EmptyState>
-                    {narrowed
-                        ? 'Nothing matches that filter. A category claims the stories of the feeds it was given, so a category with no feed under it has nothing to show.'
-                        : 'The feeds answered with no stories. That is an ordinary state for a slow newsroom rather than a fault.'}
-                </EmptyState>
+                <EmptyState>{narrowed ? t('empty.filtered') : t('empty.stories')}</EmptyState>
             ) : undefined}
 
             {stories.length > 0 ? (
@@ -131,6 +127,7 @@ export function NewsPage() {
  * is exactly the wrong thing to invent.
  */
 function Story({ story, category }: { story: NewsStory; category?: string }) {
+    const { t } = useTranslation('news');
     return (
         <Card padding="md">
             <Stack gap="xxs">
@@ -171,7 +168,7 @@ function Story({ story, category }: { story: NewsStory; category?: string }) {
 
                 {story.url === undefined ? undefined : (
                     <Anchor href={story.url} target="_blank" rel="noreferrer noopener" size="xs">
-                        Read it at the source
+                        {t('story.source')}
                     </Anchor>
                 )}
             </Stack>

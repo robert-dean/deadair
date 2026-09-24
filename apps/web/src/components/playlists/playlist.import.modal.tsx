@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Badge, Button, FileButton, Group, List, Modal, ScrollArea, Stack, Table, Tabs, Text, TextInput, Textarea } from '@mantine/core';
 import { useNavigate } from '@tanstack/react-router';
+import { useTranslation } from 'react-i18next';
 import type { PlaylistFile, PlaylistImportInput, PlaylistImportPlan } from '@deadair/sdk';
 
 import { providerPlaylistPreviewOptions, useImportPlaylist, usePreviewPlaylistImport } from '../../api/station.playlists.queries';
@@ -34,6 +35,7 @@ const ACCEPTED = '.json,.m3u,.m3u8,.csv,.tsv,.txt,application/json,text/csv,text
  * API reads it as an M3U, a CSV or a list of `Artist - Title` lines.
  */
 export function PlaylistImportModal({ opened, onClose, from }: PlaylistImportModalProps) {
+    const { t } = useTranslation(['playlists', 'common']);
     const phone = usePhone();
     const navigate = useNavigate();
     const preview = usePreviewPlaylistImport();
@@ -98,7 +100,7 @@ export function PlaylistImportModal({ opened, onClose, from }: PlaylistImportMod
         try {
             file = JSON.parse(text) as PlaylistFile;
         } catch {
-            setUnreadable(`"${chosen.name}" is not a file this can read. A playlist file is the JSON a station playlist's Export saved.`);
+            setUnreadable(t('import.unreadable', { file: chosen.name }));
             return;
         }
         read({ file });
@@ -120,31 +122,30 @@ export function PlaylistImportModal({ opened, onClose, from }: PlaylistImportMod
     };
 
     return (
-        <Modal opened={opened} onClose={close} title="Import a playlist" size="lg" fullScreen={phone}>
+        <Modal opened={opened} onClose={close} title={t('import.title')} size="lg" fullScreen={phone}>
             <Stack gap="md">
                 <Text size="sm" c="dimmed">
-                    It becomes a new playlist of the station&apos;s own: importing the same thing twice makes two. A record the library does not hold
-                    keeps its place, and the station looks it up at its music sources straight after the import.
+                    {t('import.intro')}
                 </Text>
 
                 {from === undefined ? (
                     <Tabs defaultValue="file" onChange={restart}>
                         <Tabs.List>
-                            <Tabs.Tab value="file">File</Tabs.Tab>
-                            <Tabs.Tab value="paste">Paste a list</Tabs.Tab>
-                            <Tabs.Tab value="link">Link</Tabs.Tab>
+                            <Tabs.Tab value="file">{t('import.tab.file')}</Tabs.Tab>
+                            <Tabs.Tab value="paste">{t('import.tab.paste')}</Tabs.Tab>
+                            <Tabs.Tab value="link">{t('import.tab.link')}</Tabs.Tab>
                         </Tabs.List>
 
                         <Tabs.Panel value="file" pt="md">
                             <Stack gap="xs">
                                 <Text size="xs" c="dimmed">
-                                    A playlist file another station exported, an M3U from a media player, or a CSV from a playlist exporter.
+                                    {t('import.fileHint')}
                                 </Text>
                                 <Group gap="sm">
                                     <FileButton onChange={file => void choose(file)} accept={ACCEPTED}>
                                         {props => (
                                             <Button {...props} variant="default" loading={preview.isPending && source?.text === undefined}>
-                                                {fileName === undefined ? 'Choose a file' : 'Choose another file'}
+                                                {fileName === undefined ? t('import.chooseFile') : t('import.chooseAnother')}
                                             </Button>
                                         )}
                                     </FileButton>
@@ -160,9 +161,9 @@ export function PlaylistImportModal({ opened, onClose, from }: PlaylistImportMod
                         <Tabs.Panel value="paste" pt="md">
                             <Stack gap="xs">
                                 <Textarea
-                                    label="One record per line"
-                                    description="As Artist - Title. Numbered lines are fine."
-                                    placeholder={'Massive Attack - Teardrop\nPortishead - Roads'}
+                                    label={t('import.pasteLabel')}
+                                    description={t('import.pasteHint')}
+                                    placeholder={t('import.pastePlaceholder')}
                                     value={pasted}
                                     onChange={event => setPasted(event.currentTarget.value)}
                                     autosize
@@ -176,7 +177,7 @@ export function PlaylistImportModal({ opened, onClose, from }: PlaylistImportMod
                                         loading={preview.isPending}
                                         onClick={() => read({ text: pasted })}
                                     >
-                                        Preview
+                                        {t('import.preview')}
                                     </Button>
                                 </Group>
                             </Stack>
@@ -185,9 +186,9 @@ export function PlaylistImportModal({ opened, onClose, from }: PlaylistImportMod
                         <Tabs.Panel value="link" pt="md">
                             <Stack gap="xs">
                                 <TextInput
-                                    label="Playlist link"
-                                    description="Copied from Spotify, YouTube Music or your Navidrome, as the browser or the app shows it."
-                                    placeholder="https://open.spotify.com/playlist/…"
+                                    label={t('import.linkLabel')}
+                                    description={t('import.linkHint')}
+                                    placeholder={t('import.linkPlaceholder')}
                                     value={link}
                                     onChange={event => setLink(event.currentTarget.value)}
                                 />
@@ -198,42 +199,38 @@ export function PlaylistImportModal({ opened, onClose, from }: PlaylistImportMod
                                         loading={preview.isPending}
                                         onClick={() => read({ url: link.trim() })}
                                     >
-                                        Preview
+                                        {t('import.preview')}
                                     </Button>
                                 </Group>
                             </Stack>
                         </Tabs.Panel>
                     </Tabs>
                 ) : (
-                    <Text size="sm">{`Saving ${from.name} as a playlist of the station's own.`}</Text>
+                    <Text size="sm">{t('import.saving', { name: from.name })}</Text>
                 )}
 
                 {unreadable ? <ErrorAlert tone="warning">{unreadable}</ErrorAlert> : undefined}
 
                 {previewError ? (
-                    <ErrorAlert title="That could not be read" error={previewError} fallback="It is not a playlist this station recognises." />
+                    <ErrorAlert title={t('import.previewFailed')} error={previewError} fallback={t('import.previewFailedFallback')} />
                 ) : undefined}
 
                 {from !== undefined && fromPreview.isPending ? <PageSkeleton variant="table" /> : undefined}
 
                 {write.error ? (
-                    <ErrorAlert
-                        title="Nothing was imported"
-                        error={write.error}
-                        fallback="The station is exactly as it was: an import that fails is undone in full."
-                    />
+                    <ErrorAlert title={t('import.importFailed')} error={write.error} fallback={t('import.importFailedFallback')} />
                 ) : undefined}
 
                 {plan ? (
                     <>
-                        <TextInput label="Name" value={name} onChange={event => setEdited(event.currentTarget.value)} maxLength={200} />
+                        <TextInput label={t('import.name')} value={name} onChange={event => setEdited(event.currentTarget.value)} maxLength={200} />
                         <ImportPlan plan={plan} />
                         <Group justify="flex-end">
                             <Button variant="subtle" onClick={close}>
-                                Cancel
+                                {t('common:action.cancel')}
                             </Button>
                             <Button loading={write.isPending} disabled={plan.entries.length === 0} onClick={submit}>
-                                {`Import ${count(plan.entries.length, 'record', 'records')}`}
+                                {t('import.submit', { count: plan.entries.length })}
                             </Button>
                         </Group>
                     </>
@@ -245,16 +242,15 @@ export function PlaylistImportModal({ opened, onClose, from }: PlaylistImportMod
 
 /** What each record would become, with the totals said once above the list. */
 function ImportPlan({ plan }: { plan: PlaylistImportPlan }) {
+    const { t } = useTranslation('playlists');
     const waiting = plan.toAdd + plan.toLookUp;
 
     return (
         <Stack gap="sm">
             <Text size="sm">
-                {count(plan.matched, 'record is', 'records are')} in the library
                 {waiting > 0
-                    ? `, and ${count(waiting, 'is', 'are')} not: the station looks ${waiting === 1 ? 'it' : 'them'} up once the playlist is made`
-                    : ''}
-                .
+                    ? t('import.plan.withWaiting', { count: waiting, matched: t('import.plan.matchedPart', { count: plan.matched }) })
+                    : t('import.plan.matched', { count: plan.matched })}
             </Text>
 
             {plan.notices.length > 0 ? (
@@ -274,8 +270,8 @@ function ImportPlan({ plan }: { plan: PlaylistImportPlan }) {
                     <Table verticalSpacing="xs">
                         <Table.Thead>
                             <Table.Tr>
-                                <Table.Th>Record</Table.Th>
-                                <Table.Th w={140}>Lands as</Table.Th>
+                                <Table.Th>{t('import.plan.record')}</Table.Th>
+                                <Table.Th w={140}>{t('import.plan.landsAs')}</Table.Th>
                             </Table.Tr>
                         </Table.Thead>
                         <Table.Tbody>
@@ -292,11 +288,11 @@ function ImportPlan({ plan }: { plan: PlaylistImportPlan }) {
                                     <Table.Td>
                                         {entry.outcome === 'matched' ? (
                                             <Badge size="sm" variant="light" color="teal">
-                                                In the library
+                                                {t('import.plan.inLibrary')}
                                             </Badge>
                                         ) : (
                                             <Badge size="sm" variant="light" color="gray">
-                                                To look up
+                                                {t('import.plan.toLookUp')}
                                             </Badge>
                                         )}
                                     </Table.Td>
@@ -309,5 +305,3 @@ function ImportPlan({ plan }: { plan: PlaylistImportPlan }) {
         </Stack>
     );
 }
-
-const count = (many: number, one: string, several: string): string => `${many} ${many === 1 ? one : several}`;

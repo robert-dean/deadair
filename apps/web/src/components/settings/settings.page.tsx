@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { Card, Stack, Text, Title } from '@mantine/core';
+import { useTranslation } from 'react-i18next';
 import type { ConfigFieldDescriptor, StationSettingDescriptor, StationSettings } from '@deadair/sdk';
 
 import { useSettings, useUpdateSettings } from '../../api/settings.queries';
@@ -35,12 +36,13 @@ import { SigninCheckCard } from './signin.check.card';
  * when they shared a page; now nothing about the page suggests otherwise.
  */
 export function SettingsSectionPage({ section: id }: SettingsSectionPageProps) {
+    const { t } = useTranslation('settings');
     const section = SETTINGS_SECTIONS.find(candidate => candidate.id === id);
 
     // Unreachable from a route file, which names its section as a literal the union checks. Here
     // for the hand-edited URL and for the reader: `find` answers `undefined` and this says what
     // that would mean rather than letting it fall through as an empty page.
-    if (section === undefined) return <ErrorAlert title="No such section" fallback={`Settings has no section called ${id}.`} />;
+    if (section === undefined) return <ErrorAlert title={t('page.noSection.title')} fallback={t('page.noSection.body', { id })} />;
 
     // The three that answer to nothing in the registry do not need the settings read at all, so
     // they do not wait on it. Split into its own component rather than branched inside one, because
@@ -58,7 +60,7 @@ export function SettingsSectionPage({ section: id }: SettingsSectionPageProps) {
         return (
             <Stack gap="xl">
                 <Stack gap="xs">
-                    <Eyebrow>Your account</Eyebrow>
+                    <Eyebrow>{t('page.security.account')}</Eyebrow>
                     <Stack gap="lg">
                         <SecurityCard />
                         <ApiKeysCard />
@@ -67,12 +69,12 @@ export function SettingsSectionPage({ section: id }: SettingsSectionPageProps) {
                     </Stack>
                 </Stack>
                 <Stack gap="xs">
-                    <Eyebrow>The station</Eyebrow>
+                    <Eyebrow>{t('page.security.station')}</Eyebrow>
                     <Stack gap="lg">
                         <SettingsGroupPage
                             group={section.group}
-                            label="Sign-in for everyone"
-                            header={<SectionHeader title="Sign-in for everyone" blurb={section.blurb} />}
+                            label={t('page.security.everyone')}
+                            header={<SectionHeader title={t('page.security.everyone')} blurb={section.blurb} />}
                         />
                         <SigninCheckCard />
                         <OAuthClientsCard />
@@ -112,6 +114,7 @@ export interface SettingsSectionPageProps {
  * None of them reads `GET /settings`, so none of them shows a skeleton waiting for it.
  */
 function StandaloneSection({ section }: { section: SettingsSection }) {
+    const { t } = useTranslation('settings');
     if (section.id === 'appearance') return <AppearanceCard />;
     if (section.id === 'artwork') return <BreakArtCard />;
     if (section.id === 'storage') return <StorageCard />;
@@ -122,7 +125,7 @@ function StandaloneSection({ section }: { section: SettingsSection }) {
     if (section.id === 'providers') return <ProvidersCard />;
     // A section with no group and no card of its own is a list entry nobody finished. Said out
     // loud rather than rendered as a blank page.
-    return <EmptyState title="Nothing here yet">This section is in the list but has nothing to draw yet.</EmptyState>;
+    return <EmptyState title={t('page.unfinished.title')}>{t('page.unfinished.body')}</EmptyState>;
 }
 
 /**
@@ -135,6 +138,7 @@ function StandaloneSection({ section }: { section: SettingsSection }) {
  * for the skeleton, the empty state and the unsaved guard to drift.
  */
 export function SettingsGroupPage({ group, label, header }: SettingsGroupPageProps) {
+    const { t } = useTranslation('settings');
     const settings = useSettings();
 
     // One flag rather than the set this held while every section shared a page: there is one form
@@ -152,7 +156,7 @@ export function SettingsGroupPage({ group, label, header }: SettingsGroupPagePro
     }
 
     if (settings.error || !settings.data) {
-        return <ErrorAlert title="Settings unavailable" error={settings.error} fallback="The station settings could not be read." />;
+        return <ErrorAlert title={t('page.unavailable.title')} error={settings.error} fallback={t('page.unavailable.fallback')} />;
     }
 
     const fields = settings.data.descriptors.filter(descriptor => descriptor.group === group);
@@ -161,7 +165,7 @@ export function SettingsGroupPage({ group, label, header }: SettingsGroupPagePro
     // built yet, and drawing a heading over nothing invites the operator to look for them. The
     // section list leaves it out for the same reason, so this is only reachable by typing the URL.
     if (fields.length === 0) {
-        return <EmptyState title={`No ${label.toLowerCase()} settings yet`}>Nothing declares a setting in this section yet.</EmptyState>;
+        return <EmptyState title={t('page.emptyGroup.title', { name: label.toLowerCase() })}>{t('page.emptyGroup.body')}</EmptyState>;
     }
 
     return (
@@ -197,6 +201,7 @@ function SettingsGroupCard({ label, header, fields, settings, onDirtyChange }: S
     // A mutation per section, so a save in one does not put another section's button into a
     // pending state or show it somebody else's error. It reads oddly now that a section is a page
     // on its own, and it is still the right shape: the write is partial, and this is what says so.
+    const { t } = useTranslation('settings');
     const save = useUpdateSettings();
 
     return (
@@ -218,9 +223,9 @@ function SettingsGroupCard({ label, header, fields, settings, onDirtyChange }: S
                     pending={save.isPending}
                     succeeded={save.isSuccess}
                     error={save.error}
-                    submitLabel={`Save ${label.toLowerCase()}`}
-                    failureTitle="Save failed"
-                    failureMessage="The settings could not be saved."
+                    submitLabel={t('page.save.label', { name: label.toLowerCase() })}
+                    failureTitle={t('page.save.failureTitle')}
+                    failureMessage={t('page.save.failureMessage')}
                     onDirtyChange={onDirtyChange}
                 />
             </Stack>

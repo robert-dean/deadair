@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ActionIcon, Autocomplete, Badge, Button, Card, Group, Stack, Table, Text, TextInput, Tooltip } from '@mantine/core';
 import { Dropzone } from '@mantine/dropzone';
 import { IconTrash, IconUpload, IconVolume, IconWorldDownload, IconX } from '@tabler/icons-react';
+import { useTranslation } from 'react-i18next';
 import type { PadSet } from '@deadair/sdk';
 
 import { useFetchPad, useUploadPad } from '../../api/pads.queries';
@@ -26,6 +27,7 @@ import { Eyebrow } from '../shared/eyebrow';
  * how a rack ends up with `air-horn-2` and `airhorn-final-final` on it.
  */
 export function PadUploadCard({ sets }: { sets: PadSet[] }) {
+    const { t } = useTranslation('pads');
     const upload = useUploadPad();
     const grab = useFetchPad();
     const [board, setBoard] = useState(DEFAULT_BOARD);
@@ -63,15 +65,15 @@ export function PadUploadCard({ sets }: { sets: PadSet[] }) {
     return (
         <Card withBorder padding="md">
             <Stack gap="sm">
-                <Eyebrow>Add sounds</Eyebrow>
+                <Eyebrow>{t('upload.eyebrow')}</Eyebrow>
 
-                {upload.isError ? <ErrorAlert title="That sound did not go on the rack" error={upload.error} /> : undefined}
-                {grab.isError ? <ErrorAlert title="That address did not give up a sound" error={grab.error} /> : undefined}
+                {upload.isError ? <ErrorAlert title={t('upload.uploadFailed')} error={upload.error} /> : undefined}
+                {grab.isError ? <ErrorAlert title={t('upload.fetchFailed')} error={grab.error} /> : undefined}
 
                 <Group align="flex-end" gap="sm">
                     <Autocomplete
-                        label="Board"
-                        description="The folder it is filed under, which is also the set it joins. A new name makes both."
+                        label={t('upload.board')}
+                        description={t('upload.boardHint')}
                         data={sets.map(set => set.key)}
                         value={board}
                         onChange={setBoard}
@@ -98,10 +100,9 @@ export function PadUploadCard({ sets }: { sets: PadSet[] }) {
                             <IconVolume size={32} />
                         </Dropzone.Idle>
                         <Stack gap={2}>
-                            <Text size="sm">Drop audio here, or click to choose</Text>
+                            <Text size="sm">{t('upload.drop')}</Text>
                             <Text size="xs" c="dimmed">
-                                mp3, wav, ogg, flac or m4a, up to 25 MB each. The file is written into the pad library on disk, so a backup carries
-                                it.
+                                {t('upload.dropHint')}
                             </Text>
                         </Stack>
                     </Group>
@@ -113,9 +114,9 @@ export function PadUploadCard({ sets }: { sets: PadSet[] }) {
                             <Table verticalSpacing="xs">
                                 <Table.Thead>
                                     <Table.Tr>
-                                        <Table.Th>File</Table.Th>
-                                        <Table.Th>What a script will write</Table.Th>
-                                        <Table.Th>Name</Table.Th>
+                                        <Table.Th>{t('upload.file')}</Table.Th>
+                                        <Table.Th>{t('upload.token')}</Table.Th>
+                                        <Table.Th>{t('upload.name')}</Table.Th>
                                         <Table.Th />
                                     </Table.Tr>
                                 </Table.Thead>
@@ -136,11 +137,11 @@ export function PadUploadCard({ sets }: { sets: PadSet[] }) {
                                                             label: { fontFamily: 'var(--mantine-font-family-monospace)', textTransform: 'none' },
                                                         }}
                                                     >
-                                                        [sfx:{one.name || '…'}]
+                                                        {sfxToken(one.name || '…')}
                                                     </Badge>
                                                     <TextInput
                                                         size="xs"
-                                                        aria-label={`Name for ${one.file.name}`}
+                                                        aria-label={t('upload.nameFor', { file: one.file.name })}
                                                         value={one.name}
                                                         onChange={event => amend(setStaged, index, { name: tokenOf(event.currentTarget.value) })}
                                                     />
@@ -149,17 +150,17 @@ export function PadUploadCard({ sets }: { sets: PadSet[] }) {
                                             <Table.Td>
                                                 <TextInput
                                                     size="xs"
-                                                    aria-label={`Label for ${one.file.name}`}
+                                                    aria-label={t('upload.labelFor', { file: one.file.name })}
                                                     value={one.label}
                                                     onChange={event => amend(setStaged, index, { label: event.currentTarget.value })}
                                                 />
                                             </Table.Td>
                                             <Table.Td>
-                                                <Tooltip label="Take it off the list">
+                                                <Tooltip label={t('upload.discardHint')}>
                                                     <ActionIcon
                                                         variant="subtle"
                                                         color="red"
-                                                        aria-label={`Discard ${one.file.name}`}
+                                                        aria-label={t('upload.discard', { file: one.file.name })}
                                                         onClick={() => setStaged(held => held.filter((_, at) => at !== index))}
                                                     >
                                                         <IconTrash size={16} />
@@ -174,7 +175,7 @@ export function PadUploadCard({ sets }: { sets: PadSet[] }) {
 
                         <Group justify="flex-end">
                             <Button variant="default" onClick={() => setStaged([])} disabled={upload.isPending}>
-                                Clear
+                                {t('upload.clear')}
                             </Button>
                             <Button
                                 leftSection={<IconUpload size={16} />}
@@ -182,7 +183,7 @@ export function PadUploadCard({ sets }: { sets: PadSet[] }) {
                                 disabled={staged.some(one => one.name === '')}
                                 onClick={() => void send()}
                             >
-                                Put {staged.length === 1 ? 'it' : `all ${staged.length}`} on the {board} board
+                                {t('upload.put', { count: staged.length, board })}
                             </Button>
                         </Group>
                     </>
@@ -193,9 +194,9 @@ export function PadUploadCard({ sets }: { sets: PadSet[] }) {
                     — nothing here inspects what comes back or records a claim about its licence. */}
                 <Group align="flex-end" gap="sm">
                     <TextInput
-                        label="Or fetch one from an address"
-                        placeholder="https://example.com/airhorn.wav"
-                        description="Followed once, up to 25 MB, and refused unless what comes back is a format the station serves."
+                        label={t('upload.fetchLabel')}
+                        placeholder={t('upload.fetchPlaceholder')}
+                        description={t('upload.fetchHint')}
                         value={address}
                         onChange={event => setAddress(event.currentTarget.value)}
                         onKeyDown={event => (event.key === 'Enter' ? void fetchOne() : undefined)}
@@ -208,12 +209,17 @@ export function PadUploadCard({ sets }: { sets: PadSet[] }) {
                         disabled={address.trim() === ''}
                         onClick={() => void fetchOne()}
                     >
-                        Fetch
+                        {t('upload.fetch')}
                     </Button>
                 </Group>
             </Stack>
         </Card>
     );
+}
+
+/** The token a script writes for a pad, which is syntax rather than copy and so the same in every language. */
+export function sfxToken(name: string): string {
+    return `[sfx:${name}]`;
 }
 
 /** One file waiting to be sent, with what it will be called when it lands. */

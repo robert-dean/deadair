@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Button, Group, Modal, Stack, Text } from '@mantine/core';
+import { useTranslation } from 'react-i18next';
 
 import { ErrorAlert } from './error.alert';
 
@@ -47,19 +48,22 @@ export function ConfirmModal({
     confirmLabel,
     confirming = false,
     error,
-    errorTitle = 'That could not be done',
-    errorFallback = 'Nothing was changed.',
+    errorTitle,
+    errorFallback,
 }: ConfirmModalProps) {
+    const { t } = useTranslation();
     return (
         <Modal opened={opened} onClose={onClose} title={title} centered>
             <Stack gap="md">
                 {typeof children === 'string' ? <Text size="sm">{children}</Text> : children}
 
-                {error ? <ErrorAlert title={errorTitle} error={error} fallback={errorFallback} /> : undefined}
+                {error ? (
+                    <ErrorAlert title={errorTitle ?? t('confirm.errorTitle')} error={error} fallback={errorFallback ?? t('confirm.errorFallback')} />
+                ) : undefined}
 
                 <Group justify="flex-end">
                     <Button variant="default" onClick={onClose}>
-                        Cancel
+                        {t('action.cancel')}
                     </Button>
                     <Button color="red" loading={confirming} onClick={onConfirm}>
                         {confirmLabel}

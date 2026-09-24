@@ -1,6 +1,7 @@
 import { Button } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 
+import { i18n } from '../../i18n/i18n.setup';
 import { toneColor } from './status';
 
 /**
@@ -29,7 +30,7 @@ import { toneColor } from './status';
 /** What a save says. The label names the thing, so the sentence stays out of the caller. */
 export function notifySaved(what: string): void {
     notifications.show({
-        message: `${what} saved.`,
+        message: i18n.t('notify.saved', { what }),
         color: toneColor.ok,
         autoClose: 3000,
         withBorder: true,

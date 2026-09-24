@@ -1,5 +1,6 @@
 import { Anchor, Badge, Card, Divider, Group, Stack, Text } from '@mantine/core';
 import { Link } from '@tanstack/react-router';
+import { useTranslation } from 'react-i18next';
 import type { PluginSummary } from '@deadair/sdk';
 
 import { severityColor, toneColor } from '../shared/status';
@@ -14,6 +15,7 @@ export interface PluginCardProps {
 
 /** One plugin in the catalogue: what it is, whether it is running, and a way in. */
 export function PluginCard({ plugin }: PluginCardProps) {
+    const { t } = useTranslation('plugins');
     const { tone } = statusOf(plugin.status);
     const toggle = usePluginEnableToggle(plugin);
 
@@ -36,7 +38,7 @@ export function PluginCard({ plugin }: PluginCardProps) {
                 </Group>
 
                 <Text size="sm" c="dimmed" lineClamp={2}>
-                    {plugin.description ?? 'No description.'}
+                    {plugin.description ?? t('card.noDescription')}
                 </Text>
 
                 {/* The first line only: the full text and its history are on the plugin's own page,
@@ -69,7 +71,7 @@ export function PluginCard({ plugin }: PluginCardProps) {
                     {/* `renderRoot` rather than `component={Link}`: the polymorphic form erases the
                         router's own types, and with them the check that `params` matches the path. */}
                     <Anchor renderRoot={(props: object) => <Link to="/plugins/$id" params={{ id: plugin.id }} {...props} />} size="sm">
-                        Configure
+                        {t('card.configure')}
                     </Anchor>
                 </Group>
             </Stack>

@@ -1,4 +1,6 @@
 import type { StationOnEnd, StationOrderItem } from '@deadair/sdk';
+import { formatClock } from '../../i18n/format.locale';
+import { i18n } from '../../i18n/i18n.setup';
 
 /**
  * When the running order runs out, and what happens when it does.
@@ -54,7 +56,7 @@ export function runsDryAt(items: StationOrderItem[], remainingMs: number | undef
     const left = msUntilDry(items, remainingMs);
     if (left === undefined) return undefined;
 
-    return new Date(now.getTime() + left).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
+    return formatClock(new Date(now.getTime() + left));
 }
 
 /**
@@ -66,7 +68,7 @@ export function runsDryAt(items: StationOrderItem[], remainingMs: number | undef
  * worth waking up for.
  */
 export function whatHappensThen(onEnd: StationOnEnd): string {
-    if (onEnd === 'repeat') return 'It starts again from the top rather than running out.';
-    if (onEnd === 'stop') return 'The station goes off air then.';
-    return 'It tops itself up before then, while there is something to play.';
+    if (onEnd === 'repeat') return i18n.t('onair:runsDry.repeat');
+    if (onEnd === 'stop') return i18n.t('onair:runsDry.stop');
+    return i18n.t('onair:runsDry.extend');
 }

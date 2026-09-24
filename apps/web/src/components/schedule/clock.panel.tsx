@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ActionIcon, Badge, Box, Button, Card, Group, Stack, Table, Text, Tooltip } from '@mantine/core';
 import { IconArrowDown, IconArrowUp, IconPlus } from '@tabler/icons-react';
 import type { ClockBand, ClockBandInput } from '@deadair/sdk';
+import { useTranslation } from 'react-i18next';
 
 import { useClockBands, useCreateClockBand, useDeleteClockBand, useUpdateClockBand } from '../../api/clock.queries';
 import { ErrorAlert } from '../shared/error.alert';
@@ -9,6 +10,7 @@ import { Eyebrow } from '../shared/eyebrow';
 import { severityColor } from '../shared/status';
 import { BandEditor, type BandTarget } from './band.editor';
 import { FormatClockDial } from './format.clock.dial';
+import { i18n } from '../../i18n/i18n.setup';
 
 /**
  * The station's format clock, on the page that already answers "what happens when".
@@ -35,6 +37,7 @@ import { FormatClockDial } from './format.clock.dial';
  * rule back on that they cannot see. That is what a commented-out line used to be.
  */
 export function ClockPanel() {
+    const { t } = useTranslation('schedule');
     const clock = useClockBands();
     const create = useCreateClockBand();
     const update = useUpdateClockBand();
@@ -95,11 +98,9 @@ export function ClockPanel() {
             <Stack gap="sm">
                 <Group justify="space-between" align="flex-start">
                     <Stack gap={2}>
-                        <Eyebrow>Format clock</Eyebrow>
+                        <Eyebrow>{t('clock.title')}</Eyebrow>
                         <Text size="sm" c="dimmed" maw={620}>
-                            What the station says inside an hour, whatever it is playing. A band takes the first boundary at or after its time, so
-                            nothing is ever cut off mid-record. Where two rules want one boundary, the higher one takes it. The clock belongs to the
-                            station rather than to a broadcast, so every show follows it and an edit here changes all of them.
+                            {t('clock.description')}
                         </Text>
                     </Stack>
                     <Button
@@ -108,25 +109,25 @@ export function ClockPanel() {
                         leftSection={<IconPlus size={14} />}
                         onClick={() => setEditing({ kind: 'new', position: (bands.at(-1)?.position ?? -1) + 1 })}
                     >
-                        Add band
+                        {t('clock.addBand')}
                     </Button>
                 </Group>
 
                 {clock.error ? (
-                    <ErrorAlert title="The format clock could not be loaded" error={clock.error} fallback="The station's bands are unavailable." />
+                    <ErrorAlert title={t('clock.loadFailedTitle')} error={clock.error} fallback={t('clock.loadFailedFallback')} />
                 ) : undefined}
 
                 {update.error ? (
-                    <ErrorAlert title="That band could not be changed" error={update.error} fallback="The clock is as it was." />
+                    <ErrorAlert title={t('clock.changeFailedTitle')} error={update.error} fallback={t('clock.changeFailedFallback')} />
                 ) : undefined}
 
                 {remove.error ? (
-                    <ErrorAlert title="That band could not be deleted" error={remove.error} fallback="Nothing was removed." />
+                    <ErrorAlert title={t('clock.deleteFailedTitle')} error={remove.error} fallback={t('clock.deleteFailedFallback')} />
                 ) : undefined}
 
                 {clock.data && bands.length === 0 ? (
                     <Text size="sm" c="dimmed">
-                        No bands, which is a working clock: the station keeps its ordinary spacing and nothing else.
+                        {t('clock.noBands')}
                     </Text>
                 ) : undefined}
 
@@ -164,20 +165,16 @@ export function ClockPanel() {
                                             is off is turn it on. */}
                                                     {!band.enabled ? (
                                                         <Badge size="xs" variant="light" color="gray">
-                                                            Off
+                                                            {t('clock.off')}
                                                         </Badge>
                                                     ) : canProduce(band.kind) ? undefined : (
-                                                        <Tooltip
-                                                            multiline
-                                                            maw={320}
-                                                            label={`Nothing on this station can make a ${band.kind}. The slot is claimed and then passed over, so the station plays on rather than saying anything.`}
-                                                        >
+                                                        <Tooltip multiline maw={320} label={t('clock.cannotProduceHint', { kind: band.kind })}>
                                                             {/* `tt="none"` because the badge carries a
                                                     sentence rather than a one-word state, and
                                                     Mantine's uppercase default made it wide enough
                                                     to be truncated to "NOTHING CAN PRODUCE T…". */}
                                                             <Badge size="xs" variant="light" color={severityColor.notice} tt="none">
-                                                                nothing can produce this
+                                                                {t('clock.cannotProduce')}
                                                             </Badge>
                                                         </Tooltip>
                                                     )}
@@ -189,7 +186,7 @@ export function ClockPanel() {
                                                         <ActionIcon
                                                             size="sm"
                                                             variant="subtle"
-                                                            aria-label="Move up"
+                                                            aria-label={t('clock.moveUp')}
                                                             disabled={index === 0}
                                                             onClick={() => void move(index, -1)}
                                                         >
@@ -198,7 +195,7 @@ export function ClockPanel() {
                                                         <ActionIcon
                                                             size="sm"
                                                             variant="subtle"
-                                                            aria-label="Move down"
+                                                            aria-label={t('clock.moveDown')}
                                                             disabled={index === bands.length - 1}
                                                             onClick={() => void move(index, 1)}
                                                         >
@@ -244,7 +241,7 @@ export function ClockPanel() {
  * and the next start describing one rule differently.
  */
 export function whenOf(band: ClockBand): string {
-    if (band.at === 'interval') return `every ${Math.round((band.everyMs ?? 0) / 60_000)}m`;
+    if (band.at === 'interval') return i18n.t('schedule:clock.every', { count: Math.round((band.everyMs ?? 0) / 60_000) });
 
     const minute = String(band.minute ?? 0).padStart(2, '0');
     return band.hour === undefined ? `:${minute}` : `${String(band.hour).padStart(2, '0')}:${minute}`;

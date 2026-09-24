@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Box, Card, Group, SimpleGrid, Stack, Text, Title, UnstyledButton } from '@mantine/core';
 
 import { setTheme, useThemeId } from '../../theme.store';
@@ -22,6 +23,7 @@ import { Eyebrow } from '../shared/eyebrow';
  * would make the choice a guess; this way an operator picks the one they can already see.
  */
 export function AppearanceCard() {
+    const { t } = useTranslation('settings');
     const chosen = useThemeId();
 
     return (
@@ -31,10 +33,10 @@ export function AppearanceCard() {
             <Stack gap="md">
                 <Stack gap="xxs">
                     <Title order={2} size="h4">
-                        Appearance
+                        {t('appearance.title')}
                     </Title>
                     <Text size="sm" c="dimmed">
-                        Three ways to read the same console. The tally stays red in every one of them.
+                        {t('appearance.intro')}
                     </Text>
                 </Stack>
 
@@ -45,7 +47,7 @@ export function AppearanceCard() {
                 </SimpleGrid>
 
                 <Text size="xs" c="dimmed">
-                    Remembered on this browser. Nothing else about the station changes.
+                    {t('appearance.footnote')}
                 </Text>
             </Stack>
         </Card>
@@ -53,6 +55,7 @@ export function AppearanceCard() {
 }
 
 function ThemeChoice({ theme, chosen }: { theme: ThemeDefinition; chosen: boolean }) {
+    const { t } = useTranslation('settings');
     return (
         <UnstyledButton
             aria-pressed={chosen}
@@ -81,7 +84,7 @@ function ThemeChoice({ theme, chosen }: { theme: ThemeDefinition; chosen: boolea
                     <Text size="sm" fw={600}>
                         {theme.name}
                     </Text>
-                    {chosen ? <Eyebrow c="var(--da-phosphor)">in use</Eyebrow> : undefined}
+                    {chosen ? <Eyebrow c="var(--da-phosphor)">{t('appearance.inUse')}</Eyebrow> : undefined}
                 </Group>
 
                 <Text size="xs" c="dimmed">

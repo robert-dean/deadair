@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { Alert, Button, Card, Code, Group, SegmentedControl, Select, Stack, Table, Text, TextInput, Title } from '@mantine/core';
 import { DateTime } from 'luxon';
+import { Trans, useTranslation } from 'react-i18next';
 import type { ApiKey, ApiKeyIssued, ApiKeyScope } from '@deadair/sdk';
 
 import { useApiKeys, useCreateApiKey, useRevokeApiKey, useRotateApiKey } from '../../api/auth.apikeys.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
+import { i18n } from '../../i18n/i18n.setup';
 import { ConfirmModal } from '../shared/confirm.modal';
 import { CopyButton } from '../shared/copy.button';
 import { ErrorAlert } from '../shared/error.alert';
@@ -20,21 +22,17 @@ import { isStepUpCancelled, StepUpDialog, useStepUpGate } from './step.up.dialog
 type Gate = ReturnType<typeof useStepUpGate>;
 
 /** The two grants a key can be given, as the operator reads them. `manage` includes `view` on the API. */
-const ACCESS_CHOICES: ReadonlyArray<{ value: ApiKeyScope; label: string }> = [
-    { value: 'view', label: 'Read only' },
-    { value: 'manage', label: 'Read and manage' },
-];
+const ACCESS_CHOICES: readonly ApiKeyScope[] = ['view', 'manage'];
 
 /** How long a new key lives. Days, or never; the API has no ceiling of its own. */
-const EXPIRY_CHOICES: ReadonlyArray<{ value: string; label: string }> = [
-    { value: 'never', label: 'Never' },
-    { value: '30', label: '30 days' },
-    { value: '90', label: '90 days' },
-    { value: '365', label: '1 year' },
-];
+const EXPIRY_CHOICES = ['never', '30', '90', '365'] as const;
 
 function accessWord(key: ApiKey): string {
-    return key.scopes.includes('manage') ? 'Read and manage' : key.scopes.includes('view') ? 'Read only' : 'Nothing';
+    return key.scopes.includes('manage')
+        ? i18n.t('settings:apiKeys.access.manage')
+        : key.scopes.includes('view')
+          ? i18n.t('settings:apiKeys.access.view')
+          : i18n.t('settings:apiKeys.access.nothing');
 }
 
 type KeyState = 'active' | 'expired' | 'revoked';
@@ -67,6 +65,7 @@ function hintText(key: ApiKey): string {
  * taking access away is never the change a stolen session wants.
  */
 export function ApiKeysCard() {
+    const { t } = useTranslation('settings');
     const keys = useApiKeys();
     const gate = useStepUpGate();
     const phone = usePhone();
@@ -80,11 +79,10 @@ export function ApiKeysCard() {
             <Stack gap="md">
                 <Stack gap="xxs">
                     <Title order={2} size="h4">
-                        API keys
+                        {t('apiKeys.title')}
                     </Title>
                     <Text size="sm" c="dimmed">
-                        For a script or an integration that should reach the station as you without your password. A key never does more than this
-                        account can, and it cannot sign in, change how you sign in, or make other keys.
+                        {t('apiKeys.intro')}
                     </Text>
                 </Stack>
 
@@ -92,12 +90,12 @@ export function ApiKeysCard() {
 
                 {keys.isPending ? <PageSkeleton variant="rows" count={2} /> : undefined}
                 {keys.error ? (
-                    <ErrorAlert title="API keys unavailable" error={keys.error} fallback="The station could not list this account's keys." />
+                    <ErrorAlert title={t('apiKeys.unavailable.title')} error={keys.error} fallback={t('apiKeys.unavailable.fallback')} />
                 ) : undefined}
 
                 {keys.data && list.length === 0 ? (
                     <Text size="sm" c="dimmed">
-                        No keys yet. Nothing outside the console can reach the station as you.
+                        {t('apiKeys.empty')}
                     </Text>
                 ) : undefined}
 
@@ -120,10 +118,10 @@ export function ApiKeysCard() {
                         <Table verticalSpacing="sm" horizontalSpacing="sm" layout="fixed">
                             <Table.Thead>
                                 <Table.Tr>
-                                    <Table.Th w="26%">Name</Table.Th>
-                                    <Table.Th>Access</Table.Th>
-                                    <Table.Th>Last used</Table.Th>
-                                    <Table.Th>Expires</Table.Th>
+                                    <Table.Th w="26%">{t('apiKeys.column.name')}</Table.Th>
+                                    <Table.Th>{t('apiKeys.column.access')}</Table.Th>
+                                    <Table.Th>{t('apiKeys.column.lastUsed')}</Table.Th>
+                                    <Table.Th>{t('apiKeys.column.expires')}</Table.Th>
                                     <Table.Th w={180} ta="right">
                                         {' '}
                                     </Table.Th>
@@ -157,24 +155,21 @@ export function ApiKeysCard() {
  * back from a lost token is to rotate the key and update whatever held it.
  */
 function IssuedPanel({ issued, verb, onDone }: { issued: ApiKeyIssued; verb: 'created' | 'rotated'; onDone: () => void }) {
+    const { t } = useTranslation('settings');
     return (
-        <Alert color="yellow" variant="light" title={`${issued.key.name}: ${verb === 'created' ? 'key created' : 'new token'}`}>
+        <Alert color="yellow" variant="light" title={t(`apiKeys.issued.title.${verb}`, { name: issued.key.name })}>
             <Stack gap="sm">
-                <Text size="sm">
-                    {verb === 'created'
-                        ? 'Copy it now. The station keeps only a fingerprint of it and can never show it again.'
-                        : 'The old token has stopped working. Copy this one now; it will not be shown again.'}
-                </Text>
+                <Text size="sm">{t(`apiKeys.issued.body.${verb}`)}</Text>
                 <Group gap="xs" wrap="nowrap" align="flex-start">
                     <Code style={{ overflowWrap: 'anywhere', flex: 1 }}>{issued.token}</Code>
                     <CopyButton value={issued.token} />
                 </Group>
                 <Text size="xs" c="dimmed">
-                    Send it as <Code>Authorization: Bearer {'<key>'}</Code>.
+                    <Trans t={t} i18nKey="apiKeys.issued.sendAs" components={{ code: <Code /> }} />
                 </Text>
                 <Group justify="flex-end">
                     <Button variant="default" size="compact-sm" onClick={onDone}>
-                        Done
+                        {t('apiKeys.issued.done')}
                     </Button>
                 </Group>
             </Stack>
@@ -190,6 +185,7 @@ interface KeyProps {
 }
 
 function KeyRow({ apiKey, state, gate, onRotated }: KeyProps) {
+    const { t } = useTranslation('settings');
     return (
         <Table.Tr style={{ opacity: state === 'active' ? 1 : 0.6 }}>
             <Table.Td>
@@ -205,15 +201,15 @@ function KeyRow({ apiKey, state, gate, onRotated }: KeyProps) {
             </Table.Td>
             <Table.Td>
                 <Text size="sm" className="da-num">
-                    {apiKey.lastUsedAt ? formatDate(apiKey.lastUsedAt) : 'Never'}
+                    {apiKey.lastUsedAt ? formatDate(apiKey.lastUsedAt) : t('apiKeys.never')}
                 </Text>
             </Table.Td>
             <Table.Td>
                 <Stack gap="xxxs">
                     <Text size="sm" className="da-num">
-                        {state === 'revoked' ? formatDate(apiKey.revokedAt) : apiKey.expiresAt ? formatDate(apiKey.expiresAt) : 'Never'}
+                        {state === 'revoked' ? formatDate(apiKey.revokedAt) : apiKey.expiresAt ? formatDate(apiKey.expiresAt) : t('apiKeys.never')}
                     </Text>
-                    <StatusLamp tone={STATE_TONES[state]} label={state} />
+                    <StatusLamp tone={STATE_TONES[state]} label={t(`apiKeys.state.${state}`)} />
                 </Stack>
             </Table.Td>
             <Table.Td>
@@ -225,6 +221,7 @@ function KeyRow({ apiKey, state, gate, onRotated }: KeyProps) {
 
 /** One key, on a phone: the name and its state are the line you scan, the rest sits under them. */
 function KeyPhoneCard({ apiKey, state, gate, onRotated }: KeyProps) {
+    const { t } = useTranslation('settings');
     return (
         <PhoneCard
             opacity={state === 'active' ? 1 : 0.6}
@@ -235,10 +232,12 @@ function KeyPhoneCard({ apiKey, state, gate, onRotated }: KeyProps) {
             }
             subtitle={
                 <Text size="xs" c="dimmed" truncate>
-                    {`${accessWord(apiKey)} · ${apiKey.lastUsedAt ? `used ${formatDate(apiKey.lastUsedAt)}` : 'never used'}`}
+                    {apiKey.lastUsedAt
+                        ? t('apiKeys.phone.used', { access: accessWord(apiKey), date: formatDate(apiKey.lastUsedAt) })
+                        : t('apiKeys.phone.neverUsed', { access: accessWord(apiKey) })}
                 </Text>
             }
-            figure={<StatusLamp tone={STATE_TONES[state]} label={state} />}
+            figure={<StatusLamp tone={STATE_TONES[state]} label={t(`apiKeys.state.${state}`)} />}
             below={
                 <Group justify="space-between" mt="xs" wrap="nowrap">
                     <Code>{hintText(apiKey)}</Code>
@@ -254,6 +253,7 @@ function KeyPhoneCard({ apiKey, state, gate, onRotated }: KeyProps) {
  * be revoked, since a new token for it would be refused on its first request.
  */
 function KeyActions({ apiKey, state, gate, onRotated }: KeyProps) {
+    const { t } = useTranslation('settings');
     const rotate = useRotateApiKey();
     const revoke = useRevokeApiKey();
     const [confirming, setConfirming] = useState<'rotate' | 'revoke'>();
@@ -284,7 +284,7 @@ function KeyActions({ apiKey, state, gate, onRotated }: KeyProps) {
         try {
             await revoke.mutateAsync({ id: apiKey.id });
             close();
-            notifyDone(`${apiKey.name} revoked.`);
+            notifyDone(t('apiKeys.revoke.done', { name: apiKey.name }));
         } catch (caught) {
             setFailure(caught);
         }
@@ -294,45 +294,45 @@ function KeyActions({ apiKey, state, gate, onRotated }: KeyProps) {
         <Group gap="xxs" justify="flex-end" wrap="nowrap">
             {state === 'active' ? (
                 <Button variant="subtle" size="compact-sm" onClick={() => setConfirming('rotate')}>
-                    Rotate
+                    {t('apiKeys.rotate.action')}
                 </Button>
             ) : undefined}
             <Button variant="subtle" color="red" size="compact-sm" onClick={() => setConfirming('revoke')}>
-                Revoke
+                {t('apiKeys.revoke.action')}
             </Button>
 
             <ConfirmModal
                 opened={confirming === 'rotate'}
                 onClose={close}
                 onConfirm={() => void confirmRotate()}
-                title={`Rotate ${apiKey.name}?`}
-                confirmLabel="Rotate"
+                title={t('apiKeys.rotate.title', { name: apiKey.name })}
+                confirmLabel={t('apiKeys.rotate.action')}
                 confirming={rotate.isPending}
                 error={failure}
-                errorTitle="Not rotated"
-                errorFallback="The key still has its old token."
+                errorTitle={t('apiKeys.rotate.errorTitle')}
+                errorFallback={t('apiKeys.rotate.errorFallback')}
             >
-                The current token stops working at once, and the new one is shown here once. Whatever uses this key needs the new token before its
-                next request.
+                {t('apiKeys.rotate.body')}
             </ConfirmModal>
             <ConfirmModal
                 opened={confirming === 'revoke'}
                 onClose={close}
                 onConfirm={() => void confirmRevoke()}
-                title={`Revoke ${apiKey.name}?`}
-                confirmLabel="Revoke"
+                title={t('apiKeys.revoke.title', { name: apiKey.name })}
+                confirmLabel={t('apiKeys.revoke.action')}
                 confirming={revoke.isPending}
                 error={failure}
-                errorTitle="Not revoked"
-                errorFallback="The key still works."
+                errorTitle={t('apiKeys.revoke.errorTitle')}
+                errorFallback={t('apiKeys.revoke.errorFallback')}
             >
-                Every request made with this key is refused from the next one on. It stays in this list, marked revoked.
+                {t('apiKeys.revoke.body')}
             </ConfirmModal>
         </Group>
     );
 }
 
 function NewKeyForm({ gate, onIssued }: { gate: Gate; onIssued: (issued: ApiKeyIssued) => void }) {
+    const { t } = useTranslation('settings');
     const create = useCreateApiKey();
     const [name, setName] = useState('');
     const [access, setAccess] = useState<ApiKeyScope>('view');
@@ -362,13 +362,13 @@ function NewKeyForm({ gate, onIssued }: { gate: Gate; onIssued: (issued: ApiKeyI
         >
             <Stack gap="sm">
                 {failure ? (
-                    <ErrorAlert title="No key created">{apiErrorMessage(failure, 'The station could not create a key.')}</ErrorAlert>
+                    <ErrorAlert title={t('apiKeys.create.errorTitle')}>{apiErrorMessage(failure, t('apiKeys.create.errorFallback'))}</ErrorAlert>
                 ) : undefined}
                 <Group align="flex-end" gap="sm">
                     <TextInput
-                        label="New key"
-                        description="What will use it, so you can tell keys apart later"
-                        placeholder="Doorbell"
+                        label={t('apiKeys.create.name.label')}
+                        description={t('apiKeys.create.name.description')}
+                        placeholder={t('apiKeys.create.name.placeholder')}
                         value={name}
                         onChange={event => setName(event.currentTarget.value)}
                         maxLength={100}
@@ -376,25 +376,25 @@ function NewKeyForm({ gate, onIssued }: { gate: Gate; onIssued: (issued: ApiKeyI
                     />
                     <Stack gap={4}>
                         <Text size="sm" fw={500}>
-                            Access
+                            {t('apiKeys.column.access')}
                         </Text>
                         <SegmentedControl
-                            aria-label="Access"
+                            aria-label={t('apiKeys.column.access')}
                             value={access}
                             onChange={value => setAccess(value as ApiKeyScope)}
-                            data={ACCESS_CHOICES.map(choice => ({ value: choice.value, label: choice.label }))}
+                            data={ACCESS_CHOICES.map(choice => ({ value: choice, label: t(`apiKeys.access.${choice}`) }))}
                         />
                     </Stack>
                     <Select
-                        label="Expires"
+                        label={t('apiKeys.column.expires')}
                         value={expiry}
                         onChange={value => setExpiry(value ?? 'never')}
-                        data={EXPIRY_CHOICES.map(choice => ({ value: choice.value, label: choice.label }))}
+                        data={EXPIRY_CHOICES.map(choice => ({ value: choice, label: t(`apiKeys.expiry.${choice}`) }))}
                         allowDeselect={false}
                         w={130}
                     />
                     <Button type="submit" loading={create.isPending} disabled={name.trim().length === 0}>
-                        Create key
+                        {t('apiKeys.create.action')}
                     </Button>
                 </Group>
             </Stack>

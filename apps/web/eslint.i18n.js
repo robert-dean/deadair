@@ -14,6 +14,7 @@ export const TRANSLATED = [
     'src/routes/**',
     'src/components/onboarding/**',
     'src/components/personas/**',
+    'src/components/settings/**',
 ];
 
 /**

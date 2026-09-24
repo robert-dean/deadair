@@ -2,8 +2,10 @@ import type { ReactNode } from 'react';
 import { Anchor, Group, Stack, Text, Title } from '@mantine/core';
 import { IconChevronLeft } from '@tabler/icons-react';
 import { Link } from '@tanstack/react-router';
+import { useTranslation } from 'react-i18next';
 import type { StationSettingDescriptor } from '@deadair/sdk';
 
+import { i18n } from '../../i18n/i18n.setup';
 import { EmbeddedPage } from '../shared/page.header';
 import { usePhone } from '../shared/use.phone';
 
@@ -66,6 +68,44 @@ export interface SettingsSection {
     route?: '/plugins';
 }
 
+/** The sections that open with a sentence under their heading: every one that draws a group, and Providers. */
+type BlurbedSectionId = Exclude<SettingsSectionId, 'appearance' | 'artwork' | 'storage' | 'grants' | 'plugins'>;
+
+/**
+ * One entry of the list below. Its words are getters that read the catalog each time they are asked
+ * for, rather than strings resolved once at import, so a change of language reaches every surface
+ * that draws the list (the rail, the phone's index, the command palette) on its next render.
+ */
+function section(id: SettingsSectionId, more: Pick<SettingsSection, 'group' | 'route'> = {}): SettingsSection {
+    return {
+        id,
+        ...more,
+        get label() {
+            return i18n.t(`settings:sections.${id}.label`);
+        },
+        get hint() {
+            return i18n.t(`settings:sections.${id}.hint`);
+        },
+    };
+}
+
+/** An entry with a sentence under its heading as well. */
+function blurbed(id: BlurbedSectionId, more: Pick<SettingsSection, 'group'> = {}): SettingsSection {
+    return {
+        id,
+        ...more,
+        get label() {
+            return i18n.t(`settings:sections.${id}.label`);
+        },
+        get hint() {
+            return i18n.t(`settings:sections.${id}.hint`);
+        },
+        get blurb() {
+            return i18n.t(`settings:sections.${id}.blurb`);
+        },
+    };
+}
+
 /**
  * The sections an operator can jump to, in the order they should meet them.
  *
@@ -86,126 +126,49 @@ export interface SettingsSection {
  * rather than inside the page: it is the one section that is a whole route.
  */
 export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
-    {
-        id: 'station',
-        label: 'Station',
-        hint: 'Its name, where it is and its clock',
-        group: 'station',
-        blurb: 'What the station is called, where it is, and the clock it tells the time by. Icecast reads the name from a file rendered on save, so a new one reaches the stream on its next restart.',
-    },
+    blurbed('station', { group: 'station' }),
     // Split out of Station along with Housekeeping: one save under thirty-one fields, from the
     // station's own name to four passwords, was a lot of ground to cover for a visit that usually
     // wants one of them. `SettingGroup` in `settings.types.ck` carries the same split. The
     // passwords had a Secrets page of their own until nothing was left on it: the station seeds
     // them, nothing outside it holds one, and `settings.registry.ts` says why none is declared.
-    {
-        id: 'stream',
-        label: 'Stream',
-        hint: 'What puts it on air, in what formats',
-        group: 'stream',
-        blurb: 'The mounts the station publishes to: their formats and bitrates, HLS, how Icecast describes the station to players and directories, and the Icecast connection they all go through. Icecast and Liquidsoap read these from files rendered on save, so a change reaches them on their next restart.',
-    },
-    {
-        id: 'housekeeping',
-        label: 'Housekeeping',
-        hint: 'How long it keeps its own history',
-        group: 'housekeeping',
-        blurb: 'How long the station keeps its own history, and how much of a library sync it will trust before it refuses rather than throwing the rest away.',
-    },
+    blurbed('stream', { group: 'stream' }),
+    blurbed('housekeeping', { group: 'housekeeping' }),
     // Ahead of Sign-in and security because it is what makes that section's email step work: the
     // codes and sign-in links this station sends go out through whatever is set here, and until
     // something is, they do not go.
-    {
-        id: 'mail',
-        label: 'Mail',
-        hint: 'Where it sends sign-in codes from',
-        group: 'mail',
-        blurb: 'The mail server the station signs people in through. Without one it cannot send a code or a sign-in link, and it says so rather than failing quietly.',
-    },
+    blurbed('mail', { group: 'mail' }),
     // Second, and the only one on this page that changes nothing about the station. It is here
     // because "how do I make this readable in daylight" is a question an operator brings to
     // Settings, and the card itself says plainly that it is remembered on this browser alone.
-    { id: 'appearance', label: 'Appearance', hint: 'How the console looks, on this browser' },
+    section('appearance'),
     // One section with two halves: how YOU sign in, then what the sign-in page offers everybody and
     // who may join through it. They were two sections, Security and "Sign-in and connections", and
     // every feature in them was split across both: a provider is set up on one and linked on the
     // other, apps are allowed and registered on one and approved apps listed on the other, and the
     // page named "connections" was the one that did not show yours. The halves differ in who may
     // change them, which the page says with a heading rather than with a second address.
-    {
-        id: 'security',
-        label: 'Sign-in and security',
-        hint: 'How you sign in, and how everybody else may',
-        group: 'signin',
-        blurb: 'The identity providers the sign-in page offers beside a password, such as Authelia, Authentik, Keycloak or Google, and the addresses allowed to create an account through one. Anyone who already has an account can sign in through a provider linked to it whatever the list says. Below them, whether apps such as a Claude connector may connect to the station as whoever approves them.',
-    },
+    blurbed('security', { group: 'signin' }),
     // Rotation was one section holding what the station plays, how often it talks, what goes into a
     // bulletin and every word it says around them: forty-two fields and six boxes of phrasings under
     // one save. Split along `SettingGroup` in `settings.types.ck`, as Station was; the phrasings went
     // to the Voice page, which draws the `phrasings` group, so they are not a section here.
-    {
-        id: 'rotation',
-        label: 'Rotation',
-        hint: 'What it plays, and how often it repeats',
-        group: 'rotation',
-        blurb: 'How the station programmes itself when nothing more specific is asked for: how soon a record or an artist may come back, how long a record may be, and where each batch comes from. A lineup can override the spacing rules for itself, and a setlist or a feature ignores all of them.',
-    },
-    {
-        id: 'breaks',
-        label: 'Breaks',
-        hint: 'How often it talks, and for how long',
-        group: 'breaks',
-        blurb: 'How often the station talks between records and how long it may go on: breaks, jingles, calls, the welcome for a new listener and the word when the show changes. A lineup can override whether it talks and how often, and a setlist or a feature switches all of it off. What it says is under Voice.',
-    },
-    {
-        id: 'bulletins',
-        label: 'Bulletins',
-        hint: 'What it reads of the news, the weather and the date',
-        group: 'bulletins',
-        blurb: 'What goes into a news bulletin, a weather report and a reading of the date, and whether the presenter may bring the weather or the date up between records. When a bulletin airs is the format clock, under Programme; the words around it are under Voice.',
-    },
-    {
-        id: 'playout',
-        label: 'Playout',
-        hint: 'What puts it on air',
-        group: 'playout',
-        blurb: 'What puts the station on air.',
-    },
-    {
-        id: 'render',
-        label: 'Voice and audio',
-        hint: 'How it speaks, and how a programme is assembled',
-        group: 'render',
-        blurb: 'How the station speaks, and how a programme written in parts is put together.',
-    },
-    {
-        id: 'llm',
-        label: 'Words',
-        hint: 'What it writes, and which model writes it',
-        group: 'llm',
-        blurb: 'What the station writes for itself and which model writes each of them. WHICH plugin it asks is under Providers; with none set up it still writes its own breaks, from what is either side of them in the running order.',
-    },
-    {
-        id: 'analysis',
-        label: 'Measurement',
-        hint: 'How much of the library it measures at once',
-        group: 'analysis',
-        blurb: 'How widely the station measures its records, so it can trim the dead air off each one and know how long it may talk over an intro. WHICH plugin measures them is under Providers; with none set up every track still plays, unmeasured.',
-    },
-    { id: 'artwork', label: 'Artwork', hint: "The pictures a listener's player shows" },
-    { id: 'storage', label: 'Storage', hint: 'What the caches are holding' },
+    blurbed('rotation', { group: 'rotation' }),
+    blurbed('breaks', { group: 'breaks' }),
+    blurbed('bulletins', { group: 'bulletins' }),
+    blurbed('playout', { group: 'playout' }),
+    blurbed('render', { group: 'render' }),
+    blurbed('llm', { group: 'llm' }),
+    blurbed('analysis', { group: 'analysis' }),
+    section('artwork'),
+    section('storage'),
     // Immediately before the two plugin sections, because it is the question they raise: having
     // installed a second thing that can do a job, which one does it. Its settings live in the
     // `providers` group, which no card above draws — the choice is always about the plugins in
     // front of the operator, and a text field holding `deadair.kokoro` is not that.
-    {
-        id: 'providers',
-        label: 'Providers',
-        hint: 'Who does what, and who is asked first',
-        blurb: 'The jobs more than one of your plugins can do, and which of them the station uses. Nothing here switches a plugin on or off: that is the Plugins page, and this decides what the station does with the ones that are running.',
-    },
-    { id: 'grants', label: 'Waiting on you', hint: 'What plugins have asked for' },
-    { id: 'plugins', label: 'Plugins', hint: 'What the station runs, and what they have asked for', route: '/plugins' },
+    blurbed('providers'),
+    section('grants'),
+    section('plugins', { route: '/plugins' }),
 ];
 
 /**
@@ -287,6 +250,7 @@ export interface SettingsShellProps {
  * another, and the line under the title is where that is said.
  */
 export function SettingsShell({ active, children }: SettingsShellProps) {
+    const { t } = useTranslation('settings');
     const phone = usePhone();
 
     // The rail is collapsed on a phone, so a section reached from the list has nothing to get back
@@ -300,15 +264,14 @@ export function SettingsShell({ active, children }: SettingsShellProps) {
                     <Anchor size="sm" underline="never" c="dimmed" w="fit-content" renderRoot={(props: object) => <Link to="/settings" {...props} />}>
                         <Group gap={4} wrap="nowrap">
                             <IconChevronLeft aria-hidden size={14} stroke={2} />
-                            All settings
+                            {t('shell.allSettings')}
                         </Group>
                     </Anchor>
                 ) : undefined}
 
-                <Title order={1}>Settings</Title>
+                <Title order={1}>{t('shell.title')}</Title>
                 <Text size="sm" c="dimmed" maw={760}>
-                    The station itself, and the plugins it runs. Every section saves on its own, and nothing here can clear another. What plays
-                    between blocks is on Programme instead, beside the timetable that makes sense of it.
+                    {t('shell.intro')}
                 </Text>
             </Stack>
 

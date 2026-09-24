@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Button, Card, Group, Stack, Text, Title } from '@mantine/core';
+import { useTranslation } from 'react-i18next';
 import type { OAuthGrant } from '@deadair/sdk';
 
 import { useOAuthGrants, useRevokeOAuthGrant } from '../../api/oauth.queries';
@@ -19,6 +20,7 @@ import { PageSkeleton } from '../shared/page.skeleton';
  * show, so a station that never turned OAuth on looks as it did.
  */
 export function ConnectedAppsCard() {
+    const { t } = useTranslation('settings');
     const grants = useOAuthGrants();
 
     if (grants.data?.grants.length === 0 || grants.isPending) return grants.isPending ? <PageSkeleton variant="rows" count={1} /> : undefined;
@@ -28,14 +30,18 @@ export function ConnectedAppsCard() {
             <Stack gap="md">
                 <Stack gap="xxs">
                     <Title order={2} size="h4">
-                        Connected apps
+                        {t('connectedApps.title')}
                     </Title>
                     <Text size="sm" c="dimmed">
-                        Apps you have let act as you on this station, such as a Claude connector. Each can do what you can.
+                        {t('connectedApps.intro')}
                     </Text>
                 </Stack>
                 {grants.error ? (
-                    <ErrorAlert title="Apps unavailable" error={grants.error} fallback="The station could not list your connected apps." />
+                    <ErrorAlert
+                        title={t('connectedApps.unavailable.title')}
+                        error={grants.error}
+                        fallback={t('connectedApps.unavailable.fallback')}
+                    />
                 ) : undefined}
                 {grants.data ? (
                     <Stack gap="xs">
@@ -50,6 +56,7 @@ export function ConnectedAppsCard() {
 }
 
 function GrantRow({ grant }: { grant: OAuthGrant }) {
+    const { t } = useTranslation('settings');
     const revoke = useRevokeOAuthGrant();
     const [confirming, setConfirming] = useState(false);
     const name = grant.clientName ?? grant.clientId;
@@ -59,12 +66,13 @@ function GrantRow({ grant }: { grant: OAuthGrant }) {
             <Stack gap={2}>
                 <Text size="sm">{name}</Text>
                 <Text size="xs" c="dimmed">
-                    {`Connected ${formatDate(grant.createdAt)}`}
-                    {grant.lastUsedAt ? ` · last used ${formatDate(grant.lastUsedAt)}` : ''}
+                    {grant.lastUsedAt
+                        ? t('connectedApps.grant.connectedUsed', { date: formatDate(grant.createdAt), used: formatDate(grant.lastUsedAt) })
+                        : t('connectedApps.grant.connected', { date: formatDate(grant.createdAt) })}
                 </Text>
             </Stack>
             <Button variant="subtle" color="red" size="compact-sm" onClick={() => setConfirming(true)}>
-                Disconnect
+                {t('connectedApps.disconnect.action')}
             </Button>
             <ConfirmModal
                 opened={confirming}
@@ -72,17 +80,17 @@ function GrantRow({ grant }: { grant: OAuthGrant }) {
                 onConfirm={() =>
                     void revoke.mutateAsync(grant.id).then(() => {
                         setConfirming(false);
-                        notifyDone(`${name} disconnected.`);
+                        notifyDone(t('connectedApps.disconnect.done', { name }));
                     })
                 }
-                title={`Disconnect ${name}?`}
-                confirmLabel="Disconnect"
+                title={t('connectedApps.disconnect.title', { name })}
+                confirmLabel={t('connectedApps.disconnect.action')}
                 confirming={revoke.isPending}
                 error={revoke.error}
-                errorTitle="Still connected"
-                errorFallback="The app is still connected."
+                errorTitle={t('connectedApps.disconnect.errorTitle')}
+                errorFallback={t('connectedApps.disconnect.errorFallback')}
             >
-                {`${name} stops working as you straight away. You can connect it again later, and you will be asked to approve it again.`}
+                {t('connectedApps.disconnect.body', { name })}
             </ConfirmModal>
         </Group>
     );

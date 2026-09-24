@@ -1,4 +1,5 @@
 import { useBlocker } from '@tanstack/react-router';
+import { useTranslation } from 'react-i18next';
 
 import { ConfirmModal } from '../shared/confirm.modal';
 
@@ -44,6 +45,7 @@ export interface UnsavedGuardProps {
  * merely permissive, it is not installed, so a clean page cannot pay for this at all.
  */
 export function UnsavedGuard({ dirty }: UnsavedGuardProps) {
+    const { t } = useTranslation('settings');
     const blocker = useBlocker({
         shouldBlockFn: () => dirty,
         enableBeforeUnload: () => dirty,
@@ -59,11 +61,10 @@ export function UnsavedGuard({ dirty }: UnsavedGuardProps) {
             // there is. `ConfirmModal` wires both to `onClose`, which is the half that keeps it.
             onClose={() => blocker.reset?.()}
             onConfirm={() => blocker.proceed?.()}
-            title="Discard unsaved changes?"
-            confirmLabel="Discard changes"
+            title={t('unsaved.title')}
+            confirmLabel={t('unsaved.confirm')}
         >
-            Something on this page has been changed and not saved. Leaving now throws it away. Every section saves on its own, so saving here will not
-            touch anything else.
+            {t('unsaved.body')}
         </ConfirmModal>
     );
 }

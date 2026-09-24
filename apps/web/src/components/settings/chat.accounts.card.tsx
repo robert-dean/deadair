@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Alert, Button, Card, Code, Group, Stack, Text, Title } from '@mantine/core';
+import { useTranslation } from 'react-i18next';
 import type { MessagingLink, MessagingLinkCode } from '@deadair/sdk';
 
 import { useCreateMessagingLinkCode, useMessagingLinks, useRemoveMessagingLink } from '../../api/messaging.queries';
@@ -25,26 +26,29 @@ const platformName = (pluginId: string): string => {
  * `OAuthClientsCard`'s reason.
  */
 export function ChatAccountsCard() {
+    const { t } = useTranslation('settings');
     const links = useMessagingLinks();
     const create = useCreateMessagingLinkCode();
     const [code, setCode] = useState<MessagingLinkCode>();
 
     if (sdkError(links.error)?.status === 403) return undefined;
 
+    // What the operator sends the bot: a chat command, which is the bot's syntax rather than copy.
+    const command = code ? `/link ${code.code}` : '';
+
     return (
         <Card padding="lg">
             <Stack gap="md">
                 <Stack gap="xxs">
                     <Title order={2} size="h4">
-                        Chat accounts
+                        {t('chatAccounts.title')}
                     </Title>
                     <Text size="sm" c="dimmed">
-                        Link your account on a chat platform, such as Telegram, to skip a record or take the station off the air from a chat. It can
-                        do only what you can.
+                        {t('chatAccounts.intro')}
                     </Text>
                 </Stack>
                 {links.error ? (
-                    <ErrorAlert title="Chat accounts unavailable" error={links.error} fallback="The station could not list your chat accounts." />
+                    <ErrorAlert title={t('chatAccounts.unavailable.title')} error={links.error} fallback={t('chatAccounts.unavailable.fallback')} />
                 ) : undefined}
                 {links.data && links.data.links.length > 0 ? (
                     <Stack gap="xs">
@@ -54,20 +58,22 @@ export function ChatAccountsCard() {
                     </Stack>
                 ) : undefined}
                 {code ? (
-                    <Alert color="blue" title="Send this to the station's bot">
+                    <Alert color="blue" title={t('chatAccounts.code.title')}>
                         <Stack gap="xs">
                             <Group gap="xs" wrap="nowrap">
-                                <Code style={{ flex: 1 }}>{`/link ${code.code}`}</Code>
-                                <CopyButton value={`/link ${code.code}`} />
+                                <Code style={{ flex: 1 }}>{command}</Code>
+                                <CopyButton value={command} />
                             </Group>
-                            <Text size="xs">{`In a direct message, not a group. It works once, until ${formatDate(code.expiresAt)}.`}</Text>
+                            <Text size="xs">{t('chatAccounts.code.hint', { date: formatDate(code.expiresAt) })}</Text>
                         </Stack>
                     </Alert>
                 ) : undefined}
-                {create.error ? <ErrorAlert title="No code" error={create.error} fallback="The station could not make a code." /> : undefined}
+                {create.error ? (
+                    <ErrorAlert title={t('chatAccounts.code.errorTitle')} error={create.error} fallback={t('chatAccounts.code.errorFallback')} />
+                ) : undefined}
                 <Group>
                     <Button variant="light" loading={create.isPending} onClick={() => void create.mutateAsync().then(setCode)}>
-                        {code ? 'New code' : 'Link a chat account'}
+                        {code ? t('chatAccounts.code.again') : t('chatAccounts.code.first')}
                     </Button>
                 </Group>
             </Stack>
@@ -76,18 +82,21 @@ export function ChatAccountsCard() {
 }
 
 function LinkRow({ link }: { link: MessagingLink }) {
+    const { t } = useTranslation('settings');
     const remove = useRemoveMessagingLink();
     const [confirming, setConfirming] = useState(false);
-    const name = `${link.displayName} on ${platformName(link.pluginId)}`;
+    const name = t('chatAccounts.link.name', { user: link.displayName, platform: platformName(link.pluginId) });
 
     return (
         <Group justify="space-between" wrap="nowrap" align="flex-start">
             <Stack gap={2}>
                 <Text size="sm">{name}</Text>
-                <Text size="xs" c="dimmed">{`Linked ${formatDate(link.createdAt)}`}</Text>
+                <Text size="xs" c="dimmed">
+                    {t('chatAccounts.link.linked', { date: formatDate(link.createdAt) })}
+                </Text>
             </Stack>
             <Button variant="subtle" color="red" size="compact-sm" onClick={() => setConfirming(true)}>
-                Unlink
+                {t('chatAccounts.unlink.action')}
             </Button>
             <ConfirmModal
                 opened={confirming}
@@ -95,17 +104,17 @@ function LinkRow({ link }: { link: MessagingLink }) {
                 onConfirm={() =>
                     void remove.mutateAsync({ pluginId: link.pluginId, platformUserId: link.platformUserId }).then(() => {
                         setConfirming(false);
-                        notifyDone(`${name} unlinked.`);
+                        notifyDone(t('chatAccounts.unlink.done', { name }));
                     })
                 }
-                title={`Unlink ${name}?`}
-                confirmLabel="Unlink"
+                title={t('chatAccounts.unlink.title', { name })}
+                confirmLabel={t('chatAccounts.unlink.action')}
                 confirming={remove.isPending}
                 error={remove.error}
-                errorTitle="Still linked"
-                errorFallback="The chat account is still linked."
+                errorTitle={t('chatAccounts.unlink.errorTitle')}
+                errorFallback={t('chatAccounts.unlink.errorFallback')}
             >
-                {'Its operator commands are refused from the next one on. You can link it again with a new code.'}
+                {t('chatAccounts.unlink.body')}
             </ConfirmModal>
         </Group>
     );

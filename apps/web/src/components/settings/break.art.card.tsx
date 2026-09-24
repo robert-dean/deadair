@@ -1,6 +1,7 @@
 import { Badge, Button, Card, Group, Stack, Text, Title } from '@mantine/core';
 import { Dropzone } from '@mantine/dropzone';
 import { IconPhoto, IconUpload, IconX } from '@tabler/icons-react';
+import { useTranslation } from 'react-i18next';
 import type { BreakArtwork } from '@deadair/sdk';
 
 import { artSrc } from '../../api/art';
@@ -35,12 +36,13 @@ const MAX_BYTES = 4 * 1024 * 1024;
  * any of this existed, and is not a row worth drawing.
  */
 export function BreakArtCard() {
+    const { t } = useTranslation('settings');
     const artwork = useBreakArtwork();
     const replace = useReplaceBreakArtwork();
     const revert = useRevertBreakArtwork();
 
     if (artwork.isPending) return <PageSkeleton variant="rows" count={2} />;
-    if (artwork.isError) return <ErrorAlert title="Could not read what the station shows" error={artwork.error} />;
+    if (artwork.isError) return <ErrorAlert title={t('breakArt.readFailed')} error={artwork.error} />;
 
     const breaks = artwork.data?.breaks ?? [];
 
@@ -49,22 +51,18 @@ export function BreakArtCard() {
             <Stack gap="md">
                 <Stack gap="xxs">
                     <Title order={2} size="h4">
-                        Break artwork
+                        {t('breakArt.title')}
                     </Title>
                     <Text size="sm" c="dimmed">
-                        What a listener&rsquo;s player shows while the station is talking. A kind with no picture of its own shows the station&rsquo;s
-                        logo, as the bed and off air do.
+                        {t('breakArt.intro')}
                     </Text>
                 </Stack>
 
-                {replace.isError ? <ErrorAlert title="That picture did not go up" error={replace.error} /> : undefined}
-                {revert.isError ? <ErrorAlert title="That did not go back" error={revert.error} /> : undefined}
+                {replace.isError ? <ErrorAlert title={t('breakArt.replaceFailed')} error={replace.error} /> : undefined}
+                {revert.isError ? <ErrorAlert title={t('breakArt.revertFailed')} error={revert.error} /> : undefined}
 
                 {breaks.length === 0 ? (
-                    <EmptyState title="No pictures yet">
-                        The station holds no picture for any kind of break, so every break shows the station&rsquo;s logo. This is what a first boot
-                        looks like before the shipped pictures have been taken in.
-                    </EmptyState>
+                    <EmptyState title={t('breakArt.empty.title')}>{t('breakArt.empty.body')}</EmptyState>
                 ) : (
                     <Stack gap="lg">
                         {breaks.map(one => (
@@ -105,6 +103,7 @@ function BreakRow({
     onReplace: (file: File) => void;
     onRevert: () => void;
 }) {
+    const { t } = useTranslation('settings');
     return (
         <Stack gap="sm">
             <Group justify="space-between" align="center" wrap="nowrap">
@@ -113,7 +112,7 @@ function BreakRow({
                         because that is what this is. */}
                     <img
                         src={artSrc(artwork.url)}
-                        alt={`What a ${artwork.kind} break shows`}
+                        alt={t('breakArt.alt', { kind: artwork.kind })}
                         width={72}
                         height={72}
                         style={{ borderRadius: 'var(--mantine-radius-sm)', objectFit: 'cover', flexShrink: 0 }}
@@ -121,7 +120,7 @@ function BreakRow({
                     <Stack gap={4}>
                         <Eyebrow>{artwork.kind}</Eyebrow>
                         <Badge size="sm" variant="light" color={artwork.source === 'shipped' ? 'gray' : 'grape'}>
-                            {artwork.source === 'shipped' ? 'The one this station ships' : 'Yours'}
+                            {artwork.source === 'shipped' ? t('breakArt.source.shipped') : t('breakArt.source.yours')}
                         </Badge>
                     </Stack>
                 </Group>
@@ -130,9 +129,9 @@ function BreakRow({
                     size="xs"
                     disabled={busy || !artwork.hasShipped || artwork.source === 'shipped'}
                     onClick={onRevert}
-                    title={artwork.hasShipped ? undefined : 'This station ships no picture for that kind, so there is nothing to go back to'}
+                    title={artwork.hasShipped ? undefined : t('breakArt.revert.nothingShipped')}
                 >
-                    Put the original back
+                    {t('breakArt.revert.action')}
                 </Button>
             </Group>
 
@@ -157,9 +156,9 @@ function BreakRow({
                         <IconPhoto size={28} />
                     </Dropzone.Idle>
                     <Stack gap={2}>
-                        <Text size="sm">Drop a picture here, or click to choose</Text>
+                        <Text size="sm">{t('breakArt.drop.title')}</Text>
                         <Text size="xs" c="dimmed">
-                            jpeg, png, webp or gif, up to 4 MB. A square one, since that is how a player draws it.
+                            {t('breakArt.drop.hint')}
                         </Text>
                     </Stack>
                 </Group>

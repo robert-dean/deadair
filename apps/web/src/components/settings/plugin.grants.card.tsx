@@ -1,4 +1,5 @@
 import { Card, Stack, Table, Text, Title } from '@mantine/core';
+import { useTranslation } from 'react-i18next';
 import type { PluginGrant } from '@deadair/sdk';
 
 import { usePluginGrants } from '../../api/plugins.queries';
@@ -30,6 +31,7 @@ import { usePhone } from '../shared/use.phone';
  * plugin's page is the one for "why is this plugin not working".
  */
 export function PluginGrantsCard() {
+    const { t } = useTranslation('settings');
     const grants = usePluginGrants();
     const phone = usePhone();
 
@@ -43,20 +45,15 @@ export function PluginGrantsCard() {
             <Stack gap="md">
                 <Stack gap="xxs">
                     <Title order={2} size="h4">
-                        What plugins have asked for
+                        {t('pluginGrants.title')}
                     </Title>
                     <Text size="sm" c="dimmed">
-                        A plugin reaches only what its manifest names and what you gave it. These are the things one has asked for on top of that.
-                        Nothing here is allowed until you say so, and a decision takes effect on the plugin&rsquo;s next request.
+                        {t('pluginGrants.intro')}
                     </Text>
                 </Stack>
 
                 {grants.error ? (
-                    <ErrorAlert
-                        title="Requests unavailable"
-                        error={grants.error}
-                        fallback="The station could not read what its plugins have asked for."
-                    />
+                    <ErrorAlert title={t('pluginGrants.unavailable.title')} error={grants.error} fallback={t('pluginGrants.unavailable.fallback')} />
                 ) : undefined}
 
                 {/* A phone gets cards, because this row is a QUESTION and its answer is a control:
@@ -75,10 +72,10 @@ export function PluginGrantsCard() {
                         <Table verticalSpacing="sm" horizontalSpacing="sm" layout="fixed">
                             <Table.Thead>
                                 <Table.Tr>
-                                    <Table.Th w="34%">Plugin</Table.Th>
-                                    <Table.Th>Asked for</Table.Th>
+                                    <Table.Th w="34%">{t('pluginGrants.column.plugin')}</Table.Th>
+                                    <Table.Th>{t('pluginGrants.column.askedFor')}</Table.Th>
                                     <Table.Th w={200} ta="right">
-                                        Answer
+                                        {t('pluginGrants.column.answer')}
                                     </Table.Th>
                                 </Table.Tr>
                             </Table.Thead>

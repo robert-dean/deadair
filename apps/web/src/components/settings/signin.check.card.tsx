@@ -1,4 +1,5 @@
 import { Button, Card, Group, Stack, Text, Title } from '@mantine/core';
+import { useTranslation } from 'react-i18next';
 import type { SigninProviderCheck } from '@deadair/sdk';
 
 import { useSettings, useSigninCheck } from '../../api/settings.queries';
@@ -23,6 +24,7 @@ const PROVIDERS_KEY = 'signin.providers';
  * role, who could not change what it says anyway.
  */
 export function SigninCheckCard() {
+    const { t } = useTranslation('settings');
     const settings = useSettings();
     const stored = settings.data?.values[PROVIDERS_KEY];
     const providers = typeof stored === 'string' && stored.trim() !== '' && stored.trim() !== '[]' ? stored : undefined;
@@ -37,20 +39,20 @@ export function SigninCheckCard() {
                 <Group justify="space-between" align="flex-start" wrap="nowrap">
                     <Stack gap="xxs">
                         <Title order={2} size="h4">
-                            Do they answer?
+                            {t('signinCheck.title')}
                         </Title>
                         <Text size="sm" c="dimmed">
-                            The station asks each provider for its sign-in details, the way the sign-in page will, whenever this list is saved.
+                            {t('signinCheck.intro')}
                         </Text>
                     </Stack>
                     <Button variant="default" size="compact-sm" loading={check.isFetching} onClick={() => void check.refetch()}>
-                        Check again
+                        {t('signinCheck.again')}
                     </Button>
                 </Group>
 
                 {check.isPending ? <PageSkeleton variant="rows" count={2} /> : undefined}
                 {check.error ? (
-                    <ErrorAlert title="Not checked" error={check.error} fallback="The station could not check its providers." />
+                    <ErrorAlert title={t('signinCheck.failed.title')} error={check.error} fallback={t('signinCheck.failed.fallback')} />
                 ) : undefined}
 
                 {check.data ? (
@@ -60,7 +62,7 @@ export function SigninCheckCard() {
                         ))}
                         {check.data.unusable.map(sentence => (
                             <Stack key={sentence} gap={2}>
-                                <StatusLamp tone="fault" label="Not offered" />
+                                <StatusLamp tone="fault" label={t('signinCheck.notOffered')} />
                                 <Text size="sm">{sentence}</Text>
                             </Stack>
                         ))}
@@ -72,10 +74,11 @@ export function SigninCheckCard() {
 }
 
 function ProviderLine({ provider }: { provider: SigninProviderCheck }) {
+    const { t } = useTranslation('settings');
     return (
         <Stack gap={2}>
             <Group gap="xs" wrap="nowrap">
-                <StatusLamp tone={provider.ok ? 'ok' : 'fault'} label={provider.ok ? 'Answers' : 'No answer'} />
+                <StatusLamp tone={provider.ok ? 'ok' : 'fault'} label={provider.ok ? t('signinCheck.answers') : t('signinCheck.noAnswer')} />
                 <Text size="sm" fw={600}>
                     {provider.label || provider.name}
                 </Text>

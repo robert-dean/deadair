@@ -1,4 +1,5 @@
 import { Group, Select, Stack, Text } from '@mantine/core';
+import { useTranslation } from 'react-i18next';
 import type { ProviderCapabilityState } from '@deadair/sdk';
 
 import { useUpdateSettings } from '../../api/settings.queries';
@@ -29,6 +30,7 @@ const AUTOMATIC = '';
  * and keeps the named id in the list so the operator can see what they are looking at.
  */
 export function ProviderPick({ state }: { state: ProviderCapabilityState }) {
+    const { t } = useTranslation('settings');
     const update = useUpdateSettings();
 
     const active = state.candidates.filter(candidate => candidate.position !== undefined);
@@ -37,29 +39,31 @@ export function ProviderPick({ state }: { state: ProviderCapabilityState }) {
     const named = state.configured.trim();
 
     const options = [
-        { value: AUTOMATIC, label: inUse && named.length === 0 ? `Automatic (currently ${inUse.name})` : 'Automatic' },
+        {
+            value: AUTOMATIC,
+            label: inUse && named.length === 0 ? t('providerPick.automaticCurrently', { name: inUse.name }) : t('providerPick.automatic'),
+        },
         ...active.map(candidate => ({ value: candidate.pluginId, label: candidate.name })),
         // A plugin that is named and cannot answer is still the stored value, so it has to be in
         // the list or the Select would draw as if nothing were set — which is the one thing this
         // state must not look like.
         ...idle
             .filter(candidate => candidate.pluginId === named)
-            .map(candidate => ({ value: candidate.pluginId, label: `${candidate.name} (not running)` })),
+            .map(candidate => ({ value: candidate.pluginId, label: t('providerPick.notRunning', { name: candidate.name }) })),
         // And an id naming nothing installed at all, for the same reason.
-        ...(state.stale.includes(named) && !idle.some(candidate => candidate.pluginId === named) ? [{ value: named, label: `${named} (not installed)` }] : []),
+        ...(state.stale.includes(named) && !idle.some(candidate => candidate.pluginId === named)
+            ? [{ value: named, label: t('providerPick.notInstalled', { name: named }) }]
+            : []),
     ];
 
     return (
         <Stack gap="sm">
             {state.unanswered && (
-                <ErrorAlert
-                    title="Nothing is doing this job"
-                    fallback={`${named} is named here and is not running, and naming a plugin means the station uses that one or none. Choose one that is running, or set this back to Automatic.`}
-                />
+                <ErrorAlert title={t('providerPick.unanswered.title')} fallback={t('providerPick.unanswered.body', { name: named })} />
             )}
 
             <Select
-                label="Doing this job"
+                label={t('providerPick.label')}
                 data={options}
                 value={named}
                 allowDeselect={false}
@@ -67,7 +71,7 @@ export function ProviderPick({ state }: { state: ProviderCapabilityState }) {
                 w={320}
                 onChange={value => {
                     if (value === null) return;
-                    update.mutate({ [state.settingKey]: value }, { onSuccess: () => notifySaved('The plugin') });
+                    update.mutate({ [state.settingKey]: value }, { onSuccess: () => notifySaved(t('providerPick.saved')) });
                 }}
             />
 
@@ -80,7 +84,7 @@ export function ProviderPick({ state }: { state: ProviderCapabilityState }) {
                             </Text>
                             <StatusLamp tone={statusOf(candidate.status).tone} label={statusOf(candidate.status).label} />
                             <Text size="xs" c="dimmed">
-                                {candidate.enabled ? 'switched on and not answering' : 'not switched on'}
+                                {candidate.enabled ? t('providerPick.idle.enabled') : t('providerPick.idle.disabled')}
                             </Text>
                         </Group>
                     ))}

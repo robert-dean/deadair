@@ -2306,7 +2306,11 @@ export function readAnswer(text: string, guard: AnswerGuard = {}): string | unde
  * without re-running the checks in a different order and reporting something that did not happen.
  */
 const tidyAnswer = (text: string, guard: AnswerGuard = {}): string | undefined =>
-    speakableScript(text, { perform: PRESENTER_CUES, pads: guard.pads ?? [] });
+    speakableScript(text, {
+        perform: PRESENTER_CUES,
+        pads: guard.pads ?? [],
+        ...(guard.language === undefined ? {} : { language: guard.language }),
+    });
 
 /**
  * How much of a run-long script is worth keeping before it stops being one.

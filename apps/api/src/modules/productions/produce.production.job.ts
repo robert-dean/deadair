@@ -452,7 +452,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                 // stage direction is a word in the audio — the first live call-in aired an album
                 // title with the asterisks still round it. The strip spares exactly the cues this
                 // speaker was offered.
-                answer => speakable(answer.text, reactions, board.names),
+                answer => speakable(answer.text, reactions, board.names, this.language().language),
                 {
                     onEmpty: () =>
                         this.logger.info('productions: a beat came back empty, so it is being asked again', {
@@ -632,6 +632,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                 answer.text,
                 reactions,
                 beat.pads.map(hit => hit.name),
+                this.language().language,
             );
             // A re-draft that came back empty leaves the original in place. The first attempt passed
             // enough to be spoken, and a beat with problems is better than no beat at all — which is
@@ -1030,8 +1031,8 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
  * drop between the model answering and the row being written — silently, with the cue gone before
  * anything could resolve it.
  */
-const speakable = (text: string, reactions: readonly SpeechCue[], pads: readonly string[] = []): string =>
-    speakableScript(text, { perform: reactions, pads }) ?? '';
+const speakable = (text: string, reactions: readonly SpeechCue[], pads: readonly string[] = [], language?: string): string =>
+    speakableScript(text, { perform: reactions, pads, ...(language === undefined ? {} : { language }) }) ?? '';
 
 /**
  * Which of this character's signatures the rest of the programme has already used.

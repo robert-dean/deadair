@@ -128,3 +128,17 @@ describe('stripWrapping', () => {
         expect(stripWrapping('He said "no" and left', '"', '"')).toBe('He said "no" and left');
     });
 });
+
+describe('stage directions on a station that does not broadcast in English', () => {
+    it('drops a lower-case aside the English list does not know', () => {
+        expect(speakableScript('*lacht* Das war Nena. (seufzt) Wunderbar.', { perform: [], language: 'de' })).toBe('Das war Nena. Wunderbar.');
+    });
+
+    it('keeps a title in italics, which is capitalised', () => {
+        expect(speakableScript('Das war *Neunundneunzig Luftballons*.', { perform: [], language: 'de' })).toBe('Das war Neunundneunzig Luftballons.');
+    });
+
+    it('leaves an English station exactly as it was', () => {
+        expect(speakableScript('*lacht* Das war Nena.', { perform: [] })).toBe('lacht Das war Nena.');
+    });
+});

@@ -71,7 +71,7 @@ function harness(
 
     const service = new SpeechService(registry, invoker, config, store, gate, lexicon, logger as never);
 
-    return { service, plugin, asked, lexicon, logger, listDeliveries, listLimits };
+    return { service, plugin, asked, lexicon, logger, listDeliveries, listLimits, config };
 }
 
 describe('SpeechService.speakWith', () => {
@@ -103,6 +103,16 @@ describe('SpeechService.speakWith', () => {
         await service.speakWith(plugin, { text: 'The news at 9:00.', voice: 'newsreader' });
 
         expect(asked[0]).toMatchObject({ voice: 'newsreader', text: "The news at nine o'clock." });
+    });
+
+    it('hands a non-English script over without English words, and without the mined respellings', async () => {
+        const { service, plugin, asked, lexicon, config } = harness();
+        vi.mocked(config.get).mockImplementation(((key: string, fallback: string) => (key === 'stream.language' ? 'de' : fallback)) as never);
+
+        await service.speakWith(plugin, { text: 'Das war Simon & Garfunkel, von 1968.' });
+
+        expect(asked[0]?.text).toBe('Das war Simon & Garfunkel, von 1968.');
+        expect(lexicon.active).toHaveBeenCalledWith(['operator']);
     });
 
     it('reads the lexicon on every render, so an edit is heard on the next break', async () => {

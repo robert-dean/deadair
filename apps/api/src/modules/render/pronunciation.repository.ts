@@ -66,14 +66,19 @@ export class PronunciationRepository extends DataRepository {
      *
      * Only the shape the lexicon needs, because that is all the render path uses and this is the
      * read on the path of every spoken segment.
+     *
+     * `origins` narrows it to entries from those sources, which is how a station that is not
+     * English leaves out the respellings the gloss pass mined out of English articles.
      */
-    async active(): Promise<Pronunciation[]> {
-        const rows = await this.db
+    async active(origins?: readonly PronunciationOrigin[]): Promise<Pronunciation[]> {
+        let query = this.db
             .selectFrom('deadair.pronunciations')
             .select(['written', 'spoken'])
             .where('stationKey', '=', this.station.stationKey)
-            .where('state', '=', 'active')
-            .execute();
+            .where('state', '=', 'active');
+        if (origins !== undefined) query = query.where('origin', 'in', origins);
+
+        const rows = await query.execute();
 
         return rows.map(row => ({ written: row.written, spoken: row.spoken }));
     }

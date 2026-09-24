@@ -20,6 +20,7 @@ import { extensionForMime, SegmentStore, type SegmentExtension } from './segment
 import { SpeechGate, type SpeechGateOptions } from './speech.gate.js';
 import { PronunciationRepository } from './pronunciation.repository.js';
 import { transposeForSpeech } from './speech.transpose.js';
+import { stationLanguage } from '#modules/stream/stream.settings.js';
 import type { VoiceSampleStore } from './voice.sample.store.js';
 
 /**
@@ -332,7 +333,13 @@ export class SpeechService {
         // does not own, and one of them (`settle`) already had an opinion about them.
         const performable = withoutCues(text, await this.cuesFor(plugin));
 
-        const spoken = transposeForSpeech(performable, await this.pronunciations.active());
+        // Outside English the respellings the gloss pass mined are left out, because they are English
+        // phonetics ("Shar-day") and a German voice reads them as German. An operator's own entries
+        // stay: somebody wrote those for this station's voice.
+        const language = stationLanguage(this.config);
+        const entries = await this.pronunciations.active(language === undefined ? undefined : ['operator']);
+
+        const spoken = transposeForSpeech(performable, entries, language);
         if (spoken !== text.trim()) this.logger.debug('render: transposed a script for the engine', { written: text, spoken });
 
         return spoken;

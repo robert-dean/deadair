@@ -86,29 +86,28 @@ class NowPlayingUiStateTest {
     }
 
     @Test
-    fun `names the show and its host above the record`() {
+    fun `names the host under the record`() {
         val ui = state(AirState.OnAir(track), show = NowPlayingShow(name = "Late Static", host = "Cass"))
 
-        assertEquals(Message.ShowWithHost("Late Static", "Cass"), ui.header)
+        assertEquals(Message.WithHost("Cass"), ui.hostLine)
     }
 
     @Test
-    fun `names a show nobody presents as the station wrote it`() {
-        assertEquals(Message.Text("Overnight"), state(AirState.OnAir(track), show = NowPlayingShow(name = "Overnight")).header)
+    fun `never draws the show's name, which is the operator's label and may be the station's made-up one`() {
+        assertNull(state(AirState.OnAir(track), show = NowPlayingShow(name = "From Spotify")).hostLine)
     }
 
     @Test
-    fun `names the host alone when the show has no name to give`() {
-        // A broadcast's name can be blank: it is the operator's own label, and nothing requires one.
-        assertEquals(Message.WithHost("Cass"), state(AirState.OnAir(track), show = NowPlayingShow(name = "", host = "Cass")).header)
+    fun `has no host line when nobody presents, or the station is not on air`() {
+        assertNull(state(AirState.OnAir(track)).hostLine)
+        assertNull(state(AirState.OnAir(track), show = NowPlayingShow(name = "Overnight", host = "")).hostLine)
+        // A stale presenter over "can't reach the station" would name somebody nobody can hear.
+        assertNull(state(AirState.Unreachable, stale = true, show = NowPlayingShow(name = "Late Static", host = "Cass")).hostLine)
     }
 
     @Test
-    fun `has no header when the station names no show, or is not on air`() {
-        assertNull(state(AirState.OnAir(track)).header)
-        assertNull(state(AirState.OnAir(track), show = NowPlayingShow(name = "")).header)
-        // A stale show over "can't reach the station" would name something nobody can hear.
-        assertNull(state(AirState.Unreachable, stale = true, show = NowPlayingShow(name = "Late Static", host = "Cass")).header)
+    fun `has no host line during a break, whose title already says who is on the mic`() {
+        assertNull(state(AirState.OnAir(spoken), show = NowPlayingShow(name = "Late Static", host = "Cass")).hostLine)
     }
 
     @Test
@@ -117,7 +116,7 @@ class NowPlayingUiStateTest {
 
         assertEquals(Message.OnTheMic("Cass"), ui.title)
         assertEquals(Message.Text("Top of the hour"), ui.subtitle)
-        // A break has no album, and the header already says which show this is.
+        // A break has no album.
         assertNull(ui.album)
     }
 

@@ -1,5 +1,10 @@
 package com.maroonedsoftware.deadair.ui.nowplaying
 
+import android.os.Build
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.height
@@ -25,7 +30,6 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
@@ -155,8 +159,8 @@ private fun FullBleed(
 ) {
     val background = MaterialTheme.colorScheme.background
 
-    // Resting, everything but the cover fades: the scrim that carried it into the background, the
-    // words, the bar and the controls, and the cover moves to the middle of the screen at the size it
+    // Resting, everything but the cover fades: the glow, the fade that carried it into the page, the
+    // words, the line and the controls, and the cover moves to the middle of the screen at the size it
     // already was. Never larger: a cover is square, and filling a tall screen with one means cutting
     // most of it off. They come back on the first touch, which does nothing else (see `wakesRest`).
     val resting = rest?.resting == true
@@ -168,28 +172,44 @@ private fun FullBleed(
         // How far the cover travels to sit in the middle of the screen while resting.
         val toMiddle = ((maxHeight - side) / 2 - top).coerceAtLeast(0.dp)
 
+        // The bleed: the cover again, blurred past recognition, behind the sharp one and reaching
+        // further down, so its colour spills into the page under the words instead of stopping at
+        // the cover's edge. Android 12 and later only, because `blur` is a no-op before that and a
+        // second sharp copy would be a ghost rather than a glow.
+        if (artworkUrl != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            Box(modifier = Modifier.padding(top = top).fillMaxWidth().height(side * BleedReach).alpha(shown * BleedStrength)) {
+                AsyncImage(model = artworkUrl, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().blur(BleedBlur))
+                // Its own foot fades into the page, so the glow has no edge either.
+                Box(modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(0.4f to Color.Transparent, 1f to background)))
+            }
+        }
+
         Column(modifier = Modifier.fillMaxSize().padding(top = top)) {
             // Below the status bar rather than under it, so the bar reads on the theme's own ground
-            // over every cover; its foot bleeds into the background, so the cover ends without an
-            // edge and the words under it read on plain ground.
+            // over every cover. Its foot dissolves (made transparent, not painted over), so it melts
+            // into the glow behind it rather than into a flat band of the background's colour. A tap
+            // on the art still reaches it: the fade is drawn, not laid over it.
             Box(
                 modifier =
-                    Modifier.align(Alignment.CenterHorizontally).size(side).graphicsLayer {
-                        translationY = (1f - shown) * toMiddle.toPx()
-                    },
+                    Modifier.align(Alignment.CenterHorizontally)
+                        .size(side)
+                        .graphicsLayer {
+                            translationY = (1f - shown) * toMiddle.toPx()
+                            compositingStrategy = CompositingStrategy.Offscreen
+                        }.drawWithContent {
+                            drawContent()
+                            val kept = Color.Black
+                            val gone = Color.Black.copy(alpha = 1f - shown)
+                            drawRect(Brush.verticalGradient(0.55f to kept, 1f to gone), blendMode = BlendMode.DstIn)
+                        },
             ) {
                 Artwork(url = artworkUrl, stale = state.stale, onOpen = onArtwork, modifier = Modifier.fillMaxSize())
-                // Drawn with no pointer input, so a tap on the art still reaches it.
-                Box(modifier = Modifier.fillMaxSize().alpha(shown).background(Brush.verticalGradient(0.6f to Color.Transparent, 1f to background)))
             }
-            // Pulled up into the fade, so the words start where the cover is giving way rather than
-            // after a band of empty ground. Offset rather than laid out overlapping, so what the
-            // column measures is unchanged and a short phone runs out of room no sooner.
-            //
             // What room is left is shared out above and below the line and the controls, so they sit
             // down the screen under a thumb rather than stacked under the words with a band of empty
             // ground beneath them.
-            Column(modifier = Modifier.fillMaxWidth().weight(1f).offset(y = -CoverOverlap).alpha(shown).padding(horizontal = Gutter)) {
+            Column(modifier = Modifier.fillMaxWidth().weight(1f).alpha(shown).padding(horizontal = Gutter)) {
+                Spacer(Modifier.height(CoverGap))
                 Words(state, centred = true)
                 Spacer(Modifier.weight(1f))
                 Controls(state, playhead, onPlay, onStop, operator)
@@ -199,8 +219,17 @@ private fun FullBleed(
     }
 }
 
-/** How far the words reach up into the foot of the cover. */
-private val CoverOverlap = 40.dp
+/** The room between the foot of the cover and the words under it. */
+private val CoverGap = 24.dp
+
+/** How far down the glow reaches, as a share of the cover's own height. */
+private const val BleedReach = 1.45f
+
+/** How much of the glow shows through: enough to colour the page, not enough to compete with the words. */
+private const val BleedStrength = 0.6f
+
+/** Blurred until no shape is left in it, only colour. */
+private val BleedBlur = 72.dp
 
 @Composable
 private fun Words(state: NowPlayingUiState, centred: Boolean, modifier: Modifier = Modifier) {
@@ -212,31 +241,32 @@ private fun Words(state: NowPlayingUiState, centred: Boolean, modifier: Modifier
         horizontalAlignment = if (centred) Alignment.CenterHorizontally else Alignment.Start,
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        // The programme first, the way a station's own app leads with the show and its host. One
-        // line: it is a label over the record rather than something to read in full.
-        state.header?.let {
-            Text(
-                it.resolve(),
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = align,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-        Text(state.title.resolve(), style = MaterialTheme.typography.headlineMedium, textAlign = align, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Text(state.title.resolve(), style = MaterialTheme.typography.headlineLarge, textAlign = align, maxLines = 2, overflow = TextOverflow.Ellipsis)
         state.subtitle?.let {
             // A long credit scrolls past rather than being cut, which is what a now-playing line
             // does on every player a listener has used. A sentence of the app's own wraps instead:
             // scrolled, it showed the middle of an instruction with its first word gone.
             Text(
                 it.resolve(),
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = align,
                 maxLines = if (state.subtitleScrolls) 1 else 2,
                 overflow = TextOverflow.Ellipsis,
                 modifier = if (state.subtitleScrolls) Modifier.basicMarquee() else Modifier,
+            )
+        }
+        // Who is presenting, quieter than the credit and under it: the record is the news, the host
+        // is who brought it.
+        state.hostLine?.let {
+            Text(
+                it.resolve(),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = align,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = 4.dp),
             )
         }
         // Beside the cover there is room for the album; under it, the title and the credit are the

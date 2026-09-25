@@ -57,7 +57,6 @@ sealed interface Message {
     data class OnTheMic(val host: String?) : Message
 
     /** The line above the record: "Late Static · with Cass". Both halves are the station's words. */
-    data class ShowWithHost(val show: String, val host: String) : Message
 
     /** The same line when the show has no name to give: "with Cass". */
     data class WithHost(val host: String) : Message

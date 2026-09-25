@@ -39,7 +39,6 @@
     <!-- The same, when the station named nobody -->
     <string name="now_on_the_mic_unnamed">The host is on the mic</string>
     <!-- The line above the record: the show, then its host. "Late Static · with Cass" -->
-    <string name="now_show_with_host">%1$s · with %2$s</string>
     <!-- The same line for a show with no name: "with Cass" -->
     <string name="now_with_host">with %1$s</string>
     <!-- The home-screen widget -->

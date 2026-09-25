@@ -1,7 +1,10 @@
 {
     "extends": "@repo/config-typescript/react.json",
     "compilerOptions": {
-        "noEmit": true
+        "noEmit": true,
+        // `src/i18n/language.pack.ts` and the English catalog are read by plain `node` as well as by
+        // Vite, and Node resolves a TypeScript import only when it names its `.ts` extension.
+        "allowImportingTsExtensions": true
     },
     "include": ["./src/**/*"],
     "exclude": ["node_modules", "dist"]

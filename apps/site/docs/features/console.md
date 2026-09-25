@@ -7,7 +7,7 @@ description: The broadcast desk you run the station from, how it is laid out, wh
 The console is a broadcast desk rather than a player. It shows what is going out, what needs you and what is coming, and it deliberately does not play the station: listeners use the stream itself, or the phone and desktop apps (see [listening](./listening.md)). Everything you do in it acts on the one broadcast every listener hears, which is why its button says Air this playlist rather than Play.
 
 ![The activity feed: what the station has done, newest first](/img/console/activity.webp)
-*Fig. 1. What it has been doing.*
+_Fig. 1. What it has been doing._
 
 ## Where things are
 
@@ -21,6 +21,10 @@ A rail down the left carries four destinations, each with its sections listed be
 Below a rule sit **Check-up**, for what is wrong right now (see [the check-up](./check-up.md)), and **Settings**.
 
 The header carries the tally: whether the station is on air, how many are listening, and on which mount. It sits in the chrome for the reason a studio puts the tally over the door: every page needs it and no page owns it.
+
+## Its language
+
+The console is in English unless you choose otherwise: under **Settings, Languages**, anybody can show it in any language the station has a language pack for, and an admin imports those packs there. Your choice follows you to every browser you sign in from. It has nothing to do with the language the station broadcasts in. See [languages](./languages.md), which also covers translating the console.
 
 ## Moving around by keyboard
 
@@ -47,7 +51,7 @@ Settings → Appearance offers three ways to read the same console:
 The choice is remembered on that browser and changes nothing about the station. The tally stays red in all three, because it is the one colour that means the same thing in every room.
 
 ![Settings, Appearance: the three themes, each drawn in its own colours](/img/console/settings.appearance.webp)
-*Fig. 2. Appearance.*
+_Fig. 2. Appearance._
 
 ## On a phone
 

@@ -272,6 +272,12 @@ deleted again if the release cannot be created, because a tag with no release wo
 out" and no later push would retry, and a release that already exists is success, so a re-run of a
 run that got that far stays green.
 
+**Each release carries the console's English as a language pack**, `deadair-console-en.json`, the
+file a translation of the console starts from. `publish` writes it after the release exists with
+`apps/web/scripts/language.template.ts`, under plain `node` with nothing installed, and attaches it
+with `--clobber`, so a re-run restores it if an earlier run did not get that far. The console exports
+the same file from Settings, Languages.
+
 **It publishes with a GitHub App's token, because the workflow token is refused exactly when it
 matters.** GitHub requires the `workflows` permission to create a tag or a release on a commit that
 no branch or tag points at when workflow files differ from what is reachable, and `GITHUB_TOKEN` can

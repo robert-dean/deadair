@@ -489,6 +489,26 @@ jobs:
                       exit 1
                   fi
 
+            # The console's English as a language pack, on the release it came from, so a translator
+            # can start from the right version without running a station. Plain `node` and nothing
+            # installed: `apps/web/src/i18n/language.pack.ts` says why that holds, and a web test runs
+            # the script the same way. Also when the step above found the release already made, with
+            # `--clobber`, so a re-run puts back a file an earlier run failed to attach.
+            - name: Setup Node
+              uses: actions/setup-node@v7
+              with:
+                  node-version: 26
+
+            - name: Attach the console's English as a language pack
+              env:
+                  GH_TOKEN: ${{ steps.token.outputs.token || github.token }}
+                  VERSION: ${{ needs.version.outputs.value }}
+              run: |
+                  set -euo pipefail
+                  file="deadair-console-en.json"
+                  node apps/web/scripts/language.template.ts "$file"
+                  gh release upload "v${VERSION}" "$file" --clobber
+
     # The two SDKs on npm: the plugin SDK, which is how somebody outside this repository writes a
     # plugin, and the client SDK, which is how they write something that talks to a station. After
     # `publish` rather than beside it, so a version on npm always has a tag and a release behind it:

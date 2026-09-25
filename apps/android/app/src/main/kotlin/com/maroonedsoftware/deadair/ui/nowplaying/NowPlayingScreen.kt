@@ -1,5 +1,13 @@
 package com.maroonedsoftware.deadair.ui.nowplaying
 
+import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.IntOffset
+import coil3.request.ImageRequest
+import kotlin.math.roundToInt
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
@@ -188,13 +196,17 @@ private fun FullBleed(
     // Where the screen's middle and the cover's middle are, measured rather than worked out, so the
     // resting cover lands in the middle however the stack above and below it came out.
     var screenMiddle by remember { mutableFloatStateOf(0f) }
+    var screenTop by remember { mutableFloatStateOf(0f) }
     var coverMiddle by remember { mutableFloatStateOf(0f) }
 
     BoxWithConstraints(
         modifier =
             Modifier.fillMaxSize()
                 .background(background)
-                .onPlaced { screenMiddle = it.positionInRoot().y + it.size.height / 2f }
+                .onPlaced {
+                    screenTop = it.positionInRoot().y
+                    screenMiddle = screenTop + it.size.height / 2f
+                }
                 .then(if (rest != null) Modifier.wakesRest(rest) else Modifier),
     ) {
         val top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
@@ -203,27 +215,35 @@ private fun FullBleed(
         // room: on a short phone the cover gives way, never the controls.
         val side = minOf(maxWidth, ArtworkMaxWidth * 2, (maxHeight - top - bottom - BelowCover).coerceAtLeast(MinCover))
 
-        // The bleed: the cover again, blurred past recognition, over the whole screen behind the sharp
-        // one, so its colour fills the status bar and runs down behind the words, the controls and
-        // the tabs rather than stopping at the cover's edge. Android 12 and later only, because
-        // `blur` is a no-op before that and a second sharp copy would be a ghost rather than a glow.
-        if (artworkUrl != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            Box(modifier = Modifier.fillMaxSize().alpha(shown * BleedStrength)) {
-                AsyncImage(model = artworkUrl, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().blur(BleedBlur))
-                // A wash of the page's own colour at the top, so the status bar's icons read over a
-                // pale cover as well as a dark one, and a deeper one at the foot, so the glow settles
-                // behind the controls instead of competing with them.
-                Box(
-                    modifier =
-                        Modifier.fillMaxSize().background(
-                            Brush.verticalGradient(
-                                0f to background.copy(alpha = 0.45f),
-                                0.08f to Color.Transparent,
-                                0.6f to Color.Transparent,
-                                1f to background.copy(alpha = 0.6f),
-                            ),
-                        ),
+        // The bleed: the cover's colour, glowing out from behind it. Drawn from a tiny sample of the
+        // cover blown up (four pixels a side, so no shape survives, only colour) and centred on the
+        // cover at twice its size, so each edge of the sharp cover dissolves into its OWN colour and
+        // the glow spreads out from it into the status bar above and the controls below. The first
+        // version stretched the whole cover over the whole screen: the blur was weak at that scale,
+        // the cover's shapes showed through as grey bands and blotches, and its edges melted into
+        // colours from somewhere else in the picture. Blurred as well where the platform can
+        // (Android 12 and later); the sample alone is already a soft wash before that.
+        if (artworkUrl != null) {
+            val context = LocalContext.current
+            val sample = remember(artworkUrl) { ImageRequest.Builder(context).data(artworkUrl).size(GLOW_SAMPLE_PX).build() }
+            val glow = side * GlowScale
+            Box(
+                modifier =
+                    Modifier.align(Alignment.TopCenter)
+                        .offset { IntOffset(0, (coverMiddle - screenTop - glow.toPx() / 2f).roundToInt()) }
+                        .wrapContentSize(unbounded = true)
+                        .requiredSize(glow)
+                        .alpha(shown * BleedStrength),
+            ) {
+                AsyncImage(
+                    model = sample,
+                    contentDescription = null,
+                    contentScale = ContentScale.FillBounds,
+                    filterQuality = FilterQuality.High,
+                    modifier = Modifier.fillMaxSize().then(if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) Modifier.blur(BleedBlur) else Modifier),
                 )
+                // Its edge fades into the page all the way round, so the glow has no rim of its own.
+                Box(modifier = Modifier.fillMaxSize().background(Brush.radialGradient(0.35f to Color.Transparent, 1f to background)))
             }
         }
 
@@ -278,10 +298,16 @@ private val BelowCover = 300.dp
 private val MinCover = 180.dp
 
 /** How much of the glow shows through: enough to colour the page, not enough to compete with the words. */
-private const val BleedStrength = 0.6f
+private const val BleedStrength = 0.75f
 
-/** Blurred until no shape is left in it, only colour. */
-private val BleedBlur = 72.dp
+/** Softened on top of the sample, where the platform can. */
+private val BleedBlur = 64.dp
+
+/** How big the glow is against the cover it comes out of. */
+private const val GlowScale = 1.8f
+
+/** Pixels a side the glow is sampled at: few enough that no shape survives, enough to keep the cover's colours where they are. */
+private const val GLOW_SAMPLE_PX = 4
 
 @Composable
 private fun Words(state: NowPlayingUiState, centred: Boolean, modifier: Modifier = Modifier) {

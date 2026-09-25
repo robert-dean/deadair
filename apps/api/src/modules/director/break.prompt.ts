@@ -1965,7 +1965,82 @@ const CUE_WINDOW_WORDS = 8;
  * English somewhere else ("that's the thing about b-sides") costs a refusal only if the WRONG
  * record's name is sitting right behind it, which is the whole of what makes this safe.
  */
-const BACK_ANNOUNCE_FRAMES = ['that was', "that's", 'that is', 'those were', 'you just heard', 'we just heard', 'you were listening to'];
+const BACK_ANNOUNCE_FRAMES = [
+    'that was',
+    "that's",
+    'that is',
+    'those were',
+    'you just heard',
+    'we just heard',
+    'you were listening to',
+    'just played',
+    'just spun',
+];
+
+/** The irregular past tenses a presenter reaches for about a record, beside every regular `-ed`. */
+const PAST_TENSES = [
+    'hit',
+    'slid',
+    'spun',
+    'rang',
+    'blew',
+    'came',
+    'went',
+    'took',
+    'ran',
+    'tore',
+    'shook',
+    'broke',
+    'lit',
+    'flew',
+    'swung',
+    'sang',
+    'left',
+    'gave',
+    'made',
+    'brought',
+];
+
+/**
+ * The words that, straight AFTER a record's name, say it has just played: "Mississippi Queen just hit
+ * the speakers".
+ *
+ * The name-first half of {@link BACK_ANNOUNCE_FRAMES}, added after 25 September, when two breaks in
+ * twenty minutes did exactly this about the record still to come: `Talk break: Thrasher into
+ * Mississippi Queen` ("Mississippi Queen just hit the speakers", never mentioning Thrasher) and a
+ * weather break going into Lovefool ("Lovefool just slid into the mix"). Every frame above puts the
+ * cue in FRONT of the name, so neither was read at all.
+ *
+ * "Just" alone is not enough: "Lovefool, just the thing for a Friday" is a forward line with the comma
+ * gone. So it has to be followed by a past tense, which is a regular `-ed` or one of
+ * {@link PAST_TENSES}, or by "now". An optional "has" or "have" in front is the same claim.
+ */
+const JUST_PLAYED = new RegExp(`^(?:(?:has|have) )?just (?:now|\\p{L}+ed|${PAST_TENSES.join('|')})(?: |$)`, 'u');
+
+/**
+ * Whether a window's words cue a record in the direction opposite to the one being judged, so "that's
+ * Lovefool coming up" is read as the forward cue it is rather than as "that's" about the next record.
+ */
+const hasFrame = (window: string, frames: readonly string[]): boolean => frames.some(frame => window.includes(` ${frame} `));
+
+/**
+ * How far into a back-announce's window the record's name may START and still be what the frame is
+ * about.
+ *
+ * "That was Iron Maiden's Run to the Hills" names it at once, and "that was, of course, Madhouse" two
+ * words in. What starts later is somebody using "that's" as English: measured on the live station's
+ * bulletins before one-record kinds were judged at all, "a track that's sure to keep you moving, I'm
+ * Broken" and "That is all for now. Next: Bring The Noise" would both have been refused, and both
+ * were forward lines. The window stays {@link CUE_WINDOW_WORDS} wide for the RIGHT record, which is
+ * what excuses a correct double cue.
+ */
+const BACK_ANNOUNCE_LEAD_WORDS = 3;
+
+/**
+ * Words that, in front of a back-announce frame, turn it round: "following that is Primus". Measured
+ * the same way as {@link BACK_ANNOUNCE_LEAD_WORDS}, on a weather break that said exactly that.
+ */
+const FORWARD_LEADS = ['following', 'after'];
 
 /**
  * The ways a script says a record is still to come. Same doctrine as {@link BACK_ANNOUNCE_FRAMES}.
@@ -1990,6 +2065,13 @@ const FORWARD_FRAMES = [
     'next tune',
     'next spin',
 ];
+
+/**
+ * What in a back-announce's window says it is really a forward line: every forward frame, plus a bare
+ * "next", which a presenter says on its own ("Next: Bring The Noise") and which is never a
+ * back-announce.
+ */
+const FORWARD_HINTS = [...FORWARD_FRAMES, 'next'];
 
 /** The two records a break sits between, so a cue can be judged against the right one. */
 export interface BreakCues {
@@ -2016,56 +2098,89 @@ export interface BreakCues {
  *
  * ## Why it refuses so narrowly
  *
- * Only where BOTH records are known, because with one record there is no wrong side to confuse it
- * with, and the prompt already tells a one-record break not to say what is coming up. Only where the
- * name is attached to a frame, within {@link CUE_WINDOW_WORDS}. Only where the name is UNAMBIGUOUS —
+ * Only where the name is attached to a frame: within {@link CUE_WINDOW_WORDS} after a forward one,
+ * starting within {@link BACK_ANNOUNCE_LEAD_WORDS} of a back-announce, or straight before
+ * {@link JUST_PLAYED}. Only where the name is UNAMBIGUOUS —
  * an identifier the two records share (two songs by one artist, a self-titled record) is dropped
  * from both, so "that was Megadeth" going into more Megadeth is not a fault. And never where the
  * RIGHT record is named in the same window too, since "that was Madhouse, and now Run to the Hills"
- * is a correct double cue and reads as one only if both are counted.
+ * is a correct double cue and reads as one only if both are counted, and never where a frame of the
+ * OTHER direction sits in the same window ("that's Lovefool coming up").
+ *
+ * ## One record is enough
+ *
+ * This used to ask nothing unless both records were known, on the argument that with one there is
+ * no wrong side to confuse it with. That was wrong about the kinds it excused. A weather break, a
+ * bulletin or a story is shown only the record coming up, so a back-announce of THAT record is wrong
+ * by construction; it is the Lovefool break above. So a back-announce is judged whenever the next
+ * record is known, and a forward cue whenever the previous one is.
  *
  * Every one of those is the same bargain the rest of the guards here are on: a refusal costs the
  * station the model's sentence and drops it to the floor, so this refuses only what it is sure of.
  */
 export function misCuedIn(script: string, cues: BreakCues): boolean {
     const { previous, next } = cues;
-    if (previous === undefined || next === undefined) return false;
-
-    const words = bareWords(script).split(' ').filter(Boolean);
+    const spoken = bareWords(script);
+    const words = spoken.split(' ').filter(Boolean);
 
     // Shared identifiers dropped from BOTH sides: they cannot tell the two records apart, so a match
     // on one is not evidence of anything. See the note above about two songs by one artist.
-    const shared = new Set(identifiersOf(previous).filter(one => identifiersOf(next).includes(one)));
-    const namesIn = (from: number, record: BreakTrack): boolean => {
-        const window = ` ${words.slice(from, from + CUE_WINDOW_WORDS).join(' ')} `;
+    const shared = new Set(
+        previous === undefined || next === undefined ? [] : identifiersOf(previous).filter(one => identifiersOf(next).includes(one)),
+    );
+    const telling = (record: BreakTrack | undefined): string[] => (record === undefined ? [] : identifiersOf(record).filter(one => !shared.has(one)));
 
-        // The possessive counted as the name, because "Iron Maiden's Run to the Hills" is how a
-        // presenter says it and a check that missed it would catch only half the failure. Through
-        // {@link saysName} rather than inline, which is where this argument was worked out once and
-        // then not applied to `namedRecordIn` — see the note there for what that cost.
-        return identifiersOf(record)
-            .filter(one => !shared.has(one))
-            .some(one => saysName(window, one));
-    };
-
+    // `lead` is how many words in the wrong name may START, which only a back-announce narrows (see
+    // `BACK_ANNOUNCE_LEAD_WORDS`); a forward cue keeps the whole window. `leads` are the words that,
+    // in front of the frame, turn it round.
     const cued = [
-        { frames: BACK_ANNOUNCE_FRAMES, wrong: next, right: previous },
-        { frames: FORWARD_FRAMES, wrong: previous, right: next },
+        {
+            frames: BACK_ANNOUNCE_FRAMES,
+            against: FORWARD_HINTS,
+            lead: BACK_ANNOUNCE_LEAD_WORDS,
+            leads: FORWARD_LEADS,
+            wrong: telling(next),
+            right: telling(previous),
+        },
+        { frames: FORWARD_FRAMES, against: BACK_ANNOUNCE_FRAMES, lead: CUE_WINDOW_WORDS, leads: [], wrong: telling(previous), right: telling(next) },
     ];
 
-    return cued.some(({ frames, wrong, right }) =>
+    const frameFirst = cued.some(({ frames, against, lead, leads, wrong, right }) =>
         frames.some(frame => {
             const size = frame.split(' ').length;
 
-            return words.some(
-                (_, at) =>
-                    at + size <= words.length &&
-                    words.slice(at, at + size).join(' ') === frame &&
-                    namesIn(at + size, wrong) &&
-                    !namesIn(at + size, right),
-            );
+            return words.some((_, at) => {
+                if (at + size > words.length || words.slice(at, at + size).join(' ') !== frame) return false;
+                if (leads.includes(words[at - 1] ?? '')) return false;
+
+                const window = words.slice(at + size, at + size + CUE_WINDOW_WORDS);
+                const spokenWindow = ` ${window.join(' ')} `;
+                // The possessive counted as the name, because "Iron Maiden's Run to the Hills" is how
+                // a presenter says it and a check that missed it would catch only half the failure.
+                // Through {@link saysName} rather than inline, which is where this argument was worked
+                // out once and then not applied to `namedRecordIn` — see the note there for what that
+                // cost.
+                const leadsWith = (one: string): boolean =>
+                    window.slice(0, lead).some((__, skip) => {
+                        const rest = ` ${window.slice(skip).join(' ')} `;
+                        return [` ${one} `, ` ${one}'s `, ` ${one}' `].some(form => rest.startsWith(form));
+                    });
+
+                return wrong.some(leadsWith) && !right.some(one => saysName(spokenWindow, one)) && !hasFrame(spokenWindow, against);
+            });
         }),
     );
+    if (frameFirst) return true;
+
+    // The name-first shape, which only ever claims a record PLAYED, so only the next record can be
+    // wrong in it. Read from the words straight after each place the name is said.
+    const padded = ` ${spoken} `;
+    return telling(next).some(one => {
+        for (let at = padded.indexOf(` ${one} `); at !== -1; at = padded.indexOf(` ${one} `, at + 1)) {
+            if (JUST_PLAYED.test(padded.slice(at + one.length + 2))) return true;
+        }
+        return false;
+    });
 }
 
 /** A text as bare lower-case words, so a title and a script can be compared as speech, not as text. */
@@ -2136,8 +2251,9 @@ export interface AnswerGuard {
      *
      * Separate from {@link AnswerGuard.names}, which is a flat list because the question it asks —
      * did this break name anything at all — does not care which side a record is on. This one is
-     * only about the sides, so it needs them kept apart. Absent means the question is not asked, and
-     * {@link misCuedIn} asks nothing unless both are present.
+     * only about the sides, so it needs them kept apart. Absent means the question is not asked. One
+     * side alone is still worth passing: a kind shown only the next record can still back-announce
+     * it, and {@link misCuedIn} judges whichever side it is given.
      */
     cues?: BreakCues;
     /**

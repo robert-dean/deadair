@@ -165,6 +165,9 @@ export class ModelWeatherBreakWriter extends BreakWriter {
             ...(request.recent === undefined ? {} : { recent: request.recent }),
             ...(request.dayPart === undefined ? {} : { dayPart: request.dayPart }),
             ...(request.moment === undefined ? {} : { moment: request.moment }),
+            // The one record this kind is shown, so a script that says it has already played is refused
+            // rather than aired: "Lovefool just slid into the mix" ahead of Lovefool. See `misCuedIn`.
+            ...(request.next === undefined ? {} : { cues: { next: request.next } }),
             ...languageGuard(this.config),
             // The figures this break may say. It used to be checked below, after the answer had
             // already been judged, which was fine while this was the only kind that could be handed

@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.35.2] — 2026-09-25
+
+- Callers now ring in about the host's show rather than about the records. A phone-in used to take its broadcast's brief as its subject, and that brief describes what the show plays, so calls on the conspiracy show were planned around the playlist and the callers talked about tracks. A call is now about what its host has on their mind (Roswell on the conspiracy show, the records themselves on the countdown), and the caller comes at it through their own preoccupation. A subject typed into **Take a call** still wins, and that box now starts empty instead of holding the broadcast's brief. On a show whose host is set to be keen on the story behind the records (the countdown host), callers ring about the records the show has just played, and the call is handed what the station knows about each of them.
+
 ## [0.35.1] — 2026-09-25
 
 - The station can store the console's language packs. `sdk.languages` lists them and fetches one without signing in, since the sign-in page needs its language before anybody has signed in, and imports or removes one for an admin.
@@ -924,7 +928,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.35.1...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.35.2...HEAD
+[0.35.2]: https://github.com/robert-dean/deadair/compare/v0.35.1...v0.35.2
 [0.35.1]: https://github.com/robert-dean/deadair/compare/v0.35.0...v0.35.1
 [0.35.0]: https://github.com/robert-dean/deadair/compare/v0.34.2...v0.35.0
 [0.34.2]: https://github.com/robert-dean/deadair/compare/v0.34.1...v0.34.2

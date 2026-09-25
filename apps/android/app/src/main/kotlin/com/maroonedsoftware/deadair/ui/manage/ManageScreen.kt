@@ -53,7 +53,7 @@ data class ManageGroup(val title: String, val actions: List<ManageAction>)
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ManageScreen(groups: List<ManageGroup>, busy: Boolean, snackbarHost: SnackbarHostState, onBack: () -> Unit) {
+fun ManageScreen(groups: List<ManageGroup>, snackbarHost: SnackbarHostState, onBack: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
@@ -74,7 +74,7 @@ fun ManageScreen(groups: List<ManageGroup>, busy: Boolean, snackbarHost: Snackba
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.padding(start = Gutter, end = Gutter, top = 20.dp, bottom = 4.dp).semantics { heading() },
                     )
-                    group.actions.forEach { ActionRow(it, busy) }
+                    group.actions.forEach { ActionRow(it) }
                 }
             }
         }
@@ -82,9 +82,8 @@ fun ManageScreen(groups: List<ManageGroup>, busy: Boolean, snackbarHost: Snackba
 }
 
 @Composable
-private fun ActionRow(action: ManageAction, busy: Boolean) {
-    // An action that happens here waits for the one before it; one that opens a page does not.
-    val enabled = action.enabled && (action.opens || !busy)
+private fun ActionRow(action: ManageAction) {
+    val enabled = action.enabled
     ListItem(
         headlineContent = { Text(action.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         supportingContent = action.detail?.let { { Text(it, maxLines = 2, overflow = TextOverflow.Ellipsis) } },

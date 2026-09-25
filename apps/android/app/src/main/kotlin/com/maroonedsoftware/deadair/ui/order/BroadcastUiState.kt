@@ -45,22 +45,27 @@ data class BroadcastUiState(val order: StationOrder, val personas: List<Persona>
 
     val host: HostLine
         get() {
-            val named = order.personaLabel?.takeIf { it.isNotBlank() }
+            // The name they go by on air where the station has one for them, as What's on names
+            // them; the persona's label is the name of the character sheet, not of the presenter.
+            val named = order.personaId?.let { id -> personas?.firstOrNull { it.id == id }?.onAirName() } ?: order.personaLabel?.takeIf { it.isNotBlank() }
             if (named != null) return HostLine.Named(named)
             // Before the persona list lands there is no name to give, which is a different thing
             // from there being nobody: saying "nobody" for that moment would be a lie that corrects
             // itself, and the correction is the part a reader notices.
             val known = personas ?: return HostLine.StationsOwn(null)
-            return known.stationHost()?.let { HostLine.StationsOwn(it.label) } ?: HostLine.Nobody
+            return known.stationHost()?.let { HostLine.StationsOwn(it.onAirName()) } ?: HostLine.Nobody
         }
 
-    /** The line the header draws. The station's own host is named where the name is known, exactly as the console names it. */
-    val hostMessage: Message
+    /**
+     * Who is presenting, as the header names them: the name alone, since the header says what it is.
+     * The station's own host is named where the name is known, exactly as the console names it.
+     */
+    val hostName: Message
         get() =
             when (val line = host) {
-                is HostLine.Named -> Message.PresentedBy(line.name)
-                is HostLine.StationsOwn -> line.name?.let(Message::PresentedBy) ?: Message.PresentedByStationsHost
-                HostLine.Nobody -> Message.PresentedByNobody
+                is HostLine.Named -> Message.Text(line.name)
+                is HostLine.StationsOwn -> line.name?.let(Message::Text) ?: Message.StationsHost
+                HostLine.Nobody -> Message.NoHost
             }
 
     /** There has to be a broadcast to recast. Off air the station is not presenting anything. */
@@ -74,3 +79,6 @@ data class BroadcastUiState(val order: StationOrder, val personas: List<Persona>
     /** The station's own host, for the picker's first row to name. */
     val stationsOwnName: String? get() = personas?.stationHost()?.label
 }
+
+/** What a persona is called on air: their DJ name where they have one, else their label. */
+private fun Persona.onAirName(): String = djName?.takeIf { it.isNotBlank() } ?: label

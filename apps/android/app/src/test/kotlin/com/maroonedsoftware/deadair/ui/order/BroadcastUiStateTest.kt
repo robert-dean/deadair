@@ -37,8 +37,8 @@ class BroadcastUiStateTest {
             items = (1..items).map { item("i$it") },
         )
 
-    private fun persona(id: String, label: String, defaultHost: Boolean = false) =
-        Persona(id = id, key = id, label = label, style = "warm", defaultHost = defaultHost, presenting = defaultHost)
+    private fun persona(id: String, label: String, defaultHost: Boolean = false, djName: String? = null) =
+        Persona(id = id, key = id, label = label, style = "warm", djName = djName, defaultHost = defaultHost, presenting = defaultHost)
 
     @Test
     fun `an empty name is no title, which is what the station answers off air`() {
@@ -57,7 +57,20 @@ class BroadcastUiStateTest {
         val ui = BroadcastUiState(order(personaId = "a", personaLabel = "Cass"), listOf(persona("b", "Ash", defaultHost = true)))
 
         assertEquals(HostLine.Named("Cass"), ui.host)
-        assertEquals(Message.PresentedBy("Cass"), ui.hostMessage)
+        assertEquals(Message.Text("Cass"), ui.hostName)
+    }
+
+    @Test
+    fun `the host is named by what they are called on air, not by their character sheet`() {
+        val personas = listOf(persona("a", "Valley girl (eighties)", djName = "Tiffani"), persona("b", "Ash", defaultHost = true, djName = "Ash Moreno"))
+
+        assertEquals(Message.Text("Tiffani"), BroadcastUiState(order(personaId = "a", personaLabel = "Valley girl (eighties)"), personas).hostName)
+        assertEquals(Message.Text("Ash Moreno"), BroadcastUiState(order(), personas).hostName)
+    }
+
+    @Test
+    fun `before the persona list arrives a named host is called by the label the order carries`() {
+        assertEquals(Message.Text("Cass"), BroadcastUiState(order(personaId = "a", personaLabel = "Cass"), personas = null).hostName)
     }
 
     @Test
@@ -65,7 +78,7 @@ class BroadcastUiStateTest {
         val ui = BroadcastUiState(order(), listOf(persona("a", "Ash", defaultHost = true)))
 
         assertEquals(HostLine.StationsOwn("Ash"), ui.host)
-        assertEquals(Message.PresentedBy("Ash"), ui.hostMessage)
+        assertEquals(Message.Text("Ash"), ui.hostName)
     }
 
     @Test
@@ -73,7 +86,7 @@ class BroadcastUiStateTest {
         val ui = BroadcastUiState(order(), personas = null)
 
         assertEquals(HostLine.StationsOwn(null), ui.host)
-        assertEquals(Message.PresentedByStationsHost, ui.hostMessage)
+        assertEquals(Message.StationsHost, ui.hostName)
     }
 
     @Test
@@ -81,7 +94,7 @@ class BroadcastUiStateTest {
         val ui = BroadcastUiState(order(), listOf(persona("a", "Ash")))
 
         assertEquals(HostLine.Nobody, ui.host)
-        assertEquals(Message.PresentedByNobody, ui.hostMessage)
+        assertEquals(Message.NoHost, ui.hostName)
     }
 
     @Test

@@ -32,6 +32,42 @@ fun coverAccent(candidates: List<Int>, darkPage: Boolean): CoverAccent? {
     return CoverAccent(accent = accent, onAccent = readableOn(accent))
 }
 
+/**
+ * The four colours the mesh behind Now playing is painted in, from a cover's colours, or empty to
+ * paint none.
+ *
+ * All of the cover's colours are used, greys included: the mesh is a cover's mood rather than a
+ * control, so a black-and-white cover gets a grey mesh, which is right for it. Each keeps its hue
+ * and saturation and has its lightness pulled into a band that GLOWS against the page, since a
+ * cover's own darks laid on a dark page are invisible and its whites on a light one are glare.
+ *
+ * A cover that gives fewer than four colours has the ones it gave repeated, and a repeated colour's
+ * copies are spread evenly across the band rather than stepped from where it started, so no two
+ * blobs are ever the same patch. Stepping was the first version, and two steps from a colour near
+ * the band's edge clamped to the same lightness.
+ */
+fun meshColors(candidates: List<Int>, darkPage: Boolean): List<Int> {
+    val distinct = candidates.distinct()
+    if (distinct.isEmpty()) return emptyList()
+    val band = if (darkPage) DARK_MESH_BAND else LIGHT_MESH_BAND
+    return List(MESH_BLOBS) { index ->
+        val colour = index % distinct.size
+        val (hue, saturation, lightness) = hsl(distinct[colour])
+        // How many blobs this one colour paints, and which of them this is.
+        val copies = (MESH_BLOBS - colour + distinct.size - 1) / distinct.size
+        val copy = index / distinct.size
+        val placed = if (copies == 1) lightness.coerceIn(band) else band.start + (band.endInclusive - band.start) * (copy + 0.5f) / copies
+        fromHsl(hue, saturation, placed)
+    }
+}
+
+/** How many blobs the mesh has. */
+const val MESH_BLOBS = 4
+
+/** Lightness a mesh colour needs to glow on a dark page, and to stay soft on a light one. */
+private val DARK_MESH_BAND = 0.22f..0.5f
+private val LIGHT_MESH_BAND = 0.6f..0.85f
+
 /** Black or white, whichever contrasts more with [background]. */
 fun readableOn(background: Int): Int {
     val luminance = luminance(background)

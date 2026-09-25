@@ -1,14 +1,5 @@
 package com.maroonedsoftware.deadair.ui.nowplaying
 
-import androidx.compose.foundation.layout.requiredSize
-import androidx.compose.foundation.layout.wrapContentSize
-import androidx.compose.foundation.layout.offset
-import androidx.compose.ui.graphics.FilterQuality
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.IntOffset
-import coil3.request.ImageRequest
-import kotlin.math.roundToInt
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
@@ -17,8 +8,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.layout.positionInRoot
-import android.os.Build
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.CompositingStrategy
@@ -66,6 +55,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -83,6 +73,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.maroonedsoftware.deadair.R
+import com.maroonedsoftware.deadair.nowplaying.AirState
 import com.maroonedsoftware.deadair.nowplaying.Playhead
 import com.maroonedsoftware.deadair.nowplaying.clockOf
 import com.maroonedsoftware.deadair.ui.text.resolve
@@ -127,7 +118,8 @@ fun NowPlayingScreen(
     /** Room kept clear at the foot for something drawn over this screen, the tabs, whether or not it is showing. */
     bottomReserve: Dp = 0.dp,
 ) {
-    CoverColored(artworkUrl) {
+    val palette = rememberCoverPalette(artworkUrl, darkPage = MaterialTheme.colorScheme.background.luminance() < 0.5f)
+    CoverColored(palette?.accent) {
         BoxWithConstraints(modifier = modifier.fillMaxSize()) {
             if (sideBySide(maxWidth, maxHeight)) {
                 val viewportHeight = maxHeight
@@ -158,7 +150,7 @@ fun NowPlayingScreen(
                     }
                 }
             } else {
-                FullBleed(state, artworkUrl, playhead, onPlay, onStop, operator, onArtwork, rest, bottomReserve)
+                FullBleed(state, artworkUrl, palette?.mesh.orEmpty(), playhead, onPlay, onStop, operator, onArtwork, rest, bottomReserve)
             }
         }
     }
@@ -177,6 +169,7 @@ data class LikeControl(val liked: Boolean?, val enabled: Boolean, val onToggle: 
 private fun FullBleed(
     state: NowPlayingUiState,
     artworkUrl: String?,
+    mesh: List<Int>,
     playhead: Playhead?,
     onPlay: () -> Unit,
     onStop: () -> Unit,
@@ -197,17 +190,13 @@ private fun FullBleed(
     // Where the screen's middle and the cover's middle are, measured rather than worked out, so the
     // resting cover lands in the middle however the stack above and below it came out.
     var screenMiddle by remember { mutableFloatStateOf(0f) }
-    var screenTop by remember { mutableFloatStateOf(0f) }
     var coverMiddle by remember { mutableFloatStateOf(0f) }
 
     BoxWithConstraints(
         modifier =
             Modifier.fillMaxSize()
                 .background(background)
-                .onPlaced {
-                    screenTop = it.positionInRoot().y
-                    screenMiddle = screenTop + it.size.height / 2f
-                }
+                .onPlaced { screenMiddle = it.positionInRoot().y + it.size.height / 2f }
                 .then(if (rest != null) Modifier.wakesRest(rest) else Modifier),
     ) {
         val top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
@@ -216,50 +205,19 @@ private fun FullBleed(
         // room: on a short phone the cover gives way, never the controls.
         val side = minOf(maxWidth, ArtworkMaxWidth * 2, (maxHeight - top - bottom - BelowCover).coerceAtLeast(MinCover))
 
-        // The bleed: the cover's colour, glowing out from behind it. Drawn from a tiny sample of the
-        // cover blown up (four pixels a side, so no shape survives, only colour) and centred on the
-        // cover, so each edge of the sharp cover dissolves into its OWN colour, and big enough to
-        // reach every edge of the screen from there: the whole page is the cover's colour. The first
-        // version stretched the whole cover over the whole screen: the blur was weak at that scale,
-        // the cover's shapes showed through as grey bands and blotches, and its edges melted into
-        // colours from somewhere else in the picture. Blurred as well where the platform can
-        // (Android 12 and later); the sample alone is already a soft wash before that.
-        if (artworkUrl != null) {
-            val context = LocalContext.current
-            val sample = remember(artworkUrl) { ImageRequest.Builder(context).data(artworkUrl).size(GLOW_SAMPLE_PX).build() }
-            // Square, centred on the cover, and as big as it must be to reach the farther of the
-            // screen's top and bottom from the cover's middle, and its sides.
-            val reach = 2f * maxOf(coverMiddle - screenTop, screenTop + constraints.maxHeight - coverMiddle)
-            val glow = with(LocalDensity.current) { maxOf(constraints.maxWidth.toFloat(), reach).toDp() }
-            Box(
-                modifier =
-                    Modifier.align(Alignment.TopCenter)
-                        // Unbounded, the glow is centred on this box's slot, which is the screen:
-                        // moved by how far the cover's middle is from the screen's, its middle is the
-                        // cover's. Pinning its TOP to the cover's middle less half its size, as the
-                        // first version did, put an oversized glow half its overhang too high.
-                        .offset { IntOffset(0, (coverMiddle - screenMiddle).roundToInt()) }
-                        .wrapContentSize(unbounded = true)
-                        .requiredSize(glow)
-                        .alpha(shown * BleedStrength),
-            ) {
-                AsyncImage(
-                    model = sample,
-                    contentDescription = null,
-                    contentScale = ContentScale.FillBounds,
-                    filterQuality = FilterQuality.High,
-                    modifier = Modifier.fillMaxSize().then(if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) Modifier.blur(BleedBlur) else Modifier),
-                )
-                // Deepened towards its rim, lightly: the colour still reaches the screen's edges, and
-                // the status bar and the controls at the far ends still read over it.
-                Box(modifier = Modifier.fillMaxSize().background(Brush.radialGradient(0.3f to Color.Transparent, 1f to background.copy(alpha = 0.55f))))
-            }
-        }
+        // The cover's colours as a slow mesh over the whole page, behind everything: into the status
+        // bar, behind the words and the controls, and through the translucent tabs. Painted from its
+        // colours rather than from its picture, so nothing is stretched and nothing goes soft; see
+        // `CoverMesh`. It drifts while the station is airing something, whether or not THIS phone is
+        // the one listening: the screen shows the live station either way, and tying the drift to
+        // the phone's own player left it standing still for somebody watching while listening
+        // elsewhere. Still when off air or stale, and it fades with the rest while resting.
+        CoverMesh(colors = mesh, moving = state.air is AirState.OnAir && !state.stale && !resting, modifier = Modifier.fillMaxSize().alpha(shown * BleedStrength))
 
         // Deeper under the words and the controls, whatever the cover. Spread over the whole screen,
         // a bright cover's middle lands behind the title, and measured on a pale blue one the credit
         // and the host line went grey on grey. The colour stays; only its brightness gives way.
-        if (artworkUrl != null) {
+        if (mesh.isNotEmpty()) {
             Box(
                 modifier =
                     Modifier.fillMaxSize().alpha(shown).background(
@@ -318,14 +276,9 @@ private val BelowCover = 300.dp
 /** The smallest the cover gets on a short phone before the stack is allowed to crowd. */
 private val MinCover = 180.dp
 
-/** How much of the glow shows through: enough to colour the page, not enough to compete with the words. */
-private const val BleedStrength = 0.75f
+/** How much of the mesh shows through: enough to colour the page, not enough to compete with the words. */
+private const val BleedStrength = 0.8f
 
-/** Softened on top of the sample, where the platform can. */
-private val BleedBlur = 64.dp
-
-/** Pixels a side the glow is sampled at: few enough that no shape survives, enough to keep the cover's colours where they are. */
-private const val GLOW_SAMPLE_PX = 4
 
 @Composable
 private fun Words(state: NowPlayingUiState, centred: Boolean, like: LikeControl?, modifier: Modifier = Modifier) {

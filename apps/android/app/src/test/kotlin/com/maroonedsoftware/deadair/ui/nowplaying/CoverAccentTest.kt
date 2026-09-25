@@ -58,6 +58,37 @@ class CoverAccentTest {
         assertEquals(white, readableOn(black))
     }
 
+    @Test
+    fun `paints no mesh when the cover gave no colours`() {
+        assertTrue(meshColors(emptyList(), darkPage = true).isEmpty())
+    }
+
+    @Test
+    fun `always paints four blobs, however few colours the cover gave`() {
+        assertEquals(4, meshColors(listOf(grassGreen), darkPage = true).size)
+        assertEquals(4, meshColors(listOf(grassGreen, navy, paleYellow), darkPage = true).size)
+    }
+
+    @Test
+    fun `never paints two blobs the same colour from one cover colour`() {
+        assertEquals(4, meshColors(listOf(grassGreen), darkPage = true).distinct().size)
+    }
+
+    @Test
+    fun `lifts a black cover's colour so the mesh shows on a dark page`() {
+        meshColors(listOf(black), darkPage = true).forEach { assertTrue("visible on a dark page", lightness(it) >= 50) }
+    }
+
+    @Test
+    fun `keeps a black-and-white cover grey rather than inventing a colour`() {
+        meshColors(listOf(black, white), darkPage = true).forEach { assertEquals(red(it), green(it)); assertEquals(green(it), blue(it)) }
+    }
+
+    @Test
+    fun `softens a pale cover's colours on a light page rather than glaring`() {
+        meshColors(listOf(white), darkPage = false).forEach { assertTrue(lightness(it) < 255) }
+    }
+
     private fun red(argb: Int) = (argb shr 16) and 0xFF
 
     private fun green(argb: Int) = (argb shr 8) and 0xFF

@@ -90,9 +90,8 @@ fun Message.resolve(): String =
             }
         is Message.Aired -> label.resolve()
         Message.LastSaid -> stringResource(R.string.stale_last_said)
-        is Message.PresentedBy -> stringResource(R.string.presented_by, name)
-        Message.PresentedByStationsHost -> stringResource(R.string.presented_by_stations_host)
-        Message.PresentedByNobody -> stringResource(R.string.presented_by_nobody)
+        Message.StationsHost -> stringResource(R.string.stations_host)
+        Message.NoHost -> stringResource(R.string.no_host)
         is Message.AskedFor -> stringResource(R.string.asked_for, brief)
         is Message.Mode ->
             stringResource(

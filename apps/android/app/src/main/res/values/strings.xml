@@ -301,9 +301,9 @@
     <string name="item_will_skip">Will skip</string>
 
     <!-- The broadcast at the top of the running order -->
-    <string name="presented_by">Presented by %1$s</string>
-    <string name="presented_by_stations_host">Presented by the station\'s host</string>
-    <string name="presented_by_nobody">Presented by nobody</string>
+    <string name="host_label">Host</string>
+    <string name="no_host">Nobody</string>
+    <string name="change_host">Change the host</string>
     <string name="asked_for">Asked for: %1$s</string>
     <string name="host_picker_title">Who presents this show</string>
     <string name="host_picker_note">Changing this re-writes the breaks already written for it, and one that is not ready when its slot comes round is skipped.</string>
@@ -429,7 +429,6 @@
     <string name="manage">Manage</string>
     <string name="manage_this_show">This show</string>
     <string name="manage_put_on">Put something on</string>
-    <string name="manage_host_detail">Who presents the rest of this show</string>
     <string name="manage_replan">Replan the show</string>
     <string name="manage_air_something">Playlists</string>
     <string name="manage_add_record">Add a record</string>

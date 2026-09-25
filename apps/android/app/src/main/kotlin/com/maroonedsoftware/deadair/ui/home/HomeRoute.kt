@@ -27,6 +27,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.maroonedsoftware.deadair.AppGraph
@@ -42,6 +43,7 @@ import com.maroonedsoftware.deadair.ui.ShowOperatorNotices
 import com.maroonedsoftware.deadair.ui.LoadState
 import com.maroonedsoftware.deadair.ui.catalog.rememberDetail
 import com.maroonedsoftware.deadair.ui.order.BroadcastUiState
+import com.maroonedsoftware.deadair.ui.order.HostPicker
 import com.maroonedsoftware.deadair.ui.order.OrderHandlers
 import com.maroonedsoftware.deadair.director.OrderState
 import com.maroonedsoftware.deadair.sdk.models.StationOrderItemKind
@@ -277,6 +279,7 @@ fun HomeRoute(
                 )
             }
             Tab.UP_NEXT -> {
+                var pickingHost by rememberSaveable { mutableStateOf(false) }
                 // One read when the tab opens rather than a poll: the station's characters change
                 // when somebody edits one, not on a clock, and this is a `platform.view` read that
                 // a listener is allowed to make even though only an operator can act on it.
@@ -316,9 +319,28 @@ fun HomeRoute(
                     onHistory = onHistory,
                     broadcast = broadcast,
                     handlers = handlers,
+                    onHost = if (isOperator && broadcast?.canRecast == true) ({ pickingHost = true }) else null,
                     onAirArtworkUrl = artworkUrl,
                     actions = upNextActions,
                 )
+
+                if (pickingHost && broadcast != null) {
+                    HostPicker(
+                        choices = broadcast.hostChoices,
+                        stationsOwnEnabled = broadcast.stationsOwnEnabled,
+                        stationsOwnName = broadcast.stationsOwnName,
+                        selectedId = broadcast.order.personaId,
+                        note = R.string.host_picker_note,
+                        busy = orderBusy,
+                        personas = personas.state,
+                        onRetry = personas::reload,
+                        onPick = { id ->
+                            pickingHost = false
+                            orderAction { graph.orderActions.recast(id) }
+                        },
+                        onDismiss = { pickingHost = false },
+                    )
+                }
             }
             Tab.WHATS_ON -> WhatsOnScreen(state = schedule, onRetry = graph.schedule::retry, onSignIn = onSignIn)
             Tab.SETTINGS -> settingsTab()

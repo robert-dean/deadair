@@ -118,6 +118,8 @@ fun RunningOrderScreen(
     /** The broadcast the order belongs to, for who is presenting it. `null` before the order has arrived. */
     broadcast: BroadcastUiState?,
     handlers: OrderHandlers?,
+    /** Change who presents the show. `null` for anyone who may not, and off air, where there is nobody to change. */
+    onHost: (() -> Unit)?,
     /** The cover on air, whose colours the tab wears. `null` off air, or before the reading has arrived. */
     onAirArtworkUrl: String?,
     /** The tab's actions, beside its heading. */
@@ -140,7 +142,9 @@ fun RunningOrderScreen(
                 mesh = palette?.mesh.orEmpty(),
                 // Who is presenting, and nothing about a broadcast that has none: off air there is
                 // no one, and the line would name the station's own host over an empty order.
-                hostLine = broadcast?.takeUnless { it.nothingOn }?.hostMessage?.resolve(),
+                hostName = broadcast?.takeUnless { it.nothingOn }?.hostName?.resolve(),
+                // Not while rows are being moved: the one thing to do then is finish.
+                onHost = onHost?.takeUnless { editing },
                 actions =
                     if (editing) {
                         { TextButton(onClick = { editing = false }) { Text(stringResource(R.string.done)) } }

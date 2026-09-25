@@ -9,6 +9,14 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.35.1] — 2026-09-25
+
+- The station can store the console's language packs. `sdk.languages` lists them and fetches one without signing in, since the sign-in page needs its language before anybody has signed in, and imports or removes one for an admin.
+- Settings has a Languages section, where the console's English can be exported as a language pack: a file holding every word the console says, which is what a translation of the console starts from. Each release carries the same file, so a translator can begin without running a station.
+- The console can be shown in languages other than English. An admin imports a language pack under Settings, Languages, after a preview of how much of the console it translates and which strings will stay in English. Everyone then chooses their own language there, and the choice follows them to every browser they sign in from; without one, the console follows the browser's own preference among the languages the station has. Months and days in the date pickers follow the language, and the layout turns round for languages written right to left.
+- The station writes a fresh jingle instead of replaying ones it rendered earlier. Its own jingles counted as recordings on the shelf, so after the first few it never wrote another, and those kept airing in whatever voice the presenter had on the day they were made (and in other presenters' hours). Only jingles an operator dropped into the library are drawn now.
+- A voice re-cloned on the Rhapsode server under the same id now previews in its new voice. The preview was cached under the station's own voice row, which a re-clone does not change, so the console kept playing the old recording.
+
 ## [0.35.0] — 2026-09-25
 
 - Whether a broadcast takes calls is now its own choice alone. The station-wide "Take calls" setting is gone: a broadcast, a schedule block or what plays between blocks takes calls when it says so, and a broadcast that says nothing takes none. "Minutes between calls" stays, as the spacing for any show that does take them.
@@ -916,7 +924,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.35.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.35.1...HEAD
+[0.35.1]: https://github.com/robert-dean/deadair/compare/v0.35.0...v0.35.1
 [0.35.0]: https://github.com/robert-dean/deadair/compare/v0.34.2...v0.35.0
 [0.34.2]: https://github.com/robert-dean/deadair/compare/v0.34.1...v0.34.2
 [0.34.1]: https://github.com/robert-dean/deadair/compare/v0.34.0...v0.34.1

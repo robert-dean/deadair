@@ -78,7 +78,7 @@ public sealed record ScheduleSlot
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public long? EraTo { get; init; }
 
-    /// <summary>Whether somebody phones in during this stretch of the day. Absent leaves the station's own setting standing, exactly as it does when an operator briefs a broadcast by hand; a `setlist` or a `feature` takes no calls whatever this says</summary>
+    /// <summary>Whether somebody phones in during this stretch of the day. Absent is no calls, exactly as it is when an operator puts a broadcast on air by hand; a `setlist` or a `feature` takes no calls whatever this says</summary>
     [JsonPropertyName("callins")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? Callins { get; init; }
@@ -159,7 +159,7 @@ public sealed record ScheduleSlotInput
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public long? EraTo { get; init; }
 
-    /// <summary>Whether somebody phones in during this stretch of the day. Absent leaves the station's own setting standing, exactly as it does when an operator briefs a broadcast by hand; a `setlist` or a `feature` takes no calls whatever this says</summary>
+    /// <summary>Whether somebody phones in during this stretch of the day. Absent is no calls, exactly as it is when an operator puts a broadcast on air by hand; a `setlist` or a `feature` takes no calls whatever this says</summary>
     [JsonPropertyName("callins")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? Callins { get; init; }

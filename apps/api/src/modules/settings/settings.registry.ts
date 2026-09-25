@@ -893,22 +893,13 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
     },
     {
         group: 'breaks',
-        key: ROTATION_KEYS.callins,
-        label: 'Take calls',
-        type: 'boolean',
-        default: DEFAULT_RULES.callins,
-        help: 'Whether somebody phones in while the station is on air. A call is a short programme rather than a break: your host takes it, a caller answers, and the few turns go into the running order as one block, each in its own voice. Who rings is drawn from the callers on the personas page, least recently heard first, so a station with none simply never takes one. Deliberately NOT under the breaks switch — a station that wants a DJ has said nothing about whether it wants a phone-in.',
-    },
-    {
-        group: 'breaks',
         key: ROTATION_KEYS.callinEveryMinutes,
         label: 'Minutes between calls',
         type: 'number',
         default: DEFAULT_RULES.callinEveryMinutes,
-        dependsOn: ROTATION_KEYS.callins,
         min: 1,
         max: 720,
-        help: 'Airtime between one call ending and the next being asked for. Its own number rather than the break spacing, because a call runs minutes where a break runs seconds: at the break spacing the station would be on the phone for a fifth of the hour. The first call of a broadcast is not made to wait — the count starts once one has aired.',
+        help: 'Airtime between one call ending and the next being asked for, on a show that takes calls. Whether a show takes them is its own choice, made where it is put on air, in a schedule block or for what plays between blocks. A call is a short programme rather than a break: your host takes it, a caller answers, and the few turns go into the running order as one block, each in its own voice. Its own number rather than the break spacing, because a call runs minutes where a break runs seconds. The first call of a show is not made to wait — the count starts once one has aired.',
     },
     {
         group: 'phrasings',
@@ -1577,6 +1568,14 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         label: 'To year',
         type: 'number',
         help: 'The other end, on the same terms. Set both for a decade; either stands alone, so a lower bound on its own means "this year onwards".',
+    },
+    {
+        group: 'schedule',
+        key: SUSTAINING_KEYS.callins,
+        label: 'Take calls',
+        type: 'boolean',
+        default: false,
+        help: 'Whether somebody phones in between blocks, exactly as a block that takes calls does. Off unless you say so.',
     },
     // Drawn by `OverrunPanel` on the schedule page, beside the timetable whose boundaries they are
     // about, on the terms the rest of this group is drawn there.

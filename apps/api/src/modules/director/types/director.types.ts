@@ -258,7 +258,7 @@ export const PutOnAirInput = z.strictObject({
         .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
         .optional()
         .describe(
-            "Whether somebody phones in during this broadcast. A call is a short programme rather than a break: a few turns in a few voices, entering the running order as one block, spaced by `rotation.callinEveryMinutes`. Absent takes the station's own setting, which is off",
+            'Whether somebody phones in during this broadcast. A call is a short programme rather than a break: a few turns in a few voices, entering the running order as one block, spaced by `rotation.callinEveryMinutes`. Absent is no calls: there is no station-wide default behind it',
         ),
     mixInSimilar: z
         .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())

@@ -217,6 +217,14 @@ describe('PlayoutService.playPlaylist', () => {
         expect(director.putOnAir).toHaveBeenCalledWith({ pluginId: 'deadair.spotify', playlistId: 'pl_1', mixInSimilar: true });
     });
 
+    it('passes on an explicit no to calls, which is the only way to air one without them on a station that takes them', async () => {
+        const { service, director } = build();
+
+        await service.playPlaylist({ pluginId: 'deadair.spotify', playlistId: 'pl_1', callins: false });
+
+        expect(director.putOnAir).toHaveBeenCalledWith({ pluginId: 'deadair.spotify', playlistId: 'pl_1', callins: false });
+    });
+
     it('hands the first item over without waiting for the tick', async () => {
         // Otherwise the console's own response describes a station that has not started
         // yet, and the operator sees a stopped transport for up to a reconcile interval.
@@ -254,6 +262,14 @@ describe('PlayoutService.playStationPlaylist', () => {
         await service.playStationPlaylist({ stationPlaylistId: 'sp-1', mixInSimilar: true });
 
         expect(director.putOnAir).toHaveBeenCalledWith({ stationPlaylistId: 'sp-1', mixInSimilar: true });
+    });
+
+    it('passes on whether it takes calls only when that was said', async () => {
+        const { service, director } = build();
+
+        await service.playStationPlaylist({ stationPlaylistId: 'sp-1', callins: false });
+
+        expect(director.putOnAir).toHaveBeenCalledWith({ stationPlaylistId: 'sp-1', callins: false });
     });
 });
 

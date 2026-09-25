@@ -810,7 +810,7 @@ export class DirectorConsoleService {
      *
      * @throws 422 when the id names no chart, or when nothing could read one.
      */
-    async airChart(input: { chartId: string; chartOrder?: PutOnAirInput['chartOrder'] }): Promise<void> {
+    async airChart(input: { chartId: string; chartOrder?: PutOnAirInput['chartOrder']; callins?: boolean }): Promise<void> {
         // Read and discarded. The job reads it again for the reason `readChart` gives; what this
         // call is for is refusing at the door rather than accepting an ask that cannot land.
         await this.readChart(input.chartId);
@@ -822,6 +822,7 @@ export class DirectorConsoleService {
         await this.jobs.send('director.air_chart', {
             chartId: input.chartId,
             ...(input.chartOrder === undefined ? {} : { chartOrder: input.chartOrder }),
+            ...(input.callins === undefined ? {} : { callins: input.callins }),
             ...(broadcastId === undefined ? {} : { broadcastId }),
         });
 

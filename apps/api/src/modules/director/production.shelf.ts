@@ -27,3 +27,20 @@ export function productionExpired(production: Pick<Production, 'createdAt' | 'sc
     const madeFor = Math.max(production.createdAt, production.scheduledFor ?? 0);
     return now - madeFor >= PRODUCTION_SHELF_LIFE_MS;
 }
+
+/**
+ * Whether a production is a call the standing rule commissioned, and so only fit to air in a
+ * broadcast that takes calls.
+ *
+ * `ResolvedRules.callins` decides whether `ProductionScheduler` commissions one, and nothing decided
+ * whether one was PLACED. A call takes minutes to make, so the broadcast that asked for it is often
+ * not the one on air when it is ready: an operator who put a playlist on with no calls heard the
+ * previous show's caller anyway.
+ *
+ * Only the standing kind is gated. A production with a slot is the format clock's, which is a time
+ * rather than a property of the show, and one with an actor is somebody at the desk asking for this
+ * call now. Both are instructions the broadcast's rule has no say over.
+ */
+export function standingCall(production: Pick<Production, 'kind' | 'scheduledFor' | 'actorId'>, dialogueKinds: ReadonlySet<string>): boolean {
+    return production.scheduledFor === undefined && production.actorId === undefined && dialogueKinds.has(production.kind.trim().toLowerCase());
+}

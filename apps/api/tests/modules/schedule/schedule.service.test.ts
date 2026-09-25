@@ -258,6 +258,18 @@ describe('the sustaining source', () => {
     // narrow the draw to nothing while the console showed the operator's own words back at them.
     const KEYS = { from: 'schedule.sustainingEraFrom', to: 'schedule.sustainingEraTo' };
 
+    it('takes no calls unless it was told to', () => {
+        expect(build({ settings: { 'schedule.sustainingBrief': 'jazz' } }).sustaining()?.callins).toBe(false);
+        expect(build({ settings: { 'schedule.sustainingBrief': 'jazz', 'schedule.sustainingCallins': 'true' } }).sustaining()?.callins).toBe(true);
+        // Read as the text a settings layer holds, so the string 'false' is a no.
+        expect(build({ settings: { 'schedule.sustainingBrief': 'jazz', 'schedule.sustainingCallins': 'false' } }).sustaining()?.callins).toBe(false);
+    });
+
+    it('is not a source on the strength of its calls switch alone', () => {
+        // How a programme behaves is not what it plays.
+        expect(build({ settings: { 'schedule.sustainingCallins': 'true' } }).sustaining()).toBeUndefined();
+    });
+
     it('reads a period as numbers, from the strings a settings layer actually holds', () => {
         const service = build({ settings: { [KEYS.from]: '1970', [KEYS.to]: '1979' } });
 

@@ -129,6 +129,19 @@ class AirActionsTest {
     }
 
     @Test
+    fun `a playlist aired with calls says so, and one aired without says nothing`() = runTest {
+        val recorded = Recorded()
+        val (playout, order) = repositories(backgroundScope)
+        val actions = AirActions(OperatorActions(FakeSession(recorded, HttpStatusCode.OK, "{}")), playout, order)
+
+        actions.airPlaylist("deadair.spotify", "pl_1", callins = true)
+        assertEquals("""{"pluginId":"deadair.spotify","playlistId":"pl_1","callins":true}""", recorded.body)
+
+        actions.airPlaylist("deadair.spotify", "pl_1")
+        assertEquals("""{"pluginId":"deadair.spotify","playlistId":"pl_1"}""", recorded.body)
+    }
+
+    @Test
     fun `a station that refuses says so rather than looking as though it worked`() = runTest {
         val operator = OperatorActions(FakeSession(Recorded(), HttpStatusCode.UnprocessableEntity, "{}"))
         val (playout, order) = repositories(backgroundScope)

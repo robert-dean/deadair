@@ -155,7 +155,7 @@ class PlanUiStateTest {
     }
 
     @Test
-    fun `phone-ins are named only when they were asked for, so the station's own setting stands`() {
+    fun `phone-ins are named only when they were asked for, since absent is none`() {
         assertNull(state(scope = PlanScope.NEW, brief = "x", callins = false).putOnAirInput().callins)
     }
 

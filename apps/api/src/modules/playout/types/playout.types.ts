@@ -13,12 +13,18 @@ export const PlayoutPlaylistInput = z.strictObject({
         .describe(
             "Whether records that sound like the ones on this playlist are mixed in among them, one every `rotation.mixInEvery` records. The playlist still plays in full and in its own order around them. Absent takes the station's own setting, which is off",
         ),
+    callins: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .optional()
+        .describe(
+            'Whether somebody phones in during this broadcast, exactly as `PutOnAirInput.callins`. Absent is no calls: there is no station-wide default behind it',
+        ),
 });
 export type PlayoutPlaylistInput = z.infer<typeof PlayoutPlaylistInput>;
 
 /**
  * A playlist the station owns, to load into the running order
- * generated from [PlayoutStationPlaylistInput](../../../../data/contracts/playout/playout.types.ck#L13)
+ * generated from [PlayoutStationPlaylistInput](../../../../data/contracts/playout/playout.types.ck#L14)
  */
 export const PlayoutStationPlaylistInput = z.strictObject({
     stationPlaylistId: z.uuid(),
@@ -28,12 +34,18 @@ export const PlayoutStationPlaylistInput = z.strictObject({
         .describe(
             "Whether records that sound like the ones on this playlist are mixed in among them, one every `rotation.mixInEvery` records. Absent takes the station's own setting, which is off",
         ),
+    callins: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .optional()
+        .describe(
+            'Whether somebody phones in during this broadcast, exactly as `PutOnAirInput.callins`. Absent is no calls: there is no station-wide default behind it',
+        ),
 });
 export type PlayoutStationPlaylistInput = z.infer<typeof PlayoutStationPlaylistInput>;
 
 /**
  * The published chart to build the running order from
- * generated from [PlayoutChartInput](../../../../data/contracts/playout/playout.types.ck#L18)
+ * generated from [PlayoutChartInput](../../../../data/contracts/playout/playout.types.ck#L20)
  */
 export const PlayoutChartInput = z.strictObject({
     chartId: z.string().min(1).max(400).describe('As `pluginId:chartId`, which is how `GET /charts` lists them'),
@@ -41,12 +53,18 @@ export const PlayoutChartInput = z.strictObject({
         .enum(['countdown', 'ranked', 'unordered'])
         .optional()
         .describe('Which way round to play it. Absent is `countdown`, which opens on the lowest rank and ends on number one'),
+    callins: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .optional()
+        .describe(
+            'Whether somebody phones in during this broadcast, exactly as `PutOnAirInput.callins`. Absent is no calls: there is no station-wide default behind it',
+        ),
 });
 export type PlayoutChartInput = z.infer<typeof PlayoutChartInput>;
 
 /**
  * One item in the running order, as the console sees it
- * generated from [PlayoutItem](../../../../data/contracts/playout/playout.types.ck#L23)
+ * generated from [PlayoutItem](../../../../data/contracts/playout/playout.types.ck#L26)
  */
 export const PlayoutItem = z.strictObject({
     id: z.string().min(1).max(100).describe("deadair's own id for this item, not the provider's: a playlist may hold the same track twice"),
@@ -78,7 +96,7 @@ export type PlayoutItem = z.infer<typeof PlayoutItem>;
  * re-rendered — so a reseeded secret leaves a process holding credentials that match nothing,
  * and the symptom names something else entirely (every listener refused, or no mount at all).
  * The app cannot restart a sibling container and should not be able to, so it reports.
- * generated from [StreamConfigWarning](../../../../data/contracts/playout/playout.types.ck#L47)
+ * generated from [StreamConfigWarning](../../../../data/contracts/playout/playout.types.ck#L50)
  */
 export const StreamConfigWarning = z.strictObject({
     container: z.enum(['icecast', 'liquidsoap']).describe('Which one is behind'),
@@ -90,7 +108,7 @@ export type StreamConfigWarning = z.infer<typeof StreamConfigWarning>;
 /**
  * Which gate is keeping the station quiet, or `airing` when none of them is. Ordered by cause: a
  * stalled transport loop makes every reading under it stale, so it is ruled out first
- * generated from [SilenceCause](../../../../data/contracts/playout/playout.types.ck#L55)
+ * generated from [SilenceCause](../../../../data/contracts/playout/playout.types.ck#L58)
  */
 export const SilenceCause = z.enum([
     'airing',
@@ -112,14 +130,14 @@ export type SilenceCause = z.infer<typeof SilenceCause>;
  * How one gate is doing. `waiting` is its own state rather than a mild fault, because a station
  * idling for want of a listener and a station that cannot reach its stream are both silent and only
  * one of them is something to go and fix
- * generated from [SilenceState](../../../../data/contracts/playout/playout.types.ck#L73)
+ * generated from [SilenceState](../../../../data/contracts/playout/playout.types.ck#L76)
  */
 export const SilenceState = z.enum(['ok', 'waiting', 'fault']);
 export type SilenceState = z.infer<typeof SilenceState>;
 
 /**
  * One mount the station is publishing right now
- * generated from [PlayoutMount](../../../../data/contracts/playout/playout.types.ck#L90)
+ * generated from [PlayoutMount](../../../../data/contracts/playout/playout.types.ck#L93)
  */
 export const PlayoutMount = z.strictObject({
     format: z.enum(['mp3', 'opus', 'aac', 'flac']),
@@ -133,7 +151,7 @@ export type PlayoutMount = z.infer<typeof PlayoutMount>;
 
 /**
  * Which rundown item Liquidsoap has just started playing
- * generated from [PlayoutAiredQuery](../../../../data/contracts/playout/playout.types.ck#L110)
+ * generated from [PlayoutAiredQuery](../../../../data/contracts/playout/playout.types.ck#L113)
  */
 export const PlayoutAiredQuery = z.strictObject({
     item: z.string().min(1).max(100).describe("The id the app put on the pushed uri's `annotate:` metadata"),
@@ -142,7 +160,7 @@ export type PlayoutAiredQuery = z.infer<typeof PlayoutAiredQuery>;
 
 /**
  * Which way the running order went, and how long it had been that way
- * generated from [PlayoutStarveQuery](../../../../data/contracts/playout/playout.types.ck#L114)
+ * generated from [PlayoutStarveQuery](../../../../data/contracts/playout/playout.types.ck#L117)
  */
 export const PlayoutStarveQuery = z.strictObject({
     state: z
@@ -160,7 +178,7 @@ export type PlayoutStarveQuery = z.infer<typeof PlayoutStarveQuery>;
 
 /**
  * What the PLAYER says is airing, which is not the same as what was last handed to it
- * generated from [PlayoutNowPlaying](../../../../data/contracts/playout/playout.types.ck#L36)
+ * generated from [PlayoutNowPlaying](../../../../data/contracts/playout/playout.types.ck#L39)
  */
 export const PlayoutNowPlaying = z.strictObject({
     item: PlayoutItem,
@@ -176,7 +194,7 @@ export type PlayoutNowPlaying = z.infer<typeof PlayoutNowPlaying>;
 
 /**
  * One gate's answer about itself
- * generated from [SilenceCheck](../../../../data/contracts/playout/playout.types.ck#L75)
+ * generated from [SilenceCheck](../../../../data/contracts/playout/playout.types.ck#L78)
  */
 export const SilenceCheck = z.strictObject({
     code: SilenceCause.describe('Never `airing`, which is the absence of a blocking gate rather than a gate'),
@@ -188,7 +206,7 @@ export type SilenceCheck = z.infer<typeof SilenceCheck>;
 
 /**
  * Why the station cannot be heard, as one answer
- * generated from [StationSilence](../../../../data/contracts/playout/playout.types.ck#L82)
+ * generated from [StationSilence](../../../../data/contracts/playout/playout.types.ck#L85)
  */
 export const StationSilence = z.strictObject({
     audible: z
@@ -209,7 +227,7 @@ export type StationSilence = z.infer<typeof StationSilence>;
 
 /**
  * The station's transport, as one reading
- * generated from [PlayoutStatus](../../../../data/contracts/playout/playout.types.ck#L96)
+ * generated from [PlayoutStatus](../../../../data/contracts/playout/playout.types.ck#L99)
  */
 export const PlayoutStatus = z.strictObject({
     streamUp: z

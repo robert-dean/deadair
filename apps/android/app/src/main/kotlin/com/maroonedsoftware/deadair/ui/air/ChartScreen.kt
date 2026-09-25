@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import com.maroonedsoftware.deadair.R
 import com.maroonedsoftware.deadair.sdk.models.ChartPage
 import com.maroonedsoftware.deadair.sdk.models.PlayoutChartInputChartOrder
+import com.maroonedsoftware.deadair.ui.CallinsToggle
 import com.maroonedsoftware.deadair.ui.LoadState
 import com.maroonedsoftware.deadair.ui.catalog.DetailScaffold
 import com.maroonedsoftware.deadair.ui.catalog.detailFailure
@@ -51,10 +52,12 @@ fun ChartScreen(
     onRetry: () -> Unit,
     /** This page puts something on air, so it says what the station answered. */
     snackbarHost: SnackbarHostState,
-    onAir: (PlayoutChartInputChartOrder) -> Unit,
+    /** Air it in this order, saying whether the broadcast takes calls. */
+    onAir: (PlayoutChartInputChartOrder, Boolean) -> Unit,
 ) {
     var order by rememberSaveable { mutableStateOf(PlayoutChartInputChartOrder.COUNTDOWN) }
     var confirming by rememberSaveable { mutableStateOf(false) }
+    var callins by rememberSaveable { mutableStateOf(false) }
 
     DetailScaffold(
         title = title,
@@ -84,6 +87,8 @@ fun ChartScreen(
                 }
             }
         }
+
+        CallinsToggle(checked = callins, enabled = !busy, onChange = { callins = it })
 
         Button(onClick = { confirming = true }, enabled = !busy, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
             Text(stringResource(R.string.air_this_chart))
@@ -122,7 +127,7 @@ fun ChartScreen(
             what = title,
             onConfirm = {
                 confirming = false
-                onAir(order)
+                onAir(order, callins)
             },
             onDismiss = { confirming = false },
         )

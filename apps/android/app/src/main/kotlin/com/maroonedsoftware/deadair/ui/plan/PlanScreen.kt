@@ -12,11 +12,9 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -51,6 +49,7 @@ import com.maroonedsoftware.deadair.R
 import com.maroonedsoftware.deadair.sdk.models.Persona
 import com.maroonedsoftware.deadair.sdk.models.StationMode
 import com.maroonedsoftware.deadair.sdk.models.StationOnEnd
+import com.maroonedsoftware.deadair.ui.CallinsToggle
 import com.maroonedsoftware.deadair.ui.LoadState
 import com.maroonedsoftware.deadair.ui.order.HostPicker
 import com.maroonedsoftware.deadair.ui.order.stationHost
@@ -277,19 +276,7 @@ private fun NewShowFields(state: PlanUiState, hostName: String?, busy: Boolean, 
         )
         Note(R.string.plan_shape_note)
 
-        Row(
-            modifier =
-                Modifier.fillMaxWidth()
-                    .toggleable(value = state.form.callins, enabled = !busy, role = Role.Checkbox, onValueChange = { onForm(state.form.copy(callins = it)) })
-                    .padding(vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Checkbox(checked = state.form.callins, onCheckedChange = null, enabled = !busy)
-            Column(modifier = Modifier.padding(start = 12.dp)) {
-                Text(stringResource(R.string.plan_callins), style = MaterialTheme.typography.bodyMedium)
-                Text(stringResource(R.string.plan_callins_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
+        CallinsToggle(checked = state.form.callins, enabled = !busy, onChange = { onForm(state.form.copy(callins = it)) })
     }
 }
 

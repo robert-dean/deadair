@@ -1,6 +1,6 @@
-import { StrictMode } from 'react';
+import { StrictMode, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
-import { MantineProvider } from '@mantine/core';
+import { DirectionProvider, MantineProvider, useDirection } from '@mantine/core';
 import { DatesProvider } from '@mantine/dates';
 import { Notifications } from '@mantine/notifications';
 import { QueryClientProvider } from '@tanstack/react-query';
@@ -58,6 +58,7 @@ import './tokens.css';
 
 // First among the console's own modules: the catalog has to be installed before anything renders a word.
 import './i18n/i18n.setup';
+import { useConsoleDirection } from './i18n/languages';
 import { createQueryClient } from './api/query.client';
 import { PageSkeleton } from './components/shared/page.skeleton';
 import { RouteError } from './components/shared/route.error';
@@ -106,21 +107,37 @@ function Console() {
     const { i18n } = useTranslation();
 
     return (
-        <MantineProvider theme={chosen.mantine} cssVariablesResolver={chosen.resolver} forceColorScheme={chosen.scheme}>
-            {/* Top right, and that is the one thing about this that is not a default. It used
-                to be because the transport bar was fixed to the bottom edge; that bar is gone,
-                and the reason survived it — the tally now sits in the header at top LEFT, so
-                this corner is still the one where a stack of toasts cannot cover the state of
-                the station to tell you a setting saved. */}
-            <Notifications position="top-right" limit={3} />
-            {/* The timetable and the date pickers name their months and days through dayjs, which
-                knows only English until a locale's module is imported. A second catalog brings its
-                dayjs locale with it; until then this is `en` and says so. */}
-            <DatesProvider settings={{ locale: i18n.resolvedLanguage }}>
-                <RouterProvider router={router} />
-            </DatesProvider>
-        </MantineProvider>
+        <DirectionProvider>
+            <DirectionFollowsLanguage />
+            <MantineProvider theme={chosen.mantine} cssVariablesResolver={chosen.resolver} forceColorScheme={chosen.scheme}>
+                {/* Top right, and that is the one thing about this that is not a default. It used
+                    to be because the transport bar was fixed to the bottom edge; that bar is gone,
+                    and the reason survived it — the tally now sits in the header at top LEFT, so
+                    this corner is still the one where a stack of toasts cannot cover the state of
+                    the station to tell you a setting saved. */}
+                <Notifications position="top-right" limit={3} />
+                {/* The timetable and the date pickers name their months and days through dayjs, which
+                    knows only English of itself. Installing a language pack teaches dayjs that
+                    language from the browser's `Intl` (`i18n/dayjs.locale.ts`), under the same tag. */}
+                <DatesProvider settings={{ locale: i18n.resolvedLanguage }}>
+                    <RouterProvider router={router} />
+                </DatesProvider>
+            </MantineProvider>
+        </DirectionProvider>
     );
+}
+
+/**
+ * Turns Mantine's layout round when the language on screen runs right to left, and back.
+ *
+ * Through the provider's own `setDirection` rather than a `key` on it, which would remount the whole
+ * console, and every half-filled form in it, for a change of language.
+ */
+function DirectionFollowsLanguage() {
+    const direction = useConsoleDirection();
+    const { setDirection } = useDirection();
+    useEffect(() => setDirection(direction), [direction, setDirection]);
+    return undefined;
 }
 
 createRoot(rootElement).render(

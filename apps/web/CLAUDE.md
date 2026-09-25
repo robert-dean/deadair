@@ -101,9 +101,16 @@ German station can have an English console and the reverse, and the two must nev
   catalog shaped like `en`). Settings, Languages exports the console's English as one, and each
   release attaches the same file as `deadair-console-en.json`. It imports only the English catalog,
   for the same plain-`node` reason.
-- **A second language** means a `src/i18n/<lang>/` catalog with the same shape as `en`, its tag added to
-  `SUPPORTED_LOCALES`, and its catalog loaded with a dynamic `import()` and `addResourceBundle`, so
-  English stays the only bundled one and the fallback for any key the translation lacks. It also needs
-  that language's dayjs locale imported, because Mantine's date pickers and the timetable name months
-  and days through dayjs, and dayjs knows only English until then. There is no language picker yet;
+- **A second language arrives as a pack at runtime**, never as a typed folder beside `en` (one good
+  enough to ship with the console will be a pack file, loaded the same way).
+  `languages.ts` holds the list of languages this console has: `installLanguagePack` runs
+  `checkLanguagePack` (`language.check.ts`) against the bundled English, loads what fits into
+  i18next and teaches dayjs the language from the browser's `Intl` (`dayjs.locale.ts`, rather than
+  dayjs's 145 UMD locale files), and `showLanguage` switches to it. The check refuses a file only
+  over its header. Inside the catalog, a key this console has not got, a plural form the language
+  has not got (`Intl.PluralRules` says which), a placeholder the English does not fill or always
+  fills, or markup that differs from the English costs that one string, which falls back to English.
+  A pack for English is refused: English is what everything falls back to. `i18n.setup.ts` sets no
+  `supportedLngs`, which would refuse every language installed after start-up, and
+  `<DirectionProvider>` in `main.tsx` turns the layout round for a right-to-left language. There is no language picker yet;
   `ActorPreferences.locale` in the contracts is the place a chosen one would be kept.

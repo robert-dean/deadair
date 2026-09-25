@@ -152,7 +152,7 @@ deploy/, unraid/                  how somebody else installs it
 ```
 
 `apps/api` modules, in registration order: `logging`, `dataConnections`, `health`, `data`, `crypto`,
-`authentication`, `permissions`, `policy`, `art`, `catalog`, `onboarding`, `settings`, `stream`, `mail`,
+`authentication`, `permissions`, `policy`, `art`, `catalog`, `onboarding`, `settings`, `languages`, `stream`, `mail`,
 `plugins`, `jobs`, `playlists`, `charts`, `similarity`, `news`, `search`, `weather`, `almanac`,
 `podcasts`, `narrations`, `topics`, `scrobble`, `llm`, `personas`, `schedule`, `render`, `playout`,
 `nowplaying`, `analysis`, `director`, `storage`, `activity`, `history`, `enrichment`, `productions`,

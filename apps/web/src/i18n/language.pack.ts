@@ -1,3 +1,5 @@
+import type { ConsoleLanguagePack } from '@deadair/sdk';
+
 import { en } from './en/en.catalog.ts';
 
 /**
@@ -9,7 +11,8 @@ import { en } from './en/en.catalog.ts';
  * Node reads this file as well as the browser. The release job runs `scripts/language.template.ts`
  * with plain `node` and no install, and Node's type stripping resolves only imports that name their
  * `.ts` extension, which is why `en.catalog.ts` names its own. Anything this pulled in beyond that
- * (i18next, React, the setup module) would have to install and resolve there too.
+ * (i18next, React, the setup module) would have to install and resolve there too. The SDK import is
+ * `import type`, which Node erases along with every other type.
  *
  * ## One format both ways
  *
@@ -31,22 +34,12 @@ export interface LanguageCatalog {
     [key: string]: string | LanguageCatalog;
 }
 
-export interface LanguagePack {
-    format: typeof LANGUAGE_PACK_FORMAT;
-    version: typeof LANGUAGE_PACK_VERSION;
-    /** The language, as a BCP 47 tag: `de`, `pt-BR`. */
-    locale: string;
-    /** The language's name in itself, as the picker shows it: `Deutsch`, not `German`. */
-    name: string;
-    /** Which way its text runs. Arabic and Hebrew are `rtl`, and the console turns its layout round for them. */
-    direction: 'ltr' | 'rtl';
-    /**
-     * The console version the pack was translated against. After an upgrade, what that version did
-     * not have is what a translator has left to do.
-     */
-    madeFor: string;
-    catalog: LanguageCatalog;
-}
+/**
+ * The document itself, as the API's contract declares it (`languages.types.ck`, so every SDK has the
+ * same shape), with the catalog narrowed from the contract's open record to what a catalog is: text,
+ * nested. The header's fields are documented there.
+ */
+export type LanguagePack = Omit<ConsoleLanguagePack, 'catalog'> & { catalog: LanguageCatalog };
 
 /**
  * The console's own English, as a pack.

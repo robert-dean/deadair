@@ -258,6 +258,19 @@ export interface DeadairClockBands {
   updatedAt: Generated<DateTime>;
 }
 
+export interface DeadairConsoleLanguages {
+  catalog: Json;
+  createdAt: Generated<DateTime>;
+  direction: Generated<"ltr" | "rtl">;
+  id: Generated<string>;
+  importedBy: string | null;
+  locale: string;
+  madeFor: Generated<string>;
+  name: string;
+  stationKey: Generated<string>;
+  updatedAt: Generated<DateTime>;
+}
+
 export interface DeadairFactExtractions {
   albumId: string | null;
   artistId: string | null;
@@ -1042,6 +1055,7 @@ export interface DB {
   "deadair.breakRequests": DeadairBreakRequests;
   "deadair.callerHosts": DeadairCallerHosts;
   "deadair.clockBands": DeadairClockBands;
+  "deadair.consoleLanguages": DeadairConsoleLanguages;
   "deadair.factExtractions": DeadairFactExtractions;
   "deadair.facts": DeadairFacts;
   "deadair.hiddenPlaylists": DeadairHiddenPlaylists;

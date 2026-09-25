@@ -112,5 +112,9 @@ German station can have an English console and the reverse, and the two must nev
   fills, or markup that differs from the English costs that one string, which falls back to English.
   A pack for English is refused: English is what everything falls back to. `i18n.setup.ts` sets no
   `supportedLngs`, which would refuse every language installed after start-up, and
-  `<DirectionProvider>` in `main.tsx` turns the layout round for a right-to-left language. There is no language picker yet;
+  `<DirectionProvider>` in `main.tsx` turns the layout round for a right-to-left language. The station stores imported packs at `/console/languages` (`apps/api/src/modules/languages`):
+  both reads are public, because the sign-in page loads its language before anybody signs in, and
+  import and removal are `platform.manage`, which only an admin holds. The API checks the header and
+  the catalog's shape and nothing more, and the console's `LanguagePack` is the contract's
+  `ConsoleLanguagePack` with the catalog narrowed. There is no language picker yet;
   `ActorPreferences.locale` in the contracts is the place a chosen one would be kept.

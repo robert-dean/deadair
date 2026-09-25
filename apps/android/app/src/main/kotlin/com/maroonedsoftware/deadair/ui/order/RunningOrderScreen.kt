@@ -1,5 +1,12 @@
 package com.maroonedsoftware.deadair.ui.order
 
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.zIndex
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -45,6 +52,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -191,6 +199,16 @@ private fun Rows(
     val ui = RunningOrderUiState(state.order.items, historyOpen)
     val listState = rememberLazyListState()
 
+    // A row being dragged, and after it is let go the order it was left in, held until the station's
+    // answer replaces the order: without it the list snapped back to the old order for the moment
+    // the move was in flight, and then jumped forward again.
+    var drag by remember { mutableStateOf<Drag?>(null) }
+    var held by remember { mutableStateOf<List<StationOrderItem>?>(null) }
+    LaunchedEffect(state.order.items) { held = null }
+    val bounds = if (handlers == null) null else ui.dragBounds()
+    val base = held ?: ui.shown
+    val rows = drag?.let { base.moved(it.from, it.at) } ?: base
+
     // Opened on the row the order is read from, and moved to it again when it changes: the item on
     // air is the whole point of this tab and a long order buries it. Keyed on the anchor's id, so a
     // poll that changes nothing does not drag the list back from wherever the reader took it.
@@ -220,14 +238,54 @@ private fun Rows(
         }
 
         LazyColumn(state = listState, modifier = Modifier.fillMaxWidth().weight(1f)) {
-            itemsIndexed(ui.shown, key = { _, item -> item.id }) { index, item ->
+            itemsIndexed(rows, key = { _, item -> item.id }) { index, item ->
                 val trackId = item.trackId?.takeIf { item.kind == StationOrderItemKind.TRACK }
                 val segmentId = item.segmentId?.takeIf { item.kind == StationOrderItemKind.SEGMENT }
                 val position = ui.positionOf(index)
+                val dragged = drag?.takeIf { it.id == item.id }
                 OrderRow(
                     item = item,
                     artworkUrl = artUrlFor(item.artworkUrl),
                     stale = state.stale,
+                    // The dragged row rides on the finger above the others; the others slide aside
+                    // as it passes them. It is the one row not animated into place, since its place
+                    // is wherever the finger is.
+                    lift =
+                        if (dragged != null) {
+                            Modifier.zIndex(1f).graphicsLayer {
+                                translationY = dragged.offset
+                                shadowElevation = 12.dp.toPx()
+                                shape = RoundedCornerShape(16.dp)
+                                clip = true
+                            }.background(MaterialTheme.colorScheme.surfaceContainerHighest)
+                        } else {
+                            Modifier.animateItem()
+                        },
+                    handle =
+                        if (bounds == null || item.isSpent() || handlers?.busy == true) {
+                            null
+                        } else {
+                            {
+                                DragHandle(
+                                    title = item.title,
+                                    onStart = { if (drag == null) drag = Drag(item.id, index) },
+                                    onDrag = { dy ->
+                                        val live = drag ?: return@DragHandle
+                                        live.offset += dy
+                                        stepPast(live, listState, bounds)
+                                    },
+                                    onEnd = {
+                                        val done = drag ?: return@DragHandle
+                                        drag = null
+                                        if (done.at != done.from) {
+                                            held = base.moved(done.from, done.at)
+                                            // Stated against the WHOLE order, where the row now sits.
+                                            handlers?.onMove?.invoke(done.id, ui.positionOf(done.at))
+                                        }
+                                    },
+                                )
+                            }
+                        },
                     modifier =
                         when {
                             trackId != null -> Modifier.clickable { onTrack(trackId) }
@@ -323,12 +381,22 @@ private fun RowMenu(
  * so it is the row the eye lands on.
  */
 @Composable
-private fun OrderRow(item: StationOrderItem, artworkUrl: String?, stale: Boolean, modifier: Modifier = Modifier, menu: (@Composable () -> Unit)? = null) {
+private fun OrderRow(
+    item: StationOrderItem,
+    artworkUrl: String?,
+    stale: Boolean,
+    modifier: Modifier = Modifier,
+    /** Where the row sits among the others: lifted while it is dragged, animated into place otherwise. */
+    lift: Modifier = Modifier,
+    menu: (@Composable () -> Unit)? = null,
+    handle: (@Composable () -> Unit)? = null,
+) {
     val airing = item.state == StationItemState.AIRING
     val card = RoundedCornerShape(16.dp)
     Row(
         modifier =
-            Modifier.fillMaxWidth()
+            lift
+                .fillMaxWidth()
                 .padding(horizontal = 8.dp, vertical = 2.dp)
                 .clip(card)
                 .then(if (airing) Modifier.background(MaterialTheme.colorScheme.surfaceContainerHigh) else Modifier)
@@ -371,7 +439,71 @@ private fun OrderRow(item: StationOrderItem, artworkUrl: String?, stale: Boolean
             else -> item.durationMs?.let { Text(clockOf(it), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
         menu?.invoke()
+        handle?.invoke()
     }
+}
+
+/** A row being dragged: where it started, where it would land now, and how far the finger has it from its slot. */
+private class Drag(val id: String, val from: Int) {
+    var at by mutableIntStateOf(from)
+    var offset by mutableFloatStateOf(0f)
+}
+
+/**
+ * Move the dragged row one place when its middle has passed a neighbour's, and take that neighbour's
+ * height off the finger's offset so the row stays under the finger as its slot moves. Only when the
+ * list has been laid out with the row where [Drag.at] says it is: a second step read against a
+ * layout from before the first would move it two places for one.
+ */
+private fun stepPast(drag: Drag, list: LazyListState, bounds: IntRange) {
+    val visible = list.layoutInfo.visibleItemsInfo
+    val me = visible.firstOrNull { it.key == drag.id } ?: return
+    if (me.index != drag.at) return
+    val middle = me.offset + me.size / 2 + drag.offset
+    val below = visible.firstOrNull { it.index == me.index + 1 }
+    val above = visible.firstOrNull { it.index == me.index - 1 }
+    when {
+        below != null && drag.at < bounds.last && middle > below.offset + below.size / 2 -> {
+            drag.at += 1
+            drag.offset -= below.size
+        }
+        above != null && drag.at > bounds.first && middle < above.offset + above.size / 2 -> {
+            drag.at -= 1
+            drag.offset += above.size
+        }
+    }
+}
+
+/**
+ * The handle a row is dragged by. Only the handle starts a drag, so a thumb scrolling the list
+ * never picks a row up by accident. It names what it moves for a screen reader, which moves rows
+ * through the row's menu instead.
+ */
+@Composable
+private fun DragHandle(title: String, onStart: () -> Unit, onDrag: (Float) -> Unit, onEnd: () -> Unit) {
+    // The gesture outlives a recomposition, so it calls whatever the row's callbacks are NOW: read
+    // at the time it was set up, a row that had moved started its next drag from where it used to be.
+    val start by rememberUpdatedState(onStart)
+    val move by rememberUpdatedState(onDrag)
+    val end by rememberUpdatedState(onEnd)
+    Icon(
+        painterResource(R.drawable.ic_drag_handle),
+        contentDescription = stringResource(R.string.drag_to_reorder, title),
+        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier =
+            Modifier.size(40.dp)
+                .pointerInput(title) {
+                    detectDragGestures(
+                        onDragStart = { start() },
+                        onDrag = { change, amount ->
+                            change.consume()
+                            move(amount.y)
+                        },
+                        onDragEnd = { end() },
+                        onDragCancel = { end() },
+                    )
+                }.padding(8.dp),
+    )
 }
 
 /**

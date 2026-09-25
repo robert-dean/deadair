@@ -8,6 +8,12 @@ hand, and the station's own changes are in the [root changelog](../../CHANGELOG.
 
 ## [Unreleased]
 
+## [0.7.1] — 2026-09-25
+
+- The app no longer freezes when the system's media controls, Android Auto or a Bluetooth head unit connects to it. The library root is now answered at once instead of after a settings read that could never finish while the connection held the main thread.
+- Airing a playlist or a chart has a "take calls" row above its button, off unless ticked. With no station-wide setting any more, a show takes calls only when it is put on air with them.
+- Planning a new show now shows who hosts it as a dropdown field, like the fields around it. It was a line of text that could be tapped but did not look it, so it was easy to miss that a new show can be given a host.
+
 ## [0.7.0] — 2026-09-20
 
 - The station on the home screen. **Settings > Home-screen widget > Add to the home screen** asks your
@@ -138,7 +144,8 @@ hand, and the station's own changes are in the [root changelog](../../CHANGELOG.
   screen, a headset or a car stereo. Sign in as the station's operator and the phone becomes its
   remote: skip, stop and start, the running order, what it played and what the presenter said.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/android-v0.7.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/android-v0.7.1...HEAD
+[0.7.1]: https://github.com/robert-dean/deadair/compare/android-v0.7.0...android-v0.7.1
 [0.7.0]: https://github.com/robert-dean/deadair/compare/android-v0.6.1...android-v0.7.0
 [0.6.1]: https://github.com/robert-dean/deadair/compare/android-v0.6.0...android-v0.6.1
 [0.6.0]: https://github.com/robert-dean/deadair/compare/android-v0.5.0...android-v0.6.0

@@ -56,7 +56,7 @@ describe('the settings registry', () => {
     });
 
     it('leaves the sustaining source in the group the schedule page draws', () => {
-        // These five are edited by `SustainingPanel`, on the schedule page, and the settings page
+        // These are edited by `SustainingPanel`, on the schedule page, and the settings page
         // draws no card for their group. Moving one back into `rotation` would put it on both
         // pages, with two forms writing one key and only one of them beside the timetable that
         // explains it.

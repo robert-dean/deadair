@@ -221,6 +221,9 @@ export class ScheduleTickJob extends PlainJob {
                     ...(source.brief === undefined ? {} : { brief: source.brief }),
                     ...(source.era?.from === undefined ? {} : { eraFrom: source.era.from }),
                     ...(source.era?.to === undefined ? {} : { eraTo: source.era.to }),
+                    // Always said, so the gaps take calls exactly when the sustaining source was told
+                    // to and never because of a station-wide default.
+                    callins: source.callins,
                     mode: 'rotation',
                     onEnd: 'extend',
                 },

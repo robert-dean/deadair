@@ -54,6 +54,7 @@ export const SUSTAINING_KEYS = {
     brief: 'schedule.sustainingBrief',
     eraFrom: 'schedule.sustainingEraFrom',
     eraTo: 'schedule.sustainingEraTo',
+    callins: 'schedule.sustainingCallins',
 } as const;
 
 /** What the station falls back to between blocks, or `undefined` when the operator has named nothing. */
@@ -75,6 +76,11 @@ export interface SustainingSource {
     brief?: string;
     /** The period it plays, on the same terms as a slot's. Either end may stand alone. */
     era?: { from?: number; to?: number };
+    /**
+     * Whether somebody phones in between blocks. Always answered, and off unless the operator said
+     * otherwise: a call is a format decision about a programme, and the sustaining source is one.
+     */
+    callins: boolean;
 }
 
 /**
@@ -205,7 +211,7 @@ export class ScheduleService {
         // `settingIsOn`'s note in CLAUDE.md for the same bug in its boolean form.
         const era = sustainingEra(read(SUSTAINING_KEYS.eraFrom), read(SUSTAINING_KEYS.eraTo));
 
-        const source: SustainingSource = {
+        const source: Omit<SustainingSource, 'callins'> = {
             ...(read(SUSTAINING_KEYS.pluginId) === undefined ? {} : { pluginId: read(SUSTAINING_KEYS.pluginId) }),
             ...(read(SUSTAINING_KEYS.playlistId) === undefined ? {} : { playlistId: read(SUSTAINING_KEYS.playlistId) }),
             ...(read(SUSTAINING_KEYS.chartId) === undefined ? {} : { chartId: read(SUSTAINING_KEYS.chartId) }),
@@ -218,8 +224,11 @@ export class ScheduleService {
         };
 
         // A brief on its own is a coherent sustaining service: the station programmes itself and is
-        // told what to aim for. A period on its own is one too. Nothing at all is not.
-        return Object.keys(source).length === 0 ? undefined : source;
+        // told what to aim for. A period on its own is one too. Nothing at all is not, and a calls
+        // switch on its own is not a source either: it says how a programme behaves, not what it plays.
+        if (Object.keys(source).length === 0) return undefined;
+
+        return { ...source, callins: settingIsOn(this.config, SUSTAINING_KEYS.callins, false) };
     }
 
     /**

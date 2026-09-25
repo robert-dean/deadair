@@ -119,7 +119,7 @@ describe('SustainingPanel', () => {
         expect(screen.getByLabelText('From year')).toHaveValue('1975');
     });
 
-    it('saves exactly the seven keys it owns', async () => {
+    it('saves exactly the eight keys it owns', async () => {
         // The write is partial and this card sits on a page of its own, so anything extra in the
         // submission would be this panel quietly rewriting a setting nobody opened it to change.
         getSettings.mockResolvedValue(settingsOf(SET));
@@ -137,6 +137,7 @@ describe('SustainingPanel', () => {
         });
         expect(Object.keys(sent()).sort()).toEqual([
             'schedule.sustainingBrief',
+            'schedule.sustainingCallins',
             'schedule.sustainingChartId',
             'schedule.sustainingChartOrder',
             'schedule.sustainingEraFrom',
@@ -150,6 +151,35 @@ describe('SustainingPanel', () => {
         // fresh playlist is a source that would win over it on the way back out.
         expect(sent()['schedule.sustainingChartId']).toBeNull();
         expect(sent()['schedule.sustainingChartOrder']).toBeNull();
+    });
+
+    it('saves whether the gaps take calls, off unless ticked', async () => {
+        getSettings.mockResolvedValue(settingsOf(SET));
+        listImportablePlaylists.mockResolvedValue(PLAYLISTS);
+        updateSettings.mockResolvedValue(settingsOf(SET));
+        render(<SustainingPanel />);
+        await screen.findByText(/Late Night — Spotify/);
+        const user = setupUser();
+        await user.click(screen.getByRole('button', { name: 'Change' }));
+        await screen.findByRole('button', { name: 'Save' });
+
+        const box = screen.getByRole('checkbox', { name: /Take calls/ });
+        expect(box).not.toBeChecked();
+        await user.click(box);
+        await user.click(screen.getByRole('button', { name: 'Save' }));
+
+        await waitFor(() => {
+            expect(updateSettings).toHaveBeenCalledTimes(1);
+        });
+        expect(sent()['schedule.sustainingCallins']).toBe(true);
+    });
+
+    it('says so in the line when the gaps take calls', async () => {
+        getSettings.mockResolvedValue(settingsOf({ ...SET, 'schedule.sustainingCallins': true }));
+        listImportablePlaylists.mockResolvedValue(PLAYLISTS);
+        render(<SustainingPanel />);
+
+        expect(await screen.findByText(/taking calls/)).toBeInTheDocument();
     });
 
     it('clears an emptied field with a null, so the row goes rather than holding an empty string', async () => {

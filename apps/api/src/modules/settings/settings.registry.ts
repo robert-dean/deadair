@@ -1578,6 +1578,14 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         type: 'number',
         help: 'The other end, on the same terms. Set both for a decade; either stands alone, so a lower bound on its own means "this year onwards".',
     },
+    {
+        group: 'schedule',
+        key: SUSTAINING_KEYS.callins,
+        label: 'Take calls',
+        type: 'boolean',
+        default: false,
+        help: 'Whether somebody phones in between blocks, exactly as a block that takes calls does. Off unless you say so.',
+    },
     // Drawn by `OverrunPanel` on the schedule page, beside the timetable whose boundaries they are
     // about, on the terms the rest of this group is drawn there.
     {

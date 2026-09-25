@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
@@ -87,6 +88,8 @@ fun SetupScreen(
      * answered and not before, because an account belongs to a station and there is not one yet.
      */
     onConfirmAndSignIn: (() -> Unit)? = null,
+    /** Scan the console's code. `null` on a phone that cannot, which then only types. */
+    onScan: (() -> Unit)? = null,
     initialStep: SetupStep = SetupStep.initial(proposing),
 ) {
     var step by rememberSaveable { mutableStateOf(initialStep) }
@@ -104,6 +107,7 @@ fun SetupScreen(
                 onCheck = onCheck,
                 onConfirm = onConfirm,
                 onConfirmAndSignIn = onConfirmAndSignIn,
+                onScan = onScan,
                 listeningTo = listeningTo,
                 onKeepCurrent = onKeepCurrent,
                 onBack = if (onKeepCurrent == null) toWelcome else null,
@@ -167,6 +171,7 @@ private fun Station(
     onCheck: () -> Unit,
     onConfirm: () -> Unit,
     onConfirmAndSignIn: (() -> Unit)?,
+    onScan: (() -> Unit)?,
     listeningTo: String?,
     onKeepCurrent: (() -> Unit)?,
     onBack: (() -> Unit)?,
@@ -240,6 +245,15 @@ private fun Station(
                             CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = LocalContentColor.current)
                         } else {
                             Text(stringResource(R.string.check))
+                        }
+                    }
+                    // The console's Checkup page shows this code, and it is the whole address with
+                    // nothing to mistype, so it is offered beside the button that checks a typed one.
+                    onScan?.let {
+                        OutlinedButton(onClick = it, enabled = !state.checking, modifier = Modifier.fillMaxWidth().height(PillHeight)) {
+                            Icon(painterResource(R.drawable.ic_qr_code_scanner), contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text(stringResource(R.string.scan_station_code))
                         }
                     }
                 }

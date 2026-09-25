@@ -377,6 +377,17 @@ restore, because the launching intent is still attached after a rotation. A user
 link is refused, including one smuggled inside the escaped origin: a link names a place, never a
 way in.
 
+**Setup can scan the console's code, and the code is that same link.** Checkup draws
+`deadair://connect?station=<origin>` as a QR code, and `ScannedCode` reads it with `StationLink`'s
+rules, plus a plain http(s) address for a hand-made code; anything else (a Wi-Fi code, a menu) is
+refused rather than read as a host, which is what the typed-address rules would do to a bare word.
+A scan fills the field and checks it at once, and keeps nothing until Listen. The scanner is Google's
+code scanner, chosen so the app asks for no camera permission and never sees a frame; the cost is
+Play services, so without it there is no button rather than one that fails. Its module is fetched by
+Play services (the manifest's `com.google.mlkit.vision.DEPENDENCIES`), and an emulator with no
+account signed in to the Play Store never gets it: "The scanner is not ready yet" there is the
+emulator, not the code.
+
 **A notice raised by a pushed screen is lost unless that screen collects it.** `OperatorActions`
 publishes into a `SharedFlow` with no replay, and `NavDisplay` composes only the entry on top, so
 the collector on `Home` is not running while a pushed screen is showing. A refusal raised there was

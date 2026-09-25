@@ -129,6 +129,9 @@
     <string name="station_answered_as">Answered as %1$s</string>
     <string name="station_not_encrypted">Not encrypted. Ordinary on a home network, where the station has no certificate.</string>
     <string name="station_not_an_address">That is not an address</string>
+    <string name="station_not_a_station_code">That code is not a station\'s. The console shows the right one under Checkup.</string>
+    <string name="station_scanner_unavailable">The scanner is not ready yet. Try again in a moment, or type the address.</string>
+    <string name="scan_station_code">Scan your station\'s code</string>
     <string name="station_unknown_shape">That is a deadair station, but it answers a shape this app does not know. It may need updating.</string>
     <string name="station_older_api">That is a deadair station running an older API: it does not report `%1$s`. Update the station.</string>
     <string name="station_not_a_station">Something answered, but not a station. Check the address.</string>

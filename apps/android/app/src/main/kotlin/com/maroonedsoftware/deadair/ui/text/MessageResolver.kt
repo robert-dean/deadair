@@ -59,6 +59,8 @@ fun Message.resolve(): String =
         is Message.AnsweredAs -> stringResource(R.string.station_answered_as, name)
         Message.NotEncrypted -> stringResource(R.string.station_not_encrypted)
         Message.NotAnAddress -> stringResource(R.string.station_not_an_address)
+        Message.NotAStationCode -> stringResource(R.string.station_not_a_station_code)
+        Message.ScannerUnavailable -> stringResource(R.string.station_scanner_unavailable)
         Message.UnknownShape -> stringResource(R.string.station_unknown_shape)
         is Message.OlderApi -> stringResource(R.string.station_older_api, missing)
         Message.NotAStation -> stringResource(R.string.station_not_a_station)

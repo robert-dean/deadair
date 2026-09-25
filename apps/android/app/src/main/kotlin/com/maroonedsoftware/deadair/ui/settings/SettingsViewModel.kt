@@ -10,6 +10,7 @@ import com.maroonedsoftware.deadair.widget.WidgetFollows
 import com.maroonedsoftware.deadair.auth.SessionManager
 import com.maroonedsoftware.deadair.auth.SessionState
 import com.maroonedsoftware.deadair.settings.SettingsStore
+import com.maroonedsoftware.deadair.station.ScannedCode
 import com.maroonedsoftware.deadair.station.StationLink
 import com.maroonedsoftware.deadair.station.StationProbe
 import com.maroonedsoftware.deadair.station.StationUrl
@@ -20,6 +21,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import com.maroonedsoftware.deadair.ui.text.Message
 import com.maroonedsoftware.deadair.settings.ListenerSettings
 
 /**
@@ -64,6 +66,25 @@ class SettingsViewModel(
 
     fun onAddressChange(address: String) {
         _entry.value = StationEntryState.typing(address, stored = _entry.value.stored)
+    }
+
+    /**
+     * A code has been scanned. A station's code fills the field and is checked at once, because
+     * scanning is a deliberate act and the check is the next thing anybody would press. Nothing is
+     * kept until Listen, exactly as for a typed address or a link.
+     */
+    fun scanned(text: String) {
+        val station = ScannedCode.station(text)
+        if (station == null) {
+            _entry.value = StationEntryState.refusedScan(_entry.value, Message.NotAStationCode)
+            return
+        }
+        _entry.value = StationEntryState.typing(station.origin, stored = _entry.value.stored)
+        check()
+    }
+
+    fun scanFailed() {
+        _entry.value = StationEntryState.refusedScan(_entry.value, Message.ScannerUnavailable)
     }
 
     /** Ask the address whether it is a station. Nothing is stored until it answers. */

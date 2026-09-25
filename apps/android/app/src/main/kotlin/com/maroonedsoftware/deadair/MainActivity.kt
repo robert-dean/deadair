@@ -58,6 +58,7 @@ import com.maroonedsoftware.deadair.ui.settings.SettingsScreen
 import com.maroonedsoftware.deadair.ui.settings.SettingsViewModel
 import com.maroonedsoftware.deadair.ui.settings.availableFormats
 import com.maroonedsoftware.deadair.ui.setup.SetupScreen
+import com.maroonedsoftware.deadair.ui.setup.rememberStationScanner
 import com.maroonedsoftware.deadair.ui.text.LocalUses24HourClock
 import com.maroonedsoftware.deadair.ui.theme.DeadairTheme
 
@@ -198,6 +199,7 @@ private fun Listener(graph: AppGraph, links: MutableStateFlow<String?>, onSettin
         StationLink.parse(text)?.let { model.propose(it, station) }
     }
     val keepCurrent = { model.keepCurrent(station) }
+    val scan = rememberStationScanner(onScanned = model::scanned, onFailed = model::scanFailed)
     BackHandler(enabled = proposal != null && station != null, onBack = keepCurrent)
 
     if (loaded == null) {
@@ -214,6 +216,7 @@ private fun Listener(graph: AppGraph, links: MutableStateFlow<String?>, onSettin
             // The sign-in page is pushed before the station has landed, onto the stack that is
             // already here under Setup, so the app opens on it with Now playing beneath: signing in
             // or backing out both end on the station just chosen.
+            onScan = scan,
             onConfirmAndSignIn = {
                 model.confirm()
                 openSignIn()

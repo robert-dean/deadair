@@ -74,6 +74,12 @@ sealed interface Message {
 
     data object NotAnAddress : Message
 
+    /** A scanned code that names no station: a Wi-Fi code, a menu, somebody else's link. */
+    data object NotAStationCode : Message
+
+    /** The scanner could not start, almost always because Play services has not fetched it yet. */
+    data object ScannerUnavailable : Message
+
     data object UnknownShape : Message
 
     data class OlderApi(val missing: String) : Message

@@ -166,8 +166,9 @@ export class ProductionScheduler {
                 // is a phone-in about nothing in particular, presented by the station's default
                 // persona rather than by the person whose show it is — because `presenting`
                 // falls back the moment nobody names a host. The block airs inside somebody
-                // else's programme, so it belongs to that programme.
-                ...(show.brief === undefined || show.brief.trim().length === 0 ? {} : { brief: show.brief.trim() }),
+                // else's programme, so it belongs to that programme. The brief is the half a
+                // phone-in does not take: see `showBrief`.
+                ...this.showBrief(band.kind, show),
                 ...(show.personaId === undefined ? {} : { personaId: show.personaId }),
             });
 
@@ -226,8 +227,8 @@ export class ProductionScheduler {
             writingMode: stationWritingMode(this.config),
             // No `scheduledFor`: it airs when it is ready rather than at an instant somebody chose,
             // which is also what keeps it `background` at the model for its whole life. Nothing is
-            // waiting on air for it.
-            ...(show.brief === undefined || show.brief.trim().length === 0 ? {} : { brief: show.brief.trim() }),
+            // waiting on air for it. And no brief, since this is always a conversation: see `showBrief`.
+            ...this.showBrief(kind, show),
             ...(show.personaId === undefined ? {} : { personaId: show.personaId }),
         });
 
@@ -239,6 +240,23 @@ export class ProductionScheduler {
         });
 
         return 1;
+    }
+
+    /**
+     * The broadcast's brief, for a production that should be planned around it.
+     *
+     * **A conversation never inherits one.** A broadcast's brief is what it PLAYS ("Metallica,
+     * Megadeth, Slayer, Ozzy and similar") and a brief always wins over the host's own subject, so
+     * every call on the conspiracy show was planned around the playlist and its callers talked about
+     * records. What a phone-in is about is the host's show, which `callSubjectOf` reads off the cast;
+     * a brief somebody typed for the CALL itself, at the desk, still wins, because that one is
+     * somebody saying what they want from it. A monologue keeps the broadcast's, since a `:40 podcast`
+     * on a heavy-metal show has nothing better to be about.
+     */
+    private showBrief(kind: string, show: BroadcastContext): { brief?: string } {
+        if (dialogueKinds(this.config).has(kind.trim().toLowerCase())) return {};
+        const brief = show.brief?.trim();
+        return brief === undefined || brief.length === 0 ? {} : { brief };
     }
 }
 

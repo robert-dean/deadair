@@ -70,35 +70,59 @@ export interface CastMember {
 /** A cast, in the order it was assembled: the presenter first, then whoever rang in. */
 export type ProductionCast = readonly CastMember[];
 
-/** Why a caller rang, for a programme nobody said anything about. See {@link callSubjectOf}. */
+/**
+ * What a phone-in is about, for a programme nobody said anything about. See {@link callSubjectOf}.
+ *
+ * Either half may be missing, never both: a host with nothing on their mind leaves the call to the
+ * caller, and a caller with nothing on theirs rings about the host's thing and nothing else.
+ */
 export interface CallSubject {
+    /** What the presenter is called on air, when the show is theirs to set. */
+    host?: string;
+    /** The host's preoccupation for this programme, which is what the SHOW is about. */
+    show?: string;
     /** What the caller is called on air, or "the caller" for one with no name. */
-    caller: string;
-    /** Their preoccupation for this programme, which is what they rang about. */
-    about: string;
+    caller?: string;
+    /** The caller's preoccupation for this programme: their own way into the host's subject. */
+    about?: string;
 }
 
 /**
- * What a programme is about when nobody said: why its first caller rang.
+ * What a programme is about when nobody said: the HOST's thing, with the caller's own way into it.
  *
- * A call-in taken by a broadcast's standing rule carries that broadcast's brief, and most broadcasts
- * have none, because a broadcast's brief is what it PLAYS. With nothing to plan around, the outline
- * invented a subject and every turn obeyed it: the conspiracy host's first live call was a wholesome
- * chat about a community garden, while the cast carried his preoccupation (Roswell) and the caller's
- * (a load nobody would name) the whole time. A preoccupation is offered to a turn as a lean, which
- * no turn can hold against an outline's throughline.
+ * A call-in taken by a broadcast's standing rule used to carry that broadcast's brief, and a
+ * broadcast's brief is what it PLAYS, so every call on the conspiracy show was planned around
+ * "Metallica, Megadeth, Slayer, Ozzy and similar" and the callers talked about records. With no brief
+ * at all, the outline invented a subject (the first live call was a chat about a community garden),
+ * because a preoccupation reaches a turn as a lean and no turn can hold a lean against an outline's
+ * throughline.
  *
- * So the caller's preoccupation becomes the subject: somebody rings a phone-in about their own
- * thing, and the host takes it from there. A brief always wins, because it is somebody saying what
- * they want. Absent for a cast with no caller, or whose callers have nothing on their minds.
+ * The first fix made the CALLER's preoccupation the subject, on the argument that a phone-in is the
+ * caller's call. It is not: a phone-in is the host's show, and people ring it because of what that
+ * show is about. A caller rung in about their truck-stop coffee is the same call on the conspiracy
+ * show and the countdown, which is exactly the sameness the host's sheet exists to prevent. So the
+ * host's preoccupation is what the programme is about, and the caller's is their angle on it: a
+ * skeptic on the Roswell show asks how far away it was, a pedant on the countdown corrects the year.
+ *
+ * A brief always wins, because it is somebody saying what they want; the scheduler is what stops a
+ * broadcast's playlist brief reaching a call as one. Absent for a cast with no caller, and for one
+ * where neither side has anything on their mind.
  */
 export function callSubjectOf(brief: string | undefined, cast: ProductionCast): CallSubject | undefined {
     if (brief !== undefined && brief.trim().length > 0) return undefined;
+    if (!isDialogue(cast)) return undefined;
 
+    const host = cast.find(member => member.role === 'host');
+    const show = host?.preoccupation?.trim();
     const caller = cast.find(member => member.role === 'caller' && (member.preoccupation?.trim().length ?? 0) > 0);
-    if (caller?.preoccupation === undefined) return undefined;
+    const about = caller?.preoccupation?.trim();
 
-    return { caller: caller.name?.trim() || 'the caller', about: caller.preoccupation.trim() };
+    if (!show && !about) return undefined;
+
+    return {
+        ...(show ? { host: host?.name?.trim() || 'the host', show } : {}),
+        ...(about ? { caller: caller?.name?.trim() || 'the caller', about } : {}),
+    };
 }
 
 /** Whether this production has anybody on the phone, which is what makes it a dialogue. */

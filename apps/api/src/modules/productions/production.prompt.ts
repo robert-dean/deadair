@@ -780,7 +780,22 @@ export function beatBrief(beat: OutlineBeat): string[] {
     return lines;
 }
 
-/** Why the caller rang, as one sentence both prompts share, so the outline and the turns cannot describe it differently. */
+/**
+ * What the call is about, as one passage both prompts share, so the outline and the turns cannot
+ * describe it differently.
+ *
+ * The host's subject comes first and is the programme's; the caller's is framed as their way INTO
+ * it, because two subjects stated side by side are a call where each person talks about their own
+ * thing and nobody answers the other.
+ */
 function subjectLine(subject: CallSubject): string {
-    return `The programme is about why ${subject.caller} rang: ${subject.about}.`;
+    if (subject.show === undefined) return `The programme is about why ${subject.caller} rang: ${subject.about}.`;
+
+    const show = `This is ${subject.host}'s show, and the programme is about what ${subject.host} keeps coming back to: ${subject.show}.`;
+    if (subject.about === undefined) return `${show} That is why the caller rang, and it is what the call is about from start to finish.`;
+
+    return (
+        `${show} That is why ${subject.caller} rang, and it is what the call is about from start to finish. ` +
+        `${subject.caller} comes at it through their own thing, which is ${subject.about}. That is their angle on the subject, not a change of subject.`
+    );
 }

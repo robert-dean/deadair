@@ -15,7 +15,7 @@ export const onair = {
         intro: 'A listener rings in and your host takes it: a few short turns, each in its own voice. Who calls is whichever of your callers has been heard from least recently.',
         aboutLabel: 'What they are ringing about',
         aboutPlaceholder: 'a record everybody else got wrong',
-        seeded: 'Seeded with what this broadcast is playing. Empty it and the call is about whatever the station makes of the hour.',
+        unbriefed: 'Leave it empty and the call is about whatever your host’s show is about, with the caller coming at it their own way.',
         wait: 'Nothing airs while you wait. The turns are written and spoken one at a time, and the whole call goes in together — so it lands in a few minutes rather than at the next boundary. It shows up on Productions while it is being made.',
     },
     host: {

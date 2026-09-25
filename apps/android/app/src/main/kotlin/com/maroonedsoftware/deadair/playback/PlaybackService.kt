@@ -83,6 +83,12 @@ class PlaybackService : MediaLibraryService() {
             }
         }
 
+    /**
+     * The kept station, for the library root. Collected from `onCreate` so the root can be answered
+     * without reading anything: see [KeptStation] for the ANR that made it so.
+     */
+    private val kept = MutableStateFlow<KeptStation>(KeptStation.Unread)
+
     override fun onCreate() {
         super.onCreate()
         val graph = (application as DeadairApp).graph
@@ -189,6 +195,8 @@ class PlaybackService : MediaLibraryService() {
                 onSlept = { if (taskGone) stopSelf() },
             ).also { it.start() }
 
+        scope.launch { graph.settings.settings.collect { kept.value = KeptStation.of(it) } }
+
         // The next control follows the role rather than the launch, so signing in or out of the
         // operator's account adds and removes the button without restarting anything.
         scope.launch {
@@ -213,7 +221,12 @@ class PlaybackService : MediaLibraryService() {
         return settings.stationName ?: station.origin
     }
 
-    /** A future answered on the main scope, for the callbacks that have to read the settings first. */
+    /**
+     * A future answered on the main scope, for the callbacks that have to read the settings first.
+     *
+     * Never for the library root: see `onGetLibraryRoot`. The others are safe because Media3 answers
+     * a legacy browser's children, item and search requests asynchronously.
+     */
     private fun <T> answer(block: suspend () -> T): ListenableFuture<T> {
         val future = SettableFuture.create<T>()
         scope.launch {
@@ -267,16 +280,24 @@ class PlaybackService : MediaLibraryService() {
             return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
         }
 
-        /** One folder, of radio stations. An install with no station kept has nothing to offer. */
+        /**
+         * One folder, of radio stations. An install with no station kept has nothing to offer.
+         *
+         * Answered with a future that is already complete, and it must stay that way. A legacy
+         * browser's request for the root runs this on the main thread and blocks that thread until
+         * the future completes, so anything that suspends here (the settings read the other
+         * callbacks make, which resumes on the main thread) waits on itself for ever: an ANR.
+         */
         override fun onGetLibraryRoot(
             session: MediaLibrarySession,
             browser: MediaSession.ControllerInfo,
             params: LibraryParams?,
-        ): ListenableFuture<LibraryResult<MediaItem>> =
-            answer {
-                val name = stationName() ?: return@answer LibraryResult.ofError(SessionError.ERROR_NOT_SUPPORTED)
-                LibraryResult.ofItem(MediaItems.root(name), params)
-            }
+        ): ListenableFuture<LibraryResult<MediaItem>> {
+            val title =
+                libraryRootTitle(kept.value, getString(R.string.app_name))
+                    ?: return Futures.immediateFuture(LibraryResult.ofError(SessionError.ERROR_NOT_SUPPORTED))
+            return Futures.immediateFuture(LibraryResult.ofItem(MediaItems.root(title), params))
+        }
 
         /** Exactly one child, the station: see `MediaItems.stationEntry` for why never more. */
         override fun onGetChildren(

@@ -102,8 +102,7 @@ export function SlotEditor({ target, onClose, onSubmit, onDelete, saving, deleti
             // bound on its own is "this year onwards".
             ...(typeof values.eraFrom === 'number' ? { eraFrom: values.eraFrom } : {}),
             ...(typeof values.eraTo === 'number' ? { eraTo: values.eraTo } : {}),
-            // Sent only when it is ON, so an unticked box leaves the station's own setting standing
-            // rather than saying this slot takes no calls. The same three-way `putOnAir` has.
+            // Sent only when it is ON. Absent is no calls, as it is for `putOnAir`.
             ...(values.callins ? { callins: true } : {}),
             // The same three-way, and only beside a playlist, the station's own or a provider's:
             // nothing else is ever mixed into.
@@ -293,9 +292,9 @@ interface FormValues {
     /** Empty string is Mantine's "nothing typed" for a NumberInput, and it means no bound. */
     eraFrom: number | string;
     eraTo: number | string;
-    /** Ticked sends `true`; unticked sends nothing, which is not the same as `false`. See `CallinsField`. */
+    /** Ticked sends `true`; unticked sends nothing, which is no calls. See `CallinsField`. */
     callins: boolean;
-    /** The same three-way as `callins`, and drawn only for a playlist. */
+    /** Ticked sends `true`; unticked sends nothing, which leaves `rotation.mixInSimilar` standing. Drawn only for a playlist. */
     mixInSimilar: boolean;
     mode: ScheduleSlot['mode'];
     onEnd: ScheduleSlot['onEnd'];

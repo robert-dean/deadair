@@ -64,7 +64,7 @@ export const ScheduleSlot = z.strictObject({
         .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
         .optional()
         .describe(
-            "Whether somebody phones in during this stretch of the day. Absent leaves the station's own setting standing, exactly as it does when an operator briefs a broadcast by hand; a `setlist` or a `feature` takes no calls whatever this says",
+            'Whether somebody phones in during this stretch of the day. Absent is no calls, exactly as it is when an operator puts a broadcast on air by hand; a `setlist` or a `feature` takes no calls whatever this says',
         ),
     mixInSimilar: z
         .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
@@ -136,7 +136,7 @@ export const ScheduleSlotInput = z.strictObject({
         .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
         .optional()
         .describe(
-            "Whether somebody phones in during this stretch of the day. Absent leaves the station's own setting standing, exactly as it does when an operator briefs a broadcast by hand; a `setlist` or a `feature` takes no calls whatever this says",
+            'Whether somebody phones in during this stretch of the day. Absent is no calls, exactly as it is when an operator puts a broadcast on air by hand; a `setlist` or a `feature` takes no calls whatever this says',
         ),
     mixInSimilar: z
         .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())

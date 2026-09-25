@@ -45,6 +45,17 @@ describe('PlayPlaylistButton', () => {
         expect(playAPlaylist).toHaveBeenCalledWith({ pluginId: 'deadair.spotify', playlistId: 'pl_1', mixInSimilar: true });
     });
 
+    it('asks for calls only from the menu, since the ordinary press takes none', async () => {
+        playAPlaylist.mockResolvedValue(status);
+        const user = setupUser();
+        render(<PlayPlaylistButton pluginId="deadair.spotify" playlistId="pl_1" />);
+
+        await user.click(screen.getByRole('button', { name: 'More ways to air this playlist' }));
+        await user.click(await screen.findByRole('menuitem', { name: 'Air with calls' }));
+
+        expect(playAPlaylist).toHaveBeenCalledWith({ pluginId: 'deadair.spotify', playlistId: 'pl_1', callins: true });
+    });
+
     it('offers nothing for a playlist the source will not hand over', () => {
         render(<PlayPlaylistButton pluginId="deadair.spotify" playlistId="pl_1" playable={false} />);
 

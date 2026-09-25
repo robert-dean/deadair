@@ -106,6 +106,7 @@ export const schedule = {
             countingDown: '{{name}}, counting down',
             playlist: '{{name}} — {{from}}',
             brief: '“{{brief}}”',
+            callins: 'taking calls',
             nothingSet: 'Nothing is set to play between blocks, so a gap keeps whatever the last block left on.',
             between: 'Between blocks: {{parts}}',
         },

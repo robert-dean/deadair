@@ -156,8 +156,7 @@ describe('SlotEditor', () => {
     });
 
     it('sends call-ins only when they are asked for, so an untouched box changes nothing', async () => {
-        // The three-way the column is nullable for: absent leaves `rotation.callins` standing, where
-        // a `false` on every slot would be the schedule overruling a station that takes calls.
+        // Absent is no calls, with nothing station-wide behind it, so an untouched box need say nothing.
         listImportablePlaylists.mockResolvedValue(PLAYLISTS);
         listPersonas.mockResolvedValue(PERSONAS);
         const onSubmit = vi.fn();

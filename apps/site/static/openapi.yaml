@@ -1231,6 +1231,113 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/HistoryPage'
+    '/console/language':
+        get:
+            operationId: choice
+            summary: 'Get my console language'
+            description: 'The language you chose for the console, if you chose one'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/ConsoleLanguageChoice'
+        put:
+            operationId: choose
+            summary: 'Choose my console language'
+            description: 'Chooses the language your console is shown in, or, without one, goes back to following the browser'
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/ConsoleLanguageChoice'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/ConsoleLanguageChoice'
+    '/console/languages':
+        get:
+            operationId: list
+            summary: 'List console languages'
+            description: 'Every language this station holds a pack for, without the strings'
+            security: []
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/ConsoleLanguageList'
+    '/console/languages/{locale}':
+        get:
+            operationId: get
+            summary: 'Get console language'
+            description: "One language's pack, strings and all, as it was imported"
+            parameters:
+                - name: locale
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 2
+                      maxLength: 35
+            security: []
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/ConsoleLanguagePack'
+        put:
+            operationId: import
+            summary: 'Import console language'
+            description: "Installs a language pack, replacing any pack already installed for the language. The tag in the path must be the pack's own"
+            parameters:
+                - name: locale
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 2
+                      maxLength: 35
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/ConsoleLanguagePack'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/ConsoleLanguageList'
+        delete:
+            operationId: remove
+            summary: 'Remove console language'
+            description: 'Removes a language. Anybody who had chosen it sees English'
+            parameters:
+                - name: locale
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 2
+                      maxLength: 35
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/ConsoleLanguageList'
     '/messaging/links':
         get:
             operationId: list
@@ -7343,7 +7450,7 @@ components:
                     description: 'The latest release year, on the same terms. Set with `eraFrom` for a decade; either may stand alone'
                 callins:
                     type: boolean
-                    description: "Whether somebody phones in during this broadcast. A call is a short programme rather than a break: a few turns in a few voices, entering the running order as one block, spaced by `rotation.callinEveryMinutes`. Absent takes the station's own setting, which is off"
+                    description: 'Whether somebody phones in during this broadcast. A call is a short programme rather than a break: a few turns in a few voices, entering the running order as one block, spaced by `rotation.callinEveryMinutes`. Absent is no calls: there is no station-wide default behind it'
                 mixInSimilar:
                     type: boolean
                     description: "Whether records that sound like the ones on this playlist are mixed in among them, one every `rotation.mixInEvery` records, found through the similarity plugin. The playlist still plays in full and in its own order around them. Absent takes the station's own setting, which is off. A setlist and a feature never have anything mixed in"
@@ -7485,6 +7592,81 @@ components:
                     maxLength: 200
                     description: 'The cursor for the page after this one, absent once the history has been read to its end'
             required: [entries]
+        ConsoleLanguagePack:
+            type: object
+            properties:
+                format:
+                    const: deadair.console-language
+                    description: 'Says the file is a console language pack'
+                version:
+                    type: integer
+                    minimum: 1
+                    description: "The version of the document's shape. This station reads version 1"
+                locale:
+                    type: string
+                    minLength: 2
+                    maxLength: 35
+                    description: 'The language, as a BCP 47 tag such as `de` or `pt-BR`. Never English, which is built into the console'
+                name:
+                    type: string
+                    minLength: 1
+                    maxLength: 100
+                    description: "The language's name in itself, as the console's picker shows it: `Deutsch`, not `German`"
+                direction:
+                    type: string
+                    enum: [ltr, rtl]
+                    description: 'Which way its text runs'
+                madeFor:
+                    type: string
+                    maxLength: 50
+                    description: 'The console version the pack was translated against. Empty when the file did not say'
+                catalog:
+                    type: object
+                    additionalProperties: {}
+                    description: "The strings, nested by namespace and then by key, in the English catalog's shape. Every value is text or a further level of nesting"
+            required: [format, version, locale, name, direction, madeFor, catalog]
+            description: "A language pack: every word the console says, in one language, as the file a translator made. The same document is exported, imported and stored. The console's language only; what the station broadcasts in is the `stream.language` setting"
+        ConsoleLanguage:
+            type: object
+            properties:
+                locale:
+                    type: string
+                    minLength: 2
+                    maxLength: 35
+                name:
+                    type: string
+                    minLength: 1
+                    maxLength: 100
+                direction:
+                    type: string
+                    enum: [ltr, rtl]
+                madeFor:
+                    type: string
+                    maxLength: 50
+                importedAt:
+                    type: string
+                    format: date-time
+                    description: 'When the pack now installed for it was imported'
+            required: [locale, name, direction, madeFor, importedAt]
+            description: 'A language the console can be shown in on this station, without its strings'
+        ConsoleLanguageList:
+            type: object
+            properties:
+                languages:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/ConsoleLanguage'
+                    description: 'In order of their tags. English is built in and is never listed'
+            required: [languages]
+        ConsoleLanguageChoice:
+            type: object
+            properties:
+                locale:
+                    type: string
+                    minLength: 2
+                    maxLength: 35
+                    description: 'A language this station holds a pack for, or `en` for English whatever the browser prefers'
+            description: "The language the signed-in operator chose for the console. Absent means none was chosen, and the console follows the browser's own preference among the languages it has"
         MessagingLinkCode:
             type: object
             properties:
@@ -9778,6 +9960,9 @@ components:
                 mixInSimilar:
                     type: boolean
                     description: "Whether records that sound like the ones on this playlist are mixed in among them, one every `rotation.mixInEvery` records. The playlist still plays in full and in its own order around them. Absent takes the station's own setting, which is off"
+                callins:
+                    type: boolean
+                    description: 'Whether somebody phones in during this broadcast, exactly as `PutOnAirInput.callins`. Absent is no calls: there is no station-wide default behind it'
             required: [pluginId, playlistId]
             description: 'The plugin playlist to load into the running order'
         PlayoutStationPlaylistInput:
@@ -9789,6 +9974,9 @@ components:
                 mixInSimilar:
                     type: boolean
                     description: "Whether records that sound like the ones on this playlist are mixed in among them, one every `rotation.mixInEvery` records. Absent takes the station's own setting, which is off"
+                callins:
+                    type: boolean
+                    description: 'Whether somebody phones in during this broadcast, exactly as `PutOnAirInput.callins`. Absent is no calls: there is no station-wide default behind it'
             required: [stationPlaylistId]
             description: 'A playlist the station owns, to load into the running order'
         PlayoutChartInput:
@@ -9803,6 +9991,9 @@ components:
                     type: string
                     enum: [countdown, ranked, unordered]
                     description: 'Which way round to play it. Absent is `countdown`, which opens on the lowest rank and ends on number one'
+                callins:
+                    type: boolean
+                    description: 'Whether somebody phones in during this broadcast, exactly as `PutOnAirInput.callins`. Absent is no calls: there is no station-wide default behind it'
             required: [chartId]
             description: 'The published chart to build the running order from'
         PlayoutItem:
@@ -11807,7 +11998,7 @@ components:
                     description: 'The latest release year, on the same terms. Set with `eraFrom` for a decade; either may stand alone'
                 callins:
                     type: boolean
-                    description: "Whether somebody phones in during this stretch of the day. Absent leaves the station's own setting standing, exactly as it does when an operator briefs a broadcast by hand; a `setlist` or a `feature` takes no calls whatever this says"
+                    description: 'Whether somebody phones in during this stretch of the day. Absent is no calls, exactly as it is when an operator puts a broadcast on air by hand; a `setlist` or a `feature` takes no calls whatever this says'
                 mixInSimilar:
                     type: boolean
                     description: "Whether records that sound like this slot's playlist are mixed in among its records, one every `rotation.mixInEvery` records. Absent leaves the station's own setting standing, exactly as it does when an operator airs a playlist by hand; a slot with no playlist, or a `setlist` or a `feature`, never mixes whatever this says"

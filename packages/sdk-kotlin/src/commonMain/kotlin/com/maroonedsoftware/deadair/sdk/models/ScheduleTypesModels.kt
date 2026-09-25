@@ -37,7 +37,7 @@ data class ScheduleSlot(
     val eraFrom: Long? = null,
     /** The latest release year, on the same terms. Set with `eraFrom` for a decade; either may stand alone */
     val eraTo: Long? = null,
-    /** Whether somebody phones in during this stretch of the day. Absent leaves the station's own setting standing, exactly as it does when an operator briefs a broadcast by hand; a `setlist` or a `feature` takes no calls whatever this says */
+    /** Whether somebody phones in during this stretch of the day. Absent is no calls, exactly as it is when an operator puts a broadcast on air by hand; a `setlist` or a `feature` takes no calls whatever this says */
     val callins: Boolean? = null,
     /** Whether records that sound like this slot's playlist are mixed in among its records, one every `rotation.mixInEvery` records. Absent leaves the station's own setting standing, exactly as it does when an operator airs a playlist by hand; a slot with no playlist, or a `setlist` or a `feature`, never mixes whatever this says */
     val mixInSimilar: Boolean? = null,
@@ -73,7 +73,7 @@ data class ScheduleSlotInput(
     val eraFrom: Long? = null,
     /** The latest release year, on the same terms. Set with `eraFrom` for a decade; either may stand alone */
     val eraTo: Long? = null,
-    /** Whether somebody phones in during this stretch of the day. Absent leaves the station's own setting standing, exactly as it does when an operator briefs a broadcast by hand; a `setlist` or a `feature` takes no calls whatever this says */
+    /** Whether somebody phones in during this stretch of the day. Absent is no calls, exactly as it is when an operator puts a broadcast on air by hand; a `setlist` or a `feature` takes no calls whatever this says */
     val callins: Boolean? = null,
     /** Whether records that sound like this slot's playlist are mixed in among its records, one every `rotation.mixInEvery` records. Absent leaves the station's own setting standing, exactly as it does when an operator airs a playlist by hand; a slot with no playlist, or a `setlist` or a `feature`, never mixes whatever this says */
     val mixInSimilar: Boolean? = null,

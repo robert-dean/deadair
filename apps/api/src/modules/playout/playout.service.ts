@@ -303,11 +303,13 @@ export class PlayoutService {
      * actor's view of the plugin.
      */
     async playPlaylist(input: PlayoutPlaylistInput): Promise<PlayoutStatus> {
-        // `mixInSimilar` only when it was sent: absent leaves the station's own setting standing.
+        // `mixInSimilar` and `callins` only when they were sent: absent leaves the station's own
+        // setting standing.
         await this.director.putOnAir({
             pluginId: input.pluginId,
             playlistId: input.playlistId,
             ...(input.mixInSimilar === undefined ? {} : { mixInSimilar: input.mixInSimilar }),
+            ...(input.callins === undefined ? {} : { callins: input.callins }),
         });
 
         // Hand the first item over now rather than waiting out the reconcile tick,
@@ -324,6 +326,7 @@ export class PlayoutService {
         await this.director.putOnAir({
             stationPlaylistId: input.stationPlaylistId,
             ...(input.mixInSimilar === undefined ? {} : { mixInSimilar: input.mixInSimilar }),
+            ...(input.callins === undefined ? {} : { callins: input.callins }),
         });
 
         await this.pusher.reconcile();
@@ -359,7 +362,11 @@ export class PlayoutService {
      * @throws 422 when the id names no chart, or when nothing could read one.
      */
     async playChart(input: PlayoutChartInput): Promise<PlayoutStatus> {
-        await this.director.airChart({ chartId: input.chartId, ...(input.chartOrder === undefined ? {} : { chartOrder: input.chartOrder }) });
+        await this.director.airChart({
+            chartId: input.chartId,
+            ...(input.chartOrder === undefined ? {} : { chartOrder: input.chartOrder }),
+            ...(input.callins === undefined ? {} : { callins: input.callins }),
+        });
 
         // No `reconcile()` here, unlike the playlist above: there is nothing new to hand over yet.
         // The job reconciles once the order it built is actually on.

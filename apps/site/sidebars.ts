@@ -37,6 +37,7 @@ const sidebars: SidebarsConfig = {
                 'features/plugins',
                 'features/models-and-voices',
                 'features/console',
+                'features/languages',
                 'features/listening',
                 'features/connect-claude',
             ],

@@ -8,6 +8,7 @@ import { registerChartsMcpCatalog, registerChartsMcpToolClasses } from './charts
 import { registerClockMcpCatalog, registerClockMcpToolClasses } from './clock.mcp.js';
 import { registerDirectorMcpCatalog, registerDirectorMcpToolClasses } from './director.mcp.js';
 import { registerHistoryMcpCatalog, registerHistoryMcpToolClasses } from './history.mcp.js';
+import { registerLanguagesMcpCatalog, registerLanguagesMcpToolClasses } from './languages.mcp.js';
 import { registerMessagingMcpCatalog, registerMessagingMcpToolClasses } from './messaging.mcp.js';
 import { registerNarrationsMcpCatalog, registerNarrationsMcpToolClasses } from './narrations.mcp.js';
 import { registerNewsMcpCatalog, registerNewsMcpToolClasses } from './news.mcp.js';
@@ -73,6 +74,7 @@ export function registerMcpCatalog(container: Container): McpToolCatalog {
     registerClockMcpCatalog(map, container);
     registerDirectorMcpCatalog(map, container);
     registerHistoryMcpCatalog(map, container);
+    registerLanguagesMcpCatalog(map, container);
     registerMessagingMcpCatalog(map, container);
     registerNarrationsMcpCatalog(map, container);
     registerNewsMcpCatalog(map, container);
@@ -112,6 +114,7 @@ export function registerMcpToolClasses(registry: Registry): void {
     registerClockMcpToolClasses(registry);
     registerDirectorMcpToolClasses(registry);
     registerHistoryMcpToolClasses(registry);
+    registerLanguagesMcpToolClasses(registry);
     registerMessagingMcpToolClasses(registry);
     registerNarrationsMcpToolClasses(registry);
     registerNewsMcpToolClasses(registry);

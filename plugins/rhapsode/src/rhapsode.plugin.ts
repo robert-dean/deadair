@@ -174,24 +174,47 @@ export class RhapsodePlugin extends Plugin implements SpeechPluginInstance {
      * can ask for. The address is the description, because when choosing between two rows that is the
      * part that differs.
      *
-     * The `spec` is composed here rather than taken from the server's own opaque one, which is a
-     * deliberate trade. Reading the server's would mean listing every engine's voices on a console
-     * page load, and on this server listing voices starts the engine's worker process — a page view
-     * would cost several of them. What that buys is noticing a voice re-cloned under the SAME id,
-     * whose preview would otherwise stay stale until something else about the row changed, and that
-     * is worth less than the workers.
+     * The `spec` is the address AND the server's own opaque one for that voice, which changes when
+     * its reference clip does. The address alone missed a voice re-cloned under the same id: the
+     * preview stayed the old recording for as long as nothing else about the row changed, and a
+     * re-voiced presenter was measured doing exactly that. Reading the server's means listing
+     * voices, which starts that engine's worker process (not its model), so it is asked only of the
+     * engines a row names a voice on: the ones every break is spoken through anyway.
+     *
+     * A voice the server did not answer for gets a marker rather than the bare address, so no key
+     * minted before this read existed can be served again, since those are the stale ones.
      */
     async listVoices(): Promise<SpeechVoice[]> {
-        const mapped = Object.entries(this.voices).map(([id, mapping]) => {
-            const address = this.addressOf(mapping);
-
-            return { id, label: id, description: describeFully(address), spec: specOf(address) };
-        });
+        const fallback = this.resolveVoice(undefined);
+        const addresses = [
+            { id: '', label: 'Default', address: fallback },
+            ...Object.entries(this.voices).map(([id, mapping]) => ({ id, label: id, address: this.addressOf(mapping) })),
+        ];
+        const held = await this.serverSpecs(new Set(addresses.flatMap(({ address }) => (address.voice === undefined ? [] : [address.engine]))));
 
         // Always offer the fallback, under its own name, so a station with no mappings at all still
         // has something to preview and choose.
-        const fallback = this.resolveVoice(undefined);
-        return [{ id: '', label: 'Default', description: describeFully(fallback), spec: specOf(fallback) }, ...mapped];
+        return addresses.map(({ id, label, address }) => {
+            const serverSpec = address.voice === undefined ? undefined : held.get(address.engine)?.get(address.voice);
+            return { id, label, description: describeFully(address), spec: `${specOf(address)}#${serverSpec ?? UNKNOWN_SPEC}` };
+        });
+    }
+
+    /**
+     * Each named engine's voices by id, as the server's spec for each, or nothing for an engine
+     * that would not say. Every engine at once, for `suggestConfigOptions`'s reason.
+     */
+    private async serverSpecs(engines: ReadonlySet<string>): Promise<Map<string, Map<string, string>>> {
+        const access = this.access();
+        if (access === undefined) return new Map();
+
+        const listed = await Promise.all(
+            [...engines].map(async engine => {
+                const voices = await fetchVoices(access, engine);
+                return [engine, new Map(voices.flatMap(voice => (typeof voice.spec === 'string' ? [[voice.id, voice.spec] as const] : [])))] as const;
+            }),
+        );
+        return new Map(listed);
     }
 
     /**
@@ -519,6 +542,14 @@ const describeFully = (asked: SpeakAddress): string =>
         ...(asked.variant === undefined ? [] : [`(${asked.variant})`]),
         ...(asked.speed === undefined ? [] : [`at ${asked.speed}x`]),
     ].join(' ');
+
+/**
+ * What a voice's spec carries in place of the server's own, when the server did not answer for it.
+ *
+ * Present rather than left off, because the bare address is what every key minted before the
+ * server's spec was read looks like, and those are exactly the previews that may be stale.
+ */
+const UNKNOWN_SPEC = 'unknown';
 
 /**
  * The token the host keys a cached voice preview on. See `SpeechVoice.spec`.

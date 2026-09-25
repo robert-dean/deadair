@@ -68,7 +68,8 @@
             "deadair.oauth_clients.kind": "'preregistered' | 'dynamic'",
             "deadair.oauth_clients.token_endpoint_auth_method": "'none' | 'client_secret_post' | 'client_secret_basic'",
             "deadair.listener_requests.chat_kind": "'direct' | 'group' | null",
-            "deadair.listener_requests.status": "Generated<'waiting' | 'pending' | 'queued' | 'aired' | 'declined' | 'expired'>"
+            "deadair.listener_requests.status": "Generated<'waiting' | 'pending' | 'queued' | 'aired' | 'declined' | 'expired'>",
+            "deadair.console_languages.direction": "Generated<'ltr' | 'rtl'>"
         }
     },
     "partitions": false,

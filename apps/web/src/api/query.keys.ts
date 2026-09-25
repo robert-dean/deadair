@@ -178,6 +178,11 @@ export const queryKeys = {
         list: () => ['topics', 'list'] as const,
         kinds: () => ['topics', 'kinds'] as const,
     },
+    languages: {
+        list: () => ['languages', 'list'] as const,
+        pack: (locale: string) => ['languages', 'pack', locale] as const,
+        choice: () => ['languages', 'choice'] as const,
+    },
     station: {
         /** What needs somebody. One key: it is a reading of the whole station, and there is only one. */
         attention: () => ['station', 'attention'] as const,

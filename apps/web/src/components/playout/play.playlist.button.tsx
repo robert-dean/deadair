@@ -28,6 +28,9 @@ export interface PlayPlaylistButtonProps {
  * than a checkbox beside the button, because the button also sits on a compact card, and because the
  * ordinary press must keep sending NOTHING about it: absent leaves `rotation.mixInSimilar` standing,
  * so a station with that setting on mixes into every playlist without anybody opening the menu.
+ *
+ * Calls are the other thing the menu offers, and the opposite way round: they have no station-wide
+ * setting, so the ordinary press takes none and only "Air with calls" asks for them.
  */
 export function PlayPlaylistButton({ pluginId, playlistId, playable = true, size = 'sm', variant = 'light' }: PlayPlaylistButtonProps) {
     const play = usePlayPlaylist();
@@ -38,7 +41,7 @@ export function PlayPlaylistButton({ pluginId, playlistId, playable = true, size
 
     return (
         <AirButton
-            onAir={mixInSimilar => play.mutate({ pluginId, playlistId, ...(mixInSimilar ? { mixInSimilar } : {}) })}
+            onAir={ask => play.mutate({ pluginId, playlistId, ...ask })}
             pending={play.isPending}
             error={play.isError ? play.error : undefined}
             size={size}
@@ -59,7 +62,7 @@ export function PlayStationPlaylistButton({ stationPlaylistId, size = 'sm', vari
 
     return (
         <AirButton
-            onAir={mixInSimilar => play.mutate({ stationPlaylistId, ...(mixInSimilar ? { mixInSimilar } : {}) })}
+            onAir={ask => play.mutate({ stationPlaylistId, ...ask })}
             pending={play.isPending}
             error={play.isError ? play.error : undefined}
             size={size}
@@ -68,9 +71,15 @@ export function PlayStationPlaylistButton({ stationPlaylistId, size = 'sm', vari
     );
 }
 
+/** What one press asks for beyond the playlist itself. Each is absent unless that press says it. */
+interface AirAsk {
+    mixInSimilar?: true;
+    callins?: true;
+}
+
 interface AirButtonProps {
-    /** Air it, with similar records mixed in when `true`, and saying nothing about them otherwise. */
-    onAir: (mixInSimilar?: true) => void;
+    /** Air it, saying nothing about anything the press did not ask for. */
+    onAir: (ask?: AirAsk) => void;
     pending: boolean;
     error: unknown;
     size: 'xs' | 'sm';
@@ -103,10 +112,11 @@ function AirButton({ onAir, pending, error, size, variant }: AirButtonProps) {
                         </ActionIcon>
                     </Menu.Target>
                     <Menu.Dropdown>
-                        <Menu.Item onClick={() => onAir(true)}>{t('playlist.mixIn')}</Menu.Item>
+                        <Menu.Item onClick={() => onAir({ mixInSimilar: true })}>{t('playlist.mixIn')}</Menu.Item>
                         <Menu.Label maw={260} style={{ whiteSpace: 'normal' }}>
                             {t('playlist.mixInHint')}
                         </Menu.Label>
+                        <Menu.Item onClick={() => onAir({ callins: true })}>{t('playlist.withCalls')}</Menu.Item>
                     </Menu.Dropdown>
                 </Menu>
             </Group>

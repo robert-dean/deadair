@@ -10,7 +10,16 @@ import { chartsListOptions } from '../../api/charts.queries';
 import { playlistsListOptions } from '../../api/playlists.queries';
 import { useSettings, useUpdateSettings } from '../../api/settings.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
-import { BriefField, ChartOrderField, chartSourceValue, EraFields, SourceField, sourceValue, splitSource } from '../programme/programme.fields';
+import {
+    BriefField,
+    CallinsField,
+    ChartOrderField,
+    chartSourceValue,
+    EraFields,
+    SourceField,
+    sourceValue,
+    splitSource,
+} from '../programme/programme.fields';
 import { ErrorAlert } from '../shared/error.alert';
 import { Eyebrow } from '../shared/eyebrow';
 
@@ -32,6 +41,7 @@ const KEYS = {
     brief: 'schedule.sustainingBrief',
     eraFrom: 'schedule.sustainingEraFrom',
     eraTo: 'schedule.sustainingEraTo',
+    callins: 'schedule.sustainingCallins',
 } as const;
 
 interface FormValues {
@@ -49,6 +59,8 @@ interface FormValues {
     /** Empty string is Mantine's "nothing typed" for a `NumberInput`, and it means no bound. */
     eraFrom: number | string;
     eraTo: number | string;
+    /** Whether the gaps take calls. Its own switch, as a block's is: nothing station-wide decides it. */
+    callins: boolean;
 }
 
 /**
@@ -59,7 +71,7 @@ interface FormValues {
  * That is what a sustaining source IS: a playlist or a chart, or a brief and a period, with no times and no days,
  * standing behind the grid rather than on it. So it is drawn with the controls the slot editor
  * already uses — one searchable picker over the plugins' real playlists and charts, a brief, and the two year
- * boxes — rather than as the five settings rows it is stored as. It lived on the settings page,
+ * boxes and whether it takes calls — rather than as the settings rows it is stored as. It lived on the settings page,
  * halfway down a card about rotation rules, under labels that had to re-explain the schedule in
  * order to say what they were for.
  *
@@ -106,6 +118,7 @@ export function SustainingPanel() {
             [KEYS.brief]: next.brief.trim() === '' ? null : next.brief.trim(),
             [KEYS.eraFrom]: typeof next.eraFrom === 'number' ? next.eraFrom : null,
             [KEYS.eraTo]: typeof next.eraTo === 'number' ? next.eraTo : null,
+            [KEYS.callins]: next.callins,
         });
     };
 
@@ -185,6 +198,8 @@ function SustainingForm({ initial, onSubmit, saving, succeeded, failure }: Susta
                     well as the model, so it holds on a station with nothing configured to read prose. */}
                 <EraFields from={form.getInputProps('eraFrom')} to={form.getInputProps('eraTo')} />
 
+                <CallinsField {...form.getInputProps('callins', { type: 'checkbox' })} />
+
                 <Text size="xs" c="dimmed">
                     {t('sustaining.note')}
                 </Text>
@@ -241,6 +256,8 @@ function storedValues(values: Record<string, unknown>): FormValues {
         brief: text(values, KEYS.brief),
         eraFrom: year(values, KEYS.eraFrom),
         eraTo: year(values, KEYS.eraTo),
+        // `parseSetting` types a switch back as a boolean, so anything else is a switch nobody set.
+        callins: values[KEYS.callins] === true,
     };
 }
 
@@ -274,7 +291,9 @@ function summaryOf(t: TFunction<'schedule'>, stored: FormValues, catalog: readon
     const period = periodOf(t, stored.eraFrom, stored.eraTo);
     if (period !== undefined) parts.push(period);
 
+    // Only beside something that plays: the API treats a calls switch on its own as no source.
     if (parts.length === 0) return t('sustaining.summary.nothingSet');
+    if (stored.callins) parts.push(t('sustaining.summary.callins'));
 
     return t('sustaining.summary.between', { parts: parts.join(' · ') });
 }

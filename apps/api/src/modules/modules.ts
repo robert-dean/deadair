@@ -8,6 +8,7 @@ import { PolicyModule } from './policy/policy.module.js';
 import { CatalogModule } from './catalog/catalog.module.js';
 import { OnboardingModule } from './onboarding/onboarding.module.js';
 import { SettingsModule } from './settings/settings.module.js';
+import { LanguagesModule } from './languages/languages.module.js';
 import { StreamModule } from './stream/stream.module.js';
 import { MailModule } from './mail/mail.module.js';
 import { PluginsModule } from './plugins/plugins.module.js';
@@ -100,6 +101,11 @@ const ordered: ServerKitModule[] = [
     CatalogModule,
     OnboardingModule,
     SettingsModule,
+    // Beside Settings as the console's other half of "how this install is set up": which languages
+    // the console can be shown in. It resolves only the database and the station identity and starts
+    // nothing, so nothing depends on its position, and it is NOT beside anything to do with
+    // `stream.language` on purpose: the console's language and the broadcast language are unrelated.
+    LanguagesModule,
     // After SettingsModule: it renders the Icecast/Liquidsoap config from the
     // `stream.*` settings, and seeds the secrets those settings hold. Nothing
     // else depends on it.

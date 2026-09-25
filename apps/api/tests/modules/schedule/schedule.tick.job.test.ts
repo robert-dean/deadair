@@ -144,11 +144,45 @@ describe('ScheduleTickJob', () => {
         });
 
         it('hands a gap after it to the sustaining source', async () => {
-            const { tick, console } = build({ active: false, ranOut: true, inForce: undefined, airing: 'morning', sustaining: { brief: 'jazz' } });
+            const { tick, console } = build({
+                active: false,
+                ranOut: true,
+                inForce: undefined,
+                airing: 'morning',
+                sustaining: { brief: 'jazz', callins: false },
+            });
 
             await tick();
 
             expect(console.putOnAir).toHaveBeenCalledWith(expect.objectContaining({ name: 'Sustaining' }), undefined, true);
+        });
+
+        it('says whether the gap takes calls, rather than leaving it to a station default', async () => {
+            const { tick, console } = build({
+                active: false,
+                ranOut: true,
+                inForce: undefined,
+                airing: 'morning',
+                sustaining: { brief: 'jazz', callins: true },
+            });
+
+            await tick();
+
+            expect(console.putOnAir).toHaveBeenCalledWith(expect.objectContaining({ name: 'Sustaining', callins: true }), undefined, true);
+        });
+
+        it('says no calls just as plainly', async () => {
+            const { tick, console } = build({
+                active: false,
+                ranOut: true,
+                inForce: undefined,
+                airing: 'morning',
+                sustaining: { brief: 'jazz', callins: false },
+            });
+
+            await tick();
+
+            expect(console.putOnAir).toHaveBeenCalledWith(expect.objectContaining({ callins: false }), undefined, true);
         });
 
         it('still respects a hold', async () => {
@@ -205,7 +239,7 @@ describe('ScheduleTickJob', () => {
     it('hands a station in a GAP to its sustaining source', async () => {
         // The whole of what ending a block means. Without this the station would carry on with what
         // the last block left it, which is indistinguishable from that block never having ended.
-        const { tick, console } = build({ inForce: undefined, airing: 'breakfast', sustaining: { pluginId: 'p', playlistId: 'l' } });
+        const { tick, console } = build({ inForce: undefined, airing: 'breakfast', sustaining: { pluginId: 'p', playlistId: 'l', callins: false } });
 
         await tick();
 
@@ -261,7 +295,7 @@ describe('ScheduleTickJob', () => {
     });
 
     it('carries the sustaining period through a gap too', async () => {
-        const { tick, console } = build({ inForce: undefined, airing: 'breakfast', sustaining: { era: { from: 1990 } } });
+        const { tick, console } = build({ inForce: undefined, airing: 'breakfast', sustaining: { era: { from: 1990 }, callins: false } });
 
         await tick();
 
@@ -287,7 +321,7 @@ describe('ScheduleTickJob', () => {
     it('does nothing in a gap the station is already sustaining through', async () => {
         // The running order no longer belonging to any slot IS the mark that it happened, which is
         // the same comparison the block case makes and needs no second piece of state.
-        const { tick, console } = build({ inForce: undefined, airing: undefined, sustaining: { pluginId: 'p', playlistId: 'l' } });
+        const { tick, console } = build({ inForce: undefined, airing: undefined, sustaining: { pluginId: 'p', playlistId: 'l', callins: false } });
 
         await tick();
 
@@ -578,7 +612,7 @@ describe('ScheduleTickJob', () => {
         const { tick, console } = build({
             inForce: undefined,
             airing: 'breakfast',
-            sustaining: { chartId: 'deadair.lastfm:top-100', chartOrder: 'ranked' },
+            sustaining: { chartId: 'deadair.lastfm:top-100', chartOrder: 'ranked', callins: false },
         });
 
         await tick();

@@ -19,11 +19,12 @@ import com.maroonedsoftware.deadair.sdk.models.StationAir
  * once, and the running order is asked to read again because it has just been rebuilt.
  */
 class AirActions(private val actions: OperatorActions, private val playout: PlayoutRepository, private val order: OrderRepository) {
-    suspend fun airPlaylist(pluginId: String, playlistId: String): Boolean =
-        air { it.playout.playAPlaylist(PlayoutPlaylistInput(pluginId = pluginId, playlistId = playlistId)) }
+    /** `callins` is sent only when it is on: absent is no calls, with nothing station-wide behind it. */
+    suspend fun airPlaylist(pluginId: String, playlistId: String, callins: Boolean = false): Boolean =
+        air { it.playout.playAPlaylist(PlayoutPlaylistInput(pluginId = pluginId, playlistId = playlistId, callins = true.takeIf { callins })) }
 
-    suspend fun airChart(chartId: String, chartOrder: PlayoutChartInputChartOrder): Boolean =
-        air { it.playout.playAChart(PlayoutChartInput(chartId = chartId, chartOrder = chartOrder)) }
+    suspend fun airChart(chartId: String, chartOrder: PlayoutChartInputChartOrder, callins: Boolean = false): Boolean =
+        air { it.playout.playAChart(PlayoutChartInput(chartId = chartId, chartOrder = chartOrder, callins = true.takeIf { callins })) }
 
     /**
      * Put the station on air on a running order built from the operator's own words.

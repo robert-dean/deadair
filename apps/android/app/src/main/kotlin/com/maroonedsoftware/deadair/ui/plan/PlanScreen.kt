@@ -1,6 +1,8 @@
 package com.maroonedsoftware.deadair.ui.plan
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.consumeWindowInsets
@@ -12,11 +14,9 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -51,6 +51,7 @@ import com.maroonedsoftware.deadair.R
 import com.maroonedsoftware.deadair.sdk.models.Persona
 import com.maroonedsoftware.deadair.sdk.models.StationMode
 import com.maroonedsoftware.deadair.sdk.models.StationOnEnd
+import com.maroonedsoftware.deadair.ui.CallinsToggle
 import com.maroonedsoftware.deadair.ui.LoadState
 import com.maroonedsoftware.deadair.ui.order.HostPicker
 import com.maroonedsoftware.deadair.ui.order.stationHost
@@ -228,12 +229,7 @@ fun PlanScreen(
 @Composable
 private fun NewShowFields(state: PlanUiState, hostName: String?, busy: Boolean, onForm: (PlanForm) -> Unit, onPickHost: () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Column(
-            modifier = Modifier.fillMaxWidth().selectable(selected = false, enabled = !busy, role = Role.Button, onClick = onPickHost).padding(vertical = 4.dp),
-        ) {
-            Text(stringResource(R.string.plan_hosted_by), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(hostName ?: stringResource(R.string.plan_host_unset), style = MaterialTheme.typography.bodyLarge)
-        }
+        HostField(hostName = hostName, enabled = !busy, onPickHost = onPickHost)
 
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             YearField(
@@ -277,19 +273,38 @@ private fun NewShowFields(state: PlanUiState, hostName: String?, busy: Boolean, 
         )
         Note(R.string.plan_shape_note)
 
-        Row(
+        CallinsToggle(checked = state.form.callins, enabled = !busy, onChange = { onForm(state.form.copy(callins = it)) })
+    }
+}
+
+/**
+ * Who presents it, drawn as a field with a dropdown arrow and opening the picker when tapped.
+ *
+ * It was a label over a line of text, which was tappable and did not look it: between an outlined
+ * brief and two outlined years it read as a caption, and operators concluded a new show could not
+ * be given a host. So it wears the same outline as its neighbours. The field itself is read-only
+ * and a transparent layer over it takes the tap, because a text field keeps its own clicks for
+ * placing a cursor and never hands them to a modifier.
+ */
+@Composable
+private fun HostField(hostName: String?, enabled: Boolean, onPickHost: () -> Unit) {
+    val choose = stringResource(R.string.plan_host_choose)
+    Box(modifier = Modifier.fillMaxWidth()) {
+        OutlinedTextField(
+            value = hostName ?: stringResource(R.string.plan_host_unset),
+            onValueChange = {},
+            readOnly = true,
+            enabled = enabled,
+            singleLine = true,
+            label = { Text(stringResource(R.string.plan_hosted_by)) },
+            trailingIcon = { Icon(painterResource(R.drawable.ic_expand_more), contentDescription = null) },
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Box(
             modifier =
-                Modifier.fillMaxWidth()
-                    .toggleable(value = state.form.callins, enabled = !busy, role = Role.Checkbox, onValueChange = { onForm(state.form.copy(callins = it)) })
-                    .padding(vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Checkbox(checked = state.form.callins, onCheckedChange = null, enabled = !busy)
-            Column(modifier = Modifier.padding(start = 12.dp)) {
-                Text(stringResource(R.string.plan_callins), style = MaterialTheme.typography.bodyMedium)
-                Text(stringResource(R.string.plan_callins_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
+                Modifier.matchParentSize()
+                    .clickable(enabled = enabled, role = Role.Button, onClickLabel = choose, onClick = onPickHost),
+        )
     }
 }
 

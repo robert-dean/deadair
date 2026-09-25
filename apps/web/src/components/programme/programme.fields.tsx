@@ -340,11 +340,9 @@ export function ShapeNote({ what = 'broadcast' }: { what?: 'broadcast' | 'block'
  * Whether somebody phones in.
  *
  * A format decision rather than something a station does by being one, so it is off unless asked
- * for. Ticked sends `true` and unticked sends NOTHING, which is why this is a checkbox over a field
- * that is nullable underneath: absent leaves `rotation.callins` standing, where an explicit `false`
- * would be every broadcast overruling a station that takes calls every hour. The station's own
- * default is off, so "station off, this show on" is the case that needs saying and the one this
- * says. The third state is reachable in the column when something wants to express it.
+ * for. It is the PROGRAMME's answer alone: there is no station-wide setting behind it, so an
+ * unticked box, which sends nothing, is no calls. There was one (`rotation.callins`), and an
+ * unticked box inherited it, which is how a playlist put on without calls aired callers.
  */
 export function CallinsField(input: GetInputPropsReturnType) {
     const { t } = useTranslation('programme');

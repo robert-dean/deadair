@@ -9,6 +9,7 @@ import { ErrorAlert } from '../shared/error.alert';
 import { Eyebrow } from '../shared/eyebrow';
 import { PageSkeleton } from '../shared/page.skeleton';
 import { AppearanceCard } from './appearance.card';
+import { LanguagesCard } from './languages.card';
 import { ConfigFieldsForm } from './config.fields.form';
 import { PluginGrantsCard } from './plugin.grants.card';
 import { ProvidersCard } from './providers.card';
@@ -116,6 +117,7 @@ export interface SettingsSectionPageProps {
 function StandaloneSection({ section }: { section: SettingsSection }) {
     const { t } = useTranslation('settings');
     if (section.id === 'appearance') return <AppearanceCard />;
+    if (section.id === 'languages') return <LanguagesCard />;
     if (section.id === 'artwork') return <BreakArtCard />;
     if (section.id === 'storage') return <StorageCard />;
     if (section.id === 'grants') return <PluginGrantsCard />;

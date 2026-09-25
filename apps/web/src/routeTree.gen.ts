@@ -36,6 +36,7 @@ import { Route as SettingsBreaksRouteImport } from './routes/settings/breaks'
 import { Route as SettingsBulletinsRouteImport } from './routes/settings/bulletins'
 import { Route as SettingsGrantsRouteImport } from './routes/settings/grants'
 import { Route as SettingsHousekeepingRouteImport } from './routes/settings/housekeeping'
+import { Route as SettingsLanguagesRouteImport } from './routes/settings/languages'
 import { Route as SettingsLlmRouteImport } from './routes/settings/llm'
 import { Route as SettingsMailRouteImport } from './routes/settings/mail'
 import { Route as SettingsPlayoutRouteImport } from './routes/settings/playout'
@@ -191,6 +192,11 @@ const SettingsHousekeepingRoute = SettingsHousekeepingRouteImport.update({
   path: '/settings/housekeeping',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SettingsLanguagesRoute = SettingsLanguagesRouteImport.update({
+  id: '/settings/languages',
+  path: '/settings/languages',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SettingsLlmRoute = SettingsLlmRouteImport.update({
   id: '/settings/llm',
   path: '/settings/llm',
@@ -312,6 +318,7 @@ export interface FileRoutesByFullPath {
   '/settings/bulletins': typeof SettingsBulletinsRoute
   '/settings/grants': typeof SettingsGrantsRoute
   '/settings/housekeeping': typeof SettingsHousekeepingRoute
+  '/settings/languages': typeof SettingsLanguagesRoute
   '/settings/llm': typeof SettingsLlmRoute
   '/settings/mail': typeof SettingsMailRoute
   '/settings/playout': typeof SettingsPlayoutRoute
@@ -360,6 +367,7 @@ export interface FileRoutesByTo {
   '/settings/bulletins': typeof SettingsBulletinsRoute
   '/settings/grants': typeof SettingsGrantsRoute
   '/settings/housekeeping': typeof SettingsHousekeepingRoute
+  '/settings/languages': typeof SettingsLanguagesRoute
   '/settings/llm': typeof SettingsLlmRoute
   '/settings/mail': typeof SettingsMailRoute
   '/settings/playout': typeof SettingsPlayoutRoute
@@ -409,6 +417,7 @@ export interface FileRoutesById {
   '/settings/bulletins': typeof SettingsBulletinsRoute
   '/settings/grants': typeof SettingsGrantsRoute
   '/settings/housekeeping': typeof SettingsHousekeepingRoute
+  '/settings/languages': typeof SettingsLanguagesRoute
   '/settings/llm': typeof SettingsLlmRoute
   '/settings/mail': typeof SettingsMailRoute
   '/settings/playout': typeof SettingsPlayoutRoute
@@ -459,6 +468,7 @@ export interface FileRouteTypes {
     | '/settings/bulletins'
     | '/settings/grants'
     | '/settings/housekeeping'
+    | '/settings/languages'
     | '/settings/llm'
     | '/settings/mail'
     | '/settings/playout'
@@ -507,6 +517,7 @@ export interface FileRouteTypes {
     | '/settings/bulletins'
     | '/settings/grants'
     | '/settings/housekeeping'
+    | '/settings/languages'
     | '/settings/llm'
     | '/settings/mail'
     | '/settings/playout'
@@ -555,6 +566,7 @@ export interface FileRouteTypes {
     | '/settings/bulletins'
     | '/settings/grants'
     | '/settings/housekeeping'
+    | '/settings/languages'
     | '/settings/llm'
     | '/settings/mail'
     | '/settings/playout'
@@ -604,6 +616,7 @@ export interface RootRouteChildren {
   SettingsBulletinsRoute: typeof SettingsBulletinsRoute
   SettingsGrantsRoute: typeof SettingsGrantsRoute
   SettingsHousekeepingRoute: typeof SettingsHousekeepingRoute
+  SettingsLanguagesRoute: typeof SettingsLanguagesRoute
   SettingsLlmRoute: typeof SettingsLlmRoute
   SettingsMailRoute: typeof SettingsMailRoute
   SettingsPlayoutRoute: typeof SettingsPlayoutRoute
@@ -820,6 +833,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsHousekeepingRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/settings/languages': {
+      id: '/settings/languages'
+      path: '/settings/languages'
+      fullPath: '/settings/languages'
+      preLoaderRoute: typeof SettingsLanguagesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/settings/llm': {
       id: '/settings/llm'
       path: '/settings/llm'
@@ -980,6 +1000,7 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsBulletinsRoute: SettingsBulletinsRoute,
   SettingsGrantsRoute: SettingsGrantsRoute,
   SettingsHousekeepingRoute: SettingsHousekeepingRoute,
+  SettingsLanguagesRoute: SettingsLanguagesRoute,
   SettingsLlmRoute: SettingsLlmRoute,
   SettingsMailRoute: SettingsMailRoute,
   SettingsPlayoutRoute: SettingsPlayoutRoute,

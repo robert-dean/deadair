@@ -17,6 +17,8 @@ export * from './director/director.client.js';
 export * from './director/types/index.js';
 export * from './history/history.client.js';
 export * from './history/types/index.js';
+export * from './languages/languages.client.js';
+export * from './languages/types/index.js';
 export * from './messaging/messaging.client.js';
 export * from './messaging/types/index.js';
 export * from './narrations/narrations.client.js';

@@ -1,6 +1,6 @@
 {
     "name": "@deadair/plugin-slack",
-    "version": "0.34.2",
+    "version": "0.35.1",
     "private": true,
     "type": "module",
     "main": "./dist/index.js",

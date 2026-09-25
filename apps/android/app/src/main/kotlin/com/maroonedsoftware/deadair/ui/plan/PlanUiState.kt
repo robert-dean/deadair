@@ -112,7 +112,7 @@ data class PlanUiState(
      * The brief doubles as the name, because an operator who asked for heavy metal hits should read
      * that at the top of the tab rather than "The station". Everything optional is sent only when it
      * was chosen: an absent host is whichever persona the station has on air, an absent period is no
-     * bound, and absent phone-ins leave the station's own setting standing.
+     * bound, and absent phone-ins are none: the station has no setting behind them.
      */
     fun putOnAirInput(): PutOnAirInput {
         val asked = form.brief.trim()

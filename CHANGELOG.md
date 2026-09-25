@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.34.2] — 2026-09-24
+
+- The console's words now come from a message catalog rather than being written into each page, which is the groundwork for showing the console in languages other than English. English is still the only language and reads as it did, except that a handful of counts that said "1 tracks" or "1 files" now use the singular. Dates, times and numbers follow the browser's own region, and the on-air clocks stay on the 24-hour clock. The page now tells the browser which language it is in, which screen readers use.
+
 ## [0.34.1] — 2026-09-24
 
 - A request whose client hangs up before the answer is ready (Liquidsoap giving up on a slow segment's audio, for one) no longer ends in a logged 500, and any follow-up work it registered still runs once its transaction has committed.
@@ -904,7 +908,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.34.1...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.34.2...HEAD
+[0.34.2]: https://github.com/robert-dean/deadair/compare/v0.34.1...v0.34.2
 [0.34.1]: https://github.com/robert-dean/deadair/compare/v0.34.0...v0.34.1
 [0.34.0]: https://github.com/robert-dean/deadair/compare/v0.33.1...v0.34.0
 [0.33.1]: https://github.com/robert-dean/deadair/compare/v0.33.0...v0.33.1

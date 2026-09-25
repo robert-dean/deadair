@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBarDefaults
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -103,7 +105,14 @@ fun HomeScreen(
             AnimatedVisibility(visible = bottomBar, enter = slideInVertically { it }, exit = slideOutVertically(tween(900)) { it }) {
                 Column {
                     miniPlayer?.invoke()
-                    NavigationBar {
+                    // Translucent over a tab that draws under it (Now playing), so the cover's glow
+                    // carries on through the tabs instead of stopping at a slab. A tint rather than
+                    // frosted glass: Compose has no blur for what is BEHIND a surface. Solid over the
+                    // others, which end above it and have nothing underneath to show.
+                    NavigationBar(
+                        containerColor = if (topBar) NavigationBarDefaults.containerColor else MaterialTheme.colorScheme.surfaceContainer.copy(alpha = TranslucentTabs),
+                        tonalElevation = if (topBar) NavigationBarDefaults.Elevation else 0.dp,
+                    ) {
                         Tab.entries.forEach { entry ->
                             NavigationBarItem(
                                 selected = entry == tab,
@@ -141,3 +150,6 @@ fun HomeScreen(
  * draws under them keeps clear at its foot.
  */
 val TabBarHeight = 80.dp
+
+/** How much of the tabs' own colour shows over a tab that draws under them: enough to read the labels on any cover. */
+private const val TranslucentTabs = 0.35f

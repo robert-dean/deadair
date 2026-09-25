@@ -8,6 +8,10 @@ hand, and the station's own changes are in the [root changelog](../../CHANGELOG.
 
 ## [Unreleased]
 
+## [0.9.0] — 2026-09-25
+
+- Up next is headed by the host's name, the one they go by on air, as What's on shows it. If you run the station, tap the name to change who presents the show; it has moved there from the Manage page.
+
 ## [0.8.0] — 2026-09-25
 
 - If you run the station, Up next now has one Manage button in place of the host chip, Plan and the menu. It opens a page with everything in one place: who presents the show, replanning it, putting on one of your playlists, adding a record, and what the station has said. Asking the station to refill is gone (it refills by itself), and shuffling is on Now playing.
@@ -156,7 +160,8 @@ hand, and the station's own changes are in the [root changelog](../../CHANGELOG.
   screen, a headset or a car stereo. Sign in as the station's operator and the phone becomes its
   remote: skip, stop and start, the running order, what it played and what the presenter said.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/android-v0.8.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/android-v0.9.0...HEAD
+[0.9.0]: https://github.com/robert-dean/deadair/compare/android-v0.8.0...android-v0.9.0
 [0.8.0]: https://github.com/robert-dean/deadair/compare/android-v0.7.1...android-v0.8.0
 [0.7.1]: https://github.com/robert-dean/deadair/compare/android-v0.7.0...android-v0.7.1
 [0.7.0]: https://github.com/robert-dean/deadair/compare/android-v0.6.1...android-v0.7.0

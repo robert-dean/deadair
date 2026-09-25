@@ -174,15 +174,27 @@ private fun FullBleed(
         // How far the cover travels to sit in the middle of the screen while resting.
         val toMiddle = ((maxHeight - side) / 2 - top).coerceAtLeast(0.dp)
 
-        // The bleed: the cover again, blurred past recognition, behind the sharp one and reaching
-        // further down, so its colour spills into the page under the words instead of stopping at
-        // the cover's edge. Android 12 and later only, because `blur` is a no-op before that and a
-        // second sharp copy would be a ghost rather than a glow.
+        // The bleed: the cover again, blurred past recognition, over the whole screen behind the sharp
+        // one, so its colour fills the status bar above the art and runs down behind the words and
+        // the controls rather than stopping at the cover's edge. Android 12 and later only, because
+        // `blur` is a no-op before that and a second sharp copy would be a ghost rather than a glow.
         if (artworkUrl != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            Box(modifier = Modifier.padding(top = top).fillMaxWidth().height(side * BleedReach).alpha(shown * BleedStrength)) {
+            Box(modifier = Modifier.fillMaxSize().alpha(shown * BleedStrength)) {
                 AsyncImage(model = artworkUrl, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().blur(BleedBlur))
-                // Its own foot fades into the page, so the glow has no edge either.
-                Box(modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(0.4f to Color.Transparent, 1f to background)))
+                // A wash of the page's own colour at the top, so the status bar's icons read over a
+                // pale cover as well as a dark one, and a deeper one at the foot, so the glow settles
+                // behind the controls instead of competing with them.
+                Box(
+                    modifier =
+                        Modifier.fillMaxSize().background(
+                            Brush.verticalGradient(
+                                0f to background.copy(alpha = 0.45f),
+                                0.08f to Color.Transparent,
+                                0.6f to Color.Transparent,
+                                1f to background.copy(alpha = 0.6f),
+                            ),
+                        ),
+                )
             }
         }
 
@@ -227,9 +239,6 @@ private val CoverGap = 16.dp
 
 /** The room under the controls, above the tabs. */
 private val ControlsFoot = 24.dp
-
-/** How far down the glow reaches, as a share of the cover's own height. */
-private const val BleedReach = 1.45f
 
 /** How much of the glow shows through: enough to colour the page, not enough to compete with the words. */
 private const val BleedStrength = 0.6f

@@ -30,6 +30,7 @@ import { StationMark } from '../components/shell/station.mark';
 import { StationClock } from '../components/shell/station.clock';
 import { StationTally } from '../components/shell/station.tally';
 import { UpdateNotice } from '../components/shell/update.notice';
+import { useAccountLanguage } from '../api/languages.queries';
 
 /** Everything the router's gates need. Supplied once in `main.tsx`. */
 export interface RouterContext {
@@ -54,6 +55,8 @@ export function RootLayout() {
     // The same predicate the auth gate uses: a token that exists but has expired is not a session,
     // and offering Logout for one would promise something the shell cannot deliver.
     const signedIn = isSessionActive(session);
+    // The console in the language this account chose, once there is an account to ask.
+    useAccountLanguage(signedIn);
     const navigate = useNavigate();
     const logout = useLogoutMutation();
     const [logoutError, setLogoutError] = useState<string | undefined>(undefined);

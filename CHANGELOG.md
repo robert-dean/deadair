@@ -9,6 +9,23 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.35.3] — 2026-09-25
+
+- The presenter no longer talks about the next record as though it had just played. A break that said "Mississippi Queen just hit the speakers" before Mississippi Queen had started got past the check that is meant to catch this, because it only read the "that was…" way round, with the cue before the name. It now also catches the name followed by "just" and a past tense ("just hit", "just slid into the mix", "just now"), and it checks breaks that were only shown the record coming up.
+- Weather reports, news bulletins, welcomes, almanac and story breaks and dedications now get the same check as talk breaks, so none of them can tell listeners the record coming up has already played. These breaks are only shown the next record, and a weather report said "Lovefool just slid into the mix" before Lovefool had started. A break that does this now falls back to the station's own phrasing.
+
+## [0.35.2] — 2026-09-25
+
+- Callers now ring in about the host's show rather than about the records. A phone-in used to take its broadcast's brief as its subject, and that brief describes what the show plays, so calls on the conspiracy show were planned around the playlist and the callers talked about tracks. A call is now about what its host has on their mind (Roswell on the conspiracy show, the records themselves on the countdown), and the caller comes at it through their own preoccupation. A subject typed into **Take a call** still wins, and that box now starts empty instead of holding the broadcast's brief. On a show whose host is set to be keen on the story behind the records (the countdown host), callers ring about the records the show has just played, and the call is handed what the station knows about each of them.
+
+## [0.35.1] — 2026-09-25
+
+- The station can store the console's language packs. `sdk.languages` lists them and fetches one without signing in, since the sign-in page needs its language before anybody has signed in, and imports or removes one for an admin.
+- Settings has a Languages section, where the console's English can be exported as a language pack: a file holding every word the console says, which is what a translation of the console starts from. Each release carries the same file, so a translator can begin without running a station.
+- The console can be shown in languages other than English. An admin imports a language pack under Settings, Languages, after a preview of how much of the console it translates and which strings will stay in English. Everyone then chooses their own language there, and the choice follows them to every browser they sign in from; without one, the console follows the browser's own preference among the languages the station has. Months and days in the date pickers follow the language, and the layout turns round for languages written right to left.
+- The station writes a fresh jingle instead of replaying ones it rendered earlier. Its own jingles counted as recordings on the shelf, so after the first few it never wrote another, and those kept airing in whatever voice the presenter had on the day they were made (and in other presenters' hours). Only jingles an operator dropped into the library are drawn now.
+- A voice re-cloned on the Rhapsode server under the same id now previews in its new voice. The preview was cached under the station's own voice row, which a re-clone does not change, so the console kept playing the old recording.
+
 ## [0.35.0] — 2026-09-25
 
 - Whether a broadcast takes calls is now its own choice alone. The station-wide "Take calls" setting is gone: a broadcast, a schedule block or what plays between blocks takes calls when it says so, and a broadcast that says nothing takes none. "Minutes between calls" stays, as the spacing for any show that does take them.
@@ -916,7 +933,10 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.35.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.35.3...HEAD
+[0.35.3]: https://github.com/robert-dean/deadair/compare/v0.35.2...v0.35.3
+[0.35.2]: https://github.com/robert-dean/deadair/compare/v0.35.1...v0.35.2
+[0.35.1]: https://github.com/robert-dean/deadair/compare/v0.35.0...v0.35.1
 [0.35.0]: https://github.com/robert-dean/deadair/compare/v0.34.2...v0.35.0
 [0.34.2]: https://github.com/robert-dean/deadair/compare/v0.34.1...v0.34.2
 [0.34.1]: https://github.com/robert-dean/deadair/compare/v0.34.0...v0.34.1

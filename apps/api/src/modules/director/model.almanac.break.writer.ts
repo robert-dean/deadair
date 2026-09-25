@@ -182,6 +182,9 @@ export class ModelAlmanacBreakWriter extends BreakWriter {
             ...(request.recent === undefined ? {} : { recent: request.recent }),
             ...(request.dayPart === undefined ? {} : { dayPart: request.dayPart }),
             ...(request.moment === undefined ? {} : { moment: request.moment }),
+            // The one record this kind is shown, so a script that says it has already played is refused
+            // rather than aired: "Lovefool just slid into the mix" ahead of Lovefool. See `misCuedIn`.
+            ...(request.next === undefined ? {} : { cues: { next: request.next } }),
             ...languageGuard(this.config),
             // The check this kind lives or dies by, and it is the guard's own `invented-year` rather
             // than anything written here: a historical claim's checkable part IS its year, the

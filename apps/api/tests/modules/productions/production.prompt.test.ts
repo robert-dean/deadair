@@ -365,31 +365,84 @@ describe('grounding a production with nothing to go on', () => {
 });
 
 // A programme with no brief used to be planned around nothing, and an outline that invents a
-// subject is a brief every turn then obeys.
+// subject is a brief every turn then obeys. What it is planned around is the host's show, with the
+// caller's own preoccupation as their way into it.
 describe('a programme nobody briefed', () => {
-    const subject = { caller: 'Lonnie', about: 'the load he hauled once that nobody would name' };
+    const subject = { host: 'Todd', show: 'what really came down at Roswell', caller: 'Dale', about: 'how far away it was' };
     const outlineUser = (over: Partial<Parameters<typeof outlinePrompt>[0]>) =>
         String(outlinePrompt({ kind: 'callin', title: 'Phone-in', beats: 7, wordsPerBeat: 70, ...over })[1]?.content);
 
-    it('plans the outline around why the caller rang', () => {
+    it("plans the outline around the host's show", () => {
         const user = outlineUser({ subject });
 
-        expect(user).toContain('The programme is about why Lonnie rang: the load he hauled once that nobody would name.');
+        expect(user).toContain("This is Todd's show, and the programme is about what Todd keeps coming back to: what really came down at Roswell.");
         expect(user).toMatch(/Plan every beat around that/);
     });
 
+    // Two subjects stated side by side are two people each talking about their own thing.
+    it("frames the caller's preoccupation as their angle on it rather than a second subject", () => {
+        const user = outlineUser({ subject });
+
+        expect(user).toContain('That is why Dale rang');
+        expect(user).toContain('Dale comes at it through their own thing, which is how far away it was.');
+        expect(user).toContain('not a change of subject');
+    });
+
     it('tells every turn the same thing, since a turn is its own model call', () => {
-        expect(userOf(turn({ ...base, subject }))).toContain(
-            'The programme is about why Lonnie rang: the load he hauled once that nobody would name.',
-        );
+        expect(userOf(turn({ ...base, subject }))).toContain("This is Todd's show");
+        expect(userOf(turn({ ...base, subject }))).toContain('Dale comes at it through their own thing');
+    });
+
+    it("is the host's show alone when the caller brought nothing", () => {
+        const user = outlineUser({ subject: { host: 'Todd', show: 'what really came down at Roswell' } });
+
+        expect(user).toContain("This is Todd's show");
+        expect(user).toContain('That is why the caller rang');
+    });
+
+    it('is why the caller rang when the host has nothing on their mind', () => {
+        const user = outlineUser({ subject: { caller: 'Lonnie', about: 'the load he hauled once that nobody would name' } });
+
+        expect(user).toContain('The programme is about why Lonnie rang: the load he hauled once that nobody would name.');
+    });
+
+    describe('on a show that is about the records', () => {
+        const records = [
+            { title: 'Enter Sandman', artist: 'Metallica', facts: ['It opened the album.'] },
+            { title: 'Holy Wars', artist: 'Megadeth' },
+        ];
+        const countdown = { host: 'Dale', show: 'songs nobody rated until they did', records, caller: 'Judith', about: 'a year given wrongly' };
+
+        it('plans the call around what the show just played, with what the station knows about each', () => {
+            const user = outlineUser({ subject: countdown });
+
+            expect(user).toContain("This is Dale's show, and the programme is about the records it has just played, newest first:");
+            expect(user).toContain('- "Enter Sandman" by Metallica\n    - It opened the album.\n- "Holy Wars" by Megadeth');
+            expect(user).toContain('Judith rang about one of those records');
+            expect(user).toContain('which is a year given wrongly. That is their angle on the record');
+            expect(user).toContain('What Dale keeps coming back to about records is songs nobody rated until they did.');
+        });
+
+        // The records are the source material. Telling the outline it has none, and that the station
+        // knows nothing about any record, would be two rules that disagree.
+        it('holds the call to the notes rather than telling it the station knows nothing', () => {
+            const user = outlineUser({ subject: countdown });
+
+            expect(user).toContain('The notes under a record are everything the station knows about it.');
+            expect(user).not.toContain('You have been given no source material');
+        });
+
+        it('tells every turn the same records', () => {
+            expect(userOf(turn({ ...base, subject: countdown }))).toContain('- "Enter Sandman" by Metallica');
+        });
     });
 
     // A brief is what somebody asked for, and a subject is only ever the stand-in for one.
-    it('says nothing about the caller when somebody asked for something', () => {
+    it('says nothing about either of them when somebody asked for something', () => {
         const brief = 'the time I saw a light over the lake';
 
-        expect(outlineUser({ subject, brief })).not.toContain('why Lonnie rang');
-        expect(userOf(turn({ ...base, subject, brief }))).not.toContain('why Lonnie rang');
+        expect(outlineUser({ subject, brief })).not.toContain("Todd's show");
+        expect(userOf(turn({ ...base, subject, brief }))).not.toContain("Todd's show");
     });
 });
 

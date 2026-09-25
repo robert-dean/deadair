@@ -224,13 +224,9 @@ export function DeskPage() {
                                 either from here on, or as a new show. */}
                             <PlanTheStation {...(loaded === undefined ? {} : { order: loaded })} />
                             {/* The one that changes what the station SAYS rather than what it plays.
-                                It inherits this broadcast's host and brief, which is why it is here
-                                rather than on Voice. */}
-                            <TakeACall
-                                brief={loaded?.brief ?? ''}
-                                {...(loaded?.personaId === undefined ? {} : { personaId: loaded.personaId })}
-                                disabled={nothingOn}
-                            />
+                                It inherits this broadcast's host, which is why it is here rather
+                                than on Voice. */}
+                            <TakeACall {...(loaded?.personaId === undefined ? {} : { personaId: loaded.personaId })} disabled={nothingOn} />
                         </Group>
                     ) : undefined}
                 </Group>

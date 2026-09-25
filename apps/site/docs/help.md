@@ -91,6 +91,10 @@ embed it in a frame and trick somebody into clicking inside it. A home-lab dashb
 console in an iframe now shows nothing there: link to the console instead. The stream, the HLS
 playlist and the `/listen.pls` and `/listen.m3u` files are unaffected, and so is the API.
 
+## The console is in the wrong language
+
+**The console's language is yours, and the station's is separate.** Choose yours under **Settings, Languages, Show the console in**; it follows your account, and until you choose it follows your browser's own language preferences among the languages this station has. What the presenters speak is the Language setting under **Settings, Stream**, and changing one never changes the other. A language an admin has removed shows as your browser's preference until you choose again. See [languages](./features/languages.md).
+
 ## You have lost your authenticator
 
 With a mail server configured you do not need this: ask for a sign-in link, or sign in with the

@@ -46,11 +46,22 @@ const now = Date.UTC(2026, 7, 25, 12, 0, 0);
 
 describe('commissioning what the clock wants', () => {
     it('takes the running broadcast with it', async () => {
+        const { scheduler, opened } = build({ bands: [{ kind: 'podcast', at: 'clock', minute: 30 }] });
+
+        await scheduler.ripen(now, { brief: 'heavy metal hits', personaId: 'persona-1' });
+
+        expect(opened[0]).toMatchObject({ kind: 'podcast', brief: 'heavy metal hits', personaId: 'persona-1' });
+    });
+
+    // A broadcast's brief is what it PLAYS. Handed to a call-in, it beat the host's own subject and
+    // every call on the conspiracy show was about the records.
+    it('takes the host and not the playlist brief into a call', async () => {
         const { scheduler, opened } = build();
 
         await scheduler.ripen(now, { brief: 'heavy metal hits', personaId: 'persona-1' });
 
-        expect(opened[0]).toMatchObject({ kind: 'callin', brief: 'heavy metal hits', personaId: 'persona-1' });
+        expect(opened[0]).toMatchObject({ kind: 'callin', personaId: 'persona-1' });
+        expect(opened[0]).not.toHaveProperty('brief');
     });
 
     it('says nothing about a show that asked for nothing', async () => {
@@ -186,6 +197,15 @@ describe('a broadcast that takes calls', () => {
         await scheduler.ripen(now, { callins: true, callinEveryMinutes: 30 });
 
         expect(opened).toEqual([]);
+    });
+
+    it('takes the host and not the playlist brief', async () => {
+        const { scheduler, opened } = taking();
+
+        await scheduler.ripen(now, { ...show, brief: 'Metallica, Megadeth, Slayer, Ozzy and similar', personaId: 'persona-1' });
+
+        expect(opened[0]).toMatchObject({ personaId: 'persona-1' });
+        expect(opened[0]).not.toHaveProperty('brief');
     });
 
     it('airs when it is ready rather than at an instant nobody chose', async () => {

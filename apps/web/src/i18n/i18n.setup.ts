@@ -3,7 +3,7 @@ import { initReactI18next } from 'react-i18next';
 
 import { en } from './en/en.catalog';
 
-/** The locales the console has catalogs for. The first is the source language and the fallback. */
+/** The locales built into the console. The first is the source language and the fallback; the rest arrive as packs. */
 export const SUPPORTED_LOCALES = ['en'] as const;
 export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number];
 
@@ -22,13 +22,14 @@ export function pickLocale(preferred: readonly string[]): SupportedLocale {
 
 // Initialised synchronously, at import, from a bundled catalog: the first render already has its
 // words, so there is no frame of keys and no Suspense boundary to put around the whole console.
-// When a second locale exists it arrives through `addResourceBundle` after a dynamic `import()`,
-// and English stays bundled because it is the fallback for any key that locale has not got.
+// Any other language arrives later as a language pack (`languages.ts`), and English stays bundled
+// because it is the fallback for any key that language has not got.
 void i18n.use(initReactI18next).init({
     resources: { en },
     lng: pickLocale(typeof navigator === 'undefined' ? [] : navigator.languages),
     fallbackLng: SUPPORTED_LOCALES[0],
-    supportedLngs: SUPPORTED_LOCALES,
+    // No `supportedLngs`: it would refuse every language a pack installs after start-up. Which
+    // languages exist is `languages.ts`'s list, and `showLanguage` only ever asks for one on it.
     defaultNS: 'common',
     ns: Object.keys(en),
     initAsync: false,

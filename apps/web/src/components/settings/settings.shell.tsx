@@ -23,6 +23,7 @@ export type SettingsSectionId =
     | 'housekeeping'
     | 'mail'
     | 'appearance'
+    | 'languages'
     | 'security'
     | 'rotation'
     | 'breaks'
@@ -69,7 +70,7 @@ export interface SettingsSection {
 }
 
 /** The sections that open with a sentence under their heading: every one that draws a group, and Providers. */
-type BlurbedSectionId = Exclude<SettingsSectionId, 'appearance' | 'artwork' | 'storage' | 'grants' | 'plugins'>;
+type BlurbedSectionId = Exclude<SettingsSectionId, 'appearance' | 'languages' | 'artwork' | 'storage' | 'grants' | 'plugins'>;
 
 /**
  * One entry of the list below. Its words are getters that read the catalog each time they are asked
@@ -142,6 +143,9 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     // because "how do I make this readable in daylight" is a question an operator brings to
     // Settings, and the card itself says plainly that it is remembered on this browser alone.
     section('appearance'),
+    // Beside Appearance, being the other question about the console rather than the station: what
+    // language it is in. Never beside `stream.language`, which is what the station broadcasts in.
+    section('languages'),
     // One section with two halves: how YOU sign in, then what the sign-in page offers everybody and
     // who may join through it. They were two sections, Security and "Sign-in and connections", and
     // every feature in them was split across both: a provider is set up on one and linked on the
@@ -188,6 +192,7 @@ export const SETTINGS_ROUTES: Record<
     | '/settings/housekeeping'
     | '/settings/mail'
     | '/settings/appearance'
+    | '/settings/languages'
     | '/settings/security'
     | '/settings/rotation'
     | '/settings/breaks'
@@ -207,6 +212,7 @@ export const SETTINGS_ROUTES: Record<
     housekeeping: '/settings/housekeeping',
     mail: '/settings/mail',
     appearance: '/settings/appearance',
+    languages: '/settings/languages',
     security: '/settings/security',
     rotation: '/settings/rotation',
     breaks: '/settings/breaks',

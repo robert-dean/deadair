@@ -209,6 +209,17 @@ describe('syndicated segments', () => {
         expect(statements[0]?.parameters).toContain('syndicated');
     });
 
+    it('are not recordings, and neither is anything the station rendered', async () => {
+        const statements: Statement[] = [];
+        const repository = new SegmentRepository(fakeDb([], statements), identity());
+
+        await repository.listRecordings('jingle');
+
+        expect(statements[0]?.sql).toContain('"source" = $');
+        expect(statements[0]?.parameters).toContain('library');
+        expect(statements[0]?.parameters).not.toContain('render');
+    });
+
     it('never make a kind look fillable from the shelf', async () => {
         const statements: Statement[] = [];
         const repository = new SegmentRepository(fakeDb([], statements), identity());

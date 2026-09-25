@@ -223,6 +223,9 @@ export class ModelNewsBreakWriter extends BreakWriter {
             // Beside the daypart and off the same instant: the words are what the prompt stated and
             // this is what the clock says, which is the half of the question a stretch cannot answer.
             ...(request.moment === undefined ? {} : { moment: request.moment }),
+            // The one record this kind is shown, so a script that says it has already played is refused
+            // rather than aired: "Lovefool just slid into the mix" ahead of Lovefool. See `misCuedIn`.
+            ...(request.next === undefined ? {} : { cues: { next: request.next } }),
             ...languageGuard(this.config),
         };
         const script = readAnswer(result.text, guard);

@@ -703,6 +703,30 @@ export class SegmentRepository extends DataRepository {
     }
 
     /**
+     * Everything of one kind an operator recorded, and nothing the station rendered itself.
+     *
+     * The shelf a kind that yields to recordings draws from (`BreakWriter.yieldsToRecordings`).
+     * {@link listReady} would answer the station's own renders too, and for such a kind that is the
+     * shelf eating the writer: the first jingle the station rendered became a "recording", so it
+     * never wrote another, and every one after that was a replay of the same few in whatever voice
+     * the presenter had on the day they were made. Measured on air — a re-voiced presenter kept
+     * coming back in the old voice through jingles rendered the day before, and they aired inside
+     * other presenters' hours too, since a shelf draw knows nothing of who is on.
+     */
+    async listRecordings(kind: string): Promise<Segment[]> {
+        const rows = await this.db
+            .selectFrom('deadair.segments')
+            .select(SEGMENT_COLUMNS)
+            .where('kind', '=', kind)
+            .where('state', '=', 'ready')
+            .where('source', '=', LIBRARY_SOURCE)
+            .orderBy('createdAt', 'asc')
+            .execute();
+
+        return rows.map(toSegment);
+    }
+
+    /**
      * Which kinds the shelf holds anything airable of.
      *
      * {@link listReady}'s question asked of every kind at once, and it exists because the console

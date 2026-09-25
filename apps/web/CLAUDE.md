@@ -57,7 +57,8 @@ check that a string survived its move into a catalog. Change the English in the 
 
 **The console's language is not the station's.** `stream.language` is what the presenter speaks and
 what goes out with the stream; it is a setting, and nothing in these catalogs follows it. The console
-is in whatever language the operator's browser prefers, among the ones there are catalogs for. A
+is in whatever language each operator chose, or else their browser prefers, among English and the
+packs the station holds. A
 German station can have an English console and the reverse, and the two must never be wired together.
 
 - **A sentence is one key.** A value in the middle is a `{{placeholder}}`, never fragments joined with
@@ -75,7 +76,10 @@ German station can have an English console and the reverse, and the two must nev
   import nothing: pulling in `i18n.setup.ts` broke the API's typecheck. It returns which fault a line
   has, and the editor words it.
 - **A new folder under `src/components` gets its own namespace.** Create `src/i18n/en/<folder>.catalog.ts`
-  as an `as const` object, then register it in `en.catalog.ts`. Nest keys by component, then by meaning.
+  as an `as const` object, then register it in `en.catalog.ts`, importing it WITH its `.ts` extension.
+  Nest keys by component, then by meaning. The extension is not style: the release job writes the
+  English language pack with plain `node`, which resolves nothing without it, and
+  `tests/i18n/language.pack.test.ts` runs that script the same way to catch it.
 - **Another namespace's key** needs both named: `useTranslation(['<ns>', 'common'])`, or `t` rejects
   `common:…` at the type level. `common.catalog.ts` is for words the shared components own, and for
   words several areas must say the same way (the access words an API key and a connected app share,
@@ -93,9 +97,36 @@ German station can have an English console and the reverse, and the two must nev
   `tests/i18n/literal.strings.test.ts` runs the rule and fails on a hit. It sees JSX text and the copy
   attributes listed there. It does not see a string handed to a helper outside JSX (`notifyDone('…')`,
   an `apiErrorMessage` fallback, a default parameter), so a review still has to.
-- **A second language** means a `src/i18n/<lang>/` catalog with the same shape as `en`, its tag added to
-  `SUPPORTED_LOCALES`, and its catalog loaded with a dynamic `import()` and `addResourceBundle`, so
-  English stays the only bundled one and the fallback for any key the translation lacks. It also needs
-  that language's dayjs locale imported, because Mantine's date pickers and the timetable name months
-  and days through dayjs, and dayjs knows only English until then. There is no language picker yet;
-  `ActorPreferences.locale` in the contracts is the place a chosen one would be kept.
+- **A language pack** is the portable form of a catalog: `src/i18n/language.pack.ts` defines it (a
+  header naming the language, its direction and the console version it was made for, around a
+  catalog shaped like `en`). Settings, Languages exports the console's English as one, and each
+  release attaches the same file as `deadair-console-en.json`. It imports only the English catalog,
+  for the same plain-`node` reason.
+- **A second language arrives as a pack at runtime**, never as a typed folder beside `en` (one good
+  enough to ship with the console will be a pack file, loaded the same way).
+  `languages.ts` holds the list of languages this console has: `installLanguagePack` runs
+  `checkLanguagePack` (`language.check.ts`) against the bundled English, loads what fits into
+  i18next and teaches dayjs the language from the browser's `Intl` (`dayjs.locale.ts`, rather than
+  dayjs's 145 UMD locale files), and `showLanguage` switches to it. The check refuses a file only
+  over its header. Inside the catalog, a key this console has not got, a plural form the language
+  has not got (`Intl.PluralRules` says which), a placeholder the English does not fill or always
+  fills, or markup that differs from the English costs that one string, which falls back to English.
+  A pack for English is refused: English is what everything falls back to. `i18n.setup.ts` sets no
+  `supportedLngs`, which would refuse every language installed after start-up, and
+  `<DirectionProvider>` in `main.tsx` turns the layout round for a right-to-left language.
+- **The station stores imported packs** at `/console/languages` (`apps/api/src/modules/languages`).
+  Both reads are public, because the sign-in page loads its language before anybody signs in, and
+  import and removal are `platform.manage`, which only an admin holds. The console does not know who
+  is an admin, here as anywhere, so a 403 is reported in the console's own words. The API checks the
+  header and the catalog's shape and nothing more, and the console's `LanguagePack` is the contract's
+  `ConsoleLanguagePack` with the catalog narrowed. An import sends only the pack's own fields, because
+  the contract refuses a key it does not know and a translator's tools may add one.
+- **Which language shows** is `chooseLanguage` (`language.choice.ts`): the operator's choice, else the
+  browser's preferences in order (English counts), else English. `startConsoleLanguage`, called from
+  `main.tsx`, applies it at start-up from the choice remembered in `localStorage`, drawing English
+  until the pack arrives rather than holding the first frame. After sign-in `useAccountLanguage` in
+  `__root.tsx` applies the account's choice, kept at `/console/language` (`platform.view`, which every operator role grants), and the
+  picker in Settings, Languages writes both. The choice is not `ActorPreferences.locale`, which is
+  still declared in the contracts and still unused. The operator-facing half is
+  `apps/site/docs/features/languages.md`, which also tells a translator the rules `language.check.ts`
+  enforces; keep the two saying the same thing.

@@ -16,30 +16,30 @@ import { apiErrorMessage } from '../../api/sdk.error';
  * whole. That is also why it cannot be instant: the turns are written and spoken one at a time, over
  * minutes, and the block drops in when the last of them is ready.
  *
- * ## It inherits the show rather than asking about it again
+ * ## It inherits the host, and not the brief
  *
- * The broadcast's own host presents the call, and the broadcast's brief is what the call is about
- * unless the operator says otherwise. Both are already on the running order, so passing them is the
- * difference between a phone-in that belongs to this programme and one that belongs to nothing.
+ * The broadcast's own host presents the call, which is the difference between a phone-in that
+ * belongs to this programme and one that belongs to nothing. The broadcast's BRIEF is not passed,
+ * though it once seeded the box below: a broadcast's brief is what it PLAYS, and a call planned
+ * around "Metallica, Megadeth, Slayer, Ozzy and similar" is callers talking about records on a show
+ * whose host wants to talk about Roswell. Left empty, the call is about what the host's show is
+ * about, which the station reads off the host's sheet.
  *
  * ## A popover, for the same reason Replan has one
  *
- * The subject belongs in the same gesture. Somebody taking a call usually has one in mind — and the
- * box is seeded with the show's brief rather than left empty, so pressing straight through is the
- * ordinary case and typing over it is the deliberate one.
+ * The subject belongs in the same gesture. Somebody taking a call sometimes has one in mind, and
+ * typing it here is what overrides the host's; pressing straight through is the ordinary case.
  */
 export interface TakeACallProps {
-    /** What this broadcast was asked to play, which is what the call is about unless it is changed. */
-    brief: string;
     /** Who is hosting the broadcast, when it named somebody. Absent presents it as the station's own host. */
     personaId?: string;
     disabled?: boolean;
 }
 
-export function TakeACall({ brief, personaId, disabled = false }: TakeACallProps) {
+export function TakeACall({ personaId, disabled = false }: TakeACallProps) {
     const { t } = useTranslation(['onair', 'common']);
     const [open, setOpen] = useState(false);
-    const [about, setAbout] = useState(brief);
+    const [about, setAbout] = useState('');
     const request = useRequestProduction();
 
     const failure = request.isError ? apiErrorMessage(request.error, t('call.failed')) : undefined;
@@ -87,7 +87,7 @@ export function TakeACall({ brief, personaId, disabled = false }: TakeACallProps
                         }}
                     />
                     <Text size="xs" c="dimmed">
-                        {t('call.seeded')}
+                        {t('call.unbriefed')}
                     </Text>
                     <Group justify="flex-end">
                         <Button variant="subtle" color="gray" onClick={() => setOpen(false)}>

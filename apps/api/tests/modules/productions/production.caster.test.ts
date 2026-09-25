@@ -33,11 +33,25 @@ function build(
         kinds?: string;
         djName?: string;
         nobodyPresents?: boolean;
+        keen?: boolean;
+        played?: { trackId?: string; title: string; artist: string }[];
+        playsThrow?: boolean;
+        facts?: Map<string, string[]>;
     } = {},
 ) {
     const personas = {
         presenting: vi.fn(async () =>
-            options.nobodyPresents ? undefined : { id: 'host-1', key: 'classic', kind: 'host', label: 'Classic', style: 'warm', voice: 'classic' },
+            options.nobodyPresents
+                ? undefined
+                : {
+                      id: 'host-1',
+                      key: 'classic',
+                      kind: 'host',
+                      label: 'Classic',
+                      style: 'warm',
+                      voice: 'classic',
+                      ...(options.keen ? { trivia: 'keen' } : {}),
+                  },
         ),
         castable: vi.fn(async () => {
             if (options.rosterThrows) throw new Error('the roster could not be read');
@@ -50,7 +64,21 @@ function build(
     const settings: Record<string, string | undefined> = { 'render.dialogueKinds': options.kinds, 'station.djName': options.djName };
     const config = { get: (key: string, fallback: string) => settings[key] ?? fallback };
 
-    return { personas, segments, caster: new ProductionCaster(personas as never, segments as never, config as never, logger as never) };
+    const plays = {
+        recordsDuringBroadcast: vi.fn(async () => {
+            if (options.playsThrow) throw new Error('play history could not be read');
+            return options.played ?? [];
+        }),
+    };
+    const enrichment = { factsForTracks: vi.fn(async () => options.facts ?? new Map<string, string[]>()) };
+
+    return {
+        personas,
+        segments,
+        plays,
+        enrichment,
+        caster: new ProductionCaster(personas as never, segments as never, plays as never, enrichment as never, config as never, logger as never),
+    };
 }
 
 describe('casting a production', () => {
@@ -154,5 +182,70 @@ describe('casting the callers who ring this host', () => {
         const cast = await caster.cast(production(), 9);
 
         expect(cast.filter(member => member.role === 'caller').map(member => member.personaKey)).toEqual(['tipster']);
+    });
+});
+
+// A presenter whose show is the records (the countdown host, `trivia: 'keen'`) brings what the show has
+// just played to the call, so its callers ring about the records. Nobody else's callers are handed any.
+describe('the records a keen host brings to a call', () => {
+    const played = [
+        { trackId: 't1', title: 'Enter Sandman', artist: 'Metallica' },
+        { title: 'Holy Wars', artist: 'Megadeth' },
+    ];
+
+    it('puts what the show just played, and what the station knows about it, on the host', async () => {
+        const { caster, plays, enrichment } = build({
+            roster: [caller('pedant')],
+            keen: true,
+            played,
+            facts: new Map([['t1', ['It opened the album.']]]),
+        });
+
+        const cast = await caster.cast(production({ broadcastId: 'b1' }), 9);
+
+        expect(plays.recordsDuringBroadcast).toHaveBeenCalledWith('b1', 4);
+        expect(enrichment.factsForTracks).toHaveBeenCalledWith(['t1'], expect.any(Number), { budget: { limit: 2, spread: true } });
+        expect(cast[0]?.records).toEqual([
+            { title: 'Enter Sandman', artist: 'Metallica', facts: ['It opened the album.'] },
+            { title: 'Holy Wars', artist: 'Megadeth' },
+        ]);
+    });
+
+    // The conspiracy host's callers talked about records because a playlist reached their call. A list
+    // of titles in the prompt would be the same failure through a different door.
+    it('hands no records to a host who is not keen', async () => {
+        const { caster, plays } = build({ roster: [caller('skeptic')], played });
+
+        const cast = await caster.cast(production({ broadcastId: 'b1' }), 9);
+
+        expect(cast[0]).not.toHaveProperty('records');
+        expect(plays.recordsDuringBroadcast).not.toHaveBeenCalled();
+    });
+
+    it('reads nothing for a programme with nobody on the phone', async () => {
+        const { caster, plays } = build({ roster: [], keen: true, played });
+
+        const cast = await caster.cast(production({ broadcastId: 'b1' }), 9);
+
+        expect(cast).toHaveLength(1);
+        expect(plays.recordsDuringBroadcast).not.toHaveBeenCalled();
+    });
+
+    it('reads nothing for a production commissioned outside any broadcast', async () => {
+        const { caster, plays } = build({ roster: [caller('pedant')], keen: true, played });
+
+        await caster.cast(production(), 9);
+
+        expect(plays.recordsDuringBroadcast).not.toHaveBeenCalled();
+    });
+
+    // The records make a call better and never make it possible.
+    it('keeps the caller when the records cannot be read', async () => {
+        const { caster } = build({ roster: [caller('pedant')], keen: true, playsThrow: true });
+
+        const cast = await caster.cast(production({ broadcastId: 'b1' }), 9);
+
+        expect(cast.map(member => member.role)).toEqual(['host', 'caller']);
+        expect(cast[0]).not.toHaveProperty('records');
     });
 });

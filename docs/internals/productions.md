@@ -82,14 +82,37 @@ the previous show's caller. `injectProductions` now leaves a standing call `read
 otherwise. A call with a slot (the format clock's) or an actor (the desk's Take a call) is exempt: both are
 instructions the broadcast's rule has no say over.
 
-**A call nobody briefed is about why its caller rang** (`callSubjectOf` in `production.cast.ts`). The
-standing rule hands a call its broadcast's brief, and most broadcasts have none, because a broadcast's
-brief is what it PLAYS. With nothing to plan around, the outline invented a subject and every turn
-obeyed it: the conspiracy host's first live call was a chat about a community garden while the cast
-carried his preoccupation and the caller's the whole time, because a preoccupation reaches a turn as a
-lean and no turn can hold a lean against an outline's throughline. So with no brief, the first caller's
-preoccupation is the subject, told to the outline and to every turn in one shared sentence. A brief
-always wins.
+**A call nobody briefed is about the HOST's show, and the caller comes at it their own way**
+(`callSubjectOf` in `production.cast.ts`). With nothing to plan around, the outline invented a subject and
+every turn obeyed it: the conspiracy host's first live call was a chat about a community garden, because a
+preoccupation reaches a turn as a lean and no turn can hold a lean against an outline's throughline. The first
+fix made the CALLER's preoccupation the subject, on the argument that a phone-in is the caller's call. It is
+not: a phone-in is the host's show, and a caller rung in about truck-stop coffee is the same call on the
+conspiracy show and the countdown. So the host's preoccupation is what the programme is about, told to the
+outline and to every turn in one shared passage, and the caller's is framed as their angle on it rather than a
+second subject, since two subjects side by side are two people each talking about their own thing. A host with
+nothing on their mind falls back to the caller's. A brief always wins.
+
+**A call never inherits the broadcast's brief**, which is why the paragraph above ever runs. A broadcast's
+brief is what it PLAYS, and for a day every call on the conspiracy show was handed "Metallica, Megadeth,
+Slayer, Ozzy and similar" as what was asked for, so it beat both preoccupations and the callers talked about
+records. `ProductionScheduler.showBrief` withholds it from every dialogue kind, on the band path and the standing
+one, while a monologue band keeps it; the desk's Take a call no longer seeds its box with it, so only a subject
+an operator typed for the call itself reaches one as a brief.
+
+**A host whose show is the records brings them to the call** (`ProductionCaster.records`). The countdown host's
+callers should be on about the artists and the tracks, and a call is handed no records at all, so for a
+presenter at `trivia: 'keen'` the caster reads the last `CALL_RECORDS` plays of the broadcast the call was
+commissioned in, with two facts each spread across the levels, and puts them on the HOST's cast member. On the
+cast rather than read per pass, on `preoccupation`'s argument: the show plays on while a call is written, and
+an outline planned around three records whose turns were told about three others is a call about nothing.
+`callSubjectOf` then makes the records the subject, the host's preoccupation their take on them and the
+caller's their angle on one; the notes under a record are all anybody on the call may state about it, and that
+sentence replaces the outline's "the station knows nothing about any record" paragraph rather than joining it.
+Every other host's callers get no records, since a list of titles in a prompt is a call about the titles. The
+read is best-effort: a failure costs the records and the call falls back to the host's preoccupation. A
+persona row seeded before the countdown sheet gained `keen` (2026-09-22) does not have it, since seeds never
+overwrite a row.
 
 ## How long a turn is, and who takes it
 

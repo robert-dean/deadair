@@ -271,6 +271,29 @@ export class PlayHistoryRepository extends DataRepository {
     }
 
     /**
+     * {@link duringBroadcast} with the catalogue row beside each record, for a reader that goes on
+     * to ask what the station knows about them.
+     *
+     * A separate read rather than a wider answer from that one, because that answer is handed to
+     * the break writer whole and a track id has no business in a prompt. `trackId` is absent for a
+     * play whose catalogue row has since been forgotten, which still aired and still has a title.
+     */
+    async recordsDuringBroadcast(broadcastId: string, limit: number): Promise<{ trackId?: string; title: string; artist: string }[]> {
+        if (limit <= 0) return [];
+
+        const rows = await this.db
+            .selectFrom('deadair.playHistory')
+            .select(['trackId', 'title', 'artist'])
+            .where('broadcastId', '=', broadcastId)
+            .orderBy('airedAt', 'desc')
+            .limit(Math.floor(limit))
+            .execute();
+
+        // `== null`: a SQL NULL reads back as `undefined` while the generated type says `null`.
+        return rows.map(row => ({ ...(row.trackId == null ? {} : { trackId: String(row.trackId) }), title: row.title, artist: row.artist }));
+    }
+
+    /**
      * When one record has aired, newest first, and how many times in all.
      *
      * The one read here keyed by the canonical track rather than by a rotation key, and deliberately

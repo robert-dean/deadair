@@ -2,12 +2,31 @@ import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import { TEMPLATE_KEYS } from '#modules/director/break.templates.js';
+import { PlayHistoryRepository } from '#modules/director/play.history.repository.js';
+import { EnrichmentReadService, type FactBudget } from '#modules/enrichment/enrichment.read.service.js';
+import { triviaOf } from '#modules/personas/persona.sheet.js';
 import { PersonaRepository } from '#modules/personas/persona.repository.js';
 import { SegmentRepository } from '#modules/render/segment.repository.js';
 import { errorText } from '#modules/shared/error.text.js';
-import { callerCount, callerMember, hostMember, type ProductionCast } from './production.cast.js';
+import { rotationOf } from '#modules/shared/rotation.js';
+import { callerCount, callerMember, hostMember, type CastMember, type ProductionCast, type ShowRecord } from './production.cast.js';
 import { dialogueKinds } from './production.settings.js';
 import type { Production } from './production.js';
+
+/**
+ * How many of the show's records a call is handed.
+ *
+ * A handful rather than the evening, on `write.break.job.ts`'s `PLAYED_WINDOW` argument: handed
+ * twelve titles a model reads them out, and every turn of a call carries the list, so it is paid
+ * for fifteen times over.
+ */
+export const CALL_RECORDS = 4;
+
+/**
+ * What the station knows about each of them. Two apiece, spread across the recording, its record
+ * and its artist, so a call has something about each rather than four things about the first.
+ */
+const CALL_FACTS: FactBudget = { limit: 2, spread: true };
 
 /**
  * Who is on this programme.
@@ -34,6 +53,15 @@ import type { Production } from './production.js';
  * take the call. It narrows who may ring and changes nothing about the rotation among them, so a
  * host's regular is not put ahead of anybody; a station presenting as nobody casts only the untied.
  *
+ * ## A host whose show is the records brings them to the call
+ *
+ * A presenter at `trivia: 'keen'` is one whose job is the story behind the record, so a caller on
+ * their show rings about what the show has just played. The records, with what the station knows
+ * about each, go on the host's cast member here, once; see {@link ProductionCaster.records}. Every
+ * other host's callers ring about the host's preoccupation and are handed no records at all, since
+ * a list of titles in a prompt is a call about the titles, which is what the conspiracy show's
+ * calls were before anybody meant them to be.
+ *
  * ## A station with no callers is an ordinary state
  *
  * It casts the host alone, the planner uses the monologue band, and what comes out is exactly the
@@ -46,6 +74,8 @@ export class ProductionCaster {
     constructor(
         private readonly personas: PersonaRepository,
         private readonly segments: SegmentRepository,
+        private readonly plays: PlayHistoryRepository,
+        private readonly enrichment: EnrichmentReadService,
         private readonly config: AppConfig,
         private readonly logger: Logger,
     ) {}
@@ -84,7 +114,7 @@ export class ProductionCaster {
                 host: host.personaKey ?? '',
                 callers: callers.map(caller => caller.personaKey ?? '').join(', '),
             });
-            return [host, ...callers];
+            return [await this.withRecords(host, production, triviaOf(presenting) === 'keen'), ...callers];
         } catch (error) {
             // A production with one voice, which is what every one of them was until recently. The
             // alternative is failing a programme over who was going to be on it.
@@ -92,6 +122,45 @@ export class ProductionCaster {
                 production: production.id,
             });
             return [host];
+        }
+    }
+
+    /** The host, carrying what their show has just played when their show is about the records. */
+    private async withRecords(host: CastMember, production: Production, keen: boolean): Promise<CastMember> {
+        if (!keen || production.broadcastId === undefined) return host;
+
+        const records = await this.records(production.broadcastId, production.id);
+        return records.length === 0 ? host : { ...host, records };
+    }
+
+    /**
+     * What this broadcast has just played, newest first, and what the station knows about each.
+     *
+     * The broadcast the production was COMMISSIONED in, which is the show it airs inside. Best-effort
+     * on the break writer's terms: the records make a call better and never make it possible, so a
+     * read that fails costs the records, and the call is about the host's preoccupation instead.
+     *
+     * The facts are rotated over the production id, as a break's are over its segment id, so the
+     * next call about the same record is handed different ones.
+     */
+    private async records(broadcastId: string, productionId: string): Promise<ShowRecord[]> {
+        try {
+            const played = await this.plays.recordsDuringBroadcast(broadcastId, CALL_RECORDS);
+            const ids = played.flatMap(record => (record.trackId === undefined ? [] : [record.trackId]));
+            const facts =
+                ids.length === 0
+                    ? new Map<string, string[]>()
+                    : await this.enrichment.factsForTracks(ids, rotationOf(productionId), { budget: CALL_FACTS });
+
+            return played.map(({ trackId, title, artist }) => {
+                const known = trackId === undefined ? undefined : facts.get(trackId);
+                return { title, artist, ...(known === undefined || known.length === 0 ? {} : { facts: known }) };
+            });
+        } catch (error) {
+            this.logger.warn(`productions: could not read what this show has played, so the call is about the host instead (${errorText(error)})`, {
+                production: productionId,
+            });
+            return [];
         }
     }
 

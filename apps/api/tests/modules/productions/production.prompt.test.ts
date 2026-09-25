@@ -406,6 +406,37 @@ describe('a programme nobody briefed', () => {
         expect(user).toContain('The programme is about why Lonnie rang: the load he hauled once that nobody would name.');
     });
 
+    describe('on a show that is about the records', () => {
+        const records = [
+            { title: 'Enter Sandman', artist: 'Metallica', facts: ['It opened the album.'] },
+            { title: 'Holy Wars', artist: 'Megadeth' },
+        ];
+        const countdown = { host: 'Dale', show: 'songs nobody rated until they did', records, caller: 'Judith', about: 'a year given wrongly' };
+
+        it('plans the call around what the show just played, with what the station knows about each', () => {
+            const user = outlineUser({ subject: countdown });
+
+            expect(user).toContain("This is Dale's show, and the programme is about the records it has just played, newest first:");
+            expect(user).toContain('- "Enter Sandman" by Metallica\n    - It opened the album.\n- "Holy Wars" by Megadeth');
+            expect(user).toContain('Judith rang about one of those records');
+            expect(user).toContain('which is a year given wrongly. That is their angle on the record');
+            expect(user).toContain('What Dale keeps coming back to about records is songs nobody rated until they did.');
+        });
+
+        // The records are the source material. Telling the outline it has none, and that the station
+        // knows nothing about any record, would be two rules that disagree.
+        it('holds the call to the notes rather than telling it the station knows nothing', () => {
+            const user = outlineUser({ subject: countdown });
+
+            expect(user).toContain('The notes under a record are everything the station knows about it.');
+            expect(user).not.toContain('You have been given no source material');
+        });
+
+        it('tells every turn the same records', () => {
+            expect(userOf(turn({ ...base, subject: countdown }))).toContain('- "Enter Sandman" by Metallica');
+        });
+    });
+
     // A brief is what somebody asked for, and a subject is only ever the stand-in for one.
     it('says nothing about either of them when somebody asked for something', () => {
         const brief = 'the time I saw a light over the lake';

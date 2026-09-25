@@ -184,6 +184,33 @@ describe('coerceCast', () => {
         ]);
     });
 
+    // Every pass after the first reads the records back off the row, so they have to survive the trip.
+    it('reads back the records a host brought, dropping any with no title or artist', () => {
+        const stored = JSON.parse(
+            JSON.stringify([
+                {
+                    role: 'host',
+                    records: [
+                        { title: 'Enter Sandman', artist: 'Metallica', facts: ['It opened the album.', '  ', 7] },
+                        { title: 'Holy Wars', artist: 'Megadeth', facts: [] },
+                        { title: '', artist: 'Slayer' },
+                        'not a record',
+                    ],
+                },
+            ]),
+        );
+
+        expect(coerceCast(stored)).toEqual([
+            {
+                role: 'host',
+                records: [
+                    { title: 'Enter Sandman', artist: 'Metallica', facts: ['It opened the album.'] },
+                    { title: 'Holy Wars', artist: 'Megadeth' },
+                ],
+            },
+        ]);
+    });
+
     it('answers nothing for a column holding something that is not a cast', () => {
         // jsonb hands back whatever was put in, and a production with no usable cast is a production
         // the presenter reads alone — which is worse than it might have been and better than a pass
@@ -265,6 +292,31 @@ describe('what a programme is about when nobody said', () => {
     // A monologue has nobody to ring in, and its host's preoccupation already reaches every beat.
     it('is nothing for a cast with no caller', () => {
         expect(callSubjectOf(undefined, [host])).toBeUndefined();
+    });
+
+    // The countdown host's show is the records, so a call on it is about what the show just played.
+    it('is the records, when the host brought them', () => {
+        const records = [{ title: 'Enter Sandman', artist: 'Metallica', facts: ['It opened the album.'] }];
+        const countdown: CastMember = { role: 'host', name: 'Dale', preoccupation: 'songs nobody rated until they did', records };
+
+        expect(callSubjectOf(undefined, [countdown, dale])).toEqual({
+            host: 'Dale',
+            show: 'songs nobody rated until they did',
+            records,
+            caller: 'Dale',
+            about: 'how far away it was',
+        });
+    });
+
+    it('is the records alone when neither of them has anything else on their mind', () => {
+        const records = [{ title: 'Enter Sandman', artist: 'Metallica' }];
+
+        expect(
+            callSubjectOf(undefined, [
+                { role: 'host', name: 'Dale', records },
+                { role: 'caller', name: 'Judith' },
+            ]),
+        ).toEqual({ host: 'Dale', records });
     });
 
     it('passes over a caller with nothing on their mind for the next one who has', () => {

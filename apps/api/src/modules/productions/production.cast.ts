@@ -65,6 +65,25 @@ export interface CastMember {
      * stored before this existed.
      */
     preoccupation?: string;
+    /**
+     * What the host's show has just played, newest first, for a presenter whose show IS the records.
+     *
+     * Host only, and only for a presenter at `trivia: 'keen'` on a call somebody rang in to: see
+     * `ProductionCaster.records`. On the cast for the reason {@link preoccupation} is: a call is
+     * written over several passes minutes apart, the show plays on meanwhile, and an outline planned
+     * around three records whose turns were then told about three different ones is a call about
+     * nothing. Read once, here, and every pass reads the same list back.
+     */
+    records?: readonly ShowRecord[];
+}
+
+/** One record the show has just played, and what the station knows about it. JSON-safe: stored on the cast. */
+export interface ShowRecord {
+    title: string;
+    /** The lead credit alone, on `PlayHistoryRepository.duringBroadcast`'s rule. */
+    artist: string;
+    /** What the station knows about it, which is everything anybody on the call may state as fact. */
+    facts?: readonly string[];
 }
 
 /** A cast, in the order it was assembled: the presenter first, then whoever rang in. */
@@ -85,6 +104,11 @@ export interface CallSubject {
     caller?: string;
     /** The caller's preoccupation for this programme: their own way into the host's subject. */
     about?: string;
+    /**
+     * The records the show has just played, when the host's show is about them. See
+     * {@link CastMember.records}. The call is about these, and {@link show} becomes the host's take.
+     */
+    records?: readonly ShowRecord[];
 }
 
 /**
@@ -104,6 +128,10 @@ export interface CallSubject {
  * host's preoccupation is what the programme is about, and the caller's is their angle on it: a
  * skeptic on the Roswell show asks how far away it was, a pedant on the countdown corrects the year.
  *
+ * A presenter whose show is the RECORDS (the countdown host, `trivia: 'keen'`) carries what the
+ * show has just played on their cast member, and then those records are the subject: the caller
+ * rings about one of them, and the host's preoccupation is their take on it.
+ *
  * A brief always wins, because it is somebody saying what they want; the scheduler is what stops a
  * broadcast's playlist brief reaching a call as one. Absent for a cast with no caller, and for one
  * where neither side has anything on their mind.
@@ -117,10 +145,14 @@ export function callSubjectOf(brief: string | undefined, cast: ProductionCast): 
     const caller = cast.find(member => member.role === 'caller' && (member.preoccupation?.trim().length ?? 0) > 0);
     const about = caller?.preoccupation?.trim();
 
-    if (!show && !about) return undefined;
+    const records = host?.records !== undefined && host.records.length > 0 ? host.records : undefined;
+
+    if (!show && !about && records === undefined) return undefined;
 
     return {
-        ...(show ? { host: host?.name?.trim() || 'the host', show } : {}),
+        ...(show || records !== undefined ? { host: host?.name?.trim() || 'the host' } : {}),
+        ...(show ? { show } : {}),
+        ...(records === undefined ? {} : { records }),
         ...(about ? { caller: caller?.name?.trim() || 'the caller', about } : {}),
     };
 }
@@ -303,11 +335,35 @@ export function coerceCast(raw: unknown): ProductionCast | undefined {
                     ...text('name', entry.name),
                     ...text('voice', entry.voice),
                     ...text('preoccupation', entry.preoccupation),
+                    ...records(entry.records),
                 } satisfies CastMember,
             ];
         });
 
     return members.length === 0 ? undefined : members;
+}
+
+/** The stored records, keeping each one that still has a title and an artist. */
+function records(value: unknown): { records?: ShowRecord[] } {
+    if (!Array.isArray(value)) return {};
+
+    const kept = value
+        .filter((entry): entry is Record<string, unknown> => entry !== null && typeof entry === 'object')
+        .flatMap(entry => {
+            const title = text('title', entry.title).title;
+            const artist = text('artist', entry.artist).artist;
+            if (title === undefined || artist === undefined) return [];
+
+            const facts = Array.isArray(entry.facts)
+                ? entry.facts.flatMap(fact => {
+                      const kept = text('fact', fact).fact;
+                      return kept === undefined ? [] : [kept];
+                  })
+                : [];
+            return [{ title, artist, ...(facts.length === 0 ? {} : { facts }) }];
+        });
+
+    return kept.length === 0 ? {} : { records: kept };
 }
 
 /** A key at a usable string, or nothing at all. */

@@ -36,7 +36,7 @@ import type { Persona } from '#modules/personas/persona.js';
 import { latitudeOf, personaLines } from '#modules/personas/persona.sheet.js';
 import type { PersonaNotesForPrompt } from '#modules/personas/persona.note.js';
 import type { PersonaStoryForPrompt } from '#modules/personas/persona.story.js';
-import type { CallSubject, CastMember } from './production.cast.js';
+import type { CallSubject, CastMember, ShowRecord } from './production.cast.js';
 import type { OutlineBeat, ProductionOutline } from './production.js';
 import { languageName, languageRule } from '#modules/shared/language.name.js';
 
@@ -305,17 +305,21 @@ export function outlinePrompt(request: OutlineRequest): LlmMessage[] {
         ...(request.dayPart === undefined ? [] : ['', `It goes out ${request.dayPart}, so do not plan it around any other part of the day.`]),
         ...speakerLines(request.speakers),
         ...(request.items === undefined || request.items.length === 0
-            ? [
-                  '',
-                  'You have been given no source material, so the content is yours to invent.',
-                  // The break prompt's own "unknown" sentence, word for word: a production with
-                  // nothing behind it is exactly the no-material case that block already covers, and
-                  // a second, differently-worded rule here is how the two drift apart.
-                  'The station knows nothing about any record, release, credit, session or chart placing you might mention. ' +
-                      'Say nothing else about it as fact — no dates, no labels, no pressings or catalogue numbers, no studios, no sessions, ' +
-                      'no chart placings, no connection to any other record. What you think of it is yours to say. What happened to it is not, ' +
-                      'unless you were told.',
-              ]
+            ? request.brief === undefined && (request.subject?.records?.length ?? 0) > 0
+                ? // The records ARE the source material, and the subject passage carries their own
+                  // grounding sentence. See `recordsLine`.
+                  []
+                : [
+                      '',
+                      'You have been given no source material, so the content is yours to invent.',
+                      // The break prompt's own "unknown" sentence, word for word: a production with
+                      // nothing behind it is exactly the no-material case that block already covers, and
+                      // a second, differently-worded rule here is how the two drift apart.
+                      'The station knows nothing about any record, release, credit, session or chart placing you might mention. ' +
+                          'Say nothing else about it as fact — no dates, no labels, no pressings or catalogue numbers, no studios, no sessions, ' +
+                          'no chart placings, no connection to any other record. What you think of it is yours to say. What happened to it is not, ' +
+                          'unless you were told.',
+                  ]
             : ['', 'Cover these, by index:', ...request.items.map((item, index) => `${index}. ${item}`)]),
     ].join('\n');
 
@@ -789,6 +793,7 @@ export function beatBrief(beat: OutlineBeat): string[] {
  * thing and nobody answers the other.
  */
 function subjectLine(subject: CallSubject): string {
+    if (subject.records !== undefined && subject.records.length > 0) return recordsLine(subject, subject.records);
     if (subject.show === undefined) return `The programme is about why ${subject.caller} rang: ${subject.about}.`;
 
     const show = `This is ${subject.host}'s show, and the programme is about what ${subject.host} keeps coming back to: ${subject.show}.`;
@@ -798,4 +803,29 @@ function subjectLine(subject: CallSubject): string {
         `${show} That is why ${subject.caller} rang, and it is what the call is about from start to finish. ` +
         `${subject.caller} comes at it through their own thing, which is ${subject.about}. That is their angle on the subject, not a change of subject.`
     );
+}
+
+/**
+ * {@link subjectLine} for a host whose show is the records: the call is about what it just played.
+ *
+ * The notes under each record are the whole of what anybody on the call may state about it, and the
+ * sentence saying so is the outline's own "unknown" rule, which this replaces there: a call handed
+ * records and then told the station knows nothing about any record is two rules that disagree.
+ * The host's preoccupation stays, as their take on the records rather than a second subject.
+ */
+function recordsLine(subject: CallSubject, records: readonly ShowRecord[]): string {
+    const host = subject.host ?? 'the host';
+    const caller = subject.caller ?? 'the caller';
+
+    return [
+        `This is ${host}'s show, and the programme is about the records it has just played, newest first:`,
+        ...records.flatMap(record => [`- "${record.title}" by ${record.artist}`, ...(record.facts ?? []).map(fact => `    - ${fact}`)]),
+        `${caller} rang about one of those records, and it is what the call is about from start to finish.` +
+            (subject.about === undefined
+                ? ''
+                : ` ${caller} comes at it through their own thing, which is ${subject.about}. That is their angle on the record, not a change of subject.`) +
+            (subject.show === undefined ? '' : ` What ${host} keeps coming back to about records is ${subject.show}.`),
+        'The notes under a record are everything the station knows about it. Say nothing else about any of them as fact: no dates, no labels, ' +
+            'no sessions, no chart placings, no connection to any other record. What anybody thinks of a record is theirs to say.',
+    ].join('\n');
 }

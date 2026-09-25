@@ -92,6 +92,20 @@ records. `ProductionScheduler.showBrief` withholds it from every dialogue kind, 
 one, while a monologue band keeps it; the desk's Take a call no longer seeds its box with it, so only a subject
 an operator typed for the call itself reaches one as a brief.
 
+**A host whose show is the records brings them to the call** (`ProductionCaster.records`). The countdown host's
+callers should be on about the artists and the tracks, and a call is handed no records at all, so for a
+presenter at `trivia: 'keen'` the caster reads the last `CALL_RECORDS` plays of the broadcast the call was
+commissioned in, with two facts each spread across the levels, and puts them on the HOST's cast member. On the
+cast rather than read per pass, on `preoccupation`'s argument: the show plays on while a call is written, and
+an outline planned around three records whose turns were told about three others is a call about nothing.
+`callSubjectOf` then makes the records the subject, the host's preoccupation their take on them and the
+caller's their angle on one; the notes under a record are all anybody on the call may state about it, and that
+sentence replaces the outline's "the station knows nothing about any record" paragraph rather than joining it.
+Every other host's callers get no records, since a list of titles in a prompt is a call about the titles. The
+read is best-effort: a failure costs the records and the call falls back to the host's preoccupation. A
+persona row seeded before the countdown sheet gained `keen` (2026-09-22) does not have it, since seeds never
+overwrite a row.
+
 ## How long a turn is, and who takes it
 
 **Who says a turn is arithmetic**: `OutlineBeat.lead` is deleted and `BeatPlan.speaker` replaced it, on

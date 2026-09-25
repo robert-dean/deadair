@@ -22,6 +22,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -67,7 +68,15 @@ class MainActivity : ComponentActivity() {
      */
     private val links = MutableStateFlow<String?>(null)
 
+    /**
+     * Whether the settings have been read from disk. The splash screen stays up until they have,
+     * because until then there is no answer to "setup or the app" and nothing honest to draw.
+     */
+    private val settingsRead = MutableStateFlow(false)
+
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Before `super`, as the library requires: it swaps the starting theme for the real one.
+        installSplashScreen().setKeepOnScreenCondition { !settingsRead.value }
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         // Not on a restore: the launching intent is still attached after a rotation, and offering its
@@ -83,7 +92,7 @@ class MainActivity : ComponentActivity() {
             // `android.text.format` and everything that writes a time agrees.
             CompositionLocalProvider(LocalUses24HourClock provides DateFormat.is24HourFormat(this)) {
                 DeadairTheme(dynamicColor = settings?.dynamicColor ?: true) {
-                    Listener(graph, links)
+                    Listener(graph, links, onSettingsRead = { settingsRead.value = true })
                 }
             }
         }
@@ -107,7 +116,7 @@ class MainActivity : ComponentActivity() {
  * lives with that screen.
  */
 @Composable
-private fun Listener(graph: AppGraph, links: MutableStateFlow<String?>) {
+private fun Listener(graph: AppGraph, links: MutableStateFlow<String?>, onSettingsRead: () -> Unit) {
     val model: SettingsViewModel =
         viewModel(
             factory =
@@ -171,9 +180,9 @@ private fun Listener(graph: AppGraph, links: MutableStateFlow<String?>) {
     // never been pointed at one has nothing to show, and one that has should not be asked again.
     // Setup is chosen above the stack rather than pushed onto it, so it is not a place back can go.
     //
-    // Until the first read from disk lands there is no answer, and the honest thing to draw is
-    // nothing: the launch window is still on screen, and drawing Setup for the few frames before
-    // the station arrives was a flash of the wrong screen on every cold start.
+    // Until the first read from disk lands there is no answer, and the splash screen stays up over
+    // it: drawing Setup for the few frames before the station arrives was a flash of the wrong
+    // screen on every cold start. The blank frame below is what is under the splash meanwhile.
     //
     // A `deadair://` link is the one thing that shows Setup over a kept station, and only ever
     // PROPOSES: the kept station, its session and what is playing stay until the new address has
@@ -181,6 +190,7 @@ private fun Listener(graph: AppGraph, links: MutableStateFlow<String?>) {
     // that launched the app arrives before them and "is this the station I have" needs both.
     val loaded = settings
     val station = loaded?.station
+    LaunchedEffect(loaded != null) { if (loaded != null) onSettingsRead() }
     LaunchedEffect(link, loaded != null) {
         val text = link ?: return@LaunchedEffect
         if (loaded == null) return@LaunchedEffect

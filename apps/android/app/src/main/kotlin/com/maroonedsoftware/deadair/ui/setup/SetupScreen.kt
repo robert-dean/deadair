@@ -1,6 +1,9 @@
 package com.maroonedsoftware.deadair.ui.setup
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -39,6 +42,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
@@ -115,8 +119,19 @@ fun SetupScreen(
     }
 }
 
+/** How far the words and the button rise as they fade in. */
+private val RevealRise = 24.dp
+
 @Composable
 private fun Welcome(onStart: () -> Unit) {
+    // The splash hands over with the mark exactly where it was, so the mark stays put and what the
+    // splash did not have fades in around it: the words first, then the button. Once per arrival,
+    // and saveable, so coming back from the address step or turning the phone does not replay it.
+    // A phone with animations turned off gets it finished at once, because Compose honours that.
+    var revealed by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(Unit) { revealed = true }
+    val words by animateFloatAsState(if (revealed) 1f else 0f, tween(durationMillis = 500, delayMillis = 150, easing = FastOutSlowInEasing))
+    val action by animateFloatAsState(if (revealed) 1f else 0f, tween(durationMillis = 500, delayMillis = 350, easing = FastOutSlowInEasing))
     // No insets from the scaffold: the mark is centred on the WHOLE window, because that is where
     // the splash screen drew it, and the button column takes the navigation bar's inset itself.
     Scaffold(contentWindowInsets = WindowInsets(0)) { padding ->
@@ -129,23 +144,26 @@ private fun Welcome(onStart: () -> Unit) {
                 Spacer(Modifier.height((height - mark) / 2))
                 StationMark(size = mark)
                 Spacer(Modifier.height(32.dp))
-                Text(
-                    stringResource(R.string.welcome_eyebrow),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    stringResource(R.string.welcome_headline),
-                    // Balanced, so a two-line headline does not leave one word on its own.
-                    style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.SemiBold, lineBreak = LineBreak.Heading),
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.widthIn(max = 320.dp).padding(horizontal = Gutter).semantics { heading() },
-                )
+                Column(Modifier.reveal(words), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        stringResource(R.string.welcome_eyebrow),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        stringResource(R.string.welcome_headline),
+                        // Balanced, so a two-line headline does not leave one word on its own.
+                        style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.SemiBold, lineBreak = LineBreak.Heading),
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.widthIn(max = 320.dp).padding(horizontal = Gutter).semantics { heading() },
+                    )
+                }
                 Spacer(Modifier.weight(1f))
                 Column(
                     modifier =
-                        Modifier.widthIn(max = FormMaxWidth)
+                        Modifier.reveal(action)
+                            .widthIn(max = FormMaxWidth)
                             .fillMaxWidth()
                             .navigationBarsPadding()
                             .padding(horizontal = Gutter)
@@ -262,3 +280,10 @@ private fun Station(
         }
     }
 }
+
+/** Faded and lowered by what is left of [progress], so 0 is hidden and [RevealRise] down, 1 is in place. */
+private fun Modifier.reveal(progress: Float): Modifier =
+    graphicsLayer {
+        alpha = progress
+        translationY = (1f - progress) * RevealRise.toPx()
+    }

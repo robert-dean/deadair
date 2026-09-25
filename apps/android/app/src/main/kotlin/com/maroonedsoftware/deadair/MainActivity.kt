@@ -75,9 +75,28 @@ class MainActivity : ComponentActivity() {
      */
     private val settingsRead = MutableStateFlow(false)
 
+    /**
+     * Whether the screen under the splash is the welcome. Read when the splash leaves, which is
+     * after the settings have been read, so it is the answer and not a guess.
+     */
+    private var welcomeNext = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         // Before `super`, as the library requires: it swaps the starting theme for the real one.
-        installSplashScreen().setKeepOnScreenCondition { !settingsRead.value }
+        val splash = installSplashScreen()
+        splash.setKeepOnScreenCondition { !settingsRead.value }
+        // The welcome draws the mark exactly where the splash does, so the splash is taken away in
+        // one frame and the mark never moves. The library's own exit fades the WHOLE splash, mark
+        // included, and measured on a Pixel 8 Pro that was a blink: the mark dimmed nearly to black
+        // for a frame before the welcome's came up in its place. Anywhere else there is no mark to
+        // hand over to, and a short fade is the gentler cut.
+        splash.setOnExitAnimationListener { exit ->
+            if (welcomeNext) {
+                exit.remove()
+            } else {
+                exit.view.animate().alpha(0f).setDuration(SPLASH_FADE_MS).withEndAction { exit.remove() }.start()
+            }
+        }
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         // Not on a restore: the launching intent is still attached after a rotation, and offering its
@@ -93,7 +112,14 @@ class MainActivity : ComponentActivity() {
             // `android.text.format` and everything that writes a time agrees.
             CompositionLocalProvider(LocalUses24HourClock provides DateFormat.is24HourFormat(this)) {
                 DeadairTheme(dynamicColor = settings?.dynamicColor ?: true) {
-                    Listener(graph, links, onSettingsRead = { settingsRead.value = true })
+                    Listener(
+                        graph,
+                        links,
+                        onSettingsRead = { welcome ->
+                            welcomeNext = welcome
+                            settingsRead.value = true
+                        },
+                    )
                 }
             }
         }
@@ -106,6 +132,10 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun linkIn(intent: Intent?): String? = intent?.takeIf { it.action == Intent.ACTION_VIEW }?.dataString
+
+    private companion object {
+        const val SPLASH_FADE_MS = 200L
+    }
 }
 
 /**
@@ -117,7 +147,12 @@ class MainActivity : ComponentActivity() {
  * lives with that screen.
  */
 @Composable
-private fun Listener(graph: AppGraph, links: MutableStateFlow<String?>, onSettingsRead: () -> Unit) {
+private fun Listener(
+    graph: AppGraph,
+    links: MutableStateFlow<String?>,
+    /** The settings have been read; `true` when the first screen is the welcome, which a link skips. */
+    onSettingsRead: (welcome: Boolean) -> Unit,
+) {
     val model: SettingsViewModel =
         viewModel(
             factory =
@@ -191,7 +226,7 @@ private fun Listener(graph: AppGraph, links: MutableStateFlow<String?>, onSettin
     // that launched the app arrives before them and "is this the station I have" needs both.
     val loaded = settings
     val station = loaded?.station
-    LaunchedEffect(loaded != null) { if (loaded != null) onSettingsRead() }
+    LaunchedEffect(loaded != null) { if (loaded != null) onSettingsRead(station == null && link == null) }
     LaunchedEffect(link, loaded != null) {
         val text = link ?: return@LaunchedEffect
         if (loaded == null) return@LaunchedEffect

@@ -24,6 +24,11 @@ public sealed record PlayoutPlaylistInput
     [JsonPropertyName("mixInSimilar")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? MixInSimilar { get; init; }
+
+    /// <summary>Whether somebody phones in during this broadcast, exactly as `PutOnAirInput.callins`. Absent takes the station's own `rotation.callins`, so a station that takes calls needs an explicit `false` here to air a playlist without them</summary>
+    [JsonPropertyName("callins")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Callins { get; init; }
 }
 
 /// <summary>A playlist the station owns, to load into the running order</summary>
@@ -36,6 +41,11 @@ public sealed record PlayoutStationPlaylistInput
     [JsonPropertyName("mixInSimilar")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? MixInSimilar { get; init; }
+
+    /// <summary>Whether somebody phones in during this broadcast, exactly as `PutOnAirInput.callins`. Absent takes the station's own `rotation.callins`, so a station that takes calls needs an explicit `false` here to air a playlist without them</summary>
+    [JsonPropertyName("callins")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Callins { get; init; }
 }
 
 /// <summary>The published chart to build the running order from</summary>
@@ -49,6 +59,11 @@ public sealed record PlayoutChartInput
     [JsonPropertyName("chartOrder")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public PlayoutChartInputChartOrder? ChartOrder { get; init; }
+
+    /// <summary>Whether somebody phones in during this broadcast, exactly as `PutOnAirInput.callins`. Absent takes the station's own `rotation.callins`, so a station that takes calls needs an explicit `false` here to air a chart without them</summary>
+    [JsonPropertyName("callins")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Callins { get; init; }
 }
 
 /// <summary>One item in the running order, as the console sees it</summary>

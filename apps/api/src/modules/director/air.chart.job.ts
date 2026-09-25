@@ -20,6 +20,8 @@ export interface AirChartPayload {
     chartId?: string;
     /** Which way round to play it. Absent means `DEFAULT_CHART_ORDER`. */
     chartOrder?: ChartOrder;
+    /** Whether the broadcast takes calls. Absent leaves the station's own `rotation.callins` standing. */
+    callins?: boolean;
     /**
      * The broadcast on air when the operator pressed, absent when the station was stood down at
      * the time. Compared against the broadcast on air when this job actually runs: a Stop pressed
@@ -126,6 +128,7 @@ export class AirChartJob extends PlainJob<AirChartPayload> {
         await this.console.putOnAir({
             chartId: payload.chartId,
             ...(payload.chartOrder === undefined ? {} : { chartOrder: payload.chartOrder }),
+            ...(payload.callins === undefined ? {} : { callins: payload.callins }),
         });
 
         await this.pusher.reconcile();

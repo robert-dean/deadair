@@ -1637,6 +1637,14 @@ describe('DirectorConsoleService building a running order from a chart', () => {
             expect(posted()).toEqual([]);
         });
 
+        it('queues whether the broadcast takes calls with it', async () => {
+            const { service, jobs } = build({ chart: TOP_THREE });
+
+            await service.airChart({ chartId: 'deadair.lastfm:top-100', callins: false });
+
+            expect(jobs.send).toHaveBeenCalledWith('director.air_chart', { chartId: 'deadair.lastfm:top-100', callins: false });
+        });
+
         it('records the ask with the operator on it, since the outcome will carry nobody', async () => {
             const { service, activity } = build({ chart: TOP_THREE });
 

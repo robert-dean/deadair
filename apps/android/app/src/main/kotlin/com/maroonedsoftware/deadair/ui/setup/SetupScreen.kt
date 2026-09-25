@@ -49,8 +49,6 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.style.LineBreak
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.maroonedsoftware.deadair.R
@@ -125,7 +123,7 @@ private val RevealRise = 24.dp
 @Composable
 private fun Welcome(onStart: () -> Unit) {
     // The splash hands over with the mark exactly where it was, so the mark stays put and what the
-    // splash did not have fades in around it: the words first, then the button. Once per arrival,
+    // splash did not have fades in around it: the name first, then the button. Once per arrival,
     // and saveable, so coming back from the address step or turning the phone does not replay it.
     // A phone with animations turned off gets it finished at once, because Compose honours that.
     var revealed by rememberSaveable { mutableStateOf(false) }
@@ -144,21 +142,13 @@ private fun Welcome(onStart: () -> Unit) {
                 Spacer(Modifier.height((height - mark) / 2))
                 StationMark(size = mark)
                 Spacer(Modifier.height(32.dp))
-                Column(Modifier.reveal(words), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        stringResource(R.string.welcome_eyebrow),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        stringResource(R.string.welcome_headline),
-                        // Balanced, so a two-line headline does not leave one word on its own.
-                        style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.SemiBold, lineBreak = LineBreak.Heading),
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.widthIn(max = 320.dp).padding(horizontal = Gutter).semantics { heading() },
-                    )
-                }
+                // The station's name and nothing else: the mark says what this is, and the button
+                // says what to do next.
+                Text(
+                    stringResource(R.string.app_name),
+                    style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.SemiBold),
+                    modifier = Modifier.reveal(words).semantics { heading() },
+                )
                 Spacer(Modifier.weight(1f))
                 Column(
                     modifier =

@@ -258,6 +258,7 @@
 
     <!-- The desk: the operator's page for everything that can take the station off air -->
     <string name="desk">The desk</string>
+    <string name="desk_detail">Take the station off air, hold it against the schedule, and see why it is or is not on.</string>
     <string name="desk_on_air">On air</string>
     <string name="desk_off_air">Off air</string>
     <!-- Under On air: the broadcast's name and how many are listening. "Afternoon Drift, going out to 9" -->

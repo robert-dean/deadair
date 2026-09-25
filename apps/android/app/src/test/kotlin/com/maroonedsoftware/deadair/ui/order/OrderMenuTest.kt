@@ -22,9 +22,9 @@ class OrderMenuTest {
     private fun List<OrderMenuItem>.verb(verb: OrderVerb) = single { it.verb == verb }
 
     @Test
-    fun `a broadcast offers every verb, the desk first`() {
+    fun `a broadcast offers every verb`() {
         assertEquals(
-            listOf(OrderVerb.DESK, OrderVerb.AIR_SOMETHING, OrderVerb.ADD_RECORD, OrderVerb.REFILL, OrderVerb.SHUFFLE),
+            listOf(OrderVerb.AIR_SOMETHING, OrderVerb.ADD_RECORD, OrderVerb.REFILL, OrderVerb.SHUFFLE),
             orderMenu(order(), busy = false).map { it.verb },
         )
         assertTrue(orderMenu(order(), busy = false).all { it.enabled })
@@ -56,12 +56,11 @@ class OrderMenuTest {
 
         assertFalse(menu.verb(OrderVerb.REFILL).enabled)
         assertFalse(menu.verb(OrderVerb.SHUFFLE).enabled)
-        assertTrue(menu.verb(OrderVerb.DESK).enabled)
         assertTrue(menu.verb(OrderVerb.AIR_SOMETHING).enabled)
     }
 
     @Test
-    fun `before the order answers there is only the desk`() {
-        assertEquals(listOf(OrderMenuItem(OrderVerb.DESK)), orderMenu(null, busy = false))
+    fun `before the order answers there is nothing to offer`() {
+        assertTrue(orderMenu(null, busy = false).isEmpty())
     }
 }

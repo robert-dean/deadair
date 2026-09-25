@@ -85,8 +85,6 @@ fun HomeRoute(
     settingsTab: @Composable () -> Unit,
     /** Open a record's page. */
     onTrack: (String) -> Unit,
-    /** Open the desk: everything that can take the station off air. Offered to the operator only. */
-    onDesk: () -> Unit,
     /** Open the list of what could be put on air. Offered to the operator only. */
     onAirSomething: () -> Unit,
     /** Open the library search, to add one record. Offered to the operator only, while something is on. */
@@ -191,7 +189,6 @@ fun HomeRoute(
                             onClick = {
                                 open = false
                                 when (item.verb) {
-                                    OrderVerb.DESK -> onDesk()
                                     OrderVerb.AIR_SOMETHING -> onAirSomething()
                                     OrderVerb.ADD_RECORD -> onAddRecord()
                                     OrderVerb.REFILL -> orderAction { if (graph.orderActions.extend()) snackbarHost.showSnackbar(refillAsked) }
@@ -360,7 +357,6 @@ fun HomeRoute(
 private val OrderVerb.label: Int
     get() =
         when (this) {
-            OrderVerb.DESK -> R.string.desk
             OrderVerb.AIR_SOMETHING -> R.string.menu_air_something
             OrderVerb.ADD_RECORD -> R.string.menu_add_a_record
             OrderVerb.REFILL -> R.string.menu_refill

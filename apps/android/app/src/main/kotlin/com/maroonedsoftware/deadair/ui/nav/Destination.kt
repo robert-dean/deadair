@@ -56,7 +56,7 @@ sealed interface Destination : NavKey {
     @Serializable
     data class Artist(val id: String) : Destination
 
-    /** Everything that can take the station off air, and why it is or is not on. Operator only; reached from the Up next tab. */
+    /** Everything that can take the station off air, and why it is or is not on. Operator only; reached from Settings. */
     @Serializable
     data object Desk : Destination
 

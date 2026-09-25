@@ -319,6 +319,9 @@ private fun Listener(
                                     onPlayOnOpen = model::setPlayOnOpen,
                                     onOpenSignIn = openSignIn,
                                     onSignOut = model::signOut,
+                                    // The operator's, and drawn only for them: the rest of this
+                                    // screen is the phone's, and this is the station's.
+                                    onDesk = if ((session as? SessionState.SignedIn)?.isOperator == true) ({ backStack.add(Destination.Desk) }) else null,
                                     sleep = playback.sleep,
                                     canWaitForRecord = rememberPlayhead((nowPlaying as? NowPlayingState.Answered)?.reading) != null,
                                     onSleep =
@@ -331,7 +334,6 @@ private fun Listener(
                             },
                             onTrack = { id -> backStack.add(Destination.Track(id)) },
                             onHistory = { backStack.add(Destination.History) },
-                            onDesk = { backStack.add(Destination.Desk) },
                             onAirSomething = { backStack.add(Destination.AirSomething) },
                             onAddRecord = { backStack.add(Destination.AddRecord) },
                             onScripts = { segmentId -> backStack.add(Destination.Scripts(segmentId)) },

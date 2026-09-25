@@ -10,6 +10,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -22,7 +23,6 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -47,7 +47,9 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.maroonedsoftware.deadair.R
 import com.maroonedsoftware.deadair.auth.SessionState
+import com.maroonedsoftware.deadair.ui.PillTextField
 import com.maroonedsoftware.deadair.ui.text.resolve
+import com.maroonedsoftware.deadair.ui.theme.PillHeight
 
 /**
  * The account, as Settings shows it: one row.
@@ -109,11 +111,10 @@ private fun PasswordForm(account: AccountState, onEmailChange: (String) -> Unit,
     val first = remember { FocusRequester() }
     LaunchedEffect(Unit) { first.requestFocus() }
 
-    OutlinedTextField(
+    PillTextField(
         value = account.email,
         onValueChange = onEmailChange,
         label = { Text(stringResource(R.string.email)) },
-        singleLine = true,
         enabled = !account.busy,
         isError = account.error != null,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
@@ -126,11 +127,10 @@ private fun PasswordForm(account: AccountState, onEmailChange: (String) -> Unit,
     // retry, and this form clears the password on a refusal — so without a way to
     // look, a listener retypes blind, twice.
     var passwordShown by rememberSaveable { mutableStateOf(false) }
-    OutlinedTextField(
+    PillTextField(
         value = account.password,
         onValueChange = onPasswordChange,
         label = { Text(stringResource(R.string.password)) },
-        singleLine = true,
         enabled = !account.busy,
         isError = account.error != null,
         // The error sits under the password rather than the email because that is the
@@ -155,7 +155,7 @@ private fun PasswordForm(account: AccountState, onEmailChange: (String) -> Unit,
 
     // The button keeps its place while the station answers, with the spinner inside
     // it. Swapping the whole button for a spinner moved the layout on every tap.
-    Button(onClick = onSignIn, enabled = account.canSubmit, modifier = Modifier.fillMaxWidth()) {
+    Button(onClick = onSignIn, enabled = account.canSubmit, modifier = Modifier.fillMaxWidth().height(PillHeight)) {
         if (account.busy) {
             CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = LocalContentColor.current)
         } else {
@@ -180,11 +180,10 @@ private fun SecondFactor(account: AccountState, onCodeChange: (String) -> Unit, 
     val focus = LocalFocusManager.current
     val box = remember { FocusRequester() }
     LaunchedEffect(Unit) { box.requestFocus() }
-    OutlinedTextField(
+    PillTextField(
         value = account.code,
         onValueChange = onCodeChange,
         label = { Text(stringResource(R.string.authenticator_code)) },
-        singleLine = true,
         enabled = !account.busy,
         isError = account.error != null,
         // Announced when it lands: the field the operator was in has just been emptied under
@@ -197,7 +196,7 @@ private fun SecondFactor(account: AccountState, onCodeChange: (String) -> Unit, 
         modifier = Modifier.fillMaxWidth().focusRequester(box).semantics { contentType = ContentType.SmsOtpCode },
     )
 
-    Button(onClick = onSubmit, enabled = account.canSubmit, modifier = Modifier.fillMaxWidth()) {
+    Button(onClick = onSubmit, enabled = account.canSubmit, modifier = Modifier.fillMaxWidth().height(PillHeight)) {
         if (account.busy) {
             CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = LocalContentColor.current)
         } else {

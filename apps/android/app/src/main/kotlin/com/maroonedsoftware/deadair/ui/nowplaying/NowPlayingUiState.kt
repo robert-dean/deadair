@@ -59,21 +59,18 @@ data class NowPlayingUiState(
         get() = if (spokenBreak != null) null else (air as? AirState.OnAir)?.track?.album
 
     /**
-     * The line above the record: the show and who presents it, as far as the station said. Only on
-     * air, because a quiet station has no programme, and a stale show over "can't reach the
-     * station" would name something nobody can hear.
+     * Who is presenting, under the credit: "with Cass". Only on air, because a quiet station has no
+     * presenter, and a stale one over "can't reach the station" would name somebody nobody can hear.
+     * Not during a break either, whose title already says who is on the mic.
+     *
+     * The show's NAME is not drawn. It is the operator's label for a broadcast, and when nobody gave
+     * one the station makes one up from where the records came from ("From Spotify"), which on a
+     * listener's screen read as software rather than as a programme.
      */
-    val header: Message?
+    val hostLine: Message?
         get() {
-            if (air !is AirState.OnAir) return null
-            val name = show?.name?.ifBlank { null }
-            val host = show?.host?.ifBlank { null }
-            return when {
-                name != null && host != null -> Message.ShowWithHost(name, host)
-                name != null -> Message.Text(name)
-                host != null -> Message.WithHost(host)
-                else -> null
-            }
+            if (air !is AirState.OnAir || spokenBreak != null) return null
+            return show?.host?.ifBlank { null }?.let(Message::WithHost)
         }
 
     /**

@@ -4,7 +4,6 @@ import com.maroonedsoftware.deadair.auth.Notice
 import com.maroonedsoftware.deadair.auth.OperatorActions
 import com.maroonedsoftware.deadair.sdk.DeadairSdk
 import com.maroonedsoftware.deadair.sdk.models.AddStationTrackInput
-import com.maroonedsoftware.deadair.sdk.models.ExtendStationInput
 import com.maroonedsoftware.deadair.sdk.models.MoveStationItemInput
 import com.maroonedsoftware.deadair.sdk.models.ReplanStationInput
 import com.maroonedsoftware.deadair.sdk.models.SetStationHostInput
@@ -13,21 +12,11 @@ import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
 /**
- * What an operator can do to the running order from the phone.
- *
- * Every action but Extend answers with the order it produced, which goes on screen at once. Extend
- * answers 202 and nothing: the refill lands at the station's own pace, which is what the longer
- * follow-up reads are for.
+ * What an operator can do to the running order from the phone. Each action answers with the order it
+ * produced, which goes on screen at once.
  */
 @OptIn(ExperimentalUuidApi::class)
 class OrderActions(private val actions: OperatorActions, private val order: OrderRepository) {
-    /** Ask for more records now, without waiting for the order to run low. Answers whether the station took the request. */
-    suspend fun extend(): Boolean {
-        val accepted = actions.run { it.director.extendTheRunningOrder(ExtendStationInput()) } != null
-        if (accepted) order.refetchSoon(OrderRepository.REFILL_FOLLOW_UP_MS)
-        return accepted
-    }
-
     /** Reorder everything the player is not already holding. */
     suspend fun shuffle() = applying { it.director.shuffleTheRunningOrder() }
 

@@ -1,5 +1,36 @@
 package com.maroonedsoftware.deadair.ui.order
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.zIndex
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import com.maroonedsoftware.deadair.ui.nowplaying.CoverColored
+import com.maroonedsoftware.deadair.ui.nowplaying.rememberCoverPalette
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,9 +47,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -27,6 +56,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -41,8 +71,6 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.maroonedsoftware.deadair.R
 import com.maroonedsoftware.deadair.director.OrderState
-import com.maroonedsoftware.deadair.sdk.models.Persona
-import com.maroonedsoftware.deadair.ui.LoadState
 import com.maroonedsoftware.deadair.nowplaying.clockOf
 import com.maroonedsoftware.deadair.sdk.models.StationItemState
 import com.maroonedsoftware.deadair.sdk.models.StationOrderItem
@@ -63,10 +91,6 @@ data class OrderHandlers(
     val onRemove: (item: StationOrderItem, atIndex: Int) -> Unit,
     /** An action on a row is in flight. */
     val busyItemId: String?,
-    /** Hand the broadcast to a persona, or to the station's own host with `null`. */
-    val onRecast: (String?) -> Unit,
-    /** Change what the station plays: this show from here on, or a new one. */
-    val onPlan: () -> Unit,
     /** Any operator action is in flight, which is what stops a second one being started. */
     val busy: Boolean,
 )
@@ -91,12 +115,58 @@ fun RunningOrderScreen(
     onSegment: (String) -> Unit,
     /** Open everything the station has played, beyond this broadcast. */
     onHistory: () -> Unit,
-    /** The broadcast the order belongs to, for the header. `null` before the order has arrived. */
+    /** The broadcast the order belongs to, for who is presenting it. `null` before the order has arrived. */
     broadcast: BroadcastUiState?,
-    /** The station's characters, for the host picker. Read once when the tab opens. */
-    personas: LoadState<List<Persona>>,
-    onReloadPersonas: () -> Unit,
     handlers: OrderHandlers?,
+    /** The cover on air, whose colours the tab wears. `null` off air, or before the reading has arrived. */
+    onAirArtworkUrl: String?,
+    /** The tab's actions, beside its heading. */
+    actions: @Composable RowScope.() -> Unit,
+) {
+    // The tab wears the on-air cover's colours, as Now playing does: its accent on the on-air row
+    // and the host chip, and its mesh behind the heading.
+    val palette = rememberCoverPalette(onAirArtworkUrl, darkPage = MaterialTheme.colorScheme.background.luminance() < 0.5f)
+
+    // Edit mode: entered by holding a planned row, left by Done or back. While in it the rows are
+    // for moving rather than opening, and the heading's actions give way to Done, so there is one
+    // obvious way out. Only for the operator, and never with nothing left to move.
+    var editing by rememberSaveable { mutableStateOf(false) }
+    if (handlers == null && editing) editing = false
+    BackHandler(enabled = editing) { editing = false }
+
+    CoverColored(palette?.accent) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            UpNextHeader(
+                mesh = palette?.mesh.orEmpty(),
+                // Who is presenting, and nothing about a broadcast that has none: off air there is
+                // no one, and the line would name the station's own host over an empty order.
+                hostLine = broadcast?.takeUnless { it.nothingOn }?.hostMessage?.resolve(),
+                actions =
+                    if (editing) {
+                        { TextButton(onClick = { editing = false }) { Text(stringResource(R.string.done)) } }
+                    } else {
+                        actions
+                    },
+            )
+            Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
+                Body(state, artUrlFor, onRetry, onSignIn, onTrack, onSegment, onHistory, handlers, editing, onEditing = { editing = it })
+            }
+        }
+    }
+}
+
+@Composable
+private fun Body(
+    state: OrderState,
+    artUrlFor: (String?) -> String?,
+    onRetry: () -> Unit,
+    onSignIn: () -> Unit,
+    onTrack: (String) -> Unit,
+    onSegment: (String) -> Unit,
+    onHistory: () -> Unit,
+    handlers: OrderHandlers?,
+    editing: Boolean,
+    onEditing: (Boolean) -> Unit,
 ) {
     when (state) {
         OrderState.SignedOut -> SignedOutPlaceholder(stringResource(R.string.tab_up_next), onSignIn)
@@ -105,22 +175,10 @@ fun RunningOrderScreen(
         is OrderState.Loaded ->
             Refreshable(state = state, onRefresh = onRetry) {
                 Column(modifier = Modifier.fillMaxSize()) {
-                    // Drawn even with nothing on: off air it is the only thing on this tab with
-                    // anything to say, and the station's empty order is an ordinary answer.
-                    broadcast?.let {
-                        BroadcastHeader(
-                            ui = it,
-                            personas = personas,
-                            onReloadPersonas = onReloadPersonas,
-                            onRecast = handlers?.onRecast,
-                            onPlan = handlers?.onPlan,
-                            busy = handlers?.busy == true,
-                        )
-                    }
                     if (state.order.items.isEmpty()) {
                         Box(modifier = Modifier.weight(1f)) { EmptyPlaceholder(stringResource(R.string.order_empty)) }
                     } else {
-                        Rows(state, artUrlFor, onTrack, onSegment, onHistory, handlers, modifier = Modifier.weight(1f))
+                        Rows(state, artUrlFor, onTrack, onSegment, onHistory, handlers, editing, onEditing, modifier = Modifier.weight(1f))
                     }
                 }
             }
@@ -136,11 +194,26 @@ private fun Rows(
     onSegment: (String) -> Unit,
     onHistory: () -> Unit,
     handlers: OrderHandlers?,
+    editing: Boolean,
+    onEditing: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var historyOpen by rememberSaveable { mutableStateOf(false) }
     val ui = RunningOrderUiState(state.order.items, historyOpen)
     val listState = rememberLazyListState()
+
+    // A row being dragged, and after it is let go the order it was left in, held until the station's
+    // answer replaces the order: without it the list snapped back to the old order for the moment
+    // the move was in flight, and then jumped forward again.
+    var drag by remember { mutableStateOf<Drag?>(null) }
+    var held by remember { mutableStateOf<List<StationOrderItem>?>(null) }
+    LaunchedEffect(state.order.items) { held = null }
+    val bounds = if (handlers == null) null else ui.dragBounds()
+    // Nothing left to move ends the mode rather than leaving a Done over rows that do nothing.
+    LaunchedEffect(bounds == null) { if (bounds == null) onEditing(false) }
+    val haptics = LocalHapticFeedback.current
+    val base = held ?: ui.shown
+    val rows = drag?.let { base.moved(it.from, it.at) } ?: base
 
     // Opened on the row the order is read from, and moved to it again when it changes: the item on
     // air is the whole point of this tab and a long order buries it. Keyed on the anchor's id, so a
@@ -170,25 +243,97 @@ private fun Rows(
             }
         }
 
+        if (editing) {
+            Text(
+                stringResource(R.string.reorder_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = Gutter, vertical = 4.dp),
+            )
+        }
+
         LazyColumn(state = listState, modifier = Modifier.fillMaxWidth().weight(1f)) {
-            itemsIndexed(ui.shown, key = { _, item -> item.id }) { index, item ->
+            itemsIndexed(rows, key = { _, item -> item.id }) { index, item ->
                 val trackId = item.trackId?.takeIf { item.kind == StationOrderItemKind.TRACK }
                 val segmentId = item.segmentId?.takeIf { item.kind == StationOrderItemKind.SEGMENT }
                 val position = ui.positionOf(index)
-                Row(
+                val dragged = drag?.takeIf { it.id == item.id }
+                // Held, a planned row is picked up where it is and the tab goes into edit mode, so
+                // the hold that enters the mode is already the start of the first move. The gesture
+                // is keyed on the row alone and outlives the row moving under it, so it calls the
+                // callbacks as they are NOW rather than as they were when it was set up.
+                val movable = bounds != null && !item.isSpent() && handlers?.busy != true
+                val pickUp by rememberUpdatedState {
+                    if (drag == null) {
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onEditing(true)
+                        drag = Drag(item.id, index)
+                    }
+                }
+                val carry by rememberUpdatedState { dy: Float ->
+                    drag?.let { live ->
+                        live.offset += dy
+                        if (bounds != null) stepPast(live, listState, bounds)
+                    }
+                }
+                val putDown by rememberUpdatedState {
+                    drag?.let { done ->
+                        drag = null
+                        if (done.at != done.from) {
+                            held = base.moved(done.from, done.at)
+                            // Stated against the WHOLE order, where the row now sits.
+                            handlers?.onMove?.invoke(done.id, ui.positionOf(done.at))
+                        }
+                    }
+                }
+                OrderRow(
                     item = item,
                     artworkUrl = artUrlFor(item.artworkUrl),
                     stale = state.stale,
+                    // The dragged row rides on the finger above the others; the others slide aside
+                    // as it passes them. It is the one row not animated into place, since its place
+                    // is wherever the finger is.
+                    lift =
+                        if (dragged != null) {
+                            Modifier.zIndex(1f).graphicsLayer {
+                                translationY = dragged.offset
+                                shadowElevation = 12.dp.toPx()
+                                shape = RoundedCornerShape(16.dp)
+                                clip = true
+                            }.background(MaterialTheme.colorScheme.surfaceContainerHighest)
+                        } else {
+                            Modifier.animateItem()
+                        },
+                    // In edit mode a row is for moving, so a tap on it opens nothing.
                     modifier =
                         when {
+                            editing -> Modifier
                             trackId != null -> Modifier.clickable { onTrack(trackId) }
                             segmentId != null -> Modifier.clickable { onSegment(segmentId) }
                             else -> Modifier
-                        },
+                        }.then(
+                            if (movable) {
+                                Modifier.pointerInput(item.id) {
+                                    detectDragGesturesAfterLongPress(
+                                        onDragStart = { pickUp() },
+                                        onDrag = { change, amount ->
+                                            change.consume()
+                                            carry(amount.y)
+                                        },
+                                        onDragEnd = { putDown() },
+                                        onDragCancel = { putDown() },
+                                    )
+                                }
+                            } else {
+                                Modifier
+                            },
+                        ),
+                    editable = editing && movable,
                     // A menu only on a row the player has not been handed: an affordance that could
                     // only ever answer 422 is worse than none.
                     menu =
-                        if (handlers == null || item.isSpent()) {
+                        if (handlers == null || item.isSpent() || editing) {
                             null
                         } else {
                             {
@@ -203,7 +348,6 @@ private fun Rows(
                             }
                         },
                 )
-                if (index < ui.shown.lastIndex) HorizontalDivider()
             }
         }
     }
@@ -269,50 +413,155 @@ private fun RowMenu(
     }
 }
 
+/**
+ * One item in the order: its picture, its title and credit, and its length, or on the item that is
+ * airing a moving level meter in the station's colour in place of the length, on a card of its own
+ * so it is the row the eye lands on.
+ */
 @Composable
-private fun Row(item: StationOrderItem, artworkUrl: String?, stale: Boolean, modifier: Modifier = Modifier, menu: (@Composable () -> Unit)? = null) {
+private fun OrderRow(
+    item: StationOrderItem,
+    artworkUrl: String?,
+    stale: Boolean,
+    modifier: Modifier = Modifier,
+    /** Where the row sits among the others: lifted while it is dragged, animated into place otherwise. */
+    lift: Modifier = Modifier,
+    menu: (@Composable () -> Unit)? = null,
+    /** In edit mode and movable: drawn on a faint card, so which rows can be picked up is plain. */
+    editable: Boolean = false,
+) {
     val airing = item.state == StationItemState.AIRING
-    ListItem(
-        modifier = modifier.alpha(item.opacity()),
-        leadingContent = {
-            Box(modifier = Modifier.size(48.dp).clip(RoundedCornerShape(4.dp)), contentAlignment = Alignment.Center) {
-                // The picture first, whatever the row is. A break wears the picture its KIND was
-                // given — the sky on a forecast, the front page on a bulletin — and the console
-                // draws the same one against the same row, so forcing the microphone here on the
-                // grounds that a segment is not a record would leave the phone and the desk
-                // disagreeing about an order they are both reading from the station.
-                if (artworkUrl == null) {
-                    Icon(
-                        painterResource(if (item.kind == StationOrderItemKind.SEGMENT) R.drawable.ic_mic else R.drawable.ic_radio),
-                        contentDescription = null,
-                        modifier = Modifier.size(24.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                } else {
-                    AsyncImage(model = artworkUrl, contentDescription = null, modifier = Modifier.fillMaxSize().alpha(if (stale) 0.4f else 1f))
-                }
-            }
-        },
-        headlineContent = {
-            Text(item.title, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = if (airing) FontWeight.SemiBold else null)
-        },
-        supportingContent = {
-            val credit = item.artists.joinToString(", ")
-            val length = item.durationMs?.let(::clockOf)
-            val line = listOfNotNull(credit.ifBlank { null }, length).joinToString(" · ")
-            if (line.isNotEmpty()) Text(line, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        },
-        trailingContent = {
-            val label = item.stateLabel()
-            if (menu != null) {
-                menu()
-            } else if (label != null) {
-                Text(
-                    label.resolve(),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = if (airing) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+    val card = RoundedCornerShape(16.dp)
+    Row(
+        modifier =
+            lift
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 2.dp)
+                .clip(card)
+                .then(
+                    when {
+                        airing -> Modifier.background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                        editable -> Modifier.background(MaterialTheme.colorScheme.surfaceContainer)
+                        else -> Modifier
+                    },
                 )
+                .then(modifier)
+                .alpha(item.opacity())
+                .padding(horizontal = 8.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Box(modifier = Modifier.size(56.dp).clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.surfaceContainer), contentAlignment = Alignment.Center) {
+            // The picture first, whatever the row is. A break wears the picture its KIND was
+            // given — the sky on a forecast, the front page on a bulletin — and the console
+            // draws the same one against the same row, so forcing the microphone here on the
+            // grounds that a segment is not a record would leave the phone and the desk
+            // disagreeing about an order they are both reading from the station.
+            if (artworkUrl == null) {
+                Icon(
+                    painterResource(if (item.kind == StationOrderItemKind.SEGMENT) R.drawable.ic_mic else R.drawable.ic_radio),
+                    contentDescription = null,
+                    modifier = Modifier.size(24.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                AsyncImage(model = artworkUrl, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().alpha(if (stale) 0.4f else 1f))
             }
-        },
-    )
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            Text(item.title, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            val credit = item.artists.joinToString(", ")
+            if (credit.isNotBlank()) {
+                Text(credit, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+        val label = item.stateLabel()
+        when {
+            airing -> OnAirMeter(moving = !stale, label = label?.resolve())
+            // A row that has been handed over, played or skipped says so where the length was:
+            // what happened to it is the news, and its length no longer matters.
+            label != null -> Text(label.resolve(), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            else -> item.durationMs?.let { Text(clockOf(it), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        }
+        menu?.invoke()
+    }
 }
+
+/** A row being dragged: where it started, where it would land now, and how far the finger has it from its slot. */
+private class Drag(val id: String, val from: Int) {
+    var at by mutableIntStateOf(from)
+    var offset by mutableFloatStateOf(0f)
+}
+
+/**
+ * Move the dragged row one place when its middle has passed a neighbour's, and take that neighbour's
+ * height off the finger's offset so the row stays under the finger as its slot moves. Only when the
+ * list has been laid out with the row where [Drag.at] says it is: a second step read against a
+ * layout from before the first would move it two places for one.
+ */
+private fun stepPast(drag: Drag, list: LazyListState, bounds: IntRange) {
+    val visible = list.layoutInfo.visibleItemsInfo
+    val me = visible.firstOrNull { it.key == drag.id } ?: return
+    if (me.index != drag.at) return
+    val middle = me.offset + me.size / 2 + drag.offset
+    val below = visible.firstOrNull { it.index == me.index + 1 }
+    val above = visible.firstOrNull { it.index == me.index - 1 }
+    when {
+        below != null && drag.at < bounds.last && middle > below.offset + below.size / 2 -> {
+            drag.at += 1
+            drag.offset -= below.size
+        }
+        above != null && drag.at > bounds.first && middle < above.offset + above.size / 2 -> {
+            drag.at -= 1
+            drag.offset += above.size
+        }
+    }
+}
+
+/**
+ * The on-air mark: three bars rising and falling in a disc of the station's colour, the level meter
+ * every player uses for "this one". It says "On air" to a screen reader, which is what it means, and
+ * it stands still while the reading is stale, since a meter moving over a record that may have ended
+ * would be a confident lie.
+ */
+@Composable
+private fun OnAirMeter(moving: Boolean, label: String?) {
+    val bars = rememberInfiniteTransition(label = "meter")
+    val heights =
+        METER_TEMPOS.mapIndexed { index, tempo ->
+            if (moving) {
+                bars.animateFloat(
+                    initialValue = 0.3f,
+                    targetValue = 1f,
+                    animationSpec = infiniteRepeatable(tween(tempo, delayMillis = index * 90), RepeatMode.Reverse),
+                    label = "bar$index",
+                ).value
+            } else {
+                METER_RESTING[index]
+            }
+        }
+    val fill = MaterialTheme.colorScheme.primary
+    val ink = MaterialTheme.colorScheme.onPrimary
+    Canvas(
+        modifier =
+            Modifier.size(32.dp).background(fill, CircleShape).semantics {
+                if (label != null) contentDescription = label
+            },
+    ) {
+        val bar = 3.dp.toPx()
+        val gap = 3.dp.toPx()
+        val tallest = size.height * 0.46f
+        val left = (size.width - (bar * 3 + gap * 2)) / 2
+        val floor = size.height / 2 + tallest / 2
+        heights.forEachIndexed { index, share ->
+            val height = tallest * share
+            drawRoundRect(ink, topLeft = Offset(left + index * (bar + gap), floor - height), size = Size(bar, height), cornerRadius = CornerRadius(bar / 2))
+        }
+    }
+}
+
+/** How long each bar takes to rise, never in step with the others. */
+private val METER_TEMPOS = listOf(420, 560, 480)
+
+/** Where the bars stand when the meter is still. */
+private val METER_RESTING = listOf(0.55f, 0.9f, 0.7f)

@@ -12,6 +12,7 @@ import { TracksRepository } from '#modules/catalog/tracks.repository.js';
 import { ChartsService, MAX_CHART_ENTRIES } from '#modules/charts/charts.service.js';
 import { splitChartId } from '#modules/charts/chart.ids.js';
 import { AuthorizationContext } from '#modules/permissions/authorization.context.js';
+import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
 import { PlaylistsService } from '#modules/playlists/playlists.service.js';
 import { StationPlaylistsRepository } from '#modules/playlists/station.playlists.repository.js';
 import type { CatalogTrack } from '#modules/playlists/types/playlists.types.js';
@@ -141,6 +142,9 @@ export class DirectorConsoleService {
         // Read-only: a playlist the station owns is the third thing a broadcast can be built from,
         // and the playlists module owns its rows. See {@link stationPlaylistTracks}.
         private readonly stationPlaylists: StationPlaylistsRepository,
+        // Read-only, and for one label: what a plugin calls itself when a broadcast is named after
+        // it. See {@link nameFor}.
+        private readonly plugins: PluginRegistry,
     ) {}
 
     /**
@@ -661,6 +665,12 @@ export class DirectorConsoleService {
      * request on every plugin that offers one, because "Top 100 Songs" is what the operator clicked
      * and `From deadair.lastfm` is the name of the software they clicked it in. Falling back to the
      * plugin keeps a chart whose descriptor has since gone from being nameless.
+     *
+     * The plugin is named by what it calls ITSELF, "From Last.fm", as the playlist importer names
+     * one. Its id is an address for the software, and it reached listeners: the broadcast's name
+     * is the show line every listener app draws over the record, and a provider playlist aired
+     * without a name read "From deadair.spotify" there. The id stays only for a plugin the station
+     * no longer has, which has no other name to give.
      */
     private async nameFor(input: PutOnAirInput): Promise<string> {
         // The station's own playlist has a name it chose, read again here rather than carried out of
@@ -685,7 +695,7 @@ export class DirectorConsoleService {
             if (named !== undefined) return named;
         }
 
-        return `From ${plugin}`;
+        return `From ${this.plugins.get(plugin)?.manifest?.name ?? plugin}`;
     }
 
     /** The period a broadcast was asked for, in the shape everything downstream of here reads it. */

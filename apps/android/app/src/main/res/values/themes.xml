@@ -1,9 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!--
-        The launch window only. Compose draws everything after the first frame, so this exists to
-        keep the moment between tapping the icon and that frame from being a white flash on a dark
-        device.
+        What every window is painted before Compose's first frame. Compose draws everything after
+        it, so this exists to keep that moment from being a white flash on a dark device.
 
         `Theme.Material.NoActionBar` rather than a DayNight parent: the DayNight variants of the
         platform themes arrive at API 29 and this app runs from 26. Following the system is done
@@ -12,5 +11,21 @@
     -->
     <style name="Theme.Deadair" parent="android:Theme.Material.NoActionBar">
         <item name="android:windowBackground">@color/launch_background</item>
+    </style>
+
+    <!--
+        The main activity's launch: the station's mark on the launch colour, through
+        `core-splashscreen` so API 26 to 30 draw the same thing Android 12 does. `MainActivity`
+        holds it until the settings have been read, because until then there is no answer to
+        "setup or the app", and drawing either for a few frames was a flash of the wrong screen.
+
+        The icon is the launcher's own adaptive icon, so the skull sits on its green field exactly as
+        it does on the home screen. The bare foreground with `windowSplashScreenIconBackgroundColor`
+        was tried first and drew the skull on nothing: the platform ignored the colour (API 36).
+    -->
+    <style name="Theme.Deadair.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/launch_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
+        <item name="postSplashScreenTheme">@style/Theme.Deadair</item>
     </style>
 </resources>

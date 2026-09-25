@@ -282,7 +282,10 @@ stay cheap.
 
 **Listening is accountless and stays that way.** A session buys the `platform.view` reads and
 nothing else, which is why sign-in is optional, last on the settings screen, and says so in its own
-copy. The credentials are the operator's: nothing in the API creates a `listener` account, and
+copy. Setup offers it too, as the quieter second button once an address has answered and never
+before: credentials belong to a station, so there is nothing to sign in to until one has said who it
+is. That button keeps the station and pushes the sign-in page onto the stack under Setup, so backing
+out of it lands on Now playing rather than on the address again. The credentials are the operator's: nothing in the API creates a `listener` account, and
 onboarding writes only the `admin` tuple.
 
 **The refresh is single-flight, and that is not tidiness.** The station's refresh tokens are
@@ -341,6 +344,41 @@ serializers are stripped — and it fails at DECODE on a phone rather than at co
 The release path is verified on every push that touches the listener or its SDK for that reason;
 `.github/scripts/changes.sh` decides which pushes those are, and fails open when it cannot tell.
 
+## How the screens look, and the three things that bit
+
+**The splash holds until the settings are read, and hands over to the welcome in one frame.**
+`installSplashScreen` keeps it up until `Listener` reports the first read, because until then there is no
+answer to "setup or the app". The welcome draws the mark exactly where the splash does (`StationMark` at
+`SplashMarkSize`, 192dp, measured on the emulator and a Pixel 8 Pro), so `MainActivity` removes the splash
+outright when the welcome is next; the library's own exit fades the WHOLE splash, mark included, and on a
+Pixel that was a blink of a dark mark before the welcome's came up. Anywhere else it still fades. The splash
+icon is `@mipmap/ic_launcher`: the bare foreground with `windowSplashScreenIconBackgroundColor` drew the skull
+on nothing (API 36 ignored the colour).
+
+**Now playing and Up next wear the on-air cover's colours, read once and never from a stretched picture.**
+`rememberCoverPalette` reads `WallpaperColors.fromBitmap` (the live wallpaper's reader, already on the
+phone) and the pure `coverAccent`/`meshColors` decide the accent and the mesh, which are JVM-tested.
+The background is `CoverMesh`: four soft blobs of those colours, drifting while the station is airing (not
+while THIS phone is playing: that left it standing still for somebody listening on another device), still
+with animations off. A blurred, scaled copy of the cover was tried first and is the wrong tool: at screen
+size the blur was weak, the cover's shapes showed through as bands and blotches, and an oversized layer
+under `wrapContentSize(unbounded = true)` is centred on its slot, which put it half its overhang too high.
+
+**A tab with no app bar must not carry the bar's scroll behaviour.** `HomeScreen` attaches
+`enterAlwaysScrollBehavior` only when `topBar` is true. The behaviour learns how far the bar may collapse
+from the bar itself; with none composed its limit stays unbounded and it swallowed every upward scroll,
+which is how Up next stopped scrolling when it lost its bar. Now playing also draws UNDER the tabs
+(`underTabs`) and keeps `TabBarHeight` clear itself, so the tabs can step aside after a moment and come back
+on a touch without the screen moving.
+
+**Up next is rearranged by holding a record, and the operator's controls are on a Manage page.** A hold
+enters edit mode and picks the row up in the same gesture; only a hold starts a drag, so a swipe still
+scrolls (handles were tried and dropped). A drop never lands among what the player holds (`dragBounds`,
+the same floor `moveTarget` keeps), and the list holds its new order until the station's answer replaces
+it. The row menu stays for TalkBack. Everything else an operator does from Up next is one button to
+`Destination.Manage`; the desk lives in Settings, because it is about the station rather than what is
+playing.
+
 ## Conventions
 
 Kotlin official style, 4-space indent, files named PascalCase after the class they hold. The
@@ -373,6 +411,17 @@ have been read, because a link that LAUNCHED the app arrives before them, and no
 restore, because the launching intent is still attached after a rotation. A user or password in a
 link is refused, including one smuggled inside the escaped origin: a link names a place, never a
 way in.
+
+**Setup can scan the console's code, and the code is that same link.** Checkup draws
+`deadair://connect?station=<origin>` as a QR code, and `ScannedCode` reads it with `StationLink`'s
+rules, plus a plain http(s) address for a hand-made code; anything else (a Wi-Fi code, a menu) is
+refused rather than read as a host, which is what the typed-address rules would do to a bare word.
+A scan fills the field and checks it at once, and keeps nothing until Listen. The scanner is Google's
+code scanner, chosen so the app asks for no camera permission and never sees a frame; the cost is
+Play services, so without it there is no button rather than one that fails. Its module is fetched by
+Play services (the manifest's `com.google.mlkit.vision.DEPENDENCIES`), and an emulator with no
+account signed in to the Play Store never gets it: "The scanner is not ready yet" there is the
+emulator, not the code.
 
 **A notice raised by a pushed screen is lost unless that screen collects it.** `OperatorActions`
 publishes into a `SharedFlow` with no replay, and `NavDisplay` composes only the entry on top, so

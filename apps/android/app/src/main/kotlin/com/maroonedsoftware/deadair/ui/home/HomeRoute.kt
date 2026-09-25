@@ -1,10 +1,16 @@
 package com.maroonedsoftware.deadair.ui.home
 
+import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.ui.Modifier
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.foundation.layout.Box
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.IconButton
@@ -37,15 +43,17 @@ import com.maroonedsoftware.deadair.ui.LoadState
 import com.maroonedsoftware.deadair.ui.catalog.rememberDetail
 import com.maroonedsoftware.deadair.ui.order.BroadcastUiState
 import com.maroonedsoftware.deadair.ui.order.OrderHandlers
-import com.maroonedsoftware.deadair.ui.order.OrderVerb
-import com.maroonedsoftware.deadair.ui.order.orderMenu
 import com.maroonedsoftware.deadair.director.OrderState
 import com.maroonedsoftware.deadair.sdk.models.StationOrderItemKind
 import com.maroonedsoftware.deadair.ui.order.RunningOrderScreen
 import com.maroonedsoftware.deadair.ui.nowplaying.NowPlayingScreen
 import com.maroonedsoftware.deadair.ui.nowplaying.NowPlayingUiState
 import com.maroonedsoftware.deadair.ui.nowplaying.SkipControl
+import com.maroonedsoftware.deadair.ui.nowplaying.ShuffleControl
+import com.maroonedsoftware.deadair.ui.nowplaying.OperatorControls
 import com.maroonedsoftware.deadair.ui.nowplaying.rememberRest
+import com.maroonedsoftware.deadair.ui.nowplaying.noticesTouch
+import com.maroonedsoftware.deadair.ui.nowplaying.TABS_AWAY_AFTER_MS
 import com.maroonedsoftware.deadair.ui.nowplaying.sideBySide
 import com.maroonedsoftware.deadair.ui.nowplaying.TransportUiState
 import com.maroonedsoftware.deadair.ui.nowplaying.rememberPlayWithNotificationsAsked
@@ -79,20 +87,14 @@ fun HomeRoute(
     settingsTab: @Composable () -> Unit,
     /** Open a record's page. */
     onTrack: (String) -> Unit,
-    /** Open the desk: everything that can take the station off air. Offered to the operator only. */
-    onDesk: () -> Unit,
-    /** Open the list of what could be put on air. Offered to the operator only. */
-    onAirSomething: () -> Unit,
-    /** Open the library search, to add one record. Offered to the operator only, while something is on. */
-    onAddRecord: () -> Unit,
     /** Open the sign-in page, over this screen, which is where it comes back to. */
     onSignIn: () -> Unit,
     /** Open everything the station has played. */
     onHistory: () -> Unit,
     /** Open what the station said: everything, or one break's attempts. */
     onScripts: (segmentId: String?) -> Unit,
-    /** Change what the station plays. The broadcast rides along, so the form opens on a fixed baseline. */
-    onPlan: (currentBrief: String?, somethingOn: Boolean) -> Unit,
+    /** Open the Manage page: the station's controls, gathered. */
+    onManage: () -> Unit,
 ) {
     // Back returns to the tab this app opens on before it leaves, which is what an Android
     // listener expects of a bottom bar. The display handles back for the stack above this; this
@@ -134,6 +136,9 @@ fun HomeRoute(
     val window = LocalWindowInfo.current.containerSize
     val upright = with(LocalDensity.current) { !sideBySide(window.width.toDp(), window.height.toDp()) }
     val rest = rememberRest(allowed = tab == Tab.NOW_PLAYING && upright && nowState.canRest)
+    // The tabs step aside on Now playing a moment after the last touch, playing or not, so the cover
+    // has the screen; any touch brings them back and still does what it touched.
+    val tabsAway = rememberRest(allowed = tab == Tab.NOW_PLAYING, afterMs = TABS_AWAY_AFTER_MS)
 
     // The order's own state is read here as well as in its tab, because the app bar's Extend and
     // Shuffle live above the tab and need to know whether there is anything to shuffle. Collected
@@ -154,9 +159,25 @@ fun HomeRoute(
             }
         }
     }
-    val refillAsked = stringResource(R.string.refill_asked)
     val dropped = stringResource(R.string.dropped)
     val putItBack = stringResource(R.string.put_it_back)
+
+    // Up next's one action, in its own header: Manage for the operator, where every control now is,
+    // and for a signed-in listener the one read they have. Nothing for anybody signed out.
+    val upNextActions: @Composable RowScope.() -> Unit = {
+        when {
+            isOperator ->
+                FilledTonalButton(onClick = onManage, contentPadding = PaddingValues(start = 12.dp, end = 16.dp)) {
+                    Icon(painterResource(R.drawable.ic_tune), contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.manage))
+                }
+            session is SessionState.SignedIn ->
+                IconButton(onClick = { onScripts(null) }) {
+                    Icon(painterResource(R.drawable.ic_record_voice_over), contentDescription = stringResource(R.string.what_it_said))
+                }
+        }
+    }
 
     HomeScreen(
         // What the station calls itself now, else what it called itself when it was kept, else
@@ -170,54 +191,21 @@ fun HomeRoute(
         tab = tab,
         onTab = onTab,
         // Now playing is the cover to the top of the screen, and a bar over it would be the one
-        // thing on the art that is not the art.
-        topBar = tab != Tab.NOW_PLAYING,
-        bottomBar = !rest.resting,
+        // thing on the art that is not the art. Up next draws its own header, the on-air cover's
+        // colour behind a heading, and ends above the tabs as the other tabs do.
+        topBar = tab != Tab.NOW_PLAYING && tab != Tab.UP_NEXT,
+        underTabs = tab == Tab.NOW_PLAYING,
+        bottomBar = !rest.resting && !tabsAway.resting,
         snackbarHost = snackbarHost,
-        // Over the tabs that are about the station, and not over Now playing, which has the
-        // station's button already, or Settings, which is not about what is on.
+        // Over What's on only: not over Now playing, which has the station's button already, nor
+        // Up next, whose own on-air row already says what is playing a thumb's width away, nor
+        // Settings, which is not about what is on.
         miniPlayer =
-            if (tab == Tab.NOW_PLAYING || tab == Tab.SETTINGS) {
+            if (tab != Tab.WHATS_ON) {
                 null
             } else {
                 { MiniPlayer(nowState, artworkUrl, onOpen = { onTab(Tab.NOW_PLAYING) }, onPlay = play, onStop = connection::stop) }
             },
-        actions = {
-            val loaded = order as? OrderState.Loaded
-            // What it said is a read, so any signed-in listener gets it; the rest are the operator's.
-            if (tab == Tab.UP_NEXT && session is SessionState.SignedIn) {
-                IconButton(onClick = { onScripts(null) }) {
-                    Icon(painterResource(R.drawable.ic_record_voice_over), contentDescription = stringResource(R.string.what_it_said))
-                }
-            }
-            // The operator's verbs behind one overflow, each in words. See `orderMenu`.
-            if (tab == Tab.UP_NEXT && isOperator) {
-                var open by remember { mutableStateOf(false) }
-                Box {
-                    IconButton(onClick = { open = true }) {
-                        Icon(painterResource(R.drawable.ic_more_vert), contentDescription = stringResource(R.string.more_actions))
-                    }
-                    DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-                        orderMenu(loaded?.order, busy = orderBusy).forEach { item ->
-                            DropdownMenuItem(
-                                text = { Text(stringResource(item.verb.label)) },
-                                enabled = item.enabled,
-                                onClick = {
-                                    open = false
-                                    when (item.verb) {
-                                        OrderVerb.DESK -> onDesk()
-                                        OrderVerb.AIR_SOMETHING -> onAirSomething()
-                                        OrderVerb.ADD_RECORD -> onAddRecord()
-                                        OrderVerb.REFILL -> orderAction { if (graph.orderActions.extend()) snackbarHost.showSnackbar(refillAsked) }
-                                        OrderVerb.SHUFFLE -> orderAction { graph.orderActions.shuffle() }
-                                    }
-                                },
-                            )
-                        }
-                    }
-                }
-            }
-        },
     ) {
         when (tab) {
             Tab.NOW_PLAYING -> {
@@ -246,6 +234,29 @@ fun HomeRoute(
                     } else {
                         null
                     }
+                // Shuffle takes the same turn Skip does: one operator command at a time, and only
+                // while something is on to reorder. The station answers whether there is enough
+                // left to shuffle; asking it here would mean polling the whole order on this tab.
+                val shuffle =
+                    if (isOperator && loaded != null) {
+                        ShuffleControl(enabled = !busy && TransportUiState(status = loaded.status, air = loaded.air, busy = busy).skipEnabled) {
+                            if (!busy) {
+                                busy = true
+                                scope.launch {
+                                    try {
+                                        graph.orderActions.shuffle()
+                                    } finally {
+                                        busy = false
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        null
+                    }
+                // The record, as the transport reading names it: the public one names none.
+                val onAirTrackId = loaded?.status?.nowPlaying?.item?.trackId
+                val like = if (isOperator && onAirTrackId != null) rememberLike(graph, onAirTrackId) else null
                 NowPlayingScreen(
                     state = nowState,
                     artworkUrl = artworkUrl,
@@ -254,11 +265,15 @@ fun HomeRoute(
                     playhead = rememberPlayhead(reading.takeIf { nowPlaying is NowPlayingState.Answered }, ticking = !rest.resting),
                     onPlay = play,
                     onStop = connection::stop,
-                    skip = skip,
+                    operator = OperatorControls(skip = skip, shuffle = shuffle, like = like),
                     // The cover leads to the record's page, for a signed-in listener: the public
                     // reading names no record, so only the transport reading can say which it is.
-                    onArtwork = loaded?.status?.nowPlaying?.item?.trackId?.let { id -> { onTrack(id) } },
+                    onArtwork = onAirTrackId?.let { id -> { onTrack(id) } },
                     rest = rest,
+                    // It draws under the tabs and keeps their height clear, so they come and go
+                    // without the screen moving; a touch anywhere on it brings them back.
+                    bottomReserve = TabBarHeight,
+                    modifier = Modifier.noticesTouch(tabsAway),
                 )
             }
             Tab.UP_NEXT -> {
@@ -288,8 +303,6 @@ fun HomeRoute(
                                 }
                             },
                             busyItemId = busyItemId,
-                            onRecast = { personaId -> orderAction { graph.orderActions.recast(personaId) } },
-                            onPlan = { onPlan(loadedOrder?.brief, broadcast?.nothingOn == false) },
                             busy = orderBusy,
                         )
                     }
@@ -302,9 +315,9 @@ fun HomeRoute(
                     onSegment = { segmentId -> onScripts(segmentId) },
                     onHistory = onHistory,
                     broadcast = broadcast,
-                    personas = personas.state,
-                    onReloadPersonas = personas::reload,
                     handlers = handlers,
+                    onAirArtworkUrl = artworkUrl,
+                    actions = upNextActions,
                 )
             }
             Tab.WHATS_ON -> WhatsOnScreen(state = schedule, onRetry = graph.schedule::retry, onSignIn = onSignIn)
@@ -313,13 +326,3 @@ fun HomeRoute(
     }
 }
 
-/** What each verb is called in the overflow. */
-private val OrderVerb.label: Int
-    get() =
-        when (this) {
-            OrderVerb.DESK -> R.string.desk
-            OrderVerb.AIR_SOMETHING -> R.string.menu_air_something
-            OrderVerb.ADD_RECORD -> R.string.menu_add_a_record
-            OrderVerb.REFILL -> R.string.menu_refill
-            OrderVerb.SHUFFLE -> R.string.menu_shuffle
-        }

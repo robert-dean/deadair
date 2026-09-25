@@ -57,7 +57,6 @@ sealed interface Message {
     data class OnTheMic(val host: String?) : Message
 
     /** The line above the record: "Late Static · with Cass". Both halves are the station's words. */
-    data class ShowWithHost(val show: String, val host: String) : Message
 
     /** The same line when the show has no name to give: "with Cass". */
     data class WithHost(val host: String) : Message
@@ -73,6 +72,12 @@ sealed interface Message {
     data object NotEncrypted : Message
 
     data object NotAnAddress : Message
+
+    /** A scanned code that names no station: a Wi-Fi code, a menu, somebody else's link. */
+    data object NotAStationCode : Message
+
+    /** The scanner could not start, almost always because Play services has not fetched it yet. */
+    data object ScannerUnavailable : Message
 
     data object UnknownShape : Message
 

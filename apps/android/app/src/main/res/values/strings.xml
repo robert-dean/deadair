@@ -39,7 +39,6 @@
     <!-- The same, when the station named nobody -->
     <string name="now_on_the_mic_unnamed">The host is on the mic</string>
     <!-- The line above the record: the show, then its host. "Late Static · with Cass" -->
-    <string name="now_show_with_host">%1$s · with %2$s</string>
     <!-- The same line for a show with no name: "with Cass" -->
     <string name="now_with_host">with %1$s</string>
     <!-- The home-screen widget -->
@@ -113,6 +112,8 @@
     <string name="buffering">Buffering</string>
 
     <!-- First run and the station address -->
+    <string name="find_your_station">Find your station</string>
+    <string name="run_this_station">I run this station: sign in</string>
     <string name="setup_intro">The address your station\'s console loads from. The same one carries the stream.</string>
     <string name="station_address">Station address</string>
     <string name="station_address_example">https://radio.example.com</string>
@@ -125,6 +126,9 @@
     <string name="station_answered_as">Answered as %1$s</string>
     <string name="station_not_encrypted">Not encrypted. Ordinary on a home network, where the station has no certificate.</string>
     <string name="station_not_an_address">That is not an address</string>
+    <string name="station_not_a_station_code">That code is not a station\'s. The console shows the right one under Checkup.</string>
+    <string name="station_scanner_unavailable">The scanner is not ready yet. Try again in a moment, or type the address.</string>
+    <string name="scan_station_code">Scan your station\'s code</string>
     <string name="station_unknown_shape">That is a deadair station, but it answers a shape this app does not know. It may need updating.</string>
     <string name="station_older_api">That is a deadair station running an older API: it does not report `%1$s`. Update the station.</string>
     <string name="station_not_a_station">Something answered, but not a station. Check the address.</string>
@@ -221,6 +225,10 @@
 
     <!-- The operator's transport. Drawn only for the account the station calls its operator -->
     <string name="skip">Skip</string>
+    <!-- Now playing's operator controls, as spoken. Shuffle reorders what has not aired yet, as Up next's menu does. -->
+    <string name="shuffle">Shuffle what has not aired</string>
+    <string name="like">Like this record</string>
+    <string name="unlike">Stop liking this record</string>
     <string name="start">Start</string>
     <!-- The station's stop, named by what it stops: the round button on Now playing stops this phone -->
     <string name="take_off_air">Take off air</string>
@@ -250,6 +258,7 @@
 
     <!-- The desk: the operator's page for everything that can take the station off air -->
     <string name="desk">The desk</string>
+    <string name="desk_detail">Take the station off air, hold it against the schedule, and see why it is or is not on.</string>
     <string name="desk_on_air">On air</string>
     <string name="desk_off_air">Off air</string>
     <!-- Under On air: the broadcast's name and how many are listening. "Afternoon Drift, going out to 9" -->
@@ -304,13 +313,10 @@
 
     <!-- The operator's running-order actions -->
     <!-- The Up next overflow: the operator's verbs, each saying what it does -->
-    <string name="more_actions">More actions</string>
-    <string name="menu_air_something">Air something…</string>
-    <string name="menu_add_a_record">Add a record…</string>
-    <string name="menu_refill">Ask the station to refill</string>
-    <string name="menu_shuffle">Shuffle what has not aired</string>
-    <string name="refill_asked">Refill asked for. The records land in a few seconds.</string>
     <string name="row_actions">Actions for %1$s</string>
+    <!-- Up next's edit mode: the line above the rows, and the way out of it. -->
+    <string name="reorder_hint">Hold and drag a record to move it</string>
+    <string name="done">Done</string>
     <string name="play_next">Play next</string>
     <string name="add_to_end">Add to the end</string>
     <string name="move_up">Move up</string>
@@ -377,7 +383,7 @@
     <string name="enrichment_empty_artist">No provider has been asked about this artist yet. The enrichment pass picks up what it has not seen, oldest first.</string>
 
     <!-- Airing a playlist or a chart -->
-    <string name="air_something">Air something</string>
+    <string name="air_something">Playlists</string>
 
     <!-- Adding one record from the library -->
     <string name="add_a_record">Add a record</string>
@@ -419,6 +425,15 @@
 
     <!-- What it said -->
     <string name="what_it_said">What it said</string>
+    <!-- The Manage page: the station's controls from Up next, in three groups. -->
+    <string name="manage">Manage</string>
+    <string name="manage_this_show">This show</string>
+    <string name="manage_put_on">Put something on</string>
+    <string name="manage_host_detail">Who presents the rest of this show</string>
+    <string name="manage_replan">Replan the show</string>
+    <string name="manage_air_something">Playlists</string>
+    <string name="manage_add_record">Add a record</string>
+    <string name="manage_what_it_said_detail">Every break\'s script, and what became of it</string>
     <string name="one_break">One break</string>
     <string name="scripts_empty">The station has not said anything yet.</string>
     <string name="show_details">Show details</string>

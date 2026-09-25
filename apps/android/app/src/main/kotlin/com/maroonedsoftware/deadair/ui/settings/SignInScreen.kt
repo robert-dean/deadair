@@ -11,13 +11,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,9 +37,9 @@ import com.maroonedsoftware.deadair.ui.theme.Gutter
  * is not worth coming back to, because its challenge has a clock.
  *
  * The station's name heads it, because these are that station's credentials and a phone may have
- * been pointed at another one since.
+ * been pointed at another one since. Laid out as setup's address step is, so the two pages a first
+ * run can show read as one design.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SignInScreen(
     /** What the station calls itself, or its address before it has said. */
@@ -54,18 +52,7 @@ fun SignInScreen(
     onSignIn: () -> Unit,
     onStartAgain: () -> Unit,
 ) {
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {},
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(painterResource(R.drawable.ic_arrow_back), contentDescription = stringResource(R.string.back))
-                    }
-                },
-            )
-        },
-    ) { padding ->
+    Scaffold { padding ->
         Box(
             modifier = Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding).imePadding().verticalScroll(rememberScrollState()),
             contentAlignment = Alignment.TopCenter,
@@ -74,6 +61,9 @@ fun SignInScreen(
                 modifier = Modifier.widthIn(max = FormMaxWidth).fillMaxWidth().padding(horizontal = Gutter).padding(bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
+                IconButton(onClick = onBack, modifier = Modifier.padding(top = 4.dp)) {
+                    Icon(painterResource(R.drawable.ic_arrow_back), contentDescription = stringResource(R.string.back))
+                }
                 // The code step has its own heading; this one belongs to the first.
                 if (account.challenge == null) {
                     Text(

@@ -350,6 +350,12 @@ function build(options: Options = {}) {
             pusher as never,
             art,
             stationPlaylists,
+            // Two plugins the station has, by the names they give themselves. Any other id is one
+            // it no longer has.
+            {
+                get: (id: string) =>
+                    ({ 'deadair.lastfm': { manifest: { name: 'Last.fm' } }, 'deadair.spotify': { manifest: { name: 'Spotify' } } })[id],
+            } as never,
         ),
         pusher,
         art,
@@ -1760,12 +1766,28 @@ describe('DirectorConsoleService building a running order from a chart', () => {
         expect(posted0(posted())?.binding.name).toBe('Global Top 100');
     });
 
-    it('falls back to the plugin when the menu no longer lists that chart', async () => {
+    it('falls back to the plugin, by its own name, when the menu no longer lists that chart', async () => {
         const { service, posted } = build({ chart: TOP_THREE, chartMenu: [] });
 
         await service.putOnAir({ chartId: 'deadair.lastfm:top-100' });
 
-        expect(posted0(posted())?.binding.name).toBe('From deadair.lastfm');
+        expect(posted0(posted())?.binding.name).toBe('From Last.fm');
+    });
+
+    it('names a provider playlist aired without a name after its plugin, never after its id', async () => {
+        const { service, posted } = build();
+
+        await service.putOnAir({ pluginId: 'deadair.spotify', playlistId: 'pl_1' });
+
+        expect(posted0(posted())?.binding.name).toBe('From Spotify');
+    });
+
+    it('keeps the id for a plugin the station no longer has, which has no other name', async () => {
+        const { service, posted } = build({ chart: TOP_THREE, chartMenu: [] });
+
+        await service.putOnAir({ chartId: 'deadair.gone:top-100' });
+
+        expect(posted0(posted())?.binding.name).toBe('From deadair.gone');
     });
 
     it('refuses a chart that could not be read rather than airing an empty order', async () => {

@@ -1,5 +1,6 @@
 import type { MaxInt } from '@spotify/web-api-ts-sdk';
 import type { PlaybackState, ProviderPlaylist, ProviderPlaylistPermission, ProviderTrack, SearchTracksOptions } from '@deadair/plugin-sdk';
+import { plainText } from '@deadair/plugin-sdk';
 
 /**
  * The SDK's own `Track` / `PlaylistedTrack` / `PlaybackState` types declare their
@@ -170,7 +171,10 @@ export function mapPlaylist(playlist: SpotifyPlaylist | null | undefined, curren
     return {
         id: playlist.id,
         name: playlist.name,
-        description: playlist.description && playlist.description.length > 0 ? playlist.description : undefined,
+        // Spotify sends a description as HTML: entities escaped (`Synthwave &#x2F; Retrowave`) and links
+        // to other playlists as anchors. Every reader of it wants words, so it is made plain here once
+        // rather than by each client, which is where the escapes were reaching a listener's screen.
+        description: playlist.description ? plainText(playlist.description) : undefined,
         trackCount: playlist.items?.total ?? playlist.tracks?.total,
         artworkUrl: pickArtwork(playlist.images),
         permissions: playlistPermissions(playlist, currentUserId),

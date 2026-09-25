@@ -1,5 +1,8 @@
 package com.maroonedsoftware.deadair.ui.settings
 
+import androidx.compose.ui.res.painterResource
+import androidx.compose.material3.Icon
+import androidx.compose.foundation.clickable
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -102,6 +105,8 @@ fun SettingsScreen(
     canWaitForRecord: Boolean = false,
     /** Set the sleep timer, or `null` to turn it off. No row is drawn without one. */
     onSleep: ((SleepRequest?) -> Unit)? = null,
+    /** Open the desk. `null` for anyone the station does not call its operator, who gets no row. */
+    onDesk: (() -> Unit)? = null,
 ) {
     // Scroll first and the keyboard's inset inside it, so Sign in is never behind the keyboard. The
     // frame has already padded this by the bars and consumed their insets, so this adds only what
@@ -143,6 +148,18 @@ fun SettingsScreen(
                             Text(stringResource(R.string.check))
                         }
                     }
+            }
+
+            // Under the station it is about: everything that can take it off air, and why it is or
+            // is not on. It was in Up next's overflow, beside what the station is playing, which is
+            // a different question.
+            onDesk?.let {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.desk)) },
+                    supportingContent = { Text(stringResource(R.string.desk_detail)) },
+                    trailingContent = { Icon(painterResource(R.drawable.ic_chevron_right), contentDescription = null) },
+                    modifier = Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = it),
+                )
             }
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))

@@ -1,5 +1,6 @@
 package com.maroonedsoftware.deadair.ui.theme
 
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.unit.dp
 
 /**
@@ -19,3 +20,13 @@ val FormMaxWidth = 480.dp
 
 /** The widest the cover art gets. A full-width square on a tablet is a poster, not a cover. */
 val ArtworkMaxWidth = 360.dp
+
+/**
+ * The welcome screen's fields: fully rounded, like the buttons under them. Material's buttons are
+ * already a pill; its text fields are not, and a pill button under a square field looked like two
+ * designs stacked on each other.
+ */
+val PillShape = RoundedCornerShape(percent = 50)
+
+/** The height of a pill button, a little over Material's 40 so the one thing to press on a first-run screen reads as the thing to press. */
+val PillHeight = 52.dp

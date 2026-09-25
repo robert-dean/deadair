@@ -22,17 +22,17 @@ class OrderMenuTest {
     private fun List<OrderMenuItem>.verb(verb: OrderVerb) = single { it.verb == verb }
 
     @Test
-    fun `a broadcast offers every verb, the desk first`() {
+    fun `a broadcast offers every verb`() {
         assertEquals(
-            listOf(OrderVerb.DESK, OrderVerb.AIR_SOMETHING, OrderVerb.ADD_RECORD, OrderVerb.REFILL, OrderVerb.SHUFFLE),
-            orderMenu(order(), busy = false).map { it.verb },
+            listOf(OrderVerb.AIR_SOMETHING, OrderVerb.ADD_RECORD),
+            orderMenu(order()).map { it.verb },
         )
-        assertTrue(orderMenu(order(), busy = false).all { it.enabled })
+        assertTrue(orderMenu(order()).all { it.enabled })
     }
 
     @Test
     fun `off air there is no broadcast for a record to join`() {
-        val verbs = orderMenu(order(name = "", items = emptyList()), busy = false).map { it.verb }
+        val verbs = orderMenu(order(name = "", items = emptyList())).map { it.verb }
 
         assertFalse(OrderVerb.ADD_RECORD in verbs)
         assertTrue(OrderVerb.AIR_SOMETHING in verbs)
@@ -40,28 +40,11 @@ class OrderMenuTest {
 
     @Test
     fun `a broadcast that has run out still takes a record`() {
-        assertTrue(OrderVerb.ADD_RECORD in orderMenu(order(items = emptyList()), busy = false).map { it.verb })
+        assertTrue(OrderVerb.ADD_RECORD in orderMenu(order(items = emptyList())).map { it.verb })
     }
 
     @Test
-    fun `shuffle needs two rows the player has not been handed`() {
-        val one = order(items = listOf(item("a", StationItemState.AIRING), item("b")))
-
-        assertFalse(orderMenu(one, busy = false).verb(OrderVerb.SHUFFLE).enabled)
-    }
-
-    @Test
-    fun `an action in flight holds refill and shuffle, and nothing else`() {
-        val menu = orderMenu(order(), busy = true)
-
-        assertFalse(menu.verb(OrderVerb.REFILL).enabled)
-        assertFalse(menu.verb(OrderVerb.SHUFFLE).enabled)
-        assertTrue(menu.verb(OrderVerb.DESK).enabled)
-        assertTrue(menu.verb(OrderVerb.AIR_SOMETHING).enabled)
-    }
-
-    @Test
-    fun `before the order answers there is only the desk`() {
-        assertEquals(listOf(OrderMenuItem(OrderVerb.DESK)), orderMenu(null, busy = false))
+    fun `before the order answers there is nothing to offer`() {
+        assertTrue(orderMenu(null).isEmpty())
     }
 }

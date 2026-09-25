@@ -22,6 +22,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -50,6 +51,7 @@ import com.maroonedsoftware.deadair.ui.home.HomeRoute
 import com.maroonedsoftware.deadair.ui.home.Tab
 import com.maroonedsoftware.deadair.ui.nav.Destination
 import com.maroonedsoftware.deadair.ui.nav.NavConfiguration
+import com.maroonedsoftware.deadair.ui.manage.ManageRoute
 import com.maroonedsoftware.deadair.ui.plan.PlanRoute
 import com.maroonedsoftware.deadair.ui.scripts.ScriptsRoute
 import com.maroonedsoftware.deadair.ui.settings.SignInScreen
@@ -57,6 +59,7 @@ import com.maroonedsoftware.deadair.ui.settings.SettingsScreen
 import com.maroonedsoftware.deadair.ui.settings.SettingsViewModel
 import com.maroonedsoftware.deadair.ui.settings.availableFormats
 import com.maroonedsoftware.deadair.ui.setup.SetupScreen
+import com.maroonedsoftware.deadair.ui.setup.rememberStationScanner
 import com.maroonedsoftware.deadair.ui.text.LocalUses24HourClock
 import com.maroonedsoftware.deadair.ui.theme.DeadairTheme
 
@@ -67,7 +70,34 @@ class MainActivity : ComponentActivity() {
      */
     private val links = MutableStateFlow<String?>(null)
 
+    /**
+     * Whether the settings have been read from disk. The splash screen stays up until they have,
+     * because until then there is no answer to "setup or the app" and nothing honest to draw.
+     */
+    private val settingsRead = MutableStateFlow(false)
+
+    /**
+     * Whether the screen under the splash is the welcome. Read when the splash leaves, which is
+     * after the settings have been read, so it is the answer and not a guess.
+     */
+    private var welcomeNext = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Before `super`, as the library requires: it swaps the starting theme for the real one.
+        val splash = installSplashScreen()
+        splash.setKeepOnScreenCondition { !settingsRead.value }
+        // The welcome draws the mark exactly where the splash does, so the splash is taken away in
+        // one frame and the mark never moves. The library's own exit fades the WHOLE splash, mark
+        // included, and measured on a Pixel 8 Pro that was a blink: the mark dimmed nearly to black
+        // for a frame before the welcome's came up in its place. Anywhere else there is no mark to
+        // hand over to, and a short fade is the gentler cut.
+        splash.setOnExitAnimationListener { exit ->
+            if (welcomeNext) {
+                exit.remove()
+            } else {
+                exit.view.animate().alpha(0f).setDuration(SPLASH_FADE_MS).withEndAction { exit.remove() }.start()
+            }
+        }
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         // Not on a restore: the launching intent is still attached after a rotation, and offering its
@@ -83,7 +113,14 @@ class MainActivity : ComponentActivity() {
             // `android.text.format` and everything that writes a time agrees.
             CompositionLocalProvider(LocalUses24HourClock provides DateFormat.is24HourFormat(this)) {
                 DeadairTheme(dynamicColor = settings?.dynamicColor ?: true) {
-                    Listener(graph, links)
+                    Listener(
+                        graph,
+                        links,
+                        onSettingsRead = { welcome ->
+                            welcomeNext = welcome
+                            settingsRead.value = true
+                        },
+                    )
                 }
             }
         }
@@ -96,6 +133,10 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun linkIn(intent: Intent?): String? = intent?.takeIf { it.action == Intent.ACTION_VIEW }?.dataString
+
+    private companion object {
+        const val SPLASH_FADE_MS = 200L
+    }
 }
 
 /**
@@ -107,7 +148,12 @@ class MainActivity : ComponentActivity() {
  * lives with that screen.
  */
 @Composable
-private fun Listener(graph: AppGraph, links: MutableStateFlow<String?>) {
+private fun Listener(
+    graph: AppGraph,
+    links: MutableStateFlow<String?>,
+    /** The settings have been read; `true` when the first screen is the welcome, which a link skips. */
+    onSettingsRead: (welcome: Boolean) -> Unit,
+) {
     val model: SettingsViewModel =
         viewModel(
             factory =
@@ -171,9 +217,9 @@ private fun Listener(graph: AppGraph, links: MutableStateFlow<String?>) {
     // never been pointed at one has nothing to show, and one that has should not be asked again.
     // Setup is chosen above the stack rather than pushed onto it, so it is not a place back can go.
     //
-    // Until the first read from disk lands there is no answer, and the honest thing to draw is
-    // nothing: the launch window is still on screen, and drawing Setup for the few frames before
-    // the station arrives was a flash of the wrong screen on every cold start.
+    // Until the first read from disk lands there is no answer, and the splash screen stays up over
+    // it: drawing Setup for the few frames before the station arrives was a flash of the wrong
+    // screen on every cold start. The blank frame below is what is under the splash meanwhile.
     //
     // A `deadair://` link is the one thing that shows Setup over a kept station, and only ever
     // PROPOSES: the kept station, its session and what is playing stay until the new address has
@@ -181,6 +227,7 @@ private fun Listener(graph: AppGraph, links: MutableStateFlow<String?>) {
     // that launched the app arrives before them and "is this the station I have" needs both.
     val loaded = settings
     val station = loaded?.station
+    LaunchedEffect(loaded != null) { if (loaded != null) onSettingsRead(station == null && link == null) }
     LaunchedEffect(link, loaded != null) {
         val text = link ?: return@LaunchedEffect
         if (loaded == null) return@LaunchedEffect
@@ -188,6 +235,7 @@ private fun Listener(graph: AppGraph, links: MutableStateFlow<String?>) {
         StationLink.parse(text)?.let { model.propose(it, station) }
     }
     val keepCurrent = { model.keepCurrent(station) }
+    val scan = rememberStationScanner(onScanned = model::scanned, onFailed = model::scanFailed)
     BackHandler(enabled = proposal != null && station != null, onBack = keepCurrent)
 
     if (loaded == null) {
@@ -198,8 +246,17 @@ private fun Listener(graph: AppGraph, links: MutableStateFlow<String?>) {
             onAddressChange = model::onAddressChange,
             onCheck = model::check,
             onConfirm = model::confirm,
+            proposing = proposal != null,
             listeningTo = if (proposal != null) station?.let { loaded.stationName ?: it.origin } else null,
             onKeepCurrent = if (proposal != null && station != null) keepCurrent else null,
+            // The sign-in page is pushed before the station has landed, onto the stack that is
+            // already here under Setup, so the app opens on it with Now playing beneath: signing in
+            // or backing out both end on the station just chosen.
+            onScan = scan,
+            onConfirmAndSignIn = {
+                model.confirm()
+                openSignIn()
+            },
         )
     } else {
         NavDisplay(
@@ -263,6 +320,9 @@ private fun Listener(graph: AppGraph, links: MutableStateFlow<String?>) {
                                     onPlayOnOpen = model::setPlayOnOpen,
                                     onOpenSignIn = openSignIn,
                                     onSignOut = model::signOut,
+                                    // The operator's, and drawn only for them: the rest of this
+                                    // screen is the phone's, and this is the station's.
+                                    onDesk = if ((session as? SessionState.SignedIn)?.isOperator == true) ({ backStack.add(Destination.Desk) }) else null,
                                     sleep = playback.sleep,
                                     canWaitForRecord = rememberPlayhead((nowPlaying as? NowPlayingState.Answered)?.reading) != null,
                                     onSleep =
@@ -275,11 +335,8 @@ private fun Listener(graph: AppGraph, links: MutableStateFlow<String?>) {
                             },
                             onTrack = { id -> backStack.add(Destination.Track(id)) },
                             onHistory = { backStack.add(Destination.History) },
-                            onDesk = { backStack.add(Destination.Desk) },
-                            onAirSomething = { backStack.add(Destination.AirSomething) },
-                            onAddRecord = { backStack.add(Destination.AddRecord) },
                             onScripts = { segmentId -> backStack.add(Destination.Scripts(segmentId)) },
-                            onPlan = { currentBrief, somethingOn -> backStack.add(Destination.Plan(currentBrief, somethingOn)) },
+                            onManage = { backStack.add(Destination.Manage) },
                         )
                     }
                     entry<Destination.Plan> { key ->
@@ -317,6 +374,16 @@ private fun Listener(graph: AppGraph, links: MutableStateFlow<String?>) {
                             onCodeChange = model::onCodeChange,
                             onSignIn = model::signIn,
                             onStartAgain = model::startAgain,
+                        )
+                    }
+                    entry<Destination.Manage> {
+                        ManageRoute(
+                            graph = graph,
+                            onBack = { backStack.removeLastOrNull() },
+                            onPlan = { currentBrief, somethingOn -> backStack.add(Destination.Plan(currentBrief, somethingOn)) },
+                            onAirSomething = { backStack.add(Destination.AirSomething) },
+                            onAddRecord = { backStack.add(Destination.AddRecord) },
+                            onScripts = { backStack.add(Destination.Scripts(null)) },
                         )
                     }
                     entry<Destination.Desk> {

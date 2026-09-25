@@ -60,6 +60,10 @@ The app requests network access, permission to keep playing while the screen is 
 run playback as a foreground service, and permission to show a notification. Each is used to play
 audio and to show what is playing. None is used to collect information.
 
+The app does not request the camera. Scanning your station's code on the setup screen opens Google
+Play services' own scanner, which reads the code on the device and hands the app only the text of
+the code, the station's address. No picture reaches the app.
+
 ## Children
 
 The app is not directed at children and collects no data from anyone.

@@ -46,11 +46,19 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Deadair">
 
+        <!--
+            Asks Play services to fetch the code scanner's module when the app is installed, so the
+            first press of "Scan your station's code" on a fresh install has a scanner to open.
+        -->
+        <meta-data
+            android:name="com.google.mlkit.vision.DEPENDENCIES"
+            android:value="barcode_ui" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTask"
-            android:theme="@style/Theme.Deadair">
+            android:theme="@style/Theme.Deadair.Starting">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

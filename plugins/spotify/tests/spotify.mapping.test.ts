@@ -301,6 +301,20 @@ describe('mapPlaylist', () => {
         expect(mapPlaylist(undefined)).toBeUndefined();
     });
 
+    it('reads a description as words, with its escapes decoded and its links reduced to their text', () => {
+        const playlist = mapPlaylist({
+            id: 'playlist-1',
+            name: 'My Playlist',
+            description: 'Synthwave &#x2F; Retrowave &amp; more. Also try <a href="spotify:playlist:abc">Outrun Essentials</a>.',
+        });
+
+        expect(playlist?.description).toBe('Synthwave / Retrowave & more. Also try Outrun Essentials .');
+    });
+
+    it('maps a description that is only markup to undefined', () => {
+        expect(mapPlaylist({ id: 'playlist-1', name: 'My Playlist', description: '<br/> ' })?.description).toBeUndefined();
+    });
+
     it('maps an empty description to undefined', () => {
         const playlist = mapPlaylist({ id: 'playlist-1', name: 'My Playlist', description: '' });
 

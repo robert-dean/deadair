@@ -68,6 +68,10 @@ data class StationEntryState(
          */
         fun proposed(link: StationUrl, kept: StationUrl?): StationEntryState = typing(link.origin, stored = kept?.origin)
 
+        /** A scan that did not give an address: the field keeps what it had, and says why. */
+        fun refusedScan(current: StationEntryState, reason: Message): StationEntryState =
+            current.copy(checking = false, confirmedName = null, error = reason)
+
         /** What is in the field does not parse as an address at all. */
         fun invalid(address: String, stored: String? = null): StationEntryState = typing(address, stored).copy(error = Message.NotAnAddress)
 

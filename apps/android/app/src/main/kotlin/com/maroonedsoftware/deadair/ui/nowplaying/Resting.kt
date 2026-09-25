@@ -19,6 +19,9 @@ import kotlinx.coroutines.delay
 /** How long Now playing waits, untouched, before it gives the screen to the cover. */
 const val REST_AFTER_MS = 6_000L
 
+/** How long Now playing waits, untouched, before the tabs slide away. Sooner than resting: they are chrome, not content. */
+const val TABS_AWAY_AFTER_MS = 3_000L
+
 /** Whether Now playing is resting: the words and controls away, the cover on the whole screen. */
 class RestState internal constructor() {
     var resting by mutableStateOf(false)
@@ -42,14 +45,14 @@ class RestState internal constructor() {
  * while the app is open.
  */
 @Composable
-fun rememberRest(allowed: Boolean): RestState {
+fun rememberRest(allowed: Boolean, afterMs: Long = REST_AFTER_MS): RestState {
     val state = remember { RestState() }
     val exploring = rememberTouchExploration()
     val may = allowed && !exploring
     LaunchedEffect(may, state.touches) {
         state.resting = false
         if (may) {
-            delay(REST_AFTER_MS)
+            delay(afterMs)
             state.resting = true
         }
     }
@@ -82,6 +85,22 @@ fun Modifier.wakesRest(rest: RestState): Modifier =
                 val waking = rest.resting
                 rest.touch()
                 if (waking) event.changes.forEach { it.consume() }
+            }
+        }
+    }
+
+/**
+ * Every touch resets the timer and nothing is consumed: a tap on Play while the tabs are away is a
+ * tap on Play, and brings them back as well. [wakesRest] swallows its waking touch because a
+ * RESTING screen has nothing where a thumb lands; with only the tabs away, everything is still
+ * there to be pressed.
+ */
+fun Modifier.noticesTouch(state: RestState): Modifier =
+    pointerInput(state) {
+        awaitPointerEventScope {
+            while (true) {
+                val event = awaitPointerEvent(PointerEventPass.Initial)
+                if (event.type == PointerEventType.Press) state.touch()
             }
         }
     }

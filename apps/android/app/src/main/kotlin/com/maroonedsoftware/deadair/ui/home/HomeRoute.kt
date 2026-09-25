@@ -1,5 +1,6 @@
 package com.maroonedsoftware.deadair.ui.home
 
+import androidx.compose.ui.Modifier
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.foundation.layout.Box
@@ -48,6 +49,8 @@ import com.maroonedsoftware.deadair.ui.nowplaying.SkipControl
 import com.maroonedsoftware.deadair.ui.nowplaying.ShuffleControl
 import com.maroonedsoftware.deadair.ui.nowplaying.OperatorControls
 import com.maroonedsoftware.deadair.ui.nowplaying.rememberRest
+import com.maroonedsoftware.deadair.ui.nowplaying.noticesTouch
+import com.maroonedsoftware.deadair.ui.nowplaying.TABS_AWAY_AFTER_MS
 import com.maroonedsoftware.deadair.ui.nowplaying.sideBySide
 import com.maroonedsoftware.deadair.ui.nowplaying.TransportUiState
 import com.maroonedsoftware.deadair.ui.nowplaying.rememberPlayWithNotificationsAsked
@@ -136,6 +139,9 @@ fun HomeRoute(
     val window = LocalWindowInfo.current.containerSize
     val upright = with(LocalDensity.current) { !sideBySide(window.width.toDp(), window.height.toDp()) }
     val rest = rememberRest(allowed = tab == Tab.NOW_PLAYING && upright && nowState.canRest)
+    // The tabs step aside on Now playing a moment after the last touch, playing or not, so the cover
+    // has the screen; any touch brings them back and still does what it touched.
+    val tabsAway = rememberRest(allowed = tab == Tab.NOW_PLAYING, afterMs = TABS_AWAY_AFTER_MS)
 
     // The order's own state is read here as well as in its tab, because the app bar's Extend and
     // Shuffle live above the tab and need to know whether there is anything to shuffle. Collected
@@ -174,7 +180,7 @@ fun HomeRoute(
         // Now playing is the cover to the top of the screen, and a bar over it would be the one
         // thing on the art that is not the art.
         topBar = tab != Tab.NOW_PLAYING,
-        bottomBar = !rest.resting,
+        bottomBar = !rest.resting && !tabsAway.resting,
         snackbarHost = snackbarHost,
         // Over the tabs that are about the station, and not over Now playing, which has the
         // station's button already, or Settings, which is not about what is on.
@@ -284,6 +290,10 @@ fun HomeRoute(
                     // reading names no record, so only the transport reading can say which it is.
                     onArtwork = onAirTrackId?.let { id -> { onTrack(id) } },
                     rest = rest,
+                    // It draws under the tabs and keeps their height clear, so they come and go
+                    // without the screen moving; a touch anywhere on it brings them back.
+                    bottomReserve = TabBarHeight,
+                    modifier = Modifier.noticesTouch(tabsAway),
                 )
             }
             Tab.UP_NEXT -> {

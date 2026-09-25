@@ -32,6 +32,7 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import com.maroonedsoftware.deadair.R
 
 /**
@@ -65,7 +66,10 @@ fun HomeScreen(
     title: String,
     tab: Tab,
     onTab: (Tab) -> Unit,
-    /** Whether the tab has a bar over it. Without one the tab draws to the top of the screen and minds the status bar itself. */
+    /**
+     * Whether the tab has a bar over it. Without one the tab draws edge to edge, under the status bar
+     * and under the tabs, and minds both itself: the insets, and [TabBarHeight] at the foot.
+     */
     topBar: Boolean = true,
     /** Whether the tabs are showing. Now playing puts them away while it rests. */
     bottomBar: Boolean = true,
@@ -117,15 +121,23 @@ fun HomeScreen(
     ) { padding ->
         // Consumed as well as applied, so a tab that pads itself by the keyboard (Settings) adds
         // only what the keyboard takes beyond the bars rather than both.
-        // Without a bar, only the sides and the foot are padded: the top is the tab's, so a cover can
-        // run under the status bar.
+        // Without a bar, only the sides are padded: the top and the foot are the tab's, so its colour
+        // can run under the status bar and under the tabs. The tab then keeps [TabBarHeight] clear
+        // itself, whether or not the tabs are showing, so they can come and go without the screen
+        // under them moving.
         val applied =
             if (topBar) {
                 padding
             } else {
                 val direction = LocalLayoutDirection.current
-                PaddingValues(start = padding.calculateStartPadding(direction), end = padding.calculateEndPadding(direction), bottom = padding.calculateBottomPadding())
+                PaddingValues(start = padding.calculateStartPadding(direction), end = padding.calculateEndPadding(direction))
             }
         Box(modifier = Modifier.fillMaxSize().padding(applied).consumeWindowInsets(applied)) { content() }
     }
 }
+
+/**
+ * How tall the tabs are above the navigation bar: Material's navigation bar height. What a tab that
+ * draws under them keeps clear at its foot.
+ */
+val TabBarHeight = 80.dp

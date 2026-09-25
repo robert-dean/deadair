@@ -1,5 +1,13 @@
 package com.maroonedsoftware.deadair.ui.nowplaying
 
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.only
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.layout.onPlaced
+import androidx.compose.ui.layout.positionInRoot
 import android.os.Build
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.drawWithContent
@@ -100,19 +108,27 @@ fun NowPlayingScreen(
     playhead: Playhead?,
     onPlay: () -> Unit,
     onStop: () -> Unit,
+    modifier: Modifier = Modifier,
     /** The operator's Skip, Shuffle and like. All `null` for anyone the station does not call its operator. */
     operator: OperatorControls = OperatorControls(skip = null, shuffle = null, like = null),
     /** Where the cover leads, when the record is known. */
     onArtwork: (() -> Unit)? = null,
     /** The idle timer, upright only. `null` keeps everything on screen. */
     rest: RestState? = null,
+    /** Room kept clear at the foot for something drawn over this screen, the tabs, whether or not it is showing. */
+    bottomReserve: Dp = 0.dp,
 ) {
     CoverColored(artworkUrl) {
-        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        BoxWithConstraints(modifier = modifier.fillMaxSize()) {
             if (sideBySide(maxWidth, maxHeight)) {
                 val viewportHeight = maxHeight
                 Row(
-                    modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.statusBars).padding(horizontal = Gutter, vertical = 16.dp),
+                    modifier =
+                        Modifier.fillMaxSize()
+                            .windowInsetsPadding(WindowInsets.statusBars)
+                            .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Bottom))
+                            .padding(bottom = bottomReserve)
+                            .padding(horizontal = Gutter, vertical = 16.dp),
                     horizontalArrangement = Arrangement.spacedBy(24.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -133,7 +149,7 @@ fun NowPlayingScreen(
                     }
                 }
             } else {
-                FullBleed(state, artworkUrl, playhead, onPlay, onStop, operator, onArtwork, rest)
+                FullBleed(state, artworkUrl, playhead, onPlay, onStop, operator, onArtwork, rest, bottomReserve)
             }
         }
     }
@@ -158,6 +174,7 @@ private fun FullBleed(
     operator: OperatorControls,
     onArtwork: (() -> Unit)?,
     rest: RestState?,
+    bottomReserve: Dp,
 ) {
     val background = MaterialTheme.colorScheme.background
 
@@ -168,15 +185,27 @@ private fun FullBleed(
     val resting = rest?.resting == true
     val shown by animateFloatAsState(if (resting) 0f else 1f, animationSpec = tween(if (resting) 900 else 250), label = "chrome")
 
-    BoxWithConstraints(modifier = Modifier.fillMaxSize().background(background).then(if (rest != null) Modifier.wakesRest(rest) else Modifier)) {
+    // Where the screen's middle and the cover's middle are, measured rather than worked out, so the
+    // resting cover lands in the middle however the stack above and below it came out.
+    var screenMiddle by remember { mutableFloatStateOf(0f) }
+    var coverMiddle by remember { mutableFloatStateOf(0f) }
+
+    BoxWithConstraints(
+        modifier =
+            Modifier.fillMaxSize()
+                .background(background)
+                .onPlaced { screenMiddle = it.positionInRoot().y + it.size.height / 2f }
+                .then(if (rest != null) Modifier.wakesRest(rest) else Modifier),
+    ) {
         val top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-        val side = minOf(maxWidth, ArtworkMaxWidth * 2)
-        // How far the cover travels to sit in the middle of the screen while resting.
-        val toMiddle = ((maxHeight - side) / 2 - top).coerceAtLeast(0.dp)
+        val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + bottomReserve
+        // As wide as the screen allows, and no taller than leaves the words and the controls their
+        // room: on a short phone the cover gives way, never the controls.
+        val side = minOf(maxWidth, ArtworkMaxWidth * 2, (maxHeight - top - bottom - BelowCover).coerceAtLeast(MinCover))
 
         // The bleed: the cover again, blurred past recognition, over the whole screen behind the sharp
-        // one, so its colour fills the status bar above the art and runs down behind the words and
-        // the controls rather than stopping at the cover's edge. Android 12 and later only, because
+        // one, so its colour fills the status bar and runs down behind the words, the controls and
+        // the tabs rather than stopping at the cover's edge. Android 12 and later only, because
         // `blur` is a no-op before that and a second sharp copy would be a ghost rather than a glow.
         if (artworkUrl != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             Box(modifier = Modifier.fillMaxSize().alpha(shown * BleedStrength)) {
@@ -198,47 +227,55 @@ private fun FullBleed(
             }
         }
 
-        Column(modifier = Modifier.fillMaxSize().padding(top = top)) {
-            // Below the status bar rather than under it, so the bar reads on the theme's own ground
-            // over every cover. Its foot dissolves (made transparent, not painted over), so it melts
-            // into the glow behind it rather than into a flat band of the background's colour. A tap
-            // on the art still reaches it: the fade is drawn, not laid over it.
+        // One stack, centred between the status bar and the tabs' place: the cover, the words, the
+        // line and the controls, with set gaps between them, so the room left over is shared above
+        // and below the whole rather than opening up inside it.
+        Column(
+            modifier = Modifier.fillMaxSize().padding(top = top, bottom = bottom),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            // Its edges dissolve (made transparent, not painted over), so it melts into the glow behind
+            // it rather than into a flat band of the background's colour. A tap on the art still
+            // reaches it: the fade is drawn, not laid over it.
             Box(
                 modifier =
-                    Modifier.align(Alignment.CenterHorizontally)
-                        .size(side)
+                    Modifier.size(side)
+                        // Measured before the resting move below is applied, so it is where the cover
+                        // sits in the stack and not where it has drifted to.
+                        .onPlaced { coverMiddle = it.positionInRoot().y + it.size.height / 2f }
                         .graphicsLayer {
-                            translationY = (1f - shown) * toMiddle.toPx()
+                            translationY = (1f - shown) * (screenMiddle - coverMiddle)
                             compositingStrategy = CompositingStrategy.Offscreen
                         }.drawWithContent {
                             drawContent()
                             val kept = Color.Black
                             val gone = Color.Black.copy(alpha = 1f - shown)
-                            drawRect(Brush.verticalGradient(0.55f to kept, 1f to gone), blendMode = BlendMode.DstIn)
+                            // Both edges: now that the stack is centred the cover's top no longer
+                            // meets the status bar, and a hard line there against the glow read as
+                            // a picture pasted on rather than one the colour came out of.
+                            drawRect(Brush.verticalGradient(0f to gone, 0.12f to kept, 0.55f to kept, 1f to gone), blendMode = BlendMode.DstIn)
                         },
             ) {
                 Artwork(url = artworkUrl, stale = state.stale, onOpen = onArtwork, modifier = Modifier.fillMaxSize())
             }
-            // The controls sit at the foot, under a thumb, and the words are centred in what is left
-            // between them and the cover, with at least a gap's room above so a short phone never
-            // runs them into the art.
-            Column(modifier = Modifier.fillMaxWidth().weight(1f).alpha(shown).padding(horizontal = Gutter)) {
+            Column(modifier = Modifier.fillMaxWidth().alpha(shown).padding(horizontal = Gutter)) {
                 Spacer(Modifier.height(CoverGap))
-                Spacer(Modifier.weight(1f))
                 Words(state, centred = true)
-                Spacer(Modifier.weight(1f))
                 Controls(state, playhead, onPlay, onStop, operator)
-                Spacer(Modifier.height(ControlsFoot))
             }
         }
     }
 }
 
-/** The least room between the foot of the cover and the words under it. */
+/** The room between the foot of the cover and the words under it. */
 private val CoverGap = 16.dp
 
-/** The room under the controls, above the tabs. */
-private val ControlsFoot = 24.dp
+/** What the words, the line and the controls take under the cover, at most: two lines of title, the credit, the host. */
+private val BelowCover = 300.dp
+
+/** The smallest the cover gets on a short phone before the stack is allowed to crowd. */
+private val MinCover = 180.dp
 
 /** How much of the glow shows through: enough to colour the page, not enough to compete with the words. */
 private const val BleedStrength = 0.6f

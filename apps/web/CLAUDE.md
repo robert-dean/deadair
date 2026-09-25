@@ -57,7 +57,8 @@ check that a string survived its move into a catalog. Change the English in the 
 
 **The console's language is not the station's.** `stream.language` is what the presenter speaks and
 what goes out with the stream; it is a setting, and nothing in these catalogs follows it. The console
-is in whatever language the operator's browser prefers, among the ones there are catalogs for. A
+is in whatever language each operator chose, or else their browser prefers, among English and the
+packs the station holds. A
 German station can have an English console and the reverse, and the two must never be wired together.
 
 - **A sentence is one key.** A value in the middle is a `{{placeholder}}`, never fragments joined with
@@ -112,9 +113,20 @@ German station can have an English console and the reverse, and the two must nev
   fills, or markup that differs from the English costs that one string, which falls back to English.
   A pack for English is refused: English is what everything falls back to. `i18n.setup.ts` sets no
   `supportedLngs`, which would refuse every language installed after start-up, and
-  `<DirectionProvider>` in `main.tsx` turns the layout round for a right-to-left language. The station stores imported packs at `/console/languages` (`apps/api/src/modules/languages`):
-  both reads are public, because the sign-in page loads its language before anybody signs in, and
-  import and removal are `platform.manage`, which only an admin holds. The API checks the header and
-  the catalog's shape and nothing more, and the console's `LanguagePack` is the contract's
-  `ConsoleLanguagePack` with the catalog narrowed. There is no language picker yet;
-  `ActorPreferences.locale` in the contracts is the place a chosen one would be kept.
+  `<DirectionProvider>` in `main.tsx` turns the layout round for a right-to-left language.
+- **The station stores imported packs** at `/console/languages` (`apps/api/src/modules/languages`).
+  Both reads are public, because the sign-in page loads its language before anybody signs in, and
+  import and removal are `platform.manage`, which only an admin holds. The console does not know who
+  is an admin, here as anywhere, so a 403 is reported in the console's own words. The API checks the
+  header and the catalog's shape and nothing more, and the console's `LanguagePack` is the contract's
+  `ConsoleLanguagePack` with the catalog narrowed. An import sends only the pack's own fields, because
+  the contract refuses a key it does not know and a translator's tools may add one.
+- **Which language shows** is `chooseLanguage` (`language.choice.ts`): the operator's choice, else the
+  browser's preferences in order (English counts), else English. `startConsoleLanguage`, called from
+  `main.tsx`, applies it at start-up from the choice remembered in `localStorage`, drawing English
+  until the pack arrives rather than holding the first frame. After sign-in `useAccountLanguage` in
+  `__root.tsx` applies the account's choice, kept at `/console/language` (a session, no role), and the
+  picker in Settings, Languages writes both. The choice is not `ActorPreferences.locale`, which is
+  still declared in the contracts and still unused. The operator-facing half is
+  `apps/site/docs/features/languages.md`, which also tells a translator the rules `language.check.ts`
+  enforces; keep the two saying the same thing.

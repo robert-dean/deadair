@@ -1,7 +1,6 @@
 package com.maroonedsoftware.deadair.ui.setup
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -39,7 +38,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -47,6 +45,8 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.LineBreak
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.maroonedsoftware.deadair.R
@@ -117,48 +117,45 @@ fun SetupScreen(
 
 @Composable
 private fun Welcome(onStart: () -> Unit) {
-    // No insets from the scaffold: the blob runs up under the status bar, and the button column
-    // takes the navigation bar's inset itself.
+    // No insets from the scaffold: the mark is centred on the WHOLE window, because that is where
+    // the splash screen drew it, and the button column takes the navigation bar's inset itself.
     Scaffold(contentWindowInsets = WindowInsets(0)) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding)) {
-            BoxWithConstraints(Modifier.fillMaxWidth().weight(1f)) {
-                WelcomeBackdrop(Modifier.matchParentSize())
-                Image(
-                    painterResource(R.drawable.ic_launcher_foreground),
-                    contentDescription = null,
-                    modifier = Modifier.align(BiasAlignment(0.3f, -1f)).statusBarsPadding().padding(top = 24.dp).size(112.dp),
+        BoxWithConstraints(Modifier.fillMaxSize().padding(padding)) {
+            // A short window (a phone on its side) cannot fit the splash's size above the words and
+            // the button, and there is no splash position worth matching there anyway.
+            val height = maxHeight
+            val mark = if (height < 600.dp) SplashMarkSize / 2 else SplashMarkSize
+            Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
+                Spacer(Modifier.height((height - mark) / 2))
+                StationMark(size = mark)
+                Spacer(Modifier.height(32.dp))
+                Text(
+                    stringResource(R.string.welcome_eyebrow),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary,
                 )
-                // Over the blob's lower bulge, which is the part of it that reaches the left edge.
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    stringResource(R.string.welcome_headline),
+                    // Balanced, so a two-line headline does not leave one word on its own.
+                    style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.SemiBold, lineBreak = LineBreak.Heading),
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.widthIn(max = 320.dp).padding(horizontal = Gutter).semantics { heading() },
+                )
+                Spacer(Modifier.weight(1f))
                 Column(
-                    modifier = Modifier.align(Alignment.BottomStart).padding(start = 32.dp, end = Gutter, bottom = maxHeight * 0.22f),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier =
+                        Modifier.widthIn(max = FormMaxWidth)
+                            .fillMaxWidth()
+                            .navigationBarsPadding()
+                            .padding(horizontal = Gutter)
+                            .padding(top = 24.dp, bottom = 8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Text(
-                        stringResource(R.string.welcome_eyebrow),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onPrimary,
-                    )
-                    Text(
-                        stringResource(R.string.welcome_headline),
-                        style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.SemiBold),
-                        color = MaterialTheme.colorScheme.onPrimary,
-                        modifier = Modifier.widthIn(max = 320.dp).semantics { heading() },
-                    )
+                    Button(onClick = onStart, modifier = Modifier.fillMaxWidth().height(PillHeight)) { Text(stringResource(R.string.find_your_station)) }
+                    // Before any station, because this is the one screen a person without one can reach.
+                    PrivacyPolicyLink()
                 }
-            }
-            Column(
-                modifier =
-                    Modifier.align(Alignment.CenterHorizontally)
-                        .widthIn(max = FormMaxWidth)
-                        .fillMaxWidth()
-                        .navigationBarsPadding()
-                        .padding(horizontal = Gutter)
-                        .padding(top = 24.dp, bottom = 8.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Button(onClick = onStart, modifier = Modifier.fillMaxWidth().height(PillHeight)) { Text(stringResource(R.string.find_your_station)) }
-                // Before any station, because this is the one screen a person without one can reach.
-                PrivacyPolicyLink()
             }
         }
     }

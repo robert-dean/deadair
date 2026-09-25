@@ -2,4 +2,4 @@
 '@deadair/android': patch
 ---
 
-The sign-in page is drawn in the same style as the new welcome screen.
+The sign-in page is laid out like the new address screen, with the same rounded fields.

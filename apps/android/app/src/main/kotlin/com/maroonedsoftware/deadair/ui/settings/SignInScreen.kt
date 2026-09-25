@@ -3,14 +3,11 @@ package com.maroonedsoftware.deadair.ui.settings
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -26,15 +23,10 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.maroonedsoftware.deadair.R
-import com.maroonedsoftware.deadair.ui.setup.WelcomeBackdrop
 import com.maroonedsoftware.deadair.ui.theme.FormMaxWidth
 import com.maroonedsoftware.deadair.ui.theme.Gutter
-
-/** How tall the backdrop band at the head of the page is. */
-private val BandHeight = 240.dp
 
 /**
  * Signing in, as a page of its own.
@@ -45,8 +37,8 @@ private val BandHeight = 240.dp
  * is not worth coming back to, because its challenge has a clock.
  *
  * The station's name heads it, because these are that station's credentials and a phone may have
- * been pointed at another one since. It sits on the welcome screen's backdrop, cut to a band, so
- * the two pages a first run can show read as one design.
+ * been pointed at another one since. Laid out as setup's address step is, so the two pages a first
+ * run can show read as one design.
  */
 @Composable
 fun SignInScreen(
@@ -60,43 +52,25 @@ fun SignInScreen(
     onSignIn: () -> Unit,
     onStartAgain: () -> Unit,
 ) {
-    // No insets from the scaffold: the band runs up under the status bar, and the content below
-    // it takes the navigation bar's and the keyboard's itself.
-    Scaffold(contentWindowInsets = WindowInsets(0)) { padding ->
-        Column(
-            modifier = Modifier.fillMaxSize().padding(padding).imePadding().verticalScroll(rememberScrollState()),
-            horizontalAlignment = Alignment.CenterHorizontally,
+    Scaffold { padding ->
+        Box(
+            modifier = Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding).imePadding().verticalScroll(rememberScrollState()),
+            contentAlignment = Alignment.TopCenter,
         ) {
-            Box(Modifier.fillMaxWidth().height(BandHeight)) {
-                WelcomeBackdrop(Modifier.matchParentSize())
-                IconButton(onClick = onBack, modifier = Modifier.statusBarsPadding().padding(4.dp)) {
+            Column(
+                modifier = Modifier.widthIn(max = FormMaxWidth).fillMaxWidth().padding(horizontal = Gutter).padding(bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                IconButton(onClick = onBack, modifier = Modifier.padding(top = 4.dp)) {
                     Icon(painterResource(R.drawable.ic_arrow_back), contentDescription = stringResource(R.string.back))
                 }
-                // The code step has its own heading; this one belongs to the first. Over the
-                // blob's lower bulge, which is the part of it that reaches the left edge.
+                // The code step has its own heading; this one belongs to the first.
                 if (account.challenge == null) {
                     Text(
                         stringResource(R.string.sign_in_to, station),
-                        style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.SemiBold),
-                        color = MaterialTheme.colorScheme.onPrimary,
-                        modifier =
-                            Modifier.align(Alignment.BottomStart)
-                                .padding(start = 32.dp, end = Gutter, bottom = BandHeight * 0.22f)
-                                .widthIn(max = 300.dp)
-                                .semantics { heading() },
+                        style = MaterialTheme.typography.headlineMedium,
+                        modifier = Modifier.semantics { heading() },
                     )
-                }
-            }
-            Column(
-                modifier =
-                    Modifier.widthIn(max = FormMaxWidth)
-                        .fillMaxWidth()
-                        .navigationBarsPadding()
-                        .padding(horizontal = Gutter)
-                        .padding(top = 8.dp, bottom = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                if (account.challenge == null) {
                     Text(stringResource(R.string.sign_in_detail), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 SignInForm(

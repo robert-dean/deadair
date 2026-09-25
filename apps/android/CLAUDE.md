@@ -263,6 +263,21 @@ URI: a browser in another process hands back only the `mediaId` when somebody ta
 what a voice search with no id at all resolves to. The library never learns which mounts exist by
 connecting, for the reason every other screen does not.
 
+**The library ROOT is answered from a held value, synchronously, and must stay that way.** A legacy
+browser (the system's media controls, Android Auto, a Bluetooth head unit, anything on
+`MediaBrowserCompat`) asking for the root reaches `MediaLibraryServiceLegacyStub.onGetRoot`, which
+runs `onGetLibraryRoot` on the main thread and then BLOCKS that thread until the returned future
+completes. The root used to be read from DataStore in a coroutine on `Dispatchers.Main`, which
+suspends and needs the main thread to resume: the thread waited on itself and the app hit an input
+ANR, measured on the emulator (2026-09-25) with the frame at `ConditionVariable.block` and
+reproduced on demand by a framework `MediaBrowser` connecting to `PlaybackService`. Media3 has no
+timeout there. So the service collects the settings into a `KeptStation` from `onCreate` and
+`libraryRootTitle` answers from it with an immediate future; a browser arriving before the first
+read (a car starting the service cold) gets the root under the app's name rather than a refusal
+that would never be asked again. Children, item and search are answered asynchronously by the
+legacy stub and may keep reading the settings; `onConnect` is synchronous by signature and must
+stay cheap.
+
 ## The session, and the one rule that is not obvious
 
 **Listening is accountless and stays that way.** A session buys the `platform.view` reads and

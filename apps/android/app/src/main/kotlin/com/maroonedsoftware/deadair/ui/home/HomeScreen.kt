@@ -94,7 +94,10 @@ fun HomeScreen(
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
 
     Scaffold(
-        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        // Only with a bar to collapse. The behaviour learns how far the bar may go from the bar
+        // itself; with none on screen it never learns, its limit stays unbounded, and it swallowed
+        // every upward scroll on Up next trying to collapse a bar that was not there.
+        modifier = if (topBar) Modifier.nestedScroll(scrollBehavior.nestedScrollConnection) else Modifier,
         snackbarHost = { SnackbarHost(snackbarHost) },
         topBar = {
             if (topBar) {

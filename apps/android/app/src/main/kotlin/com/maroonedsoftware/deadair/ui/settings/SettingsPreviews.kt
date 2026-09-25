@@ -8,6 +8,7 @@ import com.maroonedsoftware.deadair.sdk.models.PlatformRole
 import com.maroonedsoftware.deadair.station.StationCheck
 import com.maroonedsoftware.deadair.station.StreamFormat
 import com.maroonedsoftware.deadair.ui.setup.SetupScreen
+import com.maroonedsoftware.deadair.ui.setup.SetupStep
 import com.maroonedsoftware.deadair.wallpaper.STATION_PALETTE
 import com.maroonedsoftware.deadair.wallpaper.ColorSource
 import com.maroonedsoftware.deadair.wallpaper.CoverPlacement
@@ -75,15 +76,35 @@ private fun EditedAddressPreview() =
 
 @PreviewLightDark
 @Composable
+private fun WelcomePreview() {
+    DeadairTheme(dynamicColor = false) { SetupScreen(StationEntryState(), onAddressChange = {}, onCheck = {}, onConfirm = {}) }
+}
+
+@PreviewLightDark
+@Composable
 private fun SetupPreview() {
-    DeadairTheme { SetupScreen(StationEntryState.typing("http://10.0.2.2:8080"), onAddressChange = {}, onCheck = {}, onConfirm = {}) }
+    DeadairTheme {
+        SetupScreen(
+            StationEntryState.typing("http://10.0.2.2:8080"),
+            onAddressChange = {},
+            onCheck = {},
+            onConfirm = {},
+            initialStep = SetupStep.STATION,
+        )
+    }
 }
 
 @PreviewLightDark
 @Composable
 private fun SetupRefusedPreview() {
     DeadairTheme {
-        SetupScreen(StationEntryState.from("https://example.com", StationCheck.NotAStation(404)), onAddressChange = {}, onCheck = {}, onConfirm = {})
+        SetupScreen(
+            StationEntryState.from("https://example.com", StationCheck.NotAStation(404)),
+            onAddressChange = {},
+            onCheck = {},
+            onConfirm = {},
+            initialStep = SetupStep.STATION,
+        )
     }
 }
 

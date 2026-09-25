@@ -208,6 +208,7 @@ private fun Listener(graph: AppGraph, links: MutableStateFlow<String?>, onSettin
             onAddressChange = model::onAddressChange,
             onCheck = model::check,
             onConfirm = model::confirm,
+            proposing = proposal != null,
             listeningTo = if (proposal != null) station?.let { loaded.stationName ?: it.origin } else null,
             onKeepCurrent = if (proposal != null && station != null) keepCurrent else null,
         )

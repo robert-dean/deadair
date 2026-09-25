@@ -15,6 +15,8 @@ data class PlayoutPlaylistInput(
     val playlistId: String,
     /** Whether records that sound like the ones on this playlist are mixed in among them, one every `rotation.mixInEvery` records. The playlist still plays in full and in its own order around them. Absent takes the station's own setting, which is off */
     val mixInSimilar: Boolean? = null,
+    /** Whether somebody phones in during this broadcast, exactly as `PutOnAirInput.callins`. Absent is no calls: there is no station-wide default behind it */
+    val callins: Boolean? = null,
 )
 
 /** A playlist the station owns, to load into the running order */
@@ -23,6 +25,8 @@ data class PlayoutStationPlaylistInput(
     val stationPlaylistId: Uuid,
     /** Whether records that sound like the ones on this playlist are mixed in among them, one every `rotation.mixInEvery` records. Absent takes the station's own setting, which is off */
     val mixInSimilar: Boolean? = null,
+    /** Whether somebody phones in during this broadcast, exactly as `PutOnAirInput.callins`. Absent is no calls: there is no station-wide default behind it */
+    val callins: Boolean? = null,
 )
 
 /** The published chart to build the running order from */
@@ -32,6 +36,8 @@ data class PlayoutChartInput(
     val chartId: String,
     /** Which way round to play it. Absent is `countdown`, which opens on the lowest rank and ends on number one */
     val chartOrder: PlayoutChartInputChartOrder? = null,
+    /** Whether somebody phones in during this broadcast, exactly as `PutOnAirInput.callins`. Absent is no calls: there is no station-wide default behind it */
+    val callins: Boolean? = null,
 )
 
 /** One item in the running order, as the console sees it */

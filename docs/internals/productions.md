@@ -67,12 +67,20 @@ the desk's Take a call passing the slot it is airing.
 **All three commission through one path** and every one of them hands over the SHOW — a production airs as a
 block in the middle of somebody's broadcast, and one that inherited neither its brief nor its host is a
 phone-in about nothing in particular presented by the station's default persona rather than by whoever's
-programme it interrupts. The standing one is `ResolvedRules.callins`, a per-broadcast rule beside `breaks`
+programme it interrupts. The standing one is `ResolvedRules.callins`, a per-broadcast rule with NO station setting behind it (absent is off; `rotation.callins` was removed because a broadcast that said nothing inherited it invisibly), beside `breaks`
 rather than under it (a break is the station talking and a call is a programme, so a station that wants a DJ
 has said nothing about wanting a phone-in) with its own spacing for the same reason, and it is idempotent by
 TABLE READ in a fixed order: one unsettled call-in for this broadcast means one is coming, and the spacing
 clock does not start until it AIRS, so checking the spacing first would queue a switchboard. Nine things are
 load-bearing, in two halves: how long a turn is and who takes it, then what a caller may say.
+
+**The same rule decides whether a finished call is PLACED, not only whether one is commissioned**
+(`standingCall` in `director/production.shelf.ts`). A call takes minutes to make, so the broadcast that
+asked for it is often not the one on air when it is ready, and a playlist put on with no calls used to air
+the previous show's caller. `injectProductions` now leaves a standing call `ready` in a broadcast whose
+`callins` is off, where a later show that takes calls can still use it and the shelf life retires it
+otherwise. A call with a slot (the format clock's) or an actor (the desk's Take a call) is exempt: both are
+instructions the broadcast's rule has no say over.
 
 **A call nobody briefed is about why its caller rang** (`callSubjectOf` in `production.cast.ts`). The
 standing rule hands a call its broadcast's brief, and most broadcasts have none, because a broadcast's

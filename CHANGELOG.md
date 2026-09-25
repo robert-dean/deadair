@@ -9,6 +9,14 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.35.0] — 2026-09-25
+
+- Whether a broadcast takes calls is now its own choice alone. The station-wide "Take calls" setting is gone: a broadcast, a schedule block or what plays between blocks takes calls when it says so, and a broadcast that says nothing takes none. "Minutes between calls" stays, as the spacing for any show that does take them.
+- Airing a playlist offers "Air with calls" from its menu, and airing a chart has a "Take calls" box. With no station-wide setting any more, a show takes calls only when it is put on air with them.
+- A broadcast that takes no calls no longer airs one. A call takes minutes to make, so the one the previous show asked for used to go out in the middle of the new programme even when that programme was put on with no calls. It now waits, unaired, for a show that takes calls, and is retired after its hour like any other. A call somebody asked for from the desk, or one the format clock scheduled, still airs.
+- Airing a playlist, one of the station's own playlists or a published chart can now say whether the broadcast takes calls (`callins`). Until now those three only ever inherited the station's own setting, so a station that takes calls had no way to air a playlist without them.
+- What plays between schedule blocks has its own "take calls" switch on the schedule page, rather than following the station-wide one. A station that took calls keeps doing so between blocks, and a block that never said whether it takes calls is marked as taking them, so nothing changes on air when the station-wide switch goes away.
+
 ## [0.34.2] — 2026-09-24
 
 - The console's words now come from a message catalog rather than being written into each page, which is the groundwork for showing the console in languages other than English. English is still the only language and reads as it did, except that a handful of counts that said "1 tracks" or "1 files" now use the singular. Dates, times and numbers follow the browser's own region, and the on-air clocks stay on the 24-hour clock. The page now tells the browser which language it is in, which screen readers use.
@@ -908,7 +916,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.34.2...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.35.0...HEAD
+[0.35.0]: https://github.com/robert-dean/deadair/compare/v0.34.2...v0.35.0
 [0.34.2]: https://github.com/robert-dean/deadair/compare/v0.34.1...v0.34.2
 [0.34.1]: https://github.com/robert-dean/deadair/compare/v0.34.0...v0.34.1
 [0.34.0]: https://github.com/robert-dean/deadair/compare/v0.33.1...v0.34.0

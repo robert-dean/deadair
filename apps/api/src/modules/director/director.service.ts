@@ -18,6 +18,7 @@ import type { Persona } from '#modules/personas/persona.js';
 import { ProductionRepository } from '#modules/productions/production.repository.js';
 import type { Production } from '#modules/productions/production.js';
 import { ProductionScheduler } from '#modules/productions/production.scheduler.js';
+import { dialogueKinds } from '#modules/productions/production.settings.js';
 import { NarrationPieceRepository } from '#modules/narrations/narration.piece.repository.js';
 import { PersonaTellingRepository } from '#modules/personas/persona.telling.repository.js';
 import { NarrationScheduler } from '#modules/narrations/narration.scheduler.js';
@@ -33,7 +34,7 @@ import { inScope } from '#modules/shared/scoped.work.js';
 import { ScrobbleService } from '#modules/scrobble/scrobble.service.js';
 import type { ScrobblePlay } from '@deadair/plugin-sdk';
 import { brokenClaim } from './break.claims.js';
-import { PRODUCTION_SHELF_LIFE_MS, productionExpired } from './production.shelf.js';
+import { PRODUCTION_SHELF_LIFE_MS, productionExpired, standingCall } from './production.shelf.js';
 import { BreakPlanner, expiryFor, type AirClock } from './break.planner.js';
 import { isRenderedFirst, type BreakRequest, type BreakRequestResult, type StoredBreakRequest } from './break.request.js';
 import { BreakRequestRepository } from './break.request.repository.js';
@@ -1031,8 +1032,12 @@ export class DirectorService {
      * Everything is swallowed, as with planting and break injection: a production that could not be
      * placed this pass is placed on the next one, and the records either side play regardless.
      */
-    private async injectProductions(lineup: StationLineup): Promise<void> {
+    private async injectProductions(lineup: StationLineup, rules: ResolvedRules): Promise<void> {
         try {
+            // Read once for the whole pass, since the kinds are a setting and every production below
+            // is judged against the same answer.
+            const conversations = dialogueKinds(this.config);
+
             await inScope(this.container, async scope => {
                 const productions = scope.get(ProductionRepository);
                 const waiting = (await productions.unfinished()).filter(
@@ -1088,6 +1093,11 @@ export class DirectorService {
                     // production, and then left `ready` for its slot rather than placed. The
                     // narrations sweep picks it up from there and hands it to its piece.
                     if (isNarrationKind(production.kind)) continue;
+
+                    // A call the standing rule made for a show that took calls, and this one does
+                    // not. Left `ready` rather than failed: a broadcast that takes calls within the
+                    // hour can still air it, and the shelf life above retires it otherwise.
+                    if (!rules.callins && standingCall(production, conversations)) continue;
 
                     const at = this.slotForProduction(lineup);
                     // No room yet. Left `ready` rather than failed: the audio still exists, and the
@@ -2034,7 +2044,7 @@ export class DirectorService {
         // Beside the break injection above and for the same reason: a production whose beats are all
         // spoken is waiting for a position, and everything below either takes items out of the order
         // or puts breaks into it.
-        await this.injectProductions(lineup);
+        await this.injectProductions(lineup, rules);
 
         // And what the clock will want LATER. Read ahead rather than filled at a boundary, because
         // making a production is minutes to hours of model time: by the time its slot arrives it is

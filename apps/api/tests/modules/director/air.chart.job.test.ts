@@ -66,6 +66,14 @@ describe('AirChartJob', () => {
         expect(putOnAir).toHaveBeenCalledWith({ chartId: 'deadair.lastfm:top-100', chartOrder: 'ranked' });
     });
 
+    it('carries whether the broadcast takes calls through to putOnAir', async () => {
+        const { job, putOnAir } = build();
+
+        await job.run({ chartId: 'deadair.lastfm:top-100', callins: false });
+
+        expect(putOnAir).toHaveBeenCalledWith({ chartId: 'deadair.lastfm:top-100', callins: false });
+    });
+
     it('leaves the order out when the operator picked none, so the default is decided in one place', async () => {
         // `DEFAULT_CHART_ORDER` lives in `chart.picks.ts`. Filling it in here would be a second
         // place for it to be, and the two would drift.

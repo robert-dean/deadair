@@ -2,9 +2,8 @@
 // control now sends two different commands, and picking the wrong one either cuts a listener off
 // who should not have been, or quietly fails to start the show somebody asked for.
 //
-// The call-ins rule comes with it from the briefing box this replaces: a box nobody ticked must say
-// NOTHING, because absent leaves the station's own setting standing and `false` would be this form
-// overruling a station that takes calls every hour.
+// The call-ins rule comes with it from the briefing box this replaces: a box nobody ticked says
+// nothing, which is no calls, since there is no station-wide setting behind it.
 
 import { describe, expect, it, vi } from 'vitest';
 import type { StationOrder } from '@deadair/sdk';

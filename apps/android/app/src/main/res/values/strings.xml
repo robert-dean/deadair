@@ -457,6 +457,7 @@
     <string name="plan_brief_new_desc">In your own words, for the model that chooses records. It keeps steering every refill until the station is put on air again.</string>
     <string name="plan_keep_note">The host, the period and the shape belong to this show and keep running with it. Changing any of them starts a new one.</string>
     <string name="plan_hosted_by">Hosted by</string>
+    <string name="plan_host_choose">Choose who hosts</string>
     <string name="plan_host_unset">Whichever persona the station has on air</string>
     <string name="plan_era_from">From year</string>
     <string name="plan_era_to">To year</string>

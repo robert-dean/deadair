@@ -49,12 +49,12 @@ fun PlaylistRoute(graph: AppGraph, pluginId: String, playlistId: String, onBack:
         busy = busy,
         onBack = onBack,
         onRetry = detail::reload,
-        onAir = {
+        onAir = { callins ->
             if (busy) return@PlaylistScreen
             busy = true
             scope.launch {
                 try {
-                    if (graph.air.airPlaylist(pluginId, playlistId)) onAired()
+                    if (graph.air.airPlaylist(pluginId, playlistId, callins)) onAired()
                 } finally {
                     busy = false
                 }
@@ -81,12 +81,12 @@ fun ChartRoute(graph: AppGraph, chartId: String, onBack: () -> Unit, onAired: ()
         busy = busy,
         onBack = onBack,
         onRetry = detail::reload,
-        onAir = { order ->
+        onAir = { order, callins ->
             if (busy) return@ChartScreen
             busy = true
             scope.launch {
                 try {
-                    if (graph.air.airChart(chartId, order)) onAired()
+                    if (graph.air.airChart(chartId, order, callins)) onAired()
                 } finally {
                     busy = false
                 }

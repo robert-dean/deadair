@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import com.maroonedsoftware.deadair.R
 import com.maroonedsoftware.deadair.nowplaying.clockOf
 import com.maroonedsoftware.deadair.sdk.models.CatalogPlaylistTracks
+import com.maroonedsoftware.deadair.ui.CallinsToggle
 import com.maroonedsoftware.deadair.ui.LoadState
 import com.maroonedsoftware.deadair.ui.catalog.DetailScaffold
 import com.maroonedsoftware.deadair.ui.catalog.detailFailure
@@ -36,9 +37,11 @@ fun PlaylistScreen(
     onRetry: () -> Unit,
     /** This page puts something on air, so it says what the station answered. */
     snackbarHost: SnackbarHostState,
-    onAir: () -> Unit,
+    /** Air it, saying whether the broadcast takes calls. */
+    onAir: (callins: Boolean) -> Unit,
 ) {
     var confirming by rememberSaveable { mutableStateOf(false) }
+    var callins by rememberSaveable { mutableStateOf(false) }
 
     DetailScaffold(
         title = title,
@@ -52,6 +55,7 @@ fun PlaylistScreen(
         Text(pluralStringResource(R.plurals.tracks_count, count, count), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
         if (canAir(playlist.tracks)) {
+            CallinsToggle(checked = callins, enabled = !busy, onChange = { callins = it }, modifier = Modifier.padding(top = 16.dp))
             Button(onClick = { confirming = true }, enabled = !busy, modifier = Modifier.fillMaxWidth().padding(top = 16.dp)) {
                 Text(stringResource(R.string.air_this_playlist))
             }
@@ -78,7 +82,7 @@ fun PlaylistScreen(
             what = title,
             onConfirm = {
                 confirming = false
-                onAir()
+                onAir(callins)
             },
             onDismiss = { confirming = false },
         )

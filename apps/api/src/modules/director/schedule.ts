@@ -121,11 +121,10 @@ export interface ScheduleSlot {
     /**
      * Whether somebody phones in during this stretch of the day.
      *
-     * Three-way on purpose, exactly as `PutOnAirInput.callins` is: absent leaves the station's own
-     * `rotation.callins` standing, which is what an operator who never thought about the phone
-     * means, where `false` is this slot overruling a station that takes calls every hour. A
-     * `setlist` or a `feature` takes none whatever this says, because `NO_RULES` is what those
-     * modes resolve from.
+     * Absent is no calls, exactly as it is on `PutOnAirInput.callins`: there is no station-wide
+     * setting behind it any more (`ResolvedRules.callins` says why), and migration 0054 gave every
+     * slot that leaned on one the station's answer. A `setlist` or a `feature` takes none whatever
+     * this says, because `NO_RULES` is what those modes resolve from.
      */
     callins?: boolean;
     /**

@@ -55,6 +55,7 @@ export const playout = {
         more: 'More ways to air this playlist',
         mixIn: 'Air with similar records mixed in',
         mixInHint: 'A record by an artist who sounds like one of its own, every few records. Needs a similarity plugin.',
+        withCalls: 'Air with calls',
     },
     chart: {
         order: {
@@ -66,6 +67,7 @@ export const playout = {
         failed: 'That chart could not be aired.',
         failedLabel: 'Failed',
         air: 'Air this chart',
+        callins: 'Take calls',
         hint: 'Records the library has never held are fetched as they are needed, and air untrimmed until they have been measured. Looking a whole chart up takes a few minutes, so the station changes over once it has, and the feed says how it went.',
     },
 } as const;

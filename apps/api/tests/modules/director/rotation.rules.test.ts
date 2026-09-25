@@ -211,6 +211,16 @@ describe('stationRules', () => {
         expect(stationRules(config)).toEqual({ ...DEFAULT_RULES, breakEveryMinutes: 2 });
     });
 
+    it('takes no calls whatever a leftover `rotation.callins` row says', () => {
+        // Calls are a programme's answer alone. A station default that a broadcast saying nothing
+        // inherited is how an unticked box aired callers.
+        const { config } = settingsConfig({ 'rotation.callins': 'true' });
+
+        expect(stationRules(config).callins).toBe(false);
+        expect(resolveRules('rotation', undefined, stationRules(config)).callins).toBe(false);
+        expect(resolveRules('rotation', { callins: true }, stationRules(config)).callins).toBe(true);
+    });
+
     it('leaves jingles off until an operator sets a spacing, and reads the one they set', () => {
         expect(stationRules(settingsConfig().config).jingleEveryMinutes).toBe(0);
         expect(stationRules(settingsConfig({ [ROTATION_KEYS.jingleEveryMinutes]: '12' }).config).jingleEveryMinutes).toBe(12);

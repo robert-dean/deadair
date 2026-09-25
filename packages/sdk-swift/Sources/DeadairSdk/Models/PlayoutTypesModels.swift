@@ -7,17 +7,21 @@ public struct PlayoutPlaylistInput: Codable, Equatable, Sendable {
     public var playlistId: String
     /// Whether records that sound like the ones on this playlist are mixed in among them, one every `rotation.mixInEvery` records. The playlist still plays in full and in its own order around them. Absent takes the station's own setting, which is off
     public var mixInSimilar: Bool?
+    /// Whether somebody phones in during this broadcast, exactly as `PutOnAirInput.callins`. Absent is no calls: there is no station-wide default behind it
+    public var callins: Bool?
 
-    public init(pluginId: String, playlistId: String, mixInSimilar: Bool? = nil) {
+    public init(pluginId: String, playlistId: String, mixInSimilar: Bool? = nil, callins: Bool? = nil) {
         self.pluginId = pluginId
         self.playlistId = playlistId
         self.mixInSimilar = mixInSimilar
+        self.callins = callins
     }
 
     private enum CodingKeys: String, CodingKey {
         case pluginId = "pluginId"
         case playlistId = "playlistId"
         case mixInSimilar = "mixInSimilar"
+        case callins = "callins"
     }
 
     public init(from decoder: Decoder) throws {
@@ -25,6 +29,7 @@ public struct PlayoutPlaylistInput: Codable, Equatable, Sendable {
         self.pluginId = try container.decode(String.self, forKey: .pluginId)
         self.playlistId = try container.decode(String.self, forKey: .playlistId)
         self.mixInSimilar = try container.decodeIfPresent(Bool.self, forKey: .mixInSimilar)
+        self.callins = try container.decodeIfPresent(Bool.self, forKey: .callins)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -32,6 +37,7 @@ public struct PlayoutPlaylistInput: Codable, Equatable, Sendable {
         try container.encode(self.pluginId, forKey: .pluginId)
         try container.encode(self.playlistId, forKey: .playlistId)
         try container.encodeIfPresent(self.mixInSimilar, forKey: .mixInSimilar)
+        try container.encodeIfPresent(self.callins, forKey: .callins)
     }
 }
 
@@ -40,27 +46,33 @@ public struct PlayoutStationPlaylistInput: Codable, Equatable, Sendable {
     public var stationPlaylistId: UUID
     /// Whether records that sound like the ones on this playlist are mixed in among them, one every `rotation.mixInEvery` records. Absent takes the station's own setting, which is off
     public var mixInSimilar: Bool?
+    /// Whether somebody phones in during this broadcast, exactly as `PutOnAirInput.callins`. Absent is no calls: there is no station-wide default behind it
+    public var callins: Bool?
 
-    public init(stationPlaylistId: UUID, mixInSimilar: Bool? = nil) {
+    public init(stationPlaylistId: UUID, mixInSimilar: Bool? = nil, callins: Bool? = nil) {
         self.stationPlaylistId = stationPlaylistId
         self.mixInSimilar = mixInSimilar
+        self.callins = callins
     }
 
     private enum CodingKeys: String, CodingKey {
         case stationPlaylistId = "stationPlaylistId"
         case mixInSimilar = "mixInSimilar"
+        case callins = "callins"
     }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.stationPlaylistId = try container.decode(UUID.self, forKey: .stationPlaylistId)
         self.mixInSimilar = try container.decodeIfPresent(Bool.self, forKey: .mixInSimilar)
+        self.callins = try container.decodeIfPresent(Bool.self, forKey: .callins)
     }
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(self.stationPlaylistId, forKey: .stationPlaylistId)
         try container.encodeIfPresent(self.mixInSimilar, forKey: .mixInSimilar)
+        try container.encodeIfPresent(self.callins, forKey: .callins)
     }
 }
 
@@ -70,27 +82,33 @@ public struct PlayoutChartInput: Codable, Equatable, Sendable {
     public var chartId: String
     /// Which way round to play it. Absent is `countdown`, which opens on the lowest rank and ends on number one
     public var chartOrder: PlayoutChartInputChartOrder?
+    /// Whether somebody phones in during this broadcast, exactly as `PutOnAirInput.callins`. Absent is no calls: there is no station-wide default behind it
+    public var callins: Bool?
 
-    public init(chartId: String, chartOrder: PlayoutChartInputChartOrder? = nil) {
+    public init(chartId: String, chartOrder: PlayoutChartInputChartOrder? = nil, callins: Bool? = nil) {
         self.chartId = chartId
         self.chartOrder = chartOrder
+        self.callins = callins
     }
 
     private enum CodingKeys: String, CodingKey {
         case chartId = "chartId"
         case chartOrder = "chartOrder"
+        case callins = "callins"
     }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.chartId = try container.decode(String.self, forKey: .chartId)
         self.chartOrder = try container.decodeIfPresent(PlayoutChartInputChartOrder.self, forKey: .chartOrder)
+        self.callins = try container.decodeIfPresent(Bool.self, forKey: .callins)
     }
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(self.chartId, forKey: .chartId)
         try container.encodeIfPresent(self.chartOrder, forKey: .chartOrder)
+        try container.encodeIfPresent(self.callins, forKey: .callins)
     }
 }
 

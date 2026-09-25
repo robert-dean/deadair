@@ -78,6 +78,16 @@ export const settings = {
         footnote: 'Remembered on this browser. Nothing else about the station changes.',
         inUse: 'in use',
     },
+    languages: {
+        title: 'Languages',
+        intro: 'The languages the console can be shown in. A language pack is a file holding every word the console says, translated: export the English one, translate it, and it becomes a language.',
+        english: {
+            name: 'English',
+            builtIn: 'Built in, as of console {{version}}',
+            export: 'Export as a language pack',
+        },
+        footnote: 'This is the console’s language only. What the station broadcasts in is set under Stream.',
+    },
     breakArt: {
         title: 'Break artwork',
         intro: 'What a listener’s player shows while the station is talking. A kind with no picture of its own shows the station’s logo, as the bed and off air do.',
@@ -469,6 +479,10 @@ export const settings = {
         appearance: {
             label: 'Appearance',
             hint: 'How the console looks, on this browser',
+        },
+        languages: {
+            label: 'Languages',
+            hint: 'What the console can be shown in, and the file a translation starts from',
         },
         security: {
             label: 'Sign-in and security',

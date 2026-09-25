@@ -75,7 +75,10 @@ German station can have an English console and the reverse, and the two must nev
   import nothing: pulling in `i18n.setup.ts` broke the API's typecheck. It returns which fault a line
   has, and the editor words it.
 - **A new folder under `src/components` gets its own namespace.** Create `src/i18n/en/<folder>.catalog.ts`
-  as an `as const` object, then register it in `en.catalog.ts`. Nest keys by component, then by meaning.
+  as an `as const` object, then register it in `en.catalog.ts`, importing it WITH its `.ts` extension.
+  Nest keys by component, then by meaning. The extension is not style: the release job writes the
+  English language pack with plain `node`, which resolves nothing without it, and
+  `tests/i18n/language.pack.test.ts` runs that script the same way to catch it.
 - **Another namespace's key** needs both named: `useTranslation(['<ns>', 'common'])`, or `t` rejects
   `common:…` at the type level. `common.catalog.ts` is for words the shared components own, and for
   words several areas must say the same way (the access words an API key and a connected app share,
@@ -93,6 +96,11 @@ German station can have an English console and the reverse, and the two must nev
   `tests/i18n/literal.strings.test.ts` runs the rule and fails on a hit. It sees JSX text and the copy
   attributes listed there. It does not see a string handed to a helper outside JSX (`notifyDone('…')`,
   an `apiErrorMessage` fallback, a default parameter), so a review still has to.
+- **A language pack** is the portable form of a catalog: `src/i18n/language.pack.ts` defines it (a
+  header naming the language, its direction and the console version it was made for, around a
+  catalog shaped like `en`). Settings, Languages exports the console's English as one, and each
+  release attaches the same file as `deadair-console-en.json`. It imports only the English catalog,
+  for the same plain-`node` reason.
 - **A second language** means a `src/i18n/<lang>/` catalog with the same shape as `en`, its tag added to
   `SUPPORTED_LOCALES`, and its catalog loaded with a dynamic `import()` and `addResourceBundle`, so
   English stays the only bundled one and the fallback for any key the translation lacks. It also needs

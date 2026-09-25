@@ -9,6 +9,11 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.35.3] — 2026-09-25
+
+- The presenter no longer talks about the next record as though it had just played. A break that said "Mississippi Queen just hit the speakers" before Mississippi Queen had started got past the check that is meant to catch this, because it only read the "that was…" way round, with the cue before the name. It now also catches the name followed by "just" and a past tense ("just hit", "just slid into the mix", "just now"), and it checks breaks that were only shown the record coming up.
+- Weather reports, news bulletins, welcomes, almanac and story breaks and dedications now get the same check as talk breaks, so none of them can tell listeners the record coming up has already played. These breaks are only shown the next record, and a weather report said "Lovefool just slid into the mix" before Lovefool had started. A break that does this now falls back to the station's own phrasing.
+
 ## [0.35.2] — 2026-09-25
 
 - Callers now ring in about the host's show rather than about the records. A phone-in used to take its broadcast's brief as its subject, and that brief describes what the show plays, so calls on the conspiracy show were planned around the playlist and the callers talked about tracks. A call is now about what its host has on their mind (Roswell on the conspiracy show, the records themselves on the countdown), and the caller comes at it through their own preoccupation. A subject typed into **Take a call** still wins, and that box now starts empty instead of holding the broadcast's brief. On a show whose host is set to be keen on the story behind the records (the countdown host), callers ring about the records the show has just played, and the call is handed what the station knows about each of them.
@@ -928,7 +933,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.35.2...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.35.3...HEAD
+[0.35.3]: https://github.com/robert-dean/deadair/compare/v0.35.2...v0.35.3
 [0.35.2]: https://github.com/robert-dean/deadair/compare/v0.35.1...v0.35.2
 [0.35.1]: https://github.com/robert-dean/deadair/compare/v0.35.0...v0.35.1
 [0.35.0]: https://github.com/robert-dean/deadair/compare/v0.34.2...v0.35.0

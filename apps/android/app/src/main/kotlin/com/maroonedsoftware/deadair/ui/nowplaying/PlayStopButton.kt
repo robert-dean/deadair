@@ -1,5 +1,12 @@
 package com.maroonedsoftware.deadair.ui.nowplaying
 
+import androidx.compose.foundation.background
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.CircularProgressIndicator
@@ -35,17 +42,40 @@ fun PlayStopButton(
     modifier: Modifier = Modifier,
     size: Dp = 72.dp,
     iconSize: Dp = 32.dp,
+    /**
+     * Drawn lit: a gradient fill and a glow of its own colour under it, for Now playing, where it is
+     * the one control that everything else on the screen is arranged around. The player bar keeps
+     * the flat one, because a glow on a 44dp button in a strip of chrome is a smudge.
+     */
+    glow: Boolean = false,
 ) {
     // Named by what it stops: this phone, not the station. The station's own stop is on the desk
     // and is called Take off air; both were "Stop" to TalkBack.
     val label = stringResource(if (playing) R.string.stop_listening else R.string.play)
     val bufferingLabel = stringResource(R.string.buffering)
+    val fill = MaterialTheme.colorScheme.primary
+    val lit =
+        if (glow) {
+            Modifier.shadow(elevation = 24.dp, shape = CircleShape, ambientColor = fill, spotColor = fill)
+                .background(Brush.linearGradient(listOf(lerp(fill, Color.White, 0.25f), fill)), CircleShape)
+        } else {
+            Modifier
+        }
     FilledIconButton(
         onClick = if (playing) onStop else onPlay,
         // Round, which is what a radio's one button is. The default shape is a rounded square.
         shape = CircleShape,
+        // Lit, the gradient under it is the fill, so its own container stands aside.
+        // Its content colour named outright: taken from a transparent container it was the page's
+        // text colour, a pale icon on a pale button.
+        colors =
+            if (glow) {
+                IconButtonDefaults.filledIconButtonColors(containerColor = Color.Transparent, contentColor = MaterialTheme.colorScheme.onPrimary)
+            } else {
+                IconButtonDefaults.filledIconButtonColors()
+            },
         modifier =
-            modifier.size(size).semantics {
+            modifier.size(size).then(lit).semantics {
                 contentDescription = label
                 if (buffering) stateDescription = bufferingLabel
             },

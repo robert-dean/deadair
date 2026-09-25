@@ -1,9 +1,15 @@
 package com.maroonedsoftware.deadair.ui.nowplaying
 
-import androidx.activity.compose.LocalActivity
+import androidx.annotation.DrawableRes
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.height
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconToggleButton
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
@@ -12,11 +18,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
@@ -27,18 +36,15 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -54,7 +60,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.core.view.WindowCompat
 import coil3.compose.AsyncImage
 import com.maroonedsoftware.deadair.R
 import com.maroonedsoftware.deadair.nowplaying.Playhead
@@ -73,9 +78,9 @@ import com.maroonedsoftware.deadair.ui.theme.Gutter
  * station off air is on the desk, so nothing here can be mistaken for it, and nothing appears or
  * disappears above the pair, so it never moves under a thumb.
  *
- * It carries no `Scaffold` and no app bar. Upright, the cover runs full-bleed to the top of the
- * screen under the status bar, and the words sit over its foot where a scrim has taken it to the
- * background color.
+ * It carries no `Scaffold` and no app bar. Upright, the cover runs the full width from just under
+ * the status bar, its foot bleeds into the background, and the words start in that fade rather
+ * than after a band of empty ground.
  *
  * ## Two layouts, one screen
  *
@@ -91,8 +96,8 @@ fun NowPlayingScreen(
     playhead: Playhead?,
     onPlay: () -> Unit,
     onStop: () -> Unit,
-    /** The operator's Skip, and whether it has anything to skip. `null` for anyone the station does not call its operator. */
-    skip: SkipControl? = null,
+    /** The operator's Skip, Shuffle and like. All `null` for anyone the station does not call its operator. */
+    operator: OperatorControls = OperatorControls(skip = null, shuffle = null, like = null),
     /** Where the cover leads, when the record is known. */
     onArtwork: (() -> Unit)? = null,
     /** The idle timer, upright only. `null` keeps everything on screen. */
@@ -118,18 +123,24 @@ fun NowPlayingScreen(
                     modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()).heightIn(min = viewportHeight - 32.dp),
                     verticalArrangement = Arrangement.Center,
                 ) {
-                    Words(state)
-                    Controls(state, playhead, onPlay, onStop, skip)
+                    Words(state, centred = false)
+                    Controls(state, playhead, onPlay, onStop, operator)
                 }
             }
         } else {
-            FullBleed(state, artworkUrl, playhead, onPlay, onStop, skip, onArtwork, rest)
+            FullBleed(state, artworkUrl, playhead, onPlay, onStop, operator, onArtwork, rest)
         }
     }
 }
 
 /** The operator's Skip on Now playing: the same command as the desk's, reachable from the screen already open. */
 data class SkipControl(val enabled: Boolean, val onSkip: () -> Unit)
+
+/** The operator's Shuffle on Now playing: the same reshuffle of what is coming up as Up next's. */
+data class ShuffleControl(val enabled: Boolean, val onShuffle: () -> Unit)
+
+/** The operator's like on Now playing. [liked] is `null` until the record's rating has been read. */
+data class LikeControl(val liked: Boolean?, val enabled: Boolean, val onToggle: () -> Unit)
 
 @Composable
 private fun FullBleed(
@@ -138,11 +149,10 @@ private fun FullBleed(
     playhead: Playhead?,
     onPlay: () -> Unit,
     onStop: () -> Unit,
-    skip: SkipControl?,
+    operator: OperatorControls,
     onArtwork: (() -> Unit)?,
     rest: RestState?,
 ) {
-    LightStatusBarIcons()
     val background = MaterialTheme.colorScheme.background
 
     // Resting, everything but the cover fades: the scrim that carried it into the background, the
@@ -151,47 +161,55 @@ private fun FullBleed(
     // most of it off. They come back on the first touch, which does nothing else (see `wakesRest`).
     val resting = rest?.resting == true
     val shown by animateFloatAsState(if (resting) 0f else 1f, animationSpec = tween(if (resting) 900 else 250), label = "chrome")
-    val coverBias by animateFloatAsState(if (resting) 0f else -1f, animationSpec = tween(if (resting) 900 else 250), label = "cover")
 
-    Box(modifier = Modifier.fillMaxSize().background(background).then(if (rest != null) Modifier.wakesRest(rest) else Modifier)) {
-        // The cover and nothing over it but the scrim: the only thing on the art is the art.
-        val cover = Modifier.fillMaxWidth().widthIn(max = ArtworkMaxWidth * 2).aspectRatio(1f).align(BiasAlignment(0f, coverBias))
-        Artwork(url = artworkUrl, stale = state.stale, onOpen = onArtwork, modifier = cover)
-        // Its foot melts into the background, so it ends without an edge and the words under it read
-        // on plain ground. Measured on the cover rather than the screen, so it is the same fade on
-        // every height of phone. Drawn with no pointer input, so a tap on the art still reaches it.
-        Box(modifier = cover.alpha(shown).background(Brush.verticalGradient(0.55f to Color.Transparent, 1f to background)))
-        // Dark at the top so the status bar reads over any cover, resting or not.
-        Box(modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color.Black.copy(alpha = 0.45f), 0.15f to Color.Transparent)))
-        Column(modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth().alpha(shown).padding(start = Gutter, end = Gutter, bottom = 24.dp)) {
-            Words(state)
-            Controls(state, playhead, onPlay, onStop, skip)
+    BoxWithConstraints(modifier = Modifier.fillMaxSize().background(background).then(if (rest != null) Modifier.wakesRest(rest) else Modifier)) {
+        val top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+        val side = minOf(maxWidth, ArtworkMaxWidth * 2)
+        // How far the cover travels to sit in the middle of the screen while resting.
+        val toMiddle = ((maxHeight - side) / 2 - top).coerceAtLeast(0.dp)
+
+        Column(modifier = Modifier.fillMaxSize().padding(top = top)) {
+            // Below the status bar rather than under it, so the bar reads on the theme's own ground
+            // over every cover; its foot bleeds into the background, so the cover ends without an
+            // edge and the words under it read on plain ground.
+            Box(
+                modifier =
+                    Modifier.align(Alignment.CenterHorizontally).size(side).graphicsLayer {
+                        translationY = (1f - shown) * toMiddle.toPx()
+                    },
+            ) {
+                Artwork(url = artworkUrl, stale = state.stale, onOpen = onArtwork, modifier = Modifier.fillMaxSize())
+                // Drawn with no pointer input, so a tap on the art still reaches it.
+                Box(modifier = Modifier.fillMaxSize().alpha(shown).background(Brush.verticalGradient(0.6f to Color.Transparent, 1f to background)))
+            }
+            // Pulled up into the fade, so the words start where the cover is giving way rather than
+            // after a band of empty ground. Offset rather than laid out overlapping, so what the
+            // column measures is unchanged and a short phone runs out of room no sooner.
+            //
+            // What room is left is shared out above and below the line and the controls, so they sit
+            // down the screen under a thumb rather than stacked under the words with a band of empty
+            // ground beneath them.
+            Column(modifier = Modifier.fillMaxWidth().weight(1f).offset(y = -CoverOverlap).alpha(shown).padding(horizontal = Gutter)) {
+                Words(state, centred = true)
+                Spacer(Modifier.weight(1f))
+                Controls(state, playhead, onPlay, onStop, operator)
+                Spacer(Modifier.weight(1f))
+            }
         }
     }
 }
 
-/**
- * The status bar's icons are light while the cover is under them, whatever the theme: the top of
- * the scrim is dark on every cover, and dark icons on it were unreadable in the light scheme. Put
- * back to the theme's own choice on the way out, so the other tabs keep theirs.
- */
-@Composable
-private fun LightStatusBarIcons() {
-    val window = LocalActivity.current?.window ?: return
-    DisposableEffect(window) {
-        val controller = WindowCompat.getInsetsController(window, window.decorView)
-        val before = controller.isAppearanceLightStatusBars
-        controller.isAppearanceLightStatusBars = false
-        onDispose { controller.isAppearanceLightStatusBars = before }
-    }
-}
+/** How far the words reach up into the foot of the cover. */
+private val CoverOverlap = 40.dp
 
 @Composable
-private fun Words(state: NowPlayingUiState, modifier: Modifier = Modifier) {
+private fun Words(state: NowPlayingUiState, centred: Boolean, modifier: Modifier = Modifier) {
+    val align = if (centred) TextAlign.Center else TextAlign.Start
     Column(
         // Announced when it changes, without being focused: off air to warming up to a record is
         // the whole story of pressing play, and it happened in silence for a screen reader.
         modifier = modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite },
+        horizontalAlignment = if (centred) Alignment.CenterHorizontally else Alignment.Start,
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         // The programme first, the way a station's own app leads with the show and its host. One
@@ -201,11 +219,12 @@ private fun Words(state: NowPlayingUiState, modifier: Modifier = Modifier) {
                 it.resolve(),
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = align,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        Text(state.title.resolve(), style = MaterialTheme.typography.headlineLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Text(state.title.resolve(), style = MaterialTheme.typography.headlineMedium, textAlign = align, maxLines = 2, overflow = TextOverflow.Ellipsis)
         state.subtitle?.let {
             // A long credit scrolls past rather than being cut, which is what a now-playing line
             // does on every player a listener has used. A sentence of the app's own wraps instead:
@@ -214,60 +233,110 @@ private fun Words(state: NowPlayingUiState, modifier: Modifier = Modifier) {
                 it.resolve(),
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = align,
                 maxLines = if (state.subtitleScrolls) 1 else 2,
                 overflow = TextOverflow.Ellipsis,
                 modifier = if (state.subtitleScrolls) Modifier.basicMarquee() else Modifier,
             )
         }
-        state.album?.let {
-            Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        // Beside the cover there is room for the album; under it, the title and the credit are the
+        // whole of it, and the album is one tap away on the record's page.
+        if (!centred) {
+            state.album?.let {
+                Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
         }
     }
 }
 
-@Composable
-private fun Controls(state: NowPlayingUiState, playhead: Playhead?, onPlay: () -> Unit, onStop: () -> Unit, skip: SkipControl?) {
-    // Only when the decoder could say how long is left. A bar that appeared with a guessed
-    // position would be worse than no bar.
-    if (playhead != null) {
-        val progress by animateFloatAsState(playhead.fraction, label = "playhead")
-        val elapsed = clockOf(playhead.elapsedMs)
-        val total = clockOf(playhead.durationMs)
-        val position = stringResource(R.string.playhead_position, elapsed, total)
-        LinearProgressIndicator(
-            progress = { progress },
-            // The numbers the bar is drawn from, spoken as well as shown: a bare bar is meaningless
-            // to a screen reader, and less than the data it has to a sighted one.
-            modifier = Modifier.fillMaxWidth().padding(top = 20.dp).semantics { stateDescription = position },
-        )
-        Row(modifier = Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(elapsed, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(total, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    }
+/** The operator's three controls beside the play button. Each `null` for anyone the station does not call its operator. */
+data class OperatorControls(val skip: SkipControl?, val shuffle: ShuffleControl?, val like: LikeControl?) {
+    val any: Boolean get() = skip != null || shuffle != null || like != null
+}
 
-    // Equal in size and centred, so neither reads as the lesser control. A listener has one.
+@Composable
+private fun Controls(state: NowPlayingUiState, playhead: Playhead?, onPlay: () -> Unit, onStop: () -> Unit, operator: OperatorControls) {
+    // Only when the decoder could say how long is left. A line that appeared with a guessed
+    // position would be worse than no line.
+    if (playhead != null) PlayheadLine(playhead, modifier = Modifier.padding(top = 20.dp))
+
     Row(
-        modifier = Modifier.fillMaxWidth().padding(top = 24.dp),
-        horizontalArrangement = Arrangement.spacedBy(24.dp, Alignment.CenterHorizontally),
+        modifier = Modifier.fillMaxWidth().padding(top = 28.dp),
+        horizontalArrangement = if (operator.any) Arrangement.SpaceBetween else Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        PlayStopButton(playing = state.playing, buffering = state.buffering, onPlay = onPlay, onStop = onStop)
-        skip?.let { SkipButton(it) }
+        if (operator.any) {
+            // Five places, the play button in the middle one, so it is centred whichever of the
+            // others the station grants. The second is where every other player keeps "previous",
+            // and stays empty: a station has no going back, and a control there that did something
+            // else would be pressed for the thing it is not.
+            Slot { operator.shuffle?.let { SmallControl(R.drawable.ic_shuffle, stringResource(R.string.shuffle), it.enabled, it.onShuffle) } }
+            Slot {}
+            PlayStopButton(playing = state.playing, buffering = state.buffering, onPlay = onPlay, onStop = onStop, glow = true)
+            Slot { operator.skip?.let { SmallControl(R.drawable.ic_skip_next, stringResource(R.string.skip), it.enabled, it.onSkip) } }
+            Slot { operator.like?.let { Heart(it) } }
+        } else {
+            // A listener has one control, and it is the whole row.
+            PlayStopButton(playing = state.playing, buffering = state.buffering, onPlay = onPlay, onStop = onStop, glow = true)
+        }
     }
 }
 
+/**
+ * Where the record has got to: a hairline with a dot on it rather than a bar, because nothing here
+ * can be dragged and a slider's thick track promises that it can. Spoken as the numbers it is drawn
+ * from, since a bare line is meaningless to a screen reader.
+ */
 @Composable
-private fun SkipButton(skip: SkipControl) {
-    val label = stringResource(R.string.skip)
-    OutlinedIconButton(
-        onClick = skip.onSkip,
-        enabled = skip.enabled,
-        shape = CircleShape,
-        border = BorderStroke(1.dp, if (skip.enabled) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.outlineVariant),
-        modifier = Modifier.size(72.dp).semantics { contentDescription = label },
+private fun PlayheadLine(playhead: Playhead, modifier: Modifier = Modifier) {
+    val progress by animateFloatAsState(playhead.fraction, label = "playhead")
+    val position = stringResource(R.string.playhead_position, clockOf(playhead.elapsedMs), clockOf(playhead.durationMs))
+    val track = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.18f)
+    val played = MaterialTheme.colorScheme.primary
+    Canvas(modifier = modifier.fillMaxWidth().height(12.dp).semantics { stateDescription = position }) {
+        val y = size.height / 2
+        val x = size.width * progress.coerceIn(0f, 1f)
+        val stroke = 2.dp.toPx()
+        drawLine(track, Offset(0f, y), Offset(size.width, y), strokeWidth = stroke, cap = StrokeCap.Round)
+        drawLine(played, Offset(0f, y), Offset(x, y), strokeWidth = stroke, cap = StrokeCap.Round)
+        drawCircle(played, radius = 5.dp.toPx(), center = Offset(x, y))
+    }
+}
+
+/** A place in the controls row, the same width whether or not anything is in it. */
+@Composable
+private fun Slot(content: @Composable () -> Unit) {
+    Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) { content() }
+}
+
+@Composable
+private fun SmallControl(@DrawableRes icon: Int, label: String, enabled: Boolean, onClick: () -> Unit) {
+    IconButton(onClick = onClick, enabled = enabled, modifier = Modifier.size(48.dp).semantics { contentDescription = label }) {
+        Icon(painterResource(icon), contentDescription = null, modifier = Modifier.size(28.dp))
+    }
+}
+
+/**
+ * The operator's like, as a heart: filled once the station holds the record as liked. Until the
+ * record's rating has been read it is drawn empty and pressing it likes the record, which is what
+ * it would have done anyway (see [toggledLike]).
+ */
+@Composable
+private fun Heart(like: LikeControl) {
+    val liked = like.liked == true
+    val label = stringResource(if (liked) R.string.unlike else R.string.like)
+    IconToggleButton(
+        checked = liked,
+        onCheckedChange = { like.onToggle() },
+        enabled = like.enabled,
+        modifier = Modifier.size(48.dp).semantics { contentDescription = label },
     ) {
-        Icon(painterResource(R.drawable.ic_skip_next), contentDescription = null, modifier = Modifier.size(30.dp))
+        Icon(
+            painterResource(if (liked) R.drawable.ic_favorite else R.drawable.ic_favorite_border),
+            contentDescription = null,
+            tint = if (liked) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+            modifier = Modifier.size(26.dp),
+        )
     }
 }
 

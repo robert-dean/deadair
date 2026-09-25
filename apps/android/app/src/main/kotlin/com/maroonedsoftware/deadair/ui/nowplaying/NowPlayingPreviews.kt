@@ -74,11 +74,11 @@ private fun StalePreview() = Framed {
 @PreviewLightDark
 @Composable
 private fun OperatorPreview() = Framed {
-    NowPlayingScreen(state(AirState.OnAir(track), playing = true, show = show), artworkUrl = null, playhead = Playhead(102_000, 264_000, 366_000), onPlay = {}, onStop = {}, skip = skip)
+    NowPlayingScreen(state(AirState.OnAir(track), playing = true, show = show), artworkUrl = null, playhead = Playhead(102_000, 264_000, 366_000), onPlay = {}, onStop = {}, operator = OperatorControls(skip, ShuffleControl(enabled = true) {}, LikeControl(liked = true, enabled = true) {}))
 }
 
 @PreviewLightDark
 @Composable
 private fun OperatorWarmingUpPreview() = Framed {
-    NowPlayingScreen(state(AirState.WarmingUp, playing = true, buffering = true), artworkUrl = null, playhead = null, onPlay = {}, onStop = {}, skip = skip.copy(enabled = false))
+    NowPlayingScreen(state(AirState.WarmingUp, playing = true, buffering = true), artworkUrl = null, playhead = null, onPlay = {}, onStop = {}, operator = OperatorControls(skip.copy(enabled = false), ShuffleControl(enabled = false) {}, LikeControl(liked = null, enabled = true) {}))
 }

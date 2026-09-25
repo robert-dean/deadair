@@ -45,6 +45,8 @@ import com.maroonedsoftware.deadair.ui.order.RunningOrderScreen
 import com.maroonedsoftware.deadair.ui.nowplaying.NowPlayingScreen
 import com.maroonedsoftware.deadair.ui.nowplaying.NowPlayingUiState
 import com.maroonedsoftware.deadair.ui.nowplaying.SkipControl
+import com.maroonedsoftware.deadair.ui.nowplaying.ShuffleControl
+import com.maroonedsoftware.deadair.ui.nowplaying.OperatorControls
 import com.maroonedsoftware.deadair.ui.nowplaying.rememberRest
 import com.maroonedsoftware.deadair.ui.nowplaying.sideBySide
 import com.maroonedsoftware.deadair.ui.nowplaying.TransportUiState
@@ -246,6 +248,29 @@ fun HomeRoute(
                     } else {
                         null
                     }
+                // Shuffle takes the same turn Skip does: one operator command at a time, and only
+                // while something is on to reorder. The station answers whether there is enough
+                // left to shuffle; asking it here would mean polling the whole order on this tab.
+                val shuffle =
+                    if (isOperator && loaded != null) {
+                        ShuffleControl(enabled = !busy && TransportUiState(status = loaded.status, air = loaded.air, busy = busy).skipEnabled) {
+                            if (!busy) {
+                                busy = true
+                                scope.launch {
+                                    try {
+                                        graph.orderActions.shuffle()
+                                    } finally {
+                                        busy = false
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        null
+                    }
+                // The record, as the transport reading names it: the public one names none.
+                val onAirTrackId = loaded?.status?.nowPlaying?.item?.trackId
+                val like = if (isOperator && onAirTrackId != null) rememberLike(graph, onAirTrackId) else null
                 NowPlayingScreen(
                     state = nowState,
                     artworkUrl = artworkUrl,
@@ -254,10 +279,10 @@ fun HomeRoute(
                     playhead = rememberPlayhead(reading.takeIf { nowPlaying is NowPlayingState.Answered }, ticking = !rest.resting),
                     onPlay = play,
                     onStop = connection::stop,
-                    skip = skip,
+                    operator = OperatorControls(skip = skip, shuffle = shuffle, like = like),
                     // The cover leads to the record's page, for a signed-in listener: the public
                     // reading names no record, so only the transport reading can say which it is.
-                    onArtwork = loaded?.status?.nowPlaying?.item?.trackId?.let { id -> { onTrack(id) } },
+                    onArtwork = onAirTrackId?.let { id -> { onTrack(id) } },
                     rest = rest,
                 )
             }

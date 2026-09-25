@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import coil3.request.ImageRequest
 import kotlin.math.roundToInt
@@ -217,8 +218,8 @@ private fun FullBleed(
 
         // The bleed: the cover's colour, glowing out from behind it. Drawn from a tiny sample of the
         // cover blown up (four pixels a side, so no shape survives, only colour) and centred on the
-        // cover at twice its size, so each edge of the sharp cover dissolves into its OWN colour and
-        // the glow spreads out from it into the status bar above and the controls below. The first
+        // cover, so each edge of the sharp cover dissolves into its OWN colour, and big enough to
+        // reach every edge of the screen from there: the whole page is the cover's colour. The first
         // version stretched the whole cover over the whole screen: the blur was weak at that scale,
         // the cover's shapes showed through as grey bands and blotches, and its edges melted into
         // colours from somewhere else in the picture. Blurred as well where the platform can
@@ -226,11 +227,18 @@ private fun FullBleed(
         if (artworkUrl != null) {
             val context = LocalContext.current
             val sample = remember(artworkUrl) { ImageRequest.Builder(context).data(artworkUrl).size(GLOW_SAMPLE_PX).build() }
-            val glow = side * GlowScale
+            // Square, centred on the cover, and as big as it must be to reach the farther of the
+            // screen's top and bottom from the cover's middle, and its sides.
+            val reach = 2f * maxOf(coverMiddle - screenTop, screenTop + constraints.maxHeight - coverMiddle)
+            val glow = with(LocalDensity.current) { maxOf(constraints.maxWidth.toFloat(), reach).toDp() }
             Box(
                 modifier =
                     Modifier.align(Alignment.TopCenter)
-                        .offset { IntOffset(0, (coverMiddle - screenTop - glow.toPx() / 2f).roundToInt()) }
+                        // Unbounded, the glow is centred on this box's slot, which is the screen:
+                        // moved by how far the cover's middle is from the screen's, its middle is the
+                        // cover's. Pinning its TOP to the cover's middle less half its size, as the
+                        // first version did, put an oversized glow half its overhang too high.
+                        .offset { IntOffset(0, (coverMiddle - screenMiddle).roundToInt()) }
                         .wrapContentSize(unbounded = true)
                         .requiredSize(glow)
                         .alpha(shown * BleedStrength),
@@ -242,9 +250,22 @@ private fun FullBleed(
                     filterQuality = FilterQuality.High,
                     modifier = Modifier.fillMaxSize().then(if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) Modifier.blur(BleedBlur) else Modifier),
                 )
-                // Its edge fades into the page all the way round, so the glow has no rim of its own.
-                Box(modifier = Modifier.fillMaxSize().background(Brush.radialGradient(0.35f to Color.Transparent, 1f to background)))
+                // Deepened towards its rim, lightly: the colour still reaches the screen's edges, and
+                // the status bar and the controls at the far ends still read over it.
+                Box(modifier = Modifier.fillMaxSize().background(Brush.radialGradient(0.3f to Color.Transparent, 1f to background.copy(alpha = 0.55f))))
             }
+        }
+
+        // Deeper under the words and the controls, whatever the cover. Spread over the whole screen,
+        // a bright cover's middle lands behind the title, and measured on a pale blue one the credit
+        // and the host line went grey on grey. The colour stays; only its brightness gives way.
+        if (artworkUrl != null) {
+            Box(
+                modifier =
+                    Modifier.fillMaxSize().alpha(shown).background(
+                        Brush.verticalGradient(0.45f to Color.Transparent, 0.62f to background.copy(alpha = 0.5f), 1f to background.copy(alpha = 0.7f)),
+                    ),
+            )
         }
 
         // One stack, centred between the status bar and the tabs' place: the cover, the words, the
@@ -302,9 +323,6 @@ private const val BleedStrength = 0.75f
 
 /** Softened on top of the sample, where the platform can. */
 private val BleedBlur = 64.dp
-
-/** How big the glow is against the cover it comes out of. */
-private const val GlowScale = 1.8f
 
 /** Pixels a side the glow is sampled at: few enough that no shape survives, enough to keep the cover's colours where they are. */
 private const val GLOW_SAMPLE_PX = 4

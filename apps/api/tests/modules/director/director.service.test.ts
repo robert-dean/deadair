@@ -152,7 +152,13 @@ interface Options {
      * Empty by default, so the commit pass's injection step is a no-op unless a test says
      * otherwise.
      */
-    productions?: { id: string; kind: string; title: string; state: string; createdAt?: number }[];
+    productions?: { id: string; kind: string; title: string; state: string; createdAt?: number; scheduledFor?: number; actorId?: string }[];
+    /**
+     * The station's own `rotation.callins`. On by default here, so a finished `callin` in the
+     * placement cases below is one this broadcast was always going to air; the cases about a
+     * broadcast that takes no calls turn it off.
+     */
+    callins?: boolean;
     /** Their beats, as `SegmentRepository.beatsOf` answers them, keyed by production id. */
     beats?: Record<string, { id: string; state: string }[]>;
     /** Which productions have been joined into one row, keyed by production id. */
@@ -236,7 +242,10 @@ function build(options: Options = {}) {
 
     // The air mode is a SETTING, and settings are a layer of the app's config now, so it reaches
     // the director and the audience gate through this rather than through a scoped repository.
-    const station = settingsConfig(options.airMode === undefined ? {} : { [AIR_MODE_KEY]: options.airMode });
+    const station = settingsConfig({
+        ...(options.airMode === undefined ? {} : { [AIR_MODE_KEY]: options.airMode }),
+        [ROTATION_KEYS.callins]: String(options.callins ?? true),
+    });
 
     // Real, over the fake repository: where a break belongs is BreakPlanner's own decision and is
     // tested there, and stubbing it here would leave the wiring — that the reactor plants at all,
@@ -2475,6 +2484,87 @@ describe('DirectorService placing a finished production', () => {
         await settle();
 
         expect(productions.fail).toHaveBeenCalledWith('prod-1', expect.stringContaining('could not be spoken'));
+    });
+});
+
+// A playlist put on with no calls still aired one: the standing rule is only asked whether to
+// COMMISSION a call, and a call takes minutes to make, so the one the previous show asked for was
+// ready after the operator had changed the programme. See `standingCall` in `production.shelf.ts`.
+describe('DirectorService and a broadcast that takes no calls', () => {
+    const READY_BEATS = { 'prod-1': [{ id: 'beat-1', state: 'ready' }] };
+    const placed = (lineup: StationLineup) => lineup.all().some(item => item.kind === 'segment' && item.groupId === 'prod-1');
+
+    it('does not place a call the standing rule made', async () => {
+        const { director, lineup, productions, seed } = build({
+            callins: false,
+            productions: [{ id: 'prod-1', kind: 'callin', title: 'Late line', state: 'ready' }],
+            beats: READY_BEATS,
+            joined: { 'prod-1': { id: 'joined-1' } },
+        });
+        await seed();
+        await director.start();
+        await settle();
+
+        expect(placed(lineup)).toBe(false);
+        // Left for a broadcast that takes calls, or for the shelf life, rather than thrown away.
+        expect(productions.moveTo).not.toHaveBeenCalledWith('prod-1', 'aired', 'ready');
+        expect(productions.fail).not.toHaveBeenCalled();
+    });
+
+    it('still joins its beats, so it is ready if the next show takes calls', async () => {
+        const { director, productions, jobs, seed } = build({
+            callins: false,
+            productions: [{ id: 'prod-1', kind: 'callin', title: 'Late line', state: 'rendering' }],
+            beats: READY_BEATS,
+        });
+        await seed();
+        await director.start();
+        await settle();
+
+        expect(productions.moveTo).toHaveBeenCalledWith('prod-1', 'stitching', 'rendering');
+        expect(jobs.send).toHaveBeenCalledWith('render.stitch_production', { productionId: 'prod-1' });
+    });
+
+    it('still places a call somebody at the desk asked for', async () => {
+        const { director, lineup, seed } = build({
+            callins: false,
+            productions: [{ id: 'prod-1', kind: 'callin', title: 'Late line', state: 'ready', actorId: 'operator-1' }],
+            beats: READY_BEATS,
+            joined: { 'prod-1': { id: 'joined-1' } },
+        });
+        await seed();
+        await director.start();
+        await settle();
+
+        expect(placed(lineup)).toBe(true);
+    });
+
+    it('still places a call the format clock scheduled', async () => {
+        const { director, lineup, seed } = build({
+            callins: false,
+            productions: [{ id: 'prod-1', kind: 'callin', title: 'Late line', state: 'ready', scheduledFor: Date.now() - 60_000 }],
+            beats: READY_BEATS,
+            joined: { 'prod-1': { id: 'joined-1' } },
+        });
+        await seed();
+        await director.start();
+        await settle();
+
+        expect(placed(lineup)).toBe(true);
+    });
+
+    it('still places a production that is not a conversation', async () => {
+        const { director, lineup, seed } = build({
+            callins: false,
+            productions: [{ id: 'prod-1', kind: 'podcast', title: 'The hour', state: 'ready' }],
+            beats: READY_BEATS,
+            joined: { 'prod-1': { id: 'joined-1' } },
+        });
+        await seed();
+        await director.start();
+        await settle();
+
+        expect(placed(lineup)).toBe(true);
     });
 });
 

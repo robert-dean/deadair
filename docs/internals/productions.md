@@ -74,6 +74,14 @@ TABLE READ in a fixed order: one unsettled call-in for this broadcast means one 
 clock does not start until it AIRS, so checking the spacing first would queue a switchboard. Nine things are
 load-bearing, in two halves: how long a turn is and who takes it, then what a caller may say.
 
+**The same rule decides whether a finished call is PLACED, not only whether one is commissioned**
+(`standingCall` in `director/production.shelf.ts`). A call takes minutes to make, so the broadcast that
+asked for it is often not the one on air when it is ready, and a playlist put on with no calls used to air
+the previous show's caller. `injectProductions` now leaves a standing call `ready` in a broadcast whose
+`callins` is off, where a later show that takes calls can still use it and the shelf life retires it
+otherwise. A call with a slot (the format clock's) or an actor (the desk's Take a call) is exempt: both are
+instructions the broadcast's rule has no say over.
+
 **A call nobody briefed is about why its caller rang** (`callSubjectOf` in `production.cast.ts`). The
 standing rule hands a call its broadcast's brief, and most broadcasts have none, because a broadcast's
 brief is what it PLAYS. With nothing to plan around, the outline invented a subject and every turn

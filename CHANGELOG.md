@@ -9,6 +9,11 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.35.4] — 2026-09-25
+
+- A broadcast put on air from a provider's playlist without a name is now called after the provider's own name ("From Spotify") rather than its internal id ("From deadair.spotify"), which is what listener apps showed as the show above the record. Broadcasts already on air keep the name they were given.
+- Spotify playlist descriptions now read as plain words everywhere they are shown. Spotify sends them as HTML, so escapes like `&#x2F;` and link markup were reaching the console and the listener apps as-is.
+
 ## [0.35.3] — 2026-09-25
 
 - The presenter no longer talks about the next record as though it had just played. A break that said "Mississippi Queen just hit the speakers" before Mississippi Queen had started got past the check that is meant to catch this, because it only read the "that was…" way round, with the cue before the name. It now also catches the name followed by "just" and a past tense ("just hit", "just slid into the mix", "just now"), and it checks breaks that were only shown the record coming up.
@@ -933,7 +938,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.35.3...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.35.4...HEAD
+[0.35.4]: https://github.com/robert-dean/deadair/compare/v0.35.3...v0.35.4
 [0.35.3]: https://github.com/robert-dean/deadair/compare/v0.35.2...v0.35.3
 [0.35.2]: https://github.com/robert-dean/deadair/compare/v0.35.1...v0.35.2
 [0.35.1]: https://github.com/robert-dean/deadair/compare/v0.35.0...v0.35.1

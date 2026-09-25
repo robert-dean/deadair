@@ -8,6 +8,18 @@ hand, and the station's own changes are in the [root changelog](../../CHANGELOG.
 
 ## [Unreleased]
 
+## [0.8.0] — 2026-09-25
+
+- If you run the station, Up next now has one Manage button in place of the host chip, Plan and the menu. It opens a page with everything in one place: who presents the show, replanning it, putting on one of your playlists, adding a record, and what the station has said. Asking the station to refill is gone (it refills by itself), and shuffling is on Now playing.
+- Now playing has been redrawn. The cover starts under the status bar and fades into the page, the record's title and artist sit centred beneath it with who is presenting under them, the cover's colours drift behind the whole screen as a slow mesh while the station is on air, and a thin line shows how far through it the station is. The play button, its glow and the line take their colour from the cover, so they change with every record. The tabs slide away after a few seconds so the cover has the screen, any touch brings them back, and the cover shows through them. If you run the station, shuffle what is coming up and skip sit either side of play, and a heart beside the title likes the record on air.
+- You can now scan your station's code instead of typing its address: the console shows it on the Checkup page, and "Scan your station's code" on the setup screen reads it and checks the station straight away. It uses Google Play services' scanner, so the app never asks for the camera; on a phone without Play services, type the address as before.
+- If you run the station, you can now sign in straight from setup: once your station's address has answered, "I run this station: sign in" keeps the station and takes you to the sign-in page, then on to what is playing.
+- Up next has been redrawn to match Now playing: a large heading over the colours of the record on air (and no player bar, since the record on air is in the list), rounded covers with each record's length beside it, and the record on air on a card of its own with a moving level meter. If you run the station, hold a record to rearrange the list, then drag records where you want them.
+- The first time you open the app it now greets you with a welcome screen, the station's mark where the splash screen left it, before asking for your station's address. The address screen has been restyled to match. A `deadair://` link still goes straight to the address.
+- The desk, where the station is taken off air or held against the schedule, is now in Settings under the station's address, rather than in Up next's menu.
+- The sign-in page is laid out like the new address screen, with the same rounded fields.
+- Opening the app now shows the station's mark on a splash screen until it knows where to take you, instead of a blank screen.
+
 ## [0.7.1] — 2026-09-25
 
 - The app no longer freezes when the system's media controls, Android Auto or a Bluetooth head unit connects to it. The library root is now answered at once instead of after a settings read that could never finish while the connection held the main thread.
@@ -144,7 +156,8 @@ hand, and the station's own changes are in the [root changelog](../../CHANGELOG.
   screen, a headset or a car stereo. Sign in as the station's operator and the phone becomes its
   remote: skip, stop and start, the running order, what it played and what the presenter said.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/android-v0.7.1...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/android-v0.8.0...HEAD
+[0.8.0]: https://github.com/robert-dean/deadair/compare/android-v0.7.1...android-v0.8.0
 [0.7.1]: https://github.com/robert-dean/deadair/compare/android-v0.7.0...android-v0.7.1
 [0.7.0]: https://github.com/robert-dean/deadair/compare/android-v0.6.1...android-v0.7.0
 [0.6.1]: https://github.com/robert-dean/deadair/compare/android-v0.6.0...android-v0.6.1

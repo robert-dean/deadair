@@ -107,32 +107,34 @@ fun NowPlayingScreen(
     /** The idle timer, upright only. `null` keeps everything on screen. */
     rest: RestState? = null,
 ) {
-    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-        if (sideBySide(maxWidth, maxHeight)) {
-            val viewportHeight = maxHeight
-            Row(
-                modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.statusBars).padding(horizontal = Gutter, vertical = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(24.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Artwork(
-                    url = artworkUrl,
-                    stale = state.stale,
-                    onOpen = onArtwork,
-                    // Bounded by the height as well as the width: a square sized off half a wide
-                    // screen is taller than the screen is.
-                    modifier = Modifier.weight(1f).widthIn(max = ArtworkMaxWidth).heightIn(max = viewportHeight - 32.dp).aspectRatio(1f).clip(RoundedCornerShape(12.dp)),
-                )
-                Column(
-                    modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()).heightIn(min = viewportHeight - 32.dp),
-                    verticalArrangement = Arrangement.Center,
+    CoverColored(artworkUrl) {
+        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+            if (sideBySide(maxWidth, maxHeight)) {
+                val viewportHeight = maxHeight
+                Row(
+                    modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.statusBars).padding(horizontal = Gutter, vertical = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(24.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Words(state, centred = false)
-                    Controls(state, playhead, onPlay, onStop, operator)
+                    Artwork(
+                        url = artworkUrl,
+                        stale = state.stale,
+                        onOpen = onArtwork,
+                        // Bounded by the height as well as the width: a square sized off half a wide
+                        // screen is taller than the screen is.
+                        modifier = Modifier.weight(1f).widthIn(max = ArtworkMaxWidth).heightIn(max = viewportHeight - 32.dp).aspectRatio(1f).clip(RoundedCornerShape(12.dp)),
+                    )
+                    Column(
+                        modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()).heightIn(min = viewportHeight - 32.dp),
+                        verticalArrangement = Arrangement.Center,
+                    ) {
+                        Words(state, centred = false)
+                        Controls(state, playhead, onPlay, onStop, operator)
+                    }
                 }
+            } else {
+                FullBleed(state, artworkUrl, playhead, onPlay, onStop, operator, onArtwork, rest)
             }
-        } else {
-            FullBleed(state, artworkUrl, playhead, onPlay, onStop, operator, onArtwork, rest)
         }
     }
 }
@@ -205,22 +207,26 @@ private fun FullBleed(
             ) {
                 Artwork(url = artworkUrl, stale = state.stale, onOpen = onArtwork, modifier = Modifier.fillMaxSize())
             }
-            // What room is left is shared out above and below the line and the controls, so they sit
-            // down the screen under a thumb rather than stacked under the words with a band of empty
-            // ground beneath them.
+            // The controls sit at the foot, under a thumb, and the words are centred in what is left
+            // between them and the cover, with at least a gap's room above so a short phone never
+            // runs them into the art.
             Column(modifier = Modifier.fillMaxWidth().weight(1f).alpha(shown).padding(horizontal = Gutter)) {
                 Spacer(Modifier.height(CoverGap))
+                Spacer(Modifier.weight(1f))
                 Words(state, centred = true)
                 Spacer(Modifier.weight(1f))
                 Controls(state, playhead, onPlay, onStop, operator)
-                Spacer(Modifier.weight(1f))
+                Spacer(Modifier.height(ControlsFoot))
             }
         }
     }
 }
 
-/** The room between the foot of the cover and the words under it. */
-private val CoverGap = 24.dp
+/** The least room between the foot of the cover and the words under it. */
+private val CoverGap = 16.dp
+
+/** The room under the controls, above the tabs. */
+private val ControlsFoot = 24.dp
 
 /** How far down the glow reaches, as a share of the cover's own height. */
 private const val BleedReach = 1.45f

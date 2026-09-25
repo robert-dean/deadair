@@ -153,7 +153,7 @@ fun NowPlayingScreen(
                         modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()).heightIn(min = viewportHeight - 32.dp),
                         verticalArrangement = Arrangement.Center,
                     ) {
-                        Words(state, centred = false)
+                        Words(state, centred = false, like = operator.like)
                         Controls(state, playhead, onPlay, onStop, operator)
                     }
                 }
@@ -302,7 +302,7 @@ private fun FullBleed(
             }
             Column(modifier = Modifier.fillMaxWidth().alpha(shown).padding(horizontal = Gutter)) {
                 Spacer(Modifier.height(CoverGap))
-                Words(state, centred = true)
+                Words(state, centred = true, like = operator.like)
                 Controls(state, playhead, onPlay, onStop, operator)
             }
         }
@@ -328,7 +328,7 @@ private val BleedBlur = 64.dp
 private const val GLOW_SAMPLE_PX = 4
 
 @Composable
-private fun Words(state: NowPlayingUiState, centred: Boolean, modifier: Modifier = Modifier) {
+private fun Words(state: NowPlayingUiState, centred: Boolean, like: LikeControl?, modifier: Modifier = Modifier) {
     val align = if (centred) TextAlign.Center else TextAlign.Start
     Column(
         // Announced when it changes, without being focused: off air to warming up to a record is
@@ -337,7 +337,20 @@ private fun Words(state: NowPlayingUiState, centred: Boolean, modifier: Modifier
         horizontalAlignment = if (centred) Alignment.CenterHorizontally else Alignment.Start,
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        Text(state.title.resolve(), style = MaterialTheme.typography.headlineLarge, textAlign = align, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        // The heart sits at the end of the title's line, because it is about the record rather than
+        // about playing it. The title keeps a heart's width clear on BOTH sides, so it stays centred
+        // and a long one wraps before it reaches the heart.
+        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            Text(
+                state.title.resolve(),
+                style = MaterialTheme.typography.headlineLarge,
+                textAlign = align,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = if (like != null) HeartRoom else 0.dp),
+            )
+            like?.let { Heart(it, modifier = Modifier.align(Alignment.CenterEnd)) }
+        }
         state.subtitle?.let {
             // A long credit scrolls past rather than being cut, which is what a now-playing line
             // does on every player a listener has used. A sentence of the app's own wraps instead:
@@ -375,9 +388,10 @@ private fun Words(state: NowPlayingUiState, centred: Boolean, modifier: Modifier
     }
 }
 
-/** The operator's three controls beside the play button. Each `null` for anyone the station does not call its operator. */
+/** The operator's three controls: Skip and Shuffle beside the play button, the like beside the title. Each `null` for anyone the station does not call its operator. */
 data class OperatorControls(val skip: SkipControl?, val shuffle: ShuffleControl?, val like: LikeControl?) {
-    val any: Boolean get() = skip != null || shuffle != null || like != null
+    /** Whether the play button has company in its row. */
+    val besidePlay: Boolean get() = skip != null || shuffle != null
 }
 
 @Composable
@@ -388,25 +402,27 @@ private fun Controls(state: NowPlayingUiState, playhead: Playhead?, onPlay: () -
 
     Row(
         modifier = Modifier.fillMaxWidth().padding(top = 28.dp),
-        horizontalArrangement = if (operator.any) Arrangement.SpaceBetween else Arrangement.Center,
+        horizontalArrangement = Arrangement.spacedBy(PlayNeighbourGap, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (operator.any) {
-            // Five places, the play button in the middle one, so it is centred whichever of the
-            // others the station grants. The second is where every other player keeps "previous",
-            // and stays empty: a station has no going back, and a control there that did something
-            // else would be pressed for the thing it is not.
+        // Shuffle, play, Skip, the play button in the middle and one control either side of it at
+        // the same distance. Both places are kept whichever the station grants, so the play button
+        // never moves off centre. There is no "previous": a station has no going back.
+        if (operator.besidePlay) {
             Slot { operator.shuffle?.let { SmallControl(R.drawable.ic_shuffle, stringResource(R.string.shuffle), it.enabled, it.onShuffle) } }
-            Slot {}
-            PlayStopButton(playing = state.playing, buffering = state.buffering, onPlay = onPlay, onStop = onStop, glow = true)
+        }
+        PlayStopButton(playing = state.playing, buffering = state.buffering, onPlay = onPlay, onStop = onStop, glow = true)
+        if (operator.besidePlay) {
             Slot { operator.skip?.let { SmallControl(R.drawable.ic_skip_next, stringResource(R.string.skip), it.enabled, it.onSkip) } }
-            Slot { operator.like?.let { Heart(it) } }
-        } else {
-            // A listener has one control, and it is the whole row.
-            PlayStopButton(playing = state.playing, buffering = state.buffering, onPlay = onPlay, onStop = onStop, glow = true)
         }
     }
 }
+
+/** How far the controls either side of the play button stand from it. */
+private val PlayNeighbourGap = 48.dp
+
+/** The room the title keeps clear either side, for the heart at its end. */
+private val HeartRoom = 48.dp
 
 /**
  * Where the record has got to: a hairline with a dot on it rather than a bar, because nothing here
@@ -448,14 +464,14 @@ private fun SmallControl(@DrawableRes icon: Int, label: String, enabled: Boolean
  * it would have done anyway (see [toggledLike]).
  */
 @Composable
-private fun Heart(like: LikeControl) {
+private fun Heart(like: LikeControl, modifier: Modifier = Modifier) {
     val liked = like.liked == true
     val label = stringResource(if (liked) R.string.unlike else R.string.like)
     IconToggleButton(
         checked = liked,
         onCheckedChange = { like.onToggle() },
         enabled = like.enabled,
-        modifier = Modifier.size(48.dp).semantics { contentDescription = label },
+        modifier = modifier.size(48.dp).semantics { contentDescription = label },
     ) {
         Icon(
             painterResource(if (liked) R.drawable.ic_favorite else R.drawable.ic_favorite_border),

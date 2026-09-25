@@ -13,7 +13,7 @@ export const LanguagesRouter = ServerKitRouter();
  * The language you chose for the console, if you chose one
  * from [languages.ck](../../data/contracts/languages/languages.ck#L19)
  */
-LanguagesRouter.get('/console/language', requirePolicy({ policy: false }), async ctx => {
+LanguagesRouter.get('/console/language', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const service = ctx.container.get(ConsoleLanguagesService);
     const result: ConsoleLanguageChoice = await service.choice();
 
@@ -24,9 +24,9 @@ LanguagesRouter.get('/console/language', requirePolicy({ policy: false }), async
 
 /**
  * Chooses the language your console is shown in, or, without one, goes back to following the browser
- * from [languages.ck](../../data/contracts/languages/languages.ck#L33)
+ * from [languages.ck](../../data/contracts/languages/languages.ck#L35)
  */
-LanguagesRouter.put('/console/language', requirePolicy({ policy: false }), bodyParserMiddleware(['json']), async ctx => {
+LanguagesRouter.put('/console/language', requirePolicy({ policy: 'platform.view' }), bodyParserMiddleware(['json']), async ctx => {
     const body = await parseAndValidate(ctx.parsedBody, ConsoleLanguageChoice);
 
     const service = ctx.container.get(ConsoleLanguagesService);
@@ -39,7 +39,7 @@ LanguagesRouter.put('/console/language', requirePolicy({ policy: false }), bodyP
 
 /**
  * Every language this station holds a pack for, without the strings
- * from [languages.ck](../../data/contracts/languages/languages.ck#L54)
+ * from [languages.ck](../../data/contracts/languages/languages.ck#L57)
  * anonymous access, no security required
  */
 LanguagesRouter.get('/console/languages', async ctx => {
@@ -53,7 +53,7 @@ LanguagesRouter.get('/console/languages', async ctx => {
 
 /**
  * One language's pack, strings and all, as it was imported
- * from [languages.ck](../../data/contracts/languages/languages.ck#L72)
+ * from [languages.ck](../../data/contracts/languages/languages.ck#L75)
  * anonymous access, no security required
  */
 LanguagesRouter.get('/console/languages/:locale', async ctx => {
@@ -74,7 +74,7 @@ LanguagesRouter.get('/console/languages/:locale', async ctx => {
 
 /**
  * Installs a language pack, replacing any pack already installed for the language. The tag in the path must be the pack's own
- * from [languages.ck](../../data/contracts/languages/languages.ck#L83)
+ * from [languages.ck](../../data/contracts/languages/languages.ck#L86)
  */
 LanguagesRouter.put('/console/languages/:locale', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const { locale } = await parseAndValidate(
@@ -96,7 +96,7 @@ LanguagesRouter.put('/console/languages/:locale', requirePolicy({ policy: 'platf
 
 /**
  * Removes a language. Anybody who had chosen it sees English
- * from [languages.ck](../../data/contracts/languages/languages.ck#L95)
+ * from [languages.ck](../../data/contracts/languages/languages.ck#L98)
  */
 LanguagesRouter.delete('/console/languages/:locale', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { locale } = await parseAndValidate(

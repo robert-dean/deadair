@@ -12,7 +12,7 @@ Chooses the language your console is shown in, or, without one, goes back to fol
 
 :::note
 SDK method: `chooseMyConsoleLanguage`
-Security: authenticated (policy: none)
+Security: authenticated (policy: platform.view)
 :::
 
 ## Request body (`application/json`)

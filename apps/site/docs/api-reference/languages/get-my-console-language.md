@@ -12,7 +12,7 @@ The language you chose for the console, if you chose one
 
 :::note
 SDK method: `getMyConsoleLanguage`
-Security: authenticated (policy: none)
+Security: authenticated (policy: platform.view)
 :::
 
 ## Response

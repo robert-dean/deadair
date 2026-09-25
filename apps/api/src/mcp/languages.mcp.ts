@@ -35,19 +35,19 @@ export class GetMyConsoleLanguageMcpTool implements McpToolHandler {
         inputSchema: z.toJSONSchema(GetMyConsoleLanguageArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
         outputSchema: z.toJSONSchema(ConsoleLanguageChoice, { unrepresentable: 'any' }) as Tool['outputSchema'],
         annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
-        _meta: { 'contractkit/security': { policy: false } },
+        _meta: { 'contractkit/security': { policy: 'platform.view' } },
     };
 
     async handle(_args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
         const container = requireMcpContainer(context);
-        await requireMcpPolicy(context, container.get(PolicyService));
+        await requireMcpPolicy(context, container.get(PolicyService), { policy: 'platform.view' });
         const result = await container.get(ConsoleLanguagesService).choice();
         return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
     }
 }
 
 /**
- * from [languages.ck](../../data/contracts/languages/languages.ck#L33)
+ * from [languages.ck](../../data/contracts/languages/languages.ck#L35)
  */
 @Injectable()
 export class ChooseMyConsoleLanguageMcpTool implements McpToolHandler {
@@ -57,12 +57,12 @@ export class ChooseMyConsoleLanguageMcpTool implements McpToolHandler {
         inputSchema: z.toJSONSchema(ChooseMyConsoleLanguageArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
         outputSchema: z.toJSONSchema(ConsoleLanguageChoice, { unrepresentable: 'any' }) as Tool['outputSchema'],
         annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
-        _meta: { 'contractkit/security': { policy: false } },
+        _meta: { 'contractkit/security': { policy: 'platform.view' } },
     };
 
     async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
         const container = requireMcpContainer(context);
-        await requireMcpPolicy(context, container.get(PolicyService));
+        await requireMcpPolicy(context, container.get(PolicyService), { policy: 'platform.view' });
         const { body } = await parseAndValidate(args, ChooseMyConsoleLanguageArgs);
         const result = await container.get(ConsoleLanguagesService).choose(body);
         return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
@@ -70,7 +70,7 @@ export class ChooseMyConsoleLanguageMcpTool implements McpToolHandler {
 }
 
 /**
- * from [languages.ck](../../data/contracts/languages/languages.ck#L54)
+ * from [languages.ck](../../data/contracts/languages/languages.ck#L57)
  */
 @Injectable()
 export class ListConsoleLanguagesMcpTool implements McpToolHandler {
@@ -91,7 +91,7 @@ export class ListConsoleLanguagesMcpTool implements McpToolHandler {
 }
 
 /**
- * from [languages.ck](../../data/contracts/languages/languages.ck#L72)
+ * from [languages.ck](../../data/contracts/languages/languages.ck#L75)
  */
 @Injectable()
 export class GetConsoleLanguageMcpTool implements McpToolHandler {
@@ -113,7 +113,7 @@ export class GetConsoleLanguageMcpTool implements McpToolHandler {
 }
 
 /**
- * from [languages.ck](../../data/contracts/languages/languages.ck#L83)
+ * from [languages.ck](../../data/contracts/languages/languages.ck#L86)
  */
 @Injectable()
 export class ImportConsoleLanguageMcpTool implements McpToolHandler {
@@ -136,7 +136,7 @@ export class ImportConsoleLanguageMcpTool implements McpToolHandler {
 }
 
 /**
- * from [languages.ck](../../data/contracts/languages/languages.ck#L95)
+ * from [languages.ck](../../data/contracts/languages/languages.ck#L98)
  */
 @Injectable()
 export class RemoveConsoleLanguageMcpTool implements McpToolHandler {

@@ -99,7 +99,8 @@ const FOLLOW_BROWSER = '';
 
 /**
  * Which language YOUR console is shown in, kept with your account so it follows you from browser to
- * browser. Anybody signed in may choose for themselves; nothing about it needs a role.
+ * browser. Anybody who can use the console may choose for themselves (`platform.view`, which every
+ * operator role grants); nothing about it needs an admin.
  *
  * "As this browser prefers" is a choice of its own: it is what an operator who never chose has, and
  * picking it forgets a choice so the browser decides again. Each language is named in itself,

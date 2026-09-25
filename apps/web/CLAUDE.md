@@ -125,7 +125,7 @@ German station can have an English console and the reverse, and the two must nev
   browser's preferences in order (English counts), else English. `startConsoleLanguage`, called from
   `main.tsx`, applies it at start-up from the choice remembered in `localStorage`, drawing English
   until the pack arrives rather than holding the first frame. After sign-in `useAccountLanguage` in
-  `__root.tsx` applies the account's choice, kept at `/console/language` (a session, no role), and the
+  `__root.tsx` applies the account's choice, kept at `/console/language` (`platform.view`, which every operator role grants), and the
   picker in Settings, Languages writes both. The choice is not `ActorPreferences.locale`, which is
   still declared in the contracts and still unused. The operator-facing half is
   `apps/site/docs/features/languages.md`, which also tells a translator the rules `language.check.ts`

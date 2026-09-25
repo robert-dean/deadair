@@ -1,8 +1,8 @@
 // The console-language routes through the real router, for the one thing a service test cannot see:
 // who reaches each one. The sign-in page loads its language from the two reads before anybody has
 // signed in, so they answer with no session and ask nothing; importing and removing ask for
-// `platform.manage`, which only an admin holds; and an operator's own choice needs a session and no
-// role.
+// `platform.manage`, which only an admin holds; and an operator's own choice asks for
+// `platform.view`, which every operator role grants.
 
 import type { Server } from 'node:http';
 import { request } from 'node:http';
@@ -135,14 +135,14 @@ describe('signed in', () => {
         expect(handlers.import).not.toHaveBeenCalled();
     });
 
-    it('asks nothing more to read or keep your own choice', async () => {
+    it('asks only platform.view to read or keep your own choice', async () => {
         const choice = vi.fn(async () => ({ locale: 'de' }));
         const choose = vi.fn(async () => ({}));
         const base = await serve({ choice, choose }, true);
 
-        expect((await send(`${base}/console/language`)).status).toBe(200);
-        expect((await send(`${base}/console/language`, 'PUT', {})).status).toBe(200);
-        expect(asked).toEqual([]);
-        expect(choose).toHaveBeenCalledWith({});
+        // Every operator role grants it; the stub refuses it here only so the question is recorded.
+        expect((await send(`${base}/console/language`)).status).toBe(403);
+        expect((await send(`${base}/console/language`, 'PUT', {})).status).toBe(403);
+        expect(asked).toEqual(['platform.view', 'platform.view']);
     });
 });

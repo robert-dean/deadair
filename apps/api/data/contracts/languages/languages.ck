@@ -19,10 +19,12 @@ operation /console/language: {
     get: { # The language you chose for the console, if you chose one
         name: Get my console language
         service: ConsoleLanguagesService.choice
-        # Anybody signed in, for themselves: what language their own console is in is nobody else's
-        # business, and nothing about it needs a role.
+        # Anybody who can use the console, for themselves: `platform.view`, which every operator role
+        # grants. Not `policy: none`, which would let an app connected with a narrower grant past its
+        # ceiling through the MCP catalog; `tests/mcp/api.catalog.test.ts` holds every operation to a
+        # named policy for that reason.
         security: {
-            policy: none
+            policy: platform.view
         }
         response: {
             200: {
@@ -33,9 +35,10 @@ operation /console/language: {
     put: { # Chooses the language your console is shown in, or, without one, goes back to following the browser
         name: Choose my console language
         service: ConsoleLanguagesService.choose
-        # As the read: anybody signed in, for themselves.
+        # As the read: anybody who can use the console, for themselves. A preference, not a change to
+        # the station, so it asks for `view` rather than `manage`.
         security: {
-            policy: none
+            policy: platform.view
         }
         request: {
             application/json: ConsoleLanguageChoice

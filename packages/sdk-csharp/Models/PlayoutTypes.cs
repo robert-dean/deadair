@@ -25,7 +25,7 @@ public sealed record PlayoutPlaylistInput
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? MixInSimilar { get; init; }
 
-    /// <summary>Whether somebody phones in during this broadcast, exactly as `PutOnAirInput.callins`. Absent takes the station's own `rotation.callins`, so a station that takes calls needs an explicit `false` here to air a playlist without them</summary>
+    /// <summary>Whether somebody phones in during this broadcast, exactly as `PutOnAirInput.callins`. Absent is no calls: there is no station-wide default behind it</summary>
     [JsonPropertyName("callins")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? Callins { get; init; }
@@ -42,7 +42,7 @@ public sealed record PlayoutStationPlaylistInput
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? MixInSimilar { get; init; }
 
-    /// <summary>Whether somebody phones in during this broadcast, exactly as `PutOnAirInput.callins`. Absent takes the station's own `rotation.callins`, so a station that takes calls needs an explicit `false` here to air a playlist without them</summary>
+    /// <summary>Whether somebody phones in during this broadcast, exactly as `PutOnAirInput.callins`. Absent is no calls: there is no station-wide default behind it</summary>
     [JsonPropertyName("callins")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? Callins { get; init; }
@@ -60,7 +60,7 @@ public sealed record PlayoutChartInput
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public PlayoutChartInputChartOrder? ChartOrder { get; init; }
 
-    /// <summary>Whether somebody phones in during this broadcast, exactly as `PutOnAirInput.callins`. Absent takes the station's own `rotation.callins`, so a station that takes calls needs an explicit `false` here to air a chart without them</summary>
+    /// <summary>Whether somebody phones in during this broadcast, exactly as `PutOnAirInput.callins`. Absent is no calls: there is no station-wide default behind it</summary>
     [JsonPropertyName("callins")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? Callins { get; init; }

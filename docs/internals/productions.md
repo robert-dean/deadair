@@ -67,7 +67,7 @@ the desk's Take a call passing the slot it is airing.
 **All three commission through one path** and every one of them hands over the SHOW — a production airs as a
 block in the middle of somebody's broadcast, and one that inherited neither its brief nor its host is a
 phone-in about nothing in particular presented by the station's default persona rather than by whoever's
-programme it interrupts. The standing one is `ResolvedRules.callins`, a per-broadcast rule beside `breaks`
+programme it interrupts. The standing one is `ResolvedRules.callins`, a per-broadcast rule with NO station setting behind it (absent is off; `rotation.callins` was removed because a broadcast that said nothing inherited it invisibly), beside `breaks`
 rather than under it (a break is the station talking and a call is a programme, so a station that wants a DJ
 has said nothing about wanting a phone-in) with its own spacing for the same reason, and it is idempotent by
 TABLE READ in a fixed order: one unsettled call-in for this broadcast means one is coming, and the spacing

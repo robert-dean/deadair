@@ -7,7 +7,7 @@ export interface PlayoutPlaylistInput {
     playlistId: string;
     /** Whether records that sound like the ones on this playlist are mixed in among them, one every `rotation.mixInEvery` records. The playlist still plays in full and in its own order around them. Absent takes the station's own setting, which is off */
     mixInSimilar?: boolean;
-    /** Whether somebody phones in during this broadcast, exactly as `PutOnAirInput.callins`. Absent takes the station's own `rotation.callins`, so a station that takes calls needs an explicit `false` here to air a playlist without them */
+    /** Whether somebody phones in during this broadcast, exactly as `PutOnAirInput.callins`. Absent is no calls: there is no station-wide default behind it */
     callins?: boolean;
 }
 
@@ -19,7 +19,7 @@ export interface PlayoutStationPlaylistInput {
     stationPlaylistId: string;
     /** Whether records that sound like the ones on this playlist are mixed in among them, one every `rotation.mixInEvery` records. Absent takes the station's own setting, which is off */
     mixInSimilar?: boolean;
-    /** Whether somebody phones in during this broadcast, exactly as `PutOnAirInput.callins`. Absent takes the station's own `rotation.callins`, so a station that takes calls needs an explicit `false` here to air a playlist without them */
+    /** Whether somebody phones in during this broadcast, exactly as `PutOnAirInput.callins`. Absent is no calls: there is no station-wide default behind it */
     callins?: boolean;
 }
 
@@ -32,7 +32,7 @@ export interface PlayoutChartInput {
     chartId: string;
     /** Which way round to play it. Absent is `countdown`, which opens on the lowest rank and ends on number one */
     chartOrder?: 'countdown' | 'ranked' | 'unordered';
-    /** Whether somebody phones in during this broadcast, exactly as `PutOnAirInput.callins`. Absent takes the station's own `rotation.callins`, so a station that takes calls needs an explicit `false` here to air a chart without them */
+    /** Whether somebody phones in during this broadcast, exactly as `PutOnAirInput.callins`. Absent is no calls: there is no station-wide default behind it */
     callins?: boolean;
 }
 

@@ -101,7 +101,6 @@ describe('the settings registry', () => {
             ROTATION_KEYS.jingleEveryMinutes,
             ROTATION_KEYS.welcome,
             ROTATION_KEYS.changeovers,
-            ROTATION_KEYS.callins,
             ROTATION_KEYS.callinEveryMinutes,
             'rotation.breakWords',
             'rotation.storyWords',

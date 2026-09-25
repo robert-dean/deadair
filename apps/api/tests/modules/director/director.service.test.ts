@@ -154,9 +154,9 @@ interface Options {
      */
     productions?: { id: string; kind: string; title: string; state: string; createdAt?: number; scheduledFor?: number; actorId?: string }[];
     /**
-     * The station's own `rotation.callins`. On by default here, so a finished `callin` in the
-     * placement cases below is one this broadcast was always going to air; the cases about a
-     * broadcast that takes no calls turn it off.
+     * Whether the broadcast on air takes calls, as its own rule (there is no station default). On
+     * by default here, so a finished `callin` in the placement cases below is one this broadcast was
+     * always going to air; the cases about a broadcast that takes no calls turn it off.
      */
     callins?: boolean;
     /** Their beats, as `SegmentRepository.beatsOf` answers them, keyed by production id. */
@@ -173,6 +173,7 @@ function build(options: Options = {}) {
         mode: options.mode ?? 'rotation',
         onEnd: options.onEnd ?? 'extend',
         source: 'import',
+        rules: { callins: options.callins ?? true },
     });
 
     let air: StationAir | undefined = {
@@ -242,10 +243,7 @@ function build(options: Options = {}) {
 
     // The air mode is a SETTING, and settings are a layer of the app's config now, so it reaches
     // the director and the audience gate through this rather than through a scoped repository.
-    const station = settingsConfig({
-        ...(options.airMode === undefined ? {} : { [AIR_MODE_KEY]: options.airMode }),
-        [ROTATION_KEYS.callins]: String(options.callins ?? true),
-    });
+    const station = settingsConfig(options.airMode === undefined ? {} : { [AIR_MODE_KEY]: options.airMode });
 
     // Real, over the fake repository: where a break belongs is BreakPlanner's own decision and is
     // tested there, and stubbing it here would leave the wiring — that the reactor plants at all,

@@ -69,6 +69,12 @@ export interface ResolvedRules {
      * same reason: taking calls is a format decision rather than something a radio station does by
      * being one.
      *
+     * **Only a programme answers it.** There is no station setting behind it: an absent answer is
+     * off. There was one, `rotation.callins`, and a broadcast that said nothing inherited it, which no
+     * form showing an unticked box could make visible. A playlist put on with the box unticked aired
+     * callers on a station whose setting was on. So a broadcast, a schedule block or the sustaining
+     * source says yes, or it takes no calls.
+     *
      * `NO_RULES` zeroes it, so a setlist and a feature take no calls without anybody setting that.
      * An album side interrupted by somebody ringing in is exactly what those modes exist to prevent.
      */
@@ -216,7 +222,6 @@ export const ROTATION_KEYS = {
     breaks: 'rotation.breaks',
     welcome: 'rotation.welcome',
     changeovers: 'rotation.changeovers',
-    callins: 'rotation.callins',
     callinEveryMinutes: 'rotation.callinEveryMinutes',
     breakEveryMinutes: 'rotation.breakEveryMinutes',
     jingleEveryMinutes: 'rotation.jingleEveryMinutes',
@@ -289,7 +294,9 @@ export function stationRules(config: AppConfig): ResolvedRules {
         breaks: boolean(ROTATION_KEYS.breaks, DEFAULT_RULES.breaks),
         welcome: boolean(ROTATION_KEYS.welcome, DEFAULT_RULES.welcome),
         changeovers: boolean(ROTATION_KEYS.changeovers, DEFAULT_RULES.changeovers),
-        callins: boolean(ROTATION_KEYS.callins, DEFAULT_RULES.callins),
+        // Not read from a setting: see {@link ResolvedRules.callins}. The spacing below still is,
+        // because how often a show that takes calls takes one is the station's house style.
+        callins: DEFAULT_RULES.callins,
         callinEveryMinutes: number(ROTATION_KEYS.callinEveryMinutes, DEFAULT_RULES.callinEveryMinutes),
         breakEveryMinutes: number(ROTATION_KEYS.breakEveryMinutes, DEFAULT_RULES.breakEveryMinutes),
         jingleEveryMinutes: number(ROTATION_KEYS.jingleEveryMinutes, DEFAULT_RULES.jingleEveryMinutes),

@@ -17,7 +17,7 @@ export const PlayoutPlaylistInput = z.strictObject({
         .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
         .optional()
         .describe(
-            "Whether somebody phones in during this broadcast, exactly as `PutOnAirInput.callins`. Absent takes the station's own `rotation.callins`, so a station that takes calls needs an explicit `false` here to air a playlist without them",
+            'Whether somebody phones in during this broadcast, exactly as `PutOnAirInput.callins`. Absent is no calls: there is no station-wide default behind it',
         ),
 });
 export type PlayoutPlaylistInput = z.infer<typeof PlayoutPlaylistInput>;
@@ -38,7 +38,7 @@ export const PlayoutStationPlaylistInput = z.strictObject({
         .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
         .optional()
         .describe(
-            "Whether somebody phones in during this broadcast, exactly as `PutOnAirInput.callins`. Absent takes the station's own `rotation.callins`, so a station that takes calls needs an explicit `false` here to air a playlist without them",
+            'Whether somebody phones in during this broadcast, exactly as `PutOnAirInput.callins`. Absent is no calls: there is no station-wide default behind it',
         ),
 });
 export type PlayoutStationPlaylistInput = z.infer<typeof PlayoutStationPlaylistInput>;
@@ -57,7 +57,7 @@ export const PlayoutChartInput = z.strictObject({
         .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
         .optional()
         .describe(
-            "Whether somebody phones in during this broadcast, exactly as `PutOnAirInput.callins`. Absent takes the station's own `rotation.callins`, so a station that takes calls needs an explicit `false` here to air a chart without them",
+            'Whether somebody phones in during this broadcast, exactly as `PutOnAirInput.callins`. Absent is no calls: there is no station-wide default behind it',
         ),
 });
 export type PlayoutChartInput = z.infer<typeof PlayoutChartInput>;

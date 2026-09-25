@@ -7,7 +7,7 @@ public struct PlayoutPlaylistInput: Codable, Equatable, Sendable {
     public var playlistId: String
     /// Whether records that sound like the ones on this playlist are mixed in among them, one every `rotation.mixInEvery` records. The playlist still plays in full and in its own order around them. Absent takes the station's own setting, which is off
     public var mixInSimilar: Bool?
-    /// Whether somebody phones in during this broadcast, exactly as `PutOnAirInput.callins`. Absent takes the station's own `rotation.callins`, so a station that takes calls needs an explicit `false` here to air a playlist without them
+    /// Whether somebody phones in during this broadcast, exactly as `PutOnAirInput.callins`. Absent is no calls: there is no station-wide default behind it
     public var callins: Bool?
 
     public init(pluginId: String, playlistId: String, mixInSimilar: Bool? = nil, callins: Bool? = nil) {
@@ -46,7 +46,7 @@ public struct PlayoutStationPlaylistInput: Codable, Equatable, Sendable {
     public var stationPlaylistId: UUID
     /// Whether records that sound like the ones on this playlist are mixed in among them, one every `rotation.mixInEvery` records. Absent takes the station's own setting, which is off
     public var mixInSimilar: Bool?
-    /// Whether somebody phones in during this broadcast, exactly as `PutOnAirInput.callins`. Absent takes the station's own `rotation.callins`, so a station that takes calls needs an explicit `false` here to air a playlist without them
+    /// Whether somebody phones in during this broadcast, exactly as `PutOnAirInput.callins`. Absent is no calls: there is no station-wide default behind it
     public var callins: Bool?
 
     public init(stationPlaylistId: UUID, mixInSimilar: Bool? = nil, callins: Bool? = nil) {
@@ -82,7 +82,7 @@ public struct PlayoutChartInput: Codable, Equatable, Sendable {
     public var chartId: String
     /// Which way round to play it. Absent is `countdown`, which opens on the lowest rank and ends on number one
     public var chartOrder: PlayoutChartInputChartOrder?
-    /// Whether somebody phones in during this broadcast, exactly as `PutOnAirInput.callins`. Absent takes the station's own `rotation.callins`, so a station that takes calls needs an explicit `false` here to air a chart without them
+    /// Whether somebody phones in during this broadcast, exactly as `PutOnAirInput.callins`. Absent is no calls: there is no station-wide default behind it
     public var callins: Bool?
 
     public init(chartId: String, chartOrder: PlayoutChartInputChartOrder? = nil, callins: Bool? = nil) {

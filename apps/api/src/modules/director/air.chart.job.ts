@@ -20,7 +20,7 @@ export interface AirChartPayload {
     chartId?: string;
     /** Which way round to play it. Absent means `DEFAULT_CHART_ORDER`. */
     chartOrder?: ChartOrder;
-    /** Whether the broadcast takes calls. Absent leaves the station's own `rotation.callins` standing. */
+    /** Whether the broadcast takes calls. Absent is no calls. */
     callins?: boolean;
     /**
      * The broadcast on air when the operator pressed, absent when the station was stood down at

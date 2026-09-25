@@ -155,7 +155,7 @@ export interface PutOnAirInput {
     eraFrom?: number;
     /** The latest release year, on the same terms. Set with `eraFrom` for a decade; either may stand alone */
     eraTo?: number;
-    /** Whether somebody phones in during this broadcast. A call is a short programme rather than a break: a few turns in a few voices, entering the running order as one block, spaced by `rotation.callinEveryMinutes`. Absent takes the station's own setting, which is off */
+    /** Whether somebody phones in during this broadcast. A call is a short programme rather than a break: a few turns in a few voices, entering the running order as one block, spaced by `rotation.callinEveryMinutes`. Absent is no calls: there is no station-wide default behind it */
     callins?: boolean;
     /** Whether records that sound like the ones on this playlist are mixed in among them, one every `rotation.mixInEvery` records, found through the similarity plugin. The playlist still plays in full and in its own order around them. Absent takes the station's own setting, which is off. A setlist and a feature never have anything mixed in */
     mixInSimilar?: boolean;

@@ -1564,12 +1564,67 @@ describe('readAnswer, against the side of the break a record is on', () => {
         expect(readAnswer('That was Megadeth, and they have not finished with you yet.', { cues })).toBeDefined();
     });
 
-    it('asks nothing when only one side of the break is known', () => {
-        // With one record there is no wrong side to confuse it with, and the prompt already tells a
-        // one-record break not to say what is coming up.
-        expect(readAnswer('That was Run to the Hills.', { cues: { previous: madhouse } })).toBeDefined();
+    it('judges the one side it was given, which is all a weather break or a bulletin has', () => {
+        // Aired on 25 September as a weather break going into Lovefool, the only record it was shown.
+        const lovefool = { title: 'Lovefool', artist: 'The Cardigans' };
+        const weather = 'Overcast, seventy-four degrees. Lovefool just slid into the mix, The Cardigans making it feel like a hug?';
+
+        expect(readAnswer(weather, { cues: { next: lovefool } })).toBeUndefined();
+        expect(readAnswer('That was Run to the Hills.', { cues: { next: hills } })).toBeUndefined();
+        expect(readAnswer('Coming up, Madhouse.', { cues: { previous: madhouse } })).toBeUndefined();
+        // A record it was never given is not one it can have put on the wrong side.
         expect(readAnswer('That was Madhouse.', { cues: { next: hills } })).toBeDefined();
         expect(readAnswer('That was Run to the Hills.', {})).toBeDefined();
+    });
+
+    it('declines the name-first back-announce of the record still to come', () => {
+        // Aired on 25 September as `Talk break: Thrasher into Mississippi Queen`, which never
+        // mentioned Thrasher at all.
+        const cues = { previous: { title: 'Thrasher', artist: 'Evile' }, next: { title: 'Mississippi Queen', artist: 'Mountain' } };
+        const script = 'Wow, that ride was a total blast? Mississippi Queen just hit the speakers and omg, it is a classic road-trip anthem?';
+
+        expect(readAnswer(script, { cues })).toBeUndefined();
+        expect(readAnswer('Mississippi Queen has just finished, and Thrasher can wait.', { cues })).toBeUndefined();
+        expect(readAnswer('Did you catch Mississippi Queen just now?', { cues })).toBeUndefined();
+    });
+
+    it('takes the name-first back-announce of the record that did finish', () => {
+        // The 16:01 break the same afternoon, correctly about the record behind it.
+        const cues = { previous: { title: 'Lovefool', artist: 'The Cardigans' }, next: { title: 'Straight Outta Compton', artist: 'N.W.A.' } };
+        const script = 'Lovefool just dropped into the mix, and it is a sweet hug straight at your heart.';
+
+        expect(readAnswer(script, { cues })).toBe(script);
+    });
+
+    it('does not read "just" as a back-announce unless a past tense or "now" follows it', () => {
+        const script = 'Run to the Hills, just the thing for a Friday, and Run to the Hills is just about to start.';
+
+        expect(readAnswer(script, { cues: between })).toBe(script);
+    });
+
+    it('leaves the forward lines the live bulletins and weather actually said', () => {
+        // Every one of these would have been refused once one-record kinds were judged, measured
+        // against the station's script history on 25 September. None is a back-announce.
+        expect(
+            readAnswer('Rain later. Following that is Primus’ “Wynona’s Big Brown Beaver.”', {
+                cues: { next: { title: 'Wynona’s Big Brown Beaver', artist: 'Primus' } },
+            }),
+        ).toBeDefined();
+        expect(
+            readAnswer('That is all for now. Next: Bring The Noise by Anthrax.', { cues: { next: { title: 'Bring The Noise', artist: 'Anthrax' } } }),
+        ).toBeDefined();
+        expect(
+            readAnswer('Now, back with a track that’s sure to keep you moving, “I’m Broken” by Pantera.', {
+                cues: { next: { title: 'I’m Broken', artist: 'Pantera' } },
+            }),
+        ).toBeDefined();
+    });
+
+    it('reads "that\'s" with a forward frame in the same breath as the forward cue it is', () => {
+        const script = "That's Run to the Hills coming up next, and it has outlived every critic it ever had.";
+
+        expect(readAnswer(script, { cues: between })).toBe(script);
+        expect(readAnswer(script, { cues: { next: hills } })).toBe(script);
     });
 
     it('says which fault it was, and says it in terms of the listener', () => {

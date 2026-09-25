@@ -21,6 +21,33 @@ namespace MaroonedSoftware.Deadair.Sdk.Clients;
 public sealed class LanguagesClient(SdkHttp http)
 {
     /// <summary>
+    /// Get my console language
+    /// The language you chose for the console, if you chose one
+    /// </summary>
+    public async Task<ConsoleLanguageChoice> GetMyConsoleLanguageAsync(CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Get,
+            http.Path("console", "language"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<ConsoleLanguageChoice>(response);
+    }
+
+    /// <summary>
+    /// Choose my console language
+    /// Chooses the language your console is shown in, or, without one, goes back to following the browser
+    /// </summary>
+    public async Task<ConsoleLanguageChoice> ChooseMyConsoleLanguageAsync(ConsoleLanguageChoice body, CancellationToken cancellationToken = default)
+    {
+        var response = await http.ExecuteAsync(
+            HttpMethod.Put,
+            http.Path("console", "language"),
+            content: http.JsonContent(body, "application/json"),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        return http.ReadJson<ConsoleLanguageChoice>(response);
+    }
+
+    /// <summary>
     /// List console languages
     /// Every language this station holds a pack for, without the strings
     /// </summary>

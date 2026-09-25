@@ -1,10 +1,32 @@
 import type { SdkFetch } from '../sdk-options.js';
 import { bigIntReplacer, parseJson } from '../sdk-options.js';
-import type { ConsoleLanguageList, ConsoleLanguagePack } from './types/languages.types.js';
+import type { ConsoleLanguageChoice, ConsoleLanguageList, ConsoleLanguagePack } from './types/languages.types.js';
 import { reviveConsoleLanguageList } from './types/languages.types.js';
 
 export class LanguagesClient {
     constructor(private fetch: SdkFetch) {}
+
+    /**
+     * @name Get my console language
+     * @description The language you chose for the console, if you chose one
+     */
+    async getMyConsoleLanguage(): Promise<ConsoleLanguageChoice> {
+        const result = await this.fetch(`/console/language`, { method: 'GET' });
+        return await parseJson<ConsoleLanguageChoice>(result);
+    }
+
+    /**
+     * @name Choose my console language
+     * @description Chooses the language your console is shown in, or, without one, goes back to following the browser
+     */
+    async chooseMyConsoleLanguage(body: ConsoleLanguageChoice): Promise<ConsoleLanguageChoice> {
+        const result = await this.fetch(`/console/language`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<ConsoleLanguageChoice>(result);
+    }
 
     /**
      * @name List console languages

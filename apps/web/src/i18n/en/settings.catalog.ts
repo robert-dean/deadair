@@ -87,6 +87,13 @@ export const settings = {
             export: 'Export as a language pack',
         },
         footnote: 'This is the console’s language only. What the station broadcasts in is set under Stream.',
+        picker: {
+            label: 'Show the console in',
+            description: 'For you, on every browser you sign in from. Other people choose their own.',
+            browser: 'As this browser prefers',
+            failedTitle: 'Your choice was not kept',
+            failed: 'The console is in that language on this browser, but the station did not keep it for your other ones.',
+        },
         listFailed: 'The languages could not be read',
         listFailedBody: 'The console is in English until the station answers.',
         installed: {

@@ -97,6 +97,25 @@ export class ConsoleLanguageRepository extends DataRepository {
             .execute();
     }
 
+    /** The console language an operator chose, or `undefined` for one who never chose. */
+    async choiceOf(actorId: string): Promise<string | undefined> {
+        const row = await this.db.selectFrom('deadair.consoleLanguageChoices').select('locale').where('actorId', '=', actorId).executeTakeFirst();
+        return row?.locale;
+    }
+
+    /** Keeps an operator's choice, or with `undefined` forgets it, so their console follows the browser again. */
+    async choose(actorId: string, locale: string | undefined): Promise<void> {
+        if (locale === undefined) {
+            await this.db.deleteFrom('deadair.consoleLanguageChoices').where('actorId', '=', actorId).execute();
+            return;
+        }
+        await this.db
+            .insertInto('deadair.consoleLanguageChoices')
+            .values({ actorId, locale })
+            .onConflict(oc => oc.column('actorId').doUpdateSet({ locale }))
+            .execute();
+    }
+
     /** Answers whether there was anything to remove. */
     async remove(locale: string): Promise<boolean> {
         const result = await this.db

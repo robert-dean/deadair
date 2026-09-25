@@ -108,6 +108,30 @@ public struct ConsoleLanguage: Codable, Equatable, Sendable {
     }
 }
 
+/// The language the signed-in operator chose for the console. Absent means none was chosen, and the console follows the browser's own preference among the languages it has
+public struct ConsoleLanguageChoice: Codable, Equatable, Sendable {
+    /// A language this station holds a pack for, or `en` for English whatever the browser prefers
+    public var locale: String?
+
+    public init(locale: String? = nil) {
+        self.locale = locale
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case locale = "locale"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.locale = try container.decodeIfPresent(String.self, forKey: .locale)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(self.locale, forKey: .locale)
+    }
+}
+
 public struct ConsoleLanguageList: Codable, Equatable, Sendable {
     /// In order of their tags. English is built in and is never listed
     public var languages: [ConsoleLanguage]

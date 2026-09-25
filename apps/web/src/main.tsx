@@ -59,6 +59,7 @@ import './tokens.css';
 // First among the console's own modules: the catalog has to be installed before anything renders a word.
 import './i18n/i18n.setup';
 import { useConsoleDirection } from './i18n/languages';
+import { startConsoleLanguage } from './api/languages.queries';
 import { createQueryClient } from './api/query.client';
 import { PageSkeleton } from './components/shared/page.skeleton';
 import { RouteError } from './components/shared/route.error';
@@ -66,6 +67,10 @@ import { routeTree } from './routeTree.gen';
 import { useTheme } from './theme.store';
 
 const queryClient = createQueryClient();
+
+// The console's language from this browser and the station, without holding the first frame for it:
+// English draws at once and the words change under it when the pack arrives.
+void startConsoleLanguage();
 
 // The router's gates fetch through the same cache the components read from, so a loader and the
 // hook rendering its data are one request, not two.

@@ -45,6 +45,20 @@ export const ConsoleLanguage = z.strictObject({
 export type ConsoleLanguage = z.infer<typeof ConsoleLanguage>;
 
 /**
+ * The language the signed-in operator chose for the console. Absent means none was chosen, and the console follows the browser's own preference among the languages it has
+ * generated from [ConsoleLanguageChoice](../../../../data/contracts/languages/languages.types.ck#L32)
+ */
+export const ConsoleLanguageChoice = z.strictObject({
+    locale: z
+        .string()
+        .min(2)
+        .max(35)
+        .optional()
+        .describe('A language this station holds a pack for, or `en` for English whatever the browser prefers'),
+});
+export type ConsoleLanguageChoice = z.infer<typeof ConsoleLanguageChoice>;
+
+/**
  * generated from [ConsoleLanguageList](../../../../data/contracts/languages/languages.types.ck#L27)
  */
 export const ConsoleLanguageList = z.strictObject({

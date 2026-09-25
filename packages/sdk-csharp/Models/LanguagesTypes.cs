@@ -63,6 +63,15 @@ public sealed record ConsoleLanguage
     public required DateTimeOffset ImportedAt { get; init; }
 }
 
+/// <summary>The language the signed-in operator chose for the console. Absent means none was chosen, and the console follows the browser's own preference among the languages it has</summary>
+public sealed record ConsoleLanguageChoice
+{
+    /// <summary>A language this station holds a pack for, or `en` for English whatever the browser prefers</summary>
+    [JsonPropertyName("locale")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Locale { get; init; }
+}
+
 public sealed record ConsoleLanguageList
 {
     /// <summary>In order of their tags. English is built in and is never listed</summary>

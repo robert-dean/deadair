@@ -27,3 +27,8 @@ contract ConsoleLanguage: {
 contract ConsoleLanguageList: {
     languages: array(ConsoleLanguage) # In order of their tags. English is built in and is never listed
 }
+
+# The language the signed-in operator chose for the console. Absent means none was chosen, and the console follows the browser's own preference among the languages it has
+contract ConsoleLanguageChoice: {
+    locale?: string(min=2, max=35) # A language this station holds a pack for, or `en` for English whatever the browser prefers
+}

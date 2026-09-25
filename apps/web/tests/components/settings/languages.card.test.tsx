@@ -4,7 +4,8 @@ import { SdkError } from '@deadair/sdk';
 
 import { LanguagesCard } from '../../../src/components/settings/languages.card';
 import { saveDownload } from '../../../src/components/shared/download';
-import { availableLanguages, removeLanguage } from '../../../src/i18n/languages';
+import { availableLanguages, removeLanguage, showLanguage } from '../../../src/i18n/languages';
+import { i18n } from '../../../src/i18n/i18n.setup';
 import packageJson from '../../../package.json';
 import { germanPack } from '../../utils/language.pack.fixture';
 import { render, screen, setupUser, waitFor, within } from '../../utils/render';
@@ -12,6 +13,8 @@ import { render, screen, setupUser, waitFor, within } from '../../utils/render';
 vi.mock('../../../src/components/shared/download', () => ({ saveDownload: vi.fn() }));
 
 const listConsoleLanguages = vi.fn();
+const getMyConsoleLanguage = vi.fn();
+const chooseMyConsoleLanguage = vi.fn();
 const getConsoleLanguage = vi.fn();
 const importConsoleLanguage = vi.fn();
 const removeConsoleLanguage = vi.fn();
@@ -20,6 +23,8 @@ vi.mock('../../../src/api/client', () => ({
     sdk: {
         languages: {
             listConsoleLanguages: (...args: unknown[]) => listConsoleLanguages(...args),
+            getMyConsoleLanguage: (...args: unknown[]) => getMyConsoleLanguage(...args),
+            chooseMyConsoleLanguage: (...args: unknown[]) => chooseMyConsoleLanguage(...args),
             getConsoleLanguage: (...args: unknown[]) => getConsoleLanguage(...args),
             importConsoleLanguage: (...args: unknown[]) => importConsoleLanguage(...args),
             removeConsoleLanguage: (...args: unknown[]) => removeConsoleLanguage(...args),
@@ -31,6 +36,7 @@ const GERMAN = { locale: 'de', name: 'Deutsch', direction: 'ltr', madeFor: '0.30
 
 beforeEach(() => {
     listConsoleLanguages.mockResolvedValue({ languages: [] });
+    getMyConsoleLanguage.mockResolvedValue({});
 });
 
 afterEach(async () => {
@@ -39,6 +45,10 @@ afterEach(async () => {
     getConsoleLanguage.mockReset();
     importConsoleLanguage.mockReset();
     removeConsoleLanguage.mockReset();
+    getMyConsoleLanguage.mockReset();
+    chooseMyConsoleLanguage.mockReset();
+    localStorage.clear();
+    await showLanguage('en');
     await removeLanguage('de');
 });
 
@@ -71,8 +81,7 @@ describe('LanguagesCard', () => {
         getConsoleLanguage.mockResolvedValue(germanPack());
         render(<LanguagesCard />);
 
-        expect(await screen.findByText('Deutsch')).toBeInTheDocument();
-        expect(screen.getByText(/made for console 0\.30\.0/)).toBeInTheDocument();
+        expect(await screen.findByText(/made for console 0\.30\.0/)).toBeInTheDocument();
         expect(await screen.findByText('0% translated')).toBeInTheDocument();
     });
 
@@ -88,7 +97,7 @@ describe('LanguagesCard', () => {
         await user.click(within(dialog).getByRole('button', { name: 'Remove' }));
 
         await waitFor(() => expect(removeConsoleLanguage).toHaveBeenCalledWith('de'));
-        await waitFor(() => expect(screen.queryByText('Deutsch')).not.toBeInTheDocument());
+        await waitFor(() => expect(screen.queryByText(/made for console/)).not.toBeInTheDocument());
     });
 });
 
@@ -148,5 +157,40 @@ describe('importing a language pack', () => {
         expect(await screen.findByText('The language was not installed')).toBeInTheDocument();
         expect(screen.getByText('Only an admin can install a language. Nothing was changed.')).toBeInTheDocument();
         expect(availableLanguages().map(language => language.locale)).not.toContain('de');
+    });
+});
+
+describe('choosing the console language', () => {
+    it('shows the console in the chosen language, remembers it here and keeps it with the account', async () => {
+        listConsoleLanguages.mockResolvedValue({ languages: [GERMAN] });
+        getConsoleLanguage.mockResolvedValue(germanPack());
+        chooseMyConsoleLanguage.mockResolvedValue({ locale: 'de' });
+        const user = setupUser();
+        render(<LanguagesCard />);
+
+        // Disabled until the account's own choice has been read.
+        const picker = await screen.findByRole('combobox', { name: 'Show the console in' });
+        await waitFor(() => expect(picker).toBeEnabled());
+        await user.click(picker);
+        await user.click(await screen.findByRole('option', { name: 'Deutsch' }));
+
+        await waitFor(() => expect(chooseMyConsoleLanguage).toHaveBeenCalledWith({ locale: 'de' }));
+        expect(i18n.resolvedLanguage).toBe('de');
+        expect(localStorage.getItem('deadair.consoleLanguage')).toBe('de');
+    });
+
+    it('goes back to following the browser', async () => {
+        getMyConsoleLanguage.mockResolvedValue({ locale: 'en' });
+        chooseMyConsoleLanguage.mockResolvedValue({});
+        localStorage.setItem('deadair.consoleLanguage', 'en');
+        const user = setupUser();
+        render(<LanguagesCard />);
+
+        await waitFor(() => expect(screen.getByRole('combobox', { name: 'Show the console in' })).toHaveValue('English'));
+        await user.click(screen.getByRole('combobox', { name: 'Show the console in' }));
+        await user.click(await screen.findByRole('option', { name: 'As this browser prefers' }));
+
+        await waitFor(() => expect(chooseMyConsoleLanguage).toHaveBeenCalledWith({}));
+        expect(localStorage.getItem('deadair.consoleLanguage')).toBeNull();
     });
 });

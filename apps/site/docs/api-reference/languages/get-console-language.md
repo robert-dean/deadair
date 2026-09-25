@@ -1,7 +1,7 @@
 ---
 title: 'Get console language'
 sidebar_label: 'Get console language'
-sidebar_position: 2
+sidebar_position: 4
 mdx:
     format: 'md'
 ---

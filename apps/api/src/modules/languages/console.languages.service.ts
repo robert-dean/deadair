@@ -3,7 +3,7 @@ import { httpError } from '@maroonedsoftware/errors';
 import { AuthorizationContext } from '#modules/permissions/authorization.context.js';
 import { assertStorableCatalog, canonicalLocale, LANGUAGE_PACK_VERSION, requireLocale } from './console.language.pack.js';
 import { ConsoleLanguageRepository } from './console.language.repository.js';
-import type { ConsoleLanguageList, ConsoleLanguagePack } from './types/languages.types.js';
+import type { ConsoleLanguageChoice, ConsoleLanguageList, ConsoleLanguagePack } from './types/languages.types.js';
 
 /**
  * The languages the console can be shown in beyond its built-in English, each one a language pack an
@@ -23,8 +23,7 @@ export class ConsoleLanguagesService {
     constructor(
         private readonly languages: ConsoleLanguageRepository,
         // The container rather than `AuthorizationContext` itself: the two reads here are public, and
-        // an anonymous request has no context to inject. Only `import` asks, and only an admin
-        // reaches it.
+        // an anonymous request has no context to inject. Only the routes behind a session ask.
         private readonly container: Container,
     ) {}
 
@@ -83,6 +82,49 @@ export class ConsoleLanguagesService {
         });
 
         return this.list();
+    }
+
+    /**
+     * The console language the signed-in operator chose. Empty for one who never chose, and for a
+     * caller that is not a person, which has no console to be in a language.
+     */
+    async choice(): Promise<ConsoleLanguageChoice> {
+        const actor = this.container.get(AuthorizationContext).actor;
+        if (actor.kind !== 'user') return {};
+        const locale = await this.languages.choiceOf(actor.actorId);
+        return locale === undefined ? {} : { locale };
+    }
+
+    /**
+     * Keeps the signed-in operator's choice of console language, or without one forgets it.
+     *
+     * English needs no pack, and choosing it is a real choice: it keeps the console English whatever
+     * the browser prefers. Any other language must be one this station holds. A choice whose pack is
+     * removed later is simply a console showing English, which is why this is checked here and is
+     * not a key in the database.
+     *
+     * @throws 400 for a caller that is not a person, for a tag that is not one, and for a language
+     * this station holds no pack for.
+     */
+    async choose(input: ConsoleLanguageChoice): Promise<ConsoleLanguageChoice> {
+        const actor = this.container.get(AuthorizationContext).actor;
+        if (actor.kind !== 'user') throw httpError(400).withDetails({ message: 'only a person has a console language to choose' });
+
+        if (input.locale === undefined) {
+            await this.languages.choose(actor.actorId, undefined);
+            return {};
+        }
+
+        const locale = requireLocale(input.locale);
+        const english = new Intl.Locale(locale).language === 'en';
+        if (!english && (await this.languages.get(locale)) === undefined) {
+            throw httpError(400).withDetails({ message: `this station has no ${input.locale} language pack to choose` });
+        }
+
+        // Every English is the one English the console has.
+        const chosen = english ? 'en' : locale;
+        await this.languages.choose(actor.actorId, chosen);
+        return { locale: chosen };
     }
 
     /** @throws 404 for a language this station holds no pack for. */

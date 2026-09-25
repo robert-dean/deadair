@@ -25,7 +25,13 @@ function germanPack(overrides: Partial<ConsoleLanguagePack> = {}): ConsoleLangua
 /** An in-memory repository, and the service over it with an admin signed in. */
 function service(actor: unknown = { kind: 'user', actorId: 'admin-1' }) {
     const rows = new Map<string, StoredLanguagePack>();
+    const choices = new Map<string, string>();
     const repository = {
+        choiceOf: vi.fn(async (actorId: string) => choices.get(actorId)),
+        choose: vi.fn(async (actorId: string, locale: string | undefined) => {
+            if (locale === undefined) choices.delete(actorId);
+            else choices.set(actorId, locale);
+        }),
         list: vi.fn(async () => [...rows.values()].map(({ catalog: _catalog, ...language }) => language)),
         get: vi.fn(async (locale: string) => rows.get(locale)),
         put: vi.fn(async (draft: LanguageDraft) => {
@@ -108,5 +114,33 @@ describe('ConsoleLanguagesService', () => {
         await languages.list();
         expect(await status(languages.get('de'))).toBe(404);
         expect(container.get).not.toHaveBeenCalled();
+    });
+
+    it('keeps the language an operator chose, and forgets it on request', async () => {
+        const { languages } = service();
+        await languages.import('de', germanPack());
+
+        expect(await languages.choice()).toEqual({});
+        expect(await languages.choose({ locale: 'de' })).toEqual({ locale: 'de' });
+        expect(await languages.choice()).toEqual({ locale: 'de' });
+        expect(await languages.choose({})).toEqual({});
+        expect(await languages.choice()).toEqual({});
+    });
+
+    it('takes English as a choice with no pack behind it, whatever English it is asked for', async () => {
+        const { languages } = service();
+        expect(await languages.choose({ locale: 'en-GB' })).toEqual({ locale: 'en' });
+    });
+
+    it('refuses a language the station holds no pack for', async () => {
+        const { languages, repository } = service();
+        expect(await status(languages.choose({ locale: 'fr' }))).toBe(400);
+        expect(repository.choose).not.toHaveBeenCalled();
+    });
+
+    it('has no choice to keep for a caller that is not a person', async () => {
+        const { languages } = service({ kind: 'system', actorId: 'director' });
+        expect(await languages.choice()).toEqual({});
+        expect(await status(languages.choose({ locale: 'en' }))).toBe(400);
     });
 });

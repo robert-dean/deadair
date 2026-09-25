@@ -7,7 +7,7 @@ import { requireMcpPolicy, type McpToolHandler, type McpToolHandlerMap, type Mcp
 import { PolicyService } from '@maroonedsoftware/policies';
 import { parseAndValidate } from '@maroonedsoftware/zod';
 import { ConsoleLanguagesService } from '#src/modules/languages/console.languages.service.js';
-import { ConsoleLanguageList, ConsoleLanguagePack } from '../modules/languages/types/languages.types.js';
+import { ConsoleLanguageChoice, ConsoleLanguageList, ConsoleLanguagePack } from '../modules/languages/types/languages.types.js';
 
 /** The request's scoped container, which a tool resolving per call reads its service and policies from. */
 function requireMcpContainer(context: McpToolContext): Container {
@@ -17,6 +17,8 @@ function requireMcpContainer(context: McpToolContext): Container {
     return context.container;
 }
 
+const GetMyConsoleLanguageArgs = z.object({});
+const ChooseMyConsoleLanguageArgs = z.object({ body: ConsoleLanguageChoice });
 const ListConsoleLanguagesArgs = z.object({});
 const GetConsoleLanguageArgs = z.object({ locale: z.string().min(2).max(35) });
 const ImportConsoleLanguageArgs = z.object({ locale: z.string().min(2).max(35), body: ConsoleLanguagePack });
@@ -24,6 +26,51 @@ const RemoveConsoleLanguageArgs = z.object({ locale: z.string().min(2).max(35) }
 
 /**
  * from [languages.ck](../../data/contracts/languages/languages.ck#L19)
+ */
+@Injectable()
+export class GetMyConsoleLanguageMcpTool implements McpToolHandler {
+    readonly definition: Tool = {
+        name: 'get_my_console_language',
+        description: 'The language you chose for the console, if you chose one',
+        inputSchema: z.toJSONSchema(GetMyConsoleLanguageArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
+        outputSchema: z.toJSONSchema(ConsoleLanguageChoice, { unrepresentable: 'any' }) as Tool['outputSchema'],
+        annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+        _meta: { 'contractkit/security': { policy: false } },
+    };
+
+    async handle(_args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
+        const container = requireMcpContainer(context);
+        await requireMcpPolicy(context, container.get(PolicyService));
+        const result = await container.get(ConsoleLanguagesService).choice();
+        return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
+    }
+}
+
+/**
+ * from [languages.ck](../../data/contracts/languages/languages.ck#L33)
+ */
+@Injectable()
+export class ChooseMyConsoleLanguageMcpTool implements McpToolHandler {
+    readonly definition: Tool = {
+        name: 'choose_my_console_language',
+        description: 'Chooses the language your console is shown in, or, without one, goes back to following the browser',
+        inputSchema: z.toJSONSchema(ChooseMyConsoleLanguageArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
+        outputSchema: z.toJSONSchema(ConsoleLanguageChoice, { unrepresentable: 'any' }) as Tool['outputSchema'],
+        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+        _meta: { 'contractkit/security': { policy: false } },
+    };
+
+    async handle(args: Record<string, unknown>, context: McpToolContext): Promise<CallToolResult> {
+        const container = requireMcpContainer(context);
+        await requireMcpPolicy(context, container.get(PolicyService));
+        const { body } = await parseAndValidate(args, ChooseMyConsoleLanguageArgs);
+        const result = await container.get(ConsoleLanguagesService).choose(body);
+        return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
+    }
+}
+
+/**
+ * from [languages.ck](../../data/contracts/languages/languages.ck#L54)
  */
 @Injectable()
 export class ListConsoleLanguagesMcpTool implements McpToolHandler {
@@ -44,7 +91,7 @@ export class ListConsoleLanguagesMcpTool implements McpToolHandler {
 }
 
 /**
- * from [languages.ck](../../data/contracts/languages/languages.ck#L37)
+ * from [languages.ck](../../data/contracts/languages/languages.ck#L72)
  */
 @Injectable()
 export class GetConsoleLanguageMcpTool implements McpToolHandler {
@@ -66,7 +113,7 @@ export class GetConsoleLanguageMcpTool implements McpToolHandler {
 }
 
 /**
- * from [languages.ck](../../data/contracts/languages/languages.ck#L48)
+ * from [languages.ck](../../data/contracts/languages/languages.ck#L83)
  */
 @Injectable()
 export class ImportConsoleLanguageMcpTool implements McpToolHandler {
@@ -89,7 +136,7 @@ export class ImportConsoleLanguageMcpTool implements McpToolHandler {
 }
 
 /**
- * from [languages.ck](../../data/contracts/languages/languages.ck#L60)
+ * from [languages.ck](../../data/contracts/languages/languages.ck#L95)
  */
 @Injectable()
 export class RemoveConsoleLanguageMcpTool implements McpToolHandler {
@@ -113,6 +160,8 @@ export class RemoveConsoleLanguageMcpTool implements McpToolHandler {
 
 /** Add a handler for each of this file's operations to the catalog, unlisted in `tools/list`. */
 export function registerLanguagesMcpCatalog(map: McpToolHandlerMap, container: Container): void {
+    map.set('get_my_console_language', container.get(GetMyConsoleLanguageMcpTool));
+    map.set('choose_my_console_language', container.get(ChooseMyConsoleLanguageMcpTool));
     map.set('list_console_languages', container.get(ListConsoleLanguagesMcpTool));
     map.set('get_console_language', container.get(GetConsoleLanguageMcpTool));
     map.set('import_console_language', container.get(ImportConsoleLanguageMcpTool));
@@ -121,6 +170,8 @@ export function registerLanguagesMcpCatalog(map: McpToolHandlerMap, container: C
 
 /** Register this file's tool classes on the registry, so the tool maps can resolve them. */
 export function registerLanguagesMcpToolClasses(registry: Registry): void {
+    registry.register(GetMyConsoleLanguageMcpTool).useClass(GetMyConsoleLanguageMcpTool).asSingleton();
+    registry.register(ChooseMyConsoleLanguageMcpTool).useClass(ChooseMyConsoleLanguageMcpTool).asSingleton();
     registry.register(ListConsoleLanguagesMcpTool).useClass(ListConsoleLanguagesMcpTool).asSingleton();
     registry.register(GetConsoleLanguageMcpTool).useClass(GetConsoleLanguageMcpTool).asSingleton();
     registry.register(ImportConsoleLanguageMcpTool).useClass(ImportConsoleLanguageMcpTool).asSingleton();

@@ -50,6 +50,15 @@ export function reviveConsoleLanguage(raw: ConsoleLanguage): ConsoleLanguage {
 }
 
 /**
+ * The language the signed-in operator chose for the console. Absent means none was chosen, and the console follows the browser's own preference among the languages it has
+ * generated from [ConsoleLanguageChoice](../../../../../apps/api/data/contracts/languages/languages.types.ck#L32)
+ */
+export interface ConsoleLanguageChoice {
+    /** A language this station holds a pack for, or `en` for English whatever the browser prefers */
+    locale?: string;
+}
+
+/**
  * generated from [ConsoleLanguageList](../../../../../apps/api/data/contracts/languages/languages.types.ck#L27)
  */
 export interface ConsoleLanguageList {

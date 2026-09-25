@@ -258,6 +258,13 @@ export interface DeadairClockBands {
   updatedAt: Generated<DateTime>;
 }
 
+export interface DeadairConsoleLanguageChoices {
+  actorId: string;
+  createdAt: Generated<DateTime>;
+  locale: string;
+  updatedAt: Generated<DateTime>;
+}
+
 export interface DeadairConsoleLanguages {
   catalog: Json;
   createdAt: Generated<DateTime>;
@@ -1055,6 +1062,7 @@ export interface DB {
   "deadair.breakRequests": DeadairBreakRequests;
   "deadair.callerHosts": DeadairCallerHosts;
   "deadair.clockBands": DeadairClockBands;
+  "deadair.consoleLanguageChoices": DeadairConsoleLanguageChoices;
   "deadair.consoleLanguages": DeadairConsoleLanguages;
   "deadair.factExtractions": DeadairFactExtractions;
   "deadair.facts": DeadairFacts;

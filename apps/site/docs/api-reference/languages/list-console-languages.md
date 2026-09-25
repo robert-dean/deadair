@@ -1,7 +1,7 @@
 ---
 title: 'List console languages'
 sidebar_label: 'List console languages'
-sidebar_position: 1
+sidebar_position: 3
 mdx:
     format: 'md'
 ---

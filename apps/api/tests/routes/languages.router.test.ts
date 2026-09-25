@@ -1,16 +1,17 @@
 // The console-language routes through the real router, for the one thing a service test cannot see:
-// which of them ask the policy service at all. The sign-in page loads its language from the two
-// reads before anybody has signed in, so they must never ask; the two writes must ask for
-// `platform.manage`, which only an admin holds. `requirePolicy` leaves the session itself to the
-// policy service, so what this pins is the question each route puts to it.
+// who reaches each one. The sign-in page loads its language from the two reads before anybody has
+// signed in, so they answer with no session and ask nothing; importing and removing ask for
+// `platform.manage`, which only an admin holds; and an operator's own choice needs a session and no
+// role.
 
 import type { Server } from 'node:http';
 import { request } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import Koa from 'koa';
-import { errorMiddleware } from '@maroonedsoftware/koa';
+import { errorMiddleware, JsonParser, JsonParserOptions, ServerKitBodyParser, ServerKitParserMappings } from '@maroonedsoftware/koa';
 import { httpError } from '@maroonedsoftware/errors';
 import { PolicyService } from '@maroonedsoftware/policies';
+import { invalidAuthenticationSession } from '@maroonedsoftware/authentication';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { LanguagesRouter } from '../../src/routes/languages.router.js';
@@ -54,21 +55,33 @@ const send = (url: string, method = 'GET', body?: unknown): Promise<{ status: nu
 /** Every policy a route asked the policy service about, in order. */
 let asked: unknown[] = [];
 
-/** The router with nobody signed in, and a policy service that records the question and refuses it, as the real one does for no session. */
-const serve = async (languages: Partial<ConsoleLanguagesService>): Promise<string> => {
+/**
+ * The router, signed out or signed in. Signed out is the authentication middleware's own sentinel,
+ * which `requirePolicy` refuses before asking anything. Signed in is a session, and a policy service
+ * that records each question and refuses it, so a route that asks gets no further.
+ */
+const serve = async (languages: Partial<ConsoleLanguagesService>, signedIn = false): Promise<string> => {
+    // The real JSON parser, which the router resolves from the request's container.
+    const mappings = new ServerKitParserMappings();
+    mappings.set('json', new JsonParser(new JsonParserOptions()));
+    const bodyParser = new ServerKitBodyParser(mappings);
+
     const app = new Koa();
     app.use(errorMiddleware() as unknown as Koa.Middleware);
     asked = [];
     const policies = {
         assert: vi.fn(async (policy: unknown) => {
             asked.push(policy);
-            throw httpError(401);
+            throw httpError(403);
         }),
     };
     app.use(async (ctx, next) => {
         (ctx as unknown as { container: { get: (token: unknown) => unknown } }).container = {
-            get: (token: unknown) => (token === PolicyService ? policies : languages),
+            get: (token: unknown) => (token === PolicyService ? policies : token === ServerKitBodyParser ? bodyParser : languages),
         };
+        (ctx as unknown as { authenticationSession: unknown }).authenticationSession = signedIn
+            ? { subject: 'admin-1' }
+            : invalidAuthenticationSession;
         await next();
     });
     app.use(LanguagesRouter.routes() as unknown as Koa.Middleware);
@@ -78,8 +91,8 @@ const serve = async (languages: Partial<ConsoleLanguagesService>): Promise<strin
     return `http://${LOOPBACK}:${(server!.address() as AddressInfo).port}`;
 };
 
-describe('the console-language routes, signed out', () => {
-    it('list the languages', async () => {
+describe('signed out', () => {
+    it('lists the languages, asking nothing', async () => {
         const list = vi.fn(async () => ({ languages: [] }));
         const base = await serve({ list });
 
@@ -89,7 +102,7 @@ describe('the console-language routes, signed out', () => {
         expect(asked).toEqual([]);
     });
 
-    it('hand back a pack', async () => {
+    it('hands back a pack, asking nothing', async () => {
         const get = vi.fn(async () => PACK as never);
         const base = await serve({ get });
 
@@ -97,24 +110,39 @@ describe('the console-language routes, signed out', () => {
         expect(response.status).toBe(200);
         expect(JSON.parse(response.body)).toEqual(PACK);
         expect(get).toHaveBeenCalledWith('de');
-        expect(asked).toEqual([]);
     });
 
-    it('refuse an import', async () => {
-        const importPack = vi.fn();
-        const base = await serve({ import: importPack });
+    it('refuses everything else', async () => {
+        const handlers = { import: vi.fn(), remove: vi.fn(), choice: vi.fn(), choose: vi.fn() };
+        const base = await serve(handlers);
 
         expect((await send(`${base}/console/languages/de`, 'PUT', PACK)).status).toBe(401);
-        expect(importPack).not.toHaveBeenCalled();
-        expect(asked).toEqual(['platform.manage']);
+        expect((await send(`${base}/console/languages/de`, 'DELETE')).status).toBe(401);
+        expect((await send(`${base}/console/language`)).status).toBe(401);
+        expect((await send(`${base}/console/language`, 'PUT', { locale: 'de' })).status).toBe(401);
+        for (const handler of Object.values(handlers)) expect(handler).not.toHaveBeenCalled();
+    });
+});
+
+describe('signed in', () => {
+    it('asks for platform.manage to import or remove a language', async () => {
+        const handlers = { import: vi.fn(), remove: vi.fn() };
+        const base = await serve(handlers, true);
+
+        expect((await send(`${base}/console/languages/de`, 'PUT', PACK)).status).toBe(403);
+        expect((await send(`${base}/console/languages/de`, 'DELETE')).status).toBe(403);
+        expect(asked).toEqual(['platform.manage', 'platform.manage']);
+        expect(handlers.import).not.toHaveBeenCalled();
     });
 
-    it('refuse a removal', async () => {
-        const remove = vi.fn();
-        const base = await serve({ remove });
+    it('asks nothing more to read or keep your own choice', async () => {
+        const choice = vi.fn(async () => ({ locale: 'de' }));
+        const choose = vi.fn(async () => ({}));
+        const base = await serve({ choice, choose }, true);
 
-        expect((await send(`${base}/console/languages/de`, 'DELETE')).status).toBe(401);
-        expect(remove).not.toHaveBeenCalled();
-        expect(asked).toEqual(['platform.manage']);
+        expect((await send(`${base}/console/language`)).status).toBe(200);
+        expect((await send(`${base}/console/language`, 'PUT', {})).status).toBe(200);
+        expect(asked).toEqual([]);
+        expect(choose).toHaveBeenCalledWith({});
     });
 });

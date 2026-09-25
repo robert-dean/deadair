@@ -13,6 +13,41 @@ options {
     }
 }
 
+# The console language the signed-in operator chose, kept with their account so it follows them from browser to browser
+
+operation /console/language: {
+    get: { # The language you chose for the console, if you chose one
+        name: Get my console language
+        service: ConsoleLanguagesService.choice
+        # Anybody signed in, for themselves: what language their own console is in is nobody else's
+        # business, and nothing about it needs a role.
+        security: {
+            policy: none
+        }
+        response: {
+            200: {
+                application/json: ConsoleLanguageChoice
+            }
+        }
+    }
+    put: { # Chooses the language your console is shown in, or, without one, goes back to following the browser
+        name: Choose my console language
+        service: ConsoleLanguagesService.choose
+        # As the read: anybody signed in, for themselves.
+        security: {
+            policy: none
+        }
+        request: {
+            application/json: ConsoleLanguageChoice
+        }
+        response: {
+            200: {
+                application/json: ConsoleLanguageChoice
+            }
+        }
+    }
+}
+
 # The languages the console can be shown in beyond the English it is built with, each one a language pack an admin imported. Reading them needs no session, because the sign-in page is in the operator's language before anybody has signed in
 
 operation /console/languages: {

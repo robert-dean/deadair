@@ -1231,6 +1231,35 @@ paths:
                         'application/json':
                             schema:
                                 '$ref': '#/components/schemas/HistoryPage'
+    '/console/language':
+        get:
+            operationId: choice
+            summary: 'Get my console language'
+            description: 'The language you chose for the console, if you chose one'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/ConsoleLanguageChoice'
+        put:
+            operationId: choose
+            summary: 'Choose my console language'
+            description: 'Chooses the language your console is shown in, or, without one, goes back to following the browser'
+            requestBody:
+                required: true
+                content:
+                    'application/json':
+                        schema:
+                            '$ref': '#/components/schemas/ConsoleLanguageChoice'
+            responses:
+                '200':
+                    description: 'Successful response'
+                    content:
+                        'application/json':
+                            schema:
+                                '$ref': '#/components/schemas/ConsoleLanguageChoice'
     '/console/languages':
         get:
             operationId: list
@@ -7629,6 +7658,15 @@ components:
                         '$ref': '#/components/schemas/ConsoleLanguage'
                     description: 'In order of their tags. English is built in and is never listed'
             required: [languages]
+        ConsoleLanguageChoice:
+            type: object
+            properties:
+                locale:
+                    type: string
+                    minLength: 2
+                    maxLength: 35
+                    description: 'A language this station holds a pack for, or `en` for English whatever the browser prefers'
+            description: "The language the signed-in operator chose for the console. Absent means none was chosen, and the console follows the browser's own preference among the languages it has"
         MessagingLinkCode:
             type: object
             properties:

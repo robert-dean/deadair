@@ -9,6 +9,23 @@ public final class LanguagesClient: Sendable {
         self.http = http
     }
 
+    /// Get my console language
+    /// The language you chose for the console, if you chose one
+    public func getMyConsoleLanguage() async throws -> ConsoleLanguageChoice {
+        let request = SdkRequest(method: "GET", path: ["console", "language"])
+        let response = try await http.execute(request)
+        return try http.decodeJSON(ConsoleLanguageChoice.self, from: response)
+    }
+
+    /// Choose my console language
+    /// Chooses the language your console is shown in, or, without one, goes back to following the browser
+    public func chooseMyConsoleLanguage(body: ConsoleLanguageChoice) async throws -> ConsoleLanguageChoice {
+        var request = SdkRequest(method: "PUT", path: ["console", "language"])
+        try http.setJSONBody(&request, body, contentType: "application/json")
+        let response = try await http.execute(request)
+        return try http.decodeJSON(ConsoleLanguageChoice.self, from: response)
+    }
+
     /// List console languages
     /// Every language this station holds a pack for, without the strings
     public func listConsoleLanguages() async throws -> ConsoleLanguageList {

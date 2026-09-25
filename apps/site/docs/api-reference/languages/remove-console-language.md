@@ -1,7 +1,7 @@
 ---
 title: 'Remove console language'
 sidebar_label: 'Remove console language'
-sidebar_position: 4
+sidebar_position: 6
 mdx:
     format: 'md'
 ---

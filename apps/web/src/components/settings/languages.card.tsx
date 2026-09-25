@@ -1,11 +1,18 @@
 import { useMemo, useState } from 'react';
-import { Badge, Button, Card, Code, Group, Stack, Text, Title } from '@mantine/core';
+import { Badge, Button, Card, Code, Group, Select, Stack, Text, Title } from '@mantine/core';
 import { IconDownload, IconUpload } from '@tabler/icons-react';
 import type { ConsoleLanguage } from '@deadair/sdk';
 import { useTranslation } from 'react-i18next';
 
 import { version } from '../../../package.json';
-import { exportConsoleLanguage, useConsoleLanguagePack, useConsoleLanguages, useRemoveConsoleLanguage } from '../../api/languages.queries';
+import {
+    exportConsoleLanguage,
+    useChooseConsoleLanguage,
+    useConsoleLanguageChoice,
+    useConsoleLanguagePack,
+    useConsoleLanguages,
+    useRemoveConsoleLanguage,
+} from '../../api/languages.queries';
 import { sdkError } from '../../api/sdk.error';
 import { en } from '../../i18n/en/en.catalog';
 import { checkLanguagePack } from '../../i18n/language.check';
@@ -50,6 +57,8 @@ export function LanguagesCard() {
                     </Text>
                 </Stack>
 
+                <LanguagePicker languages={languages.data?.languages ?? []} />
+
                 <Group justify="space-between" wrap="wrap" gap="sm">
                     <Stack gap={2}>
                         <Text size="sm" fw={500}>
@@ -82,6 +91,47 @@ export function LanguagesCard() {
             </Stack>
             <LanguageImportModal opened={importing} onClose={() => setImporting(false)} />
         </Card>
+    );
+}
+
+/** The value the picker uses for "no choice": follow the browser. A `Select` needs a string. */
+const FOLLOW_BROWSER = '';
+
+/**
+ * Which language YOUR console is shown in, kept with your account so it follows you from browser to
+ * browser. Anybody signed in may choose for themselves; nothing about it needs a role.
+ *
+ * "As this browser prefers" is a choice of its own: it is what an operator who never chose has, and
+ * picking it forgets a choice so the browser decides again. Each language is named in itself,
+ * because an operator looking for their own language is looking for the word they know.
+ */
+function LanguagePicker({ languages }: { languages: readonly ConsoleLanguage[] }) {
+    const { t } = useTranslation('settings');
+    const choice = useConsoleLanguageChoice();
+    const choose = useChooseConsoleLanguage();
+
+    const data = [
+        { value: FOLLOW_BROWSER, label: t('languages.picker.browser') },
+        { value: 'en', label: t('languages.english.name') },
+        ...languages.map(language => ({ value: language.locale, label: language.name })),
+    ];
+
+    return (
+        <Stack gap="xs">
+            <Select
+                label={t('languages.picker.label')}
+                description={t('languages.picker.description')}
+                data={data}
+                value={choice.data?.locale ?? FOLLOW_BROWSER}
+                allowDeselect={false}
+                disabled={choice.isPending || choose.isPending}
+                onChange={value => choose.mutate(value === null || value === FOLLOW_BROWSER ? undefined : value)}
+                maw={360}
+            />
+            {choose.error ? (
+                <ErrorAlert title={t('languages.picker.failedTitle')} error={choose.error} fallback={t('languages.picker.failed')} />
+            ) : undefined}
+        </Stack>
     );
 }
 

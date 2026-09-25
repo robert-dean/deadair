@@ -23,7 +23,8 @@ const STATUS_FORMAT = 'deadair.status/1';
 
 export const communityRepository = 'https://github.com/robert-dean/deadair-community';
 /** The issue form that submits a kind of entry. */
-export const submitUrl = (form: 'add-station' | 'add-persona' | 'add-plugin' | 'add-app') => `${communityRepository}/issues/new?template=${form}.yml`;
+export const submitUrl = (form: 'add-station' | 'add-persona' | 'add-plugin' | 'add-app' | 'add-language') =>
+    `${communityRepository}/issues/new?template=${form}.yml`;
 export const takedownUrl = `${communityRepository}/blob/main/TAKEDOWN.md`;
 
 /** Who put an entry in the catalogue, and when. */
@@ -104,11 +105,34 @@ export interface CatalogPersona {
     listing: Listing;
 }
 
+/**
+ * A translation of the console: a language pack's header and how many strings it has. The pack itself
+ * is published on its own at `download` and never carried in the catalogue, being a couple of
+ * hundred kilobytes a card has no use for.
+ */
+export interface CatalogLanguage {
+    slug: string;
+    /** Its BCP 47 tag: `de`, `pt-BR`. */
+    locale: string;
+    /** Its name in itself, as the console's picker shows it: `Deutsch`. */
+    name: string;
+    direction: 'ltr' | 'rtl';
+    /** The console version it was translated against, or empty when the pack did not say. */
+    madeFor: string;
+    strings: number;
+    translators: string;
+    summary?: string;
+    /** The pack's own file, relative to the address the catalogue was read from. */
+    download: string;
+    listing: Listing;
+}
+
 export interface Catalog {
     stations: CatalogStation[];
     plugins: CatalogPlugin[];
     apps: CatalogApp[];
     personas: CatalogPersona[];
+    languages: CatalogLanguage[];
 }
 
 /** What a station answered the last time it was asked. */
@@ -123,7 +147,7 @@ export interface StationStatus {
     track?: { kind: 'record' | 'break'; artist?: string; title: string };
 }
 
-export const EMPTY_CATALOG: Catalog = { stations: [], plugins: [], apps: [], personas: [] };
+export const EMPTY_CATALOG: Catalog = { stations: [], plugins: [], apps: [], personas: [], languages: [] };
 
 type Json = Record<string, unknown>;
 
@@ -161,6 +185,11 @@ export function parseCatalog(body: unknown): Catalog {
             body.personas,
             ['summary', 'author', 'download'],
             entry => isObject(entry.persona) && isString(entry.persona.key) && isString(entry.persona.label) && isString(entry.persona.style),
+        ),
+        languages: entries<CatalogLanguage>(
+            body.languages,
+            ['locale', 'name', 'madeFor', 'translators', 'download'],
+            entry => (entry.direction === 'ltr' || entry.direction === 'rtl') && typeof entry.strings === 'number',
         ),
     };
 }

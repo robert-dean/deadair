@@ -77,4 +77,4 @@ A new version of the console may add strings, and those show in English until th
 
 ### Sharing a pack
 
-A pack is a plain file that works on any station, so share it however you like. If you would like it to come with the console for everybody, [open an issue](https://github.com/robert-dean/deadair/issues) with the file attached.
+A pack is a plain file that works on any station. To share it with everybody, [submit it to the community catalogue](https://github.com/robert-dean/deadair-community/issues/new?template=add-language.yml), which asks for an address it can download the file from, since a pack is too big to paste into a form. Shared languages are listed under [Community, Languages](/community/languages), one per language, and each downloads as a file your console imports as it stands.

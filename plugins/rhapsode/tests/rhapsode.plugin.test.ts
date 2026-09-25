@@ -693,6 +693,40 @@ describe('listVoices', () => {
 
         expect(new Set(specs).size).toBe(specs.length);
     });
+
+    it('mints a new key when the server re-records a voice under the same id', async () => {
+        // A presenter re-voiced on the server kept previewing in the old voice, because nothing in the
+        // station's row had changed. The server's own spec is what does.
+        const config = { voices: voiceRows({ name: 'conspiracy', engine: 'chatterbox', voice: 'conspiracy', variant: 'turbo' }) };
+        const before = await started({ config, voices: { chatterbox: [{ id: 'conspiracy', label: 'Todd', spec: 'conspiracy@turbo:aaa' }] } });
+        const after = await started({ config, voices: { chatterbox: [{ id: 'conspiracy', label: 'Todd', spec: 'conspiracy@turbo:bbb' }] } });
+
+        const [, old] = await before.plugin.listVoices();
+        const [, fresh] = await after.plugin.listVoices();
+
+        expect(old?.spec).toContain('conspiracy@turbo:aaa');
+        expect(fresh?.spec).not.toBe(old?.spec);
+    });
+
+    it('asks only the engines a row names, once each', async () => {
+        const { plugin, calls } = await started({
+            config: { voices: voiceRows({ name: 'a', engine: 'chatterbox', voice: 'x' }, { name: 'b', engine: 'chatterbox', voice: 'y' }) },
+            voices: { chatterbox: [], kokoro: [] },
+        });
+
+        await plugin.listVoices();
+
+        const listings = calls.map(call => call.url).filter(url => url.endsWith('/voices'));
+        expect(listings).toEqual([`${BASE_URL}/engines/chatterbox/voices`]);
+    });
+
+    it('never answers with the bare address, which is what every key minted before the server was asked looks like', async () => {
+        const { plugin } = await started({ config: { voices: voiceRows({ name: 'host', engine: 'chatterbox', voice: 'gravel' }) } });
+
+        const [, host] = await plugin.listVoices();
+
+        expect(host?.spec).toBe('chatterbox/gravel#unknown');
+    });
 });
 
 describe('suggestConfigOptions', () => {

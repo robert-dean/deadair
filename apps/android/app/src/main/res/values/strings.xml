@@ -116,6 +116,7 @@
     <string name="welcome_eyebrow">Hello</string>
     <string name="welcome_headline">Radio with nobody in the booth</string>
     <string name="find_your_station">Find your station</string>
+    <string name="run_this_station">I run this station: sign in</string>
     <string name="setup_intro">The address your station\'s console loads from. The same one carries the stream.</string>
     <string name="station_address">Station address</string>
     <string name="station_address_example">https://radio.example.com</string>

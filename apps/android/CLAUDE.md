@@ -282,7 +282,10 @@ stay cheap.
 
 **Listening is accountless and stays that way.** A session buys the `platform.view` reads and
 nothing else, which is why sign-in is optional, last on the settings screen, and says so in its own
-copy. The credentials are the operator's: nothing in the API creates a `listener` account, and
+copy. Setup offers it too, as the quieter second button once an address has answered and never
+before: credentials belong to a station, so there is nothing to sign in to until one has said who it
+is. That button keeps the station and pushes the sign-in page onto the stack under Setup, so backing
+out of it lands on Now playing rather than on the address again. The credentials are the operator's: nothing in the API creates a `listener` account, and
 onboarding writes only the `admin` tuple.
 
 **The refresh is single-flight, and that is not tidiness.** The station's refresh tokens are

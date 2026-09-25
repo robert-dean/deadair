@@ -27,6 +27,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -81,6 +82,11 @@ fun SetupScreen(
     listeningTo: String? = null,
     /** Turn the link down and go back to the kept station. Offered only when there is one. */
     onKeepCurrent: (() -> Unit)? = null,
+    /**
+     * Keep the station and go straight on to signing in to it. Offered once the address has
+     * answered and not before, because an account belongs to a station and there is not one yet.
+     */
+    onConfirmAndSignIn: (() -> Unit)? = null,
     initialStep: SetupStep = SetupStep.initial(proposing),
 ) {
     var step by rememberSaveable { mutableStateOf(initialStep) }
@@ -97,6 +103,7 @@ fun SetupScreen(
                 onAddressChange = onAddressChange,
                 onCheck = onCheck,
                 onConfirm = onConfirm,
+                onConfirmAndSignIn = onConfirmAndSignIn,
                 listeningTo = listeningTo,
                 onKeepCurrent = onKeepCurrent,
                 onBack = if (onKeepCurrent == null) toWelcome else null,
@@ -159,6 +166,7 @@ private fun Station(
     onAddressChange: (String) -> Unit,
     onCheck: () -> Unit,
     onConfirm: () -> Unit,
+    onConfirmAndSignIn: (() -> Unit)?,
     listeningTo: String?,
     onKeepCurrent: (() -> Unit)?,
     onBack: (() -> Unit)?,
@@ -215,6 +223,12 @@ private fun Station(
                 if (state.confirmedName != null) {
                     Button(onClick = onConfirm, modifier = Modifier.fillMaxWidth().height(PillHeight)) {
                         Text(stringResource(R.string.listen_to, state.confirmedName))
+                    }
+                    // Second, and quieter, because most people who get this far only want to listen.
+                    onConfirmAndSignIn?.let {
+                        OutlinedButton(onClick = it, modifier = Modifier.fillMaxWidth().height(PillHeight)) {
+                            Text(stringResource(R.string.run_this_station))
+                        }
                     }
                 } else {
                     Button(

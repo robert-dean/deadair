@@ -211,6 +211,13 @@ private fun Listener(graph: AppGraph, links: MutableStateFlow<String?>, onSettin
             proposing = proposal != null,
             listeningTo = if (proposal != null) station?.let { loaded.stationName ?: it.origin } else null,
             onKeepCurrent = if (proposal != null && station != null) keepCurrent else null,
+            // The sign-in page is pushed before the station has landed, onto the stack that is
+            // already here under Setup, so the app opens on it with Now playing beneath: signing in
+            // or backing out both end on the station just chosen.
+            onConfirmAndSignIn = {
+                model.confirm()
+                openSignIn()
+            },
         )
     } else {
         NavDisplay(

@@ -187,6 +187,22 @@ describe('what it produces', () => {
         expect(written?.claimsNext).toBe(true);
     });
 
+    it('refuses a script that says the record coming up has already played', async () => {
+        // Aired on 25 September, going from Torn into Lovefool: the only record the weather is
+        // shown, back-announced before it had started.
+        const lovefool = { title: 'Lovefool', artist: 'The Cardigans' };
+        const { writer } = build("It's 17 and raining. Lovefool just slid into the mix, a sweet hug.");
+
+        expect(await writer.write(request({ next: lovefool }))).toBeUndefined();
+        expect(writer.detailOfLastWrite()?.reason).toMatch(/wrong side of the break/);
+    });
+
+    it('airs the same record cued the right way round', async () => {
+        const { writer } = build("It's 17 and raining. Here's Lovefool, a sweet hug.");
+
+        expect(await writer.write(request({ next: { title: 'Lovefool', artist: 'The Cardigans' } }))).toBeDefined();
+    });
+
     it('declines an answer that ran past the ceiling with no sentence to cut at', async () => {
         const { writer } = build(`${'weather '.repeat(WEATHER_MAX_WORDS + 20).trim()}`);
 

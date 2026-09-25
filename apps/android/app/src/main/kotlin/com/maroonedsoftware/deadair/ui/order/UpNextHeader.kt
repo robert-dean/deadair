@@ -20,17 +20,15 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.maroonedsoftware.deadair.R
 import com.maroonedsoftware.deadair.ui.nowplaying.CoverMesh
 import com.maroonedsoftware.deadair.ui.theme.Gutter
 
 /**
- * The head of Up next: the station's name, and the tab's own heading with its actions beside it,
- * over the on-air cover's colours.
+ * The head of Up next: the tab's own heading with its actions beside it, over the on-air cover's
+ * colours. The station's name is not here: it is the same on every tab, and a line of it above the
+ * heading pushed the list down to say what the phone already knew.
  *
  * In place of an app bar, so the tab carries the same colour as Now playing and the heading can be
  * the size of one. The mesh stands STILL here, unlike Now playing's: this is a list somebody is
@@ -38,22 +36,13 @@ import com.maroonedsoftware.deadair.ui.theme.Gutter
  * page, so the list below starts on plain ground.
  */
 @Composable
-fun UpNextHeader(stationName: String, mesh: List<Int>, actions: @Composable RowScope.() -> Unit, modifier: Modifier = Modifier) {
+fun UpNextHeader(mesh: List<Int>, actions: @Composable RowScope.() -> Unit, modifier: Modifier = Modifier) {
     val background = MaterialTheme.colorScheme.background
     Box(modifier = modifier.fillMaxWidth()) {
         CoverMesh(colors = mesh, moving = false, modifier = Modifier.matchParentSize().alpha(HEADER_MESH_STRENGTH))
         Box(modifier = Modifier.matchParentSize().background(Brush.verticalGradient(0.35f to Color.Transparent, 1f to background)))
-        Column(modifier = Modifier.fillMaxWidth().statusBarsPadding().padding(start = Gutter, end = 4.dp, top = 8.dp, bottom = 12.dp)) {
-            Text(
-                stationName.uppercase(),
-                style = MaterialTheme.typography.labelLarge.copy(letterSpacing = 2.sp),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.fillMaxWidth().padding(end = Gutter - 4.dp),
-            )
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 20.dp)) {
+        Column(modifier = Modifier.fillMaxWidth().statusBarsPadding().padding(start = Gutter, end = 4.dp, top = 16.dp, bottom = 12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     stringResource(R.string.tab_up_next),
                     style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold),

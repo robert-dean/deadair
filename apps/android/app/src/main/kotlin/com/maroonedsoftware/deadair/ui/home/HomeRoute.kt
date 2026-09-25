@@ -223,10 +223,11 @@ fun HomeRoute(
         underTabs = tab == Tab.NOW_PLAYING,
         bottomBar = !rest.resting && !tabsAway.resting,
         snackbarHost = snackbarHost,
-        // Over the tabs that are about the station, and not over Now playing, which has the
-        // station's button already, or Settings, which is not about what is on.
+        // Over What's on only: not over Now playing, which has the station's button already, nor
+        // Up next, whose own on-air row already says what is playing a thumb's width away, nor
+        // Settings, which is not about what is on.
         miniPlayer =
-            if (tab == Tab.NOW_PLAYING || tab == Tab.SETTINGS) {
+            if (tab != Tab.WHATS_ON) {
                 null
             } else {
                 { MiniPlayer(nowState, artworkUrl, onOpen = { onTab(Tab.NOW_PLAYING) }, onPlay = play, onStop = connection::stop) }
@@ -345,7 +346,6 @@ fun HomeRoute(
                     personas = personas.state,
                     onReloadPersonas = personas::reload,
                     handlers = handlers,
-                    stationName = reading?.nowPlaying?.station ?: settings.stationName ?: station?.origin.orEmpty(),
                     onAirArtworkUrl = artworkUrl,
                     actions = upNextActions,
                 )

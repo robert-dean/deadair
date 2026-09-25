@@ -123,8 +123,6 @@ fun RunningOrderScreen(
     personas: LoadState<List<Persona>>,
     onReloadPersonas: () -> Unit,
     handlers: OrderHandlers?,
-    /** What the station calls itself, for the header. */
-    stationName: String,
     /** The cover on air, whose colours the tab wears. `null` off air, or before the reading has arrived. */
     onAirArtworkUrl: String?,
     /** The tab's actions, beside its heading. */
@@ -135,7 +133,7 @@ fun RunningOrderScreen(
     val palette = rememberCoverPalette(onAirArtworkUrl, darkPage = MaterialTheme.colorScheme.background.luminance() < 0.5f)
     CoverColored(palette?.accent) {
         Column(modifier = Modifier.fillMaxSize()) {
-            UpNextHeader(stationName = stationName, mesh = palette?.mesh.orEmpty(), actions = actions)
+            UpNextHeader(mesh = palette?.mesh.orEmpty(), actions = actions)
             Box(modifier = Modifier.fillMaxWidth().weight(1f)) { Body(state, artUrlFor, onRetry, onSignIn, onTrack, onSegment, onHistory, broadcast, personas, onReloadPersonas, handlers) }
         }
     }

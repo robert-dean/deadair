@@ -55,7 +55,9 @@ fun BroadcastHeader(
     var picking by remember { mutableStateOf(false) }
 
     Column(modifier = modifier.fillMaxWidth().padding(horizontal = Gutter, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        ui.title?.let { Text(it, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis) }
+        // The broadcast's NAME is not drawn: it is the operator's label, and when nobody gave one
+        // the station makes one up from where the records came from ("From Spotify"), which read
+        // as software rather than as a programme. Now playing dropped it for the same reason.
 
         val host = ui.hostMessage.resolve()
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {

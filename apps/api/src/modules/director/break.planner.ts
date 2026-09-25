@@ -1443,6 +1443,11 @@ export class BreakPlanner {
      *
      * Read at most once per kind per pass through `shelved`, and never the recording this kind drew
      * last in the same pass where the library has another.
+     *
+     * A kind that yields to recordings has only the operator's on its shelf, never the station's own
+     * renders: otherwise the first one the station wrote would be drawn in place of every later one,
+     * and would air in its presenter's voice as it was that day, in anybody's hour. See
+     * `SegmentRepository.listRecordings`.
      */
     private async shelf(
         kind: string,
@@ -1450,7 +1455,10 @@ export class BreakPlanner {
         drawn: Map<string, string>,
         atIndex: number,
     ): Promise<Placement | undefined> {
-        if (!shelved.has(kind)) shelved.set(kind, await this.segments.listReady(kind));
+        if (!shelved.has(kind)) {
+            const recordingsOnly = this.writers.yieldsToRecordings(kind);
+            shelved.set(kind, await (recordingsOnly ? this.segments.listRecordings(kind) : this.segments.listReady(kind)));
+        }
         const available = shelved.get(kind) ?? [];
         if (available.length === 0) return undefined;
 

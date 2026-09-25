@@ -71,8 +71,6 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.maroonedsoftware.deadair.R
 import com.maroonedsoftware.deadair.director.OrderState
-import com.maroonedsoftware.deadair.sdk.models.Persona
-import com.maroonedsoftware.deadair.ui.LoadState
 import com.maroonedsoftware.deadair.nowplaying.clockOf
 import com.maroonedsoftware.deadair.sdk.models.StationItemState
 import com.maroonedsoftware.deadair.sdk.models.StationOrderItem
@@ -93,10 +91,6 @@ data class OrderHandlers(
     val onRemove: (item: StationOrderItem, atIndex: Int) -> Unit,
     /** An action on a row is in flight. */
     val busyItemId: String?,
-    /** Hand the broadcast to a persona, or to the station's own host with `null`. */
-    val onRecast: (String?) -> Unit,
-    /** Change what the station plays: this show from here on, or a new one. */
-    val onPlan: () -> Unit,
     /** Any operator action is in flight, which is what stops a second one being started. */
     val busy: Boolean,
 )
@@ -121,11 +115,8 @@ fun RunningOrderScreen(
     onSegment: (String) -> Unit,
     /** Open everything the station has played, beyond this broadcast. */
     onHistory: () -> Unit,
-    /** The broadcast the order belongs to, for the header. `null` before the order has arrived. */
+    /** The broadcast the order belongs to, for who is presenting it. `null` before the order has arrived. */
     broadcast: BroadcastUiState?,
-    /** The station's characters, for the host picker. Read once when the tab opens. */
-    personas: LoadState<List<Persona>>,
-    onReloadPersonas: () -> Unit,
     handlers: OrderHandlers?,
     /** The cover on air, whose colours the tab wears. `null` off air, or before the reading has arrived. */
     onAirArtworkUrl: String?,
@@ -147,6 +138,9 @@ fun RunningOrderScreen(
         Column(modifier = Modifier.fillMaxSize()) {
             UpNextHeader(
                 mesh = palette?.mesh.orEmpty(),
+                // Who is presenting, and nothing about a broadcast that has none: off air there is
+                // no one, and the line would name the station's own host over an empty order.
+                hostLine = broadcast?.takeUnless { it.nothingOn }?.hostMessage?.resolve(),
                 actions =
                     if (editing) {
                         { TextButton(onClick = { editing = false }) { Text(stringResource(R.string.done)) } }
@@ -155,7 +149,7 @@ fun RunningOrderScreen(
                     },
             )
             Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
-                Body(state, artUrlFor, onRetry, onSignIn, onTrack, onSegment, onHistory, broadcast, personas, onReloadPersonas, handlers, editing, onEditing = { editing = it })
+                Body(state, artUrlFor, onRetry, onSignIn, onTrack, onSegment, onHistory, handlers, editing, onEditing = { editing = it })
             }
         }
     }
@@ -170,9 +164,6 @@ private fun Body(
     onTrack: (String) -> Unit,
     onSegment: (String) -> Unit,
     onHistory: () -> Unit,
-    broadcast: BroadcastUiState?,
-    personas: LoadState<List<Persona>>,
-    onReloadPersonas: () -> Unit,
     handlers: OrderHandlers?,
     editing: Boolean,
     onEditing: (Boolean) -> Unit,
@@ -184,18 +175,6 @@ private fun Body(
         is OrderState.Loaded ->
             Refreshable(state = state, onRefresh = onRetry) {
                 Column(modifier = Modifier.fillMaxSize()) {
-                    // Drawn even with nothing on: off air it is the only thing on this tab with
-                    // anything to say, and the station's empty order is an ordinary answer.
-                    broadcast?.let {
-                        BroadcastHeader(
-                            ui = it,
-                            personas = personas,
-                            onReloadPersonas = onReloadPersonas,
-                            onRecast = handlers?.onRecast,
-                            onPlan = handlers?.onPlan,
-                            busy = handlers?.busy == true,
-                        )
-                    }
                     if (state.order.items.isEmpty()) {
                         Box(modifier = Modifier.weight(1f)) { EmptyPlaceholder(stringResource(R.string.order_empty)) }
                     } else {

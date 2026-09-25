@@ -16,19 +16,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.maroonedsoftware.deadair.R
 import com.maroonedsoftware.deadair.ui.nowplaying.CoverMesh
 import com.maroonedsoftware.deadair.ui.theme.Gutter
 
 /**
- * The head of Up next: the tab's own heading with its actions beside it, over the on-air cover's
- * colours. The station's name is not here: it is the same on every tab, and a line of it above the
- * heading pushed the list down to say what the phone already knew.
+ * The head of Up next: who is presenting, and the tab's one action beside it, over the on-air cover's
+ * colours. There is no title: the tab bar already says where this is, and the heading pushed the
+ * list down to say it again. Nor the station's name, which is the same on every tab.
  *
  * In place of an app bar, so the tab carries the same colour as Now playing and the heading can be
  * the size of one. The mesh stands STILL here, unlike Now playing's: this is a list somebody is
@@ -36,7 +32,7 @@ import com.maroonedsoftware.deadair.ui.theme.Gutter
  * page, so the list below starts on plain ground.
  */
 @Composable
-fun UpNextHeader(mesh: List<Int>, actions: @Composable RowScope.() -> Unit, modifier: Modifier = Modifier) {
+fun UpNextHeader(mesh: List<Int>, hostLine: String?, actions: @Composable RowScope.() -> Unit, modifier: Modifier = Modifier) {
     val background = MaterialTheme.colorScheme.background
     Box(modifier = modifier.fillMaxWidth()) {
         CoverMesh(colors = mesh, moving = false, modifier = Modifier.matchParentSize().alpha(HEADER_MESH_STRENGTH))
@@ -44,9 +40,11 @@ fun UpNextHeader(mesh: List<Int>, actions: @Composable RowScope.() -> Unit, modi
         Column(modifier = Modifier.fillMaxWidth().statusBarsPadding().padding(start = Gutter, end = 4.dp, top = 16.dp, bottom = 12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    stringResource(R.string.tab_up_next),
-                    style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold),
-                    modifier = Modifier.weight(1f).semantics { heading() },
+                    hostLine.orEmpty(),
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f).padding(end = 8.dp),
                 )
                 actions()
             }

@@ -51,6 +51,7 @@ import com.maroonedsoftware.deadair.ui.home.HomeRoute
 import com.maroonedsoftware.deadair.ui.home.Tab
 import com.maroonedsoftware.deadair.ui.nav.Destination
 import com.maroonedsoftware.deadair.ui.nav.NavConfiguration
+import com.maroonedsoftware.deadair.ui.manage.ManageRoute
 import com.maroonedsoftware.deadair.ui.plan.PlanRoute
 import com.maroonedsoftware.deadair.ui.scripts.ScriptsRoute
 import com.maroonedsoftware.deadair.ui.settings.SignInScreen
@@ -334,10 +335,8 @@ private fun Listener(
                             },
                             onTrack = { id -> backStack.add(Destination.Track(id)) },
                             onHistory = { backStack.add(Destination.History) },
-                            onAirSomething = { backStack.add(Destination.AirSomething) },
-                            onAddRecord = { backStack.add(Destination.AddRecord) },
                             onScripts = { segmentId -> backStack.add(Destination.Scripts(segmentId)) },
-                            onPlan = { currentBrief, somethingOn -> backStack.add(Destination.Plan(currentBrief, somethingOn)) },
+                            onManage = { backStack.add(Destination.Manage) },
                         )
                     }
                     entry<Destination.Plan> { key ->
@@ -375,6 +374,16 @@ private fun Listener(
                             onCodeChange = model::onCodeChange,
                             onSignIn = model::signIn,
                             onStartAgain = model::startAgain,
+                        )
+                    }
+                    entry<Destination.Manage> {
+                        ManageRoute(
+                            graph = graph,
+                            onBack = { backStack.removeLastOrNull() },
+                            onPlan = { currentBrief, somethingOn -> backStack.add(Destination.Plan(currentBrief, somethingOn)) },
+                            onAirSomething = { backStack.add(Destination.AirSomething) },
+                            onAddRecord = { backStack.add(Destination.AddRecord) },
+                            onScripts = { backStack.add(Destination.Scripts(null)) },
                         )
                     }
                     entry<Destination.Desk> {

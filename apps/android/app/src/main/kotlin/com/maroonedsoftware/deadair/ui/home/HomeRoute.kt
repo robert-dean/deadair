@@ -1,12 +1,16 @@
 package com.maroonedsoftware.deadair.ui.home
 
+import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.ui.Modifier
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.foundation.layout.Box
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.IconButton
@@ -39,8 +43,6 @@ import com.maroonedsoftware.deadair.ui.LoadState
 import com.maroonedsoftware.deadair.ui.catalog.rememberDetail
 import com.maroonedsoftware.deadair.ui.order.BroadcastUiState
 import com.maroonedsoftware.deadair.ui.order.OrderHandlers
-import com.maroonedsoftware.deadair.ui.order.OrderVerb
-import com.maroonedsoftware.deadair.ui.order.orderMenu
 import com.maroonedsoftware.deadair.director.OrderState
 import com.maroonedsoftware.deadair.sdk.models.StationOrderItemKind
 import com.maroonedsoftware.deadair.ui.order.RunningOrderScreen
@@ -85,18 +87,14 @@ fun HomeRoute(
     settingsTab: @Composable () -> Unit,
     /** Open a record's page. */
     onTrack: (String) -> Unit,
-    /** Open the list of what could be put on air. Offered to the operator only. */
-    onAirSomething: () -> Unit,
-    /** Open the library search, to add one record. Offered to the operator only, while something is on. */
-    onAddRecord: () -> Unit,
     /** Open the sign-in page, over this screen, which is where it comes back to. */
     onSignIn: () -> Unit,
     /** Open everything the station has played. */
     onHistory: () -> Unit,
     /** Open what the station said: everything, or one break's attempts. */
     onScripts: (segmentId: String?) -> Unit,
-    /** Change what the station plays. The broadcast rides along, so the form opens on a fixed baseline. */
-    onPlan: (currentBrief: String?, somethingOn: Boolean) -> Unit,
+    /** Open the Manage page: the station's controls, gathered. */
+    onManage: () -> Unit,
 ) {
     // Back returns to the tab this app opens on before it leaves, which is what an Android
     // listener expects of a bottom bar. The display handles back for the stack above this; this
@@ -165,40 +163,20 @@ fun HomeRoute(
     val dropped = stringResource(R.string.dropped)
     val putItBack = stringResource(R.string.put_it_back)
 
-    // Up next's actions: in its own header rather than an app bar, which that tab no longer has.
+    // Up next's one action, in its own header: Manage for the operator, where every control now is,
+    // and for a signed-in listener the one read they have. Nothing for anybody signed out.
     val upNextActions: @Composable RowScope.() -> Unit = {
-        val loaded = order as? OrderState.Loaded
-        // What it said is a read, so any signed-in listener gets it; the rest are the operator's.
-        if (tab == Tab.UP_NEXT && session is SessionState.SignedIn) {
-            IconButton(onClick = { onScripts(null) }) {
-                Icon(painterResource(R.drawable.ic_record_voice_over), contentDescription = stringResource(R.string.what_it_said))
-            }
-        }
-        // The operator's verbs behind one overflow, each in words. See `orderMenu`.
-        if (tab == Tab.UP_NEXT && isOperator) {
-            var open by remember { mutableStateOf(false) }
-            Box {
-                IconButton(onClick = { open = true }) {
-                    Icon(painterResource(R.drawable.ic_more_vert), contentDescription = stringResource(R.string.more_actions))
+        when {
+            isOperator ->
+                FilledTonalButton(onClick = onManage, contentPadding = PaddingValues(start = 12.dp, end = 16.dp)) {
+                    Icon(painterResource(R.drawable.ic_tune), contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.manage))
                 }
-                DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-                    orderMenu(loaded?.order, busy = orderBusy).forEach { item ->
-                        DropdownMenuItem(
-                            text = { Text(stringResource(item.verb.label)) },
-                            enabled = item.enabled,
-                            onClick = {
-                                open = false
-                                when (item.verb) {
-                                    OrderVerb.AIR_SOMETHING -> onAirSomething()
-                                    OrderVerb.ADD_RECORD -> onAddRecord()
-                                    OrderVerb.REFILL -> orderAction { if (graph.orderActions.extend()) snackbarHost.showSnackbar(refillAsked) }
-                                    OrderVerb.SHUFFLE -> orderAction { graph.orderActions.shuffle() }
-                                }
-                            },
-                        )
-                    }
+            session is SessionState.SignedIn ->
+                IconButton(onClick = { onScripts(null) }) {
+                    Icon(painterResource(R.drawable.ic_record_voice_over), contentDescription = stringResource(R.string.what_it_said))
                 }
-            }
         }
     }
 
@@ -326,8 +304,6 @@ fun HomeRoute(
                                 }
                             },
                             busyItemId = busyItemId,
-                            onRecast = { personaId -> orderAction { graph.orderActions.recast(personaId) } },
-                            onPlan = { onPlan(loadedOrder?.brief, broadcast?.nothingOn == false) },
                             busy = orderBusy,
                         )
                     }
@@ -340,8 +316,6 @@ fun HomeRoute(
                     onSegment = { segmentId -> onScripts(segmentId) },
                     onHistory = onHistory,
                     broadcast = broadcast,
-                    personas = personas.state,
-                    onReloadPersonas = personas::reload,
                     handlers = handlers,
                     onAirArtworkUrl = artworkUrl,
                     actions = upNextActions,
@@ -353,12 +327,3 @@ fun HomeRoute(
     }
 }
 
-/** What each verb is called in the overflow. */
-private val OrderVerb.label: Int
-    get() =
-        when (this) {
-            OrderVerb.AIR_SOMETHING -> R.string.menu_air_something
-            OrderVerb.ADD_RECORD -> R.string.menu_add_a_record
-            OrderVerb.REFILL -> R.string.menu_refill
-            OrderVerb.SHUFFLE -> R.string.menu_shuffle
-        }

@@ -60,11 +60,15 @@ sealed interface Destination : NavKey {
     @Serializable
     data object Desk : Destination
 
-    /** Everything that could be put on air. Operator only; reached from the Up next tab. */
+    /** The station's controls from Up next, in one place: this show, putting something on, and what it said. */
+    @Serializable
+    data object Manage : Destination
+
+    /** Everything that could be put on air. Operator only; reached from Manage. */
     @Serializable
     data object AirSomething : Destination
 
-    /** Find a record in the library and put it in the running order. Operator only; reached from the Up next tab. */
+    /** Find a record in the library and put it in the running order. Operator only; reached from Manage. */
     @Serializable
     data object AddRecord : Destination
 
@@ -105,6 +109,7 @@ val NavConfiguration: SavedStateConfiguration =
                     subclass(Destination.History::class)
                     subclass(Destination.SignIn::class)
                     subclass(Destination.Desk::class)
+                    subclass(Destination.Manage::class)
                     subclass(Destination.Track::class)
                     subclass(Destination.Album::class)
                     subclass(Destination.Artist::class)

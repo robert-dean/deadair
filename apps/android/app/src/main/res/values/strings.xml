@@ -313,9 +313,6 @@
 
     <!-- The operator's running-order actions -->
     <!-- The Up next overflow: the operator's verbs, each saying what it does -->
-    <string name="more_actions">More actions</string>
-    <string name="menu_air_something">Air something…</string>
-    <string name="menu_add_a_record">Add a record…</string>
     <string name="menu_refill">Ask the station to refill</string>
     <string name="menu_shuffle">Shuffle what has not aired</string>
     <string name="refill_asked">Refill asked for. The records land in a few seconds.</string>
@@ -431,6 +428,15 @@
 
     <!-- What it said -->
     <string name="what_it_said">What it said</string>
+    <!-- The Manage page: the station's controls from Up next, in three groups. -->
+    <string name="manage">Manage</string>
+    <string name="manage_this_show">This show</string>
+    <string name="manage_put_on">Put something on</string>
+    <string name="manage_host_detail">Who presents the rest of this show</string>
+    <string name="manage_replan">Replan the show</string>
+    <string name="manage_air_something">Air something</string>
+    <string name="manage_add_record">Add a record</string>
+    <string name="manage_what_it_said_detail">Every break\'s script, and what became of it</string>
     <string name="one_break">One break</string>
     <string name="scripts_empty">The station has not said anything yet.</string>
     <string name="show_details">Show details</string>

@@ -77,10 +77,10 @@ private class Blob(val x: Float, val y: Float, val driftX: Float, val driftY: Fl
 
 private val BLOBS =
     listOf(
-        Blob(x = 0.2f, y = 0.16f, driftX = 0.18f, driftY = 0.07f, radius = 0.85f, speed = 0.21f, offset = 0f),
-        Blob(x = 0.85f, y = 0.38f, driftX = 0.15f, driftY = 0.09f, radius = 0.9f, speed = 0.17f, offset = 1.7f),
-        Blob(x = 0.15f, y = 0.66f, driftX = 0.14f, driftY = 0.08f, radius = 0.9f, speed = 0.13f, offset = 3.1f),
-        Blob(x = 0.8f, y = 0.9f, driftX = 0.16f, driftY = 0.06f, radius = 0.85f, speed = 0.19f, offset = 4.4f),
+        Blob(x = 0.2f, y = 0.16f, driftX = 0.22f, driftY = 0.09f, radius = 0.85f, speed = 0.38f, offset = 0f),
+        Blob(x = 0.85f, y = 0.38f, driftX = 0.19f, driftY = 0.11f, radius = 0.9f, speed = 0.31f, offset = 1.7f),
+        Blob(x = 0.15f, y = 0.66f, driftX = 0.18f, driftY = 0.1f, radius = 0.9f, speed = 0.23f, offset = 3.1f),
+        Blob(x = 0.8f, y = 0.9f, driftX = 0.2f, driftY = 0.08f, radius = 0.85f, speed = 0.34f, offset = 4.4f),
     )
 
 private const val COLOUR_FADE_MS = 1_200

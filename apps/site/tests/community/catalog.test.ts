@@ -53,6 +53,18 @@ const persona = {
     listing,
 };
 
+const language = {
+    slug: 'pt-br',
+    locale: 'pt-BR',
+    name: 'Português',
+    direction: 'ltr',
+    madeFor: '0.35.0',
+    strings: 2592,
+    translators: 'Someone',
+    download: 'languages/pt-br.json',
+    listing,
+};
+
 const catalog = {
     format: 'deadair.catalog/1',
     builtAt: '2026-09-18T00:00:00.000Z',
@@ -60,11 +72,12 @@ const catalog = {
     plugins: [plugin],
     apps: [app],
     personas: [persona],
+    languages: [language],
 };
 
 describe('parseCatalog', () => {
     it('reads every kind of entry', () => {
-        expect(parseCatalog(catalog)).toEqual({ stations: [station], plugins: [plugin], apps: [app], personas: [persona] });
+        expect(parseCatalog(catalog)).toEqual({ stations: [station], plugins: [plugin], apps: [app], personas: [persona], languages: [language] });
     });
 
     it('is empty for anything that is not a catalogue it knows', () => {
@@ -74,19 +87,27 @@ describe('parseCatalog', () => {
     });
 
     it('drops one malformed entry and keeps the rest', () => {
-        const { stations, plugins, personas } = parseCatalog({
+        const { stations, plugins, personas, languages } = parseCatalog({
             ...catalog,
             stations: [station, { slug: 'broken', name: 'No address', listing }],
             plugins: [plugin, { ...plugin, slug: 'no-hosts', hosts: 'bandcamp.com' }],
             personas: [persona, { ...persona, slug: 'no-character', persona: undefined }],
+            languages: [language, { ...language, slug: 'sideways', direction: 'up' }, { ...language, slug: 'uncounted', strings: '2592' }],
         });
         expect(stations.map(entry => entry.slug)).toEqual(['night-shift']);
         expect(plugins.map(entry => entry.slug)).toEqual(['bandcamp']);
         expect(personas.map(entry => entry.slug)).toEqual(['the-archivist']);
+        expect(languages.map(entry => entry.slug)).toEqual(['pt-br']);
     });
 
     it('treats a missing list as an empty one', () => {
         expect(parseCatalog({ format: 'deadair.catalog/1' })).toEqual(EMPTY_CATALOG);
+    });
+
+    it('reads a catalogue built before languages existed', () => {
+        const { languages: _, ...older } = catalog;
+        expect(parseCatalog(older).languages).toEqual([]);
+        expect(parseCatalog(older).personas).toEqual([persona]);
     });
 });
 

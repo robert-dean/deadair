@@ -25,6 +25,12 @@ const directories = [
         cta: 'Browse them',
     },
     {
+        label: 'Languages',
+        body: 'Translations of the console, each a language pack it imports as it stands, so everybody on your station can choose their own.',
+        to: '/community/languages',
+        cta: 'Find yours',
+    },
+    {
         label: 'Apps',
         body: 'Players, remotes, integrations and libraries, by the project and by other people.',
         to: '/community/apps',

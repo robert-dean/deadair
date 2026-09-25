@@ -1,6 +1,10 @@
 package com.maroonedsoftware.deadair.ui.order
 
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -131,10 +135,28 @@ fun RunningOrderScreen(
     // The tab wears the on-air cover's colours, as Now playing does: its accent on the on-air row
     // and the host chip, and its mesh behind the heading.
     val palette = rememberCoverPalette(onAirArtworkUrl, darkPage = MaterialTheme.colorScheme.background.luminance() < 0.5f)
+
+    // Edit mode: entered by holding a planned row, left by Done or back. While in it the rows are
+    // for moving rather than opening, and the heading's actions give way to Done, so there is one
+    // obvious way out. Only for the operator, and never with nothing left to move.
+    var editing by rememberSaveable { mutableStateOf(false) }
+    if (handlers == null && editing) editing = false
+    BackHandler(enabled = editing) { editing = false }
+
     CoverColored(palette?.accent) {
         Column(modifier = Modifier.fillMaxSize()) {
-            UpNextHeader(mesh = palette?.mesh.orEmpty(), actions = actions)
-            Box(modifier = Modifier.fillMaxWidth().weight(1f)) { Body(state, artUrlFor, onRetry, onSignIn, onTrack, onSegment, onHistory, broadcast, personas, onReloadPersonas, handlers) }
+            UpNextHeader(
+                mesh = palette?.mesh.orEmpty(),
+                actions =
+                    if (editing) {
+                        { TextButton(onClick = { editing = false }) { Text(stringResource(R.string.done)) } }
+                    } else {
+                        actions
+                    },
+            )
+            Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
+                Body(state, artUrlFor, onRetry, onSignIn, onTrack, onSegment, onHistory, broadcast, personas, onReloadPersonas, handlers, editing, onEditing = { editing = it })
+            }
         }
     }
 }
@@ -152,6 +174,8 @@ private fun Body(
     personas: LoadState<List<Persona>>,
     onReloadPersonas: () -> Unit,
     handlers: OrderHandlers?,
+    editing: Boolean,
+    onEditing: (Boolean) -> Unit,
 ) {
     when (state) {
         OrderState.SignedOut -> SignedOutPlaceholder(stringResource(R.string.tab_up_next), onSignIn)
@@ -175,7 +199,7 @@ private fun Body(
                     if (state.order.items.isEmpty()) {
                         Box(modifier = Modifier.weight(1f)) { EmptyPlaceholder(stringResource(R.string.order_empty)) }
                     } else {
-                        Rows(state, artUrlFor, onTrack, onSegment, onHistory, handlers, modifier = Modifier.weight(1f))
+                        Rows(state, artUrlFor, onTrack, onSegment, onHistory, handlers, editing, onEditing, modifier = Modifier.weight(1f))
                     }
                 }
             }
@@ -191,6 +215,8 @@ private fun Rows(
     onSegment: (String) -> Unit,
     onHistory: () -> Unit,
     handlers: OrderHandlers?,
+    editing: Boolean,
+    onEditing: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var historyOpen by rememberSaveable { mutableStateOf(false) }
@@ -204,6 +230,9 @@ private fun Rows(
     var held by remember { mutableStateOf<List<StationOrderItem>?>(null) }
     LaunchedEffect(state.order.items) { held = null }
     val bounds = if (handlers == null) null else ui.dragBounds()
+    // Nothing left to move ends the mode rather than leaving a Done over rows that do nothing.
+    LaunchedEffect(bounds == null) { if (bounds == null) onEditing(false) }
+    val haptics = LocalHapticFeedback.current
     val base = held ?: ui.shown
     val rows = drag?.let { base.moved(it.from, it.at) } ?: base
 
@@ -235,12 +264,50 @@ private fun Rows(
             }
         }
 
+        if (editing) {
+            Text(
+                stringResource(R.string.reorder_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = Gutter, vertical = 4.dp),
+            )
+        }
+
         LazyColumn(state = listState, modifier = Modifier.fillMaxWidth().weight(1f)) {
             itemsIndexed(rows, key = { _, item -> item.id }) { index, item ->
                 val trackId = item.trackId?.takeIf { item.kind == StationOrderItemKind.TRACK }
                 val segmentId = item.segmentId?.takeIf { item.kind == StationOrderItemKind.SEGMENT }
                 val position = ui.positionOf(index)
                 val dragged = drag?.takeIf { it.id == item.id }
+                // Held, a planned row is picked up where it is and the tab goes into edit mode, so
+                // the hold that enters the mode is already the start of the first move. The gesture
+                // is keyed on the row alone and outlives the row moving under it, so it calls the
+                // callbacks as they are NOW rather than as they were when it was set up.
+                val movable = bounds != null && !item.isSpent() && handlers?.busy != true
+                val pickUp by rememberUpdatedState {
+                    if (drag == null) {
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onEditing(true)
+                        drag = Drag(item.id, index)
+                    }
+                }
+                val carry by rememberUpdatedState { dy: Float ->
+                    drag?.let { live ->
+                        live.offset += dy
+                        if (bounds != null) stepPast(live, listState, bounds)
+                    }
+                }
+                val putDown by rememberUpdatedState {
+                    drag?.let { done ->
+                        drag = null
+                        if (done.at != done.from) {
+                            held = base.moved(done.from, done.at)
+                            // Stated against the WHOLE order, where the row now sits.
+                            handlers?.onMove?.invoke(done.id, ui.positionOf(done.at))
+                        }
+                    }
+                }
                 OrderRow(
                     item = item,
                     artworkUrl = artUrlFor(item.artworkUrl),
@@ -259,41 +326,35 @@ private fun Rows(
                         } else {
                             Modifier.animateItem()
                         },
-                    handle =
-                        if (bounds == null || item.isSpent() || handlers?.busy == true) {
-                            null
-                        } else {
-                            {
-                                DragHandle(
-                                    title = item.title,
-                                    onStart = { if (drag == null) drag = Drag(item.id, index) },
-                                    onDrag = { dy ->
-                                        val live = drag ?: return@DragHandle
-                                        live.offset += dy
-                                        stepPast(live, listState, bounds)
-                                    },
-                                    onEnd = {
-                                        val done = drag ?: return@DragHandle
-                                        drag = null
-                                        if (done.at != done.from) {
-                                            held = base.moved(done.from, done.at)
-                                            // Stated against the WHOLE order, where the row now sits.
-                                            handlers?.onMove?.invoke(done.id, ui.positionOf(done.at))
-                                        }
-                                    },
-                                )
-                            }
-                        },
+                    // In edit mode a row is for moving, so a tap on it opens nothing.
                     modifier =
                         when {
+                            editing -> Modifier
                             trackId != null -> Modifier.clickable { onTrack(trackId) }
                             segmentId != null -> Modifier.clickable { onSegment(segmentId) }
                             else -> Modifier
-                        },
+                        }.then(
+                            if (movable) {
+                                Modifier.pointerInput(item.id) {
+                                    detectDragGesturesAfterLongPress(
+                                        onDragStart = { pickUp() },
+                                        onDrag = { change, amount ->
+                                            change.consume()
+                                            carry(amount.y)
+                                        },
+                                        onDragEnd = { putDown() },
+                                        onDragCancel = { putDown() },
+                                    )
+                                }
+                            } else {
+                                Modifier
+                            },
+                        ),
+                    editable = editing && movable,
                     // A menu only on a row the player has not been handed: an affordance that could
                     // only ever answer 422 is worse than none.
                     menu =
-                        if (handlers == null || item.isSpent()) {
+                        if (handlers == null || item.isSpent() || editing) {
                             null
                         } else {
                             {
@@ -387,7 +448,8 @@ private fun OrderRow(
     /** Where the row sits among the others: lifted while it is dragged, animated into place otherwise. */
     lift: Modifier = Modifier,
     menu: (@Composable () -> Unit)? = null,
-    handle: (@Composable () -> Unit)? = null,
+    /** In edit mode and movable: drawn on a faint card, so which rows can be picked up is plain. */
+    editable: Boolean = false,
 ) {
     val airing = item.state == StationItemState.AIRING
     val card = RoundedCornerShape(16.dp)
@@ -397,7 +459,13 @@ private fun OrderRow(
                 .fillMaxWidth()
                 .padding(horizontal = 8.dp, vertical = 2.dp)
                 .clip(card)
-                .then(if (airing) Modifier.background(MaterialTheme.colorScheme.surfaceContainerHigh) else Modifier)
+                .then(
+                    when {
+                        airing -> Modifier.background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                        editable -> Modifier.background(MaterialTheme.colorScheme.surfaceContainer)
+                        else -> Modifier
+                    },
+                )
                 .then(modifier)
                 .alpha(item.opacity())
                 .padding(horizontal = 8.dp, vertical = 8.dp),
@@ -437,7 +505,6 @@ private fun OrderRow(
             else -> item.durationMs?.let { Text(clockOf(it), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
         menu?.invoke()
-        handle?.invoke()
     }
 }
 
@@ -470,38 +537,6 @@ private fun stepPast(drag: Drag, list: LazyListState, bounds: IntRange) {
             drag.offset += above.size
         }
     }
-}
-
-/**
- * The handle a row is dragged by. Only the handle starts a drag, so a thumb scrolling the list
- * never picks a row up by accident. It names what it moves for a screen reader, which moves rows
- * through the row's menu instead.
- */
-@Composable
-private fun DragHandle(title: String, onStart: () -> Unit, onDrag: (Float) -> Unit, onEnd: () -> Unit) {
-    // The gesture outlives a recomposition, so it calls whatever the row's callbacks are NOW: read
-    // at the time it was set up, a row that had moved started its next drag from where it used to be.
-    val start by rememberUpdatedState(onStart)
-    val move by rememberUpdatedState(onDrag)
-    val end by rememberUpdatedState(onEnd)
-    Icon(
-        painterResource(R.drawable.ic_drag_handle),
-        contentDescription = stringResource(R.string.drag_to_reorder, title),
-        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier =
-            Modifier.size(40.dp)
-                .pointerInput(title) {
-                    detectDragGestures(
-                        onDragStart = { start() },
-                        onDrag = { change, amount ->
-                            change.consume()
-                            move(amount.y)
-                        },
-                        onDragEnd = { end() },
-                        onDragCancel = { end() },
-                    )
-                }.padding(8.dp),
-    )
 }
 
 /**

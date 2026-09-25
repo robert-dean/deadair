@@ -73,6 +73,12 @@ fun HomeScreen(
      * and under the tabs, and minds both itself: the insets, and [TabBarHeight] at the foot.
      */
     topBar: Boolean = true,
+    /**
+     * Whether the tab draws under the tabs as well (Now playing): the foot is then the tab's to keep
+     * clear, and the tabs go translucent over it. Without it a tab with no bar ends above the tabs,
+     * as every tab with a bar does.
+     */
+    underTabs: Boolean = false,
     /** Whether the tabs are showing. Now playing puts them away while it rests. */
     bottomBar: Boolean = true,
     snackbarHost: SnackbarHostState,
@@ -110,8 +116,8 @@ fun HomeScreen(
                     // frosted glass: Compose has no blur for what is BEHIND a surface. Solid over the
                     // others, which end above it and have nothing underneath to show.
                     NavigationBar(
-                        containerColor = if (topBar) NavigationBarDefaults.containerColor else MaterialTheme.colorScheme.surfaceContainer.copy(alpha = TranslucentTabs),
-                        tonalElevation = if (topBar) NavigationBarDefaults.Elevation else 0.dp,
+                        containerColor = if (underTabs) MaterialTheme.colorScheme.surfaceContainer.copy(alpha = TranslucentTabs) else NavigationBarDefaults.containerColor,
+                        tonalElevation = if (underTabs) 0.dp else NavigationBarDefaults.Elevation,
                     ) {
                         Tab.entries.forEach { entry ->
                             NavigationBarItem(
@@ -130,16 +136,15 @@ fun HomeScreen(
     ) { padding ->
         // Consumed as well as applied, so a tab that pads itself by the keyboard (Settings) adds
         // only what the keyboard takes beyond the bars rather than both.
-        // Without a bar, only the sides are padded: the top and the foot are the tab's, so its colour
-        // can run under the status bar and under the tabs. The tab then keeps [TabBarHeight] clear
-        // itself, whether or not the tabs are showing, so they can come and go without the screen
-        // under them moving.
+        // Without a bar the top is the tab's, so its own header can run under the status bar. A tab
+        // that also draws under the tabs gets no foot either, and keeps [TabBarHeight] clear itself,
+        // whether or not the tabs are showing, so they can come and go without the screen moving.
+        val direction = LocalLayoutDirection.current
         val applied =
-            if (topBar) {
-                padding
-            } else {
-                val direction = LocalLayoutDirection.current
-                PaddingValues(start = padding.calculateStartPadding(direction), end = padding.calculateEndPadding(direction))
+            when {
+                topBar -> padding
+                underTabs -> PaddingValues(start = padding.calculateStartPadding(direction), end = padding.calculateEndPadding(direction))
+                else -> PaddingValues(start = padding.calculateStartPadding(direction), end = padding.calculateEndPadding(direction), bottom = padding.calculateBottomPadding())
             }
         Box(modifier = Modifier.fillMaxSize().padding(applied).consumeWindowInsets(applied)) { content() }
     }

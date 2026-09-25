@@ -1,5 +1,6 @@
 package com.maroonedsoftware.deadair.ui.home
 
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.ui.Modifier
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
@@ -166,6 +167,44 @@ fun HomeRoute(
     val dropped = stringResource(R.string.dropped)
     val putItBack = stringResource(R.string.put_it_back)
 
+    // Up next's actions: in its own header rather than an app bar, which that tab no longer has.
+    val upNextActions: @Composable RowScope.() -> Unit = {
+        val loaded = order as? OrderState.Loaded
+        // What it said is a read, so any signed-in listener gets it; the rest are the operator's.
+        if (tab == Tab.UP_NEXT && session is SessionState.SignedIn) {
+            IconButton(onClick = { onScripts(null) }) {
+                Icon(painterResource(R.drawable.ic_record_voice_over), contentDescription = stringResource(R.string.what_it_said))
+            }
+        }
+        // The operator's verbs behind one overflow, each in words. See `orderMenu`.
+        if (tab == Tab.UP_NEXT && isOperator) {
+            var open by remember { mutableStateOf(false) }
+            Box {
+                IconButton(onClick = { open = true }) {
+                    Icon(painterResource(R.drawable.ic_more_vert), contentDescription = stringResource(R.string.more_actions))
+                }
+                DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+                    orderMenu(loaded?.order, busy = orderBusy).forEach { item ->
+                        DropdownMenuItem(
+                            text = { Text(stringResource(item.verb.label)) },
+                            enabled = item.enabled,
+                            onClick = {
+                                open = false
+                                when (item.verb) {
+                                    OrderVerb.DESK -> onDesk()
+                                    OrderVerb.AIR_SOMETHING -> onAirSomething()
+                                    OrderVerb.ADD_RECORD -> onAddRecord()
+                                    OrderVerb.REFILL -> orderAction { if (graph.orderActions.extend()) snackbarHost.showSnackbar(refillAsked) }
+                                    OrderVerb.SHUFFLE -> orderAction { graph.orderActions.shuffle() }
+                                }
+                            },
+                        )
+                    }
+                }
+            }
+        }
+    }
+
     HomeScreen(
         // What the station calls itself now, else what it called itself when it was kept, else
         // the address — which a listener should see only in the moments before either exists.
@@ -178,8 +217,10 @@ fun HomeRoute(
         tab = tab,
         onTab = onTab,
         // Now playing is the cover to the top of the screen, and a bar over it would be the one
-        // thing on the art that is not the art.
-        topBar = tab != Tab.NOW_PLAYING,
+        // thing on the art that is not the art. Up next draws its own header, the on-air cover's
+        // colour behind a heading, and ends above the tabs as the other tabs do.
+        topBar = tab != Tab.NOW_PLAYING && tab != Tab.UP_NEXT,
+        underTabs = tab == Tab.NOW_PLAYING,
         bottomBar = !rest.resting && !tabsAway.resting,
         snackbarHost = snackbarHost,
         // Over the tabs that are about the station, and not over Now playing, which has the
@@ -190,42 +231,6 @@ fun HomeRoute(
             } else {
                 { MiniPlayer(nowState, artworkUrl, onOpen = { onTab(Tab.NOW_PLAYING) }, onPlay = play, onStop = connection::stop) }
             },
-        actions = {
-            val loaded = order as? OrderState.Loaded
-            // What it said is a read, so any signed-in listener gets it; the rest are the operator's.
-            if (tab == Tab.UP_NEXT && session is SessionState.SignedIn) {
-                IconButton(onClick = { onScripts(null) }) {
-                    Icon(painterResource(R.drawable.ic_record_voice_over), contentDescription = stringResource(R.string.what_it_said))
-                }
-            }
-            // The operator's verbs behind one overflow, each in words. See `orderMenu`.
-            if (tab == Tab.UP_NEXT && isOperator) {
-                var open by remember { mutableStateOf(false) }
-                Box {
-                    IconButton(onClick = { open = true }) {
-                        Icon(painterResource(R.drawable.ic_more_vert), contentDescription = stringResource(R.string.more_actions))
-                    }
-                    DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-                        orderMenu(loaded?.order, busy = orderBusy).forEach { item ->
-                            DropdownMenuItem(
-                                text = { Text(stringResource(item.verb.label)) },
-                                enabled = item.enabled,
-                                onClick = {
-                                    open = false
-                                    when (item.verb) {
-                                        OrderVerb.DESK -> onDesk()
-                                        OrderVerb.AIR_SOMETHING -> onAirSomething()
-                                        OrderVerb.ADD_RECORD -> onAddRecord()
-                                        OrderVerb.REFILL -> orderAction { if (graph.orderActions.extend()) snackbarHost.showSnackbar(refillAsked) }
-                                        OrderVerb.SHUFFLE -> orderAction { graph.orderActions.shuffle() }
-                                    }
-                                },
-                            )
-                        }
-                    }
-                }
-            }
-        },
     ) {
         when (tab) {
             Tab.NOW_PLAYING -> {
@@ -340,6 +345,9 @@ fun HomeRoute(
                     personas = personas.state,
                     onReloadPersonas = personas::reload,
                     handlers = handlers,
+                    stationName = reading?.nowPlaying?.station ?: settings.stationName ?: station?.origin.orEmpty(),
+                    onAirArtworkUrl = artworkUrl,
+                    actions = upNextActions,
                 )
             }
             Tab.WHATS_ON -> WhatsOnScreen(state = schedule, onRetry = graph.schedule::retry, onSignIn = onSignIn)

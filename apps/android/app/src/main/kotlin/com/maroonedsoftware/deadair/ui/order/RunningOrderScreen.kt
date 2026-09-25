@@ -1,5 +1,25 @@
 package com.maroonedsoftware.deadair.ui.order
 
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import com.maroonedsoftware.deadair.ui.nowplaying.CoverColored
+import com.maroonedsoftware.deadair.ui.nowplaying.rememberCoverPalette
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,9 +36,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -94,6 +112,37 @@ fun RunningOrderScreen(
     /** The broadcast the order belongs to, for the header. `null` before the order has arrived. */
     broadcast: BroadcastUiState?,
     /** The station's characters, for the host picker. Read once when the tab opens. */
+    personas: LoadState<List<Persona>>,
+    onReloadPersonas: () -> Unit,
+    handlers: OrderHandlers?,
+    /** What the station calls itself, for the header. */
+    stationName: String,
+    /** The cover on air, whose colours the tab wears. `null` off air, or before the reading has arrived. */
+    onAirArtworkUrl: String?,
+    /** The tab's actions, beside its heading. */
+    actions: @Composable RowScope.() -> Unit,
+) {
+    // The tab wears the on-air cover's colours, as Now playing does: its accent on the on-air row
+    // and the host chip, and its mesh behind the heading.
+    val palette = rememberCoverPalette(onAirArtworkUrl, darkPage = MaterialTheme.colorScheme.background.luminance() < 0.5f)
+    CoverColored(palette?.accent) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            UpNextHeader(stationName = stationName, mesh = palette?.mesh.orEmpty(), actions = actions)
+            Box(modifier = Modifier.fillMaxWidth().weight(1f)) { Body(state, artUrlFor, onRetry, onSignIn, onTrack, onSegment, onHistory, broadcast, personas, onReloadPersonas, handlers) }
+        }
+    }
+}
+
+@Composable
+private fun Body(
+    state: OrderState,
+    artUrlFor: (String?) -> String?,
+    onRetry: () -> Unit,
+    onSignIn: () -> Unit,
+    onTrack: (String) -> Unit,
+    onSegment: (String) -> Unit,
+    onHistory: () -> Unit,
+    broadcast: BroadcastUiState?,
     personas: LoadState<List<Persona>>,
     onReloadPersonas: () -> Unit,
     handlers: OrderHandlers?,
@@ -175,7 +224,7 @@ private fun Rows(
                 val trackId = item.trackId?.takeIf { item.kind == StationOrderItemKind.TRACK }
                 val segmentId = item.segmentId?.takeIf { item.kind == StationOrderItemKind.SEGMENT }
                 val position = ui.positionOf(index)
-                Row(
+                OrderRow(
                     item = item,
                     artworkUrl = artUrlFor(item.artworkUrl),
                     stale = state.stale,
@@ -203,7 +252,6 @@ private fun Rows(
                             }
                         },
                 )
-                if (index < ui.shown.lastIndex) HorizontalDivider()
             }
         }
     }
@@ -269,50 +317,107 @@ private fun RowMenu(
     }
 }
 
+/**
+ * One item in the order: its picture, its title and credit, and its length, or on the item that is
+ * airing a moving level meter in the station's colour in place of the length, on a card of its own
+ * so it is the row the eye lands on.
+ */
 @Composable
-private fun Row(item: StationOrderItem, artworkUrl: String?, stale: Boolean, modifier: Modifier = Modifier, menu: (@Composable () -> Unit)? = null) {
+private fun OrderRow(item: StationOrderItem, artworkUrl: String?, stale: Boolean, modifier: Modifier = Modifier, menu: (@Composable () -> Unit)? = null) {
     val airing = item.state == StationItemState.AIRING
-    ListItem(
-        modifier = modifier.alpha(item.opacity()),
-        leadingContent = {
-            Box(modifier = Modifier.size(48.dp).clip(RoundedCornerShape(4.dp)), contentAlignment = Alignment.Center) {
-                // The picture first, whatever the row is. A break wears the picture its KIND was
-                // given — the sky on a forecast, the front page on a bulletin — and the console
-                // draws the same one against the same row, so forcing the microphone here on the
-                // grounds that a segment is not a record would leave the phone and the desk
-                // disagreeing about an order they are both reading from the station.
-                if (artworkUrl == null) {
-                    Icon(
-                        painterResource(if (item.kind == StationOrderItemKind.SEGMENT) R.drawable.ic_mic else R.drawable.ic_radio),
-                        contentDescription = null,
-                        modifier = Modifier.size(24.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                } else {
-                    AsyncImage(model = artworkUrl, contentDescription = null, modifier = Modifier.fillMaxSize().alpha(if (stale) 0.4f else 1f))
-                }
-            }
-        },
-        headlineContent = {
-            Text(item.title, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = if (airing) FontWeight.SemiBold else null)
-        },
-        supportingContent = {
-            val credit = item.artists.joinToString(", ")
-            val length = item.durationMs?.let(::clockOf)
-            val line = listOfNotNull(credit.ifBlank { null }, length).joinToString(" · ")
-            if (line.isNotEmpty()) Text(line, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        },
-        trailingContent = {
-            val label = item.stateLabel()
-            if (menu != null) {
-                menu()
-            } else if (label != null) {
-                Text(
-                    label.resolve(),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = if (airing) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+    val card = RoundedCornerShape(16.dp)
+    Row(
+        modifier =
+            Modifier.fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 2.dp)
+                .clip(card)
+                .then(if (airing) Modifier.background(MaterialTheme.colorScheme.surfaceContainerHigh) else Modifier)
+                .then(modifier)
+                .alpha(item.opacity())
+                .padding(horizontal = 8.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Box(modifier = Modifier.size(56.dp).clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.surfaceContainer), contentAlignment = Alignment.Center) {
+            // The picture first, whatever the row is. A break wears the picture its KIND was
+            // given — the sky on a forecast, the front page on a bulletin — and the console
+            // draws the same one against the same row, so forcing the microphone here on the
+            // grounds that a segment is not a record would leave the phone and the desk
+            // disagreeing about an order they are both reading from the station.
+            if (artworkUrl == null) {
+                Icon(
+                    painterResource(if (item.kind == StationOrderItemKind.SEGMENT) R.drawable.ic_mic else R.drawable.ic_radio),
+                    contentDescription = null,
+                    modifier = Modifier.size(24.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            } else {
+                AsyncImage(model = artworkUrl, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().alpha(if (stale) 0.4f else 1f))
             }
-        },
-    )
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            Text(item.title, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            val credit = item.artists.joinToString(", ")
+            if (credit.isNotBlank()) {
+                Text(credit, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+        val label = item.stateLabel()
+        when {
+            airing -> OnAirMeter(moving = !stale, label = label?.resolve())
+            // A row that has been handed over, played or skipped says so where the length was:
+            // what happened to it is the news, and its length no longer matters.
+            label != null -> Text(label.resolve(), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            else -> item.durationMs?.let { Text(clockOf(it), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        }
+        menu?.invoke()
+    }
 }
+
+/**
+ * The on-air mark: three bars rising and falling in a disc of the station's colour, the level meter
+ * every player uses for "this one". It says "On air" to a screen reader, which is what it means, and
+ * it stands still while the reading is stale, since a meter moving over a record that may have ended
+ * would be a confident lie.
+ */
+@Composable
+private fun OnAirMeter(moving: Boolean, label: String?) {
+    val bars = rememberInfiniteTransition(label = "meter")
+    val heights =
+        METER_TEMPOS.mapIndexed { index, tempo ->
+            if (moving) {
+                bars.animateFloat(
+                    initialValue = 0.3f,
+                    targetValue = 1f,
+                    animationSpec = infiniteRepeatable(tween(tempo, delayMillis = index * 90), RepeatMode.Reverse),
+                    label = "bar$index",
+                ).value
+            } else {
+                METER_RESTING[index]
+            }
+        }
+    val fill = MaterialTheme.colorScheme.primary
+    val ink = MaterialTheme.colorScheme.onPrimary
+    Canvas(
+        modifier =
+            Modifier.size(32.dp).background(fill, CircleShape).semantics {
+                if (label != null) contentDescription = label
+            },
+    ) {
+        val bar = 3.dp.toPx()
+        val gap = 3.dp.toPx()
+        val tallest = size.height * 0.46f
+        val left = (size.width - (bar * 3 + gap * 2)) / 2
+        val floor = size.height / 2 + tallest / 2
+        heights.forEachIndexed { index, share ->
+            val height = tallest * share
+            drawRoundRect(ink, topLeft = Offset(left + index * (bar + gap), floor - height), size = Size(bar, height), cornerRadius = CornerRadius(bar / 2))
+        }
+    }
+}
+
+/** How long each bar takes to rise, never in step with the others. */
+private val METER_TEMPOS = listOf(420, 560, 480)
+
+/** Where the bars stand when the meter is still. */
+private val METER_RESTING = listOf(0.55f, 0.9f, 0.7f)

@@ -1,5 +1,5 @@
 import { queryOptions, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
-import type { PlayoutChartInput, PlayoutStatus } from '@deadair/sdk';
+import type { PlayoutChartInput, PlayoutPlaylistInput, PlayoutStationPlaylistInput, PlayoutStatus } from '@deadair/sdk';
 
 import { sdk } from './client';
 import { queryKeys } from './query.keys';
@@ -103,8 +103,7 @@ export function usePlayPlaylist() {
     const queryClient = useQueryClient();
     return useMutation({
         // `mixInSimilar` only when asked for, so the ordinary press leaves the station setting standing.
-        mutationFn: ({ pluginId, playlistId, mixInSimilar }: { pluginId: string; playlistId: string; mixInSimilar?: boolean }) =>
-            sdk.playout.playAPlaylist({ pluginId, playlistId, ...(mixInSimilar === undefined ? {} : { mixInSimilar }) }),
+        mutationFn: (input: PlayoutPlaylistInput) => sdk.playout.playAPlaylist(input),
         onSuccess: status => {
             followTransport(queryClient, status);
         },
@@ -115,8 +114,7 @@ export function usePlayPlaylist() {
 export function usePlayStationPlaylist() {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: ({ stationPlaylistId, mixInSimilar }: { stationPlaylistId: string; mixInSimilar?: boolean }) =>
-            sdk.playout.playAStationPlaylist({ stationPlaylistId, ...(mixInSimilar === undefined ? {} : { mixInSimilar }) }),
+        mutationFn: (input: PlayoutStationPlaylistInput) => sdk.playout.playAStationPlaylist(input),
         onSuccess: status => {
             followTransport(queryClient, status);
         },
@@ -132,8 +130,7 @@ export function usePlayStationPlaylist() {
 export function usePlayChart() {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: ({ chartId, chartOrder }: { chartId: string; chartOrder?: PlayoutChartInput['chartOrder'] }) =>
-            sdk.playout.playAChart({ chartId, ...(chartOrder === undefined ? {} : { chartOrder }) }),
+        mutationFn: (input: PlayoutChartInput) => sdk.playout.playAChart(input),
         onSuccess: status => {
             followTransport(queryClient, status);
         },

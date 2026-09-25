@@ -1,4 +1,4 @@
-import { Button, Group, Select, Stack, Text, Tooltip } from '@mantine/core';
+import { Button, Checkbox, Group, Select, Stack, Text, Tooltip } from '@mantine/core';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { PlayoutChartInput } from '@deadair/sdk';
@@ -58,6 +58,8 @@ export function PlayChartButton({ chartId, playable = true }: PlayChartButtonPro
     // Local, and deliberately not a setting: it is a property of the broadcast somebody is about to
     // start rather than of the station, in the same way a brief is.
     const [order, setOrder] = useState<ChartOrder>('countdown');
+    // The same terms: a property of this broadcast, off unless ticked, and sent only when it is on.
+    const [callins, setCallins] = useState(false);
 
     if (!playable) {
         return undefined;
@@ -85,12 +87,13 @@ export function PlayChartButton({ chartId, playable = true }: PlayChartButtonPro
                         variant="light"
                         color={failure ? 'red' : undefined}
                         loading={play.isPending}
-                        onClick={() => play.mutate({ chartId, chartOrder: order })}
+                        onClick={() => play.mutate({ chartId, chartOrder: order, ...(callins ? { callins } : {}) })}
                     >
                         {failure ? t('chart.failedLabel') : t('chart.air')}
                     </Button>
                 </Tooltip>
             </Group>
+            <Checkbox label={t('chart.callins')} checked={callins} onChange={event => setCallins(event.currentTarget.checked)} />
             <Text size="xs" c="dimmed">
                 {t('chart.hint')}
             </Text>

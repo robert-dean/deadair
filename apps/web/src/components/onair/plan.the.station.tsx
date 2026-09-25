@@ -116,8 +116,7 @@ export function PlanTheStation({ order, disabled = false }: PlanTheStationProps)
                 ...(form.values.personaId ? { personaId: form.values.personaId } : {}),
                 ...(typeof form.values.eraFrom === 'number' ? { eraFrom: form.values.eraFrom } : {}),
                 ...(typeof form.values.eraTo === 'number' ? { eraTo: form.values.eraTo } : {}),
-                // Sent only when it is ON. Absent leaves the station's own setting standing, which is
-                // what an operator who did not think about the phone means.
+                // Sent only when it is ON. Absent is no calls: nothing station-wide stands behind it.
                 ...(form.values.callins ? { callins: true } : {}),
                 mode: form.values.mode,
                 onEnd: form.values.onEnd,

@@ -159,7 +159,6 @@ fun HomeRoute(
             }
         }
     }
-    val refillAsked = stringResource(R.string.refill_asked)
     val dropped = stringResource(R.string.dropped)
     val putItBack = stringResource(R.string.put_it_back)
 

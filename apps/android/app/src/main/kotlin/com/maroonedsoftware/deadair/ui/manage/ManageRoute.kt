@@ -70,8 +70,7 @@ fun ManageRoute(
     }
 
     var pickingHost by remember { mutableStateOf(false) }
-    val refillAsked = stringResource(R.string.refill_asked)
-    val menu = if (isOperator) orderMenu(loaded, busy) else emptyList()
+    val menu = if (isOperator) orderMenu(loaded) else emptyList()
     fun offered(verb: OrderVerb) = menu.firstOrNull { it.verb == verb }
 
     val show =
@@ -88,12 +87,6 @@ fun ManageRoute(
                         opens = true,
                     ),
                 )
-            }
-            offered(OrderVerb.REFILL)?.let { item ->
-                add(ManageAction(title = stringResource(R.string.menu_refill), enabled = item.enabled, onClick = { act { if (graph.orderActions.extend()) snackbarHost.showSnackbar(refillAsked) } }))
-            }
-            offered(OrderVerb.SHUFFLE)?.let { item ->
-                add(ManageAction(title = stringResource(R.string.menu_shuffle), enabled = item.enabled, onClick = { act { graph.orderActions.shuffle() } }))
             }
         }
     val putOn =

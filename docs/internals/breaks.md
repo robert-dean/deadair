@@ -65,6 +65,13 @@ it resets `breaksSincePad` like any other and the talk-break floor reaches for t
 jingles are on. That is deliberate: the station has one budget for noise, not one per kind. And its
 repetition window is the pool minus one, `WarmUpWriter`'s choice, since one listener hears several an hour.
 
+**A jingle the station rendered is not a recording.** "Recordings first" means what an operator dropped in
+the inbox (`source = 'library'`, read through `SegmentRepository.listRecordings`), never the station's own
+renders. The shelf used to be `listReady`, which answers both, so the first jingles the station wrote became
+the recordings every later slot drew: the live station rendered eleven on one day and none after, and a
+presenter re-voiced the next day kept airing in the old voice through them, inside other presenters' hours
+too, since a shelf draw knows nothing of who is on.
+
 **A phrasing the station just used is recognised by its OPENING, or failing that by its refrain.**
 `recent` is a list of scripts and carries no template identity, so `wasHeard` has to recognise a
 phrasing from words that name records the station has since played past. The opening literal does it

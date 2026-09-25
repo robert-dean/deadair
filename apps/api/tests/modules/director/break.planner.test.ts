@@ -77,6 +77,10 @@ const build = (
     // have a band for `news` quietly filled with an ident and every case below pass for the wrong
     // reason.
     const listReady = vi.fn(async (kind: string) => (options.idents ?? [ident('seg-1')]).filter(segment => segment.kind === kind));
+    // Only what an operator recorded, as the repository's `source = 'library'` does.
+    const listRecordings = vi.fn(async (kind: string) =>
+        (options.idents ?? [ident('seg-1')]).filter(segment => segment.kind === kind && segment.source === 'library'),
+    );
     let planned = 0;
     // What the alternation and the write window both read: a lineup item names a segment by id, so
     // anything about it — its kind, whether anybody has written it — is a lookup rather than a
@@ -194,6 +198,7 @@ const build = (
         planner: new BreakPlanner(
             {
                 listReady,
+                listRecordings,
                 plan,
                 markFailed,
                 findByIds,
@@ -216,6 +221,7 @@ const build = (
         segmentFor,
         readingFor,
         listReady,
+        listRecordings,
         plan,
         markFailed,
         presenting,
@@ -2041,6 +2047,31 @@ describe('BreakPlanner filling a jingle', () => {
         await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 0 }), clock());
 
         expect(plan.mock.calls.filter(([input]) => input.kind === 'jingle').length).toBeGreaterThan(0);
+    });
+
+    it('writes its own rather than replaying one it rendered earlier', async () => {
+        // The shelf held the station's own jingles from the day before, in the presenter's voice as it
+        // was then, and drawing them meant nothing was ever written again. Measured on air.
+        const rendered: Segment = { ...recorded('r-1', 'jingle'), source: 'render' };
+        const { planner, plan, listRecordings, listReady } = build({ canWrite: true, yields: ['jingle'], idents: [rendered], bands: jingleBand });
+        const lineup = await lineupOf(16);
+
+        await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 0 }), clock());
+
+        expect(jinglesIn(lineup)).not.toContain('r-1');
+        expect(plan.mock.calls.filter(([input]) => input.kind === 'jingle').length).toBeGreaterThan(0);
+        expect(listRecordings).toHaveBeenCalledWith('jingle');
+        expect(listReady).not.toHaveBeenCalledWith('jingle');
+    });
+
+    it('draws nothing it rendered earlier even when it cannot write', async () => {
+        const rendered: Segment = { ...recorded('r-1', 'jingle'), source: 'render' };
+        const { planner } = build({ canWrite: true, speaker: false, yields: ['jingle'], idents: [rendered], bands: jingleBand });
+        const lineup = await lineupOf(16);
+
+        await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 0 }), clock());
+
+        expect(jinglesIn(lineup)).toEqual([]);
     });
 
     it('still writes first for a kind whose writer does not yield, recordings or not', async () => {

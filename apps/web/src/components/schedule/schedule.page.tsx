@@ -15,7 +15,7 @@ import { ClockPanel } from './clock.panel';
 import { OnNowStrip } from './on.now.strip';
 import { OverrunPanel } from './overrun.panel';
 import { colorOf, weekdayOf } from './schedule.day';
-import { blockEdit, minutesOf, type DraggedBlock, type SlotEdit } from './schedule.edits';
+import { blockEdit, drawnEnd, minutesOf, type DraggedBlock, type SlotEdit } from './schedule.edits';
 import { SlotEditor, type EditorTarget } from './slot.editor';
 import { RequestsPanel } from '../requests/requests.panel';
 import { SustainingPanel } from './sustaining.panel';
@@ -259,7 +259,12 @@ export function SchedulePage({ tab, onSelect }: SchedulePageProps) {
                 off a week of columns is work. The takeover note lives inside it, on the block it is
                 about, rather than as a loose paragraph here. */}
             {tab === 'today' && current.data ? (
-                <OnNowStrip current={current.data} slots={slots} personas={personas.data?.personas ?? []} />
+                <OnNowStrip
+                    current={current.data}
+                    slots={slots}
+                    personas={personas.data?.personas ?? []}
+                    onEdit={slot => setEditing({ kind: 'edit', slot })}
+                />
             ) : undefined}
 
             {tab === 'week' && (schedule.isPending || timetable.isPending) ? <PageSkeleton variant="card" /> : undefined}
@@ -347,7 +352,7 @@ function toEvents(timetable: ScheduleTimetable | undefined, airingSlotId: string
         id: `${block.slotId}@${block.start}`,
         title: block.label || untitled,
         start: block.start,
-        end: block.end,
+        end: drawnEnd(block.start, block.end),
         color: colorOf(block.slotId),
         variant: block.slotId === airingSlotId ? ('filled' as const) : ('light' as const),
         payload: { slotId: block.slotId },

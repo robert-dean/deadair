@@ -71,6 +71,8 @@ export const schedule = {
         nothingScheduled: 'Nothing scheduled',
         noBlockDue: 'No block is due from here on, so the station stays on whatever it is set to sustain on.',
         sustainingFor: 'The station is on its sustaining source for the next {{span}}.',
+        edit: 'Edit {{name}}',
+        editHint: 'Edit this block',
     },
     slot: {
         editTitle: 'Edit slot',

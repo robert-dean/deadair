@@ -7,7 +7,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ScheduleSlot } from '@deadair/sdk';
 
-import { blockEdit, type DraggedBlock } from '../../../src/components/schedule/schedule.edits';
+import { blockEdit, drawnEnd, type DraggedBlock } from '../../../src/components/schedule/schedule.edits';
 
 const slot = (id: string, startsAtMinutes: number, endsAtMinutes: number, days: number[] = []): ScheduleSlot => ({
     id,
@@ -62,6 +62,22 @@ describe('blockEdit', () => {
         expect(blockEdit(dragged, dragged.start, '2026-08-20 00:00:00', SLOTS)).toMatchObject({ endsAtMinutes: 0 });
     });
 
+    it('reads a drop on the last second of a day as an end of zero', () => {
+        // Which is where `drawnEnd` puts a block that ends at midnight, and where the grid leaves it
+        // after a move keeps its length.
+        const dragged = block('late', '22:00', '24:00');
+
+        expect(blockEdit(dragged, '2026-08-19 21:00:00', '2026-08-19 23:59:59', SLOTS)).toMatchObject({ startsAtMinutes: at(21), endsAtMinutes: 0 });
+    });
+
+    it('reads a moved block ending a second short of the minute as that minute', () => {
+        // A block drawn to 23:59:59 and dragged an hour earlier lands on 22:59:59. Saving that as
+        // 22:59 would lose a minute on every drag.
+        const dragged = block('late', '22:00', '24:00');
+
+        expect(blockEdit(dragged, '2026-08-19 21:00:00', '2026-08-19 22:59:59', SLOTS)).toMatchObject({ endsAtMinutes: at(23) });
+    });
+
     it('refuses the tail of a block that started the night before', () => {
         // Its top is midnight because the column starts there, not because `late` does. Moving it
         // would silently reinterpret the day boundary as the block's own start.
@@ -90,5 +106,17 @@ describe('blockEdit', () => {
         expect(blockEdit(block('deleted', '06:00', '10:00'), '2026-08-19 07:00:00', '2026-08-19 11:00:00', SLOTS)).toMatchObject({
             kind: 'refused',
         });
+    });
+});
+
+describe('drawnEnd', () => {
+    it('draws a block ending at the next midnight to the last second of its own day', () => {
+        // The grid drops an end of the next day's 00:00 altogether; see the render test beside this.
+        expect(drawnEnd('2026-08-19 22:00:00', '2026-08-20 00:00:00')).toBe('2026-08-19 23:59:59');
+    });
+
+    it('leaves every other end as the API sent it', () => {
+        expect(drawnEnd('2026-08-19 06:00:00', '2026-08-19 10:00:00')).toBe('2026-08-19 10:00:00');
+        expect(drawnEnd('2026-08-20 00:00:00', '2026-08-20 02:00:00')).toBe('2026-08-20 02:00:00');
     });
 });

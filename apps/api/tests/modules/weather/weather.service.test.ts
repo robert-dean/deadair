@@ -331,3 +331,44 @@ describe('reading, the unconverted half', () => {
         expect((await service.reading())?.current.temperatureC).toBe(17.4);
     });
 });
+
+describe("a plugin's connection test, checked against the station's own place", () => {
+    it('names what was asked and the town that came back, in the station units', async () => {
+        const getWeather = vi.fn(async () => reading('Leeds, England', 14));
+        const service = build([record(ALPHA, getWeather)], { [WEATHER_KEYS.location]: 'Leeds, UK', [WEATHER_KEYS.units]: 'imperial' });
+
+        await expect(service.homeCheck(ALPHA)).resolves.toBe(`For the station's location, "Leeds, UK", it found Leeds, England: 57°F.`);
+        expect(getWeather).toHaveBeenCalledWith({ place: 'Leeds, UK' });
+    });
+
+    it('says so when the service cannot find the place, which is what a US-only service does with Leeds', async () => {
+        const service = build(
+            [
+                record(
+                    ALPHA,
+                    vi.fn(async () => undefined),
+                ),
+            ],
+            { [WEATHER_KEYS.location]: 'Leeds, UK' },
+        );
+
+        await expect(service.homeCheck(ALPHA)).resolves.toMatch(/could not find the station's location, "Leeds, UK"/);
+    });
+
+    it('asks only the plugin being tested, not the first in the order', async () => {
+        const alpha = vi.fn(async () => reading('Somewhere else'));
+        const beta = vi.fn(async () => reading('Leeds, England'));
+        const service = build([record(ALPHA, alpha), record(BETA, beta)], { [WEATHER_KEYS.location]: 'Leeds' });
+
+        await expect(service.homeCheck(BETA)).resolves.toMatch(/Leeds, England/);
+        expect(alpha).not.toHaveBeenCalled();
+    });
+
+    it('has nothing to add for a station with no place, or a plugin that is not a weather plugin', async () => {
+        const getWeather = vi.fn(async () => reading('Leeds, England'));
+
+        await expect(build([record(ALPHA, getWeather)]).homeCheck(ALPHA)).resolves.toBeUndefined();
+        await expect(build([record(ALPHA, getWeather)], { [WEATHER_KEYS.location]: 'Leeds' }).homeCheck('deadair.spotify')).resolves.toBeUndefined();
+        expect(getWeather).not.toHaveBeenCalled();
+    });
+});

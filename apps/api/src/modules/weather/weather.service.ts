@@ -8,7 +8,7 @@ import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { parseUnits, WEATHER_KEYS, type StationUnits } from './weather.keys.js';
-import { spoken, type SpokenWeather } from './weather.words.js';
+import { degreeLabel, spoken, type SpokenWeather } from './weather.words.js';
 import { stationLanguage } from '#modules/stream/stream.settings.js';
 
 /**
@@ -122,6 +122,35 @@ export class WeatherService {
         }
 
         return undefined;
+    }
+
+    /**
+     * What one weather plugin makes of the station's own place, as a sentence for
+     * its connection test.
+     *
+     * The plugin's own test asks about a fixed town, because it cannot see this
+     * station's settings and one of its services covers only the United States.
+     * That proved the service answers and nothing else: an operator in Leeds who
+     * pressed Test read a forecast for Atlanta and reasonably concluded the station
+     * thought it was in Georgia. This is the half only the host can answer, and it
+     * names both what was asked and what came back, because the commonest way this
+     * goes wrong is resolving the right name to the wrong town.
+     *
+     * `undefined` when there is nothing to say: the plugin is not a weather plugin
+     * that can answer right now, or the station has named no place.
+     */
+    async homeCheck(pluginId: string): Promise<string | undefined> {
+        const home = this.home();
+        const plugin = this.plugins().find(candidate => candidate.record.id === pluginId);
+        if (home === undefined || plugin === undefined) return undefined;
+
+        const reading = await this.ask(plugin, home, 0);
+        if (reading === undefined) return `It could not find the station's location, "${home}". Check Station location in Settings.`;
+
+        const units = this.units();
+        const temperature = spoken(reading, units).current.temperature;
+        const figure = temperature === undefined ? '' : `: ${temperature}${degreeLabel(units)}`;
+        return `For the station's location, "${home}", it found ${reading.place}${figure}.`;
     }
 
     /**

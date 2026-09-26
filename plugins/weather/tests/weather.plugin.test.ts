@@ -433,6 +433,8 @@ describe('testConnection', () => {
         expect(result.ok).toBe(true);
         expect(result.message).toContain('Atlanta, Georgia');
         expect(result.message).toContain('24.1');
+        // A fixed town, and said to be one, so nobody reads it as where the station is.
+        expect(result.message).toContain('test lookup');
     });
 
     it('reports a place nothing could find as a failure rather than as a quiet nothing', async () => {

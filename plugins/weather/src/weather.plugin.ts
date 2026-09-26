@@ -163,6 +163,11 @@ export class WeatherPlugin extends Plugin implements WeatherPluginInstance {
      * The answer NAMES the place that came back, which is the point: the commonest
      * way a weather plugin is wrong is not failing, it is confidently answering
      * about a different town of the same name.
+     *
+     * It says it was a TEST lookup, because this plugin cannot see the station's
+     * own location and an operator somewhere else read "answered about Atlanta"
+     * as where the station thought it was. The host adds the station's own place
+     * after this sentence.
      */
     async testConnection(): Promise<PluginConnectionResult> {
         const host = this.host;
@@ -174,7 +179,7 @@ export class WeatherPlugin extends Plugin implements WeatherPluginInstance {
             }
 
             const temperature = reading.current.temperatureC;
-            const where = `${this.engine} answered about ${reading.place}`;
+            const where = `${this.engine} answered a test lookup for ${reading.place}`;
             return { ok: true, message: temperature === undefined ? `${where}.` : `${where}: ${temperature}°C.` };
         } catch (error) {
             host.logger.debug('weather: the connection test failed', { service: this.engine, error: message(error) });

@@ -26,7 +26,10 @@ const permissive = () =>
         listVisibleIds: vi.fn(async () => ({ all: true, ids: [] })),
     }) as unknown as AccessControlService;
 
-function serviceWith(testConnection: () => Promise<{ ok: boolean; message?: string }>) {
+function serviceWith(
+    testConnection: () => Promise<{ ok: boolean; message?: string }>,
+    weather?: { homeCheck: (id: string) => Promise<string | undefined> },
+) {
     const registry = new PluginRegistry();
     registry.upsert({
         id: PLUGIN_ID,
@@ -63,6 +66,8 @@ function serviceWith(testConnection: () => Promise<{ ok: boolean; message?: stri
         { actor: { kind: 'system', sessionToken: '', source: 'test' } } as never,
         { record: vi.fn(async () => undefined) } as never,
         { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as never,
+        undefined,
+        weather as never,
     );
 
     return { service, registry, invoker };
@@ -117,5 +122,42 @@ describe('testing a quarantined plugin', () => {
 
         await expect(service.testPlugin(PLUGIN_ID)).resolves.toMatchObject({ ok: false, message: expect.stringMatching(/socket hang up/) });
         expect(invoker.isBreakerOpen(PLUGIN_ID)).toBe(true);
+    });
+});
+
+// The weather plugin's own test asks about Atlanta wherever the station is, and an operator in Leeds
+// read that as where the station thought it was. The station's own place is added by the host.
+describe("testing a weather plugin against the station's own place", () => {
+    it("adds what the service made of the station's location to the plugin's own answer", async () => {
+        const homeCheck = vi.fn(async () => `For the station's location, "Leeds, UK", it found Leeds, England: 14°C.`);
+        const { service } = serviceWith(async () => ({ ok: true, message: 'Open-Meteo answered a test lookup for Atlanta, Georgia: 24°C.' }), {
+            homeCheck,
+        });
+
+        await expect(service.testPlugin(PLUGIN_ID)).resolves.toEqual({
+            ok: true,
+            message: `Open-Meteo answered a test lookup for Atlanta, Georgia: 24°C. For the station's location, "Leeds, UK", it found Leeds, England: 14°C.`,
+        });
+        expect(homeCheck).toHaveBeenCalledWith(PLUGIN_ID);
+    });
+
+    it('leaves ok alone when the place cannot be found, since the service itself answered', async () => {
+        const { service } = serviceWith(async () => ({ ok: true, message: 'Answered.' }), { homeCheck: async () => 'It could not find it.' });
+
+        await expect(service.testPlugin(PLUGIN_ID)).resolves.toEqual({ ok: true, message: 'Answered. It could not find it.' });
+    });
+
+    it('does not ask about the place when the service did not answer at all', async () => {
+        const homeCheck = vi.fn(async () => 'never');
+        const { service } = serviceWith(async () => ({ ok: false, message: 'HTTP 503.' }), { homeCheck });
+
+        await expect(service.testPlugin(PLUGIN_ID)).resolves.toEqual({ ok: false, message: 'HTTP 503.' });
+        expect(homeCheck).not.toHaveBeenCalled();
+    });
+
+    it("keeps the plugin's own answer untouched when there is nothing to add", async () => {
+        const { service } = serviceWith(async () => ({ ok: true, message: 'Connected as radio.' }), { homeCheck: async () => undefined });
+
+        await expect(service.testPlugin(PLUGIN_ID)).resolves.toEqual({ ok: true, message: 'Connected as radio.' });
     });
 });

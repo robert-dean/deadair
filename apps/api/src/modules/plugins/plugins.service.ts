@@ -42,6 +42,7 @@ import type {
     PluginTestResult,
 } from './types/plugins.types.js';
 import { serverkitErrorText } from '#modules/shared/error.text.js';
+import { WeatherService } from '#modules/weather/weather.service.js';
 
 /** Stand-in for manifest fields a quarantined plugin never produced. */
 const UNKNOWN = 'unknown';
@@ -167,6 +168,9 @@ export class PluginsService {
         // real singleton here regardless of the `?`, since `design:paramtypes` metadata does not drop
         // a type for being optional.
         private readonly bus?: StationBus,
+        // Only for a weather plugin's connection test, which can check the station's own place where the
+        // plugin cannot. Optional and last for `bus`'s reason above.
+        private readonly weather?: WeatherService,
     ) {}
 
     /**
@@ -445,6 +449,13 @@ export class PluginsService {
      * asked instead of answering with whatever tripped its breaker, and a
      * healthy answer puts it back on the station. See `PluginInvoker.probe`.
      *
+     * A weather plugin that answered also has the station's own location run
+     * through it, because its own test asks about a fixed town it can check from
+     * anywhere and an operator reads that town as where the station thinks it is.
+     * See `WeatherService.homeCheck`. That second answer adds a sentence and never
+     * changes `ok`: health is whether the service answers, and a place it cannot
+     * find is the operator's to fix, not a reason to quarantine it.
+     *
      * @throws 404 when no plugin with that id is installed.
      */
     async testPlugin(id: string): Promise<PluginTestResult> {
@@ -460,7 +471,9 @@ export class PluginsService {
 
         try {
             const result = await this.pluginInvoker.probe(id, PROBE_OP, async () => instance.testConnection!());
-            return { ok: result.ok, message: result.message };
+            const home = result.ok ? await this.weather?.homeCheck(id) : undefined;
+            const message = home === undefined ? result.message : [result.message, home].filter(Boolean).join(' ');
+            return { ok: result.ok, message };
         } catch (error) {
             return { ok: false, message: serverkitErrorText(error) };
         }

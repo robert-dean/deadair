@@ -15,7 +15,7 @@ import { ClockPanel } from './clock.panel';
 import { OnNowStrip } from './on.now.strip';
 import { OverrunPanel } from './overrun.panel';
 import { colorOf, weekdayOf } from './schedule.day';
-import { blockEdit, minutesOf, type DraggedBlock, type SlotEdit } from './schedule.edits';
+import { blockEdit, drawnEnd, minutesOf, type DraggedBlock, type SlotEdit } from './schedule.edits';
 import { SlotEditor, type EditorTarget } from './slot.editor';
 import { RequestsPanel } from '../requests/requests.panel';
 import { SustainingPanel } from './sustaining.panel';
@@ -347,7 +347,7 @@ function toEvents(timetable: ScheduleTimetable | undefined, airingSlotId: string
         id: `${block.slotId}@${block.start}`,
         title: block.label || untitled,
         start: block.start,
-        end: block.end,
+        end: drawnEnd(block.start, block.end),
         color: colorOf(block.slotId),
         variant: block.slotId === airingSlotId ? ('filled' as const) : ('light' as const),
         payload: { slotId: block.slotId },

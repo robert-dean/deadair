@@ -50,6 +50,32 @@ export function minutesOf(stamp: string): number {
 const dateOf = (stamp: string): string => stamp.slice(0, 10);
 
 /**
+ * A block's end as the grid can draw it.
+ *
+ * The API ends a block that runs to midnight at the NEXT day's `00:00:00`, which is right and which
+ * `@mantine/schedule` cannot draw: its time-window filter reads the end's hour and minute without the
+ * date, sees `00:00`, decides the block finishes before the column begins and drops it from both
+ * views. A late show ending at midnight was on the On now strip and nowhere on the timetable. The
+ * last second of the block's own day is what the package itself treats as the end of a day, so a
+ * block ending there is drawn to the bottom of its column.
+ */
+export function drawnEnd(start: string, end: string): string {
+    return end.slice(11) === '00:00:00' && dateOf(end) !== dateOf(start) ? `${dateOf(start)} 23:59:59` : end;
+}
+
+/**
+ * Minutes past midnight in a dropped block's END.
+ *
+ * A block drawn to `23:59:59` keeps its one-second shortfall when it is dragged, so it lands on
+ * `hh:mm:59`, and reading that as a minute would save it a minute early. The last second of a minute
+ * is the start of the next, and the last of the day wraps to `0`, which is a block ending at midnight.
+ */
+function endMinutesOf(stamp: string): number {
+    const minutes = minutesOf(stamp);
+    return stamp.slice(17) === '59' ? (minutes + 1) % (24 * 60) : minutes;
+}
+
+/**
  * Whether this block begins where its slot begins, rather than being last night carrying over.
  *
  * The test is the slot's own start rather than "is it at midnight", because a slot that genuinely
@@ -81,8 +107,9 @@ export function blockEdit(block: DraggedBlock, newStart: string, newEnd: string,
         startsAtMinutes: minutesOf(newStart),
         // A drop landing on the next midnight reads as 0, which is exactly what a block ending at
         // midnight should say — and equal ends mean a full day, which is only reachable by asking
-        // for it rather than by dragging.
-        endsAtMinutes: minutesOf(newEnd),
+        // for it rather than by dragging. So does a drop on `23:59:59`, which is how `drawnEnd` draws
+        // that midnight.
+        endsAtMinutes: endMinutesOf(newEnd),
         ...(movedDay ? { days: [nowOn] } : {}),
     };
 }

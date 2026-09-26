@@ -9,7 +9,7 @@ import { DayView } from '@mantine/schedule';
 import { drawnEnd } from '../../../src/components/schedule/schedule.edits';
 import { render, screen } from '../../utils/render';
 
-const LATE = { id: 'late', title: 'LateNite', start: '2026-08-19 22:00:00' };
+const LATE = { id: 'late', title: 'LateNite', color: 'blue', start: '2026-08-19 22:00:00' };
 
 describe('the timetable grid', () => {
     it('drops a block ending at the next midnight as the API sends it', () => {

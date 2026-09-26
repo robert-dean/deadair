@@ -9,6 +9,13 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.36.0] — 2026-09-26
+
+- The On air, Up next and After that cards on the Programme page each have an edit button that opens that block's slot, so you can change a show from where you read it without finding it on the Timetable first.
+- The connection test says it answered "a test lookup for Atlanta", so the fixed town it checks is not mistaken for where the station is.
+- Testing a weather plugin now also looks up the station's own location through it and says what it found, so a station in Leeds sees "Leeds, England" rather than only the fixed test lookup for Atlanta. A place the service cannot find is reported there too, which is what a US-only service does with anywhere outside the United States.
+- A block that ends at midnight, such as a late show running to 00:00, now appears on the Timetable's week and day views. It was shown under On air and Up next but missing from the grid, so it could not be opened or moved there.
+
 ## [0.35.4] — 2026-09-25
 
 - A broadcast put on air from a provider's playlist without a name is now called after the provider's own name ("From Spotify") rather than its internal id ("From deadair.spotify"), which is what listener apps showed as the show above the record. Broadcasts already on air keep the name they were given.
@@ -938,7 +945,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.35.4...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.36.0...HEAD
+[0.36.0]: https://github.com/robert-dean/deadair/compare/v0.35.4...v0.36.0
 [0.35.4]: https://github.com/robert-dean/deadair/compare/v0.35.3...v0.35.4
 [0.35.3]: https://github.com/robert-dean/deadair/compare/v0.35.2...v0.35.3
 [0.35.2]: https://github.com/robert-dean/deadair/compare/v0.35.1...v0.35.2

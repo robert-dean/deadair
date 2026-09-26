@@ -259,7 +259,12 @@ export function SchedulePage({ tab, onSelect }: SchedulePageProps) {
                 off a week of columns is work. The takeover note lives inside it, on the block it is
                 about, rather than as a loose paragraph here. */}
             {tab === 'today' && current.data ? (
-                <OnNowStrip current={current.data} slots={slots} personas={personas.data?.personas ?? []} />
+                <OnNowStrip
+                    current={current.data}
+                    slots={slots}
+                    personas={personas.data?.personas ?? []}
+                    onEdit={slot => setEditing({ kind: 'edit', slot })}
+                />
             ) : undefined}
 
             {tab === 'week' && (schedule.isPending || timetable.isPending) ? <PageSkeleton variant="card" /> : undefined}

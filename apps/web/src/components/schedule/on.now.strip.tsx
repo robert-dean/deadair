@@ -1,4 +1,5 @@
-import { Box, Card, Group, Progress, SimpleGrid, Stack, Text } from '@mantine/core';
+import { ActionIcon, Box, Card, Group, Progress, SimpleGrid, Stack, Text, Tooltip } from '@mantine/core';
+import { IconPencil } from '@tabler/icons-react';
 import type { Persona, ScheduleNow, ScheduleOccurrence, ScheduleSlot } from '@deadair/sdk';
 import { useTranslation } from 'react-i18next';
 
@@ -33,8 +34,15 @@ import { weekdayShort } from '../../i18n/format.locale';
  * station is not doing. That is said here, on the block it is about, rather than as a note somewhere
  * else on the page: the alternative is badging a block "on air" while the station plays something
  * else.
+ *
+ * ## Each block opens its editor from here
+ *
+ * The same editor the grid opens, because "what is on" is the question somebody arrives with and
+ * the change they want next is usually to the answer. Finding the block again on the Timetable
+ * means switching tab and reading a column, and a block the grid failed to draw could not be found
+ * there at all.
  */
-export function OnNowStrip({ current, slots, personas }: Props) {
+export function OnNowStrip({ current, slots, personas, onEdit }: Props) {
     const { t } = useTranslation('schedule');
     const blocks = current.upcoming;
 
@@ -54,7 +62,7 @@ export function OnNowStrip({ current, slots, personas }: Props) {
                 {live === undefined ? (
                     <Sustaining next={blocks[0]} now={current.now} />
                 ) : (
-                    <Live block={live} now={current.now} slot={slotOf(slots, live)} personas={personas} takenOver={takenOver} />
+                    <Live block={live} now={current.now} slot={slotOf(slots, live)} personas={personas} takenOver={takenOver} onEdit={onEdit} />
                 )}
 
                 {ahead.map((block, index) => (
@@ -65,6 +73,7 @@ export function OnNowStrip({ current, slots, personas }: Props) {
                         slot={slotOf(slots, block)}
                         personas={personas}
                         eyebrow={index === 0 ? t('onNow.upNext') : t('onNow.afterThat')}
+                        onEdit={onEdit}
                     />
                 ))}
             </SimpleGrid>
@@ -79,12 +88,14 @@ function Live({
     slot,
     personas,
     takenOver,
+    onEdit,
 }: {
     block: ScheduleOccurrence;
     now: string;
     slot?: ScheduleSlot;
     personas: readonly Persona[];
     takenOver: boolean;
+    onEdit?: (slot: ScheduleSlot) => void;
 }) {
     const { t } = useTranslation('schedule');
     const total = minutesBetween(block.start, block.end);
@@ -103,7 +114,7 @@ function Live({
                 </Text>
             </Group>
 
-            <BlockName block={block} slot={slot} personas={personas} />
+            <BlockName block={block} slot={slot} personas={personas} onEdit={onEdit} />
 
             <Progress value={total <= 0 ? 0 : Math.min(100, Math.max(0, (gone / total) * 100))} size="xs" color={colorOf(block.slotId)} />
 
@@ -123,12 +134,14 @@ function Ahead({
     slot,
     personas,
     eyebrow,
+    onEdit,
 }: {
     block: ScheduleOccurrence;
     now: string;
     slot?: ScheduleSlot;
     personas: readonly Persona[];
     eyebrow: string;
+    onEdit?: (slot: ScheduleSlot) => void;
 }) {
     const { t } = useTranslation('schedule');
     return (
@@ -140,7 +153,7 @@ function Ahead({
                 </Text>
             </Group>
 
-            <BlockName block={block} slot={slot} personas={personas} />
+            <BlockName block={block} slot={slot} personas={personas} onEdit={onEdit} />
         </Stack>
     );
 }
@@ -166,8 +179,18 @@ function Sustaining({ next, now }: { next?: ScheduleOccurrence; now: string }) {
     );
 }
 
-/** A block's name, its hours, and who is on it. */
-function BlockName({ block, slot, personas }: { block: ScheduleOccurrence; slot?: ScheduleSlot; personas: readonly Persona[] }) {
+/** A block's name, its hours, who is on it, and the way into its editor. */
+function BlockName({
+    block,
+    slot,
+    personas,
+    onEdit,
+}: {
+    block: ScheduleOccurrence;
+    slot?: ScheduleSlot;
+    personas: readonly Persona[];
+    onEdit?: (slot: ScheduleSlot) => void;
+}) {
     const { t } = useTranslation('schedule');
     const host = personas.find(persona => persona.id === slot?.personaId);
 
@@ -178,9 +201,24 @@ function BlockName({ block, slot, personas }: { block: ScheduleOccurrence; slot?
                     the colours here say which show this is and match the grid below, and the one
                     vocabulary in `status.ts` is about whether a thing is working. */}
                 <Box w={8} h={8} bg={`${colorOf(block.slotId)}.5`} style={{ borderRadius: '50%', flexShrink: 0 }} />
-                <Text fw={600} truncate>
+                <Text fw={600} truncate style={{ flex: 1 }}>
                     {block.label || t('untitled')}
                 </Text>
+                {/* Only with the stored slot in hand, since that is what the editor opens on. The
+                    schedule and the strip are two polls, so for a moment after a delete the strip can
+                    name a block the list no longer has. */}
+                {onEdit && slot ? (
+                    <Tooltip label={t('onNow.editHint')}>
+                        <ActionIcon
+                            variant="subtle"
+                            size="sm"
+                            aria-label={t('onNow.edit', { name: block.label || t('untitled') })}
+                            onClick={() => onEdit(slot)}
+                        >
+                            <IconPencil size={14} />
+                        </ActionIcon>
+                    </Tooltip>
+                ) : undefined}
             </Group>
 
             <Text size="xs" c="dimmed" className="da-num">
@@ -218,4 +256,6 @@ interface Props {
     /** The stored slots, for the host and the brief an occurrence deliberately does not carry. */
     slots: readonly ScheduleSlot[];
     personas: readonly Persona[];
+    /** Open a block's slot in the editor. Without it the strip is read-only. */
+    onEdit?: (slot: ScheduleSlot) => void;
 }

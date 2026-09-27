@@ -26,15 +26,34 @@ export const REQUEST_TIMEOUT_MS = 8_000;
 export const ARTICLE_TIMEOUT_MS = 5_000;
 
 /**
- * One request a second across every feed on the list, sharing one bucket.
+ * One request a second to any one publisher.
  *
- * The rate being paced here is this station's OUTBOUND rate and not any one
- * publisher's limit, which is why a single bucket is right: a list of twenty
- * feeds refreshing at once is the behaviour worth flattening, and no publisher
- * on it is being asked for more than one file.
+ * PER PUBLISHER, which is the host's default for an entry read from config (a
+ * bucket per hostname), and it used to be one bucket across the whole list.
+ * That paced the station's outbound rate rather than anybody's limit, and a
+ * rate limit spends from the same deadline as the request it holds back: a
+ * sixty-feed list at one a second cannot be read inside an eight-second call
+ * whatever the publishers do. Reported from a station with sixty-one feeds,
+ * the test read four of them and called the rest unreachable, and a bulletin
+ * asking forty-three feeds at once timed out on feeds that answer in under a
+ * second. Nothing was wrong with any publisher; the station was queueing
+ * behind itself.
+ *
+ * A publisher with ten feeds on the list is still asked for one file a
+ * second, which is the courtesy the single bucket was ever for.
  */
 export const FEED_RATE_PER_SECOND = 1;
-export const FEED_BUCKET = 'rss';
+
+/**
+ * One request a second for the story pages, across every publisher.
+ *
+ * One bucket rather than one per site because `network.open` has no hostname
+ * to key on until the request is made, and its own bucket rather than the
+ * feeds' because a story is the optional half: a bulletin short of pages
+ * still has its headlines, and one short of feeds has nothing.
+ */
+export const ARTICLE_RATE_PER_SECOND = 1;
+export const ARTICLE_BUCKET = 'rss.articles';
 
 /** Entries per feed, when the operator has not said. Roughly a front page. */
 export const DEFAULT_MAX_ITEMS = 25;
@@ -123,7 +142,9 @@ export const rssManifest: PluginManifest = {
         // `parseFeedRows` reads, off the column declared `url` below, which is
         // why the two must agree: a feed the menu offers and the allowlist
         // refuses looks like a broken plugin rather than a row typed wrong.
-        network: [{ fromConfig: 'feeds', ratePerSecond: FEED_RATE_PER_SECOND, bucket: FEED_BUCKET }],
+        //
+        // No `bucket`, so each hostname paces itself. See `FEED_RATE_PER_SECOND`.
+        network: [{ fromConfig: 'feeds', ratePerSecond: FEED_RATE_PER_SECOND }],
         // The one thing this plugin needs that no manifest can name in advance.
         // A feed's entries are on the publisher's feed host and the stories they
         // point at are on the publisher's site, and which site that is depends on
@@ -134,8 +155,8 @@ export const rssManifest: PluginManifest = {
             {
                 capability: 'network.open',
                 reason: 'Opens the page each headline links to, so a bulletin can say what happened rather than reading out titles. The stories are on whatever sites your feeds point at, which only the feeds know.',
-                ratePerSecond: FEED_RATE_PER_SECOND,
-                bucket: FEED_BUCKET,
+                ratePerSecond: ARTICLE_RATE_PER_SECOND,
+                bucket: ARTICLE_BUCKET,
             },
         ],
         // Nothing to keep. What was published is the publisher's, and what the

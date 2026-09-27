@@ -38,7 +38,15 @@ beforeEach(() => {
 
 describe('manifest', () => {
     it('declares one allowlist entry, resolved from the list the operator wrote', () => {
-        expect(rssManifest.permissions.network).toEqual([{ fromConfig: 'feeds', ratePerSecond: 1, bucket: 'rss' }]);
+        expect(rssManifest.permissions.network).toEqual([{ fromConfig: 'feeds', ratePerSecond: 1 }]);
+    });
+
+    // With no bucket the host paces each hostname on its own. One shared bucket had a sixty-feed
+    // list queueing behind itself at one a second, inside an eight-second call.
+    it('paces each publisher separately rather than the whole list as one', () => {
+        const [feeds] = rssManifest.permissions.network ?? [];
+
+        expect(feeds).not.toHaveProperty('bucket');
     });
 
     // The stories are on the publisher's site and the feed is on the publisher's feed host, so the
@@ -49,8 +57,9 @@ describe('manifest', () => {
 
         expect(asked?.capability).toBe('network.open');
         expect(asked?.reason.length).toBeGreaterThan(20);
-        // Paced as the feeds are: one bucket for this plugin's whole outbound rate.
-        expect(asked).toMatchObject({ ratePerSecond: 1, bucket: 'rss' });
+        // One bucket for every story page, and not the feeds' one: a page is the optional half, and
+        // it must not hold up the feed a bulletin cannot do without.
+        expect(asked).toMatchObject({ ratePerSecond: 1, bucket: 'rss.articles' });
     });
 
     it('asks for no storage, because a feed belongs to whoever published it', () => {

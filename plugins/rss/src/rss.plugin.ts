@@ -1,6 +1,7 @@
 import {
     fetchArticle,
     fetchFeed,
+    isPluginError,
     Plugin,
     type FeedItem,
     type NewsFeedDescriptor,
@@ -8,6 +9,7 @@ import {
     type NewsPluginInstance,
     type NewsQuery,
     type PluginConnectionResult,
+    type PluginErrorCode,
 } from '@deadair/plugin-sdk';
 
 import { parseFeedRows, type ConfiguredFeed } from './rss.feeds.js';
@@ -116,6 +118,30 @@ const ARTICLE_BUDGET_MS = 2_500;
  * {@link RssPlugin.withStories}.
  */
 const MAX_STORIES = 4;
+
+/**
+ * Feeds a connection test reads at once.
+ *
+ * Enough that a list of dozens across as many publishers fits in one call, and
+ * few enough that a list of sixty is not sixty sockets opened in the same
+ * instant. Feeds from ONE publisher still go one a second whatever this says,
+ * because that is the host pacing the hostname; see `FEED_RATE_PER_SECOND`.
+ */
+const TEST_CONCURRENCY = 6;
+
+/** Time a test keeps back from its own call, so it can say what it found before it is cut off. */
+const TEST_RESERVE_MS = 500;
+
+/** Failures that say the test ran out of time, rather than anything about the feed. */
+const UNHEARD_CODES: ReadonlySet<PluginErrorCode> = new Set(['timeout', 'rate_limited']);
+
+/** What a connection test found out about one feed. */
+interface FeedCheck {
+    /** `unheard` is a feed the test ran out of time for, which is not the same as one that failed. */
+    state: 'read' | 'failed' | 'unheard';
+    /** A story the feed linked to, for the test to try reading. */
+    sampleUrl?: string;
+}
 
 export class RssPlugin extends Plugin implements NewsPluginInstance {
     private feeds: ConfiguredFeed[] = [];
@@ -310,37 +336,77 @@ export class RssPlugin extends Plugin implements NewsPluginInstance {
      * line they typed wrong and reporting only the first would hide the rest. A
      * list where some work and some do not is reported as exactly that: this is
      * the one place a partial answer is a message rather than a silence.
+     *
+     * ## A feed the test did not hear from is not a feed that failed
+     *
+     * The test is one plugin call with one deadline, and a long list does not
+     * fit in it. It used to read the feeds one after another and put whatever
+     * the deadline cut off on the failed list, so a sixty-one feed station was
+     * told four were readable and the rest were not, and every one of them was
+     * fine. So a feed is FAILED only when it answered with an error or with
+     * nothing, and one that was never started, or was still waiting when the
+     * test's time ran out, is named separately as not heard from. Both are said;
+     * neither is dressed up as the other.
+     *
+     * {@link TEST_CONCURRENCY} at once rather than one at a time, because each
+     * publisher is paced on its own and waiting on one while another sits idle
+     * is time the test does not have. Not all at once either: every feed in
+     * flight holds a socket, and a list of sixty is exactly the case this is for.
      */
     async testConnection(): Promise<PluginConnectionResult> {
         const configured = this.feeds;
         if (configured.length === 0) return { ok: false, message: 'No feeds yet. Add a row above with the address of one.' };
 
-        const failed: string[] = [];
-        let sampleUrl: string | undefined;
-        for (const feed of configured) {
-            try {
-                const parsed = await fetchFeed(this.host, feed.url, { timeoutMs: REQUEST_TIMEOUT_MS });
-                // A 200 is not the question. A publisher that moved leaves an
-                // HTML page at the old address, which parses to no items at all.
-                if (parsed.items.length === 0) failed.push(feed.descriptor.id);
-                else sampleUrl ??= parsed.items.find(entry => entry.url !== undefined)?.url;
-            } catch {
-                failed.push(feed.descriptor.id);
-            }
+        const checks = await eachAtMost(TEST_CONCURRENCY, configured, async feed => await this.testFeed(feed));
+        const named = (state: FeedCheck['state']): string[] =>
+            configured.flatMap((feed, index) => (checks[index]?.state === state ? [feed.descriptor.id] : []));
+
+        const read = named('read').length;
+        const failed = named('failed');
+        const unheard = named('unheard');
+        const sampleUrl = checks.find(check => check.sampleUrl !== undefined)?.sampleUrl;
+
+        const failedLine = failed.length === 0 ? '' : ` Nothing came back from: ${failed.join(', ')}.`;
+        const unheardLine = unheard.length === 0 ? '' : ` The test ran out of time before hearing from: ${unheard.join(', ')}.`;
+
+        if (read === 0) {
+            if (unheard.length === 0) return { ok: false, message: `None of the ${configured.length} feeds could be read.` };
+            return { ok: false, message: `None of the ${configured.length} feeds answered in the time the test had.${failedLine}${unheardLine}` };
         }
 
-        if (failed.length === configured.length) return { ok: false, message: `None of the ${configured.length} feeds could be read.` };
-
         const stories = await this.testStories(sampleUrl);
-        if (failed.length > 0)
-            return {
-                ok: true,
-                message:
-                    `${configured.length - failed.length} of ${configured.length} feeds read. ` +
-                    `Nothing came back from: ${failed.join(', ')}.${stories}`,
-            };
+        if (failed.length > 0 || unheard.length > 0)
+            return { ok: true, message: `${read} of ${configured.length} feeds read.${failedLine}${unheardLine}${stories}` };
 
         return { ok: true, message: `${configured.length} ${configured.length === 1 ? 'feed' : 'feeds'} read.${stories}` };
+    }
+
+    /**
+     * One feed, read for the test, and what became of it.
+     *
+     * Nothing is started that could not finish before the test has to answer,
+     * and the request is cut to what is left rather than given its whole
+     * {@link REQUEST_TIMEOUT_MS}: the host would otherwise let it run to the
+     * call's own deadline, and the test would be abandoned mid-read with
+     * nothing to say about any feed at all.
+     */
+    private async testFeed(feed: ConfiguredFeed): Promise<FeedCheck> {
+        const left = this.host.remainingMs() - TEST_RESERVE_MS;
+        if (left < FEED_BUDGET_MS) return { state: 'unheard' };
+
+        try {
+            const parsed = await fetchFeed(this.host, feed.url, { timeoutMs: Math.min(REQUEST_TIMEOUT_MS, left) });
+            // A 200 is not the question. A publisher that moved leaves an
+            // HTML page at the old address, which parses to no items at all.
+            if (parsed.items.length === 0) return { state: 'failed' };
+
+            const sampleUrl = parsed.items.find(entry => entry.url !== undefined)?.url;
+            return { state: 'read', ...(sampleUrl === undefined ? {} : { sampleUrl }) };
+        } catch (error) {
+            // Out of time, or still queued behind this plugin's own pacing when
+            // the time went: neither says anything about the feed.
+            return { state: isPluginError(error) && UNHEARD_CODES.has(error.code) ? 'unheard' : 'failed' };
+        }
     }
 
     /**
@@ -358,8 +424,14 @@ export class RssPlugin extends Plugin implements NewsPluginInstance {
         if (sampleUrl === undefined) return ' No entry linked to a story, so the station reads headlines only.';
 
         const host = hostOf(sampleUrl);
+        // Said as what it is. Tried with no time left, the page would fail and
+        // the line below would send the operator off to allow a permission
+        // they may well have allowed already.
+        const left = this.host.remainingMs() - TEST_RESERVE_MS;
+        if (left < ARTICLE_BUDGET_MS) return ' The feeds took the whole test, so the stories were not checked.';
+
         try {
-            const text = await fetchArticle(this.host, sampleUrl, { timeoutMs: ARTICLE_TIMEOUT_MS });
+            const text = await fetchArticle(this.host, sampleUrl, { timeoutMs: Math.min(ARTICLE_TIMEOUT_MS, left) });
             if (text === undefined) return ` Read ${host}, but that story carried no article text; the station falls back to the headline.`;
 
             return ` Stories read from ${host}.`;
@@ -422,6 +494,28 @@ const notNegative = (value: unknown): number | undefined => {
 
 /** An error as one short line. Never the upstream's own body; see {@link RssPlugin.read}. */
 const message = (error: unknown): string => (error instanceof Error ? error.message : String(error));
+
+/**
+ * `work` over every item, no more than `limit` at a time, answered in the items' order.
+ *
+ * Workers pulling from one index rather than fixed batches, so one slow feed
+ * holds up one slot and not the five beside it.
+ */
+async function eachAtMost<T, R>(limit: number, items: readonly T[], work: (item: T) => Promise<R>): Promise<R[]> {
+    const results: R[] = new Array<R>(items.length);
+    let next = 0;
+
+    const worker = async (): Promise<void> => {
+        while (next < items.length) {
+            const index = next;
+            next += 1;
+            results[index] = await work(items[index] as T);
+        }
+    };
+
+    await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+    return results;
+}
 
 /** The hostname of an address, for a sentence an operator reads. */
 const hostOf = (url: string): string => {

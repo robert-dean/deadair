@@ -67,6 +67,16 @@ public sealed class NowPlayingHold(TimeProvider? time = null) : IDisposable
                 return reading;
             }
 
+            // The item already held, read again: the station is polled faster than the lead, so this
+            // is the ordinary case. Its lead keeps running and the newer reading is what it releases.
+            // Restarting the lead here meant an item polled every three seconds against a five-second
+            // lead was never released at all.
+            if (_hasPending && itemKey == _pendingKey)
+            {
+                _pendingReading = reading;
+                return null;
+            }
+
             _pendingKey = itemKey;
             _pendingReading = reading;
             _hasPending = true;

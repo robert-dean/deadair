@@ -69,8 +69,12 @@ public sealed partial class RunningOrderViewModel : ObservableObject, IAsyncDisp
     [ObservableProperty]
     private string? _undoLabel;
 
+    /// <summary>The station the order is read from, which each row's cover is resolved against.</summary>
+    private StationUrl _station;
+
     public void Attach(StationUrl station)
     {
+        _station = station;
         _repository = new OrderRepository(station, _http, _dispatcher);
         _repository.Changed += OnReading;
         ApplySession();
@@ -108,7 +112,7 @@ public sealed partial class RunningOrderViewModel : ObservableObject, IAsyncDisp
         Items.Clear();
         foreach (var item in order.Items)
         {
-            Items.Add(new OrderItemViewModel(item, MoveTarget.CanMove(order.Items, item.Id)));
+            Items.Add(new OrderItemViewModel(item, MoveTarget.CanMove(order.Items, item.Id), _station.ArtUrl(item.ArtworkUrl)));
         }
 
         var at = RunsDry.At(order.Items, DateTimeOffset.Now);
@@ -122,20 +126,6 @@ public sealed partial class RunningOrderViewModel : ObservableObject, IAsyncDisp
     private async Task ShuffleAsync(CancellationToken cancellationToken) =>
         await _actions.RunAsync(token => _repository!.ShuffleAsync(token), cancellationToken: cancellationToken)
             .ConfigureAwait(true);
-
-    [RelayCommand]
-    private async Task ExtendAsync(CancellationToken cancellationToken)
-    {
-        // Answers 202 and nothing else, so there is no order to redraw from — the repository looks
-        // again over the next few seconds instead.
-        await _actions.RunAsync<object>(
-            async token =>
-            {
-                await _repository!.ExtendAsync(token).ConfigureAwait(false);
-                return new object();
-            },
-            cancellationToken: cancellationToken).ConfigureAwait(true);
-    }
 
     [RelayCommand]
     private Task MoveToTopAsync(OrderItemViewModel item)

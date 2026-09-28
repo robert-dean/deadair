@@ -13,38 +13,16 @@
     <StackPanel Spacing="12" IsVisible="{Binding IsOperator}">
 
         <Grid ColumnDefinitions="*,Auto">
-            <TextBlock Classes="h3" Text="The desk" VerticalAlignment="Center" />
+            <TextBlock Classes="h3" Text="Next in queue" VerticalAlignment="Center" />
             <TextBlock Grid.Column="1" Classes="dimmed" VerticalAlignment="Center">
                 <Run Text="{Binding Queued}" />
                 <Run Text="queued" />
             </TextBlock>
         </Grid>
 
-        <StackPanel Orientation="Horizontal" Spacing="8">
-            <Button Classes="ghost" Command="{Binding SkipCommand}" IsEnabled="{Binding StreamUp}">
-                <StackPanel Orientation="Horizontal" Spacing="6">
-                    <PathIcon Width="13" Height="13" Data="{DynamicResource DaIconSkip}" />
-                    <TextBlock Text="Skip" />
-                </StackPanel>
-            </Button>
-
-            <!-- Two presses, and the second is asked for in the tally colour as well as in the word:
-                 Stop takes the station off air and there is no undo. -->
-            <Button Classes="ghost" Classes.armed="{Binding IsArmed}" Command="{Binding StopCommand}"
-                    IsVisible="{Binding OnAir}">
-                <StackPanel Orientation="Horizontal" Spacing="6">
-                    <PathIcon Width="13" Height="13" Data="{DynamicResource DaIconStop}" />
-                    <TextBlock Text="{Binding StopLabel}" />
-                </StackPanel>
-            </Button>
-
-            <Button Classes="ghost" Command="{Binding StartCommand}" IsVisible="{Binding !OnAir}">
-                <StackPanel Orientation="Horizontal" Spacing="6">
-                    <PathIcon Width="13" Height="13" Data="{DynamicResource DaIconPlay}" />
-                    <TextBlock Text="Start" />
-                </StackPanel>
-            </Button>
-        </StackPanel>
+        <!-- No transport buttons here. Skip is beside the play button in the bar, a click away from
+             every page; Stop and Start are the console's, because taking the station off air (or
+             putting it back) is not something to do one stray click from the running order. -->
 
         <!-- The station's own account of why it is quiet, in the station's own words. The client
              chooses a colour and changes nothing else. -->
@@ -53,13 +31,17 @@
                 Background="{DynamicResource DaRaisedBrush}"
                 BorderBrush="{DynamicResource DaBorderBrush}" BorderThickness="1">
             <StackPanel Spacing="6">
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <Ellipse Width="8" Height="8" VerticalAlignment="Center"
+                <!-- A grid rather than a horizontal StackPanel: a StackPanel gives its children all
+                     the width they ask for, so the sentence never wrapped and ran off the card. The
+                     lamp sits on the first line rather than the middle of a long paragraph. -->
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                    <Ellipse Width="8" Height="8" VerticalAlignment="Top" Margin="0,5,0,0"
                              Fill="{Binding SilenceTone, Converter={StaticResource ToneBrush}}" />
-                    <TextBlock Text="{Binding Silence}" TextWrapping="Wrap"
+                    <TextBlock Grid.Column="1" Text="{Binding Silence}" TextWrapping="Wrap"
                                Foreground="{DynamicResource DaTextBrush}" />
-                </StackPanel>
-                <TextBlock Text="{Binding Remedy}" TextWrapping="Wrap" FontSize="12"
+                </Grid>
+                <!-- Indented to the sentence above it (the lamp's 8 and the grid's 8), not to the lamp. -->
+                <TextBlock Text="{Binding Remedy}" TextWrapping="Wrap" FontSize="12" Margin="16,0,0,0"
                            IsVisible="{Binding Remedy, Converter={x:Static ObjectConverters.IsNotNull}}"
                            Foreground="{DynamicResource DaTextSecondaryBrush}" />
             </StackPanel>

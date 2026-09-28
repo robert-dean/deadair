@@ -87,13 +87,22 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         _themes = themes;
         _plugins = plugins;
 
-        Setup.Connected += (station, name) => _ = SwitchAsync(station, name);
+        Setup.Connected += (station, name, signIn) => _ = ConnectAsync(station, name, signIn);
         Setup.Cancelled += () =>
         {
             Setup.CanCancel = false;
             NeedsStation = false;
         };
-        Login.SignedIn += () => ApplySession();
+        Login.SignedIn += () =>
+        {
+            ApplySession();
+
+            // Signed in from the setup screen's last step, which is then done with.
+            if (Setup.SigningIn)
+            {
+                NeedsStation = false;
+            }
+        };
         _session.Changed += state =>
         {
             LogSession(state);
@@ -119,6 +128,16 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         // only stop; the page is told back when it changes, including when it elapses.
         StationSettings.SleepRequested += Listener.SetSleep;
         Listener.SleepChanged += StationSettings.ApplySleep;
+
+        // "Recently played" in the Now playing panel moves on when the record does: the one that has
+        // just finished is the newest row.
+        Listener.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(ListenerViewModel.Title) && HasStation)
+            {
+                _ = History.LoadRecentAsync(RecentCount);
+            }
+        };
 
         // A page fetches when it is opened rather than on a timer. A catalog does not change while
         // somebody is looking at it, and the station rate-limits.
@@ -195,6 +214,28 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private bool _hasStation;
 
+    /// <summary>How many rows "Recently played" shows in the Now playing panel.</summary>
+    private const int RecentCount = 8;
+
+    /// <summary>
+    /// Whether the Now playing panel is open beside the page. Remembered, and read at start.
+    /// </summary>
+    /// <remarks>
+    /// This is what somebody chose, and the window hides the panel on its own when it is too narrow to
+    /// spare the room (`ShellView`), without touching this. So a window made wider again brings the
+    /// panel back as it was left.
+    /// </remarks>
+    [ObservableProperty]
+    private bool _showNowPlaying = true;
+
+    [RelayCommand]
+    private async Task ToggleNowPlayingAsync()
+    {
+        ShowNowPlaying = !ShowNowPlaying;
+        var open = ShowNowPlaying;
+        await _settings.UpdateAsync(current => current with { NowPlayingPanel = open }).ConfigureAwait(true);
+    }
+
     [ObservableProperty]
     private bool _ready;
 
@@ -223,6 +264,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         // repaint. Applying System is applying nothing, which is what makes the system's own choice
         // land on the first frame.
         _themes.Apply(_settings.Current.Appearance);
+        ShowNowPlaying = _settings.Current.NowPlayingPanel;
 
         if (StationUrl.TryParse(_settings.Current.Station, out var station))
         {
@@ -234,6 +276,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         else
         {
             Setup.Address = string.Empty;
+            Setup.Open(asking: false);
             NeedsStation = true;
         }
 
@@ -302,8 +345,25 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         Setup.Problem = null;
         Setup.Note = _current is null
             ? null
-            : $"You are listening to {Listener.StationName}. Connect to switch to this station instead.";
+            : $"You are listening to {Listener.StationName}. Check this address and listen to it to switch; nothing changes until you do.";
         Setup.CanCancel = _current is not null;
+        Setup.Open(asking: true);
+        NeedsStation = true;
+    }
+
+    /// <summary>
+    /// The sidebar's Sign in: the setup screen's sign-in step, over the app, rather than a flyout.
+    /// </summary>
+    /// <remarks>
+    /// One sign-in, drawn one way. The flyout held the same form in a 320-unit panel beside the rail,
+    /// and the wizard's step held it full-window beside the welcome; two presentations of one thing
+    /// is one more than anybody wants. Playback carries on underneath, and Not now, Escape or signing
+    /// in all put the app back where it was.
+    /// </remarks>
+    [RelayCommand]
+    private void ShowSignIn()
+    {
+        Setup.OpenSignIn(Listener.StationName);
         NeedsStation = true;
     }
 
@@ -321,6 +381,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         Setup.Problem = null;
         Setup.Note = null;
         Setup.CanCancel = _current is not null;
+        Setup.Open(asking: true);
         NeedsStation = true;
     }
 
@@ -339,13 +400,13 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     /// not a reason to stop listening.
     /// </para>
     /// </remarks>
-    private async Task SwitchAsync(StationUrl station, string? name)
+    private async Task SwitchAsync(StationUrl station, string? name, bool keepSetup)
     {
         if (_current is { } current && current == station)
         {
             Setup.CanCancel = false;
             Setup.Note = null;
-            NeedsStation = false;
+            NeedsStation = keepSetup && NeedsStation;
             return;
         }
 
@@ -354,7 +415,31 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
             await DetachAsync().ConfigureAwait(true);
         }
 
-        await AttachAsync(station, name).ConfigureAwait(true);
+        await AttachAsync(station, name, keepSetup).ConfigureAwait(true);
+    }
+
+    /// <remarks>
+    /// With a sign-in asked for, the setup screen stays up on its sign-in step while the station
+    /// attaches underneath, so the app does not flash its pages between the address and the form. The
+    /// attach restores the session, and a station somebody is already signed in to has nothing to
+    /// ask, so that one just closes the screen. Somebody who pressed Not now while it attached has
+    /// already left, and nothing here brings the screen back.
+    /// </remarks>
+    private async Task ConnectAsync(StationUrl station, string? name, bool signIn)
+    {
+        await SwitchAsync(station, name, keepSetup: signIn).ConfigureAwait(true);
+
+        if (!signIn)
+        {
+            return;
+        }
+
+        Setup.Attaching = false;
+
+        if (!SignedOut && Setup.SigningIn)
+        {
+            NeedsStation = false;
+        }
     }
 
     private async Task DetachAsync()
@@ -376,7 +461,11 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         HasStation = false;
     }
 
-    private async Task AttachAsync(StationUrl station, string? name)
+    /// <param name="keepSetup">
+    /// Leave the setup screen up, because it has a sign-in step to show once this returns. Never puts
+    /// it back: somebody who has already left it stays left.
+    /// </param>
+    private async Task AttachAsync(StationUrl station, string? name, bool keepSetup = false)
     {
         Trace.WriteLine($"station: {station} attached");
         _current = station;
@@ -402,11 +491,16 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         Programme.Attach(station);
         Library.Attach(station);
         History.Attach(station);
+        _ = History.LoadRecentAsync(RecentCount);
         Checkup.Attach(station);
         StationSettings.Attach(station);
         Voice.Attach(station);
 
-        NeedsStation = false;
+        if (!keepSetup)
+        {
+            NeedsStation = false;
+        }
+
         ApplySession();
 
         // Once per run, and only for a session that came back from the store: a cached role can be

@@ -69,21 +69,9 @@
         <views:SetupView DataContext="{Binding Setup}"
                          IsVisible="{Binding $parent[Window].((vm:ShellViewModel)DataContext).NeedsStation}" />
 
-        <Grid IsVisible="{Binding !NeedsStation}" RowDefinitions="*,Auto">
-            <Grid ColumnDefinitions="220,*">
-                <!-- Given the shell rather than the navigation: the sidebar draws the account too,
-                     and a control that needs two view models is better handed the one that owns
-                     both than made to hop back up through the window for the second. -->
-                <views:Sidebar DataContext="{Binding}" />
-
-                <!-- The pages, one at a time. Each is built once and keeps its own DataContext, so
-                     nothing inside a page has to reach the window to find its own view model. -->
-                <views:PageHost Grid.Column="1" Shell="{Binding}" />
-            </Grid>
-
-            <!-- On every page, because what is playing is not a page. -->
-            <views:PlayerBar Grid.Row="1" DataContext="{Binding Listener}" />
-        </Grid>
+        <!-- The shell, in its own control so the screenshot tool draws exactly this rather than a
+             copy of it. -->
+        <views:ShellView IsVisible="{Binding !NeedsStation}" />
     </Panel>
 
 </Window>

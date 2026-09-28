@@ -11,6 +11,39 @@
         <conv:ToneBrushConverter x:Key="ToneBrush" />
     </UserControl.Resources>
 
+    <!-- Each end giving up what matters least first when the bar is narrow. -->
+    <UserControl.Styles>
+        <ContainerQuery Name="Transport" Query="max-width:360">
+            <Style Selector="TextBlock.timecode">
+                <Setter Property="IsVisible" Value="False" />
+            </Style>
+        </ContainerQuery>
+        <ContainerQuery Name="Transport" Query="max-width:220">
+            <Style Selector="Panel.playhead">
+                <Setter Property="IsVisible" Value="False" />
+            </Style>
+        </ContainerQuery>
+
+        <!-- The right end: the listening word first (the lamp stays, with the word as its tooltip),
+             then the format, then the volume slider. The buttons stay, because they are the part
+             somebody presses. -->
+        <ContainerQuery Name="Ends" Query="max-width:440">
+            <Style Selector="TextBlock.listening">
+                <Setter Property="IsVisible" Value="False" />
+            </Style>
+        </ContainerQuery>
+        <ContainerQuery Name="Ends" Query="max-width:320">
+            <Style Selector="Border.format">
+                <Setter Property="IsVisible" Value="False" />
+            </Style>
+        </ContainerQuery>
+        <ContainerQuery Name="Ends" Query="max-width:240">
+            <Style Selector="Slider.volume">
+                <Setter Property="IsVisible" Value="False" />
+            </Style>
+        </ContainerQuery>
+    </UserControl.Styles>
+
     <!--
         The player, on every page.
 
@@ -19,17 +52,22 @@
         actually use keeps this bar wherever they are, and the reason is the same one that applies
         here: what is playing is not a page.
     -->
-    <Border Height="84" Background="{DynamicResource DaPanelBrush}"
-            BorderBrush="{DynamicResource DaBorderBrush}" BorderThickness="0,1,0,0">
-        <!-- A DockPanel rather than three grid columns. With a fixed left column and an Auto right
-             one, the middle is whatever is left over — and at the window's 820px minimum that was
-             nothing, so the play button drew over the timecode. Docked, the ends take what they need,
-             the record's name shrinks and trims, and the transport keeps the rest. -->
-        <DockPanel Margin="16,0" LastChildFill="True">
+    <!-- On the window's own background with no line above it: the gap under the panels is what
+         separates the bar from them. -->
+    <Border Height="84" Background="{DynamicResource DaBgBrush}">
+        <!--
+            Three zones in proportion, 3 : 4 : 3, as a web player lays its bar out: what is playing,
+            the transport centred, and the station's state and the sound on the right.
+
+            Proportional rather than the fixed-left, Auto-right pair this once was, which left the
+            middle whatever was over and at the 820 minimum nothing at all, so the play button drew
+            over the timecode. In proportion the middle always has 40%, and the ends shed by query
+            (above) rather than squeezing it.
+        -->
+        <Grid ColumnDefinitions="3*,4*,3*" ColumnSpacing="16" Margin="16,0">
 
             <!-- What is playing. -->
-            <Grid DockPanel.Dock="Left" ColumnDefinitions="56,*" ColumnSpacing="12" MaxWidth="260"
-                  Margin="0,0,24,0" VerticalAlignment="Center">
+            <Grid ColumnDefinitions="56,*" ColumnSpacing="12" VerticalAlignment="Center">
                 <Border Classes="art" Width="56" Height="56"
                         BorderBrush="{DynamicResource DaBorderBrush}" BorderThickness="1">
                     <Panel>
@@ -49,106 +87,141 @@
                 </StackPanel>
             </Grid>
 
-            <!-- Where the station is, and how loud. Docked before the transport so that it keeps
-                 its size and the transport takes what is left rather than the other way round. -->
-            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="14"
-                        Margin="24,0,0,0" VerticalAlignment="Center">
-                <!-- Stop rather than Pause, and the word is the honest one: there is no pause on a
-                     live mount, because a held connection is still an audience to the station's
-                     gate. -->
-                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                    <Ellipse Classes="lamp" Classes.live="{Binding IsLive}" Width="8" Height="8"
-                             VerticalAlignment="Center"
-                             Fill="{Binding Tone, Converter={StaticResource ToneBrush}}" />
-                    <TextBlock Text="{Binding ListeningLabel}" FontSize="12" VerticalAlignment="Center"
-                               Foreground="{Binding Tone, Converter={StaticResource ToneBrush}}" />
+            <!-- The transport: the controls centred, and the playhead under them. A container, so
+                 what is inside answers to the room it is given: below 360 the timecodes go, and
+                 below 220 the line goes too, leaving the buttons. -->
+            <StackPanel Grid.Column="1" Spacing="6" MaxWidth="720" VerticalAlignment="Center"
+                        Container.Name="Transport" Container.Sizing="Width">
+
+                <!-- Shuffle, play, Skip, as the Android app has them: the play button in the middle
+                     and one operator control either side, the same commands as the desk's Shuffle
+                     and Skip. There is no "previous": a station has no going back. Both come and go
+                     together with the operator role, so the play button is never left off centre by
+                     one of them, and both wait on the stream being up, since neither means anything
+                     to a station not playing. -->
+                <StackPanel Orientation="Horizontal" Spacing="16" HorizontalAlignment="Center">
+                    <Button Classes="icon" ToolTip.Tip="Shuffle what is coming up"
+                            Command="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Order.ShuffleCommand}"
+                            IsEnabled="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Transport.StreamUp}"
+                            IsVisible="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Transport.IsOperator}">
+                        <PathIcon Data="{DynamicResource DaIconShuffle}" />
+                    </Button>
+
+                    <Button Classes="play" Command="{Binding ToggleCommand}" ToolTip.Tip="{Binding PlayLabel}">
+                        <PathIcon Width="14" Height="14"
+                                  Data="{Binding Playing, Converter={x:Static conv:PlayIconConverter.Instance}}" />
+                    </Button>
+
+                    <Button Classes="icon" ToolTip.Tip="Skip this record"
+                            Command="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Transport.SkipCommand}"
+                            IsEnabled="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Transport.StreamUp}"
+                            IsVisible="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Transport.IsOperator}">
+                        <PathIcon Data="{DynamicResource DaIconSkip}" />
+                    </Button>
                 </StackPanel>
 
-                <!-- The mount, named from `mounts[]` and never by asking a mount anything. -->
-                <Border Classes="pill">
-                    <TextBlock Classes="mono" Text="{Binding FormatLabel}" FontSize="11"
-                               VerticalAlignment="Center"
-                               Foreground="{DynamicResource DaTextSecondaryBrush}" />
-                </Border>
-
-                <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                    <PathIcon Data="{DynamicResource DaIconVolume}"
-                              Foreground="{DynamicResource DaTextDimmedBrush}" />
-                    <!-- Disabled rather than hidden until a device has said how loud it is: a
-                         slider sitting at zero reads as silence rather than as a question nobody
-                         has answered. -->
-                    <Slider Width="84" Minimum="0" Maximum="1" Value="{Binding Volume, Mode=TwoWay}"
-                            IsEnabled="{Binding VolumeKnown}"
-                            VerticalAlignment="Center" />
-                </StackPanel>
-
-                <!-- Where the sound comes out.
-
-                     The icon alone, and the speaker's NAME is deliberately not beside it. A first
-                     version drew it, capped at 96px, and the 820px frame settled it: the bar is
-                     already full at its minimum width, and the caption pushed the expand button off
-                     the end of it. The icon takes the accent when the station is playing somewhere
-                     else, which is the fact somebody sitting at this machine cannot get by
-                     listening; which speaker is a tooltip away and a click away, on a picker that
-                     has all the room it needs. -->
-                <Button x:Name="OutputButton" Classes="icon"
-                        Classes.active="{Binding OnDevice}"
-                        ToolTip.Tip="{Binding OutputName}"
-                        IsVisible="{Binding Outputs, Converter={x:Static ObjectConverters.IsNotNull}}">
-                    <PathIcon Data="{DynamicResource DaIconSpeaker}" />
-                    <Button.Flyout>
-                        <Flyout Placement="Top" ShowMode="Standard">
-                            <views:OutputPicker Width="268" DataContext="{Binding Outputs}" />
-                        </Flyout>
-                    </Button.Flyout>
-                </Button>
-
-                <Button Classes="icon" IsVisible="{Binding !$parent[Window].((vm:ShellViewModel)DataContext).Navigation.IsDesk}"
-                        Command="{Binding $parent[Window].((vm:ShellViewModel)DataContext).ShowDeskCommand}">
-                    <PathIcon Data="{DynamicResource DaIconExpand}" />
-                </Button>
-            </StackPanel>
-
-            <!-- The one control a listener has, and the last thing docked, so it fills. -->
-            <!-- Stretched, so the `*` column is the room the bar has rather than what its content
-                 asked for: centred, the LIVE rule had no width of its own and drew as a stub. With
-                 a MaxWidth the group still sits in the middle of whatever is left. -->
-            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="14" MaxWidth="560" MinWidth="150"
-                  HorizontalAlignment="Stretch" VerticalAlignment="Center">
-                <Button Classes="play" Command="{Binding ToggleCommand}">
-                    <PathIcon Width="18" Height="18"
-                              Data="{Binding Playing, Converter={x:Static conv:PlayIconConverter.Instance}}" />
-                </Button>
-
-                <Panel Grid.Column="1">
+                <Panel Classes="playhead" Height="16">
                     <!-- A playhead when the station could say where the record is up to. -->
-                    <Grid ColumnDefinitions="44,*,44" ColumnSpacing="10" IsVisible="{Binding HasPlayhead}">
-                        <TextBlock Classes="mono" Text="{Binding Elapsed}" FontSize="11"
-                                   VerticalAlignment="Center"
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" IsVisible="{Binding HasPlayhead}">
+                        <TextBlock Classes="mono timecode" Width="40" Text="{Binding Elapsed}" FontSize="11"
+                                   VerticalAlignment="Center" HorizontalAlignment="Right" TextAlignment="Right"
                                    Foreground="{DynamicResource DaTextDimmedBrush}" />
+                        <!-- No minimum width: the theme's own is wider than the slot the bar has at
+                             the window's minimum, and a bar wider than its slot is centred on it,
+                             which drew the line under its neighbours. -->
                         <ProgressBar Grid.Column="1" Minimum="0" Maximum="{Binding Duration}"
-                                     Value="{Binding Position}" Height="4"
-                                     Foreground="{DynamicResource DaAccentBrush}"
-                                     Background="{DynamicResource DaBorderBrush}" />
-                        <TextBlock Grid.Column="2" Classes="mono" Text="{Binding Remaining}" FontSize="11"
-                                   VerticalAlignment="Center" HorizontalAlignment="Right"
+                                     Value="{Binding Position}" Height="4" MinWidth="0"
+                                     VerticalAlignment="Center"
+                                     Foreground="{DynamicResource DaTextBrush}"
+                                     Background="{DynamicResource DaBorderStrongBrush}" />
+                        <TextBlock Grid.Column="2" Classes="mono timecode" Width="40" Text="{Binding Remaining}" FontSize="11"
+                                   VerticalAlignment="Center"
                                    Foreground="{DynamicResource DaTextDimmedBrush}" />
                     </Grid>
 
                     <!-- And the word LIVE when it could not. A bar sitting at zero would read as a
                          record that has not started rather than as a station that cannot say. -->
-                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" IsVisible="{Binding !HasPlayhead}">
-                        <TextBlock Classes="eyebrow" Text="LIVE"
+                    <Grid ColumnDefinitions="*,Auto,*" ColumnSpacing="12" IsVisible="{Binding !HasPlayhead}">
+                        <Rectangle Height="1" VerticalAlignment="Center"
+                                   Fill="{DynamicResource DaBorderStrongBrush}" />
+                        <TextBlock Grid.Column="1" Classes="eyebrow" Text="LIVE" VerticalAlignment="Center"
                                    Foreground="{Binding Tone, Converter={StaticResource ToneBrush}}" />
-                        <Rectangle Grid.Column="1" Height="1" VerticalAlignment="Center"
+                        <Rectangle Grid.Column="2" Height="1" VerticalAlignment="Center"
                                    Fill="{DynamicResource DaBorderStrongBrush}" />
                     </Grid>
                 </Panel>
-            </Grid>
+            </StackPanel>
 
-            <!-- Where the station is, and how loud. -->
+            <!-- Where the station is, and how loud, packed against the right edge. A container of its
+                 own, so it sheds (see the queries above) rather than pushing into the transport. -->
+            <Panel Grid.Column="2" Container.Name="Ends" Container.Sizing="Width">
+                <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right"
+                            VerticalAlignment="Center">
+                    <!-- Stop rather than Pause, and the word is the honest one: there is no pause on a
+                         live mount, because a held connection is still an audience to the station's
+                         gate. -->
+                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center"
+                                Background="Transparent" ToolTip.Tip="{Binding ListeningLabel}">
+                        <Ellipse Classes="lamp" Classes.live="{Binding IsLive}" Width="8" Height="8"
+                                 VerticalAlignment="Center"
+                                 Fill="{Binding Tone, Converter={StaticResource ToneBrush}}" />
+                        <TextBlock Classes="listening" Text="{Binding ListeningLabel}" FontSize="12"
+                                   VerticalAlignment="Center"
+                                   Foreground="{Binding Tone, Converter={StaticResource ToneBrush}}" />
+                    </StackPanel>
 
-        </DockPanel>
+                    <!-- The mount, named from `mounts[]` and never by asking a mount anything. -->
+                    <Border Classes="pill format">
+                        <TextBlock Classes="mono" Text="{Binding FormatLabel}" FontSize="11"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource DaTextSecondaryBrush}" />
+                    </Border>
+
+                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                        <PathIcon Data="{DynamicResource DaIconVolume}"
+                                  Foreground="{DynamicResource DaTextDimmedBrush}" />
+                        <!-- Disabled rather than hidden until a device has said how loud it is: a
+                             slider sitting at zero reads as silence rather than as a question nobody
+                             has answered. -->
+                        <Slider Classes="volume" Width="72" Minimum="0" Maximum="1" Value="{Binding Volume, Mode=TwoWay}"
+                                IsEnabled="{Binding VolumeKnown}"
+                                VerticalAlignment="Center" />
+                    </StackPanel>
+
+                    <!-- Where the sound comes out.
+
+                         The icon alone, and the speaker's NAME is deliberately not beside it: the bar
+                         is already full at its minimum width, and a caption pushed the expand button
+                         off the end of it. The icon takes the accent when the station is playing
+                         somewhere else, which is the fact somebody sitting at this machine cannot get
+                         by listening; which speaker is a tooltip away and a click away. -->
+                    <Button x:Name="OutputButton" Classes="icon"
+                            Classes.active="{Binding OnDevice}"
+                            ToolTip.Tip="{Binding OutputName}"
+                            IsVisible="{Binding Outputs, Converter={x:Static ObjectConverters.IsNotNull}}">
+                        <PathIcon Data="{DynamicResource DaIconSpeaker}" />
+                        <Button.Flyout>
+                            <Flyout Placement="Top" ShowMode="Standard">
+                                <views:OutputPicker Width="268" DataContext="{Binding Outputs}" />
+                            </Flyout>
+                        </Button.Flyout>
+                    </Button>
+
+                    <!-- The Now playing panel, shown or put away, and lit while it is shown. -->
+                    <Button Classes="icon" ToolTip.Tip="Now playing"
+                            Classes.active="{Binding $parent[Window].((vm:ShellViewModel)DataContext).ShowNowPlaying}"
+                            Command="{Binding $parent[Window].((vm:ShellViewModel)DataContext).ToggleNowPlayingCommand}">
+                        <PathIcon Data="{DynamicResource DaIconPanelRight}" />
+                    </Button>
+
+                    <Button Classes="icon" ToolTip.Tip="Open the desk"
+                            IsVisible="{Binding !$parent[Window].((vm:ShellViewModel)DataContext).Navigation.IsDesk}"
+                            Command="{Binding $parent[Window].((vm:ShellViewModel)DataContext).ShowDeskCommand}">
+                        <PathIcon Data="{DynamicResource DaIconExpand}" />
+                    </Button>
+                </StackPanel>
+            </Panel>
+        </Grid>
     </Border>
 
 </UserControl>

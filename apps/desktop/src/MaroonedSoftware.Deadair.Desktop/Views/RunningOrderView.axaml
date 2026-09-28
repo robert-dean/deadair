@@ -3,12 +3,9 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
     xmlns:conv="using:MaroonedSoftware.Deadair.Desktop.Themes"
+    xmlns:controls="using:MaroonedSoftware.Deadair.Desktop.Controls"
     x:Class="MaroonedSoftware.Deadair.Desktop.Views.RunningOrderView"
     x:DataType="vm:RunningOrderViewModel">
-
-    <UserControl.Resources>
-        <conv:ToneBrushConverter x:Key="ToneBrush" />
-    </UserControl.Resources>
 
     <DockPanel IsVisible="{Binding IsOperator}" LastChildFill="True">
 
@@ -24,10 +21,8 @@
                        IsVisible="{Binding Host, Converter={x:Static ObjectConverters.IsNotNull}}"
                        Foreground="{DynamicResource DaTextDimmedBrush}" />
 
-            <StackPanel Orientation="Horizontal" Spacing="8">
-                <Button Classes="ghost" Content="Shuffle" Command="{Binding ShuffleCommand}" />
-                <Button Classes="ghost" Content="Extend now" Command="{Binding ExtendCommand}" />
-            </StackPanel>
+            <!-- No Shuffle or Extend now here: Shuffle is beside the play button in the bar, where it
+                 is a click away from every page, and the station extends a short order on its own. -->
 
             <!-- Undo is offered only for a record. A segment is marked removed by the station and
                  cannot come back, so offering it would be offering something that cannot happen. -->
@@ -47,9 +42,12 @@
                          `Auto` column sizes to that row alone: a row whose move buttons are hidden
                          gave its duration a different x from the row above, and the times marched
                          about down the list. -->
-                    <Grid ColumnDefinitions="14,*,44,92" ColumnSpacing="8">
-                        <Ellipse Width="7" Height="7" VerticalAlignment="Center"
-                                 Fill="{Binding Tone, Converter={StaticResource ToneBrush}}" />
+                    <!-- The cover where the state dot was, as History draws its rows. A segment has no
+                         cover and shows its initial; its state is still said in words under its title. -->
+                    <Grid ColumnDefinitions="36,*,44,92" ColumnSpacing="10">
+                        <controls:Artwork Size="36" VerticalAlignment="Center"
+                                          Source="{Binding ArtworkUrl}"
+                                          Initial="{Binding Initial}" />
 
                         <StackPanel Grid.Column="1" Spacing="1">
                             <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis"

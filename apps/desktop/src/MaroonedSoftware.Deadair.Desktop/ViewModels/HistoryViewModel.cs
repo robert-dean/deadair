@@ -54,6 +54,13 @@ public sealed partial class HistoryViewModel(OperatorActions actions, HttpClient
     /// </remarks>
     public ObservableCollection<HistoryDayViewModel> Days { get; } = [];
 
+    /// <summary>The last few plays, newest first, for the Now playing panel's "Recently played".</summary>
+    public ObservableCollection<HistoryRowViewModel> Recent { get; } = [];
+
+    /// <summary>Whether <see cref="Recent"/> has anything, so its heading is not drawn over nothing.</summary>
+    [ObservableProperty]
+    private bool _hasRecent;
+
     [ObservableProperty]
     private bool _busy;
 
@@ -117,6 +124,48 @@ public sealed partial class HistoryViewModel(OperatorActions actions, HttpClient
         {
             Busy = false;
         }
+    }
+
+    /// <summary>
+    /// Reads the last <paramref name="count"/> plays into <see cref="Recent"/>.
+    /// </summary>
+    /// <remarks>
+    /// The same read the page makes, cut short and not grouped into days: a panel beside the page
+    /// has room for a handful of rows, and the page itself is where a whole day is read. Quiet on
+    /// failure, because the panel is not where somebody went to read history, and a sentence about
+    /// an unreachable station there would repeat the one the desk already gives.
+    /// </remarks>
+    public async Task LoadRecentAsync(int count, CancellationToken cancellationToken = default)
+    {
+        if (_station == default)
+        {
+            return;
+        }
+
+        HistoryPage? page;
+        try
+        {
+            using var sdk = Sdk();
+            page = await sdk.History.ReadHistoryAsync(new HistoryQuery { Limit = count }, cancellationToken)
+                .ConfigureAwait(true);
+        }
+        catch (Exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            return;
+        }
+
+        Recent.Clear();
+        foreach (var row in page.Entries)
+        {
+            Recent.Add(new HistoryRowViewModel(
+                row.AiredAt.ToLocalTime().ToString("HH:mm", CultureInfo.InvariantCulture),
+                row.Title,
+                row.Artists,
+                string.IsNullOrEmpty(row.Album),
+                _station.ArtUrl(row.ArtworkUrl)));
+        }
+
+        HasRecent = Recent.Count > 0;
     }
 
     private DeadairSdk Sdk() => new(new SdkOptions

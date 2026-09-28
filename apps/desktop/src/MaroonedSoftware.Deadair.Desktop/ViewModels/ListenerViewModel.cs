@@ -12,6 +12,7 @@ using MaroonedSoftware.Deadair.Desktop.Core.Station;
 using MaroonedSoftware.Deadair.Desktop.Core.Text;
 using MaroonedSoftware.Deadair.Desktop.Core.Ui;
 using MaroonedSoftware.Deadair.Desktop.PluginSdk.Playback;
+using MaroonedSoftware.Deadair.Desktop.Services;
 using MaroonedSoftware.Deadair.Sdk.Models;
 using NowPlayingReading = MaroonedSoftware.Deadair.Sdk.Models.NowPlaying;
 
@@ -199,6 +200,13 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
 
     [ObservableProperty]
     private Bitmap? _artwork;
+
+    /// <summary>
+    /// The cover's colours, most common first, for the page's wash (<c>CoverWash</c>). Null without a
+    /// cover. Sampled where the cover is decoded, off the UI thread, from a copy a few pixels wide.
+    /// </summary>
+    [ObservableProperty]
+    private IReadOnlyList<uint>? _coverPalette;
 
     [ObservableProperty]
     private long _listeners;
@@ -440,6 +448,7 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
         Artist = null;
         Album = null;
         Artwork = null;
+        CoverPalette = null;
         OnAir = false;
         Listeners = 0;
         ListenersLabel = ListenerCount.Label(0);
@@ -733,6 +742,7 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
         if (resolved is null)
         {
             Artwork = null;
+            CoverPalette = null;
             return;
         }
 
@@ -749,6 +759,16 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
             buffer.Position = 0;
             var bitmap = Bitmap.DecodeToWidth(buffer, HeroDecodeWidth, BitmapInterpolationMode.HighQuality);
 
+            // A second decode at a few pixels wide, for the colours alone: the decoder's own
+            // averaging is the sampling, and the copy out is a few hundred values rather than the
+            // whole cover's.
+            buffer.Position = 0;
+            IReadOnlyList<uint> palette;
+            using (var sample = Bitmap.DecodeToWidth(buffer, CoverSampler.SampleWidth, BitmapInterpolationMode.MediumQuality))
+            {
+                palette = CoverColours.Candidates(CoverSampler.Pixels(sample));
+            }
+
             // Only if this is still the cover wanted. A slow download can finish after the record
             // has moved on, or after the app has been pointed at another station, and drawing it
             // then would put an old cover beside a new title.
@@ -761,6 +781,7 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
                 }
 
                 Artwork = bitmap;
+                CoverPalette = palette;
                 _artworkBytes = bytes;
                 PublishToSystem();
             });
@@ -774,6 +795,7 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
                 if (key == _artworkShowing)
                 {
                     Artwork = null;
+                    CoverPalette = null;
                     _artworkBytes = null;
                 }
             });

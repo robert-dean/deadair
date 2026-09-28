@@ -72,7 +72,7 @@ public partial class MainWindow : Window
     /// the window is key, or else when the window next becomes key; measured both ways, with the
     /// harness's own accessibility actions being what deactivated the window in the runs that showed
     /// the second. Nothing here activates the window to force the first: the window somebody has just
-    /// pressed Connect in is key already, and an app launched at login would be dragged to the front.
+    /// pressed Listen in is key already, and an app launched at login would be dragged to the front.
     /// </para>
     /// <para>
     /// The price is that a first run has no Window menu either, so ⌘M and ⌘W do nothing on the setup

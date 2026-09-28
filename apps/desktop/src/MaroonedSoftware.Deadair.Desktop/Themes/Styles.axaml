@@ -173,26 +173,38 @@
 
     <!-- The one Listen/Stop. A filled circle, as every player has, and the only control on the bar
          that carries the accent. -->
+    <!-- The bar's play button: a small disc in the text's own colour with the window's colour for
+         its glyph, as a web player draws it, rather than the accent. The accent is kept for the
+         playhead's progress and for what is live, where it says something; on the button that is
+         always there it was only loud. -->
     <Style Selector="Button.play">
-        <Setter Property="Width" Value="40" />
-        <Setter Property="Height" Value="40" />
+        <Setter Property="Width" Value="32" />
+        <Setter Property="Height" Value="32" />
         <Setter Property="Padding" Value="0" />
-        <Setter Property="CornerRadius" Value="20" />
-        <Setter Property="Background" Value="{DynamicResource DaAccentBrush}" />
-        <Setter Property="Foreground" Value="{DynamicResource DaOnAccentBrush}" />
+        <Setter Property="CornerRadius" Value="16" />
+        <Setter Property="Background" Value="{DynamicResource DaTextBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource DaBgBrush}" />
         <Setter Property="BorderThickness" Value="0" />
         <Setter Property="HorizontalContentAlignment" Value="Center" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="RenderTransform" Value="scale(1)" />
+        <Setter Property="Transitions">
+            <Transitions>
+                <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.1" />
+            </Transitions>
+        </Setter>
     </Style>
     <Style Selector="Button.play /template/ ContentPresenter#PART_ContentPresenter">
-        <Setter Property="Background" Value="{DynamicResource DaAccentBrush}" />
-        <Setter Property="Foreground" Value="{DynamicResource DaOnAccentBrush}" />
-        <Setter Property="CornerRadius" Value="20" />
+        <Setter Property="Background" Value="{DynamicResource DaTextBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource DaBgBrush}" />
+        <Setter Property="CornerRadius" Value="16" />
+    </Style>
+    <Style Selector="Button.play:pointerover">
+        <Setter Property="RenderTransform" Value="scale(1.06)" />
     </Style>
     <Style Selector="Button.play:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-        <Setter Property="Background" Value="{DynamicResource DaAccentBrush}" />
-        <Setter Property="Foreground" Value="{DynamicResource DaOnAccentBrush}" />
-        <Setter Property="Opacity" Value="0.85" />
+        <Setter Property="Background" Value="{DynamicResource DaTextBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource DaBgBrush}" />
     </Style>
 
     <!-- Which tab you are on. Without this every tab looks the same and the page is a list with no
@@ -228,14 +240,15 @@
         <Setter Property="Foreground" Value="{DynamicResource DaTextSecondaryBrush}" />
         <Setter Property="HorizontalAlignment" Value="Stretch" />
         <Setter Property="HorizontalContentAlignment" Value="Left" />
-        <Setter Property="Padding" Value="10,0,12,0" />
-        <Setter Property="Height" Value="34" />
+        <Setter Property="Padding" Value="12,0,12,0" />
+        <Setter Property="Height" Value="40" />
+        <Setter Property="CornerRadius" Value="{DynamicResource DaRowCorner}" />
     </Style>
     <Style Selector="Button.nav /template/ ContentPresenter#PART_ContentPresenter">
         <Setter Property="Background" Value="Transparent" />
     </Style>
     <Style Selector="Button.nav:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-        <Setter Property="Background" Value="{DynamicResource DaRaisedBrush}" />
+        <Setter Property="Background" Value="{DynamicResource DaHoverBrush}" />
     </Style>
     <Style Selector="Button.nav.active">
         <Setter Property="Foreground" Value="{DynamicResource DaTextBrush}" />
@@ -283,6 +296,14 @@
 
     <!-- ── Surfaces ──────────────────────────────────────────────────────────────────────────── -->
 
+    <!-- One of the shell's sheets: the sidebar, the page, Now playing. No border, because the gap
+         around it is what separates it, and a line as well would be saying it twice. -->
+    <Style Selector="Border.panel">
+        <Setter Property="Background" Value="{DynamicResource DaPanelBrush}" />
+        <Setter Property="CornerRadius" Value="{DynamicResource DaPanelCorner}" />
+        <Setter Property="ClipToBounds" Value="True" />
+    </Style>
+
     <Style Selector="Border.card">
         <Setter Property="Background" Value="{DynamicResource DaPanelBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource DaBorderBrush}" />
@@ -317,14 +338,14 @@
     <Style Selector="ListBox.rows ListBoxItem">
         <Setter Property="Padding" Value="8,6" />
         <Setter Property="MinHeight" Value="36" />
-        <Setter Property="CornerRadius" Value="{DynamicResource DaCorner}" />
+        <Setter Property="CornerRadius" Value="{DynamicResource DaRowCorner}" />
     </Style>
     <Style Selector="ListBox.rows ListBoxItem /template/ ContentPresenter#PART_ContentPresenter">
         <Setter Property="Background" Value="Transparent" />
-        <Setter Property="CornerRadius" Value="{DynamicResource DaCorner}" />
+        <Setter Property="CornerRadius" Value="{DynamicResource DaRowCorner}" />
     </Style>
     <Style Selector="ListBox.rows ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-        <Setter Property="Background" Value="{DynamicResource DaRaisedBrush}" />
+        <Setter Property="Background" Value="{DynamicResource DaHoverBrush}" />
     </Style>
     <!-- These lists are read, not chosen from. A selection highlight would say the row you last
          clicked is still doing something. -->

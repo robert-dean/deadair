@@ -3,7 +3,6 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
     xmlns:conv="using:MaroonedSoftware.Deadair.Desktop.Themes"
-    xmlns:views="using:MaroonedSoftware.Deadair.Desktop.Views"
     x:Class="MaroonedSoftware.Deadair.Desktop.Views.DeskView"
     x:DataType="vm:ListenerViewModel">
 
@@ -17,29 +16,31 @@
         The old desk gave the record a 220px thumbnail beside a 380px column of operator controls,
         with the transport underneath, and spent about half the window on nothing. The record is the
         thing this app is for, so it is the thing the page is: the cover at the size the window can
-        spare, the title at display size, and the desk's own controls in a card beside it when there
-        is an account to draw them for.
+        spare and the title at display size. What is coming up is in the Now playing panel beside
+        every page (`NowPlayingPanel`), where it used to be a card on this one.
 
         There is no Listen button here. The bar has the only one, on every page.
     -->
-    <Grid ColumnDefinitions="*,Auto" Margin="{DynamicResource DaPageGutter}">
+    <Grid Margin="{DynamicResource DaPageGutter}">
 
         <!-- The area is stretched so its width is the COLUMN's rather than its content's, which is
-             what makes it safe to size the cover from. The hero inside is centred, so with no
-             operator card the record sits in the middle of the window rather than hard left. -->
+             what makes it safe to size the cover from. The hero inside is centred, so the record
+             sits in the middle of the page rather than hard left. -->
         <Panel x:Name="HeroArea">
         <!-- Stretched, not centred. A Grid does not clip its children, so a centred one keeps its
              DESIRED width and draws over whatever is beside it — which at the window's minimum was
              the cover disappearing behind the operator card. Stretched, the words are given a real
              width and trim into it; `MaxWidth` still centres the group when there is room to spare. -->
-        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="36" MaxWidth="900"
-              HorizontalAlignment="Stretch" VerticalAlignment="Center">
+        <!-- A page header, as a web player heads an album: the cover and the words top-aligned on the
+             cover's wash (CoverWash, under the page), the words sitting on the cover's bottom edge. -->
+        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="24"
+              HorizontalAlignment="Stretch" VerticalAlignment="Top">
 
             <!-- Square, and never rounded: a rounded cover is this app's frame around somebody
                  else's picture. The initial shows through until the art arrives, and stays when
                  there is none — art is hotlinked until the station caches it, so a dead upstream is
                  ordinary rather than a fault. -->
-            <Border x:Name="Cover" Classes="art" Width="320" Height="320"
+            <Border x:Name="Cover" Classes="art" Width="232" Height="232" VerticalAlignment="Bottom"
                     BorderBrush="{DynamicResource DaBorderBrush}" BorderThickness="1"
                     BoxShadow="{DynamicResource DaHeroShadow}">
                 <Panel>
@@ -50,7 +51,7 @@
                 </Panel>
             </Border>
 
-            <StackPanel Grid.Column="1" Spacing="10" VerticalAlignment="Center">
+            <StackPanel Grid.Column="1" Spacing="8" VerticalAlignment="Bottom">
                 <!-- Wraps rather than clips: beside the operator card this row has about half the
                      width, and three eyebrows and a lamp do not fit on one line there. -->
                 <WrapPanel ItemSpacing="10" LineSpacing="4">
@@ -64,7 +65,10 @@
                     <TextBlock Classes="eyebrow" Text="{Binding ListenersLabel}" />
                 </WrapPanel>
 
-                <TextBlock Classes="display" Text="{Binding Title, FallbackValue='Nothing on air'}"
+                <!-- Its own line height: `display`'s 40 is for 34pt type and cut the top off 48. -->
+                <TextBlock Classes="display" FontSize="{DynamicResource DaFontSizeHero}" LineHeight="56"
+                           LetterSpacing="-1"
+                           Text="{Binding Title, FallbackValue='Nothing on air'}"
                            TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" />
                 <TextBlock Text="{Binding Artist}" Classes="secondary" FontSize="17"
                            TextWrapping="Wrap" MaxLines="2" />
@@ -82,19 +86,6 @@
             </StackPanel>
         </Grid>
         </Panel>
-
-        <!-- The desk. Both the visibility and the context name the window's own DataContext, because
-             setting DataContext on a child re-scopes every binding on it — inheriting it here looks
-             right, compiles, and fails at load naming the child's type. -->
-        <Border Grid.Column="1" Classes="card" Width="360" Margin="24,0,0,0" Padding="18"
-                IsVisible="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Transport.IsOperator}">
-            <DockPanel LastChildFill="True">
-                <views:TransportView DockPanel.Dock="Top"
-                                     DataContext="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Transport}" />
-                <views:RunningOrderView Margin="0,16,0,0"
-                                        DataContext="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Order}" />
-            </DockPanel>
-        </Border>
 
     </Grid>
 

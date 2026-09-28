@@ -9,6 +9,8 @@ using Avalonia.Threading;
 using MaroonedSoftware.Deadair.Desktop;
 using MaroonedSoftware.Deadair.Desktop.Core.Settings;
 using MaroonedSoftware.Deadair.Desktop.Themes;
+using MaroonedSoftware.Deadair.Desktop.ViewModels;
+using MaroonedSoftware.Deadair.Desktop.Views;
 
 namespace Shots;
 
@@ -86,6 +88,13 @@ internal static class Program
         if (page is MainWindowContent shell)
         {
             window.DataContext = shell.DataContext;
+        }
+
+        // The setup screen's sign-in step reaches the shell's sign-in form the same way, and the
+        // player bar the desk's Shuffle and Skip.
+        if (page.Tag is ShellViewModel owner)
+        {
+            window.DataContext = owner;
         }
 
         window.Show();

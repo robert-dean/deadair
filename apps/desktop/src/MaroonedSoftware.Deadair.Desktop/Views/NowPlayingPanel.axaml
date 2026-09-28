@@ -1,0 +1,81 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    xmlns:views="using:MaroonedSoftware.Deadair.Desktop.Views"
+    xmlns:controls="using:MaroonedSoftware.Deadair.Desktop.Controls"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.NowPlayingPanel"
+    x:DataType="vm:ShellViewModel">
+
+    <!--
+        Now playing, beside the page: the record large, then what comes next.
+
+        A web player's right-hand panel, and where the running order lives. It used to be a card on
+        the desk, which put what is coming up on one page only; here it is beside every page. An
+        operator sees "Next in queue", the running order with its reorder and drop; anybody else
+        sees "Recently played", because the running order is the station's to show an operator
+        and a listener's question is what that last record was.
+
+        One scroll for the whole panel rather than a list that scrolls inside it, as the web player
+        does: the cover is most of the panel's height, and a list squeezed under it would have had
+        room for one row. The running order is a few dozen rows, which a non-virtualised list draws
+        without trouble.
+    -->
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="16" Spacing="16">
+
+            <TextBlock Classes="h3" Text="{Binding Listener.StationName}"
+                       TextTrimming="CharacterEllipsis" />
+
+            <!-- Square, as every cover here is: its height follows its width. -->
+            <Border Classes="art" Height="{Binding $self.Bounds.Width}"
+                    BorderBrush="{DynamicResource DaBorderBrush}" BorderThickness="1">
+                <Panel>
+                    <TextBlock Text="{Binding Listener.Initial}" FontSize="96" FontWeight="Bold"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                               Foreground="{DynamicResource DaTextDimmedBrush}" />
+                    <Image Source="{Binding Listener.Artwork}" Stretch="UniformToFill" />
+                </Panel>
+            </Border>
+
+            <StackPanel Spacing="4">
+                <TextBlock Classes="h2" Text="{Binding Listener.Title, FallbackValue='Nothing on air'}"
+                           TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" />
+                <TextBlock Classes="secondary" Text="{Binding Listener.Artist}"
+                           TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+
+            <!-- An operator's: what the station says about itself, then what is coming up. -->
+            <StackPanel Spacing="12" IsVisible="{Binding Transport.IsOperator}">
+                <views:TransportView DataContext="{Binding Transport}" />
+                <views:RunningOrderView DataContext="{Binding Order}" />
+            </StackPanel>
+
+            <!-- Anybody else's: what just played. -->
+            <StackPanel Spacing="8" IsVisible="{Binding !Transport.IsOperator}">
+                <TextBlock Classes="h3" Text="Recently played"
+                           IsVisible="{Binding History.HasRecent}" />
+                <ItemsControl ItemsSource="{Binding History.Recent}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:HistoryRowViewModel">
+                            <Grid ColumnDefinitions="40,*,Auto" ColumnSpacing="12" Margin="0,4">
+                                <controls:Artwork Size="40" Source="{Binding ArtworkUrl}" Initial="{Binding Initial}" />
+                                <StackPanel Grid.Column="1" Spacing="1" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis"
+                                               Foreground="{DynamicResource DaTextBrush}" />
+                                    <TextBlock Text="{Binding Artists}" FontSize="11" TextTrimming="CharacterEllipsis"
+                                               Foreground="{DynamicResource DaTextDimmedBrush}" />
+                                </StackPanel>
+                                <TextBlock Grid.Column="2" Classes="mono" Text="{Binding When}" FontSize="11"
+                                           VerticalAlignment="Center"
+                                           Foreground="{DynamicResource DaTextDimmedBrush}" />
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+
+        </StackPanel>
+    </ScrollViewer>
+
+</UserControl>

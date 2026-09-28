@@ -8,7 +8,8 @@ namespace MaroonedSoftware.Deadair.Desktop.ViewModels;
 /// <summary>One row of the running order.</summary>
 public sealed partial class OrderItemViewModel : ObservableObject
 {
-    public OrderItemViewModel(StationOrderItem item, bool canMove)
+    /// <param name="artworkUrl">The cover, already resolved against the station; null for a segment, or a record without one.</param>
+    public OrderItemViewModel(StationOrderItem item, bool canMove, Uri? artworkUrl = null)
     {
         ArgumentNullException.ThrowIfNull(item);
 
@@ -18,6 +19,7 @@ public sealed partial class OrderItemViewModel : ObservableObject
         IsSegment = item.Kind == StationOrderItemKind.Segment;
         State = item.State;
         CanMove = canMove;
+        ArtworkUrl = artworkUrl;
 
         // A record can be put back where it was; a segment is marked removed and cannot. So undo is
         // offered for one and not the other, which is the station's rule rather than a choice here.
@@ -40,6 +42,12 @@ public sealed partial class OrderItemViewModel : ObservableObject
     public string Length { get; }
 
     public bool IsSegment { get; }
+
+    /// <summary>The row's cover, where the state dot used to be.</summary>
+    public Uri? ArtworkUrl { get; }
+
+    /// <summary>What the cover's place shows without one: a segment's, or a record's still loading.</summary>
+    public string Initial => Title.Length == 0 ? "?" : char.ToUpperInvariant(Title[0]).ToString(CultureInfo.InvariantCulture);
 
     public StationItemState State { get; }
 

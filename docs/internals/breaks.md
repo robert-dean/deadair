@@ -356,6 +356,16 @@ roster — with one merged page it is what stops a single category taking all of
 roster it would be fighting the order the operator wrote. A briefed bulletin cuts to its category
 first and takes turns among what is left.
 
+**A roster is asked four feeds at a time, from the top, and asking stops once the answer is settled.**
+It was every feed at once, and a station with forty-three on its roster had bulletins come back empty
+from feeds that answer in under a second one at a time: each call also reads story pages, and the RSS
+plugin's pages share one bucket at one a second, so forty-three calls at once queued a hundred and
+seventy pages behind eight-second deadlines with the feeds actually being read out given no priority.
+Stopping early is exact, and taking turns is why: the first round takes one story from each feed in
+order, so once an unbroken run from the top of the roster has as many feeds with something unread as
+the bulletin wants, nothing further down can take a place. `inRosterOrder` asks `enough` about that run
+and never about whichever feed happened to answer first.
+
 **A bulletin does not read a story twice, and what it is not shown is as deliberate as what it is.**
 `BulletinSource` took the top `rotation.newsStoriesMin`–`Max` off a newest-first feed with nothing remembering
 the last bulletin, so on a feed that had not moved the same three stories went out in twenty-seven consecutive

@@ -1,7 +1,7 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
-import { truncateSentences } from '@deadair/plugin-sdk';
+import { truncateSentences, type NewsItem } from '@deadair/plugin-sdk';
 import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
 import { categoriesOf, newsTopicRules, type NewsTopicRules } from '#modules/news/news.classify.js';
 import { NewsService } from '#modules/news/news.service.js';
@@ -329,6 +329,18 @@ export class BulletinSource {
             const limit = wanted * OVERSAMPLE;
             const since = new Date(now - windowMs).toISOString();
 
+            // Before the filter, and before the fetch now that the fetch consults it, so a story that
+            // has aged past the window is sayable again even on a station whose every recent
+            // bulletin declined. See `ReadLog.forget`.
+            this.read.forget(now - windowMs);
+
+            const offer = (page: readonly NewsItem[]): BreakStory[] => page.flatMap(item => toStory(item, rules, declared.get(item.feedId)) ?? []);
+            const eligibleIn = (page: readonly BreakStory[]): BreakStory[] => {
+                const unread = page.filter(story => !this.read.has(story.headline));
+                // Cut to what this bulletin is about, when it was asked for one.
+                return asked === undefined ? unread : unread.filter(story => (story.categories ?? []).includes(asked.key));
+            };
+
             // A roster is asked feed by feed and kept feed by feed, which is what makes the station's
             // order mean anything: `NewsService` merges newest first, so a publisher posting twenty
             // times a day took every slot from one posting three times whatever order they were
@@ -336,25 +348,24 @@ export class BulletinSource {
             // a loud one, and its own share of the article budget the plugin spends. A feed the
             // station no longer offers answers nothing and drops out, which `NewsService` logs by
             // name.
+            //
+            // In the roster's order and a few at a time, and it stops once the answer is settled.
+            // See `inRosterOrder`.
             const pages =
                 roster.length === 0
                     ? [await this.news.fetchItems({ limit, since })]
-                    : await Promise.all(roster.map(async feedId => await this.news.fetchItems({ feedId, limit, since })));
-
-            // Before the filter, so a story that has aged past the window is sayable again even on a
-            // station whose every recent bulletin declined. See `ReadLog.forget`.
-            this.read.forget(now - windowMs);
+                    : await inRosterOrder(
+                          roster,
+                          async feedId => await this.news.fetchItems({ feedId, limit, since }),
+                          read => read.filter(page => eligibleIn(offer(page)).length > 0).length >= wanted,
+                      );
 
             // Each feed's page carried the whole way down, so the round below has something to take
             // turns over. Flattened only where a COUNT is wanted.
-            const offeredBy = pages.map(page => page.flatMap(item => toStory(item, rules, declared.get(item.feedId)) ?? []));
+            const offeredBy = pages.map(offer);
             const offered = offeredBy.flat();
 
-            const eligibleBy = offeredBy.map(page => {
-                const unread = page.filter(story => !this.read.has(story.headline));
-                // Cut to what this bulletin is about, when it was asked for one.
-                return asked === undefined ? unread : unread.filter(story => (story.categories ?? []).includes(asked.key));
-            });
+            const eligibleBy = offeredBy.map(eligibleIn);
             const unread = offeredBy.flat().filter(story => !this.read.has(story.headline));
 
             // Two ways of ordering one page, and which applies is decided by whether the operator
@@ -494,6 +505,62 @@ function subjectOf(context: BreakContext | undefined, rules: readonly NewsTopicR
 
     const held = rules.find(rule => rule.key === key && !rule.offAir);
     return held === undefined ? undefined : { key: held.key, label: held.label };
+}
+
+/**
+ * Feeds a roster bulletin asks at once.
+ *
+ * It asked every feed on the roster at once, and a reported station with forty-three on it had
+ * bulletins come back empty from feeds that answer in under a second one at a time. Every one of
+ * those calls reads its feed and then up to four story pages, and the pages share one bucket at one
+ * a second across every publisher (`ARTICLE_RATE_PER_SECOND` in the RSS plugin): forty-three calls
+ * at once is a queue of a hundred and seventy pages behind eight-second deadlines, in no particular
+ * order, so the feeds whose stories were actually read out had no better claim on it than the
+ * fortieth. Four is the figure that station settled on.
+ */
+const ROSTER_CONCURRENCY = 4;
+
+/**
+ * Each feed on the roster read, in order, no more than {@link ROSTER_CONCURRENCY} at a time, until
+ * `enough` says the feeds read so far have settled the bulletin.
+ *
+ * Stopping early is exact rather than a shortcut, and `inTurn` is why: its first round takes one
+ * story from each feed in the station's order, so once an unbroken run of feeds from the top of the
+ * roster has as many feeds with something to say as the bulletin wants, nothing further down can
+ * take a place. A station with forty feeds and a bulletin of four stories reads about four of them,
+ * rather than forty to throw thirty-six away.
+ *
+ * `enough` is only asked about that unbroken run from the top, never about whatever happened to
+ * answer first, because a feed further down finishing early says nothing about the ones above it.
+ * Feeds already in flight when it says yes are waited for and kept; they come after the run, so
+ * they cannot change what is taken.
+ */
+async function inRosterOrder<T>(
+    roster: readonly string[],
+    read: (feedId: string) => Promise<T>,
+    enough: (pages: readonly T[]) => boolean,
+): Promise<T[]> {
+    const pages: T[] = [];
+    const done: boolean[] = [];
+    let next = 0;
+
+    const fromTheTop = (): T[] => {
+        const run: T[] = [];
+        for (let index = 0; index < next && done[index] === true; index += 1) run.push(pages[index] as T);
+        return run;
+    };
+
+    const worker = async (): Promise<void> => {
+        while (next < roster.length && !enough(fromTheTop())) {
+            const index = next;
+            next += 1;
+            pages[index] = await read(roster[index] as string);
+            done[index] = true;
+        }
+    };
+
+    await Promise.all(Array.from({ length: Math.min(ROSTER_CONCURRENCY, roster.length) }, worker));
+    return pages.slice(0, next);
 }
 
 /**

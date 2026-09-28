@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { PluginError } from '@deadair/plugin-sdk';
 import { createFakePluginHost, type FakePluginHost } from '@deadair/plugin-sdk/testing';
 
 import { RssPlugin } from '../src/rss.plugin.js';
@@ -38,7 +39,15 @@ beforeEach(() => {
 
 describe('manifest', () => {
     it('declares one allowlist entry, resolved from the list the operator wrote', () => {
-        expect(rssManifest.permissions.network).toEqual([{ fromConfig: 'feeds', ratePerSecond: 1, bucket: 'rss' }]);
+        expect(rssManifest.permissions.network).toEqual([{ fromConfig: 'feeds', ratePerSecond: 1 }]);
+    });
+
+    // With no bucket the host paces each hostname on its own. One shared bucket had a sixty-feed
+    // list queueing behind itself at one a second, inside an eight-second call.
+    it('paces each publisher separately rather than the whole list as one', () => {
+        const [feeds] = rssManifest.permissions.network ?? [];
+
+        expect(feeds).not.toHaveProperty('bucket');
     });
 
     // The stories are on the publisher's site and the feed is on the publisher's feed host, so the
@@ -49,8 +58,9 @@ describe('manifest', () => {
 
         expect(asked?.capability).toBe('network.open');
         expect(asked?.reason.length).toBeGreaterThan(20);
-        // Paced as the feeds are: one bucket for this plugin's whole outbound rate.
-        expect(asked).toMatchObject({ ratePerSecond: 1, bucket: 'rss' });
+        // One bucket for every story page, and not the feeds' one: a page is the optional half, and
+        // it must not hold up the feed a bulletin cannot do without.
+        expect(asked).toMatchObject({ ratePerSecond: 1, bucket: 'rss.articles' });
     });
 
     it('asks for no storage, because a feed belongs to whoever published it', () => {
@@ -247,6 +257,88 @@ describe('testConnection', () => {
         await initialize({ feeds: feedRows() });
 
         await expect(plugin.testConnection()).resolves.toMatchObject({ ok: false });
+    });
+
+    /** `count` feeds at `count` publishers, named `f1` onwards. */
+    const manyFeeds = (count: number): string =>
+        feedRows(...Array.from({ length: count }, (_, index) => ({ name: `F${index + 1}`, url: `https://f${index + 1}.example.com/rss.xml` })));
+
+    const answering = (xml: string) => async (): Promise<Response> => new Response(xml, { headers: { 'content-type': 'application/rss+xml' } });
+
+    // Reported from a station with sixty-one feeds: the test read four and called the rest
+    // unreachable, and every one of them was fine. A feed the test never got to is not a failure.
+    it('names the feeds it ran out of time for apart from the ones that failed', async () => {
+        await initialize({ feeds: manyFeeds(3) });
+        host.setFetchImpl(async url => {
+            if (url.includes('f2.')) throw new PluginError('fetch to "f2.example.com" failed: timed out after 5000ms').withCode('timeout');
+            if (url.includes('f3.')) throw new PluginError('fetch to "f3.example.com" failed: 404').withCode('upstream');
+            return answering(feedXml({ title: 'Story', guid: 'g1' }))();
+        });
+
+        const result = await plugin.testConnection();
+
+        expect(result.ok).toBe(true);
+        expect(result.message).toContain('1 of 3 feeds read.');
+        expect(result.message).toContain('Nothing came back from: f3.');
+        expect(result.message).toContain('The test ran out of time before hearing from: f2.');
+    });
+
+    it('starts no feed it could not finish, and says the test ran out rather than that they failed', async () => {
+        await initialize({ feeds: manyFeeds(2) });
+        host.seedRemainingMs(1_000);
+
+        const result = await plugin.testConnection();
+
+        expect(result).toMatchObject({ ok: false, message: expect.stringContaining('ran out of time before hearing from: f1, f2') });
+        expect(result.message).not.toContain('Nothing came back');
+        expect(host.calls).toHaveLength(0);
+    });
+
+    it('cuts each read to the time the test has left, so it answers before it is cut off', async () => {
+        await initialize({ feeds: manyFeeds(1), fetchArticles: false });
+        host.seedRemainingMs(3_000);
+        const asked: (number | undefined)[] = [];
+        host.setFetchImpl(async (_url, init) => {
+            asked.push(init?.timeoutMs);
+            return answering(feedXml({ title: 'Story', guid: 'g1' }))();
+        });
+
+        await plugin.testConnection();
+
+        expect(asked).toEqual([2_500]);
+    });
+
+    it('reads several feeds at once, and never more than a handful', async () => {
+        await initialize({ feeds: manyFeeds(20), fetchArticles: false });
+        let inFlight = 0;
+        let most = 0;
+        host.setFetchImpl(async () => {
+            inFlight += 1;
+            most = Math.max(most, inFlight);
+            await new Promise(resolve => setTimeout(resolve, 1));
+            inFlight -= 1;
+            return answering(feedXml({ title: 'Story', guid: 'g1' }))();
+        });
+
+        await expect(plugin.testConnection()).resolves.toMatchObject({ ok: true, message: expect.stringContaining('20 feeds read.') });
+        expect(most).toBeGreaterThan(1);
+        expect(most).toBeLessThanOrEqual(6);
+    });
+
+    // Tried with no time left the page would fail, and the message for a failed page sends the
+    // operator off to allow a permission they may already have allowed.
+    it('says the stories went unchecked when the feeds took the whole test', async () => {
+        await initialize();
+        host.seedRemainingMs(2_600);
+        host.setFetchImpl(async () =>
+            answering(`<?xml version="1.0"?><rss version="2.0"><channel><title>Example</title>
+<item><title>Story</title><guid>g1</guid><link>https://one.example.com/a</link></item></channel></rss>`)(),
+        );
+
+        const result = await plugin.testConnection();
+
+        expect(result.message).toContain('the stories were not checked');
+        expect(host.calls.map(call => call.url)).toEqual(['https://one.example.com/rss.xml']);
     });
 });
 

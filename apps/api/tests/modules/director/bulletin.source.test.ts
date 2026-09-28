@@ -784,4 +784,84 @@ describe("reading the station's feeds in turn", () => {
 
         expect(bulletin?.stories.map(story => story.headline)).toEqual(['Semiconductor plant opens.']);
     });
+
+    /**
+     * Reported from a station with forty-three feeds on its roster: asking every one at once had
+     * bulletins come back empty from feeds that answer in under a second one at a time, because each
+     * call also reads story pages and every page in the plugin queues on one bucket.
+     */
+    describe('a long roster', () => {
+        const feeds = (count: number): string[] => Array.from({ length: count }, (_, index) => `deadair.rss:feed${index + 1}`);
+        const later = async (ms: number): Promise<void> => await new Promise(resolve => setTimeout(resolve, ms));
+
+        it('asks a few feeds at a time rather than all of them at once', async () => {
+            const ids = feeds(12);
+            // Nothing until the last feed, so every feed has to be asked.
+            const byFeed = Object.fromEntries(ids.map((id, index) => [id, index === 11 ? page(id, 'At last') : []]));
+            const { source, fetchItems } = build({ byFeed }, roster(...ids));
+            let inFlight = 0;
+            let most = 0;
+            fetchItems.mockImplementation(async query => {
+                inFlight += 1;
+                most = Math.max(most, inFlight);
+                await later(1);
+                inFlight -= 1;
+                return byFeed[query.feedId ?? ''] ?? [];
+            });
+
+            const bulletin = await source.storiesFor(NEWS_KIND, undefined, NOW);
+
+            expect(fetchItems).toHaveBeenCalledTimes(12);
+            expect(most).toBeGreaterThan(1);
+            expect(most).toBeLessThanOrEqual(4);
+            expect(bulletin?.stories.map(story => story.headline)).toEqual(['At last.']);
+        });
+
+        // Taking turns means the first round is one story from each feed in order, so once enough
+        // feeds from the top have something, nothing further down can take a place.
+        it('stops asking once the feeds at the top have settled the bulletin', async () => {
+            const ids = feeds(20);
+            const byFeed = Object.fromEntries(ids.map((id, index) => [id, page(id, `Story ${index + 1}`)]));
+            const { source, fetchItems } = build({ byFeed }, roster(...ids));
+
+            const bulletin = await source.storiesFor(NEWS_KIND, undefined, NOW);
+
+            expect(bulletin?.stories.map(story => story.headline)).toEqual(['Story 1.', 'Story 2.', 'Story 3.']);
+            expect(fetchItems.mock.calls.length).toBeLessThan(ids.length);
+            expect(fetchItems.mock.calls.map(call => call[0].feedId)).toEqual(ids.slice(0, fetchItems.mock.calls.length));
+        });
+
+        it('keeps asking past feeds with nothing the station has not already said', async () => {
+            const ids = feeds(8);
+            const read = new ReadLog();
+            read.keep(['Old one', 'Old two', 'Old three'], NOW);
+            const byFeed = Object.fromEntries(
+                ids.map((id, index) => [
+                    id,
+                    index < 3 ? page(id, ['Old one', 'Old two', 'Old three'][index] as string) : page(id, `New ${index + 1}`),
+                ]),
+            );
+            const { source } = build({ byFeed, read }, roster(...ids));
+
+            const bulletin = await source.storiesFor(NEWS_KIND, undefined, NOW);
+
+            expect(bulletin?.stories.map(story => story.headline)).toEqual(['New 4.', 'New 5.', 'New 6.']);
+        });
+
+        // A feed further down answering first says nothing about the ones above it, so it cannot be
+        // what ends the asking or what takes the first place.
+        it('does not let a quick feed further down jump the one above it', async () => {
+            const ids = feeds(6);
+            const byFeed = Object.fromEntries(ids.map((id, index) => [id, page(id, `Story ${index + 1}`)]));
+            const { source, fetchItems } = build({ byFeed }, roster(...ids));
+            fetchItems.mockImplementation(async query => {
+                if (query.feedId === ids[0]) await later(5);
+                return byFeed[query.feedId ?? ''] ?? [];
+            });
+
+            const bulletin = await source.storiesFor(NEWS_KIND, undefined, NOW);
+
+            expect(bulletin?.stories.map(story => story.headline)).toEqual(['Story 1.', 'Story 2.', 'Story 3.']);
+        });
+    });
 });

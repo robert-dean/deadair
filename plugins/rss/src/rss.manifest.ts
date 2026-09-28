@@ -2,7 +2,7 @@ import { type PluginManifest } from '@deadair/plugin-sdk';
 import { z } from 'zod';
 
 export const PLUGIN_ID = 'deadair.rss';
-export const PLUGIN_VERSION = '0.0.1';
+export const PLUGIN_VERSION = '0.1.0';
 
 /**
  * Per-request budget.

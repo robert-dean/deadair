@@ -8,6 +8,14 @@ changes are in the [root changelog](../../CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.3.0] — 2026-09-28
+
+- An operator has Shuffle and Skip either side of the play button in the bar at the bottom, as the Android app does, so both are a click away from every page rather than only the desk.
+- The running order shows each record's cover where the coloured dot was, and the station's note about why it is quiet wraps inside its card rather than running off the edge. The desk no longer has its own Skip, Stop, Start, Shuffle and Extend now buttons: Shuffle and Skip are beside the play button in the bar, and stopping or starting the station is done from the web console.
+- The app takes the shape of a web music player. The sidebar, the page and a new Now playing panel are rounded panels on a black window. The page is washed in the colours of the record on air. The player bar centres its controls above the playhead. The Now playing panel shows the cover large, then what is coming up (for the operator) or what just played. It can be put away from the bar, and it steps aside on its own when the window is narrow. Covers stay square, and the station's green stays.
+- A first run opens on a welcome with the station's mark and a Find your station button, as the Android app does. The address is checked before anything is kept: once the station answers, the button names it (Listen to your station's name), and I run this station: sign in keeps it and asks for the operator's sign-in on the next step, where Not now, just listen leaves you listening. Sign in in the sidebar now opens that same full-window page rather than a small panel.
+- The record on air shows again. A new record is held back a few seconds so its title does not run ahead of the audio, and every poll of the station restarted that wait, so on a station that kept answering the record was never shown at all.
+
 ## [0.2.4] — 2026-09-22
 
 - Settings keeps opening against a station that has split Rotation into Rotation, Breaks and Bulletins,
@@ -50,7 +58,8 @@ changes are in the [root changelog](../../CHANGELOG.md).
   address on first run. Listening needs no account; the desk appears when you sign in as the
   operator.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.2.4...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.3.0...HEAD
+[0.3.0]: https://github.com/robert-dean/deadair/compare/desktop-v0.2.4...desktop-v0.3.0
 [0.2.4]: https://github.com/robert-dean/deadair/compare/desktop-v0.2.3...desktop-v0.2.4
 [0.2.3]: https://github.com/robert-dean/deadair/compare/desktop-v0.2.2...desktop-v0.2.3
 [0.2.2]: https://github.com/robert-dean/deadair/compare/desktop-v0.2.1...desktop-v0.2.2

@@ -9,6 +9,12 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.36.1] — 2026-09-28
+
+- A bulletin with a feed list asks four feeds at a time, working down from the top of the list, and stops asking once it has the stories it needs. It used to ask every listed feed at once. With a long list, bulletins could come back with nothing because the requests were queued behind each other, even though every feed was answering. The stories chosen are the same as before.
+- Pace RSS feeds per publisher rather than as one queue. Every feed and story page shared one bucket at one request a second, so a long feed list could not be read inside a single eight-second call: the connection test reported most feeds as unreachable and bulletins timed out on feeds that were answering fine. Each publisher is now paced on its own, and story pages have a bucket of their own.
+- The RSS connection test reads several feeds at once and stops starting new ones when its time runs short. A feed it had no time for is named as "ran out of time before hearing from" instead of being listed as a feed that returned nothing. If the feeds use up the whole test, it says the stories were not checked, instead of telling you to allow a permission you may already have allowed.
+
 ## [0.36.0] — 2026-09-26
 
 - The On air, Up next and After that cards on the Programme page each have an edit button that opens that block's slot, so you can change a show from where you read it without finding it on the Timetable first.
@@ -945,7 +951,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.36.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.36.1...HEAD
+[0.36.1]: https://github.com/robert-dean/deadair/compare/v0.36.0...v0.36.1
 [0.36.0]: https://github.com/robert-dean/deadair/compare/v0.35.4...v0.36.0
 [0.35.4]: https://github.com/robert-dean/deadair/compare/v0.35.3...v0.35.4
 [0.35.3]: https://github.com/robert-dean/deadair/compare/v0.35.2...v0.35.3

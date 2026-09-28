@@ -6,14 +6,15 @@
     x:Class="MaroonedSoftware.Deadair.Desktop.Views.LoginView"
     x:DataType="vm:LoginViewModel">
 
-    <StackPanel Spacing="10" Margin="16">
+    <!-- No heading and no margin of its own: the setup screen's sign-in step holds it, and that step
+         names the station in its heading and owns the column's edges. -->
+    <StackPanel Spacing="10">
 
-        <TextBlock Classes="h3" Text="Sign in as the operator" />
         <TextBlock Classes="dimmed" TextWrapping="Wrap"
                    Text="Listening needs no account. This is for the desk." />
 
         <StackPanel Spacing="8" IsVisible="{Binding !NeedsCode}">
-            <TextBox Text="{Binding Email}" PlaceholderText="you@example.com" IsEnabled="{Binding !Busy}" />
+            <TextBox x:Name="EmailBox" Text="{Binding Email}" PlaceholderText="you@example.com" IsEnabled="{Binding !Busy}" />
             <!--
                 The reveal is here because a password almost never gets TYPED into this box. No
                 password manager can fill it: the app exposes no text field to the accessibility
@@ -40,7 +41,7 @@
         <StackPanel Spacing="8" IsVisible="{Binding NeedsCode}">
             <TextBlock Text="Enter the code from your authenticator." FontSize="12" TextWrapping="Wrap"
                        Foreground="{DynamicResource DaTextSecondaryBrush}" />
-            <TextBox Text="{Binding Code}" PlaceholderText="000000" FontFamily="{DynamicResource DaFontMono}"
+            <TextBox x:Name="NeedsCodeBox" Text="{Binding Code}" PlaceholderText="000000" FontFamily="{DynamicResource DaFontMono}"
                      MaxLength="6" IsEnabled="{Binding !Busy}" />
         </StackPanel>
 

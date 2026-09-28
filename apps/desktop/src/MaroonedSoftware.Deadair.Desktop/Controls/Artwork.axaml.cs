@@ -24,7 +24,15 @@ public partial class Artwork : UserControl
     public static readonly StyledProperty<double> SizeProperty =
         AvaloniaProperty.Register<Artwork, double>(nameof(Size), 36);
 
-    public Artwork() => InitializeComponent();
+    public Artwork()
+    {
+        InitializeComponent();
+
+        // The default size applied here, because a property set to its default raises no change:
+        // `Size="36"`, which is what every list asks for, left the frame unsized and the row squashed
+        // it into a box as wide as it should be and half as tall.
+        ApplySize();
+    }
 
     /// <summary>Where the cover is, already resolved against the station.</summary>
     public Uri? Source
@@ -52,8 +60,7 @@ public partial class Artwork : UserControl
 
         if (change.Property == SizeProperty)
         {
-            Frame.Width = Frame.Height = Size;
-            Letter.FontSize = Math.Round(Size * 0.42);
+            ApplySize();
         }
         else if (change.Property == InitialProperty)
         {
@@ -64,6 +71,12 @@ public partial class Artwork : UserControl
             Cover.Source = null;
             _ = LoadAsync(Source);
         }
+    }
+
+    private void ApplySize()
+    {
+        Frame.Width = Frame.Height = Size;
+        Letter.FontSize = Math.Round(Size * 0.42);
     }
 
     private async Task LoadAsync(Uri? url)

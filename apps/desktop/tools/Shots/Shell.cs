@@ -92,12 +92,28 @@ internal static class Fakes
         return shell;
     }
 
+    /// <summary>
+    /// The desk while the station is loaded and waiting for its audience, with the sentence it gives,
+    /// which is long enough to need wrapping in the card.
+    /// </summary>
+    public static void Quiet(ShellViewModel shell)
+    {
+        shell.Transport.ShowSilence = true;
+        shell.Transport.SilenceTone = StatusTone.Standby;
+        shell.Transport.Silence = "The station is loaded and the stream is up. It goes on air when the first listener arrives.";
+        shell.Transport.Remedy = "Press play here, or open the stream anywhere else.";
+    }
+
     /// <summary>What is on air, posed. Every one of these has a public setter for exactly this.</summary>
     public static void PutOnAir(ListenerViewModel listener)
     {
         listener.StationName = "Deadair";
         listener.Title = "Alive";
         listener.Artist = "Pearl Jam";
+
+        // A cover's colours as the sampler would give them, so the page's wash is in frame: a shot
+        // has no cover to sample, and without these every frame drew the page with none.
+        listener.CoverPalette = [0xFF1C2A3A, 0xFFB8452B, 0xFFE9D8B8];
         listener.Album = "Ten, 1991";
         listener.OnAir = true;
         listener.Listeners = 12;
@@ -425,6 +441,9 @@ internal static class Fakes
             configured: true);
 
     public static HttpClient Http() => new(new Refuses());
+
+    /// <summary>A settings store that keeps nothing, for a frame that builds its own view model.</summary>
+    public static ISettingsStore Settings() => new MemorySettings();
 
     private sealed class Refuses : HttpMessageHandler
     {

@@ -1,0 +1,81 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    xmlns:views="using:MaroonedSoftware.Deadair.Desktop.Views"
+    xmlns:chrome="using:Avalonia.Controls.Chrome"
+    xmlns:controls="using:MaroonedSoftware.Deadair.Desktop.Controls"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.ShellView"
+    x:DataType="vm:ShellViewModel">
+
+    <!--
+        Everything in the window but the setup screen, as one control.
+
+        Its own control so that the screenshot tool (tools/Shots) renders THIS rather than a copy of
+        it: a Window cannot be the content of another window, so the tool used to rebuild the layout
+        by hand, and a copy is a thing that goes out of step the first time the layout moves.
+    -->
+    <UserControl.Styles>
+        <!-- Below this the page would be narrower than the panel beside it. -->
+        <ContainerQuery Name="Shell" Query="max-width:1060">
+            <Style Selector="Border.nowplaying">
+                <Setter Property="IsVisible" Value="False" />
+            </Style>
+        </ContainerQuery>
+    </UserControl.Styles>
+
+    <!-- The shell: a title row, then the sidebar, the page and Now playing as rounded panels with
+         the window showing between them, then the bar on the window itself. -->
+    <Grid RowDefinitions="38,*,Auto">
+
+        <!-- The window's client area runs under the title bar, so this row is where the traffic
+             lights sit and is the region the window is dragged by. 80px of padding is the room
+             they need; `WindowDecorationMargin` could say so exactly, but it reads as zero in a
+             headless render and the layout must not differ between what is drawn and what is
+             looked at. The wordmark sits here rather than in the sidebar, which is now a panel
+             below the row rather than the thing the row belongs to. -->
+        <Border Padding="80,0,12,0" chrome:WindowDecorationProperties.ElementRole="TitleBar"
+                Background="{DynamicResource DaBgBrush}">
+            <TextBlock Text="deadair" FontSize="15" FontWeight="Bold" LetterSpacing="1.4"
+                       VerticalAlignment="Center"
+                       Foreground="{DynamicResource DaAccentBrush}" />
+        </Border>
+
+        <!-- Docked rather than a grid, so a panel that is put away takes its gap with it: a grid's
+             column spacing stays whether or not the column has anything in it. A container, so the
+             Now playing panel stands down on its own below 1060 (see the query above) and the page
+             keeps enough room to be a page; that hides it without touching what was chosen. -->
+        <DockPanel Grid.Row="1" Margin="8,0,8,0" Container.Name="Shell" Container.Sizing="Width">
+            <!-- Given the shell rather than the navigation: the sidebar draws the account too, and a
+                 control that needs two view models is better handed the one that owns both than made
+                 to hop back up through the window for the second. -->
+            <Border DockPanel.Dock="Left" Classes="panel" Width="220" Margin="0,0,8,0">
+                <views:Sidebar DataContext="{Binding}" />
+            </Border>
+
+            <Panel DockPanel.Dock="Right" IsVisible="{Binding ShowNowPlaying}">
+                <Border Classes="panel nowplaying" Width="320" Margin="8,0,0,0">
+                    <views:NowPlayingPanel />
+                </Border>
+            </Panel>
+
+            <!-- The pages, one at a time. Each is built once and keeps its own DataContext, so
+                 nothing inside a page has to reach the window to find its own view model. -->
+            <!-- Under the page, the on-air cover's colour washed down its top (CoverWash), as a web
+                 player heads its pages. Behind every page rather than the desk alone, so moving
+                 between pages keeps the record's colour on screen. -->
+            <Border Classes="panel">
+                <Panel>
+                    <controls:CoverWash VerticalAlignment="Top" Height="320"
+                                        Palette="{Binding Listener.CoverPalette}" />
+                    <views:PageHost x:Name="Pages" Shell="{Binding}" />
+                </Panel>
+            </Border>
+        </DockPanel>
+
+        <!-- On every page, because what is playing is not a page. On the window rather than in
+             a panel of its own, as a player's bar is. -->
+        <views:PlayerBar Grid.Row="2" DataContext="{Binding Listener}" />
+    </Grid>
+
+</UserControl>

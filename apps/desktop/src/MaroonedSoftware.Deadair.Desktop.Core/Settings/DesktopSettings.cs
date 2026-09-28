@@ -106,6 +106,14 @@ public sealed record DesktopSettings
     [JsonPropertyName("checkForUpdates")]
     public bool CheckForUpdates { get; init; } = true;
 
+    /// <summary>Whether the Now playing panel is open beside the page.</summary>
+    /// <remarks>
+    /// On by default, and an absent key reads as on. The window hides the panel anyway when it is too
+    /// narrow to spare the room, without touching this: it is what somebody chose, not what fits.
+    /// </remarks>
+    [JsonPropertyName("nowPlayingPanel")]
+    public bool NowPlayingPanel { get; init; } = true;
+
     /// <summary>Where the window was left. Absent means the default frame, centred.</summary>
     /// <remarks>
     /// Written by the app as the window moves, not chosen by anybody, so it is the one key here

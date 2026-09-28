@@ -2,15 +2,40 @@
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    xmlns:views="using:MaroonedSoftware.Deadair.Desktop.Views"
     x:Class="MaroonedSoftware.Deadair.Desktop.Views.SetupView"
     x:DataType="vm:SetupViewModel">
 
-    <Border Padding="48">
+    <!-- The app's boxes are 28 units for the pages that are dense with them. Here they sit alone in a
+         column beside buttons 38 tall, where 28 read as undersized, so on this screen they match the
+         buttons. The sign-in form inherits it. -->
+    <UserControl.Styles>
+        <Style Selector="TextBox">
+            <Setter Property="MinHeight" Value="38" />
+            <Setter Property="Padding" Value="12,9" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+    </UserControl.Styles>
+
+    <!-- Escape does what the back arrow does, and only where the arrow is offered: to the welcome
+         from the address on a first run, and off the screen from signing in. With a station to go
+         back to, leaving the address means keeping it, which is a button of its own. -->
+    <UserControl.KeyBindings>
+        <KeyBinding Gesture="Escape" Command="{Binding BackCommand}" />
+    </UserControl.KeyBindings>
+
+    <Panel>
+
+    <!-- The welcome, the Android app's first step. The mark, the name and one thing to do: an address
+         box is a strange first thing to meet in an app somebody has just installed to listen to the
+         radio. Android fades the name and button in around a mark the splash handed over; there is no
+         splash here to hand over from, so nothing is animated. -->
+    <Border Padding="48" IsVisible="{Binding Welcoming}">
         <StackPanel MaxWidth="420" Spacing="18" VerticalAlignment="Center" HorizontalAlignment="Center">
 
             <!-- The mark, at half its pixel size so it is crisp on a Retina display. This is the one
                  screen with room for it: the sidebar's strip tried it and took it out (see
-                 apps/desktop/CLAUDE.md), and here it is the only thing above the fold on a first run. -->
+                 apps/desktop/CLAUDE.md), and here it is the only thing on screen on a first run. -->
             <Image
                 Source="avares://deadair/Assets/logo-mark.png"
                 Width="96"
@@ -26,8 +51,53 @@
                 HorizontalAlignment="Center"
                 Foreground="{DynamicResource DaAccentBrush}" />
 
+            <!-- The default button here as Check and Listen are on the other half, so Enter moves on. Only one
+                 of the two is ever effectively visible, which is what Avalonia 12 asks of a default. -->
+            <Button
+                Classes="primary"
+                Content="Find your station"
+                IsDefault="True"
+                Command="{Binding StartCommand}"
+                Width="280"
+                Margin="0,22,0,0"
+                HorizontalAlignment="Center"
+                HorizontalContentAlignment="Center"
+                Padding="0,10" />
+
+            <!-- Here as well as under the address: a file that could not be read is often why a
+                 station somebody already chose is being asked for again. -->
             <TextBlock
-                Text="The address of your station. Something like radio.example.com."
+                Text="{Binding SettingsProblem}"
+                IsVisible="{Binding SettingsProblem, Converter={x:Static ObjectConverters.IsNotNull}}"
+                TextWrapping="Wrap"
+                Foreground="{DynamicResource DaToneFaultBrush}" />
+
+        </StackPanel>
+    </Border>
+
+    <!-- The address. -->
+    <Border Padding="48" IsVisible="{Binding Finding}">
+        <StackPanel MaxWidth="420" Spacing="18" VerticalAlignment="Center" HorizontalAlignment="Center">
+
+            <!-- Back to the welcome on a first run. Not offered over a station still attached, where
+                 there is no welcome to go back to and Keep the station I have is the way out. -->
+            <Button
+                Classes="icon"
+                ToolTip.Tip="Back"
+                Command="{Binding BackCommand}"
+                IsVisible="{Binding CanGoBack}"
+                Margin="-8,0,0,0"
+                HorizontalAlignment="Left">
+                <PathIcon Data="{DynamicResource DaIconChevronRight}" RenderTransform="scaleX(-1)" />
+            </Button>
+
+            <TextBlock
+                Text="Find your station"
+                FontSize="{DynamicResource DaFontSizeH1}"
+                FontWeight="SemiBold" />
+
+            <TextBlock
+                Text="The address your station's console loads from. The same one carries the stream."
                 TextWrapping="Wrap"
                 Foreground="{DynamicResource DaTextSecondaryBrush}" />
 
@@ -47,15 +117,41 @@
                 FontFamily="{DynamicResource DaFontMono}"
                 IsEnabled="{Binding !Busy}" />
 
-            <!-- The default button, so Enter in the address box connects, as it does in any Mac dialog.
+            <!-- The default button, so Enter in the address box checks, as it does in any Mac dialog.
                  Safe on a screen that is hidden most of the time: Avalonia 12 answers Enter only for a
                  default button that is EFFECTIVELY visible and enabled, and this one is neither once a
                  station is attached, nor while the box is empty or a probe is running. The box leaves
                  Enter unhandled because it does not accept returns, so it reaches the window. -->
             <Button
-                Content="Connect"
+                Content="Check"
                 IsDefault="True"
-                Command="{Binding ConnectCommand}"
+                Command="{Binding CheckCommand}"
+                IsVisible="{Binding !Confirmed}"
+                HorizontalAlignment="Stretch"
+                HorizontalContentAlignment="Center"
+                Padding="0,10" />
+
+            <!-- Once the address has answered, the button names the station, and Enter now listens:
+                 Check is hidden, so it is no longer the effective default. Typing again brings Check
+                 back, because what was checked is no longer what is in the box. -->
+            <Button
+                Classes="primary"
+                Content="{Binding ListenLabel}"
+                IsDefault="True"
+                Command="{Binding ListenCommand}"
+                IsVisible="{Binding Confirmed}"
+                HorizontalAlignment="Stretch"
+                HorizontalContentAlignment="Center"
+                Padding="0,10" />
+
+            <!-- Second, and quieter, because most people who get this far only want to listen. It keeps
+                 the station and moves on to signing in, so backing out of that leaves somebody
+                 listening rather than back at the address. -->
+            <Button
+                Classes="ghost"
+                Content="I run this station: sign in"
+                Command="{Binding ListenAndSignInCommand}"
+                IsVisible="{Binding Confirmed}"
                 HorizontalAlignment="Stretch"
                 HorizontalContentAlignment="Center"
                 Padding="0,10" />
@@ -91,5 +187,45 @@
 
         </StackPanel>
     </Border>
+
+    <!-- Signing in: the wizard's last step, and what the sidebar's Sign in opens over the app, so
+         there is one sign-in drawn one way. Its view model is the shell's, not this screen's, which
+         is why it is reached through the window. -->
+    <Border Padding="48" IsVisible="{Binding SigningIn}">
+        <StackPanel Width="420" Spacing="18" VerticalAlignment="Center" HorizontalAlignment="Center">
+
+            <Button
+                Classes="icon"
+                ToolTip.Tip="{Binding DeclineLabel}"
+                Command="{Binding BackCommand}"
+                Margin="-8,0,0,0"
+                HorizontalAlignment="Left">
+                <PathIcon Data="{DynamicResource DaIconChevronRight}" RenderTransform="scaleX(-1)" />
+            </Button>
+
+            <TextBlock
+                Text="{Binding SigningInTo, StringFormat='Sign in to {0}'}"
+                TextWrapping="Wrap"
+                FontSize="{DynamicResource DaFontSizeH1}"
+                FontWeight="SemiBold" />
+
+            <Panel IsEnabled="{Binding !Attaching}">
+                <views:LoginView
+                    x:Name="Login"
+                    DataContext="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Login}" />
+            </Panel>
+
+            <!-- Quiet, and saying what it leaves: the station is already kept, so declining costs
+                 nothing, and the sidebar's Sign in comes back here later. -->
+            <Button
+                Classes="ghost"
+                Content="{Binding DeclineLabel}"
+                Command="{Binding BackCommand}"
+                HorizontalAlignment="Center" />
+
+        </StackPanel>
+    </Border>
+
+    </Panel>
 
 </UserControl>

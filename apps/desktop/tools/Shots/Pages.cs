@@ -4,6 +4,7 @@ using MaroonedSoftware.Deadair.Desktop.Core.Auth;
 using MaroonedSoftware.Deadair.Desktop.Core.NowPlaying;
 using MaroonedSoftware.Deadair.Desktop.Core.Playback;
 using MaroonedSoftware.Deadair.Desktop.Core.Settings;
+using MaroonedSoftware.Deadair.Desktop.Core.Station;
 using MaroonedSoftware.Deadair.Desktop.Core.Text;
 using MaroonedSoftware.Deadair.Desktop.Core.Ui;
 using MaroonedSoftware.Deadair.Desktop.Core.Updates;
@@ -30,6 +31,10 @@ internal static class Pages
     {
         yield return ("shell-desk", Shell(operatorSignedIn: false), 1180, 720);
         yield return ("shell-desk-operator", Shell(operatorSignedIn: true), 1180, 720);
+
+        // The station's own account of why it is quiet, at its real length: the sentence ran off the
+        // card for as long as no frame drew one.
+        yield return ("shell-desk-quiet", Shell(operatorSignedIn: true, desk: Fakes.Quiet), 1180, 720);
         yield return ("shell-min", Shell(operatorSignedIn: true), 820, 520);
         yield return ("shell-desk-live", Shell(operatorSignedIn: false, Fakes.WithoutAPlayhead), 1180, 720);
         yield return ("shell-desk-warming-up", Shell(operatorSignedIn: false, Fakes.WarmingUp), 1180, 720);
@@ -48,6 +53,10 @@ internal static class Pages
         yield return ("player-bar", Bar(), 1180, 720);
         yield return ("player-bar-on-device", Bar(Fakes.OnASpeaker), 1180, 720);
 
+        // The operator's Shuffle and Skip beside the play button, at the window's 820 minimum (the bar is the window's full width),
+        // where the bar is already full and the two buttons are the most likely to crowd it.
+        yield return ("player-bar-operator", Bar(operatorSignedIn: true), 820, 120);
+
         // The minimum window with the longest speaker name, which is what decides whether the
         // caption beside the picker keeps its cap or loses it.
         yield return ("shell-min-on-device", Shell(operatorSignedIn: true, Fakes.OnASpeaker), 820, 520);
@@ -61,8 +70,11 @@ internal static class Pages
 
         // The first thing anybody sees, and the one frame with no shell behind it. The second has
         // the keyboard in the box, which is the only way to look at a focus ring.
+        yield return ("welcome", Welcome(), 1180, 720);
         yield return ("setup", Setup(focused: false), 1180, 720);
         yield return ("setup-focused", Setup(focused: true), 1180, 720);
+        yield return ("setup-answered", Answered(), 1180, 720);
+        yield return ("setup-sign-in", SignIn(), 1180, 720);
     }
 
     /// <summary>
@@ -73,7 +85,7 @@ internal static class Pages
     /// go wrong between three controls rather than inside one — a bar overflowing its column, a hero
     /// clipping beside the operator card.
     /// </remarks>
-    private static MainWindowContent Shell(bool operatorSignedIn, Action<ListenerViewModel>? pose = null)
+    private static MainWindowContent Shell(bool operatorSignedIn, Action<ListenerViewModel>? pose = null, Action<ShellViewModel>? desk = null)
     {
         var shell = Fakes.Shell(operatorSignedIn);
         Fakes.PutOnAir(shell.Listener);
@@ -82,6 +94,7 @@ internal static class Pages
         if (operatorSignedIn)
         {
             Fakes.PutTheDeskOnAir(shell);
+            desk?.Invoke(shell);
         }
 
         return new MainWindowContent { Shell = shell };
@@ -123,41 +136,83 @@ internal static class Pages
         };
     }
 
-    /// <summary>The sign-in panel at the width the sidebar's flyout gives it.</summary>
-    private static Border SignIn(bool revealed)
+    /// <summary>
+    /// The sign-in step as the sidebar's Sign in opens it, filled in, so the boxes are shown holding
+    /// what somebody actually pasted into them.
+    /// </summary>
+    private static SetupView SignIn(bool revealed)
     {
-        var login = Fakes.Shell(operatorSignedIn: false).Login;
-        login.Email = "operator@example.com";
+        var shell = Fakes.Shell(operatorSignedIn: false);
+        shell.Login.Email = "operator@example.com";
 
-        // A real one's length, so the box is shown holding what somebody actually pasted into it.
-        login.Password = "correct-horse-battery-staple";
+        // A real one's length.
+        shell.Login.Password = "correct-horse-battery-staple";
 
-        var view = new LoginView { DataContext = login };
+        var setup = new SetupViewModel(Fakes.Settings(), new StationProbe(new HttpClient(new AnswersAsAStation())));
+        setup.OpenSignIn("Deadair");
 
-        // After attach, not before. The panel deliberately turns the reveal off every time it is
-        // shown, so a pose set at construction is undone by the time the frame is captured — which
-        // is the tool proving the app's own rule rather than working around it.
+        var view = new SetupView { DataContext = setup, Tag = shell };
+
+        // After load, not before: arriving at the step turns the reveal off, so a pose set earlier is
+        // undone by the time the frame is captured, which is the tool proving the app's own rule.
         if (revealed)
         {
-            view.AttachedToVisualTree += (_, _) => view.Reveal(revealed: true);
+            view.Loaded += (_, _) => view.FindControl<LoginView>("Login")?.Reveal(revealed: true);
         }
 
-        return new Border
-        {
-            Width = 320,
-            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left,
-            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top,
-            Background = null,
-            Child = view,
-        };
+        return view;
     }
 
-    /// <summary>The setup screen as a first run shows it: an empty box and nowhere else to go.</summary>
+    /// <summary>What a first run opens on: the mark, the name and Find your station.</summary>
+    private static SetupView Welcome()
+    {
+        var setup = Fakes.Shell(operatorSignedIn: false).Setup;
+        setup.Address = string.Empty;
+        setup.CanCancel = false;
+        setup.Open(asking: false);
+        return new SetupView { DataContext = setup };
+    }
+
+    /// <summary>
+    /// The address half once a station has answered: Listen names it, and signing in is the quieter
+    /// second button. Checked against the fake station rather than set, so the frame is what Check does.
+    /// </summary>
+    private static SetupView Answered()
+    {
+        var setup = new SetupViewModel(Fakes.Settings(), new StationProbe(new HttpClient(new AnswersAsAStation())));
+        setup.CanCancel = false;
+        setup.Open(asking: false);
+        setup.StartCommand.Execute(null);
+        setup.Address = "radio.example.com";
+        setup.CheckCommand.ExecuteAsync(null).GetAwaiter().GetResult();
+        return new SetupView { DataContext = setup };
+    }
+
+    /// <summary>
+    /// The last step, from I run this station: sign in. The station has answered and been kept, so
+    /// this is the frame with the form and the way out without it.
+    /// </summary>
+    private static SetupView SignIn()
+    {
+        var shell = Fakes.Shell(operatorSignedIn: false);
+        var setup = new SetupViewModel(Fakes.Settings(), new StationProbe(new HttpClient(new AnswersAsAStation())));
+        setup.Open(asking: false);
+        setup.StartCommand.Execute(null);
+        setup.Address = "radio.example.com";
+        setup.CheckCommand.ExecuteAsync(null).GetAwaiter().GetResult();
+        setup.ListenAndSignInCommand.ExecuteAsync(null).GetAwaiter().GetResult();
+        setup.Attaching = false;
+        return new SetupView { DataContext = setup, Tag = shell };
+    }
+
+    /// <summary>The address half as a first run reaches it: an empty box, and back to the welcome.</summary>
     private static SetupView Setup(bool focused)
     {
         var setup = Fakes.Shell(operatorSignedIn: false).Setup;
         setup.Address = string.Empty;
         setup.CanCancel = false;
+        setup.Open(asking: false);
+        setup.StartCommand.Execute(null);
 
         var view = new SetupView { DataContext = setup };
 
@@ -193,12 +248,19 @@ internal static class Pages
         return new MainWindowContent { Shell = shell };
     }
 
-    private static PlayerBar Bar(Action<ListenerViewModel>? pose = null)
+    private static PlayerBar Bar(Action<ListenerViewModel>? pose = null, bool operatorSignedIn = false)
     {
-        var shell = Fakes.Shell(operatorSignedIn: false);
+        var shell = Fakes.Shell(operatorSignedIn);
         (pose ?? Fakes.PutOnAir)(shell.Listener);
 
-        return new PlayerBar { DataContext = shell.Listener };
+        if (operatorSignedIn)
+        {
+            shell.Transport.IsOperator = true;
+            shell.Transport.StreamUp = true;
+        }
+
+        // The shell on the window as well, because the operator's buttons reach it through there.
+        return new PlayerBar { DataContext = shell.Listener, Tag = shell };
     }
 
     /// <summary>
@@ -224,4 +286,17 @@ internal static class Pages
         };
     }
 
+
+    /// <summary>
+    /// A station that answers the probe and nothing else. Its own handler rather than the shell's,
+    /// which refuses everything on purpose: the one frame that has to show a station that DID answer.
+    /// </summary>
+    private sealed class AnswersAsAStation : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
+            Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("""{ "station": "Static Between Stations", "onAir": true, "listeners": 12, "mounts": [] }"""),
+            });
+    }
 }

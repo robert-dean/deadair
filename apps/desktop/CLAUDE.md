@@ -178,7 +178,8 @@ listener from the rest of the app.
 
 **`ExtendClientAreaChromeHints` was REMOVED.** The window runs under the title bar with
 `ExtendClientAreaToDecorationsHint` plus `ExtendClientAreaTitleBarHeightHint`, and the drag region is
-whatever carries `WindowDecorationProperties.ElementRole="TitleBar"` — the sidebar's top strip. It is
+whatever carries `WindowDecorationProperties.ElementRole="TitleBar"`: the 38-unit title row across
+the top of `ShellView`, above the panels, which holds the wordmark. It is
 worth knowing that `WindowDecorationMargin` reads as zero in a headless render, so a layout that
 positioned itself from it would differ between what is drawn and what is looked at; the 80px the
 traffic lights need is written down instead.
@@ -579,6 +580,32 @@ is only ever opened by the operator and the wrong one for an app that is also a 
 
 ## How it looks
 
+**The shell is a web player's shape, in the station's colours** (2026-09-28). Everything but the
+setup screen is `Views/ShellView`: a 38-unit title row (the wordmark and the drag region), then the
+sidebar, the page and the Now playing panel as rounded `Border.panel` sheets with `DaGap` of window
+between them, then the bar on the window itself. Dark's window is black and its panels one step up;
+light keeps the same structure on a grey. It borrows the layout and nothing else: IBM Plex, deadair
+green, and **covers stay square**, the rule under `DaCornerNone` in `Tokens.axaml`.
+
+- **The row is docked, not a grid**, so a panel that is put away takes its gap with it. The Now
+  playing panel is `ShellViewModel.ShowNowPlaying`, toggled from the bar and remembered in
+  `DesktopSettings.NowPlayingPanel`, and a container query hides it below 1060 without touching what
+  was chosen, so the page keeps enough room to be a page.
+- **Now playing** (`NowPlayingPanel`) is the cover large, the record, and then "Next in queue" (the
+  running order, with its reorder and drop) for an operator or "Recently played"
+  (`HistoryViewModel.LoadRecentAsync`, refreshed as the title changes) for anybody else. It is one
+  scroll for the whole panel, with the running order non-virtualised inside it: the cover is most of
+  the panel's height, and a list scrolling under it had room for one row.
+- **The page is washed in the on-air cover's colour.** `ListenerViewModel` decodes the cover a
+  second time at 16 pixels wide where it decodes it for drawing, `Services/CoverSampler` copies the
+  pixels out, and `CoverColours.Candidates` (Core) buckets them. `Controls/CoverWash` then asks
+  `CoverColours.HeaderTint` for this appearance's tint and fades it to transparent down the top 320 of
+  the page. `HeaderTint` walks the tint away from the page's type until that type is what reads on it,
+  because lightness is not brightness and a yellow at a third lightness still wanted black text. The
+  rules were ported from the Android app's `CoverAccent.kt` with its tests.
+- **The desk is a page header**: the cover at up to 232 and the title at `DaFontSizeHero`, top-aligned
+  on the wash. The running order it used to carry as a card is in the Now playing panel.
+
 **`Themes/Styles.axaml` is where a control's look lives, and `Themes/Tokens.axaml` is where a value
 does.** Before them every size and weight was a literal in whichever view needed it, and the only
 style in the tree was six lines inside `VoiceView` — which is why Library had the same "nothing says
@@ -619,19 +646,45 @@ because this is one heavy silhouette rather than a detailed drawing, and at 32px
 10% is the difference between a skull and a smudge. `Assets/logo-mark.png` keeps the disc, which is
 the shape the mark was drawn as.
 
-**The sidebar's title strip is the WORDMARK alone, and the mark was tried there and taken out.** The
-console's header carries both and this app is the same app, so the pairing looked obviously right;
-on a 38px strip beside the traffic lights it reads as clutter rather than as identity, because the
-strip is already crowded by the 80px the window's buttons need. The icon says which app this is
-before the window is even open. **The setup screen is where the mark does go**: a first run has
+**The title row is the WORDMARK alone, and the mark was tried there and taken out.** The row runs
+across the top of the window, above the panels (it was the sidebar's own top strip until the shell
+became panels). The console's header carries both and this app is the same app, so the pairing looked
+obviously right; on a 38px row beside the traffic lights it reads as clutter rather than as identity,
+because the row already starts 80px in for the window's buttons. The icon says which app this is
+before the window is even open. **The welcome is where the mark does go**: a first run has
 nothing else on screen and a 420-unit column to spend, so it carries the mark at 96 units (half its
-pixels, so it is crisp at 2x) over the same letter-spaced wordmark the strip has, and the two
-frames named `setup` in `tools/Shots` are how it is looked at.
-**Enter in the address box connects**, because Connect is `IsDefault`. That is safe on a screen
-hidden most of the time only because Avalonia 12's default button answers Enter when it is
-EFFECTIVELY visible and enabled (`Button.RootDefaultKeyDown`); a check on its own `IsVisible`, as
-older versions had, would have connected from every text box in the app. A single-line `TextBox`
-leaves Enter unhandled, which is how it reaches the window's root where the default button listens.
+pixels, so it is crisp at 2x) over the same letter-spaced wordmark the strip has, and the frames
+named `welcome` and `setup` in `tools/Shots` are how it is looked at.
+
+**Setup is the Android app's two steps and its order.** A welcome (the mark, the name, Find your
+station), then the address. `SetupStep` in Core says which of its steps opens: the welcome on a first run, the
+address when a `deadair://` link has filled it or Change station was pressed, because a welcome in
+front of either is a click for nothing. Back (and Escape) returns to the welcome only on a first
+run; over an attached station the way out is Keep the station I have. **Check keeps nothing.** Once
+the address answers, the button names the station (`Listen to …`) and only that saves it, so
+somebody sees WHICH station they found before anything plays; typing again, or the screen being
+opened again, forgets the verdict. The second, quieter button, I run this station: sign in, saves
+the same way and moves to a third step, `SignIn`, which holds the app's only `LoginView`. **The
+sidebar's Sign in opens that same step over the app** (`ShellViewModel.ShowSignIn`, `OpenSignIn`),
+where it used to open a 320-unit flyout: one sign-in, drawn one way, full-window like the welcome.
+From the wizard the station attaches UNDER the step (`AttachAsync(keepSetup: true)`, which never
+re-shows a screen somebody has already left), and the form stays disabled until the attach is done,
+because the session it signs in through is part of it. Signing in closes the screen; so do the back
+arrow, Escape and the quiet button (Not now, just listen from the wizard, Not now from the sidebar),
+leaving somebody listening as Android's back from its sign-in lands on Now playing; and a station the
+Keychain already holds a session for skips the step, having nothing to ask. The form is never
+detached, only hidden, so the password's reveal is turned off by `LoginView.Prepare` each time the
+step shows rather than on attach as it was in the flyout; a second Sign in re-raises `Step` for that
+reason, since the step did not change. Android's welcome fades
+its words in around a mark the splash handed over; there is no splash here, so nothing animates,
+and its privacy-policy link is a Play requirement this app does not have.
+**Enter checks, and then listens**, because whichever of Check and Listen is showing is
+`IsDefault` (and Find your station is, on the welcome). That is safe on a screen hidden most of the
+time only because Avalonia 12's default button answers Enter when it is EFFECTIVELY visible and
+enabled (`Button.RootDefaultKeyDown`); a check on its own `IsVisible`, as older versions had, would
+have fired from every text box in the app, and would have had three defaults on this screen alone. A
+single-line `TextBox` leaves Enter unhandled, which is how it reaches the window's root where the
+default button listens.
 
 **Two earlier versions of this icon were wrong in the same way, and neither was visible in the
 file.** The first drew `logo.png` above 128px and the mark below, which is two icons wearing one
@@ -796,9 +849,23 @@ them back to the desk rather than leaving them looking at an empty screen with n
 used to be the bottom of the desk, so opening the Library took the transport, the playhead and the
 lamp off the screen while the station kept playing. What is playing is not a page.
 
-**The bar is a DockPanel and not three columns.** With a fixed left column and an `Auto` right one
-the middle is whatever is left over, and at the window's 820px minimum that was nothing: the play
-button drew over the timecode. Docked, the ends take what they need and the transport keeps the rest.
+**The bar is three zones in proportion, 3 : 4 : 3**, a web player's: what is playing, the transport
+centred, and the station's state and the sound on the right. It was once a fixed left column and an
+`Auto` right one, and at the window's 820px minimum that left the middle nothing, so the play button
+drew over the timecode; then a DockPanel. In proportion the middle always has 40%, and **both it and the
+right end are containers that shed by query** rather than squeezing each other. The transport
+(`Container.Name="Transport"`) drops its timecodes below 360 and its playhead below 220. The right end
+(`"Ends"`) drops the listening word below 440 (the lamp stays, with the word as its tooltip), the
+format pill below 320, and the volume slider below 240; its buttons (output, Now playing, the desk)
+always stay. So at the default 1180 the word is already gone, which is deliberate: the lamp's colour says the same thing. The controls sit in a centred row
+ABOVE the playhead. The play button is a small disc in the text colour (`Button.play`), and the accent
+is kept for what is live. `ProgressBar` has `MinWidth="0"` because the theme's own minimum is wider
+than the slot at 820, and a bar wider than its slot is centred over its neighbours.
+
+**An operator gets Shuffle and Skip either side of the play button**, the Android app's row: the
+desk's own `Order.ShuffleCommand` and `Transport.SkipCommand`, reached through the window, shown
+together on `Transport.IsOperator` so play is never off centre, and enabled on `StreamUp`. The
+`player-bar-operator` frame in `tools/Shots` is the bar at 820.
 
 **`PageHost` builds each page once and sets its DataContext in code.** The seven pages used to be
 stacked in a `Panel` with their visibility bound through the window, which laid all of them out on
@@ -834,7 +901,11 @@ thing an assertion cannot do; the value is entirely in the picture.
 because what goes wrong in this app goes wrong BETWEEN three controls rather than inside one, and a
 page rendered on its own can show neither a bar overflowing its column nor a hero clipping beside the
 operator card. Both of those were found this way and neither was visible in the code. There is a
-frame at 820x520 for the same reason: the minimum window is where a layout runs out of room.
+frame at 820x520 for the same reason: the minimum window is where a layout runs out of room. The
+shell a frame draws is the app's own `ShellView`, the control the window holds, rather than a copy
+of its layout: a Window cannot be another window's content, so the tool used to rebuild the sidebar,
+page and bar by hand, and that copy would have missed the title row and the panels the first time
+the layout moved.
 
 **An appearance is named rather than inherited.** `ThemeVariant.Default` follows the host, and
 headless has no host, so a shot that did not say which appearance it wanted rendered light — and the

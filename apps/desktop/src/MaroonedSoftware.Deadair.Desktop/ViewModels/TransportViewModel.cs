@@ -23,7 +23,6 @@ public sealed partial class TransportViewModel : ObservableObject, IAsyncDisposa
     private readonly OperatorActions _actions;
     private readonly HttpClient _http;
     private readonly IUiDispatcher _dispatcher;
-    private readonly ArmedStop _stop = new();
 
     private PlayoutRepository? _repository;
     private IDisposable? _lease;
@@ -66,20 +65,6 @@ public sealed partial class TransportViewModel : ObservableObject, IAsyncDisposa
 
     [ObservableProperty]
     private bool _showSilence;
-
-    [ObservableProperty]
-    private string _stopLabel = "Stop";
-
-    /// <summary>
-    /// Whether Stop is waiting for its second press.
-    /// </summary>
-    /// <remarks>
-    /// Beside the label rather than derived from it: a view asking "is this string 'Press again'"
-    /// would be a view that breaks when the words change, and the words are the kind of thing that
-    /// changes.
-    /// </remarks>
-    [ObservableProperty]
-    private bool _isArmed;
 
     [ObservableProperty]
     private string? _noticeText;
@@ -148,58 +133,6 @@ public sealed partial class TransportViewModel : ObservableObject, IAsyncDisposa
             await _actions.RunAsync(
                 token => _repository!.SkipAsync(token),
                 cancellationToken: cancellationToken).ConfigureAwait(true);
-        }
-        finally
-        {
-            Busy = false;
-        }
-    }
-
-    /// <summary>
-    /// Arms on the first press and acts on the second.
-    /// </summary>
-    /// <remarks>
-    /// Stop takes the station off the air with no undo, and it sits beside Skip. The two-press
-    /// arrangement is the web console's, for the same reason.
-    /// </remarks>
-    [RelayCommand]
-    private async Task StopAsync(CancellationToken cancellationToken)
-    {
-        if (!_stop.Press())
-        {
-            StopLabel = "Press again";
-            IsArmed = true;
-            return;
-        }
-
-        StopLabel = "Stop";
-        IsArmed = false;
-        Busy = true;
-        try
-        {
-            await _actions.RunAsync(
-                token => _repository!.StopAsync(token),
-                cancellationToken: cancellationToken).ConfigureAwait(true);
-        }
-        finally
-        {
-            Busy = false;
-        }
-    }
-
-    [RelayCommand]
-    private async Task StartAsync(CancellationToken cancellationToken)
-    {
-        Busy = true;
-        try
-        {
-            await _actions.RunAsync(
-                token => _repository!.StartAsync(token),
-
-                // Not a fault: the station was stood down with nothing left in the running order, and
-                // saying so is more useful than saying the request failed.
-                new Dictionary<int, string> { [409] = "There is nothing to resume." },
-                cancellationToken).ConfigureAwait(true);
         }
         finally
         {

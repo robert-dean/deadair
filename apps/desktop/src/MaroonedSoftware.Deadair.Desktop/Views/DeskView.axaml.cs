@@ -6,10 +6,13 @@ namespace MaroonedSoftware.Deadair.Desktop.Views;
 public partial class DeskView : UserControl
 {
     /// <summary>Below this it is a thumbnail, and the bar already has one of those.</summary>
-    private const double Smallest = 180;
+    private const double Smallest = 140;
 
-    /// <summary>Above this it stops being a record and starts being wallpaper.</summary>
-    private const double Largest = 400;
+    /// <summary>
+    /// A page header's cover, as a web player sizes an album's: big enough to be the record, small
+    /// enough that the title beside it is the biggest thing on the page.
+    /// </summary>
+    private const double Largest = 232;
 
     /// <summary>The bar, the gutters and the title bar, which the page never gets.</summary>
     private const double ReservedHeight = 240;
@@ -22,9 +25,9 @@ public partial class DeskView : UserControl
         InitializeComponent();
 
         // Both, and for different halves of the answer. The PAGE's bounds give the height; the hero
-        // AREA's give the width, and that one narrows when the operator card appears — a page-only
-        // subscription read the width before the card had been measured and never looked again, so
-        // the cover kept a size that the card was then drawn over.
+        // AREA's give the width, and that one moves with the Now playing panel beside the page — a
+        // page-only subscription read the width before the panel had been measured and never looked
+        // again, so the cover kept a size the page no longer had.
         //
         // The hero area is stretched by its column, so its width does not depend on the cover: this
         // settles rather than oscillating.
@@ -52,18 +55,17 @@ public partial class DeskView : UserControl
             return;
         }
 
-        // Both dimensions, because the operator card takes 384 of the width and nothing takes any of
-        // the height. Sizing on height alone drew a 400px cover into a 520px column and left the
+        // Both dimensions, because the Now playing panel takes 328 of the width and nothing takes any
+        // of the height. Sizing on height alone drew a 400px cover into a 520px column and left the
         // eyebrow row stacking one word per line.
         var room = Math.Min(Bounds.Height - ReservedHeight, HeroArea.Bounds.Width - ReservedWidth);
 
-        // At the window's 820px minimum, with the operator card open, the words alone take the whole
-        // column: there is no size at which a cover both fits and is a cover. So it stands down
-        // rather than being squeezed to a stamp or drawn under the card, and the record still has
-        // its artwork in the bar, which is on every page including this one.
+        // In a narrow page the words alone take the whole column: there is no size at which a cover
+        // both fits and is a cover. So it stands down rather than being squeezed to a stamp, and the
+        // record still has its artwork in the bar, which is on every page including this one.
         //
-        // An early return here instead is what drew the card over the cover: the size was negative,
-        // the method gave up, and the cover kept whatever the XAML had said.
+        // An early return here instead is what once drew a card over the cover: the size was
+        // negative, the method gave up, and the cover kept whatever the XAML had said.
         Cover.IsVisible = room >= Smallest;
 
         if (Cover.IsVisible)

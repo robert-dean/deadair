@@ -10,11 +10,22 @@ public partial class LoginView : UserControl
 
         RevealToggle.IsCheckedChanged += (_, _) =>
             PasswordBox.RevealPassword = RevealToggle.IsChecked is true;
+    }
 
-        // Every time the panel is shown, not once when it is built. The password survives a flyout
-        // that was opened and dismissed without signing in — it is only cleared on success — so a
-        // toggle left on would put that password back on screen for whoever opens the panel next.
-        AttachedToVisualTree += (_, _) => RevealToggle.IsChecked = false;
+    /// <summary>
+    /// Readies the form for somebody arriving at it: the password hidden, and the caret in the email.
+    /// </summary>
+    /// <remarks>
+    /// Called by the setup screen every time its sign-in step shows, not once when this is built.
+    /// The form stays in the tree while the step is hidden, and the password survives a visit that
+    /// ended in Not now (it is only cleared on success), so a toggle left on would put that password
+    /// back on screen for whoever opens it next. It was reset on attach while the form lived in a
+    /// flyout, which attached it afresh on every opening; a hidden step is never detached.
+    /// </remarks>
+    public void Prepare()
+    {
+        RevealToggle.IsChecked = false;
+        (NeedsCodeBox.IsEffectivelyVisible ? NeedsCodeBox : EmailBox).Focus();
     }
 
     /// <summary>

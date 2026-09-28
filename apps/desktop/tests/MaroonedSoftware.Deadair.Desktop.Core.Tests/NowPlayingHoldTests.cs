@@ -117,6 +117,31 @@ public class NowPlayingHoldTests
     }
 
     /// <summary>
+    /// The station is polled every three seconds and the lead is five, so the record being held is
+    /// read again before its lead is spent. Each of those readings restarted the lead, and a record
+    /// polled faster than it could be released was never released at all: the listener showed the
+    /// station on air with no record for as long as it kept answering.
+    /// </summary>
+    [Fact]
+    public void TheHeldItemReadAgain_KeepsItsLeadAndReleasesTheLatestReading()
+    {
+        var time = new FakeTimeProvider();
+        var hold = new NowPlayingHold(time);
+        var released = new List<NowPlayingReading>();
+        hold.Released += released.Add;
+
+        hold.Offer("100", Reading("100"));
+        time.Advance(TimeSpan.FromSeconds(3));
+
+        var again = Reading("100", listeners: 2);
+        Assert.Null(hold.Offer("100", again));
+
+        time.Advance(TimeSpan.FromSeconds(2));
+        Assert.Same(again, Assert.Single(released));
+        Assert.Same(again, hold.Current);
+    }
+
+    /// <summary>
     /// A record the old station announced just before a switch must never be released onto the new
     /// station's screen, and the new station's first record is new rather than "the same item".
     /// </summary>

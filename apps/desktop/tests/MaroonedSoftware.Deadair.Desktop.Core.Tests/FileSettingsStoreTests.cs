@@ -226,6 +226,35 @@ public class FileSettingsStoreTests : IDisposable
         Assert.False(reopened.Current.CheckForUpdates);
     }
 
+    /// <summary>Every file written before the Now playing panel existed opens with it shown.</summary>
+    [Fact]
+    public async Task AFileWithoutThePanelKeyShowsNowPlaying()
+    {
+        Directory.CreateDirectory(_directory);
+        await File.WriteAllTextAsync(
+            Path.Combine(_directory, "settings.json"),
+            """{"station":"https://radio.example.com"}""",
+            TestContext.Current.CancellationToken);
+
+        using var store = new FileSettingsStore(_directory);
+        await store.LoadAsync(TestContext.Current.CancellationToken);
+
+        Assert.True(store.Current.NowPlayingPanel);
+    }
+
+    [Fact]
+    public async Task RemembersThatNowPlayingWasClosed()
+    {
+        using var store = new FileSettingsStore(_directory);
+
+        await store.UpdateAsync(settings => settings with { NowPlayingPanel = false }, TestContext.Current.CancellationToken);
+
+        using var reopened = new FileSettingsStore(_directory);
+        await reopened.LoadAsync(TestContext.Current.CancellationToken);
+
+        Assert.False(reopened.Current.NowPlayingPanel);
+    }
+
     private const string Rubbish = "{ this is not json";
 
     private async Task<string> WriteRubbishAsync()

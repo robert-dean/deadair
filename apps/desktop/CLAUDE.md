@@ -1121,6 +1121,15 @@ fetching; Fetch now is offered only for the last two. The directory search is `p
 because the words go to somebody else's directory, so its 403 is worded rather than treated as the
 operator having gone.
 
+**Readings (the console's narrations) follow the same shape as podcasts**, one series choice over the
+pieces, with its own order of states (`NarrationRules.State`): read, then withdrawn, then spoken, then
+being spoken (or asked for within the hour, since speaking a chapter is slow), then failed. A
+withdrawn piece is never offered Read it now even if it was spoken, because its source no longer
+lists it and the station will not air it. A failure is shown in full, since it is the only place an
+operator learns the station has no mixer or could not open the source. A chapter's place is counted
+from one where the station counts from zero. Eight tabs fit one row at the default window only with
+the strip's padding tightened in `LibraryView`, which is why it is.
+
 **The voice page is four readings, not the console's eight tabs.** The four are the ones that answer a
 question somebody asks of a RUNNING station: who is presenting, what did it say, what audio does it
 hold, and what is being made. Voices, pronunciations, pads and topics are configuration rather than

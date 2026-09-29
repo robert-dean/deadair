@@ -1,0 +1,70 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    xmlns:conv="using:MaroonedSoftware.Deadair.Desktop.Themes"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.NarrationsTab"
+    x:DataType="vm:NarrationsViewModel">
+
+    <UserControl.Resources>
+        <conv:ToneBrushConverter x:Key="ToneBrush" />
+    </UserControl.Resources>
+
+    <DockPanel LastChildFill="True">
+
+        <StackPanel DockPanel.Dock="Top" Spacing="8" Margin="0,0,0,10">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                <ComboBox ItemsSource="{Binding Series}" SelectedItem="{Binding Chosen}" MinWidth="220"
+                          ToolTip.Tip="Series" IsVisible="{Binding HasSeries}" />
+                <Button Grid.Column="1" Classes="ghost" Content="Look for new pieces" Command="{Binding LookCommand}" />
+            </Grid>
+            <TextBlock Text="{Binding Notice}" Classes="dimmed" TextWrapping="Wrap"
+                       IsVisible="{Binding Notice, Converter={x:Static ObjectConverters.IsNotNull}}" />
+            <TextBlock Classes="dimmed" Text="{Binding Empty}" TextWrapping="Wrap"
+                       IsVisible="{Binding Empty, Converter={x:Static ObjectConverters.IsNotNull}}" />
+        </StackPanel>
+
+        <ListBox Classes="rows" ItemsSource="{Binding Pieces}">
+            <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:PieceRowViewModel">
+                    <!-- Read it now has a column whether or not it is drawn, so the pieces' words line
+                         up whichever of them can be read. -->
+                    <Grid ColumnDefinitions="*,96" ColumnSpacing="12" Margin="0,4">
+                        <StackPanel Spacing="3">
+                            <WrapPanel ItemSpacing="10">
+                                <TextBlock Text="{Binding Series}" FontSize="11"
+                                           Foreground="{DynamicResource DaTextSecondaryBrush}" />
+                                <StackPanel Orientation="Horizontal" Spacing="5">
+                                    <Ellipse Width="6" Height="6" VerticalAlignment="Center"
+                                             Fill="{Binding Tone, Converter={StaticResource ToneBrush}}" />
+                                    <TextBlock Text="{Binding State}" FontSize="11"
+                                               Foreground="{DynamicResource DaTextSecondaryBrush}" />
+                                </StackPanel>
+                                <TextBlock Classes="mono" Text="{Binding Facts}" FontSize="11"
+                                           Foreground="{DynamicResource DaTextDimmedBrush}" />
+                            </WrapPanel>
+                            <TextBlock Text="{Binding Title}" TextWrapping="Wrap" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource DaTextBrush}" />
+                            <TextBlock Text="{Binding Summary}" TextWrapping="Wrap" FontSize="12" MaxLines="3"
+                                       TextTrimming="CharacterEllipsis" Classes="dimmed" IsVisible="{Binding HasSummary}" />
+                            <TextBlock Text="{Binding When}" FontSize="11" Classes="dimmed" TextWrapping="Wrap"
+                                       IsVisible="{Binding HasWhen}" />
+                            <!-- In full: the only place somebody learns the station has no mixer or
+                                 that the source could not be opened. -->
+                            <TextBlock Text="{Binding Failure}" FontSize="11" TextWrapping="Wrap"
+                                       Foreground="{DynamicResource DaSeverityWarningBrush}"
+                                       IsVisible="{Binding HasFailure}" />
+                        </StackPanel>
+                        <Button Grid.Column="1" Classes="ghost" Content="Read it now" FontSize="11"
+                                Padding="8,3" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                IsVisible="{Binding CanRender}"
+                                Command="{Binding $parent[UserControl].((vm:NarrationsViewModel)DataContext).RenderCommand}"
+                                CommandParameter="{Binding}" />
+                    </Grid>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+
+    </DockPanel>
+
+</UserControl>

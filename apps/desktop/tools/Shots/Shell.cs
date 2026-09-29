@@ -693,6 +693,27 @@ internal static class Fakes
             ],
         });
 
+        // A serial and a column, with a piece in each state worth seeing, one of them withdrawn and one
+        // that failed with the station's own long reason.
+        library.Narrations.PresentSeries(new StationSeriesList
+        {
+            Series =
+            [
+                new() { Id = "n1", PluginId = "gutenberg", Title = "Great Expectations", Order = StationSeriesOrder.Serial },
+                new() { Id = "n2", PluginId = "rss", Title = "The Sunday column", Order = StationSeriesOrder.Latest },
+            ],
+        });
+        library.Narrations.PresentPieces(new StationPiecePage
+        {
+            Pieces =
+            [
+                Piece("Great Expectations", "Chapter VII", 6, 4_812, rendered: true, error: null, withdrawn: null, aired: null),
+                Piece("Great Expectations", "Chapter VIII", 7, 5_390, rendered: false, error: "The station has no mixer configured, so a reading longer than one take could not be joined. Set the render mixer in Settings, then read it again.", withdrawn: null, aired: null),
+                Piece("The Sunday column", "Why nobody listens to the radio any more, and why they are wrong", null, 1_204, rendered: false, error: null, withdrawn: "2026-09-27T09:00:00Z", aired: null),
+                Piece("Great Expectations", "Chapter VI", 5, 3_975, rendered: true, error: null, withdrawn: null, aired: "2026-09-28T21:00:00Z"),
+            ],
+        });
+
         library.Acts.Total = 212;
         library.Acts.Summary = "1–50 of 212";
 
@@ -737,6 +758,24 @@ internal static class Fakes
         Fetched = fetched,
         FetchError = error,
         ScheduledFor = scheduled,
+    };
+
+    private static StationPiece Piece(string series, string title, long? ordinal, long words, bool rendered, string? error, string? withdrawn, string? aired) => new()
+    {
+        Id = Guid.NewGuid().ToString(),
+        SeriesId = "n1",
+        PieceId = Guid.NewGuid().ToString(),
+        SeriesTitle = series,
+        Title = title,
+        Order = ordinal is null ? StationPieceOrder.Latest : StationPieceOrder.Serial,
+        Ordinal = ordinal,
+        WordCount = words,
+        SeenAt = "2026-09-20T00:00:00Z",
+        Rendered = rendered,
+        Rendering = false,
+        RenderError = error,
+        WithdrawnAt = withdrawn,
+        AiredAt = aired,
     };
 
     private static NewsStory Story(string feed, string feedName, string title, string? summary, List<string>? categories) => new()

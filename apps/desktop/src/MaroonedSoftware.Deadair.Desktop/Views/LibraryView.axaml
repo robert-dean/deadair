@@ -13,7 +13,14 @@
 
             <!-- The same tab strip Voice has, which is the whole reason it is a class: this page had
                  six identical buttons and nothing said which one you were on. -->
-            <WrapPanel ItemSpacing="6" LineSpacing="6">
+            <WrapPanel ItemSpacing="4" LineSpacing="6">
+                <!-- Eight tabs, a little tighter than the class's own padding: at the window's default
+                     width that is the difference between one row and a second holding one tab. -->
+                <WrapPanel.Styles>
+                    <Style Selector="Button.tab">
+                        <Setter Property="Padding" Value="8,5" />
+                    </Style>
+                </WrapPanel.Styles>
                 <Button Classes="tab" Classes.active="{Binding IsTracks}" Content="Records"
                         Command="{Binding ShowTabCommand}" CommandParameter="Tracks" />
                 <Button Classes="tab" Classes.active="{Binding IsArtists}" Content="Acts"
@@ -28,6 +35,8 @@
                         Command="{Binding ShowTabCommand}" CommandParameter="News" />
                 <Button Classes="tab" Classes.active="{Binding IsPodcasts}" Content="Podcasts"
                         Command="{Binding ShowTabCommand}" CommandParameter="Podcasts" />
+                <Button Classes="tab" Classes.active="{Binding IsNarrations}" Content="Readings"
+                        Command="{Binding ShowTabCommand}" CommandParameter="Narrations" />
             </WrapPanel>
         </StackPanel>
 
@@ -55,6 +64,9 @@
             </Panel>
             <Panel IsVisible="{Binding IsPodcasts}">
                 <views:PodcastsTab DataContext="{Binding Podcasts}" />
+            </Panel>
+            <Panel IsVisible="{Binding IsNarrations}">
+                <views:NarrationsTab DataContext="{Binding Narrations}" />
             </Panel>
         </Panel>
 

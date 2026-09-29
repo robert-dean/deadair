@@ -17,6 +17,7 @@ public enum LibraryTab
     Charts,
     News,
     Podcasts,
+    Narrations,
 }
 
 /// <summary>
@@ -46,6 +47,7 @@ public sealed partial class LibraryViewModel : ObservableObject
         Releases = new AlbumsViewModel(actions, http, navigation);
         Playlists = new PlaylistsViewModel(actions, http, dialogs, navigation, picker);
         Charts = new ChartsViewModel(actions, http, navigation, dialogs);
+        Narrations = new NarrationsViewModel(actions, http);
         Podcasts = new PodcastsViewModel(actions, http);
         News = new NewsViewModel(actions, http);
     }
@@ -73,7 +75,9 @@ public sealed partial class LibraryViewModel : ObservableObject
 
     public PodcastsViewModel Podcasts { get; }
 
-    private IEnumerable<LibraryTabViewModel> All => [Records, Acts, Releases, Playlists, Charts, News, Podcasts];
+    public NarrationsViewModel Narrations { get; }
+
+    private IEnumerable<LibraryTabViewModel> All => [Records, Acts, Releases, Playlists, Charts, News, Podcasts, Narrations];
 
     /// <summary>The records, which the shell asks after to know whether the page has been read.</summary>
     public ObservableCollection<TrackRowViewModel> Tracks => Records.Tracks;
@@ -95,6 +99,8 @@ public sealed partial class LibraryViewModel : ObservableObject
 
     public bool IsPodcasts => Tab == LibraryTab.Podcasts;
 
+    public bool IsNarrations => Tab == LibraryTab.Narrations;
+
     /// <summary>The tab showing.</summary>
     public LibraryTabViewModel Current => Tab switch
     {
@@ -104,6 +110,7 @@ public sealed partial class LibraryViewModel : ObservableObject
         LibraryTab.Charts => Charts,
         LibraryTab.News => News,
         LibraryTab.Podcasts => Podcasts,
+        LibraryTab.Narrations => Narrations,
         _ => Records,
     };
 
@@ -139,6 +146,7 @@ public sealed partial class LibraryViewModel : ObservableObject
         OnPropertyChanged(nameof(IsCharts));
         OnPropertyChanged(nameof(IsNews));
         OnPropertyChanged(nameof(IsPodcasts));
+        OnPropertyChanged(nameof(IsNarrations));
         OnPropertyChanged(nameof(Current));
 
         _ = Current.OpenAsync();

@@ -378,6 +378,10 @@ internal static class Fakes
     private static void Voice(VoiceViewModel voice)
     {
         voice.Characters.Pose(Roster(), Voices());
+        Auditions(voice.Auditions);
+        voice.Voices.Present(
+            new VoiceList { Voices = [.. Voices(), new() { Id = "newsreader", Label = "Newsreader", Description = "measured, neutral, BBC-adjacent" }], PluginId = "deadair.rhapsode" },
+            Roster());
 
         voice.Scripts.Scripts.Add(new ScriptRowViewModel(
             "11:42", "talk", "model",
@@ -511,6 +515,61 @@ internal static class Fakes
             [
                 new() { Writer = "model", Outcome = "declined", DurationMs = 2140, Reason = "out of character: none of the words that prove it" },
                 new() { Writer = "model", Outcome = "written", DurationMs = 1870, Script = "That was Pearl Jam, and it is later than any of us meant it to be. Alice In Chains next, and then I will tell you about the kettle." },
+            ],
+        });
+    }
+
+    /// <summary>
+    /// Two runs: one still writing and open, with a break the model declined before it wrote, and
+    /// one that finished. The open one is the frame's point.
+    /// </summary>
+    private static void Auditions(AuditionsViewModel auditions)
+    {
+        auditions.PresentHosts(Roster());
+        auditions.PresentPlaylists(
+        [
+            new() { PluginId = "deadair.navidrome", PluginName = "Navidrome", Id = "p1", Name = "Late-night guitar records nobody asked for" },
+            new() { PluginId = "deadair.spotify", PluginName = "Spotify", Id = "p2", Name = "Hidden", Hidden = true },
+        ]);
+        auditions.Playlist = auditions.Playlists[0];
+
+        var source = new PersonaAuditionSource { PluginId = "deadair.navidrome", PlaylistId = "p1", Name = "Late-night guitar records nobody asked for" };
+        auditions.PresentRuns(
+        [
+            new() { Id = "a1", PersonaId = "1", PersonaKey = "marla", Source = source, State = PersonaAuditionSummaryState.Running, Transitions = 10, Written = 2, CreatedAt = "2026-09-29T10:00:00Z" },
+            new() { Id = "a2", PersonaId = "1", PersonaKey = "marla", Source = source, State = PersonaAuditionSummaryState.Done, Transitions = 10, Written = 10, CreatedAt = "2026-09-28T10:00:00Z" },
+        ]);
+
+        var open = auditions.Runs[0];
+        open.IsOpen = true;
+        open.Present(new PersonaAudition
+        {
+            Id = "a1", PersonaId = "1", PersonaKey = "marla", Source = source, State = PersonaAuditionSummaryState.Running,
+            Transitions = 10, Written = 2, CreatedAt = "2026-09-29T10:00:00Z",
+            Breaks =
+            [
+                new()
+                {
+                    Ordinal = 0,
+                    Previous = new() { Title = "Alive", Artist = "Pearl Jam" },
+                    Next = new() { Title = "Would?", Artist = "Alice In Chains" },
+                    Writer = "model",
+                    Script = "Pearl Jam, and it is later than any of us meant it to be. Alice In Chains next.",
+                    Attempts =
+                    [
+                        new() { Writer = "model", Outcome = "declined", DurationMs = 2310, Reason = "out of character: none of the words that prove it" },
+                        new() { Writer = "model", Outcome = "written", DurationMs = 1640, Script = "Pearl Jam, and it is later than any of us meant it to be. Alice In Chains next." },
+                    ],
+                },
+                new()
+                {
+                    Ordinal = 1,
+                    Previous = new() { Title = "Would?", Artist = "Alice In Chains" },
+                    Next = new() { Title = "Regulate (feat. Nate Dogg) - Original Version", Artist = "Warren G" },
+                    Writer = "floor",
+                    Script = "That was Would? from Alice In Chains.",
+                    Attempts = [new() { Writer = "floor", Outcome = "written", DurationMs = 3, Script = "That was Would? from Alice In Chains." }],
+                },
             ],
         });
     }

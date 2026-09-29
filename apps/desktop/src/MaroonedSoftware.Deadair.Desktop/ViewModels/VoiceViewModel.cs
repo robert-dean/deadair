@@ -7,10 +7,12 @@ using Nav = MaroonedSoftware.Deadair.Desktop.Navigation;
 
 namespace MaroonedSoftware.Deadair.Desktop.ViewModels;
 
-/// <summary>Which part of the voice page is showing.</summary>
+/// <summary>Which part of the voice page is showing, in the order the strip draws them.</summary>
 public enum VoiceTab
 {
     Characters,
+    Auditions,
+    Voices,
     Segments,
     Productions,
     Said,
@@ -32,6 +34,8 @@ public enum VoiceTab
 /// </remarks>
 public sealed partial class VoiceViewModel : ObservableObject
 {
+    private readonly Dictionary<VoiceTab, VoiceTabViewModel> _tabs;
+
     public VoiceViewModel(
         OperatorActions actions,
         HttpClient http,
@@ -43,9 +47,21 @@ public sealed partial class VoiceViewModel : ObservableObject
         ArgumentNullException.ThrowIfNull(navigation);
 
         Characters = new CharactersViewModel(actions, http, dialogs, previews, files, navigation);
+        Auditions = new AuditionsViewModel(actions, http, previews);
+        Voices = new VoicesViewModel(actions, http, previews);
         Segments = new SegmentsViewModel(actions, http, previews);
         Productions = new ProductionsViewModel(actions, http, dialogs);
         Scripts = new ScriptsViewModel(actions, http);
+
+        _tabs = new Dictionary<VoiceTab, VoiceTabViewModel>
+        {
+            [VoiceTab.Characters] = Characters,
+            [VoiceTab.Auditions] = Auditions,
+            [VoiceTab.Voices] = Voices,
+            [VoiceTab.Segments] = Segments,
+            [VoiceTab.Productions] = Productions,
+            [VoiceTab.Said] = Scripts,
+        };
 
         // Anything a tab keeps running (a poll while something is being made) stops when the page is
         // left. A character's own page counts as staying: it is somewhere this page led.
@@ -53,7 +69,7 @@ public sealed partial class VoiceViewModel : ObservableObject
         {
             if (destination is not (Nav.Destination.Voice or Nav.Destination.PersonaDetail))
             {
-                foreach (var tab in Tabs)
+                foreach (var tab in _tabs.Values)
                 {
                     tab.Leave();
                 }
@@ -63,6 +79,10 @@ public sealed partial class VoiceViewModel : ObservableObject
 
     public CharactersViewModel Characters { get; }
 
+    public AuditionsViewModel Auditions { get; }
+
+    public VoicesViewModel Voices { get; }
+
     public SegmentsViewModel Segments { get; }
 
     public ProductionsViewModel Productions { get; }
@@ -70,31 +90,27 @@ public sealed partial class VoiceViewModel : ObservableObject
     /// <summary>What it said.</summary>
     public ScriptsViewModel Scripts { get; }
 
-    private IEnumerable<VoiceTabViewModel> Tabs => [Characters, Segments, Productions, Scripts];
-
     [ObservableProperty]
     private VoiceTab _tab = VoiceTab.Characters;
 
     public bool IsCharacters => Tab == VoiceTab.Characters;
 
-    public bool IsSaid => Tab == VoiceTab.Said;
+    public bool IsAuditions => Tab == VoiceTab.Auditions;
+
+    public bool IsVoices => Tab == VoiceTab.Voices;
 
     public bool IsSegments => Tab == VoiceTab.Segments;
 
     public bool IsProductions => Tab == VoiceTab.Productions;
 
+    public bool IsSaid => Tab == VoiceTab.Said;
+
     /// <summary>The tab showing.</summary>
-    public VoiceTabViewModel Current => Tab switch
-    {
-        VoiceTab.Segments => Segments,
-        VoiceTab.Productions => Productions,
-        VoiceTab.Said => Scripts,
-        _ => Characters,
-    };
+    public VoiceTabViewModel Current => _tabs[Tab];
 
     public void Attach(StationUrl station)
     {
-        foreach (var tab in Tabs)
+        foreach (var tab in _tabs.Values)
         {
             tab.Attach(station);
         }
@@ -102,13 +118,10 @@ public sealed partial class VoiceViewModel : ObservableObject
 
     partial void OnTabChanged(VoiceTab oldValue, VoiceTab newValue)
     {
-        OnPropertyChanged(nameof(IsCharacters));
-        OnPropertyChanged(nameof(IsSaid));
-        OnPropertyChanged(nameof(IsSegments));
-        OnPropertyChanged(nameof(IsProductions));
-        OnPropertyChanged(nameof(Current));
+        // Every Is* at once: an empty name is "everything on this object changed".
+        OnPropertyChanged(string.Empty);
 
-        TabFor(oldValue).Leave();
+        _tabs[oldValue].Leave();
         _ = Current.LoadAsync(CancellationToken.None);
     }
 
@@ -124,12 +137,4 @@ public sealed partial class VoiceViewModel : ObservableObject
     /// <summary>Reads the tab showing. Every visit reads it again, since what the station says moves.</summary>
     [RelayCommand]
     private Task LoadAsync(CancellationToken cancellationToken) => Current.LoadAsync(cancellationToken);
-
-    private VoiceTabViewModel TabFor(VoiceTab tab) => tab switch
-    {
-        VoiceTab.Segments => Segments,
-        VoiceTab.Productions => Productions,
-        VoiceTab.Said => Scripts,
-        _ => Characters,
-    };
 }

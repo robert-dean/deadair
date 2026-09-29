@@ -1189,6 +1189,20 @@ expects. Re-learning starts off: it is the testing answer, not the undoing one.
 from `GET /settings` to their two keys and saved with only what changed. What stays on screen is who
 they reach, named, because every host with a name of its own overrides the first.
 
+**Auditions is the one tab that polls, and only while a run can still change.** A run fills in over
+minutes, each break waiting for the model behind the station's own work, so the tab asks again every
+five seconds while any run is queued or running (`AuditionText.Unsettled`) and stops when none is,
+when the tab changes and when the page is left. The poll is a generation number rather than a
+cancellation source, so there is nothing to dispose: leaving moves the number on, and a wait already
+under way wakes to find itself stale. A run's breaks are read only when it is opened, since the list
+carries none by design. Only hosts are offered, because a caller can never be put on air.
+
+**Every sound on this page is a preview through `PreviewsViewModel`**: a voice's sample, the plugin's
+default voice, typed words spoken in any voice, a rehearsed or auditioned break. None of it has a
+segment row, so none of it can air. A voice's row says who speaks in it (a station voice id is a
+persona key), and the mapping itself is left to the speech plugin's settings, which is the only
+thing that knows its engine's words.
+
 **The phrasing and marker checks are advisory and never block a save.** `PersonaReadout` holds a
 copy of the station's placeholder vocabulary, and a desk that refused a save over its own copy would
 stop working the day the station learns a new one.

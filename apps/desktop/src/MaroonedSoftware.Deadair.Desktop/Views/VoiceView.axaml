@@ -16,6 +16,10 @@
             <WrapPanel ItemSpacing="6" LineSpacing="6">
                 <Button Classes="tab" Classes.active="{Binding IsCharacters}" Content="Characters"
                         Command="{Binding ShowTabCommand}" CommandParameter="Characters" />
+                <Button Classes="tab" Classes.active="{Binding IsAuditions}" Content="Auditions"
+                        Command="{Binding ShowTabCommand}" CommandParameter="Auditions" />
+                <Button Classes="tab" Classes.active="{Binding IsVoices}" Content="Voices"
+                        Command="{Binding ShowTabCommand}" CommandParameter="Voices" />
                 <Button Classes="tab" Classes.active="{Binding IsSegments}" Content="Segments"
                         Command="{Binding ShowTabCommand}" CommandParameter="Segments" />
                 <Button Classes="tab" Classes.active="{Binding IsProductions}" Content="Productions"
@@ -31,6 +35,12 @@
         <Panel>
             <Panel IsVisible="{Binding IsCharacters}">
                 <views:VoiceCharactersTab DataContext="{Binding Characters}" />
+            </Panel>
+            <Panel IsVisible="{Binding IsAuditions}">
+                <views:VoiceAuditionsTab DataContext="{Binding Auditions}" />
+            </Panel>
+            <Panel IsVisible="{Binding IsVoices}">
+                <views:VoiceVoicesTab DataContext="{Binding Voices}" />
             </Panel>
             <Panel IsVisible="{Binding IsSegments}">
                 <views:VoiceSegmentsTab DataContext="{Binding Segments}" />

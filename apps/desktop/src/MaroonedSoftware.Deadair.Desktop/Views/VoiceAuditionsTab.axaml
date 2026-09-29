@@ -1,0 +1,125 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    xmlns:conv="using:MaroonedSoftware.Deadair.Desktop.Themes"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.VoiceAuditionsTab"
+    x:DataType="vm:AuditionsViewModel">
+
+    <UserControl.Resources>
+        <conv:ToneBrushConverter x:Key="ToneBrush" />
+    </UserControl.Resources>
+
+    <DockPanel>
+        <StackPanel DockPanel.Dock="Top" Spacing="8" Margin="0,0,0,12">
+            <WrapPanel ItemSpacing="10" LineSpacing="8">
+                <StackPanel Spacing="3" Width="220">
+                    <TextBlock Text="Character" FontSize="12" Classes="secondary" />
+                    <ComboBox ItemsSource="{Binding Hosts}" SelectedItem="{Binding Host}" HorizontalAlignment="Stretch">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:ChoiceViewModel">
+                                <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                </StackPanel>
+                <StackPanel Spacing="3" Width="280">
+                    <TextBlock Text="Playlist, read once when you press Start" FontSize="12" Classes="secondary" />
+                    <ComboBox ItemsSource="{Binding Playlists}" SelectedItem="{Binding Playlist}" HorizontalAlignment="Stretch"
+                              PlaceholderText="Choose a playlist">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:ChoiceViewModel">
+                                <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                </StackPanel>
+                <StackPanel Spacing="3" Width="110">
+                    <TextBlock Text="Breaks" FontSize="12" Classes="secondary" />
+                    <NumericUpDown Value="{Binding Breaks}" Minimum="1" Maximum="50" Increment="1" FormatString="0" />
+                </StackPanel>
+                <Button Classes="primary" Content="Start" VerticalAlignment="Bottom" Command="{Binding StartCommand}" />
+            </WrapPanel>
+            <TextBlock Classes="dimmed" FontSize="11" TextWrapping="Wrap" MaxWidth="680" HorizontalAlignment="Left"
+                       Text="Nothing here airs, and nothing is spent: the character's notebook and stories are read for each break and left where they are. Each break waits for the model behind everything the station is doing for itself, so a run fills in over minutes." />
+            <TextBlock Classes="dimmed" Text="{Binding Notice}" TextWrapping="Wrap"
+                       IsVisible="{Binding Notice, Converter={x:Static ObjectConverters.IsNotNull}}" />
+            <TextBlock Classes="dimmed" Text="{Binding Empty}" TextWrapping="Wrap" MaxWidth="680" HorizontalAlignment="Left"
+                       IsVisible="{Binding Empty, Converter={x:Static ObjectConverters.IsNotNull}}" />
+        </StackPanel>
+
+        <ScrollViewer>
+            <ItemsControl ItemsSource="{Binding Runs}" MaxWidth="760" HorizontalAlignment="Left" Margin="0,0,14,12">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:AuditionRunViewModel">
+                        <Border Classes="card" Padding="12" Margin="0,0,0,8">
+                            <StackPanel Spacing="6">
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                    <StackPanel Spacing="3">
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <Ellipse Width="8" Height="8" VerticalAlignment="Center"
+                                                     Fill="{Binding Tone, Converter={StaticResource ToneBrush}}" />
+                                            <TextBlock Text="{Binding State}" FontSize="12" />
+                                            <TextBlock Text="{Binding Progress}" FontSize="12" Classes="mono" />
+                                            <TextBlock Text="{Binding Tally}" FontSize="11" Classes="dimmed" VerticalAlignment="Center"
+                                                       IsVisible="{Binding Tally, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                                        </StackPanel>
+                                        <TextBlock Text="{Binding Source}" FontSize="11" Classes="dimmed" TextTrimming="CharacterEllipsis" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Top">
+                                        <Button Classes="ghost" FontSize="11" Padding="8,3" Content="{Binding ReadLabel}" IsEnabled="{Binding CanRead}"
+                                                Command="{Binding $parent[UserControl].((vm:AuditionsViewModel)DataContext).OpenRunCommand}"
+                                                CommandParameter="{Binding}" />
+                                        <Button Classes="ghost" FontSize="11" Padding="8,3" Content="Stop" IsVisible="{Binding Unsettled}"
+                                                Command="{Binding $parent[UserControl].((vm:AuditionsViewModel)DataContext).StopCommand}"
+                                                CommandParameter="{Binding}" />
+                                    </StackPanel>
+                                </Grid>
+
+                                <!-- A run that stopped for a reason nobody chose. Cancelling is a state, and the lamp says it. -->
+                                <TextBlock Text="{Binding Error}" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource DaSeverityFailureBrush}"
+                                           IsVisible="{Binding Error, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                                <TextBlock FontSize="12" Classes="dimmed" TextWrapping="Wrap" IsVisible="{Binding IsQueued}"
+                                           Text="Queued. Each break waits for the model behind everything the station is doing for itself, so this fills in slowly." />
+
+                                <ItemsControl ItemsSource="{Binding Breaks}" IsVisible="{Binding IsOpen}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:AuditionBreakViewModel">
+                                            <StackPanel Spacing="4" Margin="0,8,0,0">
+                                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                                    <TextBlock Text="{Binding Heading}" FontSize="11" Classes="dimmed" VerticalAlignment="Center"
+                                                               TextTrimming="CharacterEllipsis" MaxWidth="560" />
+                                                    <Button Classes="ghost" FontSize="11" Padding="8,1" Content="{Binding HearLabel}" IsVisible="{Binding CanHear}"
+                                                            Command="{Binding $parent[UserControl].((vm:AuditionsViewModel)DataContext).HearCommand}"
+                                                            CommandParameter="{Binding}" />
+                                                </StackPanel>
+                                                <ItemsControl ItemsSource="{Binding Attempts}">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate x:DataType="vm:RehearsalAttemptViewModel">
+                                                            <StackPanel Spacing="2" Margin="12,0,0,4">
+                                                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                                                    <Ellipse Width="6" Height="6" VerticalAlignment="Center"
+                                                                             Fill="{Binding Tone, Converter={StaticResource ToneBrush}}" />
+                                                                    <TextBlock Text="{Binding Writer}" FontSize="11" Classes="secondary" />
+                                                                    <TextBlock Text="{Binding Duration}" FontSize="11" Classes="mono dimmed" />
+                                                                </StackPanel>
+                                                                <TextBlock Text="{Binding Text}" FontSize="12" TextWrapping="Wrap" Classes.dimmed="{Binding !Wrote}" />
+                                                            </StackPanel>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                                <TextBlock Text="{Binding Skipped}" FontSize="12" Classes="dimmed" TextWrapping="Wrap"
+                                                           IsVisible="{Binding Skipped, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+    </DockPanel>
+
+</UserControl>

@@ -142,6 +142,9 @@ internal static class Pages
         yield return ("shell-voice-said", Page(new Destination.Voice(), operatorSignedIn: true, VoiceTab.Said), 1180, 720);
         yield return ("shell-voice-segments", Page(new Destination.Voice(), operatorSignedIn: true, VoiceTab.Segments), 1180, 720);
         yield return ("shell-voice-min", Page(new Destination.Voice(), operatorSignedIn: true), 820, 520);
+        yield return ("shell-voice-auditions", Page(new Destination.Voice(), operatorSignedIn: true, VoiceTab.Auditions), 1180, 900);
+        yield return ("shell-voice-auditions-min", Page(new Destination.Voice(), operatorSignedIn: true, VoiceTab.Auditions), 820, 520);
+        yield return ("shell-voice-voices", Page(new Destination.Voice(), operatorSignedIn: true, VoiceTab.Voices), 1180, 720);
 
         // A character's sheet: an existing host, and a new caller with its ties to the hosts.
         yield return ("shell-voice-persona", Persona(caller: false), 1180, 720);

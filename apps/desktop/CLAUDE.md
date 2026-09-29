@@ -428,6 +428,14 @@ a preview they could not judge against it. Every audio endpoint answers a family
 content type holding `Data`; `Services/Clips.From` reads that shape once instead of a switch per
 endpoint. AVFoundation plays WAV, MP3, AAC and FLAC; an Ogg answer will fail to open, and says so.
 
+## Files in and out
+
+**`IFilePicker` is the one way a view model reaches the system's open and save panels.** A view
+model has no window, and Avalonia's `IStorageProvider` hangs off one; `FilePicker` asks the main
+window's. A cancelled panel answers null or false, which is an answer rather than a failure, and a
+file is read whole, because everything the station takes (a clip, a pack, a playlist, a persona) is
+small enough to be.
+
 ## Closing is not quitting
 
 **Closing the window hides it and the station plays on; only a quit ends the app.** It used to quit,

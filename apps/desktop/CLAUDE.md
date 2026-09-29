@@ -1465,6 +1465,44 @@ one that ruled out the actual cause, and it invited them to keep retyping a code
 sentence cost the diagnosis. A client that cannot distinguish its own failure modes hands the person
 in front of it a false lead.
 
+## Sign-in and security, and the step-up
+
+**The section is the console's two halves on one page**: this account's own (its factors, API keys,
+chat accounts and the apps it approved) under YOUR ACCOUNT, then the station's (the `signin` group
+through the one form, whether its providers answer, the registered apps) under THE STATION. The group
+is still one of `SettingsViewModel`'s groups, saved and kept like the others; its button says "Save
+sign-in for everyone" because it saves that half only. A card the station refuses this account the
+read for is not drawn at all (`SettingsCalls.ReadAsync` answers Forbidden instead of a notice), as
+the console's are not; a line saying "no longer an operator" would be wrong about somebody who is.
+
+**A secret is shown once, inline, and stays until Done**: a new or rotated API key, an app registered
+by hand. Inline rather than in a dialog, because issuing one sits behind the step-up, and a step-up
+dialog arriving over another dialog answers that one "no" (Dialogs, above).
+
+**The authenticator's QR code is the STATION's picture, so there is no QR library here.** The
+registration answers with a PNG `data:` URI (ServerKit draws it), which `AccountWords.DataUri`
+decodes and the card shows, with the key beside it as text and a Copy button. Adding a package to
+draw what the station already drew would be a dependency and a licence for nothing. An enrolment
+starts with the SHA-256 of a secret only this app holds (`Pkce`, the console's `pkce.ts`, tested
+against RFC 7636's own example) and finishes with the secret. Finishing answers with a token for THIS
+session that now carries the factor, and `SessionManager.AdoptAsync` takes it, which is what lets the
+next change pass the station's recent-factor gate without asking again. Email factors and linked
+sign-ins (an identity provider linked through the browser) are the console's and are not here yet.
+
+**A step-up answers `Notice.StepUpNeeded` by asking, and then tries the call again, once.**
+`OperatorActions.StepUp` is the seam (Core cannot draw), installed by `StepUpDialogViewModel.Install`
+from the Settings page's construction and posted to the UI thread, because the refusal arrives on
+whatever thread the call continued on. `DoAsync` goes through `RunAsync` so both kinds of call get
+it. A second refusal after a good code is reported rather than asked about again, and declining says
+nothing at the foot of the page. With no hook installed the notice is said as before.
+
+**The step-up's token request carries the current bearer, deliberately.** `/auth/token` is exempt
+from `SessionHandler`, which is right for a sign-in and a refresh; but the station ROTATES the
+current session only when the request presents it, and without it the same code mints a second
+session beside the first. So `SessionManager.StepUpAsync` puts the header on itself, and a test reads
+it off the wire. The three named rejections are told apart as at sign-in. NOT measured against a real
+station: signing in needs the operator's own credentials.
+
 ## What is verified against a real station, and what is not
 
 The listener half is measured against the live station: it plays, it polls, and the phases are in

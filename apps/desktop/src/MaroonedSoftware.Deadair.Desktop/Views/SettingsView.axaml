@@ -88,6 +88,9 @@
                     <DataTemplate DataType="vm:GrantsSectionViewModel">
                         <views:SettingsGrantsSection />
                     </DataTemplate>
+                    <DataTemplate DataType="vm:SecuritySectionViewModel">
+                        <views:SettingsSecuritySection />
+                    </DataTemplate>
                     <DataTemplate DataType="vm:PluginsSectionViewModel">
                         <views:SettingsPluginsSection />
                     </DataTemplate>

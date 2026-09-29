@@ -1,4 +1,8 @@
 using System.Text.Json;
+using Avalonia;
+using Avalonia.Media.Imaging;
+using Avalonia.Platform;
+using MaroonedSoftware.Deadair.Desktop.Core.Auth;
 using MaroonedSoftware.Deadair.Desktop.Core.Configuration;
 using MaroonedSoftware.Deadair.Desktop.Core.Text;
 using MaroonedSoftware.Deadair.Desktop.ViewModels;
@@ -142,10 +146,130 @@ internal static class SettingsFakes
         SecretsConfigured = [],
     };
 
+    /// <summary>The step-up question over the Sign-in and security section, after a code was refused.</summary>
+    public static MainWindowContent StepUp()
+    {
+        var shell = (Frame(SettingsSectionId.Security).Shell)!;
+        var settings = shell.StationSettings;
+        var dialog = new StepUpDialogViewModel(new SessionManager(new InMemorySecretStore(), Fakes.Http()), settings.Calls);
+        dialog.Present(new MfaRequiredResponse
+        {
+            ChallengeId = "c_0193f2a1",
+            ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(5),
+            Factors =
+            [
+                new() { Method = AuthenticationFactorMethod.Email, MethodId = "email-1", Kind = AuthenticationFactorKind.Possession, Label = "operator@example.com" },
+                new() { Method = AuthenticationFactorMethod.Authenticator, MethodId = "totp-1", Kind = AuthenticationFactorKind.Possession, Label = "Phone" },
+                new() { Method = AuthenticationFactorMethod.Authenticator, MethodId = "totp-2", Kind = AuthenticationFactorKind.Possession, Label = "1Password on the studio Mac" },
+            ],
+        });
+        dialog.Code = "40913";
+        dialog.Problem = StepUpDialogViewModel.Describe(new SignInResult.BadCredentials());
+        _ = shell.Dialogs.ShowAsync(dialog);
+
+        return new MainWindowContent { Shell = shell };
+    }
+
+    /// <summary>
+    /// A picture shaped like the QR code the station draws, as the PNG <c>data:</c> URI it arrives
+    /// in. Not a real code: a shot must not carry a working secret, and what is being looked at is the
+    /// layout around it.
+    /// </summary>
+    private static string QrLike()
+    {
+        const int Size = 29;
+        var bitmap = new WriteableBitmap(new PixelSize(Size, Size), new Vector(96, 96), PixelFormat.Bgra8888, AlphaFormat.Opaque);
+        using (var frame = bitmap.Lock())
+        {
+            var pixels = new byte[Size * Size * 4];
+            var random = new Random(7);
+            for (var y = 0; y < Size; y++)
+            {
+                for (var x = 0; x < Size; x++)
+                {
+                    var dark = Finder(x, y) ?? Finder(Size - 1 - x, y) ?? Finder(x, Size - 1 - y) ?? random.Next(2) == 0;
+                    var value = (byte)(dark ? 0 : 255);
+                    var at = (y * Size + x) * 4;
+                    pixels[at] = pixels[at + 1] = pixels[at + 2] = value;
+                    pixels[at + 3] = 255;
+                }
+            }
+
+            System.Runtime.InteropServices.Marshal.Copy(pixels, 0, frame.Address, pixels.Length);
+        }
+
+        using var png = new MemoryStream();
+        bitmap.Save(png, PngBitmapEncoderOptions.Default);
+        return $"data:image/png;base64,{Convert.ToBase64String(png.ToArray())}";
+
+        // The three corner squares every QR code has, which is what makes it read as one.
+        static bool? Finder(int x, int y) => x < 8 && y < 8
+            ? x == 7 || y == 7 ? false : x is 0 or 6 || y is 0 or 6 || (x is >= 2 and <= 4 && y is >= 2 and <= 4)
+            : null;
+    }
+
     private static void Pose(SettingsViewModel settings, SettingsSectionId id)
     {
         switch (id)
         {
+            case SettingsSectionId.Security when settings.Security is { } security:
+                security.Factors.Present(
+                [
+                    new() { Method = AuthenticationFactorMethod.Password, Kind = AuthenticationFactorKind.Knowledge, MethodId = "pw" },
+                    new() { Method = AuthenticationFactorMethod.Authenticator, Kind = AuthenticationFactorKind.Possession, MethodId = "totp-1", Label = "Phone" },
+                ]);
+                security.Factors.NewLabel = "1Password on the studio Mac";
+                security.Factors.ShowRegistration(new AuthenticatorFactorRegistrationResponse
+                {
+                    RegistrationId = "r_1",
+                    Secret = "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP",
+                    Uri = "otpauth://totp/deadair:operator@example.com?secret=JBSWY3DPEHPK3PXP",
+                    QrCode = QrLike(),
+                    ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(10),
+                    IssuedAt = DateTimeOffset.UtcNow,
+                });
+                security.ApiKeys.Present(new ApiKeyList
+                {
+                    Keys =
+                    [
+                        new() { Id = Guid.NewGuid(), Name = "Doorbell", Hint = "da_…7f3c", Scopes = [ApiKeyScope.Manage], CreatedAt = DateTimeOffset.UtcNow.AddDays(-40), LastUsedAt = DateTimeOffset.UtcNow.AddDays(-1) },
+                        new() { Id = Guid.NewGuid(), Name = "The kitchen display that nobody remembers setting up", Hint = "da_…11ab", Scopes = [ApiKeyScope.View], CreatedAt = DateTimeOffset.UtcNow.AddDays(-400), ExpiresAt = DateTimeOffset.UtcNow.AddDays(-35) },
+                        new() { Id = Guid.NewGuid(), Name = "Old script", Hint = "da_…9e20", Scopes = [ApiKeyScope.View], CreatedAt = DateTimeOffset.UtcNow.AddDays(-90), RevokedAt = DateTimeOffset.UtcNow.AddDays(-2) },
+                    ],
+                });
+                security.ApiKeys.ShowIssued(
+                    new ApiKeyIssued
+                    {
+                        Key = new() { Id = Guid.NewGuid(), Name = "Stream Deck", Hint = "da_…4d1e", Scopes = [ApiKeyScope.Manage], CreatedAt = DateTimeOffset.UtcNow },
+                        Token = "da_live_8c1f0e6b2a9d47c3b5e1f09a7c2d6b4e_4d1e",
+                    },
+                    rotated: false);
+                security.ChatAccounts.Present(new MessagingLinkList
+                {
+                    Links = [new() { PluginId = "deadair.telegram", PlatformUserId = "81234", DisplayName = "@late_night_operator", CreatedAt = DateTimeOffset.UtcNow.AddDays(-12) }],
+                });
+                security.ConnectedApps.Present(new OAuthGrantList
+                {
+                    Grants = [new() { Id = Guid.NewGuid(), ClientId = "c1", ClientName = "Claude", Resource = "https://radio.example.com/mcp", Scope = ["manage"], CreatedAt = DateTimeOffset.UtcNow.AddDays(-3), LastUsedAt = DateTimeOffset.UtcNow }],
+                });
+                security.SigninCheck.Present(new SigninProvidersCheck
+                {
+                    Providers =
+                    [
+                        new() { Name = "authelia", Label = "Authelia", Issuer = "https://auth.example.com", Ok = true },
+                        new() { Name = "google", Label = "Google", Issuer = "https://accounts.google.com", Ok = false, Problem = "The discovery document did not answer within ten seconds." },
+                    ],
+                    Unusable = [],
+                });
+                security.OAuthClients.Present(new OAuthClientList
+                {
+                    Clients =
+                    [
+                        new() { ClientId = "3f2a", Kind = OAuthClientSummaryKind.Dynamic, Name = "Claude", RedirectUris = ["https://claude.ai/api/mcp/auth_callback"], TokenEndpointAuthMethod = OAuthClientAuthMethod.None, CreatedAt = DateTimeOffset.UtcNow.AddDays(-3), LastUsedAt = DateTimeOffset.UtcNow, ExpiresAt = DateTimeOffset.UtcNow.AddDays(87) },
+                    ],
+                });
+                break;
+
             case SettingsSectionId.Plugins:
                 settings.StationPlugins.Present(
                 [

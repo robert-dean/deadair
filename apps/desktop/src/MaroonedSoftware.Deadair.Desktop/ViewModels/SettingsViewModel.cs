@@ -116,6 +116,7 @@ public sealed partial class SettingsViewModel : ObservableObject
                 { Id: SettingsSectionId.Providers } => Providers,
                 { Id: SettingsSectionId.Grants } => Grants,
                 { Id: SettingsSectionId.Plugins } => StationPlugins,
+                { Id: SettingsSectionId.Security } => Security = new SecuritySectionViewModel(AddGroup(section), _calls, session),
                 { Group: not null } => AddGroup(section),
                 _ => throw new InvalidOperationException($"No contents for the {section.Label} section."),
             };
@@ -135,6 +136,10 @@ public sealed partial class SettingsViewModel : ObservableObject
         _current = AppSection;
         _current.IsActive = true;
         Sections.Add(AppSection);
+
+        // Every page's calls, not only this one's: a change the station will not make without a fresh
+        // second factor asks for one and is tried again, wherever it was pressed.
+        StepUpDialogViewModel.Install(actions, session, _calls, dispatcher);
 
         session.Changed += state => dispatcher.Post(() => ApplyRole(state is SessionState.SignedIn { IsOperator: true }));
         _session = session;
@@ -188,6 +193,12 @@ public sealed partial class SettingsViewModel : ObservableObject
     public ProvidersSectionViewModel Providers { get; }
 
     public GrantsSectionViewModel Grants { get; }
+
+    /// <summary>What every section reaches the station with, for a dialog built outside the page.</summary>
+    public SettingsCalls Calls => _calls;
+
+    /// <summary>Sign-in and security: this account's own half, and the station's.</summary>
+    public SecuritySectionViewModel? Security { get; private set; }
 
     /// <summary>
     /// The STATION's plugins, which run in the station. This app's own (somewhere else to play the
@@ -496,6 +507,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         Providers.Reset();
         Grants.Reset();
         StationPlugins.Reset();
+        Security?.Reset();
         ApplyMounts([]);
     }
 

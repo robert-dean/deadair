@@ -41,12 +41,48 @@ public sealed class OperatorActions(SessionManager session)
         {
             return await action(cancellationToken).ConfigureAwait(false);
         }
+        catch (SdkException failure) when (StepUp is not null && ApiError.IsStepUpRequired(failure))
+        {
+            if (!await StepUp(cancellationToken).ConfigureAwait(false))
+            {
+                return null;
+            }
+
+            try
+            {
+                return await action(cancellationToken).ConfigureAwait(false);
+            }
+            catch (SdkException again)
+            {
+                await ReportAsync(again, expected, cancellationToken).ConfigureAwait(false);
+                return null;
+            }
+        }
         catch (SdkException failure)
         {
             await ReportAsync(failure, expected, cancellationToken).ConfigureAwait(false);
             return null;
         }
     }
+
+    /// <summary>
+    /// Asks the operator for a second factor and answers whether they gave one, for a call the station
+    /// refused until they do. Absent, a step-up is reported as a notice like any other refusal.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Set once, by whatever can draw the question (the app's step-up dialog); this project cannot
+    /// draw anything. The action is then tried AGAIN, once: the station asked for proof that the
+    /// person at the keyboard is the account holder, not for the action to be abandoned, and a
+    /// second refusal after a good code is reported rather than asked about again, so a station that
+    /// keeps asking cannot hold somebody in a loop of code boxes.
+    /// </para>
+    /// <para>
+    /// Declining says nothing at the foot of the page: the person pressed Cancel, and a notice telling
+    /// them the station wanted a code they chose not to give is news to nobody.
+    /// </para>
+    /// </remarks>
+    public Func<CancellationToken, Task<bool>>? StepUp { get; set; }
 
     /// <summary>
     /// Runs a call that answers with nothing, and says whether it worked.
@@ -64,17 +100,21 @@ public sealed class OperatorActions(SessionManager session)
     {
         ArgumentNullException.ThrowIfNull(action);
 
-        try
-        {
-            await action(cancellationToken).ConfigureAwait(false);
-            return true;
-        }
-        catch (SdkException failure)
-        {
-            await ReportAsync(failure, expected, cancellationToken).ConfigureAwait(false);
-            return false;
-        }
+        // Through RunAsync, so a call that answers with nothing is asked about a second factor the
+        // same way one that answers with a body is.
+        var done = await RunAsync(
+            async token =>
+            {
+                await action(token).ConfigureAwait(false);
+                return Done;
+            },
+            expected,
+            cancellationToken).ConfigureAwait(false);
+
+        return done is not null;
     }
+
+    private static readonly object Done = new();
 
     private async Task ReportAsync(
         SdkException failure,

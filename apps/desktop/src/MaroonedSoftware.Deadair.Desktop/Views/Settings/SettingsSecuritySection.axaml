@@ -1,0 +1,355 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    xmlns:views="using:MaroonedSoftware.Deadair.Desktop.Views"
+    xmlns:conv="using:MaroonedSoftware.Deadair.Desktop.Themes"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.SettingsSecuritySection"
+    x:DataType="vm:SecuritySectionViewModel">
+
+    <UserControl.Resources>
+        <conv:ToneBrushConverter x:Key="ToneBrush" />
+    </UserControl.Resources>
+
+    <!-- Two halves, and the heading over each is what says who may change it: the person signed in
+         owns the first whatever their role, the station owns the second. A card the station will not
+         show this account is not drawn at all. -->
+    <DockPanel LastChildFill="True">
+
+        <StackPanel DockPanel.Dock="Top" Spacing="4" Margin="0,0,0,14" MaxWidth="760" HorizontalAlignment="Left">
+            <TextBlock Classes="h2" Text="Sign-in and security" />
+            <TextBlock Classes="dimmed" TextWrapping="Wrap" Text="How you sign in, and how everybody else may." />
+        </StackPanel>
+
+        <ScrollViewer>
+            <StackPanel Spacing="14" MaxWidth="760" HorizontalAlignment="Stretch" Margin="0,0,14,8">
+
+                <TextBlock Classes="eyebrow" Text="YOUR ACCOUNT" />
+
+                <!-- How you sign in. -->
+                <Border Classes="card" DataContext="{Binding Factors}" x:DataType="vm:FactorsCardViewModel" IsVisible="{Binding IsShown}">
+                    <StackPanel Spacing="10">
+                        <StackPanel Spacing="2">
+                            <TextBlock Classes="h3" Text="How you sign in" />
+                            <TextBlock Classes="dimmed" TextWrapping="Wrap"
+                                       Text="With an authenticator enrolled, every sign-in to this account asks for its code after the password. Lose the phone and the station's README says how to get back in from the box." />
+                        </StackPanel>
+                        <TextBlock Classes="secondary" Text="No authenticator yet. Sign-in is the password alone." IsVisible="{Binding !HasAuthenticator}" />
+                        <ItemsControl ItemsSource="{Binding Factors}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:FactorRowViewModel">
+                                    <Grid ColumnDefinitions="*,96" ColumnSpacing="12" Height="34">
+                                        <TextBlock Text="{Binding Name}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                        <Button Grid.Column="1" Classes="ghost" Content="Remove" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                IsVisible="{Binding IsAuthenticator}"
+                                                Command="{Binding $parent[ItemsControl].((vm:FactorsCardViewModel)DataContext).RemoveCommand}"
+                                                CommandParameter="{Binding}" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <!-- Adding one: a label, then the station's QR code and key, then the first code. -->
+                        <StackPanel Spacing="6" IsVisible="{Binding IsIdle}">
+                            <TextBlock FontSize="12" Classes="secondary" Text="Add an authenticator" />
+                            <TextBlock Classes="dimmed" FontSize="11" TextWrapping="Wrap"
+                                       Text="Any app that shows six-digit codes: Google Authenticator, 1Password, Aegis. Give it a label so you can tell this one apart later." />
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBox Text="{Binding NewLabel}" PlaceholderText="Phone" Width="220" />
+                                <Button Classes="ghost" Content="Add an authenticator" Command="{Binding StartEnrolCommand}" />
+                            </StackPanel>
+                        </StackPanel>
+
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="18" IsVisible="{Binding Enrolling}">
+                            <Border Width="176" Height="176" Background="White" CornerRadius="{DynamicResource DaCorner}" Padding="8"
+                                    VerticalAlignment="Top" IsVisible="{Binding QrCode, Converter={x:Static ObjectConverters.IsNotNull}}">
+                                <Image Source="{Binding QrCode}" Stretch="Uniform" RenderOptions.BitmapInterpolationMode="None" />
+                            </Border>
+                            <StackPanel Grid.Column="1" Spacing="8">
+                                <TextBlock TextWrapping="Wrap" Text="Scan the code with the app, then enter the first number it shows." />
+                                <TextBlock FontSize="12" Classes="secondary" Text="Or enter this key by hand:" />
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                    <TextBox Classes="mono" IsReadOnly="True" Text="{Binding Secret, Mode=OneWay}" FontSize="12" />
+                                    <Button Grid.Column="1" Classes="ghost" Content="Copy" Command="{Binding CopySecretCommand}" />
+                                </Grid>
+                                <TextBlock FontSize="12" Classes="secondary" Text="First code" />
+                                <WrapPanel ItemSpacing="8" LineSpacing="8">
+                                    <TextBox Classes="mono" Text="{Binding FirstCode}" MaxLength="6" PlaceholderText="000000" Width="120" />
+                                    <Button Classes="primary" Content="Verify and enrol" Command="{Binding VerifyEnrolCommand}" />
+                                    <Button Classes="ghost" Content="Cancel" Command="{Binding CancelEnrolCommand}" />
+                                </WrapPanel>
+                            </StackPanel>
+                        </Grid>
+                        <TextBlock TextWrapping="Wrap" Text="{Binding Notice}" IsVisible="{Binding Notice, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                    </StackPanel>
+                </Border>
+
+                <!-- API keys. -->
+                <Border Classes="card" DataContext="{Binding ApiKeys}" x:DataType="vm:ApiKeysCardViewModel" IsVisible="{Binding IsShown}">
+                    <StackPanel Spacing="10">
+                        <StackPanel Spacing="2">
+                            <TextBlock Classes="h3" Text="API keys" />
+                            <TextBlock Classes="dimmed" TextWrapping="Wrap"
+                                       Text="For a script or an integration that should reach the station as you without your password. A key never does more than this account can, and it cannot sign in, change how you sign in, or make other keys." />
+                        </StackPanel>
+
+                        <!-- The secret, once. -->
+                        <Border Background="{DynamicResource DaRaisedBrush}" CornerRadius="{DynamicResource DaCorner}" Padding="12" IsVisible="{Binding HasIssued}">
+                            <StackPanel Spacing="6">
+                                <TextBlock FontWeight="SemiBold" Text="{Binding IssuedTitle}" />
+                                <TextBlock Classes="secondary" TextWrapping="Wrap" Text="{Binding IssuedBody}" />
+                                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                                    <TextBox Classes="mono" IsReadOnly="True" Text="{Binding IssuedToken, Mode=OneWay}" FontSize="12" />
+                                    <Button Grid.Column="1" Classes="ghost" Content="Copy" Command="{Binding CopyTokenCommand}" />
+                                    <Button Grid.Column="2" Classes="primary" Content="Done" Command="{Binding DoneWithIssuedCommand}" />
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <TextBlock Classes="dimmed" Text="No keys yet. Nothing outside the console can reach the station as you." IsVisible="{Binding IsEmpty}" />
+                        <ItemsControl ItemsSource="{Binding Keys}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:ApiKeyRowViewModel">
+                                    <!-- Two lines rather than a column per figure: five columns left the
+                                         name three letters at this section's width. -->
+                                    <Grid ColumnDefinitions="*,150" ColumnSpacing="10" Margin="0,3">
+                                        <StackPanel Spacing="1">
+                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Classes="mono dimmed" FontSize="11" VerticalAlignment="Center" Text="{Binding State}" />
+                                            </StackPanel>
+                                            <TextBlock Classes="dimmed" FontSize="11" Text="{Binding Line}" TextTrimming="CharacterEllipsis" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" HorizontalAlignment="Right"
+                                                    VerticalAlignment="Center" IsVisible="{Binding IsActive}">
+                                            <Button Classes="ghost" Content="Rotate"
+                                                    Command="{Binding $parent[ItemsControl].((vm:ApiKeysCardViewModel)DataContext).RotateCommand}"
+                                                    CommandParameter="{Binding}" />
+                                            <Button Classes="ghost" Content="Revoke"
+                                                    Command="{Binding $parent[ItemsControl].((vm:ApiKeysCardViewModel)DataContext).RevokeCommand}"
+                                                    CommandParameter="{Binding}" />
+                                        </StackPanel>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <StackPanel Spacing="6">
+                            <TextBlock FontSize="12" Classes="secondary" Text="New key" />
+                            <WrapPanel ItemSpacing="8" LineSpacing="8">
+                                <TextBox Text="{Binding NewName}" PlaceholderText="What will use it, such as Doorbell" Width="240" />
+                                <CheckBox Content="Can change things" IsChecked="{Binding NewManages}" VerticalAlignment="Center" />
+                                <ComboBox ItemsSource="{x:Static vm:ApiKeysCardViewModel.Expiries}" SelectedItem="{Binding NewExpiry}" Width="120" ToolTip.Tip="Expires">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:ExpiryChoice">
+                                            <TextBlock Text="{Binding Label}" />
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                                <Button Classes="ghost" Content="Create key" Command="{Binding CreateCommand}" IsEnabled="{Binding CanCreate}" />
+                            </WrapPanel>
+                        </StackPanel>
+                        <TextBlock TextWrapping="Wrap" Text="{Binding Notice}" IsVisible="{Binding Notice, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                    </StackPanel>
+                </Border>
+
+                <!-- Chat accounts. -->
+                <Border Classes="card" DataContext="{Binding ChatAccounts}" x:DataType="vm:ChatAccountsCardViewModel" IsVisible="{Binding IsShown}">
+                    <StackPanel Spacing="10">
+                        <StackPanel Spacing="2">
+                            <TextBlock Classes="h3" Text="Chat accounts" />
+                            <TextBlock Classes="dimmed" TextWrapping="Wrap"
+                                       Text="Link your account on a chat platform, such as Telegram, Discord or Slack, to skip a record or take the station off the air from a chat. It can do only what you can." />
+                        </StackPanel>
+                        <ItemsControl ItemsSource="{Binding Links}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:ChatLinkRowViewModel">
+                                    <Grid ColumnDefinitions="*,120,96" ColumnSpacing="10" Height="34">
+                                        <TextBlock Text="{Binding Name}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Grid.Column="1" Classes="dimmed" FontSize="11" Text="{Binding Linked}" VerticalAlignment="Center" />
+                                        <Button Grid.Column="2" Classes="ghost" Content="Unlink" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                Command="{Binding $parent[ItemsControl].((vm:ChatAccountsCardViewModel)DataContext).UnlinkCommand}"
+                                                CommandParameter="{Binding}" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <Border Background="{DynamicResource DaRaisedBrush}" CornerRadius="{DynamicResource DaCorner}" Padding="12" IsVisible="{Binding HasCode}">
+                            <StackPanel Spacing="6">
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                    <TextBox Classes="mono" IsReadOnly="True" Text="{Binding Code, Mode=OneWay}" FontSize="16" />
+                                    <Button Grid.Column="1" Classes="ghost" Content="Copy" Command="{Binding CopyCodeCommand}" />
+                                </Grid>
+                                <TextBlock Classes="dimmed" FontSize="11" TextWrapping="Wrap" Text="{Binding CodeHint}" />
+                            </StackPanel>
+                        </Border>
+                        <Button Classes="ghost" Content="{Binding CodeAction}" Command="{Binding NewCodeCommand}" />
+                        <TextBlock TextWrapping="Wrap" Text="{Binding Notice}" IsVisible="{Binding Notice, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                    </StackPanel>
+                </Border>
+
+                <!-- Connected apps. -->
+                <Border Classes="card" DataContext="{Binding ConnectedApps}" x:DataType="vm:ConnectedAppsCardViewModel" IsVisible="{Binding IsShown}">
+                    <StackPanel Spacing="10">
+                        <StackPanel Spacing="2">
+                            <TextBlock Classes="h3" Text="Connected apps" />
+                            <TextBlock Classes="dimmed" TextWrapping="Wrap"
+                                       Text="Apps you have let act as you on this station, such as a Claude connector, and what each may do. To change that, disconnect it and connect it again." />
+                        </StackPanel>
+                        <TextBlock Classes="dimmed" Text="None yet." IsVisible="{Binding IsEmpty}" />
+                        <ItemsControl ItemsSource="{Binding Apps}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:ConnectedAppRowViewModel">
+                                    <Grid ColumnDefinitions="*,110" ColumnSpacing="10" Margin="0,3">
+                                        <StackPanel Spacing="1">
+                                            <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Classes="dimmed" FontSize="11" Text="{Binding Line}" TextTrimming="CharacterEllipsis" />
+                                        </StackPanel>
+                                        <Button Grid.Column="1" Classes="ghost" Content="Disconnect" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                Command="{Binding $parent[ItemsControl].((vm:ConnectedAppsCardViewModel)DataContext).DisconnectCommand}"
+                                                CommandParameter="{Binding}" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBlock TextWrapping="Wrap" Text="{Binding Notice}" IsVisible="{Binding Notice, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                    </StackPanel>
+                </Border>
+
+                <TextBlock Classes="eyebrow" Text="THE STATION" Margin="0,8,0,0" />
+
+                <!-- Sign-in for everyone: the declared `signin` group, through the one form. Its button
+                     names the half it saves. -->
+                <Border Classes="card" DataContext="{Binding Group}" x:DataType="vm:SettingsGroupViewModel">
+                    <StackPanel Spacing="10">
+                        <StackPanel Spacing="2">
+                            <TextBlock Classes="h3" Text="Sign-in for everyone" />
+                            <TextBlock Classes="dimmed" TextWrapping="Wrap" Text="{Binding Blurb}" />
+                        </StackPanel>
+                        <TextBlock Classes="dimmed" Text="Reading the station's settings…"
+                                   IsVisible="{Binding Form, Converter={x:Static ObjectConverters.IsNull}}" />
+                        <ItemsControl ItemsSource="{Binding Form.Fields}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:FormFieldViewModel">
+                                    <views:FormFieldView />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <StackPanel Orientation="Horizontal" Spacing="12" IsVisible="{Binding HasForm}">
+                            <Button Classes="primary" Content="Save sign-in for everyone" Command="{Binding SaveCommand}" IsEnabled="{Binding !Busy}" />
+                            <TextBlock Classes="dimmed" VerticalAlignment="Center" TextWrapping="Wrap" Text="{Binding Notice}" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- Do they answer? -->
+                <Border Classes="card" DataContext="{Binding SigninCheck}" x:DataType="vm:SigninCheckCardViewModel" IsVisible="{Binding IsShown}">
+                    <StackPanel Spacing="10">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <StackPanel Spacing="2">
+                                <TextBlock Classes="h3" Text="Do they answer?" />
+                                <TextBlock Classes="dimmed" TextWrapping="Wrap"
+                                           Text="The station asks each provider for its sign-in details, the way the sign-in page will, whenever this list is saved." />
+                            </StackPanel>
+                            <Button Grid.Column="1" Classes="ghost" Content="Check again" VerticalAlignment="Top"
+                                    Command="{Binding CheckAgainCommand}" IsEnabled="{Binding !Busy}" />
+                        </Grid>
+                        <TextBlock Classes="dimmed" Text="No identity provider is set up, so the sign-in page offers the password alone." IsVisible="{Binding IsEmpty}" />
+                        <ItemsControl ItemsSource="{Binding Providers}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:SigninProviderRowViewModel">
+                                    <Grid ColumnDefinitions="*,120" ColumnSpacing="10" Margin="0,3">
+                                        <StackPanel Spacing="1">
+                                            <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Classes="mono dimmed" FontSize="11" Text="{Binding Issuer}" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock FontSize="11" TextWrapping="Wrap" Text="{Binding Problem}" Foreground="{DynamicResource DaToneFaultBrush}"
+                                                       IsVisible="{Binding Problem, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" HorizontalAlignment="Right" VerticalAlignment="Top">
+                                            <Ellipse Width="7" Height="7" VerticalAlignment="Center" Fill="{Binding Tone, Converter={StaticResource ToneBrush}}" />
+                                            <TextBlock FontSize="12" Text="{Binding Verdict}" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+                <!-- Registered apps. -->
+                <Border Classes="card" DataContext="{Binding OAuthClients}" x:DataType="vm:OAuthClientsCardViewModel" IsVisible="{Binding IsShown}">
+                    <StackPanel Spacing="10">
+                        <StackPanel Spacing="2">
+                            <TextBlock Classes="h3" Text="Registered apps" />
+                            <TextBlock Classes="dimmed" TextWrapping="Wrap"
+                                       Text="Apps allowed to ask somebody here for access. Registering one gives it nothing until a person approves it." />
+                        </StackPanel>
+
+                        <Border Background="{DynamicResource DaRaisedBrush}" CornerRadius="{DynamicResource DaCorner}" Padding="12" IsVisible="{Binding HasIssued}">
+                            <StackPanel Spacing="6">
+                                <TextBlock FontWeight="SemiBold" Text="{Binding IssuedTitle}" />
+                                <TextBlock FontSize="12" Classes="secondary" Text="Client id" />
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                    <TextBox Classes="mono" IsReadOnly="True" Text="{Binding IssuedClientId, Mode=OneWay}" FontSize="12" />
+                                    <Button Grid.Column="1" Classes="ghost" Content="Copy" Command="{Binding CopyClientIdCommand}" />
+                                </Grid>
+                                <StackPanel Spacing="6" IsVisible="{Binding HasIssuedSecret}">
+                                    <TextBlock FontSize="12" Classes="secondary" TextWrapping="Wrap"
+                                               Text="Client secret. This is the only time it is shown: copy it now." />
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                        <TextBox Classes="mono" IsReadOnly="True" Text="{Binding IssuedSecret, Mode=OneWay}" FontSize="12" />
+                                        <Button Grid.Column="1" Classes="ghost" Content="Copy" Command="{Binding CopySecretCommand}" />
+                                    </Grid>
+                                </StackPanel>
+                                <Button Classes="primary" Content="Done" Command="{Binding DoneWithIssuedCommand}" />
+                            </StackPanel>
+                        </Border>
+
+                        <TextBlock Classes="dimmed" Text="None yet." IsVisible="{Binding IsEmpty}" />
+                        <ItemsControl ItemsSource="{Binding Clients}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:OAuthClientRowViewModel">
+                                    <Grid ColumnDefinitions="*,100" ColumnSpacing="10" Margin="0,4">
+                                        <StackPanel Spacing="1">
+                                            <!-- Two blocks rather than Runs: a Run's Text binds both ways by default,
+                                                 and a formatted one wrote its own text back until the stack ran out. -->
+                                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                                <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Classes="dimmed" FontSize="11" VerticalAlignment="Center" Text="{Binding Kind}" />
+                                            </StackPanel>
+                                            <TextBlock Classes="dimmed" FontSize="11" Text="{Binding Method}" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Classes="mono dimmed" FontSize="11" Text="{Binding Redirects}" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Classes="dimmed" FontSize="11" Text="{Binding Used}" TextTrimming="CharacterEllipsis" />
+                                        </StackPanel>
+                                        <Button Grid.Column="1" Classes="ghost" Content="Withdraw" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                                Command="{Binding $parent[ItemsControl].((vm:OAuthClientsCardViewModel)DataContext).WithdrawCommand}"
+                                                CommandParameter="{Binding}" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <StackPanel Spacing="6">
+                            <TextBlock FontSize="12" Classes="secondary" Text="Register an app by hand" />
+                            <TextBox Text="{Binding NewName}" PlaceholderText="Name" Width="280" HorizontalAlignment="Left" />
+                            <TextBox Text="{Binding NewRedirects}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="64" Width="420"
+                                     HorizontalAlignment="Left" PlaceholderText="https://app.example.com/callback" />
+                            <TextBlock Classes="dimmed" FontSize="11" TextWrapping="Wrap"
+                                       Text="Where it may be sent back to: one address per line, https or this computer's own (http://127.0.0.1/…)." />
+                            <ComboBox ItemsSource="{Binding Methods}" SelectedItem="{Binding NewMethod}" MinWidth="280">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:ClientMethodChoice">
+                                        <TextBlock Text="{Binding Label}" />
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                            <Button Classes="ghost" Content="Register" Command="{Binding RegisterCommand}" />
+                        </StackPanel>
+                        <TextBlock TextWrapping="Wrap" Text="{Binding Notice}" IsVisible="{Binding Notice, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+    </DockPanel>
+
+</UserControl>

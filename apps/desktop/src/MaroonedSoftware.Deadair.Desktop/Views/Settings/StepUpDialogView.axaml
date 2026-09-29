@@ -1,0 +1,33 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.StepUpDialogView"
+    x:DataType="vm:StepUpDialogViewModel">
+
+    <!-- Only the fields: the host draws the title, the problem line and Verify. -->
+    <StackPanel Spacing="10">
+        <TextBlock Classes="secondary" TextWrapping="Wrap"
+                   Text="Enter the code from your authenticator app to make this change. The station asks again for anything that changes how this account, or anybody, signs in." />
+
+        <TextBlock Classes="dimmed" Text="Asking the station for a challenge…" IsVisible="{Binding Starting}" />
+
+        <StackPanel Spacing="4" IsVisible="{Binding HasChoice}">
+            <TextBlock FontSize="12" Classes="secondary" Text="Which authenticator" />
+            <ComboBox ItemsSource="{Binding Factors}" SelectedItem="{Binding Chosen}" Width="260">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="vm:StepUpFactorViewModel">
+                        <TextBlock Text="{Binding Label}" />
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+        </StackPanel>
+
+        <StackPanel Spacing="4">
+            <TextBlock FontSize="12" Classes="secondary" Text="Authenticator code" />
+            <TextBox x:Name="CodeBox" Classes="mono" Text="{Binding Code}" Width="160" HorizontalAlignment="Left"
+                     MaxLength="6" PlaceholderText="000000" FontSize="16" />
+        </StackPanel>
+    </StackPanel>
+
+</UserControl>

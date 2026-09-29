@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.37.1] — 2026-09-29
+
+- A model provider refusing a generation now says why. A quota refusal, an overloaded model or a rejected key used to reach the log as "No output generated. Check the stream for errors."; it now names the provider, the HTTP status and the provider's own message, and is classified as rate limited, unavailable or an auth failure accordingly.
+
 ## [0.37.0] — 2026-09-29
 
 - The Playlists page lists each music source's playlists as the library sync last read them, instead of asking every source while the page loads. A slow or rate-limited Spotify no longer leaves the page empty, and a source that has stopped answering still shows its last list beside the warning. Each source says when its list was read, and Refresh now updates the lists on the page as each source answers. The playlist listing response gains an optional `sources` field with that time.
@@ -956,7 +960,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.37.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.37.1...HEAD
+[0.37.1]: https://github.com/robert-dean/deadair/compare/v0.37.0...v0.37.1
 [0.37.0]: https://github.com/robert-dean/deadair/compare/v0.36.1...v0.37.0
 [0.36.1]: https://github.com/robert-dean/deadair/compare/v0.36.0...v0.36.1
 [0.36.0]: https://github.com/robert-dean/deadair/compare/v0.35.4...v0.36.0

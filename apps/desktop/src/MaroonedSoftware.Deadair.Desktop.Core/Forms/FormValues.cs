@@ -65,7 +65,7 @@ public static class FormValues
     /// The station's own vocabulary for a switch, with anything unreadable taking the default.
     /// </summary>
     /// <remarks>
-    /// `config.get(key, false)` answers the STRING `'false'`, which is truthy — a bug that was live in
+    /// `config.get(key, false)` answers the STRING `'false'`, which is truthy: a bug that was live in
     /// six places at once on the station. A value nobody can read is a value nobody set, so it falls
     /// to the declared default rather than to off.
     /// </remarks>

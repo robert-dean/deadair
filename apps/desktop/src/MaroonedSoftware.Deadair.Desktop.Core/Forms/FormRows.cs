@@ -164,8 +164,8 @@ public static class FormRows
     /// </summary>
     /// <remarks>
     /// A secret cell is three-way, as a secret field is: typed sets it, absent keeps what is stored
-    /// (so a row can be renamed without retyping its key), and null clears it — only when somebody
-    /// asked for exactly that.
+    /// (so a row can be renamed without retyping its key), and null clears it (only when somebody
+    /// asked for exactly that).
     /// </remarks>
     public static string Submit(
         IEnumerable<IReadOnlyDictionary<string, string>> rows,

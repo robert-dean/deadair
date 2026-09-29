@@ -946,8 +946,8 @@ dialog's own problem line rather than behind it.
 worded as what will happen rather than "are you sure", with the button as the verb.
 
 **A refusal is said at the foot of the page, by the shell.** It used to be a line in the transport
-card, which lives in the Now playing panel — a panel somebody can close and that hides itself below
-1060 — so a refused write on the Library said nothing at all with the panel away. The line goes on
+card, which lives in the Now playing panel. That panel can be closed and hides itself below 1060,
+so a refused write on the Library said nothing at all with the panel away. The line goes on
 its own after eight seconds or when dismissed. `Notice.Describe` is the one wording of a notice.
 
 **`OperatorActions.DoAsync` is `RunAsync` for a call that answers with nothing** (a delete, a hide, a

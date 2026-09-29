@@ -14,13 +14,13 @@ public sealed record Clip(byte[] Data, string Extension);
 /// <para>
 /// A second <see cref="IStationPlayer"/> over a file rather than a second kind of player: the
 /// platform's player already plays a <c>file://</c> address, so a preview is written to a temporary
-/// file and played from there. That keeps the bytes' fetch on the station's ONE client — the preview
-/// endpoints want the operator's bearer token, which only that client carries — and keeps this class
+/// file and played from there. That keeps the bytes' fetch on the station's ONE client (the preview
+/// endpoints want the operator's bearer token, which only that client carries) and keeps this class
 /// free of anything platform-specific, so it is tested with a fake player.
 /// </para>
 /// <para>
 /// One at a time: starting a clip stops the last one, and its file goes with it. The station's stream
-/// is left alone — a preview is something an operator listens to OVER the station, and a clip that
+/// is left alone. A preview is something an operator listens to OVER the station, and a clip that
 /// stopped the broadcast in their ears would be a preview nobody could judge against it.
 /// </para>
 /// </remarks>

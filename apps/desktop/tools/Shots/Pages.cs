@@ -51,7 +51,7 @@ internal static class Pages
         yield return ("shell-settings", Page(new Destination.Settings(), operatorSignedIn: true), 1180, 720);
 
         // Tall enough to reach the station's own fields, which sit below this app's card: every
-        // kind the declared form draws — a switch, a number, a size in gigabytes, a secret that is
+        // kind the declared form draws: a switch, a number, a size in gigabytes, a secret that is
         // set, a choice and a table of rows.
         yield return ("shell-settings-station", Page(new Destination.Settings(), operatorSignedIn: true), 1180, 2100);
         // Taller than the app's own window, deliberately: the card is two plugins long and the

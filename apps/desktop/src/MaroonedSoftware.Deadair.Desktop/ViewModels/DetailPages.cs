@@ -11,8 +11,8 @@ namespace MaroonedSoftware.Deadair.Desktop.ViewModels;
 /// </summary>
 /// <remarks>
 /// <para>
-/// The rail's pages are singletons because there is one of each. A detail page is one of many — a
-/// chart, an artist — so its view model is made when it is opened and let go when it is left, and
+/// The rail's pages are singletons because there is one of each. A detail page is one of many (a
+/// chart, an artist), so its view model is made when it is opened and let go when it is left, and
 /// this is the one place that knows how.
 /// </para>
 /// <para>

@@ -38,17 +38,21 @@
             <ListBox Classes="rows" ItemsSource="{Binding Albums}">
                 <ListBox.ItemTemplate>
                     <DataTemplate x:DataType="vm:AlbumRowViewModel">
-                        <Grid ColumnDefinitions="36,*,200,44" ColumnSpacing="12">
+                        <Grid ColumnDefinitions="36,*,180,44,82" ColumnSpacing="12">
                             <controls:Artwork Size="36" Source="{Binding ArtworkUrl}"
                                               Initial="{Binding Initial}" />
-                            <TextBlock Grid.Column="1" Text="{Binding Name}" VerticalAlignment="Center"
-                                       TextTrimming="CharacterEllipsis"
-                                       Foreground="{DynamicResource DaTextBrush}" />
+                            <Button Grid.Column="1" Classes="link" HorizontalAlignment="Left" VerticalAlignment="Center"
+                                    Command="{Binding $parent[ListBox].((vm:AlbumsViewModel)DataContext).OpenCommand}"
+                                    CommandParameter="{Binding}">
+                                <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                            </Button>
                             <TextBlock Grid.Column="2" Text="{Binding ArtistName}" VerticalAlignment="Center"
                                        TextTrimming="CharacterEllipsis" Classes="secondary" />
                             <TextBlock Classes="mono" Grid.Column="3" Text="{Binding Year}" FontSize="11"
                                        VerticalAlignment="Center" HorizontalAlignment="Right"
                                        Foreground="{DynamicResource DaTextDimmedBrush}" />
+                            <views:RatingStrip Grid.Column="4" DataContext="{Binding Rating}"
+                                               VerticalAlignment="Center" />
                         </Grid>
                     </DataTemplate>
                 </ListBox.ItemTemplate>

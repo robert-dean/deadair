@@ -225,6 +225,25 @@
         <Setter Property="Foreground" Value="{DynamicResource DaBgBrush}" />
     </Style>
 
+    <!-- A name that leads somewhere: a record's title to its page, an act's name to theirs. Drawn as
+         the text it is, taking the accent on hover, because a row whose every title was a bordered
+         button would be a column of buttons and no longer a list. -->
+    <Style Selector="Button.link">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Foreground" Value="{DynamicResource DaTextBrush}" />
+        <Setter Property="HorizontalContentAlignment" Value="Left" />
+        <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <Style Selector="Button.link /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="Button.link:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{DynamicResource DaAccentBrush}" />
+    </Style>
+
     <!-- Which tab you are on. Without this every tab looks the same and the page is a list with no
          address: Voice fixed it locally, Library never did, and this is that fix for both. -->
     <Style Selector="Button.tab">

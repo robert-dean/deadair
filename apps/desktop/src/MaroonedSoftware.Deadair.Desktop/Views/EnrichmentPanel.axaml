@@ -1,0 +1,156 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    xmlns:cat="using:MaroonedSoftware.Deadair.Desktop.Core.Catalog"
+    xmlns:conv="using:MaroonedSoftware.Deadair.Desktop.Themes"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.EnrichmentPanel"
+    x:DataType="vm:EnrichmentViewModel">
+
+    <UserControl.Resources>
+        <conv:ToneBrushConverter x:Key="ToneBrush" />
+    </UserControl.Resources>
+
+    <!-- What the providers said, with the providers named at the foot: everything above them is
+         somebody else's claim, and correcting a wrong one starts with knowing whose it was. -->
+    <Border Classes="card">
+        <Panel>
+            <TextBlock Classes="dimmed" Text="{Binding EmptyText}" TextWrapping="Wrap"
+                       IsVisible="{Binding IsEmpty}" />
+
+            <StackPanel Spacing="14" IsVisible="{Binding HasReading}">
+                <TextBlock Classes="eyebrow" Text="What the providers say" />
+
+                <ItemsControl ItemsSource="{Binding Reading.Tags}" IsVisible="{Binding Reading.HasTags}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel ItemSpacing="6" LineSpacing="6" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="x:String">
+                            <Border Classes="pill" Height="22">
+                                <TextBlock Text="{Binding}" FontSize="11" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource DaTextSecondaryBrush}" />
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <ItemsControl ItemsSource="{Binding Reading.Pairs}" IsVisible="{Binding Reading.HasPairs}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel ItemSpacing="28" LineSpacing="8" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="cat:EnrichmentPair">
+                            <StackPanel Spacing="2">
+                                <TextBlock Text="{Binding Label}" FontSize="11" Classes="dimmed" />
+                                <TextBlock Text="{Binding Value}" Foreground="{DynamicResource DaTextBrush}" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <!-- The station's own beliefs, above the providers' facts: these are the sentences
+                     the presenter says out loud, and each carries the words it was read from. -->
+                <ItemsControl ItemsSource="{Binding Reading.Claims}" IsVisible="{Binding Reading.HasClaims}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Spacing="10" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="cat:ClaimRow">
+                            <Grid ColumnDefinitions="110,*" ColumnSpacing="10">
+                                <TextBlock Classes="mono" Text="{Binding Category}" FontSize="11"
+                                           TextTrimming="CharacterEllipsis" Margin="0,2,0,0"
+                                           Foreground="{DynamicResource DaTextDimmedBrush}" />
+                                <StackPanel Grid.Column="1" Spacing="3">
+                                    <TextBlock Text="{Binding Claim}" TextWrapping="Wrap"
+                                               Foreground="{DynamicResource DaTextBrush}" />
+                                    <TextBlock Text="{Binding Quote, StringFormat='“{0}”'}" FontSize="11"
+                                               FontStyle="Italic" TextWrapping="Wrap" Classes="dimmed" />
+                                    <HyperlinkButton NavigateUri="{Binding Source}" Padding="0" FontSize="11"
+                                                     IsVisible="{Binding Source, Converter={x:Static ObjectConverters.IsNotNull}}">
+                                        <TextBlock Text="{Binding Source}" TextTrimming="CharacterEllipsis" />
+                                    </HyperlinkButton>
+                                </StackPanel>
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <ItemsControl ItemsSource="{Binding Reading.Facts}" IsVisible="{Binding Reading.HasFacts}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Spacing="4" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="x:String">
+                            <TextBlock Text="{Binding StringFormat='·  {0}'}" TextWrapping="Wrap"
+                                       Classes="secondary" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <StackPanel Spacing="4"
+                            IsVisible="{Binding Reading.Biography, Converter={x:Static ObjectConverters.IsNotNull}}">
+                    <TextBlock Text="{Binding Reading.Biography}" TextWrapping="Wrap"
+                               MaxLines="{Binding BiographyLines}" TextTrimming="CharacterEllipsis"
+                               Classes="secondary" />
+                    <Button Classes="link" FontSize="12" Content="{Binding BiographyToggle}"
+                            Command="{Binding ToggleBiographyCommand}"
+                            Foreground="{DynamicResource DaTextDimmedBrush}" />
+                </StackPanel>
+
+                <ItemsControl ItemsSource="{Binding Reading.Links}" IsVisible="{Binding Reading.HasLinks}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel ItemSpacing="16" LineSpacing="4" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="cat:EnrichmentLinkRow">
+                            <HyperlinkButton NavigateUri="{Binding Url}" Content="{Binding Label}" Padding="0" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <TextBlock Classes="mono" FontSize="11" Text="{Binding Reading.ExternalIds}" TextWrapping="Wrap"
+                           Foreground="{DynamicResource DaTextDimmedBrush}"
+                           IsVisible="{Binding Reading.ExternalIds, Converter={x:Static ObjectConverters.IsNotNull}}" />
+
+                <StackPanel Spacing="6"
+                            IsVisible="{Binding Reading.Unmapped, Converter={x:Static ObjectConverters.IsNotNull}}">
+                    <Button Classes="link" FontSize="12" Content="{Binding UnmappedToggle}"
+                            Command="{Binding ToggleUnmappedCommand}"
+                            Foreground="{DynamicResource DaTextDimmedBrush}" />
+                    <SelectableTextBlock Classes="mono" FontSize="11" Text="{Binding Reading.Unmapped}"
+                                         TextWrapping="Wrap" IsVisible="{Binding UnmappedOpen}"
+                                         Foreground="{DynamicResource DaTextSecondaryBrush}" />
+                </StackPanel>
+
+                <ItemsControl ItemsSource="{Binding Reading.Sources}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel ItemSpacing="14" LineSpacing="4" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="cat:SourceRow">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <Ellipse Width="6" Height="6" VerticalAlignment="Center"
+                                         Fill="{Binding Tone, Converter={StaticResource ToneBrush}}" />
+                                <TextBlock Text="{Binding Text}" FontSize="11" Classes="dimmed" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </Panel>
+    </Border>
+
+</UserControl>

@@ -9,7 +9,7 @@ using MaroonedSoftware.Deadair.Sdk.Models;
 namespace MaroonedSoftware.Deadair.Desktop.ViewModels;
 
 /// <summary>One release.</summary>
-public sealed class AlbumRowViewModel(Guid id, string name, string artistName, long? year, Uri? artworkUrl)
+public sealed class AlbumRowViewModel(Guid id, string name, string artistName, long? year, long tracks, Uri? artworkUrl, RatingViewModel rating)
 {
     public Guid Id { get; } = id;
 
@@ -20,6 +20,11 @@ public sealed class AlbumRowViewModel(Guid id, string name, string artistName, l
     public string? Year { get; } = year?.ToString(CultureInfo.InvariantCulture);
 
     public Uri? ArtworkUrl { get; } = artworkUrl;
+
+    /// <summary>How many of its records the station has.</summary>
+    public string Holding { get; } = ArtistRowViewModel.Plural(tracks, "record");
+
+    public RatingViewModel Rating { get; } = rating;
 
     public string Initial => Name.Length == 0 ? "?" : char.ToUpperInvariant(Name[0]).ToString();
 }
@@ -32,7 +37,8 @@ public sealed class AlbumRowViewModel(Guid id, string name, string artistName, l
 /// act. This app kept the list it already had, since the station answers one, and pages it like the
 /// others rather than asking for two hundred and stopping there.
 /// </remarks>
-public sealed partial class AlbumsViewModel(OperatorActions actions, HttpClient http) : PagedTabViewModel(actions, http)
+public sealed partial class AlbumsViewModel(OperatorActions actions, HttpClient http, NavigationViewModel navigation)
+    : PagedTabViewModel(actions, http)
 {
     public ObservableCollection<AlbumRowViewModel> Albums { get; } = [];
 
@@ -53,6 +59,13 @@ public sealed partial class AlbumsViewModel(OperatorActions actions, HttpClient 
 
     [RelayCommand]
     private void TurnSort() => Descending = !Descending;
+
+    [RelayCommand]
+    private void Open(AlbumRowViewModel row)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+        navigation.Push(new Navigation.Destination.AlbumDetail(row.Id, row.Name));
+    }
 
     protected override async Task<long?> ReadPageAsync(CancellationToken cancellationToken)
     {
@@ -81,7 +94,7 @@ public sealed partial class AlbumsViewModel(OperatorActions actions, HttpClient 
         Albums.Clear();
         foreach (var album in page.Data)
         {
-            Albums.Add(new AlbumRowViewModel(album.Id, album.Name, album.ArtistName, album.Year, Station.ArtUrl(album.ImageUrl)));
+            Albums.Add(Row(album, Station, Actions, Sdk));
         }
 
         Empty = Albums.Count > 0
@@ -90,6 +103,20 @@ public sealed partial class AlbumsViewModel(OperatorActions actions, HttpClient 
                 ? $"Nothing matches “{term}”. Try a shorter term, or part of the name rather than all of it."
                 : "No releases yet. Records ingested outside any release are still under Records.";
         return page.Meta.Total;
+    }
+
+    /// <summary>A release as a row, rated where it is drawn. Shared with an act's page, which lists theirs.</summary>
+    public static AlbumRowViewModel Row(Album album, Core.Station.StationUrl station, OperatorActions actions, Func<Sdk.DeadairSdk> sdk)
+    {
+        ArgumentNullException.ThrowIfNull(album);
+        return new(
+            album.Id,
+            album.Name,
+            album.ArtistName,
+            album.Year,
+            album.TrackCount,
+            station.ArtUrl(album.ImageUrl),
+            CatalogRatings.Album(actions, sdk, album.Id, album.Rating, album.Name));
     }
 
     public override void Reset()

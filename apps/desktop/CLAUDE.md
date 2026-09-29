@@ -1056,6 +1056,19 @@ interesting half. The two fault states (benched, failing) also get a page-wide b
 the rows on screen, run one record at a time (a hundred fetches at one provider at once is the storm
 the backoff exists to prevent), and its outcome outlives the rows it emptied.
 
+**An act, a release and a record each have a page, pushed from a name** (`ArtistDetail`,
+`AlbumDetail`, `TrackDetail`; a name that leads somewhere is `Button.link`). Each is three reads, the
+thing, its list and what the providers said, so a provider answering late never keeps the page
+blank, and a thing that could not be read says so once rather than once per read. `DetailPages` builds
+them from a `CatalogPageContext` whose navigation and dialogs it takes off `LibraryViewModel`, so its
+own constructor did not grow. The record's page leads with its copies, because a record with none can
+never play and that is usually why the page was opened; a copy's state is asked in the console's order
+(`TrackFacts.Status`), benched before anything else, because a benched copy can still carry bytes and
+an error. The enrichment card is one reading for all three kinds (`EnrichmentReading`), with the
+sources at its foot: everything above them is somebody else's claim, and a source that could not be
+asked is a different state from one that had nothing. A time is formatted as a date and a time
+separately, because "t" inside a custom format is the AM or PM letter and printed "29 Sep 2026, A".
+
 **Putting a playlist or a chart on air REPLACES the running order**, and what is on air finishes
 first. It is the most consequential thing on either page, which is why the notice says what happened
 rather than only that it worked. A chart answers with the status BEFORE its changeover and does the

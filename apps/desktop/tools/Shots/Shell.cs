@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text.Json;
 using MaroonedSoftware.Deadair.Desktop.Core.Auth;
+using MaroonedSoftware.Deadair.Desktop.Core.Catalog;
 using MaroonedSoftware.Deadair.Desktop.Core.NowPlaying;
 using MaroonedSoftware.Deadair.Desktop.Core.Playback;
 using MaroonedSoftware.Deadair.Desktop.Core.Plugins;
@@ -666,6 +667,116 @@ internal static class Fakes
 
     private static ArtistRowViewModel Act(string name, long albums, long tracks, Rating rating) =>
         new(Guid.NewGuid(), name, albums, tracks, null, RatingViewModel.Fixed(rating, name));
+
+    /// <summary>
+    /// A record with every kind of copy, a failed measurement, a handful of airings and a provider
+    /// that could not be asked: the page somebody opens to find out why a record will not play.
+    /// </summary>
+    public static void Track(TrackDetailViewModel page)
+    {
+        var now = DateTimeOffset.Now;
+        page.Present(new TrackDetail
+        {
+            Id = Guid.NewGuid(),
+            Title = "Regulate (feat. Nate Dogg) - Original Version",
+            ArtistId = Guid.NewGuid(),
+            ArtistName = "Warren G",
+            Artists = "Warren G, Nate Dogg",
+            AlbumId = Guid.NewGuid(),
+            AlbumName = "Regulate: G Funk Era",
+            Year = 1994,
+            DurationMs = 248_000,
+            Rating = Rating.Liked,
+            PlayCount = 14,
+            Bindings =
+            [
+                new() { SourceId = Guid.NewGuid(), PluginId = "navidrome", ExternalId = "tr-1f0c2a9e8b7d4c3a", Playable = true, Origin = "playlist", Attempts = 0, Format = "flac", Bitrate = 912_000, ByteSize = 27_400_000, FetchedAt = now.AddDays(-2), LastServedAt = now.AddHours(-5) },
+                new() { SourceId = Guid.NewGuid(), PluginId = "ytmusic", ExternalId = "dQw4w9WgXcQ", Playable = true, Origin = "discovered", Attempts = 3, LastError = "The provider answered 429 Too Many Requests", NextAttemptAt = now.AddMinutes(40) },
+                new() { SourceId = Guid.NewGuid(), PluginId = "spotify", ExternalId = "spotify:track:3VA8T3rNy5V24AXxNK5u9E", Playable = false, Origin = "playlist", Attempts = 0 },
+            ],
+            Analysis = new TrackAnalysis
+            {
+                SchemaVersion = 3,
+                Complete = false,
+                Analyzer = "analysis sidecar 2.4",
+                AnalyzedAt = now.AddDays(-1),
+                FailedAt = now.AddDays(-1),
+                FailureReason = "The download ended 41 seconds in, so the tail could not be measured.",
+            },
+            Plays =
+            [
+                new() { AiredAt = now.AddHours(-5), Source = "director" },
+                new() { AiredAt = now.AddDays(-1).AddHours(-3), Source = "request" },
+                new() { AiredAt = now.AddDays(-4), Source = "chart" },
+            ],
+        });
+
+        page.Enrichment.Reading = EnrichmentReading.From(new TrackEnrichmentDetail
+        {
+            TrackId = Guid.NewGuid(),
+            Merged = new TrackEnrichmentData
+            {
+                Genres = ["g-funk", "west coast hip hop"],
+                Moods = ["laid back"],
+                ReleaseDate = "1994-04-26",
+                Label = "Death Row / Interscope",
+                Bpm = 95,
+                MusicalKey = "D minor",
+                Isrc = "USUM79400123",
+                Facts = ["Recorded for the Above the Rim soundtrack before it was a single."],
+                Links = [new() { Label = "Wikipedia", Url = "https://en.wikipedia.org/wiki/Regulate_(song)" }],
+            },
+            Sources =
+            [
+                new() { Provider = "musicbrainz", FetchedAt = now.AddDays(-30), Stale = false, Found = true, Failed = false, Data = new TrackEnrichmentData() },
+                new() { Provider = "lastfm", FetchedAt = now.AddDays(-30), Stale = true, Found = false, Failed = true, Data = new TrackEnrichmentData() },
+            ],
+            Claims =
+            [
+                new()
+                {
+                    Id = Guid.NewGuid(),
+                    Claim = "It samples Michael McDonald's I Keep Forgettin' (Every Time You're Near).",
+                    Category = "sample",
+                    Source = "model",
+                    SourceProvider = "wikipedia",
+                    SourceUrl = "https://en.wikipedia.org/wiki/Regulate_(song)",
+                    SourceQuote = "The song samples Michael McDonald's 1982 single \"I Keep Forgettin' (Every Time You're Near)\".",
+                },
+            ],
+        });
+    }
+
+    /// <summary>An act with a biography long enough to fold, and releases to list.</summary>
+    public static void Artist(ArtistDetailViewModel page)
+    {
+        page.Present(new Artist { Id = Guid.NewGuid(), Name = "Alice In Chains", AlbumCount = 6, TrackCount = 71, Rating = Rating.Neutral });
+        page.Present(new AlbumPage
+        {
+            Meta = new Pagination { Total = 6 },
+            Data =
+            [
+                Release("Facelift", 1990, 12, Rating.Neutral),
+                Release("Dirt", 1992, 13, Rating.Liked),
+                Release("Jar Of Flies", 1994, 7, Rating.Neutral),
+                Release("Alice In Chains (the one with the three-legged dog on the cover)", 1995, 12, Rating.Disliked),
+            ],
+        });
+        page.Enrichment.Reading = EnrichmentReading.From(new ArtistEnrichmentDetail
+        {
+            ArtistId = Guid.NewGuid(),
+            Merged = new ArtistEnrichmentData
+            {
+                Genres = ["grunge", "alternative metal", "sludge"],
+                Biography = "Alice in Chains is an American rock band from Seattle, Washington, formed in 1987 by guitarist and vocalist Jerry Cantrell and drummer Sean Kinney, who recruited bassist Mike Starr and lead vocalist Layne Staley. The band's sound, drawn from heavy metal as much as from the punk that shaped its neighbours, set it apart from the rest of the city's scene, and the harmonies between Staley and Cantrell became its signature. It has released six studio albums, three EPs, three live albums, four compilations, two DVDs, 43 music videos and 32 singles.",
+            },
+            Sources = [new() { Provider = "lastfm", FetchedAt = DateTimeOffset.Now.AddDays(-12), Stale = false, Found = true, Failed = false, Data = new ArtistEnrichmentData() }],
+            Claims = [],
+        });
+    }
+
+    private static Album Release(string name, long year, long tracks, Rating rating) =>
+        new() { Id = Guid.NewGuid(), Name = name, ArtistId = Guid.NewGuid(), ArtistName = "Alice In Chains", Year = year, TrackCount = tracks, Rating = rating };
 
     /// <summary>A chart's first places, with a featured artist and a record that has no run.</summary>
     public static void Chart(ChartDetailViewModel chart)

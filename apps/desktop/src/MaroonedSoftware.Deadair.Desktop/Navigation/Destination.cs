@@ -50,6 +50,16 @@ public abstract record Destination
     /// <param name="Name">What the list called it, shown while the plugin is still being read.</param>
     /// <remarks>A detail page, opened from the Plugins section of Settings, for the reason a chart is one.</remarks>
     public sealed record PluginDetail(string Id, string Name) : Destination;
+
+    /// <summary>One act: what the providers say, their releases, and the station's opinion of them.</summary>
+    /// <param name="Name">What the list called them, shown while the act is still being read.</param>
+    public sealed record ArtistDetail(Guid Id, string Name) : Destination;
+
+    /// <summary>One release: what the providers say, its records, and the station's opinion of it.</summary>
+    public sealed record AlbumDetail(Guid Id, string Name) : Destination;
+
+    /// <summary>One record: its copies, its measurement, when it aired, and what can be done about it.</summary>
+    public sealed record TrackDetail(Guid Id, string Title) : Destination;
 }
 
 /// <summary>

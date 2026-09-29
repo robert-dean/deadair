@@ -88,8 +88,13 @@
                             <controls:Artwork Size="36" Source="{Binding ArtworkUrl}"
                                               Initial="{Binding Initial}" />
                             <StackPanel Grid.Column="1" Spacing="1" VerticalAlignment="Center">
-                                <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis"
-                                           Foreground="{DynamicResource DaTextBrush}" />
+                                <!-- The title is the way into everything a record has
+                                     accumulated, so it leads to the record's page. -->
+                                <Button Classes="link" HorizontalAlignment="Left"
+                                        Command="{Binding $parent[ListBox].((vm:RecordsViewModel)DataContext).OpenCommand}"
+                                        CommandParameter="{Binding}">
+                                    <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
+                                </Button>
                                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
                                     <TextBlock Text="{Binding Credit}" FontSize="12"
                                                TextTrimming="CharacterEllipsis" Classes="secondary" />

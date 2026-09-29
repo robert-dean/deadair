@@ -84,6 +84,9 @@ public sealed class PageHost : TransitioningContentControl
             // charts and one of each rail page, so only the second are worth keeping.
             Nav.Destination.ChartDetail => Detail(new ChartDetailView(), shell.Details.Current),
             Nav.Destination.PluginDetail => Detail(new StationPluginView(), shell.Details.Current),
+            Nav.Destination.ArtistDetail => Detail(new ArtistDetailView(), shell.Details.Current),
+            Nav.Destination.AlbumDetail => Detail(new AlbumDetailView(), shell.Details.Current),
+            Nav.Destination.TrackDetail => Detail(new TrackDetailView(), shell.Details.Current),
 
             Nav.Destination.Programme => Page(() => new ProgrammeView(), shell.Programme),
             Nav.Destination.Library => Page(() => new LibraryView(), shell.Library),

@@ -44,9 +44,11 @@
                         <Grid ColumnDefinitions="36,*,170,82" ColumnSpacing="12">
                             <controls:Artwork Size="36" Source="{Binding ArtworkUrl}"
                                               Initial="{Binding Initial}" />
-                            <TextBlock Grid.Column="1" Text="{Binding Name}" VerticalAlignment="Center"
-                                       TextTrimming="CharacterEllipsis"
-                                       Foreground="{DynamicResource DaTextBrush}" />
+                            <Button Grid.Column="1" Classes="link" HorizontalAlignment="Left" VerticalAlignment="Center"
+                                    Command="{Binding $parent[ListBox].((vm:ActsViewModel)DataContext).OpenCommand}"
+                                    CommandParameter="{Binding}">
+                                <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                            </Button>
                             <TextBlock Grid.Column="2" Text="{Binding Holding}" FontSize="12"
                                        VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
                                        Foreground="{DynamicResource DaTextDimmedBrush}" />

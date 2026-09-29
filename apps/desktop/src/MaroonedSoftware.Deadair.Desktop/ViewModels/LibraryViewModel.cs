@@ -36,13 +36,21 @@ public sealed partial class LibraryViewModel : ObservableObject
 {
     public LibraryViewModel(OperatorActions actions, HttpClient http, NavigationViewModel navigation, IDialogs dialogs)
     {
-        Records = new RecordsViewModel(actions, http, dialogs);
-        Acts = new ActsViewModel(actions, http);
-        Releases = new AlbumsViewModel(actions, http);
+        Navigation = navigation;
+        Dialogs = dialogs;
+        Records = new RecordsViewModel(actions, http, dialogs, navigation);
+        Acts = new ActsViewModel(actions, http, navigation);
+        Releases = new AlbumsViewModel(actions, http, navigation);
         Playlists = new PlaylistsViewModel(actions, http, dialogs);
         Charts = new ChartsViewModel(actions, http, navigation, dialogs);
         News = new NewsViewModel(actions, http);
     }
+
+    /// <summary>Where a detail page opened from this one goes, for the pages <c>DetailPages</c> builds.</summary>
+    public NavigationViewModel Navigation { get; }
+
+    /// <summary>What a detail page opened from this one asks through.</summary>
+    public IDialogs Dialogs { get; }
 
     public RecordsViewModel Records { get; }
 

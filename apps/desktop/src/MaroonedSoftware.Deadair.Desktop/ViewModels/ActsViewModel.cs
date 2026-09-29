@@ -33,7 +33,8 @@ public sealed class ArtistRowViewModel(Guid id, string name, long albums, long t
 /// Rated from the list rather than only from the act's own page: an operator forms most of these
 /// opinions while browsing, and a rating that costs a page each way is one nobody records.
 /// </remarks>
-public sealed partial class ActsViewModel(OperatorActions actions, HttpClient http) : PagedTabViewModel(actions, http)
+public sealed partial class ActsViewModel(OperatorActions actions, HttpClient http, NavigationViewModel navigation)
+    : PagedTabViewModel(actions, http)
 {
     public ObservableCollection<ArtistRowViewModel> Artists { get; } = [];
 
@@ -54,6 +55,13 @@ public sealed partial class ActsViewModel(OperatorActions actions, HttpClient ht
 
     [RelayCommand]
     private void TurnSort() => Descending = !Descending;
+
+    [RelayCommand]
+    private void Open(ArtistRowViewModel row)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+        navigation.Push(new Navigation.Destination.ArtistDetail(row.Id, row.Name));
+    }
 
     protected override async Task<long?> ReadPageAsync(CancellationToken cancellationToken)
     {
@@ -99,17 +107,7 @@ public sealed partial class ActsViewModel(OperatorActions actions, HttpClient ht
         artist.AlbumCount,
         artist.TrackCount,
         Station.ArtUrl(artist.ImageUrl),
-        new RatingViewModel(artist.Rating, artist.Name, async (chosen, cancellationToken) =>
-        {
-            var rated = await Actions.RunAsync(
-                async token =>
-                {
-                    using var sdk = Sdk();
-                    return await sdk.Catalog.RateArtistAsync(artist.Id, new RateInput { Rating = chosen }, token).ConfigureAwait(false);
-                },
-                cancellationToken: cancellationToken).ConfigureAwait(true);
-            return rated?.Rating;
-        }));
+        CatalogRatings.Artist(Actions, Sdk, artist.Id, artist.Rating, artist.Name));
 
     public override void Reset()
     {

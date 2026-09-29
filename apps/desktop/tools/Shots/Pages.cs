@@ -52,6 +52,10 @@ internal static class Pages
         yield return ("shell-library-chart", Chart(), 1180, 720);
         yield return ("shell-library-min", Page(new Destination.Library(), operatorSignedIn: true), 820, 520);
         yield return ("shell-library-acts", Library("Artists"), 1180, 720);
+        yield return ("shell-library-track", Detail(new Destination.TrackDetail(Guid.NewGuid(), "Regulate"), page => Fakes.Track((TrackDetailViewModel)page)), 1180, 720);
+        yield return ("shell-library-track-tall", Detail(new Destination.TrackDetail(Guid.NewGuid(), "Regulate"), page => Fakes.Track((TrackDetailViewModel)page)), 1180, 1500);
+        yield return ("shell-library-track-min", Detail(new Destination.TrackDetail(Guid.NewGuid(), "Regulate"), page => Fakes.Track((TrackDetailViewModel)page)), 820, 520);
+        yield return ("shell-library-artist", Detail(new Destination.ArtistDetail(Guid.NewGuid(), "Alice In Chains"), page => Fakes.Artist((ArtistDetailViewModel)page)), 1180, 1100);
 
         // A question over the whole window, bar included, with the longest thing it is ever asked
         // about in its title.
@@ -202,6 +206,26 @@ internal static class Pages
         // Opening the tab asks the station, and the fake one refuses: the posed rows stay, and the
         // refusal it reports is not what this frame is for.
         shell.Dialogs.Notice = null;
+        return new MainWindowContent { Shell = shell };
+    }
+
+    /// <summary>A catalog page pushed from the Library, posed once the fake station has refused to fill it.</summary>
+    private static MainWindowContent Detail(Destination destination, Action<object> pose)
+    {
+        var shell = Fakes.Shell(operatorSignedIn: true);
+        Fakes.PutOnAir(shell.Listener);
+        shell.Navigation.Show(new Destination.Library());
+        shell.Navigation.Push(destination);
+        pose(shell.Details.Current!);
+
+        // The fake station refused the page's own read, which is what these lines undo: the frame is
+        // of a page that was read.
+        shell.Dialogs.Notice = null;
+        if (shell.Details.Current is CatalogDetailViewModel page)
+        {
+            page.Problem = null;
+        }
+
         return new MainWindowContent { Shell = shell };
     }
 

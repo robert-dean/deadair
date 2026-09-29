@@ -1,0 +1,63 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    xmlns:views="using:MaroonedSoftware.Deadair.Desktop.Views"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.AlbumDetailView"
+    x:DataType="vm:AlbumDetailViewModel">
+
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="{DynamicResource DaPageGutter}" Spacing="18">
+
+            <views:DetailHeader>
+                <views:DetailHeader.Extra>
+                    <Button Classes="link" FontSize="12" IsVisible="{Binding HasArtist}"
+                            Command="{Binding OpenArtistCommand}"
+                            Content="{Binding ArtistName, StringFormat='More by {0}'}" />
+                </views:DetailHeader.Extra>
+            </views:DetailHeader>
+
+            <views:EnrichmentPanel DataContext="{Binding Enrichment}" />
+
+            <StackPanel Spacing="8">
+                <TextBlock Classes="eyebrow" Text="Records" />
+                <TextBlock Classes="dimmed" Text="{Binding NoTracks}" TextWrapping="Wrap"
+                           IsVisible="{Binding NoTracks, Converter={x:Static ObjectConverters.IsNotNull}}" />
+
+                <!-- Each record's credit as the release writes it, which is not always the act the
+                     release hangs off. -->
+                <ItemsControl ItemsSource="{Binding Tracks}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:TrackRowViewModel">
+                            <Grid ColumnDefinitions="*,0.7*,44,82" ColumnSpacing="12" Margin="8,6">
+                                <Button Classes="link" HorizontalAlignment="Left" VerticalAlignment="Center"
+                                        Command="{Binding $parent[ItemsControl].((vm:AlbumDetailViewModel)DataContext).OpenTrackCommand}"
+                                        CommandParameter="{Binding}">
+                                    <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
+                                </Button>
+                                <TextBlock Grid.Column="1" Text="{Binding Artists}" VerticalAlignment="Center"
+                                           TextTrimming="CharacterEllipsis" Classes="secondary" FontSize="12" />
+                                <TextBlock Classes="mono" Grid.Column="2" Text="{Binding Length}" FontSize="11"
+                                           VerticalAlignment="Center" HorizontalAlignment="Right"
+                                           Foreground="{DynamicResource DaTextDimmedBrush}" />
+                                <views:RatingStrip Grid.Column="3" DataContext="{Binding Rating}"
+                                                   VerticalAlignment="Center" />
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="8" IsVisible="{Binding Pager.IsPaged}">
+                    <Button Classes="ghost" Content="Previous" Command="{Binding Pager.PreviousCommand}"
+                            IsEnabled="{Binding Pager.CanGoBack}" />
+                    <Button Grid.Column="1" Classes="ghost" Content="Next" Command="{Binding Pager.NextCommand}"
+                            IsEnabled="{Binding Pager.CanGoForward}" />
+                    <TextBlock Grid.Column="2" Classes="dimmed mono" FontSize="11" Text="{Binding Pager.Summary}"
+                               HorizontalAlignment="Right" VerticalAlignment="Center" />
+                </Grid>
+            </StackPanel>
+
+        </StackPanel>
+    </ScrollViewer>
+
+</UserControl>

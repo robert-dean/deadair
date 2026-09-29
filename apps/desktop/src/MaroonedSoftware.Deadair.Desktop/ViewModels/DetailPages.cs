@@ -40,8 +40,19 @@ public sealed class DetailPages(OperatorActions actions, HttpClient http, Librar
         {
             Nav.Destination.ChartDetail chart => Chart(chart),
             Nav.Destination.PluginDetail plugin => settings?.OpenPlugin(plugin.Id, plugin.Name),
+            Nav.Destination.ArtistDetail artist => Read(new ArtistDetailViewModel(Catalog(), artist.Id, artist.Name)),
+            Nav.Destination.AlbumDetail album => Read(new AlbumDetailViewModel(Catalog(), album.Id, album.Name)),
+            Nav.Destination.TrackDetail track => Read(new TrackDetailViewModel(Catalog(), track.Id, track.Title)),
             _ => null,
         };
+    }
+
+    private CatalogPageContext Catalog() => new(actions, http, _station, library.Navigation, library.Dialogs);
+
+    private static CatalogDetailViewModel Read(CatalogDetailViewModel page)
+    {
+        page.LoadCommand.Execute(null);
+        return page;
     }
 
     private ChartDetailViewModel Chart(Nav.Destination.ChartDetail chart)

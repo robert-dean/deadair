@@ -89,11 +89,13 @@ public sealed partial class RecordsViewModel : PagedTabViewModel
 {
     private readonly TrackRepairer _repairer;
     private readonly IDialogs _dialogs;
+    private readonly NavigationViewModel _navigation;
 
-    public RecordsViewModel(OperatorActions actions, HttpClient http, IDialogs dialogs)
+    public RecordsViewModel(OperatorActions actions, HttpClient http, IDialogs dialogs, NavigationViewModel navigation)
         : base(actions, http)
     {
         _dialogs = dialogs;
+        _navigation = navigation;
         _repairer = new TrackRepairer(actions, dialogs, Sdk);
         Chips = [.. TrackStates.All.Select(filter => new StateChipViewModel(filter))];
         _sort = CatalogSorts.Tracks[0];
@@ -167,6 +169,14 @@ public sealed partial class RecordsViewModel : PagedTabViewModel
 
     [RelayCommand]
     private void TurnSort() => Descending = !Descending;
+
+    /// <summary>The record's own page: its copies, its measurement, when it aired.</summary>
+    [RelayCommand]
+    private void Open(TrackRowViewModel row)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+        _navigation.Push(new Navigation.Destination.TrackDetail(row.Id, row.Title));
+    }
 
     /// <summary>The fault state's repair, over exactly the rows on screen.</summary>
     /// <remarks>
@@ -256,22 +266,10 @@ public sealed partial class RecordsViewModel : PagedTabViewModel
 
     private TrackRowViewModel Row(TrackRow row)
     {
-        var rating = new RatingViewModel(row.Rating, row.Title, async (chosen, cancellationToken) =>
-        {
-            var track = await Actions.RunAsync(
-                async token =>
-                {
-                    using var sdk = Sdk();
-                    return await sdk.Catalog.RateTrackAsync(row.Id, new RateInput { Rating = chosen }, token).ConfigureAwait(false);
-                },
-                cancellationToken: cancellationToken).ConfigureAwait(true);
-            return track?.Rating;
-        });
-
         return new TrackRowViewModel(
             row,
             Station.ArtUrl(row.AlbumImageUrl),
-            rating,
+            CatalogRatings.Track(Actions, Sdk, row.Id, row.Rating, row.Title),
             _repairer.Menu(row.Id, detail =>
             {
                 Notice = $"{row.Title}: {detail}";

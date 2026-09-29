@@ -236,5 +236,16 @@ public sealed partial class SegmentsViewModel(
         }
     }
 
+    /// <summary>Raised to read every attempt at writing one break.</summary>
+    public event Action<string>? SaidRequested;
+
+    /// <summary>Every attempt at writing this one break, including the ones that came to nothing.</summary>
+    [RelayCommand]
+    private void ShowSaid(SegmentRowViewModel segment)
+    {
+        ArgumentNullException.ThrowIfNull(segment);
+        SaidRequested?.Invoke(segment.Id);
+    }
+
     private static string SegmentKey(string id) => $"segment:{id}";
 }

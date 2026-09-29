@@ -26,6 +26,10 @@
                         Command="{Binding ShowTabCommand}" CommandParameter="Pronunciations" />
                 <Button Classes="tab" Classes.active="{Binding IsSoundboard}" Content="Soundboard"
                         Command="{Binding ShowTabCommand}" CommandParameter="Soundboard" />
+                <Button Classes="tab" Classes.active="{Binding IsPhrasings}" Content="Phrasings"
+                        Command="{Binding ShowTabCommand}" CommandParameter="Phrasings" />
+                <Button Classes="tab" Classes.active="{Binding IsSubjects}" Content="Subjects"
+                        Command="{Binding ShowTabCommand}" CommandParameter="Subjects" />
                 <Button Classes="tab" Classes.active="{Binding IsProductions}" Content="Productions"
                         Command="{Binding ShowTabCommand}" CommandParameter="Productions" />
                 <Button Classes="tab" Classes.active="{Binding IsSaid}" Content="What it said"
@@ -54,6 +58,12 @@
             </Panel>
             <Panel IsVisible="{Binding IsSoundboard}">
                 <views:VoiceSoundboardTab DataContext="{Binding Soundboard}" />
+            </Panel>
+            <Panel IsVisible="{Binding IsPhrasings}">
+                <views:VoicePhrasingsTab DataContext="{Binding Phrasings}" />
+            </Panel>
+            <Panel IsVisible="{Binding IsSubjects}">
+                <views:VoiceSubjectsTab DataContext="{Binding Subjects}" />
             </Panel>
             <Panel IsVisible="{Binding IsProductions}">
                 <views:VoiceProductionsTab DataContext="{Binding Productions}" />

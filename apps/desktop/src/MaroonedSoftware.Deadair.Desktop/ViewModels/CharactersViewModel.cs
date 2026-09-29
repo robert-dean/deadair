@@ -354,6 +354,20 @@ public sealed partial class CharactersViewModel(
         navigation.Push(new Nav.Destination.PersonaDetail(row.Id, row.Label, row.IsCaller));
     }
 
+    /// <summary>Raised to read what one character has said, by the key the script history stamps.</summary>
+    public event Action<string>? SaidRequested;
+
+    /// <summary>
+    /// What a character has said, on the What it said tab narrowed to it. Keyed on the persona's KEY,
+    /// since that is what the history stamps: the rows outlive the character.
+    /// </summary>
+    [RelayCommand]
+    private void ShowSaid(PersonaRowViewModel row)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+        SaidRequested?.Invoke(row.Persona.Key);
+    }
+
     /// <summary>
     /// Opens a character on a rehearsal. It spends a generation and changes nothing, so it is a plain
     /// button; the answer is read on the character's own page, beside the sheet it came from.

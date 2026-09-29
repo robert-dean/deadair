@@ -1,0 +1,30 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    xmlns:views="using:MaroonedSoftware.Deadair.Desktop.Views"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.TopicDialogView"
+    x:DataType="vm:TopicDialogViewModel">
+
+    <!-- The name, then whatever this kind declares, drawn by the shared form. Scrolls inside the
+         dialog, since a kind can declare more than fits over the window. -->
+    <ScrollViewer MaxHeight="440" Width="520">
+        <StackPanel Spacing="10" Margin="0,0,12,0">
+            <StackPanel Spacing="3">
+                <TextBlock Text="Name" FontSize="12" Classes="secondary" />
+                <TextBox Text="{Binding Label}" />
+                <TextBlock Text="{Binding NameHelp}" FontSize="11" Classes="dimmed" TextWrapping="Wrap" />
+                <TextBlock Text="{Binding Key}" FontSize="11" Classes="dimmed" TextWrapping="Wrap"
+                           IsVisible="{Binding Key, Converter={x:Static ObjectConverters.IsNotNull}}" />
+            </StackPanel>
+            <ItemsControl ItemsSource="{Binding Form.Fields}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:FormFieldViewModel">
+                        <views:FormFieldView />
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </StackPanel>
+    </ScrollViewer>
+
+</UserControl>

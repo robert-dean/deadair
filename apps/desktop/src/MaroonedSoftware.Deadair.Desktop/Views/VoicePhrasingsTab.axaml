@@ -1,0 +1,36 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    xmlns:views="using:MaroonedSoftware.Deadair.Desktop.Views"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.VoicePhrasingsTab"
+    x:DataType="vm:PhrasingsViewModel">
+
+    <!-- The station's own settings group, drawn by the one form every declared field in the app is
+         drawn by. The labels and help are the station's. Save is outside the scroll, beside the words
+         it saves. -->
+    <DockPanel>
+        <StackPanel DockPanel.Dock="Top" Spacing="8" Margin="0,0,0,10" MaxWidth="720" HorizontalAlignment="Left">
+            <TextBlock Classes="dimmed" FontSize="12" TextWrapping="Wrap"
+                       Text="What the station says around the things it reads out, whenever no model writes the words. Each box is a set to pick between, one per line. What a character says between records is on its own sheet, under Characters." />
+            <TextBlock Classes="dimmed" Text="{Binding Notice}" TextWrapping="Wrap"
+                       IsVisible="{Binding Notice, Converter={x:Static ObjectConverters.IsNotNull}}" />
+        </StackPanel>
+
+        <Border DockPanel.Dock="Bottom" BorderBrush="{DynamicResource DaBorderBrush}" BorderThickness="0,1,0,0" Padding="0,10,0,0"
+                IsVisible="{Binding Form, Converter={x:Static ObjectConverters.IsNotNull}}">
+            <Button Classes="primary" Content="Save" HorizontalAlignment="Right" Command="{Binding SaveCommand}" />
+        </Border>
+
+        <ScrollViewer>
+            <ItemsControl ItemsSource="{Binding Form.Fields}" MaxWidth="720" HorizontalAlignment="Left" Margin="0,0,14,12">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:FormFieldViewModel">
+                        <views:FormFieldView />
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+    </DockPanel>
+
+</UserControl>

@@ -152,6 +152,15 @@ internal static class Pages
         yield return ("shell-voice-soundboard-min", Page(new Destination.Voice(), operatorSignedIn: true, VoiceTab.Soundboard), 820, 520);
         yield return ("dialog-pad-upload", VoiceDialog(station => new PadUploadDialogViewModel(
             Fakes.Actions(), Fakes.Http(), station, new("Air Horn (Stadium) 03.wav", []), ["station", "late-night-and-other-quiet-hours"])), 1180, 720);
+        yield return ("shell-voice-phrasings", Page(new Destination.Voice(), operatorSignedIn: true, VoiceTab.Phrasings), 1180, 720);
+        yield return ("shell-voice-subjects", Page(new Destination.Voice(), operatorSignedIn: true, VoiceTab.Subjects), 1180, 720);
+        yield return ("shell-voice-subjects-min", Page(new Destination.Voice(), operatorSignedIn: true, VoiceTab.Subjects), 820, 520);
+        yield return ("shell-voice-productions", Page(new Destination.Voice(), operatorSignedIn: true, VoiceTab.Productions), 1180, 720);
+        yield return ("shell-voice-said-narrowed", Said(), 1180, 720);
+        yield return ("shell-voice-said-min", Page(new Destination.Voice(), operatorSignedIn: true, VoiceTab.Said), 820, 520);
+        yield return ("dialog-production-request", VoiceDialog(station => new ProductionRequestDialogViewModel(
+            Fakes.Actions(), Fakes.Http(), station, Fakes.Roster()) { Name = "The machine nobody wanted" }), 1180, 720);
+        yield return ("dialog-subject", Subject(), 1180, 720);
         yield return ("dialog-segment-upload", VoiceDialog(station => new SegmentUploadDialogViewModel(
             Fakes.Actions(), Fakes.Http(), station, new("evening_ident-v3_FINAL.wav", []), ["ident", "talkbreak"]) { Kind = "sweeper" }), 1180, 720);
         yield return ("dialog-segment-compose", VoiceDialog(station => new SegmentComposeDialogViewModel(
@@ -483,6 +492,42 @@ internal static class Pages
         Fakes.CharacterSettings(shell.Voice.Characters);
         shell.Voice.Characters.ToggleSettingsCommand.Execute(null);
         shell.Dialogs.Notice = null;
+
+        return new MainWindowContent { Shell = shell };
+    }
+
+    /// <summary>What it said, narrowed to one character from its card, with one row opened and rated.</summary>
+    private static MainWindowContent Said()
+    {
+        var content = Page(new Destination.Voice(), operatorSignedIn: true, VoiceTab.Said);
+        var scripts = content.Shell!.Voice.Scripts;
+        scripts.PersonaKey = "marla";
+        scripts.Scripts.Clear();
+        foreach (var attempt in Fakes.Attempts())
+        {
+            scripts.Scripts.Add(ScriptsViewModel.Row(attempt));
+        }
+
+        scripts.Scripts[0].IsOpen = true;
+        content.Shell.Dialogs.Notice = null;
+        return content;
+    }
+
+    /// <summary>A subject opened for editing: its name, and the field its kind declares.</summary>
+    private static MainWindowContent Subject()
+    {
+        var shell = Fakes.Shell(operatorSignedIn: true);
+        Fakes.PutOnAir(shell.Listener);
+        Fakes.Fill(shell, new Destination.Voice());
+        shell.Navigation.Show(new Destination.Voice());
+        shell.Voice.ShowTabCommand.Execute("Subjects");
+        shell.Dialogs.Notice = null;
+
+        var row = shell.Voice.Subjects.Kinds[0].Subjects[0];
+        if (StationUrl.TryParse("https://radio.example.com", out var station))
+        {
+            _ = shell.Dialogs.ShowAsync(new TopicDialogViewModel(Fakes.Actions(), Fakes.Http(), station, row.Kind, row.Topic, row.Topic.Position));
+        }
 
         return new MainWindowContent { Shell = shell };
     }

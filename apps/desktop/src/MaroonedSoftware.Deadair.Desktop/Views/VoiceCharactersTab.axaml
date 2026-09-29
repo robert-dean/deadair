@@ -104,9 +104,16 @@
                                             CommandParameter="{Binding}" />
                                 </StackPanel>
 
-                                <TextBlock Text="{Binding Record}" FontSize="11" Classes="mono"
-                                           Foreground="{DynamicResource DaTextDimmedBrush}"
-                                           IsVisible="{Binding Record, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                                <!-- How it is doing on air, and the way to read what it said: keyed on the
+                                     character's key, which the history stamps, so it outlives the sheet. -->
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBlock Text="{Binding Record}" FontSize="11" Classes="mono" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource DaTextDimmedBrush}"
+                                               IsVisible="{Binding Record, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                                    <Button Classes="ghost" FontSize="11" Padding="8,1" Content="What they've said"
+                                            Command="{Binding $parent[ListBox].((vm:CharactersViewModel)DataContext).ShowSaidCommand}"
+                                            CommandParameter="{Binding}" />
+                                </StackPanel>
 
                                 <!-- The one action anybody comes to this tab for, so it is always drawn. -->
                                 <Button Classes="ghost" FontSize="11" Padding="8,3" Content="Make station host" Margin="0,4,0,0"

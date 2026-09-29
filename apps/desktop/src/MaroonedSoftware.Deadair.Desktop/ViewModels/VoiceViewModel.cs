@@ -16,6 +16,8 @@ public enum VoiceTab
     Segments,
     Pronunciations,
     Soundboard,
+    Phrasings,
+    Subjects,
     Productions,
     Said,
 }
@@ -54,6 +56,8 @@ public sealed partial class VoiceViewModel : ObservableObject
         Segments = new SegmentsViewModel(actions, http, previews, dialogs, files);
         Pronunciations = new PronunciationsViewModel(actions, http, dialogs);
         Soundboard = new SoundboardViewModel(actions, http, previews, dialogs, files);
+        Phrasings = new PhrasingsViewModel(actions, http);
+        Subjects = new SubjectsViewModel(actions, http, dialogs);
         Productions = new ProductionsViewModel(actions, http, dialogs);
         Scripts = new ScriptsViewModel(actions, http);
 
@@ -65,8 +69,23 @@ public sealed partial class VoiceViewModel : ObservableObject
             [VoiceTab.Segments] = Segments,
             [VoiceTab.Pronunciations] = Pronunciations,
             [VoiceTab.Soundboard] = Soundboard,
+            [VoiceTab.Phrasings] = Phrasings,
+            [VoiceTab.Subjects] = Subjects,
             [VoiceTab.Productions] = Productions,
             [VoiceTab.Said] = Scripts,
+        };
+
+        // A character's card and a segment's row lead to what was said about them, on the tab that
+        // reads it, narrowed.
+        Characters.SaidRequested += key =>
+        {
+            Scripts.NarrowToPersona(key);
+            ShowSaid();
+        };
+        Segments.SaidRequested += id =>
+        {
+            Scripts.NarrowToSegment(id);
+            ShowSaid();
         };
 
         // Anything a tab keeps running (a poll while something is being made) stops when the page is
@@ -95,6 +114,11 @@ public sealed partial class VoiceViewModel : ObservableObject
 
     public SoundboardViewModel Soundboard { get; }
 
+    public PhrasingsViewModel Phrasings { get; }
+
+    /// <summary>What the station has to talk about, which the station's API calls topics.</summary>
+    public SubjectsViewModel Subjects { get; }
+
     public ProductionsViewModel Productions { get; }
 
     /// <summary>What it said.</summary>
@@ -114,6 +138,10 @@ public sealed partial class VoiceViewModel : ObservableObject
     public bool IsPronunciations => Tab == VoiceTab.Pronunciations;
 
     public bool IsSoundboard => Tab == VoiceTab.Soundboard;
+
+    public bool IsPhrasings => Tab == VoiceTab.Phrasings;
+
+    public bool IsSubjects => Tab == VoiceTab.Subjects;
 
     public bool IsProductions => Tab == VoiceTab.Productions;
 
@@ -137,6 +165,18 @@ public sealed partial class VoiceViewModel : ObservableObject
 
         _tabs[oldValue].Leave();
         _ = Current.LoadAsync(CancellationToken.None);
+    }
+
+    private void ShowSaid()
+    {
+        if (Tab == VoiceTab.Said)
+        {
+            _ = Scripts.LoadAsync(CancellationToken.None);
+        }
+        else
+        {
+            Tab = VoiceTab.Said;
+        }
     }
 
     [RelayCommand]

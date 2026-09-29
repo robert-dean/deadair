@@ -63,6 +63,12 @@
                                            IsVisible="{Binding Error, Converter={x:Static ObjectConverters.IsNotNull}}" />
                             </StackPanel>
                             <TextBlock Grid.Column="3" Text="{Binding Length}" FontSize="11" Classes="mono dimmed" HorizontalAlignment="Right" />
+                            <!-- Every attempt at writing it; a recording the station was given was never written. -->
+                            <Button Grid.Column="4" Classes="reveal ghost" FontSize="11" Padding="8,2" Content="Said"
+                                    HorizontalAlignment="Right" VerticalAlignment="Top" IsVisible="{Binding !CanDelete}"
+                                    ToolTip.Tip="Every attempt at writing this one break"
+                                    Command="{Binding $parent[ListBox].((vm:SegmentsViewModel)DataContext).ShowSaidCommand}"
+                                    CommandParameter="{Binding}" />
                             <Button Grid.Column="4" Classes="reveal ghost" FontSize="11" Padding="8,2" Content="Delete"
                                     HorizontalAlignment="Right" VerticalAlignment="Top" IsVisible="{Binding CanDelete}"
                                     ToolTip.Tip="Remove it, and the inbox file behind it"

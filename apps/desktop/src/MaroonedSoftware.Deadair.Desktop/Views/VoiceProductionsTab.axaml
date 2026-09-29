@@ -6,24 +6,42 @@
     x:DataType="vm:ProductionsViewModel">
 
     <DockPanel>
-        <TextBlock DockPanel.Dock="Top" Classes="dimmed" Text="{Binding Notice}" TextWrapping="Wrap" Margin="0,0,0,10"
-                   IsVisible="{Binding Notice, Converter={x:Static ObjectConverters.IsNotNull}}" />
+        <StackPanel DockPanel.Dock="Top" Spacing="10" Margin="0,0,0,10">
+            <Button Classes="primary" Content="Ask for one" HorizontalAlignment="Left" Command="{Binding RequestCommand}" />
+            <TextBlock Classes="dimmed" FontSize="12" TextWrapping="Wrap" MaxWidth="720" HorizontalAlignment="Left"
+                       Text="Programmes the station writes for itself: several beats of speech, made over minutes and aired as one block. Asking for one queues it; it goes into the running order once every beat has been spoken." />
+            <TextBlock Classes="dimmed" Text="{Binding Notice}" TextWrapping="Wrap"
+                       IsVisible="{Binding Notice, Converter={x:Static ObjectConverters.IsNotNull}}" />
+            <TextBlock Classes="dimmed" Text="{Binding Empty}" TextWrapping="Wrap" MaxWidth="720" HorizontalAlignment="Left"
+                       IsVisible="{Binding Empty, Converter={x:Static ObjectConverters.IsNotNull}}" />
+        </StackPanel>
 
         <ListBox Classes="rows" ItemsSource="{Binding Productions}">
             <ListBox.ItemTemplate>
                 <DataTemplate x:DataType="vm:ProductionRowViewModel">
                     <!-- Fixed widths, not `Auto`. Every row is its own Grid, so an `Auto` column sizes
                          to that row alone and the columns do not line up down the list. -->
-                    <Grid ColumnDefinitions="*,90,100,80" ColumnSpacing="14">
-                        <TextBlock Text="{Binding Title}" VerticalAlignment="Center"
-                                   TextTrimming="CharacterEllipsis"
-                                   Foreground="{DynamicResource DaTextBrush}" />
-                        <TextBlock Grid.Column="1" Text="{Binding Kind}" VerticalAlignment="Center" FontSize="11"
-                                   Foreground="{DynamicResource DaTextDimmedBrush}" />
-                        <TextBlock Grid.Column="2" Text="{Binding State}" VerticalAlignment="Center" FontSize="11"
+                    <Grid ColumnDefinitions="*,120,80" ColumnSpacing="14" Margin="0,3">
+                        <StackPanel Spacing="3">
+                            <DockPanel>
+                                <TextBlock DockPanel.Dock="Right" Text="{Binding Kind}" FontSize="11" Classes="dimmed" Margin="8,0,0,0"
+                                           VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
+                                           Foreground="{DynamicResource DaTextBrush}" />
+                            </DockPanel>
+                            <TextBlock Text="{Binding Brief}" FontSize="12" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"
+                                       Classes="secondary" IsVisible="{Binding Brief, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                            <TextBlock Text="{Binding Details}" FontSize="11" Classes="dimmed" TextWrapping="Wrap"
+                                       IsVisible="{Binding Details, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                            <TextBlock Text="{Binding Cast}" FontSize="11" Classes="dimmed" TextWrapping="Wrap"
+                                       IsVisible="{Binding Cast, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                            <TextBlock Text="{Binding Error}" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource DaSeverityFailureBrush}"
+                                       IsVisible="{Binding Error, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                        </StackPanel>
+                        <TextBlock Grid.Column="1" Text="{Binding State}" FontSize="11"
                                    Foreground="{DynamicResource DaTextSecondaryBrush}" />
-                        <Button Grid.Column="3" Classes="reveal ghost" Content="Cancel"
-                                FontSize="11" Padding="8,3"
+                        <Button Grid.Column="2" Classes="reveal ghost" Content="Cancel"
+                                FontSize="11" Padding="8,3" VerticalAlignment="Top"
                                 HorizontalAlignment="Right" IsVisible="{Binding CanCancel}"
                                 Command="{Binding $parent[ListBox].((vm:ProductionsViewModel)DataContext).CancelProductionCommand}"
                                 CommandParameter="{Binding}" />

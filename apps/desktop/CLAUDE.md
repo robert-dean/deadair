@@ -1226,6 +1226,25 @@ into the library on disk: the scan re-reads the library, and a deleted row would
 pass. Delete is offered only for a file this station wrote from an upload or a fetch. Renaming a set
 says who it unpoints first, because a persona names a set by its name.
 
+**Phrasings is a settings group drawn here and nowhere else.** The station's `phrasings` group
+belongs to no section of Settings, so this tab filters `GET /settings` to it and draws it with the
+shared form, saving only what changed. A talk break's phrasings are not in it: they are on each
+character's sheet.
+
+**A subject's save replaces its configuration, and the form reports only what changed.** So
+`TopicConfig.Merge` sends the stored configuration with the changes laid over it; sending the
+submission alone would wipe every field nobody touched. A stored list is drawn one entry per line
+when its placeholder is written that way and comma-separated otherwise, the console's rule, and a
+subject's fields are whatever its kind declares, through the same form as everything else. Deleting
+one says how many clock bands name it.
+
+**What it said is narrowed from where somebody was looking.** A character's card and a segment's row
+each raise `SaidRequested`, and the owner narrows the Scripts tab (by persona KEY, which the history
+stamps and which outlives the sheet, or by segment id) and shows it. The tab says what it is narrowed
+to and offers the way back rather than only a clear button. A rating is offered only on an attempt
+that has words, and the detail under a row is built only when it is opened, since a kept prompt runs
+to thousands of words.
+
 **The phrasing and marker checks are advisory and never block a save.** `PersonaReadout` holds a
 copy of the station's placeholder vocabulary, and a desk that refused a save over its own copy would
 stop working the day the station learns a new one.

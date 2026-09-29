@@ -426,8 +426,65 @@ internal static class Fakes
             new() { Id = Guid.NewGuid().ToString(), Written = "Siouxsie", Spoken = "SOO-zee", State = PronunciationState.Rejected, Origin = PronunciationOrigin.Gloss, SourceQuote = "Siouxsie Sioux, born Susan Janet Ballion.", CreatedAt = "2026-09-12T02:00:00Z" },
         ]);
 
-        voice.Productions.Productions.Add(new ProductionRowViewModel("p1", "Phone-in: the worst gig you ever went to", "callin", "drafting", true));
-        voice.Productions.Productions.Add(new ProductionRowViewModel("p2", "Evening feature", "feature", "ready", false));
+        voice.Productions.Present(
+        [
+            new()
+            {
+                Id = "p1", Kind = "callin", Title = "Phone-in: the worst gig you ever went to, and whether the support act was better",
+                Brief = "Three callers, each with a worse gig than the last; the host keeps trying to get back to the records.",
+                WritingMode = ProductionWritingMode.Outlined, TargetMs = 900_000, State = ProductionState.Drafting, Beats = 3,
+                Cast =
+                [
+                    new() { Role = ProductionCastMemberRole.Host, Name = "Marla Vance" },
+                    new() { Role = ProductionCastMemberRole.Caller, Name = "Dennis the taxi driver" },
+                    new() { Role = ProductionCastMemberRole.Caller, Name = "Wendy from Hull" },
+                ],
+                CreatedAt = DateTimeOffset.Parse("2026-09-29T09:00:00Z", System.Globalization.CultureInfo.InvariantCulture),
+            },
+            new()
+            {
+                Id = "p2", Kind = "podcast", Title = "Evening feature", WritingMode = ProductionWritingMode.Quick, TargetMs = 600_000,
+                State = ProductionState.Failed, Beats = 0, Cast = [], Error = "The model declined every beat of the outline.",
+                CreatedAt = DateTimeOffset.Parse("2026-09-28T18:00:00Z", System.Globalization.CultureInfo.InvariantCulture),
+            },
+        ]);
+
+        voice.Phrasings.Present(new StationSettings
+        {
+            Descriptors =
+            [
+                new() { Key = "breaks.welcomeTemplates", Label = "Welcomes", Help = "Said to somebody who has just tuned in. One per line.", Type = ConfigFieldType.Text, Group = SettingGroup.Phrasings },
+                new() { Key = "breaks.weatherTemplates", Label = "Around the weather", Help = "Said either side of a weather report.", Type = ConfigFieldType.Text, Group = SettingGroup.Phrasings },
+                new() { Key = "playout.airMode", Label = "Air mode", Type = ConfigFieldType.Boolean, Group = SettingGroup.Playout },
+            ],
+            Values = new Dictionary<string, JsonElement>
+            {
+                ["breaks.welcomeTemplates"] = JsonSerializer.SerializeToElement("You're listening to {{station.name}}.\nGood {{greeting}}, and welcome to {{station.name}}."),
+                ["breaks.weatherTemplates"] = JsonSerializer.SerializeToElement("Here is the weather for {{weather.place}}."),
+            },
+            Configured = [],
+            Derived = [],
+        });
+
+        voice.Subjects.Present(
+        [
+            new()
+            {
+                Kind = "news", NounOne = "news category", NounMany = "News categories",
+                Description = "What a bulletin can be about. A clock band can name one, and the station reads only the feeds that match it.",
+                Fields = [new() { Key = "keywords", Label = "Words that mean it", Type = ConfigFieldType.Text, Placeholder = "football\nleague" }],
+            },
+            new()
+            {
+                Kind = "weather", NounOne = "place", NounMany = "Places",
+                Description = "Where a weather break can be about.",
+                Fields = [new() { Key = "place", Label = "Place", Type = ConfigFieldType.String }],
+            },
+        ],
+        [
+            new() { Id = "t1", Kind = "news", Key = "football", Label = "Football", Position = 0, Config = new Dictionary<string, JsonElement> { ["keywords"] = JsonSerializer.SerializeToElement(FootballWords) } },
+            new() { Id = "t2", Kind = "news", Key = "the-long-running-local-planning-dispute", Label = "The long-running local planning dispute", Position = 1, Config = [] },
+        ]);
     }
 
     /// <summary>
@@ -599,6 +656,31 @@ internal static class Fakes
             ],
         });
     }
+
+    private static readonly string[] FootballWords = ["football", "league", "transfer"];
+
+    /// <summary>A character's attempts: one written and rated, one declined, one the floor wrote.</summary>
+    public static IReadOnlyList<ScriptAttempt> Attempts() =>
+    [
+        new()
+        {
+            Id = Guid.NewGuid().ToString(), At = DateTimeOffset.Parse("2026-09-29T11:42:00Z", System.Globalization.CultureInfo.InvariantCulture),
+            Kind = "talk", Writer = "model", Outcome = ScriptOutcome.Written, PersonaKey = "marla", Model = "claude-sonnet",
+            Script = "That was Pearl Jam, and before that a record I have been trying to place all morning. Stay where you are.",
+            Previous = new() { Title = "Alive", Artist = "Pearl Jam" }, Next = new() { Title = "Would?", Artist = "Alice In Chains" },
+            DurationMs = 1870, Usage = new() { TotalTokens = 2140 }, Rating = ScriptRating.Liked,
+        },
+        new()
+        {
+            Id = Guid.NewGuid().ToString(), At = DateTimeOffset.Parse("2026-09-29T11:39:00Z", System.Globalization.CultureInfo.InvariantCulture),
+            Kind = "talk", Writer = "model", Outcome = ScriptOutcome.Declined, PersonaKey = "marla", Reason = "out of character: none of the words that prove it",
+        },
+        new()
+        {
+            Id = Guid.NewGuid().ToString(), At = DateTimeOffset.Parse("2026-09-29T11:39:00Z", System.Globalization.CultureInfo.InvariantCulture),
+            Kind = "talk", Writer = "deterministic", Outcome = ScriptOutcome.Written, PersonaKey = "marla", Script = "That was Alive, from Pearl Jam.",
+        },
+    ];
 
     /// <summary>The presenter name and the story wait, as the station declares and holds them.</summary>
     public static void CharacterSettings(CharactersViewModel characters) =>

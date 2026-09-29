@@ -8,6 +8,16 @@ changes are in the [root changelog](../../CHANGELOG.md).
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-09-29
+
+- Check-up is tabbed: the machinery with the disk and the build, the activity feed a page at a time, what each decision cost, the station's logs (read and saved), and what is new in each release.
+- The desk now says who is driving the station, holds it against the schedule or hands it back, changes its air mode and host, plans a new show, takes a call, skips to a record in the running order, rates the record on air, and lists what the station says needs the operator, with a count on each sidebar row it concerns.
+- The library rates and repairs records, opens any act, release or record on a page of its own, imports, plays, renames, fills, exports and deletes playlists, reads a chart before it airs, narrows the news, and follows the station's podcasts and readings.
+- Programme has the web console's four tabs: Today, with the format clock and its bands; a Timetable whose slots are added, edited and deleted through a dialog; Sustaining; and listener Requests to grant or decline.
+- Settings is a list of sections, each saving on its own: every group of the station's settings, artwork, storage, providers and plugin requests, the station's plugins (configured, connected and removed), sign-in and security with a step-up that asks for a code, and the console's language packs.
+- Anything that deletes or changes what airs asks first, what the station refused is said at the foot of every page, previews play over the station, and Command-K jumps to any page, tab, record, act or character.
+- Voice has all ten of the web console's tabs: characters edited on a page of their own with their notebook, stories, memory and rehearsal, auditions, voices you can hear, segments, pronunciations, the soundboard, phrasings, subjects, productions, and what the station said.
+
 ## [0.3.0] — 2026-09-28
 
 - An operator has Shuffle and Skip either side of the play button in the bar at the bottom, as the Android app does, so both are a click away from every page rather than only the desk.
@@ -58,7 +68,8 @@ changes are in the [root changelog](../../CHANGELOG.md).
   address on first run. Listening needs no account; the desk appears when you sign in as the
   operator.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.3.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/desktop-v0.4.0...HEAD
+[0.4.0]: https://github.com/robert-dean/deadair/compare/desktop-v0.3.0...desktop-v0.4.0
 [0.3.0]: https://github.com/robert-dean/deadair/compare/desktop-v0.2.4...desktop-v0.3.0
 [0.2.4]: https://github.com/robert-dean/deadair/compare/desktop-v0.2.3...desktop-v0.2.4
 [0.2.3]: https://github.com/robert-dean/deadair/compare/desktop-v0.2.2...desktop-v0.2.3

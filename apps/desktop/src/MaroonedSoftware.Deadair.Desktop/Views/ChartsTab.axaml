@@ -12,14 +12,21 @@
                    TextWrapping="Wrap"
                    IsVisible="{Binding Notice, Converter={x:Static ObjectConverters.IsNotNull}}" />
 
+        <TextBlock DockPanel.Dock="Top" Margin="0,0,0,10" Text="{Binding Empty}" Classes="dimmed"
+                   TextWrapping="Wrap"
+                   IsVisible="{Binding Empty, Converter={x:Static ObjectConverters.IsNotNull}}" />
+
         <ListBox Classes="rows" ItemsSource="{Binding Charts}">
             <ListBox.ItemTemplate>
                 <DataTemplate x:DataType="vm:ChartRowViewModel">
                     <Grid ColumnDefinitions="36,*,140,64,96" ColumnSpacing="12">
                         <controls:Artwork Size="36" Initial="{Binding Initial}" />
-                        <TextBlock Grid.Column="1" Text="{Binding Name}" VerticalAlignment="Center"
-                                   TextTrimming="CharacterEllipsis"
-                                   Foreground="{DynamicResource DaTextBrush}" />
+                        <StackPanel Grid.Column="1" Spacing="1" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis"
+                                       Foreground="{DynamicResource DaTextBrush}" />
+                            <TextBlock Text="{Binding Description}" FontSize="12" TextTrimming="CharacterEllipsis"
+                                       Classes="dimmed" IsVisible="{Binding HasDescription}" />
+                        </StackPanel>
                         <TextBlock Grid.Column="2" Text="{Binding Source}" VerticalAlignment="Center"
                                    Classes="dimmed" TextTrimming="CharacterEllipsis" />
                         <Button Grid.Column="3" Classes="reveal ghost" Content="Read"

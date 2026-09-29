@@ -57,6 +57,9 @@ internal static class Pages
         yield return ("shell-library-track-tall", Detail(new Destination.TrackDetail(Guid.NewGuid(), "Regulate"), page => Fakes.Track((TrackDetailViewModel)page)), 1180, 1500);
         yield return ("shell-library-track-min", Detail(new Destination.TrackDetail(Guid.NewGuid(), "Regulate"), page => Fakes.Track((TrackDetailViewModel)page)), 820, 520);
         yield return ("shell-library-playlists", Library("Playlists"), 1180, 720);
+        yield return ("shell-library-news", Library("News"), 1180, 720);
+        yield return ("shell-library-news-min", Library("News"), 820, 520);
+        yield return ("shell-library-charts", Library("Charts"), 1180, 720);
         yield return ("shell-library-playlists-min", Library("Playlists"), 820, 520);
         yield return ("shell-library-own-playlist", Detail(new Destination.StationPlaylistDetail(Guid.NewGuid(), "Imported"), page => Fakes.OwnPlaylist((StationPlaylistDetailViewModel)page)), 1180, 720);
         yield return ("dialog-playlist-import", Import(), 1180, 720);
@@ -274,6 +277,7 @@ internal static class Pages
         shell.Library.ShowTabCommand.Execute("Charts");
         shell.Library.Charts.OpenCommand.Execute(shell.Library.Charts.Charts[0]);
         Fakes.Chart((ChartDetailViewModel)shell.Details.Current!);
+        shell.Dialogs.Notice = null;
 
         return new MainWindowContent { Shell = shell };
     }

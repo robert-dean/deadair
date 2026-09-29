@@ -76,7 +76,7 @@ public sealed class DetailPages(OperatorActions actions, HttpClient http, Librar
         var row = library.Charts.Charts.FirstOrDefault(each => each.Id == chart.Id)
             ?? new ChartRowViewModel(chart.Id, chart.Name, string.Empty);
 
-        var page = new ChartDetailViewModel(actions, http, _station, row, library.Charts.PlayCommand);
+        var page = new ChartDetailViewModel(actions, http, _station, row, library.Charts.PlayCommand, library.FindRecords);
         page.LoadCommand.Execute(null);
         return page;
     }

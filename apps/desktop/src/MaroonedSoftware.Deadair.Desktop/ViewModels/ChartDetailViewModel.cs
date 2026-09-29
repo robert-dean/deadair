@@ -26,13 +26,25 @@ public sealed partial class ChartDetailViewModel(
     HttpClient http,
     StationUrl station,
     ChartRowViewModel chart,
-    IAsyncRelayCommand<ChartRowViewModel> play) : ObservableObject
+    IAsyncRelayCommand<ChartRowViewModel> play,
+    Action<string>? find = null) : ObservableObject
 {
     public ChartRowViewModel Chart { get; } = chart;
 
     public string Name => Chart.Name;
 
     public string Source => Chart.Source;
+
+    public string? Description => Chart.Description;
+
+    public bool HasDescription => Chart.HasDescription;
+
+    /// <summary>
+    /// Offered only once the edition has records: a chart that has not published yet today answers
+    /// with none, and airing that would replace the running order with nothing.
+    /// </summary>
+    [ObservableProperty]
+    private bool _canAir;
 
     /// <summary>The library's own Put on air, so the two places it is offered cannot behave differently.</summary>
     public IAsyncRelayCommand<ChartRowViewModel> PlayCommand { get; } = play;
@@ -71,6 +83,8 @@ public sealed partial class ChartDetailViewModel(
                 Places.Add(Place(record));
             }
 
+            CanAir = Places.Count > 0;
+
             // An empty chart is an answer rather than a failure: the station says a chart it could
             // not read comes back with no records, because a chart is never something it needs.
             Summary = Places.Count == 0
@@ -81,6 +95,17 @@ public sealed partial class ChartDetailViewModel(
         {
             Busy = false;
         }
+    }
+
+    /// <summary>
+    /// Looks for a place's record in the library. A search rather than a claim that the station holds
+    /// it: a chart carries no catalog id, and this asks the question rather than pretending to know.
+    /// </summary>
+    [RelayCommand]
+    private void Find(ChartPlaceViewModel place)
+    {
+        ArgumentNullException.ThrowIfNull(place);
+        find?.Invoke(place.Title);
     }
 
     /// <summary>A record's place, with its run on the chart where the source keeps one.</summary>

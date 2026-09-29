@@ -1095,6 +1095,19 @@ reading that playlist. An import, a rename or a delete re-reads the tab behind t
 because going back to the Library does not re-open a tab. Export writes the station's file through
 `IFilePicker.SaveAsync`, named from its `Content-Disposition`.
 
+**A chart is named with its country and genre, and its page offers Put on air only once the edition
+has records.** Two plugins can each offer a "Top 40", and an empty edition (one not published yet
+today) is an ordinary answer, not an error, that must not replace the running order with nothing.
+Each place's Find goes to the records tab searched for its title (`LibraryViewModel.FindRecords`): a
+search, not a claim that the station holds it, because a chart carries no catalog id. The contract
+takes an edition date; the web console offers none, so neither does this.
+
+**News lists the feeds beside the stories, and choosing a feed READS that feed** rather than filtering
+the last answer, since a quiet feed can have nothing among every feed's newest stories. A category is
+what the operator filed a feed under, so it filters what is already here, and its choice is drawn
+only when there is more than one. Stories are read headlines-only, as the console does: the story
+behind each is fetched from the publisher's page, which is the slowest thing that route does.
+
 **The voice page is four readings, not the console's eight tabs.** The four are the ones that answer a
 question somebody asks of a RUNNING station: who is presenting, what did it say, what audio does it
 hold, and what is being made. Voices, pronunciations, pads and topics are configuration rather than

@@ -618,8 +618,8 @@ internal static class Fakes
 
     private static void Library(LibraryViewModel library)
     {
-        library.Charts.Charts.Add(new ChartRowViewModel("uk-singles", "Official Singles Chart Top 100", "officialcharts"));
-        library.Charts.Charts.Add(new ChartRowViewModel("hot-100", "Billboard Hot 100", "billboard"));
+        library.Charts.Charts.Add(new ChartRowViewModel("uk-singles", "Official Singles Chart Top 100 (GB)", "officialcharts", "The UK's biggest songs of the week, counted from sales and streams, published every Friday."));
+        library.Charts.Charts.Add(new ChartRowViewModel("hot-100", "Billboard Hot 100 (US)", "billboard"));
 
         // A page the station might answer with: every combination of what it holds, a record with
         // no release and no length, a title that has to trim, and both kinds of opinion.
@@ -645,6 +645,26 @@ internal static class Fakes
         library.Acts.Artists.Add(Act("Alice In Chains", 6, 71, Rating.Neutral));
         library.Acts.Artists.Add(Act("Godspeed You! Black Emperor and the long name that has to trim", 1, 1, Rating.Disliked));
         library.Acts.Artists.Add(Act("Soundgarden", 7, 88, Rating.Neutral));
+        // Three feeds, two of them filed under a category, and stories with and without a teaser.
+        library.News.PresentFeeds(new StationFeedList
+        {
+            Feeds =
+            [
+                new() { Id = "rss:bbc-world", PluginId = "rss", Name = "BBC World", Category = "World", Language = "en" },
+                new() { Id = "rss:pitchfork", PluginId = "rss", Name = "Pitchfork: the long name of a music news feed", Category = "Music", Language = "en" },
+                new() { Id = "rss:local", PluginId = "rss", Name = "The Evening Post" },
+            ],
+        });
+        library.News.PresentStories(new NewsPage
+        {
+            Stories =
+            [
+                Story("rss:bbc-world", "BBC World", "Storm closes three airports as the coast braces for a second night of high winds", "Flights were grounded across the region and ferry crossings cancelled until at least Thursday morning.", ["weather"]),
+                Story("rss:pitchfork", "Pitchfork", "A lost Mother Love Bone session turns up in a Seattle attic", null, ["music", "reissues"]),
+                Story("rss:local", "The Evening Post", "Council approves the late licence for the old picture house", "The venue can open until two on Fridays and Saturdays from next month.", null),
+            ],
+        });
+
         library.Acts.Total = 212;
         library.Acts.Summary = "1–50 of 212";
 
@@ -672,6 +692,18 @@ internal static class Fakes
                 ],
             });
     }
+
+    private static NewsStory Story(string feed, string feedName, string title, string? summary, List<string>? categories) => new()
+    {
+        Id = Guid.NewGuid().ToString(),
+        FeedId = feed,
+        FeedName = feedName,
+        Title = title,
+        Summary = summary,
+        Url = "https://example.org/story",
+        PublishedAt = DateTimeOffset.Now.AddMinutes(-47).ToString("O", System.Globalization.CultureInfo.InvariantCulture),
+        Categories = categories,
+    };
 
     private static CatalogPlaylist SourceList(string plugin, string pluginName, string name, long tracks) => new()
     {
@@ -889,6 +921,7 @@ internal static class Fakes
         chart.Places.Add(new ChartPlaceViewModel("3", "Birds of a Feather", "Billie Eilish", "Hit Me Hard and Soft, 2024", "peak 2 · 40 wk"));
         chart.Places.Add(new ChartPlaceViewModel("4", "A Bar Song (Tipsy) - Remix with a title long enough to trim", "Shaboozey", null, string.Empty));
         chart.Summary = "4 records";
+        chart.CanAir = true;
     }
 
     private static void Programme(ProgrammeViewModel programme)

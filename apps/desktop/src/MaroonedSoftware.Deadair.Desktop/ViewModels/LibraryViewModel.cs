@@ -145,6 +145,22 @@ public sealed partial class LibraryViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Goes to the records, searched for a title: where a chart's Find leads. The search is set before
+    /// the tab so a first visit reads the search rather than the whole catalog and then the search.
+    /// </summary>
+    public void FindRecords(string title)
+    {
+        Records.Search = title;
+        Navigation.Show(new Navigation.Destination.Library());
+        var opening = Tab != LibraryTab.Tracks;
+        Tab = LibraryTab.Tracks;
+        if (!opening || Records.Tracks.Count > 0)
+        {
+            Records.FindCommand.Execute(null);
+        }
+    }
+
     /// <summary>Opens the page on whichever tab it was left on.</summary>
     [RelayCommand]
     private Task LoadAsync() => Current.OpenAsync();

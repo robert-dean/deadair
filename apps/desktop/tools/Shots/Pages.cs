@@ -4,6 +4,7 @@ using MaroonedSoftware.Deadair.Desktop.Core.Auth;
 using MaroonedSoftware.Deadair.Desktop.Core.Director;
 using MaroonedSoftware.Deadair.Desktop.Core.NowPlaying;
 using MaroonedSoftware.Deadair.Desktop.Core.Playback;
+using MaroonedSoftware.Deadair.Desktop.Core.Programme;
 using MaroonedSoftware.Deadair.Desktop.Core.Settings;
 using MaroonedSoftware.Deadair.Desktop.Core.Station;
 using MaroonedSoftware.Deadair.Desktop.Core.Text;
@@ -70,6 +71,14 @@ internal static class Pages
         // second is the broken one, which is the row somebody opens this page to read.
         yield return ("shell-settings-extensions", Extensions(), 1180, 1000);
         yield return ("shell-programme", Page(new Destination.Programme(), operatorSignedIn: true), 1180, 720);
+        yield return ("shell-programme-min", Page(new Destination.Programme(), operatorSignedIn: true), 820, 520);
+        yield return ("shell-programme-timetable", Programme(ProgrammeTab.Timetable), 1180, 720);
+
+        // Tall enough for the whole format clock: once with the Now playing panel put away, where the
+        // dial sits beside the list, and once with it, where the page is narrow and the dial moves above.
+        yield return ("shell-programme-clock", Programme(ProgrammeTab.Today, nowPlaying: false), 1180, 1100);
+        yield return ("shell-programme-clock-narrow", Programme(ProgrammeTab.Today), 1180, 1300);
+        yield return ("dialog-band", Band(), 1180, 720);
         yield return ("shell-checkup", Page(new Destination.Checkup(), operatorSignedIn: true), 1180, 720);
 
         // Tall enough to reach the build at the foot of Machinery, and the minimum window, where a
@@ -176,6 +185,42 @@ internal static class Pages
         shell.Library.ShowTabCommand.Execute("Charts");
         shell.Library.OpenChartCommand.Execute(shell.Library.Charts[0]);
         Fakes.Chart((ChartDetailViewModel)shell.Details.Current!);
+
+        return new MainWindowContent { Shell = shell };
+    }
+
+    /// <summary>The programme on one of its tabs.</summary>
+    private static MainWindowContent Programme(ProgrammeTab tab, bool nowPlaying = true)
+    {
+        var shell = Fakes.Shell(operatorSignedIn: true);
+        Fakes.PutOnAir(shell.Listener);
+        Fakes.Fill(shell, new Destination.Programme());
+        shell.Navigation.Show(new Destination.Programme());
+        shell.Programme.Tab = tab;
+        shell.ShowNowPlaying = nowPlaying;
+
+        return new MainWindowContent { Shell = shell };
+    }
+
+    /// <summary>
+    /// A band open for editing: a daily one about a subject, so every row of the sentence and the
+    /// subject picker are in frame.
+    /// </summary>
+    private static MainWindowContent Band()
+    {
+        var shell = Fakes.Shell(operatorSignedIn: true);
+        Fakes.PutOnAir(shell.Listener);
+        Fakes.Fill(shell, new Destination.Programme());
+        shell.Navigation.Show(new Destination.Programme());
+        _ = shell.Dialogs.ShowAsync(new ClockBandDialogViewModel(
+            new BandDraft { Kind = "news", When = BandWhen.Daily, Time = "07:30", TopicId = "t1", Position = 2 },
+            isNew: false,
+            ["news", "ident", "weather", "talk"],
+            [
+                new Topic { Id = "t1", Kind = "news", Key = "tech", Label = "Technology and the internet", Config = [], Position = 0 },
+                new Topic { Id = "t2", Kind = "news", Key = "local", Label = "Local", Config = [], Position = 1 },
+            ],
+            (_, _) => Task.FromResult(true)));
 
         return new MainWindowContent { Shell = shell };
     }

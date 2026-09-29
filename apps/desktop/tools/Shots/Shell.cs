@@ -59,7 +59,7 @@ internal static class Fakes
             new TransportViewModel(session, actions, http, dispatcher),
             new RunningOrderViewModel(session, actions, http, dispatcher, dialogs, navigation),
             navigation,
-            new ProgrammeViewModel(actions, http),
+            new ProgrammeViewModel(actions, http, dialogs),
             library,
             new HistoryViewModel(actions, http),
             new CheckupViewModel(actions, http, new NoFiles()),
@@ -642,12 +642,87 @@ internal static class Fakes
 
     private static void Programme(ProgrammeViewModel programme)
     {
-        programme.OnNow = "Wednesday mornings, held past its slot";
+        programme.Slots.Add(new SlotViewModel("1", "Mon, Tue, Wed, Thu, Fri", "06:00–10:00", "Breakfast", "Bright, and nothing anybody has to think about.", false));
+        programme.Slots.Add(new SlotViewModel("2", "Wed", "10:00–13:00", "Wednesday mornings", "Something with guitars, nothing after 1999.", true));
+        programme.Slots.Add(new SlotViewModel("3", "Every day", "23:00–24:00", "The late one", null, false));
 
-        programme.Slots.Add(new SlotViewModel("1", "Mon–Fri", "06:00–10:00", "Breakfast", "Bright, and nothing anybody has to think about.", false));
-        programme.Slots.Add(new SlotViewModel("2", "Wednesday", "10:00–13:00", "Wednesday mornings", "Something with guitars, nothing after 1999.", true));
-        programme.Slots.Add(new SlotViewModel("3", "Every day", "23:00–00:00", "The late one", null, false));
+        // The strip, posed from a reading as the station sends it: a block held past its slot, so the
+        // first cell says Due now and carries the sentence explaining why.
+        List<ScheduleSlot> slots =
+        [
+            Slot("2", "Wednesday mornings with a name long enough to have to trim at the minimum window", 600, 780, "Something with guitars, nothing after 1999, and nothing anybody would call a ballad.", "p1"),
+            Slot("4", "Lunch", 780, 840, null, null),
+            Slot("5", "The afternoon", 840, 1020, "Warm and unhurried.", "p2"),
+        ];
+        programme.Today.PresentOnNow(
+            new ScheduleNow
+            {
+                Now = "2026-09-30 11:12:00",
+                SlotId = "2",
+                AiringSlotId = "1",
+                Upcoming =
+                [
+                    new() { SlotId = "2", Label = slots[0].Label, Start = "2026-09-30 10:00:00", End = "2026-09-30 13:00:00" },
+                    new() { SlotId = "4", Label = "Lunch", Start = "2026-09-30 13:00:00", End = "2026-09-30 14:00:00" },
+                    new() { SlotId = "5", Label = "The afternoon", Start = "2026-09-30 14:00:00", End = "2026-09-30 17:00:00" },
+                ],
+            },
+            slots,
+            [Persona("p1", "Marla Vance"), Persona("p2", "The Night Owl")]);
+
+        // Every shape a band takes: hourly, once a day, a spacing rule, one switched off, one about a
+        // subject, and one nothing on the station can make.
+        programme.Today.PresentClock(new ClockBandList
+        {
+            ProducibleKinds = ["news", "ident", "weather", "talk", "welcome"],
+            Bands =
+            [
+                Band("b1", "ident", ClockBandAt.Clock, null, 0, null, 0, true, null),
+                Band("b2", "news", ClockBandAt.Clock, null, 30, null, 1, true, "Technology and the internet"),
+                Band("b3", "weather", ClockBandAt.Clock, null, 55, null, 2, true, null),
+                Band("b4", "sponsor", ClockBandAt.Clock, null, 20, null, 3, true, null),
+                Band("b5", "news", ClockBandAt.Clock, 9, 0, null, 4, false, null),
+                Band("b6", "talk", ClockBandAt.Interval, null, null, 20 * 60_000, 5, true, null),
+            ],
+        });
     }
+
+    private static ScheduleSlot Slot(string id, string label, long start, long end, string? brief, string? persona) => new()
+    {
+        Id = id,
+        Label = label,
+        StartsAtMinutes = start,
+        EndsAtMinutes = end,
+        Days = [3],
+        Brief = brief,
+        PersonaId = persona,
+        Mode = ScheduleSlotMode.Rotation,
+        OnEnd = ScheduleSlotOnEnd.Extend,
+    };
+
+    private static Persona Persona(string id, string label) => new()
+    {
+        Id = id,
+        Key = id,
+        Label = label,
+        Style = string.Empty,
+        DefaultHost = false,
+        Presenting = false,
+    };
+
+    private static ClockBand Band(string id, string kind, ClockBandAt at, long? hour, long? minute, long? everyMs, long position, bool enabled, string? topic) => new()
+    {
+        Id = id,
+        Kind = kind,
+        At = at,
+        Hour = hour,
+        Minute = minute,
+        EveryMs = everyMs,
+        Position = position,
+        Enabled = enabled,
+        TopicId = topic is null ? null : "t1",
+        TopicLabel = topic,
+    };
 
     private static void Settings(SettingsViewModel settings)
     {

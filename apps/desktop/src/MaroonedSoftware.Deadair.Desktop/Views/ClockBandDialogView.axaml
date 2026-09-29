@@ -1,0 +1,67 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.ClockBandDialogView"
+    x:DataType="vm:ClockBandDialogViewModel">
+
+    <!-- The fields only: the host draws the title, the station's refusal and the two buttons. -->
+    <StackPanel Spacing="12">
+
+        <!-- A band is a sentence, so it is written as one. -->
+        <WrapPanel Orientation="Horizontal" ItemSpacing="8" LineSpacing="8">
+            <TextBlock Text="Say a" VerticalAlignment="Center" Classes="secondary" />
+            <AutoCompleteBox Text="{Binding Kind}" ItemsSource="{Binding Kinds}"
+                             FilterMode="StartsWith" MinimumPrefixLength="0"
+                             PlaceholderText="news" Width="150" />
+            <ComboBox ItemsSource="{Binding WhenChoices}" SelectedItem="{Binding When}" Width="150">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="vm:BandWhenChoice">
+                        <TextBlock Text="{Binding Label}" />
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+            <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding IsHourly}">
+                <TextBlock Text=":" VerticalAlignment="Center" Classes="secondary" />
+                <TextBox FontFamily="{DynamicResource DaFontMono}" Text="{Binding Minute}" Width="60" ToolTip.Tip="Minutes past the hour" />
+            </StackPanel>
+            <TextBox FontFamily="{DynamicResource DaFontMono}" Text="{Binding Time}" Width="76" PlaceholderText="09:00"
+                     ToolTip.Tip="Time of day" IsVisible="{Binding IsDaily}" />
+            <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding IsInterval}">
+                <TextBox FontFamily="{DynamicResource DaFontMono}" Text="{Binding EveryMinutes}" Width="64" ToolTip.Tip="Minutes apart" />
+                <TextBlock Text="minutes" VerticalAlignment="Center" Classes="secondary" />
+            </StackPanel>
+        </WrapPanel>
+
+        <!-- Only when the kind typed above has subjects named for it. -->
+        <StackPanel Spacing="3" IsVisible="{Binding HasSubjects}">
+            <TextBlock Text="About" FontSize="12" Classes="secondary" />
+            <ComboBox ItemsSource="{Binding Subjects}" SelectedItem="{Binding Subject}" MinWidth="240">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="vm:TopicChoice">
+                        <TextBlock Text="{Binding Label}" />
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+            <TextBlock Classes="dimmed" FontSize="11" TextWrapping="Wrap"
+                       Text="Only what belongs to this subject. Whatever it finds covers anything." />
+        </StackPanel>
+
+        <TextBlock Classes="dimmed" FontSize="11" TextWrapping="Wrap"
+                   Text="Times are on the station's own clock. A band takes the first boundary at or after its time, so a bulletin at half past is read when the record playing then finishes. The sort of break is free text: write anything you have recordings of and the station will play them." />
+
+        <StackPanel Spacing="2">
+            <ToggleSwitch IsChecked="{Binding Enabled}" OnContent="In force" OffContent="Switched off" />
+            <TextBlock Classes="dimmed" FontSize="11" TextWrapping="Wrap"
+                       Text="Switched off keeps the rule without the station acting on it." />
+        </StackPanel>
+
+        <TextBlock Classes="dimmed" FontSize="11" TextWrapping="Wrap"
+                   Text="Saving changes nothing already planned. The band claims its next boundary on the station's next pass." />
+
+        <TextBlock Text="{Binding Hint}" FontSize="12" TextWrapping="Wrap"
+                   Foreground="{DynamicResource DaToneFaultBrush}"
+                   IsVisible="{Binding Hint, Converter={x:Static ObjectConverters.IsNotNull}}" />
+    </StackPanel>
+
+</UserControl>

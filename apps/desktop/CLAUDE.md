@@ -1186,6 +1186,37 @@ slot deliberately, which is why the ON AIR marker follows `airingSlotId` rather 
 The timetable is read-only for now. Editing wants dragging and resizing, and a wrong drop reschedules
 a broadcast — the same order the running order's own edits arrived in.
 
+**The page is the web console's tabs, one view model per tab.** `ProgrammeViewModel` owns the tab
+and builds `TodayViewModel` itself from what it was given, so a tab is added without touching the
+shell or the container. A tab is read when it is opened and after a write, never on a timer.
+
+**Today is two halves of one question**: what the station PLAYS now (the on-now strip) and what it
+SAYS inside the hour (the format clock). Every fact on the strip comes from `GET /schedule/current`,
+whose blocks and `now` are read by the station in one frame, so what is left is a subtraction of two
+readings (`Core/Programme/StationTime`) and never this Mac's clock or zone. There is no countdown
+between fetches: that would be a second clock, wrong in exactly the way the strip exists to prevent.
+The block the clock says is on reads **Due now** rather than On air when `slotId` and `airingSlotId`
+differ, with the sentence saying why, because badging it On air while the station plays something
+else misreports the station to the one person who can change it.
+
+**A band is a rule about every hour, so it is a list and not something on the timetable.** Its rules
+are `Core/Programme/FormatClock` and `BandDraft`, ported from the web console's clock panel and band
+editor: the kind is free text with the station's producible kinds as suggestions (never `welcome`, a
+greeting is asked for when somebody tunes in), a subject kept off the air is not offered, an hourly
+band sends a minute and no hour, and an empty subject is ABSENT rather than an empty string. `PUT`
+replaces a band, so every write sends the whole band back, the subject included: a reorder that sent
+only the position turned a technology bulletin into a general one on the web console. Order is
+preference (the higher band wins a boundary two want) and is changed with the arrows, which swap the
+two rows' POSITIONS in two writes rather than renumbering the list. There is no overlap rule to check;
+the station refuses none. Delete is on the row and asks first.
+
+**The dial is `Controls/FormatClockDial`, one `Render` override**, drawn beside the list for the one
+thing rows cannot show: the shape of the hour. Only enabled clock bands are marked; an interval band
+has no place on a dial and is left off rather than drawn at an invented angle. Labels step inward
+when they would land on one already drawn, because centred on their points ":55" and ":00" overlapped.
+Below a 680-wide card (which is the default window with the Now playing panel open) a container
+query moves the dial above the list rather than hiding it.
+
 ## The running order
 
 **The station REFUSES a move rather than clamping it.** A position the player already holds is not

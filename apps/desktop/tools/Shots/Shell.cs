@@ -62,7 +62,7 @@ internal static class Fakes
             new ProgrammeViewModel(actions, http),
             library,
             new HistoryViewModel(actions, http),
-            new CheckupViewModel(actions, http),
+            new CheckupViewModel(actions, http, new NoFiles()),
             new SettingsViewModel(actions, http, settings, new ThemeManager(), PosedPlugins()),
             new VoiceViewModel(actions, http, dialogs, previews),
             new DetailPages(actions, http, library),
@@ -408,6 +408,106 @@ internal static class Fakes
             "Minor Changes\n• 1a2b3c4: The check-up says what each loop last did and when it started, so a slow first pass and a stopped loop no longer look alike."));
         releases.Notes.Add(new ReleaseCardViewModel("1.41.2", "25 Sep 2026", null, null, string.Empty));
         releases.Older = 23;
+
+        Cost(checkup.Cost);
+        Logs(checkup.Logs);
+    }
+
+    /// <summary>
+    /// What the station spent: a write that caused a render that caused a stitch, a failing plugin
+    /// call, a page load, and a job this app has no words for yet. The write is open.
+    /// </summary>
+    private static void Cost(CostViewModel cost)
+    {
+        var at = new DateTimeOffset(2026, 9, 29, 11, 40, 0, TimeSpan.Zero);
+        TraceDecision Decision(string id, string kind, string? parent, int minutes, long ms, long calls, long failed) => new()
+        {
+            Id = id,
+            Kind = kind,
+            Parent = parent,
+            At = at.AddMinutes(minutes),
+            Ms = ms,
+            Calls = calls,
+            Failed = failed,
+        };
+
+        TraceDecision[] decisions =
+        [
+            Decision("7c1e9a40-2b4f-4d1a-9e3c-5a6b7c8d9e0f", "director.write_break", null, 8, 19_243, 4, 0),
+            Decision("a1b2c3d4-0000-4000-8000-000000000001", "render.segment", "7c1e9a40-2b4f-4d1a-9e3c-5a6b7c8d9e0f", 8, 2_140, 2, 0),
+            Decision("a1b2c3d4-0000-4000-8000-000000000002", "render.stitch_production", "a1b2c3d4-0000-4000-8000-000000000001", 8, 412, 1, 0),
+            Decision("a1b2c3d4-0000-4000-8000-000000000003", "catalog.enrich", null, 6, 125_600, 9, 2),
+            Decision("a1b2c3d4-0000-4000-8000-000000000004", "GET /voices", null, 5, 38, 1, 0),
+            Decision("a1b2c3d4-0000-4000-8000-000000000005", "podcasts.fetch_episode_enclosures_for_every_carried_show", null, 2, 0, 0, 0),
+        ];
+
+        var now = at.AddMinutes(10);
+        foreach (var placed in MaroonedSoftware.Deadair.Desktop.Core.Checkup.TraceWords.Forest(decisions))
+        {
+            var decision = placed.Decision;
+            cost.Decisions.Add(new DecisionRowViewModel(
+                decision.Id,
+                MaroonedSoftware.Deadair.Desktop.Core.Checkup.CheckupWords.Moment(now, decision.At),
+                MaroonedSoftware.Deadair.Desktop.Core.Checkup.TraceWords.Describe(decision.Kind),
+                decision.Kind,
+                placed.Depth,
+                MaroonedSoftware.Deadair.Desktop.Core.Checkup.TraceWords.Cost(decision.Ms),
+                decision.Calls,
+                decision.Failed));
+        }
+
+        var open = cost.Decisions[0];
+        CostViewModel.Fill(open, new TraceDetail
+        {
+            Decision = decisions[0],
+            Caused = [decisions[1]],
+            Spans =
+            [
+                new TraceSpan { At = at, Op = "llm.generate", Target = "claude-sonnet via the station's own key", Ms = 17_802, Outcome = TraceOutcome.Ok,
+                    Detail = new() { ["inputTokens"] = JsonDocument.Parse("12408").RootElement, ["outputTokens"] = JsonDocument.Parse("389").RootElement, ["finish"] = JsonDocument.Parse("\"end_turn\"").RootElement } },
+                new TraceSpan { At = at, Op = "plugin.facts", Target = "wikipedia", Ms = 1_204, Outcome = TraceOutcome.Failed,
+                    Error = "The request timed out after 1200ms, so the break was written without the facts it asked for." },
+                new TraceSpan { At = at, Op = "db.query", Ms = 3, Outcome = TraceOutcome.Ok },
+            ],
+        });
+        cost.Selected = open;
+        cost.Showing = MaroonedSoftware.Deadair.Desktop.Core.Checkup.TraceWords.Showing(cost.Decisions.Count, 1318, 5204);
+    }
+
+    /// <summary>The station's own log, graded, with a warning and an error among ordinary lines.</summary>
+    private static void Logs(LogsViewModel logs)
+    {
+        var station = new LogSource
+        {
+            Id = "station",
+            Label = "Station",
+            Description = "What the station itself wrote: every request, job and decision, at every level.",
+            Present = true,
+            Levels = true,
+            Bytes = 3_565_158,
+            LastWriteAt = new DateTimeOffset(2026, 9, 29, 11, 48, 1, TimeSpan.Zero),
+        };
+        var liquidsoap = new LogSource
+        {
+            Id = "liquidsoap",
+            Label = "Audio chain (Liquidsoap)",
+            Description = "What the audio chain wrote.",
+            Present = false,
+            Levels = false,
+            Bytes = 0,
+        };
+
+        logs.Sources.Add(new LogSourceViewModel(station, MaroonedSoftware.Deadair.Desktop.Core.Checkup.LogWords.Offered(station)));
+        logs.Sources.Add(new LogSourceViewModel(liquidsoap, MaroonedSoftware.Deadair.Desktop.Core.Checkup.LogWords.Offered(liquidsoap)));
+        logs.Source = logs.Sources[0];
+        logs.Level = logs.Levels[0];
+
+        logs.Lines.Add(new LogLineViewModel("12:48:01", "[info] playout: handed 3f2a0c1e (Alive) to the player", null));
+        logs.Lines.Add(new LogLineViewModel("12:47:58", "[debug] director: committed talk break 91be4c7d ahead of 3f2a0c1e, 214 words, persona late-night", null));
+        logs.Lines.Add(new LogLineViewModel("12:46:40", "[warn] plugins: wikipedia answered 429 for https://en.wikipedia.org/api/rest_v1/page/summary/Pearl_Jam_(band_from_Seattle,_Washington) and will be asked again in 60s", Severity.Warning));
+        logs.Lines.Add(new LogLineViewModel("12:39:02", "[error] playout: icecast stats endpoint refused the connection (ECONNREFUSED 127.0.0.1:8000)", Severity.Failure));
+        logs.Lines.Add(new LogLineViewModel("12:38:55", "[info] render: spoke segment 91be4c7d in 2.1s", null));
+        logs.TailProblem = null;
     }
 
     private static void History(HistoryViewModel history)
@@ -527,6 +627,15 @@ internal static class Fakes
 
     /// <summary>A settings store that keeps nothing, for a frame that builds its own view model.</summary>
     public static ISettingsStore Settings() => new MemorySettings();
+
+    /// <summary>A file picker nobody answers: a shot never opens a panel.</summary>
+    private sealed class NoFiles : MaroonedSoftware.Deadair.Desktop.Services.IFilePicker
+    {
+        public Task<MaroonedSoftware.Deadair.Desktop.Services.PickedFile?> OpenAsync(string title, IReadOnlyList<string> patterns) =>
+            Task.FromResult<MaroonedSoftware.Deadair.Desktop.Services.PickedFile?>(null);
+
+        public Task<bool> SaveAsync(string title, string suggestedName, byte[] data) => Task.FromResult(false);
+    }
 
     private sealed class Refuses : HttpMessageHandler
     {

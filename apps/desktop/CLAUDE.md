@@ -1110,9 +1110,10 @@ setting wants. A test says so.
 
 ## The check-up
 
-**Tabs, as the web console has them, and a view model per tab.** Machinery, History and What's new,
-each a view model (`MachineryViewModel`, `ActivityFeedViewModel`, `ReleasesViewModel`) owned by
-`CheckupViewModel`, which owns only which tab is open. The open tab is read on every visit and when
+**Tabs, as the web console has them, and a view model per tab.** Machinery, History, Cost, Logs and
+What's new, each a view model (`MachineryViewModel`, `ActivityFeedViewModel`, `CostViewModel`,
+`LogsViewModel`, `ReleasesViewModel`) owned by `CheckupViewModel`, which owns only which tab is
+open. The open tab is read on every visit and when
 it is pressed, never on a timer. `LoadCommand` allows concurrent runs, because a tab pressed while
 the visit's first read is still out is a read of a DIFFERENT tab, and a command that refused it
 left that tab empty.
@@ -1140,6 +1141,25 @@ renderer; `ReleaseCheck.PlainNotes` takes the marks off and keeps every word. Ch
 beside the button, rather than reported as "no longer an operator" and refreshing the roles: an
 account that can read releases but not ask for them is still an operator. `ManageOnly` is for any
 manage-only call on a page an operator can open.
+
+**Cost and Logs are manage-only through and through**, so both read through `ManageOnly` and say a
+refusal as a sentence on the tab. Neither polls: a decision's spans were written when the work
+happened and cannot change, and a log is refreshed when somebody presses Refresh.
+
+**A decision opens in place, under its row, rather than on a detail page.** What somebody wants from
+one is its calls read against the decisions around it, and a page of its own would take those away.
+One is open at a time (the list's selection, with toggle), and its calls are read the first time it
+opens. The rows are a forest (`TraceWords.Forest`): a caused decision sits indented under its cause,
+and one whose cause rotated out of the kept window is a root rather than dropped. Durations keep
+their magnitude across four orders (`3ms`, `19.2s`, `2m 6s`), nought is a dash because it is a
+decision recorded before its own span rather than one that took no time, and a span's detail is
+drawn as recorded with whole numbers grouped, since a token count is what is usually there.
+
+**A log source that is absent is still offered**, and says what would fill it: hiding it would answer
+"where is the audio chain's log?" by pretending nobody asked. Only a source whose lines carry a
+level is offered a level filter, and none is sent for the others. Download goes through
+`IFilePicker.SaveAsync` under the name the station's `Content-Disposition` gives, cut to its last
+part so a header can never choose a directory on this machine.
 
 **Ages round half away from zero**, as the web console's `Math.round` does. .NET's default is to the
 even neighbour, which put 150 seconds at "2m ago" here and "3m ago" there.

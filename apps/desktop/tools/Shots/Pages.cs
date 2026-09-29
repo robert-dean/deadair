@@ -67,6 +67,10 @@ internal static class Pages
         yield return ("shell-checkup-history", Checkup("History"), 1180, 720);
         yield return ("shell-checkup-history-min", Checkup("History"), 820, 520);
         yield return ("shell-checkup-releases", Checkup("Releases"), 1180, 720);
+        yield return ("shell-checkup-cost", Checkup("Cost"), 1180, 720);
+        yield return ("shell-checkup-cost-min", Checkup("Cost"), 820, 520);
+        yield return ("shell-checkup-logs", Checkup("Logs"), 1180, 720);
+        yield return ("shell-checkup-logs-min", Checkup("Logs"), 820, 520);
         yield return ("shell-voice", Page(new Destination.Voice(), operatorSignedIn: true), 1180, 720);
         yield return ("shell-voice-said", Page(new Destination.Voice(), operatorSignedIn: true, VoiceTab.Said), 1180, 720);
         yield return ("shell-voice-segments", Page(new Destination.Voice(), operatorSignedIn: true, VoiceTab.Segments), 1180, 720);

@@ -17,6 +17,10 @@
                         Command="{Binding ShowTabCommand}" CommandParameter="Machinery" />
                 <Button Classes="tab" Classes.active="{Binding IsHistory}" Content="History"
                         Command="{Binding ShowTabCommand}" CommandParameter="History" />
+                <Button Classes="tab" Classes.active="{Binding IsCost}" Content="Cost"
+                        Command="{Binding ShowTabCommand}" CommandParameter="Cost" />
+                <Button Classes="tab" Classes.active="{Binding IsLogs}" Content="Logs"
+                        Command="{Binding ShowTabCommand}" CommandParameter="Logs" />
                 <Button Classes="tab" Classes.active="{Binding IsReleases}" Content="What's new"
                         Command="{Binding ShowTabCommand}" CommandParameter="Releases" />
             </StackPanel>
@@ -27,6 +31,10 @@
                                 IsVisible="{Binding $parent[UserControl].((vm:CheckupViewModel)DataContext).IsMachinery}" />
             <views:ActivityFeedTab DataContext="{Binding History}"
                                    IsVisible="{Binding $parent[UserControl].((vm:CheckupViewModel)DataContext).IsHistory}" />
+            <views:CostTab DataContext="{Binding Cost}"
+                           IsVisible="{Binding $parent[UserControl].((vm:CheckupViewModel)DataContext).IsCost}" />
+            <views:LogsTab DataContext="{Binding Logs}"
+                           IsVisible="{Binding $parent[UserControl].((vm:CheckupViewModel)DataContext).IsLogs}" />
             <views:ReleasesTab DataContext="{Binding Releases}"
                                IsVisible="{Binding $parent[UserControl].((vm:CheckupViewModel)DataContext).IsReleases}" />
         </Panel>

@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MaroonedSoftware.Deadair.Desktop.Core.Auth;
 using MaroonedSoftware.Deadair.Desktop.Core.Station;
+using MaroonedSoftware.Deadair.Desktop.Services;
 using MaroonedSoftware.Deadair.Sdk;
 using MaroonedSoftware.Deadair.Sdk.Runtime;
 
@@ -12,17 +13,22 @@ public enum CheckupTab
 {
     Machinery,
     History,
+    Cost,
+    Logs,
     Releases,
 }
 
 /// <summary>
-/// The check-up: the machinery, what it has been doing, and what changed in the build.
+/// The check-up: the machinery, what it has been doing, what that cost, the logs underneath, and
+/// what changed in the build.
 /// </summary>
 /// <remarks>
 /// <para>
 /// One question asked in tenses, as the console's shell puts it. Machinery says what the station is
-/// doing NOW, History what it DID. What's new is about the build rather than about what it is doing,
-/// and sits here because Check-up is where the build is already named.
+/// doing NOW, History what it DID, and Cost what each decision spent doing it. Logs is not a fourth
+/// tense: it is what the processes actually wrote, where somebody ends up when the composed answer
+/// was not enough. What's new is about the build rather than about what it is doing, and sits here
+/// because Check-up is where the build is already named.
 /// </para>
 /// <para>
 /// A view model per tab, each owning its own reads, and this one owning which is open. A tab is read
@@ -34,11 +40,13 @@ public sealed partial class CheckupViewModel : ObservableObject
     private readonly HttpClient _http;
     private StationUrl _station;
 
-    public CheckupViewModel(OperatorActions actions, HttpClient http)
+    public CheckupViewModel(OperatorActions actions, HttpClient http, IFilePicker files)
     {
         _http = http;
         Machinery = new MachineryViewModel(actions, Sdk) { OpenReleases = () => Tab = CheckupTab.Releases };
         History = new ActivityFeedViewModel(actions, Sdk);
+        Cost = new CostViewModel(actions, Sdk);
+        Logs = new LogsViewModel(actions, Sdk, files);
         Releases = new ReleasesViewModel(actions, Sdk);
     }
 
@@ -46,17 +54,27 @@ public sealed partial class CheckupViewModel : ObservableObject
 
     public ActivityFeedViewModel History { get; }
 
+    public CostViewModel Cost { get; }
+
+    public LogsViewModel Logs { get; }
+
     public ReleasesViewModel Releases { get; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsMachinery))]
     [NotifyPropertyChangedFor(nameof(IsHistory))]
+    [NotifyPropertyChangedFor(nameof(IsCost))]
+    [NotifyPropertyChangedFor(nameof(IsLogs))]
     [NotifyPropertyChangedFor(nameof(IsReleases))]
     private CheckupTab _tab = CheckupTab.Machinery;
 
     public bool IsMachinery => Tab == CheckupTab.Machinery;
 
     public bool IsHistory => Tab == CheckupTab.History;
+
+    public bool IsCost => Tab == CheckupTab.Cost;
+
+    public bool IsLogs => Tab == CheckupTab.Logs;
 
     public bool IsReleases => Tab == CheckupTab.Releases;
 
@@ -86,6 +104,8 @@ public sealed partial class CheckupViewModel : ObservableObject
     private Task LoadAsync(CancellationToken cancellationToken) => Tab switch
     {
         CheckupTab.History => History.LoadAsync(cancellationToken),
+        CheckupTab.Cost => Cost.LoadAsync(cancellationToken),
+        CheckupTab.Logs => Logs.LoadAsync(cancellationToken),
         CheckupTab.Releases => Releases.LoadAsync(cancellationToken),
         _ => Machinery.LoadAsync(cancellationToken),
     };

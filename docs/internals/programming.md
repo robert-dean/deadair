@@ -64,8 +64,11 @@ four-failure bench in `TrackAudioService`.
 hourly cron that never changes; `CatalogSyncJob` recognises that run by its payload having no keys (pg-boss
 delivers a cron run's payload as `null`) and returns early when `catalog.autoSync` is off or the hour is not
 a multiple of `catalog.syncEveryHours`, counted from the epoch in UTC, so "due" needs no record of the last
-run and a retry inside the hour is still due. The other two are SENT and always run: a provider's settings
-saved (`{ pluginId }`) and an operator's refresh (`POST /playlists/refresh`, `{ requestedBy: 'operator' }`).
+run and a retry inside the hour is still due. The other two are SENT and always run: a provider changed
+(`{ pluginId }`, when its settings are saved, it is enabled, or an account finishes connecting to it over
+OAuth) and an operator's refresh (`POST /playlists/refresh`, `{ requestedBy: 'operator' }`). Disconnecting an
+account deletes the playlist list kept from it in the same transaction, since the next account may be
+somebody else's.
 That is why every sender carries a key: a send of `{}` would be read as the schedule and could be skipped.
 Only an operator's walk goes on the activity feed, as one `sync.finished` entry, because the button can only
 answer "queued" and somebody is waiting to learn it finished.
@@ -77,6 +80,19 @@ one playlist every other record from that provider would read as gone, or the pr
 refuse every time and warn the operator about a walk that did nothing wrong. A record taken out of that
 playlist stays until the next whole walk judges it. A hidden playlist is refused, 409 at the route and
 `hidden` in the walk, on the rule that hiding one takes it out of the library.
+
+**The Library page answers from the list the walk kept, and asks a provider live only for a source with nothing
+kept.** It used to ask every provider for its playlists on every visit, inside the plugin's call timeout, and a
+Spotify that was slow or rate limited (the walk reading it at the same moment was enough) answered nothing: the
+page went empty although the walk had read every playlist minutes before and thrown the list away. The walk now
+reads a plugin's whole list before any of its tracks and keeps it in `deadair.provider_playlist_listings`, one
+row per plugin replaced whole, and only when the list was read to the end, on the sweep's own rule: a list cut
+short at the page cap, cancelled or failed is never kept, because every playlist it missed would vanish from the
+page. The walk is the only writer; `PlaylistsService` reads it, and a source's live answer is not kept from
+there, since a settings save has already queued a walk for that plugin. Hiding is applied when the list is READ,
+so it never waits on a walk. A quarantined or misconfigured source still lists what was kept beside the error
+saying why it is not answering; a disabled one lists nothing. `sources[].listedAt` says how old each list is, and
+the console reads the page again after Refresh until every list is newer than the press.
 
 **A station playlist is a clone, and every way in is one list of entries.** `deadair.playlists` sat empty from
 0005 until import existed; now a file (`playlist.file.ts`, keyed by words and ISRC and never by this

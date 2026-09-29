@@ -31,7 +31,8 @@ const RefreshPlaylistArgs = z.object({ pluginId: z.string().min(1).max(200), pla
 export class ListImportablePlaylistsMcpTool implements McpToolHandler {
     readonly definition: Tool = {
         name: 'list_importable_playlists',
-        description: 'Fans out across every installed plugin that declares AND implements the `catalog` capability',
+        description:
+            "Every playlist the installed `catalog` plugins offer, as the library sync last read each one's list. A source with no list kept yet is asked while the request waits",
         inputSchema: z.toJSONSchema(ListImportablePlaylistsArgs, { unrepresentable: 'any', io: 'input' }) as Tool['inputSchema'],
         outputSchema: z.toJSONSchema(CatalogPlaylistPage, { unrepresentable: 'any' }) as Tool['outputSchema'],
         annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },

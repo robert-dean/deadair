@@ -1,3 +1,13 @@
+import { DateTime } from 'luxon';
+const __dt = (v: unknown, path: string): DateTime => {
+    if (typeof v !== 'string') {
+        throw new TypeError(`ContractKit: expected an ISO 8601 string at '${path}', received ${typeof v}.`);
+    }
+    const d = DateTime.fromISO(v);
+    if (!d.isValid) throw new TypeError(`ContractKit: '${v}' at '${path}' is not a valid ISO 8601 datetime.`);
+    return d;
+};
+
 /**
  * An action a source will permit on one playlist's items. Item-scoped: neither value covers the playlist's own name or description
  * generated from [PlaylistPermission](../../../../../apps/api/data/contracts/playlists/playlists.types.ck#L8)
@@ -42,6 +52,24 @@ export interface CatalogSourceError {
 }
 
 /**
+ * One music source whose playlists are in this answer, and how old its list is
+ * generated from [CatalogPlaylistSource](../../../../../apps/api/data/contracts/playlists/playlists.types.ck#L51)
+ */
+export interface CatalogPlaylistSource {
+    pluginId: string;
+    pluginName: string;
+    /** When the station last read this source's whole list of playlists. The library sync reads it in the background, so this is usually minutes old; a source listed for the first time is read for this answer */
+    listedAt: DateTime;
+}
+
+/** Rehydrates every wire-encoded scalar in a CatalogPlaylistSource into its runtime type. Mutates and returns `raw`. */
+export function reviveCatalogPlaylistSource(raw: CatalogPlaylistSource): CatalogPlaylistSource {
+    const __o0 = raw as unknown as Record<string, unknown>;
+    __o0['listedAt'] = __dt(__o0['listedAt'], 'CatalogPlaylistSource.listedAt');
+    return raw;
+}
+
+/**
  * A playlist a catalog-capable plugin offers, tagged with the plugin it came from so an aggregated list is addressable
  * generated from [CatalogPlaylist](../../../../../apps/api/data/contracts/playlists/playlists.types.ck#L11)
  */
@@ -62,7 +90,7 @@ export interface CatalogPlaylist {
 }
 
 /**
- * generated from [CatalogPlaylistTracks](../../../../../apps/api/data/contracts/playlists/playlists.types.ck#L55)
+ * generated from [CatalogPlaylistTracks](../../../../../apps/api/data/contracts/playlists/playlists.types.ck#L63)
  */
 export interface CatalogPlaylistTracks {
     pluginId: string;
@@ -71,9 +99,25 @@ export interface CatalogPlaylistTracks {
 }
 
 /**
- * generated from [CatalogPlaylistPage](../../../../../apps/api/data/contracts/playlists/playlists.types.ck#L50)
+ * generated from [CatalogPlaylistPage](../../../../../apps/api/data/contracts/playlists/playlists.types.ck#L57)
  */
 export interface CatalogPlaylistPage {
     playlists: CatalogPlaylist[];
+    /** Every source whose playlists are listed, including one that also has an entry in `errors`: its list is then the last one the station read. Absent from a station that predates it, which asked every source live */
+    sources?: CatalogPlaylistSource[];
     errors: CatalogSourceError[];
+}
+
+/** Rehydrates every wire-encoded scalar in a CatalogPlaylistPage into its runtime type. Mutates and returns `raw`. */
+export function reviveCatalogPlaylistPage(raw: CatalogPlaylistPage): CatalogPlaylistPage {
+    const __o0 = raw as unknown as Record<string, unknown>;
+    if (__o0['sources'] != null) {
+        {
+            const __a1 = __o0['sources'] as unknown[];
+            for (let __i2 = 0; __i2 < __a1.length; __i2++) {
+                reviveCatalogPlaylistSource(__a1[__i2] as never);
+            }
+        }
+    }
+    return raw;
 }

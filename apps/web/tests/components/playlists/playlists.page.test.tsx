@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SdkError } from '@deadair/sdk';
 
 import { PlaylistsPage } from '../../../src/components/playlists/playlists.page';
-import { catalogPlaylist, catalogPlaylistPage, catalogSourceError, stationPlaylist } from '../../utils/playlist.fixture';
+import { catalogPlaylist, catalogPlaylistPage, catalogPlaylistSource, catalogSourceError, stationPlaylist } from '../../utils/playlist.fixture';
 import { render, screen, setupUser, waitFor } from '../../utils/render';
 
 const listImportablePlaylists = vi.fn();
@@ -173,13 +173,13 @@ describe('PlaylistsPage', () => {
         render(<PlaylistsPage />);
 
         expect(await screen.findByText('Friday Night')).toBeInTheDocument();
-        expect(screen.getByText('Some plugins could not be listed')).toBeInTheDocument();
+        expect(screen.getByText('Some music sources are not answering')).toBeInTheDocument();
         expect(screen.getByText('Navidrome: Connection timed out')).toBeInTheDocument();
     });
 
     // The alert covers plugins that were never contacted as well as calls that failed: a
-    // quarantined or misconfigured plugin cannot be asked for playlists at all. That is why the
-    // heading says "listed" rather than "reached" — see the API's `unavailableReason`.
+    // quarantined or misconfigured plugin cannot be asked for playlists at all — see the API's
+    // `unavailableReason`.
     it('reports a plugin that could not be asked at all, not only one that failed mid-call', async () => {
         listImportablePlaylists.mockResolvedValue(
             catalogPlaylistPage({
@@ -196,8 +196,35 @@ describe('PlaylistsPage', () => {
 
         render(<PlaylistsPage />);
 
-        expect(await screen.findByText('Some plugins could not be listed')).toBeInTheDocument();
+        expect(await screen.findByText('Some music sources are not answering')).toBeInTheDocument();
         expect(screen.getByText(/Spotify: quarantined after a failure/)).toBeInTheDocument();
+    });
+
+    it("says how old each source's list is", async () => {
+        listImportablePlaylists.mockResolvedValue(catalogPlaylistPage({ sources: [catalogPlaylistSource()] }));
+
+        render(<PlaylistsPage />);
+
+        expect(await screen.findByText(/^Spotify's playlists as read at .*7:05/)).toBeInTheDocument();
+    });
+
+    // The case this page was changed for: Spotify timing out no longer empties it, because the
+    // station answers from the list it read last, and the alert says which list that is.
+    it("keeps a failing source's last list on the page and says when it was read", async () => {
+        listImportablePlaylists.mockResolvedValue(
+            catalogPlaylistPage({
+                playlists: [catalogPlaylist()],
+                sources: [catalogPlaylistSource()],
+                errors: [catalogSourceError({ pluginId: 'deadair.spotify', pluginName: 'Spotify', message: 'quarantined after a failure' })],
+            }),
+        );
+
+        render(<PlaylistsPage />);
+
+        expect(await screen.findByText('Friday Night')).toBeInTheDocument();
+        expect(screen.getByText(/^Spotify: quarantined after a failure\. Its playlists below are the list read at .*7:05/)).toBeInTheDocument();
+        // Said once, in the alert, rather than again under it.
+        expect(screen.queryByText(/^Spotify's playlists as read at/)).not.toBeInTheDocument();
     });
 
     // An empty list under a failure alert must not tell the operator to go and enable a plugin:
@@ -238,6 +265,17 @@ describe('PlaylistsPage', () => {
         await user.click(await screen.findByRole('button', { name: 'Refresh now' }));
 
         await waitFor(() => expect(refreshPlaylists).toHaveBeenCalledTimes(1));
+    });
+
+    it('says the lists are being read again until every one is newer than the refresh', async () => {
+        listImportablePlaylists.mockResolvedValue(catalogPlaylistPage({ sources: [catalogPlaylistSource()] }));
+        refreshPlaylists.mockResolvedValue(undefined);
+        const user = setupUser();
+
+        render(<PlaylistsPage />);
+        await user.click(await screen.findByRole('button', { name: 'Refresh now' }));
+
+        expect(await screen.findByText('Reading the lists again…')).toBeInTheDocument();
     });
 
     it('says so on the page when the refresh is refused', async () => {

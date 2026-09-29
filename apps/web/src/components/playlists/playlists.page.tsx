@@ -1,13 +1,14 @@
 import { Button, Group, List, SimpleGrid, Stack, Text, Title } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import type { CatalogPlaylist } from '@deadair/sdk';
 
-import { playlistsListOptions, useRefreshPlaylists } from '../../api/playlists.queries';
+import { awaitingRefresh, playlistsListOptions, REFRESH_POLL_INTERVAL, REFRESH_POLL_LIMIT, useRefreshPlaylists } from '../../api/playlists.queries';
 import { stationPlaylistsListOptions } from '../../api/station.playlists.queries';
 import { i18n } from '../../i18n/i18n.setup';
 import { EmptyState } from '../shared/empty.state';
+import { formatMomentMinute } from '../shared/feed.moment';
 import { ErrorAlert } from '../shared/error.alert';
 import { notifyQueued } from '../shared/notify';
 import { PageHeader } from '../shared/page.header';
@@ -78,13 +79,29 @@ function availability(fromSources: number, own: number): string {
 
 export function PlaylistsPage() {
     const { t } = useTranslation('playlists');
-    const playlists = useQuery(playlistsListOptions);
+    // When the operator last pressed Refresh, so the listing is read again until every source's list
+    // is newer than that. The walk runs in the background and keeps each list as soon as it is read.
+    const [refreshedAt, setRefreshedAt] = useState<number>();
+    const playlists = useQuery({
+        ...playlistsListOptions,
+        refetchInterval: query => (awaitingRefresh(query.state.data, refreshedAt) ? REFRESH_POLL_INTERVAL : false),
+    });
     const refresh = useRefreshPlaylists();
+    const refreshing = awaitingRefresh(playlists.data, refreshedAt);
+    // Polling stops by itself at the limit, but nothing would then draw the page again, so the
+    // button would go on spinning for a source that never answered.
+    useEffect(() => {
+        if (refreshedAt === undefined) return;
+        const timer = setTimeout(() => setRefreshedAt(undefined), REFRESH_POLL_LIMIT);
+        return () => clearTimeout(timer);
+    }, [refreshedAt]);
     const station = useQuery(stationPlaylistsListOptions);
     // Its own dialog, because taking a source in is three steps: choose it, read what it would do,
     // do it. None of them belongs among the cards.
     const [importing, setImporting] = useState(false);
     const sourceErrors = playlists.data?.errors ?? [];
+    const sources = playlists.data?.sources ?? [];
+    const listedAt = new Map(sources.map(source => [source.pluginId, source.listedAt]));
 
     // What a person chose is the page; what the service made for the account (Discover Weekly, a
     // Daily Mix, an editorial list) is folded under it. On Spotify those are also the playlists it
@@ -113,12 +130,16 @@ export function PlaylistsPage() {
                         <Button
                             size="xs"
                             variant="default"
-                            loading={refresh.isPending}
-                            onClick={() =>
+                            loading={refresh.isPending || refreshing}
+                            onClick={() => {
+                                const asked = Date.now();
                                 refresh.mutate(undefined, {
-                                    onSuccess: () => notifyQueued(t('page.refreshQueued')),
-                                })
-                            }
+                                    onSuccess: () => {
+                                        setRefreshedAt(asked);
+                                        notifyQueued(t('page.refreshQueued'));
+                                    },
+                                });
+                            }}
                         >
                             {t('page.refresh')}
                         </Button>
@@ -158,11 +179,42 @@ export function PlaylistsPage() {
             {sourceErrors.length > 0 ? (
                 <ErrorAlert tone="warning" title={t('page.sourceErrors')}>
                     <List size="sm">
-                        {sourceErrors.map(error => (
-                            <List.Item key={error.pluginId}>{t('page.sourceError', { plugin: error.pluginName, message: error.message })}</List.Item>
-                        ))}
+                        {sourceErrors.map(error => {
+                            const kept = listedAt.get(error.pluginId);
+                            return (
+                                <List.Item key={error.pluginId}>
+                                    {kept === undefined
+                                        ? t('page.sourceError', { plugin: error.pluginName, message: error.message })
+                                        : t('page.sourceErrorKept', {
+                                              plugin: error.pluginName,
+                                              message: error.message,
+                                              when: formatMomentMinute(kept),
+                                          })}
+                                </List.Item>
+                            );
+                        })}
                     </List>
                 </ErrorAlert>
+            ) : undefined}
+
+            {/* How old each source's list is, because the page answers from what the station last
+                read rather than asking every source while the operator waits. A source that is not
+                answering says so in the alert above instead. */}
+            {sources.length > 0 ? (
+                <Stack gap={2}>
+                    {sources
+                        .filter(source => !sourceErrors.some(error => error.pluginId === source.pluginId))
+                        .map(source => (
+                            <Text key={source.pluginId} c="dimmed" size="xs">
+                                {t('page.listedAt', { plugin: source.pluginName, when: formatMomentMinute(source.listedAt) })}
+                            </Text>
+                        ))}
+                    {refreshing ? (
+                        <Text c="dimmed" size="xs">
+                            {t('page.refreshing')}
+                        </Text>
+                    ) : undefined}
+                </Stack>
             ) : undefined}
 
             {playlists.isPending ? (

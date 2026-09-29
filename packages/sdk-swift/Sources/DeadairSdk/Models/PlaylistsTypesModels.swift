@@ -118,6 +118,40 @@ public struct CatalogSourceError: Codable, Equatable, Sendable {
     }
 }
 
+/// One music source whose playlists are in this answer, and how old its list is
+public struct CatalogPlaylistSource: Codable, Equatable, Sendable {
+    public var pluginId: String
+    public var pluginName: String
+    /// When the station last read this source's whole list of playlists. The library sync reads it in the background, so this is usually minutes old; a source listed for the first time is read for this answer
+    public var listedAt: Date
+
+    public init(pluginId: String, pluginName: String, listedAt: Date) {
+        self.pluginId = pluginId
+        self.pluginName = pluginName
+        self.listedAt = listedAt
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case pluginId = "pluginId"
+        case pluginName = "pluginName"
+        case listedAt = "listedAt"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.pluginId = try container.decode(String.self, forKey: .pluginId)
+        self.pluginName = try container.decode(String.self, forKey: .pluginName)
+        self.listedAt = try container.decode(Date.self, forKey: .listedAt)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.pluginId, forKey: .pluginId)
+        try container.encode(self.pluginName, forKey: .pluginName)
+        try container.encode(self.listedAt, forKey: .listedAt)
+    }
+}
+
 /// A playlist a catalog-capable plugin offers, tagged with the plugin it came from so an aggregated list is addressable
 public struct CatalogPlaylist: Codable, Equatable, Sendable {
     public var pluginId: String
@@ -223,27 +257,33 @@ public struct CatalogPlaylistTracks: Codable, Equatable, Sendable {
 
 public struct CatalogPlaylistPage: Codable, Equatable, Sendable {
     public var playlists: [CatalogPlaylist]
+    /// Every source whose playlists are listed, including one that also has an entry in `errors`: its list is then the last one the station read. Absent from a station that predates it, which asked every source live
+    public var sources: [CatalogPlaylistSource]?
     public var errors: [CatalogSourceError]
 
-    public init(playlists: [CatalogPlaylist], errors: [CatalogSourceError]) {
+    public init(playlists: [CatalogPlaylist], sources: [CatalogPlaylistSource]? = nil, errors: [CatalogSourceError]) {
         self.playlists = playlists
+        self.sources = sources
         self.errors = errors
     }
 
     private enum CodingKeys: String, CodingKey {
         case playlists = "playlists"
+        case sources = "sources"
         case errors = "errors"
     }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.playlists = try container.decode([CatalogPlaylist].self, forKey: .playlists)
+        self.sources = try container.decodeIfPresent([CatalogPlaylistSource].self, forKey: .sources)
         self.errors = try container.decode([CatalogSourceError].self, forKey: .errors)
     }
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(self.playlists, forKey: .playlists)
+        try container.encodeIfPresent(self.sources, forKey: .sources)
         try container.encode(self.errors, forKey: .errors)
     }
 }

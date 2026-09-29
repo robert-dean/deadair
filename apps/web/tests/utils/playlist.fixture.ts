@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon';
-import type { CatalogPlaylist, CatalogPlaylistPage, CatalogSourceError, CatalogTrack, StationPlaylist } from '@deadair/sdk';
+import type { CatalogPlaylist, CatalogPlaylistPage, CatalogPlaylistSource, CatalogSourceError, CatalogTrack, StationPlaylist } from '@deadair/sdk';
 
 /** A plausible importable playlist. Override only what a case is actually about. */
 export function catalogPlaylist(overrides: Partial<CatalogPlaylist> = {}): CatalogPlaylist {
@@ -26,6 +26,16 @@ export function catalogSourceError(overrides: Partial<CatalogSourceError> = {}):
         pluginId: 'deadair.navidrome',
         pluginName: 'Navidrome',
         message: 'Connection timed out',
+        ...overrides,
+    };
+}
+
+/** One source's list, as the library sync last read it. */
+export function catalogPlaylistSource(overrides: Partial<CatalogPlaylistSource> = {}): CatalogPlaylistSource {
+    return {
+        pluginId: 'deadair.spotify',
+        pluginName: 'Spotify',
+        listedAt: DateTime.fromISO('2026-09-29T07:05:00'),
         ...overrides,
     };
 }

@@ -43,6 +43,7 @@ import type {
 } from './types/plugins.types.js';
 import { serverkitErrorText } from '#modules/shared/error.text.js';
 import { WeatherService } from '#modules/weather/weather.service.js';
+import { ProviderPlaylistsRepository } from '#modules/catalog/provider.playlists.repository.js';
 
 /** Stand-in for manifest fields a quarantined plugin never produced. */
 const UNKNOWN = 'unknown';
@@ -171,6 +172,9 @@ export class PluginsService {
         // Only for a weather plugin's connection test, which can check the station's own place where the
         // plugin cannot. Optional and last for `bus`'s reason above.
         private readonly weather?: WeatherService,
+        // The playlist lists the library sync kept, so a disconnected account's list goes with its
+        // tokens. Optional and last for `bus`'s reason above.
+        private readonly listings?: ProviderPlaylistsRepository,
     ) {}
 
     /**
@@ -332,7 +336,12 @@ export class PluginsService {
     async enablePlugin(id: string): Promise<PluginDetail> {
         await this.requirePluginPermission(id, 'enable');
         const { record } = this.requireLoaded(id);
-        return this.setEnabled(record, true);
+        const detail = await this.setEnabled(record, true);
+        // After the reinit `setEnabled` registered, for the reason `syncCatalogAfterCommit` gives. A
+        // source turned back on has missed every walk while it was off, and the Playlists page shows
+        // the list it kept from before then until the next hourly one.
+        this.syncCatalogAfterCommit(id);
+        return detail;
     }
 
     /**
@@ -634,6 +643,9 @@ export class PluginsService {
         // The tokens would otherwise keep working from the plugin's in-memory
         // cache until the next reload; the reinit is what drops it.
         this.reinitAfterCommit(id);
+        // The kept list of playlists is that account's, and the next account connected may be
+        // somebody else's. In this transaction, so the list goes exactly when the tokens do.
+        await this.listings?.remove(id);
         return this.detailOf(record);
     }
 
@@ -732,6 +744,9 @@ export class PluginsService {
         }
 
         this.pluginLog.for(id).info('plugin oauth callback completed');
+        // A newly connected account has a library nobody has read, and until this the station read it
+        // at the top of the next hour: no records to pick from and nothing on the Playlists page.
+        this.syncCatalogAfterCommit(id);
         return { pluginId: id, ok: true };
     }
 

@@ -9,6 +9,7 @@ import { ArtistsRepository } from './artists.repository.js';
 import { AlbumsRepository } from './albums.repository.js';
 import { TracksRepository } from './tracks.repository.js';
 import { TasteRepository } from './taste.repository.js';
+import { ProviderPlaylistsRepository } from './provider.playlists.repository.js';
 import { HiddenPlaylistsRepository } from './hidden.playlists.repository.js';
 import { CatalogPlaceholderRepository } from './ingest/catalog.placeholder.repository.js';
 import { CatalogPlaceholderService } from './ingest/catalog.placeholder.service.js';
@@ -36,6 +37,9 @@ export const CatalogModule: ServerKitModule = {
         // The provider playlists an operator hid. Here rather than in `PlaylistsModule` because the
         // sync below skips them too, and this module registers first.
         registry.register(HiddenPlaylistsRepository).useClass(HiddenPlaylistsRepository).asScoped();
+        // The last complete playlist listing of each source: the sync below writes it, the Library
+        // page reads it. Here for the same reason as the line above.
+        registry.register(ProviderPlaylistsRepository).useClass(ProviderPlaylistsRepository).asScoped();
 
         // `ingest/` — writes, as opposed to the read side above. Scoped like
         // its siblings: the job runner gives every execution its own scope, so

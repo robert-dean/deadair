@@ -46,10 +46,10 @@ public sealed class DetailPages(OperatorActions actions, HttpClient http, Librar
 
     private ChartDetailViewModel Chart(Nav.Destination.ChartDetail chart)
     {
-        var row = library.Charts.FirstOrDefault(each => each.Id == chart.Id)
+        var row = library.Charts.Charts.FirstOrDefault(each => each.Id == chart.Id)
             ?? new ChartRowViewModel(chart.Id, chart.Name, string.Empty);
 
-        var page = new ChartDetailViewModel(actions, http, _station, row, library.PlayChartCommand);
+        var page = new ChartDetailViewModel(actions, http, _station, row, library.Charts.PlayCommand);
         page.LoadCommand.Execute(null);
         return page;
     }

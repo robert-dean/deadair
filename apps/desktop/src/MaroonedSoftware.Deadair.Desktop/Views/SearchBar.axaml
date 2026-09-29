@@ -1,0 +1,33 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.SearchBar"
+    x:DataType="vm:PagedTabViewModel">
+
+    <!-- Every paged Library tab's search. Return searches as the button does; a new search starts at
+         the first page. The placeholder is the tab's own, set where the bar is used. -->
+    <!-- The box's column is a capped star rather than a capped grid: a grid that stretches with a
+         MaxWidth is centred in what is left over, and one aligned left sizes to its content, which
+         for an empty box is the placeholder. -->
+    <Grid ColumnSpacing="8">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" MaxWidth="340" />
+            <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <Grid ColumnDefinitions="Auto,*">
+            <TextBox x:Name="Box" Grid.ColumnSpan="2" Text="{Binding Search}"
+                     Padding="32,5,10,5" IsEnabled="{Binding !Busy}">
+                <TextBox.KeyBindings>
+                    <KeyBinding Gesture="Enter" Command="{Binding FindCommand}" />
+                </TextBox.KeyBindings>
+            </TextBox>
+            <!-- After the box, so it is drawn over the box's own background rather than under it. -->
+            <PathIcon Data="{DynamicResource DaIconSearch}" Width="14" Height="14"
+                      Margin="10,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False"
+                      Foreground="{DynamicResource DaTextDimmedBrush}" />
+        </Grid>
+        <Button Grid.Column="1" Classes="ghost" Content="Search" Command="{Binding FindCommand}" />
+    </Grid>
+
+</UserControl>

@@ -616,27 +616,56 @@ internal static class Fakes
 
     private static void Library(LibraryViewModel library)
     {
-        library.Charts.Add(new ChartRowViewModel("uk-singles", "Official Singles Chart Top 100", "officialcharts"));
-        library.Charts.Add(new ChartRowViewModel("hot-100", "Billboard Hot 100", "billboard"));
+        library.Charts.Charts.Add(new ChartRowViewModel("uk-singles", "Official Singles Chart Top 100", "officialcharts"));
+        library.Charts.Charts.Add(new ChartRowViewModel("hot-100", "Billboard Hot 100", "billboard"));
 
-        library.Total = 766;
-        library.Summary = "1–50 of 766";
+        // A page the station might answer with: every combination of what it holds, a record with
+        // no release and no length, a title that has to trim, and both kinds of opinion.
+        library.Records.Present(new TrackPage
+        {
+            Meta = new Pagination { Total = 766, PageSize = 50 },
+            States = new TrackStateCounts { Total = 766, Cached = 412, Measured = 389, Enriched = 701, Benched = 3, Failing = 0 },
+            Data =
+            [
+                Track("Alive", "Pearl Jam", "Ten", 341_000, 1991, Rating.Liked, audio: true, measured: true, enriched: true),
+                Track("Black", "Pearl Jam", "Ten", 343_000, 1991, Rating.Neutral, audio: true, measured: false, enriched: true),
+                Track("Regulate (feat. Nate Dogg) - Original Version", "Warren G, Nate Dogg", "Regulate: G Funk Era", 248_000, 1994, Rating.Neutral, audio: false, measured: false, enriched: true),
+                Track("Would?", "Alice In Chains", "Dirt", 208_000, 1992, Rating.Disliked, audio: true, measured: true, enriched: false),
+                Track("Rooster", "Alice In Chains", "Dirt", 375_000, 1992, Rating.Neutral, audio: false, measured: false, enriched: false),
+                Track("Untitled demo, recorded in the rehearsal room above the laundrette", "Mother Love Bone", null, null, null, Rating.Neutral, audio: false, measured: false, enriched: false),
+                Track("Outshined", "Soundgarden", "Badmotorfinger", 311_000, 1991, Rating.Liked, audio: true, measured: true, enriched: true),
+            ],
+        });
+        library.Records.Total = 766;
+        library.Records.Summary = "1–50 of 766";
 
-        library.Tracks.Add(new TrackRowViewModel(Guid.NewGuid(), "Alive", "Pearl Jam", "Ten", "5:41", "1991", null));
-        library.Tracks.Add(new TrackRowViewModel(Guid.NewGuid(), "Black", "Pearl Jam", "Ten", "5:43", "1991", null));
-        library.Tracks.Add(new TrackRowViewModel(
-            Guid.NewGuid(),
-            "Regulate (feat. Nate Dogg) - Original Version",
-            "Warren G, Nate Dogg",
-            "Regulate... G Funk Era",
-            "4:08",
-            "1994",
-            null));
-        library.Tracks.Add(new TrackRowViewModel(Guid.NewGuid(), "Would?", "Alice In Chains", "Dirt", "3:28", "1992", null));
-        library.Tracks.Add(new TrackRowViewModel(Guid.NewGuid(), "Rooster", "Alice In Chains", "Dirt", "6:15", "1992", null));
-        library.Tracks.Add(new TrackRowViewModel(Guid.NewGuid(), "Nutshell", "Alice In Chains", "Jar Of Flies", "4:19", "1994", null));
-        library.Tracks.Add(new TrackRowViewModel(Guid.NewGuid(), "Outshined", "Soundgarden", "Badmotorfinger", "5:11", "1991", null));
+        library.Acts.Artists.Add(Act("Pearl Jam", 11, 142, Rating.Liked));
+        library.Acts.Artists.Add(Act("Alice In Chains", 6, 71, Rating.Neutral));
+        library.Acts.Artists.Add(Act("Godspeed You! Black Emperor and the long name that has to trim", 1, 1, Rating.Disliked));
+        library.Acts.Artists.Add(Act("Soundgarden", 7, 88, Rating.Neutral));
+        library.Acts.Total = 212;
+        library.Acts.Summary = "1–50 of 212";
     }
+
+    private static TrackRow Track(string title, string artists, string? album, long? ms, long? year, Rating rating, bool audio, bool measured, bool enriched) => new()
+    {
+        Id = Guid.NewGuid(),
+        Title = title,
+        ArtistId = Guid.NewGuid(),
+        ArtistName = artists,
+        Artists = artists,
+        AlbumId = album is null ? null : Guid.NewGuid(),
+        AlbumName = album,
+        DurationMs = ms,
+        Year = year,
+        Rating = rating,
+        HasAudio = audio,
+        Measured = measured,
+        Enriched = enriched,
+    };
+
+    private static ArtistRowViewModel Act(string name, long albums, long tracks, Rating rating) =>
+        new(Guid.NewGuid(), name, albums, tracks, null, RatingViewModel.Fixed(rating, name));
 
     /// <summary>A chart's first places, with a featured artist and a record that has no run.</summary>
     public static void Chart(ChartDetailViewModel chart)

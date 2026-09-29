@@ -1,0 +1,42 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    xmlns:controls="using:MaroonedSoftware.Deadair.Desktop.Controls"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.PlaylistsTab"
+    x:DataType="vm:PlaylistsViewModel">
+
+    <DockPanel LastChildFill="True">
+
+        <TextBlock DockPanel.Dock="Top" Margin="0,0,0,10" Text="{Binding Notice}" Classes="dimmed"
+                   TextWrapping="Wrap"
+                   IsVisible="{Binding Notice, Converter={x:Static ObjectConverters.IsNotNull}}" />
+
+        <!-- Putting the station on air from one of these REPLACES the running order. -->
+        <ListBox Classes="rows" ItemsSource="{Binding Playlists}">
+            <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:PlaylistRowViewModel">
+                    <!-- The action column is always 96 wide whether or not the pointer is here.
+                         Every row is its own Grid, so a column that appeared on hover would re-lay
+                         the row under the cursor. -->
+                    <Grid ColumnDefinitions="36,*,140,96" ColumnSpacing="12">
+                        <controls:Artwork Size="36" Source="{Binding ArtworkUrl}"
+                                          Initial="{Binding Initial}" />
+                        <TextBlock Grid.Column="1" Text="{Binding Name}" VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis"
+                                   Foreground="{DynamicResource DaTextBrush}" />
+                        <TextBlock Grid.Column="2" Text="{Binding Source}" VerticalAlignment="Center"
+                                   Classes="dimmed" TextTrimming="CharacterEllipsis" />
+                        <Button Grid.Column="3" Classes="reveal ghost" Content="Put on air"
+                                FontSize="11" Padding="8,3" HorizontalAlignment="Right"
+                                VerticalAlignment="Center"
+                                Command="{Binding $parent[ListBox].((vm:PlaylistsViewModel)DataContext).PlayCommand}"
+                                CommandParameter="{Binding}" />
+                    </Grid>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+
+    </DockPanel>
+
+</UserControl>

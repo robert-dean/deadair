@@ -1019,10 +1019,42 @@ only clue. `Classes.active` bound to the same boolean the page switches on.
 
 ## The library and the voice
 
-**Each tab fetches once, when it is first opened.** None of a catalog, a playlist list or a chart list
-changes while somebody is looking at it, and the station rate-limits at a hundred requests per five
-seconds — so these are reads on demand rather than polls. Only the records tab pages, because only it
-can be long.
+**One view model and one view per tab, owned by `LibraryViewModel`.** The page was one view model
+holding six lists; it is now `RecordsViewModel`, `ActsViewModel` and so on (`LibraryTabViewModel`,
+and `PagedTabViewModel` for the three the station pages), each drawn by its own `*Tab` view. The owner
+is still the only one the shell and the container know about: it attaches, resets and opens them, so
+a tab's constructor parameters never reach `ShellViewModel`. A tab view sits inside a `Panel` that
+carries its `IsVisible`, for the DataContext re-scoping rule under Navigation.
+
+**Each tab reads once, when it is first opened, and "read" is a flag.** None of a catalog, a playlist
+list or a chart list changes while somebody is looking at it, and the station rate-limits at a
+hundred requests per five seconds, so these are reads on demand rather than polls. It used to be "the
+list is empty", which re-read a station that genuinely HAS nothing on every visit and never retried
+one whose read failed; the flag is set only by a read that answered. Records, Acts and Releases page,
+search and sort (a choice and a direction button, since a list here has no heading row to click); a
+new search, sort or filter starts at the first page.
+
+**A rating is three answers, and the middle is never lit** (`RatingViewModel`, drawn by
+`RatingStrip`). Withdrawing an opinion is its own button rather than a second press on the lit side,
+and an unrated row shows nothing pressed, because hundreds of rows each showing "no opinion" read as
+hundreds of decisions. The answer changes when the STATION answers, never on the press, so a refused
+write leaves what the station holds. Records and acts are rated from the list: most opinions are
+formed while browsing.
+
+**The state filter counts two complements.** The station sends what is cached and measured; the
+chips worth offering are "not fetched" and "unmeasured", so those two are `total -` the sent figure
+(`Core/Catalog/TrackStates`). A chip with nothing behind it is drawn disabled rather than hidden. An
+empty list says which of three things it is, asking about the SEARCH first, because the counts honour
+the search and a term nothing matches answers a total of zero over a full library. The console's
+"On this machine" is "Held" here: this machine is the operator's Mac.
+
+**A record's repairs are a menu, and each one asks.** Five (`Core/Catalog/TrackRepair`): throw away
+the local copies, forget the measurement, forget the providers, retry, and offer refused copies
+again, which is the one that OVERRIDES a provider's answer and says so. `TrackRepairer` asks, calls,
+and keeps the station's own sentence ("Dropped 2 copies") as the tab's notice, because that is the
+interesting half. The two fault states (benched, failing) also get a page-wide button over exactly
+the rows on screen, run one record at a time (a hundred fetches at one provider at once is the storm
+the backoff exists to prevent), and its outcome outlives the rows it emptied.
 
 **Putting a playlist or a chart on air REPLACES the running order**, and what is on air finishes
 first. It is the most consequential thing on either page, which is why the notice says what happened

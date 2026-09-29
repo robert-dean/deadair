@@ -50,6 +50,8 @@ internal static class Pages
         yield return ("shell-history", Page(new Destination.History(), operatorSignedIn: false), 1180, 720);
         yield return ("shell-library", Page(new Destination.Library(), operatorSignedIn: true), 1180, 720);
         yield return ("shell-library-chart", Chart(), 1180, 720);
+        yield return ("shell-library-min", Page(new Destination.Library(), operatorSignedIn: true), 820, 520);
+        yield return ("shell-library-acts", Library("Artists"), 1180, 720);
 
         // A question over the whole window, bar included, with the longest thing it is ever asked
         // about in its title.
@@ -188,6 +190,21 @@ internal static class Pages
         return new MainWindowContent { Shell = shell };
     }
 
+    /// <summary>The Library on one of its tabs, over the same posed station.</summary>
+    private static MainWindowContent Library(string tab)
+    {
+        var shell = Fakes.Shell(operatorSignedIn: true);
+        Fakes.PutOnAir(shell.Listener);
+        Fakes.Fill(shell, new Destination.Library());
+        shell.Navigation.Show(new Destination.Library());
+        shell.Library.ShowTabCommand.Execute(tab);
+
+        // Opening the tab asks the station, and the fake one refuses: the posed rows stay, and the
+        // refusal it reports is not what this frame is for.
+        shell.Dialogs.Notice = null;
+        return new MainWindowContent { Shell = shell };
+    }
+
     /// <summary>
     /// A chart opened from the library: the first detail page, so the first frame with Back in it.
     /// </summary>
@@ -210,7 +227,7 @@ internal static class Pages
         Fakes.Fill(shell, new Destination.Library());
         shell.Navigation.Show(new Destination.Library());
         shell.Library.ShowTabCommand.Execute("Charts");
-        shell.Library.OpenChartCommand.Execute(shell.Library.Charts[0]);
+        shell.Library.Charts.OpenCommand.Execute(shell.Library.Charts.Charts[0]);
         Fakes.Chart((ChartDetailViewModel)shell.Details.Current!);
 
         return new MainWindowContent { Shell = shell };

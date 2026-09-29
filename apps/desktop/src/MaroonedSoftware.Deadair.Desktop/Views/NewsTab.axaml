@@ -1,0 +1,25 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.NewsTab"
+    x:DataType="vm:NewsViewModel">
+
+    <ListBox Classes="rows" ItemsSource="{Binding Stories}">
+        <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:StoryRowViewModel">
+                <StackPanel Spacing="2" Margin="0,4">
+                    <TextBlock Text="{Binding Title}" TextWrapping="Wrap"
+                               Foreground="{DynamicResource DaTextBrush}" />
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <TextBlock Text="{Binding Feed}" FontSize="11"
+                                   Foreground="{DynamicResource DaTextDimmedBrush}" />
+                        <TextBlock Text="{Binding When}" FontSize="11"
+                                   Foreground="{DynamicResource DaTextDimmedBrush}" />
+                    </StackPanel>
+                </StackPanel>
+            </DataTemplate>
+        </ListBox.ItemTemplate>
+    </ListBox>
+
+</UserControl>

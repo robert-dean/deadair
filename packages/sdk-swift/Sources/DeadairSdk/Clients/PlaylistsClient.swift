@@ -10,7 +10,7 @@ public final class PlaylistsClient: Sendable {
     }
 
     /// List importable playlists
-    /// Fans out across every installed plugin that declares AND implements the `catalog` capability
+    /// Every playlist the installed `catalog` plugins offer, as the library sync last read each one's list. A source with no list kept yet is asked while the request waits
     public func listImportablePlaylists() async throws -> CatalogPlaylistPage {
         let request = SdkRequest(method: "GET", path: ["playlists"])
         let response = try await http.execute(request)

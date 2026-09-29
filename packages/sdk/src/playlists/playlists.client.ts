@@ -1,6 +1,7 @@
 import type { SdkFetch } from '../sdk-options.js';
 import { bigIntReplacer, parseJson } from '../sdk-options.js';
 import type { CatalogPlaylistPage, CatalogPlaylistTracks } from './types/playlists.types.js';
+import { reviveCatalogPlaylistPage } from './types/playlists.types.js';
 import type {
     PlaylistFile,
     PlaylistImportInput,
@@ -23,11 +24,11 @@ export class PlaylistsClient {
 
     /**
      * @name List importable playlists
-     * @description Fans out across every installed plugin that declares AND implements the `catalog` capability
+     * @description Every playlist the installed `catalog` plugins offer, as the library sync last read each one's list. A source with no list kept yet is asked while the request waits
      */
     async listImportablePlaylists(): Promise<CatalogPlaylistPage> {
         const result = await this.fetch(`/playlists`, { method: 'GET' });
-        return await parseJson<CatalogPlaylistPage>(result);
+        return reviveCatalogPlaylistPage(await parseJson<CatalogPlaylistPage>(result));
     }
 
     /**

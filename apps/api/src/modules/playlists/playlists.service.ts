@@ -2,16 +2,25 @@ import { Injectable } from 'injectkit';
 import { httpError } from '@maroonedsoftware/errors';
 import { JobBroker } from '@maroonedsoftware/jobbroker';
 import { Logger } from '@maroonedsoftware/logger';
-import { PLUGIN_CAPABILITY_CATALOG, type MusicProviderPluginInstance, type PluginManifest } from '@deadair/plugin-sdk';
+import { DateTime } from 'luxon';
+import { PLUGIN_CAPABILITY_CATALOG, type MusicProviderPluginInstance, type PluginManifest, type ProviderPlaylist } from '@deadair/plugin-sdk';
 import { TracksRepository } from '#modules/catalog/tracks.repository.js';
 import { HiddenPlaylistsRepository, hiddenPlaylistKey } from '#modules/catalog/hidden.playlists.repository.js';
+import { ProviderPlaylistsRepository, type ProviderPlaylistListing } from '#modules/catalog/provider.playlists.repository.js';
 import { AccessControlService, isAllVisible } from '#modules/permissions/access.control.service.js';
 import { asCatalogPlugin, implementsCatalog } from '#modules/plugins/plugin.capabilities.js';
 import { pluginHttpError } from '#modules/plugins/plugin.error.http.js';
 import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
 import type { PluginRecord } from '#modules/plugins/types/plugin.record.js';
-import type { CatalogPlaylist, CatalogPlaylistPage, CatalogPlaylistTracks, CatalogSourceError, CatalogTrack } from './types/playlists.types.js';
+import type {
+    CatalogPlaylist,
+    CatalogPlaylistPage,
+    CatalogPlaylistSource,
+    CatalogPlaylistTracks,
+    CatalogSourceError,
+    CatalogTrack,
+} from './types/playlists.types.js';
 import { serverkitErrorText } from '#modules/shared/error.text.js';
 import { PLUGIN_PAGE_SIZE, pluginPages } from '#modules/plugins/plugin.paging.js';
 
@@ -41,17 +50,44 @@ const unavailableReason = (record: PluginRecord): string | undefined => {
     }
 };
 
+/** A plugin that declares a catalog, and why it cannot be called right now when it cannot. */
+interface CatalogSource {
+    record: PluginRecord;
+    manifest: PluginManifest;
+    unavailable?: string;
+}
+
+/** One provider playlist as the page lists it, marked when an operator hid it. */
+function toCatalogPlaylist(record: PluginRecord, manifest: PluginManifest, playlist: ProviderPlaylist, hidden: ReadonlySet<string>): CatalogPlaylist {
+    return {
+        pluginId: record.id,
+        pluginName: manifest.name,
+        id: playlist.id,
+        name: playlist.name,
+        description: playlist.description,
+        trackCount: playlist.trackCount,
+        artworkUrl: playlist.artworkUrl,
+        permissions: playlist.permissions,
+        madeByProvider: playlist.madeByProvider,
+        // Marked rather than removed: the console folds these away and offers them back, which it
+        // cannot do for a playlist this page never mentioned.
+        ...(hidden.has(hiddenPlaylistKey(record.id, playlist.id)) ? { hidden: true } : {}),
+    };
+}
+
 /**
  * The read-only surface for "what could I import from a plugin": every
  * catalog-capable plugin's playlists, aggregated, and one plugin's playlist
  * tracks on demand.
  *
- * Nothing about a provider's playlist is persisted, and every answer about what
- * a playlist HOLDS is a live call through {@link PluginInvoker}, which is what
- * keeps a slow or crashing plugin from becoming a slow or crashing request. The
- * database is asked two things: {@link catalogIds}, which names what the station
- * already has of the same copies, and which playlists an operator has hidden,
- * which is the one thing written here and holds nothing but the pair.
+ * The LIST of a provider's playlists is answered from what the library sync
+ * last read (`deadair.provider_playlist_listings`), and a source is asked live
+ * only when nothing has been kept for it yet. Every answer about what a
+ * playlist HOLDS is still a live call through {@link PluginInvoker}, which is
+ * what keeps a slow or crashing plugin from becoming a slow or crashing
+ * request. The database is also asked {@link catalogIds}, which names what the
+ * station already has of the same copies, and which playlists an operator has
+ * hidden, which is the one thing written here and holds nothing but the pair.
  */
 @Injectable()
 export class PlaylistsService {
@@ -65,72 +101,82 @@ export class PlaylistsService {
         // The playlists an operator hid. This service marks them and writes them; it never drops one
         // from the listing, because the console still has to be able to show them again.
         private readonly hidden: HiddenPlaylistsRepository,
+        // The lists of playlists the library sync last read. Read here and never written: the sync
+        // is the one writer, so the page cannot keep a list it read in a hurry over a better one.
+        private readonly listings: ProviderPlaylistsRepository,
         // Scoped, so a refresh is enqueued in the request's transaction and exists only once it commits.
         private readonly jobs: JobBroker,
         private readonly logger: Logger,
     ) {}
 
     /**
-     * One page aggregating every catalog-capable plugin's playlists.
+     * Every catalog-capable plugin's playlists, as one page.
      *
-     * Plugins are called concurrently and settled independently: one plugin
-     * throwing (a dead upstream, an expired token) must not take the whole
-     * aggregated list down with it, so its failure is reported alongside the
-     * others' successes rather than propagated. Each one is paged to the end by
-     * {@link collect}, because a provider's own default page is not the library.
+     * A source's list comes from what the library sync last read, whenever it has read one. That is
+     * the difference between this page and a provider having a bad minute: asked live, a Spotify
+     * that was slow or rate limited (the sync walking it at the same moment was enough) answered
+     * nothing inside the plugin's call timeout, and the page showed no playlists at all although the
+     * station had read every one of them minutes earlier. `sources` says how old each list is, and
+     * Refresh (`catalog.sync`) is what brings them up to date, in the background.
+     *
+     * A source with nothing kept, which is a provider connected since the last walk, is asked live
+     * and paged to the end by {@link collect}. Those calls are concurrent and settled independently,
+     * so one plugin throwing is reported beside the others' playlists rather than propagated. The
+     * answer is not kept from here: the sync is the one writer of the kept lists, and a settings save
+     * has already queued one for that plugin.
+     *
+     * A source that cannot be called right now (quarantined, misconfigured) still lists what was kept
+     * for it, alongside the error saying why it is not answering: the playlists are what the operator
+     * came for, and the station still holds their tracks.
      */
     async listPlaylists(): Promise<CatalogPlaylistPage> {
-        const { usable: candidates, unavailable } = await this.catalogCapablePlugins();
+        const candidates = await this.catalogCapablePlugins();
         // Read beside the fan-out rather than before it: it is one small query against the station's
         // own database, and the plugins are the slow part.
         const hiddenKeys = this.hiddenKeys();
+        const kept = await this.keptListings();
 
+        const live = candidates.filter(source => source.unavailable === undefined && !kept.has(source.record.id));
         const settled = await Promise.allSettled(
-            candidates.map(async ({ record, manifest }) => {
+            live.map(async ({ record }) => {
                 const instance = record.instance as MusicProviderPluginInstance;
-                const playlists = await this.collect(record.id, 'catalog.listPlaylists', offset =>
-                    instance.listPlaylists!({ limit: PLUGIN_PAGE_SIZE, offset }),
-                );
-                return { manifest, playlists };
+                return this.collect(record.id, 'catalog.listPlaylists', offset => instance.listPlaylists!({ limit: PLUGIN_PAGE_SIZE, offset }));
             }),
         );
+        const answered = new Map(live.map(({ record }, index) => [record.id, settled[index]!]));
+        const listedNow = DateTime.now();
 
         const hidden = await hiddenKeys;
         const playlists: CatalogPlaylist[] = [];
-        // Seeded with the plugins that could not even be called. A source the operator
-        // turned on and which is not working is the single most useful thing this page
-        // can say, and dropping it silently leaves an empty list whose only explanation
-        // is the empty state's advice to enable a plugin that IS already enabled.
-        const errors: CatalogSourceError[] = [...unavailable];
+        const sources: CatalogPlaylistSource[] = [];
+        const errors: CatalogSourceError[] = [];
+        const add = (record: PluginRecord, manifest: PluginManifest, listedAt: DateTime, listed: readonly ProviderPlaylist[]) => {
+            sources.push({ pluginId: record.id, pluginName: manifest.name, listedAt });
+            for (const playlist of listed) playlists.push(toCatalogPlaylist(record, manifest, playlist, hidden));
+        };
 
-        settled.forEach((outcome, index) => {
-            const { record, manifest } = candidates[index]!;
-            if (outcome.status === 'fulfilled') {
-                for (const playlist of outcome.value.playlists) {
-                    playlists.push({
-                        pluginId: record.id,
-                        pluginName: manifest.name,
-                        id: playlist.id,
-                        name: playlist.name,
-                        description: playlist.description,
-                        trackCount: playlist.trackCount,
-                        artworkUrl: playlist.artworkUrl,
-                        permissions: playlist.permissions,
-                        madeByProvider: playlist.madeByProvider,
-                        // Marked rather than removed: the console folds these away and offers them
-                        // back, which it cannot do for a playlist this page never mentioned.
-                        ...(hidden.has(hiddenPlaylistKey(record.id, playlist.id)) ? { hidden: true } : {}),
-                    });
-                }
-                return;
+        for (const { record, manifest, unavailable } of candidates) {
+            const listing = kept.get(record.id);
+            if (listing) add(record, manifest, listing.listedAt, listing.playlists);
+
+            // A source the operator turned on and which is not working is the single most useful
+            // thing this page can say, kept list or not. Dropping it silently leaves an empty list
+            // whose only explanation is the empty state's advice to enable a plugin that IS enabled.
+            if (unavailable !== undefined) {
+                errors.push({ pluginId: record.id, pluginName: manifest.name, message: unavailable });
+                continue;
             }
 
-            const message = serverkitErrorText(outcome.reason);
-            this.logger.warn('catalog plugin could not list playlists', { plugin: record.id, error: message });
-            errors.push({ pluginId: record.id, pluginName: manifest.name, message });
-        });
+            const outcome = answered.get(record.id);
+            if (outcome?.status === 'fulfilled') add(record, manifest, listedNow, outcome.value);
+            if (outcome?.status === 'rejected') {
+                const message = serverkitErrorText(outcome.reason);
+                this.logger.warn('catalog plugin could not list playlists', { plugin: record.id, error: message });
+                errors.push({ pluginId: record.id, pluginName: manifest.name, message });
+            }
+        }
 
-        return { playlists, errors };
+        return { playlists, sources, errors };
     }
 
     /**
@@ -305,28 +351,26 @@ export class PlaylistsService {
     }
 
     /**
-     * The visible-to-the-actor plugins that declare a catalog, split into the
-     * ones that can be called and the ones that cannot.
+     * The visible-to-the-actor plugins that declare a catalog, in the registry's order, each with
+     * why it cannot be called right now when it cannot.
      *
      * Visibility is narrowed exactly like {@link PluginsService.listPlugins}:
      * `{ all: true }` skips the filter for actors whose role already covers
      * every plugin.
      *
-     * The split is what keeps a broken source from disappearing. `unavailable`
+     * `unavailable` is what keeps a broken source from disappearing. It
      * deliberately covers only the states the operator has already asked to be
      * working — quarantined, misconfigured, or declaring a capability it does
-     * not implement. A `discovered` or `disabled` plugin is not reported: it was
-     * never turned on, so calling that an error would put a permanent warning on
-     * the page for a choice the operator made.
+     * not implement. A `discovered` or `disabled` plugin is left out altogether,
+     * kept list and all: it was never turned on, or was turned off, so calling
+     * that an error would put a permanent warning on the page for a choice the
+     * operator made, and listing its playlists would offer ones nothing can read.
      *
      * A record with no manifest is skipped entirely, however it failed: without
      * one there is no way to know it was ever a catalog, and attributing an
      * enrichment plugin's failure to this page would be worse than silence.
      */
-    private async catalogCapablePlugins(): Promise<{
-        usable: { record: PluginRecord; manifest: PluginManifest }[];
-        unavailable: CatalogSourceError[];
-    }> {
+    private async catalogCapablePlugins(): Promise<CatalogSource[]> {
         const visible = await this.accessControl.listVisibleIds('plugin', 'view');
         const records = this.pluginRegistry.list();
         let narrowed = records;
@@ -335,13 +379,11 @@ export class PlaylistsService {
             narrowed = records.filter(record => visibleIds.has(record.id));
         }
 
-        const usable: { record: PluginRecord; manifest: PluginManifest }[] = [];
-        const unavailable: CatalogSourceError[] = [];
-
+        const sources: CatalogSource[] = [];
         for (const record of narrowed) {
             const catalog = asCatalogPlugin(record);
             if (catalog) {
-                usable.push({ record, manifest: catalog.manifest });
+                sources.push({ record, manifest: catalog.manifest });
                 continue;
             }
 
@@ -349,10 +391,26 @@ export class PlaylistsService {
             if (!manifest?.capabilities.includes(PLUGIN_CAPABILITY_CATALOG)) continue;
 
             const reason = unavailableReason(record);
-            if (reason) unavailable.push({ pluginId: record.id, pluginName: manifest.name, message: reason });
+            if (reason) sources.push({ record, manifest, unavailable: reason });
         }
 
-        return { usable, unavailable };
+        return sources;
+    }
+
+    /**
+     * The lists the library sync kept, by plugin, or none at all when they cannot be read.
+     *
+     * Never fails the listing, on {@link hiddenKeys}' argument: with nothing kept, every source is
+     * simply asked live, which is how this page worked before anything was kept.
+     */
+    private async keptListings(): Promise<Map<string, ProviderPlaylistListing>> {
+        try {
+            const listings = await this.listings.list();
+            return new Map(listings.map(listing => [listing.pluginId, listing]));
+        } catch (error) {
+            this.logger.warn('could not read the kept playlist lists; asking every source live', { error: serverkitErrorText(error) });
+            return new Map();
+        }
     }
 
     /**

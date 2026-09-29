@@ -47,8 +47,16 @@ contract CatalogSourceError: {
     message: string(max=4000)
 }
 
+# One music source whose playlists are in this answer, and how old its list is
+contract CatalogPlaylistSource: {
+    pluginId: string(min=1, max=200)
+    pluginName: string(min=1, max=200)
+    listedAt: datetime # When the station last read this source's whole list of playlists. The library sync reads it in the background, so this is usually minutes old; a source listed for the first time is read for this answer
+}
+
 contract CatalogPlaylistPage: {
     playlists: array(CatalogPlaylist)
+    sources?: array(CatalogPlaylistSource) # Every source whose playlists are listed, including one that also has an entry in `errors`: its list is then the last one the station read. Absent from a station that predates it, which asked every source live
     errors: array(CatalogSourceError)
 }
 

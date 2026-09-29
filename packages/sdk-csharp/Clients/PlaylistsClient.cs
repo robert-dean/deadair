@@ -22,7 +22,7 @@ public sealed class PlaylistsClient(SdkHttp http)
 {
     /// <summary>
     /// List importable playlists
-    /// Fans out across every installed plugin that declares AND implements the `catalog` capability
+    /// Every playlist the installed `catalog` plugins offer, as the library sync last read each one's list. A source with no list kept yet is asked while the request waits
     /// </summary>
     public async Task<CatalogPlaylistPage> ListImportablePlaylistsAsync(CancellationToken cancellationToken = default)
     {

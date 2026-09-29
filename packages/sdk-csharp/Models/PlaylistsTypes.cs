@@ -88,6 +88,20 @@ public sealed record CatalogSourceError
     public required string Message { get; init; }
 }
 
+/// <summary>One music source whose playlists are in this answer, and how old its list is</summary>
+public sealed record CatalogPlaylistSource
+{
+    [JsonPropertyName("pluginId")]
+    public required string PluginId { get; init; }
+
+    [JsonPropertyName("pluginName")]
+    public required string PluginName { get; init; }
+
+    /// <summary>When the station last read this source's whole list of playlists. The library sync reads it in the background, so this is usually minutes old; a source listed for the first time is read for this answer</summary>
+    [JsonPropertyName("listedAt")]
+    public required DateTimeOffset ListedAt { get; init; }
+}
+
 /// <summary>A playlist a catalog-capable plugin offers, tagged with the plugin it came from so an aggregated list is addressable</summary>
 public sealed record CatalogPlaylist
 {
@@ -147,6 +161,11 @@ public sealed record CatalogPlaylistPage
 {
     [JsonPropertyName("playlists")]
     public required List<CatalogPlaylist> Playlists { get; init; }
+
+    /// <summary>Every source whose playlists are listed, including one that also has an entry in `errors`: its list is then the last one the station read. Absent from a station that predates it, which asked every source live</summary>
+    [JsonPropertyName("sources")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<CatalogPlaylistSource>? Sources { get; init; }
 
     [JsonPropertyName("errors")]
     public required List<CatalogSourceError> Errors { get; init; }

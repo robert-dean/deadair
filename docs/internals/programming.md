@@ -78,6 +78,19 @@ refuse every time and warn the operator about a walk that did nothing wrong. A r
 playlist stays until the next whole walk judges it. A hidden playlist is refused, 409 at the route and
 `hidden` in the walk, on the rule that hiding one takes it out of the library.
 
+**The Library page answers from the list the walk kept, and asks a provider live only for a source with nothing
+kept.** It used to ask every provider for its playlists on every visit, inside the plugin's call timeout, and a
+Spotify that was slow or rate limited (the walk reading it at the same moment was enough) answered nothing: the
+page went empty although the walk had read every playlist minutes before and thrown the list away. The walk now
+reads a plugin's whole list before any of its tracks and keeps it in `deadair.provider_playlist_listings`, one
+row per plugin replaced whole, and only when the list was read to the end, on the sweep's own rule: a list cut
+short at the page cap, cancelled or failed is never kept, because every playlist it missed would vanish from the
+page. The walk is the only writer; `PlaylistsService` reads it, and a source's live answer is not kept from
+there, since a settings save has already queued a walk for that plugin. Hiding is applied when the list is READ,
+so it never waits on a walk. A quarantined or misconfigured source still lists what was kept beside the error
+saying why it is not answering; a disabled one lists nothing. `sources[].listedAt` says how old each list is, and
+the console reads the page again after Refresh until every list is newer than the press.
+
 **A station playlist is a clone, and every way in is one list of entries.** `deadair.playlists` sat empty from
 0005 until import existed; now a file (`playlist.file.ts`, keyed by words and ISRC and never by this
 station's ids, per [backup-and-restore](https://github.com/robert-dean/deadair/discussions/6)), a text list

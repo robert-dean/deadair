@@ -1755,6 +1755,22 @@ station in `SessionHandlerTests` and `SessionManagerTests` rather than against t
 a deliberate limit rather than an oversight: the tests can produce two simultaneous 401s and a
 rotation that answers without a new refresh token, and a live station cannot be asked to.
 
+**The operator pages that reached parity with the web console (2026-09-29) are verified against
+fakes and pictures, not against the station.** Every page, tab, detail page and dialog was built
+with `-warnaserror`, its rules tested in Core, and drawn by `tools/Shots` in both appearances at 1180
+and at the 820x520 minimum, and looked at. None of their calls has been made to a real station. The
+ones most worth measuring there first, because a fake cannot answer them the way a station does:
+- a plugin's OAuth connect (the browser round trip and the three-second check until it reports
+  connected) and the stream fetcher's authorization;
+- the step-up: a code asked for, the session rotated rather than a second one made, the call retried;
+- a playlist import's preview and import, and a chart put on air (which answers before its job runs);
+- previews of each audio endpoint through AVFoundation (only a local WAV has been played: see
+  Previews), and an Ogg answer failing to open with a sentence;
+- the station's refusals worded through `expected` (409 and 422 especially), which fakes only guess at.
+
+Anything that changes what airs (air mode, a hold, a plan, a recast, a skip, a playlist or chart put
+on air, a timetable edit) is to be tried only with the operator watching, never blind.
+
 ## Conventions
 
 Four-space indent, file-scoped namespaces, `TreatWarningsAsErrors` everywhere. Tests are xunit v3 in

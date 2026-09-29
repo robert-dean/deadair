@@ -81,7 +81,7 @@
             <ListBox Classes="rows" ItemsSource="{Binding Segments}" IsVisible="{Binding IsSegments}">
                 <ListBox.ItemTemplate>
                     <DataTemplate x:DataType="vm:SegmentRowViewModel">
-                        <Grid ColumnDefinitions="Auto,*,110,90" ColumnSpacing="10" Margin="0,4">
+                        <Grid ColumnDefinitions="Auto,*,110,90,64" ColumnSpacing="10" Margin="0,4">
                             <Ellipse Width="6" Height="6" VerticalAlignment="Center"
                                      Fill="{Binding Tone, Converter={StaticResource ToneBrush}}" />
                             <TextBlock Grid.Column="1" Text="{Binding Label}" TextTrimming="CharacterEllipsis"
@@ -91,6 +91,12 @@
                             <!-- `ready` alone can air; everything before it is a stage of being made. -->
                             <TextBlock Grid.Column="3" Text="{Binding State}" FontSize="11"
                                        Foreground="{DynamicResource DaTextDimmedBrush}" />
+                            <!-- Heard over the station rather than instead of it. -->
+                            <Button Grid.Column="4" Classes="ghost" FontSize="11" Padding="8,2"
+                                    HorizontalAlignment="Right" Content="{Binding PlayLabel}"
+                                    IsVisible="{Binding CanPlay}"
+                                    Command="{Binding $parent[ListBox].((vm:VoiceViewModel)DataContext).PlaySegmentCommand}"
+                                    CommandParameter="{Binding}" />
                         </Grid>
                     </DataTemplate>
                 </ListBox.ItemTemplate>

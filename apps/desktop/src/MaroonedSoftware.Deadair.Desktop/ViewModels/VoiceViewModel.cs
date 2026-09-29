@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.Input;
 using MaroonedSoftware.Deadair.Desktop.Core.Auth;
 using MaroonedSoftware.Deadair.Desktop.Core.Station;
 using MaroonedSoftware.Deadair.Desktop.Core.Text;
+using MaroonedSoftware.Deadair.Desktop.Services;
 using MaroonedSoftware.Deadair.Sdk;
 using MaroonedSoftware.Deadair.Sdk.Models;
 using MaroonedSoftware.Deadair.Sdk.Runtime;
@@ -21,7 +22,28 @@ public sealed record PersonaRowViewModel(string Id, string Label, string Style, 
 public sealed record ScriptRowViewModel(string When, string Kind, string Writer, string Text, StatusTone Tone);
 
 /// <summary>One piece of audio the station holds.</summary>
-public sealed record SegmentRowViewModel(string Label, string Kind, string State, StatusTone Tone);
+public sealed partial class SegmentRowViewModel(string id, string label, string kind, string state, StatusTone tone, bool canPlay)
+    : ObservableObject
+{
+    public string Id { get; } = id;
+
+    public string Label { get; } = label;
+
+    public string Kind { get; } = kind;
+
+    public string State { get; } = state;
+
+    public StatusTone Tone { get; } = tone;
+
+    /// <summary>Only a segment that is ready has audio to play.</summary>
+    public bool CanPlay { get; } = canPlay;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PlayLabel))]
+    private bool _isPlaying;
+
+    public string PlayLabel => IsPlaying ? "Stop" : "Play";
+}
 
 /// <summary>One programme being made.</summary>
 public sealed record ProductionRowViewModel(string Id, string Title, string Kind, string State, bool CanCancel);
@@ -44,7 +66,8 @@ public enum VoiceTab
 /// audio does it hold, and what is being made right now. Voices, pronunciations, pads and topics are
 /// configuration rather than observation, and are left for later.
 /// </remarks>
-public sealed partial class VoiceViewModel(OperatorActions actions, HttpClient http, IDialogs dialogs) : ObservableObject
+public sealed partial class VoiceViewModel(OperatorActions actions, HttpClient http, IDialogs dialogs, PreviewsViewModel previews)
+    : ObservableObject
 {
     private StationUrl _station;
 
@@ -201,6 +224,7 @@ public sealed partial class VoiceViewModel(OperatorActions actions, HttpClient h
             // `ready` alone can air. Everything before it is a stage of being made, and drawing those
             // as faults would make an ordinary pipeline look broken.
             Segments.Add(new SegmentRowViewModel(
+                segment.Id,
                 segment.Label,
                 segment.Kind,
                 segment.State.ToString().ToLowerInvariant(),
@@ -209,7 +233,13 @@ public sealed partial class VoiceViewModel(OperatorActions actions, HttpClient h
                     SegmentState.Ready => StatusTone.Ok,
                     SegmentState.Failed => StatusTone.Fault,
                     _ => StatusTone.Standby,
-                }));
+                },
+                // The audio endpoint takes a uuid where the list sends a string, so a row whose id
+                // is not one has no audio this app can ask for.
+                segment.State == SegmentState.Ready && Guid.TryParse(segment.Id, out _))
+            {
+                IsPlaying = previews.Playing == SegmentKey(segment.Id),
+            });
         }
     }
 
@@ -295,6 +325,35 @@ public sealed partial class VoiceViewModel(OperatorActions actions, HttpClient h
             await LoadProductionsAsync(CancellationToken.None).ConfigureAwait(true);
         }
     }
+
+    /// <summary>Plays a recording through the app's one preview, or stops it.</summary>
+    [RelayCommand]
+    private async Task PlaySegmentAsync(SegmentRowViewModel segment)
+    {
+        ArgumentNullException.ThrowIfNull(segment);
+
+        if (!Guid.TryParse(segment.Id, out var id))
+        {
+            return;
+        }
+
+        await previews.ToggleAsync(
+            SegmentKey(segment.Id),
+            async token => Clips.From(await actions.RunAsync<object>(
+                async inner =>
+                {
+                    using var sdk = Sdk();
+                    return await sdk.Render.GetSegmentAudioAsync(id, inner).ConfigureAwait(false);
+                },
+                cancellationToken: token).ConfigureAwait(true))).ConfigureAwait(true);
+
+        foreach (var row in Segments)
+        {
+            row.IsPlaying = previews.Playing == SegmentKey(row.Id);
+        }
+    }
+
+    private static string SegmentKey(string id) => $"segment:{id}";
 
     private DeadairSdk Sdk() => new(new SdkOptions
     {

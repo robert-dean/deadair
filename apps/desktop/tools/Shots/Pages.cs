@@ -61,6 +61,7 @@ internal static class Pages
         yield return ("shell-checkup", Page(new Destination.Checkup(), operatorSignedIn: true), 1180, 720);
         yield return ("shell-voice", Page(new Destination.Voice(), operatorSignedIn: true), 1180, 720);
         yield return ("shell-voice-said", Page(new Destination.Voice(), operatorSignedIn: true, VoiceTab.Said), 1180, 720);
+        yield return ("shell-voice-segments", Page(new Destination.Voice(), operatorSignedIn: true, VoiceTab.Segments), 1180, 720);
         yield return ("player-bar", Bar(), 1180, 720);
         yield return ("player-bar-on-device", Bar(Fakes.OnASpeaker), 1180, 720);
 

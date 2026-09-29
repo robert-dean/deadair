@@ -408,6 +408,26 @@ drop it".** Two things here are unmeasured: whether macOS keeps a Now Playing en
 is producing no audio itself, and whether Avalonia's headless renderer can capture a flyout at all
 (the picker is rendered as a control on its own on the assumption that it cannot).
 
+## Previews
+
+**A preview is a second platform player over a temporary file.** `ClipPlayer` (Core) writes the
+bytes to a file and plays `file://` through the same `IStationPlayer` the station uses, so there is
+no second kind of player and the class is tested with a fake one. The bytes are fetched through the
+ONE station client first, because the preview endpoints want the operator's bearer token, which only
+that client carries; AVFoundation fetching a station URL itself would go out without it.
+
+**Measured, 2026-09-29:** a local WAV through `MacStationPlayer` reports Opening, Buffering, Playing,
+Ended, Stopped, and `ClipPlayer` takes Ended as its cue to stop and delete the file. The check first
+looked broken (stuck in Buffering) only because a console app's `await` resumed on a pool thread
+and the run loop was then pumped from somewhere the player's notifications never arrive. The app's
+UI context keeps the two together; a scratch check has to as well.
+
+**One preview at a time, app-wide** (`PreviewsViewModel`), and the station is left playing: a
+preview is heard OVER the broadcast, and one that stopped the station in the operator's ears would be
+a preview they could not judge against it. Every audio endpoint answers a family of records per
+content type holding `Data`; `Services/Clips.From` reads that shape once instead of a switch per
+endpoint. AVFoundation plays WAV, MP3, AAC and FLAC; an Ogg answer will fail to open, and says so.
+
 ## Closing is not quitting
 
 **Closing the window hides it and the station plays on; only a quit ends the app.** It used to quit,

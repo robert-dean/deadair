@@ -38,6 +38,9 @@ internal static class Fakes
         var dispatcher = ImmediateUiDispatcher.Instance;
         var navigation = new NavigationViewModel();
         var dialogs = new DialogsViewModel(actions, dispatcher);
+
+        // Previews that play nothing: a shot is a picture, and a picture makes no sound.
+        var previews = new PreviewsViewModel(new ClipPlayer(() => new NullStationPlayer()), dispatcher);
         var library = new LibraryViewModel(actions, http, navigation, dialogs);
 
         // The picker, over a catalog whose plugins are two speakers that do not exist. A shot must
@@ -61,7 +64,7 @@ internal static class Fakes
             new HistoryViewModel(actions, http),
             new CheckupViewModel(actions, http),
             new SettingsViewModel(actions, http, settings, new ThemeManager(), PosedPlugins()),
-            new VoiceViewModel(actions, http, dialogs),
+            new VoiceViewModel(actions, http, dialogs, previews),
             new DetailPages(actions, http, library),
             dialogs,
             new ThemeManager(),
@@ -312,10 +315,10 @@ internal static class Fakes
         voice.Scripts.Add(new ScriptRowViewModel(
             "11:31", "news", "model", "The speech engine did not answer in time.", StatusTone.Fault));
 
-        voice.Segments.Add(new SegmentRowViewModel("Talk break: Jeremy into Alive", "talk", "ready", StatusTone.Ok));
-        voice.Segments.Add(new SegmentRowViewModel("Station ident, evening", "ident", "ready", StatusTone.Ok));
-        voice.Segments.Add(new SegmentRowViewModel("Talk break: Regulate into My Boo", "talk", "rendering", StatusTone.Standby));
-        voice.Segments.Add(new SegmentRowViewModel("News bulletin, 11:30", "news", "failed", StatusTone.Fault));
+        voice.Segments.Add(new SegmentRowViewModel("1", "Talk break: Jeremy into Alive", "talk", "ready", StatusTone.Ok, canPlay: true) { IsPlaying = true });
+        voice.Segments.Add(new SegmentRowViewModel("2", "Station ident, evening", "ident", "ready", StatusTone.Ok, canPlay: true));
+        voice.Segments.Add(new SegmentRowViewModel("3", "Talk break: Regulate into My Boo", "talk", "rendering", StatusTone.Standby, canPlay: false));
+        voice.Segments.Add(new SegmentRowViewModel("4", "News bulletin, 11:30", "news", "failed", StatusTone.Fault, canPlay: false));
 
         voice.Productions.Add(new ProductionRowViewModel("p1", "Phone-in: the worst gig you ever went to", "callin", "drafting", true));
         voice.Productions.Add(new ProductionRowViewModel("p2", "Evening feature", "feature", "ready", false));

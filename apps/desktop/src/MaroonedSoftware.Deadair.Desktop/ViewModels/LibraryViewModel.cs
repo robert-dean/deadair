@@ -68,7 +68,11 @@ public enum LibraryTab
 /// a station that rate-limits at a hundred requests per five seconds should not be asked for a page
 /// of records every two.
 /// </remarks>
-public sealed partial class LibraryViewModel(OperatorActions actions, HttpClient http, NavigationViewModel navigation)
+public sealed partial class LibraryViewModel(
+    OperatorActions actions,
+    HttpClient http,
+    NavigationViewModel navigation,
+    IDialogs dialogs)
     : ObservableObject
 {
     private const long PageSize = 50;
@@ -314,13 +318,21 @@ public sealed partial class LibraryViewModel(OperatorActions actions, HttpClient
     /// </summary>
     /// <remarks>
     /// This REPLACES the running order rather than adding to it, and what is on air finishes first.
-    /// It is the single most consequential thing on this page, which is why it says so before doing
-    /// it rather than afterwards.
+    /// It is the single most consequential thing on this page, which is why it asks first and says
+    /// so again afterwards.
     /// </remarks>
     [RelayCommand]
     private async Task PlayPlaylistAsync(PlaylistRowViewModel playlist)
     {
         ArgumentNullException.ThrowIfNull(playlist);
+
+        if (!await dialogs.ConfirmAsync(
+                $"Put {playlist.Name} on air?",
+                "It replaces the running order. What is on air now finishes first.",
+                "Put on air").ConfigureAwait(true))
+        {
+            return;
+        }
 
         var status = await actions.RunAsync(
             async token =>
@@ -355,6 +367,14 @@ public sealed partial class LibraryViewModel(OperatorActions actions, HttpClient
     private async Task PlayChartAsync(ChartRowViewModel chart)
     {
         ArgumentNullException.ThrowIfNull(chart);
+
+        if (!await dialogs.ConfirmAsync(
+                $"Put {chart.Name} on air?",
+                "It replaces the running order with the chart's records. What is on air now finishes first.",
+                "Put on air").ConfigureAwait(true))
+        {
+            return;
+        }
 
         var status = await actions.RunAsync(
             async token =>

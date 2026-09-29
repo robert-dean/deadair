@@ -39,7 +39,6 @@ public sealed partial class TransportViewModel : ObservableObject, IAsyncDisposa
         _dispatcher = dispatcher;
 
         _session.Changed += _ => _dispatcher.Post(ApplySession);
-        _actions.Noticed += notice => _dispatcher.Post(() => NoticeText = Describe(notice));
     }
 
     [ObservableProperty]
@@ -65,9 +64,6 @@ public sealed partial class TransportViewModel : ObservableObject, IAsyncDisposa
 
     [ObservableProperty]
     private bool _showSilence;
-
-    [ObservableProperty]
-    private string? _noticeText;
 
     [ObservableProperty]
     private bool _busy;
@@ -140,15 +136,6 @@ public sealed partial class TransportViewModel : ObservableObject, IAsyncDisposa
         }
     }
 
-    private static string Describe(Notice notice) => notice switch
-    {
-        Notice.NoLongerOperator => "This account is no longer an operator.",
-        Notice.StepUpNeeded => "The station wants your authenticator code again before that.",
-        Notice.Expected expected => expected.Detail,
-        Notice.Failed failed => failed.Detail,
-        _ => "Something went wrong.",
-    };
-
     /// <summary>
     /// Stops reading the station's playout and forgets it, before the app is pointed at another.
     /// </summary>
@@ -175,7 +162,6 @@ public sealed partial class TransportViewModel : ObservableObject, IAsyncDisposa
         Remedy = null;
         SilenceTone = StatusTone.Off;
         ShowSilence = false;
-        NoticeText = null;
     }
 
     public async ValueTask DisposeAsync()

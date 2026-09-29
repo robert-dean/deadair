@@ -47,10 +47,6 @@
             </StackPanel>
         </Border>
 
-        <TextBlock Text="{Binding NoticeText}" TextWrapping="Wrap" FontSize="12"
-                   IsVisible="{Binding NoticeText, Converter={x:Static ObjectConverters.IsNotNull}}"
-                   Foreground="{DynamicResource DaToneFaultBrush}" />
-
     </StackPanel>
 
 </UserControl>

@@ -131,6 +131,10 @@ internal static class Composition
         services.AddSingleton<SettingsViewModel>();
         services.AddSingleton<VoiceViewModel>();
         services.AddSingleton<DetailPages>();
+        services.AddSingleton(provider => new DialogsViewModel(
+            provider.GetRequiredService<OperatorActions>(),
+            provider.GetRequiredService<IUiDispatcher>()));
+        services.AddSingleton<IDialogs>(provider => provider.GetRequiredService<DialogsViewModel>());
         services.AddSingleton<ThemeManager>();
         services.AddSingleton<ListenerViewModel>();
         services.AddSingleton<OutputsViewModel>();

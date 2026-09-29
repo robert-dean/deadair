@@ -27,4 +27,18 @@ public abstract record Notice
 
     /// <summary>Anything else, with the station's own sentence where it sent one.</summary>
     public sealed record Failed(string Detail) : Notice;
+
+    /// <summary>The sentence a notice is shown as.</summary>
+    /// <remarks>
+    /// One wording for every surface that shows one, so a refusal reads the same in a dialog as it
+    /// does at the foot of a page.
+    /// </remarks>
+    public static string Describe(Notice notice) => notice switch
+    {
+        NoLongerOperator => "This account is no longer an operator.",
+        StepUpNeeded => "The station wants your authenticator code again before that.",
+        Expected expected => expected.Detail,
+        Failed failed => failed.Detail,
+        _ => "Something went wrong.",
+    };
 }

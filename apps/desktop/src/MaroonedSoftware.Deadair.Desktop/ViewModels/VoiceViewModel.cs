@@ -44,7 +44,7 @@ public enum VoiceTab
 /// audio does it hold, and what is being made right now. Voices, pronunciations, pads and topics are
 /// configuration rather than observation, and are left for later.
 /// </remarks>
-public sealed partial class VoiceViewModel(OperatorActions actions, HttpClient http) : ObservableObject
+public sealed partial class VoiceViewModel(OperatorActions actions, HttpClient http, IDialogs dialogs) : ObservableObject
 {
     private StationUrl _station;
 
@@ -273,6 +273,14 @@ public sealed partial class VoiceViewModel(OperatorActions actions, HttpClient h
     private async Task CancelProductionAsync(ProductionRowViewModel production)
     {
         ArgumentNullException.ThrowIfNull(production);
+
+        if (!await dialogs.ConfirmAsync(
+                $"Cancel {production.Title}?",
+                "What has been made so far is thrown away, and it will not air.",
+                "Cancel production").ConfigureAwait(true))
+        {
+            return;
+        }
 
         var cancelled = await actions.RunAsync(
             async token =>

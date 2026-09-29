@@ -37,7 +37,8 @@ internal static class Fakes
         var actions = new OperatorActions(session);
         var dispatcher = ImmediateUiDispatcher.Instance;
         var navigation = new NavigationViewModel();
-        var library = new LibraryViewModel(actions, http, navigation);
+        var dialogs = new DialogsViewModel(actions, dispatcher);
+        var library = new LibraryViewModel(actions, http, navigation, dialogs);
 
         // The picker, over a catalog whose plugins are two speakers that do not exist. A shot must
         // not go looking for real ones: a broadcast on somebody's network is not a thing to do to
@@ -60,8 +61,9 @@ internal static class Fakes
             new HistoryViewModel(actions, http),
             new CheckupViewModel(actions, http),
             new SettingsViewModel(actions, http, settings, new ThemeManager(), PosedPlugins()),
-            new VoiceViewModel(actions, http),
+            new VoiceViewModel(actions, http, dialogs),
             new DetailPages(actions, http, library),
+            dialogs,
             new ThemeManager(),
             dispatcher)
         {

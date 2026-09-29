@@ -43,6 +43,11 @@ internal static class Pages
         yield return ("shell-history", Page(new Destination.History(), operatorSignedIn: false), 1180, 720);
         yield return ("shell-library", Page(new Destination.Library(), operatorSignedIn: true), 1180, 720);
         yield return ("shell-library-chart", Chart(), 1180, 720);
+
+        // A question over the whole window, bar included, with the longest thing it is ever asked
+        // about in its title.
+        yield return ("dialog-confirm", Confirm(), 1180, 720);
+        yield return ("shell-notice", Refused(), 1180, 720);
         yield return ("shell-settings", Page(new Destination.Settings(), operatorSignedIn: true), 1180, 720);
         // Taller than the app's own window, deliberately: the card is two plugins long and the
         // second is the broken one, which is the row somebody opens this page to read.
@@ -129,6 +134,33 @@ internal static class Pages
         shell.Library.ShowTabCommand.Execute("Charts");
         shell.Library.OpenChartCommand.Execute(shell.Library.Charts[0]);
         Fakes.Chart((ChartDetailViewModel)shell.Details.Current!);
+
+        return new MainWindowContent { Shell = shell };
+    }
+
+    private static MainWindowContent Confirm()
+    {
+        var shell = Fakes.Shell(operatorSignedIn: true);
+        Fakes.PutOnAir(shell.Listener);
+        Fakes.Fill(shell, new Destination.Library());
+        shell.Navigation.Show(new Destination.Library());
+        _ = shell.Dialogs.ConfirmAsync(
+            "Put Official Singles Chart Top 100 on air?",
+            "It replaces the running order with the chart's records. What is on air now finishes first.",
+            "Put on air");
+
+        return new MainWindowContent { Shell = shell };
+    }
+
+    /// <summary>A refusal at the foot of a page, with the panel that used to be its only home put away.</summary>
+    private static MainWindowContent Refused()
+    {
+        var shell = Fakes.Shell(operatorSignedIn: true);
+        Fakes.PutOnAir(shell.Listener);
+        Fakes.Fill(shell, new Destination.Library());
+        shell.Navigation.Show(new Destination.Library());
+        shell.ShowNowPlaying = false;
+        shell.Dialogs.Notice = "There is nothing on that playlist the station can play.";
 
         return new MainWindowContent { Shell = shell };
     }

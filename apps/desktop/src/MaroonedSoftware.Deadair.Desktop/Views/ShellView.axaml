@@ -85,6 +85,20 @@
                                 <TextBlock Text="Back" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
+                        <!-- What the station last refused, at the foot of whichever page asked. -->
+                        <Border DockPanel.Dock="Bottom" Classes="card" Margin="20,0,20,16" Padding="12,8"
+                                IsVisible="{Binding Dialogs.HasNotice}">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                <TextBlock Text="{Binding Dialogs.Notice}" TextWrapping="Wrap" FontSize="12"
+                                           VerticalAlignment="Center"
+                                           Foreground="{DynamicResource DaToneFaultBrush}" />
+                                <Button Grid.Column="1" Classes="icon ghost" Width="24" Height="24" Padding="4"
+                                        BorderThickness="0" ToolTip.Tip="Dismiss"
+                                        Command="{Binding Dialogs.DismissNoticeCommand}">
+                                    <PathIcon Data="{DynamicResource DaIconClose}" Width="12" Height="12" />
+                                </Button>
+                            </Grid>
+                        </Border>
                         <views:PageHost x:Name="Pages" Shell="{Binding}" />
                     </DockPanel>
                 </Panel>
@@ -94,6 +108,10 @@
         <!-- On every page, because what is playing is not a page. On the window rather than in
              a panel of its own, as a player's bar is. -->
         <views:PlayerBar Grid.Row="2" DataContext="{Binding Listener}" />
+
+        <!-- Over everything, bar included: a question about a playlist is not answered by pressing
+             Skip underneath it. -->
+        <views:DialogHost Grid.RowSpan="3" DataContext="{Binding Dialogs}" />
     </Grid>
 
 </UserControl>

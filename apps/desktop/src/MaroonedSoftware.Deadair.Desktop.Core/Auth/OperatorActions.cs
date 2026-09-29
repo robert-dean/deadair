@@ -48,6 +48,34 @@ public sealed class OperatorActions(SessionManager session)
         }
     }
 
+    /// <summary>
+    /// Runs a call that answers with nothing, and says whether it worked.
+    /// </summary>
+    /// <remarks>
+    /// Named apart from <see cref="RunAsync{T}"/> rather than overloading it, because a lambda that
+    /// returns <c>Task&lt;T&gt;</c> converts to both and the overload chosen would be the one a
+    /// reader has to look up. A delete, a hide or a refresh answers 204, and the caller only needs
+    /// to know whether to redraw.
+    /// </remarks>
+    public async Task<bool> DoAsync(
+        Func<CancellationToken, Task> action,
+        IReadOnlyDictionary<int, string>? expected = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+
+        try
+        {
+            await action(cancellationToken).ConfigureAwait(false);
+            return true;
+        }
+        catch (SdkException failure)
+        {
+            await ReportAsync(failure, expected, cancellationToken).ConfigureAwait(false);
+            return false;
+        }
+    }
+
     private async Task ReportAsync(
         SdkException failure,
         IReadOnlyDictionary<int, string>? expected,

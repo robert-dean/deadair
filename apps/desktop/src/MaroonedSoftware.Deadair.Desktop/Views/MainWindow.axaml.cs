@@ -259,6 +259,13 @@ public partial class MainWindow : Window
             return;
         }
 
+        // A dialog is a question, and a letter typed while one is open is not a request to leave the
+        // page it was asked about. Its own buttons take Return and Escape.
+        if (shell.Dialogs.IsOpen)
+        {
+            return;
+        }
+
         // Command-[ is the Mac's Back, as it is in Finder and every browser. Checked before the
         // modifier rule below, which is about letters and would otherwise swallow it.
         if (e.Key == Key.OemOpenBrackets && e.KeyModifiers == KeyModifiers.Meta && shell.Navigation.CanGoBack)

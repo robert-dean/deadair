@@ -64,6 +64,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         SettingsViewModel stationSettings,
         VoiceViewModel voice,
         DetailPages details,
+        DialogsViewModel dialogs,
         ThemeManager themes,
         IUiDispatcher dispatcher,
         PluginManager? plugins = null,
@@ -86,6 +87,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         StationSettings = stationSettings;
         Voice = voice;
         Details = details;
+        Dialogs = dialogs;
         _themes = themes;
         _plugins = plugins;
 
@@ -199,6 +201,9 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
     /// <summary>The page a detail destination is showing, built when it is opened.</summary>
     public DetailPages Details { get; }
+
+    /// <summary>The dialog over the app, and the line that says what the station refused.</summary>
+    public DialogsViewModel Dialogs { get; }
 
     /// <summary>Whether to draw the sign-in panel rather than the account it produced.</summary>
     [ObservableProperty]
@@ -454,6 +459,9 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     private async Task DetachAsync()
     {
         Trace.WriteLine($"station: {_current} detached");
+
+        // A question about the old station is not one to answer about the new one.
+        Dialogs.Cancel();
 
         // The listener first: its Stop is what tells the old station its audience has gone.
         await Listener.DetachAsync().ConfigureAwait(true);

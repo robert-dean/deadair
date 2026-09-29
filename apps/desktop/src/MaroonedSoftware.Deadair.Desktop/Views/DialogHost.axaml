@@ -1,0 +1,43 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    xmlns:views="using:MaroonedSoftware.Deadair.Desktop.Views"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.DialogHost"
+    x:DataType="vm:DialogsViewModel">
+
+    <!--
+        The layer over the whole shell. Hit-test visible only while a dialog is open, so the app
+        underneath is untouched the rest of the time; while one IS open the scrim takes every click,
+        which is what makes it a question rather than a suggestion.
+    -->
+    <Panel IsVisible="{Binding IsOpen}">
+        <Border Background="{DynamicResource DaScrimBrush}" />
+
+        <Border Classes="dialog" DataContext="{Binding Current}" x:DataType="vm:DialogViewModel">
+            <StackPanel Spacing="16">
+                <TextBlock Classes="h2" Text="{Binding Title}" TextWrapping="Wrap" />
+
+                <ContentControl Content="{Binding}">
+                    <ContentControl.ContentTemplate>
+                        <views:DialogLocator />
+                    </ContentControl.ContentTemplate>
+                </ContentControl>
+
+                <TextBlock Text="{Binding Problem}" TextWrapping="Wrap" FontSize="12"
+                           Foreground="{DynamicResource DaToneFaultBrush}"
+                           IsVisible="{Binding Problem, Converter={x:Static ObjectConverters.IsNotNull}}" />
+
+                <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                    <Button Classes="ghost" Content="{Binding CancelLabel}" IsCancel="True"
+                            Command="{Binding $parent[views:DialogHost].((vm:DialogsViewModel)DataContext).CancelCommand}" />
+                    <Button Classes="primary" Classes.danger="{Binding Destructive}"
+                            Content="{Binding AcceptLabel}" IsDefault="True"
+                            IsEnabled="{Binding CanAccept}"
+                            Command="{Binding $parent[views:DialogHost].((vm:DialogsViewModel)DataContext).AcceptCommand}" />
+                </StackPanel>
+            </StackPanel>
+        </Border>
+    </Panel>
+
+</UserControl>

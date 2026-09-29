@@ -896,6 +896,36 @@ right, compiles, and fails at XAML load with a message naming the CHILD's type.
 `Notice` have both bitten this tree; the fix each time is a `using` alias rather than a rename, since
 the property names are the ones the views read.
 
+## Dialogs, and where a refusal is said
+
+**A dialog is a layer over the shell, not a window.** `DialogsViewModel` holds at most one
+`DialogViewModel`; `DialogHost` draws it over everything, the player bar included, with a scrim that
+takes every click. A second macOS window can end up behind the first or on another Space; a layer is
+always where the question was asked. A second question arriving answers the first "no" rather than
+stacking.
+
+**A dialog is a view model and a view named after it, and nothing else.** `FooDialogViewModel` in
+ViewModels draws as `FooDialogView` in Views, found by `DialogLocator` by name, so adding one never
+touches the host. The host draws the title, the problem line and the two buttons; the view draws
+only the fields. Return presses the accept button (`IsDefault`), Escape the other (`IsCancel`), and the
+window's letter shortcuts stand down while one is open.
+
+**Accepting runs `AcceptAsync`, and a dialog that fails stays open.** Closing on a failed save would
+be the dialog reporting success. While it runs, anything `OperatorActions` reports is written on the
+dialog's own problem line rather than behind it.
+
+**Anything that removes something or changes what airs asks first** through `IDialogs.ConfirmAsync`,
+worded as what will happen rather than "are you sure", with the button as the verb.
+
+**A refusal is said at the foot of the page, by the shell.** It used to be a line in the transport
+card, which lives in the Now playing panel — a panel somebody can close and that hides itself below
+1060 — so a refused write on the Library said nothing at all with the panel away. The line goes on
+its own after eight seconds or when dismissed. `Notice.Describe` is the one wording of a notice.
+
+**`OperatorActions.DoAsync` is `RunAsync` for a call that answers with nothing** (a delete, a hide, a
+refresh), and says whether it worked. It is named apart rather than overloaded because a lambda
+returning `Task<T>` converts to both, and which one the compiler picked would be a thing to look up.
+
 ## Looking at a page without a screen
 
 **`tools/Shots` renders a page to a PNG.** Avalonia's headless platform with real Skia drawing, a

@@ -17,6 +17,7 @@ import {
 } from '@deadair/plugin-sdk';
 import { streamText } from 'ai';
 import { abortWith, withCancel } from './llm.abort.js';
+import { generationError } from './llm.errors.js';
 import { providerStateOf, splitSystemPrompt, toModelMessages, toToolSet } from './llm.messages.js';
 import { describeModels, toolCapableModels } from './llm.models.js';
 import {
@@ -39,6 +40,8 @@ export { llmManifest };
 interface Attempt {
     stream: ReturnType<typeof streamText>;
     controller: AbortController;
+    /** The provider's own fault, when one came down the stream. See {@link generationError}. */
+    fault?: unknown;
 }
 
 /**
@@ -385,6 +388,7 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
             const controller = new AbortController();
             abortWith(this.host.signal, controller);
 
+            const attempt: Partial<Attempt> = { controller };
             const stream = streamText({
                 model: arm.languageModel(model),
                 ...(system === undefined ? {} : { system }),
@@ -414,9 +418,17 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
                 // patience gave up and went to the floor: the exact failure the gate's preemption was
                 // built to prevent, still happening because the abort had nowhere to land.
                 abortSignal: controller.signal,
+                // Kept, because it is the only place the real fault survives: the result promises
+                // reject with a generic `NoOutputGeneratedError` instead. Runs before they do, in the
+                // same transform that sees the `error` part. Also replaces the SDK's default, which
+                // was `console.error` and put every refusal on stdout and none in the station's log.
+                onError: ({ error }) => {
+                    attempt.fault ??= error;
+                },
             });
 
-            return { stream, controller };
+            attempt.stream = stream;
+            return attempt as Attempt;
         };
 
         const firstEffort = this.effortToSend(provider, request.reasoningEffort);
@@ -484,7 +496,7 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
         const commit = (): void => {
             if (committed) return;
             committed = true;
-            resolveResult(this.resultOf(current.stream, current.controller));
+            resolveResult(this.resultOf(provider, current));
         };
 
         try {
@@ -587,7 +599,8 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
     }
 
     /** The SDK's several settled promises, as the one result the station's boundary describes. */
-    private async resultOf(stream: ReturnType<typeof streamText>, controller: AbortController): Promise<LlmResult> {
+    private async resultOf(provider: string, attempt: Attempt): Promise<LlmResult> {
+        const { stream, controller } = attempt;
         let settled;
         try {
             settled = await Promise.all([stream.text, stream.reasoningText, stream.content, stream.toolCalls, stream.usage, stream.finishReason]);
@@ -597,6 +610,8 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
             // as whatever the SDK threw, because the caller asked for this and the alternative is a
             // deliberate stop arriving looking like a broken model server.
             if (controller.signal.aborted) throw new PluginError('the generation was stopped before it finished').withCode('unavailable');
+            // What the provider actually said, rather than the SDK's "no output generated".
+            if (attempt.fault !== undefined) throw generationError(provider, attempt.fault);
             throw error;
         }
 

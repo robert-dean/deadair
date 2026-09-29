@@ -57,7 +57,7 @@ internal static class Fakes
             new ListenerViewModel(new OutputSwitch(new NullStationPlayer()), new NullSystemNowPlaying(), settings, http, dispatcher, outputs),
             new LoginViewModel(session),
             new TransportViewModel(session, actions, http, dispatcher),
-            new RunningOrderViewModel(session, actions, http, dispatcher),
+            new RunningOrderViewModel(session, actions, http, dispatcher, dialogs),
             navigation,
             new ProgrammeViewModel(actions, http),
             library,
@@ -231,7 +231,55 @@ internal static class Fakes
         shell.Order.Items.Add(Row("Would?", "Alice In Chains", StationItemState.Planned, canMove: true));
         shell.Order.Items.Add(Row("Rooster", "Alice In Chains", StationItemState.Unavailable, canMove: true));
         shell.Order.Items.Add(Row("Nutshell", "Alice In Chains", StationItemState.Planned, canMove: true));
+
+        // The station's air as a takeover an operator started and then held, with a brief long
+        // enough to have to trim beside the host at the window's minimum.
+        shell.Order.Air.ApplyOrder(new StationOrder
+        {
+            Name = "Wednesday mornings",
+            Brief = "Something with guitars, nothing after 1999, and more of the Seattle records than anybody would admit to liking",
+            PersonaId = "1",
+            PersonaLabel = "Marla Vance",
+            Mode = StationMode.Rotation,
+            OnEnd = StationOnEnd.Extend,
+            Source = "director",
+            Items = [.. shell.Order.Items.Select(row => new StationOrderItem
+            {
+                Id = row.Id,
+                Kind = row.IsSegment ? StationOrderItemKind.Segment : StationOrderItemKind.Track,
+                State = row.State,
+                Title = row.Title,
+                Artists = [row.Artists],
+            })],
+        });
+        shell.Order.Air.ApplyAir(new StationAir
+        {
+            Active = true,
+            AirMode = AirMode.Audience,
+            Remaining = 6,
+            AirSource = AirSource.Operator,
+            Held = true,
+            HoldUntil = DateTimeOffset.Now.AddHours(2).ToString("O", System.Globalization.CultureInfo.InvariantCulture),
+        });
     }
+
+    /// <summary>The hosts a recast or a plan offers, one of whom is presenting.</summary>
+    public static IReadOnlyList<Persona> Hosts() =>
+    [
+        Persona("1", "Marla Vance", defaultHost: true, presenting: true),
+        Persona("2", "The Conspiracy Host, who defers to the daypart he is handed", defaultHost: false, presenting: false),
+        Persona("3", "Newsreader", defaultHost: false, presenting: false),
+    ];
+
+    private static Persona Persona(string id, string label, bool defaultHost, bool presenting) => new()
+    {
+        Id = id,
+        Key = id,
+        Label = label,
+        Style = string.Empty,
+        DefaultHost = defaultHost,
+        Presenting = presenting,
+    };
 
     private static OrderItemViewModel Row(string title, string artist, StationItemState state, bool canMove, bool segment = false) =>
         new(

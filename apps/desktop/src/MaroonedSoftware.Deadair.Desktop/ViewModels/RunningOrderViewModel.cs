@@ -14,6 +14,10 @@ namespace MaroonedSoftware.Deadair.Desktop.ViewModels;
 /// <summary>
 /// What the station is going to play, and the operator's edits to it.
 /// </summary>
+/// <remarks>
+/// It also owns the station's air (<see cref="Air"/>), because the air is read on the order's own
+/// poll: the one reading of the director that runs, for an operator, on every page.
+/// </remarks>
 public sealed partial class RunningOrderViewModel : ObservableObject, IAsyncDisposable
 {
     private readonly SessionManager _session;
@@ -33,17 +37,22 @@ public sealed partial class RunningOrderViewModel : ObservableObject, IAsyncDisp
         SessionManager session,
         OperatorActions actions,
         HttpClient http,
-        IUiDispatcher dispatcher)
+        IUiDispatcher dispatcher,
+        IDialogs dialogs)
     {
         _session = session;
         _actions = actions;
         _http = http;
         _dispatcher = dispatcher;
+        Air = new StationAirViewModel(actions, dialogs, http);
 
         _session.Changed += _ => _dispatcher.Post(ApplySession);
     }
 
     public ObservableCollection<OrderItemViewModel> Items { get; } = [];
+
+    /// <summary>The station's air on the desk: who is driving, the hold, the air mode, the host and the plan.</summary>
+    public StationAirViewModel Air { get; }
 
     [ObservableProperty]
     private bool _isOperator;
@@ -77,6 +86,8 @@ public sealed partial class RunningOrderViewModel : ObservableObject, IAsyncDisp
         _station = station;
         _repository = new OrderRepository(station, _http, _dispatcher);
         _repository.Changed += OnReading;
+        _repository.AirChanged += Air.ApplyAir;
+        Air.Attach(_repository, station);
         ApplySession();
     }
 
@@ -94,6 +105,14 @@ public sealed partial class RunningOrderViewModel : ObservableObject, IAsyncDisp
             _lease?.Dispose();
             _lease = null;
             Items.Clear();
+
+            // What the air said belongs to an operator's session. Put back when the next one's
+            // first reading arrives.
+            if (_repository is not null)
+            {
+                Air.Reset();
+                Air.Attach(_repository, _station);
+            }
         }
     }
 
@@ -106,6 +125,7 @@ public sealed partial class RunningOrderViewModel : ObservableObject, IAsyncDisp
 
         Name = order.Name;
         Brief = order.Brief;
+        Air.ApplyOrder(order);
         Host = order.PersonaLabel;
         _items = order.Items;
 
@@ -226,10 +246,12 @@ public sealed partial class RunningOrderViewModel : ObservableObject, IAsyncDisp
         if (_repository is not null)
         {
             _repository.Changed -= OnReading;
+            _repository.AirChanged -= Air.ApplyAir;
             await _repository.DisposeAsync().ConfigureAwait(true);
             _repository = null;
         }
 
+        Air.Reset();
         _items = [];
         Items.Clear();
         _droppedTrack = null;

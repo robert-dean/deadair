@@ -1,0 +1,101 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    xmlns:conv="using:MaroonedSoftware.Deadair.Desktop.Themes"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.StationAirView"
+    x:DataType="vm:StationAirViewModel">
+
+    <UserControl.Resources>
+        <conv:ToneBrushConverter x:Key="ToneBrush" />
+    </UserControl.Resources>
+
+    <!--
+        The station's air, under the record on the desk, for an operator.
+
+        Who chose what is on, whether the schedule will take it back, who presents it, what it was
+        asked for, and what puts it on air: the web console's on-air card less the transport, which
+        is in the bar here. Nothing is drawn before the first air reading, because an air mode shown
+        before the station has said which it is would be a value nobody chose.
+    -->
+    <Border Classes="card" IsVisible="{Binding HasAir}">
+        <StackPanel Spacing="12">
+
+            <!-- A row of facts about the broadcast. Wraps rather than clips: beside a wide brief at
+                 the window's minimum, three of these do not fit on one line. -->
+            <WrapPanel ItemSpacing="8" LineSpacing="8">
+                <!-- Who is driving, with what that means (including the part nobody sees coming) a
+                     hover away. A dot in the state's colour and the words, as a lamp is drawn. -->
+                <Border Classes="pill" IsVisible="{Binding Driving, Converter={x:Static ObjectConverters.IsNotNull}}"
+                        ToolTip.Tip="{Binding DrivingHint}">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <Ellipse Width="7" Height="7" VerticalAlignment="Center"
+                                 Fill="{Binding DrivingTone, Converter={StaticResource ToneBrush}}" />
+                        <TextBlock Text="{Binding Driving}" FontSize="12" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource DaTextBrush}" />
+                    </StackPanel>
+                </Border>
+
+                <!-- A control rather than a label, and the only place a show's presenter changes
+                     without starting a new broadcast. -->
+                <Button Classes="ghost" Padding="10,0" Height="24" FontSize="12"
+                        Command="{Binding RecastCommand}"
+                        ToolTip.Tip="Who presents this show. Changing it rewrites the breaks already written for it.">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBlock Text="{Binding HostLabel}" VerticalAlignment="Center" MaxWidth="260"
+                                   TextTrimming="CharacterEllipsis" />
+                        <PathIcon Width="10" Height="10" Data="{DynamicResource DaIconChevronDown}" />
+                    </StackPanel>
+                </Button>
+
+                <!-- Shown rather than only accepted, because it is still working: every refill of
+                     this broadcast is programmed against it. -->
+                <Border Classes="pill" MaxWidth="420"
+                        IsVisible="{Binding Brief, Converter={x:Static ObjectConverters.IsNotNull}}"
+                        ToolTip.Tip="Every refill of this broadcast is programmed against this until the station is put on air again.">
+                    <TextBlock Text="{Binding Brief, StringFormat='asked for: {0}'}" FontSize="12"
+                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                               Foreground="{DynamicResource DaTextSecondaryBrush}" />
+                </Border>
+            </WrapPanel>
+
+            <!-- Offered only while a person is driving (and whenever a hold is on, so it can always
+                 be let go of). The sentence is the state; the buttons say what they do to it. -->
+            <WrapPanel ItemSpacing="4" LineSpacing="4" IsVisible="{Binding OffersHold}">
+                <TextBlock Text="{Binding HoldLine}" FontSize="12" VerticalAlignment="Center" Margin="0,0,6,0"
+                           Foreground="{DynamicResource DaTextSecondaryBrush}" />
+                <Button Classes="ghost" FontSize="12" Padding="8,2" Content="Keep it on past the next block"
+                        IsVisible="{Binding !Held}" IsEnabled="{Binding !Busy}"
+                        Command="{Binding HoldPastBlockCommand}" />
+                <Button Classes="ghost" FontSize="12" Padding="8,2" Content="Keep it on for two hours"
+                        IsVisible="{Binding !Held}" IsEnabled="{Binding !Busy}"
+                        Command="{Binding HoldTwoHoursCommand}" />
+                <Button Classes="ghost" FontSize="12" Padding="8,2" Content="Release"
+                        IsVisible="{Binding Held}" IsEnabled="{Binding !Busy}"
+                        Command="{Binding ReleaseCommand}" />
+            </WrapPanel>
+
+            <!-- What the mount lease is renewed against. A station setting rather than a transport
+                 command, and the literal answer to "why is it not on air": a station stuck in
+                 audience mode with nobody listening is one an operator must be able to change. -->
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                <TextBlock Classes="dimmed" Text="On air" VerticalAlignment="Center" />
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4">
+                    <Button Classes="tab" Classes.active="{Binding IsAudience}" Content="When somebody is listening"
+                            IsEnabled="{Binding !Busy}"
+                            Command="{Binding SetModeCommand}" CommandParameter="Audience" />
+                    <Button Classes="tab" Classes.active="{Binding IsAlways}" Content="Always"
+                            IsEnabled="{Binding !Busy}"
+                            Command="{Binding SetModeCommand}" CommandParameter="Always" />
+                </StackPanel>
+
+                <!-- The station's own actions on what it plays. Take a call joins Plan here. -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6">
+                    <Button Content="Plan" Command="{Binding PlanCommand}"
+                            ToolTip.Tip="Change what the station plays, either from here on or as a new show." />
+                </StackPanel>
+            </Grid>
+        </StackPanel>
+    </Border>
+
+</UserControl>

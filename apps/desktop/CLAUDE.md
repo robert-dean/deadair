@@ -632,7 +632,8 @@ green, and **covers stay square**, the rule under `DaCornerNone` in `Tokens.axam
   because lightness is not brightness and a yellow at a third lightness still wanted black text. The
   rules were ported from the Android app's `CoverAccent.kt` with its tests.
 - **The desk is a page header**: the cover at up to 232 and the title at `DaFontSizeHero`, top-aligned
-  on the wash. The running order it used to carry as a card is in the Now playing panel.
+  on the wash. The running order it used to carry as a card is in the Now playing panel; what an
+  operator does to the station's air is below the header (`The station's air, on the desk`).
 
 **`Themes/Styles.axaml` is where a control's look lives, and `Themes/Tokens.axaml` is where a value
 does.** Before them every size and weight was a literal in whichever view needed it, and the only
@@ -1206,6 +1207,47 @@ with no duration contributes NOTHING rather than a guess: an order that runs out
 than predicted costs an operator an extra extend, and one that runs out earlier than promised is the
 station going quiet. The twenty-minute warning threshold caught its own test fixture, which was
 fifteen minutes long and therefore already short.
+
+## The station's air, on the desk
+
+**The air is read on the running order's own tick, and has no timer.** `OrderRepository` reads
+`GET /director/air` straight after the order, every five seconds, which is the web console's own
+cadence for both. A second poller would be a second lease, a second backoff and a second thing
+`SwitchAsync` has to detach, for a reading that moves at the same boundaries the order does; riding
+the order's also means it runs exactly while an operator is signed in and stops when they are not.
+A failed air read keeps the last one and never fails the order's tick. Every air verb answers with
+the new air, which is written in at once, as a skip's answer is.
+
+**It is drawn under the record on the desk (`StationAirView`), for an operator, and nothing is
+drawn before the first reading.** An air mode shown before the station has said which it is would be
+a value nobody chose. The desk page's own context is the listener, so the view reaches the running
+order's `Air` through the window, as the bar reaches the transport. The page scrolls: at the window's
+minimum the hero and the card do not both fit.
+
+**Who is driving is a sentence with a subject** ("You put this on", "Between blocks", "The schedule
+put this on"), the web console's words, with what it means a hover away (`Core/Director/AirWords`).
+The one worth the tooltip is the operator's: a takeover holds until the NEXT block begins and is then
+replaced, correctly and without warning. **The hold is offered only while a person is driving**, and
+its release whenever a hold is on, whatever the source says, because a hold nobody can see or undo is
+worse than none.
+
+**Every one of these changes what airs, so every one asks first.** The air mode, a hold and a release
+through `ConfirmAsync`, worded as what will happen; the host and the plan through dialogs that are the
+question themselves. The air mode is two tab buttons rather than radio buttons, because a radio flips
+the moment it is pressed and the question comes after.
+
+**Planning is one dialog with a scope, the web console's** (`PlanDialogViewModel`, the pure half in
+`Core/Director/PlanRequest`). Keeping the show sends a replan carrying a brief and nothing else, and
+the other fields are ABSENT rather than disabled, because the host, the period and the shape belong to
+the broadcast. The brief is sent only when it changed (absent keeps it, empty clears it), a new show is
+named after its brief, and a phone-in is sent only when ticked, since nothing station-wide stands
+behind an absent one. A new show over one that is playing draws its button in the tally colour.
+
+**The host is changed from a list of HOSTS** (`Presenters`): the roster holds callers too, and a
+caller put on air presents a show in a character whose premise is ringing somebody else's. "The
+station's host" is an entry, not an absence, because handing the show back is something an operator
+means. The hosts are read each time a dialog opens, not kept, so a character added a minute ago on
+Voice is offered.
 
 ## The second factor, and the bug that taught it
 

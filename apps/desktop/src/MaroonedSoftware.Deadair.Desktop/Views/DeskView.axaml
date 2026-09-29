@@ -3,6 +3,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
     xmlns:conv="using:MaroonedSoftware.Deadair.Desktop.Themes"
+    xmlns:views="using:MaroonedSoftware.Deadair.Desktop.Views"
     x:Class="MaroonedSoftware.Deadair.Desktop.Views.DeskView"
     x:DataType="vm:ListenerViewModel">
 
@@ -20,8 +21,12 @@
         every page (`NowPlayingPanel`), where it used to be a card on this one.
 
         There is no Listen button here. The bar has the only one, on every page.
+
+        Under the record, for an operator, is the station's air (StationAirView). It scrolls with
+        the page rather than squeezing the hero: at the window's minimum the two do not both fit.
     -->
-    <Grid Margin="{DynamicResource DaPageGutter}">
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+    <StackPanel Margin="{DynamicResource DaPageGutter}" Spacing="24">
 
         <!-- The area is stretched so its width is the COLUMN's rather than its content's, which is
              what makes it safe to size the cover from. The hero inside is centred, so the record
@@ -87,6 +92,13 @@
         </Grid>
         </Panel>
 
-    </Grid>
+        <!-- The operator's half of the desk. Its view models are the running order's, which this
+             page (whose own context is the listener) reaches through the window, as the bar does. -->
+        <views:StationAirView
+            DataContext="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Order.Air}"
+            IsVisible="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Order.IsOperator}" />
+
+    </StackPanel>
+    </ScrollViewer>
 
 </UserControl>

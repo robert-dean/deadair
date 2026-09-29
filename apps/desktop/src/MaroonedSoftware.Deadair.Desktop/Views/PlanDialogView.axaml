@@ -1,0 +1,93 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.PlanDialogView"
+    x:DataType="vm:PlanDialogViewModel">
+
+    <!-- Scrolls inside the dialog rather than the dialog growing past the window: a new show has
+         seven fields and three paragraphs, and the 520-high window has room for about a third. -->
+    <ScrollViewer MaxHeight="300" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="12" Width="560" Margin="0,0,12,0">
+
+            <!-- Only when there is a show to keep. Tabs rather than a switch, because the two change
+                 which fields exist below them. -->
+            <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding CanKeep}">
+                <Button Classes="tab" Classes.active="{Binding IsKeep}" Content="Keep this show"
+                        Command="{Binding ShowScopeCommand}" CommandParameter="Keep" />
+                <Button Classes="tab" Classes.active="{Binding IsNew}" Content="Start a new show"
+                        Command="{Binding ShowScopeCommand}" CommandParameter="New" />
+            </StackPanel>
+
+            <TextBlock Text="{Binding Intro}" TextWrapping="Wrap" />
+
+            <TextBlock Text="This starts a new broadcast: everything still to come is dropped, and what is playing stops."
+                       TextWrapping="Wrap" IsVisible="{Binding WarnsNew}"
+                       Foreground="{DynamicResource DaSeverityWarningBrush}" />
+
+            <StackPanel Spacing="4">
+                <TextBlock Classes="dimmed" Text="Asked to play" />
+                <TextBox Text="{Binding Brief}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="56"
+                         MaxLength="500" PlaceholderText="warm and unhurried" />
+                <TextBlock Classes="dimmed" FontSize="11" Text="{Binding BriefHelp}" TextWrapping="Wrap" />
+            </StackPanel>
+
+            <!-- A new show's own fields. Absent rather than disabled when keeping: a replan carries a
+                 brief and nothing else, and the call that could change these is the one that ends it. -->
+            <StackPanel Spacing="12" IsVisible="{Binding IsNew}">
+                <StackPanel Spacing="4">
+                    <TextBlock Classes="dimmed" Text="Hosted by" />
+                    <ComboBox ItemsSource="{Binding Hosts}" SelectedItem="{Binding Host}"
+                              MinWidth="280" HorizontalAlignment="Left">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:HostChoice">
+                                <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                </StackPanel>
+
+                <!-- A period is the one part of an instruction that can be a number, and a number
+                     reaches the record draw as well as the model, so it holds with no model at all. -->
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                    <StackPanel Spacing="4">
+                        <TextBlock Classes="dimmed" Text="From year" />
+                        <TextBox Classes="mono" Text="{Binding EraFrom}" PlaceholderText="1970" MaxLength="4" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Spacing="4">
+                        <TextBlock Classes="dimmed" Text="To year" />
+                        <TextBox Classes="mono" Text="{Binding EraTo}" PlaceholderText="1979" MaxLength="4" />
+                    </StackPanel>
+                </Grid>
+                <TextBlock Classes="dimmed" FontSize="11" TextWrapping="Wrap"
+                           Text="Empty means no bound. A record whose release year the catalogue does not know is played whatever the period." />
+
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                    <StackPanel Spacing="4">
+                        <TextBlock Classes="dimmed" Text="Mode" />
+                        <ComboBox ItemsSource="{Binding Modes}" SelectedItem="{Binding Mode}" HorizontalAlignment="Stretch" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Spacing="4">
+                        <TextBlock Classes="dimmed" Text="When it runs out" />
+                        <ComboBox ItemsSource="{Binding OnEnds}" SelectedItem="{Binding OnEnd}" HorizontalAlignment="Stretch" />
+                    </StackPanel>
+                </Grid>
+
+                <StackPanel Spacing="2">
+                    <CheckBox IsChecked="{Binding Callins}" Content="Take calls during this broadcast" />
+                    <TextBlock Classes="dimmed" FontSize="11" TextWrapping="Wrap" Margin="28,0,0,0"
+                               Text="A phone-in is written and spoken a turn at a time, so it lands minutes after it is asked for. A setlist or a feature takes none whatever this says." />
+                </StackPanel>
+            </StackPanel>
+
+            <TextBlock Classes="dimmed" FontSize="11" Text="{Binding Footer}" TextWrapping="Wrap" />
+
+            <!-- What stops it being sent, while it does. The host's problem line is for what the
+                 station refused; this is the form saying why the button is off. -->
+            <TextBlock Text="{Binding Hint}" TextWrapping="Wrap" FontSize="12"
+                       IsVisible="{Binding Hint, Converter={x:Static ObjectConverters.IsNotNull}}"
+                       Foreground="{DynamicResource DaTextSecondaryBrush}" />
+        </StackPanel>
+    </ScrollViewer>
+
+</UserControl>

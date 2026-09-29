@@ -1,6 +1,7 @@
 using System.Net;
 using Avalonia.Controls;
 using MaroonedSoftware.Deadair.Desktop.Core.Auth;
+using MaroonedSoftware.Deadair.Desktop.Core.Director;
 using MaroonedSoftware.Deadair.Desktop.Core.NowPlaying;
 using MaroonedSoftware.Deadair.Desktop.Core.Playback;
 using MaroonedSoftware.Deadair.Desktop.Core.Settings;
@@ -47,6 +48,12 @@ internal static class Pages
         // A question over the whole window, bar included, with the longest thing it is ever asked
         // about in its title.
         yield return ("dialog-confirm", Confirm(), 1180, 720);
+
+        // Planning the station, both halves: keeping the show (a brief and nothing else) and a new
+        // one (every field), the second at the minimum window where it has to scroll. Then the host.
+        yield return ("dialog-plan", Plan(PlanScope.Keep), 1180, 720);
+        yield return ("dialog-plan-new", Plan(PlanScope.New), 820, 520);
+        yield return ("dialog-recast", Recast(), 1180, 720);
         yield return ("shell-notice", Refused(), 1180, 720);
         yield return ("shell-settings", Page(new Destination.Settings(), operatorSignedIn: true), 1180, 720);
 
@@ -181,6 +188,53 @@ internal static class Pages
 
         return new MainWindowContent { Shell = shell };
     }
+
+    /// <summary>The plan dialog over the desk, opened on a broadcast that has a brief.</summary>
+    private static MainWindowContent Plan(PlanScope scope)
+    {
+        var shell = Fakes.Shell(operatorSignedIn: true);
+        Fakes.PutOnAir(shell.Listener);
+        Fakes.PutTheDeskOnAir(shell);
+
+        var order = new StationOrder
+        {
+            Name = "Wednesday mornings",
+            Brief = "Something with guitars, nothing after 1999, and more of the Seattle records than anybody would admit to liking",
+            Mode = StationMode.Rotation,
+            OnEnd = StationOnEnd.Extend,
+            Source = "director",
+            Items = [new StationOrderItem { Id = "1", Kind = StationOrderItemKind.Track, State = StationItemState.Airing, Title = "Alive", Artists = ["Pearl Jam"] }],
+        };
+
+        var plan = new PlanDialogViewModel(new OperatorActions(new SessionManager(new InMemorySecretStore(), Fakes.Http())), Repository(), order, Fakes.Hosts());
+        plan.ShowScopeCommand.Execute(scope.ToString());
+
+        if (scope == PlanScope.New)
+        {
+            plan.Brief = "Heavy metal hits";
+            plan.EraFrom = "1979";
+            plan.EraTo = "1970";
+        }
+
+        _ = shell.Dialogs.ShowAsync(plan);
+        return new MainWindowContent { Shell = shell };
+    }
+
+    private static MainWindowContent Recast()
+    {
+        var shell = Fakes.Shell(operatorSignedIn: true);
+        Fakes.PutOnAir(shell.Listener);
+        Fakes.PutTheDeskOnAir(shell);
+
+        var recast = new RecastDialogViewModel(new OperatorActions(new SessionManager(new InMemorySecretStore(), Fakes.Http())), Repository(), "1", Fakes.Hosts());
+        recast.Chosen = recast.Choices[2];
+        _ = shell.Dialogs.ShowAsync(recast);
+        return new MainWindowContent { Shell = shell };
+    }
+
+    /// <summary>A running order nobody polls: a dialog needs one to send to, and a frame sends nothing.</summary>
+    private static OrderRepository Repository() =>
+        new(StationUrl.TryParse("https://radio.example.com", out var station) ? station : default, Fakes.Http());
 
     /// <summary>A refusal at the foot of a page, with the panel that used to be its only home put away.</summary>
     private static MainWindowContent Refused()

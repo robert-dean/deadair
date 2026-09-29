@@ -429,35 +429,48 @@ internal static class Fakes
             new() { Format = NowPlayingMountFormat.Hls, Path = "/hls/live.m3u8" },
         ]);
 
-        settings.Groups.Add(new SettingGroupViewModel("Playout",
-        [
-            Field("playout.airMode", "Air mode", "Audience: the station goes on air when somebody connects.", "true", ConfigFieldType.Boolean),
-            Field("playout.linger", "Linger after the last listener", "Milliseconds. Five minutes by default.", "300000", ConfigFieldType.Number),
-        ]));
-
-        settings.Groups.Add(new SettingGroupViewModel("Mail",
-        [
-            Field("mail.host", "SMTP server", "The mail server the station signs people in through.", "smtp.example.org", ConfigFieldType.String),
-            Field("mail.password", "Password", "Never sent back. An empty box leaves it alone.", "", ConfigFieldType.Secret),
-        ]));
+        // Every value the station holds is TEXT, whatever its declared type: a switch travels as the
+        // word `true` and a number as its digits. A list is a JSON array in a string.
+        settings.Present(new StationSettings
+        {
+            Descriptors =
+            [
+                Setting("playout.airMode", "Air mode", "Audience: the station goes on air when somebody connects.", ConfigFieldType.Boolean, SettingGroup.Playout),
+                Setting("playout.linger", "Linger after the last listener", "Milliseconds. Five minutes by default.", ConfigFieldType.Number, SettingGroup.Playout),
+                Setting("storage.cap", "Audio cache limit", "Records beyond this are let go, oldest first.", ConfigFieldType.Number, SettingGroup.Playout) with { Unit = ConfigFieldUnit.Bytes },
+                Setting("mail.host", "SMTP server", "The mail server the station signs people in through.", ConfigFieldType.String, SettingGroup.Mail),
+                Setting("mail.password", "Password", "Never sent back. An empty box leaves it alone.", ConfigFieldType.Secret, SettingGroup.Mail),
+                Setting("mail.security", "Security", null, ConfigFieldType.Select, SettingGroup.Mail) with
+                {
+                    Options = [new() { Value = "starttls", Label = "STARTTLS" }, new() { Value = "tls", Label = "TLS" }, new() { Value = "none", Label = "None" }],
+                },
+                Setting("breaks.feeds", "Bulletin feeds", "Where the news comes from, one row per feed.", ConfigFieldType.List, SettingGroup.Bulletins) with
+                {
+                    Columns =
+                    [
+                        new() { Key = "name", Label = "Name", Type = ConfigFieldColumnType.String },
+                        new() { Key = "url", Label = "Address", Type = ConfigFieldColumnType.Url },
+                    ],
+                },
+            ],
+            Values = new Dictionary<string, JsonElement>
+            {
+                ["playout.airMode"] = JsonSerializer.SerializeToElement("true"),
+                ["playout.linger"] = JsonSerializer.SerializeToElement("300000"),
+                ["storage.cap"] = JsonSerializer.SerializeToElement("50000000000"),
+                ["mail.host"] = JsonSerializer.SerializeToElement("smtp.example.org"),
+                ["mail.security"] = JsonSerializer.SerializeToElement("starttls"),
+                ["breaks.feeds"] = JsonSerializer.SerializeToElement(
+                    """[{"name":"BBC World","url":"https://feeds.bbci.co.uk/news/world/rss.xml"},{"name":"A long feed name that has to fit","url":"https://example.org/rss"}]"""),
+            },
+            Configured = new Dictionary<string, bool> { ["mail.password"] = true },
+            Derived = [],
+        });
     }
 
     /// <summary>One declared setting. The station's half of Settings is drawn entirely from these.</summary>
-    private static SettingFieldViewModel Field(string key, string label, string help, string value, ConfigFieldType type) =>
-        new(
-            new StationSettingDescriptor
-            {
-                Key = key,
-                Label = label,
-                Help = help,
-                Type = type,
-                Group = SettingGroup.Playout,
-            },
-
-            // Every value the station holds is TEXT, whatever its declared type: a switch travels as
-            // the word `true` and a number as its digits.
-            JsonSerializer.SerializeToElement(value),
-            configured: true);
+    private static StationSettingDescriptor Setting(string key, string label, string? help, ConfigFieldType type, SettingGroup group) =>
+        new() { Key = key, Label = label, Help = help, Type = type, Group = group };
 
     public static HttpClient Http() => new(new Refuses());
 

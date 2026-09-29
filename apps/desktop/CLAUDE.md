@@ -1019,6 +1019,34 @@ silently cancellable by omission.
 code: key, label, type, bounds and help all come off `GET /settings`. Nothing in this app knows what
 any particular setting means.
 
+**One form draws every declared field in the app**: `ConfigFormViewModel` over `FormField`, drawn by
+`FormFieldView`, for the station's settings, a station plugin's configuration and every settings
+subset a page shows. The station's settings and a plugin's config are two SDK records of one shape
+(`StationSettingDescriptor`, `ConfigFieldDescriptor`) and both become a `FormField`. Its rules are
+the web console's `config.fields.form.tsx`, ported rather than reinvented, and the pure half is in
+Core (`Forms/FormValues`, `Forms/FormRows`) with the tests:
+- A multiselect is a JSON array in a string; a `tags` field is a comma-separated line. They are not
+  the same encoding, and changing either would be changing the setting.
+- A `list` is a JSON array of row objects in a string. A list holding a credential numbers its rows
+  (`$id`) HERE, before the first save: the web console once left that to the station, the id never
+  reached a form that is not rebuilt after saving, and the next save deleted the key just typed.
+- A secret, a secret cell, and a number that had a value are three-way: typed sets it, absent keeps
+  it, JSON `null` clears it. Never `""`.
+- A field hidden by `dependsOn` is neither drawn nor sent. A target not in this form counts as
+  answered. A list column's `dependsOn` also stops the CELL being sent.
+- Suggestions are the VALUES, never their labels: the web console once stored a voice's display name
+  in a field the engine answered 404 for.
+- `FormEncoding.Strings` for the station's settings (every layer holds text) and `Typed` for a plugin's
+  config, which the station stores exactly as sent and the plugin reads as a boolean or a number.
+- `optionsFrom` sources are resolved by `DeclaredOptions`, one read per source named.
+
+**A hidden control still binds.** The number template carries a slider for the fields that ask for
+one, and a hidden slider still coerced its value into its default 0–100 range and wrote it back: a
+linger of 300000 read as 100. The field takes a value from the slider only when it IS a slider.
+
+`SettingFieldViewModel` is now only THIS app's plugins' smaller `FieldSpec` form, which has no
+secrets, lists or choices.
+
 **A setting is a STRING, and the client has to honour that.** Every layer of the station's
 configuration holds text, so a switch travels as the word `true` and a number as its digits. Sending
 a JSON boolean would be sending a shape the station does not store. The reading side matters just as

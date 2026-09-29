@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Text.Json;
 using CommunityToolkit.Mvvm.ComponentModel;
 using MaroonedSoftware.Deadair.Desktop.Core.Settings;
 using MaroonedSoftware.Deadair.Sdk.Models;
@@ -7,7 +6,7 @@ using MaroonedSoftware.Deadair.Sdk.Models;
 namespace MaroonedSoftware.Deadair.Desktop.ViewModels;
 
 /// <summary>
-/// One station setting, drawn from what the station said about it.
+/// One setting a desktop plugin declared, drawn from what it said about it.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -25,42 +24,13 @@ public sealed partial class SettingFieldViewModel : ObservableObject
 {
     private readonly string? _original;
 
-    public SettingFieldViewModel(StationSettingDescriptor descriptor, JsonElement? value, bool configured)
-        : this(
-            descriptor.Key,
-            descriptor.Label,
-            descriptor.Help,
-            descriptor.Group.ToString(),
-            isSecret: descriptor.Type == ConfigFieldType.Secret,
-            isBoolean: descriptor.Type == ConfigFieldType.Boolean,
-            isMultiline: descriptor.Type == ConfigFieldType.Text,
-            original: Read(value),
-            configured,
-            // The station's default is a small union rather than a string, so it is matched rather
-            // than stringified: `ToString` on the record gives `OfBoolean { Value = True }`, which
-            // parses as nothing.
-            defaultIsOn: () => descriptor.Default switch
-            {
-                ConfigFieldDescriptorDefault.OfBoolean boolean => boolean.Value,
-                ConfigFieldDescriptorDefault.OfString text =>
-                    text.Value.Trim().ToLowerInvariant() is "true" or "1" or "yes" or "on",
-                ConfigFieldDescriptorDefault.OfNumber number => number.Value != 0,
-                _ => false,
-            })
-    {
-        ArgumentNullException.ThrowIfNull(descriptor);
-
-        Descriptor = descriptor;
-    }
-
     /// <summary>
-    /// The same field, for a PLUGIN rather than for the station.
+    /// A field one of THIS APP's plugins declared.
     /// </summary>
     /// <remarks>
-    /// A plugin declares its settings in the same shape the station declares its own — a key, a
-    /// label, a type, a sentence of help — so it gets the same form rather than one written again
-    /// for it. What differs is only where the declaration came from, which is why this is another
-    /// way in and not another view model.
+    /// The station's own settings and a station plugin's configuration are drawn by
+    /// <see cref="ConfigFormViewModel"/>. This is the smaller form a desktop output plugin declares
+    /// through its own SDK (<see cref="FieldSpec"/>), which has no secrets, no lists and no choices.
     /// </remarks>
     public static SettingFieldViewModel ForPlugin(FieldSpec spec, string? value)
     {
@@ -119,9 +89,6 @@ public sealed partial class SettingFieldViewModel : ObservableObject
 
     private readonly Func<bool> _defaultIsOn;
 
-    /// <summary>What the station said about this setting, when it came from the station.</summary>
-    public StationSettingDescriptor? Descriptor { get; }
-
     public string Key { get; }
 
     public string Label { get; }
@@ -167,24 +134,6 @@ public sealed partial class SettingFieldViewModel : ObservableObject
     public string Current => IsBoolean
         ? Switch ? "true" : "false"
         : Text;
-
-    /// <summary>
-    /// Reads the station's current value as text, whatever JSON shape it arrived in.
-    /// </summary>
-    /// <remarks>
-    /// It is stored as text and usually sent as text, but a number or a boolean coming back as its
-    /// JSON form is not worth failing over — `ToString` on the element would wrap a string in quotes,
-    /// which is how a setting acquires a pair of them.
-    /// </remarks>
-    private static string? Read(JsonElement? value) => value switch
-    {
-        null => null,
-        { ValueKind: JsonValueKind.String } element => element.GetString(),
-        { ValueKind: JsonValueKind.True } => "true",
-        { ValueKind: JsonValueKind.False } => "false",
-        { ValueKind: JsonValueKind.Null or JsonValueKind.Undefined } => null,
-        { } element => element.ToString(),
-    };
 
     /// <summary>
     /// The station's own vocabulary for a switch.

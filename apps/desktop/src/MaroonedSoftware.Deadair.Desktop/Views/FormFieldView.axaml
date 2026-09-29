@@ -1,0 +1,206 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    xmlns:sdk="using:MaroonedSoftware.Deadair.Sdk.Models"
+    xmlns:conv="using:MaroonedSoftware.Deadair.Desktop.Themes"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.FormFieldView"
+    x:DataType="vm:FormFieldViewModel"
+    IsVisible="{Binding IsVisible}">
+
+    <!--
+        One field of a declared form, whoever declared it: the station's own settings, a plugin's
+        configuration, or a subset a page shows. Drawn by type, one template per kind of value, so a
+        field is drawn the same way wherever it appears and a secret can never be shown on one of them.
+
+        The label and help are the same for every kind and sit around whichever control the value
+        needs. Boxes have a minimum as well as a maximum width: left to size itself, an empty box is
+        the width of nothing, which is what an unset setting looks like and is impossible to aim at.
+    -->
+    <StackPanel Spacing="3" Margin="0,0,0,12">
+        <TextBlock Text="{Binding Label}" FontSize="12" Classes="secondary" />
+
+        <ContentControl Content="{Binding}">
+            <ContentControl.DataTemplates>
+
+                <DataTemplate DataType="vm:TextFormFieldViewModel">
+                    <StackPanel Spacing="3">
+                        <TextBox Text="{Binding Text}" IsVisible="{Binding IsPlain}"
+                                 PlaceholderText="{Binding Placeholder}"
+                                 AcceptsReturn="{Binding IsMultiline}" TextWrapping="Wrap"
+                                 MinHeight="{Binding IsMultiline, Converter={x:Static conv:BoolToLines.Instance}}"
+                                 MinWidth="320" MaxWidth="560" HorizontalAlignment="Left" />
+                        <!-- Suggestions rather than a whitelist: a value the source could not list
+                             stays typeable, and what is inserted is the value, never its label. -->
+                        <AutoCompleteBox Text="{Binding Text}" IsVisible="{Binding HasSuggestions}"
+                                         ItemsSource="{Binding Suggestions}" FilterMode="ContainsOrdinal"
+                                         MinimumPrefixLength="0" PlaceholderText="{Binding Placeholder}"
+                                         MinWidth="320" MaxWidth="480" HorizontalAlignment="Left" />
+                        <TextBlock Text="{Binding DerivedNote}" Classes="dimmed" FontSize="11"
+                                   IsVisible="{Binding DerivedNote, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                    </StackPanel>
+                </DataTemplate>
+
+                <DataTemplate DataType="vm:NumberFormFieldViewModel">
+                    <StackPanel Spacing="3">
+                        <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsBox}">
+                            <TextBox Text="{Binding Text}" PlaceholderText="{Binding Placeholder}"
+                                     Width="160" HorizontalAlignment="Left" />
+                            <TextBlock Text="{Binding Suffix}" VerticalAlignment="Center" Classes="dimmed"
+                                       IsVisible="{Binding Suffix, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                        </StackPanel>
+                        <Grid ColumnDefinitions="*,64" ColumnSpacing="12" IsVisible="{Binding IsSlider}"
+                              MaxWidth="480" HorizontalAlignment="Left" MinWidth="320">
+                            <Slider Minimum="{Binding Minimum}" Maximum="{Binding Maximum}"
+                                    SmallChange="{Binding Step}" TickFrequency="{Binding Step}"
+                                    IsSnapToTickEnabled="True" Value="{Binding Value}" />
+                            <TextBlock Grid.Column="1" Classes="mono" Text="{Binding Reading}"
+                                       VerticalAlignment="Center" HorizontalAlignment="Right" />
+                        </Grid>
+                        <TextBlock Text="Has to be a number." FontSize="11"
+                                   Foreground="{DynamicResource DaToneFaultBrush}" IsVisible="{Binding !IsValid}" />
+                    </StackPanel>
+                </DataTemplate>
+
+                <DataTemplate DataType="vm:BooleanFormFieldViewModel">
+                    <ToggleSwitch IsChecked="{Binding Switch}" OnContent="On" OffContent="Off" />
+                </DataTemplate>
+
+                <!-- Write-only. The station reports a secret as whether one is stored and never as a
+                     value, so there is nothing to prefill, and a blank box means leave it alone. -->
+                <DataTemplate DataType="vm:SecretFormFieldViewModel">
+                    <StackPanel Spacing="3">
+                        <TextBox Text="{Binding Text}" PasswordChar="•" PlaceholderText="{Binding Placeholder}"
+                                 IsEnabled="{Binding CanType}"
+                                 MinWidth="320" MaxWidth="480" HorizontalAlignment="Left" />
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <TextBlock Text="{Binding State}" Classes="dimmed" FontSize="11" VerticalAlignment="Center" />
+                            <Button Classes="ghost" FontSize="11" Padding="8,2" Content="{Binding ClearLabel}"
+                                    IsVisible="{Binding Stored}" Command="{Binding ToggleClearedCommand}" />
+                        </StackPanel>
+                    </StackPanel>
+                </DataTemplate>
+
+                <DataTemplate DataType="vm:SelectFormFieldViewModel">
+                    <ComboBox ItemsSource="{Binding Options}" SelectedItem="{Binding Chosen}"
+                              MinWidth="320" MaxWidth="480" HorizontalAlignment="Left">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="sdk:ConfigFieldOption">
+                                <TextBlock Text="{Binding Label}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                </DataTemplate>
+
+                <DataTemplate DataType="vm:MultiSelectFormFieldViewModel">
+                    <ItemsControl ItemsSource="{Binding Choices}" MaxWidth="560" HorizontalAlignment="Left">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:FormChoiceViewModel">
+                                <CheckBox IsChecked="{Binding IsChosen}" Content="{Binding Label}" Margin="0,0,14,0" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </DataTemplate>
+
+                <!-- A table of rows. Each row's cells are laid out left to right at a fixed width, so
+                     a column lines up down the table; reordered by buttons, never by dragging. -->
+                <DataTemplate DataType="vm:ListFormFieldViewModel">
+                    <StackPanel Spacing="6">
+                        <ItemsControl ItemsSource="{Binding Rows}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:FormRowViewModel">
+                                    <Border Classes="card" Padding="10" Margin="0,0,0,6">
+                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                            <ItemsControl ItemsSource="{Binding Cells}">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate>
+                                                        <!-- One row, each column an equal share of the
+                                                             card, so a column lines up down the table
+                                                             and a wide list never runs off the edge. -->
+                                                        <UniformGrid Rows="1" />
+                                                    </ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate x:DataType="vm:FormCellViewModel">
+                                                        <StackPanel Spacing="2" Margin="0,0,10,6"
+                                                                    Opacity="{Binding Applies, Converter={x:Static conv:BoolToOpacity.Instance}}"
+                                                                    IsEnabled="{Binding Applies}">
+                                                            <TextBlock Text="{Binding Label}" FontSize="11" Classes="dimmed" />
+                                                            <TextBox Text="{Binding Text}" IsVisible="{Binding IsText}"
+                                                                     PlaceholderText="{Binding Placeholder}" />
+                                                            <ComboBox ItemsSource="{Binding Options}" SelectedItem="{Binding Chosen}"
+                                                                      IsVisible="{Binding IsSelect}" HorizontalAlignment="Stretch">
+                                                                <ComboBox.ItemTemplate>
+                                                                    <DataTemplate x:DataType="sdk:ConfigFieldOption">
+                                                                        <TextBlock Text="{Binding Label}" />
+                                                                    </DataTemplate>
+                                                                </ComboBox.ItemTemplate>
+                                                            </ComboBox>
+                                                            <StackPanel Spacing="2" IsVisible="{Binding IsSecret}">
+                                                                <TextBox Text="{Binding Text}" PasswordChar="•"
+                                                                         PlaceholderText="{Binding Placeholder}"
+                                                                         IsEnabled="{Binding !Cleared}" />
+                                                                <Button Classes="ghost" FontSize="10" Padding="6,1"
+                                                                        Content="{Binding ClearLabel}"
+                                                                        IsVisible="{Binding SecretStored}"
+                                                                        Command="{Binding ToggleClearedCommand}" />
+                                                            </StackPanel>
+                                                        </StackPanel>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2" VerticalAlignment="Top">
+                                                <Button Classes="ghost" Padding="6,2" FontSize="11" Content="↑" ToolTip.Tip="Move up"
+                                                        Command="{Binding $parent[ItemsControl;1].((vm:ListFormFieldViewModel)DataContext).MoveUpCommand}"
+                                                        CommandParameter="{Binding}" />
+                                                <Button Classes="ghost" Padding="6,2" FontSize="11" Content="↓" ToolTip.Tip="Move down"
+                                                        Command="{Binding $parent[ItemsControl;1].((vm:ListFormFieldViewModel)DataContext).MoveDownCommand}"
+                                                        CommandParameter="{Binding}" />
+                                                <Button Classes="ghost" Padding="6,2" FontSize="11" Content="Remove"
+                                                        Command="{Binding $parent[ItemsControl;1].((vm:ListFormFieldViewModel)DataContext).RemoveRowCommand}"
+                                                        CommandParameter="{Binding}" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <Button Classes="ghost" FontSize="12" Padding="10,3" Content="Add a row"
+                                    Command="{Binding AddRowCommand}" />
+                            <ItemsControl ItemsSource="{Binding Presets}" IsVisible="{Binding HasPresets}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <StackPanel Orientation="Horizontal" Spacing="6" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="sdk:ConfigFieldPreset">
+                                        <Button Classes="ghost" FontSize="12" Padding="10,3" Content="{Binding Label}"
+                                                Command="{Binding $parent[ItemsControl;1].((vm:ListFormFieldViewModel)DataContext).AddPresetCommand}"
+                                                CommandParameter="{Binding}" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </StackPanel>
+                </DataTemplate>
+
+                <DataTemplate DataType="vm:NoteFormFieldViewModel">
+                    <SelectableTextBlock Text="{Binding Derived}" Classes="mono" FontSize="12"
+                                         IsVisible="{Binding HasDerived}" />
+                </DataTemplate>
+
+            </ContentControl.DataTemplates>
+        </ContentControl>
+
+        <TextBlock Text="{Binding Help}" Classes="dimmed" FontSize="11" TextWrapping="Wrap"
+                   MaxWidth="560" HorizontalAlignment="Left" IsVisible="{Binding HasHelp}" />
+    </StackPanel>
+
+</UserControl>

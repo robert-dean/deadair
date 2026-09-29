@@ -3,13 +3,13 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
     xmlns:conv="using:MaroonedSoftware.Deadair.Desktop.Themes"
+    xmlns:views="using:MaroonedSoftware.Deadair.Desktop.Views"
     x:Class="MaroonedSoftware.Deadair.Desktop.Views.SettingsView"
     x:DataType="vm:SettingsViewModel">
 
     <UserControl.Resources>
-        <!-- One field, whoever declared it. The station's settings and a plugin's arrive in the same
-             shape and are drawn the same way; a second copy of this would be a second place for the
-             two to drift apart. -->
+        <!-- One field a desktop plugin declared. The station's own settings, and a station plugin's,
+             are drawn by FormFieldView; this is the smaller shape this app's plugins declare. -->
         <DataTemplate x:Key="SettingField" x:DataType="vm:SettingFieldViewModel">
             <StackPanel Spacing="3" Margin="0,0,0,10">
                 <TextBlock Text="{Binding Label}" FontSize="12" Classes="secondary" />
@@ -280,8 +280,13 @@
                             <Border Classes="card" MaxWidth="900" HorizontalAlignment="Stretch" Margin="0,0,0,16">
                             <StackPanel Spacing="8">
                                 <TextBlock Classes="h3" Text="{Binding Name}" />
-                                <ItemsControl ItemsSource="{Binding Fields}"
-                                              ItemTemplate="{StaticResource SettingField}" />
+                                <ItemsControl ItemsSource="{Binding Fields}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:FormFieldViewModel">
+                                            <views:FormFieldView />
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
                             </StackPanel>
                             </Border>
                         </DataTemplate>

@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MaroonedSoftware.Deadair.Desktop.Core;
 using MaroonedSoftware.Deadair.Desktop.Core.Auth;
+using MaroonedSoftware.Deadair.Desktop.Core.Forms;
 using MaroonedSoftware.Deadair.Desktop.Core.NowPlaying;
 using MaroonedSoftware.Deadair.Desktop.Core.Playback;
 using MaroonedSoftware.Deadair.Desktop.Core.Plugins;
@@ -18,7 +19,8 @@ using MaroonedSoftware.Deadair.Sdk.Runtime;
 namespace MaroonedSoftware.Deadair.Desktop.ViewModels;
 
 /// <summary>One group of the station's settings, as the station groups them.</summary>
-public sealed record SettingGroupViewModel(string Name, IReadOnlyList<SettingFieldViewModel> Fields);
+/// <remarks>The fields are the one form's own, so a group is a way of drawing them rather than a copy.</remarks>
+public sealed record SettingGroupViewModel(string Name, IReadOnlyList<FormFieldViewModel> Fields);
 
 /// <summary>
 /// One way to listen, and whether the station is publishing it.
@@ -66,7 +68,8 @@ public sealed partial class SettingsViewModel(
     ISettingsStore settings,
     ThemeManager themes,
     IPluginCatalog? plugins = null,
-    AppLog? log = null) : ObservableObject
+    AppLog? log = null,
+    DeclaredOptions? declared = null) : ObservableObject
 {
     private StationUrl _station;
 
@@ -86,6 +89,9 @@ public sealed partial class SettingsViewModel(
     private void RevealLog() => log?.Reveal();
 
     public ObservableCollection<SettingGroupViewModel> Groups { get; } = [];
+
+    /// <summary>The station's settings as one form, which <see cref="Groups"/> draws in sections.</summary>
+    public ConfigFormViewModel? Form { get; private set; }
 
     /// <summary>What this install has been given beyond what it shipped with.</summary>
     public ObservableCollection<PluginRowViewModel> Plugins { get; } = [];
@@ -260,6 +266,7 @@ public sealed partial class SettingsViewModel(
     public void Reset()
     {
         Groups.Clear();
+        Form = null;
         ApplyMounts([]);
         Notice = null;
     }
@@ -351,17 +358,11 @@ public sealed partial class SettingsViewModel(
                 return;
             }
 
-            Groups.Clear();
-            foreach (var group in station.Descriptors.GroupBy(descriptor => descriptor.Group))
-            {
-                var fields = group
-                    .Select(descriptor => new SettingFieldViewModel(
-                        descriptor,
-                        station.Values.TryGetValue(descriptor.Key, out var value) ? value : null,
-                        station.Configured.TryGetValue(descriptor.Key, out var configured) && configured))
-                    .ToList();
+            Present(station);
 
-                Groups.Add(new SettingGroupViewModel(Title(group.Key.ToString()), fields));
+            if (declared is not null && Form is { } form && form.Sources() is { Count: > 0 } sources)
+            {
+                form.Offer(await declared.ResolveAsync(_station, sources, cancellationToken).ConfigureAwait(true));
             }
         }
         finally
@@ -370,18 +371,42 @@ public sealed partial class SettingsViewModel(
         }
     }
 
+    /// <summary>Draws what the station declared and holds, as one form in the station's groups.</summary>
+    public void Present(StationSettings station)
+    {
+        ArgumentNullException.ThrowIfNull(station);
+
+        // Every value travels as a string: every layer of the station's configuration holds text,
+        // so a JSON boolean would be a shape it does not store.
+        Form = new ConfigFormViewModel(
+            station.Descriptors.Select(FormField.From),
+            station.Values,
+            station.Configured,
+            FormEncoding.Strings,
+            station.Derived);
+
+        Groups.Clear();
+        foreach (var group in Form.Fields.GroupBy(field => field.Field.Group))
+        {
+            Groups.Add(new SettingGroupViewModel(Title(group.Key?.ToString() ?? "Station"), [.. group]));
+        }
+    }
+
     [RelayCommand]
     private async Task SaveAsync(CancellationToken cancellationToken)
     {
-        var changed = Groups
-            .SelectMany(group => group.Fields)
-            .Where(field => field.IsDirty)
-            .ToDictionary(
-                field => field.Key,
+        if (Form is null)
+        {
+            return;
+        }
 
-                // Every value travels as a string: every layer of the station's configuration holds
-                // text, so a JSON boolean would be a shape it does not store.
-                field => JsonSerializer.SerializeToElement(field.Current));
+        if (Form.Problem() is { } problem)
+        {
+            Notice = problem;
+            return;
+        }
+
+        var changed = Form.Submission();
 
         if (changed.Count == 0)
         {

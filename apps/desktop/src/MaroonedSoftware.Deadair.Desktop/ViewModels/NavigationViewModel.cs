@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using MaroonedSoftware.Deadair.Desktop.Core.Text;
 using MaroonedSoftware.Deadair.Desktop.Navigation;
 
 namespace MaroonedSoftware.Deadair.Desktop.ViewModels;
@@ -22,6 +23,17 @@ public sealed partial class NavigationItemViewModel(NavigationEntry entry) : Obs
 
     [ObservableProperty]
     private bool _isVisible = true;
+
+    /// <summary>How many things the station says need somebody on this page. Zero draws no badge.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasAttention))]
+    private int _attentionCount;
+
+    /// <summary>How bad the worst of them is, which is the badge's colour.</summary>
+    [ObservableProperty]
+    private Severity _attentionSeverity = Severity.Notice;
+
+    public bool HasAttention => AttentionCount > 0;
 }
 
 /// <summary>One heading in the sidebar, and what sits under it.</summary>

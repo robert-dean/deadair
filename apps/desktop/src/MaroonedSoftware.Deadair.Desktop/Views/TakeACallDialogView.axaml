@@ -1,0 +1,38 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.TakeACallDialogView"
+    x:DataType="vm:TakeACallDialogViewModel">
+
+    <StackPanel Spacing="12" Width="460">
+        <TextBlock TextWrapping="Wrap"
+                   Text="A listener rings in and your host takes it: a few short turns, each in its own voice. Who calls is whichever of your callers has been heard from least recently." />
+
+        <StackPanel Spacing="4">
+            <TextBlock Classes="dimmed" Text="What they are ringing about" />
+            <TextBox Text="{Binding About}" MaxLength="4000" PlaceholderText="a record everybody else got wrong" />
+            <TextBlock Classes="dimmed" FontSize="11" TextWrapping="Wrap"
+                       Text="Leave it empty and the call is about whatever your host's show is about, with the caller coming at it their own way." />
+        </StackPanel>
+
+        <StackPanel Spacing="4">
+            <TextBlock Classes="dimmed" Text="Taken by" />
+            <ComboBox ItemsSource="{Binding Hosts}" SelectedItem="{Binding Host}"
+                      MinWidth="280" HorizontalAlignment="Left">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="vm:HostChoice">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="{Binding Label}" MaxWidth="260" TextTrimming="CharacterEllipsis" />
+                            <TextBlock Text="{Binding Detail}" Classes="dimmed" MaxWidth="160" TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+        </StackPanel>
+
+        <TextBlock Classes="dimmed" FontSize="11" TextWrapping="Wrap"
+                   Text="Nothing airs while you wait. The turns are written and spoken one at a time, and the whole call goes in together, so it lands in a few minutes rather than at the next boundary. It shows up under Productions on Voice while it is being made." />
+    </StackPanel>
+
+</UserControl>

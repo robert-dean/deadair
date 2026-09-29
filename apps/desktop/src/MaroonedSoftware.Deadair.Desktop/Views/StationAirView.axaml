@@ -78,9 +78,9 @@
             <!-- What the mount lease is renewed against. A station setting rather than a transport
                  command, and the literal answer to "why is it not on air": a station stuck in
                  audience mode with nobody listening is one an operator must be able to change. -->
-            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+            <StackPanel Orientation="Horizontal" Spacing="10">
                 <TextBlock Classes="dimmed" Text="On air" VerticalAlignment="Center" />
-                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4">
+                <StackPanel Orientation="Horizontal" Spacing="4">
                     <Button Classes="tab" Classes.active="{Binding IsAudience}" Content="When somebody is listening"
                             IsEnabled="{Binding !Busy}"
                             Command="{Binding SetModeCommand}" CommandParameter="Audience" />
@@ -88,9 +88,38 @@
                             IsEnabled="{Binding !Busy}"
                             Command="{Binding SetModeCommand}" CommandParameter="Always" />
                 </StackPanel>
+            </StackPanel>
 
-                <!-- The station's own actions on what it plays. Take a call joins Plan here. -->
-                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6">
+            <!-- The record on air, rated where an operator is hearing it, and the two things done to
+                 what the station plays and says. -->
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                <!-- Three answers to one question rather than two switches: withdrawing an opinion is
+                     the middle, which is where every record starts. -->
+                <Grid ColumnDefinitions="26,26,26,*" ColumnSpacing="2" IsVisible="{Binding CanRate}">
+                    <Button Classes="icon small" Classes.active="{Binding IsDisliked}"
+                            Command="{Binding RateCommand}" CommandParameter="Disliked"
+                            ToolTip.Tip="Dislike it: the station stops choosing it.">
+                        <PathIcon Width="14" Height="14" Data="{DynamicResource DaIconThumbDown}" />
+                    </Button>
+                    <Button Grid.Column="1" Classes="icon small" Classes.active="{Binding IsNeutral}"
+                            Command="{Binding RateCommand}" CommandParameter="Neutral"
+                            ToolTip.Tip="No opinion: it plays as often as anything else.">
+                        <PathIcon Width="14" Height="14" Data="{DynamicResource DaIconMinus}" />
+                    </Button>
+                    <Button Grid.Column="2" Classes="icon small" Classes.active="{Binding IsLiked}"
+                            Command="{Binding RateCommand}" CommandParameter="Liked"
+                            ToolTip.Tip="Like it: the station chooses it more often.">
+                        <PathIcon Width="14" Height="14" Data="{DynamicResource DaIconThumbUp}" />
+                    </Button>
+                    <TextBlock Grid.Column="3" Text="{Binding PlayingTitle}" FontSize="12" VerticalAlignment="Center"
+                               Margin="6,0,0,0" TextTrimming="CharacterEllipsis"
+                               Foreground="{DynamicResource DaTextDimmedBrush}" />
+                </Grid>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                    <!-- Disabled with nothing on: a call joins a running order, and there is none. -->
+                    <Button Content="Take a call" Command="{Binding TakeCallCommand}" IsEnabled="{Binding HasOrder}"
+                            ToolTip.Tip="Puts somebody on the phone. It is written over a few minutes and drops into the running order when it is ready." />
                     <Button Content="Plan" Command="{Binding PlanCommand}"
                             ToolTip.Tip="Change what the station plays, either from here on or as a new show." />
                 </StackPanel>

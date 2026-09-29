@@ -57,7 +57,7 @@ internal static class Fakes
             new ListenerViewModel(new OutputSwitch(new NullStationPlayer()), new NullSystemNowPlaying(), settings, http, dispatcher, outputs),
             new LoginViewModel(session),
             new TransportViewModel(session, actions, http, dispatcher),
-            new RunningOrderViewModel(session, actions, http, dispatcher, dialogs),
+            new RunningOrderViewModel(session, actions, http, dispatcher, dialogs, navigation),
             navigation,
             new ProgrammeViewModel(actions, http),
             library,
@@ -250,6 +250,10 @@ internal static class Fakes
                 State = row.State,
                 Title = row.Title,
                 Artists = [row.Artists],
+                TrackId = row.TrackId?.ToString(),
+
+                // The record on air already liked, so the thumbs have an answer to draw.
+                Rating = row.IsAiring ? Rating.Liked : null,
             })],
         });
         shell.Order.Air.ApplyAir(new StationAir
@@ -262,6 +266,31 @@ internal static class Fakes
             HoldUntil = DateTimeOffset.Now.AddHours(2).ToString("O", System.Globalization.CultureInfo.InvariantCulture),
         });
     }
+
+    /// <summary>
+    /// What the station says needs the operator, one row of each kind: a failure with a count, a
+    /// warning about a plugin (Settings), a notice about a character (Voice), a row about the
+    /// broadcast (the desk, so no link), and one naming a page this app does not have.
+    /// </summary>
+    public static void NeedsYou(ShellViewModel shell) => shell.Order.NeedsYou.Apply(new StationAttention
+    {
+        Items =
+        [
+            Attention(AttentionItemSeverity.Failure, "/catalog?state=benched", "4 records have no copy left that will play",
+                "Every copy has been written off, so they will not air until a sync sees them again.", 4),
+            Attention(AttentionItemSeverity.Warning, "/onair", "The running order runs dry before the next block",
+                "It has about eighteen minutes left and nothing is scheduled to follow it."),
+            Attention(AttentionItemSeverity.Warning, "/plugins/spotify", "Spotify will not start",
+                "The token was refused. Reconnect it from the plugin's own page, which asks Spotify again."),
+            Attention(AttentionItemSeverity.Notice, "/personas", "No caller has a voice",
+                "A phone-in needs somebody to ring in, and none of the characters marked as callers has a voice to do it in."),
+            Attention(AttentionItemSeverity.Notice, "/somewhere-new", "The station has something this app cannot show yet",
+                "A page the station knows about and this build does not."),
+        ],
+    });
+
+    private static AttentionItem Attention(AttentionItemSeverity severity, string route, string title, string detail, long? count = null) =>
+        new() { Code = route, Severity = severity, Route = route, Title = title, Detail = detail, Count = count };
 
     /// <summary>The hosts a recast or a plan offers, one of whom is presenting.</summary>
     public static IReadOnlyList<Persona> Hosts() =>

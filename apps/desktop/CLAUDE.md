@@ -1195,6 +1195,23 @@ every "send to the top" on a busy order comes back rejected. `MoveTarget` works 
 first item still `planned`. The move buttons answer null rather than an index when there is nowhere
 to go, so nothing is sent.
 
+**Skip-to is offered on a RECORD still to come, including one the player already holds**
+(`Core/Director/SkipTo`), unlike a move or a drop: reaching past the player's queue is the point, and
+the station refuses a break with a 422 because its words are about the records either side. It cuts
+what is on air, so it asks first. It shares the length's column and replaces it on hover rather than
+being a fourth button: the panel is 320 wide, and another column would leave a title about sixty units.
+
+**The record on air is rated on the desk, beside Plan**, the web console's three answers (thumbs
+down, no opinion, thumbs up) rather than two switches, because withdrawing an opinion is the middle.
+It asks nothing first: a rating changes what the rotation draws later, not what is airing. It is
+written to the catalog and the order is read again, since the order carries each record's rating.
+The thumbs are Tabler's, the web console's own set, with the notice beside Microsoft's.
+
+**Take a call asks the station for a production, not a break**, because a phone-in is two voices
+and only a production airs several turns together; the dialog says it lands in minutes. It is taken
+by this show's host unless another is chosen (the web console always inherits it), and the broadcast's
+brief is never passed: a brief is what the show plays, not what its callers talk about.
+
 **Undo is offered for a record and not for a segment**, because a dropped record is spliced out and
 can be added back while a dropped segment is marked `removed` and stays that way. Offering it for
 both would be offering something that cannot happen. The contract types the item's own `trackId` as a
@@ -1248,6 +1265,33 @@ caller put on air presents a show in a character whose premise is ringing somebo
 station's host" is an entry, not an absence, because handing the show back is something an operator
 means. The hosts are read each time a dialog opens, not kept, so a character added a minute ago on
 Voice is offered.
+
+## What needs you, and the sidebar's badges
+
+**The attention list is read on every third tick of the running order, which is fifteen seconds,
+and has no timer of its own.** That is the web console's cadence, and it keeps polling in the
+background there because the badges are on every page. The order's poll already runs on every page
+for an operator and on none for anybody else, so riding it gives exactly that; the first reading of a
+session asks at once, so the badges are up as the operator arrives. A failed read keeps the last list
+and says it could not ask, on the desk and never on the notice line, which would otherwise repeat
+itself every fifteen seconds; the list failing is not the station failing, and the words say which.
+
+**One table routes a row and counts its badge** (`Core/Station/AttentionRoutes`, the web console's
+`attention.destination.ts` ported), so a badge on one page and its row linking to another is not a
+state this app can reach. The station names web console pages (`/onair`, `/personas`, `/plugins/x`);
+the translation lives here so the API never learns this app's navigation. **An unknown route has no
+page rather than the nearest one**: its row keeps its sentence, says this app has no page for it, and
+badges nothing. A row about the broadcast has no link on the desk, because the desk is where it points.
+A link is labelled with where it goes, never with a remedy the station did not send.
+
+**The badge's column is reserved on every sidebar row**, so the shortcut letters stay in one line;
+its colour is the worst severity on that page, through `SeverityBrushConverter`, because a failure's
+red and a lamp's red mean opposite things. The evidence a row can carry (the records behind a count)
+is not drawn yet; the web console folds it away behind a disclosure, and Check-up is where it belongs.
+
+**The poll outlives a sign-out by its five-second grace**, so a reading can land after the operator
+has gone. The order, the air and the attention all drop a reading that arrives once `IsOperator` is
+false, or it would put the operator's desk back on a listener's screen.
 
 ## The second factor, and the bug that taught it
 

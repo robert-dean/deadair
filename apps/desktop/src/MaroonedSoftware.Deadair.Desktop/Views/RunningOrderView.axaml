@@ -7,6 +7,15 @@
     x:Class="MaroonedSoftware.Deadair.Desktop.Views.RunningOrderView"
     x:DataType="vm:RunningOrderViewModel">
 
+    <UserControl.Styles>
+        <!-- Skip-to shares the length's column and takes its place on hover, for a row that can be
+             skipped to. The panel is 320 wide and a fourth button column would leave a title about
+             sixty units; the length is the thing on the row least needed while reaching for it. -->
+        <Style Selector="ListBoxItem:pointerover TextBlock.length.skippable">
+            <Setter Property="Opacity" Value="0" />
+        </Style>
+    </UserControl.Styles>
+
     <DockPanel IsVisible="{Binding IsOperator}" LastChildFill="True">
 
         <StackPanel DockPanel.Dock="Top" Spacing="8" Margin="0,0,0,12">
@@ -60,9 +69,21 @@
                                        Foreground="{DynamicResource DaTextDimmedBrush}" />
                         </StackPanel>
 
-                        <TextBlock Classes="mono" Grid.Column="2" Text="{Binding Length}" FontSize="11"
-                                   VerticalAlignment="Center" HorizontalAlignment="Right"
-                                   Foreground="{DynamicResource DaTextDimmedBrush}" />
+                        <Panel Grid.Column="2">
+                            <TextBlock Classes="mono length" Classes.skippable="{Binding CanSkipTo}"
+                                       Text="{Binding Length}" FontSize="11"
+                                       VerticalAlignment="Center" HorizontalAlignment="Right"
+                                       Foreground="{DynamicResource DaTextDimmedBrush}" />
+                            <!-- Reaches past what the player holds and cuts what is on air, so it is
+                                 the one control here every listener hears at once; it asks first. -->
+                            <Button Classes="icon small reveal" HorizontalAlignment="Right"
+                                    IsVisible="{Binding CanSkipTo}"
+                                    ToolTip.Tip="Skip straight to this record. Everything in front of it is passed over and what is on air is cut."
+                                    Command="{Binding $parent[ListBox].((vm:RunningOrderViewModel)DataContext).SkipToCommand}"
+                                    CommandParameter="{Binding}">
+                                <PathIcon Width="13" Height="13" Data="{DynamicResource DaIconSkip}" />
+                            </Button>
+                        </Panel>
 
                         <!-- Opacity rather than visibility, and a column that is always 92 wide:
                              every row is its own Grid, so a column that collapsed when its buttons

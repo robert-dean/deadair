@@ -98,6 +98,12 @@
             DataContext="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Order.Air}"
             IsVisible="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Order.IsOperator}" />
 
+        <!-- What needs a person, worst first. Under the air rather than above it: the air is the
+             question every visit starts with, and this is the reason to have opened the desk. -->
+        <views:NeedsYouView
+            DataContext="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Order.NeedsYou}"
+            IsVisible="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Order.IsOperator}" />
+
     </StackPanel>
     </ScrollViewer>
 

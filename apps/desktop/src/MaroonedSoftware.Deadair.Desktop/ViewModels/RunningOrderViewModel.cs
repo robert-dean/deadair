@@ -15,8 +15,9 @@ namespace MaroonedSoftware.Deadair.Desktop.ViewModels;
 /// What the station is going to play, and the operator's edits to it.
 /// </summary>
 /// <remarks>
-/// It also owns the station's air (<see cref="Air"/>), because the air is read on the order's own
-/// poll: the one reading of the director that runs, for an operator, on every page.
+/// It also owns the station's air (<see cref="Air"/>) and what needs the operator
+/// (<see cref="NeedsYou"/>), because both are read on the order's own poll: the one reading that
+/// runs, for an operator, on every page.
 /// </remarks>
 public sealed partial class RunningOrderViewModel : ObservableObject, IAsyncDisposable
 {
@@ -24,6 +25,13 @@ public sealed partial class RunningOrderViewModel : ObservableObject, IAsyncDisp
     private readonly OperatorActions _actions;
     private readonly HttpClient _http;
     private readonly IUiDispatcher _dispatcher;
+    private readonly IDialogs _dialogs;
+
+    /// <summary>Every how many order readings the attention list is read again: fifteen seconds.</summary>
+    private const int AttentionEvery = 3;
+
+    /// <summary>Good order readings since the operator's session began, which paces the attention list.</summary>
+    private int _readings;
 
     private OrderRepository? _repository;
     private IDisposable? _lease;
@@ -38,13 +46,16 @@ public sealed partial class RunningOrderViewModel : ObservableObject, IAsyncDisp
         OperatorActions actions,
         HttpClient http,
         IUiDispatcher dispatcher,
-        IDialogs dialogs)
+        IDialogs dialogs,
+        NavigationViewModel navigation)
     {
         _session = session;
         _actions = actions;
         _http = http;
         _dispatcher = dispatcher;
+        _dialogs = dialogs;
         Air = new StationAirViewModel(actions, dialogs, http);
+        NeedsYou = new NeedsYouViewModel(http, navigation);
 
         _session.Changed += _ => _dispatcher.Post(ApplySession);
     }
@@ -53,6 +64,9 @@ public sealed partial class RunningOrderViewModel : ObservableObject, IAsyncDisp
 
     /// <summary>The station's air on the desk: who is driving, the hold, the air mode, the host and the plan.</summary>
     public StationAirViewModel Air { get; }
+
+    /// <summary>What the station says needs somebody: the desk's list and the sidebar's badges.</summary>
+    public NeedsYouViewModel NeedsYou { get; }
 
     [ObservableProperty]
     private bool _isOperator;
@@ -86,8 +100,9 @@ public sealed partial class RunningOrderViewModel : ObservableObject, IAsyncDisp
         _station = station;
         _repository = new OrderRepository(station, _http, _dispatcher);
         _repository.Changed += OnReading;
-        _repository.AirChanged += Air.ApplyAir;
+        _repository.AirChanged += OnAir;
         Air.Attach(_repository, station);
+        NeedsYou.Attach(station);
         ApplySession();
     }
 
@@ -113,14 +128,25 @@ public sealed partial class RunningOrderViewModel : ObservableObject, IAsyncDisp
                 Air.Reset();
                 Air.Attach(_repository, _station);
             }
+
+            NeedsYou.Reset();
+            _readings = 0;
         }
     }
 
     private void OnReading(Reading<StationOrder> reading)
     {
-        if (reading.Value is not { } order)
+        // The poll lingers a few seconds past its last lease, so a reading can land after the operator
+        // has signed out; it would put their order, air and attention back on a listener's screen.
+        if (reading.Value is not { } order || !IsOperator)
         {
             return;
+        }
+
+        // The first reading of a session asks at once, so the badges are up as the operator arrives.
+        if (_readings++ % AttentionEvery == 0)
+        {
+            _ = NeedsYou.RefreshAsync();
         }
 
         Name = order.Name;
@@ -140,6 +166,15 @@ public sealed partial class RunningOrderViewModel : ObservableObject, IAsyncDisp
             ? $"Runs dry at about {when.ToLocalTime().ToString("HH:mm", CultureInfo.InvariantCulture)}"
             : "Nothing ahead has a length the station could give.";
         IsShort = RunsDry.IsShort(order.Items);
+    }
+
+    /// <remarks>Guarded for the reason the order's reading is: the poll outlives a sign-out by a few seconds.</remarks>
+    private void OnAir(StationAir air)
+    {
+        if (IsOperator)
+        {
+            Air.ApplyAir(air);
+        }
     }
 
     [RelayCommand]
@@ -180,6 +215,33 @@ public sealed partial class RunningOrderViewModel : ObservableObject, IAsyncDisp
         }
 
         await _actions.RunAsync(token => _repository!.MoveAsync(item.Id, index, token)).ConfigureAwait(true);
+    }
+
+    /// <summary>
+    /// Jumps the station straight to a record, asked first: everything in front of it is passed over
+    /// and what is on air is cut, which every listener hears at once.
+    /// </summary>
+    [RelayCommand]
+    private async Task SkipToAsync(OrderItemViewModel item)
+    {
+        ArgumentNullException.ThrowIfNull(item);
+
+        if (!item.CanSkipTo || _repository is not { } repository)
+        {
+            return;
+        }
+
+        var asked = await _dialogs.ConfirmAsync(
+            $"Skip to {item.Title}?",
+            "Everything in front of it is passed over and the record on air is cut. Listeners hear it at once.",
+            "Skip to it").ConfigureAwait(true);
+
+        if (asked)
+        {
+            // The same race as a move's: the record can reach the air, or pass it, between the row
+            // being drawn and the click. The station says which, and that sentence is shown.
+            await _actions.RunAsync(token => repository.SkipToAsync(item.Id, token)).ConfigureAwait(true);
+        }
     }
 
     [RelayCommand]
@@ -246,12 +308,14 @@ public sealed partial class RunningOrderViewModel : ObservableObject, IAsyncDisp
         if (_repository is not null)
         {
             _repository.Changed -= OnReading;
-            _repository.AirChanged -= Air.ApplyAir;
+            _repository.AirChanged -= OnAir;
             await _repository.DisposeAsync().ConfigureAwait(true);
             _repository = null;
         }
 
         Air.Reset();
+        NeedsYou.Reset();
+        _readings = 0;
         _items = [];
         Items.Clear();
         _droppedTrack = null;

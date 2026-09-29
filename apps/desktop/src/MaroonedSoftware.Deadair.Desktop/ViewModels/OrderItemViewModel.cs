@@ -1,5 +1,6 @@
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
+using MaroonedSoftware.Deadair.Desktop.Core.Director;
 using MaroonedSoftware.Deadair.Desktop.Core.Text;
 using MaroonedSoftware.Deadair.Sdk.Models;
 
@@ -25,6 +26,8 @@ public sealed partial class OrderItemViewModel : ObservableObject
         // offered for one and not the other, which is the station's rule rather than a choice here.
         TrackId = !IsSegment && Guid.TryParse(item.TrackId, out var trackId) ? trackId : null;
         CanUndoDrop = TrackId is not null;
+        CanSkipTo = SkipTo.Allowed(item);
+        Rating = item.Rating ?? Sdk.Models.Rating.Neutral;
 
         Length = item.DurationMs is { } ms && ms > 0
             ? TimeSpan.FromMilliseconds(ms).ToString(@"m\:ss", CultureInfo.InvariantCulture)
@@ -54,6 +57,12 @@ public sealed partial class OrderItemViewModel : ObservableObject
     public bool CanMove { get; }
 
     public bool CanUndoDrop { get; }
+
+    /// <summary>Whether the station can jump straight to this row: a record still to come.</summary>
+    public bool CanSkipTo { get; }
+
+    /// <summary>What the station thinks of the record, which the desk shows for the one on air.</summary>
+    public Rating Rating { get; }
 
     public Guid? TrackId { get; }
 

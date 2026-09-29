@@ -33,6 +33,10 @@ internal static class Pages
         yield return ("shell-desk", Shell(operatorSignedIn: false), 1180, 720);
         yield return ("shell-desk-operator", Shell(operatorSignedIn: true), 1180, 720);
 
+        // Tall enough to reach what needs the operator under the air, with the badges it puts on
+        // the sidebar beside it.
+        yield return ("shell-desk-needs-you", Shell(operatorSignedIn: true, desk: Fakes.NeedsYou), 1180, 1180);
+
         // The station's own account of why it is quiet, at its real length: the sentence ran off the
         // card for as long as no frame drew one.
         yield return ("shell-desk-quiet", Shell(operatorSignedIn: true, desk: Fakes.Quiet), 1180, 720);
@@ -54,6 +58,7 @@ internal static class Pages
         yield return ("dialog-plan", Plan(PlanScope.Keep), 1180, 720);
         yield return ("dialog-plan-new", Plan(PlanScope.New), 820, 520);
         yield return ("dialog-recast", Recast(), 1180, 720);
+        yield return ("dialog-take-a-call", TakeACall(), 820, 520);
         yield return ("shell-notice", Refused(), 1180, 720);
         yield return ("shell-settings", Page(new Destination.Settings(), operatorSignedIn: true), 1180, 720);
 
@@ -229,6 +234,26 @@ internal static class Pages
         var recast = new RecastDialogViewModel(new OperatorActions(new SessionManager(new InMemorySecretStore(), Fakes.Http())), Repository(), "1", Fakes.Hosts());
         recast.Chosen = recast.Choices[2];
         _ = shell.Dialogs.ShowAsync(recast);
+        return new MainWindowContent { Shell = shell };
+    }
+
+    private static MainWindowContent TakeACall()
+    {
+        var shell = Fakes.Shell(operatorSignedIn: true);
+        Fakes.PutOnAir(shell.Listener);
+        Fakes.PutTheDeskOnAir(shell);
+
+        var call = new TakeACallDialogViewModel(
+            new OperatorActions(new SessionManager(new InMemorySecretStore(), Fakes.Http())),
+            StationUrl.TryParse("https://radio.example.com", out var station) ? station : default,
+            Fakes.Http(),
+            "1",
+            "Marla Vance",
+            Fakes.Hosts())
+        {
+            About = "the worst gig anybody ever went to, and why it was worth it",
+        };
+        _ = shell.Dialogs.ShowAsync(call);
         return new MainWindowContent { Shell = shell };
     }
 

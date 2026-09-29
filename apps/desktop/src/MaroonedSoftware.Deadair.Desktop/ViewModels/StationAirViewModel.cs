@@ -13,7 +13,7 @@ namespace MaroonedSoftware.Deadair.Desktop.ViewModels;
 
 /// <summary>
 /// The station's air, on the desk: who is driving it, whether the schedule may take it back, what
-/// puts it on air, who presents it, and planning it.
+/// puts it on air, who presents it, planning it, taking a call, and rating the record on air.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -78,6 +78,29 @@ public sealed partial class StationAirViewModel(OperatorActions actions, IDialog
     [ObservableProperty]
     private bool _busy;
 
+    /// <summary>The record on air, when it is one the catalog knows and so can hold an opinion of.</summary>
+    private Guid? _playingTrack;
+
+    [ObservableProperty]
+    private bool _canRate;
+
+    [ObservableProperty]
+    private string? _playingTitle;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsLiked), nameof(IsDisliked), nameof(IsNeutral))]
+    private Rating _rating = Rating.Neutral;
+
+    public bool IsLiked => Rating == Rating.Liked;
+
+    public bool IsDisliked => Rating == Rating.Disliked;
+
+    public bool IsNeutral => Rating == Rating.Neutral;
+
+    /// <summary>A rating is being written, so the order's older reading does not put the last one back.</summary>
+    [ObservableProperty]
+    private bool _ratingWriting;
+
     public void Attach(OrderRepository repository, StationUrl station)
     {
         // Nothing is drawn from what the repository last read: that may be a signed-out session's,
@@ -116,6 +139,18 @@ public sealed partial class StationAirViewModel(OperatorActions actions, IDialog
         // about what is on air is one an operator goes looking for, so the current answer is said
         // whichever way it was arrived at.
         HostLabel = $"Presented by {order.PersonaLabel ?? "the station's host"}";
+
+        // The running order carries each record's rating, which is how the thumbs know what the
+        // station already thinks of the record on air.
+        var airing = order.Items.FirstOrDefault(item => item is { State: StationItemState.Airing, Kind: StationOrderItemKind.Track });
+        _playingTrack = Guid.TryParse(airing?.TrackId, out var track) ? track : null;
+        CanRate = _playingTrack is not null;
+        PlayingTitle = airing?.Title;
+
+        if (!RatingWriting)
+        {
+            Rating = airing?.Rating ?? Rating.Neutral;
+        }
     }
 
     /// <summary>Forgets the station, before the app is pointed at another or the operator signs out.</summary>
@@ -134,6 +169,68 @@ public sealed partial class StationAirViewModel(OperatorActions actions, IDialog
         Brief = null;
         HostLabel = "Presented by the station's host";
         HasOrder = false;
+        _playingTrack = null;
+        CanRate = false;
+        PlayingTitle = null;
+        Rating = Rating.Neutral;
+    }
+
+    /// <summary>
+    /// What the station thinks of the record on air, which is where an operator forms an opinion of
+    /// one: they are hearing it.
+    /// </summary>
+    /// <remarks>
+    /// No question first. A rating changes what the rotation draws later and nothing that is airing,
+    /// and withdrawing it is the middle button. The write goes to the catalog, and the order is read
+    /// again because it carries the rating.
+    /// </remarks>
+    [RelayCommand]
+    private async Task RateAsync(string rating)
+    {
+        if (_playingTrack is not { } track || !Enum.TryParse<Rating>(rating, out var wanted) || wanted == Rating)
+        {
+            return;
+        }
+
+        var before = Rating;
+        Rating = wanted;
+        RatingWriting = true;
+        try
+        {
+            var written = await actions.RunAsync(async token =>
+            {
+                using var sdk = new DeadairSdk(new SdkOptions { BaseUrl = _station.ApiBase, HttpClient = http });
+                return await sdk.Catalog.RateTrackAsync(track, new RateInput { Rating = wanted }, token).ConfigureAwait(false);
+            }).ConfigureAwait(true);
+
+            if (written is null)
+            {
+                Rating = before;
+            }
+        }
+        finally
+        {
+            RatingWriting = false;
+        }
+
+        _repository?.Kick();
+    }
+
+    /// <summary>
+    /// Puts somebody on the phone: a short production, written and spoken a turn at a time.
+    /// </summary>
+    [RelayCommand]
+    private async Task TakeCallAsync()
+    {
+        if (!HasOrder)
+        {
+            return;
+        }
+
+        // A failed read of the hosts still opens it: the call can always be presented by this show's own.
+        var hosts = await HostsAsync(report: false).ConfigureAwait(true) ?? [];
+        await dialogs.ShowAsync(new TakeACallDialogViewModel(actions, _station, http, _order?.PersonaId, _order?.PersonaLabel, hosts))
+            .ConfigureAwait(true);
     }
 
     /// <summary>The air mode, asked before it is changed: it decides whether the station airs to nobody.</summary>

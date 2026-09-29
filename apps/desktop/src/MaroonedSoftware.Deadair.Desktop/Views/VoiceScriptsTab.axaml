@@ -1,0 +1,38 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    xmlns:conv="using:MaroonedSoftware.Deadair.Desktop.Themes"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.VoiceScriptsTab"
+    x:DataType="vm:ScriptsViewModel">
+
+    <UserControl.Resources>
+        <conv:ToneBrushConverter x:Key="ToneBrush" />
+    </UserControl.Resources>
+
+    <DockPanel>
+        <TextBlock DockPanel.Dock="Top" Classes="dimmed" Text="{Binding Notice}" TextWrapping="Wrap" Margin="0,0,0,10"
+                   IsVisible="{Binding Notice, Converter={x:Static ObjectConverters.IsNotNull}}" />
+
+        <!-- One row per ATTEMPT rather than per segment: a model that declined and the floor that
+             covered for it are two facts, not one misleading one. -->
+        <ListBox Classes="rows" ItemsSource="{Binding Scripts}">
+            <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:ScriptRowViewModel">
+                    <Grid ColumnDefinitions="10,54,90,*" ColumnSpacing="10" Margin="0,4">
+                        <Ellipse Width="6" Height="6" VerticalAlignment="Top" Margin="0,6,0,0"
+                                 Fill="{Binding Tone, Converter={StaticResource ToneBrush}}" />
+                        <TextBlock Classes="mono" Grid.Column="1" Text="{Binding When}" FontSize="11"
+                                   Foreground="{DynamicResource DaTextDimmedBrush}" />
+                        <TextBlock Grid.Column="2" Text="{Binding Kind}" FontSize="11"
+                                   TextTrimming="CharacterEllipsis"
+                                   Foreground="{DynamicResource DaTextDimmedBrush}" />
+                        <TextBlock Grid.Column="3" Text="{Binding Text}" TextWrapping="Wrap" FontSize="12"
+                                   Foreground="{DynamicResource DaTextSecondaryBrush}" />
+                    </Grid>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+    </DockPanel>
+
+</UserControl>

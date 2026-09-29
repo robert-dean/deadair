@@ -1,0 +1,105 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.VoiceCharactersTab"
+    x:DataType="vm:CharactersViewModel">
+
+    <DockPanel>
+        <StackPanel DockPanel.Dock="Top" Spacing="10" Margin="0,0,0,10">
+            <!-- New host is the one primary: it is what this tab is for. Restore is a plain button
+                 because pressing it twice is harmless; it writes only what is missing. -->
+            <WrapPanel ItemSpacing="6" LineSpacing="6">
+                <Button Classes="primary" Content="New host" Command="{Binding NewHostCommand}" />
+                <Button Classes="ghost" Content="New caller" Command="{Binding NewCallerCommand}" />
+                <Button Classes="ghost" Content="Import" Command="{Binding ImportCommand}" />
+                <Button Classes="ghost" Content="Export all" Command="{Binding ExportAllCommand}" />
+                <Button Classes="ghost" Content="Restore built-ins" Command="{Binding RestoreCommand}" />
+            </WrapPanel>
+
+            <TextBox Text="{Binding Filter}" PlaceholderText="Find a character" MaxWidth="360"
+                     HorizontalAlignment="Left" MinWidth="240" IsVisible="{Binding ShowsFilter}" />
+
+            <TextBlock Classes="dimmed" Text="{Binding Notice}" TextWrapping="Wrap"
+                       IsVisible="{Binding Notice, Converter={x:Static ObjectConverters.IsNotNull}}" />
+            <TextBlock Classes="dimmed" Text="{Binding Empty}" TextWrapping="Wrap" MaxWidth="620" HorizontalAlignment="Left"
+                       IsVisible="{Binding Empty, Converter={x:Static ObjectConverters.IsNotNull}}" />
+        </StackPanel>
+
+        <ListBox Classes="rows" ItemsSource="{Binding Rows}">
+            <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:PersonaRowViewModel">
+                    <StackPanel Spacing="4" Margin="0,4">
+                        <!-- A heading at each changeover rather than two lists. -->
+                        <TextBlock Classes="eyebrow" Text="{Binding Heading}" Margin="22,4,0,6" IsVisible="{Binding HasHeading}" />
+
+                        <Grid ColumnDefinitions="14,*,170" ColumnSpacing="8">
+                            <!-- The tally: one persona presents at a time. The column keeps its width
+                                 whether the lamp is drawn or not, or the names do not line up. -->
+                            <Ellipse Width="8" Height="8" VerticalAlignment="Top" Margin="0,6,0,0"
+                                     HorizontalAlignment="Left"
+                                     Fill="{DynamicResource DaToneLiveBrush}" IsVisible="{Binding Presenting}" />
+
+                            <StackPanel Grid.Column="1" Spacing="3">
+                                <WrapPanel ItemSpacing="8">
+                                    <TextBlock Text="{Binding Label}" FontWeight="SemiBold" Foreground="{DynamicResource DaTextBrush}" />
+                                    <TextBlock Text="On air now" FontSize="11" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource DaToneLiveBrush}" IsVisible="{Binding Presenting}" />
+                                    <TextBlock Text="Station's own" FontSize="11" VerticalAlignment="Center" Classes="dimmed"
+                                               IsVisible="{Binding ShowsStationsOwn}" />
+                                    <TextBlock Text="{Binding DjName}" FontSize="11" VerticalAlignment="Center" Classes="secondary"
+                                               IsVisible="{Binding DjName, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                                </WrapPanel>
+
+                                <!-- Clamped: an unconstrained style sentence sets the row's height. -->
+                                <TextBlock Text="{Binding Style}" FontSize="12" TextWrapping="Wrap" MaxLines="3"
+                                           TextTrimming="CharacterEllipsis" MaxWidth="680" HorizontalAlignment="Left"
+                                           Foreground="{DynamicResource DaTextSecondaryBrush}" />
+                                <TextBlock Text="{Binding Summary}" FontSize="11" TextWrapping="Wrap" Classes="dimmed"
+                                           MaxWidth="680" HorizontalAlignment="Left"
+                                           IsVisible="{Binding Summary, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                                <TextBlock Text="{Binding RingsIn}" FontSize="11" TextWrapping="Wrap" Classes="dimmed"
+                                           IsVisible="{Binding RingsIn, Converter={x:Static ObjectConverters.IsNotNull}}" />
+
+                                <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding HasVoice}">
+                                    <TextBlock Text="{Binding VoiceLine}" FontSize="11" Classes="dimmed"
+                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="520" />
+                                    <!-- A voice is judged by ear, heard over the station rather than instead of it. -->
+                                    <Button Classes="ghost" FontSize="11" Padding="8,1" Content="{Binding PlayLabel}"
+                                            Command="{Binding $parent[ListBox].((vm:CharactersViewModel)DataContext).PlayVoiceCommand}"
+                                            CommandParameter="{Binding}" />
+                                </StackPanel>
+
+                                <TextBlock Text="{Binding Record}" FontSize="11" Classes="mono"
+                                           Foreground="{DynamicResource DaTextDimmedBrush}"
+                                           IsVisible="{Binding Record, Converter={x:Static ObjectConverters.IsNotNull}}" />
+
+                                <!-- The one action anybody comes to this tab for, so it is always drawn. -->
+                                <Button Classes="ghost" FontSize="11" Padding="8,3" Content="Make station host" Margin="0,4,0,0"
+                                        IsVisible="{Binding CanMakeHost}"
+                                        Command="{Binding $parent[ListBox].((vm:CharactersViewModel)DataContext).MakeStationHostCommand}"
+                                        CommandParameter="{Binding}" />
+                            </StackPanel>
+
+                            <!-- The rest arrive with the pointer, in a column of their own so every
+                                 card's text is the same width. Delete is last. -->
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="2" HorizontalAlignment="Right"
+                                        VerticalAlignment="Top">
+                                <Button Classes="reveal ghost" FontSize="11" Padding="8,3" Content="Edit"
+                                        Command="{Binding $parent[ListBox].((vm:CharactersViewModel)DataContext).EditCommand}"
+                                        CommandParameter="{Binding}" />
+                                <Button Classes="reveal ghost" FontSize="11" Padding="8,3" Content="Export"
+                                        Command="{Binding $parent[ListBox].((vm:CharactersViewModel)DataContext).ExportCommand}"
+                                        CommandParameter="{Binding}" />
+                                <Button Classes="reveal ghost" FontSize="11" Padding="8,3" Content="Delete"
+                                        Command="{Binding $parent[ListBox].((vm:CharactersViewModel)DataContext).DeleteCommand}"
+                                        CommandParameter="{Binding}" />
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+    </DockPanel>
+
+</UserControl>

@@ -20,7 +20,12 @@ namespace MaroonedSoftware.Deadair.Desktop.ViewModels;
 /// thing, and one that waited for a second press to fetch it would be a page that opens empty.
 /// </para>
 /// </remarks>
-public sealed class DetailPages(OperatorActions actions, HttpClient http, LibraryViewModel library, SettingsViewModel? settings = null)
+public sealed class DetailPages(
+    OperatorActions actions,
+    HttpClient http,
+    LibraryViewModel library,
+    VoiceViewModel voice,
+    SettingsViewModel? settings = null)
 {
     private StationUrl _station;
 
@@ -45,6 +50,7 @@ public sealed class DetailPages(OperatorActions actions, HttpClient http, Librar
             Nav.Destination.TrackDetail track => Read(new TrackDetailViewModel(Catalog(), track.Id, track.Title)),
             Nav.Destination.StationPlaylistDetail own => StationPlaylist(own),
             Nav.Destination.PlaylistTracks source => SourcePlaylist(source),
+            Nav.Destination.PersonaDetail persona => voice.Characters.Open(persona),
             _ => null,
         };
     }

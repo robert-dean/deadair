@@ -47,6 +47,7 @@ internal static class Fakes
         // Previews that play nothing: a shot is a picture, and a picture makes no sound.
         var previews = new PreviewsViewModel(new ClipPlayer(() => new NullStationPlayer()), dispatcher);
         var library = new LibraryViewModel(actions, http, navigation, dialogs, new NoFiles());
+        var voice = new VoiceViewModel(actions, http, dialogs, previews, new NoFiles(), navigation);
         var stationSettings = new SettingsViewModel(
             actions, http, settings, new ThemeManager(), dialogs, session, dispatcher, plugins: PosedPlugins(), navigation: navigation);
 
@@ -71,8 +72,8 @@ internal static class Fakes
             new HistoryViewModel(actions, http),
             new CheckupViewModel(actions, http, new NoFiles()),
             stationSettings,
-            new VoiceViewModel(actions, http, dialogs, previews),
-            new DetailPages(actions, http, library, stationSettings),
+            voice,
+            new DetailPages(actions, http, library, voice, stationSettings),
             dialogs,
             new ThemeManager(),
             dispatcher)
@@ -376,42 +377,82 @@ internal static class Fakes
 
     private static void Voice(VoiceViewModel voice)
     {
-        voice.Personas.Add(new PersonaRowViewModel(
-            "1",
-            "Marla Vance",
-            "Dry, unhurried, and never explains a joke. Speaks as though she has been up all night and "
-            + "is the only one who noticed.",
-            IsStationHost: true,
-            Presenting: true));
-        voice.Personas.Add(new PersonaRowViewModel(
-            "2",
-            "The Conspiracy Host",
-            "Certain about everything, wrong about most of it, and defers to the daypart he is handed.",
-            IsStationHost: false,
-            Presenting: false));
-        voice.Personas.Add(new PersonaRowViewModel("3", "Newsreader", "Flat, exact, and never editorialises.", false, false));
+        voice.Characters.Pose(Roster(), Voices());
 
-        voice.Scripts.Add(new ScriptRowViewModel(
+        voice.Scripts.Scripts.Add(new ScriptRowViewModel(
             "11:42", "talk", "model",
             "That was Pearl Jam, and before that a record I have been trying to place all morning. "
             + "Stay where you are.",
             StatusTone.Ok));
-        voice.Scripts.Add(new ScriptRowViewModel(
+        voice.Scripts.Scripts.Add(new ScriptRowViewModel(
             "11:39", "talk", "model", "Declined: wrong-daypart", StatusTone.Standby));
-        voice.Scripts.Add(new ScriptRowViewModel(
+        voice.Scripts.Scripts.Add(new ScriptRowViewModel(
             "11:38", "welcome", "floor", "You're listening to Deadair.", StatusTone.Ok));
-        voice.Scripts.Add(new ScriptRowViewModel(
+        voice.Scripts.Scripts.Add(new ScriptRowViewModel(
             "11:31", "news", "model", "The speech engine did not answer in time.", StatusTone.Fault));
 
-        voice.Segments.Add(new SegmentRowViewModel("1", "Talk break: Jeremy into Alive", "talk", "ready", StatusTone.Ok, canPlay: true) { IsPlaying = true });
-        voice.Segments.Add(new SegmentRowViewModel("2", "Station ident, evening", "ident", "ready", StatusTone.Ok, canPlay: true));
-        voice.Segments.Add(new SegmentRowViewModel("3", "Talk break: Regulate into My Boo", "talk", "rendering", StatusTone.Standby, canPlay: false));
-        voice.Segments.Add(new SegmentRowViewModel("4", "News bulletin, 11:30", "news", "failed", StatusTone.Fault, canPlay: false));
+        voice.Segments.Segments.Add(new SegmentRowViewModel("1", "Talk break: Jeremy into Alive", "talk", "ready", StatusTone.Ok, canPlay: true) { IsPlaying = true });
+        voice.Segments.Segments.Add(new SegmentRowViewModel("2", "Station ident, evening", "ident", "ready", StatusTone.Ok, canPlay: true));
+        voice.Segments.Segments.Add(new SegmentRowViewModel("3", "Talk break: Regulate into My Boo", "talk", "rendering", StatusTone.Standby, canPlay: false));
+        voice.Segments.Segments.Add(new SegmentRowViewModel("4", "News bulletin, 11:30", "news", "failed", StatusTone.Fault, canPlay: false));
 
-        voice.Productions.Add(new ProductionRowViewModel("p1", "Phone-in: the worst gig you ever went to", "callin", "drafting", true));
-        voice.Productions.Add(new ProductionRowViewModel("p2", "Evening feature", "feature", "ready", false));
-
+        voice.Productions.Productions.Add(new ProductionRowViewModel("p1", "Phone-in: the worst gig you ever went to", "callin", "drafting", true));
+        voice.Productions.Productions.Add(new ProductionRowViewModel("p2", "Evening feature", "feature", "ready", false));
     }
+
+    /// <summary>
+    /// A roster with every state a card can be in: on air, the station's own while a show has its
+    /// own host, a caller tied to two hosts, and a character missing everything a summary mentions.
+    /// </summary>
+    public static IReadOnlyList<Persona> Roster() =>
+    [
+        new()
+        {
+            Id = "1",
+            Key = "marla",
+            Label = "Marla Vance",
+            Style = "Dry, unhurried, and never explains a joke. Speaks as though she has been up all night and is the only one who "
+                + "noticed, and would rather you did not mention it either.",
+            DjName = "Midnight Marla",
+            Voice = "marla",
+            Templates = "That was {{previous.title}}.",
+            DictionMarkers = ["mm"],
+            DefaultHost = false,
+            Presenting = true,
+        },
+        new()
+        {
+            Id = "2",
+            Key = "conspiracy",
+            Label = "The Conspiracy Host, Who Has A Theory About Every Record On The Running Order",
+            Style = "Certain about everything, wrong about most of it, and defers to the daypart he is handed.",
+            Voice = "gravel",
+            DictionMarkers = ["they"],
+            DefaultHost = true,
+            Presenting = false,
+        },
+        new() { Id = "3", Key = "newsreader", Label = "Newsreader", Style = "Flat, exact, and never editorialises.", DefaultHost = false, Presenting = false },
+        new()
+        {
+            Id = "4",
+            Key = "taxi",
+            Kind = PersonaKind.Caller,
+            Label = "Dennis the taxi driver",
+            Style = "Rings in every week to argue about the charts, and is never once right about a release year.",
+            Hosts = ["1", "2"],
+            DictionMarkers = ["mate"],
+            Voice = "dennis",
+            DefaultHost = false,
+            Presenting = false,
+        },
+    ];
+
+    public static IReadOnlyList<MaroonedSoftware.Deadair.Sdk.Models.Voice> Voices() =>
+    [
+        new() { Id = "marla", Label = "Marla", Description = "a low, close alto with a smoker's rasp" },
+        new() { Id = "gravel", Label = "Gravel", Description = "an older man, slow and certain" },
+        new() { Id = "dennis", Label = "Dennis", Description = "south London, quick" },
+    ];
 
     private static void Checkup(CheckupViewModel checkup)
     {

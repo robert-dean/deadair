@@ -1,0 +1,42 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    xmlns:conv="using:MaroonedSoftware.Deadair.Desktop.Themes"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.VoiceSegmentsTab"
+    x:DataType="vm:SegmentsViewModel">
+
+    <UserControl.Resources>
+        <conv:ToneBrushConverter x:Key="ToneBrush" />
+    </UserControl.Resources>
+
+    <DockPanel>
+        <TextBlock DockPanel.Dock="Top" Classes="dimmed" Text="{Binding Notice}" TextWrapping="Wrap" Margin="0,0,0,10"
+                   IsVisible="{Binding Notice, Converter={x:Static ObjectConverters.IsNotNull}}" />
+
+        <ListBox Classes="rows" ItemsSource="{Binding Segments}">
+            <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:SegmentRowViewModel">
+                    <Grid ColumnDefinitions="10,*,90,80,64" ColumnSpacing="10" Margin="0,4">
+                        <Ellipse Width="6" Height="6" VerticalAlignment="Center"
+                                 Fill="{Binding Tone, Converter={StaticResource ToneBrush}}" />
+                        <TextBlock Grid.Column="1" Text="{Binding Label}" TextTrimming="CharacterEllipsis"
+                                   Foreground="{DynamicResource DaTextBrush}" />
+                        <TextBlock Grid.Column="2" Text="{Binding Kind}" FontSize="11" TextTrimming="CharacterEllipsis"
+                                   Foreground="{DynamicResource DaTextDimmedBrush}" />
+                        <!-- `ready` alone can air; everything before it is a stage of being made. -->
+                        <TextBlock Grid.Column="3" Text="{Binding State}" FontSize="11"
+                                   Foreground="{DynamicResource DaTextDimmedBrush}" />
+                        <!-- Heard over the station rather than instead of it. -->
+                        <Button Grid.Column="4" Classes="ghost" FontSize="11" Padding="8,2"
+                                HorizontalAlignment="Right" Content="{Binding PlayLabel}"
+                                IsVisible="{Binding CanPlay}"
+                                Command="{Binding $parent[ListBox].((vm:SegmentsViewModel)DataContext).PlaySegmentCommand}"
+                                CommandParameter="{Binding}" />
+                    </Grid>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+    </DockPanel>
+
+</UserControl>

@@ -1,0 +1,36 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.VoiceProductionsTab"
+    x:DataType="vm:ProductionsViewModel">
+
+    <DockPanel>
+        <TextBlock DockPanel.Dock="Top" Classes="dimmed" Text="{Binding Notice}" TextWrapping="Wrap" Margin="0,0,0,10"
+                   IsVisible="{Binding Notice, Converter={x:Static ObjectConverters.IsNotNull}}" />
+
+        <ListBox Classes="rows" ItemsSource="{Binding Productions}">
+            <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:ProductionRowViewModel">
+                    <!-- Fixed widths, not `Auto`. Every row is its own Grid, so an `Auto` column sizes
+                         to that row alone and the columns do not line up down the list. -->
+                    <Grid ColumnDefinitions="*,90,100,80" ColumnSpacing="14">
+                        <TextBlock Text="{Binding Title}" VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis"
+                                   Foreground="{DynamicResource DaTextBrush}" />
+                        <TextBlock Grid.Column="1" Text="{Binding Kind}" VerticalAlignment="Center" FontSize="11"
+                                   Foreground="{DynamicResource DaTextDimmedBrush}" />
+                        <TextBlock Grid.Column="2" Text="{Binding State}" VerticalAlignment="Center" FontSize="11"
+                                   Foreground="{DynamicResource DaTextSecondaryBrush}" />
+                        <Button Grid.Column="3" Classes="reveal ghost" Content="Cancel"
+                                FontSize="11" Padding="8,3"
+                                HorizontalAlignment="Right" IsVisible="{Binding CanCancel}"
+                                Command="{Binding $parent[ListBox].((vm:ProductionsViewModel)DataContext).CancelProductionCommand}"
+                                CommandParameter="{Binding}" />
+                    </Grid>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+    </DockPanel>
+
+</UserControl>

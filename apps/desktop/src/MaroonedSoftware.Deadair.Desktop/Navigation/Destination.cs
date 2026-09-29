@@ -66,6 +66,13 @@ public abstract record Destination
 
     /// <summary>One music source's playlist, read before it is aired or kept as the station's own.</summary>
     public sealed record PlaylistTracks(string PluginId, string PlaylistId, string Name, string Source) : Destination;
+
+    /// <summary>One character's sheet, or a new one's.</summary>
+    /// <param name="Id">The persona's id, or null for one that has not been written yet.</param>
+    /// <param name="Name">What the roster called it, shown while the page is drawn.</param>
+    /// <param name="Caller">Whether it phones in rather than presents, which a new one cannot say for itself.</param>
+    /// <remarks>A detail page of the Voice page, reached with <c>NavigationViewModel.Push</c>.</remarks>
+    public sealed record PersonaDetail(string? Id, string Name, bool Caller) : Destination;
 }
 
 /// <summary>

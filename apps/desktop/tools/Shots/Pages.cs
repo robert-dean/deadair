@@ -141,6 +141,13 @@ internal static class Pages
         yield return ("shell-voice", Page(new Destination.Voice(), operatorSignedIn: true), 1180, 720);
         yield return ("shell-voice-said", Page(new Destination.Voice(), operatorSignedIn: true, VoiceTab.Said), 1180, 720);
         yield return ("shell-voice-segments", Page(new Destination.Voice(), operatorSignedIn: true, VoiceTab.Segments), 1180, 720);
+        yield return ("shell-voice-min", Page(new Destination.Voice(), operatorSignedIn: true), 820, 520);
+
+        // A character's sheet: an existing host, and a new caller with its ties to the hosts.
+        yield return ("shell-voice-persona", Persona(caller: false), 1180, 720);
+        yield return ("shell-voice-persona-caller", Persona(caller: true), 1180, 1400);
+        yield return ("shell-voice-persona-min", Persona(caller: false), 820, 520);
+        yield return ("dialog-persona-import", PersonaImport(), 1180, 720);
         yield return ("player-bar", Bar(), 1180, 720);
         yield return ("player-bar-on-device", Bar(Fakes.OnASpeaker), 1180, 720);
 
@@ -375,6 +382,77 @@ internal static class Pages
         shell.Shell.Programme.Requests.DeclineCommand.Execute(row);
 
         return shell;
+    }
+
+    /// <summary>A character opened from the roster, or a new caller from New caller.</summary>
+    private static MainWindowContent Persona(bool caller)
+    {
+        var shell = Fakes.Shell(operatorSignedIn: true);
+        Fakes.PutOnAir(shell.Listener);
+        Fakes.Fill(shell, new Destination.Voice());
+        shell.Navigation.Show(new Destination.Voice());
+
+        if (caller)
+        {
+            shell.Voice.Characters.NewCallerCommand.Execute(null);
+            var page = (PersonaDetailViewModel)shell.Details.Current!;
+            page.Label = "Dennis the taxi driver";
+            page.Style = "Rings in every week to argue about the charts, and is never once right about a release year.";
+            page.Hosts[0].IsChosen = true;
+            page.Templates = "Right, {{previous.tittle}} was never a single";
+        }
+        else
+        {
+            shell.Voice.Characters.EditCommand.Execute(shell.Voice.Characters.Rows[0]);
+        }
+
+        shell.Dialogs.Notice = null;
+
+        return new MainWindowContent { Shell = shell };
+    }
+
+    /// <summary>A file's plan, with a notice on one character and one that would be rewritten.</summary>
+    private static MainWindowContent PersonaImport()
+    {
+        var shell = Fakes.Shell(operatorSignedIn: true);
+        Fakes.PutOnAir(shell.Listener);
+        Fakes.Fill(shell, new Destination.Voice());
+        shell.Navigation.Show(new Destination.Voice());
+
+        var plan = new PersonaImportPlan
+        {
+            Format = "deadair.personas/1",
+            Notices = [new() { Kind = PersonaImportNoticeKind.Format, Message = "This file was written by a newer station; anything it does not know is left out." }],
+            Personas =
+            [
+                new()
+                {
+                    Key = "marla", Label = "Marla Vance", Outcome = PersonaImportEntryOutcome.Update,
+                    StoriesNew = 2, StoriesHeld = 5, DetailsNew = 0, DetailsHeld = 0,
+                    Notices = [new() { Kind = PersonaImportNoticeKind.Duplicate, Message = "Speaks as \"marla\", which this station's engine does not map, so it would use the default voice." }],
+                },
+                new()
+                {
+                    Key = "taxi", Label = "Dennis the taxi driver", Kind = PersonaImportEntryKind.Caller, Outcome = PersonaImportEntryOutcome.Create,
+                    StoriesNew = 0, StoriesHeld = 0, DetailsNew = 0, DetailsHeld = 0, Notices = [],
+                },
+            ],
+        };
+        var file = new PersonaFile { Format = "deadair.personas/1", TakenAt = "2026-09-29T10:00:00Z", Personas = [] };
+        shell.Dialogs.Notice = null;
+
+        if (StationUrl.TryParse("https://radio.example.com", out var station))
+        {
+            _ = shell.Dialogs.ShowAsync(new PersonaImportDialogViewModel(
+                new OperatorActions(new SessionManager(new InMemorySecretStore(), Fakes.Http())),
+                Fakes.Http(),
+                station,
+                "personas-radio.example.com-2026-09-29.json",
+                file,
+                plan));
+        }
+
+        return new MainWindowContent { Shell = shell };
     }
 
     private static MainWindowContent Confirm()

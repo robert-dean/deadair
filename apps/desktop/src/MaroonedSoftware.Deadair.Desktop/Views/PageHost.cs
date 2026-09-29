@@ -89,6 +89,7 @@ public sealed class PageHost : TransitioningContentControl
             Nav.Destination.TrackDetail => Detail(new TrackDetailView(), shell.Details.Current),
             Nav.Destination.StationPlaylistDetail => Detail(new StationPlaylistDetailView(), shell.Details.Current),
             Nav.Destination.PlaylistTracks => Detail(new PlaylistTracksView(), shell.Details.Current),
+            Nav.Destination.PersonaDetail => Detail(new PersonaDetailView(), shell.Details.Current),
 
             Nav.Destination.Programme => Page(() => new ProgrammeView(), shell.Programme),
             Nav.Destination.Library => Page(() => new LibraryView(), shell.Library),

@@ -1130,10 +1130,9 @@ operator learns the station has no mixer or could not open the source. A chapter
 from one where the station counts from zero. Eight tabs fit one row at the default window only with
 the strip's padding tightened in `LibraryView`, which is why it is.
 
-**The voice page is four readings, not the console's eight tabs.** The four are the ones that answer a
-question somebody asks of a RUNNING station: who is presenting, what did it say, what audio does it
-hold, and what is being made. Voices, pronunciations, pads and topics are configuration rather than
-observation and are left for later.
+**The voice page is the console's tabs now, not four readings**, and its rules are in "The voice"
+below. The two paragraphs that follow are about two of its tabs and stay here because they were
+written with this section.
 
 **A script row is one ATTEMPT rather than one segment**, which is the whole point of that endpoint: a
 model that declined and the floor that covered for it are two facts, and collapsing them into one row
@@ -1142,6 +1141,46 @@ would hide the more interesting of the two.
 **A production is cancellable in the states that are still being made, listed positively.** Naming the
 states that CAN be cancelled rather than the ones that cannot means a stage added upstream is not
 silently cancellable by omission.
+
+## The voice
+
+**The console's tabs, in its order, one view model and one view each.** `VoiceViewModel` owns the
+tabs (`CharactersViewModel` and the rest, each a `VoiceTabViewModel`), attaches them with the station
+and reads the one showing, on every visit: what the station says moves while nobody is looking, so
+this page is read on arrival rather than kept. A tab is drawn by its own `Views/Voice*Tab.axaml`
+inside a wrapper `Panel` that carries the visibility, because the tab's own `DataContext` would
+re-scope an `IsVisible` on it. The strip is a `WrapPanel`: at the window's minimum a row of tabs
+that ran off the page would hide the one somebody came for. A tab's good news is its own `Notice`;
+a refusal is still said at the foot of the page by `OperatorActions`.
+
+**A character is edited on a page, not in a dialog** (`Destination.PersonaDetail`,
+`PersonaDetailViewModel`). A sheet is nineteen fields read whole, and a dialog made it a tall column
+in the middle of a dimmed window; the fields scroll and Save does not, so the way out is never
+fourteen boxes away. A new one carries whether it is a caller, because what a character is FOR is
+fixed for the life of the page. Back from it reads the roster again, which is how a save reaches
+its card. It does not ask before throwing away unsaved edits, as the console's drawer does: the
+shell's Back cannot be stopped from a page, and a question on Cancel alone would be a promise Back
+breaks.
+
+**Every list on the sheet is one entry per line, and `Core/Voicing/PersonaSheet` is where that
+becomes the arrays the station takes.** An empty field is left OUT rather than sent as "", which is
+what makes clearing the on-air name mean "use the station's". The middle rung of each dial
+(`ordinary`, `occasionally`, `proposes`) is absent too. A dial is held as the station's own word and
+converted through `Wire`, because the SDK makes a separate enum for the same words on a sheet and on
+a generated draft. The key follows the name only on a NEW character and only until somebody types
+their own: the key is what the script history stamps, and moving it under a rename detaches a
+character from everything it has said.
+
+**The phrasing and marker checks are advisory and never block a save.** `PersonaReadout` holds a
+copy of the station's placeholder vocabulary, and a desk that refused a save over its own copy would
+stop working the day the station learns a new one.
+
+**An import is read here, previewed there, and only then written.** The file is parsed before
+anything is sent, so the wrong download gets a sentence rather than a refusal from a schema that
+never ran; the plan the dialog shows is the station's own decision (the import runs the same
+function), and it is the document read at choosing time that is sent, not the file again. An export
+takes the station's file name from `Content-Disposition` but only its last segment, so a header
+cannot choose where the file goes.
 
 ## Settings
 

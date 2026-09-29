@@ -10,7 +10,7 @@ import { parseAndValidate } from '@maroonedsoftware/zod';
 export const PlaylistsRouter = ServerKitRouter();
 
 /**
- * Fans out across every installed plugin that declares AND implements the `catalog` capability
+ * Every playlist the installed `catalog` plugins offer, as the library sync last read each one's list. A source with no list kept yet is asked while the request waits
  * from [playlists.ck](../../data/contracts/playlists/playlists.ck#L19)
  */
 PlaylistsRouter.get('/playlists', requirePolicy({ policy: 'platform.view' }), async ctx => {

@@ -1,4 +1,10 @@
 import { z } from 'zod';
+import { DateTime } from 'luxon';
+
+const _ZodDatetime = z.preprocess(
+    val => (typeof val === 'string' ? DateTime.fromISO(val) : val),
+    z.custom<DateTime>(val => val instanceof DateTime && val.isValid, { message: 'Must be in ISO 8601 format' }),
+);
 
 /**
  * An action a source will permit on one playlist's items. Item-scoped: neither value covers the playlist's own name or description
@@ -42,6 +48,19 @@ export const CatalogSourceError = z.strictObject({
 export type CatalogSourceError = z.infer<typeof CatalogSourceError>;
 
 /**
+ * One music source whose playlists are in this answer, and how old its list is
+ * generated from [CatalogPlaylistSource](../../../../data/contracts/playlists/playlists.types.ck#L51)
+ */
+export const CatalogPlaylistSource = z.strictObject({
+    pluginId: z.string().min(1).max(200),
+    pluginName: z.string().min(1).max(200),
+    listedAt: _ZodDatetime.describe(
+        "When the station last read this source's whole list of playlists. The library sync reads it in the background, so this is usually minutes old; a source listed for the first time is read for this answer",
+    ),
+});
+export type CatalogPlaylistSource = z.infer<typeof CatalogPlaylistSource>;
+
+/**
  * A playlist a catalog-capable plugin offers, tagged with the plugin it came from so an aggregated list is addressable
  * generated from [CatalogPlaylist](../../../../data/contracts/playlists/playlists.types.ck#L11)
  */
@@ -75,7 +94,7 @@ export const CatalogPlaylist = z.strictObject({
 export type CatalogPlaylist = z.infer<typeof CatalogPlaylist>;
 
 /**
- * generated from [CatalogPlaylistTracks](../../../../data/contracts/playlists/playlists.types.ck#L55)
+ * generated from [CatalogPlaylistTracks](../../../../data/contracts/playlists/playlists.types.ck#L63)
  */
 export const CatalogPlaylistTracks = z.strictObject({
     pluginId: z.string().min(1).max(200),
@@ -85,10 +104,16 @@ export const CatalogPlaylistTracks = z.strictObject({
 export type CatalogPlaylistTracks = z.infer<typeof CatalogPlaylistTracks>;
 
 /**
- * generated from [CatalogPlaylistPage](../../../../data/contracts/playlists/playlists.types.ck#L50)
+ * generated from [CatalogPlaylistPage](../../../../data/contracts/playlists/playlists.types.ck#L57)
  */
 export const CatalogPlaylistPage = z.strictObject({
     playlists: z.array(CatalogPlaylist),
+    sources: z
+        .array(CatalogPlaylistSource)
+        .optional()
+        .describe(
+            'Every source whose playlists are listed, including one that also has an entry in `errors`: its list is then the last one the station read. Absent from a station that predates it, which asked every source live',
+        ),
     errors: z.array(CatalogSourceError),
 });
 export type CatalogPlaylistPage = z.infer<typeof CatalogPlaylistPage>;

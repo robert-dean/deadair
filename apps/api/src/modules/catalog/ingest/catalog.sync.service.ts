@@ -9,6 +9,7 @@ import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
 import { CatalogResolverService } from './catalog.resolver.service.js';
 import { HiddenPlaylistsRepository, hiddenPlaylistKey } from '../hidden.playlists.repository.js';
+import { ProviderPlaylistsRepository } from '../provider.playlists.repository.js';
 import { resolveSweepMaxPercent, SWEEP_MAX_PERCENT_KEY, type SweepOutcome } from './catalog.sweep.guard.js';
 import { serverkitErrorText } from '#modules/shared/error.text.js';
 import { PLUGIN_PAGE_SIZE, pluginPages } from '#modules/plugins/plugin.paging.js';
@@ -16,7 +17,7 @@ import { PLUGIN_PAGE_SIZE, pluginPages } from '#modules/plugins/plugin.paging.js
 /** What one plugin's walk produced. */
 export interface PluginSyncSummary {
     pluginId: string;
-    /** Playlists read. They are the enumeration path, never persisted. */
+    /** Playlists walked. The list they came from is kept whole when it was read to the end. */
     playlists: number;
     /** Provider items seen, including repeats across playlists. */
     items: number;
@@ -47,11 +48,14 @@ export interface PluginSyncSummary {
  * enumeration path there is, and "the catalog" means everything reachable
  * through the connected account's playlists.
  *
- * Nothing about the playlists themselves is written. `deadair.playlists` is for
- * playlists deadair owns; a provider's own are read live and pass through as
- * `CatalogPlaylist` (see `PlaylistsService`). This walks them and keeps the
- * tracks. The one thing the station records about a provider's playlist is that
- * an operator hid it (`deadair.hidden_playlists`), and a hidden one is not walked.
+ * A provider's playlists never become the station's. `deadair.playlists` is for
+ * playlists deadair owns; this walks a provider's and keeps their tracks. What
+ * it does keep about the playlists is the list itself, whole and as the
+ * provider gave it (`deadair.provider_playlist_listings`), because the Library
+ * page answers from that rather than asking every provider while an operator
+ * waits. The other thing the station records about a provider's playlist is
+ * that an operator hid it (`deadair.hidden_playlists`), and a hidden one is not
+ * walked.
  *
  * Everything here is sequential — plugins one at a time, pages one at a time —
  * which is the point rather than an oversight. The upstreams are rate limited,
@@ -70,6 +74,7 @@ export class CatalogSyncService {
         private readonly pluginInvoker: PluginInvoker,
         private readonly resolver: CatalogResolverService,
         private readonly hidden: HiddenPlaylistsRepository,
+        private readonly listings: ProviderPlaylistsRepository,
         private readonly jobBroker: JobBroker,
         private readonly config: AppConfig,
         private readonly logger: Logger,
@@ -298,7 +303,20 @@ export class CatalogSyncService {
             // could not finish, and nothing is swept.
             const hidden = await this.hidden.keys();
 
-            for await (const playlist of this.playlists(candidate, onTruncated, signal)) {
+            // The whole list first, then the tracks, so the list can be kept the moment it is
+            // complete: the Library page reads it from there, and it should not wait on a walk of
+            // every track, nor lose it to a track page that fails half an hour in.
+            let listTruncated = false;
+            const playlists: ProviderPlaylist[] = [];
+            const onListTruncated = () => {
+                listTruncated = true;
+                onTruncated();
+            };
+            for await (const playlist of this.playlists(candidate, onListTruncated, signal)) playlists.push(playlist);
+            if (!listTruncated && !signal?.aborted) await this.keepListing(pluginId, playlists);
+
+            for (const playlist of playlists) {
+                if (signal?.aborted) break;
                 summary.playlists++;
                 if (hidden.has(hiddenPlaylistKey(pluginId, playlist.id))) {
                     this.logger.debug('skipping a playlist the operator hid', { plugin: pluginId, playlist: playlist.id });
@@ -381,6 +399,25 @@ export class CatalogSyncService {
         }
         summary.bound++;
         if (result.created) summary.created++;
+    }
+
+    /**
+     * Keep the list of playlists this walk read, for the Library page to answer from.
+     *
+     * Only ever a list read to the end: the caller skips this for a list that stopped at the page
+     * cap or was cancelled, because the stored list is replaced whole and a partial one would drop
+     * every playlist it missed from the page. A list that failed outright never gets here.
+     *
+     * Best-effort. The page falls back to asking the provider for a source with nothing stored, and
+     * a walk that has already read the list must not give up the library over where it keeps a copy
+     * of it.
+     */
+    private async keepListing(pluginId: string, playlists: readonly ProviderPlaylist[]): Promise<void> {
+        try {
+            await this.listings.put(pluginId, playlists);
+        } catch (error) {
+            this.logger.warn('could not keep the playlist listing a walk read', { plugin: pluginId, error: serverkitErrorText(error) });
+        }
     }
 
     /** Every playlist the plugin offers, one page at a time. */

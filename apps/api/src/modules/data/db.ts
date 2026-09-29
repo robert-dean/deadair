@@ -768,6 +768,13 @@ export interface DeadairPronunciations {
   written: string;
 }
 
+export interface DeadairProviderPlaylistListings {
+  listedAt: Generated<DateTime>;
+  playlists: Json;
+  pluginId: string;
+  stationKey: Generated<string>;
+}
+
 export interface DeadairScheduleSlots {
   brief: Generated<string>;
   callins: boolean | null;
@@ -1099,6 +1106,7 @@ export interface DB {
   "deadair.podcastEpisodes": DeadairPodcastEpisodes;
   "deadair.productions": DeadairProductions;
   "deadair.pronunciations": DeadairPronunciations;
+  "deadair.providerPlaylistListings": DeadairProviderPlaylistListings;
   "deadair.scheduleSlots": DeadairScheduleSlots;
   "deadair.scriptHistory": DeadairScriptHistory;
   "deadair.scriptRatings": DeadairScriptRatings;

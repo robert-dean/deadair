@@ -2602,7 +2602,7 @@ paths:
         get:
             operationId: listPlaylists
             summary: 'List importable playlists'
-            description: 'Fans out across every installed plugin that declares AND implements the `catalog` capability'
+            description: "Every playlist the installed `catalog` plugins offer, as the library sync last read each one's list. A source with no list kept yet is asked while the request waits"
             responses:
                 '200':
                     description: 'Successful response'
@@ -9622,6 +9622,23 @@ components:
                     maxLength: 4000
             required: [pluginId, pluginName, message]
             description: 'One catalog-capable plugin that could not be listed'
+        CatalogPlaylistSource:
+            type: object
+            properties:
+                pluginId:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                pluginName:
+                    type: string
+                    minLength: 1
+                    maxLength: 200
+                listedAt:
+                    type: string
+                    format: date-time
+                    description: "When the station last read this source's whole list of playlists. The library sync reads it in the background, so this is usually minutes old; a source listed for the first time is read for this answer"
+            required: [pluginId, pluginName, listedAt]
+            description: 'One music source whose playlists are in this answer, and how old its list is'
         CatalogPlaylistPage:
             type: object
             properties:
@@ -9629,6 +9646,11 @@ components:
                     type: array
                     items:
                         '$ref': '#/components/schemas/CatalogPlaylist'
+                sources:
+                    type: array
+                    items:
+                        '$ref': '#/components/schemas/CatalogPlaylistSource'
+                    description: 'Every source whose playlists are listed, including one that also has an entry in `errors`: its list is then the last one the station read. Absent from a station that predates it, which asked every source live'
                 errors:
                     type: array
                     items:

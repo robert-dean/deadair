@@ -1,5 +1,6 @@
-// Service-level unit tests for `PlaylistsService`: the read-only, no-database
-// aggregation of every active catalog-capable plugin's playlists, and the
+// Service-level unit tests for `PlaylistsService`: the aggregation of every
+// active catalog-capable plugin's playlists, from the lists the library sync
+// kept or live where none is kept, and the
 // on-demand fetch of one plugin's playlist tracks. Both routes sit behind
 // `requirePolicy({ policy: 'platform.view' })` (see `playlists.router.ts`),
 // which every role that can sign in holds; each entry point narrows to
@@ -7,6 +8,7 @@
 // `getPlaylistTracks` by calling `require` per object.
 
 import { describe, expect, it, vi } from 'vitest';
+import { DateTime } from 'luxon';
 import type { Logger } from '@maroonedsoftware/logger';
 import { IsHttpError } from '@maroonedsoftware/errors';
 import { PluginError, type PluginManifest } from '@deadair/plugin-sdk';
@@ -18,6 +20,7 @@ import { PluginInvoker } from '../../../src/modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '../../../src/modules/plugins/plugin.registry.js';
 import type { PluginRecord } from '../../../src/modules/plugins/types/plugin.record.js';
 import { hiddenPlaylistKey } from '../../../src/modules/catalog/hidden.playlists.repository.js';
+import type { ProviderPlaylistListing } from '../../../src/modules/catalog/provider.playlists.repository.js';
 import { PlaylistsService } from '../../../src/modules/playlists/playlists.service.js';
 import { stubPluginLog } from '../../utils/plugin.log.fixture.js';
 
@@ -124,6 +127,7 @@ interface Harness {
     listVisibleIdsSpy: ReturnType<typeof vi.fn>;
     findByBindings: ReturnType<typeof vi.fn>;
     hidden: { keys: ReturnType<typeof vi.fn>; hide: ReturnType<typeof vi.fn>; show: ReturnType<typeof vi.fn> };
+    listings: { list: ReturnType<typeof vi.fn> };
     jobs: { send: ReturnType<typeof vi.fn> };
     logger: Logger;
 }
@@ -158,6 +162,8 @@ function makeService(actor: Actor, fixture: FakePermissionsFixture = new FakePer
         hide: vi.fn(async () => undefined),
         show: vi.fn(async () => undefined),
     };
+    // Nothing kept unless a case says otherwise, so every source is asked live.
+    const listings = { list: vi.fn(async (): Promise<ProviderPlaylistListing[]> => []) };
     const jobs = { send: vi.fn(async () => 'job-1') };
 
     const service = new PlaylistsService(
@@ -166,11 +172,12 @@ function makeService(actor: Actor, fixture: FakePermissionsFixture = new FakePer
         accessControl,
         { findByBindings } as never,
         hidden as never,
+        listings as never,
         jobs as never,
         logger,
     );
 
-    return { service, registry, listVisibleIdsSpy, findByBindings, hidden, jobs, logger };
+    return { service, registry, listVisibleIdsSpy, findByBindings, hidden, listings, jobs, logger };
 }
 
 /** The service's own page size. A test that disagreed with it would prove nothing. */
@@ -413,6 +420,110 @@ describe('PlaylistsService.listPlaylists', () => {
         await service.listPlaylists();
 
         expect(listVisibleIdsSpy).toHaveBeenCalledWith('plugin', 'view');
+    });
+});
+
+describe('PlaylistsService.listPlaylists from the kept lists', () => {
+    const LISTED_AT = DateTime.fromISO('2026-09-29T07:00:00Z');
+    const kept = (pluginId: string, playlists = [{ id: 'k1', name: 'Kept 1' }]): ProviderPlaylistListing => ({
+        pluginId,
+        listedAt: LISTED_AT,
+        playlists,
+    });
+
+    it('answers from the kept list without asking the plugin, and says how old it is', async () => {
+        // The failure this exists for: Spotify slow or rate limited while the page waited, and the
+        // page empty although the sync had read every playlist minutes before.
+        const { service, registry, listings } = makeService(userActor('u-admin', ['admin']));
+        const instance = catalogInstance();
+        registry.upsert(record(SPOTIFY_ID, { instance: instance as never }));
+        listings.list.mockResolvedValue([kept(SPOTIFY_ID)]);
+
+        const page = await service.listPlaylists();
+
+        expect(instance.listPlaylists).not.toHaveBeenCalled();
+        expect(page.playlists).toEqual([expect.objectContaining({ pluginId: SPOTIFY_ID, pluginName: 'Spotify', id: 'k1', name: 'Kept 1' })]);
+        expect(page.sources).toEqual([{ pluginId: SPOTIFY_ID, pluginName: 'Spotify', listedAt: LISTED_AT }]);
+        expect(page.errors).toEqual([]);
+    });
+
+    it('asks live only for a source with nothing kept, and dates that list now', async () => {
+        const { service, registry, listings } = makeService(userActor('u-admin', ['admin']));
+        const other = catalogInstance();
+        registry.upsert(record(SPOTIFY_ID));
+        registry.upsert(record(OTHER_ID, { manifest: manifest({ id: OTHER_ID, name: 'Other' }), instance: other as never }));
+        listings.list.mockResolvedValue([kept(SPOTIFY_ID)]);
+        const before = DateTime.now();
+
+        const page = await service.listPlaylists();
+
+        expect(other.listPlaylists).toHaveBeenCalled();
+        expect(page.playlists.map(playlist => `${playlist.pluginId}:${playlist.id}`)).toEqual([`${SPOTIFY_ID}:k1`, `${OTHER_ID}:p1`]);
+        expect(page.sources!.map(source => source.pluginId)).toEqual([SPOTIFY_ID, OTHER_ID]);
+        expect(page.sources![1]!.listedAt >= before).toBe(true);
+    });
+
+    it("still lists a quarantined source's kept playlists, beside why it is not answering", async () => {
+        const { service, registry, listings } = makeService(userActor('u-admin', ['admin']));
+        registry.upsert(record(SPOTIFY_ID, { status: 'failed', instance: undefined, error: 'timed out' }));
+        listings.list.mockResolvedValue([kept(SPOTIFY_ID)]);
+
+        const page = await service.listPlaylists();
+
+        expect(page.playlists).toEqual([expect.objectContaining({ id: 'k1' })]);
+        expect(page.sources).toEqual([{ pluginId: SPOTIFY_ID, pluginName: 'Spotify', listedAt: LISTED_AT }]);
+        expect(page.errors).toEqual([expect.objectContaining({ pluginId: SPOTIFY_ID, message: expect.stringContaining('quarantined') })]);
+    });
+
+    it('lists nothing kept for a source the operator turned off', async () => {
+        const { service, registry, listings } = makeService(userActor('u-admin', ['admin']));
+        registry.upsert(record(SPOTIFY_ID, { status: 'disabled', instance: undefined }));
+        listings.list.mockResolvedValue([kept(SPOTIFY_ID)]);
+
+        const page = await service.listPlaylists();
+
+        expect(page).toEqual({ playlists: [], sources: [], errors: [] });
+    });
+
+    it('lists nothing kept for a plugin that is no longer installed, or that the actor cannot see', async () => {
+        const fixture = new FakePermissionsFixture().setVisible('plugin', 'view', 'u-scoped', [SPOTIFY_ID]);
+        const { service, registry, listings } = makeService(userActor('u-scoped', []), fixture);
+        registry.upsert(record(SPOTIFY_ID));
+        registry.upsert(record(OTHER_ID, { manifest: manifest({ id: OTHER_ID, name: 'Other' }) }));
+        listings.list.mockResolvedValue([kept(SPOTIFY_ID), kept(OTHER_ID), kept('deadair.uninstalled')]);
+
+        const page = await service.listPlaylists();
+
+        expect(page.sources!.map(source => source.pluginId)).toEqual([SPOTIFY_ID]);
+    });
+
+    it('marks a hidden playlist on a kept list as it does on a live one', async () => {
+        const { service, registry, listings, hidden } = makeService(userActor('u-admin', ['admin']));
+        registry.upsert(record(SPOTIFY_ID));
+        listings.list.mockResolvedValue([
+            kept(SPOTIFY_ID, [
+                { id: 'k1', name: 'Kept 1' },
+                { id: 'k2', name: 'Kept 2' },
+            ]),
+        ]);
+        hidden.keys.mockResolvedValue(new Set([hiddenPlaylistKey(SPOTIFY_ID, 'k2')]));
+
+        const page = await service.listPlaylists();
+
+        expect(page.playlists.map(playlist => playlist.hidden)).toEqual([undefined, true]);
+    });
+
+    it('asks every source live, and warns, when the kept lists cannot be read', async () => {
+        const { service, registry, listings, logger } = makeService(userActor('u-admin', ['admin']));
+        const instance = catalogInstance();
+        registry.upsert(record(SPOTIFY_ID, { instance: instance as never }));
+        listings.list.mockRejectedValue(new Error('connection reset'));
+
+        const page = await service.listPlaylists();
+
+        expect(instance.listPlaylists).toHaveBeenCalled();
+        expect(page.playlists).toEqual([expect.objectContaining({ id: 'p1' })]);
+        expect(logger.warn).toHaveBeenCalledWith('could not read the kept playlist lists; asking every source live', expect.anything());
     });
 });
 

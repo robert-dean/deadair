@@ -16,12 +16,12 @@ options {
 }
 
 operation /playlists: {
-    get: { # Fans out across every installed plugin that declares AND implements the `catalog` capability
+    get: { # Every playlist the installed `catalog` plugins offer, as the library sync last read each one's list. A source with no list kept yet is asked while the request waits
         name: List importable playlists
         service: PlaylistsService.listPlaylists
         security: {
-            # A read that fans out to plugins on behalf of the console, on the same floor as the
-            # catalog and the playout status.
+            # A read on behalf of the console, on the same floor as the catalog and the playout
+            # status.
             policy: platform.view
         }
         response: {

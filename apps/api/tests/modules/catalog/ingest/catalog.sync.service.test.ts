@@ -15,6 +15,7 @@ import { PluginError } from '@deadair/plugin-sdk';
 
 import { CatalogSyncService } from '../../../../src/modules/catalog/ingest/catalog.sync.service.js';
 import { hiddenPlaylistKey, type HiddenPlaylistsRepository } from '../../../../src/modules/catalog/hidden.playlists.repository.js';
+import type { ProviderPlaylistsRepository } from '../../../../src/modules/catalog/provider.playlists.repository.js';
 import type { CatalogResolverService, IngestResult } from '../../../../src/modules/catalog/ingest/catalog.resolver.service.js';
 import { DEFAULT_SWEEP_MAX_PERCENT, SWEEP_MAX_PERCENT_KEY, type SweepOutcome } from '../../../../src/modules/catalog/ingest/catalog.sweep.guard.js';
 import type { JobBroker } from '@maroonedsoftware/jobbroker';
@@ -150,18 +151,33 @@ const stubConfig = (settings: Record<string, string> = {}): AppConfig =>
 /** The playlists an operator hid, as the repository answers them. Nothing, unless a case says so. */
 const hiddenPlaylists = (keys: string[] = []) => ({ keys: vi.fn(async () => new Set(keys)) }) as unknown as HiddenPlaylistsRepository;
 
+/** Records every listing the walk kept, and can be told to refuse. */
+function fakeListings(options: { failing?: boolean } = {}) {
+    const kept: { pluginId: string; playlists: string[] }[] = [];
+    return {
+        kept,
+        listings: {
+            put: vi.fn(async (pluginId: string, playlists: readonly ProviderPlaylist[]) => {
+                if (options.failing) throw new Error('the database is unreachable');
+                kept.push({ pluginId, playlists: playlists.map(one => one.id) });
+            }),
+        } as unknown as ProviderPlaylistsRepository,
+    };
+}
+
 function build(
     records: PluginRecord[],
     resolver: CatalogResolverService,
     broker: JobBroker = fakeJobBroker().broker,
     config: AppConfig = stubConfig(),
     hidden: HiddenPlaylistsRepository = hiddenPlaylists(),
+    listings: ProviderPlaylistsRepository = fakeListings().listings,
 ) {
     const registry = new PluginRegistry();
     registry.setAll(records);
     const invoker = new PluginInvoker(registry, stubPluginLog().log);
     const logger = stubLogger();
-    return { service: new CatalogSyncService(registry, invoker, resolver, hidden, broker, config, logger), registry, logger };
+    return { service: new CatalogSyncService(registry, invoker, resolver, hidden, listings, broker, config, logger), registry, logger };
 }
 
 describe('CatalogSyncService.syncAll', () => {
@@ -500,6 +516,135 @@ describe('CatalogSyncService.syncAll', () => {
                 { pluginId: SPOTIFY_ID, seen: ['spotify-1'], maxPercent: DEFAULT_SWEEP_MAX_PERCENT },
                 { pluginId: OTHER_ID, seen: ['other-1'], maxPercent: DEFAULT_SWEEP_MAX_PERCENT },
             ]);
+        });
+    });
+
+    describe('keeping the list of playlists', () => {
+        // The Library page answers from what is kept here, and the list is replaced whole, so the
+        // rule with teeth is the sweep's: only a list read to the end may be kept.
+        it('keeps the whole list, hidden and unreadable playlists included, before reading any tracks', async () => {
+            const provider = fakeProvider({
+                playlists: [playlist('p1'), playlist('p2', { permissions: ['edit'] }), playlist('p3')],
+                tracks: { p1: [track('t1')], p3: [track('t3')] },
+            });
+            const { resolver } = fakeResolver();
+            const { kept, listings } = fakeListings();
+            let keptBeforeTracks = false;
+            provider.instance.getPlaylistTracks.mockImplementation(async (id: string) => {
+                keptBeforeTracks ||= kept.length === 1;
+                return id === 'p1' ? [track('t1')] : [track('t3')];
+            });
+            const hidden = hiddenPlaylists([hiddenPlaylistKey(SPOTIFY_ID, 'p3')]);
+            const { service } = build(
+                [record(SPOTIFY_ID, { instance: provider.instance as never })],
+                resolver,
+                undefined,
+                undefined,
+                hidden,
+                listings,
+            );
+
+            await service.syncAll();
+
+            // Hiding is applied when the list is read, so the kept list is the provider's whole answer.
+            expect(kept).toEqual([{ pluginId: SPOTIFY_ID, playlists: ['p1', 'p2', 'p3'] }]);
+            expect(keptBeforeTracks).toBe(true);
+        });
+
+        it("keeps the list even when a playlist's tracks then fail to read", async () => {
+            const provider = fakeProvider({ playlists: [playlist('p1')], failOn: 'tracks' });
+            const { resolver } = fakeResolver();
+            const { kept, listings } = fakeListings();
+            const { service } = build(
+                [record(SPOTIFY_ID, { instance: provider.instance as never })],
+                resolver,
+                undefined,
+                undefined,
+                undefined,
+                listings,
+            );
+
+            const summaries = await service.syncAll();
+
+            expect(summaries[0]!.error).toBeDefined();
+            expect(kept).toEqual([{ pluginId: SPOTIFY_ID, playlists: ['p1'] }]);
+        });
+
+        it('keeps nothing when the list itself could not be read', async () => {
+            const provider = fakeProvider({ failOn: 'playlists' });
+            const { resolver } = fakeResolver();
+            const { kept, listings } = fakeListings();
+            const { service } = build(
+                [record(SPOTIFY_ID, { instance: provider.instance as never })],
+                resolver,
+                undefined,
+                undefined,
+                undefined,
+                listings,
+            );
+
+            await service.syncAll();
+
+            expect(kept).toEqual([]);
+        });
+
+        it('keeps nothing when the list stopped at the page cap', async () => {
+            const endless = Array.from({ length: PAGE_SIZE }, (_, i) => playlist(`p${i}`, { permissions: ['edit'] }));
+            const instance = { listPlaylists: vi.fn(async () => endless), getPlaylistTracks: vi.fn(async () => []) } as never;
+            const { resolver } = fakeResolver();
+            const { kept, listings } = fakeListings();
+            const { service } = build([record(SPOTIFY_ID, { instance })], resolver, undefined, undefined, undefined, listings);
+
+            await service.syncAll();
+
+            expect(kept).toEqual([]);
+        });
+
+        it('keeps nothing when the walk was cancelled while listing', async () => {
+            const controller = new AbortController();
+            const provider = fakeProvider({ playlists: [playlist('p1')], tracks: { p1: [track('t1')] } });
+            provider.instance.listPlaylists.mockImplementation(async () => {
+                controller.abort();
+                return [playlist('p1')];
+            });
+            const { resolver } = fakeResolver();
+            const { kept, listings } = fakeListings();
+            const { service } = build(
+                [record(SPOTIFY_ID, { instance: provider.instance as never })],
+                resolver,
+                undefined,
+                undefined,
+                undefined,
+                listings,
+            );
+
+            await service.syncAll(undefined, controller.signal);
+
+            expect(kept).toEqual([]);
+        });
+
+        it('walks the library anyway when the list cannot be kept', async () => {
+            const provider = fakeProvider({ playlists: [playlist('p1')], tracks: { p1: [track('t1')] } });
+            const { resolver, ingested, swept } = fakeResolver();
+            const { listings } = fakeListings({ failing: true });
+            const { service, logger } = build(
+                [record(SPOTIFY_ID, { instance: provider.instance as never })],
+                resolver,
+                undefined,
+                undefined,
+                undefined,
+                listings,
+            );
+
+            const summaries = await service.syncAll();
+
+            expect(summaries[0]!.error).toBeUndefined();
+            expect(ingested).toEqual(['t1']);
+            expect(swept).toHaveLength(1);
+            expect(logger.warn).toHaveBeenCalledWith(
+                'could not keep the playlist listing a walk read',
+                expect.objectContaining({ plugin: SPOTIFY_ID }),
+            );
         });
     });
 

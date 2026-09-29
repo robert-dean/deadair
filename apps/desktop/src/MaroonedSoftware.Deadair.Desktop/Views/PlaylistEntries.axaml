@@ -1,0 +1,43 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.PlaylistEntries"
+    x:DataType="vm:IPlaylistEntries">
+
+    <!-- The records a playlist names, on either kind of playlist's page. A record the library does not
+         hold keeps its place and says so, instead of being a link to nothing. -->
+    <ListBox Classes="rows" ItemsSource="{Binding Entries}">
+        <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:PlaylistEntryViewModel">
+                <Grid ColumnDefinitions="30,*,0.7*,0.6*,44" ColumnSpacing="12">
+                    <TextBlock Classes="mono" Text="{Binding Position}" FontSize="11" HorizontalAlignment="Right"
+                               VerticalAlignment="Center" Foreground="{DynamicResource DaTextDimmedBrush}" />
+                    <!-- A grid rather than a row, so a long title trims before the pill instead of
+                         running under the artist. -->
+                    <Grid Grid.Column="1" ColumnDefinitions="*,Auto" ColumnSpacing="8" VerticalAlignment="Center">
+                        <Button Classes="link" HorizontalAlignment="Left" IsVisible="{Binding Held}"
+                                Command="{Binding $parent[ListBox].((vm:IPlaylistEntries)DataContext).OpenTrackCommand}"
+                                CommandParameter="{Binding}">
+                            <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
+                        </Button>
+                        <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" IsVisible="{Binding !Held}"
+                                   Foreground="{DynamicResource DaTextDimmedBrush}" />
+                        <Border Grid.Column="1" Classes="pill" Height="18" Padding="6,0" IsVisible="{Binding !Held}">
+                            <TextBlock Text="Not in the library" FontSize="10" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource DaTextDimmedBrush}" />
+                        </Border>
+                    </Grid>
+                    <TextBlock Grid.Column="2" Text="{Binding Artists}" FontSize="12" VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis" Classes="secondary" />
+                    <TextBlock Grid.Column="3" Text="{Binding Album}" FontSize="12" VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis" Classes="dimmed" />
+                    <TextBlock Grid.Column="4" Classes="mono" Text="{Binding Length}" FontSize="11"
+                               HorizontalAlignment="Right" VerticalAlignment="Center"
+                               Foreground="{DynamicResource DaTextDimmedBrush}" />
+                </Grid>
+            </DataTemplate>
+        </ListBox.ItemTemplate>
+    </ListBox>
+
+</UserControl>

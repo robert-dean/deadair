@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MaroonedSoftware.Deadair.Desktop.Core.Auth;
 using MaroonedSoftware.Deadair.Desktop.Core.Station;
+using MaroonedSoftware.Deadair.Desktop.Services;
 
 namespace MaroonedSoftware.Deadair.Desktop.ViewModels;
 
@@ -34,14 +35,15 @@ public enum LibraryTab
 /// </remarks>
 public sealed partial class LibraryViewModel : ObservableObject
 {
-    public LibraryViewModel(OperatorActions actions, HttpClient http, NavigationViewModel navigation, IDialogs dialogs)
+    public LibraryViewModel(OperatorActions actions, HttpClient http, NavigationViewModel navigation, IDialogs dialogs, IFilePicker picker)
     {
         Navigation = navigation;
         Dialogs = dialogs;
+        Picker = picker;
         Records = new RecordsViewModel(actions, http, dialogs, navigation);
         Acts = new ActsViewModel(actions, http, navigation);
         Releases = new AlbumsViewModel(actions, http, navigation);
-        Playlists = new PlaylistsViewModel(actions, http, dialogs);
+        Playlists = new PlaylistsViewModel(actions, http, dialogs, navigation, picker);
         Charts = new ChartsViewModel(actions, http, navigation, dialogs);
         News = new NewsViewModel(actions, http);
     }
@@ -51,6 +53,9 @@ public sealed partial class LibraryViewModel : ObservableObject
 
     /// <summary>What a detail page opened from this one asks through.</summary>
     public IDialogs Dialogs { get; }
+
+    /// <summary>The open and save panels, for the pages that take a file in or write one out.</summary>
+    public IFilePicker Picker { get; }
 
     public RecordsViewModel Records { get; }
 

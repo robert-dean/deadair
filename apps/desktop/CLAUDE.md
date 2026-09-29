@@ -1072,7 +1072,28 @@ separately, because "t" inside a custom format is the AM or PM letter and printe
 **Putting a playlist or a chart on air REPLACES the running order**, and what is on air finishes
 first. It is the most consequential thing on either page, which is why the notice says what happened
 rather than only that it worked. A chart answers with the status BEFORE its changeover and does the
-work as a job, so the notice for one says it takes a moment.
+work as a job, so the notice for one says it takes a moment. The playlist pages (a station playlist's,
+a source playlist's tracks) put it on air through `PlaylistsViewModel` itself, so the three places it
+is offered ask and answer the same way. The web console's "mix in similar" and "with calls" variants
+are not here yet.
+
+**Playlists are the station's own first, then the sources', split three ways** (`PlaylistRules`):
+the ones somebody put in a source are shown, and the ones the source made itself and the ones an
+operator hid are folded away, because on a source like YouTube Music the mixes bury the chosen ones.
+Hiding deletes nothing. One permission, `read`, gates a source playlist's tracks, Put on air and
+refresh together, and an absent permission list means readable. Put on air on a station playlist is
+offered only while it holds something, and Look up missing records only while something is missing,
+because the station refuses each otherwise. A source that could not be listed is named with why.
+
+**An import is previewed before it is written** (`PlaylistImportDialogViewModel`): a file, a pasted
+list or a link is read and the dialog says which records the library holds and which it will look up,
+and only then offers "Import N records". The preview marks the dialog busy so a refusal lands on the
+dialog rather than behind it. A `.json` file is a station's own export and goes as the structured file;
+anything else goes as text with its name, and a JSON file that does not parse is said here rather than
+sent to be refused. Saving a source's playlist as the station's own is the same dialog, opened already
+reading that playlist. An import, a rename or a delete re-reads the tab behind the page (`Reread`),
+because going back to the Library does not re-open a tab. Export writes the station's file through
+`IFilePicker.SaveAsync`, named from its `Content-Disposition`.
 
 **The voice page is four readings, not the console's eight tabs.** The four are the ones that answer a
 question somebody asks of a RUNNING station: who is presenting, what did it say, what audio does it

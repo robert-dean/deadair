@@ -43,11 +43,27 @@ public sealed class DetailPages(OperatorActions actions, HttpClient http, Librar
             Nav.Destination.ArtistDetail artist => Read(new ArtistDetailViewModel(Catalog(), artist.Id, artist.Name)),
             Nav.Destination.AlbumDetail album => Read(new AlbumDetailViewModel(Catalog(), album.Id, album.Name)),
             Nav.Destination.TrackDetail track => Read(new TrackDetailViewModel(Catalog(), track.Id, track.Title)),
+            Nav.Destination.StationPlaylistDetail own => StationPlaylist(own),
+            Nav.Destination.PlaylistTracks source => SourcePlaylist(source),
             _ => null,
         };
     }
 
     private CatalogPageContext Catalog() => new(actions, http, _station, library.Navigation, library.Dialogs);
+
+    private StationPlaylistDetailViewModel StationPlaylist(Nav.Destination.StationPlaylistDetail own)
+    {
+        var page = new StationPlaylistDetailViewModel(Catalog(), library.Picker, library.Playlists, own.Id, own.Name);
+        page.LoadCommand.Execute(null);
+        return page;
+    }
+
+    private PlaylistTracksViewModel SourcePlaylist(Nav.Destination.PlaylistTracks source)
+    {
+        var page = new PlaylistTracksViewModel(Catalog(), library.Playlists, source.PluginId, source.PlaylistId, source.Name, source.Source);
+        page.LoadCommand.Execute(null);
+        return page;
+    }
 
     private static CatalogDetailViewModel Read(CatalogDetailViewModel page)
     {

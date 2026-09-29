@@ -57,7 +57,7 @@ public sealed partial class TrackDetailViewModel : CatalogDetailViewModel
     public EnrichmentViewModel Enrichment { get; } = new(
         "No provider has been asked about this record yet. The enrichment pass picks up what it has not seen, oldest first.");
 
-    public IReadOnlyList<RepairChoiceViewModel> Repairs { get; }
+    public IReadOnlyList<MenuChoiceViewModel> Repairs { get; }
 
     public ObservableCollection<CopyRowViewModel> Copies { get; } = [];
 

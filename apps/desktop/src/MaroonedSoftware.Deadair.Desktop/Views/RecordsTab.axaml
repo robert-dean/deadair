@@ -117,7 +117,7 @@
                                     <MenuFlyout Placement="BottomEdgeAlignedRight" ItemsSource="{Binding Repairs}">
                                         <MenuFlyout.ItemContainerTheme>
                                             <ControlTheme TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}"
-                                                          x:DataType="vm:RepairChoiceViewModel">
+                                                          x:DataType="vm:MenuChoiceViewModel">
                                                 <Setter Property="Header" Value="{Binding Label}" />
                                                 <Setter Property="Command" Value="{Binding RunCommand}" />
                                             </ControlTheme>

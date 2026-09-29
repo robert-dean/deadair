@@ -11,6 +11,7 @@ using MaroonedSoftware.Deadair.Desktop.Core.Station;
 using MaroonedSoftware.Deadair.Desktop.Core.Text;
 using MaroonedSoftware.Deadair.Desktop.Core.Ui;
 using MaroonedSoftware.Deadair.Desktop.Core.Updates;
+using MaroonedSoftware.Deadair.Desktop.Services;
 using MaroonedSoftware.Deadair.Desktop.ViewModels;
 using MaroonedSoftware.Deadair.Desktop.Views;
 using MaroonedSoftware.Deadair.Sdk.Models;
@@ -55,6 +56,10 @@ internal static class Pages
         yield return ("shell-library-track", Detail(new Destination.TrackDetail(Guid.NewGuid(), "Regulate"), page => Fakes.Track((TrackDetailViewModel)page)), 1180, 720);
         yield return ("shell-library-track-tall", Detail(new Destination.TrackDetail(Guid.NewGuid(), "Regulate"), page => Fakes.Track((TrackDetailViewModel)page)), 1180, 1500);
         yield return ("shell-library-track-min", Detail(new Destination.TrackDetail(Guid.NewGuid(), "Regulate"), page => Fakes.Track((TrackDetailViewModel)page)), 820, 520);
+        yield return ("shell-library-playlists", Library("Playlists"), 1180, 720);
+        yield return ("shell-library-playlists-min", Library("Playlists"), 820, 520);
+        yield return ("shell-library-own-playlist", Detail(new Destination.StationPlaylistDetail(Guid.NewGuid(), "Imported"), page => Fakes.OwnPlaylist((StationPlaylistDetailViewModel)page)), 1180, 720);
+        yield return ("dialog-playlist-import", Import(), 1180, 720);
         yield return ("shell-library-artist", Detail(new Destination.ArtistDetail(Guid.NewGuid(), "Alice In Chains"), page => Fakes.Artist((ArtistDetailViewModel)page)), 1180, 1100);
 
         // A question over the whole window, bar included, with the longest thing it is ever asked
@@ -207,6 +212,22 @@ internal static class Pages
         // refusal it reports is not what this frame is for.
         shell.Dialogs.Notice = null;
         return new MainWindowContent { Shell = shell };
+    }
+
+    /// <summary>The import dialog over the Playlists tab, previewed, so the plan and the name are in frame.</summary>
+    private static MainWindowContent Import()
+    {
+        var shell = Library("Playlists");
+        var dialog = new PlaylistImportDialogViewModel(
+            new OperatorActions(new SessionManager(new InMemorySecretStore(), Fakes.Http())),
+            () => throw new InvalidOperationException("A frame calls no station."),
+            new FilePicker(),
+            _ => { });
+        _ = shell.Shell!.Dialogs.ShowAsync(dialog);
+        dialog.From = ImportFrom.Paste;
+        dialog.Pasted = "Massive Attack - Teardrop\nPortishead - Roads";
+        Fakes.Previewed(dialog);
+        return shell;
     }
 
     /// <summary>A catalog page pushed from the Library, posed once the fake station has refused to fill it.</summary>

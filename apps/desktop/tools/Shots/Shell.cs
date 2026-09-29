@@ -10,6 +10,7 @@ using MaroonedSoftware.Deadair.Desktop.Core.Station;
 using MaroonedSoftware.Deadair.Desktop.Core.Text;
 using MaroonedSoftware.Deadair.Desktop.Core.Ui;
 using MaroonedSoftware.Deadair.Desktop.PluginSdk.Playback;
+using MaroonedSoftware.Deadair.Desktop.Services;
 using MaroonedSoftware.Deadair.Desktop.Themes;
 using MaroonedSoftware.Deadair.Desktop.ViewModels;
 using MaroonedSoftware.Deadair.Sdk.Models;
@@ -45,7 +46,7 @@ internal static class Fakes
 
         // Previews that play nothing: a shot is a picture, and a picture makes no sound.
         var previews = new PreviewsViewModel(new ClipPlayer(() => new NullStationPlayer()), dispatcher);
-        var library = new LibraryViewModel(actions, http, navigation, dialogs);
+        var library = new LibraryViewModel(actions, http, navigation, dialogs, new NoFiles());
         var stationSettings = new SettingsViewModel(
             actions, http, settings, new ThemeManager(), dialogs, session, dispatcher, plugins: PosedPlugins(), navigation: navigation);
 
@@ -646,7 +647,108 @@ internal static class Fakes
         library.Acts.Artists.Add(Act("Soundgarden", 7, 88, Rating.Neutral));
         library.Acts.Total = 212;
         library.Acts.Summary = "1–50 of 212";
+
+        // Two of the station's own (one with records still to find), a source's own list, one it
+        // will not share, one it made itself, one somebody hid, and a source that could not answer.
+        library.Playlists.Present(
+            new CatalogPlaylistPage
+            {
+                Playlists =
+                [
+                    SourceList("navidrome", "Navidrome", "Wednesday mornings, the long version with everything nobody asked for", 142),
+                    SourceList("ytmusic", "YouTube Music", "Liked music", 1_204),
+                    SourceList("spotify", "Spotify", "Discover Weekly", 30) with { Permissions = [] },
+                    SourceList("ytmusic", "YouTube Music", "Your Supermix", 50) with { MadeByProvider = true },
+                    SourceList("navidrome", "Navidrome", "Christmas", 64) with { Hidden = true },
+                ],
+                Errors = [new() { PluginId = "deezer", PluginName = "Deezer", Message = "The account's session has expired; sign in again in its settings." }],
+            },
+            new StationPlaylistList
+            {
+                Playlists =
+                [
+                    Own("Late and loud", 88, 88, null, "Everything after eleven, nothing gentle."),
+                    Own("Imported from the old station", 212, 180, "navidrome", string.Empty),
+                ],
+            });
     }
+
+    private static CatalogPlaylist SourceList(string plugin, string pluginName, string name, long tracks) => new()
+    {
+        PluginId = plugin,
+        PluginName = pluginName,
+        Id = Guid.NewGuid().ToString(),
+        Name = name,
+        TrackCount = tracks,
+        Description = "Posed for a frame.",
+    };
+
+    private static StationPlaylist Own(string name, long tracks, long held, string? origin, string prompt) => new()
+    {
+        Id = Guid.NewGuid().ToString(),
+        Name = name,
+        Prompt = prompt,
+        OriginPluginId = origin,
+        TrackCount = tracks,
+        ResolvedCount = held,
+        CreatedAt = DateTimeOffset.Now.AddDays(-3),
+        UpdatedAt = DateTimeOffset.Now,
+    };
+
+    /// <summary>A station playlist with records held and records still to be looked up.</summary>
+    public static void OwnPlaylist(StationPlaylistDetailViewModel page) => page.Present(
+        new StationPlaylistDetail
+        {
+            Id = Guid.NewGuid().ToString(),
+            Name = "Imported from the old station",
+            Prompt = "Everything the old station played on a Sunday night, kept so the two can be compared.",
+            OriginPluginId = "navidrome",
+            TrackCount = 5,
+            ResolvedCount = 3,
+            CreatedAt = DateTimeOffset.Now.AddDays(-3),
+            UpdatedAt = DateTimeOffset.Now,
+            Tracks =
+            [
+                Entry(0, "Teardrop", "Massive Attack", "Mezzanine", 330_000, held: true),
+                Entry(1, "Roads", "Portishead", "Dummy", 305_000, held: true),
+                Entry(2, "A record with a title long enough that it has to trim before the artist", "Somebody, Somebody Else", null, null, held: false),
+                Entry(3, "Unfinished Sympathy", "Massive Attack", "Blue Lines", 308_000, held: true),
+                Entry(4, "Glory Box", "Portishead", "Dummy", null, held: false),
+            ],
+        },
+        origin: "Navidrome");
+
+    private static StationPlaylistTrack Entry(long position, string title, string artist, string? album, long? ms, bool held) => new()
+    {
+        Id = Guid.NewGuid().ToString(),
+        Position = position,
+        Title = title,
+        Artists = [artist],
+        Album = album,
+        DurationMs = ms,
+        TrackId = held ? Guid.NewGuid().ToString() : null,
+    };
+
+    /// <summary>An import previewed: most records held, some to look up, and a notice about the file.</summary>
+    public static void Previewed(PlaylistImportDialogViewModel dialog) => dialog.Present(
+        new PlaylistImportInput { Text = "posed" },
+        new PlaylistImportPlan
+        {
+            Name = "Sunday night",
+            Matched = 3,
+            ToAdd = 0,
+            ToLookUp = 2,
+            Skipped = 1,
+            Notices = ["One line was not a record and was left out: \"#EXTM3U\"."],
+            Entries =
+            [
+                new() { Position = 0, Title = "Teardrop", Artists = ["Massive Attack"], Outcome = PlaylistImportEntryOutcome.Matched },
+                new() { Position = 1, Title = "Roads", Artists = ["Portishead"], Outcome = PlaylistImportEntryOutcome.Matched },
+                new() { Position = 2, Title = "A record with a title long enough that it has to trim in the dialog", Artists = ["Somebody", "Somebody Else"], Outcome = PlaylistImportEntryOutcome.ToLookUp },
+                new() { Position = 3, Title = "Unfinished Sympathy", Artists = ["Massive Attack"], Outcome = PlaylistImportEntryOutcome.Matched },
+                new() { Position = 4, Title = "Glory Box", Artists = ["Portishead"], Outcome = PlaylistImportEntryOutcome.ToLookUp },
+            ],
+        });
 
     private static TrackRow Track(string title, string artists, string? album, long? ms, long? year, Rating rating, bool audio, bool measured, bool enriched) => new()
     {

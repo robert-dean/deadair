@@ -60,6 +60,12 @@ public abstract record Destination
 
     /// <summary>One record: its copies, its measurement, when it aired, and what can be done about it.</summary>
     public sealed record TrackDetail(Guid Id, string Title) : Destination;
+
+    /// <summary>One of the station's own playlists: its records, and renaming, filling, exporting or deleting it.</summary>
+    public sealed record StationPlaylistDetail(Guid Id, string Name) : Destination;
+
+    /// <summary>One music source's playlist, read before it is aired or kept as the station's own.</summary>
+    public sealed record PlaylistTracks(string PluginId, string PlaylistId, string Name, string Source) : Destination;
 }
 
 /// <summary>

@@ -1,0 +1,39 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    xmlns:views="using:MaroonedSoftware.Deadair.Desktop.Views"
+    xmlns:controls="using:MaroonedSoftware.Deadair.Desktop.Controls"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.PlaylistTracksView"
+    x:DataType="vm:PlaylistTracksViewModel">
+
+    <DockPanel Margin="{DynamicResource DaPageGutter}" LastChildFill="True">
+
+        <StackPanel DockPanel.Dock="Top" Spacing="12" Margin="0,0,0,12">
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="16">
+                <controls:Artwork Size="72" Initial="{Binding Initial}" VerticalAlignment="Top" />
+                <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
+                    <TextBlock Classes="h1" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Classes="secondary" Text="{Binding Line}" TextWrapping="Wrap" />
+                    <TextBlock Classes="dimmed" Text="{Binding Problem}" TextWrapping="Wrap"
+                               IsVisible="{Binding Problem, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                </StackPanel>
+            </Grid>
+
+            <!-- Keeping it makes a clone the station holds, free to differ from the source's list. -->
+            <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding HasTracks}">
+                <Button Classes="primary" Content="Put on air" Command="{Binding PlayCommand}" />
+                <Button Classes="ghost" Content="Save as a station playlist" Command="{Binding SaveAsStationCommand}" />
+            </StackPanel>
+
+            <TextBlock Classes="dimmed" Text="{Binding Notice}" TextWrapping="Wrap"
+                       IsVisible="{Binding Notice, Converter={x:Static ObjectConverters.IsNotNull}}" />
+            <TextBlock Classes="dimmed" Text="{Binding Empty}" TextWrapping="Wrap"
+                       IsVisible="{Binding Empty, Converter={x:Static ObjectConverters.IsNotNull}}" />
+        </StackPanel>
+
+        <views:PlaylistEntries />
+
+    </DockPanel>
+
+</UserControl>

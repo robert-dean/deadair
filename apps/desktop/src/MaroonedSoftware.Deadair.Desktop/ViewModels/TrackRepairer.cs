@@ -6,8 +6,8 @@ using MaroonedSoftware.Deadair.Sdk.Models;
 
 namespace MaroonedSoftware.Deadair.Desktop.ViewModels;
 
-/// <summary>One entry in a record's Repair menu.</summary>
-public sealed class RepairChoiceViewModel(string label, IAsyncRelayCommand run)
+/// <summary>One entry in a row's menu: a record's repairs, a playlist's refresh and hide.</summary>
+public sealed class MenuChoiceViewModel(string label, IAsyncRelayCommand run)
 {
     public string Label { get; } = label;
 
@@ -87,9 +87,9 @@ public sealed class TrackRepairer(OperatorActions actions, IDialogs dialogs, Fun
     }
 
     /// <summary>The menu for one record, whose entries each ask and then report through <paramref name="said"/>.</summary>
-    public IReadOnlyList<RepairChoiceViewModel> Menu(Guid trackId, Action<string> said) =>
+    public IReadOnlyList<MenuChoiceViewModel> Menu(Guid trackId, Action<string> said) =>
         TrackRepairs.All
-            .Select(repair => new RepairChoiceViewModel(
+            .Select(repair => new MenuChoiceViewModel(
                 TrackRepairs.Words(repair).Label,
                 new AsyncRelayCommand(async () =>
                 {

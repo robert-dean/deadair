@@ -15,7 +15,7 @@ public sealed class TrackRowViewModel(
     TrackRow row,
     Uri? artworkUrl,
     RatingViewModel rating,
-    IReadOnlyList<RepairChoiceViewModel> repairs)
+    IReadOnlyList<MenuChoiceViewModel> repairs)
 {
     public Guid Id { get; } = row.Id;
 
@@ -50,7 +50,7 @@ public sealed class TrackRowViewModel(
 
     public RatingViewModel Rating { get; } = rating;
 
-    public IReadOnlyList<RepairChoiceViewModel> Repairs { get; } = repairs;
+    public IReadOnlyList<MenuChoiceViewModel> Repairs { get; } = repairs;
 
     /// <summary>The square drawn until, or instead of, a cover.</summary>
     public string Initial => Title.Length == 0 ? "?" : char.ToUpperInvariant(Title[0]).ToString();

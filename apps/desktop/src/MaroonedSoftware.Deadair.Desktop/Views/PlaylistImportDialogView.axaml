@@ -1,0 +1,93 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.PlaylistImportDialogView"
+    x:DataType="vm:PlaylistImportDialogViewModel">
+
+    <StackPanel Spacing="12" Width="560">
+        <TextBlock Classes="secondary" FontSize="12" Text="{Binding Intro}" TextWrapping="Wrap"
+                   IsVisible="{Binding AsksForSource}" />
+        <TextBlock Classes="secondary" Text="{Binding Saving}" TextWrapping="Wrap"
+                   IsVisible="{Binding !AsksForSource}" />
+
+        <!-- Where it reads from: a file, a pasted list, or a link. Changing the source forgets the
+             last preview, so its import cannot be pressed for the wrong thing. -->
+        <StackPanel Spacing="10" IsVisible="{Binding AsksForSource}">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <Button Classes="tab" Classes.active="{Binding IsFile}" Content="File"
+                        Command="{Binding ShowCommand}" CommandParameter="File" />
+                <Button Classes="tab" Classes.active="{Binding IsPaste}" Content="Paste a list"
+                        Command="{Binding ShowCommand}" CommandParameter="Paste" />
+                <Button Classes="tab" Classes.active="{Binding IsLink}" Content="Link"
+                        Command="{Binding ShowCommand}" CommandParameter="Link" />
+            </StackPanel>
+
+            <StackPanel Spacing="6" IsVisible="{Binding IsFile}">
+                <TextBlock Classes="dimmed" FontSize="12" TextWrapping="Wrap"
+                           Text="A playlist file another station exported, an M3U from a media player, or a CSV from a playlist exporter." />
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                    <Button Classes="ghost" Content="Choose a file" Command="{Binding ChooseFileCommand}" />
+                    <TextBlock Classes="dimmed" Text="{Binding FileName}" VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis" MaxWidth="360" />
+                </StackPanel>
+            </StackPanel>
+
+            <StackPanel Spacing="6" IsVisible="{Binding IsPaste}">
+                <TextBlock Classes="dimmed" FontSize="12" Text="One record per line, as Artist - Title. Numbered lines are fine." />
+                <TextBox Text="{Binding Pasted}" AcceptsReturn="True" TextWrapping="Wrap" Height="110"
+                         PlaceholderText="Massive Attack - Teardrop&#10;Portishead - Roads" />
+                <Button Classes="ghost" Content="Preview" HorizontalAlignment="Right"
+                        Command="{Binding PreviewPastedCommand}" />
+            </StackPanel>
+
+            <StackPanel Spacing="6" IsVisible="{Binding IsLink}">
+                <TextBlock Classes="dimmed" FontSize="12" TextWrapping="Wrap"
+                           Text="Copied from Spotify, YouTube Music or your Navidrome, as the browser or the app shows it." />
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                    <TextBox Text="{Binding Link}" PlaceholderText="https://open.spotify.com/playlist/…" />
+                    <Button Grid.Column="1" Classes="ghost" Content="Preview" Command="{Binding PreviewLinkCommand}" />
+                </Grid>
+            </StackPanel>
+        </StackPanel>
+
+        <StackPanel Spacing="10" IsVisible="{Binding HasPlan}">
+            <StackPanel Spacing="4">
+                <TextBlock Text="Name" FontSize="12" Classes="secondary" />
+                <TextBox Text="{Binding Name}" MaxLength="200" />
+            </StackPanel>
+
+            <TextBlock Text="{Binding Plan}" TextWrapping="Wrap" Foreground="{DynamicResource DaTextBrush}" />
+
+            <ItemsControl ItemsSource="{Binding Notices}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="x:String">
+                        <TextBlock Text="{Binding StringFormat='·  {0}'}" FontSize="11" Classes="dimmed" TextWrapping="Wrap" />
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <ScrollViewer MaxHeight="240" HorizontalScrollBarVisibility="Disabled">
+                <ItemsControl ItemsSource="{Binding Entries}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:ImportEntryViewModel">
+                            <Grid ColumnDefinitions="*,110" ColumnSpacing="10" Margin="0,3">
+                                <StackPanel Spacing="1">
+                                    <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis"
+                                               Foreground="{DynamicResource DaTextBrush}" />
+                                    <TextBlock Text="{Binding Artists}" FontSize="11" Classes="dimmed"
+                                               TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                                <TextBlock Grid.Column="1" Text="{Binding LandsAs}" FontSize="11"
+                                           VerticalAlignment="Center" HorizontalAlignment="Right"
+                                           Classes.secondary="{Binding InLibrary}"
+                                           Classes.dimmed="{Binding !InLibrary}" />
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </StackPanel>
+    </StackPanel>
+
+</UserControl>

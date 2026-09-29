@@ -1,0 +1,64 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    xmlns:views="using:MaroonedSoftware.Deadair.Desktop.Views"
+    xmlns:programme="using:MaroonedSoftware.Deadair.Desktop.Core.Programme"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.SustainingTab"
+    x:DataType="vm:SustainingViewModel">
+
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled" Padding="0,0,14,0">
+        <Border Classes="card" VerticalAlignment="Top" IsVisible="{Binding Settings.HasForm}">
+            <StackPanel Spacing="12">
+                <!-- The sentence stays in view; the form is behind Change, because somebody looking at
+                     this is nearly always only looking. -->
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                    <StackPanel Spacing="3">
+                        <TextBlock Classes="eyebrow" Text="SUSTAINING" />
+                        <TextBlock Text="{Binding Summary}" TextWrapping="Wrap" MaxWidth="620" HorizontalAlignment="Left"
+                                   Foreground="{DynamicResource DaTextBrush}" />
+                    </StackPanel>
+                    <Button Grid.Column="1" Classes="ghost" Content="{Binding ToggleLabel}" VerticalAlignment="Top"
+                            Command="{Binding ToggleCommand}" />
+                </Grid>
+
+                <StackPanel Spacing="12" IsVisible="{Binding IsOpen}">
+                    <StackPanel Spacing="3">
+                        <TextBlock Text="Playing from" FontSize="12" Classes="secondary" />
+                        <ComboBox ItemsSource="{Binding Sources}" SelectedItem="{Binding Source}" MinWidth="320" MaxWidth="480">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="programme:SourceChoice">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                        <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Grid.Column="1" Text="{Binding Group}" Classes="dimmed" FontSize="11"
+                                                   VerticalAlignment="Center" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                        <TextBlock Classes="dimmed" FontSize="11" TextWrapping="Wrap" MaxWidth="620" HorizontalAlignment="Left"
+                                   Text="Leave it on nothing and the station programmes the gap itself, from the words below." />
+                    </StackPanel>
+
+                    <StackPanel Spacing="3" IsVisible="{Binding IsChart}">
+                        <TextBlock Text="Played" FontSize="12" Classes="secondary" />
+                        <ComboBox ItemsSource="{Binding ChartOrders}" SelectedItem="{Binding ChartOrder}" MinWidth="320">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="vm:ChartOrderChoice">
+                                    <TextBlock Text="{Binding Label}" />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </StackPanel>
+
+                    <!-- The words, the period and the calls, with the one Save for both halves. -->
+                    <views:SettingsSubsetView DataContext="{Binding Settings}" />
+                </StackPanel>
+
+                <TextBlock Classes="dimmed" FontSize="11" TextWrapping="Wrap" MaxWidth="620" HorizontalAlignment="Left"
+                           Text="A gap never falls silent: it plays this, or the station keeps whatever the last block left on. Saving changes nothing on air now; the station moves at the first boundary after a block ends." />
+            </StackPanel>
+        </Border>
+    </ScrollViewer>
+
+</UserControl>

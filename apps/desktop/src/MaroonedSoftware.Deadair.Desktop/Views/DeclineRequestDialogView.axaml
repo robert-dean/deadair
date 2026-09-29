@@ -1,0 +1,17 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.DeclineRequestDialogView"
+    x:DataType="vm:DeclineRequestDialogViewModel">
+
+    <StackPanel Spacing="10">
+        <TextBlock Text="{Binding Told}" TextWrapping="Wrap" Classes="secondary" />
+        <StackPanel Spacing="3">
+            <TextBlock Text="What to tell them" FontSize="12" Classes="secondary" />
+            <TextBox Text="{Binding Reason}" PlaceholderText="Not tonight."
+                     MaxLength="{x:Static vm:DeclineRequestDialogViewModel.ReasonMax}" />
+        </StackPanel>
+    </StackPanel>
+
+</UserControl>

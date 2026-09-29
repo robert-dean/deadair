@@ -1,0 +1,82 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    xmlns:conv="using:MaroonedSoftware.Deadair.Desktop.Themes"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.RequestsTab"
+    x:DataType="vm:RequestsViewModel">
+
+    <UserControl.Resources>
+        <conv:ToneBrushConverter x:Key="ToneBrush" />
+    </UserControl.Resources>
+
+    <DockPanel>
+        <!-- Somebody the station will not show the list to sees its sentence, and nothing else. -->
+        <TextBlock DockPanel.Dock="Top" Classes="dimmed" TextWrapping="Wrap" Text="{Binding Forbidden}"
+                   IsVisible="{Binding IsForbidden}" />
+
+        <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" ColumnSpacing="12" Margin="0,0,0,12"
+              IsVisible="{Binding !IsForbidden}">
+            <TextBlock Classes="dimmed" TextWrapping="Wrap" MaxWidth="560" HorizontalAlignment="Left" VerticalAlignment="Center"
+                       Text="Records listeners asked for, from an app or a chat. Who may ask and how often is under Settings." />
+            <Border Grid.Column="1" CornerRadius="{DynamicResource DaCorner}" Padding="3" VerticalAlignment="Top"
+                    Background="{DynamicResource DaRaisedBrush}">
+                <StackPanel Orientation="Horizontal" Spacing="2">
+                    <RadioButton Classes="segment" GroupName="requests" Content="Open"
+                                 IsChecked="{Binding ShowsOpen, Mode=OneWay}" Command="{Binding ShowOpenCommand}" />
+                    <RadioButton Classes="segment" GroupName="requests" Content="Recent"
+                                 IsChecked="{Binding ShowsAll, Mode=OneWay}" Command="{Binding ShowAllCommand}" />
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <TextBlock DockPanel.Dock="Top" Classes="dimmed" Text="{Binding Empty}" TextWrapping="Wrap"
+                   IsVisible="{Binding Empty, Converter={x:Static ObjectConverters.IsNotNull}}" />
+
+        <ListBox Classes="rows" ItemsSource="{Binding Rows}" IsVisible="{Binding !IsForbidden}">
+            <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:RequestRowViewModel">
+                    <!-- Fixed widths beside the record, so the state and the buttons line up down the
+                         list whichever rows can be decided. Who asked sits under the record rather
+                         than in a column of its own: three fixed columns left the record a word wide
+                         with the Now playing panel open. -->
+                    <Grid ColumnDefinitions="*,140,140" ColumnSpacing="12">
+                        <StackPanel Spacing="1" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding Request.Title}" TextTrimming="CharacterEllipsis"
+                                       Foreground="{DynamicResource DaTextBrush}" />
+                            <TextBlock Text="{Binding Request.Artist}" Classes="secondary" FontSize="12"
+                                       TextTrimming="CharacterEllipsis" />
+                            <TextBlock Text="{Binding AskedBy}" Classes="dimmed" FontSize="11"
+                                       TextTrimming="CharacterEllipsis" />
+                            <!-- The listener's own words, shown as theirs. -->
+                            <TextBlock Text="{Binding Dedication}" FontSize="11" FontStyle="Italic"
+                                       TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"
+                                       Classes="secondary" IsVisible="{Binding HasDedication}" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="1" Spacing="1" VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <Ellipse Width="7" Height="7" VerticalAlignment="Center"
+                                         Fill="{Binding Tone, Converter={StaticResource ToneBrush}}" />
+                                <TextBlock Text="{Binding State}" FontSize="12" TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                            <TextBlock Text="{Binding Request.Reason}" Classes="dimmed" FontSize="11"
+                                       TextTrimming="CharacterEllipsis" IsVisible="{Binding HasReason}" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4"
+                                    HorizontalAlignment="Right" VerticalAlignment="Center">
+                            <Button Classes="ghost" Content="Grant" Padding="10,3" IsVisible="{Binding CanGrant}"
+                                    Command="{Binding $parent[ListBox].((vm:RequestsViewModel)DataContext).GrantCommand}"
+                                    CommandParameter="{Binding}" />
+                            <Button Classes="ghost" Content="Decline" Padding="10,3" IsVisible="{Binding CanDecline}"
+                                    Command="{Binding $parent[ListBox].((vm:RequestsViewModel)DataContext).DeclineCommand}"
+                                    CommandParameter="{Binding}" />
+                        </StackPanel>
+                    </Grid>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+    </DockPanel>
+
+</UserControl>

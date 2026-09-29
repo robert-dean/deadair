@@ -79,6 +79,11 @@ internal static class Pages
         // dial sits beside the list, and once with it, where the page is narrow and the dial moves above.
         yield return ("shell-programme-clock", Programme(ProgrammeTab.Today, nowPlaying: false), 1180, 1100);
         yield return ("shell-programme-clock-narrow", Programme(ProgrammeTab.Today), 1180, 1300);
+        yield return ("shell-programme-sustaining", Programme(ProgrammeTab.Sustaining), 1180, 1000);
+        yield return ("shell-programme-requests", Programme(ProgrammeTab.Requests), 1180, 720);
+        yield return ("shell-programme-requests-min", Programme(ProgrammeTab.Requests), 820, 520);
+        yield return ("shell-programme-requests-forbidden", Programme(ProgrammeTab.Requests, forbidden: true), 1180, 720);
+        yield return ("dialog-decline", Decline(), 1180, 720);
         yield return ("dialog-band", Band(), 1180, 720);
         yield return ("dialog-slot", SlotEditor(), 1180, 720);
         yield return ("dialog-slot-min", SlotEditor(), 820, 520);
@@ -193,7 +198,7 @@ internal static class Pages
     }
 
     /// <summary>The programme on one of its tabs.</summary>
-    private static MainWindowContent Programme(ProgrammeTab tab, bool nowPlaying = true)
+    private static MainWindowContent Programme(ProgrammeTab tab, bool nowPlaying = true, bool forbidden = false)
     {
         var shell = Fakes.Shell(operatorSignedIn: true);
         Fakes.PutOnAir(shell.Listener);
@@ -201,6 +206,13 @@ internal static class Pages
         shell.Navigation.Show(new Destination.Programme());
         shell.Programme.Tab = tab;
         shell.ShowNowPlaying = nowPlaying;
+
+        // Somebody the station will not show requests to: its sentence, in place of the list.
+        if (forbidden)
+        {
+            shell.Programme.Requests.Present([]);
+            shell.Programme.Requests.Forbidden = Requests.Forbidden;
+        }
 
         return new MainWindowContent { Shell = shell };
     }
@@ -263,6 +275,16 @@ internal static class Pages
             (_, _) => Task.FromResult(true)));
 
         return new MainWindowContent { Shell = shell };
+    }
+
+    /// <summary>Declining a request from a chat, which says the listener is told there.</summary>
+    private static MainWindowContent Decline()
+    {
+        var shell = Programme(ProgrammeTab.Requests);
+        var row = shell.Shell!.Programme.Requests.Rows[0];
+        shell.Shell.Programme.Requests.DeclineCommand.Execute(row);
+
+        return shell;
     }
 
     private static MainWindowContent Confirm()

@@ -714,7 +714,56 @@ internal static class Fakes
                 Band("b6", "talk", ClockBandAt.Interval, null, null, 20 * 60_000, 5, true, null),
             ],
         });
+
+        // Between blocks: a chart counting down, with words, a period and calls, as the station
+        // declares and holds them.
+        programme.Sustaining.Settings.Present(new StationSettings
+        {
+            Descriptors =
+            [
+                Setting("schedule.sustainingBrief", "Asked to play", "In your own words, for the model that chooses records, exactly as a block's own brief works.", ConfigFieldType.Text, SettingGroup.Schedule),
+                Setting("schedule.sustainingEraFrom", "From year", "The period played between blocks, as a four-digit year.", ConfigFieldType.Number, SettingGroup.Schedule),
+                Setting("schedule.sustainingEraTo", "To year", "The other end, on the same terms.", ConfigFieldType.Number, SettingGroup.Schedule),
+                Setting("schedule.sustainingCallins", "Take calls", "Whether somebody phones in between blocks, exactly as a block that takes calls does.", ConfigFieldType.Boolean, SettingGroup.Schedule),
+            ],
+            Values = new Dictionary<string, JsonElement>
+            {
+                ["schedule.sustainingChartId"] = JsonSerializer.SerializeToElement("lastfm:top"),
+                ["schedule.sustainingBrief"] = JsonSerializer.SerializeToElement("Nothing too loud after midnight, and nothing anybody would have to turn down in an open-plan office."),
+                ["schedule.sustainingEraFrom"] = JsonSerializer.SerializeToElement("1985"),
+                ["schedule.sustainingCallins"] = JsonSerializer.SerializeToElement("true"),
+            },
+            Configured = [],
+            Derived = [],
+        });
+        programme.Sustaining.Offer(
+            [new CatalogPlaylist { PluginId = "spotify", PluginName = "Spotify", Id = "dw", Name = "Discover Weekly" }],
+            [new StationChart { Id = "lastfm:top", PluginId = "lastfm", Name = "Top 40 this week" }]);
+        programme.Sustaining.IsOpen = true;
+
+        // Every state a request can be in, with a dedication long enough to wrap and a reason.
+        programme.Requests.Present(
+        [
+            Request("Northern Sky", "Nick Drake", "Sam from the late shift", RequestStatus.Waiting, RequestSource.Chat, "Ellie", "Because you always put this on when the rain starts, and it is raining."),
+            Request("Harvest Moon", "Neil Young", "Priya", RequestStatus.Pending, RequestSource.App, null, null),
+            Request("Pink Moon", "Nick Drake", "Tom", RequestStatus.Queued, RequestSource.App, "my brother", null),
+            Request("A Song With A Title Long Enough That It Has To Trim Before The Column Ends", "Somebody", "A listener whose name is also long", RequestStatus.Waiting, RequestSource.App, null, null),
+            Request("Wonderwall", "Oasis", "Jo", RequestStatus.Declined, RequestSource.Chat, null, null) with { Reason = "Not tonight." },
+        ]);
     }
+
+    private static ListenerRequest Request(string title, string artist, string by, RequestStatus status, RequestSource source, string? dedicateTo, string? message) => new()
+    {
+        Id = Guid.NewGuid(),
+        Title = title,
+        Artist = artist,
+        RequesterName = by,
+        Status = status,
+        Source = source,
+        CreatedAt = new DateTimeOffset(2026, 9, 30, 10, 42, 0, TimeSpan.Zero),
+        DedicateTo = dedicateTo,
+        Message = message,
+    };
 
     private static ScheduleSlot Slot(string id, string label, long start, long end, string? brief, string? persona) => new()
     {

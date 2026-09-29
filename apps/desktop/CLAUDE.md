@@ -1177,6 +1177,12 @@ tree and a hand-built image both are.
 
 ## The programme
 
+**The page is the web console's four tabs, one view model per tab**: Today, Timetable, Sustaining
+and Requests. `ProgrammeViewModel` owns the tab and builds each tab's view model (`TodayViewModel`,
+`TimetableViewModel`, `SustainingViewModel`, `RequestsViewModel`) itself from what it was given, so a
+tab is added without touching the shell or the container. A tab is read when it is opened and after
+a write, never on a timer.
+
 **A slot's times are minutes from midnight and its days are a list**, because a slot recurs. Two
 things follow that are easy to draw wrong. An end of midnight is the FAR end of the day, and
 formatting it as `00:00` produces a slot that appears to end before it starts: the contract's range
@@ -1211,10 +1217,27 @@ settings (`schedule.capOverrun`, `schedule.overrunMinutes`) drawn by `SettingsSu
 reads the whole declaration, keeps the named keys and draws them through the shared form with its own
 Save. Nothing there is known to this app beyond the two keys.
 
-**The page is the web console's tabs, one view model per tab.** `ProgrammeViewModel` owns the tab
-and builds each tab's view model (`TodayViewModel`, `TimetableViewModel`) itself from what it was
-given, so a tab is added without touching the shell or the container. A tab is read when it is
-opened and after a write, never on a timer.
+**Sustaining is a slot with the when-half taken off**, stored as station settings (the station's own
+`SUSTAINING_KEYS`) and drawn as the web console draws it: the sentence saying what plays between
+blocks, and behind Change, a source picker above the shared form. The words, the period and the calls
+are declared fields and go through `SettingsSubsetViewModel`; the source is NOT, because a plugin and
+a playlist are one choice, and two hand-typed id boxes is how an id gets written in a form nothing can
+read. The picker's values ride in the SAME write as the form's (`SettingsSubsetViewModel.Extra`), and
+only when it changed, so saving the brief alone leaves a source somebody else set. A change of source
+writes all four source keys (`Core/Programme/Sustaining.Writes`) and clears the arm not chosen with
+JSON null: a stale chart id beside a fresh playlist is a source that wins over it. A chart is read
+first, as the station reads it. Nothing set is said as a working station ("a gap keeps whatever the
+last block left on"), never as a fault.
+
+**Requests are manage-only even to read, and a refusal to read them is not a failure.** Every other
+403 in this app refreshes the roles and says "no longer an operator"; said here, that tells somebody
+who never had the role that they lost it. So `RequestsViewModel` catches the 403 inside its call,
+before `OperatorActions` sees it, and shows the web console's sentence in place of the list
+(`RequestsAccessTests`). Grant is offered while a request is waiting and Decline while it is waiting
+or on its way, named positively (`Core/Programme/Requests`); a queued one is taken out from the desk.
+Decline is a dialog with one field, what to tell them, because the listener is told and the reason is
+the only part the operator writes. The list is fetched whole and filtered here (Open or Recent), as
+the web console does.
 
 **Today is two halves of one question**: what the station PLAYS now (the on-now strip) and what it
 SAYS inside the hour (the format clock). Every fact on the strip comes from `GET /schedule/current`,

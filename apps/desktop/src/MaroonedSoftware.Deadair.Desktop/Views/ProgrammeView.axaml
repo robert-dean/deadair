@@ -17,6 +17,10 @@
                         Command="{Binding ShowTabCommand}" CommandParameter="Today" />
                 <Button Classes="tab" Classes.active="{Binding IsTimetable}" Content="Timetable"
                         Command="{Binding ShowTabCommand}" CommandParameter="Timetable" />
+                <Button Classes="tab" Classes.active="{Binding IsSustaining}" Content="Sustaining"
+                        Command="{Binding ShowTabCommand}" CommandParameter="Sustaining" />
+                <Button Classes="tab" Classes.active="{Binding IsRequests}" Content="Requests"
+                        Command="{Binding ShowTabCommand}" CommandParameter="Requests" />
             </StackPanel>
         </StackPanel>
 
@@ -24,6 +28,10 @@
             <views:TodayTab DataContext="{Binding Today}" IsVisible="{Binding $parent[views:ProgrammeView].((vm:ProgrammeViewModel)DataContext).IsToday}" />
 
             <views:TimetableTab DataContext="{Binding Timetable}" IsVisible="{Binding $parent[views:ProgrammeView].((vm:ProgrammeViewModel)DataContext).IsTimetable}" />
+
+            <views:SustainingTab DataContext="{Binding Sustaining}" IsVisible="{Binding $parent[views:ProgrammeView].((vm:ProgrammeViewModel)DataContext).IsSustaining}" />
+
+            <views:RequestsTab DataContext="{Binding Requests}" IsVisible="{Binding $parent[views:ProgrammeView].((vm:ProgrammeViewModel)DataContext).IsRequests}" />
         </Panel>
 
     </DockPanel>

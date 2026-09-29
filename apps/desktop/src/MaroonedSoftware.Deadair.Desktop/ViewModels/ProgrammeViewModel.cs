@@ -12,6 +12,8 @@ public enum ProgrammeTab
 {
     Today,
     Timetable,
+    Sustaining,
+    Requests,
 }
 
 /// <summary>
@@ -20,8 +22,9 @@ public enum ProgrammeTab
 /// <remarks>
 /// <para>
 /// Tabs, as the web console has them, in the order the questions are asked: Today (what is on, and
-/// the format clock) and the Timetable (the blocks across a week). Each tab is read when it is
-/// opened, never on a timer.
+/// the format clock), the Timetable (the blocks across a week), Sustaining (what plays when nothing
+/// is scheduled) and Requests (what listeners asked for). Each tab is read when it is opened, never
+/// on a timer.
 /// </para>
 /// </remarks>
 public sealed partial class ProgrammeViewModel : ObservableObject
@@ -34,6 +37,8 @@ public sealed partial class ProgrammeViewModel : ObservableObject
         _http = http;
         Today = new TodayViewModel(actions, Sdk, dialogs);
         Timetable = new TimetableViewModel(actions, Sdk, dialogs);
+        Sustaining = new SustainingViewModel(actions, Sdk);
+        Requests = new RequestsViewModel(actions, Sdk, dialogs);
 
         // The strip's blocks open the timetable's own editor, and the strip is read again after a
         // save, since what is on may be what just changed.
@@ -50,13 +55,21 @@ public sealed partial class ProgrammeViewModel : ObservableObject
 
     public TimetableViewModel Timetable { get; }
 
+    public SustainingViewModel Sustaining { get; }
+
+    public RequestsViewModel Requests { get; }
+
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsToday), nameof(IsTimetable))]
+    [NotifyPropertyChangedFor(nameof(IsToday), nameof(IsTimetable), nameof(IsSustaining), nameof(IsRequests))]
     private ProgrammeTab _tab = ProgrammeTab.Today;
 
     public bool IsToday => Tab == ProgrammeTab.Today;
 
     public bool IsTimetable => Tab == ProgrammeTab.Timetable;
+
+    public bool IsSustaining => Tab == ProgrammeTab.Sustaining;
+
+    public bool IsRequests => Tab == ProgrammeTab.Requests;
 
     [ObservableProperty]
     private bool _busy;
@@ -86,6 +99,12 @@ public sealed partial class ProgrammeViewModel : ObservableObject
                     break;
                 case ProgrammeTab.Timetable:
                     await Timetable.LoadAsync(cancellationToken).ConfigureAwait(true);
+                    break;
+                case ProgrammeTab.Sustaining:
+                    await Sustaining.LoadAsync(cancellationToken).ConfigureAwait(true);
+                    break;
+                case ProgrammeTab.Requests:
+                    await Requests.LoadAsync(cancellationToken).ConfigureAwait(true);
                     break;
             }
         }

@@ -1050,8 +1050,8 @@ any particular setting means.
 
 **The page is a list of sections, the web console's `SETTINGS_SECTIONS`, and that list is the only
 one** (`Core/Configuration/SettingsSections`). This app's own card is first and is the only section
-listed with no account; the station's sections (one per declared group, then Artwork, Storage,
-Providers and Waiting on you) are listed only while the account is the operator's, and losing the role
+listed with no account; the station's sections (one per declared group, Languages among them, then
+Artwork, Storage, Providers, Waiting on you and Plugins) are listed only while the account is the operator's, and losing the role
 on one of them goes back to this app's card rather than leaving a page whose every call is refused. A
 group the list does not name is drawn nowhere here, deliberately: `schedule`, `personas` and
 `phrasings` belong to the pages that make sense of them, and `providers` is the Providers section's
@@ -1071,6 +1071,14 @@ playing open the page is 552 wide, and a list beside a form left the form 354: a
 no room for the store's name, an artwork row wrapping its kind a letter at a time. So below 760 (a
 container query on the page) the list becomes one box above the section. `shell-settings-list` in
 `tools/Shots` is the list; every other settings frame is the box.
+
+**Languages are the WEB CONSOLE's, and the section says so.** This app has no localization (its words
+are English, in its view models; see Conventions), so installing a pack changes nothing on this
+screen, and a page that did not say that would read as a failed install. A pack is JSON, sent as a
+body rather than a file part, and read first by `LanguagePacks.Read` with the console's header
+checks in the console's order and words, so one file is refused for one stated reason in both. The
+console's string-by-string comparison with English is NOT done here: it needs the console's English
+catalog, and a copy in this app would be out of date within a release.
 
 **Providers are saved through SETTINGS**, under the key the station names for each job, as the
 console does: a pick is the plugin id as text (empty for Automatic) and is saved the moment it is

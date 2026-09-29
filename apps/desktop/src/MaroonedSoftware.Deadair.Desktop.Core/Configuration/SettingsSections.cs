@@ -20,6 +20,8 @@ public enum SettingsSectionId
 
     Mail,
 
+    Languages,
+
     Security,
 
     Rotation,
@@ -101,6 +103,9 @@ public static class SettingsSections
         // Ahead of Sign-in and security because it is what makes that section's email step work.
         new(SettingsSectionId.Mail, "Mail", "Where it sends sign-in codes from", SettingGroup.Mail,
             "The mail server the station signs people in through. Without one it cannot send a code or a sign-in link, and it says so rather than failing quietly."),
+        // The web CONSOLE's languages, beside the question about how it looks as it is there. Never
+        // the language the station broadcasts in, which is a Stream setting.
+        new(SettingsSectionId.Languages, "Languages", "What the web console can be shown in"),
         new(SettingsSectionId.Security, "Sign-in and security", "How you sign in, and how everybody else may", SettingGroup.Signin,
             "The identity providers the sign-in page offers beside a password, such as Authelia, Authentik, Keycloak or Google, and the addresses allowed to create an account through one. Anyone who already has an account can sign in through a provider linked to it whatever the list says. Below them, whether apps such as a Claude connector may connect to the station as whoever approves them."),
 

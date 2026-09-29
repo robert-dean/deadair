@@ -103,6 +103,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         Storage = new StorageSectionViewModel(_calls);
         Providers = new ProvidersSectionViewModel(_calls);
         Grants = new GrantsSectionViewModel(_calls);
+        Languages = new LanguagesSectionViewModel(_calls);
         StationPlugins = new PluginsSectionViewModel(_calls, plugin => _navigation?.Push(new Nav.Destination.PluginDetail(plugin.Id, plugin.Name)));
 
         SettingsSectionViewModel? app = null;
@@ -116,6 +117,7 @@ public sealed partial class SettingsViewModel : ObservableObject
                 { Id: SettingsSectionId.Providers } => Providers,
                 { Id: SettingsSectionId.Grants } => Grants,
                 { Id: SettingsSectionId.Plugins } => StationPlugins,
+                { Id: SettingsSectionId.Languages } => Languages,
                 { Id: SettingsSectionId.Security } => Security = new SecuritySectionViewModel(AddGroup(section), _calls, session),
                 { Group: not null } => AddGroup(section),
                 _ => throw new InvalidOperationException($"No contents for the {section.Label} section."),
@@ -193,6 +195,9 @@ public sealed partial class SettingsViewModel : ObservableObject
     public ProvidersSectionViewModel Providers { get; }
 
     public GrantsSectionViewModel Grants { get; }
+
+    /// <summary>The web console's language packs, which this app does not use itself.</summary>
+    public LanguagesSectionViewModel Languages { get; }
 
     /// <summary>What every section reaches the station with, for a dialog built outside the page.</summary>
     public SettingsCalls Calls => _calls;
@@ -508,6 +513,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         Grants.Reset();
         StationPlugins.Reset();
         Security?.Reset();
+        Languages.Reset();
         ApplyMounts([]);
     }
 

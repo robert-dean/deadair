@@ -91,6 +91,9 @@
                     <DataTemplate DataType="vm:SecuritySectionViewModel">
                         <views:SettingsSecuritySection />
                     </DataTemplate>
+                    <DataTemplate DataType="vm:LanguagesSectionViewModel">
+                        <views:SettingsLanguagesSection />
+                    </DataTemplate>
                     <DataTemplate DataType="vm:PluginsSectionViewModel">
                         <views:SettingsPluginsSection />
                     </DataTemplate>

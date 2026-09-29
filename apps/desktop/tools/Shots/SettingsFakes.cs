@@ -270,6 +270,18 @@ internal static class SettingsFakes
                 });
                 break;
 
+            case SettingsSectionId.Languages:
+                settings.Languages.Present(new ConsoleLanguageList
+                {
+                    Languages =
+                    [
+                        new() { Locale = "de", Name = "Deutsch", Direction = ConsoleLanguageDirection.Ltr, MadeFor = "4.12.0", ImportedAt = DateTimeOffset.UtcNow.AddDays(-20) },
+                        new() { Locale = "ar", Name = "العربية", Direction = ConsoleLanguageDirection.Rtl, MadeFor = "4.9.2", ImportedAt = DateTimeOffset.UtcNow.AddDays(-3) },
+                        new() { Locale = "pt-BR", Name = "Português (Brasil), traduzido pela comunidade da estação", Direction = ConsoleLanguageDirection.Ltr, MadeFor = string.Empty, ImportedAt = DateTimeOffset.UtcNow.AddDays(-1) },
+                    ],
+                });
+                break;
+
             case SettingsSectionId.Plugins:
                 settings.StationPlugins.Present(
                 [

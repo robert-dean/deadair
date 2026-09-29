@@ -838,7 +838,21 @@ Measured on a 1x display only; a Retina Mac has not been tried.
 ## Navigation
 
 **The rail replaces rather than pushes.** A rail is not history, so pressing Desk after Library does
-not leave Library on a stack. Detail pages, when they arrive, will push onto one.
+not leave Library on a stack.
+
+**A detail page pushes.** A chart, an artist, a plugin: somewhere a page LEADS rather than somewhere
+the rail goes, so it is a `Destination` record with parameters that is not in `Destinations.All`, and
+`NavigationViewModel.Push` reaches it. Back (the shell's button, or Command-[) returns to the page it
+was opened from as that page was left. Pressing the rail clears the stack, since that is starting
+somewhere new, and the rail stays lit on the section the detail page belongs to. Signing out on one
+goes to the desk, the same as signing out on its section.
+
+**A detail page's view model is built per visit, by `DetailPages`.** The rail's pages are singletons
+because there is one of each; there are many charts. The shell opens it on `Navigated` and the page
+host draws it on the same event, AFTER the shell (delegates run in subscription order, and the shell
+subscribes first). A host that drew on the `Current` property change, as it used to, runs before the
+shell has opened anything and finds nothing to draw. Opening one also reads it: a detail page is
+somewhere somebody went to look at a thing.
 
 **A destination says whether it needs an account, and the rail hides what an account cannot reach.**
 Desk and History need none, because listening is accountless and somebody who heard a record twenty

@@ -68,7 +68,25 @@
                 <Panel>
                     <controls:CoverWash VerticalAlignment="Top" Height="320"
                                         Palette="{Binding Listener.CoverPalette}" />
-                    <views:PageHost x:Name="Pages" Shell="{Binding}" />
+                    <!-- Back sits over the page's own gutter, above its heading, and only on a
+                         detail page: the rail's pages are where Back would go, never where it starts. -->
+                    <DockPanel>
+                        <Button DockPanel.Dock="Top" Classes="ghost" HorizontalAlignment="Left"
+                                Margin="20,12,0,-20" Padding="6,3" FontSize="12"
+                                IsVisible="{Binding Navigation.CanGoBack}"
+                                Command="{Binding Navigation.BackCommand}"
+                                ToolTip.Tip="Back (⌘[)">
+                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                <PathIcon Data="{DynamicResource DaIconChevronRight}" Width="12" Height="12">
+                                    <PathIcon.RenderTransform>
+                                        <ScaleTransform ScaleX="-1" />
+                                    </PathIcon.RenderTransform>
+                                </PathIcon>
+                                <TextBlock Text="Back" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                        <views:PageHost x:Name="Pages" Shell="{Binding}" />
+                    </DockPanel>
                 </Panel>
             </Border>
         </DockPanel>

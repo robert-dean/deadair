@@ -121,7 +121,12 @@
                                        Foreground="{DynamicResource DaTextBrush}" />
                             <TextBlock Grid.Column="2" Text="{Binding Source}" VerticalAlignment="Center"
                                        Classes="dimmed" TextTrimming="CharacterEllipsis" />
-                            <Button Grid.Column="3" Classes="reveal ghost" Content="Put on air"
+                            <Button Grid.Column="3" Classes="reveal ghost" Content="Read"
+                                    FontSize="11" Padding="8,3" HorizontalAlignment="Right"
+                                    VerticalAlignment="Center"
+                                    Command="{Binding $parent[ListBox].((vm:LibraryViewModel)DataContext).OpenChartCommand}"
+                                    CommandParameter="{Binding}" />
+                            <Button Grid.Column="4" Classes="reveal ghost" Content="Put on air"
                                     FontSize="11" Padding="8,3" HorizontalAlignment="Right"
                                     VerticalAlignment="Center"
                                     Command="{Binding $parent[ListBox].((vm:LibraryViewModel)DataContext).PlayPlaylistCommand}"
@@ -134,14 +139,19 @@
             <ListBox Classes="rows" ItemsSource="{Binding Charts}" IsVisible="{Binding IsCharts}">
                 <ListBox.ItemTemplate>
                     <DataTemplate x:DataType="vm:ChartRowViewModel">
-                        <Grid ColumnDefinitions="36,*,140,96" ColumnSpacing="12">
+                        <Grid ColumnDefinitions="36,*,140,64,96" ColumnSpacing="12">
                             <controls:Artwork Size="36" Initial="{Binding Initial}" />
                             <TextBlock Grid.Column="1" Text="{Binding Name}" VerticalAlignment="Center"
                                        TextTrimming="CharacterEllipsis"
                                        Foreground="{DynamicResource DaTextBrush}" />
                             <TextBlock Grid.Column="2" Text="{Binding Source}" VerticalAlignment="Center"
                                        Classes="dimmed" TextTrimming="CharacterEllipsis" />
-                            <Button Grid.Column="3" Classes="reveal ghost" Content="Put on air"
+                            <Button Grid.Column="3" Classes="reveal ghost" Content="Read"
+                                    FontSize="11" Padding="8,3" HorizontalAlignment="Right"
+                                    VerticalAlignment="Center"
+                                    Command="{Binding $parent[ListBox].((vm:LibraryViewModel)DataContext).OpenChartCommand}"
+                                    CommandParameter="{Binding}" />
+                            <Button Grid.Column="4" Classes="reveal ghost" Content="Put on air"
                                     FontSize="11" Padding="8,3" HorizontalAlignment="Right"
                                     VerticalAlignment="Center"
                                     Command="{Binding $parent[ListBox].((vm:LibraryViewModel)DataContext).PlayChartCommand}"

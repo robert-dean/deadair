@@ -42,6 +42,7 @@ internal static class Pages
         yield return ("shell-desk-stale", Shell(operatorSignedIn: false, Fakes.Stale), 1180, 720);
         yield return ("shell-history", Page(new Destination.History(), operatorSignedIn: false), 1180, 720);
         yield return ("shell-library", Page(new Destination.Library(), operatorSignedIn: true), 1180, 720);
+        yield return ("shell-library-chart", Chart(), 1180, 720);
         yield return ("shell-settings", Page(new Destination.Settings(), operatorSignedIn: true), 1180, 720);
         // Taller than the app's own window, deliberately: the card is two plugins long and the
         // second is the broken one, which is the row somebody opens this page to read.
@@ -112,6 +113,22 @@ internal static class Pages
         {
             shell.Voice.ShowTabCommand.Execute(open.ToString());
         }
+
+        return new MainWindowContent { Shell = shell };
+    }
+
+    /// <summary>
+    /// A chart opened from the library: the first detail page, so the first frame with Back in it.
+    /// </summary>
+    private static MainWindowContent Chart()
+    {
+        var shell = Fakes.Shell(operatorSignedIn: true);
+        Fakes.PutOnAir(shell.Listener);
+        Fakes.Fill(shell, new Destination.Library());
+        shell.Navigation.Show(new Destination.Library());
+        shell.Library.ShowTabCommand.Execute("Charts");
+        shell.Library.OpenChartCommand.Execute(shell.Library.Charts[0]);
+        Fakes.Chart((ChartDetailViewModel)shell.Details.Current!);
 
         return new MainWindowContent { Shell = shell };
     }

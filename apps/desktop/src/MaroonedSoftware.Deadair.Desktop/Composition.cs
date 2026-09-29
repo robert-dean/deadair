@@ -130,6 +130,7 @@ internal static class Composition
         services.AddSingleton<CheckupViewModel>();
         services.AddSingleton<SettingsViewModel>();
         services.AddSingleton<VoiceViewModel>();
+        services.AddSingleton<DetailPages>();
         services.AddSingleton<ThemeManager>();
         services.AddSingleton<ListenerViewModel>();
         services.AddSingleton<OutputsViewModel>();

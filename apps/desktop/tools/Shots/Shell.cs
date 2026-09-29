@@ -37,6 +37,7 @@ internal static class Fakes
         var actions = new OperatorActions(session);
         var dispatcher = ImmediateUiDispatcher.Instance;
         var navigation = new NavigationViewModel();
+        var library = new LibraryViewModel(actions, http, navigation);
 
         // The picker, over a catalog whose plugins are two speakers that do not exist. A shot must
         // not go looking for real ones: a broadcast on somebody's network is not a thing to do to
@@ -55,11 +56,12 @@ internal static class Fakes
             new RunningOrderViewModel(session, actions, http, dispatcher),
             navigation,
             new ProgrammeViewModel(actions, http),
-            new LibraryViewModel(actions, http),
+            library,
             new HistoryViewModel(actions, http),
             new CheckupViewModel(actions, http),
             new SettingsViewModel(actions, http, settings, new ThemeManager(), PosedPlugins()),
             new VoiceViewModel(actions, http),
+            new DetailPages(actions, http, library),
             new ThemeManager(),
             dispatcher)
         {
@@ -86,6 +88,7 @@ internal static class Fakes
             shell.Checkup.Attach(station);
             shell.StationSettings.Attach(station);
             shell.Voice.Attach(station);
+            shell.Details.Attach(station);
         }
 
         navigation.ApplyRole(operatorSignedIn);
@@ -374,6 +377,9 @@ internal static class Fakes
 
     private static void Library(LibraryViewModel library)
     {
+        library.Charts.Add(new ChartRowViewModel("uk-singles", "Official Singles Chart Top 100", "officialcharts"));
+        library.Charts.Add(new ChartRowViewModel("hot-100", "Billboard Hot 100", "billboard"));
+
         library.Total = 766;
         library.Summary = "1–50 of 766";
 
@@ -391,6 +397,17 @@ internal static class Fakes
         library.Tracks.Add(new TrackRowViewModel(Guid.NewGuid(), "Rooster", "Alice In Chains", "Dirt", "6:15", "1992", null));
         library.Tracks.Add(new TrackRowViewModel(Guid.NewGuid(), "Nutshell", "Alice In Chains", "Jar Of Flies", "4:19", "1994", null));
         library.Tracks.Add(new TrackRowViewModel(Guid.NewGuid(), "Outshined", "Soundgarden", "Badmotorfinger", "5:11", "1991", null));
+    }
+
+    /// <summary>A chart's first places, with a featured artist and a record that has no run.</summary>
+    public static void Chart(ChartDetailViewModel chart)
+    {
+        chart.Places.Clear();
+        chart.Places.Add(new ChartPlaceViewModel("1", "Espresso", "Sabrina Carpenter", "Short n' Sweet, 2024", "peak 1 · 38 wk"));
+        chart.Places.Add(new ChartPlaceViewModel("2", "Die With A Smile", "Lady Gaga feat. Bruno Mars", null, "peak 1 · 21 wk"));
+        chart.Places.Add(new ChartPlaceViewModel("3", "Birds of a Feather", "Billie Eilish", "Hit Me Hard and Soft, 2024", "peak 2 · 40 wk"));
+        chart.Places.Add(new ChartPlaceViewModel("4", "A Bar Song (Tipsy) - Remix with a title long enough to trim", "Shaboozey", null, string.Empty));
+        chart.Summary = "4 records";
     }
 
     private static void Programme(ProgrammeViewModel programme)

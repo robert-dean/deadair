@@ -63,6 +63,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         CheckupViewModel checkup,
         SettingsViewModel stationSettings,
         VoiceViewModel voice,
+        DetailPages details,
         ThemeManager themes,
         IUiDispatcher dispatcher,
         PluginManager? plugins = null,
@@ -84,6 +85,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         Checkup = checkup;
         StationSettings = stationSettings;
         Voice = voice;
+        Details = details;
         _themes = themes;
         _plugins = plugins;
 
@@ -143,6 +145,10 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         // somebody is looking at it, and the station rate-limits.
         Navigation.Navigated += destination =>
         {
+            // Every visit to a detail page is a new one, so its view model is opened here, before
+            // the page host (which heard about the move after this did) draws it.
+            Details.Open(destination);
+
             switch (destination)
             {
                 case Nav.Destination.Programme:
@@ -190,6 +196,9 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     public SettingsViewModel StationSettings { get; }
 
     public VoiceViewModel Voice { get; }
+
+    /// <summary>The page a detail destination is showing, built when it is opened.</summary>
+    public DetailPages Details { get; }
 
     /// <summary>Whether to draw the sign-in panel rather than the account it produced.</summary>
     [ObservableProperty]
@@ -495,6 +504,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         Checkup.Attach(station);
         StationSettings.Attach(station);
         Voice.Attach(station);
+        Details.Attach(station);
 
         if (!keepSetup)
         {

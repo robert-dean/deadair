@@ -34,6 +34,16 @@ public abstract record Destination
 
     /// <summary>The station's configuration, and this app's own.</summary>
     public sealed record Settings : Destination;
+
+    /// <summary>One chart, read before it is put on air.</summary>
+    /// <param name="Id">The chart's station id.</param>
+    /// <param name="Name">What the list called it, shown while the chart is still being read.</param>
+    /// <remarks>
+    /// A detail page. It is not in <see cref="Destinations.All"/>, because it is somewhere a page
+    /// leads rather than somewhere the rail goes, and <c>NavigationViewModel.Push</c> is how it is
+    /// reached.
+    /// </remarks>
+    public sealed record ChartDetail(string Id, string Name) : Destination;
 }
 
 /// <summary>

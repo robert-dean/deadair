@@ -68,7 +68,7 @@ public enum LibraryTab
 /// a station that rate-limits at a hundred requests per five seconds should not be asked for a page
 /// of records every two.
 /// </remarks>
-public sealed partial class LibraryViewModel(OperatorActions actions, HttpClient http)
+public sealed partial class LibraryViewModel(OperatorActions actions, HttpClient http, NavigationViewModel navigation)
     : ObservableObject
 {
     private const long PageSize = 50;
@@ -337,6 +337,14 @@ public sealed partial class LibraryViewModel(OperatorActions actions, HttpClient
         {
             Notice = $"{playlist.Name} is the running order now.";
         }
+    }
+
+    /// <summary>Opens a chart to read before putting it on air.</summary>
+    [RelayCommand]
+    private void OpenChart(ChartRowViewModel chart)
+    {
+        ArgumentNullException.ThrowIfNull(chart);
+        navigation.Push(new Navigation.Destination.ChartDetail(chart.Id, chart.Name));
     }
 
     /// <remarks>

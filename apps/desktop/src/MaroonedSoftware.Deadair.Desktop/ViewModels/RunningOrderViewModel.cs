@@ -3,6 +3,7 @@ using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MaroonedSoftware.Deadair.Desktop.Core.Auth;
+using MaroonedSoftware.Deadair.Desktop.Core.NowPlaying;
 using MaroonedSoftware.Deadair.Desktop.Core.Director;
 using MaroonedSoftware.Deadair.Desktop.Core.Net;
 using MaroonedSoftware.Deadair.Desktop.Core.Station;
@@ -163,7 +164,9 @@ public sealed partial class RunningOrderViewModel : ObservableObject, IAsyncDisp
 
         var at = RunsDry.At(order.Items, DateTimeOffset.Now);
         RunsDryLabel = at is { } when
-            ? $"Runs dry at about {when.ToLocalTime().ToString("HH:mm", CultureInfo.InvariantCulture)}"
+            // In the Mac's own clock, as every other time of day the app says is, so this and the
+            // desk's "held until" agree on whether it is 13:20 or 1:20 PM.
+            ? $"Runs dry at about {ClockFormat.WallClock(when.ToLocalTime())}"
             : "Nothing ahead has a length the station could give.";
         IsShort = RunsDry.IsShort(order.Items);
     }

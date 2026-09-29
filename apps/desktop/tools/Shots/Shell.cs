@@ -233,7 +233,7 @@ internal static class Fakes
         shell.Order.Name = "Wednesday mornings";
         shell.Order.Brief = "Something with guitars, nothing after 1999.";
         shell.Order.Host = "Marla Vance";
-        shell.Order.RunsDryLabel = "Runs dry at about 13:20";
+        shell.Order.RunsDryLabel = "Runs dry at about 1:20 PM";
         shell.Order.CanUndo = true;
         shell.Order.UndoLabel = "Dropped Jeremy";
 
